@@ -1,0 +1,93 @@
+"""Chat widgets for the Textual app."""
+
+import json
+import time
+from typing import Any
+
+from rich.markup import escape
+from textual.containers import VerticalScroll
+from textual.widgets import Collapsible, Markdown, Static
+
+from assistant.core.agent import MemorySnapshot
+
+_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+
+class UserMessage(Static):
+    def __init__(self, text: str, attachments: list[str]) -> None:
+        lines = [f"> {escape(text)}", *(f"  📎 {escape(name)}" for name in attachments)]
+        super().__init__("\n".join(lines))
+
+
+class AssistantMessage(Markdown):
+    """A reply. Text is streamed into it with `Markdown.get_stream`."""
+
+
+class ErrorMessage(Static):
+    def __init__(self, message: str) -> None:
+        super().__init__(f"⏺ Error: {escape(message)}")
+
+
+class ToolCall(Collapsible):
+    """A tool call. The title shows the call; the collapsed body holds the result."""
+
+    def __init__(self, name: str, args: dict[str, Any]) -> None:
+        self._call = f"{name}({_describe(args)})"
+        self._result = Static("…", classes="tool-result", markup=False)
+        super().__init__(self._result, title=f"⏺ {self._call}", collapsed=True)
+
+    def finish(self, output: str) -> None:
+        self._result.update(output.strip() or "(no output)")
+        self.title = f"✓ {self._call}"
+
+
+class StatusLine(Static):
+    """'⠋ Thinking… 12s' while the agent works, empty otherwise."""
+
+    def on_mount(self) -> None:
+        self._label = ""
+        self._started = 0.0
+        self._frame = 0
+        self.set_interval(0.1, self._tick)
+
+    def show(self, label: str) -> None:
+        if label != self._label:
+            self._label = label
+            self._started = time.monotonic()
+
+    def clear(self) -> None:
+        self._label = ""
+        self.update("")
+
+    def _tick(self) -> None:
+        if not self._label:
+            return
+        self._frame += 1
+        elapsed = int(time.monotonic() - self._started)
+        self.update(f"{_FRAMES[self._frame % len(_FRAMES)]} {self._label}… {elapsed}s")
+
+
+class MemoryPanel(VerticalScroll):
+    """Read-only view of the profile, facts and recent conversations."""
+
+    def compose(self):
+        yield Static(id="memory-body")
+
+    def show(self, snapshot: MemorySnapshot) -> None:
+        self.query_one("#memory-body", Static).update(_render_snapshot(snapshot))
+
+
+def _render_snapshot(snapshot: MemorySnapshot) -> str:
+    profile = [f"[b]{name.replace('_', ' ').capitalize()}[/b]: {escape('; '.join(items))}" for name, items in snapshot.profile.items()]
+    sections = [
+        ("Profile", profile),
+        ("Facts", [f"• {escape(f)}" for f in snapshot.facts]),
+        ("Recent conversations", [f"• {escape(e)}" for e in snapshot.episodes]),
+    ]
+    return "\n\n".join(f"[b]{title}[/b]\n" + ("\n".join(lines) or "[dim](empty)[/]") for title, lines in sections)
+
+
+def _describe(args: dict[str, Any]) -> str:
+    if len(args) == 1:
+        return str(next(iter(args.values())))
+    return json.dumps(args, ensure_ascii=False)
