@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Awaitable, Callable
 
 from langchain_core.language_models import BaseChatModel
@@ -8,6 +9,7 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.runtime import Runtime
 from langgraph.store.base import BaseStore
 
+from assistant.core.attachments import hydrate
 from assistant.core.config import settings
 from assistant.core.context import Context
 from assistant.core.llm import build_llm
@@ -50,7 +52,8 @@ def _agent_node(llm: BaseChatModel) -> Callable[..., Awaitable[dict]]:
         if not system_prompt:
             system_prompt = await _build_system_prompt(runtime.store, runtime.context.user_id)
             update["system_prompt"] = system_prompt
-        response = await llm.ainvoke([SystemMessage(system_prompt), *state["messages"]])
+        messages = await asyncio.to_thread(hydrate, state["messages"])
+        response = await llm.ainvoke([SystemMessage(system_prompt), *messages])
         return {**update, "messages": [response]}
 
     return _agent
