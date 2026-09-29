@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: assistant
+      POSTGRES_PASSWORD: assistant
+      POSTGRES_DB: assistant
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U assistant"]
+      interval: 2s
+      retries: 15
+
+  # Interactive CLI: docker compose run --rm cli
+  cli:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://assistant:assistant@postgres:5432/assistant
+      # Self-hosted Langfuse running from its own compose file on the host.
+      LANGFUSE_BASE_URL: http://host.docker.internal:3000
+    volumes:
+      - workspace:/workspace
+    depends_on:
+      postgres:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    profiles: ["cli"]
+
+volumes:
+  pgdata:
+  workspace:
