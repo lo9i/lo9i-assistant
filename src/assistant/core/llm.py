@@ -19,15 +19,20 @@ def build_llm(model: str) -> BaseChatModel:
 
 
 def _anthropic(model: str) -> BaseChatModel:
-    kwargs = {}
+    # Top-level cache_control: the API caches the whole prefix (tools, system, history)
+    # up to the last block, and the next call reads it back.
+    model_kwargs: dict = {"cache_control": {"type": "ephemeral"}}
+    betas = []
     if settings.server_fallbacks:
-        kwargs = {"betas": ["server-side-fallback-2026-07-01"], "model_kwargs": {"fallbacks": "default"}}
+        model_kwargs["fallbacks"] = "default"
+        betas.append("server-side-fallback-2026-07-01")
     return ChatAnthropic(
         model=model,
         max_tokens=settings.max_tokens,
         output_config={"effort": settings.effort},
         output_version="v1",
-        **kwargs,
+        betas=betas or None,
+        model_kwargs=model_kwargs,
     )
 
 

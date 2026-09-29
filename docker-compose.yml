@@ -24,6 +24,7 @@ services:
       LANGFUSE_BASE_URL: http://host.docker.internal:3000
     volumes:
       - workspace:/workspace
+      - lo9i-data:/root/.lo9i
     depends_on:
       postgres:
         condition: service_healthy
@@ -34,3 +35,4 @@ services:
 volumes:
   pgdata:
   workspace:
+  lo9i-data:

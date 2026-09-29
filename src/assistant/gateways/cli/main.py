@@ -9,7 +9,7 @@ from pathlib import Path
 from assistant.core.attachments import Attachment
 from assistant.core.config import settings
 from assistant.core.events import ApprovalRequired, Done, Error, Event, TextDelta, ToolFinished, ToolStarted
-from assistant.core.service import AssistantService, Session
+from assistant.core.agent import AssistantService, Session
 
 _HELP = """Commands:
   /attach <path>   attach a file to the next message

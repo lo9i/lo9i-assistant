@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     toolsets: list[str] = ["terminal", "memory"]
 
     workspace_dir: str = "workspace"
+    # Uploaded attachments. Shared by every process (a Docker volume in compose).
+    uploads_dir: str = "~/.lo9i/uploads"
     bash_timeout: int = 120
     bash_max_output: int = 30_000
     # always: every command. dangerous: only commands matching core/tools/bash_guard.py. never: none.
