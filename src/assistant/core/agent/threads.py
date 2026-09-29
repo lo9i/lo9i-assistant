@@ -8,13 +8,13 @@ class ThreadsMixin(ServiceBase):
     """The user's active conversation, shared by every channel."""
 
     async def session(self, user_id: str, channel: str) -> Session:
-        item = await self._memory.store.aget(_namespace(user_id), "active")
+        item = await self._storage.store.aget(_namespace(user_id), "active")
         thread_id = item.value["thread_id"] if item else await self.new_thread(user_id)
         return Session(user_id=user_id, channel=channel, thread_id=thread_id)
 
     async def new_thread(self, user_id: str) -> str:
         thread_id = f"{user_id}:{uuid4().hex[:12]}"
-        await self._memory.store.aput(_namespace(user_id), "active", {"thread_id": thread_id})
+        await self._storage.store.aput(_namespace(user_id), "active", {"thread_id": thread_id})
         return thread_id
 
 

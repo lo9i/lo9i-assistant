@@ -1,10 +1,10 @@
 from langgraph.graph.state import CompiledStateGraph
 
-from assistant.core.memory import Memory
+from assistant.core.storage import Storage
 
 
 class ServiceBase:
     """State shared by the service mixins. Set by `AssistantService.__init__`."""
 
-    _memory: Memory
+    _storage: Storage
     _graph: CompiledStateGraph

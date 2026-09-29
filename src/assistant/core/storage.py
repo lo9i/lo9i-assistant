@@ -1,4 +1,4 @@
-"""Postgres-backed short-term (checkpointer) and long-term (store) memory."""
+"""Postgres connection pool, LangGraph checkpointer (conversations) and store (long-term records)."""
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -11,14 +11,14 @@ from psycopg_pool import AsyncConnectionPool
 
 
 @dataclass
-class Memory:
+class Storage:
     pool: AsyncConnectionPool
     checkpointer: AsyncPostgresSaver
     store: AsyncPostgresStore
 
 
 @asynccontextmanager
-async def open_memory(database_url: str) -> AsyncIterator[Memory]:
+async def open_storage(database_url: str) -> AsyncIterator[Storage]:
     async with AsyncConnectionPool(
         database_url,
         open=False,
@@ -29,4 +29,4 @@ async def open_memory(database_url: str) -> AsyncIterator[Memory]:
         store = AsyncPostgresStore(pool)
         await checkpointer.setup()
         await store.setup()
-        yield Memory(pool=pool, checkpointer=checkpointer, store=store)
+        yield Storage(pool=pool, checkpointer=checkpointer, store=store)
