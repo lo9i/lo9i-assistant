@@ -1,4 +1,5 @@
 import asyncio
+from datetime import UTC, datetime
 from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
@@ -8,6 +9,7 @@ from langgraph.types import Command
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
 from assistant.core.attachments import Attachment, to_content
+from assistant.core.conversation.turn_header import header_block
 from assistant.core.events import Error, Event
 
 
@@ -20,7 +22,9 @@ class MessagingMixin(RunsMixin):
         except ValueError as e:
             yield Error(str(e))
             return
-        async for event in self._run(session, {"messages": [HumanMessage(content=content)]}):
+        header = header_block(session.channel, datetime.now(UTC))
+        message = HumanMessage(content=[header, *content])
+        async for event in self._run(session, {"messages": [message]}):
             yield event
 
     async def resume(self, session: Session, decisions: dict[str, dict[str, Any]]) -> AsyncIterator[Event]:

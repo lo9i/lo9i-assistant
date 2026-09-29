@@ -1,0 +1,14 @@
+# SearXNG for the assistant's web_search tool. Only the JSON API matters here.
+use_default_settings: true
+
+server:
+  # Set from SEARXNG_SECRET in the environment.
+  secret_key: "overridden-by-SEARXNG_SECRET"
+  # The rate limiter needs a separate Valkey service; this instance is private.
+  limiter: false
+  image_proxy: false
+
+search:
+  formats:
+    - html
+    - json

@@ -1,0 +1,99 @@
+Screen {
+    layout: vertical;
+}
+
+#main {
+    height: 1fr;
+}
+
+#chat {
+    width: 1fr;
+    padding: 0 1 1 1;
+}
+
+MemoryPanel {
+    width: 40;
+    border-left: solid ansi_bright_black;
+    padding: 0 1;
+}
+
+MemoryPanel.hidden {
+    display: none;
+}
+
+UserMessage {
+    color: ansi_green;
+    margin: 1 0 0 0;
+}
+
+AssistantMessage {
+    margin: 1 0 0 0;
+    padding: 0 0 0 1;
+    background: transparent;
+    border-left: outer ansi_bright_black;
+}
+
+AssistantMessage MarkdownParagraph, AssistantMessage MarkdownBullet, AssistantMessage MarkdownListItem {
+    color: ansi_white;
+}
+
+ErrorMessage {
+    color: ansi_red;
+    margin: 1 0 0 0;
+}
+
+ToolCall {
+    margin: 1 0 0 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+}
+
+ToolCall .tool-result {
+    color: ansi_bright_black;
+    padding: 0 0 0 2;
+}
+
+StatusLine {
+    height: 1;
+    margin-top: 1;
+    padding: 0 1;
+    color: ansi_bright_black;
+}
+
+#prompt {
+    border: round ansi_bright_black;
+}
+
+#prompt:focus {
+    border: round #2f343f;
+}
+
+ApprovalScreen {
+    align: center middle;
+}
+
+#approval {
+    width: 80%;
+    max-width: 100;
+    height: auto;
+    padding: 1 2;
+    border: round ansi_yellow;
+    background: ansi_default;
+}
+
+#approval-command {
+    margin: 1 0;
+    padding: 0 1;
+    background: ansi_default;
+    color: ansi_yellow;
+}
+
+#approval-buttons {
+    height: auto;
+    margin-top: 1;
+}
+
+#approval-buttons Button {
+    margin-right: 2;
+}
