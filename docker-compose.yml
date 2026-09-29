@@ -1,3 +1,21 @@
+# Shared by every process that runs the assistant (CLI, Telegram).
+x-app: &app
+  build: .
+  env_file: .env
+  environment: &app-env
+    DATABASE_URL: postgresql://assistant:assistant@postgres:5432/assistant
+    SEARXNG_URL: http://searxng:8080
+    # Self-hosted Langfuse running from its own compose file on the host.
+    LANGFUSE_BASE_URL: http://host.docker.internal:3000
+  volumes:
+    - workspace:/workspace
+    - lo9i-data:/root/.lo9i
+  depends_on:
+    postgres:
+      condition: service_healthy
+    searxng:
+      condition: service_started
+
 services:
   postgres:
     image: postgres:17
@@ -14,23 +32,35 @@ services:
       interval: 2s
       retries: 15
 
-  # Interactive CLI: docker compose run --rm cli
-  cli:
-    build: .
-    env_file: .env
+  # Metasearch for the web_search tool. Published on host loopback only, for runs outside Docker.
+  searxng:
+    image: searxng/searxng:latest
     environment:
-      DATABASE_URL: postgresql://assistant:assistant@postgres:5432/assistant
-      # Self-hosted Langfuse running from its own compose file on the host.
-      LANGFUSE_BASE_URL: http://host.docker.internal:3000
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-change-me-in-env}
     volumes:
-      - workspace:/workspace
-      - lo9i-data:/root/.lo9i
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - ./config/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    ports:
+      - "127.0.0.1:8888:8080"
+
+  # Interactive CLI: scripts/run.sh (or docker compose run --rm cli)
+  cli:
+    <<: *app
+    environment:
+      <<: *app-env
+      # Pass the host terminal's type through. Docker's default (TERM=xterm, no COLORTERM)
+      # makes the terminal app fall back to 16 colors.
+      TERM: ${TERM:-xterm-256color}
+      COLORTERM: ${COLORTERM:-truecolor}
     stdin_open: true
     tty: true
     profiles: ["cli"]
+
+  # Telegram bot (long polling): scripts/telegram.sh
+  telegram:
+    <<: *app
+    command: ["python", "-m", "assistant.gateways.telegram"]
+    restart: unless-stopped
+    profiles: ["telegram"]
 
 volumes:
   pgdata:
