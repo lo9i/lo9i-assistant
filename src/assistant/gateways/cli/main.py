@@ -3,9 +3,11 @@
 
 import asyncio
 import sys
+from pathlib import Path
 
-from assistant.client import DaemonClient, connect
+from assistant.client import DaemonClient, DaemonUnavailableError, connect
 from assistant.core.config import settings
+from assistant.gateways.cli.history import History
 from assistant.gateways.cli.repl import Repl
 from assistant.gateways.cli.tui.app import AssistantApp
 
@@ -19,7 +21,8 @@ async def _chat() -> None:
 async def _open(client: DaemonClient, session) -> None:
     if sys.stdin.isatty() and sys.stdout.isatty():
         # No mouse capture, so a multiplexer (tmux, herdr) keeps mouse control of its panes.
-        await AssistantApp(client, session).run_async(mouse=False)
+        history = History(Path(settings.cli_history_path).expanduser(), settings.cli_history_limit)
+        await AssistantApp(client, session, history).run_async(mouse=False)
     else:
         await Repl(client, session).loop()
 
@@ -30,4 +33,7 @@ def run() -> None:
 
         run_daemon()
         return
-    asyncio.run(_chat())
+    try:
+        asyncio.run(_chat())
+    except DaemonUnavailableError as e:
+        sys.exit(str(e))

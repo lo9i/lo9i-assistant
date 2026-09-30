@@ -22,12 +22,14 @@ class FetchError(Exception):
 
 
 async def fetch_page(url: str) -> Page:
-    async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=False, headers={"User-Agent": _USER_AGENT}) as client:
+    async with httpx.AsyncClient(
+        timeout=_TIMEOUT, follow_redirects=False, headers={"User-Agent": _USER_AGENT}
+    ) as client:
         for _ in range(_MAX_REDIRECTS + 1):
             check_allowed(url)
             await check_url(url)
             async with client.stream("GET", url) as response:
-                if response.is_redirect:
+                if response.is_redirect and response.next_request is not None:
                     url = str(response.next_request.url)
                     continue
                 if response.is_error:

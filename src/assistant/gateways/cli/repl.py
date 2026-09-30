@@ -3,15 +3,18 @@
 import asyncio
 from collections.abc import Awaitable, Callable
 
+from assistant.client import DaemonClient, DaemonUnavailableError
+from assistant.client.files import load_attachment
+from assistant.core.agent import InvalidNameError, InvalidTokenError, Session
 from assistant.core.attachments import Attachment
 from assistant.core.events import ApprovalRequired
-from assistant.client import DaemonClient
-from assistant.core.agent import InvalidToken, Session
 from assistant.gateways.cli.commands import help_lines
-from assistant.gateways.cli.files import load_attachment
+from assistant.gateways.cli.jobs_text import summary as jobs_summary
 from assistant.gateways.cli.render import render
-from assistant.gateways.cli.telegram_text import describe as describe_telegram
+from assistant.gateways.cli.sessions_text import describe as describe_sessions
 from assistant.gateways.cli.style import GREEN, RESET, YELLOW, code, paint
+from assistant.gateways.cli.telegram_text import describe as describe_telegram
+from assistant.gateways.cli.usage_text import describe as describe_usage
 
 _HELP = "Commands:\n" + "\n".join(f"  {line}" for line in help_lines())
 
@@ -28,6 +31,13 @@ class Repl:
             "/new": self._new,
             "/attach": self._attach,
             "/telegram": self._telegram,
+            "/email": self._email,
+            "/startup": self._startup,
+            "/skills": self._skills,
+            "/name": self._name,
+            "/jobs": self._jobs,
+            "/usage": self._usage,
+            "/sessions": self._sessions,
             "/": self._help,
         }
 
@@ -47,6 +57,12 @@ class Repl:
 
     async def _chat(self, text: str) -> None:
         attachments, self._attachments = self._attachments, []
+        try:
+            await self._run_turn(text, attachments)
+        except DaemonUnavailableError as e:
+            print(e)
+
+    async def _run_turn(self, text: str, attachments: list[Attachment]) -> None:
         approvals = await render(self._service.send(self._session, text, attachments))
         while approvals:
             decisions = await _collect_decisions(approvals)
@@ -59,13 +75,48 @@ class Repl:
         self._session.thread_id = await self._service.new_thread(self._session.user_id)
         print(f"New thread {self._session.thread_id}.")
 
+    async def _skills(self, _: str) -> None:
+        skills = await self._service.skills.list()
+        print("\n".join(f"{s.name}: {s.description}" for s in skills) or "No skills yet.")
+
+    async def _name(self, arg: str) -> None:
+        if not arg:
+            print(await self._service.identity.name() or "The assistant has no name yet: /name <name>.")
+            return
+        try:
+            print(f"Renamed to {await self._service.identity.rename(arg)}.")
+        except InvalidNameError as e:
+            print(e)
+
+    async def _jobs(self, _: str) -> None:
+        jobs = await self._service.jobs.list()
+        print("\n".join(f"{j.name}: {jobs_summary(j)}" for j in jobs) or "No scheduled jobs.")
+
+    async def _usage(self, arg: str) -> None:
+        print(describe_usage(await self._service.usage.report(int(arg) if arg.isdigit() else 7)))
+
+    async def _sessions(self, _: str) -> None:
+        print(describe_sessions(await self._service.clients.list(), self._service.clients.own_id))
+
+    async def _startup(self, _: str) -> None:
+        status = await self._service.system.startup_status()
+        print(f"Start at boot is {'on' if status.enabled else 'off'}. Change it in the full-screen app with /startup.")
+
+    async def _email(self, _: str) -> None:
+        status = await self._service.email.status()
+        if status.connected:
+            allowed = ", ".join(status.allowed_recipients) or "(only you)"
+            print(f"Email: {status.sender} via {status.host}:{status.port}. Allowed: {allowed}")
+        else:
+            print("Email isn't connected. Set it up in the full-screen app with /email.")
+
     async def _telegram(self, arg: str) -> None:
         """/telegram shows status; /telegram <token> connects; /telegram pair or disconnect."""
         if arg == "disconnect":
-            await self._service.disconnect_telegram()
+            await self._service.telegram.disconnect()
         try:
             status = await self._telegram_action(arg)
-        except InvalidToken as e:
+        except InvalidTokenError as e:
             print(e)
             return
         text = describe_telegram(status, "")
@@ -73,10 +124,10 @@ class Repl:
 
     async def _telegram_action(self, arg: str):
         if arg == "pair":
-            return await self._service.start_telegram_pairing()
+            return await self._service.telegram.start_pairing()
         if arg and arg != "disconnect":
-            return await self._service.connect_telegram(arg)
-        return await self._service.telegram_status()
+            return await self._service.telegram.connect(arg)
+        return await self._service.telegram.status()
 
     async def _attach(self, arg: str) -> None:
         try:

@@ -6,7 +6,16 @@ import sys
 from collections.abc import AsyncIterator
 from typing import Any
 
-from assistant.core.events import ApprovalRequired, Done, Error, Event, TextDelta, ToolFinished, ToolStarted, Transcribed
+from assistant.core.events import (
+    ApprovalRequired,
+    Done,
+    Error,
+    Event,
+    TextDelta,
+    ToolFinished,
+    ToolStarted,
+    Transcribed,
+)
 from assistant.gateways.cli.spinner import Spinner
 from assistant.gateways.cli.style import BOLD, DIM, GRAY, RED, RESET, code, paint
 

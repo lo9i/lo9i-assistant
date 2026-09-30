@@ -1,7 +1,7 @@
-"""Microphone recording for voice messages (F3).
+"""Microphone recording for voice messages, for clients running on the Mac.
 
-Only works when the app runs on the Mac: Docker has no microphone access and no audio library.
-The app checks `available()` at start and hides F3 when recording can't work.
+Needs a microphone and the PortAudio library, which a remote session (SSH) may not have. Clients
+check `available()` at start and hide recording when it can't work.
 """
 
 import io
@@ -13,7 +13,7 @@ _CHANNELS = 1
 _SAMPLE_WIDTH = 2  # 16-bit
 
 
-class RecordingUnavailable(Exception):
+class RecordingUnavailableError(Exception):
     pass
 
 
@@ -46,7 +46,7 @@ class Recorder:
             self._stream.start()
         except Exception as e:
             self._stream = None
-            raise RecordingUnavailable(f"Couldn't open the microphone: {e}") from e
+            raise RecordingUnavailableError(f"Couldn't open the microphone: {e}") from e
         self._started = time.monotonic()
 
     def stop(self) -> tuple[bytes, float]:
@@ -64,7 +64,7 @@ def _import_sounddevice() -> Any:
     try:
         import sounddevice
     except (ImportError, OSError) as e:
-        raise RecordingUnavailable("Voice recording isn't available in this session.") from e
+        raise RecordingUnavailableError("Voice recording isn't available in this session.") from e
     return sounddevice
 
 

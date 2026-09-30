@@ -19,7 +19,7 @@ _API = "https://api.telegram.org"
 _PAIRING_MINUTES = 10
 
 
-class InvalidToken(Exception):
+class InvalidTokenError(Exception):
     pass
 
 
@@ -63,14 +63,14 @@ async def clear(store: BaseStore) -> None:
 
 
 async def bot_username(token: str) -> str:
-    """Checks the token with Telegram. Raises InvalidToken with Telegram's reason."""
+    """Checks the token with Telegram. Raises InvalidTokenError with Telegram's reason."""
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             body = (await client.get(f"{_API}/bot{token.strip()}/getMe")).json()
     except (httpx.HTTPError, ValueError) as e:
-        raise InvalidToken(f"Couldn't reach Telegram: {e}") from e
+        raise InvalidTokenError(f"Couldn't reach Telegram: {e}") from e
     if not body.get("ok"):
-        raise InvalidToken(f"Telegram rejected the token: {body.get('description', 'unknown error')}")
+        raise InvalidTokenError(f"Telegram rejected the token: {body.get('description', 'unknown error')}")
     return body["result"]["username"]
 
 

@@ -4,10 +4,10 @@ from langchain_core.tools import tool
 
 from assistant.core.tools.registry import register
 from assistant.core.web.fetch import FetchError
-from assistant.core.web.policy import BlockedDomain
+from assistant.core.web.policy import BlockedDomainError
 from assistant.core.web.providers import SearchError
 from assistant.core.web.service import SearchOutcome, WebService
-from assistant.core.web.url_safety import UnsafeUrl
+from assistant.core.web.url_safety import UnsafeUrlError
 
 _MAX_RESULTS = 10
 # Holds the search and page caches for this process.
@@ -31,7 +31,7 @@ async def web_extract(url: str) -> str:
     """Read a web page as text. Long pages are shortened; the full text is saved in the workspace."""
     try:
         return await _web.extract(url)
-    except (FetchError, UnsafeUrl, BlockedDomain) as e:
+    except (FetchError, UnsafeUrlError, BlockedDomainError) as e:
         return f"Could not read {url}: {e}"
 
 

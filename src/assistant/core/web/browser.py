@@ -11,13 +11,14 @@ import os
 import sys
 from pathlib import Path
 
-from playwright.async_api import Browser, Error as PlaywrightError, Route, async_playwright
+from playwright.async_api import Browser, Route, async_playwright
+from playwright.async_api import Error as PlaywrightError
 
 from assistant.core.config import settings
 from assistant.core.web.fetch import html_to_markdown
-from assistant.core.web.policy import BlockedDomain, check_allowed
+from assistant.core.web.policy import BlockedDomainError, check_allowed
 from assistant.core.web.results import Page
-from assistant.core.web.url_safety import UnsafeUrl, check_url
+from assistant.core.web.url_safety import UnsafeUrlError, check_url
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +42,15 @@ async def install_browser() -> None:
             return
         logger.info("Installing the headless browser for page rendering into %s", _browsers_dir())
         proc = await asyncio.create_subprocess_exec(
-            sys.executable, "-m", "playwright", "install", "chromium", "--only-shell",
+            sys.executable,
+            "-m",
+            "playwright",
+            "install",
+            "chromium",
+            "--only-shell",
             env={**os.environ, "PLAYWRIGHT_BROWSERS_PATH": str(_browsers_dir())},
-            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
         )
         _, stderr = await asyncio.wait_for(proc.communicate(), timeout=_INSTALL_TIMEOUT_SECONDS)
         if proc.returncode != 0:
@@ -86,7 +93,7 @@ async def _guard(route: Route) -> None:
     try:
         check_allowed(url)
         await check_url(url)
-    except (UnsafeUrl, BlockedDomain):
+    except (UnsafeUrlError, BlockedDomainError):
         await route.abort("blockedbyclient")
         return
     await route.continue_()

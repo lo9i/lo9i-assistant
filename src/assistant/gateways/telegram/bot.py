@@ -6,16 +6,19 @@ import asyncio
 import contextlib
 import logging
 
-from telegram import Update
 from telegram.error import InvalidToken, TelegramError
-from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler, filters
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler, Updater, filters
 
 from assistant.core.agent import AssistantService
 from assistant.gateways.telegram.handlers import Handlers
+from assistant.gateways.telegram.name import BotName
+from assistant.gateways.telegram.sender import TelegramSender
+from telegram import Update
 
 logger = logging.getLogger(__name__)
 
 _MESSAGES = filters.TEXT & ~filters.COMMAND | filters.PHOTO | filters.Document.ALL | filters.VOICE | filters.AUDIO
+_CHANNEL = "telegram"
 # How often to check the database for a new, changed or removed token.
 _CHECK_SECONDS = 5
 
@@ -37,6 +40,11 @@ class _Supervisor:
         self._service = service
         self._token = ""
         self._app: Application | None = None
+        self._name = BotName(service)
+
+    async def apply_name(self) -> None:
+        if self._app is not None:
+            await self._name.apply(self._app.bot)
 
     async def sync(self) -> None:
         token = await self._service.telegram_token()
@@ -50,11 +58,14 @@ class _Supervisor:
     async def stop(self) -> None:
         if self._app is None:
             return
+        self._service.outbox.unregister(_CHANNEL)
         with contextlib.suppress(TelegramError):
-            await self._app.updater.stop()
+            if self._app.updater is not None:
+                await self._app.updater.stop()
             await self._app.stop()
             await self._app.shutdown()
         self._app = None
+        self._service.bus.publish("integrations")
         logger.info("Telegram bot stopped.")
 
     async def _start(self, token: str) -> None:
@@ -62,11 +73,15 @@ class _Supervisor:
         try:
             await app.initialize()
             await app.start()
-            await app.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+            await _updater(app).start_polling(allowed_updates=Update.ALL_TYPES)
         except (InvalidToken, TelegramError) as e:
             logger.error("Telegram bot didn't start: %s", e)
             return
         self._app = app
+        self._name.forget()
+        await self._name.apply(app.bot)
+        self._service.outbox.register(_CHANNEL, TelegramSender(app.bot, self._service))
+        self._service.bus.publish("integrations")
         logger.info("Telegram bot running as @%s.", app.bot.username)
 
 
@@ -80,6 +95,7 @@ class TelegramAdapter:
 
     async def run(self, stop: asyncio.Event) -> None:
         supervisor = _Supervisor(self._service)
+        renames = asyncio.create_task(self._follow_renames(supervisor))
         try:
             while not stop.is_set():
                 await self._service.telegram_heartbeat()
@@ -87,4 +103,18 @@ class TelegramAdapter:
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(stop.wait(), timeout=_CHECK_SECONDS)
         finally:
+            renames.cancel()
             await supervisor.stop()
+
+    async def _follow_renames(self, supervisor: _Supervisor) -> None:
+        """The assistant's name is a setting; a change renames the bot right away."""
+        async for event in self._service.bus.subscribe():
+            if event.kind == "settings":
+                await supervisor.apply_name()
+
+
+def _updater(app: Application) -> Updater:
+    """Applications from `build_application` always poll, so they have an updater."""
+    if app.updater is None:
+        raise RuntimeError("The Telegram application was built without an updater.")
+    return app.updater

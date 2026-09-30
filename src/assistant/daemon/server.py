@@ -7,15 +7,18 @@ import logging
 import signal
 from pathlib import Path
 
+import httpx
 import uvicorn
 from dotenv import load_dotenv
 
 from assistant.core.agent import AssistantService
 from assistant.core.config import settings
+from assistant.core.web import browser
+from assistant.daemon import launchd
 from assistant.daemon.adapters import supervise
 from assistant.daemon.api import create_app
 from assistant.daemon.runs import RunHub
-from assistant.core.web import browser
+from assistant.daemon.scheduler import Scheduler
 from assistant.gateways.telegram.bot import TelegramAdapter
 
 logger = logging.getLogger(__name__)
@@ -32,12 +35,17 @@ class _Server(uvicorn.Server):
 async def serve() -> None:
     stop = _stop_event()
     socket_path = Path(settings.daemon_socket).expanduser()
+    if await _already_running(socket_path):
+        # One daemon at a time. Under launchd this one is retried, and takes over once the other exits.
+        logger.info("Another daemon is already running on %s; exiting.", socket_path)
+        return
     socket_path.unlink(missing_ok=True)
     async with AssistantService.open() as service:
-        app = create_app(service, RunHub())
+        app = create_app(service, RunHub(service.bus), _Startup(stop))
         servers = [_server(app, uds=str(socket_path)), _server(app, host="127.0.0.1", port=settings.daemon_port)]
         tasks = [asyncio.create_task(s.serve()) for s in servers]
         tasks.append(asyncio.create_task(supervise(TelegramAdapter(service), stop)))
+        tasks.append(asyncio.create_task(supervise(Scheduler(service), stop)))
         # Downloads once in the background; until then pages are read without rendering.
         install = asyncio.create_task(browser.install_browser()) if settings.web_render else None
         logger.info("Daemon ready on %s and http://127.0.0.1:%s", socket_path, settings.daemon_port)
@@ -48,6 +56,37 @@ async def serve() -> None:
             server.should_exit = True
         await asyncio.gather(*tasks, return_exceptions=True)
     socket_path.unlink(missing_ok=True)
+
+
+class _Startup:
+    """Start-at-boot controls for the API. After enabling, a daemon that launchd didn't start steps
+    aside so the boot-managed one takes over."""
+
+    def __init__(self, stop: asyncio.Event) -> None:
+        self._stop = stop
+
+    def status(self):
+        return launchd.status()
+
+    async def enable(self):
+        result = await launchd.enable()
+        if not result.managed:
+            asyncio.get_running_loop().call_later(2, self._stop.set)
+        return result
+
+    async def disable(self):
+        return await launchd.disable()
+
+
+async def _already_running(socket_path: Path) -> bool:
+    if not socket_path.exists():
+        return False
+    transport = httpx.AsyncHTTPTransport(uds=str(socket_path))
+    try:
+        async with httpx.AsyncClient(transport=transport, base_url="http://lo9i", timeout=2) as http:
+            return (await http.get("/health")).status_code == 200
+    except httpx.TransportError:
+        return False
 
 
 def _server(app, **bind) -> _Server:

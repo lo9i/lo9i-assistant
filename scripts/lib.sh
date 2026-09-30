@@ -42,3 +42,20 @@ check_model() {
     exit 1
   fi
 }
+
+# Stops a running daemon so the next start picks up code changes: SIGTERM first (clean shutdown),
+# SIGKILL if it hasn't exited after 10 seconds. A daemon started at boot (/startup) is restarted by
+# macOS; the CLI then uses whichever daemon answers first.
+stop_daemon() {
+  local pids
+  pids="$(pgrep -f -- "-m assistant.daemon" || true)"
+  [[ -z "$pids" ]] && return
+  echo "Stopping the running daemon (pid $(echo $pids | tr '\n' ' '))." >&2
+  kill $pids 2>/dev/null || true
+  for _ in $(seq 1 20); do
+    pgrep -f -- "-m assistant.daemon" >/dev/null || return
+    sleep 0.5
+  done
+  echo "The daemon didn't stop in time; killing it." >&2
+  pkill -9 -f -- "-m assistant.daemon" || true
+}

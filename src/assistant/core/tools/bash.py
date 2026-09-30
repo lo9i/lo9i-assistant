@@ -2,9 +2,11 @@ import asyncio
 from pathlib import Path
 
 from langchain_core.tools import tool
-from langgraph.types import interrupt
+from langgraph.prebuilt import ToolRuntime
 
 from assistant.core.config import settings
+from assistant.core.context import Context
+from assistant.core.tools.approval import ask
 from assistant.core.tools.bash_guard import find_danger
 from assistant.core.tools.registry import register
 
@@ -15,13 +17,13 @@ _SAFE_PATH = "/opt/homebrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bi
 
 @register("terminal")
 @tool
-async def bash(command: str) -> str:
+async def bash(command: str, runtime: ToolRuntime[Context]) -> str:
     """Run a bash command in the workspace directory and return exit code and output.
 
     Use it for file operations, scripts, and inspecting the environment. Each call
     is a fresh shell: `cd` and exported variables don't persist between calls.
     """
-    rejection = _request_approval(command)
+    rejection = _request_approval(command, runtime.context)
     if rejection:
         return rejection
     return await _run(command)
@@ -35,15 +37,10 @@ def _approval_reason(command: str) -> str | None:
     return None
 
 
-def _request_approval(command: str) -> str | None:
+def _request_approval(command: str, context: Context) -> str | None:
     """Pause for approval when needed. Returns a message for the model if rejected."""
     reason = _approval_reason(command)
-    if reason is None:
-        return None
-    decision = interrupt({"tool": "bash", "command": command, "reason": reason})
-    if decision.get("approved"):
-        return None
-    return f"The user rejected this command ({decision.get('reason') or 'no reason given'})."
+    return None if reason is None else ask({"tool": "bash", "command": command, "reason": reason}, context)
 
 
 async def _run(command: str) -> str:

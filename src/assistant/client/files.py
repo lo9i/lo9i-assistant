@@ -1,4 +1,4 @@
-"""Reads a local file into an Attachment for the CLI's /attach command."""
+"""Reads a local file into an Attachment, for clients that attach files by path (the CLI's /attach)."""
 
 import mimetypes
 from pathlib import Path

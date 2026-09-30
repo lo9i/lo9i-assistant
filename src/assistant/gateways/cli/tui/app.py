@@ -1,57 +1,85 @@
 """Full-screen terminal app: chat on the left, memory on the right."""
 
 from collections.abc import Awaitable, Callable
+from typing import Any, ClassVar
 
 from textual import work
 from textual.app import App, ComposeResult
-from textual.binding import Binding
+from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Footer, Header, Input
 
-from assistant.client import DaemonClient
-from assistant.core.agent import Session
+from assistant.client import DaemonClient, DaemonUnavailableError
+from assistant.client.files import load_attachment
+from assistant.client.live import LiveConversation
+from assistant.client.recorder import Recorder, RecordingUnavailableError
+from assistant.client.recorder import available as recording_available
+from assistant.core.agent import InvalidNameError, Session
 from assistant.core.attachments import Attachment
-from assistant.gateways.cli.commands import help_lines
-from assistant.gateways.cli.files import load_attachment
-from assistant.gateways.cli.tui.approval import ApprovalScreen
+from assistant.gateways.cli.commands import Command, help_lines
+from assistant.gateways.cli.history import History
 from assistant.gateways.cli.tui.command_menu import CommandMenu
-from assistant.gateways.cli.tui.recorder import Recorder, RecordingUnavailable, available as recording_available
-from assistant.gateways.cli.tui.telegram_screen import TelegramScreen
+from assistant.gateways.cli.tui.daemon_errors import reports_daemon_unavailable
+from assistant.gateways.cli.tui.live import handlers as live_handlers
+from assistant.gateways.cli.tui.screens import (
+    ApprovalScreen,
+    EmailScreen,
+    JobsScreen,
+    SessionsScreen,
+    SkillsScreen,
+    StartupScreen,
+    TelegramScreen,
+    UsageScreen,
+)
+from assistant.gateways.cli.tui.theme import NAME as THEME_NAME
+from assistant.gateways.cli.tui.theme import THEME
 from assistant.gateways.cli.tui.turn import TurnView
 from assistant.gateways.cli.tui.widgets import MemoryPanel, StatusLine, SystemNote, UserMessage
 
 _PLACEHOLDER = "Message the assistant   (type / for commands)"
 _PLACEHOLDER_WITH_MIC = "Message the assistant   (type / for commands, F3 to record)"
 _MIN_RECORDING_SECONDS = 0.5
+# The title when the user hasn't named the assistant.
+_DEFAULT_TITLE = "lo9i assistant"
 
 
 class AssistantApp(App):
     CSS_PATH = "app.tcss"
-    TITLE = "lo9i assistant"
-    # Use the terminal's own background and color palette instead of Textual's theme colors.
-    ansi_color = True
-    BINDINGS = [
+    TITLE = _DEFAULT_TITLE
+    BINDINGS: ClassVar[list[BindingType]] = [
         Binding("ctrl+n", "new_thread", "New conversation"),
         # Not ctrl+b: that is the prefix key of tmux and herdr.
         Binding("f2", "toggle_memory", "Memory panel"),
         Binding("f3", "toggle_recording", "Record voice"),
         Binding("ctrl+q", "quit", "Quit"),
         Binding("tab", "complete_command", show=False, priority=True),
+        Binding("up", "arrow(-1)", show=False, priority=True),
+        Binding("down", "arrow(1)", show=False, priority=True),
     ]
 
-    def __init__(self, service: DaemonClient, session: Session) -> None:
+    def __init__(self, service: DaemonClient, session: Session, history: History) -> None:
         super().__init__()
+        # Use the terminal's own background and color palette instead of Textual's theme colors.
+        self.ansi_color = True
         self._service = service
-        self._session = session
+        self._live = LiveConversation(service, session)
+        self._history = history
         self._attachments: list[Attachment] = []
         self._busy = False
         self._recorder = Recorder()
-        # Recording only works on the Mac, not in Docker; F3 is hidden when it can't.
+        # F3 is hidden when this session has no microphone (see client/recorder.py).
         self._can_record = recording_available()
         self._commands: dict[str, Callable[[str], Awaitable[None]]] = {
             "/new": self._command_new,
             "/attach": self._command_attach,
             "/telegram": self._command_telegram,
+            "/email": self._command_email,
+            "/startup": self._command_startup,
+            "/skills": self._command_skills,
+            "/jobs": self._command_jobs,
+            "/usage": self._command_usage,
+            "/sessions": self._command_sessions,
+            "/name": self._command_name,
             "/help": self._command_help,
             "/quit": self._command_quit,
         }
@@ -66,36 +94,127 @@ class AssistantApp(App):
         yield Input(placeholder=_PLACEHOLDER_WITH_MIC if self._can_record else _PLACEHOLDER, id="prompt")
         yield Footer()
 
+    @reports_daemon_unavailable
     async def on_mount(self) -> None:
-        self.theme = "ansi-dark"
-        self.sub_title = self._session.thread_id
+        self.register_theme(THEME)
+        self.theme = THEME_NAME
+        self.sub_title = self._live.session.thread_id
         self.query_one("#chat", VerticalScroll).anchor()
         self.query_one("#prompt", Input).focus()
-        await self._refresh_memory()
+        await self.refresh_memory()
+        await self.refresh_title()
+        self._listen()
+
+    @work(exclusive=True, group="events")
+    async def _listen(self) -> None:
+        """Daemon events for as long as the app runs (see live.py)."""
+        dispatch = live_handlers(self)
+        async for kind, data in self._service.events():
+            handler = dispatch.get(kind)
+            result = handler(data) if handler else None
+            if result is not None:
+                await result
+
+    async def reload_screen(self) -> None:
+        reload = getattr(self.screen, "reload", None)
+        if reload is not None:
+            await reload()
+
+    @reports_daemon_unavailable
+    async def follow_conversation(self) -> None:
+        """Another channel started a new conversation; switch to it, like /new here does."""
+        if not await self._live.follow():
+            return
+        self.sub_title = self._live.session.thread_id
+        await self._chat.remove_children()
+        self.notify("A new conversation was started from another channel.")
+
+    def _stop_showing_turn(self) -> None:
+        """Stop showing the reply in progress; the daemon finishes it and tells us when it's done."""
+        self.workers.cancel_group(self, "turn")
+        self.workers.cancel_group(self, "mirror")
+
+    def run_finished(self, run: dict[str, Any]) -> None:
+        if not self._live.left_run_finished(run):
+            return
+        excerpt = run["reply"][:160] + ("…" if len(run["reply"]) > 160 else "")
+        severity = "information" if run["status"] == "ok" else "warning"
+        self.notify(f"Previous conversation finished: {excerpt or run['status']}", severity=severity, timeout=10)
+
+    def show_job(self, job: dict[str, Any]) -> None:
+        severity = "information" if job["status"] == "ok" else "warning"
+        self.notify(f"Job {job['name']}: {job['status']}", severity=severity)
+
+    def mirror_run(self, run: dict[str, Any]) -> None:
+        """Show a run started from another channel in this conversation as it happens."""
+        if self._live.started_elsewhere(run):
+            self._mirror(run)
+
+    @work(group="mirror")
+    @reports_daemon_unavailable
+    async def _mirror(self, run: dict[str, Any]) -> None:
+        if run["text"]:
+            await self._chat.mount(UserMessage(f"[{run['channel']}] {run['text']}", []))
+        await TurnView(self._chat, self._status).render(self._service.follow_run(run["run_id"]))
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
-        """Hides and disables F3 when recording can't work in this session."""
-        return self._can_record if action == "toggle_recording" else True
+        """F3 only when recording can work; Up and Down only in the message box (command menu or
+        history), so elsewhere they reach the focused widget as usual."""
+        if action == "toggle_recording":
+            return self._can_record
+        if action == "arrow":
+            return self.query_one("#prompt", Input).has_focus
+        return True
+
+    def _menu_active(self) -> bool:
+        return self.query_one(CommandMenu).open and self.query_one("#prompt", Input).has_focus
+
+    def action_arrow(self, step: int) -> None:
+        """Moves the command menu's highlight while it's open; otherwise walks the history."""
+        if self._menu_active():
+            self.query_one(CommandMenu).move(step)
+            return
+        prompt = self.query_one("#prompt", Input)
+        entry = self._history.previous(prompt.value) if step < 0 else self._history.next()
+        if entry is not None:
+            prompt.value = entry
+            prompt.cursor_position = len(entry)
 
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "prompt":
-            self.query_one(CommandMenu).filter(event.value)
+            # A command recalled from history is run with Enter as it is, without the menu.
+            text = "" if self._history.is_recalled(event.value) else event.value
+            self.query_one(CommandMenu).filter(text)
 
     def action_complete_command(self) -> None:
         """Tab completes the highlighted command while the menu is open; otherwise it moves focus."""
-        command = self.query_one(CommandMenu).first
-        prompt = self.query_one("#prompt", Input)
-        if command is None or not prompt.has_focus:
+        if not self._menu_active():
             self.screen.focus_next()
             return
+        command = self.query_one(CommandMenu).highlighted
+        if command is not None:
+            self._complete(command)
+
+    def _complete(self, command: Command) -> None:
+        prompt = self.query_one("#prompt", Input)
         prompt.value = command.name + (" " if command.takes_argument else "")
         prompt.cursor_position = len(prompt.value)
 
+    @reports_daemon_unavailable
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id != "prompt":
             return
-        text = event.value.strip()
+        picked = self.query_one(CommandMenu).highlighted
+        if picked is not None:
+            # Enter picks the highlighted command: commands that need an argument are completed
+            # so it can be typed, the rest run right away.
+            if picked.takes_argument:
+                self._complete(picked)
+                return
+            event.input.value = picked.name
+        text = event.input.value.strip()
         event.input.clear()
+        self._history.add(text)
         name, _, arg = text.partition(" ")
         command = self._commands.get(name)
         if command:
@@ -118,23 +237,35 @@ class AssistantApp(App):
     async def _run_turn(self, text: str, attachments: list[Attachment]) -> None:
         self._busy = True
         try:
-            view = TurnView(self._chat, self._status)
-            approvals = await view.render(self._service.send(self._session, text, attachments))
-            while approvals:
-                decisions = {a.interrupt_id: await self.push_screen_wait(ApprovalScreen(a.request)) for a in approvals}
-                approvals = await view.render(self._service.resume(self._session, decisions))
-            await self._refresh_memory()
+            await self._turn(text, attachments)
+        except DaemonUnavailableError as e:
+            self._status.clear()
+            self.notify(f"{e} Your message may not have been answered.", severity="error", timeout=10)
         finally:
             self._busy = False
 
-    async def _refresh_memory(self) -> None:
-        snapshot = await self._service.memory_snapshot(self._session.user_id)
+    async def _turn(self, text: str, attachments: list[Attachment]) -> None:
+        view = TurnView(self._chat, self._status)
+        approvals = await view.render(self._service.send(self._live.session, text, attachments))
+        while approvals:
+            decisions = {a.interrupt_id: await self.push_screen_wait(ApprovalScreen(a.request)) for a in approvals}
+            approvals = await view.render(self._service.resume(self._live.session, decisions))
+        await self.refresh_memory()
+
+    @reports_daemon_unavailable
+    async def refresh_title(self) -> None:
+        self.title = await self._service.identity.name() or _DEFAULT_TITLE
+
+    @reports_daemon_unavailable
+    async def refresh_memory(self) -> None:
+        snapshot = await self._service.memory.snapshot()
         self.query_one(MemoryPanel).show(snapshot)
 
     @property
     def _chat(self) -> VerticalScroll:
         return self.query_one("#chat", VerticalScroll)
 
+    @reports_daemon_unavailable
     async def action_new_thread(self) -> None:
         await self._command_new("")
 
@@ -150,7 +281,7 @@ class AssistantApp(App):
             return
         try:
             self._recorder.start()
-        except RecordingUnavailable as e:
+        except RecordingUnavailableError as e:
             self.notify(str(e), severity="error")
             return
         self._status.show("Recording, F3 to send")
@@ -168,13 +299,18 @@ class AssistantApp(App):
         return self.query_one("#status", StatusLine)
 
     async def _command_new(self, _: str) -> None:
-        if self._busy:
-            self.notify("Wait for the current reply first.", severity="warning")
-            return
-        self._session.thread_id = await self._service.new_thread(self._session.user_id)
-        self.sub_title = self._session.thread_id
+        still_running = self._busy
+        if still_running:
+            self._stop_showing_turn()
+        await self._live.start_new(leave_running=still_running)
+        self.sub_title = self._live.session.thread_id
         await self._chat.remove_children()
-        self.notify("Started a new conversation.")
+        previous = (
+            "The previous reply keeps running; you'll be notified when it's done."
+            if still_running
+            else "The previous one is being summarized; it shows under Recent conversations when done."
+        )
+        self.notify(f"Started a new conversation. {previous}")
 
     async def _command_attach(self, arg: str) -> None:
         try:
@@ -185,13 +321,43 @@ class AssistantApp(App):
         self._attachments.append(attachment)
         self.notify(f"Attached {attachment.name}. It goes with your next message.")
 
+    async def _command_name(self, arg: str) -> None:
+        if not arg:
+            name = await self._service.identity.name()
+            self.notify(f"The assistant is called {name}." if name else "The assistant has no name yet: /name <name>.")
+            return
+        try:
+            name = await self._service.identity.rename(arg)
+        except InvalidNameError as e:
+            self.notify(str(e), severity="error")
+            return
+        self.notify(f"Renamed to {name}. It takes effect from your next message.")
+
     async def _command_help(self, _: str) -> None:
         keys = ["F2 memory panel", "F3 record voice", "Ctrl+N new conversation", "Ctrl+Q quit"]
         body = "\n".join(help_lines())
         await self._chat.mount(SystemNote(f"## Commands\n\n```\n{body}\n```\n\n**Keys:** {', '.join(keys)}"))
 
+    async def _command_skills(self, _: str) -> None:
+        self.push_screen(SkillsScreen(self._service.skills))
+
+    async def _command_jobs(self, _: str) -> None:
+        self.push_screen(JobsScreen(self._service.jobs))
+
+    async def _command_usage(self, _: str) -> None:
+        self.push_screen(UsageScreen(self._service.usage))
+
+    async def _command_sessions(self, _: str) -> None:
+        self.push_screen(SessionsScreen(self._service.clients))
+
+    async def _command_startup(self, _: str) -> None:
+        self.push_screen(StartupScreen(self._service.system))
+
+    async def _command_email(self, _: str) -> None:
+        self.push_screen(EmailScreen(self._service.email))
+
     async def _command_telegram(self, _: str) -> None:
-        self.push_screen(TelegramScreen(self._service))
+        self.push_screen(TelegramScreen(self._service.telegram))
 
     async def _command_quit(self, _: str) -> None:
         self.exit()

@@ -10,6 +10,8 @@ from assistant.core.agent.session import Session
 from assistant.core.context import Context
 from assistant.core.events import Done, Error, Event
 from assistant.core.stream_events import approval_events, to_events
+from assistant.core.usage.log import UsageLog
+from assistant.core.usage.tracker import UsageTracker
 
 
 class RunsMixin(LockingMixin):
@@ -24,7 +26,7 @@ class RunsMixin(LockingMixin):
                 yield Error(f"{type(e).__name__}: {e}")
 
     async def _run_events(self, session: Session, input: Any) -> AsyncIterator[Event]:
-        config = _run_config(session)
+        config = _run_config(session, self._storage.usage)
         pending = await self._pending_approvals(config)
         # A new message can't be sent while tool calls wait for approval.
         if pending and not isinstance(input, Command):
@@ -39,8 +41,10 @@ class RunsMixin(LockingMixin):
             yield Done()
 
     async def _stream(self, session: Session, input: Any, config: RunnableConfig) -> AsyncIterator[Event]:
-        context = Context(user_id=session.user_id, channel=session.channel)
-        async for mode, data in self._graph.astream(input, config, context=context, stream_mode=["messages", "updates"]):
+        context = Context(user_id=session.user_id, channel=session.channel, bus=self.bus, outbox=self.outbox)
+        async for mode, data in self._graph.astream(
+            input, config, context=context, stream_mode=["messages", "updates"]
+        ):
             for event in to_events(mode, data):
                 yield event
 
@@ -49,10 +53,11 @@ class RunsMixin(LockingMixin):
         return approval_events(state.interrupts)
 
 
-def _run_config(session: Session) -> RunnableConfig:
+def _run_config(session: Session, usage: UsageLog) -> RunnableConfig:
+    tracker = UsageTracker(usage, session.thread_id, session.channel)
     return {
         "configurable": {"thread_id": session.thread_id},
-        "callbacks": observability.callbacks(),
+        "callbacks": [*observability.callbacks(), tracker],
         "metadata": {
             "langfuse_user_id": session.user_id,
             "langfuse_session_id": session.thread_id,

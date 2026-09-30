@@ -3,11 +3,11 @@
 import logging
 from typing import Protocol
 
-from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ChatAction, ParseMode
 from telegram.error import BadRequest
 
 from assistant.gateways.telegram.formatting import to_markdown_v2
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 
 logger = logging.getLogger(__name__)
 
@@ -28,16 +28,22 @@ class TelegramChat:
         self._chat_id = chat_id
 
     async def send(self, text: str, *, markdown: bool = False, buttons: Buttons | None = None) -> int:
-        markup = InlineKeyboardMarkup([[InlineKeyboardButton(label, callback_data=data) for label, data in buttons]]) if buttons else None
+        markup = (
+            InlineKeyboardMarkup([[InlineKeyboardButton(label, callback_data=data) for label, data in buttons]])
+            if buttons
+            else None
+        )
         try:
-            message = await self._bot.send_message(self._chat_id, *_formatted(text, markdown), reply_markup=markup)
+            body, parse_mode = _formatted(text, markdown)
+            message = await self._bot.send_message(self._chat_id, body, parse_mode=parse_mode, reply_markup=markup)
         except BadRequest:
             message = await self._bot.send_message(self._chat_id, text, reply_markup=markup)
         return message.message_id
 
     async def edit(self, message_id: int, text: str, *, markdown: bool = False) -> None:
         try:
-            await self._bot.edit_message_text(*_formatted(text, markdown), chat_id=self._chat_id, message_id=message_id)
+            body, parse_mode = _formatted(text, markdown)
+            await self._bot.edit_message_text(body, chat_id=self._chat_id, message_id=message_id, parse_mode=parse_mode)
         except BadRequest as e:
             if "not modified" in str(e):
                 return

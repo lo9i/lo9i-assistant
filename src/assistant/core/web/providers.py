@@ -58,8 +58,14 @@ class MetasearchProvider:
 
     async def search(self, query: str, limit: int) -> list[SearchResult]:
         proc = await asyncio.create_subprocess_exec(
-            sys.executable, "-m", "assistant.core.web.ddgs_worker", query, str(limit), settings.web_search_engines,
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+            sys.executable,
+            "-m",
+            "assistant.core.web.ddgs_worker",
+            query,
+            str(limit),
+            settings.web_search_engines,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=_METASEARCH_TIMEOUT)

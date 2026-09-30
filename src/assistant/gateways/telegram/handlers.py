@@ -1,15 +1,15 @@
 """Telegram update handlers: messages, /new, /start and approval buttons."""
 
-from telegram import Update
 from telegram.ext import ContextTypes
 
 from assistant.core.agent import AssistantService, Session
 from assistant.core.config import settings
 from assistant.gateways.telegram.approvals import parse_decision
 from assistant.gateways.telegram.auth import is_allowed, try_pairing
-from assistant.gateways.telegram.media import UnsupportedMedia, attachments_from
+from assistant.gateways.telegram.media import UnsupportedMediaError, attachments_from
 from assistant.gateways.telegram.port import TelegramChat
 from assistant.gateways.telegram.turn import TelegramTurn
+from telegram import Message, Update
 
 _CHANNEL = "telegram"
 _GREETING = "Hi! Send me a message, a voice note, a photo or a document. /new starts a new conversation."
@@ -20,21 +20,23 @@ class Handlers:
         self._service = service
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if await is_allowed(self._service, update):
-            await update.effective_message.reply_text(_GREETING)
+        message = update.effective_message
+        if message is not None and await is_allowed(self._service, update):
+            await message.reply_text(_GREETING)
 
     async def new(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if await is_allowed(self._service, update):
+        message = update.effective_message
+        if message is not None and await is_allowed(self._service, update):
             await self._service.new_thread(settings.owner_id)
-            await update.effective_message.reply_text("Started a new conversation.")
+            await message.reply_text("Started a new conversation.")
 
     async def message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if await try_pairing(self._service, update) or not await is_allowed(self._service, update):
-            return
         message = update.effective_message
+        if message is None or await try_pairing(self._service, update) or not await is_allowed(self._service, update):
+            return
         try:
             attachments = await attachments_from(message)
-        except UnsupportedMedia as e:
+        except UnsupportedMediaError as e:
             await message.reply_text(str(e))
             return
         text = message.text or message.caption or ""
@@ -43,6 +45,8 @@ class Handlers:
 
     async def approval(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         query = update.callback_query
+        if query is None:
+            return
         if not await is_allowed(self._service, update):
             await query.answer()
             return
@@ -52,7 +56,8 @@ class Handlers:
             return
         interrupt_id, answer = decision
         await query.edit_message_reply_markup(reply_markup=None)
-        await query.message.reply_text("Approved." if answer["approved"] else "Rejected.")
+        if isinstance(query.message, Message):
+            await query.message.reply_text("Approved." if answer["approved"] else "Rejected.")
         session = await self._session()
         await TelegramTurn(self._chat(update, context)).render(self._service.resume(session, {interrupt_id: answer}))
 
@@ -61,4 +66,7 @@ class Handlers:
 
     @staticmethod
     def _chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> TelegramChat:
-        return TelegramChat(context.bot, update.effective_chat.id)
+        chat = update.effective_chat
+        if chat is None:
+            raise ValueError("Telegram update without a chat.")
+        return TelegramChat(context.bot, chat.id)

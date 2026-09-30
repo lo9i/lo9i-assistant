@@ -9,6 +9,7 @@ import io
 import threading
 from pathlib import Path
 
+import numpy as np
 from faster_whisper import WhisperModel, decode_audio
 from tqdm import tqdm
 
@@ -30,7 +31,7 @@ class FasterWhisperTranscriber:
 
     def _transcribe(self, audio: bytes) -> Transcript:
         model = self._load()
-        samples = decode_audio(io.BytesIO(audio))
+        samples = _mono(audio)
         language = _pick_language(model, samples)
         segments, info = model.transcribe(samples, language=language, vad_filter=True)
         text = " ".join(segment.text.strip() for segment in segments).strip()
@@ -50,6 +51,14 @@ class FasterWhisperTranscriber:
         return self._model
 
 
+def _mono(audio: bytes) -> np.ndarray:
+    """16 kHz mono samples. decode_audio returns a (left, right) pair only when asked to split stereo."""
+    samples = decode_audio(io.BytesIO(audio), split_stereo=False)
+    if isinstance(samples, tuple):
+        raise TranscriptionError("Expected mono audio samples.")
+    return samples
+
+
 def _pick_language(model: WhisperModel, samples) -> str:
     """The most likely language among the configured ones (default Spanish and English)."""
     allowed = settings.stt_languages
@@ -57,4 +66,4 @@ def _pick_language(model: WhisperModel, samples) -> str:
         return allowed[0]
     _, _, probabilities = model.detect_language(samples)
     scores = {language: p for language, p in probabilities if language in allowed}
-    return max(scores, key=scores.get) if scores else allowed[0]
+    return max(scores, key=lambda language: scores[language]) if scores else allowed[0]
