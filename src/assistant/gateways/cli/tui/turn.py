@@ -8,8 +8,8 @@ from textual.containers import VerticalScroll
 from textual.widgets import Markdown
 from textual.widgets.markdown import MarkdownStream
 
-from assistant.core.events import ApprovalRequired, Done, Error, Event, TextDelta, ToolFinished, ToolStarted
-from assistant.gateways.cli.tui.widgets import AssistantMessage, ErrorMessage, StatusLine, ToolCall
+from assistant.core.events import ApprovalRequired, Done, Error, Event, TextDelta, ToolFinished, ToolStarted, Transcribed
+from assistant.gateways.cli.tui.widgets import AssistantMessage, ErrorMessage, StatusLine, ToolCall, TranscriptNote
 
 
 class TurnView:
@@ -45,6 +45,8 @@ class TurnView:
                 await self._tool_started(name, args)
             case ToolFinished(name, output):
                 self._tool_finished(name, output)
+            case Transcribed(text, language):
+                await self._chat.mount(TranscriptNote(text, language))
             case Error(message):
                 await self._chat.mount(ErrorMessage(message))
             case Done():

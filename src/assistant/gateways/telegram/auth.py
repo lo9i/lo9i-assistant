@@ -1,18 +1,34 @@
-"""Single-user bot: only ids in TELEGRAM_ALLOWED_USER_IDS may use it."""
+"""Who may use the bot: accounts paired from the app with a one-time code."""
 
 import logging
 
 from telegram import Update
 
-from assistant.core.config import settings
+from assistant.core.agent import AssistantService
 
 logger = logging.getLogger(__name__)
 
+_PAIRED = "Paired ✓. You can talk to the assistant here now. /new starts a new conversation."
 
-def is_allowed(update: Update) -> bool:
+
+async def is_allowed(service: AssistantService, update: Update) -> bool:
     user = update.effective_user
-    if user is not None and user.id in settings.telegram_allowed_user_ids:
+    if user is not None and await service.telegram_allowed(user.id):
         return True
-    # Logged so the owner can find their id and add it to TELEGRAM_ALLOWED_USER_IDS.
-    logger.warning("Ignored Telegram update from user id %s (%s)", user and user.id, user and user.username)
+    logger.info("Ignored Telegram update from user id %s", user and user.id)
     return False
+
+
+async def try_pairing(service: AssistantService, update: Update) -> bool:
+    """Pairs the sender when the message holds the open pairing code, and confirms in the chat."""
+    user, message = update.effective_user, update.effective_message
+    if user is None or message is None or not message.text:
+        return False
+    if not await service.pair_telegram_user(message.text, user.id, _display_name(user)):
+        return False
+    await message.reply_text(_PAIRED)
+    return True
+
+
+def _display_name(user) -> str:
+    return f"{user.full_name} (@{user.username})" if user.username else user.full_name

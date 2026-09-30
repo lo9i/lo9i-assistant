@@ -6,7 +6,7 @@ import sys
 from collections.abc import AsyncIterator
 from typing import Any
 
-from assistant.core.events import ApprovalRequired, Done, Error, Event, TextDelta, ToolFinished, ToolStarted
+from assistant.core.events import ApprovalRequired, Done, Error, Event, TextDelta, ToolFinished, ToolStarted, Transcribed
 from assistant.gateways.cli.spinner import Spinner
 from assistant.gateways.cli.style import BOLD, DIM, GRAY, RED, RESET, code, paint
 
@@ -49,6 +49,8 @@ class _Printer:
                 _write(f"\n{_BULLET}{paint(BOLD, name)}({_describe(args)})\n")
             case ToolFinished(_, output):
                 _write(paint(DIM, _result(output)) + "\n")
+            case Transcribed(text, language):
+                _write(paint(DIM, f"{_INDENT}🎤 heard ({language}): {text}") + "\n")
             case Error(message):
                 _write(paint(RED, f"\n{_BULLET}Error: {message}") + "\n")
             case Done():

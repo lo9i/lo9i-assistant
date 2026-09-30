@@ -37,6 +37,18 @@ AssistantMessage MarkdownParagraph, AssistantMessage MarkdownBullet, AssistantMe
     color: ansi_white;
 }
 
+TranscriptNote {
+    color: ansi_bright_black;
+    padding: 0 0 0 2;
+}
+
+SystemNote {
+    margin: 1 0 0 0;
+    padding: 0 1;
+    background: transparent;
+    border: round ansi_bright_black;
+}
+
 ErrorMessage {
     color: ansi_red;
     margin: 1 0 0 0;
@@ -61,12 +73,51 @@ StatusLine {
     color: ansi_bright_black;
 }
 
+CommandMenu {
+    display: none;
+    height: auto;
+    max-height: 8;
+    padding: 0 2;
+    color: ansi_default;
+}
+
+CommandMenu.visible {
+    display: block;
+}
+
 #prompt {
     border: round ansi_bright_black;
 }
 
 #prompt:focus {
     border: round #2f343f;
+}
+
+TelegramScreen {
+    align: center middle;
+}
+
+#telegram {
+    width: 80%;
+    max-width: 100;
+    height: auto;
+    padding: 1 2;
+    border: round ansi_bright_black;
+    background: ansi_default;
+}
+
+#telegram Markdown {
+    background: transparent;
+    margin: 0;
+}
+
+#telegram-buttons {
+    height: auto;
+    margin-top: 1;
+}
+
+#telegram-buttons Button {
+    margin-right: 2;
 }
 
 ApprovalScreen {
@@ -96,4 +147,20 @@ ApprovalScreen {
 
 #approval-buttons Button {
     margin-right: 2;
+}
+
+Toast {
+    background: ansi_default;
+    color: ansi_default;
+    border: round ansi_bright_black;
+    padding: 0 1;
+    max-width: 60;
+}
+
+Toast.-warning {
+    border: round ansi_yellow;
+}
+
+Toast.-error {
+    border: round ansi_red;
 }
