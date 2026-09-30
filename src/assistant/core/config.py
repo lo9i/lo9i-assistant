@@ -6,7 +6,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    database_url: str = "postgresql://assistant:assistant@localhost:5433/assistant"
+    # Everything the daemon keeps lives under ~/.lo9i.
+    database_path: str = "~/.lo9i/lo9i.db"
+
+    # The daemon listens on this Unix socket and on 127.0.0.1:DAEMON_PORT.
+    daemon_socket: str = "~/.lo9i/daemon.sock"
+    daemon_port: int = 8765
 
     # Model settings. MODEL and WORKER_MODEL must be ids from the chosen provider.
     # The worker gets its own model so it can run cheaper.
@@ -36,9 +41,11 @@ class Settings(BaseSettings):
     # Time zone for the date and time in each message's turn header.
     timezone: str = "UTC"
 
-    # Telegram gateway. Only these Telegram user ids may use the bot.
-    telegram_bot_token: str = ""
-    telegram_allowed_user_ids: list[int] = []
+    # Speech to text (faster-whisper on the CPU). Detection is limited to STT_LANGUAGES.
+    # Models: tiny, base, small, medium, large-v3-turbo. Downloaded on first use.
+    stt_model: str = "small"
+    stt_languages: list[str] = ["es", "en"]
+    stt_models_dir: str = "~/.lo9i/models"
 
     # Single-user setup: every gateway maps to this user id.
     owner_id: str = "owner"
@@ -46,17 +53,23 @@ class Settings(BaseSettings):
     # Tool groups the agent gets. See core/tools/registry.py.
     toolsets: list[str] = ["terminal", "memory", "web"]
 
-    # Web tools. SEARXNG_URL points at the compose service inside Docker.
-    web_search_backend: Literal["searxng", "brave", "duckduckgo"] = "searxng"
+    # Web tools. metasearch queries public engines in WEB_SEARCH_ENGINES order (no key needed);
+    # brave uses the Brave Search API (BRAVE_SEARCH_API_KEY).
+    web_search_backend: Literal["metasearch", "brave"] = "metasearch"
+    web_search_engines: str = "brave,bing,google"
     # Tried when the main backend fails. "none" disables it.
-    web_search_fallback: Literal["searxng", "brave", "duckduckgo", "none"] = "duckduckgo"
+    web_search_fallback: Literal["metasearch", "brave", "none"] = "none"
     brave_search_api_key: str = ""
-    searxng_url: str = "http://localhost:8888"
     web_blocked_domains: list[str] = []
     web_cache_minutes: int = 20
     web_extract_max_chars: int = 20_000
+    # Pages with less text than this after download are rendered in a headless browser,
+    # installed automatically into BROWSERS_DIR by the daemon.
+    web_render: bool = True
+    web_render_min_chars: int = 300
+    browsers_dir: str = "~/.lo9i/browsers"
 
-    workspace_dir: str = "workspace"
+    workspace_dir: str = "~/.lo9i/workspace"
     # Uploaded attachments. Shared by every process (a Docker volume in compose).
     uploads_dir: str = "~/.lo9i/uploads"
     bash_timeout: int = 120

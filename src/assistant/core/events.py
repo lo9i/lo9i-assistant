@@ -28,6 +28,14 @@ class ApprovalRequired:
 
 
 @dataclass
+class Transcribed:
+    """A voice message was transcribed; gateways show it so the user can catch mistakes."""
+
+    text: str
+    language: str
+
+
+@dataclass
 class Done:
     pass
 
@@ -37,4 +45,4 @@ class Error:
     message: str
 
 
-Event = TextDelta | ToolStarted | ToolFinished | ApprovalRequired | Done | Error
+Event = TextDelta | ToolStarted | ToolFinished | ApprovalRequired | Transcribed | Done | Error

@@ -28,7 +28,7 @@ def fit(page: Page) -> str:
 
 def _save(page: Page) -> str:
     relative = f"web/{hashlib.sha256(page.url.encode()).hexdigest()[:16]}.md"
-    path = Path(settings.workspace_dir) / relative
+    path = Path(settings.workspace_dir).expanduser() / relative
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(f"# {page.title}\n\nSource: {page.url}\n\n{page.text}", encoding="utf-8")
     return relative

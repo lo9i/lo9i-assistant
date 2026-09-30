@@ -1,1 +1,1 @@
-"""Telegram gateway: a bot using long polling. Run with `python -m assistant.gateways.telegram`."""
+"""Telegram gateway: an adapter the daemon runs in-process (see bot.py)."""

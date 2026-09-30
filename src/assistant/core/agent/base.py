@@ -1,5 +1,6 @@
 from langgraph.graph.state import CompiledStateGraph
 
+from assistant.core.speech.transcriber import Transcriber
 from assistant.core.storage import Storage
 
 
@@ -8,3 +9,4 @@ class ServiceBase:
 
     _storage: Storage
     _graph: CompiledStateGraph
+    _transcriber: Transcriber

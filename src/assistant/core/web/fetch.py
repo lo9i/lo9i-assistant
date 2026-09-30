@@ -48,13 +48,13 @@ async def _read(response: httpx.Response) -> bytes:
 async def _to_page(url: str, content_type: str, body: bytes) -> Page:
     text = body.decode(errors="replace")
     if "html" in content_type:
-        return Page(url, _title(text), await asyncio.to_thread(_html_to_markdown, text, url))
+        return Page(url, _title(text), await asyncio.to_thread(html_to_markdown, text, url))
     if content_type.startswith(_TEXT_TYPES):
         return Page(url, "", text)
     raise FetchError(f"Unsupported content type {content_type or 'unknown'} for {url}")
 
 
-def _html_to_markdown(html: str, url: str) -> str:
+def html_to_markdown(html: str, url: str) -> str:
     text = trafilatura.extract(html, url=url, output_format="markdown", include_links=True, include_tables=True)
     return text or "(no readable text found on the page)"
 

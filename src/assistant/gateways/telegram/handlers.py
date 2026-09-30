@@ -6,13 +6,13 @@ from telegram.ext import ContextTypes
 from assistant.core.agent import AssistantService, Session
 from assistant.core.config import settings
 from assistant.gateways.telegram.approvals import parse_decision
-from assistant.gateways.telegram.auth import is_allowed
+from assistant.gateways.telegram.auth import is_allowed, try_pairing
 from assistant.gateways.telegram.media import UnsupportedMedia, attachments_from
 from assistant.gateways.telegram.port import TelegramChat
 from assistant.gateways.telegram.turn import TelegramTurn
 
 _CHANNEL = "telegram"
-_GREETING = "Hi! Send me a message, a photo or a document. /new starts a new conversation."
+_GREETING = "Hi! Send me a message, a voice note, a photo or a document. /new starts a new conversation."
 
 
 class Handlers:
@@ -20,16 +20,16 @@ class Handlers:
         self._service = service
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if is_allowed(update):
+        if await is_allowed(self._service, update):
             await update.effective_message.reply_text(_GREETING)
 
     async def new(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if is_allowed(update):
+        if await is_allowed(self._service, update):
             await self._service.new_thread(settings.owner_id)
             await update.effective_message.reply_text("Started a new conversation.")
 
     async def message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if not is_allowed(update):
+        if await try_pairing(self._service, update) or not await is_allowed(self._service, update):
             return
         message = update.effective_message
         try:
@@ -43,7 +43,7 @@ class Handlers:
 
     async def approval(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         query = update.callback_query
-        if not is_allowed(update):
+        if not await is_allowed(self._service, update):
             await query.answer()
             return
         decision = parse_decision(query.data or "")

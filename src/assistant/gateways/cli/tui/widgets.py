@@ -19,8 +19,17 @@ class UserMessage(Static):
         super().__init__("\n".join(lines))
 
 
+class TranscriptNote(Static):
+    def __init__(self, text: str, language: str) -> None:
+        super().__init__(f"🎤 heard ({language}): {escape(text or '(no speech)')}")
+
+
 class AssistantMessage(Markdown):
     """A reply. Text is streamed into it with `Markdown.get_stream`."""
+
+
+class SystemNote(Markdown):
+    """Help and status text from the app itself, not from the assistant."""
 
 
 class ErrorMessage(Static):

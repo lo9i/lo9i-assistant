@@ -8,26 +8,34 @@ from langgraph.types import Command
 
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
-from assistant.core.attachments import Attachment, to_content
+from assistant.core.attachments import Attachment, Block, to_content
 from assistant.core.conversation.turn_header import header_block
-from assistant.core.events import Error, Event
+from assistant.core.events import Error, Event, Transcribed
+from assistant.core.speech.transcriber import TranscriptionError
+from assistant.core.speech.voice import is_voice, transcribe_voice
 
 
 class MessagingMixin(RunsMixin):
     """Public entry points for sending a message and answering approvals."""
 
     async def send(self, session: Session, text: str, attachments: Sequence[Attachment] = ()) -> AsyncIterator[Event]:
+        voice = [a for a in attachments if is_voice(a)]
         try:
-            content = await asyncio.to_thread(to_content, text, attachments)
-        except ValueError as e:
+            transcripts, voice_blocks = await transcribe_voice(self._transcriber, voice)
+            content = await asyncio.to_thread(to_content, text, [a for a in attachments if not is_voice(a)])
+        except (TranscriptionError, ValueError) as e:
             yield Error(str(e))
             return
-        header = header_block(session.channel, datetime.now(UTC))
-        message = HumanMessage(content=[header, *content])
-        async for event in self._run(session, {"messages": [message]}):
+        for transcript in transcripts:
+            yield Transcribed(transcript.text, transcript.language)
+        async for event in self._run(session, {"messages": [_message(session, [*voice_blocks, *content])]}):
             yield event
 
     async def resume(self, session: Session, decisions: dict[str, dict[str, Any]]) -> AsyncIterator[Event]:
         """Answer pending approvals. `decisions` maps interrupt id to {"approved": bool, "reason": str}."""
         async for event in self._run(session, Command(resume=decisions)):
             yield event
+
+
+def _message(session: Session, content: list[Block]) -> HumanMessage:
+    return HumanMessage(content=[header_block(session.channel, datetime.now(UTC)), *content])

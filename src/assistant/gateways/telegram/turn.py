@@ -7,7 +7,7 @@ import time
 from collections.abc import AsyncIterator
 from typing import Any
 
-from assistant.core.events import ApprovalRequired, Done, Error, Event, TextDelta, ToolFinished, ToolStarted
+from assistant.core.events import ApprovalRequired, Done, Error, Event, TextDelta, ToolFinished, ToolStarted, Transcribed
 from assistant.gateways.telegram.approvals import approval_buttons, approval_text
 from assistant.gateways.telegram.formatting import split_text
 from assistant.gateways.telegram.port import ChatPort
@@ -46,6 +46,8 @@ class TelegramTurn:
             case ApprovalRequired(interrupt_id, request):
                 await self._after_reply()
                 await self._chat.send(approval_text(request), buttons=approval_buttons(interrupt_id))
+            case Transcribed(text, language):
+                await self._chat.send(f"🎤 I heard ({language}): {text or '(no speech)'}")
             case Error(message):
                 await self._chat.send(f"⚠️ {message}")
             case Done():

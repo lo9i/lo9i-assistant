@@ -10,7 +10,7 @@ from assistant.core.tools.registry import register
 
 # Commands run with a minimal environment so they can't read the app's secrets
 # (Anthropic key, database URL, Langfuse keys) from env vars.
-_SAFE_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+_SAFE_PATH = "/opt/homebrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 
 @register("terminal")
@@ -47,7 +47,7 @@ def _request_approval(command: str) -> str | None:
 
 
 async def _run(command: str) -> str:
-    workspace = Path(settings.workspace_dir).resolve()
+    workspace = Path(settings.workspace_dir).expanduser().resolve()
     workspace.mkdir(parents=True, exist_ok=True)
     proc = await asyncio.create_subprocess_exec(
         "bash",
