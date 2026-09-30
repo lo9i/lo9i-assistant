@@ -7,7 +7,16 @@ import time
 from collections.abc import AsyncIterator
 from typing import Any
 
-from assistant.core.events import ApprovalRequired, Done, Error, Event, TextDelta, ToolFinished, ToolStarted, Transcribed
+from assistant.core.events import (
+    ApprovalRequired,
+    Done,
+    Error,
+    Event,
+    TextDelta,
+    ToolFinished,
+    ToolStarted,
+    Transcribed,
+)
 from assistant.gateways.telegram.approvals import approval_buttons, approval_text
 from assistant.gateways.telegram.formatting import split_text
 from assistant.gateways.telegram.port import ChatPort

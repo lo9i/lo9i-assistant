@@ -15,11 +15,13 @@ def is_voice(attachment: Attachment) -> bool:
     return attachment.media_type.startswith("audio/")
 
 
-async def transcribe_voice(transcriber: Transcriber, attachments: Sequence[Attachment]) -> tuple[list[Transcript], list[Block]]:
+async def transcribe_voice(
+    transcriber: Transcriber, attachments: Sequence[Attachment]
+) -> tuple[list[Transcript], list[Block]]:
     """Transcripts and their text blocks, in order. The audio is kept in the uploads folder."""
     transcripts = [await transcriber.transcribe(a.data) for a in attachments]
     paths = [await asyncio.to_thread(uploads.save, a.name, a.data, _AUDIO_FOLDER) for a in attachments]
-    blocks = [_block(t, uploads.absolute(p)) for t, p in zip(transcripts, paths)]
+    blocks = [_block(t, uploads.absolute(p)) for t, p in zip(transcripts, paths, strict=True)]
     return transcripts, blocks
 
 

@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     epoch_max_tokens: int = 150_000
     epoch_idle_hours: float = 6
     epoch_keep_turns: int = 4
+    # Starting a new conversation archives the old one as an episode if it had at least this many user turns.
+    episode_min_turns: int = 2
 
     # How much long-term memory goes into the system prompt. The profile is always loaded in full.
     memory_max_facts: int = 200
@@ -51,7 +53,13 @@ class Settings(BaseSettings):
     owner_id: str = "owner"
 
     # Tool groups the agent gets. See core/tools/registry.py.
-    toolsets: list[str] = ["terminal", "memory", "web"]
+    toolsets: list[str] = ["terminal", "memory", "web", "skills", "email", "jobs", "messages", "identity"]
+    skills_dir: str = "~/.lo9i/skills"
+
+    # Scheduled jobs. A run missed while the daemon was down still runs if it's this recent.
+    jobs_grace_hours: float = 6
+    jobs_max_concurrent: int = 2
+    jobs_timeout_minutes: int = 15
 
     # Web tools. metasearch queries public engines in WEB_SEARCH_ENGINES order (no key needed);
     # brave uses the Brave Search API (BRAVE_SEARCH_API_KEY).
@@ -70,6 +78,9 @@ class Settings(BaseSettings):
     browsers_dir: str = "~/.lo9i/browsers"
 
     workspace_dir: str = "~/.lo9i/workspace"
+    # What the user typed in the terminal app, for Up and Down.
+    cli_history_path: str = "~/.lo9i/cli_history"
+    cli_history_limit: int = 1000
     # Uploaded attachments. Shared by every process (a Docker volume in compose).
     uploads_dir: str = "~/.lo9i/uploads"
     bash_timeout: int = 120

@@ -8,3 +8,4 @@ class MemorySnapshot:
     profile: dict[str, list[str]] = field(default_factory=dict)
     facts: list[str] = field(default_factory=list)
     episodes: list[str] = field(default_factory=list)
+    skills: list[str] = field(default_factory=list)

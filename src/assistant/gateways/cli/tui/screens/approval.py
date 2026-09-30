@@ -1,10 +1,10 @@
 """Modal that asks the user to approve or reject a tool call."""
 
-from typing import Any
+from typing import Any, ClassVar
 
 from rich.markup import escape
 from textual.app import ComposeResult
-from textual.binding import Binding
+from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Static
@@ -13,7 +13,7 @@ from textual.widgets import Button, Input, Static
 class ApprovalScreen(ModalScreen[dict[str, Any]]):
     """Returns {"approved": bool, "reason": str | None}."""
 
-    BINDINGS = [Binding("y", "approve", "Approve"), Binding("escape", "reject", "Reject")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("y", "approve", "Approve"), Binding("escape", "reject", "Reject")]
 
     def __init__(self, request: dict[str, Any]) -> None:
         super().__init__()
@@ -21,7 +21,8 @@ class ApprovalScreen(ModalScreen[dict[str, Any]]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="approval"):
-            yield Static(f"[b]Approve {escape(str(self._request.get('tool')))}?[/b]  [dim]{escape(str(self._request.get('reason')))}[/dim]")
+            tool, reason = escape(str(self._request.get("tool"))), escape(str(self._request.get("reason")))
+            yield Static(f"[b]Approve {tool}?[/b]  [dim]{reason}[/dim]")
             yield Static(str(self._request.get("command", self._request)), id="approval-command", markup=False)
             yield Input(placeholder="Reason, if you reject (optional)", id="approval-reason")
             with Horizontal(id="approval-buttons"):

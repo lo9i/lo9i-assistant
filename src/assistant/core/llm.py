@@ -26,19 +26,23 @@ def _anthropic(model: str) -> BaseChatModel:
     if settings.server_fallbacks:
         model_kwargs["fallbacks"] = "default"
         betas.append("server-side-fallback-2026-07-01")
-    return ChatAnthropic(
-        model=model,
-        max_tokens=settings.max_tokens,
-        output_config={"effort": settings.effort},
-        output_version="v1",
-        betas=betas or None,
-        model_kwargs=model_kwargs,
+    # Validated from a mapping: langchain-anthropic types its constructor by field alias
+    # (`model_name`, `max_tokens_to_sample`), so the documented keywords don't type-check.
+    return ChatAnthropic.model_validate(
+        {
+            "model": model,
+            "max_tokens": settings.max_tokens,
+            "output_config": {"effort": settings.effort},
+            "output_version": "v1",
+            "betas": betas or None,
+            "model_kwargs": model_kwargs,
+        }
     )
 
 
 def _openai(model: str) -> BaseChatModel:
     # Reads OPENAI_API_KEY from the environment.
-    return ChatOpenAI(model=model, max_tokens=settings.max_tokens, output_version="v1")
+    return ChatOpenAI(model=model, max_completion_tokens=settings.max_tokens, output_version="v1")
 
 
 _BUILDERS: dict[str, Callable[[str], BaseChatModel]] = {

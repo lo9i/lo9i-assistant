@@ -1,7 +1,8 @@
 """The assistant's persona (H1): who it is and how it behaves.
 
 Read from `settings.persona_path` (default ~/.lo9i/SOUL.md) when the file exists, so it can be
-changed without editing code; otherwise `prompts/persona.md`. Read when an epoch starts, so edits apply from the next epoch.
+changed without editing code; otherwise `prompts/persona.md`. Read when an epoch starts, so edits
+apply from the next epoch.
 """
 
 import asyncio

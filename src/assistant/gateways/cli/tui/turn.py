@@ -8,7 +8,16 @@ from textual.containers import VerticalScroll
 from textual.widgets import Markdown
 from textual.widgets.markdown import MarkdownStream
 
-from assistant.core.events import ApprovalRequired, Done, Error, Event, TextDelta, ToolFinished, ToolStarted, Transcribed
+from assistant.core.events import (
+    ApprovalRequired,
+    Done,
+    Error,
+    Event,
+    TextDelta,
+    ToolFinished,
+    ToolStarted,
+    Transcribed,
+)
 from assistant.gateways.cli.tui.widgets import AssistantMessage, ErrorMessage, StatusLine, ToolCall, TranscriptNote
 
 

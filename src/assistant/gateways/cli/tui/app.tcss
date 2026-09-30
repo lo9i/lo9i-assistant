@@ -8,7 +8,7 @@ Screen {
 
 #chat {
     width: 1fr;
-    padding: 0 1 1 1;
+    padding: 0 1;
 }
 
 MemoryPanel {
@@ -31,6 +31,11 @@ AssistantMessage {
     padding: 0 0 0 1;
     background: transparent;
     border-left: outer ansi_bright_black;
+}
+
+/* Markdown blocks keep a blank line below them; the reply's last one doesn't need it. */
+AssistantMessage > MarkdownBlock:last-child {
+    margin-bottom: 0;
 }
 
 AssistantMessage MarkdownParagraph, AssistantMessage MarkdownBullet, AssistantMessage MarkdownListItem {
@@ -76,9 +81,20 @@ StatusLine {
 CommandMenu {
     display: none;
     height: auto;
-    max-height: 8;
-    padding: 0 2;
+    max-height: 10;
+    padding: 0 1;
     color: ansi_default;
+}
+
+.command-row {
+    width: 100%;
+    height: 1;
+}
+
+.command-row.highlighted {
+    /* The color the memory panel headings ("Recent conversations") show in the user's terminal. */
+    background: #0078ab;
+    color: #ffffff;
 }
 
 CommandMenu.visible {
@@ -93,11 +109,11 @@ CommandMenu.visible {
     border: round #2f343f;
 }
 
-TelegramScreen {
+TelegramScreen, EmailScreen, StartupScreen {
     align: center middle;
 }
 
-#telegram {
+#telegram, #email, #startup {
     width: 80%;
     max-width: 100;
     height: auto;
@@ -106,17 +122,22 @@ TelegramScreen {
     background: ansi_default;
 }
 
-#telegram Markdown {
+#telegram Markdown, #email Markdown, #startup Markdown {
     background: transparent;
     margin: 0;
 }
 
-#telegram-buttons {
+/* Dialogs already have top padding; a heading's default top margin would add two more empty rows. */
+ModalScreen Markdown > MarkdownHeader:first-child {
+    margin-top: 0;
+}
+
+#telegram-buttons, #email-buttons, #startup-buttons {
     height: auto;
     margin-top: 1;
 }
 
-#telegram-buttons Button {
+#telegram-buttons Button, #email-buttons Button, #startup-buttons Button {
     margin-right: 2;
 }
 
@@ -163,4 +184,144 @@ Toast.-warning {
 
 Toast.-error {
     border: round ansi_red;
+}
+
+/* Markdown everywhere: default text color, dim structure, no colored inline code or headings. */
+Markdown {
+    color: ansi_default;
+}
+
+MarkdownH1, MarkdownH2, MarkdownH3 {
+    content-align: left middle;
+}
+
+MarkdownBullet {
+    color: ansi_bright_black;
+}
+
+Markdown MarkdownBlock > .code_inline {
+    color: ansi_default !important;
+    background: ansi_default !important;
+    text-style: bold;
+}
+
+/* Buttons: gray outline, bold when focused; red text only for destructive actions. */
+Button {
+    background: ansi_default;
+    color: ansi_default;
+    border: round ansi_bright_black;
+    text-style: none;
+}
+
+Button:focus {
+    border: round ansi_default;
+    text-style: bold;
+}
+
+Button:hover {
+    background: ansi_default;
+    border: round ansi_default;
+}
+
+Button.-success, Button.-primary {
+    background: ansi_default;
+    color: ansi_default;
+}
+
+Button.-error {
+    background: ansi_default;
+    color: ansi_red;
+}
+
+#telegram-token, #email Input {
+    border: round ansi_bright_black;
+}
+
+#telegram-token:focus, #email Input:focus {
+    border: round #2f343f;
+}
+
+SkillsScreen, JobsScreen, UsageScreen, SessionsScreen {
+    align: center middle;
+}
+
+#skills, #jobs, #usage, #sessions {
+    width: 90%;
+    max-width: 120;
+    height: 80%;
+    padding: 1 2;
+    border: round ansi_bright_black;
+    background: ansi_default;
+}
+
+#skills Markdown, #jobs Markdown, #usage Markdown, #sessions Markdown {
+    background: transparent;
+    margin: 0;
+}
+
+#skills-title, #jobs-title {
+    height: auto;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#skills-empty, #jobs-empty {
+    display: none;
+    height: auto;
+}
+
+#skills.empty, #jobs.empty {
+    height: auto;
+}
+
+#skills.empty #skills-main, #jobs.empty #jobs-main {
+    display: none;
+}
+
+#skills.empty #skills-empty, #jobs.empty #jobs-empty {
+    display: block;
+}
+
+#skills-main, #jobs-main, #usage-scroll {
+    height: 1fr;
+}
+
+/* A short list: the dialog fits its content. */
+#sessions {
+    height: auto;
+    max-height: 80%;
+}
+
+#sessions-scroll {
+    height: auto;
+}
+
+#skills-list, #jobs-list {
+    width: 36;
+    border: round ansi_bright_black;
+    background: ansi_default;
+}
+
+#skills-detail, #jobs-detail {
+    padding: 0 1;
+}
+
+#skills-buttons, #jobs-buttons, #usage-buttons, #sessions-buttons {
+    height: auto;
+    margin-top: 1;
+}
+
+#skills-buttons Button, #jobs-buttons Button, #usage-buttons Button {
+    margin-right: 2;
+}
+
+/* Scrollbars in gray, like the rest of the structure. */
+* {
+    scrollbar-color: ansi_bright_black;
+    scrollbar-color-hover: ansi_white;
+    scrollbar-color-active: ansi_white;
+    scrollbar-background: ansi_default;
+    scrollbar-background-hover: ansi_default;
+    scrollbar-background-active: ansi_default;
+    scrollbar-corner-color: ansi_default;
 }

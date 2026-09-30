@@ -2,9 +2,8 @@
 
 import logging
 
-from telegram import Update
-
 from assistant.core.agent import AssistantService
+from telegram import Update
 
 logger = logging.getLogger(__name__)
 

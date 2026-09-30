@@ -8,6 +8,9 @@ from langchain_core.tools import BaseTool
 
 _REGISTRY: dict[str, tuple[str, BaseTool]] = {}
 
+# Tool modules live next to this one.
+_PACKAGE = __name__.rpartition(".")[0]
+
 
 def register(toolset: str) -> Callable[[BaseTool], BaseTool]:
     """Add a tool to the registry under a toolset name."""
@@ -30,9 +33,9 @@ def tools_for(toolsets: Iterable[str]) -> list[BaseTool]:
 
 
 def _discover() -> None:
-    package = importlib.import_module(__package__)
+    package = importlib.import_module(_PACKAGE)
     for module in pkgutil.iter_modules(package.__path__):
-        importlib.import_module(f"{__package__}.{module.name}")
+        importlib.import_module(f"{_PACKAGE}.{module.name}")
 
 
 def _check_known(toolsets: set[str]) -> None:

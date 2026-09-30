@@ -5,9 +5,9 @@ from datetime import UTC, datetime, timedelta
 
 from assistant.core.agent.base import ServiceBase
 from assistant.core.integrations import telegram
-from assistant.core.integrations.telegram import InvalidToken, TelegramUser
+from assistant.core.integrations.telegram import InvalidTokenError, TelegramUser
 
-__all__ = ["InvalidToken", "TelegramMixin", "TelegramStatus"]
+__all__ = ["InvalidTokenError", "TelegramMixin", "TelegramStatus"]
 
 # The bot beats every few seconds; older than this means it isn't running.
 _ALIVE = timedelta(seconds=20)
@@ -30,7 +30,7 @@ class TelegramMixin(ServiceBase):
         return await self._telegram_status(await telegram.load(self._storage.store))
 
     async def connect_telegram(self, token: str) -> TelegramStatus:
-        """Check the token, save it, and open pairing. Raises InvalidToken."""
+        """Check the token, save it, and open pairing. Raises InvalidTokenError."""
         username = await telegram.bot_username(token)
         config = await telegram.load(self._storage.store)
         config.token, config.bot_username = token.strip(), username
@@ -55,6 +55,10 @@ class TelegramMixin(ServiceBase):
 
     async def telegram_token(self) -> str:
         return (await telegram.load(self._storage.store)).token
+
+    async def telegram_recipients(self) -> list[int]:
+        """Paired accounts. Their private chat with the bot has the same id as the account."""
+        return [u.id for u in (await telegram.load(self._storage.store)).users]
 
     async def telegram_allowed(self, user_id: int) -> bool:
         return any(u.id == user_id for u in (await telegram.load(self._storage.store)).users)

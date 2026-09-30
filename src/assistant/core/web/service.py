@@ -36,7 +36,7 @@ class WebService:
         return cached
 
     async def extract(self, url: str) -> str:
-        """Page text, shortened when long. Raises FetchError, UnsafeUrl or BlockedDomain."""
+        """Page text, shortened when long. Raises FetchError, UnsafeUrlError or BlockedDomainError."""
         cached = self._pages.get(url)
         if cached is None:
             page = await self._render_if_thin(await fetch_page(url))

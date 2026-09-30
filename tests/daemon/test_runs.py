@@ -1,0 +1,56 @@
+import asyncio
+
+from assistant.core.events import Done, TextDelta
+from assistant.daemon.runs import RunHub
+
+
+async def _events():
+    for word in ["a", "b"]:
+        await asyncio.sleep(0)
+        yield TextDelta(word)
+    yield Done()
+
+
+async def test_follow_replays_from_an_id_and_ends():
+    hub = RunHub()
+    run = hub.start("t", _events())
+    everything = [(i, e) async for i, e in hub.follow(run, 0)]
+    assert [e["type"] if e else None for _, e in everything] == ["TextDelta", "TextDelta", "Done", None]
+    from_two = [(i, e) async for i, e in hub.follow(run, 2)]
+    assert [i for i, _ in from_two] == [3, 4] and from_two[-1][1] is None
+
+
+async def test_a_failing_run_reports_an_error():
+    async def broken():
+        yield TextDelta("x")
+        raise RuntimeError("boom")
+
+    hub = RunHub()
+    run = hub.start("t", broken())
+    events = [e async for _, e in hub.follow(run, 0) if e]
+    assert events[-1] == {"type": "Error", "message": "RuntimeError: boom"}
+
+
+async def test_starting_a_run_is_announced_on_the_bus():
+    from assistant.core.bus import EventBus
+
+    bus = EventBus()
+    run = RunHub(bus).start("t1", _events(), channel="telegram", text="hi")
+    event = await anext(bus.subscribe())
+    assert event.kind == "run" and event.data == {
+        "run_id": run.id,
+        "thread_id": "t1",
+        "channel": "telegram",
+        "text": "hi",
+    }
+
+
+async def test_finishing_a_run_is_announced_with_an_excerpt():
+    from assistant.core.bus import EventBus
+
+    bus = EventBus()
+    run = RunHub(bus).start("t1", _events(), channel="cli")
+    events = bus.subscribe()
+    kinds = [await anext(events), await anext(events)]
+    assert kinds[1].kind == "run_finished"
+    assert kinds[1].data == {"run_id": run.id, "thread_id": "t1", "channel": "cli", "status": "ok", "reply": "ab"}
