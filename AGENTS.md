@@ -1,27 +1,33 @@
 # AGENTS.md
 
-Personal AI assistant built on LangGraph. One core agent, several gateways (CLI, FastAPI + React UI, Telegram, worker loop), shared Postgres.
+Personal AI assistant built on LangGraph. A daemon on the Mac owns all state and runs the agent; clients (CLI, web UI) talk to it over HTTP; channel adapters (Telegram) run inside it.
 
 ## Layout
 
 ```
 src/assistant/
-  core/          graph, llm, storage (Postgres), observability
+  core/          graph, llm, storage (SQLite), observability
     agent/       AssistantService facade + one mixin per concern
     conversation/  system prompt, epochs (compaction), digest, transcript, turn header
       prompts/   prompt texts, one .md file per prompt
     memory/      long-term memory in the Store: profile, facts, episodes
     tools/       self-registering tools
-    web/         web search providers (SearXNG, Brave, DuckDuckGo), page fetching, URL safety, caching
-  gateways/    cli/, api/, telegram/, worker/
-ui/            React + Vite, talks only to gateways/api
+    integrations/  settings for services connected from the app (Telegram)
+    speech/      speech to text (faster-whisper); voice audio saved under uploads/audio
+    web/         web search (public engines via ddgs, or the Brave API), page fetching and rendering, URL safety, caching
+  daemon/        HTTP API (Unix socket + localhost), run hub (SSE events), adapter supervisor
+  client/        DaemonClient: the service's methods over HTTP, auto-starts the daemon
+  protocol.py    event JSON shared by daemon and clients
+  gateways/      cli/ (a daemon client), telegram/ (an adapter inside the daemon)
 ```
 
 ## Architecture rules
 
-- Dependencies point one way: gateways -> `core.agent` -> graph -> tools. Core never imports from gateways.
-- Gateways use only `AssistantService`, `Session`, `MemorySnapshot` (`core/agent`), `Attachment` (`core/attachments.py`) and the event types in `core/events.py`. They don't touch the graph, checkpointer or store.
-- Every gateway and the worker run as separate processes. Keep no state in process memory that another process needs. Shared state goes in Postgres.
+- The daemon is the only process that opens storage or runs the agent. Clients never import `core.agent.AssistantService`; they use `DaemonClient`, which offers the same methods over HTTP.
+- Dependencies point one way: clients -> daemon API -> `core.agent` -> graph -> tools. Core never imports from the daemon, clients or gateways.
+- Adapters (Telegram) run inside the daemon as supervised tasks and call `AssistantService` directly. They use only `AssistantService`, `Session`, `MemorySnapshot`, `TelegramStatus`, `InvalidToken` (`core/agent`), `Attachment` and the event types.
+- Every daemon request except `/health` must carry the `X-Lo9i-Client` header (CSRF protection for the localhost port).
+- Runs outlive the request that started them. Commands are HTTP requests; a run's events stream as Server-Sent Events and can be replayed by event id.
 - Never edit or delete past messages in a checkpoint. History is append-only.
 - Messages use LangChain standard content blocks (`output_version="v1"` in `core/llm.py`). Code that reads messages uses standard block types, never provider-native ones.
 - Checkpoints never hold file contents. Attachments are saved under `settings.uploads_dir` and messages keep a `non_standard` upload reference; `core/attachments.py::hydrate` loads them for each model call.
@@ -51,9 +57,10 @@ ui/            React + Vite, talks only to gateways/api
 ## Tooling
 
 - Python 3.12, managed with `uv`. Add dependencies with `uv add`, never pip.
-- Run locally: `scripts/run.sh` (starts Ollama when `.env` points at it, Postgres, and the CLI).
-- Telegram bot: `scripts/telegram.sh` (runs the bot container in the background and follows its logs).
-- Postgres is on host port 5433.
+- Run locally: `scripts/run.sh` (starts Ollama when `.env` points at it, then the CLI, which starts the daemon). Nothing runs in Docker. `assistant daemon` runs the daemon in the foreground; its background log is `~/.lo9i/daemon.log`.
+- Data lives in `~/.lo9i`: `lo9i.db` (SQLite), `uploads/`, `models/`, `workspace/` (bash), `browsers/` (headless Chromium for page rendering), `SOUL.md`, `daemon.sock`, `daemon.log`.
+- Telegram is connected from the app with `/telegram`; its token and paired accounts live in the Store (`core/integrations/`), not in `.env`.
+- Never require the user to run shell commands for app features. Setup flows go through the daemon API so every client, including the web UI, can offer them.
 
 ## Backlog
 
