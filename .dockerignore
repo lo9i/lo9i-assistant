@@ -1,7 +1,0 @@
-# Keep the build context small and secrets out of it.
-.git
-.venv
-.idea
-.env
-workspace
-**/__pycache__

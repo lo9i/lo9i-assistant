@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Start everything the assistant needs and open the CLI.
+# Start what the assistant depends on, then open the chat.
 #
-# - Starts Ollama when .env points at it (OPENAI_BASE_URL on port 11434) and it isn't running.
-#   Ollama started by this script is stopped when the CLI exits.
-# - Starts Postgres and SearXNG, rebuilds the image if the code changed, and runs the CLI.
+# - Starts Ollama when .env points at it (OPENAI_BASE_URL on port 11434). It keeps running.
+# - Opens the CLI, which starts the daemon if it isn't running. The daemon keeps running after
+#   the CLI exits (Telegram and scheduled work need it). Its log is ~/.lo9i/daemon.log.
 #
 # Usage: scripts/run.sh
 # Env:   OLLAMA_CONTEXT_LENGTH (default 32768)
@@ -11,25 +11,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 source scripts/lib.sh
 
-started_ollama=""
-
-stop_ollama() {
-  if [[ -n "$started_ollama" ]]; then
-    echo "Stopping Ollama."
-    kill "$started_ollama" 2>/dev/null || true
-  fi
-}
-
 require_env_file
 if uses_ollama; then
-  if ! ollama_running; then
-    started_ollama="$(start_ollama)"
-    trap stop_ollama EXIT
-  fi
+  ollama_running || start_ollama
   check_model
 fi
 
-start_services
-echo "Building the assistant image (fast when nothing changed)."
-docker compose --profile cli build cli
-docker compose run --rm cli
+uv run --env-file .env assistant

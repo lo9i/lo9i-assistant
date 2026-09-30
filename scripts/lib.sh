@@ -1,4 +1,4 @@
-# Shared helpers for run.sh and telegram.sh. Source from the repo root.
+# Shared helpers for the run scripts. Source from the repo root.
 
 OLLAMA_URL="http://localhost:11434"
 OLLAMA_LOG="${TMPDIR:-/tmp}/lo9i-ollama.log"
@@ -22,16 +22,12 @@ ollama_running() {
   curl -sf "$OLLAMA_URL/api/tags" >/dev/null
 }
 
-# Starts Ollama in the background and prints its pid.
+# Starts Ollama in the background; it keeps running for the daemon.
 start_ollama() {
   echo "Starting Ollama (log: $OLLAMA_LOG)." >&2
   OLLAMA_CONTEXT_LENGTH="${OLLAMA_CONTEXT_LENGTH:-32768}" nohup ollama serve >"$OLLAMA_LOG" 2>&1 &
-  local pid=$!
   for _ in $(seq 1 30); do
-    if ollama_running; then
-      echo "$pid"
-      return
-    fi
+    ollama_running && return
     sleep 1
   done
   echo "Ollama didn't start. See $OLLAMA_LOG." >&2
@@ -45,8 +41,4 @@ check_model() {
     echo "Model $model isn't downloaded. Run: ollama pull $model" >&2
     exit 1
   fi
-}
-
-start_services() {
-  docker compose up -d --wait postgres searxng
 }
