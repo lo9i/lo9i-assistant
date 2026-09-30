@@ -1,3 +1,5 @@
+import asyncio
+from collections import defaultdict
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -5,12 +7,12 @@ from assistant.core.agent.base import ServiceBase
 
 
 class LockingMixin(ServiceBase):
+    """One run per thread at a time. The daemon is the only process running the agent,
+    so an in-process lock per thread is enough."""
+
+    _thread_locks: defaultdict[str, asyncio.Lock]
+
     @asynccontextmanager
     async def _thread_lock(self, thread_id: str) -> AsyncIterator[None]:
-        """One run per thread at a time, across all processes (Postgres advisory lock)."""
-        async with self._storage.pool.connection() as conn:
-            await conn.execute("SELECT pg_advisory_lock(hashtext(%s))", (thread_id,))
-            try:
-                yield
-            finally:
-                await conn.execute("SELECT pg_advisory_unlock(hashtext(%s))", (thread_id,))
+        async with self._thread_locks[thread_id]:
+            yield
