@@ -6,9 +6,9 @@ from uuid import uuid4
 from assistant.core.config import settings
 
 
-def save(name: str, data: bytes) -> str:
-    """Write the file and return its path relative to the uploads dir."""
-    relative = f"{uuid4().hex}/{Path(name).name}"
+def save(name: str, data: bytes, folder: str = "") -> str:
+    """Write the file, optionally under a subfolder, and return its path relative to the uploads dir."""
+    relative = str(Path(folder) / uuid4().hex / Path(name).name)
     target = absolute(relative)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(data)
