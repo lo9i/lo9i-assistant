@@ -1,10 +1,15 @@
-"""The Mac clipboard, for Ctrl+V in the terminal app.
+"""The clipboard of the machine the terminal app runs on.
 
-Terminals pass pasted text to the app but never images or files, so the client reads the clipboard
-itself with `osascript`. Only on a Mac; clients check `available()` at start.
+Pasting (Ctrl+V): terminals pass pasted text to the app but never images or files, so the client
+reads the clipboard itself with `osascript`. Only on a Mac; clients check `available()` at start.
+
+Copying: with the system's clipboard command (`pbcopy`, `wl-copy`, `xclip`). Over SSH there's
+none worth using, so clients also copy through the terminal (OSC 52), which reaches the clipboard
+of the computer in front of the user, in terminals that support it.
 """
 
 import asyncio
+import os
 import shutil
 import sys
 from datetime import datetime
@@ -25,6 +30,28 @@ class ClipboardError(Exception):
 
 def available() -> bool:
     return sys.platform == "darwin" and shutil.which("osascript") is not None
+
+
+async def copy(text: str) -> bool:
+    """Whether a clipboard command took the text. False without one, or when it failed."""
+    command = _copy_command()
+    if command is None:
+        return False
+    process = await asyncio.create_subprocess_exec(
+        *command, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL
+    )
+    await process.communicate(text.encode())
+    return process.returncode == 0
+
+
+def _copy_command() -> list[str] | None:
+    if sys.platform == "darwin":
+        return ["pbcopy"]
+    if os.environ.get("WAYLAND_DISPLAY") and shutil.which("wl-copy"):
+        return ["wl-copy"]
+    if os.environ.get("DISPLAY") and shutil.which("xclip"):
+        return ["xclip", "-selection", "clipboard"]
+    return None
 
 
 async def paste() -> Attachment | str:
