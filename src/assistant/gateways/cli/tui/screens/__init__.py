@@ -2,6 +2,9 @@
 jobs, usage, connected clients), and approvals."""
 
 from assistant.gateways.cli.tui.screens.approval import ApprovalScreen
+from assistant.gateways.cli.tui.screens.confirm import ConfirmScreen
+from assistant.gateways.cli.tui.screens.conversations import ConversationsScreen
+from assistant.gateways.cli.tui.screens.devices import DevicesScreen
 from assistant.gateways.cli.tui.screens.email import EmailScreen
 from assistant.gateways.cli.tui.screens.jobs import JobsScreen
 from assistant.gateways.cli.tui.screens.sessions import SessionsScreen
@@ -12,6 +15,9 @@ from assistant.gateways.cli.tui.screens.usage import UsageScreen
 
 __all__ = [
     "ApprovalScreen",
+    "ConfirmScreen",
+    "ConversationsScreen",
+    "DevicesScreen",
     "EmailScreen",
     "JobsScreen",
     "SessionsScreen",

@@ -17,6 +17,7 @@ _EVENT_TYPES = {
         events.Transcribed,
         events.Done,
         events.Error,
+        events.Cancelled,
     )
 }
 

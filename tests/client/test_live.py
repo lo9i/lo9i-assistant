@@ -1,38 +1,27 @@
-"""LiveConversation: following the daemon's active conversation and runs from elsewhere."""
+"""LiveConversation: the conversation this client is on, and runs in it from elsewhere."""
 
 from assistant.client.live import LiveConversation
 from assistant.core.agent import Session
 
 
 class _Daemon:
-    def __init__(self) -> None:
-        self.active = "owner:a"
-
     async def new_thread(self, user_id: str) -> str:
-        self.active = "owner:new"
-        return self.active
+        return "owner:new"
 
-    async def session(self, user_id: str, channel: str) -> Session:
-        return Session(user_id, channel, self.active)
-
-
-def _live(daemon: _Daemon | None = None) -> LiveConversation:
-    return LiveConversation(daemon or _Daemon(), Session("owner", "cli", "owner:a"))
+    async def resume_thread(self, user_id: str, thread_id: str) -> None:
+        pass
 
 
-async def test_follow_switches_only_when_another_channel_started_a_conversation():
-    daemon = _Daemon()
-    live = _live(daemon)
-    assert not await live.follow()
-    daemon.active = "owner:b"
-    assert await live.follow() and live.session.thread_id == "owner:b"
+def _live() -> LiveConversation:
+    return LiveConversation(_Daemon(), Session("owner", "cli", "owner:a"), client_id="me")
 
 
-def test_runs_from_other_channels_in_this_conversation():
+def test_runs_in_this_conversation_from_anything_but_this_client():
     live = _live()
+    assert live.started_elsewhere({"thread_id": "owner:a", "channel": "cli", "client_id": "other"})
     assert live.started_elsewhere({"thread_id": "owner:a", "channel": "telegram"})
-    assert not live.started_elsewhere({"thread_id": "owner:a", "channel": "cli"})
-    assert not live.started_elsewhere({"thread_id": "owner:x", "channel": "telegram"})
+    assert not live.started_elsewhere({"thread_id": "owner:a", "channel": "cli", "client_id": "me"})
+    assert not live.started_elsewhere({"thread_id": "owner:x", "channel": "cli", "client_id": "other"})
 
 
 async def test_a_run_left_running_is_reported_once():
@@ -42,3 +31,9 @@ async def test_a_run_left_running_is_reported_once():
     assert not live.left_run_finished({"thread_id": "owner:new"})
     assert live.left_run_finished({"thread_id": "owner:a"})
     assert not live.left_run_finished({"thread_id": "owner:a"})
+
+
+async def test_resume_moves_to_the_conversation():
+    live = _live()
+    await live.resume("owner:b")
+    assert live.session.thread_id == "owner:b"

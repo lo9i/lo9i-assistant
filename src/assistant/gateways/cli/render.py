@@ -8,6 +8,7 @@ from typing import Any
 
 from assistant.core.events import (
     ApprovalRequired,
+    Cancelled,
     Done,
     Error,
     Event,
@@ -62,6 +63,8 @@ class _Printer:
                 _write(paint(DIM, f"{_INDENT}🎤 heard ({language}): {text}") + "\n")
             case Error(message):
                 _write(paint(RED, f"\n{_BULLET}Error: {message}") + "\n")
+            case Cancelled():
+                _write(paint(DIM, f"\n{_BULLET}Stopped.") + "\n")
             case Done():
                 pass
 

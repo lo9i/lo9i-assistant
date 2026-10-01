@@ -4,7 +4,7 @@ Refreshes when a job runs or changes."""
 from collections.abc import Awaitable, Callable
 from typing import ClassVar
 
-from textual import on
+from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -14,8 +14,9 @@ from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import JobsApi
 from assistant.core.agent import Job, JobError
-from assistant.gateways.cli.jobs_text import describe, summary
+from assistant.gateways.cli.jobs_text import describe
 from assistant.gateways.cli.tui.daemon_errors import reports_daemon_unavailable
+from assistant.gateways.cli.tui.screens.confirm import ConfirmScreen
 
 
 class JobsScreen(ModalScreen[None]):
@@ -36,6 +37,7 @@ class JobsScreen(ModalScreen[None]):
             )
             with Horizontal(id="jobs-main"):
                 yield OptionList(id="jobs-list")
+                yield Static(classes="divider")
                 with VerticalScroll(id="jobs-detail"):
                     yield Markdown(id="job-body")
             with Horizontal(id="jobs-buttons"):
@@ -54,7 +56,8 @@ class JobsScreen(ModalScreen[None]):
         self._shown = {j.name: j for j in jobs}
         options = self.query_one("#jobs-list", OptionList)
         options.clear_options()
-        options.add_options([Option(f"{j.name}\n  {summary(j).replace('`', '')}", id=j.name) for j in jobs])
+        # Only names; when it runs and the rest are in the detail next to the list.
+        options.add_options([Option(j.name, id=j.name) for j in jobs])
         # Empty: just the message, and the dialog shrinks to fit.
         self.query_one("#jobs").set_class(not jobs, "empty")
         self.query_one("#toggle").display = self.query_one("#delete").display = bool(jobs)
@@ -83,10 +86,16 @@ class JobsScreen(ModalScreen[None]):
             await self._change(lambda: self._jobs.set_enabled(job.name, not job.enabled))
 
     @on(Button.Pressed, "#delete")
+    def _delete(self) -> None:
+        if self._selected is not None:
+            self._confirm_delete(self._selected)
+
+    @work
     @reports_daemon_unavailable
-    async def _delete(self) -> None:
-        name = self._selected
-        if name is not None and await self._change(lambda: self._jobs.delete(name)):
+    async def _confirm_delete(self, name: str) -> None:
+        if not await self.app.push_screen_wait(ConfirmScreen(f"Delete the job {name}?", "Delete")):
+            return
+        if await self._change(lambda: self._jobs.delete(name)):
             self.notify(f"Deleted job {name}.")
 
     async def _change(self, action: Callable[[], Awaitable[object]]) -> bool:

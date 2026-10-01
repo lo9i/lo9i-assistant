@@ -26,6 +26,8 @@ _CHANGE_EVENTS = {
     "jobs": "jobs",
     "threads": "threads",
     "settings": "settings",
+    "conversations": "conversations",
+    "devices": "devices",
 }
 # Written every few seconds by the Telegram adapter; not worth telling clients about.
 _QUIET_KEYS = {"telegram_heartbeat"}

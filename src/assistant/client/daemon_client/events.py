@@ -11,7 +11,7 @@ _RECONNECT = ReconnectPolicy(delay_seconds=2)
 
 class EventsMixin(ChatBase):
     async def events(self) -> AsyncIterator[tuple[str, dict[str, Any]]]:
-        """(kind, data) for daemon events, for as long as the caller keeps reading. Reconnects,
-        resuming after the last event, if the daemon restarts."""
-        async for kind, data in resumable_events(self._transport, "/events", _RECONNECT):
+        """(kind, data) for daemon events from now on, for as long as the caller keeps reading.
+        Reconnects, resuming after the last event, if the daemon restarts."""
+        async for kind, data in resumable_events(self._transport, "/events", _RECONNECT, after=""):
             yield kind, json.loads(data)

@@ -9,20 +9,26 @@ from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Footer, Header, Input
 
-from assistant.client import DaemonClient, DaemonUnavailableError
+from assistant.client import DaemonClient, DaemonUnavailableError, clipboard
 from assistant.client.files import load_attachment
 from assistant.client.live import LiveConversation
 from assistant.client.recorder import Recorder, RecordingUnavailableError
 from assistant.client.recorder import available as recording_available
-from assistant.core.agent import InvalidNameError, Session
+from assistant.core.agent import ConversationError, InvalidNameError, Session
 from assistant.core.attachments import Attachment
 from assistant.gateways.cli.commands import Command, help_lines
 from assistant.gateways.cli.history import History
+from assistant.gateways.cli.preferences import Preferences
+from assistant.gateways.cli.tui.attachments import AttachmentBar
 from assistant.gateways.cli.tui.command_menu import CommandMenu
 from assistant.gateways.cli.tui.daemon_errors import reports_daemon_unavailable
+from assistant.gateways.cli.tui.history import show_history
 from assistant.gateways.cli.tui.live import handlers as live_handlers
+from assistant.gateways.cli.tui.mouse import switch_mouse
 from assistant.gateways.cli.tui.screens import (
     ApprovalScreen,
+    ConversationsScreen,
+    DevicesScreen,
     EmailScreen,
     JobsScreen,
     SessionsScreen,
@@ -34,7 +40,7 @@ from assistant.gateways.cli.tui.screens import (
 from assistant.gateways.cli.tui.theme import NAME as THEME_NAME
 from assistant.gateways.cli.tui.theme import THEME
 from assistant.gateways.cli.tui.turn import TurnView
-from assistant.gateways.cli.tui.widgets import MemoryPanel, StatusLine, SystemNote, UserMessage
+from assistant.gateways.cli.tui.widgets import MemoryPanel, MouseStatus, StatusLine, SystemNote, UserMessage
 
 _PLACEHOLDER = "Message the assistant   (type / for commands)"
 _PLACEHOLDER_WITH_MIC = "Message the assistant   (type / for commands, F3 to record)"
@@ -45,41 +51,53 @@ _DEFAULT_TITLE = "lo9i assistant"
 
 class AssistantApp(App):
     CSS_PATH = "app.tcss"
+    # The / command menu covers what the palette would; its footer spot shows the mouse state.
+    ENABLE_COMMAND_PALETTE = False
     TITLE = _DEFAULT_TITLE
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding("ctrl+n", "new_thread", "New conversation"),
         # Not ctrl+b: that is the prefix key of tmux and herdr.
         Binding("f2", "toggle_memory", "Memory panel"),
         Binding("f3", "toggle_recording", "Record voice"),
+        # Priority, so it runs before the message box's own Ctrl+V, which pastes only text copied
+        # inside the app.
+        Binding("ctrl+v", "paste", "Paste", show=False, priority=True),
         Binding("ctrl+q", "quit", "Quit"),
+        Binding("escape", "stop", "Stop", show=False),
+        # Priority, so it runs before the message box's own Backspace; only when the box is empty.
+        Binding("backspace", "remove_attachment", show=False, priority=True),
         Binding("tab", "complete_command", show=False, priority=True),
         Binding("up", "arrow(-1)", show=False, priority=True),
         Binding("down", "arrow(1)", show=False, priority=True),
     ]
 
-    def __init__(self, service: DaemonClient, session: Session, history: History) -> None:
+    def __init__(self, service: DaemonClient, session: Session, history: History, preferences: Preferences) -> None:
         super().__init__()
         # Use the terminal's own background and color palette instead of Textual's theme colors.
         self.ansi_color = True
         self._service = service
-        self._live = LiveConversation(service, session)
+        self._live = LiveConversation(service, session, service.clients.own_id)
         self._history = history
-        self._attachments: list[Attachment] = []
+        self._preferences = preferences
         self._busy = False
         self._recorder = Recorder()
         # F3 is hidden when this session has no microphone (see client/recorder.py).
         self._can_record = recording_available()
+        self._can_paste = clipboard.available()
         self._commands: dict[str, Callable[[str], Awaitable[None]]] = {
             "/new": self._command_new,
+            "/conversations": self._command_conversations,
             "/attach": self._command_attach,
             "/telegram": self._command_telegram,
             "/email": self._command_email,
             "/startup": self._command_startup,
             "/skills": self._command_skills,
             "/jobs": self._command_jobs,
+            "/devices": self._command_devices,
             "/usage": self._command_usage,
             "/sessions": self._command_sessions,
             "/name": self._command_name,
+            "/mouse": self._command_mouse,
             "/help": self._command_help,
             "/quit": self._command_quit,
         }
@@ -91,8 +109,13 @@ class AssistantApp(App):
             yield MemoryPanel(id="memory")
         yield StatusLine(id="status")
         yield CommandMenu(id="command-menu")
-        yield Input(placeholder=_PLACEHOLDER_WITH_MIC if self._can_record else _PLACEHOLDER, id="prompt")
-        yield Footer()
+        # One bordered box: the attached files, then the text being typed.
+        with Horizontal(id="prompt-box"):
+            yield AttachmentBar(id="attachments")
+            yield Input(placeholder=_PLACEHOLDER_WITH_MIC if self._can_record else _PLACEHOLDER, id="prompt")
+        with Horizontal(id="footer-row"):
+            yield Footer()
+            yield MouseStatus(self._preferences.mouse)
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
@@ -120,15 +143,6 @@ class AssistantApp(App):
         if reload is not None:
             await reload()
 
-    @reports_daemon_unavailable
-    async def follow_conversation(self) -> None:
-        """Another channel started a new conversation; switch to it, like /new here does."""
-        if not await self._live.follow():
-            return
-        self.sub_title = self._live.session.thread_id
-        await self._chat.remove_children()
-        self.notify("A new conversation was started from another channel.")
-
     def _stop_showing_turn(self) -> None:
         """Stop showing the reply in progress; the daemon finishes it and tells us when it's done."""
         self.workers.cancel_group(self, "turn")
@@ -146,7 +160,7 @@ class AssistantApp(App):
         self.notify(f"Job {job['name']}: {job['status']}", severity=severity)
 
     def mirror_run(self, run: dict[str, Any]) -> None:
-        """Show a run started from another channel in this conversation as it happens."""
+        """Show a run started elsewhere in this conversation (another client or channel) as it happens."""
         if self._live.started_elsewhere(run):
             self._mirror(run)
 
@@ -158,16 +172,41 @@ class AssistantApp(App):
         await TurnView(self._chat, self._status).render(self._service.follow_run(run["run_id"]))
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
-        """F3 only when recording can work; Up and Down only in the message box (command menu or
-        history), so elsewhere they reach the focused widget as usual."""
+        """F3 only when recording can work; Esc only while a reply runs; Up, Down and Ctrl+V only
+        in the message box (command menu, history, pasting); Backspace only in an empty message box
+        with files attached. Otherwise keys reach the focused widget as usual."""
         if action == "toggle_recording":
             return self._can_record
+        if action == "stop":
+            return self._busy or self._mirroring()
+        if action == "remove_attachment":
+            return self._prompt_focused() and not self._prompt.value and bool(self._attachment_bar.pending)
+        if action == "paste":
+            return self._can_paste and self._prompt_focused()
         if action == "arrow":
-            return self.query_one("#prompt", Input).has_focus
+            return self._prompt_focused()
         return True
 
+    def _prompt_focused(self) -> bool:
+        """Whether the message box has the focus now. Not `has_focus`: the main screen keeps it
+        while a dialog is open over it, and the dialog's keys would be taken."""
+        return self.focused is self._prompt
+
+    @property
+    def _prompt(self) -> Input:
+        return self.query_one("#prompt", Input)
+
+    def _mirroring(self) -> bool:
+        return any(w.group == "mirror" and w.is_running for w in self.workers)
+
+    @reports_daemon_unavailable
+    async def action_stop(self) -> None:
+        """Stop the reply in progress, wherever it was started. The daemon ends it with Cancelled,
+        which every channel showing it displays."""
+        await self._service.cancel(self._live.session)
+
     def _menu_active(self) -> bool:
-        return self.query_one(CommandMenu).open and self.query_one("#prompt", Input).has_focus
+        return self.query_one(CommandMenu).open and self._prompt_focused()
 
     def action_arrow(self, step: int) -> None:
         """Moves the command menu's highlight while it's open; otherwise walks the history."""
@@ -219,19 +258,26 @@ class AssistantApp(App):
         command = self._commands.get(name)
         if command:
             await command(arg.strip())
-        elif text or self._attachments:
-            await self._send(text, self._take_attachments())
+        elif text or self._attachment_bar.pending:
+            await self._send_with_attachments(text)
 
-    async def _send(self, text: str, attachments: list[Attachment]) -> None:
+    async def _send_with_attachments(self, text: str) -> None:
+        """Attached files stay until the message is actually sent."""
+        if await self._send(text, self._attachment_bar.pending):
+            await self._attachment_bar.clear()
+
+    async def _send(self, text: str, attachments: list[Attachment]) -> bool:
+        """Returns False when a reply is still running, so nothing was sent."""
         if self._busy:
             self.notify("The assistant is still working on the last message.", severity="warning")
-            return
+            return False
         await self._chat.mount(UserMessage(text or _attachment_label(attachments), [a.name for a in attachments]))
         self._run_turn(text, attachments)
+        return True
 
-    def _take_attachments(self) -> list[Attachment]:
-        attachments, self._attachments = self._attachments, []
-        return attachments
+    @property
+    def _attachment_bar(self) -> AttachmentBar:
+        return self.query_one(AttachmentBar)
 
     @work(exclusive=True, group="turn")
     async def _run_turn(self, text: str, attachments: list[Attachment]) -> None:
@@ -312,14 +358,64 @@ class AssistantApp(App):
         )
         self.notify(f"Started a new conversation. {previous}")
 
+    async def _command_conversations(self, _: str) -> None:
+        screen = ConversationsScreen(self._service.conversations, self._live.session.thread_id)
+        self.push_screen(screen, self._resume)
+
+    @reports_daemon_unavailable
+    async def _resume(self, thread_id: str | None) -> None:
+        if thread_id is None or thread_id == self._live.session.thread_id:
+            return
+        still_running = self._busy
+        if still_running:
+            self._stop_showing_turn()
+        try:
+            await self._live.resume(thread_id, leave_running=still_running)
+        except ConversationError as e:
+            self.notify(str(e), severity="error")
+            return
+        self.sub_title = thread_id
+        await show_history(self._chat, await self._service.conversations.messages(thread_id))
+        self.notify("Resumed the conversation." + (" The previous reply keeps running." if still_running else ""))
+
+    async def action_paste(self) -> None:
+        """A copied file or screenshot is attached to the next message; text goes in the box."""
+        try:
+            pasted = await clipboard.paste()
+        except (clipboard.ClipboardError, FileNotFoundError) as e:
+            self.notify(str(e), severity="error")
+            return
+        if isinstance(pasted, str):
+            self.query_one("#prompt", Input).insert_text_at_cursor(pasted)
+        else:
+            await self._attachment_bar.add(pasted)
+
+    async def action_remove_attachment(self) -> None:
+        await self._attachment_bar.remove_last()
+
     async def _command_attach(self, arg: str) -> None:
         try:
             attachment = load_attachment(arg)
         except FileNotFoundError as e:
             self.notify(str(e), severity="error")
             return
-        self._attachments.append(attachment)
-        self.notify(f"Attached {attachment.name}. It goes with your next message.")
+        await self._attachment_bar.add(attachment)
+
+    async def _command_mouse(self, arg: str) -> None:
+        """/mouse toggles; /mouse on or off sets it. Saved for the next start either way."""
+        if arg not in ("", "on", "off"):
+            self.notify("Use /mouse, /mouse on or /mouse off.", severity="warning")
+            return
+        on = not self._preferences.mouse if not arg else arg == "on"
+        self._preferences.set_mouse(on)
+        status = self.query_one(MouseStatus)
+        state = "on" if on else "off"
+        if switch_mouse(self, on):
+            status.show(on)
+            self.notify(f"Mouse {state}.")
+        else:
+            status.show(status.active, pending=on)
+            self.notify(f"Mouse {state} from the next start. Restart the app to apply it.", severity="warning")
 
     async def _command_name(self, arg: str) -> None:
         if not arg:
@@ -343,6 +439,9 @@ class AssistantApp(App):
 
     async def _command_jobs(self, _: str) -> None:
         self.push_screen(JobsScreen(self._service.jobs))
+
+    async def _command_devices(self, _: str) -> None:
+        self.push_screen(DevicesScreen(self._service.devices))
 
     async def _command_usage(self, _: str) -> None:
         self.push_screen(UsageScreen(self._service.usage))

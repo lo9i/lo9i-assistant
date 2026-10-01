@@ -7,6 +7,8 @@ other API routes are grouped in one small class per part of the daemon (`client.
 
 from assistant.client.daemon_client.client import DaemonClient
 from assistant.client.daemon_client.clients import ClientsApi
+from assistant.client.daemon_client.conversations import ConversationsApi
+from assistant.client.daemon_client.devices import DevicesApi
 from assistant.client.daemon_client.email import EmailApi
 from assistant.client.daemon_client.identity import IdentityApi
 from assistant.client.daemon_client.jobs import JobsApi
@@ -18,7 +20,9 @@ from assistant.client.daemon_client.usage import UsageApi
 
 __all__ = [
     "ClientsApi",
+    "ConversationsApi",
     "DaemonClient",
+    "DevicesApi",
     "EmailApi",
     "IdentityApi",
     "JobsApi",

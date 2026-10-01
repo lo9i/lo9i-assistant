@@ -35,12 +35,13 @@ async def test_starting_a_run_is_announced_on_the_bus():
     from assistant.core.bus import EventBus
 
     bus = EventBus()
-    run = RunHub(bus).start("t1", _events(), channel="telegram", text="hi")
+    run = RunHub(bus).start("t1", _events(), channel="web", client_id="tab-1", text="hi")
     event = await anext(bus.subscribe())
     assert event.kind == "run" and event.data == {
         "run_id": run.id,
         "thread_id": "t1",
-        "channel": "telegram",
+        "channel": "web",
+        "client_id": "tab-1",
         "text": "hi",
     }
 
@@ -54,3 +55,18 @@ async def test_finishing_a_run_is_announced_with_an_excerpt():
     kinds = [await anext(events), await anext(events)]
     assert kinds[1].kind == "run_finished"
     assert kinds[1].data == {"run_id": run.id, "thread_id": "t1", "channel": "cli", "status": "ok", "reply": "ab"}
+
+
+async def test_a_cancelled_run_is_announced_as_cancelled():
+    from assistant.core.bus import EventBus
+    from assistant.core.events import Cancelled
+
+    async def stopped():
+        yield TextDelta("a")
+        yield Cancelled()
+
+    bus = EventBus()
+    RunHub(bus).start("t1", stopped(), channel="cli")
+    events = bus.subscribe()
+    finished = [await anext(events), await anext(events)][1]
+    assert finished.kind == "run_finished" and finished.data["status"] == "cancelled"

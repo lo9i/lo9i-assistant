@@ -3,7 +3,12 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from cron_descriptor import Options, get_description
+
 from assistant.core.agent import Job, RunRecord
+
+_CRON_TEXT = Options()
+_CRON_TEXT.use_24hour_time_format = True
 
 
 def summary(job: Job) -> str:
@@ -14,7 +19,14 @@ def summary(job: Job) -> str:
 def timing(job: Job) -> str:
     if job.one_time:
         return f"once at {_local(job.next_run_at, job.timezone)}"
-    return f"`{job.schedule}` ({job.timezone})"
+    return f"{frequency(job.schedule)} (`{job.schedule}`, {job.timezone})"
+
+
+def frequency(schedule: str) -> str:
+    """The cron schedule in words: "Every 15 minutes", "At 08:30, Monday through Friday"."""
+    text = get_description(schedule, _CRON_TEXT)
+    # A daily schedule reads "At 09:00", which doesn't say how often.
+    return f"{text}, every day" if schedule.split()[2:] == ["*", "*", "*"] and text.startswith("At ") else text
 
 
 def state(job: Job) -> str:

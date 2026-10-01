@@ -40,12 +40,13 @@ async def test_bash_runs_in_the_workspace_without_app_secrets(service, script, m
     assert str(isolated_settings / "workspace") in output and output.strip().endswith("0")
 
 
-async def test_one_conversation_is_shared_by_every_channel(service):
+async def test_each_channel_keeps_its_own_conversation(service):
     cli = await service.session("u", "cli")
     telegram = await service.session("u", "telegram")
-    assert cli.thread_id == telegram.thread_id
-    new = await service.new_thread("u")
-    assert (await service.session("u", "web")).thread_id == new != cli.thread_id
+    assert cli.thread_id != telegram.thread_id
+    new = await service.new_channel_thread("u", "telegram")
+    assert (await service.session("u", "telegram")).thread_id == new
+    assert (await service.session("u", "cli")).thread_id == cli.thread_id
 
 
 async def test_every_user_message_starts_with_a_turn_header(service, script):

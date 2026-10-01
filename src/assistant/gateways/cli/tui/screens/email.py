@@ -1,4 +1,8 @@
-"""Connect email (SMTP) without leaving the app, and choose who the agent may email without asking."""
+"""Connect email (SMTP) without leaving the app, and choose who the agent may email without asking.
+
+The user picks their provider, so only the address and the password are typed; "Other" asks for
+the server too.
+"""
 
 from typing import ClassVar
 
@@ -7,24 +11,30 @@ from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, Input, Markdown
+from textual.widgets import Button, Input, Markdown, Select
 
 from assistant.client.daemon_client import EmailApi
-from assistant.core.agent import EmailError, EmailStatus
+from assistant.core.agent import EmailError, EmailProvider, EmailStatus
 from assistant.gateways.cli.tui.daemon_errors import reports_daemon_unavailable
 
 _INTRO = """## Connect email
 
-Sending uses your mail provider's SMTP server. For Gmail: host `smtp.gmail.com`, port `587`,
-your address as user, and an **app password** (Google Account → Security → App passwords)."""
+Choose your mail provider. The assistant sends from your account through the provider's SMTP
+server."""
 
-_FIELDS = [
-    ("email-host", "SMTP host, e.g. smtp.gmail.com", False),
-    ("email-port", "Port (587, or 465)", False),
-    ("email-user", "User name (usually your address)", False),
-    ("email-password", "Password or app password", True),
-    ("email-sender", "Send as (your address)", False),
-]
+_OTHER = "other"
+# id: (placeholder, secret)
+_FIELDS = {
+    "email-address": ("Your email address", False),
+    "email-host": ("SMTP host", False),
+    "email-port": ("Port (587, or 465)", False),
+    "email-user": ("User name (usually your address)", False),
+    "email-password": ("App password", True),
+    "email-sender": ("Send as (your address)", False),
+}
+_PRESET_FIELDS = {"email-address", "email-password"}
+_OTHER_FIELDS = {"email-host", "email-port", "email-user", "email-password", "email-sender"}
+_OTHER_HELP = "Most providers need an **app password** here, not your account password."
 
 
 class EmailScreen(ModalScreen[None]):
@@ -34,11 +44,15 @@ class EmailScreen(ModalScreen[None]):
         super().__init__()
         self._email = email
         self._message = ""
+        self._providers: dict[str, EmailProvider] = {}
+        self._choice: str | None = None
 
     def compose(self) -> ComposeResult:
         with Vertical(id="email"):
             yield Markdown(id="email-body")
-            for field_id, placeholder, secret in _FIELDS:
+            yield Select[str]([], prompt="Choose your provider", id="email-provider")
+            yield Markdown(id="email-help")
+            for field_id, (placeholder, secret) in _FIELDS.items():
                 yield Input(placeholder=placeholder, password=secret, id=field_id)
             yield Input(placeholder="Allowed recipients, comma-separated (you are always allowed)", id="email-allowed")
             with Horizontal(id="email-buttons"):
@@ -49,11 +63,22 @@ class EmailScreen(ModalScreen[None]):
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
+        providers = await self._email.providers()
+        self._providers = {p.id: p for p in providers}
+        options = [(p.name, p.id) for p in providers] + [("Other (enter the server yourself)", _OTHER)]
+        self.query_one("#email-provider", Select).set_options(options)
         await self._refresh(await self._email.status())
 
     @reports_daemon_unavailable
     async def reload(self) -> None:
         """Called when the daemon reports a settings change."""
+        await self._refresh(await self._email.status())
+
+    @on(Select.Changed, "#email-provider")
+    @reports_daemon_unavailable
+    async def _choose(self, event: Select.Changed) -> None:
+        self._choice = event.value if isinstance(event.value, str) else None
+        self._message = ""
         await self._refresh(await self._email.status())
 
     @on(Button.Pressed, "#close")
@@ -63,15 +88,8 @@ class EmailScreen(ModalScreen[None]):
     @on(Button.Pressed, "#connect")
     @reports_daemon_unavailable
     async def _connect(self) -> None:
-        values = {field_id: self.query_one(f"#{field_id}", Input).value.strip() for field_id, _, _ in _FIELDS}
         try:
-            status = await self._email.connect(
-                values["email-host"],
-                int(values["email-port"] or 587),
-                values["email-user"],
-                values["email-password"],
-                values["email-sender"],
-            )
+            status = await self._email.connect(*self._settings())
             self._message = "Connected ✓ The login worked."
         except (EmailError, ValueError) as e:
             self._message = f"**{e}**"
@@ -91,17 +109,44 @@ class EmailScreen(ModalScreen[None]):
         self._message = ""
         await self._refresh(await self._email.status())
 
+    def _settings(self) -> tuple[str, int, str, str, str]:
+        """host, port, user, password, sender. A provider's user and sender are the address."""
+        value = {field_id: self.query_one(f"#{field_id}", Input).value.strip() for field_id in _FIELDS}
+        provider = self._providers.get(self._choice or "")
+        if provider is not None:
+            address = value["email-address"]
+            return provider.host, provider.port, address, value["email-password"], address
+        port = int(value["email-port"] or 587)
+        return value["email-host"], port, value["email-user"], value["email-password"], value["email-sender"]
+
     async def _refresh(self, status: EmailStatus) -> None:
         """Set up the form first and the text last, so once the text shows the new state the
         fields are ready and nothing overwrites what the user types next."""
-        for field_id, _, _ in _FIELDS:
-            self.query_one(f"#{field_id}").display = not status.connected
-        self.query_one("#connect").display = not status.connected
-        self.query_one("#email-allowed").display = status.connected
-        self.query_one("#recipients").display = status.connected
-        self.query_one("#disconnect").display = status.connected
+        shown = _form_fields(self._choice, self._providers) if not status.connected else set()
+        for field_id in _FIELDS:
+            self.query_one(f"#{field_id}").display = field_id in shown
+        self.query_one("#email-provider").display = not status.connected
+        self.query_one("#email-help").display = not status.connected and self._choice is not None
+        self.query_one("#connect").display = bool(shown)
+        for widget_id in ("#email-allowed", "#recipients", "#disconnect"):
+            self.query_one(widget_id).display = status.connected
         self.query_one("#email-allowed", Input).value = ", ".join(status.allowed_recipients)
+        await self.query_one("#email-help", Markdown).update(_help(self._providers.get(self._choice or "")))
         await self.query_one("#email-body", Markdown).update(_describe(status, self._message))
+
+
+def _form_fields(choice: str | None, providers: dict[str, EmailProvider]) -> set[str]:
+    if choice == _OTHER:
+        return _OTHER_FIELDS
+    provider = providers.get(choice or "")
+    return _PRESET_FIELDS if provider is not None and provider.supported else set()
+
+
+def _help(provider: EmailProvider | None) -> str:
+    if provider is None:
+        return _OTHER_HELP
+    link = f"\n\nCreate it at {provider.password_url}" if provider.password_url else ""
+    return provider.password_help + link
 
 
 def _describe(status: EmailStatus, message: str) -> str:

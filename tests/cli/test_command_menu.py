@@ -14,7 +14,7 @@ async def test_menu_filters_moves_and_completes(app):
         await pilot.press("up")
         assert menu.highlighted.name == COMMANDS[-1].name  # wraps
         await pilot.press("down", "down", "tab")
-        assert prompt.value == "/attach "
+        assert prompt.value == "/conversations"
         prompt.value = ""
         await pilot.press("/", "t")
         assert [c.name for c in menu._matches] == ["/telegram"]

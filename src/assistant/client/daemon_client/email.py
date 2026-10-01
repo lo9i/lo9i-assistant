@@ -1,5 +1,5 @@
 from assistant.client.daemon_client.transport import Transport
-from assistant.core.agent import EmailError, EmailStatus
+from assistant.core.agent import EmailError, EmailProvider, EmailStatus
 
 _PATH = "/integrations/email"
 
@@ -9,6 +9,10 @@ class EmailApi:
 
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
+
+    async def providers(self) -> list[EmailProvider]:
+        """Mail providers to pick from, so only the address and the password are typed."""
+        return [EmailProvider(**p) for p in await self._transport.request("GET", f"{_PATH}/providers")]
 
     async def status(self) -> EmailStatus:
         return EmailStatus(**await self._transport.request("GET", _PATH))

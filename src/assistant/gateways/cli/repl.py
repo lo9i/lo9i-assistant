@@ -9,6 +9,7 @@ from assistant.core.agent import InvalidNameError, InvalidTokenError, Session
 from assistant.core.attachments import Attachment
 from assistant.core.events import ApprovalRequired
 from assistant.gateways.cli.commands import help_lines
+from assistant.gateways.cli.conversations_text import when
 from assistant.gateways.cli.jobs_text import summary as jobs_summary
 from assistant.gateways.cli.render import render
 from assistant.gateways.cli.sessions_text import describe as describe_sessions
@@ -29,6 +30,7 @@ class Repl:
         self._commands: dict[str, Callable[[str], Awaitable[None]]] = {
             "/help": self._help,
             "/new": self._new,
+            "/conversations": self._conversations,
             "/attach": self._attach,
             "/telegram": self._telegram,
             "/email": self._email,
@@ -74,6 +76,21 @@ class Repl:
     async def _new(self, _: str) -> None:
         self._session.thread_id = await self._service.new_thread(self._session.user_id)
         print(f"New thread {self._session.thread_id}.")
+
+    async def _conversations(self, arg: str) -> None:
+        """/conversations lists them, numbered; /conversations <number> resumes one."""
+        items = await self._service.conversations.recent()
+        if not arg.isdigit():
+            lines = [f"{i}. {c.title} ({when(c)})" for i, c in enumerate(items, 1)]
+            print("\n".join(lines) or "No earlier conversations yet.")
+            return
+        index = int(arg) - 1
+        if not 0 <= index < len(items):
+            print("No conversation with that number.")
+            return
+        await self._service.resume_thread(self._session.user_id, items[index].thread_id)
+        self._session.thread_id = items[index].thread_id
+        print(f"Resumed: {items[index].title}")
 
     async def _skills(self, _: str) -> None:
         skills = await self._service.skills.list()

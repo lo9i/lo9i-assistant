@@ -17,7 +17,6 @@ async def test_tool_and_skill_usage_is_recorded(service, script, isolated_settin
         "done"
     )
     await collect(service.send(await service.session("u", "cli"), "go"))
-    await service.new_thread("u")
     script.call("bash", command="rm -rf build").reply("could not")
     await collect(service.send(await service.session("u", "worker"), "clean up"))
 

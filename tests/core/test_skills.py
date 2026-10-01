@@ -14,7 +14,7 @@ async def test_save_use_list_and_delete_a_skill(service, script, isolated_settin
     prompt = await build_system_prompt(service.store, "u", "", "")
     assert "- news-digest: Daily news summary" in prompt
     store.delete("news-digest")
-    assert store.list_skills() == []
+    assert [s.name for s in store.list_skills()] == [store.SETUP]
 
 
 def test_invalid_names_are_refused(isolated_settings, monkeypatch):
@@ -23,3 +23,26 @@ def test_invalid_names_are_refused(isolated_settings, monkeypatch):
 
     with pytest.raises(store.SkillError):
         store.save("Bad Name!", "d", "i")
+
+
+def test_the_setup_skill_is_built_in_and_covers_every_setup_command(isolated_settings, monkeypatch):
+    import pytest
+
+    from assistant.gateways.cli.commands import COMMANDS
+
+    monkeypatch.setattr("assistant.core.config.settings.skills_dir", str(isolated_settings / "skills"))
+    setup = store.load(store.SETUP)
+    assert "Settings → Integrations → Email" in setup.instructions
+    # Every command that sets something up must be explained in it, so it can't fall behind.
+    for command in ("/email", "/telegram", "/startup", "/name", "/devices"):
+        assert command in {c.name for c in COMMANDS} and f"`{command}" in setup.instructions
+    for change in (lambda: store.save(store.SETUP, "d", "i"), lambda: store.delete(store.SETUP)):
+        with pytest.raises(store.SkillError, match="built into"):
+            change()
+
+
+async def test_send_email_points_to_the_setup_skill_when_email_isnt_set_up(service, script):
+    script.call("send_email", to=["me@example.com"], subject="Hi", body="Hi").reply("ok")
+    events = await collect(service.send(await service.session("u", "web"), "email me hi"))
+    output = next(e.output for e in events if hasattr(e, "output"))
+    assert f"Load the {store.SETUP} skill" in output

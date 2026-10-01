@@ -6,8 +6,10 @@ from typing import Any
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 
+from assistant.core.agent.conversations import ConversationsMixin
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
+from assistant.core.agent.titles import TitlesMixin
 from assistant.core.attachments import Attachment, Block, to_content
 from assistant.core.conversation.turn_header import header_block
 from assistant.core.events import Error, Event, Transcribed
@@ -15,7 +17,7 @@ from assistant.core.speech.transcriber import TranscriptionError
 from assistant.core.speech.voice import is_voice, transcribe_voice
 
 
-class MessagingMixin(RunsMixin):
+class MessagingMixin(RunsMixin, ConversationsMixin, TitlesMixin):
     """Public entry points for sending a message and answering approvals."""
 
     async def send(self, session: Session, text: str, attachments: Sequence[Attachment] = ()) -> AsyncIterator[Event]:
@@ -28,13 +30,20 @@ class MessagingMixin(RunsMixin):
             return
         for transcript in transcripts:
             yield Transcribed(transcript.text, transcript.language)
+        await self._note_activity(session, _title_text(text, [t.text for t in transcripts], attachments))
         async for event in self._run(session, {"messages": [_message(session, [*voice_blocks, *content])]}):
             yield event
+        self._title_in_background(session)
 
     async def resume(self, session: Session, decisions: dict[str, dict[str, Any]]) -> AsyncIterator[Event]:
         """Answer pending approvals. `decisions` maps interrupt id to {"approved": bool, "reason": str}."""
         async for event in self._run(session, Command(resume=decisions)):
             yield event
+
+
+def _title_text(text: str, transcripts: list[str], attachments: Sequence[Attachment]) -> str:
+    """What a new conversation is titled after: the text, else what was said, else the files."""
+    return text or " ".join(transcripts) or ", ".join(a.name for a in attachments)
 
 
 def _message(session: Session, content: list[Block]) -> HumanMessage:

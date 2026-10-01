@@ -9,6 +9,7 @@ from typing import Any
 
 from assistant.core.events import (
     ApprovalRequired,
+    Cancelled,
     Done,
     Error,
     Event,
@@ -59,6 +60,8 @@ class TelegramTurn:
                 await self._chat.send(f"🎤 I heard ({language}): {text or '(no speech)'}")
             case Error(message):
                 await self._chat.send(f"⚠️ {message}")
+            case Cancelled():
+                await self._chat.send("⏹ Stopped.")
             case Done():
                 pass
 

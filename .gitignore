@@ -11,3 +11,8 @@ wheels/
 .env
 workspace/
 .idea/
+
+# Web UI
+web/node_modules/
+src/assistant/daemon/webui/
+web/.svelte-kit/

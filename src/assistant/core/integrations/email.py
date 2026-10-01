@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass, field
 from email.message import EmailMessage
 
 import aiosmtplib
+import certifi
 from langgraph.store.base import BaseStore
 
 _NAMESPACE = ("integrations",)
@@ -71,6 +72,15 @@ async def send(config: EmailConfig, to: list[str], subject: str, body: str) -> N
 
 
 def _connection(config: EmailConfig) -> dict:
-    # Port 465 uses TLS from the start; other ports (587) upgrade with STARTTLS.
+    # Port 465 uses TLS from the start; other ports (587) upgrade with STARTTLS. Certificates are
+    # checked against certifi's authorities, as httpx does: Python from python.org doesn't use the
+    # macOS keychain, and has none of its own until "Install Certificates.command" is run.
     tls = config.port == 465
-    return {"hostname": config.host, "port": config.port, "use_tls": tls, "start_tls": not tls, "timeout": _TIMEOUT}
+    return {
+        "hostname": config.host,
+        "port": config.port,
+        "use_tls": tls,
+        "start_tls": not tls,
+        "timeout": _TIMEOUT,
+        "cert_bundle": certifi.where(),
+    }

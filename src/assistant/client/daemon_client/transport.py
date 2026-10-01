@@ -42,5 +42,6 @@ class Transport:
         return response.json()
 
     def stream(self, path: str, last_event_id: str) -> AbstractAsyncContextManager[httpx.Response]:
-        """A Server-Sent Events response, resuming after `last_event_id`."""
-        return self._http.stream("GET", path, headers={"Last-Event-ID": last_event_id})
+        """A Server-Sent Events response, resuming after `last_event_id` ("" to start fresh)."""
+        headers = {"Last-Event-ID": last_event_id} if last_event_id else {}
+        return self._http.stream("GET", path, headers=headers)

@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from assistant.core import observability
 from assistant.core.agent.archive import ArchiveMixin
+from assistant.core.agent.devices import DevicesMixin
 from assistant.core.agent.email import EmailMixin
 from assistant.core.agent.identity import IdentityMixin
 from assistant.core.agent.jobs import JobsMixin
@@ -19,6 +20,7 @@ from assistant.core.agent.usage import UsageMixin
 from assistant.core.bus import EventBus
 from assistant.core.config import settings
 from assistant.core.conversation.digest import build_digester
+from assistant.core.conversation.titles import build_titler
 from assistant.core.graph import build_graph
 from assistant.core.outbox import Outbox
 from assistant.core.speech.whisper import FasterWhisperTranscriber
@@ -31,6 +33,7 @@ class AssistantService(
     MemoryMixin,
     TelegramMixin,
     EmailMixin,
+    DevicesMixin,
     IdentityMixin,
     SkillsMixin,
     JobsMixin,
@@ -44,10 +47,13 @@ class AssistantService(
         self.bus = bus
         self.outbox = Outbox()
         self._digester = build_digester(settings.worker_model)
+        self._titler = build_titler(settings.worker_model)
         self._graph = build_graph(storage, model, self._digester)
         self._background = set()
+        self._conversations_lock = asyncio.Lock()
         self._transcriber = FasterWhisperTranscriber()
         self._thread_locks = defaultdict(asyncio.Lock)
+        self._active_runs = {}
 
     @property
     def store(self):

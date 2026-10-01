@@ -1,4 +1,7 @@
 import asyncio
+import contextlib
+import os
+import signal
 from pathlib import Path
 
 from langchain_core.tools import tool
@@ -54,14 +57,24 @@ async def _run(command: str) -> str:
         env={"PATH": _SAFE_PATH, "HOME": str(workspace), "LANG": "C.UTF-8"},
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
+        # Its own process group, so stopping it also stops the commands it started.
+        start_new_session=True,
     )
     try:
         stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=settings.bash_timeout)
     except TimeoutError:
-        proc.kill()
-        await proc.wait()
+        await _kill(proc)
         return f"Timed out after {settings.bash_timeout}s."
+    except asyncio.CancelledError:
+        await _kill(proc)
+        raise
     return f"exit code: {proc.returncode}\n{_truncate(stdout.decode(errors='replace'))}"
+
+
+async def _kill(proc: asyncio.subprocess.Process) -> None:
+    with contextlib.suppress(ProcessLookupError):
+        os.killpg(proc.pid, signal.SIGKILL)
+    await proc.wait()
 
 
 def _truncate(output: str) -> str:

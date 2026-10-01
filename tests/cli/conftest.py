@@ -7,6 +7,10 @@ import pytest
 
 import assistant.gateways.cli.tui.app as app_module
 from assistant.core.agent import (
+    Conversation,
+    ConversationError,
+    Device,
+    DeviceError,
     EmailError,
     EmailStatus,
     InvalidNameError,
@@ -14,8 +18,10 @@ from assistant.core.agent import (
     Job,
     JobError,
     MemorySnapshot,
+    PairingCode,
     RunRecord,
     Session,
+    ShownMessage,
     Skill,
     SkillError,
     TelegramStatus,
@@ -23,8 +29,10 @@ from assistant.core.agent import (
 )
 from assistant.core.agent.skills import SkillSummary
 from assistant.core.events import ApprovalRequired, Done, TextDelta, ToolFinished, ToolStarted, Transcribed
+from assistant.core.integrations.email_providers import PROVIDERS
 from assistant.core.usage.log import ToolUsage
 from assistant.gateways.cli.history import History
+from assistant.gateways.cli.preferences import Preferences
 from assistant.protocol import ConnectedClient, StartupError, StartupStatus
 
 _NEXT = "2030-01-01T09:00:00+00:00"
@@ -93,11 +101,16 @@ class FakeTelegram:
 class FakeEmail:
     def __init__(self):
         self.state = EmailStatus(False, "", 587, "", "", [])
+        self.connected_with = None
+
+    async def providers(self):
+        return list(PROVIDERS)
 
     async def status(self):
         return self.state
 
     async def connect(self, host, port, username, password, sender):
+        self.connected_with = (host, port, username, password, sender)
         if password != "right":
             raise EmailError("Couldn't log in: bad password")
         self.state = EmailStatus(True, host, port, username, sender, [])
@@ -165,6 +178,36 @@ class FakeIdentity:
         return self.current
 
 
+class FakeConversations:
+    def __init__(self):
+        self.items = [Conversation("owner:abc", "plan my trip", _NEXT, _NEXT)]
+        self.said = {"owner:abc": [ShownMessage("user", "plan my trip"), ShownMessage("assistant", "Rome it is.")]}
+
+    async def recent(self):
+        return list(self.items)
+
+    async def messages(self, thread_id):
+        return self.said.get(thread_id, [])
+
+
+class FakeDevices:
+    def __init__(self):
+        self.items = [Device("d1", "Laptop", "2026-09-01T09:00:00+00:00", "2026-09-30T09:00:00+00:00", "203.0.113.7")]
+        self.codes = 0
+
+    async def list(self):
+        return list(self.items)
+
+    async def open_pairing(self):
+        self.codes += 1
+        return PairingCode("K7QM-2XPD", "2030-01-01T09:10:00+00:00")
+
+    async def revoke(self, device_id):
+        if device_id not in {d.id for d in self.items}:
+            raise DeviceError(f"No device {device_id}.")
+        self.items = [d for d in self.items if d.id != device_id]
+
+
 class FakeClients:
     own_id = "me"
 
@@ -179,7 +222,7 @@ class FakeClient:
     """DaemonClient's shape: the conversation on the client, everything else in groups."""
 
     def __init__(self):
-        self.sent, self.decisions = [], None
+        self.sent, self.decisions, self.cancelled = [], None, []
         self.bus = asyncio.Queue()
         self.runs = {}
         self.active_thread = "owner:abc"
@@ -192,6 +235,8 @@ class FakeClient:
         self.email = FakeEmail()
         self.system = FakeSystem()
         self.clients = FakeClients()
+        self.conversations = FakeConversations()
+        self.devices = FakeDevices()
 
     async def send(self, session, text, attachments=()):
         self.sent.append((text, [(a.name, a.media_type) for a in attachments]))
@@ -214,8 +259,14 @@ class FakeClient:
     async def new_thread(self, user_id):
         return "owner:new"
 
-    async def session(self, user_id, channel):
-        return Session(user_id, channel, self.active_thread)
+    async def cancel(self, session):
+        self.cancelled.append(session.thread_id)
+        return True
+
+    async def resume_thread(self, user_id, thread_id):
+        if thread_id not in {c.thread_id for c in self.conversations.items}:
+            raise ConversationError(f"No conversation {thread_id}.")
+        self.active_thread = thread_id
 
     async def events(self):
         while True:
@@ -234,7 +285,8 @@ def client():
 def app(client, monkeypatch, tmp_path):
     monkeypatch.setattr(app_module, "recording_available", lambda: False)
     history = History(tmp_path / "cli_history", limit=100)
-    return app_module.AssistantApp(client, Session("owner", "cli", "owner:abc"), history)
+    preferences = Preferences(tmp_path / "cli_preferences.json")
+    return app_module.AssistantApp(client, Session("owner", "cli", "owner:abc"), history, preferences)
 
 
 async def wait_for(pilot, condition, seconds=5.0):
