@@ -1,0 +1,46 @@
+"""Serves the web UI, a single-page app built from `web/` into this package, at /app/. The page is
+served from the API's own origin, so its requests need no CORS and carry the client header like
+any other client's."""
+
+from pathlib import Path
+
+from fastapi import FastAPI
+from fastapi.responses import PlainTextResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException
+from starlette.responses import Response
+from starlette.types import Scope
+
+PREFIX = "/app"
+# Where `npm run build` in web/ writes the page.
+BUILD_DIR = Path(__file__).parent / "webui"
+
+
+def add_web_ui(app: FastAPI, directory: Path) -> None:
+    if (directory / "index.html").is_file():
+        app.mount(PREFIX, _SinglePageApp(directory=directory, html=True), name="web-ui")
+    else:
+        _add_not_built(app)
+
+
+def is_web_ui(path: str) -> bool:
+    return path == PREFIX or path.startswith(f"{PREFIX}/")
+
+
+class _SinglePageApp(StaticFiles):
+    """Answers paths that aren't files (the page's own routes, like /app/jobs) with index.html, so
+    reloading a page or opening a link to it works."""
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        try:
+            return await super().get_response(path, scope)
+        except HTTPException as e:
+            if e.status_code != 404:
+                raise
+            return await super().get_response("index.html", scope)
+
+
+def _add_not_built(app: FastAPI) -> None:
+    @app.get(PREFIX + "/{path:path}", include_in_schema=False)
+    async def not_built(path: str) -> PlainTextResponse:
+        return PlainTextResponse("The web UI isn't built. scripts/run.sh builds it.", status_code=404)

@@ -59,3 +59,14 @@ stop_daemon() {
   echo "The daemon didn't stop in time; killing it." >&2
   pkill -9 -f -- "-m assistant.daemon" || true
 }
+
+# Builds the web UI into the daemon package (src/assistant/daemon/webui), which serves it at /app/.
+# Without npm the build is skipped and /app/ says the page isn't built; the CLI still works.
+build_web_ui() {
+  if ! command -v npm >/dev/null; then
+    echo "npm isn't installed; skipping the web UI build." >&2
+    return
+  fi
+  npm --prefix web install --no-audit --no-fund --silent
+  npm --prefix web run build --silent >/dev/null
+}

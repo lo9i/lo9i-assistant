@@ -9,6 +9,7 @@ from assistant.client.daemon_client import DaemonClient
 from assistant.core.agent import Job, JobError
 from assistant.core.jobs import store
 from assistant.daemon.api import create_app
+from assistant.daemon.auth import trusted
 from assistant.daemon.runs import RunHub
 from assistant.protocol import CLIENT_HEADER
 
@@ -17,8 +18,10 @@ _LONG_AGO = "2020-01-01T09:00:00+00:00"
 
 @pytest.fixture
 async def client(service):
-    transport = httpx.ASGITransport(app=create_app(service, RunHub()))
-    async with httpx.AsyncClient(transport=transport, base_url="http://lo9i", headers={CLIENT_HEADER: "t"}) as http:
+    transport = httpx.ASGITransport(app=trusted(create_app(service, RunHub())))
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}
+    ) as http:
         yield DaemonClient(http)
 
 

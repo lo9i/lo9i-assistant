@@ -1,0 +1,38 @@
+<script lang="ts">
+  import { COMMANDS } from "$lib/chat/commands";
+  import Modal from "../Modal.svelte";
+
+  let { onclose }: { onclose: () => void } = $props();
+
+  const KEYS = [
+    ["Enter", "Send"],
+    ["Shift+Enter", "New line"],
+    ["Esc", "Stop the reply"],
+    ["Tab", "Complete a command"],
+    ["⌘B", "Collapse the sidebar"],
+    ["Paste", "Attach a copied screenshot or image"],
+  ];
+</script>
+
+<Modal title="Commands and keys" width={580} {onclose}>
+  <table class="help">
+    <tbody>
+      {#each COMMANDS as c (c.name)}
+        <tr><td><code>{c.usage}</code></td><td>{c.description}</td></tr>
+      {/each}
+      {#each KEYS as [key, what] (key)}
+        <tr><td><kbd>{key}</kbd></td><td>{what}</td></tr>
+      {/each}
+    </tbody>
+  </table>
+</Modal>
+
+<style>
+  .help td {
+    padding: 5px 16px 5px 0;
+    vertical-align: top;
+  }
+  .help td:last-child {
+    color: var(--color-text-muted);
+  }
+</style>

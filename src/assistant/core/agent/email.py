@@ -5,8 +5,9 @@ from dataclasses import dataclass
 from assistant.core.agent.base import ServiceBase
 from assistant.core.integrations import email
 from assistant.core.integrations.email import EmailConfig, EmailError
+from assistant.core.integrations.email_providers import PROVIDERS, EmailProvider
 
-__all__ = ["EmailError", "EmailMixin", "EmailStatus"]
+__all__ = ["EmailError", "EmailMixin", "EmailProvider", "EmailStatus"]
 
 
 @dataclass
@@ -20,6 +21,10 @@ class EmailStatus:
 
 
 class EmailMixin(ServiceBase):
+    def email_providers(self) -> list[EmailProvider]:
+        """Providers clients offer to pick from, in display order."""
+        return list(PROVIDERS)
+
     async def email_status(self) -> EmailStatus:
         return _status(await email.load(self._storage.store))
 

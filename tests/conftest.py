@@ -1,6 +1,7 @@
 """Shared fixtures. Every test runs on temporary data paths with a scripted fake model, so the
 suite never touches ~/.lo9i, never calls a real model, and runs offline (except `-m live`)."""
 
+import asyncio
 from collections import deque
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
@@ -113,11 +114,42 @@ def digests(monkeypatch: pytest.MonkeyPatch) -> Digests:
     return digests
 
 
+class Titles:
+    """A fake titler: records what it was given and returns `title`, or raises `error`."""
+
+    def __init__(self) -> None:
+        self.inputs: list[str] = []
+        self.title = "Trip to Rome"
+        self.error: Exception | None = None
+
+    async def __call__(self, conversation: str) -> str:
+        self.inputs.append(conversation)
+        if self.error is not None:
+            raise self.error
+        return self.title
+
+
 @pytest.fixture
-async def service(script: Script, digests: Digests) -> AsyncIterator[AssistantService]:
+def titles(monkeypatch: pytest.MonkeyPatch) -> Titles:
+    titles = Titles()
+    monkeypatch.setattr(service_module, "build_titler", lambda model: titles)
+    return titles
+
+
+@pytest.fixture
+async def service(script: Script, digests: Digests, titles: Titles) -> AsyncIterator[AssistantService]:
     async with AssistantService.open() as svc:
         yield svc
 
 
 async def collect(events: AsyncIterator[Any]) -> list[Any]:
     return [e async for e in events]
+
+
+async def written(path: Path) -> str:
+    """The file's text, once a background command has written it."""
+    for _ in range(200):
+        if path.exists() and path.read_text().strip():
+            return path.read_text().strip()
+        await asyncio.sleep(0.05)
+    raise TimeoutError(f"{path} was never written")

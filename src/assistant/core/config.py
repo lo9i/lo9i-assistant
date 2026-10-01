@@ -12,6 +12,15 @@ class Settings(BaseSettings):
     # The daemon listens on this Unix socket and on 127.0.0.1:DAEMON_PORT.
     daemon_socket: str = "~/.lo9i/daemon.sock"
     daemon_port: int = 8765
+    # Browsers on other hosts: HTTPS on HTTPS_BIND:HTTPS_PORT with this certificate and key, for
+    # the name HTTPS_HOST (e.g. assistant.example.com). Off while HTTPS_PORT is 0. Every network
+    # request, this one or the localhost port, needs a paired device (/devices); only the Unix
+    # socket doesn't.
+    https_port: int = 0
+    https_bind: str = "0.0.0.0"
+    https_host: str = ""
+    https_cert: str = ""
+    https_key: str = ""
 
     # Model settings. MODEL and WORKER_MODEL must be ids from the chosen provider.
     # The worker gets its own model so it can run cheaper.
@@ -81,6 +90,8 @@ class Settings(BaseSettings):
     # What the user typed in the terminal app, for Up and Down.
     cli_history_path: str = "~/.lo9i/cli_history"
     cli_history_limit: int = 1000
+    # Preferences changed from inside the terminal app, such as /mouse. Kept by the client.
+    cli_preferences_path: str = "~/.lo9i/cli_preferences.json"
     # Uploaded attachments. Shared by every process (a Docker volume in compose).
     uploads_dir: str = "~/.lo9i/uploads"
     bash_timeout: int = 120

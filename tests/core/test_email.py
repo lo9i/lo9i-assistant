@@ -1,5 +1,6 @@
 """Email settings and send_email: allowlisted recipients go straight out, others need approval."""
 
+import certifi
 import pytest
 
 import assistant.core.integrations.email as email
@@ -51,7 +52,6 @@ async def test_other_recipients_need_approval_and_are_denied_unattended(service,
     events = await collect(service.send(await service.session("u", "cli"), "email them"))
     assert any(isinstance(e, ApprovalRequired) and "stranger@x.com" in e.request["reason"] for e in events)
     script.call("send_email", to=["stranger@x.com"], subject="S", body="b").reply("could not")
-    await service.new_thread("u")
     events = await collect(service.send(await service.session("u", "worker"), "email them"))
     assert events[1].output.startswith(UNATTENDED_DENIAL) and smtp == []
 
@@ -60,3 +60,8 @@ async def test_send_email_without_setup(service, script):
     script.call("send_email", to=["a@b.com"], subject="S", body="b").reply("ok")
     events = await collect(service.send(await service.session("u", "cli"), "email"))
     assert "isn't set up" in events[1].output
+
+
+def test_tls_trusts_certifis_authorities_not_pythons_defaults():
+    """Python from python.org has no certificate authorities of its own on macOS."""
+    assert email._connection(email.EmailConfig(host="smtp.gmail.com"))["cert_bundle"] == certifi.where()

@@ -16,15 +16,18 @@ class Command:
 
 COMMANDS = [
     Command("/new", "/new", "Start a new conversation"),
+    Command("/conversations", "/conversations", "Earlier conversations, to resume one"),
     Command("/attach", "/attach <path>", "Attach a file to the next message"),
     Command("/skills", "/skills", "Browse and delete skills"),
     Command("/jobs", "/jobs", "Scheduled jobs"),
     Command("/usage", "/usage", "Tool and skill usage"),
     Command("/sessions", "/sessions", "Clients connected to the daemon"),
+    Command("/devices", "/devices", "Browsers allowed in over the network"),
     Command("/telegram", "/telegram", "Connect Telegram"),
     Command("/email", "/email", "Connect email for sending"),
     Command("/startup", "/startup", "Start the assistant at boot"),
     Command("/name", "/name <name>", "Rename the assistant"),
+    Command("/mouse", "/mouse [on|off]", "Turn clicking in the app on or off"),
     Command("/help", "/help", "Show commands and keys"),
     Command("/quit", "/quit", "Exit"),
 ]

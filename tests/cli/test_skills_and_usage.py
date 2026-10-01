@@ -1,6 +1,6 @@
 from textual.widgets import Button, Markdown, OptionList
 
-from assistant.gateways.cli.tui.screens import SkillsScreen, UsageScreen
+from assistant.gateways.cli.tui.screens import ConfirmScreen, SkillsScreen, UsageScreen
 from tests.cli.conftest import wait_for
 
 
@@ -23,6 +23,13 @@ async def test_skills_screen_lists_shows_and_deletes(app, client):
         screen.query_one("#skills-list", OptionList).highlighted = 1
         await wait_for(pilot, lambda: "1. List the week" in body())
         screen.query_one("#delete", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is screen)
+        assert len(client.skills.items) == 2
+        screen.query_one("#delete", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
+        await pilot.press("y")
         await wait_for(pilot, lambda: list(client.skills.items) == ["news-digest"])
 
 

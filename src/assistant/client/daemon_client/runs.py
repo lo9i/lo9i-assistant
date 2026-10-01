@@ -31,6 +31,11 @@ class RunsMixin(ChatBase):
         async for event in self._follow(run["run_id"]):
             yield event
 
+    async def cancel(self, session: Session) -> bool:
+        """Stop the conversation's run in progress, whichever channel started it. Its events end
+        with Cancelled. Returns whether a run was in progress."""
+        return (await self._transport.request("POST", f"/threads/{session.thread_id}/cancel"))["cancelled"]
+
     def follow_run(self, run_id: str) -> AsyncIterator[Event]:
         """A run started elsewhere (another channel), from its first event."""
         return self._follow(run_id)

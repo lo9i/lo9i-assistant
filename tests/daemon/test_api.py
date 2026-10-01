@@ -1,17 +1,23 @@
 """The daemon API through DaemonClient, served in-process (no socket needed)."""
 
+import asyncio
+import json
+import os
+from pathlib import Path
+
 import httpx
 import pytest
 
 import assistant.core.integrations.telegram as integration
 from assistant.client.daemon_client import DaemonClient
-from assistant.core.agent import InvalidNameError, InvalidTokenError
+from assistant.core.agent import InvalidNameError, InvalidTokenError, Session
 from assistant.core.attachments import Attachment
-from assistant.core.events import ApprovalRequired, Done, ToolFinished
+from assistant.core.events import ApprovalRequired, Cancelled, Done, ToolFinished
 from assistant.daemon.api import create_app
+from assistant.daemon.auth import trusted
 from assistant.daemon.runs import RunHub
-from assistant.protocol import CLIENT_HEADER
-from tests.conftest import collect
+from assistant.protocol import CLIENT_HEADER, CLIENT_ID_HEADER, StartupStatus
+from tests.conftest import collect, written
 
 
 @pytest.fixture
@@ -21,22 +27,66 @@ async def app(service):
 
 @pytest.fixture
 async def client(app):
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://lo9i", headers={CLIENT_HEADER: "test"}) as http:
+    """As the terminal app: on the trusted Unix socket."""
+    transport = httpx.ASGITransport(app=trusted(app))
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://127.0.0.1", headers={CLIENT_HEADER: "test", CLIENT_ID_HEADER: "me"}
+    ) as http:
         yield DaemonClient(http)
 
 
 async def test_requests_without_the_client_header_are_refused(app):
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://lo9i") as http:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1") as http:
         assert (await http.get("/health")).status_code == 200
         response = await http.post("/threads")
         assert response.status_code == 403 and "X-Lo9i-Client" in response.text
 
 
+class _Startup:
+    def status(self) -> StartupStatus:
+        return StartupStatus(enabled=False, managed=False, includes_ollama=False)
+
+
+async def test_every_json_response_has_a_typed_schema(service):
+    """Web clients generate their types from /openapi.json, so no route may answer an untyped object."""
+    openapi = create_app(service, RunHub(), _Startup()).openapi()
+    untyped = [
+        f"{method.upper()} {path}"
+        for path, operations in openapi["paths"].items()
+        for method, operation in operations.items()
+        if not _typed(_json_schema(operation))
+    ]
+    assert untyped == []
+
+
+_WEB_SCHEMA = Path(__file__).parents[2] / "web" / "openapi.json"
+
+
+async def test_the_web_clients_schema_matches_the_routes(service):
+    """The web client's types are generated from web/openapi.json. Run with UPDATE_OPENAPI=1
+    (`npm run api` in web/) to rewrite it after changing a route."""
+    current = json.dumps(create_app(service, RunHub(), _Startup()).openapi(), indent=2) + "\n"
+    if os.environ.get("UPDATE_OPENAPI"):
+        _WEB_SCHEMA.write_text(current)
+    assert _WEB_SCHEMA.read_text() == current, "web/openapi.json is out of date: run `npm run api` in web/"
+
+
+def _json_schema(operation: dict) -> dict:
+    """The 200 response's JSON schema. Event streams aren't JSON and count as typed."""
+    content = operation["responses"]["200"]["content"]
+    return content["application/json"]["schema"] if "application/json" in content else {"$ref": "event stream"}
+
+
+def _typed(schema: dict) -> bool:
+    if schema.get("type") == "array":
+        return _typed(schema["items"])
+    return "$ref" in schema or bool(schema.get("properties"))
+
+
 async def test_send_with_attachment_approve_and_resume(client, script):
     script.call("bash", command="cat notes.txt || true").reply("read it")
     script.call("bash", command="rm -rf build").reply("left it")
-    session = await client.session("owner", "cli")
+    session = await _new_session(client)
     events = await collect(client.send(session, "read it", [Attachment("notes.txt", "text/plain", b"hi")]))
     assert isinstance(events[1], ToolFinished) and isinstance(events[-1], Done)
 
@@ -51,8 +101,7 @@ async def test_threads_memory_and_telegram(client, monkeypatch):
         raise InvalidTokenError("Telegram rejected the token: Unauthorized")
 
     monkeypatch.setattr(integration, "bot_username", bot_username)
-    new = await client.new_thread("owner")
-    assert (await client.session("owner", "telegram")).thread_id == new
+    assert await client.new_thread("owner") != await client.new_thread("owner")
     assert (await client.memory.snapshot()).facts == []
     assert await client.clients.list() == []
     assert not (await client.email.status()).connected
@@ -61,9 +110,26 @@ async def test_threads_memory_and_telegram(client, monkeypatch):
         await client.telegram.connect("bad")
 
 
+async def test_a_client_moving_on_leaves_its_conversation_to_be_archived(client, service, digests):
+    session = await _new_session(client)
+    for text in ["remember the dentist", "and I use LangGraph"]:
+        await collect(client.send(session, text))
+    await client.new_thread("owner")
+    await asyncio.gather(*service._background)
+    assert len(digests.inputs) == 1 and "LangGraph" in digests.inputs[0].transcript
+    await client.resume_thread("owner", session.thread_id)
+    await collect(client.send(session, "one more"))
+    await asyncio.gather(*service._background)
+    assert len(digests.inputs) == 1  # still on it
+
+
+async def _new_session(client: DaemonClient) -> Session:
+    return Session("owner", "cli", await client.new_thread("owner"))
+
+
 async def test_unknown_run_is_404(app):
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://lo9i", headers={CLIENT_HEADER: "t"}
+        transport=httpx.ASGITransport(app=trusted(app)), base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}
     ) as http:
         assert (await http.get("/runs/nope/events")).status_code == 404
 
@@ -76,8 +142,8 @@ async def test_skills_and_usage_endpoints(client, script, isolated_settings, mon
     monkeypatch.setattr(settings, "skills_dir", str(isolated_settings / "skills"))
     skills.save("news-digest", "Daily news", "1. Search")
     script.call("use_skill", name="news-digest").reply("done")
-    await collect(client.send(await client.session("owner", "cli"), "go"))
-    assert [s.name for s in await client.skills.list()] == ["news-digest"]
+    await collect(client.send(await _new_session(client), "go"))
+    assert [s.name for s in await client.skills.list()] == [skills.SETUP, "news-digest"]
     assert (await client.skills.get("news-digest")).instructions == "1. Search"
     report = await client.usage.report(7)
     assert report.skills[0].name == "news-digest" and report.tools[0].name == "use_skill"
@@ -92,3 +158,13 @@ async def test_rename_the_assistant(client):
     assert await client.identity.name() == "Max Power"
     with pytest.raises(InvalidNameError):
         await client.identity.rename("x" * 65)
+
+
+async def test_cancel_stops_the_conversations_run(client, script, tmp_path):
+    script.call("bash", command="echo started > mark; sleep 30")
+    session = await _new_session(client)
+    run = asyncio.create_task(collect(client.send(session, "wait")))
+    await written(tmp_path / "workspace" / "mark")
+    assert await client.cancel(session)
+    assert isinstance((await asyncio.wait_for(run, 10))[-1], Cancelled)
+    assert not await client.cancel(session)

@@ -17,7 +17,7 @@ src/assistant/
     jobs/        scheduled jobs (cron) and their records
     speech/      speech to text (faster-whisper); voice audio saved under uploads/audio
     web/         web search (public engines via ddgs, or the Brave API), page fetching and rendering, URL safety, caching
-  daemon/        HTTP API (Unix socket + localhost), run hub (SSE events), adapter supervisor, scheduler, launchd
+  daemon/        HTTP API (Unix socket, localhost, HTTPS), device auth, run hub (SSE events), adapter supervisor, scheduler, launchd
   client/        connection.py (connect, auto-starts the daemon), sse.py, errors.py (DaemonUnavailableError),
                  live.py (LiveConversation), files.py (attach by path), recorder.py (microphone)
     daemon_client/ DaemonClient: the conversation as mixins; every other area as a group (`client.telegram`, `client.email`, ...);
@@ -32,7 +32,8 @@ src/assistant/
 - Dependencies point one way: clients -> daemon API -> `core.agent` -> graph -> tools. Core never imports from the daemon, clients or gateways.
 - Adapters (Telegram) run inside the daemon as supervised tasks and call `AssistantService` directly. They use only `AssistantService`, `Session`, `MemorySnapshot`, `TelegramStatus`, `InvalidTokenError` (`core/agent`), `Attachment`, `DeliveryError` (`core/outbox.py`) and the event types.
 - Messages the agent starts itself (`send_message`) go through `service.outbox`: an adapter registers a sender for its channel while it can deliver and removes it when it stops. The tool calls the sender directly, so it reports real success or failure.
-- Every daemon request except `/health` must carry the `X-Lo9i-Client` header (CSRF protection for the localhost port).
+- Every daemon request except `/health` must carry the `X-Lo9i-Client` header (CSRF protection for the network ports).
+- Only the Unix socket is trusted (`daemon/auth.py::trusted`). Every network request, on localhost or HTTPS, needs a paired device: a one-time code from a trusted client, then a token in an `httpOnly` cookie. Never trust 127.0.0.1: port forwarding and proxies make remote traffic arrive from there. Tokens and codes are stored only as hashes (`core/devices.py`).
 - Clients learn about background changes from `GET /events` (the `EventBus` in `core/bus.py`), never by polling. Store writes publish automatically (`NotifyingStore`); other changes (skills, job results, runs, bot state) publish explicitly.
 - Clients keep running when the daemon is unreachable (`DaemonUnavailableError`). In the terminal app, every handler that calls the daemon is decorated with `@reports_daemon_unavailable` (`gateways/cli/tui/daemon_errors.py`).
 - Runs outlive the request that started them. Commands are HTTP requests; a run's events stream as Server-Sent Events and can be replayed by event id.
@@ -44,7 +45,8 @@ src/assistant/
 - Per-turn context (date, time, channel) goes in the turn header at the start of each user message, never in the system prompt.
 - A new epoch starts only at a user-message boundary, so tool calls and their results are never split.
 - Renaming the assistant (`core/identity.py`, `/name` or the `rename_assistant` tool) starts a new epoch at the next user message: the system prompt is rebuilt with the new name and nothing is summarized. The Telegram bot's display name follows the name.
-- Starting a new conversation archives the one being left in the background (`core/agent/archive.py`): an episode plus profile and fact updates, skipped below `EPISODE_MIN_TURNS`.
+- Each client (terminal, browser tab) holds its own conversation: it starts on a new one and resumes an earlier one with `/conversations`. A browser tab keeps its conversation across reloads. A channel without a client (Telegram) keeps its current conversation in the Store until its `/new`. Runs are announced with the `client_id` that started them, so every other client on that conversation shows them live.
+- A conversation no client is on any more is left and archived in the background (`daemon/clients.py`, `core/agent/archive.py`): right away when its client moves to another, after a grace period when its client disconnects. Archiving adds an episode plus profile and fact updates, covers only what's new since the last archive, and is skipped below `EPISODE_MIN_TURNS`.
 - Tools register themselves with `@register("<toolset>")` in a module under `core/tools/`. Enabled toolsets come from settings, never per channel, because a conversation spans channels.
 - Prefer bash or MCP over a new tool. Every tool definition is sent on every model call.
 - Actions that need approval go through `core/tools/approval.py::ask`: bash commands matching `bash_guard.py`, email to recipients outside the allowlist. In unattended runs (channel `worker`, scheduled jobs) they are denied instead, and the job is recorded as needing attention.

@@ -6,23 +6,26 @@ import sys
 from pathlib import Path
 
 from assistant.client import DaemonClient, DaemonUnavailableError, connect
+from assistant.core.agent import Session
 from assistant.core.config import settings
 from assistant.gateways.cli.history import History
+from assistant.gateways.cli.preferences import Preferences
 from assistant.gateways.cli.repl import Repl
 from assistant.gateways.cli.tui.app import AssistantApp
 
 
 async def _chat() -> None:
     async with connect() as client:
-        session = await client.session(settings.owner_id, "cli")
+        # Every terminal starts on a new conversation; /conversations resumes an earlier one.
+        session = Session(settings.owner_id, "cli", await client.new_thread(settings.owner_id))
         await _open(client, session)
 
 
-async def _open(client: DaemonClient, session) -> None:
+async def _open(client: DaemonClient, session: Session) -> None:
     if sys.stdin.isatty() and sys.stdout.isatty():
-        # No mouse capture, so a multiplexer (tmux, herdr) keeps mouse control of its panes.
         history = History(Path(settings.cli_history_path).expanduser(), settings.cli_history_limit)
-        await AssistantApp(client, session, history).run_async(mouse=False)
+        preferences = Preferences(Path(settings.cli_preferences_path).expanduser())
+        await AssistantApp(client, session, history, preferences).run_async(mouse=preferences.mouse)
     else:
         await Repl(client, session).loop()
 

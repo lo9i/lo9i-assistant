@@ -45,4 +45,9 @@ class Error:
     message: str
 
 
-Event = TextDelta | ToolStarted | ToolFinished | ApprovalRequired | Transcribed | Done | Error
+@dataclass
+class Cancelled:
+    """The user stopped the run before it finished."""
+
+
+Event = TextDelta | ToolStarted | ToolFinished | ApprovalRequired | Transcribed | Done | Error | Cancelled

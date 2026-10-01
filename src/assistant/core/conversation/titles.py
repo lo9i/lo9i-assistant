@@ -1,0 +1,38 @@
+"""Titles for the conversation list: a few words saying what a conversation is about, written by
+the worker model from what the user and the assistant said."""
+
+from collections.abc import Awaitable, Callable, Sequence
+
+from langchain_core.messages import BaseMessage, HumanMessage
+
+from assistant.core.conversation import prompts
+from assistant.core.conversation.display import shown
+from assistant.core.llm import build_llm
+
+Titler = Callable[[str], Awaitable[str]]
+
+_PROMPT = prompts.load("title")
+# A long conversation is titled from its beginning and its end, where its topic and outcome are.
+_HALF = 4000
+
+
+def build_titler(model: str) -> Titler:
+    llm = build_llm(model)
+
+    async def _title(conversation: str) -> str:
+        reply = await llm.ainvoke([HumanMessage(_PROMPT.format(conversation=conversation))])
+        return _clean(reply.text)
+
+    return _title
+
+
+def conversation_text(messages: Sequence[BaseMessage]) -> str:
+    """What was said, without tool calls and turn headers."""
+    said = [f"{m.role.capitalize()}: {m.text}" for m in shown(messages) if m.role != "tool"]
+    text = "\n\n".join(said)
+    return text if len(text) <= 2 * _HALF else f"{text[:_HALF]}\n\n[…]\n\n{text[-_HALF:]}"
+
+
+def _clean(reply: str) -> str:
+    first = next((line for line in reply.splitlines() if line.strip()), "")
+    return " ".join(first.split()).strip("\"'“”*# ").rstrip(".")

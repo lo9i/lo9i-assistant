@@ -1,8 +1,15 @@
 """The terminal app: a turn with tool calls, the approval dialog, memory panel and new conversation."""
 
-from assistant.client import DaemonUnavailableError
+import asyncio
+
+from textual.widgets import Input
+
+from assistant.client import DaemonUnavailableError, clipboard
+from assistant.core.attachments import Attachment
+from assistant.core.events import Cancelled, ToolStarted
+from assistant.gateways.cli.tui.attachments import AttachmentBar
 from assistant.gateways.cli.tui.screens import ApprovalScreen
-from assistant.gateways.cli.tui.widgets import AssistantMessage, ToolCall, UserMessage
+from assistant.gateways.cli.tui.widgets import AssistantMessage, StoppedNote, ToolCall, UserMessage
 from tests.cli.conftest import wait_for
 
 
@@ -48,7 +55,7 @@ async def test_live_events_update_the_app(app, client):
     from assistant.core.events import Done, TextDelta
     from tests.cli.conftest import wait_for
 
-    async def telegram_run():
+    async def other_terminal_run():
         yield TextDelta("It's Tuesday.")
         yield Done()
 
@@ -61,17 +68,13 @@ async def test_live_events_update_the_app(app, client):
         await client.bus.put(("memory", {}))
         await wait_for(pilot, lambda: "programmer" in memory())
 
-        client.runs["r1"] = telegram_run  # a message sent from Telegram
-        await client.bus.put(
-            ("run", {"run_id": "r1", "thread_id": "owner:abc", "channel": "telegram", "text": "what day is it?"})
-        )
+        run = {"thread_id": "owner:abc", "channel": "cli", "text": "what day is it?"}
+        await client.bus.put(("run", {**run, "run_id": "r0", "client_id": "me"}))  # this terminal's own
+        client.runs["r1"] = other_terminal_run
+        await client.bus.put(("run", {**run, "run_id": "r1", "client_id": "other"}))
         await wait_for(pilot, lambda: len(app.query(AssistantMessage)) == 1)
-        assert "[telegram] what day is it?" in str(app.query(UserMessage).first().render())
-
-        client.active_thread = "owner:other"  # /new from Telegram
-        await client.bus.put(("threads", {}))
-        await wait_for(pilot, lambda: app.sub_title == "owner:other")
-        assert len(app.query_one("#chat").children) == 0
+        assert len(app.query(UserMessage)) == 1
+        assert "[cli] what day is it?" in str(app.query(UserMessage).first().render())
 
 
 async def test_new_leaves_a_running_reply_and_reports_when_it_finishes(app, client):
@@ -113,3 +116,63 @@ async def test_an_unreachable_daemon_is_reported_and_the_app_keeps_running(app, 
         await pilot.press(*"hi", "enter")
         await wait_for(pilot, lambda: any("Lost the connection" in n.message for n in app._notifications))
         assert not app._busy and app.is_running
+
+
+async def test_ctrl_v_attaches_a_screenshot_and_pastes_text(app, client, monkeypatch):
+    pasted: list[Attachment | str] = [Attachment("pasted-120000.png", "image/png", b"png"), "what is this?"]
+
+    async def paste():
+        return pasted.pop(0)
+
+    monkeypatch.setattr(clipboard, "paste", paste)
+    app._can_paste = True
+    async with app.run_test() as pilot:
+        await pilot.click("#prompt")
+        await pilot.press("ctrl+v", "ctrl+v")
+        await wait_for(pilot, lambda: app.query_one("#prompt", Input).value == "what is this?")
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: client.sent)
+        assert client.sent[0] == ("what is this?", [("pasted-120000.png", "image/png")])
+
+
+async def test_esc_stops_the_reply(app, client, monkeypatch):
+    stopped = asyncio.Event()
+
+    async def cancel(session):
+        stopped.set()
+        return True
+
+    async def send(session, text, attachments=()):
+        yield ToolStarted("bash", {"command": "sleep 30"})
+        await stopped.wait()
+        yield Cancelled()
+
+    monkeypatch.setattr(client, "send", send)
+    monkeypatch.setattr(client, "cancel", cancel)
+    async with app.run_test() as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"wait", "enter")
+        await wait_for(pilot, lambda: app.query(ToolCall))
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.query(StoppedNote) and not app._busy)
+        assert str(app.query_one(ToolCall).title).startswith("✗")
+
+
+async def test_attached_files_show_as_tags_that_can_be_removed(app, client, tmp_path):
+    for name in ("a.txt", "b.txt", "c.txt"):
+        (tmp_path / name).write_text(name)
+    async with app.run_test() as pilot:
+        bar = app.query_one(AttachmentBar)
+        await pilot.click("#prompt")
+        for name in ("a.txt", "b.txt", "c.txt"):
+            app.query_one("#prompt", Input).value = f"/attach {tmp_path / name}"
+            await pilot.press("enter")
+        await wait_for(pilot, lambda: len(bar.pending) == 3)
+        assert str(bar.query(".tag").first().render()) == "[a.txt 5 B]"
+        await pilot.press("x", "backspace")  # edits the text, keeps the files
+        assert len(bar.pending) == 3
+        await pilot.press("backspace", "backspace")  # empty box: removes the last files
+        assert [a.name for a in bar.pending] == ["a.txt"]
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: client.sent)
+        assert client.sent[0] == ("", [("a.txt", "text/plain")]) and not bar.pending

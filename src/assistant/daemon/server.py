@@ -1,5 +1,6 @@
-"""Starts the daemon: opens the service, serves the API on a Unix socket and on localhost, and
-supervises the channel adapters. Stops cleanly on SIGINT or SIGTERM."""
+"""Starts the daemon: opens the service, serves the API on a Unix socket, on localhost and, when
+configured, over HTTPS for other hosts, and supervises the channel adapters. Stops cleanly on
+SIGINT or SIGTERM."""
 
 import asyncio
 import contextlib
@@ -10,13 +11,15 @@ from pathlib import Path
 import httpx
 import uvicorn
 from dotenv import load_dotenv
+from sse_starlette.sse import AppStatus
 
 from assistant.core.agent import AssistantService
 from assistant.core.config import settings
 from assistant.core.web import browser
-from assistant.daemon import launchd
+from assistant.daemon import https, launchd
 from assistant.daemon.adapters import supervise
 from assistant.daemon.api import create_app
+from assistant.daemon.auth import trusted
 from assistant.daemon.runs import RunHub
 from assistant.daemon.scheduler import Scheduler
 from assistant.gateways.telegram.bot import TelegramAdapter
@@ -42,20 +45,56 @@ async def serve() -> None:
     socket_path.unlink(missing_ok=True)
     async with AssistantService.open() as service:
         app = create_app(service, RunHub(service.bus), _Startup(stop))
-        servers = [_server(app, uds=str(socket_path)), _server(app, host="127.0.0.1", port=settings.daemon_port)]
+        servers = _listeners(app, socket_path)
         tasks = [asyncio.create_task(s.serve()) for s in servers]
+        background = [asyncio.create_task(_index_conversations(service))]
+        if https.enabled():
+            background.append(asyncio.create_task(https.reload_on_renewal(servers[-1])))
         tasks.append(asyncio.create_task(supervise(TelegramAdapter(service), stop)))
         tasks.append(asyncio.create_task(supervise(Scheduler(service), stop)))
         # Downloads once in the background; until then pages are read without rendering.
         install = asyncio.create_task(browser.install_browser()) if settings.web_render else None
         logger.info("Daemon ready on %s and http://127.0.0.1:%s", socket_path, settings.daemon_port)
+        if https.enabled():
+            logger.info("Serving HTTPS for %s on %s:%s", settings.https_host, settings.https_bind, settings.https_port)
         await stop.wait()
         if install is not None:
             install.cancel()
+        for task in background:
+            task.cancel()
+        # The daemon handles signals itself (`_Server`), so sse_starlette never sees one; without
+        # this, open event streams keep the servers waiting for them to end.
+        AppStatus.should_exit = True
         for server in servers:
             server.should_exit = True
         await asyncio.gather(*tasks, return_exceptions=True)
     socket_path.unlink(missing_ok=True)
+
+
+def _listeners(app, socket_path: Path) -> list["_Server"]:
+    """The Unix socket, localhost, and HTTPS when configured (last). Only the Unix socket is
+    trusted; network requests need a paired device (daemon/auth.py)."""
+    servers = [_server(trusted(app), uds=str(socket_path)), _server(app, host="127.0.0.1", port=settings.daemon_port)]
+    if https.enabled():
+        servers.append(_server(app, **https.bind()))
+    return servers
+
+
+async def _index_conversations(service: AssistantService) -> None:
+    """Lists conversations saved before the conversation list existed, records the channels of
+    those listed before channels were, and titles those without a title from the model (a
+    catch-up; after it, all of this happens as conversations go)."""
+    try:
+        added = await service.index_conversations(settings.owner_id)
+        filled = await service.fill_channels(settings.owner_id)
+        titled = await service.title_untitled(settings.owner_id)
+    except Exception:
+        logger.exception("Couldn't catch up on earlier conversations")
+        return
+    if added or filled or titled:
+        logger.info(
+            "Added %s earlier conversations to the list, recorded channels for %s and titled %s.", added, filled, titled
+        )
 
 
 class _Startup:

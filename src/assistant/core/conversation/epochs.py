@@ -92,10 +92,13 @@ async def compact(
     return {"epoch_start": cut, **await open_epoch(store, user_id, now, digest.conversation_summary)}
 
 
-async def archive(state: Mapping[str, Any], store: BaseStore, user_id: str, digester: Digester, now: datetime) -> bool:
-    """Digest the rest of a conversation that is being left (/new) into an episode and memory.
-    Skips conversations with fewer than EPISODE_MIN_TURNS user turns. Returns whether it archived."""
-    start = state.get("epoch_start", 0)
+async def archive(
+    state: Mapping[str, Any], store: BaseStore, user_id: str, digester: Digester, now: datetime, after: int = 0
+) -> bool:
+    """Digest the rest of a conversation that is being left (/new) into an episode and memory,
+    from message `after` on when that's past the epoch start (it was archived before, then
+    resumed). Skips fewer than EPISODE_MIN_TURNS user turns. Returns whether it archived."""
+    start = max(state.get("epoch_start", 0), after)
     remaining = state.get("messages", [])[start:]
     if sum(isinstance(m, HumanMessage) for m in remaining) < settings.episode_min_turns:
         return False

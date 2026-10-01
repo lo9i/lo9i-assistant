@@ -27,7 +27,7 @@ class Handlers:
     async def new(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         message = update.effective_message
         if message is not None and await is_allowed(self._service, update):
-            await self._service.new_thread(settings.owner_id)
+            await self._service.new_channel_thread(settings.owner_id, _CHANNEL)
             await message.reply_text("Started a new conversation.")
 
     async def message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

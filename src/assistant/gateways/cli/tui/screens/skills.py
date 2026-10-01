@@ -2,6 +2,7 @@
 
 from typing import ClassVar
 
+from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -12,6 +13,7 @@ from textual.widgets.option_list import Option
 from assistant.client.daemon_client import SkillsApi
 from assistant.core.agent import SkillError
 from assistant.gateways.cli.tui.daemon_errors import reports_daemon_unavailable
+from assistant.gateways.cli.tui.screens.confirm import ConfirmScreen
 
 
 class SkillsScreen(ModalScreen[None]):
@@ -45,12 +47,17 @@ class SkillsScreen(ModalScreen[None]):
     async def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
         await self._show(event.option.id)
 
-    @reports_daemon_unavailable
-    async def on_button_pressed(self, event: Button.Pressed) -> None:
+    def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "close":
             self.dismiss()
         elif self._selected:
-            await self._delete(self._selected)
+            self._confirm_delete(self._selected)
+
+    @work
+    @reports_daemon_unavailable
+    async def _confirm_delete(self, name: str) -> None:
+        if await self.app.push_screen_wait(ConfirmScreen(f"Delete the skill {name}?", "Delete")):
+            await self._delete(name)
 
     async def _reload(self) -> None:
         skills = await self._skills.list()

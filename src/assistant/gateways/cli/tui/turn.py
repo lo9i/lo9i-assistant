@@ -10,6 +10,7 @@ from textual.widgets.markdown import MarkdownStream
 
 from assistant.core.events import (
     ApprovalRequired,
+    Cancelled,
     Done,
     Error,
     Event,
@@ -18,7 +19,16 @@ from assistant.core.events import (
     ToolStarted,
     Transcribed,
 )
-from assistant.gateways.cli.tui.widgets import AssistantMessage, ErrorMessage, StatusLine, ToolCall, TranscriptNote
+from assistant.gateways.cli.tui.widgets import (
+    AssistantMessage,
+    ErrorMessage,
+    StatusLine,
+    StoppedNote,
+    ToolCall,
+    TranscriptNote,
+)
+
+_STOP_HINT = "esc to stop"
 
 
 class TurnView:
@@ -32,7 +42,7 @@ class TurnView:
     async def render(self, events: AsyncIterator[Event]) -> list[ApprovalRequired]:
         """Show the events and return the approvals the run is waiting on."""
         approvals: list[ApprovalRequired] = []
-        self._status.show("Thinking")
+        self._status.show("Thinking", _STOP_HINT)
         try:
             async for event in events:
                 if isinstance(event, ApprovalRequired):
@@ -58,6 +68,8 @@ class TurnView:
                 await self._chat.mount(TranscriptNote(text, language))
             case Error(message):
                 await self._chat.mount(ErrorMessage(message))
+            case Cancelled():
+                await self._cancelled()
             case Done():
                 pass
 
@@ -78,9 +90,15 @@ class TurnView:
         call = ToolCall(name, args)
         self._pending[name].append(call)
         await self._chat.mount(call)
-        self._status.show(f"Running {name}")
+        self._status.show(f"Running {name}", _STOP_HINT)
+
+    async def _cancelled(self) -> None:
+        for call in [c for calls in self._pending.values() for c in calls]:
+            call.cancel()
+        self._pending.clear()
+        await self._chat.mount(StoppedNote())
 
     def _tool_finished(self, name: str, output: str) -> None:
         if self._pending[name]:
             self._pending[name].pop(0).finish(output)
-        self._status.show("Thinking")
+        self._status.show("Thinking", _STOP_HINT)

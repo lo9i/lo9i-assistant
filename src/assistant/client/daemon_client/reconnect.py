@@ -19,11 +19,14 @@ class ReconnectPolicy:
     attempts: int | None = None
 
 
-async def resumable_events(transport: Transport, path: str, policy: ReconnectPolicy) -> AsyncIterator[tuple[str, str]]:
-    """(event type, data) for the stream at `path`, until the caller stops reading. A connection
-    that drops or ends is reopened. Raises DaemonUnavailableError when the policy gives up, and
-    httpx.HTTPStatusError for a client error (4xx), which reconnecting can't fix."""
-    last_id, failures = "0", 0
+async def resumable_events(
+    transport: Transport, path: str, policy: ReconnectPolicy, after: str = "0"
+) -> AsyncIterator[tuple[str, str]]:
+    """(event type, data) for the stream at `path` after the event id `after` ("" for the stream's
+    own start), until the caller stops reading. A connection that drops or ends is reopened.
+    Raises DaemonUnavailableError when the policy gives up, and httpx.HTTPStatusError for a
+    client error (4xx), which reconnecting can't fix."""
+    last_id, failures = after, 0
     while True:
         try:
             async with transport.stream(path, last_id) as response:

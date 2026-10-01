@@ -6,6 +6,7 @@ import types
 import assistant.gateways.cli.tui.app as app_module
 from assistant.core.agent import Session
 from assistant.gateways.cli.history import History
+from assistant.gateways.cli.preferences import Preferences
 from assistant.gateways.cli.tui.widgets import TranscriptNote, UserMessage
 from tests.cli.conftest import wait_for
 
@@ -30,7 +31,8 @@ async def test_f3_records_and_sends_a_voice_message(client, monkeypatch, tmp_pat
     )
     monkeypatch.setitem(sys.modules, "sounddevice", fake)
     monkeypatch.setattr(app_module, "_MIN_RECORDING_SECONDS", 0)
-    app = app_module.AssistantApp(client, Session("owner", "cli", "t"), History(tmp_path / "h", limit=10))
+    history, preferences = History(tmp_path / "h", limit=10), Preferences(tmp_path / "p.json")
+    app = app_module.AssistantApp(client, Session("owner", "cli", "t"), history, preferences)
     async with app.run_test() as pilot:
         await pilot.press("f3")
         assert app._recorder.recording

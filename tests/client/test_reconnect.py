@@ -59,3 +59,18 @@ async def test_requests_to_an_unreachable_daemon_raise_daemon_unavailable():
 
     with pytest.raises(DaemonUnavailableError):
         await _transport(handler).request("GET", "/memory")
+
+
+async def test_a_stream_read_from_now_sends_no_id_until_it_has_one():
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers.get("Last-Event-ID"))
+        return httpx.Response(200, text="id: 9\ndata: a\n\n" if len(seen) == 1 else "id: 10\nevent: end\ndata: {}\n\n")
+
+    kinds = []
+    async for kind, _ in resumable_events(_transport(handler), "/events", _NOW, after=""):
+        kinds.append(kind)
+        if kind == "end":
+            break
+    assert kinds == ["message", "end"] and seen == [None, "9"]

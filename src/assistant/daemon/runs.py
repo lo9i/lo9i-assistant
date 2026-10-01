@@ -10,7 +10,7 @@ from typing import Any
 from uuid import uuid4
 
 from assistant.core.bus import EventBus
-from assistant.core.events import Error, Event, TextDelta
+from assistant.core.events import Cancelled, Error, Event, TextDelta
 from assistant.protocol import event_to_dict
 
 logger = logging.getLogger(__name__)
@@ -37,13 +37,18 @@ class RunHub:
         self._runs: dict[str, Run] = {}
         self._tasks: set[asyncio.Task] = set()
 
-    def start(self, thread_id: str, events: AsyncIterator[Event], channel: str = "", text: str = "") -> Run:
+    def start(
+        self, thread_id: str, events: AsyncIterator[Event], channel: str = "", client_id: str = "", text: str = ""
+    ) -> Run:
         """Start consuming a run. Other clients hear about it on the bus, so a conversation shown
-        in several places (terminal, Telegram) updates everywhere."""
+        in several places (two terminals, Telegram) updates everywhere. `client_id` names the
+        client that started it, which already shows it."""
         run = Run(id=uuid4().hex, thread_id=thread_id, channel=channel)
         self._runs[run.id] = run
         if self._bus is not None:
-            self._bus.publish("run", run_id=run.id, thread_id=thread_id, channel=channel, text=text)
+            self._bus.publish(
+                "run", run_id=run.id, thread_id=thread_id, channel=channel, client_id=client_id, text=text
+            )
         task = asyncio.create_task(self._consume(run, events))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
@@ -84,14 +89,13 @@ class RunHub:
         """Lets clients that stopped watching (for example after /new) know the run is done."""
         if self._bus is None:
             return
-        failed = any(e["type"] == Error.__name__ for e in run.events)
         reply = "".join(e["text"] for e in run.events if e["type"] == TextDelta.__name__).strip()
         self._bus.publish(
             "run_finished",
             run_id=run.id,
             thread_id=run.thread_id,
             channel=run.channel,
-            status="failed" if failed else "ok",
+            status=_status(run),
             reply=reply[-_EXCERPT:],
         )
 
@@ -100,6 +104,13 @@ class RunHub:
         async with run.changed:
             run.events.append(event)
             run.changed.notify_all()
+
+
+def _status(run: Run) -> str:
+    kinds = {e["type"] for e in run.events}
+    if Cancelled.__name__ in kinds:
+        return "cancelled"
+    return "failed" if Error.__name__ in kinds else "ok"
 
 
 def _has_news(run: Run, seen: int) -> bool:

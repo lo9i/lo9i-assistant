@@ -24,6 +24,20 @@ class TranscriptNote(Static):
         super().__init__(f"🎤 heard ({language}): {escape(text or '(no speech)')}")
 
 
+class ToolNote(Static):
+    """A tool the assistant used, in a conversation shown again after resuming it."""
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"✓ {escape(name)}")
+
+
+class StoppedNote(Static):
+    """The user stopped the reply (Esc)."""
+
+    def __init__(self) -> None:
+        super().__init__("■ Stopped.")
+
+
 class AssistantMessage(Markdown):
     """A reply. Text is streamed into it with `Markdown.get_stream`."""
 
@@ -49,17 +63,43 @@ class ToolCall(Collapsible):
         self._result.update(output.strip() or "(no output)")
         self.title = f"✓ {self._call}"
 
+    def cancel(self) -> None:
+        self._result.update("(cancelled)")
+        self.title = f"✗ {self._call}"
+
+
+class MouseStatus(Static):
+    """Whether clicks work now, at the end of the footer, and what the next start brings when a
+    change couldn't be applied yet."""
+
+    def __init__(self, active: bool) -> None:
+        super().__init__()
+        self.active = active
+        self.show(active)
+
+    def show(self, active: bool, pending: bool | None = None) -> None:
+        self.active = active
+        after = f" ({_on_off(pending)} after restart)" if pending is not None and pending != active else ""
+        self.update(f"mouse {_on_off(active)}{after}")
+
+
+def _on_off(on: bool) -> str:
+    return "on" if on else "off"
+
 
 class StatusLine(Static):
     """'⠋ Thinking… 12s' while the agent works, empty otherwise."""
 
     def on_mount(self) -> None:
         self._label = ""
+        self._hint = ""
         self._started = 0.0
         self._frame = 0
         self.set_interval(0.1, self._tick)
 
-    def show(self, label: str) -> None:
+    def show(self, label: str, hint: str = "") -> None:
+        """`hint` names a key that acts on what's shown, such as Esc to stop."""
+        self._hint = hint
         if label != self._label:
             self._label = label
             self._started = time.monotonic()
@@ -73,7 +113,8 @@ class StatusLine(Static):
             return
         self._frame += 1
         elapsed = int(time.monotonic() - self._started)
-        self.update(f"{_FRAMES[self._frame % len(_FRAMES)]} {self._label}… {elapsed}s")
+        hint = f"  ({self._hint})" if self._hint else ""
+        self.update(f"{_FRAMES[self._frame % len(_FRAMES)]} {self._label}… {elapsed}s{hint}")
 
 
 class MemoryPanel(VerticalScroll):

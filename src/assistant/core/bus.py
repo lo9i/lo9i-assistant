@@ -25,11 +25,13 @@ class BusEvent:
 class EventBus:
     def __init__(self) -> None:
         self._ids = itertools.count(1)
+        self.last_id = 0
         self._history: deque[BusEvent] = deque(maxlen=_HISTORY)
         self._subscribers: set[asyncio.Queue[BusEvent]] = set()
 
     def publish(self, kind: str, **data: Any) -> None:
         event = BusEvent(next(self._ids), kind, data)
+        self.last_id = event.id
         self._history.append(event)
         for queue in list(self._subscribers):
             if queue.full():

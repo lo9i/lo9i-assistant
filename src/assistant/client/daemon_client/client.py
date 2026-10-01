@@ -1,6 +1,8 @@
 import httpx
 
 from assistant.client.daemon_client.clients import ClientsApi
+from assistant.client.daemon_client.conversations import ConversationsApi
+from assistant.client.daemon_client.devices import DevicesApi
 from assistant.client.daemon_client.email import EmailApi
 from assistant.client.daemon_client.events import EventsMixin
 from assistant.client.daemon_client.identity import IdentityApi
@@ -22,6 +24,7 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
     def __init__(self, http: httpx.AsyncClient) -> None:
         transport = Transport(http)
         super().__init__(transport)
+        self.conversations = ConversationsApi(transport)
         self.identity = IdentityApi(transport)
         self.memory = MemoryApi(transport)
         self.skills = SkillsApi(transport)
@@ -31,3 +34,4 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         self.email = EmailApi(transport)
         self.system = SystemApi(transport)
         self.clients = ClientsApi(transport)
+        self.devices = DevicesApi(transport)
