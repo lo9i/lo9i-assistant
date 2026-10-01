@@ -46,3 +46,12 @@ async def test_errors_are_reported(monkeypatch):
     _fake(monkeypatch, "", fail=True)
     with pytest.raises(clipboard.ClipboardError):
         await clipboard.paste()
+
+
+async def test_copy_uses_the_systems_clipboard_command(monkeypatch):
+    monkeypatch.setattr(clipboard.sys, "platform", "linux")
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    monkeypatch.delenv("DISPLAY", raising=False)
+    assert clipboard._copy_command() is None  # a server without a desktop
+    monkeypatch.setattr(clipboard.sys, "platform", "darwin")
+    assert clipboard._copy_command() == ["pbcopy"]

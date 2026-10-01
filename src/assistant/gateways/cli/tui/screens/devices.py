@@ -11,8 +11,9 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
+from assistant.client import clipboard
 from assistant.client.daemon_client import DevicesApi
-from assistant.core.agent import Device, DeviceError
+from assistant.core.agent import Device, DeviceError, PairingCode
 from assistant.gateways.cli.devices_text import describe, pairing
 from assistant.gateways.cli.tui.daemon_errors import reports_daemon_unavailable
 from assistant.gateways.cli.tui.screens.confirm import ConfirmScreen
@@ -28,6 +29,8 @@ class DevicesScreen(ModalScreen[None]):
         self._devices = devices
         self._shown: dict[str, Device] = {}
         self._selected: str | None = None
+        # The code shown, while it is.
+        self._code: PairingCode | None = None
 
     def compose(self) -> ComposeResult:
         with Vertical(id="devices"):
@@ -39,6 +42,7 @@ class DevicesScreen(ModalScreen[None]):
                     yield Markdown(id="device-body")
             with Horizontal(id="devices-buttons"):
                 yield Button("Pair a browser", variant="success", id="pair")
+                yield Button("Copy code", id="copy")
                 yield Button("Revoke", variant="error", id="revoke")
                 yield Button("Close", id="close")
 
@@ -72,7 +76,20 @@ class DevicesScreen(ModalScreen[None]):
     @on(Button.Pressed, "#pair")
     @reports_daemon_unavailable
     async def _pair(self) -> None:
-        await self._body(pairing(await self._devices.open_pairing()))
+        code = await self._devices.open_pairing()
+        await self._body(pairing(code))
+        self._code = code
+        self.query_one("#copy").display = True
+
+    @on(Button.Pressed, "#copy")
+    async def _copy(self) -> None:
+        """With this machine's clipboard command, and through the terminal (OSC 52), which reaches
+        the clipboard of the computer in front of you over SSH, in terminals that support it."""
+        if self._code is None:
+            return
+        self.app.copy_to_clipboard(self._code.code)
+        copied = await clipboard.copy(self._code.code)
+        self.notify(f"Copied {self._code.code}." if copied else f"Sent {self._code.code} to your terminal's clipboard.")
 
     @on(Button.Pressed, "#revoke")
     def _revoke(self) -> None:
@@ -97,4 +114,7 @@ class DevicesScreen(ModalScreen[None]):
         await self.reload()
 
     async def _body(self, markdown: str) -> None:
+        """Showing anything else hides the code and its copy button."""
+        self._code = None
+        self.query_one("#copy").display = False
         await self.query_one("#device-body", Markdown).update(markdown)
