@@ -9,6 +9,7 @@
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import SearchField from "$lib/ui/SearchField.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
+  import PluginUpdatesCard from "$lib/ui/settings/PluginUpdatesCard.svelte";
   import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
   import InstallDialog from "$lib/ui/repositories/InstallDialog.svelte";
 
@@ -161,6 +162,7 @@
         </div>
       </section>
     {/if}
+    <PluginUpdatesCard />
   </div>
 </div>
 

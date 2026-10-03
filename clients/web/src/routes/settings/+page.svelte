@@ -2,10 +2,8 @@
   import { page } from "$app/state";
   import AssistantCard from "$lib/ui/settings/AssistantCard.svelte";
   import EmailCard from "$lib/ui/settings/EmailCard.svelte";
-  import GetToKnowYouCard from "$lib/ui/settings/GetToKnowYouCard.svelte";
   import MicrophoneCard from "$lib/ui/settings/MicrophoneCard.svelte";
   import ModelCard from "$lib/ui/settings/ModelCard.svelte";
-  import PluginUpdatesCard from "$lib/ui/settings/PluginUpdatesCard.svelte";
   import SlackCard from "$lib/ui/settings/SlackCard.svelte";
   import SpeechCard from "$lib/ui/settings/SpeechCard.svelte";
   import SpokenRepliesCard from "$lib/ui/settings/SpokenRepliesCard.svelte";
@@ -52,9 +50,7 @@
       </div>
       <div class="stack">
         <AssistantCard />
-        <GetToKnowYouCard />
         <StartupCard />
-        <PluginUpdatesCard />
       </div>
     </div>
   {:else if tab === "audio"}

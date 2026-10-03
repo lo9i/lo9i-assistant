@@ -32,4 +32,4 @@ After each answer, save it with `update_profile` (the section's full new list, k
 
 ## 4. End
 
-Sum up in a few lines what you saved, and say they can change it any time by telling you, or in About you in the web app.
+Sum up in a few lines what you saved, and say they can change it any time by telling you, or in Settings → About you in the web app.

@@ -9,6 +9,8 @@
   import Card from "$lib/ui/Card.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
+  import GetToKnowYouCard from "$lib/ui/settings/GetToKnowYouCard.svelte";
+  import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
 
   // Read only: the assistant keeps this up to date from conversations, and changes it when asked in chat.
   const memory = resource((c) => c.memory.snapshot(), ["memory"]);
@@ -18,9 +20,11 @@
   const episodes = $derived(memory.data?.episodes ?? []);
 </script>
 
-<TopBar title="About you" />
+<!-- A settings tab of its own page. -->
+<TopBar title="Settings" />
 
 <div class="shell">
+  <SettingsTabs active="memory" />
   {#if memory.error}
     <p class="error-text">{memory.error}</p>
   {:else if memory.data}
@@ -49,6 +53,7 @@
         </Card>
       </div>
       <div class="stack">
+        <GetToKnowYouCard />
         <Card title="Facts" sub="Details the assistant remembers.">
           {#snippet status()}<span class="pill">{facts.length}</span>{/snippet}
           {#if facts.length === 0}

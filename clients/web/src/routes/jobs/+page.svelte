@@ -125,7 +125,7 @@
         </div>
       </section>
     {:else}
-      <section class="runs-card surface--glass">
+      <section class="placeholder surface--glass">
         <EmptyState icon={CalendarClock} title="No job selected" text="Pick one from the table to see its runs here." />
       </section>
     {/if}
