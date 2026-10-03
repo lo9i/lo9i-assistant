@@ -19,7 +19,7 @@ def _render_message(message: BaseMessage) -> str:
     if isinstance(message, AIMessage):
         return _render_ai(message)
     if isinstance(message, ToolMessage):
-        return f"TOOL {message.name}: {_truncate(_text(message.content))}"
+        return f"TOOL {message.name}:\n{_quote(_truncate(_text(message.content)))}"
     return ""
 
 
@@ -47,6 +47,11 @@ def _block_text(block: Any) -> str:
         return block.get("text", "")
     upload = block.get("value", {}).get("upload") if block.get("type") == "non_standard" else None
     return f"[attachment {upload['name']}]" if upload else ""
+
+
+def _quote(text: str) -> str:
+    """Prefixes every line, so text a tool returned can't pass for a USER or ASSISTANT line."""
+    return "\n".join(f"| {line}" for line in text.splitlines() or [""])
 
 
 def _truncate(text: str) -> str:
