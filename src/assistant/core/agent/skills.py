@@ -24,6 +24,8 @@ class SkillSummary:
     failed_at: str = ""
     # At least FAILING_AFTER in a row: the user was alerted.
     failing: bool = False
+    # The plugin that added it; "" when the user or the assistant wrote it here.
+    plugin: str = ""
 
 
 class SkillsMixin(ServiceBase):
@@ -60,5 +62,12 @@ class SkillsMixin(ServiceBase):
 
 def _summary(skill: Skill, health: Health) -> SkillSummary:
     return SkillSummary(
-        skill.name, skill.description, skill.problems, health.failures, health.error, health.at, health.failing
+        skill.name,
+        skill.description,
+        skill.problems,
+        health.failures,
+        health.error,
+        health.at,
+        health.failing,
+        skill.plugin,
     )

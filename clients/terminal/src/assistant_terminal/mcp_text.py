@@ -10,7 +10,8 @@ _STATUS = {"connected": "connected", "connecting": "connecting…", "failed": "c
 
 def summary(server: McpServerStatus) -> str:
     """One line for the list: the name and whether it's working."""
-    return f"{server.name} · {_STATUS.get(server.status, server.status)}{label(server.failing)}"
+    origin = f" · plugin {server.plugin}" if server.plugin else ""
+    return f"{server.name} · {_STATUS.get(server.status, server.status)}{origin}{label(server.failing)}"
 
 
 def describe(server: McpServerStatus) -> str:
@@ -23,6 +24,7 @@ def describe(server: McpServerStatus) -> str:
     if failures := failures_line(server.failures, server.failure, server.failed_at):
         lines.append(failures)
     lines.append(_trust(server.trusted))
+    lines.append(f"Added by: the {server.plugin} plugin" if server.plugin else "Added by: you, by hand")
     if server.source:
         lines.append(f"Installed from {server.source}")
     if server.page:

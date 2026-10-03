@@ -95,12 +95,13 @@
         <EmptyState icon={Blocks} title="No MCP servers" text="Add one to give the assistant its tools, like GitHub or a database." />
       {:else if servers.data && server}
         <table class="data-table">
-          <thead><tr><th>Server</th><th class="hide-narrow">Kind</th><th class="hide-narrow">Tools</th><th>Status</th></tr></thead>
+          <thead><tr><th>Server</th><th class="hide-narrow">Kind</th><th class="hide-narrow">Added by</th><th class="hide-narrow">Tools</th><th>Status</th></tr></thead>
           <tbody>
             {#each servers.data as s (s.name)}
               <tr class:selected={s.name === server.name} onclick={() => (picked = s.name)}>
                 <td><button class="row-button" onclick={() => (picked = s.name)}>{s.name}</button></td>
                 <td class="hide-narrow">{s.transport === "stdio" ? "Local command" : "Remote URL"}</td>
+                <td class="hide-narrow">{s.plugin ? `Plugin ${s.plugin}` : "You"}</td>
                 <td class="hide-narrow">{selected(s)}</td>
                 <td>
                   <span class="state"><span class="status-dot" style:--tone={STATUS_TONES[s.status]}></span>{s.status}</span>
@@ -141,6 +142,8 @@
             <dt class="micro-label">Headers</dt>
             <dd>{server.header_keys.join(", ") || "none"}</dd>
           {/if}
+          <dt class="micro-label">Added by</dt>
+          <dd>{server.plugin ? `The ${server.plugin} plugin` : "You, by hand"}</dd>
           {#if server.source}
             <dt class="micro-label">Installed from</dt>
             <dd>{server.source}</dd>

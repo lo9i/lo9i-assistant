@@ -1421,6 +1421,11 @@ export interface components {
              */
             source: string;
             /**
+             * Plugin
+             * @default
+             */
+            plugin: string;
+            /**
              * Page
              * @default false
              */
@@ -1747,6 +1752,11 @@ export interface components {
              * @default
              */
             version: string;
+            /**
+             * Plugin
+             * @default
+             */
+            plugin: string;
         };
         /** SkillChange */
         SkillChange: {
@@ -1783,6 +1793,11 @@ export interface components {
              * @default false
              */
             failing: boolean;
+            /**
+             * Plugin
+             * @default
+             */
+            plugin: string;
         };
         /** SlackManifest */
         SlackManifest: {

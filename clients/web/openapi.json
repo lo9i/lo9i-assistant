@@ -3161,6 +3161,11 @@
             "title": "Source",
             "default": ""
           },
+          "plugin": {
+            "type": "string",
+            "title": "Plugin",
+            "default": ""
+          },
           "page": {
             "type": "boolean",
             "title": "Page",
@@ -3775,6 +3780,11 @@
             "type": "string",
             "title": "Version",
             "default": ""
+          },
+          "plugin": {
+            "type": "string",
+            "title": "Plugin",
+            "default": ""
           }
         },
         "type": "object",
@@ -3839,6 +3849,11 @@
             "type": "boolean",
             "title": "Failing",
             "default": false
+          },
+          "plugin": {
+            "type": "string",
+            "title": "Plugin",
+            "default": ""
           }
         },
         "type": "object",
