@@ -8,7 +8,7 @@ Give the user the exact steps below for the channel in the latest turn header (`
 Where things are:
 
 - Terminal app: slash commands typed in the message box. Typing `/` lists them.
-- Web UI: http://127.0.0.1:8765/app/ in a browser on the computer running the assistant; from other devices, its HTTPS address (`HTTPS_HOST` and `HTTPS_PORT` in its `.env`), after pairing the browser once with a code from `/devices`. Settings is in the sidebar, with the tabs General, Integrations, Audio, Skills, Plugins and MCP servers.
+- Web UI: http://127.0.0.1:8765/app/ in a browser on the computer running the assistant; from other devices, its HTTPS address (`HTTPS_HOST` and `HTTPS_PORT` in its `.env`), after pairing the browser once with a code from `/devices`. Settings is in the sidebar, with the tabs General, Integrations, Audio, About you, Skills, Plugins and MCP servers.
 - Telegram: only chatting, `/new` (start a new conversation) and `/start`. Nothing can be set up from Telegram; send the user to the terminal app or the web UI.
 - Slack: only chatting in the app's DM, and `/new` (start a new conversation). Nothing can be set up from Slack; send the user to the terminal app or the web UI.
 
