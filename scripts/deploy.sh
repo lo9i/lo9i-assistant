@@ -4,9 +4,9 @@
 # - Builds the web UI here, so the host doesn't need npm.
 # - Copies this working tree, including uncommitted changes, to DIR on the host. The host's .env,
 #   virtualenv and data (~/.lo9i) are left alone.
-# - Runs scripts/install.sh there, which installs the dependencies and (re)starts the daemon as a
-#   systemd user service. The first time, create DIR/.env on the host before running this
-#   (copy .env.example), or the install stops and says so.
+# - Runs install.sh there, which installs the dependencies and (re)starts the daemon as a systemd
+#   user service. The first time, without a terminal to ask in, it writes DIR/.env from
+#   .env.example and stops: fill it in on the host and deploy again.
 #
 # Usage: scripts/deploy.sh user@host [DIR]   (DIR defaults to lo9i-assistant, in the user's home)
 set -euo pipefail
@@ -22,4 +22,4 @@ rsync -az --delete \
   --exclude __pycache__ --exclude .pytest_cache --exclude .ruff_cache \
   --exclude clients/web/node_modules --exclude clients/web/.svelte-kit \
   ./ "$HOST:$DIR/"
-ssh "$HOST" "$DIR/scripts/install.sh"
+ssh "$HOST" "$DIR/install.sh"

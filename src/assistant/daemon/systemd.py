@@ -5,7 +5,7 @@ while the user is logged in.
 
 Ollama isn't managed here: its Linux installer sets up its own system service.
 
-`python -m assistant.daemon.systemd` installs and enables the service; scripts/install.sh uses it.
+`python -m assistant.daemon.systemd` installs and enables the service; install.sh uses it.
 """
 
 import asyncio
