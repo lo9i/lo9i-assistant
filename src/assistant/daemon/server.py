@@ -16,11 +16,12 @@ from sse_starlette.sse import AppStatus
 from assistant.core.agent import AssistantService
 from assistant.core.config import settings
 from assistant.core.internet import browser
-from assistant.daemon import https
+from assistant.daemon import https, pages
 from assistant.daemon.adapters import supervise
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
 from assistant.daemon.mail_watcher import MailWatcher
+from assistant.daemon.pages import create_pages_app
 from assistant.daemon.runs import RunHub
 from assistant.daemon.scheduler import Scheduler
 from assistant.daemon.startup import Startup
@@ -50,16 +51,18 @@ async def serve() -> None:
     async with AssistantService.open() as service:
         app = create_app(service, RunHub(service.bus), Startup(stop))
         servers = _listeners(app, socket_path)
-        tasks = [asyncio.create_task(s.serve()) for s in servers]
+        page_servers = [_server(create_pages_app(service), **bind) for bind in pages.ports()]
+        tasks = [asyncio.create_task(s.serve()) for s in [*servers, *page_servers]]
         background = [asyncio.create_task(_index_conversations(service))]
         if https.enabled():
-            background.append(asyncio.create_task(https.reload_on_renewal(servers[-1])))
+            background.append(asyncio.create_task(https.reload_on_renewal(servers[-1], page_servers[-1])))
         tasks.append(asyncio.create_task(supervise(TelegramAdapter(service), stop)))
         tasks.append(asyncio.create_task(supervise(SlackAdapter(service), stop)))
         scheduler = Scheduler(service)
         tasks.append(asyncio.create_task(supervise(scheduler, stop)))
         tasks.append(asyncio.create_task(supervise(MailWatcher(service, scheduler), stop)))
         tasks.append(asyncio.create_task(supervise(service.mcp, stop)))
+        tasks.append(asyncio.create_task(supervise(service.pages, stop)))
         # Downloads once in the background; until then pages are read without rendering.
         install = asyncio.create_task(browser.install_browser()) if settings.web_render else None
         logger.info("Daemon ready on %s and http://127.0.0.1:%s", socket_path, settings.daemon_port)
@@ -73,7 +76,7 @@ async def serve() -> None:
         # The daemon handles signals itself (`_Server`), so sse_starlette never sees one; without
         # this, open event streams keep the servers waiting for them to end.
         AppStatus.should_exit = True
-        for server in servers:
+        for server in [*servers, *page_servers]:
             server.should_exit = True
         await asyncio.gather(*tasks, return_exceptions=True)
     socket_path.unlink(missing_ok=True)

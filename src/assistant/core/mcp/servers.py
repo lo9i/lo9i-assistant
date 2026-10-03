@@ -36,6 +36,10 @@ class McpServer:
     exclude: list[str] = field(default_factory=list)
     # The repository it was installed from (core/mcp/install.py); "" when added by hand.
     source: str = ""
+    # A web page the server comes with, run as its own process with the server's env and shown in the
+    # web app (core/mcp/pages.py). Only servers installed from a repository have one.
+    page_command: str = ""
+    page_args: list[str] = field(default_factory=list)
 
     @property
     def transport(self) -> str:

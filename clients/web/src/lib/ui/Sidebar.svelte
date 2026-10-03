@@ -14,13 +14,18 @@
   import Sparkles from "@lucide/svelte/icons/sparkles";
   import SunMoon from "@lucide/svelte/icons/sun-moon";
   import WandSparkles from "@lucide/svelte/icons/wand-sparkles";
-  import { useDaemon } from "$lib/daemon.svelte";
+  import PanelsTopLeft from "@lucide/svelte/icons/panels-top-left";
+  import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { pageLabel } from "$lib/pages";
   import { sidebar } from "$lib/sidebar.svelte";
   import { theme, type ThemePreference } from "$lib/theme.svelte";
 
   let { name }: { name: string } = $props();
 
   const { chat } = useDaemon();
+  // MCP servers that come with a web page, shown in an iframe (routes/pages/[name]).
+  const servers = resource((c) => c.mcp.servers(), ["mcp"]);
+  const pages = $derived((servers.data ?? []).filter((s) => s.page && s.enabled));
 
   type Add = { label: string; run: () => Promise<void> };
 
@@ -80,6 +85,15 @@
             <Plus size={16} />
           </button>
         {/if}
+      </div>
+    {/each}
+    {#each pages as p (p.name)}
+      {@const href = resolve("/pages/[name]", { name: p.name })}
+      <div class="nav-row">
+        <a {href} class="nav-item" aria-current={page.url.pathname === href ? "page" : undefined} title={pageLabel(p.name)}>
+          <PanelsTopLeft size={20} />
+          <span class="label">{pageLabel(p.name)}</span>
+        </a>
       </div>
     {/each}
   </nav>

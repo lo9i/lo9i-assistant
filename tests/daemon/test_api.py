@@ -256,15 +256,21 @@ async def test_the_model_through_the_client(client, monkeypatch):
     from assistant.core.agent import ModelSettingsError
 
     class _Answers:
-        async def ainvoke(self, messages):
+        async def ainvoke(self, messages, config=None):
             return AIMessage("OK")
 
     monkeypatch.setattr(model_module, "build_llm", lambda choice, model: _Answers())
-    assert [p.id for p in await client.model.providers()] == ["anthropic", "copilot", "openai"]
-    status = await client.model.set("copilot", "gh-token", "", "claude-opus-5.5", "claude-sonnet-5.5")
-    assert status.source == "app" and status.key_set and status.model == "claude-opus-5.5"
+    providers = {p.id: p for p in await client.model.providers()}
+    assert list(providers)[:3] == ["anthropic", "copilot", "openai"] and "google_genai" in providers
+    assert [f.key for f in providers["bedrock_converse"].fields] == [
+        "region_name",
+        "aws_access_key_id",
+        "aws_secret_access_key",
+    ]
+    status = await client.model.set("copilot", {"api_key": "gh-token"}, "claude-opus-5.5", "claude-sonnet-5.5")
+    assert status.source == "app" and status.secrets_set == ["api_key"] and status.model == "claude-opus-5.5"
     with pytest.raises(ModelSettingsError):
-        await client.model.set("nope", "k", "", "m", "m")
+        await client.model.set("nope", {"api_key": "k"}, "m", "m")
     assert (await client.model.reset()).source == "env"
 
 
@@ -280,3 +286,10 @@ async def test_a_conversation_a_client_is_on_cant_be_deleted(client, service):
     assert [c.thread_id for c in await client.conversations.recent()] == []
     with pytest.raises(ConversationError, match="No conversation"):
         await client.conversations.delete(session.thread_id)
+
+
+async def test_token_usage_through_the_client(client, script):
+    script.reply("hi", usage_metadata={"input_tokens": 50, "output_tokens": 5, "total_tokens": 55})
+    await collect(client.send(await _new_session(client), "hello"))
+    report = await client.usage.tokens(7)
+    assert report.total.calls == 1 and report.total.input_tokens == 50 and report.by_purpose[0].name == "reply"

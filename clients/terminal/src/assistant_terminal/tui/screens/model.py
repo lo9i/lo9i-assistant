@@ -1,6 +1,7 @@
-"""The model the assistant uses: provider, key and models. Set here, it overrides .env and applies at
-once. Saving asks each model to answer once, so a wrong key or model id shows right away. The key is
-typed here and goes straight to the daemon; it's never shown again."""
+"""The model the assistant uses: the provider, the values it asks for (keys, URLs, regions) and the
+models. Set here, it overrides .env and applies at once. Saving installs the provider's package the
+first time, then asks each model to answer once, so a wrong key or model id shows right away. Secret
+values are typed here and go straight to the daemon; they're never shown again."""
 
 from typing import ClassVar
 
@@ -12,7 +13,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Markdown, Select
 
 from assistant.client.daemon_client import ModelApi
-from assistant.core.agent import ModelProvider, ModelSettingsError, ModelStatus
+from assistant.core.agent import ModelProvider, ModelSettingsError, ModelStatus, ProviderField
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 
@@ -25,14 +26,15 @@ class ModelScreen(ModalScreen[None]):
         self._providers: dict[str, ModelProvider] = {}
         self._status: ModelStatus | None = None
         self._message = ""
+        # The shown provider's field inputs, by field key.
+        self._inputs: dict[str, Input] = {}
 
     def compose(self) -> ComposeResult:
         with Vertical(id="model"):
             yield Markdown(id="model-body")
             yield Select[str]([], prompt="Provider", id="model-provider")
             yield Markdown(id="model-help")
-            yield Input(password=True, id="model-key")
-            yield Input(placeholder="Server URL (empty for OpenAI itself)", id="model-url")
+            yield Vertical(id="model-fields")
             yield Input(placeholder="Main model", id="model-main")
             yield Input(placeholder="Worker model (summaries, titles)", id="model-worker")
             with Horizontal(id="model-buttons"):
@@ -68,17 +70,21 @@ class ModelScreen(ModalScreen[None]):
     @on(Button.Pressed, "#save")
     @reports_daemon_unavailable
     async def _save(self) -> None:
-        self._message = "Testing the models…"
+        provider = self._providers.get(self._provider())
+        installing = provider is not None and not provider.installed
+        self._message = (
+            f"Installing {provider.package}, then testing the models…"
+            if installing and provider
+            else "Testing the models…"
+        )
         await self._show()
-        value = {
-            name: self.query_one(f"#model-{name}", Input).value.strip() for name in ("key", "url", "main", "worker")
-        }
+        values = {key: field.value.strip() for key, field in self._inputs.items()}
+        main, worker = (self.query_one(f"#model-{n}", Input).value.strip() for n in ("main", "worker"))
         try:
-            self._status = await self._model.set(
-                self._provider(), value["key"], value["url"], value["main"], value["worker"]
-            )
+            self._status = await self._model.set(self._provider(), values, main, worker)
             self._message = "Saved ✓ Both models answered. The assistant uses them from now on."
-            self.query_one("#model-key", Input).value = ""
+            self._providers = {p.id: p for p in await self._model.providers()}
+            await self._show_provider(self._status.provider)
         except ModelSettingsError as e:
             self._message = f"**{e}**"
         await self._show()
@@ -93,20 +99,18 @@ class ModelScreen(ModalScreen[None]):
         await self._show_provider(self._status.provider)
 
     async def _show_provider(self, provider_id: str) -> None:
-        """Fill the fields for a provider: the current values for the one in use, its suggestions otherwise."""
+        """Show a provider's fields: the current values for the one in use, its suggestions otherwise."""
         provider, status = self._providers.get(provider_id), self._status
         if provider is None or status is None:
             return
         current = provider_id == status.provider
         self.query_one("#model-main", Input).value = status.model if current else provider.model
         self.query_one("#model-worker", Input).value = status.worker_model if current else provider.worker_model
-        self.query_one("#model-url", Input).value = status.base_url if current else ""
-        self.query_one("#model-url").display = provider.takes_base_url
-        key = self.query_one("#model-key", Input)
-        key.value = ""
-        saved = current and status.key_set
-        key.placeholder = f"{provider.key_label} (saved; leave empty to keep it)" if saved else provider.key_label
-        await self.query_one("#model-help", Markdown).update(provider.key_help)
+        box = self.query_one("#model-fields", Vertical)
+        await box.remove_children()
+        self._inputs = {f.key: _field_input(f, status if current else None) for f in provider.fields}
+        await box.mount_all(list(self._inputs.values()))
+        await self.query_one("#model-help", Markdown).update(_help(provider))
         await self._show()
 
     async def _show(self) -> None:
@@ -124,3 +128,20 @@ class ModelScreen(ModalScreen[None]):
     def _provider(self) -> str:
         value = self.query_one("#model-provider", Select).value
         return value if isinstance(value, str) else ""
+
+
+def _field_input(field: ProviderField, status: ModelStatus | None) -> Input:
+    """An input for a provider's field, with the current value when it isn't secret."""
+    saved = status is not None and field.key in status.secrets_set
+    hint = " (saved; leave empty to keep it)" if saved else "" if field.required else " (optional)"
+    value = status.values.get(field.key, "") if status is not None and not field.secret else ""
+    return Input(value, placeholder=f"{field.label}{hint}", password=field.secret)
+
+
+def _help(provider: ModelProvider) -> str:
+    lines = [f"**{f.label}**: {f.help}" for f in provider.fields if f.help]
+    if provider.help:
+        lines.insert(0, provider.help)
+    if not provider.installed:
+        lines.append(f"Saving installs `{provider.package}` first, which can take a few minutes.")
+    return "\n\n".join(lines)

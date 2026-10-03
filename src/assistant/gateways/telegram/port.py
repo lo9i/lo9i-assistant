@@ -6,6 +6,7 @@ from telegram.constants import ChatAction, ParseMode
 from telegram.error import BadRequest
 
 from assistant.gateways.chat.port import Buttons
+from assistant.gateways.chat.split import split_text
 from assistant.gateways.chat.turn import Limits
 from assistant.gateways.telegram.formatting import CHUNK, to_markdown_v2
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
@@ -24,11 +25,14 @@ class TelegramChat:
         self._chat_id = chat_id
 
     async def send(self, text: str, *, markdown: bool = False, buttons: Buttons | None = None) -> int:
-        markup = (
-            InlineKeyboardMarkup([[InlineKeyboardButton(label, callback_data=data) for label, data in buttons]])
-            if buttons
-            else None
-        )
+        """Text over Telegram's limit goes as several messages; the buttons go on the last one, whose
+        id is returned."""
+        *first, last = split_text(text, CHUNK) or [text]
+        for part in first:
+            await self._send_one(part, markdown, None)
+        return await self._send_one(last, markdown, _markup(buttons))
+
+    async def _send_one(self, text: str, markdown: bool, markup: InlineKeyboardMarkup | None) -> int:
         try:
             body, parse_mode = _formatted(text, markdown)
             message = await self._bot.send_message(self._chat_id, body, parse_mode=parse_mode, reply_markup=markup)
@@ -56,6 +60,12 @@ class TelegramChat:
             await self._bot.edit_message_text(text, chat_id=self._chat_id, message_id=message_id)
         except BadRequest as e:
             logger.warning("Telegram edit failed: %s", e)
+
+
+def _markup(buttons: Buttons | None) -> InlineKeyboardMarkup | None:
+    if not buttons:
+        return None
+    return InlineKeyboardMarkup([[InlineKeyboardButton(label, callback_data=data) for label, data in buttons]])
 
 
 def _formatted(text: str, markdown: bool) -> tuple[str, ParseMode | None]:

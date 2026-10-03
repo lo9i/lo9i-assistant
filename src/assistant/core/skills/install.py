@@ -1,8 +1,11 @@
 """Skills in a downloaded repository: finding them, installing them, and updating one later.
 
 A repository can be one skill (SKILL.md at its root) or hold several, one folder each, at its root
-or under `skills/`. Only the user installs skills, from the app: their scripts run on this computer
-through bash, so picking the repository is the user's decision, never the agent's.
+or under `skills/`. A folder with a server.yaml is an MCP server, and its SKILL.md is part of it
+(core/mcp/install.py), never a skill of its own.
+
+Only the user installs skills, from the app: their scripts run on this computer through bash, so
+picking the repository is the user's decision, never the agent's.
 """
 
 import asyncio
@@ -10,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from assistant.core.repositories.checkout import checkout, default_name
-from assistant.core.repositories.folders import subfolders
+from assistant.core.repositories.folders import SERVER_FILE, subfolders
 from assistant.core.repositories.source import Source
 from assistant.core.skills import store
 from assistant.core.skills.errors import SkillError
@@ -62,6 +65,8 @@ async def update(name: str) -> store.Skill:
     source = await asyncio.to_thread(store.installed_from, name)
     if source is None:
         raise SkillError(f"{name} wasn't installed from a repository, so there's nothing to update it from.")
+    if source.server:
+        raise SkillError(f"{name} comes with the {source.server} MCP server: update the server to update it.")
     async with checkout(source.url) as (root, commit):
         candidate = await asyncio.to_thread(_find_at, root, source.path, name)
         return await asyncio.to_thread(install, candidate, source.url, commit)
@@ -75,7 +80,9 @@ def _find_at(root: Path, path: str, name: str) -> Candidate:
 
 
 def _candidate(root: Path, folder: Path, name: str) -> Candidate | None:
-    skill = None if folder.is_symlink() else store.read(folder, name)
+    if folder.is_symlink() or (folder / SERVER_FILE).is_file():
+        return None
+    skill = store.read(folder, name)
     if skill is None or not store.valid_name(skill.name):
         return None
     return Candidate(skill, folder, folder.relative_to(root).as_posix())
@@ -86,4 +93,4 @@ def _taken(name: str, url: str) -> bool:
         existing = store.load(name)
     except SkillError:
         return False
-    return existing.builtin or existing.source != url
+    return existing.builtin or existing.server is not None or existing.source != url

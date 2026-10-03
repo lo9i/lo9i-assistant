@@ -116,7 +116,8 @@ class Repl:
         print("\n".join(f"{j.name}: {jobs_summary(j)}" for j in jobs) or "No scheduled jobs.")
 
     async def _usage(self, arg: str) -> None:
-        print(describe_usage(await self._service.usage.report(int(arg) if arg.isdigit() else 7)))
+        days = int(arg) if arg.isdigit() else 7
+        print(describe_usage(await self._service.usage.report(days), await self._service.usage.tokens(days)))
 
     async def _sessions(self, _: str) -> None:
         print(describe_sessions(await self._service.clients.list(), self._service.clients.own_id))

@@ -6,39 +6,44 @@
 
   const { client } = useDaemon();
   const loaded = resource((c) => c.model.status(), ["settings"]);
-  const providers = resource((c) => c.model.providers(), []);
+  const providers = resource((c) => c.model.providers(), ["settings"]);
   const s = $derived(loaded.data);
-  let form = $state<ModelChange>({ provider: "", api_key: "", base_url: "", model: "", worker_model: "" });
+  let form = $state<ModelChange>({ provider: "", values: {}, model: "", worker_model: "" });
   let message = $state("");
   let testing = $state(false);
   const provider = $derived<ModelProvider | undefined>(providers.data?.find((p) => p.id === form.provider));
-  // The saved key stays when the provider doesn't change.
-  const keepsKey = $derived(s !== undefined && s.key_set && form.provider === s.provider);
+  const current = $derived(s !== undefined && form.provider === s.provider);
 
   // The form starts from what's in use, and follows it when it changes elsewhere.
   $effect(() => {
-    if (s) form = { provider: s.provider, api_key: "", base_url: s.base_url, model: s.model, worker_model: s.worker_model };
+    if (s) form = { provider: s.provider, values: { ...s.values }, model: s.model, worker_model: s.worker_model };
   });
 
   /** A provider's suggested models, or the ones in use when it's the current provider. */
   function choose(id: string): void {
     const p = providers.data?.find((x) => x.id === id);
-    const current = s !== undefined && id === s.provider;
+    const inUse = s !== undefined && id === s.provider;
     form = {
       provider: id,
-      api_key: "",
-      base_url: current ? (s?.base_url ?? "") : "",
-      model: current ? (s?.model ?? "") : (p?.model ?? ""),
-      worker_model: current ? (s?.worker_model ?? "") : (p?.worker_model ?? ""),
+      values: inUse ? { ...(s?.values ?? {}) } : {},
+      model: inUse ? (s?.model ?? "") : (p?.model ?? ""),
+      worker_model: inUse ? (s?.worker_model ?? "") : (p?.worker_model ?? ""),
     };
+  }
+
+  /** Saved secrets are never sent back: an empty field keeps them. */
+  function placeholder(key: string, label: string, required: boolean): string {
+    if (current && s?.secrets_set.includes(key)) return "Saved — leave empty to keep it";
+    return required ? label : `${label} (optional)`;
   }
 
   async function save(): Promise<void> {
     testing = true;
-    message = "Testing the models…";
+    message = provider && !provider.installed ? `Installing ${provider.package}, then testing the models…` : "Testing the models…";
     try {
-      await client.model.set({ ...form, base_url: provider?.takes_base_url ? form.base_url : "" });
+      await client.model.set(form);
       message = "Saved ✓ Both models answered. New messages use them.";
+      providers.reload();
     } catch (e) {
       message = describe(e);
     } finally {
@@ -87,23 +92,23 @@
         </select>
       </label>
       {#if provider}
-        <label class="fields">
-          <span class="text-label">{provider.key_label}</span>
-          <input
-            class="input"
-            type="password"
-            autocomplete="off"
-            placeholder={keepsKey ? "Saved — leave empty to keep it" : provider.key_label}
-            aria-label={provider.key_label}
-            bind:value={form.api_key}
-          />
-          <span class="text-caption">{provider.key_help}</span>
-        </label>
-        {#if provider.takes_base_url}
+        {#if provider.help}<span class="text-caption">{provider.help}</span>{/if}
+        {#each provider.fields as f (f.key)}
           <label class="fields">
-            <span class="text-label">Server URL</span>
-            <input class="input" placeholder="Empty for OpenAI; Ollama: http://localhost:11434/v1" aria-label="Server URL" bind:value={form.base_url} />
+            <span class="text-label">{f.label}</span>
+            <input
+              class="input"
+              type={f.secret ? "password" : "text"}
+              autocomplete="off"
+              placeholder={placeholder(f.key, f.label, f.required)}
+              aria-label={f.label}
+              bind:value={form.values[f.key]}
+            />
+            {#if f.help}<span class="text-caption">{f.help}</span>{/if}
           </label>
+        {/each}
+        {#if !provider.installed}
+          <span class="text-caption">Saving installs <code>{provider.package}</code> first, which can take a few minutes.</span>
         {/if}
       {/if}
       <div class="row">

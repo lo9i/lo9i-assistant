@@ -51,6 +51,8 @@ def chat_model(
         http_async_client=http,
         max_completion_tokens=max_tokens,
         output_version="v1",
+        # Ask for token usage on streamed replies too (the token ledger, core/usage).
+        stream_usage=True,
     )
 
 

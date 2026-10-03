@@ -27,6 +27,7 @@ def isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         "workspace_dir": tmp_path / "workspace",
         "skills_dir": tmp_path / "skills",
         "mcp_dir": tmp_path / "mcp",
+        "mcp_data_dir": tmp_path / "data",
         "persona_path": tmp_path / "SOUL.md",
         "daemon_socket": tmp_path / "daemon.sock",
         "secrets_key_path": tmp_path / "keys" / "secrets.key",
@@ -118,7 +119,7 @@ class Digests:
 @pytest.fixture
 def digests(monkeypatch: pytest.MonkeyPatch) -> Digests:
     digests = Digests()
-    monkeypatch.setattr(model_module, "build_digester", lambda choice: digests)
+    monkeypatch.setattr(model_module, "build_digester", lambda choice, usage: digests)
     return digests
 
 
@@ -140,7 +141,7 @@ class Titles:
 @pytest.fixture
 def titles(monkeypatch: pytest.MonkeyPatch) -> Titles:
     titles = Titles()
-    monkeypatch.setattr(model_module, "build_titler", lambda choice: titles)
+    monkeypatch.setattr(model_module, "build_titler", lambda choice, usage: titles)
     return titles
 
 

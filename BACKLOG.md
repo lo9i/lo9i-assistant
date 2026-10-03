@@ -24,8 +24,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
   - Passkeys as a faster sign-in for paired devices.
   - Bearer tokens for non-browser clients on other hosts (the terminal app over the network). The daemon already accepts `Authorization: Bearer`; no client sends one yet.
 - A3. Scheduled jobs only run while the host is up. If the Linux host is a machine that suspends (a laptop), keep it awake on power or schedule wake-ups (`rtcwake`), so jobs run on time.
-- A4. Spending limits for scheduled jobs (tokens per run and per day).
-- A15. Token usage. Record input, output and cache read/write tokens for every model call (from `usage_metadata`), with the model, conversation, channel and job. Show totals per day, model and conversation in the web Usage page and the terminal's `/usage`, next to tool usage. A4 builds on it.
+- A4. Spending limits on the token ledger (`core/usage`): per job run, per job per day, per conversation and overall per day. Checked before every model call; going over ends the run cleanly (a job run is recorded as over budget, a chat gets a clear message), and a warning at a threshold (80%) goes to Telegram or Slack.
 - A14. A job run waiting for approval on Telegram doesn't survive a daemon restart: its conversation stays paused and the run is never recorded. On start, resume such runs (the answer can still arrive) or record them as needing attention.
 
 ## MCP
@@ -42,7 +41,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - G2. Facts and episodes are loaded up to the configured limits, with no search beyond them.
 - G3. No way to view or edit memories (Q1).
 - G4. Checkpoints are never pruned.
-- A19. "Get to know you" after setup. The first time the user chats after setup, with the profile still empty, the assistant offers to get to know them. If they agree, it asks a few friendly questions at a time, one profile section at a time (about, people, how to reply, routine, goals, interests, dislikes, work), and saves the answers with `update_profile`.
+- A17. "Get to know you" after setup. The first time the user chats after setup, with the profile still empty, the assistant offers to get to know them. If they agree, it asks a few friendly questions at a time, one profile section at a time (about, people, how to reply, routine, goals, interests, dislikes, work), and saves the answers with `update_profile`.
   - Every question can be skipped, and the user can stop at any point. It fills only what they choose to share.
   - Written as a built-in skill (steps in `SKILL.md`), not a new tool.
   - Offered once: a Store flag records that it was offered, so it never comes back on its own. The user can start it again from the app (a `/get-to-know-me` command, a button in Settings) or by asking.
@@ -64,13 +63,10 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
   - Needs an OpenAI key in addition to the Anthropic key. Not needed for Telegram voice notes.
 - A7. Spoken replies in Slack. Settings → Audio speaks replies in the web chat and as Telegram voice notes; Slack doesn't get them yet (upload the audio with `files.uploadV2`).
 
-## Chat channels
-
-- A16. Approval requests longer than Telegram's 4096-character limit fail to send (`TelegramChat.send` doesn't split; the request text is a whole bash command or a whole skill with its files). Split the text and put the buttons on the last part.
 
 ## Platforms
 
-- A17. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
+- A15. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
   - Daemon connection: a named pipe or localhost with a paired device instead of the Unix socket.
   - Startup: a Task Scheduler task or a Windows service as a `daemon/startup.py` backend.
   - Clipboard: `client/clipboard/windows.py`, pasting files, images and text with PowerShell (`Get-Clipboard -Format FileDropList`, `System.Windows.Forms.Clipboard.GetImage`) and copying with `Set-Clipboard`.
@@ -78,7 +74,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Languages
 
-- A18. Multi-language support. The app's own text is English only.
+- A16. Multi-language support. The app's own text is English only.
   - Interface text: terminal app, web app, and the messages Telegram and Slack adapters send (approval buttons, errors, `/new`). Text kept in per-language files, picked in Settings → General.
   - Prompts in `core/conversation/prompts/` stay in English; the model replies in the user's language.
   - Speech: the speech-to-text language and the Kokoro voice follow the chosen language.

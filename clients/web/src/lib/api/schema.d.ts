@@ -586,7 +586,10 @@ export interface paths {
          */
         put: operations["update_skill_skills__name__put"];
         post?: never;
-        /** Delete Skill */
+        /**
+         * Delete Skill
+         * @description 404: no such skill. 400: built in, or it comes with an MCP server.
+         */
         delete: operations["delete_skill_skills__name__delete"];
         options?: never;
         head?: never;
@@ -898,6 +901,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/usage/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Token Usage
+         * @description Tokens and cost of the model calls, by day, model, purpose, channel, conversation, job, skill and tool.
+         */
+        get: operations["token_usage_usage_tokens_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/startup": {
         parameters: {
             query?: never;
@@ -1120,6 +1143,16 @@ export interface components {
             fields: components["schemas"]["ServerField"][];
             /** Trusted */
             trusted: boolean;
+            /**
+             * Skill
+             * @default false
+             */
+            skill: boolean;
+            /**
+             * Page
+             * @default false
+             */
+            page: boolean;
         };
         /**
          * FoundSkill
@@ -1304,6 +1337,11 @@ export interface components {
              * @default
              */
             source: string;
+            /**
+             * Page
+             * @default false
+             */
+            page: boolean;
         };
         /** McpToolInfo */
         McpToolInfo: {
@@ -1346,15 +1384,12 @@ export interface components {
             /** Provider */
             provider: string;
             /**
-             * Api Key
-             * @default
+             * Values
+             * @default {}
              */
-            api_key: string;
-            /**
-             * Base Url
-             * @default
-             */
-            base_url: string;
+            values: {
+                [key: string]: string;
+            };
             /** Model */
             model: string;
             /** Worker Model */
@@ -1362,44 +1397,75 @@ export interface components {
         };
         /**
          * ModelProvider
-         * @description A provider clients offer, with the models to suggest.
+         * @description A provider clients offer, with what it asks for and the models to suggest.
          */
         ModelProvider: {
             /** Id */
             id: string;
             /** Name */
             name: string;
-            /** Key Label */
-            key_label: string;
-            /** Key Help */
-            key_help: string;
-            /** Model */
+            /** Fields */
+            fields: components["schemas"]["ProviderField"][];
+            /**
+             * Model
+             * @default
+             */
             model: string;
-            /** Worker Model */
+            /**
+             * Worker Model
+             * @default
+             */
             worker_model: string;
             /**
-             * Takes Base Url
-             * @default false
+             * Help
+             * @default
              */
-            takes_base_url: boolean;
+            help: string;
+            /**
+             * Package
+             * @default
+             */
+            package: string;
+            /**
+             * Module
+             * @default
+             */
+            module: string;
+            /**
+             * Max Tokens Key
+             * @default max_tokens
+             */
+            max_tokens_key: string;
+            /**
+             * Model Key
+             * @default
+             */
+            model_key: string;
+            /**
+             * Installed
+             * @default true
+             */
+            installed: boolean;
         };
         /**
          * ModelStatus
-         * @description What a client shows. Says whether a key is set, never the key.
+         * @description What a client shows. Says which secret values are set, never the values.
          */
         ModelStatus: {
             /** Source */
             source: string;
             /** Provider */
             provider: string;
-            /** Base Url */
-            base_url: string;
             /** Model */
             model: string;
             /** Worker Model */
             worker_model: string;
-            /** Key Set */
-            key_set: boolean;
+            /** Values */
+            values: {
+                [key: string]: string;
+            };
+            /** Secrets Set */
+            secrets_set: string[];
         };
         /** NewMailAlerts */
         NewMailAlerts: {
@@ -1427,6 +1493,28 @@ export interface components {
             code: string;
             /** Expires At */
             expires_at: string;
+        };
+        /** ProviderField */
+        ProviderField: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Secret
+             * @default false
+             */
+            secret: boolean;
+            /**
+             * Required
+             * @default true
+             */
+            required: boolean;
+            /**
+             * Help
+             * @default
+             */
+            help: string;
         };
         /** RepositoryAddress */
         RepositoryAddress: {
@@ -1541,6 +1629,8 @@ export interface components {
             files?: string[];
             /** Source */
             source?: string | null;
+            /** Server */
+            server?: string | null;
         };
         /** SkillChange */
         SkillChange: {
@@ -1690,6 +1780,74 @@ export interface components {
         ThreadCreated: {
             /** Thread Id */
             thread_id: string;
+        };
+        /** TokenReport */
+        TokenReport: {
+            /** Days */
+            days: number;
+            total: components["schemas"]["TokenRow"];
+            /** By Day */
+            by_day?: components["schemas"]["TokenRow"][];
+            /** By Model */
+            by_model?: components["schemas"]["TokenRow"][];
+            /** By Purpose */
+            by_purpose?: components["schemas"]["TokenRow"][];
+            /** By Channel */
+            by_channel?: components["schemas"]["TokenRow"][];
+            /** By Conversation */
+            by_conversation?: components["schemas"]["TokenRow"][];
+            /** By Job */
+            by_job?: components["schemas"]["TokenRow"][];
+            /** By Skill */
+            by_skill?: components["schemas"]["TokenRow"][];
+            /** By Tool */
+            by_tool?: components["schemas"]["TokenRow"][];
+            /**
+             * Estimated Calls
+             * @default 0
+             */
+            estimated_calls: number;
+        };
+        /**
+         * TokenRow
+         * @description Tokens of one day, model, conversation, tool... `cost` in US dollars, None when no model
+         *     involved has a price (core/usage/prices.py).
+         */
+        TokenRow: {
+            /** Name */
+            name: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * Calls
+             * @default 0
+             */
+            calls: number;
+            /**
+             * Input Tokens
+             * @default 0
+             */
+            input_tokens: number;
+            /**
+             * Cache Read Tokens
+             * @default 0
+             */
+            cache_read_tokens: number;
+            /**
+             * Cache Write Tokens
+             * @default 0
+             */
+            cache_write_tokens: number;
+            /**
+             * Output Tokens
+             * @default 0
+             */
+            output_tokens: number;
+            /** Cost */
+            cost?: number | null;
         };
         /** ToolUsage */
         ToolUsage: {
@@ -3475,6 +3633,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UsageReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    token_usage_usage_tokens_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenReport"];
                 };
             };
             /** @description Validation Error */

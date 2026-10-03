@@ -14,7 +14,7 @@ from assistant.core.agent.locking import LockingMixin
 from assistant.core.agent.mcp import McpMixin
 from assistant.core.agent.memory import MemoryMixin
 from assistant.core.agent.messaging import MessagingMixin
-from assistant.core.agent.model import ModelMixin
+from assistant.core.agent.model import ModelMixin, usable_choice
 from assistant.core.agent.repositories import RepositoriesMixin
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.skills import SkillsMixin
@@ -30,6 +30,7 @@ from assistant.core.integrations.email import accounts
 from assistant.core.llm import choice
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.mcp.hub import McpHub
+from assistant.core.mcp.pages import McpPages
 from assistant.core.memory import profile
 from assistant.core.outbox import Outbox
 from assistant.core.secret_store import SecretBox
@@ -65,6 +66,7 @@ class AssistantService(
         self.outbox = Outbox()
         self.approvals = RemoteApprovals()
         self.mcp = McpHub(storage.store, bus)
+        self.pages = McpPages(storage.store)
         self._use_model(model)
         self._background = set()
         self._conversations_lock = asyncio.Lock()
@@ -89,6 +91,6 @@ class AssistantService(
                 await accounts.migrate(storage.store, secrets)
                 await choice.migrate(storage.store, secrets)
                 await profile.migrate(storage.store)
-                yield cls(storage, await choice.current(storage.store, secrets), bus, secrets)
+                yield cls(storage, await usable_choice(storage.store, secrets), bus, secrets)
         finally:
             observability.flush()

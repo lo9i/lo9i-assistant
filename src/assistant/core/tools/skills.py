@@ -60,9 +60,13 @@ async def delete_skill(name: str, runtime: ToolRuntime[Context]) -> str:
     """Delete a skill. The user approves it first."""
     try:
         await asyncio.to_thread(store.check, name)
-        await asyncio.to_thread(store.load, name)
+        skill = await asyncio.to_thread(store.load, name)
     except SkillError as e:
         return str(e)
+    if skill.server:
+        return (
+            f"{name} comes with the {skill.server} MCP server. The user removes it by removing the server in the app."
+        )
     rejection = ask(
         {"tool": "delete_skill", "reason": "a deleted skill can't be restored", "command": name}, runtime.context
     )

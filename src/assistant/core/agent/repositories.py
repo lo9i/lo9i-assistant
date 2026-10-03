@@ -41,5 +41,5 @@ class RepositoriesMixin(ServiceBase):
         if installed.skills:
             self.bus.publish("skills")
         if installed.servers:
-            await self.mcp.reload()
+            await self._servers_changed()
         return InstalledFromRepository(installed.skills, [mcp_status(self.mcp, s) for s in installed.servers])

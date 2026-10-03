@@ -42,12 +42,23 @@ def test_stored_messages_convert_for_openai(monkeypatch):
 
 
 def _anthropic() -> ChatAnthropic:
-    model = build_llm(ModelChoice("anthropic", "", "", "claude-opus-5-5", "claude-opus-5-5"), "claude-opus-5-5")
+    model = build_llm(ModelChoice("anthropic", "claude-opus-5-5", "claude-opus-5-5"), "claude-opus-5-5")
     assert isinstance(model, ChatAnthropic)
     return model
 
 
 def _openai() -> ChatOpenAI:
-    model = build_llm(ModelChoice("openai", "", "", "gpt-test", "gpt-test"), "gpt-test")
+    model = build_llm(ModelChoice("openai", "gpt-test", "gpt-test"), "gpt-test")
     assert isinstance(model, ChatOpenAI)
     return model
+
+
+def test_other_providers_are_built_by_langchain_with_their_values():
+    from langchain_openai import AzureChatOpenAI
+
+    from assistant.core.config import settings
+
+    values = {"azure_endpoint": "https://r.openai.azure.com/", "api_key": "k", "api_version": "2024-10-21"}
+    model = build_llm(ModelChoice("azure_openai", "gpt-4o", "gpt-4o", values), "gpt-4o")
+    assert isinstance(model, AzureChatOpenAI)
+    assert (model.deployment_name, model.output_version, model.max_tokens) == ("gpt-4o", "v1", settings.max_tokens)

@@ -50,6 +50,7 @@ from assistant.core.agent import (
     SpokenReplies,
     SynthesisError,
     TelegramStatus,
+    TokenReport,
     UsageReport,
 )
 from assistant.core.attachments import Attachment
@@ -110,9 +111,9 @@ class EmailRecipients(BaseModel):
 
 class ModelChange(BaseModel):
     provider: str
-    # Empty keeps the current key when the provider stays the same.
-    api_key: str = ""
-    base_url: str = ""
+    # The provider's fields by key (ModelProvider.fields). A secret left empty keeps the saved one
+    # when the provider stays the same.
+    values: dict[str, str] = {}
     model: str
     worker_model: str
 
@@ -463,7 +464,7 @@ def _add_model_routes(app: FastAPI, service: AssistantService) -> None:
     async def set_model(body: ModelChange) -> ModelStatus:
         """Checks that both models answer with these settings, then uses them."""
         try:
-            return await service.set_model(body.provider, body.api_key, body.base_url, body.model, body.worker_model)
+            return await service.set_model(body.provider, body.values, body.model, body.worker_model)
         except ModelSettingsError as e:
             raise HTTPException(400, str(e)) from e
 
@@ -615,10 +616,15 @@ def _add_skill_routes(app: FastAPI, service: AssistantService) -> None:
 
     @app.delete("/skills/{name}")
     async def delete_skill(name: str) -> Ok:
+        """404: no such skill. 400: built in, or it comes with an MCP server."""
+        try:
+            await service.get_skill(name)
+        except SkillError as e:
+            raise HTTPException(404, str(e)) from e
         try:
             await service.delete_skill(name)
         except SkillError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(400, str(e)) from e
         return Ok()
 
 
@@ -726,6 +732,11 @@ def _add_usage_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/usage")
     async def usage(days: int = 7) -> UsageReport:
         return await service.usage_report(days)
+
+    @app.get("/usage/tokens")
+    async def token_usage(days: int = 7) -> TokenReport:
+        """Tokens and cost of the model calls, by day, model, purpose, channel, conversation, job, skill and tool."""
+        return await service.token_report(days)
 
 
 def _add_startup_routes(app: FastAPI, startup: Any) -> None:

@@ -162,7 +162,8 @@ main() {
   cd "$(checkout)"
   source scripts/lib.sh
   ensure_env
-  uv sync --frozen --quiet
+  # --inexact keeps the model providers' packages the daemon installed when they were chosen.
+  uv sync --frozen --inexact --quiet
   build_web_ui
   has_systemd && start_service
   next_steps

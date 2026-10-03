@@ -96,18 +96,20 @@
               {:else}
                 {@const files = skill.data.files ?? []}
                 <div class="prose">{@html markdown(skill.data.instructions)}</div>
-                {#if files.length || skill.data.source}
+                {#if files.length || skill.data.source || skill.data.server}
                   <dl>
                     {#if files.length}<dt class="micro-label">Files</dt><dd>{files.join(", ")}</dd>{/if}
-                    {#if skill.data.source}<dt class="micro-label">Installed from</dt><dd>{skill.data.source}</dd>{/if}
+                    {#if skill.data.server}
+                      <dt class="micro-label">Comes with</dt><dd>the {skill.data.server} MCP server, which updates and removes it</dd>
+                    {:else if skill.data.source}<dt class="micro-label">Installed from</dt><dd>{skill.data.source}</dd>{/if}
                   </dl>
                 {/if}
                 <div class="actions">
                   <button class="btn btn--neutral btn--sm" onclick={startEditing}><Pencil size={14} />Edit</button>
-                  {#if skill.data.source}
+                  {#if skill.data.source && !skill.data.server}
                     <button class="btn btn--neutral btn--sm" onclick={() => updateInstalled(s.name)}><RefreshCw size={14} />Update</button>
                   {/if}
-                  <button class="btn btn--danger btn--sm" onclick={() => (confirming = s.name)}><Trash2 size={14} />Delete</button>
+                  {#if !skill.data.server}<button class="btn btn--danger btn--sm" onclick={() => (confirming = s.name)}><Trash2 size={14} />Delete</button>{/if}
                 </div>
               {/if}
             </div>

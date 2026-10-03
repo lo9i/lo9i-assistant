@@ -12,15 +12,16 @@ Where things are:
 - Telegram: only chatting, `/new` (start a new conversation) and `/start`. Nothing can be set up from Telegram; send the user to the terminal app or the web UI.
 - Slack: only chatting in the app's DM, and `/new` (start a new conversation). Nothing can be set up from Slack; send the user to the terminal app or the web UI.
 
-## The model (provider and key)
+## The model (provider and its keys)
 
 Terminal app: `/model`. Web UI: Settings → General → Model.
 
-1. Choose the provider: Anthropic (an API key from https://console.anthropic.com/settings/keys), GitHub Copilot (a GitHub token of an account with a Copilot subscription; its model ids use dots, like `claude-opus-5.5`), or OpenAI-compatible (OpenAI, or another server such as Ollama, with its URL).
-2. Paste the key. The main and worker models are filled in with suggestions; change them if needed. The worker model writes summaries and titles and can be cheaper.
-3. Choose **Save and test**. Each model is asked to answer once; a wrong key or model id is reported right away and nothing changes.
+1. Choose the provider. Anthropic, GitHub Copilot (a GitHub token of an account with a Copilot subscription; its model ids use dots, like `claude-opus-5.5`) and OpenAI-compatible servers (OpenAI, or another server such as Ollama, with its URL) are built in. Every other provider LangChain supports is listed too: Google Gemini and Vertex AI, Azure OpenAI and Azure AI Foundry, Amazon Bedrock, Mistral, Groq, DeepSeek, xAI, OpenRouter, Together, Fireworks, Perplexity, Cohere, NVIDIA, Upstage, Baseten, Meta, IBM watsonx, Ollama, LiteLLM and the LangSmith gateway.
+2. Fill in what the provider asks for. Each shows its own fields: usually an API key; Azure an endpoint, key and API version (the model is the deployment's name); Bedrock an AWS region and access keys; Vertex AI a project, region and a service account's JSON key. Secret fields are typed only there, never in the chat.
+3. The main and worker models are filled in with suggestions where there are any; otherwise type the provider's model ids. The worker model writes summaries and titles and can be cheaper.
+4. Choose **Save and test**. A provider used for the first time has its package installed first, which can take a few minutes. Then each model is asked to answer once; a wrong key or model id is reported right away and nothing changes.
 
-Saved in the app, the model overrides the one in `.env` and is used from the next message on. **Use .env instead** goes back to `.env`. To change only the models, leave the key empty: the saved key is kept.
+Saved in the app, the model overrides the one in `.env` and is used from the next message on. **Use .env instead** goes back to `.env`. To change only the models, leave the secret fields empty: the saved ones are kept. Prompt caching only works with Anthropic.
 
 ## Email (sending and reading)
 
@@ -95,7 +96,7 @@ Terminal app: `/skills` or `/mcp`, then **Install**. Web UI: **Skills** or **MCP
 2. Check the ones to install. A server that needs values (a user name, a password, a token) shows a field for each; secret ones are typed only there, never in the chat.
 3. Choose **Install**. Everything is available from the user's next message.
 
-What's installed runs on this computer, so the user should install only from people they trust. Installed servers are untrusted by default unless the repository says otherwise: their tools that aren't read-only ask for approval. **Update** (in `/skills` or `/mcp`, or on the web pages) downloads one again: a skill's local changes are replaced; a server keeps its values, trust and tool choices. Only the user installs; you can't. When you save or delete a skill yourself, the user approves it first.
+What's installed runs on this computer, so the user should install only from people they trust. Installed servers are untrusted by default unless the repository says otherwise: their tools that aren't read-only ask for approval. **Update** (in `/skills` or `/mcp`, or on the web pages) downloads one again: a skill's local changes are replaced; a server keeps its values, trust and tool choices, and its data. A server can come with a page (for example Expenses): it shows up in the web UI's sidebar, for paired browsers only; the terminal app and chats can't show it. Only the user installs; you can't. When you save or delete a skill yourself, the user approves it first.
 
 ## Audio (voice messages and spoken replies)
 

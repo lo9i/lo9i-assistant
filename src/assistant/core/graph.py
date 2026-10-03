@@ -25,10 +25,11 @@ from assistant.core.conversation.epochs import (
     reopen,
     usage_anchor,
 )
-from assistant.core.llm import build_llm
+from assistant.core.llm import build_llm, metered
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.storage import Storage
 from assistant.core.tools import tools_for
+from assistant.core.usage.meter import TokenMeter
 
 Node = Callable[..., Awaitable[dict]]
 
@@ -65,7 +66,8 @@ def build_graph(storage: Storage, choice: ModelChoice, digester: Digester, mcp: 
     tools = tools_for(settings.toolsets)
     builder = StateGraph(AgentState, context_schema=Context)
     builder.add_node("epoch", _epoch_node(digester, mcp))
-    builder.add_node("agent", _agent_node(build_llm(choice, choice.model), tools))
+    llm = metered(build_llm(choice, choice.model), TokenMeter(storage.usage, "reply"))
+    builder.add_node("agent", _agent_node(llm, tools))
     builder.add_node("tools", ToolNode(tools, awrap_tool_call=_mcp_calls(mcp)))
     builder.add_edge(START, "epoch")
     builder.add_edge("epoch", "agent")

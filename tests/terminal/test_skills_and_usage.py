@@ -41,6 +41,11 @@ async def test_usage_screen_shows_tools_and_skills(app, client):
             return screen.query_one("#usage-body", Markdown).source
 
         await wait_for(pilot, lambda: "| bash | 12 | 1 | 2 | 850 ms |" in body() and "| news-digest | 3 |" in body())
+        assert "4 model calls · 52.0k in (40.0k from the cache) · 1.8k out · $0.07" in body()
+        assert (
+            "| claude-opus-5-5 | 4 | 52.0k | 40.0k | 1.8k | $0.07 |" in body()
+            and "| web_fetch | 1 | 9.0k | 40 |" in body()
+        )
         screen.query_one("#days-30", Button).press()
         await wait_for(pilot, lambda: "last 30 days" in body() and "| news-digest | 12 |" in body())
 

@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     owner_id: str = "owner"
 
     # Tool groups the agent gets. See core/tools/registry.py.
+    # Prices per million tokens for models without built-in ones (core/usage/prices.py), as JSON:
+    # MODEL_PRICES='{"gpt-5": {"input": 1.25, "output": 10, "cache_read": 0.125}}'. Overrides them too.
+    model_prices: dict[str, dict[str, float]] = {}
     toolsets: list[str] = ["terminal", "memory", "web", "skills", "email", "slack", "jobs", "messages", "identity"]
     skills_dir: str = "~/.lo9i/skills"
     # Email bodies longer than this are cut when the agent reads them.
@@ -84,6 +87,9 @@ class Settings(BaseSettings):
     mcp_max_output: int = 30_000
     # Code of MCP servers installed from a repository, one folder each.
     mcp_dir: str = "~/.lo9i/mcp"
+    # Data of MCP servers installed from a repository, one folder each. Kept when a server is updated
+    # or removed.
+    mcp_data_dir: str = "~/.lo9i/data"
 
     # Scheduled jobs. A run missed while the daemon was down still runs if it's this recent.
     jobs_grace_hours: float = 6

@@ -475,3 +475,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
 #skill-edit-instructions {
     height: 16;
 }
+
+#model-fields {
+    height: auto;
+}
