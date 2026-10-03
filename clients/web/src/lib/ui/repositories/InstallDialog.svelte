@@ -5,9 +5,10 @@
   import { describe } from "$lib/notices";
   import Modal from "../Modal.svelte";
 
-  // `picked`: plugins to check already (the Plugins page).
-  type Props = { onclose: (installed?: string[]) => void; picked?: string[] };
-  let { onclose, picked = [] }: Props = $props();
+  // `kind`: only MCP servers (the MCP servers page) or only skills (the Skills page). `only`: just this
+  // plugin, to give the values it asks for (the Plugins page). What's installed already isn't offered.
+  type Props = { onclose: (installed?: string[]) => void; kind?: "server" | "skill"; only?: string };
+  let { onclose, kind: shownKind, only }: Props = $props();
   const { client } = useDaemon();
 
   let found = $state<RepositoryContents | null>(null);
@@ -32,9 +33,15 @@
 
   const look = () =>
     run(async () => {
-      const contents = await client.repositories.browse();
+      const all = await client.repositories.browse();
+      const offered = (k: "server" | "skill", p: { name: string; installed?: boolean }) =>
+        !p.installed && (!shownKind || shownKind === k) && (!only || only === p.name);
+      const contents = {
+        skills: all.skills.filter((s) => offered("skill", s)),
+        servers: all.servers.filter((s) => offered("server", s)),
+      };
       const onlyOne = contents.skills.length + contents.servers.length === 1;
-      const chosen = (name: string) => onlyOne || picked.includes(name);
+      const chosen = (name: string) => onlyOne || name === only;
       skills = new Set(contents.skills.filter((s) => chosen(s.name)).map((s) => s.name));
       servers = new Set(contents.servers.filter((s) => chosen(s.name)).map((s) => s.name));
       values = Object.fromEntries(contents.servers.map((s) => [s.name, Object.fromEntries(s.fields.map((f) => [f.key, ""]))]));
@@ -69,13 +76,15 @@
 </script>
 
 <Modal
-  title="Install a plugin"
+  title={only ? `Install ${only}` : "Install a plugin"}
   description="MCP servers and skills from the assistant's extras. What you install runs on the computer running the assistant."
   width={600}
   onclose={() => onclose()}
 >
   {#if found === null && !error}<p class="text-meta">Looking at the extras…</p>{/if}
-  {#if found}
+  {#if found && found.skills.length + found.servers.length === 0}
+    <p class="text-meta">Everything the extras offer{shownKind === "server" ? " as MCP servers" : shownKind === "skill" ? " as skills" : ""} is installed already.</p>
+  {:else if found}
     <ul>
       {#each found.skills as skill (skill.name)}
         <li>

@@ -26,9 +26,12 @@ _SKILL, _SERVER = "skill:", "server:"
 class RepositoryInstallScreen(ModalScreen[list[str]]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss([])", "Close")]
 
-    def __init__(self, repositories: RepositoriesApi) -> None:
+    def __init__(self, repositories: RepositoriesApi, kind: str = "", only: str = "") -> None:
+        """`kind`: only "server"s (from /mcp) or only "skill"s (from /skills). `only`: just this plugin,
+        to give the values it asks for (from /plugins). What's installed already isn't offered."""
         super().__init__()
         self._repositories = repositories
+        self._kind, self._only = kind, only
         self._servers: dict[str, FoundServer] = {}
         # One input per field of each server, by server name and field key.
         self._inputs: dict[str, dict[str, Input]] = {}
@@ -59,7 +62,16 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
         except RepositoryError as e:
             await self._say(f"**{e}**")
             return
-        await self._show(contents)
+        await self._show(self._offered(contents))
+
+    def _offered(self, contents: RepositoryContents) -> RepositoryContents:
+        def offered(kind: str, name: str, installed: bool) -> bool:
+            return not installed and self._kind in ("", kind) and self._only in ("", name)
+
+        return RepositoryContents(
+            [s for s in contents.skills if offered("skill", s.name, s.installed)],
+            [s for s in contents.servers if offered("server", s.name, s.installed)],
+        )
 
     @on(SelectionList.SelectedChanged, "#repository-found")
     def _selection_changed(self) -> None:
@@ -84,6 +96,9 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
         self._servers = {s.name: s for s in contents.servers}
         found = self.query_one("#repository-found", SelectionList)
         found.clear_options()
+        if not contents.skills and not contents.servers:
+            await self._say("Everything the extras offer here is installed already.")
+            return
         only_one = len(contents.skills) + len(contents.servers) == 1
         found.add_options([(_skill_label(s), _SKILL + s.name, only_one) for s in contents.skills])
         found.add_options([(_server_label(s), _SERVER + s.name, only_one) for s in contents.servers])

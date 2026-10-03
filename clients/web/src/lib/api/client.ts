@@ -19,6 +19,7 @@ import type {
   McpServerStatus,
   McpToolInfo,
   Me,
+  MemorySnapshot,
   ModelChange,
   ModelProvider,
   ModelStatus,
@@ -308,6 +309,15 @@ export class SkillsGroup {
   }
 }
 
+export class MemoryGroup {
+  constructor(private readonly transport: Transport) {}
+
+  /** What the assistant knows about the user: profile sections, facts and recent conversations. */
+  snapshot(): Promise<MemorySnapshot> {
+    return this.transport.request("GET", "/memory");
+  }
+}
+
 export class UsageGroup {
   constructor(private readonly transport: Transport) {}
 
@@ -395,6 +405,7 @@ export class DaemonClient {
   readonly mcp: McpGroup;
   readonly repositories: RepositoriesGroup;
   readonly skills: SkillsGroup;
+  readonly memory: MemoryGroup;
   readonly usage: UsageGroup;
   readonly system: SystemGroup;
   readonly clients: ClientsGroup;
@@ -413,6 +424,7 @@ export class DaemonClient {
     this.mcp = new McpGroup(transport);
     this.repositories = new RepositoriesGroup(transport);
     this.skills = new SkillsGroup(transport);
+    this.memory = new MemoryGroup(transport);
     this.usage = new UsageGroup(transport);
     this.system = new SystemGroup(transport);
     this.clients = new ClientsGroup(transport);

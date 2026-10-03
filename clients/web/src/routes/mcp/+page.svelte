@@ -190,6 +190,7 @@
 
 {#if installing}
   <InstallDialog
+    kind="server"
     onclose={(installed) => {
       installing = false;
       if (installed) notices.notify(`Installed ${installed.join(", ")}. The assistant uses them from your next message.`);

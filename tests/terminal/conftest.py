@@ -351,14 +351,20 @@ class FakeRepositories:
         if self.unreachable:
             raise RepositoryError("Couldn't get the repository: no network")
         fields = [ServerField("CAL_USER", "User"), ServerField("CAL_PASSWORD", "Password", secret=True)]
+        skill = "expenses" in self._skills.items
         return RepositoryContents(
-            [FoundSkill("expenses", "Track expenses", ["scripts/add.py"])],
-            [FoundServer("calendar", "Calendar", "stdio", fields, False)],
+            [FoundSkill("expenses", "Track expenses", ["scripts/add.py"], installed=skill)],
+            [
+                FoundServer("calendar", "Calendar", "stdio", fields, False, installed="calendar" in self._mcp.items),
+                FoundServer(
+                    "weather", "Weather", "stdio", [], False, page=True, installed="weather" in self._mcp.items
+                ),
+            ],
         )
 
     async def install(self, skills, servers, url=None):
         url = url or EXTRAS
-        if any(not all(v for v in s.values.values()) or len(s.values) < 2 for s in servers):
+        if any(s.name == "calendar" and (len(s.values) < 2 or not all(s.values.values())) for s in servers):
             raise RepositoryError("calendar needs Password.")
         self.installed.append((url, skills, servers))
         for name in skills:

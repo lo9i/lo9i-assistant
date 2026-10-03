@@ -86,7 +86,11 @@ async def test_installs_a_server_from_a_repository_and_updates_it(app, client):
         await wait_for(pilot, lambda: isinstance(app.screen, RepositoryInstallScreen))
         install = app.screen
         found = install.query_one("#repository-found", SelectionList)
-        await wait_for(pilot, lambda: found.option_count == 2)
+        # From /mcp, only the servers.
+        await wait_for(
+            pilot,
+            lambda: found.option_count == 2 and not any("skill:" in str(v) for v in [o.value for o in found._options]),
+        )
         found.select("server:calendar")
         for field, value in zip(install.query("#repository-fields Input").results(Input), ["ana", "pw"], strict=True):
             field.value = value
