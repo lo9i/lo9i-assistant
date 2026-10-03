@@ -16,7 +16,7 @@ def to_events(mode: str, data: Any) -> list[Event]:
     return _update_events(data)
 
 
-def approval_events(interrupts: Iterable[Interrupt]) -> list[Event]:
+def approval_events(interrupts: Iterable[Interrupt]) -> list[ApprovalRequired]:
     return [ApprovalRequired(interrupt_id=i.id, request=i.value) for i in interrupts]
 
 
