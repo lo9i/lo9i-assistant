@@ -44,6 +44,7 @@ from assistant_terminal.tui.screens import (
     StartupScreen,
     TelegramScreen,
     UsageScreen,
+    WebSearchScreen,
 )
 from assistant_terminal.tui.theme import NAME as THEME_NAME
 from assistant_terminal.tui.theme import THEME
@@ -102,6 +103,7 @@ class AssistantApp(App):
             "/mcp": self._command_mcp,
             "/model": self._command_model,
             "/audio": self._command_audio,
+            "/websearch": self._command_web_search,
             "/email": self._command_email,
             "/startup": self._command_startup,
             "/skills": self._command_skills,
@@ -494,6 +496,9 @@ class AssistantApp(App):
 
     async def _command_audio(self, _: str) -> None:
         self.push_screen(AudioScreen(self._service.speech))
+
+    async def _command_web_search(self, _: str) -> None:
+        self.push_screen(WebSearchScreen(self._service.web_search))
 
     async def _command_model(self, _: str) -> None:
         self.push_screen(ModelScreen(self._service.model))

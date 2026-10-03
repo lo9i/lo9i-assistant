@@ -24,6 +24,7 @@ from assistant.core.agent import (
     EmailProvider,
     InstalledFromRepository,
     InvalidNameError,
+    InvalidSearchKeyError,
     InvalidTokenError,
     Job,
     JobError,
@@ -56,6 +57,7 @@ from assistant.core.agent import (
     TelegramStatus,
     TokenReport,
     UsageReport,
+    WebSearchStatus,
 )
 from assistant.core.attachments import Attachment
 from assistant.core.config import settings
@@ -76,6 +78,10 @@ class Approvals(BaseModel):
 
 class TelegramToken(BaseModel):
     token: str
+
+
+class BraveKey(BaseModel):
+    key: str
 
 
 class SlackTokens(BaseModel):
@@ -278,6 +284,7 @@ def create_app(service: AssistantService, hub: RunHub, startup: Any = None, web_
     _add_conversation_routes(app, service, clients)
     _add_telegram_routes(app, service)
     _add_slack_routes(app, service)
+    _add_web_search_routes(app, service)
     _add_email_routes(app, service)
     _add_sign_in_routes(app, service)
     _add_skill_routes(app, service)
@@ -468,6 +475,23 @@ def _add_telegram_routes(app: FastAPI, service: AssistantService) -> None:
     async def disconnect_telegram() -> Ok:
         await service.disconnect_telegram()
         return Ok()
+
+
+def _add_web_search_routes(app: FastAPI, service: AssistantService) -> None:
+    @app.get("/integrations/web-search")
+    async def web_search_status() -> WebSearchStatus:
+        return await service.web_search_status()
+
+    @app.put("/integrations/web-search/brave-key")
+    async def set_brave_key(body: BraveKey) -> WebSearchStatus:
+        try:
+            return await service.set_brave_key(body.key)
+        except InvalidSearchKeyError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.delete("/integrations/web-search/brave-key")
+    async def remove_brave_key() -> WebSearchStatus:
+        return await service.remove_brave_key()
 
 
 def _add_slack_routes(app: FastAPI, service: AssistantService) -> None:

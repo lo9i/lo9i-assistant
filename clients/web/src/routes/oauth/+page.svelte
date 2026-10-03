@@ -27,9 +27,10 @@
     }
     try {
       signedIn = await new DaemonClient(new HttpTransport()).oauth.finish(state, code);
-      message = signedIn.kind === "email"
-        ? `Signed in: ${signedIn.name} can send and read mail. You can close this tab.`
-        : `Signed in to ${signedIn.name}: the assistant gets its tools from your next message. You can close this tab.`;
+      message =
+        signedIn.kind === "email"
+          ? `Signed in: ${signedIn.name} can send and read mail. You can close this tab.`
+          : `Signed in to ${signedIn.name}: the assistant gets its tools from your next message. You can close this tab.`;
     } catch (e) {
       message = describe(e);
     }

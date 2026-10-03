@@ -17,6 +17,7 @@
     "/telegram": "integrations",
     "/slack": "integrations",
     "/email": "integrations",
+    "/websearch": "integrations",
     "/audio": "audio",
   };
 
@@ -34,7 +35,14 @@
     player.stop();
     await chat.send(text, files);
     const reply = finalReply(chat.getSnapshot().transcript);
-    if (!reply || !speaksReply(speech.data?.spoken_replies, files.some((f) => f.type.startsWith("audio/")))) return;
+    if (
+      !reply ||
+      !speaksReply(
+        speech.data?.spoken_replies,
+        files.some((f) => f.type.startsWith("audio/")),
+      )
+    )
+      return;
     try {
       await player.speak(reply, (part) => client.speech.speak(part));
     } catch (e) {

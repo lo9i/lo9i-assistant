@@ -98,7 +98,7 @@ clients/         the apps, each a daemon client
 ## Tooling
 
 - Python 3.12, managed with `uv` as a workspace: the root package and `clients/terminal`. Add dependencies with `uv add` (`uv add --package assistant-terminal` for the terminal app), never pip.
-- Before every commit run `uv run ruff format`, `uv run ruff check` and `uv run pyright`; all must pass. Fix findings instead of disabling rules. A `# pyright: ignore` is only for a verified defect in a library's types, with a comment saying which.
+- Before every commit run `uv run ruff format`, `uv run ruff check` and `uv run pyright`, and `npm run format` in `clients/web` (Prettier); all must pass. Fix findings instead of disabling rules. A `# pyright: ignore` is only for a verified defect in a library's types, with a comment saying which.
 - Tests live in `tests/`, one folder per area (core, internet, daemon, chat, telegram, slack, terminal). Run `uv run pytest` before every commit; it is offline and uses temporary data paths, never `~/.lo9i`. `uv run pytest -m live` runs the tests that need the network or large downloads (search engines, Telegram, Slack, page rendering, the speech model).
 - New behavior comes with tests. Use the fixtures in `tests/conftest.py`: `script` (fake model replies), `digests` (fake epoch digests), `service`, and `tests/terminal/conftest.py` for the terminal app.
 - Run locally: `scripts/run.sh` (starts Ollama when `.env` points at it, then the terminal app, which starts the daemon). Nothing runs in Docker. `assistant daemon` runs the daemon in the foreground; its background log is `~/.lo9i/daemon.log`.

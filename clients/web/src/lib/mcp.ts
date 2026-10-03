@@ -16,7 +16,10 @@ export function parsePairs(text: string, separator: "=" | ":"): Record<string, s
 
 /** Arguments one per line; a single line is split on spaces. */
 export function parseArgs(text: string): string[] {
-  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
   return lines.length === 1 ? lines[0].split(/\s+/) : lines;
 }
 

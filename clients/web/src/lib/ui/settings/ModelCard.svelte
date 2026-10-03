@@ -70,7 +70,9 @@
 <SettingsCard id="model" title="Model" sub="Which AI model the assistant uses. Set here, it overrides .env.">
   {#snippet status()}
     {#if s}
-      <span class="pill" class:pill--accent={s.source === "app"}>{providerName(s.provider)} · {s.source === "app" ? "set here" : "from .env"}</span>
+      <span class="pill" class:pill--accent={s.source === "app"}
+        >{providerName(s.provider)} · {s.source === "app" ? "set here" : "from .env"}</span
+      >
     {/if}
   {/snippet}
   {#if s === undefined}

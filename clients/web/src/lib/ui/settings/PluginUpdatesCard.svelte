@@ -19,7 +19,11 @@
   }
 </script>
 
-<SettingsCard id="plugin-updates" title="Plugin updates" sub="Newer versions of installed plugins show as a count on Settings in the sidebar and on the Plugins tab.">
+<SettingsCard
+  id="plugin-updates"
+  title="Plugin updates"
+  sub="Newer versions of installed plugins show as a count on Settings in the sidebar and on the Plugins tab."
+>
   {#if checks.data === undefined}
     <p class="text-meta">{checks.error ?? "Loading…"}</p>
   {:else}

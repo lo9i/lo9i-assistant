@@ -18,6 +18,7 @@ export const COMMANDS: Command[] = [
   { name: "/slack", usage: "/slack", description: "Connect Slack" },
   { name: "/audio", usage: "/audio", description: "Speech to text, microphone and spoken replies" },
   { name: "/email", usage: "/email", description: "Connect email for sending" },
+  { name: "/websearch", usage: "/websearch", description: "Web search: the Brave Search API key" },
   { name: "/startup", usage: "/startup", description: "Start the assistant at boot" },
   { name: "/name", usage: "/name <name>", description: "Rename the assistant" },
   { name: "/get-to-know-me", usage: "/get-to-know-me", description: "Let the assistant get to know you" },

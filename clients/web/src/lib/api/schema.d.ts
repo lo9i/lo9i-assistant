@@ -424,6 +424,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/integrations/web-search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Web Search Status */
+        get: operations["web_search_status_integrations_web_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/integrations/web-search/brave-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Brave Key */
+        put: operations["set_brave_key_integrations_web_search_brave_key_put"];
+        post?: never;
+        /** Remove Brave Key */
+        delete: operations["remove_brave_key_integrations_web_search_brave_key_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/integrations/email/providers": {
         parameters: {
             query?: never;
@@ -1139,6 +1174,11 @@ export interface components {
             text: string;
             /** Files */
             files?: string[] | null;
+        };
+        /** BraveKey */
+        BraveKey: {
+            /** Key */
+            key: string;
         };
         /** CancelResult */
         CancelResult: {
@@ -2259,6 +2299,14 @@ export interface components {
             /** Language */
             language: string;
         };
+        /**
+         * WebSearchStatus
+         * @description What a settings screen shows. Never includes the key.
+         */
+        WebSearchStatus: {
+            /** Brave Key Set */
+            brave_key_set: boolean;
+        };
     };
     responses: never;
     parameters: never;
@@ -2952,6 +3000,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SlackManifest"];
+                };
+            };
+        };
+    };
+    web_search_status_integrations_web_search_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebSearchStatus"];
+                };
+            };
+        };
+    };
+    set_brave_key_integrations_web_search_brave_key_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BraveKey"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebSearchStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_brave_key_integrations_web_search_brave_key_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebSearchStatus"];
                 };
             };
         };

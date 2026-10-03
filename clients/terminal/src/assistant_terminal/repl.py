@@ -18,6 +18,7 @@ from assistant_terminal.slack_text import describe as describe_slack
 from assistant_terminal.style import GREEN, RESET, YELLOW, code, paint
 from assistant_terminal.telegram_text import describe as describe_telegram
 from assistant_terminal.usage_text import describe as describe_usage
+from assistant_terminal.web_search_text import describe as describe_web_search
 
 _HELP = "Commands:\n" + "\n".join(f"  {line}" for line in help_lines())
 
@@ -41,6 +42,7 @@ class Repl:
             "/startup": self._startup,
             "/model": self._model,
             "/audio": self._audio,
+            "/websearch": self._web_search,
             "/skills": self._skills,
             "/plugins": self._plugins,
             "/name": self._name,
@@ -175,6 +177,16 @@ class Repl:
             print(describe_slack(status, ""))
         else:
             print("Slack isn't connected. Set it up in the full-screen app with /slack.")
+
+    async def _web_search(self, _: str) -> None:
+        """Status only: the key is set in the full-screen app, so it never lands in the input history."""
+        status = await self._service.web_search.status()
+        text = describe_web_search(status, "")
+        print(
+            text.replace("Paste it below.", "Set it in the full-screen app with /websearch.")
+            if not status.brave_key_set
+            else text
+        )
 
     async def _telegram(self, arg: str) -> None:
         """/telegram shows status; /telegram <token> connects; /telegram pair or disconnect."""

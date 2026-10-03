@@ -54,23 +54,27 @@
   }
 </script>
 
-<SettingsCard id="skills" title="Saved skills" sub="Reusable instructions the assistant saved or you installed. It picks one when a task matches.">
+<SettingsCard
+  id="skills"
+  title="Saved skills"
+  sub="Reusable instructions the assistant saved or you installed. It picks one when a task matches."
+>
   {#snippet status()}
     {#if skills.data}<span class="pill">{skills.data.length}</span>{/if}
   {/snippet}
   {#if skills.data === undefined}
     <p class="text-meta">{skills.error ?? "Loading…"}</p>
   {:else if skills.data.length === 0}
-    <EmptyState icon={Wand} title="No skills yet" text="Ask the assistant to save how to do something as a skill, or install one from Plugins." />
+    <EmptyState
+      icon={Wand}
+      title="No skills yet"
+      text="Ask the assistant to save how to do something as a skill, or install one from Plugins."
+    />
   {:else}
     <div class="list">
       {#each skills.data as s (s.name)}
         <div class="skill">
-          <button
-            class="head"
-            aria-expanded={open === s.name}
-            onclick={() => ((open = open === s.name ? null : s.name), (editing = null))}
-          >
+          <button class="head" aria-expanded={open === s.name} onclick={() => ((open = open === s.name ? null : s.name), (editing = null))}>
             <span class="tile"><Wand size={16} /></span>
             <span class="text">
               <strong
@@ -107,12 +111,16 @@
                 {#if s.failures}<p class="error-text">{failures(s)}</p>{/if}
                 <div class="prose">{@html markdown(skill.data.instructions)}</div>
                 <dl>
-                    <dt class="micro-label">Added by</dt><dd>{skill.data.plugin ? `the ${skill.data.plugin} plugin` : "you or the assistant, here"}</dd>
-                    {#if files.length}<dt class="micro-label">Files</dt><dd>{files.join(", ")}</dd>{/if}
-                    {#if skill.data.server}
-                      <dt class="micro-label">Comes with</dt><dd>the {skill.data.server} MCP server, which updates and removes it</dd>
-                    {:else if skill.data.source}<dt class="micro-label">Installed from</dt><dd>{skill.data.source}</dd>{/if}
-                  </dl>
+                  <dt class="micro-label">Added by</dt>
+                  <dd>{skill.data.plugin ? `the ${skill.data.plugin} plugin` : "you or the assistant, here"}</dd>
+                  {#if files.length}<dt class="micro-label">Files</dt>
+                    <dd>{files.join(", ")}</dd>{/if}
+                  {#if skill.data.server}
+                    <dt class="micro-label">Comes with</dt>
+                    <dd>the {skill.data.server} MCP server, which updates and removes it</dd>
+                  {:else if skill.data.source}<dt class="micro-label">Installed from</dt>
+                    <dd>{skill.data.source}</dd>{/if}
+                </dl>
                 <div class="actions">
                   <button class="btn btn--neutral btn--sm" onclick={startEditing}><Pencil size={14} />Edit</button>
                   {#if skill.data.source && !skill.data.server}

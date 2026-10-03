@@ -67,6 +67,18 @@ Terminal app: `/telegram`. Web UI: Settings → Integrations → Telegram.
 
 With Telegram connected, a scheduled job that needs approval (for example a risky command, or an email to someone not on the allowlist) sends the request there with Approve and Reject buttons, and waits up to an hour for the answer before going on without it. Without Telegram, such actions are denied and the job shows "needs attention".
 
+## Web search
+
+Terminal app: `/websearch`. Web UI: Settings → Integrations → Web search (or `/websearch` in the web chat).
+
+Without a key, `web_search` uses public engines, which often block automated searches, so it can answer "No results" or fail. A Brave Search API key makes it reliable:
+
+1. Open https://brave.com/search/api/ and sign up for the free plan.
+2. In the dashboard, open **API Keys** and copy the key.
+3. Paste it into the key field and save. It's checked with one search first.
+
+With a key, searches use Brave, and the public engines when Brave fails. **Remove key** goes back to the public engines.
+
 ## Slack
 
 Terminal app: `/slack`. Web UI: Settings → Integrations → Slack.

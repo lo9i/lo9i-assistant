@@ -24,9 +24,7 @@
   let open = $state(false);
   let now = $state(Date.now());
 
-  const current = $derived(
-    phase({ recording: recorder.recording, busy: snapshot.current.busy, preparingSpeech, speaking }),
-  );
+  const current = $derived(phase({ recording: recorder.recording, busy: snapshot.current.busy, preparingSpeech, speaking }));
   const reply = $derived(finalReply(snapshot.current.transcript));
   const LABELS: Record<Phase, string> = {
     idle: "Voice conversation with the assistant",

@@ -70,13 +70,14 @@
         </div>
       </li>
       <li>
-        In <strong>Basic Information → App-Level Tokens</strong>, choose <strong>Generate Token and Scopes</strong>, add
-        the scope <code>connections:write</code>, and generate. Copy the token that starts with <code>xapp-</code>.
+        In <strong>Basic Information → App-Level Tokens</strong>, choose <strong>Generate Token and Scopes</strong>, add the scope
+        <code>connections:write</code>, and generate. Copy the token that starts with <code>xapp-</code>.
       </li>
       <li>
         In <strong>OAuth &amp; Permissions</strong>, choose <strong>Install to</strong> your workspace, then
-        <strong>Allow</strong>. The same page then shows the <strong>Bot User OAuth Token</strong> (<code>xoxb-</code>)
-        and the <strong>User OAuth Token</strong> (<code>xoxp-</code>).
+        <strong>Allow</strong>. The same page then shows the <strong>Bot User OAuth Token</strong> (<code>xoxb-</code>) and the
+        <strong>User OAuth Token</strong>
+        (<code>xoxp-</code>).
       </li>
     </ol>
     <form
@@ -94,13 +95,7 @@
         placeholder="Bot User OAuth Token (xoxb-…)"
         aria-label="Bot User OAuth Token"
       />
-      <input
-        class="input"
-        type="password"
-        bind:value={userToken}
-        placeholder="User OAuth Token (xoxp-…)"
-        aria-label="User OAuth Token"
-      />
+      <input class="input" type="password" bind:value={userToken} placeholder="User OAuth Token (xoxp-…)" aria-label="User OAuth Token" />
       <div class="row"><button class="btn btn--primary" type="submit">Connect</button></div>
     </form>
   {:else}
@@ -111,8 +106,7 @@
       <dd>{s.owner_name}</dd>
     </dl>
     <p class="text-caption">
-      In Slack, open the app under <strong>Apps</strong> in the sidebar and send it a message. <code>/new</code> starts a
-      new conversation.
+      In Slack, open the app under <strong>Apps</strong> in the sidebar and send it a message. <code>/new</code> starts a new conversation.
     </p>
     <div class="row">
       <button class="btn btn--danger" onclick={() => act(() => client.slack.disconnect())}>Disconnect</button>

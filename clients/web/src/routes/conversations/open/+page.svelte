@@ -15,7 +15,9 @@
 <TopBar {title}>
   {#snippet actions()}
     <a class="btn btn--ghost" href={resolve("/conversations")}><ArrowLeft size={16} /><span class="hide-narrow">All conversations</span></a>
-    <button class="btn btn--primary" onclick={() => chat.startNew()}><Plus size={16} /><span class="hide-narrow">New conversation</span></button>
+    <button class="btn btn--primary" onclick={() => chat.startNew()}
+      ><Plus size={16} /><span class="hide-narrow">New conversation</span></button
+    >
   {/snippet}
 </TopBar>
 

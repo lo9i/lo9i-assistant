@@ -1,8 +1,8 @@
 """AssistantService: the only core API that gateways use.
 
 The service is a facade (`service.py`) composed of mixins, one per concern:
-threads, memory, telegram, slack, email, mcp, sign-ins, alerts, repositories, model, identity, speech, skills, jobs,
-usage, messaging, runs and locking.
+threads, memory, telegram, slack, email, mcp, sign-ins, alerts, repositories, model, identity, speech, web search,
+skills, jobs, usage, messaging, runs and locking.
 """
 
 from assistant.core.agent.alerts import Alert
@@ -39,6 +39,7 @@ from assistant.core.agent.speech import Decoding, SpeechSettingsError, SpeechSta
 from assistant.core.agent.telegram import InvalidTokenError, TelegramStatus
 from assistant.core.agent.threads import ConversationBusyError, ConversationError
 from assistant.core.agent.usage import TokenReport, UsageReport
+from assistant.core.agent.web_search import InvalidSearchKeyError, WebSearchStatus
 
 __all__ = [
     "Alert",
@@ -57,6 +58,7 @@ __all__ = [
     "FoundSkill",
     "InstalledFromRepository",
     "InvalidNameError",
+    "InvalidSearchKeyError",
     "InvalidTokenError",
     "Job",
     "JobError",
@@ -94,4 +96,5 @@ __all__ = [
     "TelegramStatus",
     "TokenReport",
     "UsageReport",
+    "WebSearchStatus",
 ]

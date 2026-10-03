@@ -191,8 +191,7 @@
         oninput={(e) => type(e.currentTarget.value)}
         {onkeydown}
         {onpaste}
-        autofocus
-      ></textarea>
+        autofocus></textarea>
     {/if}
     {#if recorder.recording}
       <button class="send" aria-label="Send voice message" title="Send voice message" onclick={sendRecording}>

@@ -27,7 +27,7 @@ References: `src/routes/jobs/+page.svelte`, `src/routes/devices/+page.svelte`,
 - Empty and error states: `EmptyState` with an icon in the table and in the details column;
   load errors as `error-text pad`.
 - Narrow screens: below 900px the screen stacks (`flex-direction: column; align-items: stretch;
-  height: auto`) and both parts get `flex: none`, so each takes its own height and the page scrolls. Columns that the
+height: auto`) and both parts get `flex: none`, so each takes its own height and the page scrolls. Columns that the
   details card also shows get `hide-narrow`.
 
 Settings-style forms (connecting a service, preferences) stay as cards in the settings page grid.

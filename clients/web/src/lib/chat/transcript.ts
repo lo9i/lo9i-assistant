@@ -105,9 +105,7 @@ function toolFinished(t: Transcript, name: string, output: string): Transcript {
 
 function cancelled(t: Transcript): Transcript {
   const running = new Set(Object.values(t.pending).flat());
-  const items = t.items.map((item) =>
-    item.kind === "tool" && running.has(item.id) ? { ...item, state: "cancelled" as const } : item,
-  );
+  const items = t.items.map((item) => (item.kind === "tool" && running.has(item.id) ? { ...item, state: "cancelled" as const } : item));
   return add({ ...t, items, pending: {} }, { kind: "stopped" });
 }
 

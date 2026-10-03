@@ -4,16 +4,9 @@ import httpx
 import pytest
 
 from assistant.core.config import settings
-from assistant.core.internet import service as web_service
 from assistant.core.internet.providers import BraveProvider, SearchError
 from assistant.core.internet.results import SearchResult
 from assistant.core.internet.service import WebService
-
-
-async def test_brave_needs_a_key(monkeypatch):
-    monkeypatch.setattr(settings, "brave_search_api_key", "")
-    with pytest.raises(SearchError, match="BRAVE_SEARCH_API_KEY"):
-        await BraveProvider().search("q", 3)
 
 
 async def test_brave_request_and_parsing(monkeypatch):
@@ -25,8 +18,7 @@ async def test_brave_request_and_parsing(monkeypatch):
 
     real = httpx.AsyncClient
     monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
-    monkeypatch.setattr(settings, "brave_search_api_key", "key")
-    assert await BraveProvider().search("langgraph", 3) == [SearchResult("T", "https://t", "D")]
+    assert await BraveProvider("key").search("langgraph", 3) == [SearchResult("T", "https://t", "D")]
     assert seen == {"url": "https://api.search.brave.com/res/v1/web/search?q=langgraph&count=3", "token": "key"}
 
 
@@ -41,16 +33,27 @@ class _Provider:
         return self.results
 
 
-async def test_fallback_and_cache(monkeypatch):
-    primary, fallback = _Provider("brave"), _Provider("metasearch", [SearchResult("T", "u", "s")])
-    monkeypatch.setattr(settings, "web_search_backend", "brave")
-    monkeypatch.setattr(settings, "web_search_fallback", "metasearch")
-    monkeypatch.setattr(web_service, "build_provider", {"brave": primary, "metasearch": fallback}.get)
-    web = WebService()
-    first = await web.search("q", 3)
+async def test_without_a_key_only_the_public_engines_are_used():
+    metasearch, brave = _Provider("metasearch", [SearchResult("T", "u", "s")]), _Provider("brave")
+    outcome = await WebService(metasearch, lambda key: brave).search("q", 3)
+    assert outcome.provider == "metasearch" and (brave.calls, metasearch.calls) == (0, 1)
+
+
+async def test_brave_first_with_a_key():
+    metasearch, brave = _Provider("metasearch"), _Provider("brave", [SearchResult("B", "u", "s")])
+    keys = []
+    web = WebService(metasearch, lambda key: keys.append(key) or brave)
+    assert (await web.search("q", 3, "key")).provider == "brave"
+    assert keys == ["key"] and metasearch.calls == 0
+
+
+async def test_fallback_when_brave_fails_and_cache():
+    metasearch, brave = _Provider("metasearch", [SearchResult("T", "u", "s")]), _Provider("brave")
+    web = WebService(metasearch, lambda key: brave)
+    first = await web.search("q", 3, "key")
     assert first.provider == "metasearch" and "brave failed" in first.note
-    await web.search(" Q ", 3)
-    assert (primary.calls, fallback.calls) == (1, 1)
+    await web.search(" Q ", 3, "key")
+    assert (brave.calls, metasearch.calls) == (1, 1)
 
 
 @pytest.mark.live

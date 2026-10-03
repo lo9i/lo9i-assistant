@@ -24,7 +24,11 @@ describe("job text", () => {
   it("summarizes repeating, paused and finished jobs", () => {
     expect(summary(job({}))).toBe("0 9 * * * (Europe/Madrid) · next Wed 30 Sep 09:00");
     expect(summary(job({ enabled: false }))).toBe("0 9 * * * (Europe/Madrid) · paused");
-    const done = job({ one_time: true, enabled: false, runs: [{ at: "2026-09-30T07:00:00+00:00", status: "ok", summary: "", thread_id: "" }] });
+    const done = job({
+      one_time: true,
+      enabled: false,
+      runs: [{ at: "2026-09-30T07:00:00+00:00", status: "ok", summary: "", thread_id: "" }],
+    });
     expect(summary(done)).toBe("once at Wed 30 Sep 09:00 · done");
   });
 });

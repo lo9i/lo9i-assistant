@@ -35,7 +35,16 @@
   let label = $state(account?.label ?? "");
   // svelte-ignore state_referenced_locally
   let address = $state(account?.sender ?? "");
-  let form = $state<EmailSettings>({ label: "", host: "", port: 587, username: "", password: "", sender: "", imap_host: "", imap_port: 993 });
+  let form = $state<EmailSettings>({
+    label: "",
+    host: "",
+    port: 587,
+    username: "",
+    password: "",
+    sender: "",
+    imap_host: "",
+    imap_port: 993,
+  });
   let message = $state("");
   let saving = $state(false);
   // Signing in (OAuth): the user's own OAuth app. The secret is typed here and goes to the daemon.
@@ -108,7 +117,12 @@
         <span class="text-caption">Redirect URI to register with your OAuth app</span>
         <code class="uri">{redirect}</code>
       </div>
-      <input class="input" placeholder={again ? "Client ID (leave empty to keep the saved one)" : "Client ID"} aria-label="Client ID" bind:value={clientId} />
+      <input
+        class="input"
+        placeholder={again ? "Client ID (leave empty to keep the saved one)" : "Client ID"}
+        aria-label="Client ID"
+        bind:value={clientId}
+      />
       <input
         class="input"
         type="password"

@@ -73,7 +73,12 @@
   }
 </script>
 
-<Modal title="Add an MCP server" description="Its tools become available to the assistant from your next message." width={600} onclose={() => onclose()}>
+<Modal
+  title="Add an MCP server"
+  description="Its tools become available to the assistant from your next message."
+  width={600}
+  onclose={() => onclose()}
+>
   <div class="kinds" role="radiogroup" aria-label="Kind of server">
     <label><input type="radio" bind:group={kind} value="stdio" onchange={edited} /> Local command</label>
     <label><input type="radio" bind:group={kind} value="http" onchange={edited} /> Remote URL</label>
@@ -90,12 +95,24 @@
     </label>
     <label class="field">
       <span class="micro-label">Arguments</span>
-      <textarea class="input" rows="2" bind:value={args} oninput={edited} placeholder="-y @modelcontextprotocol/server-filesystem /Users/me/notes"></textarea>
+      <textarea
+        class="input"
+        rows="2"
+        bind:value={args}
+        oninput={edited}
+        placeholder="-y @modelcontextprotocol/server-filesystem /Users/me/notes"></textarea>
       <span class="text-caption">On one line separated by spaces, or one per line.</span>
     </label>
     <label class="field">
       <span class="micro-label">Environment (secret)</span>
-      <textarea class="input secret" rows="2" bind:value={env} oninput={edited} placeholder="API_KEY=…" autocomplete="off" spellcheck="false"></textarea>
+      <textarea
+        class="input secret"
+        rows="2"
+        bind:value={env}
+        oninput={edited}
+        placeholder="API_KEY=…"
+        autocomplete="off"
+        spellcheck="false"></textarea>
       <span class="text-caption">KEY=value, one per line. Stays in the daemon; only the names are shown later.</span>
     </label>
   {:else}
@@ -105,7 +122,14 @@
     </label>
     <label class="field">
       <span class="micro-label">Headers (secret)</span>
-      <textarea class="input secret" rows="2" bind:value={headers} oninput={edited} placeholder="Authorization: Bearer …" autocomplete="off" spellcheck="false"></textarea>
+      <textarea
+        class="input secret"
+        rows="2"
+        bind:value={headers}
+        oninput={edited}
+        placeholder="Authorization: Bearer …"
+        autocomplete="off"
+        spellcheck="false"></textarea>
       <span class="text-caption">Name: value, one per line. Stays in the daemon; only the names are shown later.</span>
     </label>
   {/if}

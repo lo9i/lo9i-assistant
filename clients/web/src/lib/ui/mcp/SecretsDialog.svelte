@@ -34,8 +34,7 @@
     placeholder={isEnv ? "API_KEY=…" : "Authorization: Bearer …"}
     aria-label={isEnv ? "Environment" : "Headers"}
     autocomplete="off"
-    spellcheck="false"
-  ></textarea>
+    spellcheck="false"></textarea>
   <p class="text-caption">{isEnv ? "KEY=value" : "Name: value"}, one per line. Leave it empty to remove them all.</p>
   {#if error}<p class="error-text">{error}</p>{/if}
   {#snippet footer()}

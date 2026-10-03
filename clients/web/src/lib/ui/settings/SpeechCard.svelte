@@ -28,9 +28,7 @@
     }
   });
 
-  const changed = $derived(
-    !!s && (model !== s.model || languages.join() !== s.languages.join() || decoding !== s.decoding),
-  );
+  const changed = $derived(!!s && (model !== s.model || languages.join() !== s.languages.join() || decoding !== s.decoding));
 
   function toggle(code: string, on: boolean): void {
     languages = on ? [...languages, code] : languages.filter((c) => c !== code);
@@ -67,7 +65,9 @@
         <option value="accurate">Accurate: weighs 5 candidate sentences</option>
         <option value="fast">Fast: takes the likeliest word each time, about twice as fast</option>
       </select>
-      <span class="text-caption">On a slow computer, Fast with a smaller model answers much sooner. Accurate helps most with noisy or unclear audio.</span>
+      <span class="text-caption"
+        >On a slow computer, Fast with a smaller model answers much sooner. Accurate helps most with noisy or unclear audio.</span
+      >
     </label>
     <fieldset class="field">
       <legend class="micro-label">Languages</legend>

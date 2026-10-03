@@ -43,6 +43,7 @@ import type {
   TelegramStatus,
   TokenReport,
   UsageReport,
+  WebSearchStatus,
 } from "./types";
 
 type Schemas = components["schemas"];
@@ -118,6 +119,23 @@ export class TelegramGroup {
 
   async disconnect(): Promise<void> {
     await this.transport.request("DELETE", "/integrations/telegram");
+  }
+}
+
+export class WebSearchGroup {
+  constructor(private readonly transport: Transport) {}
+
+  status(): Promise<WebSearchStatus> {
+    return this.transport.request("GET", "/integrations/web-search");
+  }
+
+  /** Checks the Brave Search API key with one search, then saves it. Throws ApiError (400) when Brave refuses it. */
+  setBraveKey(key: string): Promise<WebSearchStatus> {
+    return this.transport.request("PUT", "/integrations/web-search/brave-key", { key });
+  }
+
+  removeBraveKey(): Promise<WebSearchStatus> {
+    return this.transport.request("DELETE", "/integrations/web-search/brave-key");
   }
 }
 
@@ -457,6 +475,7 @@ export class DaemonClient {
   readonly telegram: TelegramGroup;
   readonly slack: SlackGroup;
   readonly speech: SpeechGroup;
+  readonly webSearch: WebSearchGroup;
   readonly email: EmailGroup;
   readonly oauth: OAuthGroup;
   readonly model: ModelGroup;
@@ -478,6 +497,7 @@ export class DaemonClient {
     this.telegram = new TelegramGroup(transport);
     this.slack = new SlackGroup(transport);
     this.speech = new SpeechGroup(transport);
+    this.webSearch = new WebSearchGroup(transport);
     this.email = new EmailGroup(transport);
     this.oauth = new OAuthGroup(transport);
     this.model = new ModelGroup(transport);

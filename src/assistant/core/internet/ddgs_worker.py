@@ -1,5 +1,5 @@
 """Child process for MetasearchProvider: `python -m assistant.core.internet.ddgs_worker <query> <limit> <engines>`.
-Prints the results as JSON on stdout. `engines` is a comma-separated list such as "brave,bing,google"."""
+Prints the results as JSON on stdout. `engines` is "auto" or a comma-separated list such as "yahoo,duckduckgo"."""
 
 import json
 import sys

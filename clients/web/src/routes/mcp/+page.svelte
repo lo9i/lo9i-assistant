@@ -33,7 +33,12 @@
   // The tool checklist starts from what the server has selected, and again only when that changes,
   // so a reload for another server's status doesn't undo unsaved checks.
   let chosen = $state(new Set<string>());
-  const savedKey = $derived(`${server?.name}:${(server?.tools ?? []).filter((t) => t.selected).map((t) => t.name).join(",")}`);
+  const savedKey = $derived(
+    `${server?.name}:${(server?.tools ?? [])
+      .filter((t) => t.selected)
+      .map((t) => t.name)
+      .join(",")}`,
+  );
   const saved = $derived(new Set(server?.tools.filter((t) => t.selected).map((t) => t.name)));
   $effect(() => {
     void savedKey;
@@ -75,7 +80,8 @@
 <!-- A settings tab of its own page: the list and details need the full height. -->
 <TopBar title="Settings">
   {#snippet actions()}
-    <button class="btn btn--primary" onclick={() => (adding = true)}><Plus size={16} /><span class="hide-narrow">Add a server</span></button>
+    <button class="btn btn--primary" onclick={() => (adding = true)}><Plus size={16} /><span class="hide-narrow">Add a server</span></button
+    >
   {/snippet}
 </TopBar>
 
@@ -97,7 +103,13 @@
         <EmptyState icon={Blocks} title="No MCP servers" text="Add one to give the assistant its tools, like GitHub or a database." />
       {:else if servers.data && server}
         <table class="data-table">
-          <thead><tr><th>Server</th><th class="hide-narrow">Kind</th><th class="hide-narrow">Added by</th><th class="hide-narrow">Tools</th><th>Status</th></tr></thead>
+          <thead
+            ><tr
+              ><th>Server</th><th class="hide-narrow">Kind</th><th class="hide-narrow">Added by</th><th class="hide-narrow">Tools</th><th
+                >Status</th
+              ></tr
+            ></thead
+          >
           <tbody>
             {#each servers.data as s (s.name)}
               <tr class:selected={s.name === server.name} onclick={() => (picked = s.name)}>
@@ -132,7 +144,8 @@
         <dl>
           <dt class="micro-label">Status</dt>
           <dd>{statusLabel(server.status)}</dd>
-          {#if server.failures}<dt class="micro-label">Failures</dt><dd>{failures(server)}</dd>{/if}
+          {#if server.failures}<dt class="micro-label">Failures</dt>
+            <dd>{failures(server)}</dd>{/if}
           {#if server.transport === "stdio"}
             <dt class="micro-label">Command</dt>
             <dd><code>{[server.command, ...server.args].join(" ")}</code></dd>
@@ -155,9 +168,7 @@
           <div>
             <span>Trusted</span>
             <p class="text-caption">
-              {server.trusted
-                ? "Its tools run without asking."
-                : "Every tool not marked read-only asks for approval first."}
+              {server.trusted ? "Its tools run without asking." : "Every tool not marked read-only asks for approval first."}
             </p>
           </div>
           <Toggle
@@ -174,7 +185,8 @@
             {server.transport === "stdio" ? "Change environment" : "Change headers"}
           </button>
           {#if server.source}
-            <button class="btn btn--neutral btn--sm" onclick={() => updateFromRepository(server.name)}><RefreshCw size={14} />Update</button>
+            <button class="btn btn--neutral btn--sm" onclick={() => updateFromRepository(server.name)}><RefreshCw size={14} />Update</button
+            >
           {/if}
           <!-- What a plugin installed goes with the plugin, in Settings → Plugins. -->
           {#if server.plugin}

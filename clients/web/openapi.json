@@ -784,6 +784,78 @@
         }
       }
     },
+    "/integrations/web-search": {
+      "get": {
+        "summary": "Web Search Status",
+        "operationId": "web_search_status_integrations_web_search_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebSearchStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integrations/web-search/brave-key": {
+      "put": {
+        "summary": "Set Brave Key",
+        "operationId": "set_brave_key_integrations_web_search_brave_key_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BraveKey"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebSearchStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove Brave Key",
+        "operationId": "remove_brave_key_integrations_web_search_brave_key_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebSearchStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/integrations/email/providers": {
       "get": {
         "summary": "Email Providers",
@@ -2548,6 +2620,19 @@
           "channel"
         ],
         "title": "Body_send_threads__thread_id__messages_post"
+      },
+      "BraveKey": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "BraveKey"
       },
       "CancelResult": {
         "properties": {
@@ -4851,6 +4936,20 @@
           "language"
         ],
         "title": "VoiceOption"
+      },
+      "WebSearchStatus": {
+        "properties": {
+          "brave_key_set": {
+            "type": "boolean",
+            "title": "Brave Key Set"
+          }
+        },
+        "type": "object",
+        "required": [
+          "brave_key_set"
+        ],
+        "title": "WebSearchStatus",
+        "description": "What a settings screen shows. Never includes the key."
       }
     }
   }

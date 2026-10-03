@@ -27,8 +27,8 @@
 <main class="pair">
   <h1 class="text-heading">Pair this browser</h1>
   <p class="text-label">
-    On a device that already uses the assistant, create a code: <code>/devices</code> in the terminal app, or the Devices page in a
-    paired browser. Then enter it here.
+    On a device that already uses the assistant, create a code: <code>/devices</code> in the terminal app, or the Devices page in a paired browser.
+    Then enter it here.
   </p>
   <form onsubmit={pair}>
     <input
