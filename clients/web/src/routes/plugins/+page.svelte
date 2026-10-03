@@ -4,7 +4,7 @@
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { resource, useDaemon } from "$lib/daemon.svelte";
-  import { type Plugin, describe, keyOf, kindOf, pluginsOf } from "$lib/plugins";
+  import { type Plugin, describe, keyOf, kindOf, pluginsOf, versionOf } from "$lib/plugins";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import SearchField from "$lib/ui/SearchField.svelte";
@@ -84,18 +84,19 @@
           <EmptyState icon={Puzzle} title="No plugins" text="The extras offer none yet." />
         {:else}
           <table class="data-table">
-            <thead><tr><th>Plugin</th><th class="hide-narrow">Kind</th><th>State</th></tr></thead>
+            <thead><tr><th>Plugin</th><th class="hide-narrow">Kind</th><th>Version</th><th>State</th></tr></thead>
             <tbody>
               {#each shown as p (keyOf(p))}
                 <tr class:selected={plugin && keyOf(p) === keyOf(plugin)} onclick={() => (picked = keyOf(p))}>
                   <td><button class="row-button" onclick={() => (picked = keyOf(p))}>{p.name}</button></td>
                   <td class="hide-narrow">{kindOf(p)}</td>
+                  <td>{versionOf(p)}</td>
                   <td>
                     <span class="state"><span class="status-dot" style:--tone={p.installed ? "var(--color-success)" : undefined}></span>{p.installed ? "Installed" : "Not installed"}</span>
                   </td>
                 </tr>
               {:else}
-                <tr><td colspan="3" class="text-meta">No matches.</td></tr>
+                <tr><td colspan="4" class="text-meta">No matches.</td></tr>
               {/each}
             </tbody>
           </table>
@@ -112,6 +113,8 @@
         <dl>
           <dt class="micro-label">Kind</dt>
           <dd>{kindOf(plugin)}</dd>
+          <dt class="micro-label">Version</dt>
+          <dd>{versionOf(plugin)}</dd>
           {#if plugin.kind === "server"}
             <dt class="micro-label">Runs</dt>
             <dd>{plugin.server.transport === "stdio" ? "On this computer" : "Remotely"}</dd>

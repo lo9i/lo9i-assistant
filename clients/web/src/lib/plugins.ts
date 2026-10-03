@@ -18,6 +18,17 @@ export function kindOf(p: Plugin): string {
   return ["MCP server", ...(p.server.skill ? ["skill"] : []), ...(p.server.page ? ["page"] : [])].join(" · ");
 }
 
+/** The version installed, and the newer one the extras have ("1.0.0 → 1.1.0"); what the extras
+ *  have when it isn't installed; "–" when none is declared. */
+export function versionOf(p: Plugin): string {
+  const found = p.kind === "server" ? p.server : p.skill;
+  const available = found.version ?? "";
+  const here = found.installed_version ?? "";
+  if (!p.installed) return available || "–";
+  if (available && available !== here) return `${here || "–"} → ${available}`;
+  return here || "–";
+}
+
 export function describe(p: Plugin): string {
   return p.kind === "server" ? p.server.description : p.skill.description;
 }

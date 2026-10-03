@@ -29,8 +29,8 @@ async def load(store: BaseStore, url: str) -> Listing | None:
 
 
 async def save(store: BaseStore, url: str, listing: Listing) -> None:
-    skills = [asdict(replace(s, installed=False)) for s in listing.skills]
-    servers = [asdict(replace(s, installed=False)) for s in listing.servers]
+    skills = [asdict(replace(s, installed=False, installed_version="")) for s in listing.skills]
+    servers = [asdict(replace(s, installed=False, installed_version="")) for s in listing.servers]
     await store.aput(_NAMESPACE, url, {"commit": listing.commit, "skills": skills, "servers": servers})
 
 

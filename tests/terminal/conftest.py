@@ -362,7 +362,15 @@ class FakeRepositories:
             [
                 FoundServer("calendar", "Calendar", "stdio", fields, False, installed="calendar" in self._mcp.items),
                 FoundServer(
-                    "weather", "Weather", "stdio", [], False, page=True, installed="weather" in self._mcp.items
+                    "weather",
+                    "Weather",
+                    "stdio",
+                    [],
+                    False,
+                    page=True,
+                    installed="weather" in self._mcp.items,
+                    version="1.1.0",
+                    installed_version="1.0.0" if "weather" in self._mcp.items else "",
                 ),
             ],
         )

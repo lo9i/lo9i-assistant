@@ -28,6 +28,9 @@ class FoundSkill:
     files: list[str]
     # Installed here from the same repository.
     installed: bool = False
+    # `version:` in its SKILL.md, and the one installed here; "" when none is declared or installed.
+    version: str = ""
+    installed_version: str = ""
 
 
 @dataclass(frozen=True)
@@ -38,7 +41,7 @@ class Candidate:
     path: str
 
     def found(self) -> FoundSkill:
-        return FoundSkill(self.skill.name, self.skill.description, self.skill.files)
+        return FoundSkill(self.skill.name, self.skill.description, self.skill.files, version=self.skill.version)
 
 
 def find(root: Path, url: str) -> dict[str, Candidate]:
@@ -61,7 +64,8 @@ def check(names: list[str], found: dict[str, Candidate], url: str) -> None:
 
 
 def install(candidate: Candidate, url: str, commit: str) -> store.Skill:
-    return store.put(candidate.skill.name, candidate.folder, Source(url, candidate.path, commit))
+    source = Source(url, candidate.path, commit, version=candidate.skill.version)
+    return store.put(candidate.skill.name, candidate.folder, source)
 
 
 async def update(name: str) -> store.Skill:
@@ -96,13 +100,14 @@ def _candidate(root: Path, folder: Path, name: str) -> Candidate | None:
     return Candidate(skill, folder, folder.relative_to(root).as_posix())
 
 
-def installed(name: str, url: str) -> bool:
-    """Installed here from that repository, as a skill of its own."""
+def installed_version(name: str, url: str) -> str | None:
+    """The version installed here from that repository as a skill of its own ("" when it declared
+    none), or None when it isn't installed."""
     try:
         existing = store.load(name)
     except SkillError:
-        return False
-    return existing.source == url and existing.server is None
+        return None
+    return existing.version if existing.source == url and existing.server is None else None
 
 
 def _taken(name: str, url: str) -> bool:
