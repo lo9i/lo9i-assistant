@@ -24,7 +24,10 @@ class Settings(BaseSettings):
 
     # Model settings. MODEL and WORKER_MODEL must be ids from the chosen provider.
     # The worker gets its own model so it can run cheaper.
-    provider: Literal["anthropic", "openai"] = "anthropic"
+    # copilot: Claude and other models through a GitHub Copilot subscription (core/copilot.py),
+    # with COPILOT_GITHUB_TOKEN. Model ids are Copilot's, e.g. claude-opus-4.7.
+    provider: Literal["anthropic", "openai", "copilot"] = "anthropic"
+    copilot_github_token: str = ""
     model: str = "claude-opus-5-5"
     worker_model: str = "claude-opus-5-5"
     effort: str = "medium"
@@ -62,13 +65,20 @@ class Settings(BaseSettings):
     owner_id: str = "owner"
 
     # Tool groups the agent gets. See core/tools/registry.py.
-    toolsets: list[str] = ["terminal", "memory", "web", "skills", "email", "jobs", "messages", "identity"]
+    toolsets: list[str] = ["terminal", "memory", "web", "skills", "email", "slack", "jobs", "messages", "identity"]
     skills_dir: str = "~/.lo9i/skills"
+    # Email bodies longer than this are cut when the agent reads them.
+    email_max_chars: int = 20_000
+    # MCP tool results longer than this are cut. Servers are added from the app (/mcp).
+    mcp_max_output: int = 30_000
 
     # Scheduled jobs. A run missed while the daemon was down still runs if it's this recent.
     jobs_grace_hours: float = 6
     jobs_max_concurrent: int = 2
     jobs_timeout_minutes: int = 15
+    # How long a scheduled run waits for an approval on Telegram before it's rejected. The wait
+    # doesn't count toward JOBS_TIMEOUT_MINUTES.
+    job_approval_minutes: int = 60
 
     # Web tools. metasearch queries public engines in WEB_SEARCH_ENGINES order (no key needed);
     # brave uses the Brave Search API (BRAVE_SEARCH_API_KEY).

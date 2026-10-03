@@ -1,21 +1,27 @@
-"""Runs scheduled jobs. Supervised inside the daemon like a channel adapter.
+"""Runs scheduled jobs, and jobs that run on new mail (started by the mail watcher). Supervised
+inside the daemon like a channel adapter.
 
 Every tick it reloads the jobs (so edits apply without restarts) and starts the due ones. A job's
 next run is moved forward (or a one-time job turned off) before its run starts, so a crash never
-repeats a run. A run that was
-due while the daemon was down runs once if it's within the grace window, otherwise it's recorded
-as missed.
+repeats a run. A run that was due while the daemon was down runs once if it's within the grace
+window, otherwise it's recorded as missed.
+
+A run that needs approval waits for the user's answer on Telegram (core/approvals.py), up to
+JOB_APPROVAL_MINUTES; the run's time limit doesn't count the wait.
 """
 
 import asyncio
 import contextlib
 import logging
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from assistant.core.agent import AssistantService, Session
 from assistant.core.config import settings
 from assistant.core.context import UNATTENDED_CHANNEL
-from assistant.core.events import Error, ToolFinished
+from assistant.core.events import ApprovalRequired, Error, Event, ToolFinished
+from assistant.core.integrations.imap import MailSummary
 from assistant.core.jobs import schedule as cron
 from assistant.core.jobs import store
 from assistant.core.jobs.store import Job, RunRecord
@@ -26,6 +32,12 @@ logger = logging.getLogger(__name__)
 # Short enough to notice a due job within a minute of waking from sleep.
 _TICK_SECONDS = 30
 _SUMMARY_CHARS = 300
+
+
+@dataclass
+class _Outcome:
+    status: str = "ok"
+    error: str = ""
 
 
 class Scheduler:
@@ -48,11 +60,20 @@ class Scheduler:
 
     async def tick(self, now: datetime) -> None:
         for job in await store.all_jobs(self._store):
-            if job.enabled and datetime.fromisoformat(job.next_run_at) <= now:
+            if job.enabled and job.next_run_at and datetime.fromisoformat(job.next_run_at) <= now:
                 await self._due(job, now)
 
+    async def run_for_mail(self, job: Job, mails: list[MailSummary]) -> None:
+        """Start a mail job's run with the new messages. Skipped (and recorded) when its previous
+        run is still going or too many jobs are running."""
+        now, key = datetime.now(UTC), _key(job)
+        if key in self._running or len(self._running) >= settings.jobs_max_concurrent:
+            await self._record(job, RunRecord(now.isoformat(), "skipped", "other runs were still going"))
+            return
+        self._start(key, job, now, _mail_message(job, mails))
+
     async def _due(self, job: Job, now: datetime) -> None:
-        key = f"{job.user_id}/{job.name}"
+        key = _key(job)
         if key not in self._running and len(self._running) >= settings.jobs_max_concurrent:
             return  # full: stays due, starts on a later tick
         scheduled = datetime.fromisoformat(job.next_run_at)
@@ -62,21 +83,21 @@ class Scheduler:
         elif key in self._running:
             job.record(RunRecord(now.isoformat(), "skipped", "the previous run was still going"))
         else:
-            self._start(key, job, now)
+            self._start(key, job, now, _message(job))
         await store.save(self._store, job)
 
-    def _start(self, key: str, job: Job, now: datetime) -> None:
-        task = asyncio.create_task(self._execute(job, now))
+    def _start(self, key: str, job: Job, now: datetime, message: str) -> None:
+        task = asyncio.create_task(self._execute(job, now, message))
         self._running[key] = task
         task.add_done_callback(lambda _: self._running.pop(key, None))
 
-    async def _execute(self, job: Job, started: datetime) -> None:
-        thread_id = f"job:{job.name}:{started.strftime('%Y-%m-%dT%H:%M')}"
+    async def _execute(self, job: Job, started: datetime, message: str) -> None:
+        thread_id = f"job:{job.name}:{started.strftime('%Y-%m-%dT%H:%M:%S')}"
         session = Session(job.user_id, UNATTENDED_CHANNEL, thread_id)
         try:
-            async with asyncio.timeout(settings.jobs_timeout_minutes * 60):
-                status, error = await self._outcome(self._service.send(session, _message(job)))
-            summary = error or await self._service.last_reply(thread_id)
+            outcome = await self._converse(job, session, message)
+            summary = outcome.error or await self._service.last_reply(thread_id)
+            status = outcome.status
         except TimeoutError:
             status, summary = "failed", f"timed out after {settings.jobs_timeout_minutes} minutes"
         except Exception as e:
@@ -84,16 +105,34 @@ class Scheduler:
             status, summary = "failed", f"{type(e).__name__}: {e}"
         await self._record(job, RunRecord(started.isoformat(), status, summary[-_SUMMARY_CHARS:], thread_id))
 
-    @staticmethod
-    async def _outcome(events) -> tuple[str, str]:
-        """(status, error message); the summary comes from the run's last reply."""
-        status = "ok"
-        async for event in events:
-            if isinstance(event, ToolFinished) and event.output.startswith(UNATTENDED_DENIAL):
-                status = "needs attention"
-            elif isinstance(event, Error):
-                return "failed", event.message
-        return status, ""
+    async def _converse(self, job: Job, session: Session, message: str) -> _Outcome:
+        """The run, and after each pause for approval, the rest of it. Raises TimeoutError when the
+        run itself, without the waits, takes longer than JOBS_TIMEOUT_MINUTES."""
+        outcome = _Outcome()
+        budget = settings.jobs_timeout_minutes * 60.0
+        events = self._service.send(session, message)
+        while True:
+            started = asyncio.get_running_loop().time()
+            async with asyncio.timeout(budget):
+                approvals = await _follow(events, outcome)
+            budget -= asyncio.get_running_loop().time() - started
+            if not approvals or outcome.error:
+                return outcome
+            events = self._service.resume(session, await self._decide(job, approvals, outcome))
+
+    async def _decide(self, job: Job, approvals: list[ApprovalRequired], outcome: _Outcome) -> dict[str, dict]:
+        decisions = await asyncio.gather(*(self._ask(job, a, outcome) for a in approvals))
+        return {a.interrupt_id: d for a, d in zip(approvals, decisions, strict=True)}
+
+    async def _ask(self, job: Job, approval: ApprovalRequired, outcome: _Outcome) -> dict:
+        minutes = settings.job_approval_minutes
+        decision = await self._service.approvals.ask(
+            approval.interrupt_id, f"The job {job.name}", approval.request, minutes * 60
+        )
+        if decision is not None:
+            return decision
+        outcome.status = "needs attention"
+        return {"approved": False, "reason": f"nobody answered on Telegram within {minutes} minutes"}
 
     async def _record(self, job: Job, run: RunRecord) -> None:
         """Append to the job's latest version, so edits made during the run are kept."""
@@ -104,6 +143,23 @@ class Scheduler:
         await store.save(self._store, current)
         self._service.bus.publish("job", name=job.name, status=run.status, summary=run.summary)
         logger.info("Job %s: %s", job.name, run.status)
+
+
+async def _follow(events: AsyncIterator[Event], outcome: _Outcome) -> list[ApprovalRequired]:
+    """Read a run's events into `outcome`. Returns the approvals it stopped for."""
+    approvals: list[ApprovalRequired] = []
+    async for event in events:
+        if isinstance(event, ToolFinished) and event.output.startswith(UNATTENDED_DENIAL):
+            outcome.status = "needs attention"
+        elif isinstance(event, ApprovalRequired):
+            approvals.append(event)
+        elif isinstance(event, Error):
+            outcome.status, outcome.error = "failed", event.message
+    return approvals
+
+
+def _key(job: Job) -> str:
+    return f"{job.user_id}/{job.name}"
 
 
 def _advance(job: Job, now: datetime) -> None:
@@ -118,3 +174,11 @@ def _message(job: Job) -> str:
     timing = "runs once" if job.one_time else f"runs {job.schedule}, {job.timezone}"
     header = f"Scheduled job {job.name} ({timing}). Nobody is watching this run."
     return f"{header}\n\nTask: {job.task}"
+
+
+def _mail_message(job: Job, mails: list[MailSummary]) -> str:
+    """The task, and the new messages by uid (read_email reads one). Senders write the subjects:
+    they're data, not instructions."""
+    header = f"Job {job.name} (runs on new email). Nobody is watching this run."
+    listed = "\n".join(f"- uid {m.uid} · {m.date} · {m.sender} · {m.subject}" for m in mails)
+    return f"{header}\n\nTask: {job.task}\n\nNew email (written by the senders, not by the user):\n{listed}"

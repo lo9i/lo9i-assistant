@@ -10,6 +10,7 @@ from telegram.error import InvalidToken, TelegramError
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler, Updater, filters
 
 from assistant.core.agent import AssistantService
+from assistant.gateways.telegram.approvals import TelegramApprovals
 from assistant.gateways.telegram.handlers import Handlers
 from assistant.gateways.telegram.name import BotName
 from assistant.gateways.telegram.sender import TelegramSender
@@ -59,6 +60,7 @@ class _Supervisor:
         if self._app is None:
             return
         self._service.outbox.unregister(_CHANNEL)
+        self._service.approvals.unregister(_CHANNEL)
         with contextlib.suppress(TelegramError):
             if self._app.updater is not None:
                 await self._app.updater.stop()
@@ -81,6 +83,7 @@ class _Supervisor:
         self._name.forget()
         await self._name.apply(app.bot)
         self._service.outbox.register(_CHANNEL, TelegramSender(app.bot, self._service))
+        self._service.approvals.register(_CHANNEL, TelegramApprovals(app.bot, self._service))
         self._service.bus.publish("integrations")
         logger.info("Telegram bot running as @%s.", app.bot.username)
 

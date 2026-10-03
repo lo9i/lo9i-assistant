@@ -7,6 +7,7 @@ reloaded page or a client reconnecting after a restart comes back to it."""
 
 import asyncio
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from assistant.core.bus import EventBus
@@ -27,10 +28,11 @@ class ClientRegistry:
         # Client id -> the conversation it's on.
         self._threads: dict[str, str] = {}
 
-    def add(self, client_id: str, kind: str, transport: str) -> int:
+    def add(self, client_id: str, kind: str, transport: str, device_id: str = "") -> int:
         """Registers a connection and returns the key that removes it."""
         self._next_key += 1
-        self._clients[self._next_key] = ConnectedClient(client_id, kind, transport, datetime.now(UTC).isoformat())
+        now = datetime.now(UTC).isoformat()
+        self._clients[self._next_key] = ConnectedClient(client_id, kind, transport, now, device_id)
         self._bus.publish("clients")
         return self._next_key
 
@@ -43,15 +45,20 @@ class ClientRegistry:
             self._left_later(self._threads.pop(client.id, None))
 
     def list(self) -> list[ConnectedClient]:
-        return sorted(self._clients.values(), key=lambda c: c.connected_at)
+        clients = [replace(c, thread_id=self._threads.get(c.id, "")) for c in self._clients.values()]
+        return sorted(clients, key=lambda c: c.connected_at)
 
     def on_thread(self, client_id: str, thread_id: str) -> None:
         """The client is now on this conversation: it started, resumed or wrote to it."""
         if not client_id:
             return
         previous = self._threads.get(client_id)
+        if previous == thread_id:
+            return
         self._threads[client_id] = thread_id
-        if previous is not None and previous != thread_id:
+        # Session lists show which conversation each client is on.
+        self._bus.publish("clients")
+        if previous is not None:
             self._leave_if_unused(previous)
 
     def _left_later(self, thread_id: str | None) -> None:

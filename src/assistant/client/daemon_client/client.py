@@ -7,10 +7,13 @@ from assistant.client.daemon_client.email import EmailApi
 from assistant.client.daemon_client.events import EventsMixin
 from assistant.client.daemon_client.identity import IdentityApi
 from assistant.client.daemon_client.jobs import JobsApi
+from assistant.client.daemon_client.mcp import McpApi
 from assistant.client.daemon_client.memory import MemoryApi
 from assistant.client.daemon_client.runs import RunsMixin
 from assistant.client.daemon_client.sessions import SessionsMixin
 from assistant.client.daemon_client.skills import SkillsApi
+from assistant.client.daemon_client.slack import SlackApi
+from assistant.client.daemon_client.speech import SpeechApi
 from assistant.client.daemon_client.system import SystemApi
 from assistant.client.daemon_client.telegram import TelegramApi
 from assistant.client.daemon_client.transport import Transport
@@ -31,7 +34,10 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         self.jobs = JobsApi(transport)
         self.usage = UsageApi(transport)
         self.telegram = TelegramApi(transport)
+        self.slack = SlackApi(transport)
+        self.speech = SpeechApi(transport)
         self.email = EmailApi(transport)
+        self.mcp = McpApi(transport)
         self.system = SystemApi(transport)
         self.clients = ClientsApi(transport)
         self.devices = DevicesApi(transport)

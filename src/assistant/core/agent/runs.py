@@ -92,7 +92,13 @@ class RunsMixin(LockingMixin):
             yield Done()
 
     async def _stream(self, session: Session, input: Any, config: RunnableConfig) -> AsyncIterator[Event]:
-        context = Context(user_id=session.user_id, channel=session.channel, bus=self.bus, outbox=self.outbox)
+        context = Context(
+            user_id=session.user_id,
+            channel=session.channel,
+            bus=self.bus,
+            outbox=self.outbox,
+            forwards_approvals=self.approvals.available,
+        )
         async for mode, data in self._graph.astream(
             input, config, context=context, stream_mode=["messages", "updates"]
         ):

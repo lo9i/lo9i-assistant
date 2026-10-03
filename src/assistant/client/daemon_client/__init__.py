@@ -12,8 +12,11 @@ from assistant.client.daemon_client.devices import DevicesApi
 from assistant.client.daemon_client.email import EmailApi
 from assistant.client.daemon_client.identity import IdentityApi
 from assistant.client.daemon_client.jobs import JobsApi
+from assistant.client.daemon_client.mcp import McpApi
 from assistant.client.daemon_client.memory import MemoryApi
 from assistant.client.daemon_client.skills import SkillsApi
+from assistant.client.daemon_client.slack import SlackApi
+from assistant.client.daemon_client.speech import SpeechApi
 from assistant.client.daemon_client.system import SystemApi
 from assistant.client.daemon_client.telegram import TelegramApi
 from assistant.client.daemon_client.usage import UsageApi
@@ -26,8 +29,11 @@ __all__ = [
     "EmailApi",
     "IdentityApi",
     "JobsApi",
+    "McpApi",
     "MemoryApi",
     "SkillsApi",
+    "SlackApi",
+    "SpeechApi",
     "SystemApi",
     "TelegramApi",
     "UsageApi",

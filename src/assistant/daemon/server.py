@@ -16,12 +16,15 @@ from sse_starlette.sse import AppStatus
 from assistant.core.agent import AssistantService
 from assistant.core.config import settings
 from assistant.core.web import browser
-from assistant.daemon import https, launchd
+from assistant.daemon import https
 from assistant.daemon.adapters import supervise
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
+from assistant.daemon.mail_watcher import MailWatcher
 from assistant.daemon.runs import RunHub
 from assistant.daemon.scheduler import Scheduler
+from assistant.daemon.startup import Startup
+from assistant.gateways.slack.bot import SlackAdapter
 from assistant.gateways.telegram.bot import TelegramAdapter
 
 logger = logging.getLogger(__name__)
@@ -39,19 +42,24 @@ async def serve() -> None:
     stop = _stop_event()
     socket_path = Path(settings.daemon_socket).expanduser()
     if await _already_running(socket_path):
-        # One daemon at a time. Under launchd this one is retried, and takes over once the other exits.
+        # One daemon at a time. Started at boot (launchd, systemd), this one is retried and takes over
+        # once the other exits.
         logger.info("Another daemon is already running on %s; exiting.", socket_path)
         return
     socket_path.unlink(missing_ok=True)
     async with AssistantService.open() as service:
-        app = create_app(service, RunHub(service.bus), _Startup(stop))
+        app = create_app(service, RunHub(service.bus), Startup(stop))
         servers = _listeners(app, socket_path)
         tasks = [asyncio.create_task(s.serve()) for s in servers]
         background = [asyncio.create_task(_index_conversations(service))]
         if https.enabled():
             background.append(asyncio.create_task(https.reload_on_renewal(servers[-1])))
         tasks.append(asyncio.create_task(supervise(TelegramAdapter(service), stop)))
-        tasks.append(asyncio.create_task(supervise(Scheduler(service), stop)))
+        tasks.append(asyncio.create_task(supervise(SlackAdapter(service), stop)))
+        scheduler = Scheduler(service)
+        tasks.append(asyncio.create_task(supervise(scheduler, stop)))
+        tasks.append(asyncio.create_task(supervise(MailWatcher(service, scheduler), stop)))
+        tasks.append(asyncio.create_task(supervise(service.mcp, stop)))
         # Downloads once in the background; until then pages are read without rendering.
         install = asyncio.create_task(browser.install_browser()) if settings.web_render else None
         logger.info("Daemon ready on %s and http://127.0.0.1:%s", socket_path, settings.daemon_port)
@@ -95,26 +103,6 @@ async def _index_conversations(service: AssistantService) -> None:
         logger.info(
             "Added %s earlier conversations to the list, recorded channels for %s and titled %s.", added, filled, titled
         )
-
-
-class _Startup:
-    """Start-at-boot controls for the API. After enabling, a daemon that launchd didn't start steps
-    aside so the boot-managed one takes over."""
-
-    def __init__(self, stop: asyncio.Event) -> None:
-        self._stop = stop
-
-    def status(self):
-        return launchd.status()
-
-    async def enable(self):
-        result = await launchd.enable()
-        if not result.managed:
-            asyncio.get_running_loop().call_later(2, self._stop.set)
-        return result
-
-    async def disable(self):
-        return await launchd.disable()
 
 
 async def _already_running(socket_path: Path) -> bool:

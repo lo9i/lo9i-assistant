@@ -28,13 +28,13 @@ def test_invalid_names_are_refused(isolated_settings, monkeypatch):
 def test_the_setup_skill_is_built_in_and_covers_every_setup_command(isolated_settings, monkeypatch):
     import pytest
 
-    from assistant.gateways.cli.commands import COMMANDS
+    from assistant_terminal.commands import COMMANDS
 
     monkeypatch.setattr("assistant.core.config.settings.skills_dir", str(isolated_settings / "skills"))
     setup = store.load(store.SETUP)
     assert "Settings → Integrations → Email" in setup.instructions
     # Every command that sets something up must be explained in it, so it can't fall behind.
-    for command in ("/email", "/telegram", "/startup", "/name", "/devices"):
+    for command in ("/email", "/telegram", "/slack", "/mcp", "/startup", "/name", "/devices"):
         assert command in {c.name for c in COMMANDS} and f"`{command}" in setup.instructions
     for change in (lambda: store.save(store.SETUP, "d", "i"), lambda: store.delete(store.SETUP)):
         with pytest.raises(store.SkillError, match="built into"):

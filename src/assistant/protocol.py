@@ -41,11 +41,15 @@ def event_from_dict(data: dict[str, Any]) -> Event:
 
 @dataclass
 class StartupStatus:
-    """Whether the daemon starts at boot (LaunchDaemon), and whether this daemon was started that way."""
+    """Whether the daemon starts at boot, and whether this daemon was started that way."""
 
     enabled: bool
     managed: bool
     includes_ollama: bool
+    # How it starts at boot: macos (LaunchDaemons), linux (a systemd user service) or unsupported.
+    platform: str = "macos"
+    # False on Linux while lingering is off: the service then runs only while the user is logged in.
+    starts_without_login: bool = True
 
 
 class StartupError(Exception):
@@ -54,9 +58,13 @@ class StartupError(Exception):
 
 @dataclass
 class ConnectedClient:
-    """A client holding the daemon's event stream open. `transport` is "unix socket" or host:port."""
+    """A client holding the daemon's event stream open. `transport` is "unix socket" or host:port.
+    `device_id` is the paired device it connected from (empty on the Unix socket), `thread_id` the
+    conversation it's on (empty until it starts, resumes or writes to one)."""
 
     id: str
     kind: str
     transport: str
     connected_at: str
+    device_id: str = ""
+    thread_id: str = ""

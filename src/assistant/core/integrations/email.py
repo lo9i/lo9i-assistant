@@ -1,4 +1,4 @@
-"""Email settings (SMTP), stored as one Store record, and sending.
+"""Email settings (SMTP for sending, IMAP for reading), stored as one Store record, and sending.
 
 Connected from the app (/email): the password lives in the database, not in .env.
 """
@@ -9,6 +9,8 @@ from email.message import EmailMessage
 import aiosmtplib
 import certifi
 from langgraph.store.base import BaseStore
+
+from assistant.core.integrations.email_providers import imap_host_for
 
 _NAMESPACE = ("integrations",)
 _KEY = "email"
@@ -28,10 +30,19 @@ class EmailConfig:
     sender: str = ""
     # Addresses the agent may email without asking. The sender is always included.
     allowed_recipients: list[str] = field(default_factory=list)
+    # Reading mail. Empty when only sending is set up. Same user name and password.
+    imap_host: str = ""
+    imap_port: int = 993
+    # Where new mail is announced (telegram or slack), or "" for nowhere.
+    new_mail_alerts: str = ""
 
     @property
     def connected(self) -> bool:
         return bool(self.host and self.sender)
+
+    @property
+    def can_read(self) -> bool:
+        return self.connected and bool(self.imap_host)
 
     def allowed(self, address: str) -> bool:
         return address.strip().lower() in {a.lower() for a in [self.sender, *self.allowed_recipients]}
@@ -39,7 +50,13 @@ class EmailConfig:
 
 async def load(store: BaseStore) -> EmailConfig:
     item = await store.aget(_NAMESPACE, _KEY)
-    return EmailConfig(**item.value) if item else EmailConfig()
+    if item is None:
+        return EmailConfig()
+    config = EmailConfig(**item.value)
+    # Saved before reading mail existed: a provider's IMAP server is known from its SMTP server.
+    if "imap_host" not in item.value:
+        config.imap_host = imap_host_for(config.host)
+    return config
 
 
 async def save(store: BaseStore, config: EmailConfig) -> None:

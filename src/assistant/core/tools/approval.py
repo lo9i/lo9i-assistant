@@ -1,5 +1,6 @@
-"""Asking the user before a risky action. In unattended runs (scheduled jobs) nobody can answer,
-so the action is denied and the denial is marked, so the job is recorded as needing attention."""
+"""Asking the user before a risky action. In unattended runs (scheduled jobs) the request goes to
+the user's Telegram when it's connected (core/approvals.py); otherwise nobody can answer, so the
+action is denied and the denial is marked, so the job is recorded as needing attention."""
 
 from typing import Any
 
@@ -13,9 +14,9 @@ UNATTENDED_DENIAL = "[denied: unattended run]"
 
 def ask(request: dict[str, Any], context: Context) -> str | None:
     """Pause for approval. Returns None if approved, or a message for the model if not."""
-    if context.unattended:
+    if context.unattended and not context.forwards_approvals:
         return (
-            f"{UNATTENDED_DENIAL} Nobody is watching this scheduled run, "
+            f"{UNATTENDED_DENIAL} Nobody is watching this scheduled run and Telegram isn't connected, "
             f"so actions that need approval are denied: {request.get('reason')}."
         )
     decision = interrupt(request)
