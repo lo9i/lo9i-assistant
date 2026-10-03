@@ -10,6 +10,7 @@
   import { type Plugin, describe, keyOf, kindOf, pluginsOf } from "$lib/plugins";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
+  import SearchField from "$lib/ui/SearchField.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
   import InstallDialog from "$lib/ui/repositories/InstallDialog.svelte";
 
@@ -19,6 +20,11 @@
   const plugins = resource(async (c) => pluginsOf(await c.repositories.browse()), []);
 
   let picked = $state<string | null>(null);
+  let query = $state("");
+  // By name, description or kind.
+  const shown = $derived(
+    (plugins.data ?? []).filter((p) => `${p.name} ${describe(p)} ${kindOf(p)}`.toLowerCase().includes(query.trim().toLowerCase())),
+  );
   // The plugins to check in the install dialog when it's open.
   let installing = $state<string[] | null>(null);
   let removing = $state<Plugin | null>(null);
@@ -52,11 +58,7 @@
     act(() => (p.kind === "server" ? client.mcp.remove(p.name) : client.skills.delete(p.name)), `Removed ${p.name}.`);
 </script>
 
-<TopBar title="Plugins">
-  {#snippet actions()}
-    <button class="btn btn--primary" onclick={() => (installing = [])}><Download size={16} /><span class="hide-narrow">Install a plugin</span></button>
-  {/snippet}
-</TopBar>
+<TopBar title="Plugins" />
 
 <div class="screen">
   <section class="table-card surface--glass">
@@ -66,6 +68,7 @@
         <p class="text-meta">MCP servers and skills from the assistant's extras. Click one to see it on the right.</p>
       </div>
       <div class="tools">
+        <SearchField bind:value={query} label="Search plugins" />
         {#if plugins.data}<span class="pill">{plugins.data.length}</span>{/if}
         <button class="btn btn--ghost btn--sm" title="Look at the extras again" onclick={() => plugins.reload()}><RefreshCw size={14} /></button>
       </div>
@@ -82,7 +85,7 @@
           <table class="data-table">
             <thead><tr><th>Plugin</th><th class="hide-narrow">Kind</th><th>State</th></tr></thead>
             <tbody>
-              {#each plugins.data as p (keyOf(p))}
+              {#each shown as p (keyOf(p))}
                 <tr class:selected={plugin && keyOf(p) === keyOf(plugin)} onclick={() => (picked = keyOf(p))}>
                   <td><button class="row-button" onclick={() => (picked = keyOf(p))}>{p.name}</button></td>
                   <td class="hide-narrow">{kindOf(p)}</td>
@@ -90,6 +93,8 @@
                     <span class="state"><span class="status-dot" style:--tone={p.installed ? "var(--color-success)" : undefined}></span>{p.installed ? "Installed" : "Not installed"}</span>
                   </td>
                 </tr>
+              {:else}
+                <tr><td colspan="3" class="text-meta">No matches.</td></tr>
               {/each}
             </tbody>
           </table>
