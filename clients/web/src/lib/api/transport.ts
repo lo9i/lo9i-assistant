@@ -3,6 +3,13 @@ import { ApiError, DaemonUnavailableError, isAbort } from "./errors";
 // Every request carries these (see src/assistant/protocol.py).
 const CLIENT_HEADER = "X-Lo9i-Client";
 const CLIENT_ID_HEADER = "X-Lo9i-Client-Id";
+// Joins a client's id and the name of a second conversation it holds, such as the voice button's.
+const CLIENT_ID_PART = "/";
+
+/** The id a client uses for a second conversation it holds at the same time as its own. */
+export function partClientId(clientId: string, part: string): string {
+  return `${clientId}${CLIENT_ID_PART}${part}`;
+}
 
 /** The HTTP connection shared by every part of the client. */
 export interface Transport {

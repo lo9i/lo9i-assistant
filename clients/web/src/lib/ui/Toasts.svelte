@@ -35,7 +35,8 @@
   .toasts {
     position: fixed;
     right: 24px;
-    bottom: 24px;
+    /* Above the voice button (VoiceButton.svelte). */
+    bottom: 96px;
     z-index: var(--z-toast);
     display: flex;
     flex-direction: column;

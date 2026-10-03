@@ -4,7 +4,7 @@
   import { DaemonClient } from "$lib/api/client";
   import { ApiError } from "$lib/api/errors";
   import { EventHub } from "$lib/api/eventHub";
-  import { HttpTransport } from "$lib/api/transport";
+  import { HttpTransport, partClientId } from "$lib/api/transport";
   import { ChatController } from "$lib/chat/controller";
   import { savedThread } from "$lib/chat/tabThread";
   import type { Daemon } from "$lib/daemon.svelte";
@@ -19,6 +19,8 @@
   let { children }: { children: Snippet } = $props();
 
   const client = new DaemonClient(new HttpTransport());
+  // The voice button talks in a conversation of its own, under an id the daemon ties to this client.
+  const voiceClient = new DaemonClient(new HttpTransport(partClientId(client.clientId, "voice")));
   const hub = new EventHub();
   const notices = new NoticeBoard();
   let daemon = $state<Daemon | null>(null);
@@ -36,7 +38,7 @@
     return () => {
       closed = true;
       stop.abort();
-      daemon?.chat.close();
+      close();
     };
   });
 
@@ -63,7 +65,7 @@
   /** A device revoked while the page is open ends up back on the pairing page. */
   function lostPairing(e: unknown): void {
     if (e instanceof ApiError && e.status === 401) {
-      daemon?.chat.close();
+      close();
       daemon = null;
       unpaired = true;
       return;
@@ -74,12 +76,20 @@
 
   async function open(): Promise<void> {
     try {
-      const chat = await ChatController.open(client, CHANNEL, savedThread(), notices);
-      if (closed) return chat.close();
-      daemon = { client, hub, notices, chat };
+      const [chat, voice] = await Promise.all([
+        ChatController.open(client, CHANNEL, savedThread(), notices),
+        ChatController.open(voiceClient, CHANNEL, savedThread("voice"), notices),
+      ]);
+      if (closed) return [chat, voice].forEach((c) => c.close());
+      daemon = { client, hub, notices, chat, voice };
     } catch (e) {
       lostPairing(e);
     }
+  }
+
+  function close(): void {
+    daemon?.chat.close();
+    daemon?.voice.close();
   }
 </script>
 

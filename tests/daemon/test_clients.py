@@ -102,6 +102,19 @@ async def test_a_client_with_another_connection_open_stays_on_its_conversation()
     assert left == []
 
 
+async def test_a_client_holds_a_second_conversation_until_it_disconnects():
+    clients, left = _registry()
+    key = clients.add("a", "web", "127.0.0.1:1")
+    clients.on_thread("a", "t1")
+    clients.on_thread("a/voice", "t2")
+    assert left == []  # the voice conversation doesn't move the client off t1
+    assert [c.thread_id for c in clients.list()] == ["t1"]
+    assert clients.on("t2") == ["a/voice"]
+    clients.remove(key)
+    await asyncio.sleep(0.01)
+    assert sorted(left) == ["t1", "t2"]
+
+
 def test_a_new_event_stream_starts_from_now_and_a_reconnection_resumes():
     assert resume_point(last_id=57, last_event_id=None, after=None) == 57
     assert resume_point(last_id=57, last_event_id="40", after=None) == 40
