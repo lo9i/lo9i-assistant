@@ -2,8 +2,8 @@
 
 All messages stay in the checkpoint. State records where the current epoch starts, and
 only the current epoch is sent to the model. A new epoch starts on a size limit or an
-idle gap: the archived part is digested into an episode, memory is updated, and the
-system prompt is rebuilt.
+idle gap: the archived part is summarized into the rebuilt system prompt, and left for the
+memory writer (memory_writer.py) to digest into an episode and memory after the reply.
 """
 
 from collections.abc import Mapping, Sequence
@@ -14,11 +14,12 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from langgraph.store.base import BaseStore
 
 from assistant.core.config import settings
-from assistant.core.conversation.digest import Digester, DigestInput, EpochDigest
+from assistant.core.conversation import pending
+from assistant.core.conversation.pending import PendingPart
 from assistant.core.conversation.prompt import build_system_prompt
+from assistant.core.conversation.summary import Summarizer
 from assistant.core.conversation.transcript import render
 from assistant.core.identity import load_name
-from assistant.core.memory import episodes, facts, profile
 
 _CHARS_PER_TOKEN = 4
 
@@ -79,7 +80,7 @@ def _estimate(messages: Sequence[BaseMessage]) -> int:
 
 
 async def compact(
-    state: Mapping[str, Any], store: BaseStore, user_id: str, digester: Digester, now: datetime
+    state: Mapping[str, Any], store: BaseStore, user_id: str, thread_id: str, summarizer: Summarizer, now: datetime
 ) -> dict[str, Any]:
     """Archive the older part of the epoch and start a new one. Returns a state update."""
     start = state.get("epoch_start", 0)
@@ -87,23 +88,22 @@ async def compact(
     cut = cut_index(state["messages"], start, keep)
     if cut <= start:
         return {}
-    digest = await digester(await _digest_input(state, store, user_id, state["messages"][start:cut]))
-    await _save_memory(store, user_id, digest, state, now)
-    return {"epoch_start": cut, **await open_epoch(store, user_id, now, digest.conversation_summary)}
+    summary = await summarizer(state.get("epoch_summary", ""), render(state["messages"][start:cut]))
+    await pending.add(store, user_id, _part(state, thread_id, start, cut, now))
+    return {"epoch_start": cut, **await open_epoch(store, user_id, now, summary)}
 
 
 async def archive(
-    state: Mapping[str, Any], store: BaseStore, user_id: str, digester: Digester, now: datetime, after: int = 0
+    state: Mapping[str, Any], store: BaseStore, user_id: str, thread_id: str, now: datetime, after: int = 0
 ) -> bool:
-    """Digest the rest of a conversation that is being left (/new) into an episode and memory,
-    from message `after` on when that's past the epoch start (it was archived before, then
-    resumed). Skips fewer than EPISODE_MIN_TURNS user turns. Returns whether it archived."""
+    """Leave the rest of a conversation that is being left (/new) to be digested into an episode
+    and memory, from message `after` on when that's past the epoch start (it was archived before,
+    then resumed). Skips fewer than EPISODE_MIN_TURNS user turns. Returns whether it archived."""
+    messages = state.get("messages", [])
     start = max(state.get("epoch_start", 0), after)
-    remaining = state.get("messages", [])[start:]
-    if sum(isinstance(m, HumanMessage) for m in remaining) < settings.episode_min_turns:
+    if sum(isinstance(m, HumanMessage) for m in messages[start:]) < settings.episode_min_turns:
         return False
-    digest = await digester(await _digest_input(state, store, user_id, remaining))
-    await _save_memory(store, user_id, digest, state, now)
+    await pending.add(store, user_id, _part(state, thread_id, start, len(messages), now))
     return True
 
 
@@ -115,25 +115,12 @@ def cut_index(messages: Sequence[BaseMessage], start: int, keep_turns: int) -> i
     return turns[-min(max(keep_turns, 1), len(turns))]
 
 
-async def _digest_input(
-    state: Mapping[str, Any], store: BaseStore, user_id: str, archived: Sequence[BaseMessage]
-) -> DigestInput:
-    return DigestInput(
+def _part(state: Mapping[str, Any], thread_id: str, start: int, end: int, now: datetime) -> PendingPart:
+    return PendingPart(
+        thread_id=thread_id,
+        start=start,
+        end=end,
         previous_summary=state.get("epoch_summary", ""),
-        profile=await profile.load(store, user_id),
-        facts=await facts.load(store, user_id, settings.memory_max_facts),
-        transcript=render(archived),
+        started_at=state.get("epoch_started_at") or now.isoformat(),
+        ended_at=state.get("last_activity") or now.isoformat(),
     )
-
-
-async def _save_memory(
-    store: BaseStore, user_id: str, digest: EpochDigest, state: Mapping[str, Any], now: datetime
-) -> None:
-    await profile.save(store, user_id, digest.profile)
-    for text in digest.new_facts:
-        await facts.add(store, user_id, text)
-    for fact_id in digest.outdated_fact_ids:
-        await facts.remove(store, user_id, fact_id)
-    started_at = state.get("epoch_started_at") or now.isoformat()
-    ended_at = state.get("last_activity") or now.isoformat()
-    await episodes.save(store, user_id, episodes.Episode(started_at, ended_at, digest.episode_summary))

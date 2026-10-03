@@ -9,7 +9,7 @@ async def _say(service, text):
     await collect(service.send(await service.session("owner", "cli"), text))
 
 
-async def test_rename_by_asking_rebuilds_the_prompt_at_the_next_message(service, script, digests):
+async def test_rename_by_asking_rebuilds_the_prompt_at_the_next_message(service, script, summaries):
     script.reply("hello").call("rename_assistant", name="  Max ").reply("Call me Max!").reply("I'm Max.")
     await _say(service, "hi")
     await _say(service, "call yourself Max")
@@ -19,7 +19,7 @@ async def test_rename_by_asking_rebuilds_the_prompt_at_the_next_message(service,
     prompt, *messages = script.requests[-1]
     assert "Your name is Max." in prompt.content
     # hi, hello, call yourself Max, the tool call, its result, Call me Max!, who are you?
-    assert len(messages) == 7 and digests.inputs == []  # every message kept, nothing summarized
+    assert len(messages) == 7 and summaries.inputs == []  # every message kept, nothing summarized
 
 
 async def test_invalid_names_are_refused(service, script):

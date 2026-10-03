@@ -5,6 +5,7 @@ from typing import Any, Protocol
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage, ToolMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -15,7 +16,6 @@ from langgraph.runtime import Runtime
 from assistant.core.attachments import hydrate
 from assistant.core.config import settings
 from assistant.core.context import Context, require_store
-from assistant.core.conversation.digest import Digester
 from assistant.core.conversation.epochs import (
     compact,
     is_idle,
@@ -25,6 +25,7 @@ from assistant.core.conversation.epochs import (
     reopen,
     usage_anchor,
 )
+from assistant.core.conversation.summary import Summarizer
 from assistant.core.llm import build_llm, metered
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.providers import IMAGES_IN_TOOL_RESULTS
@@ -66,10 +67,10 @@ class McpTools(Protocol):
     def unavailable(self, name: str) -> str: ...
 
 
-def build_graph(storage: Storage, choice: ModelChoice, digester: Digester, mcp: McpTools) -> Graph:
+def build_graph(storage: Storage, choice: ModelChoice, summarizer: Summarizer, mcp: McpTools) -> Graph:
     tools = tools_for(settings.toolsets)
     builder = StateGraph(AgentState, context_schema=Context)
-    builder.add_node("epoch", _epoch_node(digester, mcp))
+    builder.add_node("epoch", _epoch_node(summarizer, mcp))
     llm = metered(build_llm(choice, choice.model), TokenMeter(storage.usage, "reply"))
     builder.add_node("agent", _agent_node(llm, tools, choice.provider in IMAGES_IN_TOOL_RESULTS))
     builder.add_node("tools", ToolNode(tools, awrap_tool_call=_mcp_calls(mcp)))
@@ -80,12 +81,13 @@ def build_graph(storage: Storage, choice: ModelChoice, digester: Digester, mcp: 
     return builder.compile(checkpointer=storage.checkpointer, store=storage.store)
 
 
-def _epoch_node(digester: Digester, mcp: McpTools) -> Node:
+def _epoch_node(summarizer: Summarizer, mcp: McpTools) -> Node:
     """Runs once per user message: opens the first epoch, or starts a new one when needed."""
 
-    async def _epoch(state: AgentState, runtime: Runtime[Context]) -> dict:
+    async def _epoch(state: AgentState, runtime: Runtime[Context], config: RunnableConfig) -> dict:
         now = datetime.now(UTC)
-        update = await _epoch_update(state, runtime, digester, mcp, now)
+        thread_id = config.get("configurable", {})["thread_id"]
+        update = await _epoch_update(state, runtime, thread_id, summarizer, mcp, now)
         if "system_prompt" in update:
             update["mcp_tools"] = mcp.definitions()
         return {**update, "last_activity": now.isoformat()}
@@ -94,13 +96,13 @@ def _epoch_node(digester: Digester, mcp: McpTools) -> Node:
 
 
 async def _epoch_update(
-    state: AgentState, runtime: Runtime[Context], digester: Digester, mcp: McpTools, now: datetime
+    state: AgentState, runtime: Runtime[Context], thread_id: str, summarizer: Summarizer, mcp: McpTools, now: datetime
 ) -> dict:
     user_id, store = runtime.context.user_id, require_store(runtime.store)
     if not state.get("system_prompt"):
         return await open_epoch(store, user_id, now)
     if is_idle(state, now) or is_too_large(state):
-        update = await compact(state, store, user_id, digester, now)
+        update = await compact(state, store, user_id, thread_id, summarizer, now)
         if update:
             return update
     if await is_renamed(state, store) or state.get("mcp_tools", []) != mcp.definitions():

@@ -1,7 +1,6 @@
-"""Digests an archived part of the conversation: summaries plus memory extraction (D3).
-
-One structured-output call returns everything, so an epoch change costs one model call.
-"""
+"""Digests an archived part of the conversation into memory (D3): an episode summary, profile
+updates and facts, in one structured-output call. It runs in the background, after the reply that
+started the epoch, or when a conversation is left."""
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -19,12 +18,8 @@ from assistant.core.usage.log import UsageLog
 from assistant.core.usage.meter import TokenMeter
 
 
-class EpochDigest(BaseModel):
+class MemoryDigest(BaseModel):
     episode_summary: str = Field(description="Summary of the transcript only: topics, decisions, outcomes.")
-    conversation_summary: str = Field(
-        description="Running summary of the previous summary plus the transcript: what the assistant needs to "
-        "continue the conversation, including open tasks and commitments."
-    )
     profile: Profile = Field(description="The full updated user profile.")
     new_facts: list[str] = Field(description="One-off facts worth remembering that are not saved yet.")
     outdated_fact_ids: list[str] = Field(description="Ids of saved facts the transcript shows are wrong or outdated.")
@@ -38,17 +33,17 @@ class DigestInput:
     transcript: str
 
 
-Digester = Callable[[DigestInput], Awaitable[EpochDigest]]
+Digester = Callable[[DigestInput], Awaitable[MemoryDigest]]
 
 _PROMPT = prompts.load("digest")
 
 
 def build_digester(choice: ModelChoice, usage: UsageLog) -> Digester:
-    """Its calls are recorded in `usage` as summaries."""
-    llm = build_structured(choice, choice.worker_model, EpochDigest, TokenMeter(usage, "summary"))
+    """Its calls are recorded in `usage` as memory."""
+    llm = build_structured(choice, choice.worker_model, MemoryDigest, TokenMeter(usage, "memory"))
 
-    async def _digest(data: DigestInput) -> EpochDigest:
-        return EpochDigest.model_validate(await llm.ainvoke([HumanMessage(_prompt(data))]))
+    async def _digest(data: DigestInput) -> MemoryDigest:
+        return MemoryDigest.model_validate(await llm.ainvoke([HumanMessage(_prompt(data))]))
 
     return _digest
 

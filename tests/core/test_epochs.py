@@ -1,11 +1,15 @@
-"""Epochs: new ones start on a size limit or an idle gap, digest memory, and rebuild the prompt."""
+"""Epochs: new ones start on a size limit or an idle gap, rebuild the prompt with a summary, and
+leave memory to the memory writer."""
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from langchain_core.messages import AIMessage
 
 from assistant.core.config import settings
-from assistant.core.conversation.digest import EpochDigest
+from assistant.core.conversation import pending
+from assistant.core.conversation.digest import MemoryDigest
 from assistant.core.conversation.epochs import cut_index, estimate_tokens, usage_anchor
 from tests.conftest import collect
 
@@ -25,7 +29,7 @@ async def test_system_prompt_stays_identical_within_an_epoch(service, script):
     assert len({r[0].content for r in script.requests}) == 1
 
 
-async def test_size_limit_starts_a_new_epoch_from_reported_tokens(service, script, digests, monkeypatch):
+async def test_size_limit_starts_a_new_epoch_from_reported_tokens(service, script, summaries, monkeypatch):
     monkeypatch.setattr(settings, "epoch_max_tokens", 5000)
     monkeypatch.setattr(settings, "epoch_keep_turns", 1)
     script.reply("a", **_reply_with_usage(1000)).reply("b", **_reply_with_usage(6000)).reply(
@@ -34,33 +38,70 @@ async def test_size_limit_starts_a_new_epoch_from_reported_tokens(service, scrip
     session = await service.session("u", "cli")
     await collect(service.send(session, "one"))
     await collect(service.send(session, "two"))
-    assert digests.inputs == []
+    assert summaries.inputs == []
     await collect(service.send(session, "three"))
     state = await _state(service, session)
-    assert len(digests.inputs) == 1 and state["epoch_start"] == 4
+    assert len(summaries.inputs) == 1 and state["epoch_start"] == 4
     assert state["usage_anchor"] == {"tokens": 810, "messages": 6}
     assert len(script.requests[-1]) == 2  # system prompt + the new message only
 
 
-async def test_new_epoch_rebuilds_prompt_with_memory_and_summary(service, script, digests, monkeypatch):
+@pytest.fixture
+def small_epochs(monkeypatch):
     monkeypatch.setattr(settings, "epoch_max_tokens", 1)
     monkeypatch.setattr(settings, "epoch_keep_turns", 1)
-    digests.result = lambda data: EpochDigest(
+
+
+async def test_a_new_epoch_waits_only_for_the_summary(service, script, digests, small_epochs):
+    session = await service.session("u", "cli")
+    await collect(service.send(session, "one"))
+    await collect(service.send(session, "two"))
+    assert "summary 1" in (await _state(service, session))["system_prompt"]
+    assert digests.inputs == [] and len(await pending.load_all(service.store, "u")) == 1
+
+
+async def test_the_memory_writer_digests_the_archived_part(service, script, digests, small_epochs):
+    digests.result = lambda data: MemoryDigest(
         episode_summary="talked about agents",
-        conversation_summary="running summary",
         profile=data.profile.model_copy(update={"work": ["software engineer"]}),
         new_facts=["dentist on Friday"],
         outdated_fact_ids=[],
     )
     session = await service.session("u", "cli")
+    await collect(service.send(session, "first-message"))
+    await collect(service.send(session, "second-message"))
+    await service.memory_writer.write_all()
+    assert len(digests.inputs) == 1 and "first-message" in digests.inputs[0].transcript
+    assert "second-message" not in digests.inputs[0].transcript
+    memory = await service.memory_snapshot("u")
+    assert memory.profile["work"] == ["software engineer"] and memory.facts == ["dentist on Friday"]
+    assert memory.episodes == ["talked about agents"] and await pending.load_all(service.store, "u") == []
+
+
+async def test_a_failed_digest_is_tried_again(service, script, digests, small_epochs):
+    session = await service.session("u", "cli")
     await collect(service.send(session, "one"))
     await collect(service.send(session, "two"))
-    prompt = (await _state(service, session))["system_prompt"]
-    for expected in ["Work: software engineer", "dentist on Friday", "talked about agents", "running summary"]:
-        assert expected in prompt
+    digests.result = lambda data: (_ for _ in ()).throw(RuntimeError("model down"))
+    await service.memory_writer.write_all()
+    assert len(await pending.load_all(service.store, "u")) == 1
+    digests.result = lambda data: MemoryDigest(
+        episode_summary="later", profile=data.profile, new_facts=[], outdated_fact_ids=[]
+    )
+    await service.memory_writer.write_all()
+    assert (await service.memory_snapshot("u")).episodes == ["later"]
 
 
-async def test_idle_gap_starts_a_new_epoch_keeping_only_the_new_message(service, script, digests):
+async def test_a_deleted_conversation_leaves_nothing_to_digest(service, script, digests, small_epochs):
+    session = await service.session("u", "cli")
+    await collect(service.send(session, "one"))
+    await collect(service.send(session, "two"))
+    await service.delete_conversation("u", session.thread_id)
+    await service.memory_writer.write_all()
+    assert digests.inputs == [] and await pending.load_all(service.store, "u") == []
+
+
+async def test_idle_gap_starts_a_new_epoch_keeping_only_the_new_message(service, script, summaries):
     session = await service.session("u", "cli")
     await collect(service.send(session, "before the break"))
     config = {"configurable": {"thread_id": session.thread_id}}
@@ -68,7 +109,7 @@ async def test_idle_gap_starts_a_new_epoch_keeping_only_the_new_message(service,
     await service._graph.aupdate_state(config, {"last_activity": old}, as_node="epoch")
     await collect(service.send(session, "back"))
     state = await _state(service, session)
-    assert len(digests.inputs) == 1 and len(state["messages"]) - state["epoch_start"] == 2
+    assert len(summaries.inputs) == 1 and len(state["messages"]) - state["epoch_start"] == 2
 
 
 def test_cut_index_keeps_whole_turns():
@@ -90,3 +131,17 @@ def test_estimate_prefers_reported_tokens():
     state = {"messages": ["x"] * 3, "usage_anchor": {"tokens": 1000, "messages": 3}, "system_prompt": ""}
     assert estimate_tokens(state) == 1000
     assert usage_anchor(AIMessage("x"), 3) is None
+
+
+async def test_the_running_writer_digests_a_new_part_on_its_own(service, script, digests, small_epochs):
+    stop = asyncio.Event()
+    writer = asyncio.create_task(service.memory_writer.run(stop))
+    session = await service.session("u", "cli")
+    await collect(service.send(session, "one"))
+    await collect(service.send(session, "two"))
+    async with asyncio.timeout(5):
+        while await pending.load_all(service.store, "u"):
+            await asyncio.sleep(0.01)
+    stop.set()
+    await writer
+    assert len(digests.inputs) == 1

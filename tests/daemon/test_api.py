@@ -134,10 +134,12 @@ async def test_a_client_moving_on_leaves_its_conversation_to_be_archived(client,
         await collect(client.send(session, text))
     await client.new_thread("owner")
     await asyncio.gather(*service._background)
+    await service.memory_writer.write_all()
     assert len(digests.inputs) == 1 and "LangGraph" in digests.inputs[0].transcript
     await client.resume_thread("owner", session.thread_id)
     await collect(client.send(session, "one more"))
     await asyncio.gather(*service._background)
+    await service.memory_writer.write_all()
     assert len(digests.inputs) == 1  # still on it
 
 

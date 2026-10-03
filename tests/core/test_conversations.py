@@ -16,6 +16,7 @@ async def _say(service, text, session=None):
 
 async def _archived(service):
     await asyncio.gather(*service._background)
+    await service.memory_writer.write_all()
 
 
 async def test_messages_are_listed_titled_by_the_first_one_until_the_model_titles_them(service, script, titles):

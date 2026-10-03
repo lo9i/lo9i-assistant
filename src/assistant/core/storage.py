@@ -24,6 +24,8 @@ _CHANGE_EVENTS = {
     "profile": "memory",
     "facts": "memory",
     "episodes": "memory",
+    # Archived parts of conversations waiting for the memory writer (core/conversation/memory_writer.py).
+    "memory_pending": "memory_pending",
     "integrations": "integrations",
     # Connected accounts (core/accounts.py) are integrations' settings too.
     "accounts": "integrations",

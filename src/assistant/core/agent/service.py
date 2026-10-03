@@ -27,6 +27,7 @@ from assistant.core.agent.usage import UsageMixin
 from assistant.core.approvals import RemoteApprovals
 from assistant.core.bus import EventBus
 from assistant.core.config import settings
+from assistant.core.conversation.memory_writer import MemoryWriter
 from assistant.core.health import HealthLog
 from assistant.core.integrations.email import accounts
 from assistant.core.integrations.email.oauth import SignIns
@@ -80,6 +81,7 @@ class AssistantService(
         self.pages = McpPages(storage.store)
         embedder = E5Embedder()
         self.memory_index = MemoryIndexer(storage.store, storage.vectors, embedder, bus)
+        self.memory_writer = MemoryWriter(storage.store, storage.checkpointer, bus, lambda: self._digester)
         self._recall = MemoryRecall(storage.store, storage.vectors, embedder)
         self.update_checker = UpdateChecker(storage.store, bus)
         self._email_sign_ins = SignIns()

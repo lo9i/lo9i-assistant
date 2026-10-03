@@ -20,7 +20,7 @@ import assistant.core.agent.service as service_module
 import assistant.core.graph as graph_module
 from assistant.core.agent import AssistantService
 from assistant.core.config import settings
-from assistant.core.conversation.digest import DigestInput, EpochDigest
+from assistant.core.conversation.digest import DigestInput, MemoryDigest
 from assistant.core.memory.embedder import EmbeddingError
 
 
@@ -137,19 +137,19 @@ def script(monkeypatch: pytest.MonkeyPatch) -> Script:
 
 
 class Digests:
-    """A fake digester: records its inputs and returns `result(data)`."""
+    """A fake digester: records its inputs and returns `result(data)`. It runs only when the test
+    runs the memory writer (`service.memory_writer.write_all()`)."""
 
     def __init__(self) -> None:
         self.inputs: list[DigestInput] = []
-        self.result: Callable[[DigestInput], EpochDigest] = lambda data: EpochDigest(
+        self.result: Callable[[DigestInput], MemoryDigest] = lambda data: MemoryDigest(
             episode_summary=f"episode {len(self.inputs)}",
-            conversation_summary=f"summary {len(self.inputs)}",
             profile=data.profile,
             new_facts=[],
             outdated_fact_ids=[],
         )
 
-    async def __call__(self, data: DigestInput) -> EpochDigest:
+    async def __call__(self, data: DigestInput) -> MemoryDigest:
         self.inputs.append(data)
         return self.result(data)
 
@@ -159,6 +159,24 @@ def digests(monkeypatch: pytest.MonkeyPatch) -> Digests:
     digests = Digests()
     monkeypatch.setattr(model_module, "build_digester", lambda choice, usage: digests)
     return digests
+
+
+class Summaries:
+    """A fake summarizer: records the transcripts it was given and returns "summary <n>"."""
+
+    def __init__(self) -> None:
+        self.inputs: list[str] = []
+
+    async def __call__(self, previous_summary: str, transcript: str) -> str:
+        self.inputs.append(transcript)
+        return f"summary {len(self.inputs)}"
+
+
+@pytest.fixture
+def summaries(monkeypatch: pytest.MonkeyPatch) -> Summaries:
+    summaries = Summaries()
+    monkeypatch.setattr(model_module, "build_summarizer", lambda choice, usage: summaries)
+    return summaries
 
 
 class Titles:
@@ -184,7 +202,9 @@ def titles(monkeypatch: pytest.MonkeyPatch) -> Titles:
 
 
 @pytest.fixture
-async def service(script: Script, digests: Digests, titles: Titles) -> AsyncIterator[AssistantService]:
+async def service(
+    script: Script, digests: Digests, summaries: Summaries, titles: Titles
+) -> AsyncIterator[AssistantService]:
     async with AssistantService.open() as svc:
         yield svc
 

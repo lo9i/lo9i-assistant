@@ -52,7 +52,7 @@ def _disk_server() -> MCPServer:
 
 
 @pytest.fixture
-async def service(script, digests, titles, monkeypatch) -> AsyncIterator[AssistantService]:
+async def service(script, digests, summaries, titles, monkeypatch) -> AsyncIterator[AssistantService]:
     fake = _disk_server()
     monkeypatch.setattr(hub_module, "open_client", lambda server, handler: Client(fake, message_handler=handler))
     async with AssistantService.open() as svc:

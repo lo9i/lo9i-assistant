@@ -32,9 +32,9 @@ class ArchiveMixin(LockingMixin, TitlesMixin):
         state = (await self._graph.aget_state({"configurable": {"thread_id": thread_id}})).values
         record = await conversations.load(store, user_id, thread_id)
         after = record.archived_upto if record else 0
-        if not await archive(state, store, user_id, self._digester, datetime.now(UTC), after):
+        if not await archive(state, store, user_id, thread_id, datetime.now(UTC), after):
             return
-        logger.info("Archived conversation %s as an episode", thread_id)
+        logger.info("Archived conversation %s; its memory is digested next", thread_id)
         async with self._conversations_lock:
             await conversations.mark_archived(store, user_id, thread_id, len(state.get("messages", [])))
         await self._retitle(user_id, thread_id, state.get("messages", []))

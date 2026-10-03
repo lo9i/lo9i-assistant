@@ -63,7 +63,7 @@ def notes() -> list[str]:
 
 
 @pytest.fixture
-async def service(script, digests, titles, notes, monkeypatch) -> AsyncIterator[AssistantService]:
+async def service(script, digests, summaries, titles, notes, monkeypatch) -> AsyncIterator[AssistantService]:
     """The service with its MCP hub running, every server connecting to the in-process notes server."""
     fake = _notes_server(notes)
     monkeypatch.setattr(hub_module, "open_client", lambda server, handler: Client(fake, message_handler=handler))
@@ -92,17 +92,17 @@ async def _say(service: AssistantService, text: str, channel: str = "cli") -> li
     return await collect(service.send(await service.session("owner", channel), text))
 
 
-async def test_tools_of_an_added_server_are_offered_from_the_next_message(service, script, digests):
+async def test_tools_of_an_added_server_are_offered_from_the_next_message(service, script, summaries):
     await _say(service, "hi")
     await _add(service)
     script.call(READ).reply("done")
     events = await _say(service, "read my notes")
     assert _names(script.bound[-1]) == {READ, ADD, CHART}
     assert ToolFinished(READ, "no notes") in events
-    assert digests.inputs == []  # a new epoch at the same point: nothing summarized
+    assert summaries.inputs == []  # a new epoch at the same point: nothing summarized
 
 
-async def test_a_change_in_the_tools_takes_effect_at_the_next_message(service, script, digests):
+async def test_a_change_in_the_tools_takes_effect_at_the_next_message(service, script, summaries):
     await _add(service)
     script.call(READ).reply("done")
     await _say(service, "hi")
@@ -110,7 +110,7 @@ async def test_a_change_in_the_tools_takes_effect_at_the_next_message(service, s
     await service.update_mcp_server("notes", McpServerChanges(include=["read_notes"]))
     await _say(service, "again")
     assert _names(script.bound[-1]) == {READ}
-    assert len(script.requests[-1]) == 6 and digests.inputs == []  # every message kept
+    assert len(script.requests[-1]) == 6 and summaries.inputs == []  # every message kept
 
 
 async def test_excluded_tools_are_left_out_and_stop_working_at_once(service, script):
