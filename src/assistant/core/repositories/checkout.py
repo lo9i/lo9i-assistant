@@ -1,4 +1,4 @@
-"""A fresh download of a repository's default branch, deleted afterwards."""
+"""A fresh download of a repository's default branch, deleted afterwards, and its latest commit."""
 
 import asyncio
 import contextlib
@@ -24,6 +24,15 @@ async def checkout(url: str) -> AsyncIterator[tuple[Path, str]]:
         yield root, commit
     finally:
         await asyncio.to_thread(shutil.rmtree, temp, True)
+
+
+async def latest_commit(url: str) -> str:
+    """The commit of the repository's default branch, asked without downloading it."""
+    check_url(url)
+    output = (await _git("ls-remote", "--", url, "HEAD")).split()
+    if not output:
+        raise RepositoryError("The repository has no commits.")
+    return output[0]
 
 
 def check_url(url: str) -> None:

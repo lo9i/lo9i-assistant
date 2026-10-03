@@ -37,8 +37,8 @@ class Candidate:
     # Relative to the repository root.
     path: str
 
-    def found(self, url: str) -> FoundSkill:
-        return FoundSkill(self.skill.name, self.skill.description, self.skill.files, _installed(self.skill.name, url))
+    def found(self) -> FoundSkill:
+        return FoundSkill(self.skill.name, self.skill.description, self.skill.files)
 
 
 def find(root: Path, url: str) -> dict[str, Candidate]:
@@ -96,7 +96,8 @@ def _candidate(root: Path, folder: Path, name: str) -> Candidate | None:
     return Candidate(skill, folder, folder.relative_to(root).as_posix())
 
 
-def _installed(name: str, url: str) -> bool:
+def installed(name: str, url: str) -> bool:
+    """Installed here from that repository, as a skill of its own."""
     try:
         existing = store.load(name)
     except SkillError:

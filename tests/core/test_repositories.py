@@ -56,14 +56,24 @@ def repo(tmp_path, monkeypatch) -> Path:
     )
     _write(root / ".git", {"config": "[core]"})
     (root / "skills" / "expenses" / "link.py").symlink_to("/etc/hosts")
-    commits = iter(f"commit{i}" for i in range(1, 10))
-
     async def fetch(url: str, dest: Path) -> str:
+        REMOTE["downloads"] += 1
         shutil.copytree(root, dest, symlinks=True)
-        return next(commits)
+        return REMOTE["head"] or "head1"
 
+    async def latest_commit(url: str) -> str:
+        if REMOTE["head"] is None:
+            raise RepositoryError("Couldn't get the repository: no network")
+        return REMOTE["head"]
+
+    REMOTE.update(head="head1", downloads=0)
     monkeypatch.setattr(checkout, "_fetch", fetch)
+    monkeypatch.setattr(checkout, "latest_commit", latest_commit)
     return root
+
+
+# The remote's latest commit (None: unreachable) and how often it was downloaded.
+REMOTE: dict = {}
 
 
 def _skill(folder: Path, name: str | None, description: str, files: dict[str, str]) -> None:
@@ -99,7 +109,7 @@ async def test_skills_are_installed_with_visible_files_and_their_source(service,
     [skill] = installed.skills
     assert (skill.name, skill.files, skill.source) == ("expenses", ["scripts/add.py"], URL)
     assert not (isolated_settings / "skills" / "expenses" / "link.py").exists()
-    assert store.installed_from("expenses") == Source(URL, "skills/expenses", "commit1")
+    assert store.installed_from("expenses") == Source(URL, "skills/expenses", "head1")
 
 
 async def test_an_installed_local_server_runs_from_its_folder_with_the_values_given(service, repo, isolated_settings):
@@ -301,3 +311,25 @@ async def test_browsing_says_what_is_installed_from_that_repository(service, rep
     contents = await service.browse_repository(URL)
     assert {s.name: s.installed for s in contents.skills} == {"expenses": True, "news-digest": False}
     assert {s.name: s.installed for s in contents.servers} == {"hello": True, "tasks": False}
+
+
+async def test_the_listing_is_kept_until_the_repository_has_a_newer_commit(service, repo):
+    await service.browse_repository(URL)
+    await service.browse_repository(URL)
+    assert REMOTE["downloads"] == 1
+    _write(repo / "skills" / "later", {"SKILL.md": "---\nname: later\ndescription: New\n---\n\nSteps."})
+    REMOTE["head"] = "head2"
+    contents = await service.browse_repository(URL)
+    assert REMOTE["downloads"] == 2 and "later" in [s.name for s in contents.skills]
+
+
+async def test_an_unreachable_repository_shows_the_kept_listing(service, repo):
+    REMOTE["head"] = None
+    with pytest.raises(RepositoryError, match="no network"):
+        await service.browse_repository(URL)
+    REMOTE["head"] = "head1"
+    await service.browse_repository(URL)
+    REMOTE["head"] = None
+    await service.install_from_repository(URL, ["expenses"], [])
+    contents = await service.browse_repository(URL)
+    assert {s.name: s.installed for s in contents.skills}["expenses"]  # installed is read fresh, not kept
