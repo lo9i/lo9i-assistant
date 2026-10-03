@@ -189,7 +189,11 @@ async def test_skills_and_servers_are_installed_from_a_repository_and_updated(cl
         shutil.copytree(remote, dest)
         return "c1"
 
+    async def latest_commit(url: str) -> str:
+        return "c1"
+
     monkeypatch.setattr(checkout, "_fetch", fetch)
+    monkeypatch.setattr(checkout, "latest_commit", latest_commit)
     url = "https://example.com/me/extras.git"
     contents = await client.repositories.browse(url)
     assert [s.name for s in contents.skills] == ["expenses"] and contents.servers[0].fields[0].secret

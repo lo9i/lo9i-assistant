@@ -71,7 +71,7 @@
       <div class="tools">
         <SearchField bind:value={query} label="Search plugins" />
         {#if plugins.data}<span class="pill">{plugins.data.length}</span>{/if}
-        <button class="btn btn--ghost btn--sm" title="Look at the extras again" onclick={() => plugins.reload()}><RefreshCw size={14} /></button>
+        <button class="btn btn--ghost btn--sm" title="Check the extras for a newer version" onclick={() => plugins.reload()}><RefreshCw size={14} /></button>
       </div>
     </header>
     <div class="scroll">
