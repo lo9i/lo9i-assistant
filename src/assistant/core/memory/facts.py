@@ -1,7 +1,10 @@
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from uuid import uuid4
 
-from langgraph.store.base import BaseStore
+from langgraph.store.base import BaseStore, Item
+
+from assistant.core.memory.items import all_items
 
 
 @dataclass
@@ -15,14 +18,37 @@ def namespace(user_id: str) -> tuple[str, ...]:
 
 
 async def load(store: BaseStore, user_id: str, limit: int) -> list[Fact]:
-    """Up to `limit` facts, sorted by id so the rendered prompt is stable."""
-    items = await store.asearch(namespace(user_id), limit=limit)
-    return sorted((Fact(id=i.key, text=i.value["fact"]) for i in items), key=lambda f: f.id)
+    """The `limit` most recently saved facts, sorted by id so the rendered prompt is stable.
+    Older ones are found with search_memory."""
+    items = sorted(await all_items(store, namespace(user_id)), key=_saved_at, reverse=True)
+    return sorted((_fact(i) for i in items[: max(limit, 0)]), key=lambda f: f.id)
+
+
+async def load_all(store: BaseStore, user_id: str) -> list[Fact]:
+    return [_fact(i) for i in await all_items(store, namespace(user_id))]
+
+
+async def get(store: BaseStore, user_id: str, fact_ids: list[str]) -> list[Fact]:
+    """The facts with these ids that still exist, in the same order."""
+    found = [await store.aget(namespace(user_id), fact_id) for fact_id in fact_ids]
+    return [_fact(i) for i in found if i is not None]
+
+
+def _saved_at(item: Item) -> datetime:
+    """In UTC, without a zone, like the Store's times. The Store keeps whole seconds, which can't
+    order the facts one digest saves; facts saved before `saved_at` existed fall back to it."""
+    saved_at = item.value.get("saved_at")
+    return datetime.fromisoformat(saved_at) if saved_at else item.updated_at
+
+
+def _fact(item: Item) -> Fact:
+    return Fact(id=item.key, text=item.value["fact"])
 
 
 async def add(store: BaseStore, user_id: str, text: str) -> str:
     fact_id = uuid4().hex[:8]
-    await store.aput(namespace(user_id), fact_id, {"fact": text})
+    saved_at = datetime.now(UTC).replace(tzinfo=None).isoformat()
+    await store.aput(namespace(user_id), fact_id, {"fact": text, "saved_at": saved_at})
     return fact_id
 
 

@@ -2,6 +2,9 @@
 suite never touches ~/.lo9i, never calls a real model, and runs offline (except `-m live`)."""
 
 import asyncio
+import hashlib
+import math
+import re
 from collections import deque
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
@@ -13,10 +16,12 @@ from langchain_core.messages import AIMessage, BaseMessage
 from pydantic import Field
 
 import assistant.core.agent.model as model_module
+import assistant.core.agent.service as service_module
 import assistant.core.graph as graph_module
 from assistant.core.agent import AssistantService
 from assistant.core.config import settings
 from assistant.core.conversation.digest import DigestInput, EpochDigest
+from assistant.core.memory.embedder import EmbeddingError
 
 
 @pytest.fixture(autouse=True)
@@ -46,6 +51,39 @@ def isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     for key in ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"):
         monkeypatch.delenv(key, raising=False)
     return tmp_path
+
+
+class FakeEmbedder:
+    """Vectors from the texts' words, so texts sharing words are close. Stands in for the local
+    embedding model, which would download on first use."""
+
+    model = "fake-embedder"
+    _DIMS = 64
+
+    def __init__(self) -> None:
+        self.failing = False
+
+    async def embed_passages(self, texts: list[str]) -> list[list[float]]:
+        return [self._vector(text) for text in texts]
+
+    async def embed_query(self, text: str) -> list[float]:
+        return self._vector(text)
+
+    def _vector(self, text: str) -> list[float]:
+        if self.failing:
+            raise EmbeddingError("the model couldn't be downloaded")
+        vector = [0.0] * self._DIMS
+        for word in re.findall(r"\w+", text.lower()):
+            vector[int(hashlib.sha256(word.encode()).hexdigest(), 16) % self._DIMS] += 1
+        norm = math.sqrt(sum(v * v for v in vector)) or 1
+        return [v / norm for v in vector]
+
+
+@pytest.fixture(autouse=True)
+def embedder(monkeypatch: pytest.MonkeyPatch) -> FakeEmbedder:
+    fake = FakeEmbedder()
+    monkeypatch.setattr(service_module, "E5Embedder", lambda: fake)
+    return fake
 
 
 class ScriptedModel(GenericFakeChatModel):

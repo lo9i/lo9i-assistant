@@ -5,8 +5,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Next, in order
 
-1. G2. Memory search.
-2. G4. Prune old checkpoints.
+1. G3. Prune old checkpoints.
 
 ## Daemon
 
@@ -28,9 +27,9 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 ## Memory
 
 - G1. Memory extraction runs in the same call as the epoch summary, which delays the reply that starts a new epoch. Move it to a background task after the reply.
-- G2. Facts and episodes are loaded up to the configured limits, with no search beyond them.
-- G3. No way to view or edit memories (Q1).
-- G4. Checkpoints are never pruned.
+- G2. No way to view or edit memories (Q1).
+- G3. Checkpoints are never pruned.
+- G4. The epoch digest sees only the most recent `memory_max_facts` facts, so it can save a duplicate of an older one or miss one that turned outdated. Give it the saved facts closest to the transcript (`core/memory/recall.py`) too.
 - A14. "Get to know you" after setup. The first time the user chats after setup, with the profile still empty, the assistant offers to get to know them. If they agree, it asks a few friendly questions at a time, one profile section at a time (about, people, how to reply, routine, goals, interests, dislikes, work), and saves the answers with `update_profile`.
   - Every question can be skipped, and the user can stop at any point. It fills only what they choose to share.
   - Written as a built-in skill (steps in `SKILL.md`), not a new tool.
@@ -39,7 +38,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Context
 
-- H1. Better epoch summaries: quote user messages verbatim, keep ids and paths exactly, and let `search_conversations` search tool outputs too (it covers only what the user and the assistant wrote).
+- H1. Better epoch summaries: quote user messages verbatim, keep ids and paths exactly, and let `search_memory` search tool outputs too (it covers only what the user and the assistant wrote).
 - H2. Replace old tool outputs within an epoch with short stubs.
 
 ## Voice

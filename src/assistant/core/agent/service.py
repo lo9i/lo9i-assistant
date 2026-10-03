@@ -36,6 +36,9 @@ from assistant.core.mcp.hub import McpHub
 from assistant.core.mcp.media import ToolMedia
 from assistant.core.mcp.pages import McpPages
 from assistant.core.memory import profile
+from assistant.core.memory.e5 import E5Embedder
+from assistant.core.memory.indexer import MemoryIndexer
+from assistant.core.memory.recall import MemoryRecall
 from assistant.core.outbox import Outbox
 from assistant.core.secret_store import SecretBox
 from assistant.core.speech.kokoro import KokoroSynthesizer
@@ -74,6 +77,9 @@ class AssistantService(
         self._transcriber = FasterWhisperTranscriber()
         self.mcp = McpHub(storage.store, bus, self._health, ToolMedia(self._transcriber, storage.store))
         self.pages = McpPages(storage.store)
+        embedder = E5Embedder()
+        self.memory_index = MemoryIndexer(storage.store, storage.vectors, embedder, bus)
+        self._recall = MemoryRecall(storage.store, storage.vectors, embedder)
         self._email_sign_ins = SignIns()
         self._use_model(model)
         self._background = set()

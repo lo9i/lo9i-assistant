@@ -71,6 +71,8 @@ class Settings(BaseSettings):
     # on a slow CPU, slightly worse on noisy or unclear audio.
     stt_decoding: Literal["accurate", "fast"] = "accurate"
     stt_models_dir: str = "~/.lo9i/models"
+    # The embedding model memory search uses (core/memory/e5.py).
+    embedding_models_dir: str = "~/.lo9i/models"
 
     # Single-user setup: every gateway maps to this user id.
     owner_id: str = "owner"

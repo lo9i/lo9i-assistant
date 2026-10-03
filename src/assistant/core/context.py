@@ -4,6 +4,7 @@ from langgraph.store.base import BaseStore
 
 from assistant.core.bus import EventBus
 from assistant.core.conversation.search import MessageIndex
+from assistant.core.memory.recall import MemoryRecall
 from assistant.core.outbox import Outbox
 from assistant.core.secret_store import SecretBox
 
@@ -25,6 +26,8 @@ class Context:
     secrets: SecretBox | None = field(default=None, compare=False)
     # For searching past conversations.
     search: MessageIndex | None = field(default=None, compare=False)
+    # For searching saved facts and episodes by meaning.
+    recall: MemoryRecall | None = field(default=None, compare=False)
     # An unattended run whose approvals are sent to the user (core/approvals.py) instead of denied.
     forwards_approvals: bool = False
 
@@ -46,6 +49,13 @@ def require_search(context: Context) -> MessageIndex:
     if context.search is None:
         raise RuntimeError("The run was started without the search index.")
     return context.search
+
+
+def require_recall(context: Context) -> MemoryRecall:
+    """The service always passes its memory search to runs (`core/agent/runs.py`)."""
+    if context.recall is None:
+        raise RuntimeError("The run was started without the memory search.")
+    return context.recall
 
 
 def require_store(store: BaseStore | None) -> BaseStore:

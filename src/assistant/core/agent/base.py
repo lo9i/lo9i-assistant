@@ -9,6 +9,8 @@ from assistant.core.health import HealthLog
 from assistant.core.integrations.email.oauth import SignIns
 from assistant.core.mcp.hub import McpHub
 from assistant.core.mcp.pages import McpPages
+from assistant.core.memory.indexer import MemoryIndexer
+from assistant.core.memory.recall import MemoryRecall
 from assistant.core.outbox import Outbox
 from assistant.core.secret_store import SecretBox
 from assistant.core.speech.synthesizer import Synthesizer
@@ -29,6 +31,9 @@ class ServiceBase:
     mcp: McpHub
     # The web pages MCP servers come with, run like `mcp`.
     pages: McpPages
+    # Embeds new facts and episodes for memory search. The daemon runs it as a supervised task.
+    memory_index: MemoryIndexer
+    _recall: MemoryRecall
     # Encrypts accounts' passwords and tokens (core/secret_store.py).
     secrets: SecretBox
     # Email sign-ins (OAuth) waiting for the provider to send the browser back.
