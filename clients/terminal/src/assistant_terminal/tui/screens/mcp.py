@@ -162,4 +162,6 @@ class McpScreen(ModalScreen[None]):
         tools.add_options([(tool_label(t), t.name, t.selected) for t in server.tools])
         tools.display = self.query_one("#save-tools").display = bool(server.tools)
         self.query_one("#update").display = bool(server.source)
+        # What a plugin installed goes with the plugin, in /plugins.
+        self.query_one("#remove").display = not server.plugin
         await self.query_one("#mcp-body", Markdown).update(describe(server))

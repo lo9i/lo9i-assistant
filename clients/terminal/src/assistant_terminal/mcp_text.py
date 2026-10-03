@@ -25,6 +25,8 @@ def describe(server: McpServerStatus) -> str:
         lines.append(failures)
     lines.append(_trust(server.trusted))
     lines.append(f"Added by: the {server.plugin} plugin" if server.plugin else "Added by: you, by hand")
+    if server.plugin:
+        lines.append(f"To remove it, remove the {server.plugin} plugin in /plugins.")
     if server.source:
         lines.append(f"Installed from {server.source}")
     if server.page:

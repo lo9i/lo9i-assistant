@@ -190,9 +190,14 @@ def installed_version(name: str) -> str:
 
 def uninstall(name: str) -> None:
     """Delete the server's installed code and its skill, if it has them. Its data stays, for
-    installing it again."""
+    installing it again, unless `delete_data` is called too."""
     shutil.rmtree(folders.code(name), ignore_errors=True)
     _remove_skill(name)
+
+
+def delete_data(name: str) -> None:
+    """Delete the server's data folder: what it saved, and its page's socket."""
+    shutil.rmtree(folders.data(name), ignore_errors=True)
 
 
 def _put_skill(candidate: Candidate, source: Source) -> None:

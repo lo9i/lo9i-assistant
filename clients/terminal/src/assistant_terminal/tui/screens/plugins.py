@@ -17,7 +17,7 @@ from assistant.client.daemon_client import McpApi, RepositoriesApi, SkillsApi
 from assistant.core.agent import McpServerError, RepositoryError, ServerValues, SkillError
 from assistant_terminal.plugins_text import Plugin, describe, label, matches, plugins, updatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
-from assistant_terminal.tui.screens.confirm import ConfirmScreen
+from assistant_terminal.tui.screens.confirm import ConfirmScreen, ConfirmWithOptionScreen
 from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 
 
@@ -130,10 +130,17 @@ class PluginsScreen(ModalScreen[None]):
     @reports_daemon_unavailable
     async def _remove(self) -> None:
         plugin = self._current()
-        if plugin is None or not await self.app.push_screen_wait(ConfirmScreen(f"Remove {plugin.name}?", "Remove")):
+        if plugin is None:
             return
-        remove = self._mcp.remove if plugin.server else self._skills.delete
-        await self._run(lambda: remove(plugin.name), f"Removed {plugin.name}.")
+        if plugin.server is None:
+            if await self.app.push_screen_wait(ConfirmScreen(f"Remove {plugin.name}?", "Remove")):
+                await self._run(lambda: self._skills.delete(plugin.name), f"Removed {plugin.name}.")
+            return
+        question = f"Remove {plugin.name}? Its data stays, for installing it again, unless you delete it too."
+        option = "Also delete its data (can't be undone)"
+        delete_data = await self.app.push_screen_wait(ConfirmWithOptionScreen(question, "Remove", option))
+        if delete_data is not None:
+            await self._run(lambda: self._mcp.remove(plugin.name, delete_data), f"Removed {plugin.name}.")
 
     async def _run(self, action: Callable[[], Awaitable[object]], done: str) -> None:
         try:

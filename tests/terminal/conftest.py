@@ -367,8 +367,9 @@ class FakeMcp:
                 setattr(server, field, value)
         return server
 
-    async def remove(self, name):
+    async def remove(self, name, delete_data=False):
         del self.items[name]
+        self.data_deleted = delete_data
 
     async def update_from_repository(self, name):
         self.updated = name

@@ -743,7 +743,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Remove Mcp Server */
+        /**
+         * Remove Mcp Server
+         * @description With `delete_data`, the server's data folder goes too; otherwise it stays.
+         */
         delete: operations["remove_mcp_server_mcp_servers__name__delete"];
         options?: never;
         head?: never;
@@ -3559,7 +3562,9 @@ export interface operations {
     };
     remove_mcp_server_mcp_servers__name__delete: {
         parameters: {
-            query?: never;
+            query?: {
+                delete_data?: boolean;
+            };
             header?: never;
             path: {
                 name: string;

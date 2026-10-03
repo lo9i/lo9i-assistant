@@ -73,10 +73,16 @@
   async function speak(text: string, mine: number): Promise<void> {
     preparingSpeech = true;
     try {
-      const audio = await client.speech.speak(text);
-      if (mine !== turn) return;
-      speaking = true;
-      await player.play(audio);
+      await player.speak(
+        text,
+        (part) => client.speech.speak(part),
+        () => {
+          // A newer turn started while the first part was being prepared: leave it silent.
+          if (mine !== turn) return player.stop();
+          preparingSpeech = false;
+          speaking = true;
+        },
+      );
     } catch {
       // Speech output isn't set up (or failed): the reply is still shown.
       speaking = false;

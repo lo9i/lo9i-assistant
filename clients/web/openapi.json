@@ -1663,6 +1663,7 @@
       },
       "delete": {
         "summary": "Remove Mcp Server",
+        "description": "With `delete_data`, the server's data folder goes too; otherwise it stays.",
         "operationId": "remove_mcp_server_mcp_servers__name__delete",
         "parameters": [
           {
@@ -1672,6 +1673,16 @@
             "schema": {
               "type": "string",
               "title": "Name"
+            }
+          },
+          {
+            "name": "delete_data",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Delete Data"
             }
           }
         ],
