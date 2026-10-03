@@ -443,7 +443,7 @@ class AssistantApp(App):
         await self._chat.mount(SystemNote(f"## Commands\n\n```\n{body}\n```\n\n**Keys:** {', '.join(keys)}"))
 
     async def _command_skills(self, _: str) -> None:
-        self.push_screen(SkillsScreen(self._service.skills))
+        self.push_screen(SkillsScreen(self._service.skills, self._service.repositories))
 
     async def _command_jobs(self, _: str) -> None:
         self.push_screen(JobsScreen(self._service.jobs))
@@ -476,7 +476,7 @@ class AssistantApp(App):
         self.push_screen(ModelScreen(self._service.model))
 
     async def _command_mcp(self, _: str) -> None:
-        self.push_screen(McpScreen(self._service.mcp))
+        self.push_screen(McpScreen(self._service.mcp, self._service.repositories))
 
     async def _command_quit(self, _: str) -> None:
         self.exit()

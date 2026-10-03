@@ -6,9 +6,9 @@ import re
 import httpx
 import trafilatura
 
-from assistant.core.web.policy import check_allowed
-from assistant.core.web.results import Page
-from assistant.core.web.url_safety import check_url
+from assistant.core.internet.policy import check_allowed
+from assistant.core.internet.results import Page
+from assistant.core.internet.url_safety import check_url
 
 _TIMEOUT = 20
 _MAX_REDIRECTS = 5

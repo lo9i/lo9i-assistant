@@ -13,6 +13,8 @@ from assistant.core.agent import (
     DeviceError,
     EmailAccount,
     EmailError,
+    FoundServer,
+    InstalledFromRepository,
     InvalidNameError,
     InvalidTokenError,
     Job,
@@ -24,7 +26,10 @@ from assistant.core.agent import (
     ModelSettingsError,
     ModelStatus,
     PairingCode,
+    RepositoryContents,
+    RepositoryError,
     RunRecord,
+    ServerField,
     Session,
     ShownMessage,
     Skill,
@@ -38,7 +43,7 @@ from assistant.core.agent import (
 )
 from assistant.core.agent.skills import FoundSkill, SkillSummary
 from assistant.core.events import ApprovalRequired, Done, TextDelta, ToolFinished, ToolStarted, Transcribed
-from assistant.core.integrations.email_providers import PROVIDERS
+from assistant.core.integrations.email.providers import PROVIDERS
 from assistant.core.llm.choice import PROVIDERS as PROVIDERS_FOR_MODEL
 from assistant.core.usage.log import ToolUsage
 from assistant.protocol import ConnectedClient, StartupError, StartupStatus
@@ -71,17 +76,6 @@ class FakeSkills:
 
     async def delete(self, name):
         self.items.pop(name)
-
-    async def browse(self, url):
-        if not url.startswith("https://"):
-            raise SkillError("Give the repository's https:// address.")
-        return [FoundSkill("expenses", "Track expenses", ["scripts/add.py"])]
-
-    async def install(self, url, names):
-        self.items.update(
-            {n: Skill(n, "Track expenses", "Run scripts/add.py", files=["scripts/add.py"], source=url) for n in names}
-        )
-        return [self.items[n] for n in names]
 
     async def update_installed(self, name):
         self.updated = name
@@ -175,6 +169,11 @@ class FakeEmail:
         self.connected_with = (label, host, port, username, password, sender, imap_host)
         account = self.accounts_by_id[account_id]
         account.label, account.host, account.sender, account.status = label or sender, host, sender, "ok"
+        return account
+
+    async def rename(self, account_id, label):
+        account = self.accounts_by_id[account_id]
+        account.label = label.strip() or account.sender
         return account
 
     async def make_default(self, account_id):
@@ -276,13 +275,13 @@ class FakeSystem:
         return self.state
 
 
-def _mcp_status(name: str, trusted: bool = False) -> McpServerStatus:
+def _mcp_status(name: str, trusted: bool = False, source: str = "") -> McpServerStatus:
     tools = [
         McpToolInfo("read_notes", "Read all notes.", True, True),
         McpToolInfo("add_note", "Add a note.", False, True),
     ]
     return McpServerStatus(
-        name, "stdio", "notes-server", [], "", ["TOKEN"], [], True, trusted, [], [], "connected", "", tools
+        name, "stdio", "notes-server", [], "", ["TOKEN"], [], True, trusted, [], [], "connected", "", tools, source
     )
 
 
@@ -313,6 +312,41 @@ class FakeMcp:
 
     async def remove(self, name):
         del self.items[name]
+
+    async def update_from_repository(self, name):
+        self.updated = name
+        return self.items[name]
+
+
+class FakeRepositories:
+    """Installs into the fake skills and MCP servers."""
+
+    def __init__(self, skills: FakeSkills, mcp: FakeMcp):
+        self._skills, self._mcp = skills, mcp
+        self.installed: list = []
+
+    async def browse(self, url):
+        if not url.startswith("https://"):
+            raise RepositoryError("Give the repository's https:// address.")
+        fields = [ServerField("CAL_USER", "User"), ServerField("CAL_PASSWORD", "Password", secret=True)]
+        return RepositoryContents(
+            [FoundSkill("expenses", "Track expenses", ["scripts/add.py"])],
+            [FoundServer("calendar", "Calendar", "stdio", fields, False)],
+        )
+
+    async def install(self, url, skills, servers):
+        if any(not all(v for v in s.values.values()) or len(s.values) < 2 for s in servers):
+            raise RepositoryError("calendar needs Password.")
+        self.installed.append((url, skills, servers))
+        for name in skills:
+            self._skills.items[name] = Skill(
+                name, "Track expenses", "Run scripts/add.py", files=["scripts/add.py"], source=url
+            )
+        for server in servers:
+            self._mcp.items[server.name] = _mcp_status(server.name, source=url)
+        return InstalledFromRepository(
+            [self._skills.items[n] for n in skills], [self._mcp.items[s.name] for s in servers]
+        )
 
 
 class FakeJobs:
@@ -414,6 +448,7 @@ class FakeClient:
         self.conversations = FakeConversations()
         self.devices = FakeDevices()
         self.mcp = FakeMcp()
+        self.repositories = FakeRepositories(self.skills, self.mcp)
         self.model = FakeModel()
         self.speech = FakeSpeech()
 

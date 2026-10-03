@@ -1,25 +1,21 @@
-"""Email accounts (SMTP for sending, IMAP for reading) and sending.
+"""Email accounts: their settings, used by SMTP for sending and IMAP for reading.
 
 Each account is an account of kind "email" (core/accounts.py): its settings in the Store, its
 password encrypted apart. Connected from the app (/email, Settings → Integrations), not .env.
 """
 
 from dataclasses import dataclass, field, fields
-from email.message import EmailMessage
 
-import aiosmtplib
-import certifi
 from langgraph.store.base import BaseStore
 
 from assistant.core import accounts
 from assistant.core.accounts import Account, Status
-from assistant.core.integrations.email_providers import imap_host_for
+from assistant.core.integrations.email.providers import imap_host_for
 from assistant.core.secret_store import SecretBox, SecretError
 
 KIND = "email"
 # Where the single email setting lived before accounts; moved into the first account on start.
 _LEGACY = (("integrations",), "email")
-_TIMEOUT = 20
 # Fields that belong to the account record or the secret, not to its settings.
 _NOT_SETTINGS = {"password", "account_id", "label", "default", "status", "problem"}
 
@@ -153,39 +149,3 @@ async def _unknown(store: BaseStore, name: str) -> str:
     labels = [f"{c.label} <{c.sender}>" for c in await list_accounts(store)]
     known = f" The accounts are: {', '.join(labels)}." if labels else " No email account is connected."
     return f"No email account called {name!r}.{known}"
-
-
-async def verify(config: EmailConfig) -> None:
-    """Connect and log in without sending anything. Raises EmailError with the server's reason."""
-    try:
-        smtp = aiosmtplib.SMTP(**_connection(config))
-        await smtp.connect()
-        await smtp.login(config.username, config.password)
-        await smtp.quit()
-    except (aiosmtplib.SMTPException, OSError) as e:
-        raise EmailError(f"Couldn't log in to {config.host}:{config.port}: {e}") from e
-
-
-async def send(config: EmailConfig, to: list[str], subject: str, body: str) -> None:
-    message = EmailMessage()
-    message["From"], message["To"], message["Subject"] = config.sender, ", ".join(to), subject
-    message.set_content(body)
-    try:
-        await aiosmtplib.send(message, username=config.username, password=config.password, **_connection(config))
-    except (aiosmtplib.SMTPException, OSError) as e:
-        raise EmailError(f"Sending failed: {e}") from e
-
-
-def _connection(config: EmailConfig) -> dict:
-    # Port 465 uses TLS from the start; other ports (587) upgrade with STARTTLS. Certificates are
-    # checked against certifi's authorities, as httpx does: Python from python.org doesn't use the
-    # macOS keychain, and has none of its own until "Install Certificates.command" is run.
-    tls = config.port == 465
-    return {
-        "hostname": config.host,
-        "port": config.port,
-        "use_tls": tls,
-        "start_tls": not tls,
-        "timeout": _TIMEOUT,
-        "cert_bundle": certifi.where(),
-    }

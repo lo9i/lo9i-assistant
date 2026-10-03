@@ -15,6 +15,7 @@ from assistant.core.agent.mcp import McpMixin
 from assistant.core.agent.memory import MemoryMixin
 from assistant.core.agent.messaging import MessagingMixin
 from assistant.core.agent.model import ModelMixin
+from assistant.core.agent.repositories import RepositoriesMixin
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.skills import SkillsMixin
 from assistant.core.agent.slack import SlackMixin
@@ -25,10 +26,11 @@ from assistant.core.agent.usage import UsageMixin
 from assistant.core.approvals import RemoteApprovals
 from assistant.core.bus import EventBus
 from assistant.core.config import settings
-from assistant.core.integrations import email
+from assistant.core.integrations.email import accounts
 from assistant.core.llm import choice
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.mcp.hub import McpHub
+from assistant.core.memory import profile
 from assistant.core.outbox import Outbox
 from assistant.core.secret_store import SecretBox
 from assistant.core.speech.kokoro import KokoroSynthesizer
@@ -44,6 +46,7 @@ class AssistantService(
     SlackMixin,
     EmailMixin,
     McpMixin,
+    RepositoriesMixin,
     ModelMixin,
     DevicesMixin,
     IdentityMixin,
@@ -83,8 +86,9 @@ class AssistantService(
             bus = EventBus()
             secrets = await asyncio.to_thread(SecretBox.open, Path(settings.secrets_key_path).expanduser())
             async with open_storage(settings.database_path, bus) as storage:
-                await email.migrate(storage.store, secrets)
+                await accounts.migrate(storage.store, secrets)
                 await choice.migrate(storage.store, secrets)
+                await profile.migrate(storage.store)
                 yield cls(storage, await choice.current(storage.store, secrets), bus, secrets)
         finally:
             observability.flush()

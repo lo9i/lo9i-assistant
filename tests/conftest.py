@@ -25,6 +25,8 @@ def isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         "database_path": tmp_path / "lo9i.db",
         "uploads_dir": tmp_path / "uploads",
         "workspace_dir": tmp_path / "workspace",
+        "skills_dir": tmp_path / "skills",
+        "mcp_dir": tmp_path / "mcp",
         "persona_path": tmp_path / "SOUL.md",
         "daemon_socket": tmp_path / "daemon.sock",
         "secrets_key_path": tmp_path / "keys" / "secrets.key",

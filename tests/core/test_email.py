@@ -7,11 +7,12 @@ from pathlib import Path
 import certifi
 import pytest
 
-import assistant.core.integrations.email as email
+import assistant.core.integrations.email.smtp as sending
 from assistant.core.agent import EmailAccountNotFoundError, EmailError
 from assistant.core.config import settings
 from assistant.core.conversation.prompt import build_system_prompt
 from assistant.core.events import ApprovalRequired
+from assistant.core.integrations.email import accounts
 from assistant.core.tools.approval import UNATTENDED_DENIAL
 from tests.conftest import collect
 
@@ -27,8 +28,8 @@ def smtp(monkeypatch):
     async def send(config, to, subject, body):
         sent.append((config.sender, to, subject, body))
 
-    monkeypatch.setattr(email, "verify", verify)
-    monkeypatch.setattr(email, "send", send)
+    monkeypatch.setattr(sending, "verify", verify)
+    monkeypatch.setattr(sending, "send", send)
     return sent
 
 
@@ -50,7 +51,7 @@ async def test_passwords_are_encrypted_apart_with_a_private_key_file(service, sm
     records = [i.value for i in await service.store.asearch(("accounts", "email"))]
     secrets = [i.value for i in await service.store.asearch(("secrets",))]
     assert "right" not in str(records) and len(secrets) == 1 and "right" not in str(secrets)
-    assert (await email.load(service.store, service.secrets, account.id)).password == "right"
+    assert (await accounts.load(service.store, service.secrets, account.id)).password == "right"
     key = Path(settings.secrets_key_path)
     assert stat.S_IMODE(key.stat().st_mode) == 0o600
 
@@ -105,7 +106,7 @@ async def test_a_password_the_key_cant_read_asks_to_connect_again(service, smtp)
     # As if the key file had been replaced: the saved secret no longer decrypts.
     await service.store.aput(("secrets",), f"email:{account.id}", {"value": "made-with-another-key"})
     with pytest.raises(EmailError, match="connect it again"):
-        await email.load(service.store, service.secrets, account.id)
+        await accounts.load(service.store, service.secrets, account.id)
     [listed] = await service.email_accounts()
     assert listed.status == "needs_sign_in"
     updated = await service.update_email_account(account.id, "", "smtp.test", 587, "me", "right", "me@test.com")
@@ -122,10 +123,10 @@ async def test_the_system_prompt_lists_the_accounts(service, smtp):
 async def test_the_single_email_setting_from_before_moves_into_an_account(service):
     old = {"host": "smtp.gmail.com", "port": 587, "username": "me", "password": "pw", "sender": "me@gmail.com"}
     await service.store.aput(("integrations",), "email", old)
-    await email.migrate(service.store, service.secrets)
+    await accounts.migrate(service.store, service.secrets)
     [account] = await service.email_accounts()
     assert account.default and (account.imap_host, account.imap_port) == ("imap.gmail.com", 993)
-    assert (await email.load(service.store, service.secrets)).password == "pw"
+    assert (await accounts.load(service.store, service.secrets)).password == "pw"
     assert await service.store.aget(("integrations",), "email") is None
 
 
@@ -137,4 +138,15 @@ async def test_send_email_without_setup(service, script):
 
 def test_tls_trusts_certifis_authorities_not_pythons_defaults():
     """Python from python.org has no certificate authorities of its own on macOS."""
-    assert email._connection(email.EmailConfig(host="smtp.gmail.com"))["cert_bundle"] == certifi.where()
+    assert sending._connection(accounts.EmailConfig(host="smtp.gmail.com"))["cert_bundle"] == certifi.where()
+
+
+async def test_renaming_keeps_the_sign_in_and_names_stay_unique(service, smtp):
+    home = await _add(service, "me@home.com")
+    work = await _add(service, "me@work.com")
+    renamed = await service.rename_email_account(home.id, "  Personal ")
+    assert renamed.label == "Personal" and renamed.host == "smtp.test"
+    assert (await accounts.load(service.store, service.secrets, "personal")).password == "right"
+    with pytest.raises(EmailError, match="already called"):
+        await service.rename_email_account(work.id, "personal")
+    assert (await service.rename_email_account(home.id, "")).label == "me@home.com"

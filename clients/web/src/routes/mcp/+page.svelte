@@ -1,7 +1,9 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import Blocks from "@lucide/svelte/icons/blocks";
+  import Download from "@lucide/svelte/icons/download";
   import Plus from "@lucide/svelte/icons/plus";
+  import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Wrench from "@lucide/svelte/icons/wrench";
   import type { McpServerStatus } from "$lib/api/types";
@@ -13,12 +15,14 @@
   import TopBar from "$lib/ui/TopBar.svelte";
   import AddServerDialog from "$lib/ui/mcp/AddServerDialog.svelte";
   import SecretsDialog from "$lib/ui/mcp/SecretsDialog.svelte";
+  import InstallDialog from "$lib/ui/repositories/InstallDialog.svelte";
   import ToolChecklist from "$lib/ui/mcp/ToolChecklist.svelte";
 
   const { client, notices } = useDaemon();
   const servers = resource((c) => c.mcp.servers(), ["mcp"]);
   let picked = $state<string | null>(null);
   let adding = $state(false);
+  let installing = $state(false);
   let removing = $state(false);
   let secrets = $state<"env" | "headers" | null>(null);
   const server = $derived(servers.data?.find((s) => s.name === picked) ?? servers.data?.[0]);
@@ -42,6 +46,13 @@
     action().catch(notices.report);
   }
 
+  function updateFromRepository(name: string): void {
+    change(async () => {
+      await client.mcp.updateFromRepository(name);
+      notices.notify(`Updated ${name} from its repository.`);
+    });
+  }
+
   function saveTools(s: McpServerStatus): void {
     change(async () => {
       await client.mcp.change(s.name, selectionFor(s.tools, chosen));
@@ -52,6 +63,7 @@
 
 <TopBar title="MCP servers">
   {#snippet actions()}
+    <button class="btn btn--neutral" onclick={() => (installing = true)}><Download size={16} /><span class="hide-narrow">Install</span></button>
     <button class="btn btn--primary" onclick={() => (adding = true)}><Plus size={16} /><span class="hide-narrow">Add a server</span></button>
   {/snippet}
 </TopBar>
@@ -116,6 +128,10 @@
             <dt class="micro-label">Headers</dt>
             <dd>{server.header_keys.join(", ") || "none"}</dd>
           {/if}
+          {#if server.source}
+            <dt class="micro-label">Installed from</dt>
+            <dd>{server.source}</dd>
+          {/if}
         </dl>
         <div class="trust">
           <div>
@@ -136,6 +152,9 @@
           <button class="btn btn--neutral btn--sm" onclick={() => (secrets = server.transport === "stdio" ? "env" : "headers")}>
             {server.transport === "stdio" ? "Change environment" : "Change headers"}
           </button>
+          {#if server.source}
+            <button class="btn btn--neutral btn--sm" onclick={() => updateFromRepository(server.name)}><RefreshCw size={14} />Update</button>
+          {/if}
           <button class="btn btn--danger btn--sm" onclick={() => (removing = true)}><Trash2 size={14} />Remove</button>
         </div>
       </section>
@@ -159,6 +178,15 @@
     {/if}
   </div>
 </div>
+
+{#if installing}
+  <InstallDialog
+    onclose={(installed) => {
+      installing = false;
+      if (installed) notices.notify(`Installed ${installed.join(", ")}. The assistant uses them from your next message.`);
+    }}
+  />
+{/if}
 
 {#if adding}
   <AddServerDialog

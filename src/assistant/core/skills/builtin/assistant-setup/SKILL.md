@@ -1,6 +1,6 @@
 ---
 name: assistant-setup
-description: How to set up and connect the assistant (the model and its key, email sending, reading and new-mail alerts, Telegram, Slack, MCP servers, installing skills, audio, start at boot, its name) from the terminal app, the web UI, Telegram or Slack. Use it whenever the user asks how to configure or connect something, or a tool says something isn't set up.
+description: How to set up and connect the assistant (the model and its key, email sending, reading and new-mail alerts, Telegram, Slack, MCP servers, installing skills and MCP servers from a repository, audio, start at boot, its name) from the terminal app, the web UI, Telegram or Slack. Use it whenever the user asks how to configure or connect something, or a tool says something isn't set up.
 ---
 
 Give the user the exact steps below for the channel in the latest turn header (`cli` is the terminal app, `web` the web UI, `telegram` Telegram, `slack` Slack). Quote commands and menu names exactly. If what they ask isn't covered here, say you don't know how rather than guessing; never describe steps as "usually" or "something like".
@@ -30,7 +30,7 @@ Terminal app: `/email`. Web UI: Settings → Integrations → Email. The user ca
 - Other (enter the server yourself): SMTP host, port (587, or 465), user name (usually the full address), password (an app password for most providers), the address to send as, and the IMAP host for reading mail (TLS on port 993; left empty, the assistant only sends).
 - Outlook.com / Microsoft 365: listed, but can't connect yet (it needs OAuth).
 
-Then Connect. The assistant tries to log in right away and says whether it worked. A rejected login means a wrong user name or password (for Gmail, usually the account password instead of an app password). Other errors, such as certificate or connection errors, are problems in the assistant itself: tell the user the exact error and that it needs fixing in the assistant, and never suggest Terminal commands, installing packages or changing Python to work around it. Each account has its own list of addresses the assistant may email without asking; the account's own address is always allowed, and anyone else needs the user's approval. An account marked "needs sign-in" (its saved password can no longer be read) is fixed with Change sign-in. Removing an account deletes its saved password.
+Then Connect. The assistant tries to log in right away and says whether it worked. A rejected login means a wrong user name or password (for Gmail, usually the account password instead of an app password). Other errors, such as certificate or connection errors, are problems in the assistant itself: tell the user the exact error and that it needs fixing in the assistant, and never suggest Terminal commands, installing packages or changing Python to work around it. Each account has its own list of addresses the assistant may email without asking; the account's own address is always allowed, and anyone else needs the user's approval. An account marked "needs sign-in" (its saved password can no longer be read) is fixed with Change sign-in. Rename changes only an account's name (unique; the assistant uses it to pick the account), without signing in again. Removing an account deletes its saved password.
 
 Once an account can read mail, it has **New mail alerts**: Don't announce, Telegram or Slack. A short message with the account's name and the sender and subject of each new email then arrives there. For anything smarter ("tell me only when my bank writes", "summarize newsletters"), the user asks the assistant for a job that runs on new mail; jobs watch the default account. Email connected before reading existed: providers read mail automatically; with Other, connect again with the IMAP host.
 
@@ -87,14 +87,15 @@ Terminal app: `/mcp`. Web UI: **MCP servers** in the sidebar.
 
 Keys are typed only in that dialog, never in the chat. A server is not trusted unless **Trusted** is checked: its tools that aren't marked read-only then ask for approval first, and scheduled jobs can't use them. The same screen shows whether each server is connected, and has **Save tools** (after changing the checked tools), **Trust**, **Turn off**, **Secrets** (replace the env values or headers) and **Remove**. Servers that sign in through a browser (OAuth) aren't supported yet.
 
-## Skills (installing them from a git repository)
+## Installing skills and MCP servers from a repository
 
-Terminal app: `/skills`, then **Install**. Web UI: **Skills** in the sidebar, then **Install**.
+Terminal app: `/skills` or `/mcp`, then **Install**. Web UI: **Skills** or **MCP servers** in the sidebar, then **Install**. Both open the same dialog.
 
-1. Paste the repository's https:// address (for example `https://github.com/user/skills`) and choose **Look at skills**. The assistant downloads it and lists the skills it offers: a skill is a folder with a SKILL.md, at the repository's root or in its folders.
-2. Check the ones to install and choose **Install**. They're available from the user's next conversation.
+1. Paste the repository's https:// address (for example `https://github.com/user/extras`) and choose **Look**. The assistant downloads it and lists the skills (folders with a SKILL.md) and MCP servers (folders with a server.yaml) it offers.
+2. Check the ones to install. A server that needs values (a user name, a password, a token) shows a field for each; secret ones are typed only there, never in the chat.
+3. Choose **Install**. Everything is available from the user's next message.
 
-Installed skills can run scripts on this computer, so the user should install only from people they trust. The same screen shows each skill's files and where it was installed from, and has **Update** (download it again; changes made here are replaced), **Edit** and **Delete**. Only the user installs skills; you can't. When you save or delete a skill yourself, the user approves it first.
+What's installed runs on this computer, so the user should install only from people they trust. Installed servers are untrusted by default unless the repository says otherwise: their tools that aren't read-only ask for approval. **Update** (in `/skills` or `/mcp`, or on the web pages) downloads one again: a skill's local changes are replaced; a server keeps its values, trust and tool choices. Only the user installs; you can't. When you save or delete a skill yourself, the user approves it first.
 
 ## Audio (voice messages and spoken replies)
 

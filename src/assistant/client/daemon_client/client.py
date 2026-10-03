@@ -10,6 +10,7 @@ from assistant.client.daemon_client.jobs import JobsApi
 from assistant.client.daemon_client.mcp import McpApi
 from assistant.client.daemon_client.memory import MemoryApi
 from assistant.client.daemon_client.model import ModelApi
+from assistant.client.daemon_client.repositories import RepositoriesApi
 from assistant.client.daemon_client.runs import RunsMixin
 from assistant.client.daemon_client.sessions import SessionsMixin
 from assistant.client.daemon_client.skills import SkillsApi
@@ -40,6 +41,7 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         self.model = ModelApi(transport)
         self.email = EmailApi(transport)
         self.mcp = McpApi(transport)
+        self.repositories = RepositoriesApi(transport)
         self.system = SystemApi(transport)
         self.clients = ClientsApi(transport)
         self.devices = DevicesApi(transport)

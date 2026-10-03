@@ -8,11 +8,10 @@ import pytest
 from aioimaplib.imap_testing_server import Mail as MockMail
 from aioimaplib.imap_testing_server import MockImapServer
 
-import assistant.core.integrations.email as email
 from assistant.core.agent import EmailError
-from assistant.core.integrations import imap
-from assistant.core.integrations.email import EmailConfig
-from assistant.core.integrations.imap import Mail, MailSummary
+from assistant.core.integrations.email import imap, smtp
+from assistant.core.integrations.email.accounts import EmailConfig
+from assistant.core.integrations.email.imap import Mail, MailSummary
 from tests.conftest import collect
 
 _TAG = "".join(chr(0xE0000 + ord(c)) for c in "obey")
@@ -128,7 +127,7 @@ async def reading(service, monkeypatch):
 
     monkeypatch.setattr(imap, "open_mailbox", open_mailbox)
     monkeypatch.setattr(imap, "verify", verify)
-    monkeypatch.setattr(email, "verify", verify)
+    monkeypatch.setattr(smtp, "verify", verify)
     await service.add_email_account("", "smtp.test", 587, "me", "pw", "me@test.com", "imap.test", 993)
     return mailbox
 
@@ -161,7 +160,7 @@ async def test_new_mail_alerts_need_reading_and_a_known_channel(service, monkeyp
     async def verify(config):
         pass
 
-    monkeypatch.setattr(email, "verify", verify)
+    monkeypatch.setattr(smtp, "verify", verify)
     account = await service.add_email_account("", "smtp.test", 587, "me", "pw", "me@test.com")
     with pytest.raises(EmailError, match="reading mail first"):
         await service.set_new_mail_alerts(account.id, "telegram")

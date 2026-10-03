@@ -12,7 +12,7 @@ from langgraph.store.base import BaseStore
 from assistant.core.config import settings
 from assistant.core.conversation import prompts
 from assistant.core.conversation.persona import load_persona
-from assistant.core.integrations import email
+from assistant.core.integrations.email import accounts
 from assistant.core.memory import episodes, facts, profile
 from assistant.core.skills import store as skills
 
@@ -50,6 +50,6 @@ async def _accounts_index(store: BaseStore) -> str:
     """Account changes show from the next epoch, like memory: the prompt stays the same within one."""
     lines = [
         f"- email: {c.label} <{c.sender}>" + (" (default)" if c.default else "")
-        for c in await email.list_accounts(store)
+        for c in await accounts.list_accounts(store)
     ]
     return f"{_ACCOUNTS}\n\n" + ("\n".join(lines) or "(none connected)")

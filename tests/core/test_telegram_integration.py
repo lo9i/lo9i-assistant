@@ -2,7 +2,7 @@
 
 import pytest
 
-import assistant.core.integrations.telegram as integration
+import assistant.core.integrations.telegram.connection as integration
 from assistant.core.agent import InvalidTokenError
 
 

@@ -21,7 +21,7 @@ from assistant.core.agent import (
     EmailAccountNotFoundError,
     EmailError,
     EmailProvider,
-    FoundSkill,
+    InstalledFromRepository,
     InvalidNameError,
     InvalidTokenError,
     Job,
@@ -35,6 +35,9 @@ from assistant.core.agent import (
     ModelProvider,
     ModelSettingsError,
     ModelStatus,
+    RepositoryContents,
+    RepositoryError,
+    ServerValues,
     Session,
     ShownMessage,
     Skill,
@@ -97,6 +100,10 @@ class NewMailAlerts(BaseModel):
     channel: str
 
 
+class EmailAccountName(BaseModel):
+    label: str
+
+
 class EmailRecipients(BaseModel):
     addresses: list[str]
 
@@ -133,13 +140,20 @@ class SkillChange(BaseModel):
     instructions: str
 
 
-class SkillRepository(BaseModel):
+class RepositoryAddress(BaseModel):
     url: str
 
 
-class SkillInstall(BaseModel):
+class ServerValuesBody(BaseModel):
+    name: str
+    # Values for the server's fields (env values or headers); secrets, never shown again.
+    values: dict[str, str] = {}
+
+
+class RepositoryInstall(BaseModel):
     url: str
-    names: list[str]
+    skills: list[str] = []
+    servers: list[ServerValuesBody] = []
 
 
 class JobChange(BaseModel):
@@ -228,6 +242,7 @@ def create_app(service: AssistantService, hub: RunHub, startup: Any = None, web_
     _add_skill_routes(app, service)
     _add_job_routes(app, service)
     _add_mcp_routes(app, service)
+    _add_repository_routes(app, service)
     _add_identity_routes(app, service)
     _add_speech_routes(app, service)
     _add_model_routes(app, service)
@@ -528,6 +543,11 @@ def _add_email_routes(app: FastAPI, service: AssistantService) -> None:
             )
         )
 
+    @app.put("/integrations/email/accounts/{account_id}/label")
+    async def rename_email_account(account_id: str, body: EmailAccountName) -> EmailAccount:
+        """Only the name; the sign-in stays."""
+        return await _email(service.rename_email_account(account_id, body.label))
+
     @app.put("/integrations/email/accounts/{account_id}/default")
     async def default_email_account(account_id: str) -> EmailAccount:
         return await _email(service.set_default_email_account(account_id))
@@ -580,22 +600,6 @@ def _add_skill_routes(app: FastAPI, service: AssistantService) -> None:
         except SkillError as e:
             raise HTTPException(400, str(e)) from e
 
-    @app.post("/skills/browse")
-    async def browse_skills(body: SkillRepository) -> list[FoundSkill]:
-        """The skills a git repository offers. 400: it can't be read or has none."""
-        try:
-            return await service.browse_skills(body.url)
-        except SkillError as e:
-            raise HTTPException(400, str(e)) from e
-
-    @app.post("/skills/install")
-    async def install_skills(body: SkillInstall) -> list[Skill]:
-        """400: the repository can't be read, lacks one of the skills, or a name is taken."""
-        try:
-            return await service.install_skills(body.url, body.names)
-        except SkillError as e:
-            raise HTTPException(400, str(e)) from e
-
     @app.post("/skills/{name}/update")
     async def update_installed_skill(name: str) -> Skill:
         """Install the skill again from its repository. 404: no such skill. 400: not installed, or
@@ -606,7 +610,7 @@ def _add_skill_routes(app: FastAPI, service: AssistantService) -> None:
             raise HTTPException(404, str(e)) from e
         try:
             return await service.update_installed_skill(name)
-        except SkillError as e:
+        except (SkillError, RepositoryError) as e:
             raise HTTPException(400, str(e)) from e
 
     @app.delete("/skills/{name}")
@@ -616,6 +620,25 @@ def _add_skill_routes(app: FastAPI, service: AssistantService) -> None:
         except SkillError as e:
             raise HTTPException(404, str(e)) from e
         return Ok()
+
+
+def _add_repository_routes(app: FastAPI, service: AssistantService) -> None:
+    @app.post("/repositories/browse")
+    async def browse_repository(body: RepositoryAddress) -> RepositoryContents:
+        """The skills and MCP servers a git repository offers. 400: it can't be read or has none."""
+        try:
+            return await service.browse_repository(body.url)
+        except RepositoryError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.post("/repositories/install")
+    async def install_from_repository(body: RepositoryInstall) -> InstalledFromRepository:
+        """400: the repository can't be read, lacks something picked, a name is taken, or a field is empty."""
+        wanted = [ServerValues(s.name, s.values) for s in body.servers]
+        try:
+            return await service.install_from_repository(body.url, body.skills, wanted)
+        except (RepositoryError, SkillError, McpServerError) as e:
+            raise HTTPException(400, str(e)) from e
 
 
 def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
@@ -643,6 +666,17 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return await service.update_mcp_server(name, McpServerChanges(**body.model_dump()))
         except McpServerError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.post("/mcp/servers/{name}/update")
+    async def update_mcp_server_from_repository(name: str) -> McpServerStatus:
+        """Install the server again from its repository. 404: no such server. 400: not installed
+        from one, the repository can't be read, or the new version needs a value not given yet."""
+        if name not in {s.name for s in await service.mcp_servers()}:
+            raise HTTPException(404, f"No MCP server named {name}.")
+        try:
+            return await service.update_mcp_server_from_repository(name)
+        except (McpServerError, RepositoryError) as e:
             raise HTTPException(400, str(e)) from e
 
     @app.delete("/mcp/servers/{name}")

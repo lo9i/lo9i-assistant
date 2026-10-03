@@ -1,4 +1,5 @@
-"""Where an installed skill came from, kept in its folder as `.source.yaml` so it can be updated."""
+"""Where an installed skill or MCP server came from, kept in its folder as `.source.yaml` so it can be
+updated."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,7 +12,7 @@ _FILE = ".source.yaml"
 @dataclass(frozen=True)
 class Source:
     url: str
-    # The skill's folder inside the repository; "." when the repository is the skill.
+    # Its folder inside the repository; "." when the repository is that one thing.
     path: str
     commit: str
 

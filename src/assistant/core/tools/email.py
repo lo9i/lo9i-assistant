@@ -13,9 +13,9 @@ from langgraph.prebuilt import ToolRuntime
 from assistant.core.config import settings
 from assistant.core.context import Context, require_secrets, require_store
 from assistant.core.hidden_text import strip_hidden
-from assistant.core.integrations import email, imap
-from assistant.core.integrations.email import EmailConfig, EmailError
-from assistant.core.integrations.imap import Mail, MailSummary
+from assistant.core.integrations.email import accounts, imap, smtp
+from assistant.core.integrations.email.accounts import EmailConfig, EmailError
+from assistant.core.integrations.email.imap import Mail, MailSummary
 from assistant.core.skills import store as skills
 from assistant.core.tools.approval import ask
 from assistant.core.tools.registry import register
@@ -42,7 +42,7 @@ async def send_email(to: list[str], subject: str, body: str, runtime: ToolRuntim
         if rejection:
             return rejection
     try:
-        await email.send(config, to, subject, body)
+        await smtp.send(config, to, subject, body)
     except EmailError as e:
         return str(e)
     return f"Sent from {config.sender} to {', '.join(to)}."
@@ -109,7 +109,7 @@ async def read_email(uid: int, runtime: ToolRuntime[Context], folder: str = "INB
 async def _config(runtime: ToolRuntime[Context], account: str) -> EmailConfig | str:
     """The account's settings with its password, or what to tell the model when it can't be used."""
     try:
-        return await email.load(require_store(runtime.store), require_secrets(runtime.context), account)
+        return await accounts.load(require_store(runtime.store), require_secrets(runtime.context), account)
     except EmailError as e:
         return str(e)
 

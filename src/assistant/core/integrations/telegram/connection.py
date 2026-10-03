@@ -1,7 +1,7 @@
 """Telegram connection settings, stored as one Store record.
 
 The token lives in the database, not in .env, so any gateway (terminal, web) can connect Telegram
-through AssistantService. The bot container reads it from here.
+through AssistantService. The Telegram adapter in the daemon reads it from here.
 """
 
 import secrets

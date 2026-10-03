@@ -4,7 +4,7 @@ import pytest
 
 import assistant.core.tools.slack as tools
 from assistant.core.events import ApprovalRequired
-from assistant.core.integrations import slack
+from assistant.core.integrations.slack import connection
 from tests.conftest import collect
 
 
@@ -30,7 +30,7 @@ _POSTED: list = []
 async def connected(service, monkeypatch):
     _POSTED.clear()
     monkeypatch.setattr(tools, "Workspace", _Workspace)
-    await slack.save(service.store, slack.SlackConfig("xapp-1", "xoxb-1", "xoxp-1", "Acme", "U1", "ani"))
+    await connection.save(service.store, connection.SlackConfig("xapp-1", "xoxb-1", "xoxp-1", "Acme", "U1", "ani"))
 
 
 async def _run(service, script, on, tool, /, **args):

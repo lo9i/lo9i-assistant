@@ -82,6 +82,8 @@ class Settings(BaseSettings):
     email_max_chars: int = 20_000
     # MCP tool results longer than this are cut. Servers are added from the app (/mcp).
     mcp_max_output: int = 30_000
+    # Code of MCP servers installed from a repository, one folder each.
+    mcp_dir: str = "~/.lo9i/mcp"
 
     # Scheduled jobs. A run missed while the daemon was down still runs if it's this recent.
     jobs_grace_hours: float = 6
@@ -113,7 +115,7 @@ class Settings(BaseSettings):
     cli_history_limit: int = 1000
     # Preferences changed from inside the terminal app, such as /mouse. Kept by the client.
     cli_preferences_path: str = "~/.lo9i/cli_preferences.json"
-    # Uploaded attachments. Shared by every process (a Docker volume in compose).
+    # Uploaded attachments. Messages keep only a reference to the file here.
     uploads_dir: str = "~/.lo9i/uploads"
     bash_timeout: int = 120
     bash_max_output: int = 30_000

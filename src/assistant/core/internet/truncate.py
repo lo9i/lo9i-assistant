@@ -4,7 +4,7 @@ import hashlib
 from pathlib import Path
 
 from assistant.core.config import settings
-from assistant.core.web.results import Page
+from assistant.core.internet.results import Page
 
 _HEAD_SHARE = 0.7
 _TAIL_SHARE = 0.2

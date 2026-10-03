@@ -6,8 +6,9 @@ from pathlib import Path
 import yaml
 
 from assistant.core.config import settings
+from assistant.core.repositories import folders
+from assistant.core.repositories import source as skill_source
 from assistant.core.skills import files as skill_files
-from assistant.core.skills import source as skill_source
 from assistant.core.skills.errors import SkillError as SkillError
 
 # Ships with the app: how to set the assistant up, from each client. Tools point to it when
@@ -77,19 +78,7 @@ def save(name: str, description: str, instructions: str, files: dict[str, str] |
 def put(name: str, source_folder: Path, source: skill_source.Source) -> Skill:
     """Install a skill folder from a repository, replacing a skill of the same name."""
     _refuse_builtin(name)
-    target = _path(name).parent
-    # Built next to the target and swapped in, so a failed copy leaves the old skill as it was.
-    staging = target.with_name(f".{name}.installing")
-    shutil.rmtree(staging, ignore_errors=True)
-    staging.mkdir(parents=True)
-    try:
-        skill_files.copy(source_folder, staging)
-        skill_source.write(staging, source)
-    except BaseException:
-        shutil.rmtree(staging, ignore_errors=True)
-        raise
-    shutil.rmtree(target, ignore_errors=True)
-    staging.rename(target)
+    folders.put(source_folder, _path(name).parent, source)
     return load(name)
 
 

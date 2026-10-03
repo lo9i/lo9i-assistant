@@ -18,9 +18,9 @@ from assistant.core.agent import AssistantService
 from assistant.core.config import settings
 from assistant.core.conversation import sent
 from assistant.core.hidden_text import strip_hidden
-from assistant.core.integrations import email, imap
-from assistant.core.integrations.email import EmailConfig, EmailError
-from assistant.core.integrations.imap import Mailbox, MailSummary
+from assistant.core.integrations.email import accounts, imap
+from assistant.core.integrations.email.accounts import EmailConfig, EmailError
+from assistant.core.integrations.email.imap import Mailbox, MailSummary
 from assistant.core.jobs import store as jobs
 from assistant.core.outbox import DeliveryError
 from assistant.daemon.scheduler import Scheduler
@@ -61,10 +61,10 @@ class MailWatcher:
         and the default one while mail jobs exist."""
         mail_jobs = bool(await self._mail_jobs())
         wanted = []
-        for listed in await email.list_accounts(self._service.store):
+        for listed in await accounts.list_accounts(self._service.store):
             if listed.can_read and (listed.new_mail_alerts or (listed.default and mail_jobs)):
                 try:
-                    wanted.append(await email.load(self._service.store, self._service.secrets, listed.account_id))
+                    wanted.append(await accounts.load(self._service.store, self._service.secrets, listed.account_id))
                 except EmailError as e:
                     logger.warning("Not watching %s for new mail: %s", listed.label, e)
         return wanted
@@ -104,7 +104,7 @@ class MailWatcher:
 
     async def _deliver(self, account_id: str, mails: list[MailSummary]) -> None:
         """Reads the account again, so a changed alerts channel or default applies right away."""
-        config = await email.get(self._service.store, account_id)
+        config = await accounts.get(self._service.store, account_id)
         if config is None:
             return
         if config.new_mail_alerts:

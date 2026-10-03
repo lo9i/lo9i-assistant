@@ -4,12 +4,12 @@ import asyncio
 from dataclasses import dataclass
 
 from assistant.core.config import settings
-from assistant.core.web import browser
-from assistant.core.web.cache import TtlCache
-from assistant.core.web.fetch import fetch_page
-from assistant.core.web.providers import SearchError, SearchProvider, build_provider
-from assistant.core.web.results import Page, SearchResult
-from assistant.core.web.truncate import fit
+from assistant.core.internet import browser
+from assistant.core.internet.cache import TtlCache
+from assistant.core.internet.fetch import fetch_page
+from assistant.core.internet.providers import SearchError, SearchProvider, build_provider
+from assistant.core.internet.results import Page, SearchResult
+from assistant.core.internet.truncate import fit
 
 
 @dataclass

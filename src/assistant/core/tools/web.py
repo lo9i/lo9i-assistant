@@ -1,13 +1,13 @@
-"""Web tools: search the web and read pages. Backends live in core/web/."""
+"""Web tools: search the web and read pages. Backends live in core/internet/."""
 
 from langchain_core.tools import tool
 
+from assistant.core.internet.fetch import FetchError
+from assistant.core.internet.policy import BlockedDomainError
+from assistant.core.internet.providers import SearchError
+from assistant.core.internet.service import SearchOutcome, WebService
+from assistant.core.internet.url_safety import UnsafeUrlError
 from assistant.core.tools.registry import register
-from assistant.core.web.fetch import FetchError
-from assistant.core.web.policy import BlockedDomainError
-from assistant.core.web.providers import SearchError
-from assistant.core.web.service import SearchOutcome, WebService
-from assistant.core.web.url_safety import UnsafeUrlError
 
 _MAX_RESULTS = 10
 # Holds the search and page caches for this process.

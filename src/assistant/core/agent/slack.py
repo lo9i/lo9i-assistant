@@ -5,8 +5,8 @@ from dataclasses import dataclass
 
 from assistant.core import identity
 from assistant.core.agent.base import ServiceBase
-from assistant.core.integrations import slack
-from assistant.core.integrations.slack import SlackConfig, SlackError
+from assistant.core.integrations.slack import connection
+from assistant.core.integrations.slack.connection import SlackConfig, SlackError
 
 __all__ = ["SlackConfig", "SlackError", "SlackMixin", "SlackStatus"]
 
@@ -26,25 +26,25 @@ class SlackStatus:
 
 class SlackMixin(ServiceBase):
     async def slack_status(self) -> SlackStatus:
-        return self._slack_status(await slack.load(self._storage.store))
+        return self._slack_status(await connection.load(self._storage.store))
 
     async def slack_manifest(self) -> str:
         """The app manifest for Slack, named after the assistant."""
-        return slack.manifest(await identity.load_name(self._storage.store))
+        return connection.manifest(await identity.load_name(self._storage.store))
 
     async def connect_slack(self, app_token: str, bot_token: str, user_token: str) -> SlackStatus:
         """Check the tokens with Slack, then save. Raises SlackError."""
-        config = await slack.verify(app_token, bot_token, user_token)
-        await slack.save(self._storage.store, config)
+        config = await connection.verify(app_token, bot_token, user_token)
+        await connection.save(self._storage.store, config)
         return self._slack_status(config)
 
     async def disconnect_slack(self) -> None:
-        await slack.clear(self._storage.store)
+        await connection.clear(self._storage.store)
 
     # Used by the Slack adapter.
 
     async def slack_config(self) -> SlackConfig:
-        return await slack.load(self._storage.store)
+        return await connection.load(self._storage.store)
 
     def _slack_status(self, config: SlackConfig) -> SlackStatus:
         running = _CHANNEL in self.outbox.channels

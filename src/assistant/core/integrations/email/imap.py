@@ -19,8 +19,8 @@ from email.utils import parsedate_to_datetime
 import certifi
 from aioimaplib import IMAP4, IMAP4_SSL, AioImapException, Response
 
-from assistant.core.integrations.email import EmailConfig, EmailError
-from assistant.core.web.fetch import html_to_markdown
+from assistant.core.integrations.email.accounts import EmailConfig, EmailError
+from assistant.core.internet.fetch import html_to_markdown
 
 _TIMEOUT = 20
 _LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}

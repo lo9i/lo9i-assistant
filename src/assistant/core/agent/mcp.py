@@ -1,14 +1,23 @@
 """MCP servers from any client: adding one after a look at its tools, choosing which tools the agent
 gets, trusting it or not, and removing it. Env values and headers never leave the daemon."""
 
+import asyncio
 from dataclasses import dataclass, fields, replace
 
 from assistant.core.agent.base import ServiceBase
-from assistant.core.mcp import servers
-from assistant.core.mcp.hub import McpToolInfo
+from assistant.core.mcp import install, servers
+from assistant.core.mcp.hub import McpHub, McpToolInfo
 from assistant.core.mcp.servers import McpServer, McpServerError
 
-__all__ = ["McpMixin", "McpServer", "McpServerChanges", "McpServerError", "McpServerStatus", "McpToolInfo"]
+__all__ = [
+    "McpMixin",
+    "McpServer",
+    "McpServerChanges",
+    "McpServerError",
+    "McpServerStatus",
+    "McpToolInfo",
+    "mcp_status",
+]
 
 
 @dataclass
@@ -30,6 +39,8 @@ class McpServerStatus:
     status: str
     error: str
     tools: list[McpToolInfo]
+    # The repository it was installed from; "" when added by hand.
+    source: str = ""
 
 
 @dataclass
@@ -70,7 +81,15 @@ class McpMixin(ServiceBase):
     async def remove_mcp_server(self, name: str) -> None:
         """Raises McpServerError for an unknown server."""
         await servers.remove(self._storage.store, name)
+        await asyncio.to_thread(install.uninstall, name)
         await self.mcp.reload()
+
+    async def update_mcp_server_from_repository(self, name: str) -> McpServerStatus:
+        """Install the server again from its repository, keeping what the user set.
+        Raises McpServerError or RepositoryError."""
+        server = await install.update(self._storage.store, name)
+        await self.mcp.reload()
+        return self._mcp_status(server)
 
     async def _save_mcp_server(self, server: McpServer) -> McpServerStatus:
         await servers.save(self._storage.store, server)
@@ -78,20 +97,25 @@ class McpMixin(ServiceBase):
         return self._mcp_status(server)
 
     def _mcp_status(self, server: McpServer) -> McpServerStatus:
-        status, error, tools = self.mcp.state(server.name)
-        return McpServerStatus(
-            name=server.name,
-            transport=server.transport,
-            command=server.command,
-            args=server.args,
-            url=server.url,
-            env_keys=sorted(server.env),
-            header_keys=sorted(server.headers),
-            enabled=server.enabled,
-            trusted=server.trusted,
-            include=server.include,
-            exclude=server.exclude,
-            status=status,
-            error=error,
-            tools=tools,
-        )
+        return mcp_status(self.mcp, server)
+
+
+def mcp_status(hub: McpHub, server: McpServer) -> McpServerStatus:
+    status, error, tools = hub.state(server.name)
+    return McpServerStatus(
+        name=server.name,
+        transport=server.transport,
+        command=server.command,
+        args=server.args,
+        url=server.url,
+        env_keys=sorted(server.env),
+        header_keys=sorted(server.headers),
+        enabled=server.enabled,
+        trusted=server.trusted,
+        include=server.include,
+        exclude=server.exclude,
+        status=status,
+        error=error,
+        tools=tools,
+        source=server.source,
+    )

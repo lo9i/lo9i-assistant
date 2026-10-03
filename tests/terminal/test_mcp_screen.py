@@ -1,4 +1,4 @@
-from textual.widgets import Button, Input, Markdown, SelectionList, TextArea
+from textual.widgets import Button, Input, Markdown, OptionList, SelectionList, TextArea
 
 from assistant_terminal.mcp_text import parse_command, parse_pairs, selection
 from assistant_terminal.tui.screens import ConfirmScreen, McpScreen
@@ -73,3 +73,29 @@ def test_the_checked_tools_become_include_and_exclude_lists():
     assert selection(tools, {"a", "b"}) == ([], [])  # tools added later are offered too
     assert selection(tools, {"b"}) == (["b"], [])
     assert selection(tools, set()) == ([], ["*"])
+
+
+async def test_installs_a_server_from_a_repository_and_updates_it(app, client):
+    from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
+
+    async with app.run_test(size=(120, 50)) as pilot:
+        screen = await _open(pilot, app)
+        assert not screen.query_one("#update").display  # notes was added by hand
+        screen.query_one("#install", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, RepositoryInstallScreen))
+        install = app.screen
+        install.query_one("#repository-url", Input).value = "https://example.com/extras"
+        install.query_one("#browse", Button).press()
+        found = install.query_one("#repository-found", SelectionList)
+        await wait_for(pilot, lambda: found.option_count == 2)
+        found.select("server:calendar")
+        for field, value in zip(install.query("#repository-fields Input").results(Input), ["ana", "pw"], strict=True):
+            field.value = value
+        install.query_one("#install", Button).press()
+        await wait_for(pilot, lambda: app.screen is screen and "calendar" in client.mcp.items)
+        screen.query_one("#mcp-list", OptionList).highlighted = 1
+        await wait_for(
+            pilot, lambda: "Installed from https://example.com/extras" in screen.query_one("#mcp-body", Markdown).source
+        )
+        screen.query_one("#update", Button).press()
+        await wait_for(pilot, lambda: getattr(client.mcp, "updated", None) == "calendar")

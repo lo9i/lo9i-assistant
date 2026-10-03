@@ -5,7 +5,7 @@ import json
 import pytest
 from slack_sdk.errors import SlackApiError
 
-import assistant.core.integrations.slack as integration
+import assistant.core.integrations.slack.connection as integration
 from assistant.core.agent import SlackError
 
 _TOKENS = ("xapp-1", "xoxb-1", "xoxp-1")
