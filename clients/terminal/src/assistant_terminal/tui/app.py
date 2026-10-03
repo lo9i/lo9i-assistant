@@ -375,12 +375,8 @@ class AssistantApp(App):
         await self._live.start_new(leave_running=still_running)
         self.sub_title = self._live.session.thread_id
         await self._chat.remove_children()
-        previous = (
-            "The previous reply keeps running; you'll be notified when it's done."
-            if still_running
-            else "The previous one is being summarized; it shows under Recent conversations when done."
-        )
-        self.notify(f"Started a new conversation. {previous}")
+        previous = " The previous reply keeps running; you'll be notified when it's done." if still_running else ""
+        self.notify(f"Started a new conversation.{previous}")
 
     async def _command_conversations(self, _: str) -> None:
         screen = ConversationsScreen(self._service.conversations, self._live.session.thread_id)

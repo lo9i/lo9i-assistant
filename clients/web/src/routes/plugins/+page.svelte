@@ -9,6 +9,7 @@
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import SearchField from "$lib/ui/SearchField.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
+  import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
   import InstallDialog from "$lib/ui/repositories/InstallDialog.svelte";
 
   const { client, notices } = useDaemon();
@@ -59,7 +60,10 @@
     act(() => (p.kind === "server" ? client.mcp.remove(p.name) : client.skills.delete(p.name)), `Removed ${p.name}.`);
 </script>
 
-<TopBar title="Plugins" />
+<!-- A settings tab of its own page: the list and details need the full height. -->
+<TopBar title="Settings" />
+
+<div class="tabs-bar"><SettingsTabs active="plugins" /></div>
 
 <div class="screen">
   <section class="table-card surface--glass">
@@ -169,12 +173,17 @@
 {/if}
 
 <style>
+  .tabs-bar {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 16px 16px 0;
+  }
   .screen {
     display: flex;
     align-items: flex-start;
     gap: 16px;
     padding: 16px;
-    height: calc(100dvh - 76px);
+    height: calc(100dvh - 76px - 50px);
     max-width: 1600px;
     margin: 0 auto;
   }
