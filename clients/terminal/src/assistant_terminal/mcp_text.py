@@ -3,13 +3,14 @@
 import shlex
 
 from assistant.core.agent import McpServerStatus, McpToolInfo
+from assistant_terminal.health_text import failures_line, label
 
 _STATUS = {"connected": "connected", "connecting": "connecting…", "failed": "can't connect", "off": "off"}
 
 
 def summary(server: McpServerStatus) -> str:
     """One line for the list: the name and whether it's working."""
-    return f"{server.name} · {_STATUS.get(server.status, server.status)}"
+    return f"{server.name} · {_STATUS.get(server.status, server.status)}{label(server.failing)}"
 
 
 def describe(server: McpServerStatus) -> str:
@@ -19,6 +20,8 @@ def describe(server: McpServerStatus) -> str:
     lines.append(
         f"Status: {_STATUS.get(server.status, server.status)}" + (f" ({server.error})" if server.error else "")
     )
+    if failures := failures_line(server.failures, server.failure, server.failed_at):
+        lines.append(failures)
     lines.append(_trust(server.trusted))
     if server.source:
         lines.append(f"Installed from {server.source}")

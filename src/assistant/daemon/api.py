@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from assistant.core.agent import (
+    Alert,
     AssistantService,
     Conversation,
     ConversationBusyError,
@@ -55,6 +56,7 @@ from assistant.core.agent import (
 )
 from assistant.core.attachments import Attachment
 from assistant.core.config import settings
+from assistant.core.health import Area
 from assistant.daemon.auth import DeviceStreams, add_device_routes, device_of, is_trusted, require_device
 from assistant.daemon.clients import ClientRegistry
 from assistant.daemon.launchd import StartupError
@@ -243,6 +245,7 @@ def create_app(service: AssistantService, hub: RunHub, startup: Any = None, web_
     _add_skill_routes(app, service)
     _add_job_routes(app, service)
     _add_mcp_routes(app, service)
+    _add_alert_routes(app, service)
     _add_repository_routes(app, service)
     _add_identity_routes(app, service)
     _add_speech_routes(app, service)
@@ -691,6 +694,18 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
             await service.remove_mcp_server(name)
         except McpServerError as e:
             raise HTTPException(404, str(e)) from e
+        return Ok()
+
+
+def _add_alert_routes(app: FastAPI, service: AssistantService) -> None:
+    @app.get("/alerts")
+    async def alerts() -> list[Alert]:
+        """MCP servers and skills that keep failing, the newest first."""
+        return await service.alerts()
+
+    @app.post("/alerts/{area}/{name}/dismiss")
+    async def dismiss_alert(area: Area, name: str) -> Ok:
+        await service.dismiss_alert(area, name)
         return Ok()
 
 

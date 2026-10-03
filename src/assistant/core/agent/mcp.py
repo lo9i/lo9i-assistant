@@ -43,6 +43,12 @@ class McpServerStatus:
     source: str = ""
     # It comes with a web page, shown in the web app (daemon/pages.py).
     page: bool = False
+    # Failed connection attempts and calls in a row (core/health.py), and the last failure.
+    failures: int = 0
+    failure: str = ""
+    failed_at: str = ""
+    # At least FAILING_AFTER in a row: the user was alerted.
+    failing: bool = False
 
 
 @dataclass
@@ -62,7 +68,7 @@ class McpServerChanges:
 
 class McpMixin(ServiceBase):
     async def mcp_servers(self) -> list[McpServerStatus]:
-        return [self._mcp_status(s) for s in await servers.load_all(self._storage.store)]
+        return [await self._mcp_status(s) for s in await servers.load_all(self._storage.store)]
 
     async def probe_mcp_server(self, server: McpServer) -> list[McpToolInfo]:
         """The server's tools, to choose from before adding it. Raises McpServerError."""
@@ -84,6 +90,7 @@ class McpMixin(ServiceBase):
         """Raises McpServerError for an unknown server."""
         await servers.remove(self._storage.store, name)
         await asyncio.to_thread(install.uninstall, name)
+        await self.mcp.forget(name)
         await self._servers_changed()
 
     async def update_mcp_server_from_repository(self, name: str) -> McpServerStatus:
@@ -91,19 +98,20 @@ class McpMixin(ServiceBase):
         Raises McpServerError or RepositoryError."""
         server = await install.update(self._storage.store, name)
         await self._servers_changed()
-        return self._mcp_status(server)
+        return await self._mcp_status(server)
 
     async def _save_mcp_server(self, server: McpServer) -> McpServerStatus:
         await servers.save(self._storage.store, server)
         await self._servers_changed()
-        return self._mcp_status(server)
+        return await self._mcp_status(server)
 
-    def _mcp_status(self, server: McpServer) -> McpServerStatus:
-        return mcp_status(self.mcp, server)
+    async def _mcp_status(self, server: McpServer) -> McpServerStatus:
+        return await mcp_status(self.mcp, server)
 
 
-def mcp_status(hub: McpHub, server: McpServer) -> McpServerStatus:
+async def mcp_status(hub: McpHub, server: McpServer) -> McpServerStatus:
     status, error, tools = hub.state(server.name)
+    health = await hub.health(server.name)
     return McpServerStatus(
         name=server.name,
         transport=server.transport,
@@ -121,4 +129,8 @@ def mcp_status(hub: McpHub, server: McpServer) -> McpServerStatus:
         tools=tools,
         source=server.source,
         page=bool(server.page_command),
+        failures=health.failures,
+        failure=health.error,
+        failed_at=health.at,
+        failing=health.failing,
     )

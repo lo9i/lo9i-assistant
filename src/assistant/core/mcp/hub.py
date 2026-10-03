@@ -17,6 +17,7 @@ from mcp.client.session import IncomingMessage
 from mcp.types import Tool
 
 from assistant.core.bus import EventBus
+from assistant.core.health import Health, HealthLog
 from assistant.core.hidden_text import strip_hidden
 from assistant.core.mcp import servers
 from assistant.core.mcp.connection import ClientFactory, McpConnection, describe, list_tools, open_client
@@ -49,10 +50,13 @@ class _Running:
 class McpHub:
     name = "mcp"
 
-    def __init__(self, store: BaseStore, bus: EventBus, factory: ClientFactory | None = None) -> None:
+    def __init__(
+        self, store: BaseStore, bus: EventBus, health: HealthLog, factory: ClientFactory | None = None
+    ) -> None:
         self._store = store
         self._bus = bus
         self._factory = factory or open_client
+        self._health = health
         self._running: dict[str, _Running] = {}
         self._tools: dict[str, McpTool] = {}
         self._active = False
@@ -85,6 +89,19 @@ class McpHub:
     def tool(self, name: str) -> McpTool | None:
         return self._tools.get(name)
 
+    def unavailable(self, name: str) -> str:
+        """Why a tool this epoch offers can't run now, for the model."""
+        for running in self._running.values():
+            connection = running.connection
+            if not name.startswith(tool_name(connection.server.name, "")):
+                continue
+            if connection.state.status == "connected":
+                return f"{name} was turned off, or {connection.server.name} no longer has it."
+            state = connection.state
+            reason = f"{state.status}: {state.error}" if state.error else state.status
+            return f"{connection.server.name} isn't connected ({reason}). Its tools can't run now."
+        return f"{name} isn't available: its MCP server was removed or turned off."
+
     def state(self, name: str) -> tuple[str, str, list[McpToolInfo]]:
         """A server's status (connecting, connected, failed, off), error and tools."""
         running = self._running.get(name)
@@ -93,6 +110,13 @@ class McpHub:
         connection = running.connection
         tools = [_info(connection.server, tool) for tool in connection.state.tools]
         return connection.state.status, connection.state.error, tools
+
+    async def health(self, name: str) -> Health:
+        return await self._health.get("mcp", name)
+
+    async def forget(self, name: str) -> None:
+        """Drop the failures of a removed server, so one added later under its name starts clean."""
+        await self._health.forget("mcp", name)
 
     async def probe(self, server: McpServer) -> list[McpToolInfo]:
         """Connect once to list a server's tools, before it's saved. Raises McpServerError."""
@@ -115,7 +139,7 @@ class McpHub:
         self._start(server)
 
     def _start(self, server: McpServer) -> None:
-        connection = McpConnection(server, self._changed, self._factory)
+        connection = McpConnection(server, self._changed, self._health, self._factory)
         stop = asyncio.Event()
         self._running[server.name] = _Running(connection, stop, asyncio.create_task(connection.run(stop)))
 

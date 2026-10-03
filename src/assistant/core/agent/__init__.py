@@ -1,10 +1,11 @@
 """AssistantService: the only core API that gateways use.
 
 The service is a facade (`service.py`) composed of mixins, one per concern:
-threads, memory, telegram, slack, email, mcp, repositories, model, identity, speech, skills, jobs, usage,
+threads, memory, telegram, slack, email, mcp, alerts, repositories, model, identity, speech, skills, jobs, usage,
 messaging, runs and locking.
 """
 
+from assistant.core.agent.alerts import Alert
 from assistant.core.agent.conversations import Conversation, ShownMessage
 from assistant.core.agent.devices import Device, DeviceError, PairingCode
 from assistant.core.agent.email import EmailAccount, EmailAccountNotFoundError, EmailError, EmailProvider
@@ -31,6 +32,7 @@ from assistant.core.agent.threads import ConversationBusyError, ConversationErro
 from assistant.core.agent.usage import TokenReport, UsageReport
 
 __all__ = [
+    "Alert",
     "AssistantService",
     "Conversation",
     "ConversationBusyError",

@@ -16,8 +16,9 @@ from mcp import Client, StdioServerParameters
 from mcp.client.session import IncomingMessage, MessageHandlerFnT
 from mcp.client.streamable_http import streamable_http_client
 from mcp.shared.exceptions import MCPError
-from mcp.types import CallToolResult, Implementation, Tool, ToolListChangedNotification
+from mcp.types import CallToolResult, Implementation, TextContent, Tool, ToolListChangedNotification
 
+from assistant.core.health import HealthLog
 from assistant.core.mcp.servers import McpServer
 
 logger = logging.getLogger(__name__)
@@ -67,10 +68,20 @@ async def _http_transport(server: McpServer) -> AsyncIterator:
 
 
 class McpConnection:
-    def __init__(self, server: McpServer, on_change: Callable[[], None], factory: ClientFactory = open_client) -> None:
+    """Records its failures in `health`: failed connection attempts and failed calls. Only a call
+    that works clears them, so a server that connects but breaks on every call still counts as failing."""
+
+    def __init__(
+        self,
+        server: McpServer,
+        on_change: Callable[[], None],
+        health: HealthLog,
+        factory: ClientFactory = open_client,
+    ) -> None:
         self.server = server
         self.state = ConnectionState()
         self._on_change = on_change
+        self._health = health
         self._factory = factory
         self._client: Client | None = None
         self._lost = asyncio.Event()
@@ -88,11 +99,24 @@ class McpConnection:
             except Exception as e:
                 logger.warning("MCP server %s: %s", self.server.name, describe(e))
                 self._set(ConnectionState("failed", describe(e)))
+                await self._health.failed("mcp", self.server.name, f"Couldn't connect: {describe(e)}")
                 await _wait(stop, delay)
                 delay = min(delay * 2, _MAX_RETRY_SECONDS)
 
     async def call(self, tool: str, arguments: dict) -> CallToolResult:
         """Raises MCPError for an error the server reported, NotConnectedError or ConnectionLostError."""
+        try:
+            result = await self._call(tool, arguments)
+        except Exception as e:
+            await self._health.failed("mcp", self.server.name, f"{tool}: {describe(e)}")
+            raise
+        if result.is_error:
+            await self._health.failed("mcp", self.server.name, f"{tool}: {_error_text(result)}")
+        else:
+            await self._health.succeeded("mcp", self.server.name)
+        return result
+
+    async def _call(self, tool: str, arguments: dict) -> CallToolResult:
         client = self._client
         if client is None:
             raise NotConnectedError(self.state.error or self.state.status)
@@ -183,6 +207,11 @@ async def _first(*waits) -> None:
 async def _wait(stop: asyncio.Event, seconds: float) -> None:
     with contextlib.suppress(TimeoutError):
         await asyncio.wait_for(stop.wait(), seconds)
+
+
+def _error_text(result: CallToolResult) -> str:
+    text = " ".join(block.text for block in result.content if isinstance(block, TextContent))
+    return text or "the tool reported an error"
 
 
 def describe(error: BaseException) -> str:

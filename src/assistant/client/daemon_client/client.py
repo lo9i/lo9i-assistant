@@ -1,5 +1,6 @@
 import httpx
 
+from assistant.client.daemon_client.alerts import AlertsApi
 from assistant.client.daemon_client.clients import ClientsApi
 from assistant.client.daemon_client.conversations import ConversationsApi
 from assistant.client.daemon_client.devices import DevicesApi
@@ -41,6 +42,7 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         self.model = ModelApi(transport)
         self.email = EmailApi(transport)
         self.mcp = McpApi(transport)
+        self.alerts = AlertsApi(transport)
         self.repositories = RepositoriesApi(transport)
         self.system = SystemApi(transport)
         self.clients = ClientsApi(transport)

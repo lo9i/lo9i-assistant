@@ -729,6 +729,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Alerts
+         * @description MCP servers and skills that keep failing, the newest first.
+         */
+        get: operations["alerts_alerts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/alerts/{area}/{name}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss Alert */
+        post: operations["dismiss_alert_alerts__area___name__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/repositories/browse": {
         parameters: {
             query?: never;
@@ -944,6 +981,22 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Alert */
+        Alert: {
+            /**
+             * Area
+             * @enum {string}
+             */
+            area: "mcp" | "skill";
+            /** Name */
+            name: string;
+            /** Failures */
+            failures: number;
+            /** Error */
+            error: string;
+            /** At */
+            at: string;
+        };
         /** Approvals */
         Approvals: {
             /** Channel */
@@ -1342,6 +1395,26 @@ export interface components {
              * @default false
              */
             page: boolean;
+            /**
+             * Failures
+             * @default 0
+             */
+            failures: number;
+            /**
+             * Failure
+             * @default
+             */
+            failure: string;
+            /**
+             * Failed At
+             * @default
+             */
+            failed_at: string;
+            /**
+             * Failing
+             * @default false
+             */
+            failing: boolean;
         };
         /** McpToolInfo */
         McpToolInfo: {
@@ -1631,6 +1704,8 @@ export interface components {
             source?: string | null;
             /** Server */
             server?: string | null;
+            /** Problems */
+            problems?: string[];
         };
         /** SkillChange */
         SkillChange: {
@@ -1645,6 +1720,28 @@ export interface components {
             name: string;
             /** Description */
             description: string;
+            /** Problems */
+            problems?: string[];
+            /**
+             * Failures
+             * @default 0
+             */
+            failures: number;
+            /**
+             * Failure
+             * @default
+             */
+            failure: string;
+            /**
+             * Failed At
+             * @default
+             */
+            failed_at: string;
+            /**
+             * Failing
+             * @default false
+             */
+            failing: boolean;
         };
         /** SlackManifest */
         SlackManifest: {
@@ -3271,6 +3368,58 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["McpServerStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    alerts_alerts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Alert"][];
+                };
+            };
+        };
+    };
+    dismiss_alert_alerts__area___name__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area: "mcp" | "skill";
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
                 };
             };
             /** @description Validation Error */

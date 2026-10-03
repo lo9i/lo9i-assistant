@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from "$app/state";
   import { untrack } from "svelte";
   import Blocks from "@lucide/svelte/icons/blocks";
   import Download from "@lucide/svelte/icons/download";
@@ -8,6 +9,7 @@
   import Wrench from "@lucide/svelte/icons/wrench";
   import type { McpServerStatus } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { failures } from "$lib/health";
   import { STATUS_TONES, selectionFor } from "$lib/mcp";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
@@ -20,7 +22,8 @@
 
   const { client, notices } = useDaemon();
   const servers = resource((c) => c.mcp.servers(), ["mcp"]);
-  let picked = $state<string | null>(null);
+  // The Alerts page links here with ?s=<server name>.
+  let picked = $state<string | null>(page.url.searchParams.get("s"));
   let adding = $state(false);
   let installing = $state(false);
   let removing = $state(false);
@@ -93,6 +96,7 @@
                 <td class="hide-narrow">{selected(s)}</td>
                 <td>
                   <span class="state"><span class="status-dot" style:--tone={STATUS_TONES[s.status]}></span>{s.status}</span>
+                  {#if s.failing}<span class="pill pill--danger">failing</span>{/if}
                 </td>
               </tr>
             {/each}
@@ -117,6 +121,7 @@
         <dl>
           <dt class="micro-label">Status</dt>
           <dd>{server.status}</dd>
+          {#if server.failures}<dt class="micro-label">Failures</dt><dd>{failures(server)}</dd>{/if}
           {#if server.transport === "stdio"}
             <dt class="micro-label">Command</dt>
             <dd><code>{[server.command, ...server.args].join(" ")}</code></dd>

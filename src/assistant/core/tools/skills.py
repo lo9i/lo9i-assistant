@@ -32,6 +32,7 @@ async def save_skill(
     replaces all of the skill's files; leaving it out keeps them. The user approves every save."""
     try:
         await asyncio.to_thread(store.check, name, files)
+        await asyncio.to_thread(store.check_content, name, instructions, files)
         existing = await _existing(name)
     except SkillError as e:
         return str(e)
@@ -51,7 +52,7 @@ async def use_skill(name: str) -> str:
         skill = await asyncio.to_thread(store.load, name)
     except SkillError as e:
         return str(e)
-    return f"# Skill: {skill.name}\n\n{skill.instructions}{_files_note(skill)}"
+    return f"# Skill: {skill.name}\n\n{_problems_note(skill)}{skill.instructions}{_files_note(skill)}"
 
 
 @register("skills")
@@ -107,6 +108,13 @@ def _save_request(
         "reason": "a skill changes what the assistant does in later conversations",
         "command": "\n\n".join(parts),
     }
+
+
+def _problems_note(skill: Skill) -> str:
+    if not skill.problems:
+        return ""
+    found = "\n".join(f"- {problem}" for problem in skill.problems)
+    return f"This skill has problems; tell the user if they stop you from following it:\n{found}\n\n"
 
 
 def _files_note(skill: Skill) -> str:

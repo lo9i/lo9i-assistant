@@ -18,6 +18,8 @@ SETUP = "assistant-setup"
 _BUILTIN = Path(__file__).parent / "builtin"
 _NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 _FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n?(.*)$", re.DOTALL)
+# Paths into a skill's folder that its instructions mention, by the usual folder names.
+_REFERENCED = re.compile(r"(?<![\w./-])((?:scripts|references|assets)/[\w.-]*\w(?:/[\w.-]*\w)*)")
 
 
 @dataclass(frozen=True)
@@ -33,6 +35,8 @@ class Skill:
     source: str | None = None
     # The MCP server it comes with, which installs, updates and removes it; None for a skill of its own.
     server: str | None = None
+    # What's wrong with it as written (`problems`); empty when nothing is.
+    problems: list[str] = field(default_factory=list)
 
 
 def list_skills() -> list[Skill]:
@@ -65,9 +69,26 @@ def check(name: str, files: dict[str, str] | None = None) -> None:
         skill_files.check(files)
 
 
+def check_content(name: str, instructions: str, files: dict[str, str] | None = None) -> None:
+    """Raises SkillError if the skill `save` would write has problems: instructions that use a file
+    it doesn't have. `files` None means the files it has now."""
+    paths = sorted(files) if files is not None else skill_files.listed(_path(name).parent)
+    found = problems(instructions, paths)
+    if found:
+        raise SkillError(" ".join(found))
+
+
+def problems(instructions: str, files: list[str]) -> list[str]:
+    """What would stop a skill from working: instructions that use files it doesn't have."""
+    missing = sorted({p for p in _REFERENCED.findall(instructions) if not _has(files, p)})
+    return [f"Its instructions use files it doesn't have: {', '.join(missing)}."] if missing else []
+
+
 def save(name: str, description: str, instructions: str, files: dict[str, str] | None = None) -> Skill:
-    """Create or replace a skill. `files` replaces all of its files; None keeps them."""
+    """Create or replace a skill. `files` replaces all of its files; None keeps them. Raises
+    SkillError for an invalid name or files, or problems in the content."""
     check(name, files)
+    check_content(name, instructions, files)
     path = _path(name)
     path.parent.mkdir(parents=True, exist_ok=True)
     header = yaml.safe_dump({"name": name, "description": description.strip()}, allow_unicode=True).strip()
@@ -101,6 +122,15 @@ def delete(name: str, server: str = "") -> None:
     shutil.rmtree(target)
 
 
+def skill_in(command: str) -> str | None:
+    """The skill whose folder a command uses, by the folder's full path, as `use_skill` gives it."""
+    for root in (_root(), _BUILTIN):
+        match = re.search(re.escape(str(root)) + r"/([a-z0-9][a-z0-9-]{0,62})/", command)
+        if match:
+            return match.group(1)
+    return None
+
+
 def valid_name(name: str) -> bool:
     return bool(_NAME.match(name))
 
@@ -111,21 +141,40 @@ def read(skill_folder: Path, default_name: str | None = None) -> Skill | None:
     path = skill_folder / skill_files.INSTRUCTIONS
     if not path.is_file():
         return None
-    text = path.read_text(encoding="utf-8")
-    match = _FRONTMATTER.match(text)
-    meta = (yaml.safe_load(match.group(1)) or {}) if match else {}
-    body = match.group(2) if match else text
-    builtin = skill_folder.parent == _BUILTIN
+    meta, body, header_problems = _parse(path.read_text(encoding="utf-8"))
+    description = str(meta.get("description") or "")
+    files = skill_files.listed(skill_folder)
     source = skill_source.read(skill_folder)
     return Skill(
-        meta.get("name", default_name or skill_folder.name),
-        meta.get("description", ""),
+        str(meta.get("name") or default_name or skill_folder.name),
+        description,
         body.strip(),
-        builtin,
-        skill_files.listed(skill_folder),
+        skill_folder.parent == _BUILTIN,
+        files,
         source.url if source else None,
         (source.server or None) if source else None,
+        [*header_problems, *problems(body, files)],
     )
+
+
+def _parse(text: str) -> tuple[dict, str, list[str]]:
+    """The SKILL.md header's fields, the instructions, and what's wrong with the header. A broken
+    header leaves the skill listed with the problem, instead of breaking every skill list."""
+    match = _FRONTMATTER.match(text)
+    if not match:
+        return {}, text, []
+    try:
+        meta = yaml.safe_load(match.group(1)) or {}
+    except yaml.YAMLError as e:
+        return {}, match.group(2), [f"The header of its SKILL.md isn't valid YAML: {str(e).splitlines()[0]}."]
+    if not isinstance(meta, dict):
+        return {}, match.group(2), ["The header of its SKILL.md must be fields like name: and description:."]
+    return meta, match.group(2), []
+
+
+def _has(files: list[str], path: str) -> bool:
+    """Whether `path` is one of the files, or a folder holding some."""
+    return path in files or any(f.startswith(f"{path}/") for f in files)
 
 
 def _is_builtin(name: str) -> bool:

@@ -1661,6 +1661,81 @@
         }
       }
     },
+    "/alerts": {
+      "get": {
+        "summary": "Alerts",
+        "description": "MCP servers and skills that keep failing, the newest first.",
+        "operationId": "alerts_alerts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Alert"
+                  },
+                  "type": "array",
+                  "title": "Response Alerts Alerts Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/alerts/{area}/{name}/dismiss": {
+      "post": {
+        "summary": "Dismiss Alert",
+        "operationId": "dismiss_alert_alerts__area___name__dismiss_post",
+        "parameters": [
+          {
+            "name": "area",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "mcp",
+                "skill"
+              ],
+              "type": "string",
+              "title": "Area"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/repositories/browse": {
       "post": {
         "summary": "Browse Repository",
@@ -2148,6 +2223,43 @@
   },
   "components": {
     "schemas": {
+      "Alert": {
+        "properties": {
+          "area": {
+            "type": "string",
+            "enum": [
+              "mcp",
+              "skill"
+            ],
+            "title": "Area"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "failures": {
+            "type": "integer",
+            "title": "Failures"
+          },
+          "error": {
+            "type": "string",
+            "title": "Error"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "area",
+          "name",
+          "failures",
+          "error",
+          "at"
+        ],
+        "title": "Alert"
+      },
       "Approvals": {
         "properties": {
           "channel": {
@@ -3023,6 +3135,26 @@
             "type": "boolean",
             "title": "Page",
             "default": false
+          },
+          "failures": {
+            "type": "integer",
+            "title": "Failures",
+            "default": 0
+          },
+          "failure": {
+            "type": "string",
+            "title": "Failure",
+            "default": ""
+          },
+          "failed_at": {
+            "type": "string",
+            "title": "Failed At",
+            "default": ""
+          },
+          "failing": {
+            "type": "boolean",
+            "title": "Failing",
+            "default": false
           }
         },
         "type": "object",
@@ -3605,6 +3737,13 @@
               }
             ],
             "title": "Server"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Problems"
           }
         },
         "type": "object",
@@ -3642,6 +3781,33 @@
           "description": {
             "type": "string",
             "title": "Description"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Problems"
+          },
+          "failures": {
+            "type": "integer",
+            "title": "Failures",
+            "default": 0
+          },
+          "failure": {
+            "type": "string",
+            "title": "Failure",
+            "default": ""
+          },
+          "failed_at": {
+            "type": "string",
+            "title": "Failed At",
+            "default": ""
+          },
+          "failing": {
+            "type": "boolean",
+            "title": "Failing",
+            "default": false
           }
         },
         "type": "object",

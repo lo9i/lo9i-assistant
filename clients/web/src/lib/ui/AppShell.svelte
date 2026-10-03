@@ -1,9 +1,10 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import type { JobFinished } from "$lib/api/types";
+  import type { Failing, JobFinished } from "$lib/api/types";
   import { followRuns } from "$lib/chat/events";
   import { saveThread } from "$lib/chat/tabThread";
   import { external, provideDaemon, resource, type Daemon } from "$lib/daemon.svelte";
+  import { failingNotice } from "$lib/health";
   import { sidebar } from "$lib/sidebar.svelte";
   import Sidebar from "./Sidebar.svelte";
   import Toasts from "./Toasts.svelte";
@@ -30,6 +31,7 @@
       notices.notify(`Job ${job.name}: ${job.status}`, job.status === "ok" ? "info" : "warning");
     }),
   );
+  $effect(() => hub.on(["failing"], (data) => notices.notify(failingNotice(data as Failing), "warning")));
 
   function onKeydown(e: KeyboardEvent): void {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
