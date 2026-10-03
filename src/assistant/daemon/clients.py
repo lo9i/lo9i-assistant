@@ -3,7 +3,8 @@ connected while it holds the /events stream open, which every client does for it
 
 A conversation no client is on any more is left, which archives it: right away when its client
 moves to another conversation, and after a grace period when its client disconnects, since a
-reloaded page or a client reconnecting after a restart comes back to it."""
+reloaded page or a client reconnecting after a restart comes back to it. A client can hold more
+conversations under ids made from its own (CLIENT_ID_PART); they're left with it."""
 
 import asyncio
 from collections.abc import Callable
@@ -11,7 +12,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 
 from assistant.core.bus import EventBus
-from assistant.protocol import ConnectedClient
+from assistant.protocol import CLIENT_ID_PART, ConnectedClient
 
 _LEAVE_GRACE_SECONDS = 30
 
@@ -42,7 +43,8 @@ class ClientRegistry:
             return
         self._bus.publish("clients")
         if client.id and not self._connected(client.id):
-            self._left_later(self._threads.pop(client.id, None))
+            for held in self._held_by(client.id):
+                self._left_later(self._threads.pop(held))
 
     def on(self, thread_id: str) -> list[str]:
         """The ids of the clients on this conversation."""
@@ -73,5 +75,13 @@ class ClientRegistry:
         if thread_id not in self._threads.values():
             self._leave(thread_id)
 
+    def _held_by(self, client_id: str) -> tuple[str, ...]:
+        """The ids this client holds conversations under: its own, and those made from it."""
+        return tuple(held for held in self._threads if _owner(held) == client_id)
+
     def _connected(self, client_id: str) -> bool:
         return any(c.id == client_id for c in self._clients.values())
+
+
+def _owner(client_id: str) -> str:
+    return client_id.split(CLIENT_ID_PART, 1)[0]

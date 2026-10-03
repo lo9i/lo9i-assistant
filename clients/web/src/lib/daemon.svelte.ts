@@ -5,7 +5,8 @@ import type { EventHub } from "./api/eventHub";
 import type { ChatController } from "./chat/controller";
 import { describe, type NoticeBoard } from "./notices";
 
-export type Daemon = { client: DaemonClient; hub: EventHub; notices: NoticeBoard; chat: ChatController };
+// `voice` is the voice button's conversation, kept apart from the chat's.
+export type Daemon = { client: DaemonClient; hub: EventHub; notices: NoticeBoard; chat: ChatController; voice: ChatController };
 
 const KEY = Symbol("daemon");
 

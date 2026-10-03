@@ -28,6 +28,9 @@ END = "end"
 CLIENT_HEADER = "X-Lo9i-Client"
 # Tells apart two clients of the same kind, so a client can find itself in the list of connected clients.
 CLIENT_ID_HEADER = "X-Lo9i-Client-Id"
+# A client on a second conversation at once (the web app's voice button) sends its id, this, and a
+# name for it ("<id>/voice"). That conversation belongs to the client's connection.
+CLIENT_ID_PART = "/"
 
 
 def event_to_dict(event: Event) -> dict[str, Any]:

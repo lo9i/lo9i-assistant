@@ -8,6 +8,7 @@
   import { sidebar } from "$lib/sidebar.svelte";
   import Sidebar from "./Sidebar.svelte";
   import Toasts from "./Toasts.svelte";
+  import VoiceButton from "./voice/VoiceButton.svelte";
 
   let { daemon, children }: { daemon: Daemon; children: Snippet } = $props();
 
@@ -15,13 +16,16 @@
   // svelte-ignore state_referenced_locally
   provideDaemon(daemon);
   // svelte-ignore state_referenced_locally
-  const { chat, hub, notices } = daemon;
+  const { chat, voice, hub, notices } = daemon;
   const name = resource((client) => client.identity.name(), ["settings"]);
   const threadId = external(chat.subscribe, () => chat.getSnapshot().threadId);
+  const voiceThreadId = external(voice.subscribe, () => voice.getSnapshot().threadId);
 
   // The chat follows runs whichever page is open, so a reply keeps streaming in the background.
   $effect(() => followRuns(hub, chat));
+  $effect(() => followRuns(hub, voice));
   $effect(() => saveThread(threadId.current));
+  $effect(() => saveThread(voiceThreadId.current, "voice"));
   $effect(() => {
     document.title = name.data || "lo9i";
   });
@@ -47,6 +51,7 @@
   <Sidebar name={name.data || "lo9i"} />
   <main class="main">{@render children()}</main>
 </div>
+<VoiceButton />
 <Toasts {notices} />
 
 <style>
