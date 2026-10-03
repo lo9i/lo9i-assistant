@@ -1,6 +1,8 @@
 <script lang="ts">
   import "../app.css";
   import { onMount, type Snippet } from "svelte";
+  import { page } from "$app/state";
+  import { resolve } from "$app/paths";
   import { DaemonClient } from "$lib/api/client";
   import { ApiError } from "$lib/api/errors";
   import { EventHub } from "$lib/api/eventHub";
@@ -17,6 +19,9 @@
   const CHANNEL = "web";
 
   let { children }: { children: Snippet } = $props();
+  // Where an email sign-in comes back (routes/oauth): it finishes on its own, maybe in a browser that
+  // isn't paired, so it gets no app around it.
+  const standalone = page.url.pathname === resolve("/oauth");
 
   const client = new DaemonClient(new HttpTransport());
   // The voice button talks in a conversation of its own, under an id the daemon ties to this client.
@@ -34,6 +39,7 @@
   onMount(() => theme.apply());
 
   onMount(() => {
+    if (standalone) return;
     void start();
     return () => {
       closed = true;
@@ -93,7 +99,9 @@
   }
 </script>
 
-{#if unpaired}
+{#if standalone}
+  {@render children()}
+{:else if unpaired}
   <PairPage {client} />
 {:else if daemon}
   <AppShell {daemon}>{@render children()}</AppShell>

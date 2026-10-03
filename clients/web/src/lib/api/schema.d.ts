@@ -483,6 +483,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/integrations/email/oauth/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Email Sign In
+         * @description The provider's sign-in page; the browser comes back to `redirect_uri`. 400: unknown
+         *     provider or missing values. 404: unknown account.
+         */
+        post: operations["start_email_sign_in_integrations_email_oauth_start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/integrations/email/oauth/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish Email Sign In
+         * @description Open to unpaired browsers: the one-time state is the proof (the web app's /app/oauth page
+         *     may be opened on the daemon's own computer, before pairing). 400: expired state, refused
+         *     code, or a server that won't log in with the token.
+         */
+        post: operations["finish_email_sign_in_integrations_email_oauth_finish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/integrations/email/accounts/{account_id}/label": {
         parameters: {
             query?: never;
@@ -1120,6 +1163,16 @@ export interface components {
             imap_port: number;
             /** New Mail Alerts */
             new_mail_alerts: string;
+            /**
+             * Auth
+             * @default password
+             */
+            auth: string;
+            /**
+             * Oauth Provider
+             * @default
+             */
+            oauth_provider: string;
         };
         /** EmailAccountName */
         EmailAccountName: {
@@ -1147,6 +1200,11 @@ export interface components {
              * @default true
              */
             supported: boolean;
+            /**
+             * Oauth
+             * @default
+             */
+            oauth: string;
         };
         /** EmailRecipients */
         EmailRecipients: {
@@ -1180,6 +1238,44 @@ export interface components {
              * @default 993
              */
             imap_port: number;
+        };
+        /** EmailSignIn */
+        EmailSignIn: {
+            /** Provider */
+            provider: string;
+            /** Client Id */
+            client_id: string;
+            /**
+             * Client Secret
+             * @default
+             */
+            client_secret: string;
+            /** Redirect Uri */
+            redirect_uri: string;
+            /** Address */
+            address: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * Account Id
+             * @default
+             */
+            account_id: string;
+        };
+        /** EmailSignInCode */
+        EmailSignInCode: {
+            /** State */
+            state: string;
+            /** Code */
+            code: string;
+        };
+        /** EmailSignInPage */
+        EmailSignInPage: {
+            /** Url */
+            url: string;
         };
         /**
          * FoundServer
@@ -2871,6 +2967,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_email_sign_in_integrations_email_oauth_start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailSignIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailSignInPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    finish_email_sign_in_integrations_email_oauth_finish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailSignInCode"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailAccount"];
                 };
             };
             /** @description Validation Error */

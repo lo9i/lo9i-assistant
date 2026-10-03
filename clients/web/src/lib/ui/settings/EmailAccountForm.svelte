@@ -2,6 +2,7 @@
   import type { EmailAccount, EmailProvider, EmailSettings } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { describe } from "$lib/notices";
+  import { resolve } from "$app/paths";
 
   // "Other": the server is entered by hand.
   const OTHER = "other";
@@ -24,6 +25,11 @@
   const { client } = useDaemon();
   const providers = resource((c) => c.email.providers(), []);
   let choice = $state("");
+  // An account that signed in with OAuth starts on its provider, to sign in again.
+  $effect(() => {
+    const signedIn = account?.auth === "oauth" ? providers.data?.find((p) => p.oauth === account.oauth_provider) : undefined;
+    if (signedIn && !choice) choice = signedIn.id;
+  });
   const provider = $derived<EmailProvider | undefined>(providers.data?.find((p) => p.id === choice));
   // svelte-ignore state_referenced_locally
   let label = $state(account?.label ?? "");
@@ -32,12 +38,37 @@
   let form = $state<EmailSettings>({ label: "", host: "", port: 587, username: "", password: "", sender: "", imap_host: "", imap_port: 993 });
   let message = $state("");
   let saving = $state(false);
+  // Signing in (OAuth): the user's own OAuth app. The secret is typed here and goes to the daemon.
+  let clientId = $state("");
+  let clientSecret = $state("");
+  // Where Google or Microsoft send the browser back; the user registers this with their OAuth app.
+  const redirectUri = `${window.location.origin}${resolve("/oauth")}`;
+  const providerName = $derived(provider?.oauth === "microsoft" ? "Microsoft" : "Google");
+  // Signing an existing account in again reuses the app it signed in with.
+  const again = $derived(account?.auth === "oauth" && account.oauth_provider === provider?.oauth);
 
   /** A provider's user name and sender are the address. */
   function settings(): EmailSettings {
     if (!provider) return { ...form, label };
     const { host, port, imap_host } = provider;
     return { label, host, port, imap_host, imap_port: 993, username: address, password: form.password, sender: address };
+  }
+
+  /** Opens the provider's sign-in page; the /oauth page finishes it and the account shows up here. */
+  async function signIn(e: SubmitEvent): Promise<void> {
+    e.preventDefault();
+    if (!provider) return;
+    saving = true;
+    try {
+      const body = { provider: provider.oauth, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri };
+      const url = await client.email.startSignIn({ ...body, address, label, account_id: account?.id ?? "" });
+      window.open(url, "_blank", "noopener");
+      message = `Finish signing in on the ${providerName} page that opened; the account shows up here once it's done.`;
+    } catch (err) {
+      message = describe(err);
+    } finally {
+      saving = false;
+    }
   }
 
   async function save(e: SubmitEvent): Promise<void> {
@@ -69,7 +100,30 @@
   {:else if choice === OTHER}
     <p class="text-label">Most providers need an <strong>app password</strong> here, not your account password.</p>
   {/if}
-  {#if choice === OTHER || provider?.supported}
+  {#if provider?.oauth}
+    <form class="fields" onsubmit={signIn}>
+      <input class="input" placeholder="Name for this account, like Work (optional)" aria-label="Account name" bind:value={label} />
+      <input class="input" type="email" placeholder="Your email address" aria-label="Your email address" bind:value={address} />
+      <div class="fields">
+        <span class="text-caption">Redirect URI to register with your OAuth app</span>
+        <code class="uri">{redirectUri}</code>
+      </div>
+      <input class="input" placeholder={again ? "Client ID (leave empty to keep the saved one)" : "Client ID"} aria-label="Client ID" bind:value={clientId} />
+      <input
+        class="input"
+        type="password"
+        placeholder={again ? "Client secret (leave empty to keep the saved one)" : "Client secret"}
+        aria-label="Client secret"
+        bind:value={clientSecret}
+      />
+      <div class="row">
+        <button class="btn btn--primary" type="submit" disabled={saving || !address.includes("@") || (!clientId.trim() && !again)}
+          >{saving ? "Opening…" : `Sign in with ${providerName}`}</button
+        >
+        {#if oncancel}<button class="btn btn--ghost" type="button" onclick={oncancel}>Cancel</button>{/if}
+      </div>
+    </form>
+  {:else if choice === OTHER || provider?.supported}
     <form class="fields" onsubmit={save}>
       <input class="input" placeholder="Name for this account, like Work (optional)" aria-label="Account name" bind:value={label} />
       {#if provider}
@@ -103,5 +157,9 @@
   }
   p {
     margin: 0;
+  }
+  .uri {
+    overflow-wrap: anywhere;
+    user-select: all;
   }
 </style>

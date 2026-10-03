@@ -189,6 +189,36 @@ class FakeEmail:
         account.label, account.host, account.sender, account.status = label or sender, host, sender, "ok"
         return account
 
+    async def start_sign_in(self, provider, client_id, client_secret, redirect_uri, address, label="", account_id=""):
+        if not client_id and not account_id:
+            raise EmailError("Enter the email address and your OAuth app's client ID.")
+        self.sign_in = (provider, client_id, client_secret, redirect_uri, address, label, account_id)
+        return f"https://login.example.com/authorize?state=s1&redirect_uri={redirect_uri}"
+
+    async def finish_sign_in(self, state, code):
+        if state != "s1":
+            raise EmailError("This sign-in has expired or was already used.")
+        provider, _, _, _, address, label, _ = self.sign_in
+        account_id = f"a{len(self.accounts_by_id) + 1}"
+        self.accounts_by_id[account_id] = EmailAccount(
+            account_id,
+            label or address,
+            not self.accounts_by_id,
+            "ok",
+            "",
+            "smtp.office365.com",
+            587,
+            address,
+            address,
+            [],
+            "outlook.office365.com",
+            993,
+            "",
+            "oauth",
+            provider,
+        )
+        return self.accounts_by_id[account_id]
+
     async def rename(self, account_id, label):
         account = self.accounts_by_id[account_id]
         account.label = label.strip() or account.sender

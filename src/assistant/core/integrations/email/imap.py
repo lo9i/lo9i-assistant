@@ -122,7 +122,7 @@ async def open_mailbox(config: EmailConfig, folder: str = "INBOX") -> AsyncItera
         # connection at once, instead of as a timeout waiting for the server's greeting.
         await asyncio.wait_for(client._client_task, _TIMEOUT)
         await client.wait_hello_from_server()
-        _check(await client.login(config.username, config.password), "log in")
+        _check(await _log_in(client, config), "log in")
         selected = await client.select(_mailbox_name(folder))
         _check(selected, f"open {folder}")
     except (AioImapException, OSError, TimeoutError) as e:
@@ -133,6 +133,15 @@ async def open_mailbox(config: EmailConfig, folder: str = "INBOX") -> AsyncItera
         raise EmailError(f"Reading mail failed: {e}") from e
     finally:
         await _logout(client)
+
+
+async def _log_in(client: IMAP4, config: EmailConfig) -> Response:
+    """With the password, or the access token of an account signed in with OAuth (XOAUTH2)."""
+    if config.auth != "oauth":
+        return await client.login(config.username, config.password)
+    # aioimaplib types the token as bytes, but formats it into the SASL string as text: bytes would
+    # send "b'...'". The string is what works.
+    return await client.xoauth2(config.username, config.password)  # pyright: ignore[reportArgumentType]
 
 
 async def verify(config: EmailConfig) -> None:

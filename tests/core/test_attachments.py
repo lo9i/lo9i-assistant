@@ -1,7 +1,9 @@
 """Files in messages: saved as uploads and referred to, their content added only when the model is
 called. A tool result's files follow the tool results as a user message."""
 
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from typing import Any, cast
+
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 
 from assistant.core.attachments import Attachment, hydrate, to_tool_content, upload_paths
 
@@ -13,7 +15,12 @@ def _calls(*ids: str) -> AIMessage:
 
 
 def _result(call_id: str, *attachments: Attachment) -> ToolMessage:
-    return ToolMessage(to_tool_content("Mail text", list(attachments)), tool_call_id=call_id, name="read_email")
+    content = cast(list[str | dict], to_tool_content("Mail text", list(attachments)))
+    return ToolMessage(content, tool_call_id=call_id, name="read_email")
+
+
+def _blocks(message: BaseMessage) -> list[dict[str, Any]]:
+    return cast(list[dict[str, Any]], message.content)
 
 
 def test_a_tool_results_files_follow_the_results_as_one_user_message():
@@ -22,9 +29,9 @@ def test_a_tool_results_files_follow_the_results_as_one_user_message():
     hydrated = hydrate([HumanMessage("read them"), _calls("a", "b"), first, second, AIMessage("done")])
     kinds = [type(m).__name__ for m in hydrated]
     assert kinds == ["HumanMessage", "AIMessage", "ToolMessage", "ToolMessage", "HumanMessage", "AIMessage"]
-    note = hydrated[2].content[1]["text"]
+    note = _blocks(hydrated[2])[1]["text"]
     assert note.startswith("[File chart.png, saved at ") and "follows the tool results" in note
-    files = hydrated[4].content
+    files = _blocks(hydrated[4])
     assert files[0]["text"] == "[Files from the tool results above]"
     assert any(b.get("type") == "image" and b["mime_type"] == "image/png" for b in files)
     assert any("buy milk" in b.get("text", "") for b in files)
@@ -33,10 +40,10 @@ def test_a_tool_results_files_follow_the_results_as_one_user_message():
 def test_files_the_model_cant_read_are_named_with_their_path_only():
     result = _result("a", Attachment("budget.xlsx", "application/vnd.ms-excel", b"cells"))
     hydrated = hydrate([_calls("a"), result])
-    assert len(hydrated) == 2 and "open it with bash" in hydrated[1].content[1]["text"]
+    assert len(hydrated) == 2 and "open it with bash" in _blocks(hydrated[1])[1]["text"]
 
 
 def test_hydration_is_the_same_every_time_and_the_files_are_the_conversations():
-    messages = [_calls("a"), _result("a", Attachment("chart.png", "image/png", PNG))]
+    messages: list[BaseMessage] = [_calls("a"), _result("a", Attachment("chart.png", "image/png", PNG))]
     assert hydrate(messages) == hydrate(messages)
     assert len(upload_paths(messages)) == 1

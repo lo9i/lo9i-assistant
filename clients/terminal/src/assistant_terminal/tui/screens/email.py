@@ -2,10 +2,14 @@
 choose who the agent may email from each without asking, and where its new mail is announced.
 
 The user picks their provider, so only the address and the password are typed; "Other" asks for
-the servers too (SMTP to send, IMAP to read; without IMAP the assistant only sends).
+the servers too (SMTP to send, IMAP to read; without IMAP the assistant only sends). Google and
+Microsoft can sign in instead (OAuth), with the user's own OAuth app: the browser is sent back to the
+daemon's web app on this computer, which finishes it, or the user pastes the address it ended on.
 """
 
+import webbrowser
 from typing import ClassVar
+from urllib.parse import parse_qs, urlparse
 
 from textual import on
 from textual.app import ComposeResult
@@ -16,6 +20,7 @@ from textual.widgets import Button, Input, Markdown, Select
 
 from assistant.client.daemon_client import EmailApi
 from assistant.core.agent import EmailAccount, EmailError, EmailProvider
+from assistant.core.config import settings
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 _INTRO = """## Add an email account
@@ -35,9 +40,15 @@ _FIELDS = {
     "email-password": ("App password", True),
     "email-sender": ("Send as (your address)", False),
     "email-imap": ("IMAP host, to read mail (TLS on port 993; leave empty to only send)", False),
+    "email-client-id": ("Your OAuth app's client ID", False),
+    "email-client-secret": ("Your OAuth app's client secret", True),
+    "email-returned": ("Paste the address your browser ended on, if it didn't finish by itself", False),
 }
 _PRESET_FIELDS = {"email-label", "email-address", "email-password"}
-_OTHER_FIELDS = set(_FIELDS) - {"email-address"}
+_OAUTH_FIELDS = {"email-label", "email-address", "email-client-id", "email-client-secret"}
+_OTHER_FIELDS = set(_FIELDS) - {"email-address", "email-client-id", "email-client-secret", "email-returned"}
+# The daemon's web app on this computer: Google and Microsoft both allow http for localhost.
+_REDIRECT = f"http://localhost:{settings.daemon_port}/app/oauth"
 _ALERTS = [
     ("Don't announce new mail", ""),
     ("Announce new mail on Telegram", "telegram"),
@@ -61,6 +72,8 @@ class EmailScreen(ModalScreen[None]):
         self._selected = _NEW
         # Changing the selected account's sign-in.
         self._editing = False
+        # A sign-in (OAuth) waiting for the browser.
+        self._signing = False
 
     def compose(self) -> ComposeResult:
         with Vertical(id="email"):
@@ -77,6 +90,7 @@ class EmailScreen(ModalScreen[None]):
             yield Select[str](_ALERTS, allow_blank=False, value="", id="email-alerts")
             with Horizontal(id="email-buttons"):
                 yield Button("Connect", variant="success", id="connect")
+                yield Button("Finish", variant="success", id="finish")
                 yield Button("Save recipients", id="recipients")
                 yield Button("Rename", id="rename")
                 yield Button("Make default", id="default")
@@ -94,7 +108,17 @@ class EmailScreen(ModalScreen[None]):
 
     @reports_daemon_unavailable
     async def reload(self) -> None:
-        """Called when the daemon reports a settings change."""
+        """Called when the daemon reports a settings change: a sign-in the browser finished shows up."""
+        known = {a.id for a in self._accounts}
+        if self._signing:
+            accounts = await self._email.accounts()
+            new = next((a for a in accounts if a.id not in known), None)
+            if new is not None or self._editing:
+                self._signing = self._editing = False
+                self._message = "Signed in ✓ The account can send and read mail."
+                self._reset_form()
+                await self._load(select=new.id if new else self._selected)
+                return
         await self._load(select=self._selected)
 
     @on(Select.Changed, "#email-account")
@@ -130,6 +154,10 @@ class EmailScreen(ModalScreen[None]):
     @on(Button.Pressed, "#connect")
     @reports_daemon_unavailable
     async def _connect(self) -> None:
+        provider = self._providers.get(self._choice or "")
+        if provider is not None and provider.oauth:
+            await self._sign_in(provider)
+            return
         account = self._account()
         try:
             settings = self._settings()
@@ -143,6 +171,48 @@ class EmailScreen(ModalScreen[None]):
             await self._refresh()
             return
         self._editing = False
+        self._reset_form()
+        await self._load(select=saved.id)
+
+    async def _sign_in(self, provider: EmailProvider) -> None:
+        """Opens the provider's sign-in page; the daemon's web app or Finish completes it."""
+        value = {field_id: self.query_one(f"#{field_id}", Input).value.strip() for field_id in _FIELDS}
+        account = self._account() if self._editing else None
+        try:
+            url = await self._email.start_sign_in(
+                provider.oauth,
+                value["email-client-id"],
+                value["email-client-secret"],
+                _REDIRECT,
+                value["email-address"] or (account.sender if account else ""),
+                value["email-label"],
+                account.id if account else "",
+            )
+        except EmailError as e:
+            self._message = f"**{e}**"
+            await self._refresh()
+            return
+        opened = webbrowser.open(url)
+        self._signing = True
+        self._message = _signing_message(url, opened)
+        await self._refresh()
+
+    @on(Button.Pressed, "#finish")
+    @reports_daemon_unavailable
+    async def _finish(self) -> None:
+        state, code = _returned(self.query_one("#email-returned", Input).value)
+        if not state or not code:
+            self._message = "**Paste the whole address your browser ended on: it has `code=` and `state=` in it.**"
+            await self._refresh()
+            return
+        try:
+            saved = await self._email.finish_sign_in(state, code)
+        except EmailError as e:
+            self._message = f"**{e}**"
+            await self._refresh()
+            return
+        self._message = "Signed in ✓ The account can send and read mail."
+        self._signing = self._editing = False
         self._reset_form()
         await self._load(select=saved.id)
 
@@ -215,6 +285,7 @@ class EmailScreen(ModalScreen[None]):
             provider.clear()
         for field_id in _FIELDS:
             self.query_one(f"#{field_id}", Input).value = ""
+        self._signing = False
 
     def _account(self) -> EmailAccount | None:
         return next((a for a in self._accounts if a.id == self._selected), None)
@@ -237,11 +308,16 @@ class EmailScreen(ModalScreen[None]):
         account = self._account()
         form = account is None or self._editing
         shown = _form_fields(self._choice, self._providers) if form else set()
+        if self._signing:
+            shown = shown | {"email-returned"}
         for field_id in _FIELDS:
             self.query_one(f"#{field_id}").display = field_id in shown
         self.query_one("#email-provider").display = form
         self.query_one("#email-help").display = form and self._choice is not None
         self.query_one("#connect").display = bool(shown)
+        self.query_one("#finish").display = self._signing
+        oauth = self._providers.get(self._choice or "")
+        self.query_one("#connect", Button).label = "Sign in" if oauth is not None and oauth.oauth else "Connect"
         self.query_one("#email-account").display = bool(self._accounts)
         for widget_id in ("#email-allowed", *_ACCOUNT_BUTTONS):
             self.query_one(widget_id).display = account is not None and not self._editing
@@ -274,6 +350,8 @@ def _form_fields(choice: str | None, providers: dict[str, EmailProvider]) -> set
     if choice == _OTHER:
         return _OTHER_FIELDS
     provider = providers.get(choice or "")
+    if provider is not None and provider.oauth:
+        return _OAUTH_FIELDS
     return _PRESET_FIELDS if provider is not None and provider.supported else set()
 
 
@@ -281,6 +359,10 @@ def _help(provider: EmailProvider | None, editing: bool) -> str:
     keep = "\n\nLeave the password empty to keep the saved one." if editing else ""
     if provider is None:
         return _OTHER_HELP + keep
+    if provider.oauth:
+        keep = "\n\nLeave the client ID and secret empty to keep the saved ones." if editing else ""
+        where = f"\n\nSet it up at {provider.password_url}" if provider.password_url else ""
+        return f"{provider.password_help}{where}\n\nRedirect URI to register: `{_REDIRECT}`{keep}"
     link = f"\n\nCreate it at {provider.password_url}" if provider.password_url else ""
     return provider.password_help + link + keep
 
@@ -302,3 +384,17 @@ def _describe(account: EmailAccount | None, editing: bool, message: str) -> str:
     if account.status != "ok":
         lines.insert(1, f"**Needs signing in again:** {account.problem} Use Change sign-in.")
     return "\n\n".join([*lines, message] if message else lines)
+
+
+def _signing_message(url: str, opened: bool) -> str:
+    browser = "A browser opened with it" if opened else "Open it in a browser"
+    return (
+        f"{browser}: [sign in]({url})\n\nOn this computer, the browser comes back to the assistant and "
+        "the account shows up here. Elsewhere (over SSH), paste the address the browser ended on, then Finish."
+    )
+
+
+def _returned(address: str) -> tuple[str, str]:
+    """The state and code in the address the provider sent the browser back to."""
+    query = parse_qs(urlparse(address.strip()).query)
+    return query.get("state", [""])[0], query.get("code", [""])[0]
