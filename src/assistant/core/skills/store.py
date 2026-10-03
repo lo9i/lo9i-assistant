@@ -39,6 +39,9 @@ class Skill:
     problems: list[str] = field(default_factory=list)
     # `version:` in its SKILL.md; "" when it declares none.
     version: str = ""
+    # The plugin that added it: the MCP server it comes with, or itself when it was installed on its
+    # own; "" when the user or the assistant wrote it here.
+    plugin: str = ""
 
 
 def list_skills() -> list[Skill]:
@@ -157,7 +160,14 @@ def read(skill_folder: Path, default_name: str | None = None) -> Skill | None:
         (source.server or None) if source else None,
         [*header_problems, *problems(body, files)],
         str(meta.get("version") or ""),
+        _plugin(source, str(meta.get("name") or default_name or skill_folder.name)),
     )
+
+
+def _plugin(source: skill_source.Source | None, name: str) -> str:
+    if source is None or not source.url:
+        return ""
+    return source.server or name
 
 
 def _parse(text: str) -> tuple[dict, str, list[str]]:

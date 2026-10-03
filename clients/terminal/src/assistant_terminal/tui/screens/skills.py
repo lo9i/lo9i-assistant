@@ -150,13 +150,16 @@ class SkillsScreen(ModalScreen[None]):
 
 
 def _state(summary: SkillSummary) -> str:
-    return " · has problems" if summary.problems else label(summary.failing)
+    origin = f" · plugin {summary.plugin}" if summary.plugin else ""
+    return origin + (" · has problems" if summary.problems else label(summary.failing))
 
 
 def _detail(skill: Skill, summary: SkillSummary | None) -> str:
     text = f"### {skill.name}\n\n{skill.description}{_health(skill, summary)}\n\n---\n\n{skill.instructions}"
+    origin = f"the {skill.plugin} plugin" if skill.plugin else "you or the assistant, here"
+    text += f"\n\n---\n\n**Added by** {origin}"
     if skill.files:
-        text += "\n\n---\n\n**Files:** " + ", ".join(f"`{path}`" for path in skill.files)
+        text += "\n\n**Files:** " + ", ".join(f"`{path}`" for path in skill.files)
     if skill.server:
         text += f"\n\n**Comes with the {skill.server} MCP server**: updated and removed with it, in /mcp."
     elif skill.source:

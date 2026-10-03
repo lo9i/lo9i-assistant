@@ -41,6 +41,8 @@ class McpServerStatus:
     tools: list[McpToolInfo]
     # The repository it was installed from; "" when added by hand.
     source: str = ""
+    # The plugin that added it (core/mcp/install.py); "" when it was added here, by hand.
+    plugin: str = ""
     # It comes with a web page, shown in the web app (daemon/pages.py).
     page: bool = False
     # Failed connection attempts and calls in a row (core/health.py), and the last failure.
@@ -131,6 +133,7 @@ async def mcp_status(hub: McpHub, server: McpServer) -> McpServerStatus:
         error=error,
         tools=tools,
         source=server.source,
+        plugin=server.name if server.source else "",
         page=bool(server.page_command),
         failures=health.failures,
         failure=health.error,

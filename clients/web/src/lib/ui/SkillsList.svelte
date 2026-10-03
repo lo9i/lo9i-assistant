@@ -76,7 +76,8 @@
               <strong
                 >{s.name}
                 {#if s.problems?.length}<span class="pill pill--warn">has problems</span>
-                {:else if s.failing}<span class="pill pill--danger">failing</span>{/if}</strong
+                {:else if s.failing}<span class="pill pill--danger">failing</span>{/if}
+                {#if s.plugin}<span class="pill" title="Added by a plugin">plugin {s.plugin}</span>{/if}</strong
               >
               <span class="text-meta">{s.description}</span>
             </span>
@@ -105,14 +106,13 @@
                 {#each skill.data.problems ?? [] as problem (problem)}<p class="error-text">{problem}</p>{/each}
                 {#if s.failures}<p class="error-text">{failures(s)}</p>{/if}
                 <div class="prose">{@html markdown(skill.data.instructions)}</div>
-                {#if files.length || skill.data.source || skill.data.server}
-                  <dl>
+                <dl>
+                    <dt class="micro-label">Added by</dt><dd>{skill.data.plugin ? `the ${skill.data.plugin} plugin` : "you or the assistant, here"}</dd>
                     {#if files.length}<dt class="micro-label">Files</dt><dd>{files.join(", ")}</dd>{/if}
                     {#if skill.data.server}
                       <dt class="micro-label">Comes with</dt><dd>the {skill.data.server} MCP server, which updates and removes it</dd>
                     {:else if skill.data.source}<dt class="micro-label">Installed from</dt><dd>{skill.data.source}</dd>{/if}
                   </dl>
-                {/if}
                 <div class="actions">
                   <button class="btn btn--neutral btn--sm" onclick={startEditing}><Pencil size={14} />Edit</button>
                   {#if skill.data.source && !skill.data.server}

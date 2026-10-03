@@ -347,3 +347,14 @@ async def test_versions_say_what_is_installed_and_what_is_newer(service, repo):
     await service.update_mcp_server_from_repository("hello")
     hello = next(s for s in (await service.browse_repository(URL)).servers if s.name == "hello")
     assert hello.installed_version == "1.1.0"
+
+
+async def test_what_a_plugin_added_is_told_apart_from_what_was_added_here(service, repo):
+    _write(repo / "mcp" / "hello", {"SKILL.md": _HELLO_SKILL})
+    await service.install_from_repository(URL, ["expenses"], [HELLO])
+    await service.add_mcp_server(McpServer("mine", command="mine"))
+    store.save("notes", "Mine", "My steps")
+    by_server = {s.name: s.plugin for s in await service.mcp_servers()}
+    assert by_server == {"hello": "hello", "mine": ""}
+    by_skill = {s.name: s.plugin for s in await service.list_skills()}
+    assert by_skill == {"expenses": "expenses", "hello": "hello", "notes": ""}
