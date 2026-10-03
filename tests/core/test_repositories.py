@@ -56,6 +56,7 @@ def repo(tmp_path, monkeypatch) -> Path:
     )
     _write(root / ".git", {"config": "[core]"})
     (root / "skills" / "expenses" / "link.py").symlink_to("/etc/hosts")
+
     async def fetch(url: str, dest: Path) -> str:
         REMOTE["downloads"] += 1
         shutil.copytree(root, dest, symlinks=True)
