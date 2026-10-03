@@ -10,11 +10,17 @@
   import StartupCard from "$lib/ui/settings/StartupCard.svelte";
   import TelegramCard from "$lib/ui/settings/TelegramCard.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
+  import { theme, type ThemePreference } from "$lib/theme.svelte";
 
   const TABS = [
     { id: "general", label: "General" },
     { id: "integrations", label: "Integrations" },
     { id: "audio", label: "Audio" },
+  ];
+  const THEMES: Array<[ThemePreference, string]> = [
+    ["dark", "Dark"],
+    ["light", "Light"],
+    ["system", "System"],
   ];
   const tab = $derived(TABS.find((t) => t.id === page.url.searchParams.get("tab"))?.id ?? "general");
 </script>
@@ -22,11 +28,21 @@
 <TopBar title="Settings" />
 
 <div class="shell">
-  <nav class="tabs" aria-label="Settings">
-    {#each TABS as t (t.id)}
-      <a href="?tab={t.id}" class:active={t.id === tab} aria-current={t.id === tab ? "page" : undefined}>{t.label}</a>
-    {/each}
-  </nav>
+  <div class="bar">
+    <nav class="tabs" aria-label="Settings">
+      {#each TABS as t (t.id)}
+        <a href="?tab={t.id}" class:active={t.id === tab} aria-current={t.id === tab ? "page" : undefined}>{t.label}</a>
+      {/each}
+    </nav>
+    <!-- Kept in this browser. -->
+    <div class="tabs" role="radiogroup" aria-label="Theme" title="Theme, kept in this browser">
+      {#each THEMES as [value, label] (value)}
+        <button role="radio" aria-checked={theme.preference === value} class:active={theme.preference === value} onclick={() => theme.set(value)}>
+          {label}
+        </button>
+      {/each}
+    </div>
+  </div>
   {#if tab === "general"}
     <!-- The model on one side; the small settings stacked on the other. -->
     <div class="grid">
@@ -70,6 +86,13 @@
     padding: 16px 16px 40px;
     max-width: 1600px;
     margin: 0 auto;
+  }
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
   }
   .grid {
     display: grid;

@@ -24,7 +24,7 @@ import uvicorn
 async def app(scope, receive, send):
     if scope["type"] != "http":
         return
-    seen = {"path": scope["path"], "query": scope["query_string"].decode(),
+    seen = {"path": scope["path"], "query": scope["query_string"].decode(), "pid": __import__("os").getpid(),
             "headers": {k.decode(): v.decode() for k, v in scope["headers"]}}
     await send({"type": "http.response.start", "status": 200,
                 "headers": [(b"content-type", b"application/json"), (b"set-cookie", b"lo9i_device=planted")]})
@@ -137,3 +137,18 @@ async def test_the_page_runs_with_the_servers_env(service, short_data_dir, tmp_p
         assert json.loads((await http.get("/notes/")).text)["env"] == "/data/notes.db"
     stop.set()
     await task
+
+
+async def test_an_updated_page_runs_again_though_its_command_is_the_same(pages):
+    async with _http(pages, await _paired(pages)) as http:
+        before = (await http.get("/notes/")).json()["pid"]
+        await pages.pages.restart("notes")
+        await _until(lambda: folders.page_socket("notes").exists())
+        await _until_answers(http)
+        assert (await http.get("/notes/")).json()["pid"] != before
+
+
+async def _until_answers(http) -> None:
+    async with asyncio.timeout(15):
+        while (await http.get("/notes/")).status_code != 200:
+            await asyncio.sleep(0.05)

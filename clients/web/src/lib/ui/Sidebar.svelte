@@ -15,13 +15,11 @@
   import Settings from "@lucide/svelte/icons/settings";
   import UserRound from "@lucide/svelte/icons/user-round";
   import Sparkles from "@lucide/svelte/icons/sparkles";
-  import SunMoon from "@lucide/svelte/icons/sun-moon";
   import WandSparkles from "@lucide/svelte/icons/wand-sparkles";
   import PanelsTopLeft from "@lucide/svelte/icons/panels-top-left";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { pageLabel } from "$lib/pages";
   import { sidebar } from "$lib/sidebar.svelte";
-  import { theme, type ThemePreference } from "$lib/theme.svelte";
 
   let { name }: { name: string } = $props();
 
@@ -72,8 +70,6 @@
     { href: resolve("/devices"), label: "Devices", Icon: Laptop, add: { label: "Pair a browser", run: pairBrowser } },
     { href: resolve("/settings"), label: "Settings", Icon: Settings },
   ];
-  const NEXT_THEME: Record<ThemePreference, ThemePreference> = { dark: "light", light: "system", system: "dark" };
-  const THEME_LABEL: Record<ThemePreference, string> = { dark: "Dark", light: "Light", system: "System" };
 </script>
 
 <aside class="sidebar">
@@ -116,12 +112,6 @@
       </div>
     {/each}
   </nav>
-  <div class="footer">
-    <button class="nav-item" title="Theme" onclick={() => theme.set(NEXT_THEME[theme.preference])}>
-      <SunMoon size={20} />
-      <span class="label">Theme: {THEME_LABEL[theme.preference]}</span>
-    </button>
-  </div>
 </aside>
 
 <style>
@@ -269,14 +259,6 @@
     width: 3px;
     border-radius: 0 2px 2px 0;
     background: var(--color-accent);
-  }
-  .footer {
-    margin-top: auto;
-    padding: 12px 8px;
-    border-top: 1px solid var(--color-border);
-  }
-  .footer .nav-item {
-    width: 100%;
   }
   :global(.collapsed) .label,
   :global(.collapsed) .mark {
