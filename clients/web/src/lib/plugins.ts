@@ -1,5 +1,8 @@
 import type { FoundServer, FoundSkill, RepositoryContents } from "./api/types";
 
+/** The assistant's own plugins (src/assistant/core/repositories/known.py), where the sidebar's + installs from. */
+export const EXTRAS = "https://github.com/lo9i/lo9i-assistant-extras";
+
 /** A plugin a repository offers: an MCP server (maybe with its skill and a page) or a skill of its own. */
 export type Plugin =
   | { kind: "server"; name: string; repository: string; installed: boolean; server: FoundServer }
