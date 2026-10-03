@@ -28,16 +28,26 @@ class RemoteApprovals:
     def __init__(self) -> None:
         self._forwarders: dict[str, Forwarder] = {}
         self._waiting: dict[str, asyncio.Future[Decision]] = {}
+        self._available = asyncio.Event()
 
     def register(self, channel: str, forwarder: Forwarder) -> None:
         self._forwarders[channel] = forwarder
+        self._available.set()
 
     def unregister(self, channel: str) -> None:
         self._forwarders.pop(channel, None)
+        if not self._forwarders:
+            self._available.clear()
 
     @property
     def available(self) -> bool:
         return bool(self._forwarders)
+
+    async def wait_available(self, timeout: float) -> bool:
+        """Wait until a channel can forward requests. False when none could within `timeout`."""
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(self._available.wait(), timeout)
+        return self.available
 
     async def ask(self, interrupt_id: str, title: str, request: dict[str, Any], timeout: float) -> Decision | None:
         """The user's decision, or None when no channel took the request or nobody answered in time."""

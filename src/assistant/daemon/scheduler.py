@@ -7,13 +7,15 @@ repeats a run. A run that was due while the daemon was down runs once if it's wi
 window, otherwise it's recorded as missed.
 
 A run that needs approval waits for the user's answer on Telegram (core/approvals.py), up to
-JOB_APPROVAL_MINUTES; the run's time limit doesn't count the wait.
+JOB_APPROVAL_MINUTES; the run's time limit doesn't count the wait. Runs in progress are kept in the
+Store (core/jobs/active.py): on start, a run the daemon stopped while it waited for approval asks
+again and goes on, and one stopped in the middle of anything else is recorded as failed.
 """
 
 import asyncio
 import contextlib
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Coroutine, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -22,8 +24,9 @@ from assistant.core.config import settings
 from assistant.core.context import UNATTENDED_CHANNEL
 from assistant.core.events import ApprovalRequired, Error, Event, ToolFinished
 from assistant.core.integrations.email.imap import MailSummary
+from assistant.core.jobs import active, store
 from assistant.core.jobs import schedule as cron
-from assistant.core.jobs import store
+from assistant.core.jobs.active import ActiveRun
 from assistant.core.jobs.store import Job, RunRecord
 from assistant.core.tools.approval import UNATTENDED_DENIAL
 
@@ -50,6 +53,7 @@ class Scheduler:
 
     async def run(self, stop: asyncio.Event) -> None:
         try:
+            await self.resume_interrupted()
             while not stop.is_set():
                 await self.tick(datetime.now(UTC))
                 with contextlib.suppress(TimeoutError):
@@ -62,6 +66,21 @@ class Scheduler:
         for job in await store.all_jobs(self._store):
             if job.enabled and job.next_run_at and datetime.fromisoformat(job.next_run_at) <= now:
                 await self._due(job, now)
+
+    async def resume_interrupted(self) -> None:
+        """Pick up the runs the daemon stopped in the middle of. Only a run waiting for approval
+        can go on: one stopped anywhere else might have left a tool half done."""
+        for run in await active.all_runs(self._store):
+            job = await store.load(self._store, run.user_id, run.job)
+            approvals = await self._service.pending_approvals(run.thread_id)
+            if job is None:
+                await active.finish(self._store, run)
+            elif approvals:
+                self._launch(_key(job), self._resume(job, run, approvals))
+            else:
+                await self._finish(
+                    job, run, RunRecord(run.started, "failed", "the daemon stopped during the run", run.thread_id)
+                )
 
     async def run_for_mail(self, job: Job, mails: list[MailSummary]) -> None:
         """Start a mail job's run with the new messages. Skipped (and recorded) when its previous
@@ -87,30 +106,42 @@ class Scheduler:
         await store.save(self._store, job)
 
     def _start(self, key: str, job: Job, now: datetime, message: str) -> None:
-        task = asyncio.create_task(self._execute(job, now, message))
+        thread_id = f"job:{job.name}:{now.strftime('%Y-%m-%dT%H:%M:%S')}"
+        run = ActiveRun(job.user_id, job.name, thread_id, now.isoformat())
+        self._launch(key, self._execute(job, run, self._service.send(_session(run), message)))
+
+    def _launch(self, key: str, execution: Coroutine[None, None, None]) -> None:
+        task = asyncio.create_task(execution)
         self._running[key] = task
         task.add_done_callback(lambda _: self._running.pop(key, None))
 
-    async def _execute(self, job: Job, started: datetime, message: str) -> None:
-        thread_id = f"job:{job.name}:{started.strftime('%Y-%m-%dT%H:%M:%S')}"
-        session = Session(job.user_id, UNATTENDED_CHANNEL, thread_id)
+    async def _execute(self, job: Job, run: ActiveRun, events: AsyncIterator[Event]) -> None:
+        """The run from `events` on, recorded on the job when it ends. Kept as active until then,
+        so a run the daemon stops in the middle of is found again on its next start."""
+        await active.start(self._store, run)
         try:
-            outcome = await self._converse(job, session, message)
-            summary = outcome.error or await self._service.last_reply(thread_id)
+            outcome = await self._converse(job, _session(run), events)
+            summary = outcome.error or await self._service.last_reply(run.thread_id)
             status = outcome.status
         except TimeoutError:
             status, summary = "failed", f"timed out after {settings.jobs_timeout_minutes} minutes"
         except Exception as e:
             logger.exception("Job %s failed", job.name)
             status, summary = "failed", f"{type(e).__name__}: {e}"
-        await self._record(job, RunRecord(started.isoformat(), status, summary[-_SUMMARY_CHARS:], thread_id))
+        await self._finish(job, run, RunRecord(run.started, status, summary[-_SUMMARY_CHARS:], run.thread_id))
 
-    async def _converse(self, job: Job, session: Session, message: str) -> _Outcome:
+    async def _resume(self, job: Job, run: ActiveRun, approvals: list[ApprovalRequired]) -> None:
+        """Ask again for the approvals a run stopped for, once a channel can show them: Telegram
+        connects after the scheduler starts. With none by then, asking finds nobody and the run
+        goes on rejected, as when nobody answers."""
+        await self._service.approvals.wait_available(settings.job_approval_minutes * 60)
+        await self._execute(job, run, _replay(approvals))
+
+    async def _converse(self, job: Job, session: Session, events: AsyncIterator[Event]) -> _Outcome:
         """The run, and after each pause for approval, the rest of it. Raises TimeoutError when the
         run itself, without the waits, takes longer than JOBS_TIMEOUT_MINUTES."""
         outcome = _Outcome()
         budget = settings.jobs_timeout_minutes * 60.0
-        events = self._service.send(session, message)
         while True:
             started = asyncio.get_running_loop().time()
             async with asyncio.timeout(budget):
@@ -134,6 +165,10 @@ class Scheduler:
         outcome.status = "needs attention"
         return {"approved": False, "reason": f"nobody answered on Telegram within {minutes} minutes"}
 
+    async def _finish(self, job: Job, run: ActiveRun, record: RunRecord) -> None:
+        await self._record(job, record)
+        await active.finish(self._store, run)
+
     async def _record(self, job: Job, run: RunRecord) -> None:
         """Append to the job's latest version, so edits made during the run are kept."""
         current = await store.load(self._store, job.user_id, job.name)
@@ -156,6 +191,15 @@ async def _follow(events: AsyncIterator[Event], outcome: _Outcome) -> list[Appro
         elif isinstance(event, Error):
             outcome.status, outcome.error = "failed", event.message
     return approvals
+
+
+async def _replay(approvals: Iterable[ApprovalRequired]) -> AsyncIterator[Event]:
+    for approval in approvals:
+        yield approval
+
+
+def _session(run: ActiveRun) -> Session:
+    return Session(run.user_id, UNATTENDED_CHANNEL, run.thread_id)
 
 
 def _key(job: Job) -> str:
