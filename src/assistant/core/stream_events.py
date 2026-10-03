@@ -44,7 +44,7 @@ def _message_events(message: BaseMessage) -> list[Event]:
     if isinstance(message, AIMessage):
         return _ai_message_events(message)
     if isinstance(message, ToolMessage):
-        return [ToolFinished(name=message.name or "", output=str(message.content))]
+        return [ToolFinished(name=message.name or "", output=message.text)]
     return []
 
 

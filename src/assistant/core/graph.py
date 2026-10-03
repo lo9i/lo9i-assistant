@@ -27,6 +27,7 @@ from assistant.core.conversation.epochs import (
 )
 from assistant.core.llm import build_llm, metered
 from assistant.core.llm.choice import ModelChoice
+from assistant.core.llm.providers import IMAGES_IN_TOOL_RESULTS
 from assistant.core.mcp.sanitize import MCP_PREFIX
 from assistant.core.storage import Storage
 from assistant.core.tools import tools_for
@@ -70,7 +71,7 @@ def build_graph(storage: Storage, choice: ModelChoice, digester: Digester, mcp: 
     builder = StateGraph(AgentState, context_schema=Context)
     builder.add_node("epoch", _epoch_node(digester, mcp))
     llm = metered(build_llm(choice, choice.model), TokenMeter(storage.usage, "reply"))
-    builder.add_node("agent", _agent_node(llm, tools))
+    builder.add_node("agent", _agent_node(llm, tools, choice.provider in IMAGES_IN_TOOL_RESULTS))
     builder.add_node("tools", ToolNode(tools, awrap_tool_call=_mcp_calls(mcp)))
     builder.add_edge(START, "epoch")
     builder.add_edge("epoch", "agent")
@@ -124,10 +125,10 @@ def _mcp_calls(mcp: McpTools) -> AsyncToolCallWrapper:
     return _wrap
 
 
-def _agent_node(llm: BaseChatModel, tools: Sequence[BaseTool]) -> Node:
+def _agent_node(llm: BaseChatModel, tools: Sequence[BaseTool], images_in_tool_results: bool) -> Node:
     async def _agent(state: AgentState) -> dict:
         epoch = state["messages"][state.get("epoch_start", 0) :]
-        messages = await asyncio.to_thread(hydrate, epoch)
+        messages = await asyncio.to_thread(hydrate, epoch, images_in_tool_results)
         bound = llm.bind_tools([*tools, *state.get("mcp_tools", [])])
         response = await bound.ainvoke([SystemMessage(state["system_prompt"]), *messages])
         return {"messages": [response], "usage_anchor": usage_anchor(response, len(state["messages"]) + 1)}
