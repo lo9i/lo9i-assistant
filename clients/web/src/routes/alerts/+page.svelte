@@ -48,10 +48,7 @@
     <header class="toolbar">
       <div>
         <h2 class="text-heading">Needs attention</h2>
-        <p class="text-meta">
-          MCP servers and skills that failed several times in a row, and MCP servers whose sign-in stopped working. Each stays until you
-          dismiss it or it works again. Click one to see it on the right.
-        </p>
+        <p class="text-meta">MCP servers and skills that keep failing or need you to sign in again. Click one to see it on the right.</p>
       </div>
       {#if alerts.data}<span class="pill">{alerts.data.length}</span>{/if}
     </header>

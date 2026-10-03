@@ -155,11 +155,11 @@ AttachmentBar .tag {
     text-style: bold;
 }
 
-TelegramScreen, WebSearchScreen, SlackScreen, EmailScreen, StartupScreen, McpAddScreen, McpSecretsScreen, ModelScreen, AudioScreen, SkillEditScreen {
+TelegramScreen, ProfileScreen, WebSearchScreen, SlackScreen, EmailScreen, StartupScreen, McpAddScreen, McpSecretsScreen, ModelScreen, AudioScreen, SkillEditScreen {
     align: center middle;
 }
 
-#telegram, #web-search, #slack, #email, #startup, #mcp-add, #mcp-secrets-dialog, #mcp-sign-in, #model, #audio, #skill-edit, #repository-install {
+#telegram, #profile, #web-search, #slack, #email, #startup, #mcp-add, #mcp-secrets-dialog, #mcp-sign-in, #model, #audio, #skill-edit, #repository-install {
     width: 80%;
     max-width: 100;
     height: auto;
@@ -168,7 +168,7 @@ TelegramScreen, WebSearchScreen, SlackScreen, EmailScreen, StartupScreen, McpAdd
     background: $dialog-background;
 }
 
-#telegram Markdown, #web-search Markdown, #slack Markdown, #email Markdown, #startup Markdown, #mcp-add Markdown, #mcp-secrets-dialog Markdown, #mcp-sign-in Markdown, #model Markdown, #audio Markdown, #skill-edit Markdown, #repository-install Markdown {
+#telegram Markdown, #profile Markdown, #web-search Markdown, #slack Markdown, #email Markdown, #startup Markdown, #mcp-add Markdown, #mcp-secrets-dialog Markdown, #mcp-sign-in Markdown, #model Markdown, #audio Markdown, #skill-edit Markdown, #repository-install Markdown {
     background: transparent;
     margin: 0;
 }
@@ -178,12 +178,12 @@ ModalScreen Markdown > MarkdownHeader:first-child {
     margin-top: 0;
 }
 
-#telegram-buttons, #web-search-buttons, #slack-buttons, #email-buttons, #startup-buttons, #mcp-add-buttons, #mcp-secrets-buttons, #mcp-sign-in-buttons, #model-buttons, #audio-buttons, #skill-edit-buttons, #repository-buttons {
+#telegram-buttons, #profile-buttons, #web-search-buttons, #slack-buttons, #email-buttons, #startup-buttons, #mcp-add-buttons, #mcp-secrets-buttons, #mcp-sign-in-buttons, #model-buttons, #audio-buttons, #skill-edit-buttons, #repository-buttons {
     height: auto;
     margin-top: 1;
 }
 
-#telegram-buttons Button, #web-search-buttons Button, #slack-buttons Button, #email-buttons Button, #startup-buttons Button, #mcp-add-buttons Button, #mcp-secrets-buttons Button, #mcp-sign-in-buttons Button, #model-buttons Button, #audio-buttons Button, #skill-edit-buttons Button, #repository-buttons Button {
+#telegram-buttons Button, #profile-buttons Button, #web-search-buttons Button, #slack-buttons Button, #email-buttons Button, #startup-buttons Button, #mcp-add-buttons Button, #mcp-secrets-buttons Button, #mcp-sign-in-buttons Button, #model-buttons Button, #audio-buttons Button, #skill-edit-buttons Button, #repository-buttons Button {
     margin-right: 2;
 }
 
@@ -332,12 +332,12 @@ ModalScreen Input, ModalScreen OptionList, ModalScreen MarkdownHeader {
     background: transparent;
 }
 
-#telegram-token, #web-search Input, #slack Input, #email Input, #email SelectCurrent, #mcp-add Input, #mcp-add SelectCurrent, #mcp-sign-in Input, #model Input, #model SelectCurrent, #audio SelectCurrent, #skill-edit Input, #repository-install Input {
+#telegram-token, #profile Input, #profile SelectCurrent, #web-search Input, #slack Input, #email Input, #email SelectCurrent, #mcp-add Input, #mcp-add SelectCurrent, #mcp-sign-in Input, #model Input, #model SelectCurrent, #audio SelectCurrent, #skill-edit Input, #repository-install Input {
     border: round ansi_bright_black;
     background: transparent;
 }
 
-#telegram-token:focus, #web-search Input:focus, #slack Input:focus, #email Input:focus, #mcp-add Input:focus, #mcp-sign-in Input:focus, #model Input:focus, #skill-edit Input:focus, #repository-install Input:focus {
+#telegram-token:focus, #profile Input:focus, #web-search Input:focus, #slack Input:focus, #email Input:focus, #mcp-add Input:focus, #mcp-sign-in Input:focus, #model Input:focus, #skill-edit Input:focus, #repository-install Input:focus {
     border: round #2f343f;
 }
 
@@ -509,4 +509,12 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
 
 #plugins-search {
     margin: 0 0 1 0;
+}
+
+#profile-items {
+    height: auto;
+    max-height: 12;
+    margin: 1 0;
+    border: round ansi_bright_black;
+    background: transparent;
 }

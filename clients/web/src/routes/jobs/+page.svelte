@@ -40,7 +40,7 @@
 
 <TopBar title="Jobs" />
 
-<div class="screen">
+<div class="screen" class:idle={!job}>
   <section class="table-card surface--glass">
     <header class="toolbar">
       <div>
@@ -154,6 +154,14 @@
     height: calc(100dvh - 76px);
     max-width: 1600px;
     margin: 0 auto;
+  }
+  /* With no job to show (none yet), the row is as tall as the table and the placeholder matches it. */
+  .idle {
+    height: auto;
+    align-items: stretch;
+  }
+  .placeholder {
+    flex: 1;
   }
   /* The table takes three quarters of the width, the job the rest. */
   .table-card {

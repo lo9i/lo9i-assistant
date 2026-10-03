@@ -36,6 +36,7 @@ COMMANDS = [
     Command("/mcp", "/mcp", "MCP servers and their tools"),
     Command("/startup", "/startup", "Start the assistant at boot"),
     Command("/name", "/name <name>", "Rename the assistant"),
+    Command("/profile", "/profile", "What the assistant knows about you: add, edit and remove"),
     Command("/get-to-know-me", "/get-to-know-me", "Let the assistant get to know you"),
     Command("/mouse", "/mouse [on|off]", "Turn clicking in the app on or off"),
     Command("/help", "/help", "Show commands and keys"),

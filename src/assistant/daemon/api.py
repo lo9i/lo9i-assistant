@@ -8,7 +8,7 @@ from typing import Annotated, Any
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from assistant.core.agent import (
@@ -62,6 +62,7 @@ from assistant.core.agent import (
 from assistant.core.attachments import Attachment
 from assistant.core.config import settings
 from assistant.core.health import Area
+from assistant.core.memory.profile import MAX_ITEMS, Section
 from assistant.core.repositories.known import EXTRAS
 from assistant.daemon.auth import DeviceStreams, add_device_routes, device_of, is_trusted, require_device
 from assistant.daemon.clients import ClientRegistry
@@ -184,6 +185,10 @@ class SkillChange(BaseModel):
 class RepositoryAddress(BaseModel):
     # The apps leave it out: plugins come from the assistant's own extras.
     url: str = EXTRAS
+
+
+class ProfileItems(BaseModel):
+    items: list[str] = Field(max_length=MAX_ITEMS)
 
 
 class PluginUpdateChecks(BaseModel):
@@ -375,6 +380,11 @@ def _add_session_routes(app: FastAPI, service: AssistantService, clients: Client
     @app.get("/memory")
     async def memory() -> MemorySnapshot:
         return await service.memory_snapshot(settings.owner_id)
+
+    @app.put("/memory/profile/{section}")
+    async def set_profile_section(section: Section, body: ProfileItems) -> MemorySnapshot:
+        """Replaces one profile section with the user's own list. 422: an unknown section or too many items."""
+        return await service.set_profile_section(settings.owner_id, section, body.items)
 
 
 def _add_run_routes(

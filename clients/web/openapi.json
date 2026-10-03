@@ -281,6 +281,66 @@
         }
       }
     },
+    "/memory/profile/{section}": {
+      "put": {
+        "summary": "Set Profile Section",
+        "description": "Replaces one profile section with the user's own list. 422: an unknown section or too many items.",
+        "operationId": "set_profile_section_memory_profile__section__put",
+        "parameters": [
+          {
+            "name": "section",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "about",
+                "people",
+                "how_to_reply",
+                "routine",
+                "goals",
+                "interests",
+                "dislikes",
+                "work"
+              ],
+              "type": "string",
+              "title": "Section"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileItems"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemorySnapshot"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/threads/{thread_id}/messages": {
       "post": {
         "summary": "Send",
@@ -3675,6 +3735,13 @@
             "type": "object",
             "title": "Profile"
           },
+          "profile_sections": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Profile Sections"
+          },
           "facts": {
             "items": {
               "type": "string"
@@ -3944,6 +4011,23 @@
           "enabled"
         ],
         "title": "PluginUpdateChecks"
+      },
+      "ProfileItems": {
+        "properties": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "ProfileItems"
       },
       "ProviderField": {
         "properties": {
