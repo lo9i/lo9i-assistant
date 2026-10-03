@@ -9,9 +9,9 @@ import type {
   Conversation,
   Decision,
   Device,
+  EmailAccount,
   EmailProvider,
   EmailSettings,
-  EmailStatus,
   Job,
   McpServerChange,
   McpServerSettings,
@@ -25,6 +25,7 @@ import type {
   RunEvent,
   Session,
   ShownMessage,
+  FoundSkill,
   Skill,
   SkillSummary,
   StartupStatus,
@@ -190,26 +191,40 @@ export class EmailGroup {
     return this.transport.request("GET", "/integrations/email/providers");
   }
 
-  status(): Promise<EmailStatus> {
-    return this.transport.request("GET", "/integrations/email");
+  /** The default account first. */
+  accounts(): Promise<EmailAccount[]> {
+    return this.transport.request("GET", "/integrations/email/accounts");
   }
 
-  /** Checks the login with the server, then saves. Throws ApiError (400) when it fails. */
-  connect(settings: EmailSettings): Promise<EmailStatus> {
-    return this.transport.request("POST", "/integrations/email", settings);
+  /** Checks the logins with the servers, then saves. Throws ApiError (400) when they fail. */
+  add(settings: EmailSettings): Promise<EmailAccount> {
+    return this.transport.request("POST", "/integrations/email/accounts", settings);
   }
 
-  setRecipients(addresses: string[]): Promise<EmailStatus> {
-    return this.transport.request("PUT", "/integrations/email/recipients", { addresses });
+  /** Changes the sign-in; an empty password keeps the saved one. Throws ApiError (400) when it fails. */
+  update(id: string, settings: EmailSettings): Promise<EmailAccount> {
+    return this.transport.request("PUT", this.path(id), settings);
+  }
+
+  makeDefault(id: string): Promise<EmailAccount> {
+    return this.transport.request("PUT", `${this.path(id)}/default`);
+  }
+
+  setRecipients(id: string, addresses: string[]): Promise<EmailAccount> {
+    return this.transport.request("PUT", `${this.path(id)}/recipients`, { addresses });
   }
 
   /** Announce new mail on "telegram" or "slack", or nowhere (""). Throws ApiError (400) when reading isn't set up. */
-  setNewMailAlerts(channel: string): Promise<EmailStatus> {
-    return this.transport.request("PUT", "/integrations/email/alerts", { channel });
+  setNewMailAlerts(id: string, channel: string): Promise<EmailAccount> {
+    return this.transport.request("PUT", `${this.path(id)}/alerts`, { channel });
   }
 
-  async disconnect(): Promise<void> {
-    await this.transport.request("DELETE", "/integrations/email");
+  async remove(id: string): Promise<void> {
+    await this.transport.request("DELETE", this.path(id));
+  }
+
+  private path(id: string): string {
+    return `/integrations/email/accounts/${encodeURIComponent(id)}`;
   }
 }
 
@@ -258,6 +273,20 @@ export class SkillsGroup {
 
   async delete(name: string): Promise<void> {
     await this.transport.request("DELETE", `/skills/${encodeURIComponent(name)}`);
+  }
+
+  /** The skills a git repository (an https:// address) offers. */
+  browse(url: string): Promise<FoundSkill[]> {
+    return this.transport.request("POST", "/skills/browse", { url });
+  }
+
+  install(url: string, names: string[]): Promise<Skill[]> {
+    return this.transport.request("POST", "/skills/install", { url, names });
+  }
+
+  /** Install the skill again from its repository, replacing changes made here. */
+  updateInstalled(name: string): Promise<Skill> {
+    return this.transport.request("POST", `/skills/${encodeURIComponent(name)}/update`);
   }
 }
 

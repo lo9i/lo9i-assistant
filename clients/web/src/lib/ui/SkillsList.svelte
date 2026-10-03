@@ -1,6 +1,7 @@
 <script lang="ts">
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Pencil from "@lucide/svelte/icons/pencil";
+  import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Wand from "@lucide/svelte/icons/wand-sparkles";
   import { resource, useDaemon } from "$lib/daemon.svelte";
@@ -29,6 +30,15 @@
     error = "";
   }
 
+  async function updateInstalled(name: string): Promise<void> {
+    try {
+      await client.skills.updateInstalled(name);
+      notices.notify(`Updated ${name} from its repository.`);
+    } catch (e) {
+      notices.report(e);
+    }
+  }
+
   async function save(): Promise<void> {
     if (!editing) return;
     try {
@@ -41,14 +51,14 @@
   }
 </script>
 
-<SettingsCard id="skills" title="Saved skills" sub="Reusable instructions the assistant saved. It picks one when a task matches.">
+<SettingsCard id="skills" title="Saved skills" sub="Reusable instructions the assistant saved or you installed. It picks one when a task matches.">
   {#snippet status()}
     {#if skills.data}<span class="pill">{skills.data.length}</span>{/if}
   {/snippet}
   {#if skills.data === undefined}
     <p class="text-meta">{skills.error ?? "Loading…"}</p>
   {:else if skills.data.length === 0}
-    <EmptyState icon={Wand} title="No skills yet" text="Ask the assistant to save how to do something as a skill." />
+    <EmptyState icon={Wand} title="No skills yet" text="Ask the assistant to save how to do something as a skill, or install skills from a git repository." />
   {:else}
     <div class="list">
       {#each skills.data as s (s.name)}
@@ -84,9 +94,19 @@
                   <button class="btn btn--ghost btn--sm" onclick={() => (editing = null)}>Cancel</button>
                 </div>
               {:else}
+                {@const files = skill.data.files ?? []}
                 <div class="prose">{@html markdown(skill.data.instructions)}</div>
+                {#if files.length || skill.data.source}
+                  <dl>
+                    {#if files.length}<dt class="micro-label">Files</dt><dd>{files.join(", ")}</dd>{/if}
+                    {#if skill.data.source}<dt class="micro-label">Installed from</dt><dd>{skill.data.source}</dd>{/if}
+                  </dl>
+                {/if}
                 <div class="actions">
                   <button class="btn btn--neutral btn--sm" onclick={startEditing}><Pencil size={14} />Edit</button>
+                  {#if skill.data.source}
+                    <button class="btn btn--neutral btn--sm" onclick={() => updateInstalled(s.name)}><RefreshCw size={14} />Update</button>
+                  {/if}
                   <button class="btn btn--danger btn--sm" onclick={() => (confirming = s.name)}><Trash2 size={14} />Delete</button>
                 </div>
               {/if}
@@ -175,5 +195,15 @@
   .actions {
     display: flex;
     gap: 8px;
+  }
+  dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 12px;
+    margin: 0;
+  }
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
   }
 </style>

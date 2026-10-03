@@ -1,11 +1,12 @@
-"""Watches the inbox while something wants new mail: alerts (Settings → email) or jobs that run on
-new mail. Supervised inside the daemon like a channel adapter.
+"""Watches inboxes while something wants their new mail: an account's alerts (Settings → email), or
+jobs that run on new mail, which use the default account. Supervised inside the daemon like a
+channel adapter.
 
-One IMAP connection waits in IDLE, so the server tells it about new mail. New messages are
-announced on the alerts channel and handed to the mail jobs. The last UID seen is kept in the
-Store, before anything is delivered, so a restart neither repeats messages nor floods the user with
-old ones. The connection is reopened when the email settings change, and kept closed while
-nothing wants new mail.
+One IMAP connection per watched account waits in IDLE, so the server tells it about new mail. New
+messages are announced on the account's alerts channel and, for the default account, handed to the
+mail jobs. The last UID seen is kept in the Store per account, before anything is delivered, so a
+restart neither repeats messages nor floods the user with old ones. Connections are reopened when
+the accounts change, and kept closed while nothing wants new mail.
 """
 
 import asyncio
@@ -44,29 +45,34 @@ class MailWatcher:
 
     async def run(self, stop: asyncio.Event) -> None:
         while not stop.is_set():
-            config = await self._wanted()
-            watching = asyncio.create_task(self._watch(config)) if config else None
+            configs = await self._wanted()
+            watching = [asyncio.create_task(self._watch(c)) for c in configs]
             try:
-                await _first(stop.wait(), self._until_changed(config))
+                await _first(stop.wait(), self._until_changed(configs))
             finally:
-                if watching is not None:
-                    watching.cancel()
+                for task in watching:
+                    task.cancel()
+                for task in watching:
                     with contextlib.suppress(asyncio.CancelledError):
-                        await watching
+                        await task
 
-    async def _wanted(self) -> EmailConfig | None:
-        """The email settings, when reading works and alerts or a mail job want new mail."""
-        config = await email.load(self._service.store)
-        if not config.can_read:
-            return None
-        if config.new_mail_alerts or await self._mail_jobs():
-            return config
-        return None
+    async def _wanted(self) -> list[EmailConfig]:
+        """The accounts to watch, with their passwords: those that can read mail and have alerts on,
+        and the default one while mail jobs exist."""
+        mail_jobs = bool(await self._mail_jobs())
+        wanted = []
+        for listed in await email.list_accounts(self._service.store):
+            if listed.can_read and (listed.new_mail_alerts or (listed.default and mail_jobs)):
+                try:
+                    wanted.append(await email.load(self._service.store, self._service.secrets, listed.account_id))
+                except EmailError as e:
+                    logger.warning("Not watching %s for new mail: %s", listed.label, e)
+        return wanted
 
-    async def _until_changed(self, current: EmailConfig | None) -> None:
-        """Returns when the settings change what or how to watch."""
+    async def _until_changed(self, current: list[EmailConfig]) -> None:
+        """Returns when the accounts change what or how to watch."""
         async for event in self._service.bus.subscribe(self._service.bus.last_id):
-            if event.kind in _CHANGES and _connection(await self._wanted()) != _connection(current):
+            if event.kind in _CHANGES and _connections(await self._wanted()) != _connections(current):
                 return
 
     async def _watch(self, config: EmailConfig) -> None:
@@ -81,7 +87,7 @@ class MailWatcher:
 
     async def _session(self, config: EmailConfig) -> None:
         async with imap.open_mailbox(config) as mailbox:
-            logger.info("Watching %s for new mail.", config.imap_host)
+            logger.info("Watching %s (%s) for new mail.", config.label, config.imap_host)
             last = await self._last_seen(config, mailbox)
             while True:
                 last = await self._check(config, mailbox, last)
@@ -93,18 +99,22 @@ class MailWatcher:
             return last
         mails = await mailbox.summaries(new)
         await self._save_last_seen(config, mailbox, max(new))
-        await self._deliver(mails)
+        await self._deliver(config.account_id, mails)
         return max(new)
 
-    async def _deliver(self, mails: list[MailSummary]) -> None:
-        config = await email.load(self._service.store)
+    async def _deliver(self, account_id: str, mails: list[MailSummary]) -> None:
+        """Reads the account again, so a changed alerts channel or default applies right away."""
+        config = await email.get(self._service.store, account_id)
+        if config is None:
+            return
         if config.new_mail_alerts:
-            await self._alert(config.new_mail_alerts, mails)
-        for job in await self._mail_jobs():
-            await self._scheduler.run_for_mail(job, mails)
+            await self._alert(config.new_mail_alerts, config.label, mails)
+        if config.default:
+            for job in await self._mail_jobs():
+                await self._scheduler.run_for_mail(job, mails)
 
-    async def _alert(self, channel: str, mails: list[MailSummary]) -> None:
-        text = _alert_text(mails)
+    async def _alert(self, channel: str, label: str, mails: list[MailSummary]) -> None:
+        text = _alert_text(mails, label)
         try:
             await self._service.outbox.send(channel, text)
         except DeliveryError as e:
@@ -130,21 +140,19 @@ class MailWatcher:
         await self._service.store.aput(_NAMESPACE, _account(config), value)
 
 
-def _alert_text(mails: list[MailSummary]) -> str:
+def _alert_text(mails: list[MailSummary], label: str) -> str:
     lines = [f"• {m.sender}: {m.subject or '(no subject)'}" for m in mails]
     heading = "📧 New email" if len(mails) == 1 else f"📧 {len(mails)} new emails"
-    return strip_hidden("\n".join([heading, *lines]))
+    return strip_hidden("\n".join([f"{heading} in {label}", *lines]))
 
 
 def _account(config: EmailConfig) -> str:
     return f"{config.username}@{config.imap_host}"
 
 
-def _connection(config: EmailConfig | None) -> tuple | None:
-    """What a change to needs a new connection. None: nothing to watch."""
-    if config is None:
-        return None
-    return config.imap_host, config.imap_port, config.username, config.password
+def _connections(configs: list[EmailConfig]) -> set[tuple]:
+    """What a change to needs new connections."""
+    return {(c.account_id, c.imap_host, c.imap_port, c.username, c.password) for c in configs}
 
 
 async def _first(*waits) -> None:

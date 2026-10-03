@@ -8,6 +8,9 @@ class Settings(BaseSettings):
 
     # Everything the daemon keeps lives under ~/.lo9i.
     database_path: str = "~/.lo9i/lo9i.db"
+    # Encrypts the accounts' passwords and tokens in the database (core/secret_store.py). Kept apart
+    # from it, so a copy of the database alone reveals none of them.
+    secrets_key_path: str = "~/.lo9i/keys/secrets.key"
 
     # The daemon listens on this Unix socket and on 127.0.0.1:DAEMON_PORT.
     daemon_socket: str = "~/.lo9i/daemon.sock"

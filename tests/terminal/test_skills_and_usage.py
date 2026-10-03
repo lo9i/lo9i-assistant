@@ -90,3 +90,33 @@ async def test_skills_are_edited_but_built_in_ones_only_read(app, client):
         dialog.query_one("#save", Button).press()
         await wait_for(pilot, lambda: app.screen is screen and "Send it on Telegram" in body())
         assert client.skills.items["news-digest"].description == "Morning news"
+
+
+async def test_skills_are_installed_from_a_repository_and_updated(app, client):
+    from textual.widgets import Input, SelectionList
+
+    from assistant_terminal.tui.screens.skill_install import SkillInstallScreen
+
+    async with app.run_test(size=(120, 44)) as pilot:
+        screen = await _open(pilot, app, "/skills", SkillsScreen)
+        screen.query_one("#install", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, SkillInstallScreen))
+        install = app.screen
+        install.query_one("#skill-install-url", Input).value = "file:///tmp/x"
+        install.query_one("#browse", Button).press()
+        await wait_for(pilot, lambda: "https://" in install.query_one("#skill-install-message", Markdown).source)
+        install.query_one("#skill-install-url", Input).value = "https://example.com/skills"
+        install.query_one("#browse", Button).press()
+        found = install.query_one("#skill-install-found", SelectionList)
+        await wait_for(pilot, lambda: found.option_count == 1 and list(found.selected) == ["expenses"])
+        install.query_one("#install", Button).press()
+        await wait_for(pilot, lambda: app.screen is screen and "expenses" in client.skills.items)
+
+        def body() -> str:
+            return screen.query_one("#skill-body", Markdown).source
+
+        await wait_for(
+            pilot, lambda: "`scripts/add.py`" in body() and "Installed from** https://example.com/skills" in body()
+        )
+        screen.query_one("#update", Button).press()
+        await wait_for(pilot, lambda: getattr(client.skills, "updated", None) == "expenses")

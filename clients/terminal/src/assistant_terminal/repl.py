@@ -138,12 +138,14 @@ class Repl:
         print(f"Start at boot is {'on' if status.enabled else 'off'}. Change it in the full-screen app with /startup.")
 
     async def _email(self, _: str) -> None:
-        status = await self._service.email.status()
-        if status.connected:
-            allowed = ", ".join(status.allowed_recipients) or "(only you)"
-            print(f"Email: {status.sender} via {status.host}:{status.port}. Allowed: {allowed}")
-        else:
-            print("Email isn't connected. Set it up in the full-screen app with /email.")
+        accounts = await self._service.email.accounts()
+        if not accounts:
+            print("No email account is connected. Set one up in the full-screen app with /email.")
+        for account in accounts:
+            default = " (default)" if account.default else ""
+            allowed = ", ".join(account.allowed_recipients) or "(only itself)"
+            server = f"{account.host}:{account.port}"
+            print(f"Email: {account.label} <{account.sender}>{default} via {server}. Allowed: {allowed}")
 
     async def _mcp(self, _: str) -> None:
         servers = await self._service.mcp.servers()

@@ -97,3 +97,24 @@ async def test_the_choice_survives_a_restart_and_reset_goes_back_to_env(service,
         assert (status.source, status.provider, status.base_url) == ("app", "openai", "http://localhost:11434/v1")
         status = await restarted.reset_model()
         assert (status.source, status.provider) == ("env", settings.provider)
+
+
+async def test_the_key_is_kept_encrypted_apart_from_the_settings(service, checked):
+    await service.set_model("anthropic", "sk-secret", "", "claude-opus-5-5", "claude-sonnet-5-5")
+    record = await service.store.aget(("settings",), "model")
+    secret = await service.store.aget(("secrets",), "model:api_key")
+    assert record is not None and record.value["api_key"] == ""
+    assert secret is not None and "sk-secret" not in str(secret.value)
+    await service.reset_model()
+    assert await service.store.aget(("secrets",), "model:api_key") is None
+
+
+async def test_a_key_saved_in_plain_text_before_moves_into_the_secret_store(service):
+    from assistant.core.llm import choice
+
+    old = {"provider": "openai", "api_key": "sk-old", "base_url": "", "model": "m", "worker_model": "w"}
+    await service.store.aput(("settings",), "model", old)
+    await choice.migrate(service.store, service.secrets)
+    record = await service.store.aget(("settings",), "model")
+    assert record is not None and record.value["api_key"] == ""
+    assert (await choice.current(service.store, service.secrets)).api_key == "sk-old"

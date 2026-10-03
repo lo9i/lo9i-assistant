@@ -2,6 +2,7 @@ import asyncio
 from collections import defaultdict
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from assistant.core import observability
 from assistant.core.agent.archive import ArchiveMixin
@@ -24,10 +25,12 @@ from assistant.core.agent.usage import UsageMixin
 from assistant.core.approvals import RemoteApprovals
 from assistant.core.bus import EventBus
 from assistant.core.config import settings
+from assistant.core.integrations import email
 from assistant.core.llm import choice
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.mcp.hub import McpHub
 from assistant.core.outbox import Outbox
+from assistant.core.secret_store import SecretBox
 from assistant.core.speech.kokoro import KokoroSynthesizer
 from assistant.core.speech.whisper import FasterWhisperTranscriber
 from assistant.core.storage import Storage, open_storage
@@ -52,8 +55,9 @@ class AssistantService(
     RunsMixin,
     LockingMixin,
 ):
-    def __init__(self, storage: Storage, model: ModelChoice, bus: EventBus):
+    def __init__(self, storage: Storage, model: ModelChoice, bus: EventBus, secrets: SecretBox):
         self._storage = storage
+        self.secrets = secrets
         self.bus = bus
         self.outbox = Outbox()
         self.approvals = RemoteApprovals()
@@ -77,7 +81,10 @@ class AssistantService(
         observability.init_tracing()
         try:
             bus = EventBus()
+            secrets = await asyncio.to_thread(SecretBox.open, Path(settings.secrets_key_path).expanduser())
             async with open_storage(settings.database_path, bus) as storage:
-                yield cls(storage, await choice.current(storage.store), bus)
+                await email.migrate(storage.store, secrets)
+                await choice.migrate(storage.store, secrets)
+                yield cls(storage, await choice.current(storage.store, secrets), bus, secrets)
         finally:
             observability.flush()

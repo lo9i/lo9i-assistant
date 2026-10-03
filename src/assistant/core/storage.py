@@ -23,6 +23,8 @@ _CHANGE_EVENTS = {
     "facts": "memory",
     "episodes": "memory",
     "integrations": "integrations",
+    # Connected accounts (core/accounts.py) are integrations' settings too.
+    "accounts": "integrations",
     "jobs": "jobs",
     "threads": "threads",
     "settings": "settings",

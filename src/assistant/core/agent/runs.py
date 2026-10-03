@@ -94,6 +94,7 @@ class RunsMixin(LockingMixin):
             channel=session.channel,
             bus=self.bus,
             outbox=self.outbox,
+            secrets=self.secrets,
             forwards_approvals=self.approvals.available,
         )
         async for mode, data in self._graph.astream(

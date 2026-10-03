@@ -11,8 +11,8 @@ from assistant.core.agent import (
     ConversationError,
     Device,
     DeviceError,
+    EmailAccount,
     EmailError,
-    EmailStatus,
     InvalidNameError,
     InvalidTokenError,
     Job,
@@ -36,7 +36,7 @@ from assistant.core.agent import (
     TelegramStatus,
     UsageReport,
 )
-from assistant.core.agent.skills import SkillSummary
+from assistant.core.agent.skills import FoundSkill, SkillSummary
 from assistant.core.events import ApprovalRequired, Done, TextDelta, ToolFinished, ToolStarted, Transcribed
 from assistant.core.integrations.email_providers import PROVIDERS
 from assistant.core.llm.choice import PROVIDERS as PROVIDERS_FOR_MODEL
@@ -71,6 +71,21 @@ class FakeSkills:
 
     async def delete(self, name):
         self.items.pop(name)
+
+    async def browse(self, url):
+        if not url.startswith("https://"):
+            raise SkillError("Give the repository's https:// address.")
+        return [FoundSkill("expenses", "Track expenses", ["scripts/add.py"])]
+
+    async def install(self, url, names):
+        self.items.update(
+            {n: Skill(n, "Track expenses", "Run scripts/add.py", files=["scripts/add.py"], source=url) for n in names}
+        )
+        return [self.items[n] for n in names]
+
+    async def update_installed(self, name):
+        self.updated = name
+        return self.items[name]
 
 
 class FakeMemory:
@@ -136,34 +151,53 @@ class FakeSlack:
 
 class FakeEmail:
     def __init__(self):
-        self.state = EmailStatus(False, "", 587, "", "", [], "", 993, "")
+        self.accounts_by_id: dict[str, EmailAccount] = {}
         self.connected_with = None
 
     async def providers(self):
         return list(PROVIDERS)
 
-    async def status(self):
-        return self.state
+    async def accounts(self):
+        return sorted(self.accounts_by_id.values(), key=lambda a: not a.default)
 
-    async def connect(self, host, port, username, password, sender, imap_host="", imap_port=993):
-        self.connected_with = (host, port, username, password, sender, imap_host)
+    async def add(self, label, host, port, username, password, sender, imap_host="", imap_port=993):
+        self.connected_with = (label, host, port, username, password, sender, imap_host)
         if password != "right":
             raise EmailError("Couldn't log in: bad password")
-        self.state = EmailStatus(True, host, port, username, sender, [], imap_host, imap_port, "")
-        return self.state
+        account_id = f"a{len(self.accounts_by_id) + 1}"
+        default = not self.accounts_by_id
+        self.accounts_by_id[account_id] = EmailAccount(
+            account_id, label or sender, default, "ok", "", host, port, username, sender, [], imap_host, imap_port, ""
+        )
+        return self.accounts_by_id[account_id]
 
-    async def set_new_mail_alerts(self, channel):
-        if channel and not self.state.imap_host:
+    async def update(self, account_id, label, host, port, username, password, sender, imap_host="", imap_port=993):
+        self.connected_with = (label, host, port, username, password, sender, imap_host)
+        account = self.accounts_by_id[account_id]
+        account.label, account.host, account.sender, account.status = label or sender, host, sender, "ok"
+        return account
+
+    async def make_default(self, account_id):
+        for account in self.accounts_by_id.values():
+            account.default = account.id == account_id
+        return self.accounts_by_id[account_id]
+
+    async def set_new_mail_alerts(self, account_id, channel):
+        account = self.accounts_by_id[account_id]
+        if channel and not account.imap_host:
             raise EmailError("Set up reading mail first.")
-        self.state.new_mail_alerts = channel
-        return self.state
+        account.new_mail_alerts = channel
+        return account
 
-    async def set_recipients(self, addresses):
-        self.state.allowed_recipients = sorted(a.strip() for a in addresses if a.strip())
-        return self.state
+    async def set_recipients(self, account_id, addresses):
+        account = self.accounts_by_id[account_id]
+        account.allowed_recipients = sorted(a.strip() for a in addresses if a.strip())
+        return account
 
-    async def disconnect(self):
-        self.state = EmailStatus(False, "", 587, "", "", [], "", 993, "")
+    async def remove(self, account_id):
+        removed = self.accounts_by_id.pop(account_id)
+        if removed.default and self.accounts_by_id:
+            next(iter(self.accounts_by_id.values())).default = True
 
 
 class FakeSpeech:

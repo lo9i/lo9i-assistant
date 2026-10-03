@@ -15,6 +15,16 @@ def _body(screen) -> str:
     return screen.query_one("#email-body", Markdown).source
 
 
+async def _add_gmail(pilot, screen, address: str, label: str = "") -> None:
+    screen.query_one("#email-provider", Select).value = "gmail"
+    await wait_for(pilot, lambda: screen.query_one("#email-address").display)
+    screen.query_one("#email-label", Input).value = label
+    screen.query_one("#email-address", Input).value = address
+    screen.query_one("#email-password", Input).value = "right"
+    screen.query_one("#connect", Button).press()
+    await wait_for(pilot, lambda: f"<{address}>" in _body(screen))
+
+
 async def test_a_provider_needs_only_the_address_and_password(app, client):
     async with app.run_test(size=(110, 44)) as pilot:
         screen = await _open(pilot, app)
@@ -22,11 +32,9 @@ async def test_a_provider_needs_only_the_address_and_password(app, client):
         await wait_for(pilot, lambda: screen.query_one("#email-address").display)
         assert not screen.query_one("#email-host").display
         assert "myaccount.google.com/apppasswords" in screen.query_one("#email-help", Markdown).source
-        screen.query_one("#email-address", Input).value = "me@gmail.com"
-        screen.query_one("#email-password", Input).value = "right"
-        screen.query_one("#connect", Button).press()
-        await wait_for(pilot, lambda: "Email: me@gmail.com" in _body(screen))
+        await _add_gmail(pilot, screen, "me@gmail.com", "Personal")
         assert client.email.connected_with == (
+            "Personal",
             "smtp.gmail.com",
             587,
             "me@gmail.com",
@@ -34,6 +42,7 @@ async def test_a_provider_needs_only_the_address_and_password(app, client):
             "me@gmail.com",
             "imap.gmail.com",
         )
+        assert "Email: Personal <me@gmail.com> · default" in _body(screen)
 
 
 async def test_microsoft_explains_it_cant_connect_yet(app, client):
@@ -73,10 +82,23 @@ async def test_new_mail_alerts_are_chosen_once_mail_can_be_read(app, client):
         screen.query_one("#email-provider", Select).value = "gmail"
         await wait_for(pilot, lambda: screen.query_one("#email-address").display)
         assert not screen.query_one("#email-alerts").display
-        screen.query_one("#email-address", Input).value = "me@gmail.com"
-        screen.query_one("#email-password", Input).value = "right"
-        screen.query_one("#connect", Button).press()
-        await wait_for(pilot, lambda: "Reads mail from: imap.gmail.com" in _body(screen))
+        await _add_gmail(pilot, screen, "me@gmail.com")
+        assert "Reads mail from: imap.gmail.com" in _body(screen)
         assert screen.query_one("#email-alerts").display
         screen.query_one("#email-alerts", Select).value = "telegram"
-        await wait_for(pilot, lambda: client.email.state.new_mail_alerts == "telegram")
+        await wait_for(pilot, lambda: client.email.accounts_by_id["a1"].new_mail_alerts == "telegram")
+
+
+async def test_a_second_account_can_become_the_default_and_be_removed(app, client):
+    async with app.run_test(size=(110, 44)) as pilot:
+        screen = await _open(pilot, app)
+        await _add_gmail(pilot, screen, "me@gmail.com", "Personal")
+        screen.query_one("#email-account", Select).value = "new"
+        await wait_for(pilot, lambda: "Add an email account" in _body(screen))
+        await _add_gmail(pilot, screen, "me@work.com", "Work")
+        assert screen.query_one("#default").display
+        screen.query_one("#default", Button).press()
+        await wait_for(pilot, lambda: "Work <me@work.com> · default" in _body(screen))
+        screen.query_one("#remove", Button).press()
+        await wait_for(pilot, lambda: "Personal <me@gmail.com> · default" in _body(screen))
+        assert list(client.email.accounts_by_id) == ["a1"]

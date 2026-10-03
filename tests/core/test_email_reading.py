@@ -129,7 +129,7 @@ async def reading(service, monkeypatch):
     monkeypatch.setattr(imap, "open_mailbox", open_mailbox)
     monkeypatch.setattr(imap, "verify", verify)
     monkeypatch.setattr(email, "verify", verify)
-    await service.connect_email("smtp.test", 587, "me", "pw", "me@test.com", "imap.test", 993)
+    await service.add_email_account("", "smtp.test", 587, "me", "pw", "me@test.com", "imap.test", 993)
     return mailbox
 
 
@@ -157,23 +157,16 @@ async def test_tools_point_to_setup_when_reading_isnt_set_up(service, script):
     assert "Reading email isn't set up" in await _tool(service, script, "search_email")
 
 
-async def test_settings_saved_before_reading_existed_get_the_providers_imap_server(service):
-    old = {"host": "smtp.gmail.com", "port": 587, "username": "me", "password": "pw", "sender": "me@gmail.com"}
-    await service.store.aput(("integrations",), "email", old)
-    status = await service.email_status()
-    assert (status.imap_host, status.imap_port) == ("imap.gmail.com", 993)
-
-
 async def test_new_mail_alerts_need_reading_and_a_known_channel(service, monkeypatch):
     async def verify(config):
         pass
 
     monkeypatch.setattr(email, "verify", verify)
-    await service.connect_email("smtp.test", 587, "me", "pw", "me@test.com")
+    account = await service.add_email_account("", "smtp.test", 587, "me", "pw", "me@test.com")
     with pytest.raises(EmailError, match="reading mail first"):
-        await service.set_new_mail_alerts("telegram")
+        await service.set_new_mail_alerts(account.id, "telegram")
     monkeypatch.setattr(imap, "verify", verify)
-    await service.connect_email("smtp.test", 587, "me", "pw", "me@test.com", "imap.test")
+    await service.update_email_account(account.id, "", "smtp.test", 587, "me", "", "me@test.com", "imap.test")
     with pytest.raises(EmailError):
-        await service.set_new_mail_alerts("fax")
-    assert (await service.set_new_mail_alerts("telegram")).new_mail_alerts == "telegram"
+        await service.set_new_mail_alerts(account.id, "fax")
+    assert (await service.set_new_mail_alerts(account.id, "telegram")).new_mail_alerts == "telegram"

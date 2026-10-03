@@ -43,14 +43,14 @@ class ModelMixin(ServiceBase):
         return list(choice.PROVIDERS)
 
     async def model_status(self) -> ModelStatus:
-        return _status(self._model, await choice.saved(self._storage.store) is not None)
+        return _status(self._model, await choice.saved(self._storage.store, self.secrets) is not None)
 
     async def set_model(self, provider: str, api_key: str, base_url: str, model: str, worker_model: str) -> ModelStatus:
         """Check that both models answer, then save and use them. An empty key keeps the current
         one when the provider stays the same. Raises ModelSettingsError."""
         new = self._new_choice(provider, api_key.strip(), base_url.strip(), model.strip(), worker_model.strip())
         await _check(new)
-        await choice.save(self._storage.store, new)
+        await choice.save(self._storage.store, self.secrets, new)
         self._use_model(new)
         return _status(new, saved=True)
 
