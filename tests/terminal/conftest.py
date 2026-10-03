@@ -21,6 +21,8 @@ from assistant.core.agent import (
     McpServerStatus,
     McpToolInfo,
     MemorySnapshot,
+    ModelSettingsError,
+    ModelStatus,
     PairingCode,
     RunRecord,
     Session,
@@ -29,12 +31,15 @@ from assistant.core.agent import (
     SkillError,
     SlackError,
     SlackStatus,
+    SpeechSettingsError,
+    SpeechStatus,
     TelegramStatus,
     UsageReport,
 )
 from assistant.core.agent.skills import SkillSummary
 from assistant.core.events import ApprovalRequired, Done, TextDelta, ToolFinished, ToolStarted, Transcribed
 from assistant.core.integrations.email_providers import PROVIDERS
+from assistant.core.llm.choice import PROVIDERS as PROVIDERS_FOR_MODEL
 from assistant.core.usage.log import ToolUsage
 from assistant.protocol import ConnectedClient, StartupError, StartupStatus
 from assistant_terminal.history import History
@@ -56,6 +61,12 @@ class FakeSkills:
     async def get(self, name):
         if name not in self.items:
             raise SkillError(f"No skill named {name}.")
+        return self.items[name]
+
+    async def update(self, name, description, instructions):
+        if not description.strip() or not instructions.strip():
+            raise SkillError("A skill needs a description and instructions.")
+        self.items[name] = Skill(name, description, instructions)
         return self.items[name]
 
     async def delete(self, name):
@@ -153,6 +164,59 @@ class FakeEmail:
 
     async def disconnect(self):
         self.state = EmailStatus(False, "", 587, "", "", [], "", 993, "")
+
+
+class FakeSpeech:
+    def __init__(self):
+        from assistant.core.agent.speech import LanguageOption, VoiceOption
+
+        self.state = SpeechStatus(
+            model="small",
+            languages=["es", "en"],
+            decoding="accurate",
+            spoken_replies="off",
+            voice="ef_dora",
+            models=["tiny", "base", "small"],
+            language_options=[LanguageOption("en", "English"), LanguageOption("es", "Spanish")],
+            voice_options=[VoiceOption("ef_dora", "Dora", "Spanish"), VoiceOption("af_heart", "Heart", "English (US)")],
+        )
+
+    async def settings(self):
+        return self.state
+
+    async def change(self, model, languages, decoding=None):
+        if not languages:
+            raise SpeechSettingsError("Choose at least one language from the list.")
+        self.state.model, self.state.languages = model, languages
+        self.state.decoding = decoding or self.state.decoding
+        return self.state
+
+    async def change_replies(self, spoken_replies, voice):
+        self.state.spoken_replies, self.state.voice = spoken_replies, voice or self.state.voice
+        return self.state
+
+
+class FakeModel:
+    def __init__(self):
+        self.state = ModelStatus("env", "anthropic", "", "claude-opus-5-5", "claude-sonnet-5-5", True)
+        self.saved = None
+
+    async def providers(self):
+        return list(PROVIDERS_FOR_MODEL)
+
+    async def status(self):
+        return self.state
+
+    async def set(self, provider, api_key, base_url, model, worker_model):
+        if api_key == "bad":
+            raise ModelSettingsError(f"{model} didn't answer: 401 invalid key")
+        self.saved = (provider, api_key, base_url, model, worker_model)
+        self.state = ModelStatus("app", provider, base_url, model, worker_model, True)
+        return self.state
+
+    async def reset(self):
+        self.state = ModelStatus("env", "anthropic", "", "claude-opus-5-5", "claude-sonnet-5-5", True)
+        return self.state
 
 
 class FakeSystem:
@@ -263,6 +327,9 @@ class FakeConversations:
     async def messages(self, thread_id):
         return self.said.get(thread_id, [])
 
+    async def delete(self, thread_id):
+        self.items = [c for c in self.items if c.thread_id != thread_id]
+
 
 class FakeDevices:
     def __init__(self):
@@ -313,6 +380,8 @@ class FakeClient:
         self.conversations = FakeConversations()
         self.devices = FakeDevices()
         self.mcp = FakeMcp()
+        self.model = FakeModel()
+        self.speech = FakeSpeech()
 
     async def send(self, session, text, attachments=()):
         self.sent.append((text, [(a.name, a.media_type) for a in attachments]))

@@ -14,6 +14,7 @@ from assistant.client.daemon_client.identity import IdentityApi
 from assistant.client.daemon_client.jobs import JobsApi
 from assistant.client.daemon_client.mcp import McpApi
 from assistant.client.daemon_client.memory import MemoryApi
+from assistant.client.daemon_client.model import ModelApi
 from assistant.client.daemon_client.skills import SkillsApi
 from assistant.client.daemon_client.slack import SlackApi
 from assistant.client.daemon_client.speech import SpeechApi
@@ -31,6 +32,7 @@ __all__ = [
     "JobsApi",
     "McpApi",
     "MemoryApi",
+    "ModelApi",
     "SkillsApi",
     "SlackApi",
     "SpeechApi",

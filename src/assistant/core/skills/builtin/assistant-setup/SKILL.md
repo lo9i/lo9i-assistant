@@ -1,6 +1,6 @@
 ---
 name: assistant-setup
-description: How to set up and connect the assistant (email sending, reading and new-mail alerts, Telegram, Slack, MCP servers, audio, start at boot, its name) from the terminal app, the web UI, Telegram or Slack. Use it whenever the user asks how to configure or connect something, or a tool says something isn't set up.
+description: How to set up and connect the assistant (the model and its key, email sending, reading and new-mail alerts, Telegram, Slack, MCP servers, audio, start at boot, its name) from the terminal app, the web UI, Telegram or Slack. Use it whenever the user asks how to configure or connect something, or a tool says something isn't set up.
 ---
 
 Give the user the exact steps below for the channel in the latest turn header (`cli` is the terminal app, `web` the web UI, `telegram` Telegram, `slack` Slack). Quote commands and menu names exactly. If what they ask isn't covered here, say you don't know how rather than guessing; never describe steps as "usually" or "something like".
@@ -8,9 +8,19 @@ Give the user the exact steps below for the channel in the latest turn header (`
 Where things are:
 
 - Terminal app: slash commands typed in the message box. Typing `/` lists them.
-- Web UI: http://127.0.0.1:8765/app/ on the Mac running the assistant. Settings is in the sidebar, with the tabs General and Integrations.
+- Web UI: http://127.0.0.1:8765/app/ in a browser on the computer running the assistant; from other devices, its HTTPS address (`HTTPS_HOST` and `HTTPS_PORT` in its `.env`), after pairing the browser once with a code from `/devices`. Settings is in the sidebar, with the tabs General, Integrations and Audio.
 - Telegram: only chatting, `/new` (start a new conversation) and `/start`. Nothing can be set up from Telegram; send the user to the terminal app or the web UI.
 - Slack: only chatting in the app's DM, and `/new` (start a new conversation). Nothing can be set up from Slack; send the user to the terminal app or the web UI.
+
+## The model (provider and key)
+
+Terminal app: `/model`. Web UI: Settings → General → Model.
+
+1. Choose the provider: Anthropic (an API key from https://console.anthropic.com/settings/keys), GitHub Copilot (a GitHub token of an account with a Copilot subscription; its model ids use dots, like `claude-opus-5.5`), or OpenAI-compatible (OpenAI, or another server such as Ollama, with its URL).
+2. Paste the key. The main and worker models are filled in with suggestions; change them if needed. The worker model writes summaries and titles and can be cheaper.
+3. Choose **Save and test**. Each model is asked to answer once; a wrong key or model id is reported right away and nothing changes.
+
+Saved in the app, the model overrides the one in `.env` and is used from the next message on. **Use .env instead** goes back to `.env`. To change only the models, leave the key empty: the saved key is kept.
 
 ## Email (sending and reading)
 
@@ -79,9 +89,9 @@ Keys are typed only in that dialog, never in the chat. A server is not trusted u
 
 ## Audio (voice messages and spoken replies)
 
-Web UI only: Settings → Audio (or `/audio` in the web chat). The terminal app has no audio settings yet.
+Terminal app: `/audio`. Web UI: Settings → Audio (or `/audio` in the web chat). Both show the same settings; the microphone choice and the Try button for voices are only in the web UI.
 
-- Speech to text: choose the model (bigger is more accurate and slower; a new model downloads with the next voice message) and the languages voice messages are detected as, then Save.
+- Speech to text: choose the model (bigger is more accurate and slower; a new model downloads with the next voice message), the transcription (Accurate weighs 5 candidate sentences; Fast takes the likeliest word each time and is about twice as fast, slightly worse on noisy audio), and the languages voice messages are detected as, then Save. On a slow computer, Fast with `tiny` or `base` answers much sooner.
 - Spoken replies: Off, When I send a voice message, or Always. Choose a voice (each speaks one language) and press Try to hear it. The first spoken reply downloads the voice model (about 115 MB). Replies are spoken in the web chat and sent as Telegram voice notes, not in Slack.
 - Microphone: the input this browser records with. Press the microphone button in the web chat box to record a voice message; it's sent when you press send. Recording needs the web UI on localhost or HTTPS.
 

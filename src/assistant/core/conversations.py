@@ -58,6 +58,10 @@ async def set_title(store: BaseStore, user_id: str, thread_id: str, title: str) 
     return True
 
 
+async def remove(store: BaseStore, user_id: str, thread_id: str) -> None:
+    await store.adelete(namespace(user_id), thread_id)
+
+
 async def mark_archived(store: BaseStore, user_id: str, thread_id: str, upto: int) -> None:
     """Messages before `upto` are summarized into memory. Nothing to mark for an unlisted conversation."""
     conversation = await load(store, user_id, thread_id)

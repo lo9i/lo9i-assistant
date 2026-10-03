@@ -33,3 +33,5 @@ class ServiceBase:
     # Conversation records are read, changed and saved by turns, titling and archiving, which
     # run concurrently; each change holds this, so none saves over another's.
     _conversations_lock: asyncio.Lock
+    # The task running each thread's graph, while it runs (core/agent/runs.py).
+    _active_runs: dict[str, asyncio.Task]

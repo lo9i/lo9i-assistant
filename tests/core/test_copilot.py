@@ -8,8 +8,8 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from pydantic import BaseModel
 
-from assistant.core.config import settings
 from assistant.core.llm import build_structured, copilot
+from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.copilot import CopilotAuthError, CopilotTokens
 
 _EXCHANGE = "https://api.github.com/copilot_internal/v2/token"
@@ -115,13 +115,13 @@ async def test_structured_answers_come_through_a_tool_call_on_copilot(monkeypatc
             ],
         }
     )
-    monkeypatch.setattr(settings, "provider", "copilot")
     real = copilot.chat_model
     transport = httpx.MockTransport(fake.handler)
     monkeypatch.setattr(
         copilot, "chat_model", lambda model, token, max_tokens: real(model, "gh-right", 1000, transport)
     )
-    answer = await build_structured("claude-opus-5.5", Title).ainvoke([HumanMessage("Title this")])
+    model = ModelChoice("copilot", "gh-right", "", "claude-opus-5.5", "claude-sonnet-5.5")
+    answer = await build_structured(model, "claude-opus-5.5", Title).ainvoke([HumanMessage("Title this")])
     assert answer == Title(title="Rome")
     body = json.loads(fake.requests[0].content)
     assert body["tool_choice"] == "auto" and "response_format" not in body

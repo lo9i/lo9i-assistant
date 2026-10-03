@@ -27,3 +27,25 @@ async def test_arrows_and_clicks_show_a_conversation_and_enter_resumes(app, clie
         await pilot.press("up", "enter")
         await wait_for(pilot, lambda: app.sub_title == "owner:b")
         assert client.active_thread == "owner:b"
+
+
+async def test_delete_asks_first_and_isnt_offered_for_the_current_one(app, client):
+    from textual.widgets import Button
+
+    from assistant_terminal.tui.screens import ConfirmScreen
+
+    async with app.run_test() as pilot:
+        current = app.sub_title
+        client.conversations.items = [Conversation(t, t, _AT, _AT) for t in (current, "owner:old")]
+        await pilot.click("#prompt")
+        await pilot.press(*"/conversations", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
+        screen = app.screen
+        delete = screen.query_one("#delete", Button)
+        await wait_for(pilot, lambda: screen.query_one(OptionList).highlighted == 0 and delete.disabled)
+        await pilot.press("down")
+        await wait_for(pilot, lambda: not delete.disabled)
+        delete.press()
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: [c.thread_id for c in client.conversations.items] == [current])

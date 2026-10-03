@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from assistant.core.conversation import prompts
 from assistant.core.llm import build_structured
+from assistant.core.llm.choice import ModelChoice
 from assistant.core.memory.facts import Fact
 from assistant.core.memory.facts import render as render_facts
 from assistant.core.memory.profile import Profile
@@ -40,8 +41,8 @@ Digester = Callable[[DigestInput], Awaitable[EpochDigest]]
 _PROMPT = prompts.load("digest")
 
 
-def build_digester(model: str) -> Digester:
-    llm = build_structured(model, EpochDigest)
+def build_digester(choice: ModelChoice) -> Digester:
+    llm = build_structured(choice, choice.worker_model, EpochDigest)
 
     async def _digest(data: DigestInput) -> EpochDigest:
         return EpochDigest.model_validate(await llm.ainvoke([HumanMessage(_prompt(data))]))

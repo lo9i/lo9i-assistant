@@ -23,9 +23,6 @@ _CANCELLED_TOOL = "[cancelled by the user before it finished]"
 class RunsMixin(LockingMixin):
     """Executes one graph run and translates it into events. A run can be cancelled."""
 
-    # The task running each thread's graph, while it runs.
-    _active_runs: dict[str, asyncio.Task]
-
     async def cancel(self, thread_id: str) -> bool:
         """Stop the conversation's run in progress; its events end with Cancelled. Returns
         whether a run was in progress."""

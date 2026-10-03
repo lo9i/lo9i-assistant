@@ -8,6 +8,7 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from assistant.core.conversation import prompts
 from assistant.core.conversation.display import shown
 from assistant.core.llm import build_llm
+from assistant.core.llm.choice import ModelChoice
 
 Titler = Callable[[str], Awaitable[str]]
 
@@ -16,8 +17,8 @@ _PROMPT = prompts.load("title")
 _HALF = 4000
 
 
-def build_titler(model: str) -> Titler:
-    llm = build_llm(model)
+def build_titler(choice: ModelChoice) -> Titler:
+    llm = build_llm(choice, choice.worker_model)
 
     async def _title(conversation: str) -> str:
         reply = await llm.ainvoke([HumanMessage(_PROMPT.format(conversation=conversation))])

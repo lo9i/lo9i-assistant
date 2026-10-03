@@ -19,7 +19,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
   - The user registers their own OAuth app once (Google Cloud Console "Desktop app", Microsoft Entra app registration) and pastes its client id: a shared app would need Google's paid review for Gmail scopes.
   - Sign-in through the daemon API (so the web UI can offer it too): open the provider's page in the browser, receive the code on localhost, keep tokens in the Store and refresh them. Google tokens expire after 7 days while the consent screen is in "Testing"; set it to "In production".
   - Reference: Hermes Agent's Google Workspace skill (OAuth with PKCE, token file, automatic refresh).
-- A15. Email attachments: `read_email` lists them by name only. Save them as uploads so the agent can open them, like attachments in chat.
+- A14. Email attachments: `read_email` lists them by name only. Save them as uploads so the agent can open them, like attachments in chat.
 
 ## Daemon
 
@@ -29,15 +29,15 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
   - Bearer tokens for non-browser clients on other hosts (the terminal app over the network). The daemon already accepts `Authorization: Bearer`; no client sends one yet.
 - A4. Scheduled jobs only run while the host is up. If the Linux host is a machine that suspends (a laptop), keep it awake on power or schedule wake-ups (`rtcwake`), so jobs run on time.
 - A5. Spending limits for scheduled jobs (tokens per run and per day).
-- A16. A job run waiting for approval on Telegram doesn't survive a daemon restart: its conversation stays paused and the run is never recorded. On start, resume such runs (the answer can still arrive) or record them as needing attention.
+- A15. A job run waiting for approval on Telegram doesn't survive a daemon restart: its conversation stays paused and the run is never recorded. On start, resume such runs (the answer can still arrive) or record them as needing attention.
 
 ## MCP
 
-- A10. OAuth for remote MCP servers (authorization code with PKCE, and device code for a headless host), through the daemon API so both clients can offer it. Tokens in the Store, refreshed automatically; a server whose refresh fails waits for the user to sign in again.
-- A11. Requests from MCP servers: elicitation (a form for the user, through the approval surface on every channel) and sampling (the server asks the model for text; rate-limited, with a token cap). Both are refused today.
-- A12. MCP resources and prompts: per-server `list_resources`, `read_resource`, `list_prompts`, `get_prompt` tools, added only when the server supports them and the user turns them on.
-- A13. Images and audio in MCP tool results. They show as a placeholder today; save them as uploads and let `hydrate` load them in tool messages too.
-- A14. MCP startup: start a server on its first call from a cached tool list (for servers that use a lot of memory), and limit how many connect at once when the daemon starts.
+- A9. OAuth for remote MCP servers (authorization code with PKCE, and device code for a headless host), through the daemon API so both clients can offer it. Tokens in the Store, refreshed automatically; a server whose refresh fails waits for the user to sign in again.
+- A10. Requests from MCP servers: elicitation (a form for the user, through the approval surface on every channel) and sampling (the server asks the model for text; rate-limited, with a token cap). Both are refused today.
+- A11. MCP resources and prompts: per-server `list_resources`, `read_resource`, `list_prompts`, `get_prompt` tools, added only when the server supports them and the user turns them on.
+- A12. Images and audio in MCP tool results. They show as a placeholder today; save them as uploads and let `hydrate` load them in tool messages too.
+- A13. MCP startup: start a server on its first call from a cached tool list (for servers that use a lot of memory), and limit how many connect at once when the daemon starts.
 
 ## Memory
 
@@ -61,7 +61,6 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
   - Tool calls are logged by the model's call id, so a retried call returns the first result.
   - Needs an OpenAI key in addition to the Anthropic key. Not needed for Telegram voice notes.
 - A8. Spoken replies in Slack. Settings → Audio speaks replies in the web chat and as Telegram voice notes; Slack doesn't get them yet (upload the audio with `files.uploadV2`).
-- A9. Audio settings in the terminal app. Speech to text and spoken replies are set from the web UI (Settings → Audio, `PUT /settings/speech`); the terminal app has no screen for them.
 
 ## Open questions and risks
 

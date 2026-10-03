@@ -22,11 +22,16 @@ class Settings(BaseSettings):
     https_cert: str = ""
     https_key: str = ""
 
-    # Model settings. MODEL and WORKER_MODEL must be ids from the chosen provider.
-    # The worker gets its own model so it can run cheaper.
-    # copilot: Claude and other models through a GitHub Copilot subscription (core/copilot.py),
-    # with COPILOT_GITHUB_TOKEN. Model ids are Copilot's, e.g. claude-opus-4.7.
+    # Model settings, used until the provider is set in the app (Settings → Model, /model), which
+    # then overrides them (core/llm/choice.py). MODEL and WORKER_MODEL must be ids from the chosen
+    # provider; the worker gets its own model so it can run cheaper.
+    # copilot: Claude and other models through a GitHub Copilot subscription (core/llm/copilot.py),
+    # with COPILOT_GITHUB_TOKEN. Model ids are Copilot's, e.g. claude-opus-5.5.
     provider: Literal["anthropic", "openai", "copilot"] = "anthropic"
+    anthropic_api_key: str = ""
+    openai_api_key: str = ""
+    # Empty for OpenAI itself; another OpenAI-compatible server (Ollama: http://localhost:11434/v1).
+    openai_base_url: str = ""
     copilot_github_token: str = ""
     model: str = "claude-opus-5-5"
     worker_model: str = "claude-opus-5-5"
@@ -59,6 +64,9 @@ class Settings(BaseSettings):
     # Models: tiny, base, small, medium, large-v3-turbo. Downloaded on first use.
     stt_model: str = "small"
     stt_languages: list[str] = ["es", "en"]
+    # accurate: beam search over 5 candidates. fast: one candidate (greedy), about twice as fast
+    # on a slow CPU, slightly worse on noisy or unclear audio.
+    stt_decoding: Literal["accurate", "fast"] = "accurate"
     stt_models_dir: str = "~/.lo9i/models"
 
     # Single-user setup: every gateway maps to this user id.

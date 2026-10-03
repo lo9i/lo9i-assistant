@@ -44,6 +44,10 @@ class ClientRegistry:
         if client.id and not self._connected(client.id):
             self._left_later(self._threads.pop(client.id, None))
 
+    def on(self, thread_id: str) -> list[str]:
+        """The ids of the clients on this conversation."""
+        return [client_id for client_id, on in self._threads.items() if on == thread_id]
+
     def list(self) -> list[ConnectedClient]:
         clients = [replace(c, thread_id=self._threads.get(c.id, "")) for c in self._clients.values()]
         return sorted(clients, key=lambda c: c.connected_at)

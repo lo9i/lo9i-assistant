@@ -26,6 +26,7 @@ from assistant.core.conversation.epochs import (
     usage_anchor,
 )
 from assistant.core.llm import build_llm
+from assistant.core.llm.choice import ModelChoice
 from assistant.core.storage import Storage
 from assistant.core.tools import tools_for
 
@@ -60,11 +61,11 @@ class McpTools(Protocol):
     def tool(self, name: str) -> BaseTool | None: ...
 
 
-def build_graph(storage: Storage, model: str, digester: Digester, mcp: McpTools) -> Graph:
+def build_graph(storage: Storage, choice: ModelChoice, digester: Digester, mcp: McpTools) -> Graph:
     tools = tools_for(settings.toolsets)
     builder = StateGraph(AgentState, context_schema=Context)
     builder.add_node("epoch", _epoch_node(digester, mcp))
-    builder.add_node("agent", _agent_node(build_llm(model), tools))
+    builder.add_node("agent", _agent_node(build_llm(choice, choice.model), tools))
     builder.add_node("tools", ToolNode(tools, awrap_tool_call=_mcp_calls(mcp)))
     builder.add_edge(START, "epoch")
     builder.add_edge("epoch", "agent")

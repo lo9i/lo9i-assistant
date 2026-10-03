@@ -4,8 +4,8 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 
-from assistant.core.config import settings
 from assistant.core.llm import build_llm
+from assistant.core.llm.choice import ModelChoice
 
 
 def test_anthropic_requests_enable_caching_and_fallbacks(monkeypatch):
@@ -36,19 +36,18 @@ def test_stored_messages_convert_for_anthropic_keeping_the_thinking_signature(mo
 
 def test_stored_messages_convert_for_openai(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test")
-    monkeypatch.setattr(settings, "provider", "openai")
     assistant = _openai()._get_request_payload(_history())["messages"][1]
     assert assistant["tool_calls"][0]["function"]["name"] == "bash"
     assert assistant["content"] == [{"type": "text", "text": "Let me check."}]
 
 
 def _anthropic() -> ChatAnthropic:
-    model = build_llm("claude-opus-5-5")
+    model = build_llm(ModelChoice("anthropic", "", "", "claude-opus-5-5", "claude-opus-5-5"), "claude-opus-5-5")
     assert isinstance(model, ChatAnthropic)
     return model
 
 
 def _openai() -> ChatOpenAI:
-    model = build_llm("gpt-test")
+    model = build_llm(ModelChoice("openai", "", "", "gpt-test", "gpt-test"), "gpt-test")
     assert isinstance(model, ChatOpenAI)
     return model

@@ -27,11 +27,13 @@ from assistant_terminal.tui.live import handlers as live_handlers
 from assistant_terminal.tui.mouse import switch_mouse
 from assistant_terminal.tui.screens import (
     ApprovalScreen,
+    AudioScreen,
     ConversationsScreen,
     DevicesScreen,
     EmailScreen,
     JobsScreen,
     McpScreen,
+    ModelScreen,
     SessionsScreen,
     SkillsScreen,
     SlackScreen,
@@ -93,6 +95,8 @@ class AssistantApp(App):
             "/telegram": self._command_telegram,
             "/slack": self._command_slack,
             "/mcp": self._command_mcp,
+            "/model": self._command_model,
+            "/audio": self._command_audio,
             "/email": self._command_email,
             "/startup": self._command_startup,
             "/skills": self._command_skills,
@@ -464,6 +468,12 @@ class AssistantApp(App):
 
     async def _command_slack(self, _: str) -> None:
         self.push_screen(SlackScreen(self._service.slack))
+
+    async def _command_audio(self, _: str) -> None:
+        self.push_screen(AudioScreen(self._service.speech))
+
+    async def _command_model(self, _: str) -> None:
+        self.push_screen(ModelScreen(self._service.model))
 
     async def _command_mcp(self, _: str) -> None:
         self.push_screen(McpScreen(self._service.mcp))

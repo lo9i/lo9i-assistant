@@ -23,18 +23,18 @@ class FasterWhisperTranscriber:
         self._model_name = ""
         self._lock = asyncio.Lock()
 
-    async def transcribe(self, audio: bytes, model: str, languages: list[str]) -> Transcript:
+    async def transcribe(self, audio: bytes, model: str, languages: list[str], beam_size: int) -> Transcript:
         async with self._lock:
             try:
-                return await asyncio.to_thread(self._transcribe, audio, model, languages)
+                return await asyncio.to_thread(self._transcribe, audio, model, languages, beam_size)
             except Exception as e:
                 raise TranscriptionError(f"Couldn't transcribe the voice message: {e}") from e
 
-    def _transcribe(self, audio: bytes, model_name: str, languages: list[str]) -> Transcript:
+    def _transcribe(self, audio: bytes, model_name: str, languages: list[str], beam_size: int) -> Transcript:
         model = self._load(model_name)
         samples = _mono(audio)
         language = _pick_language(model, samples, languages)
-        segments, info = model.transcribe(samples, language=language, vad_filter=True)
+        segments, info = model.transcribe(samples, language=language, vad_filter=True, beam_size=beam_size)
         text = " ".join(segment.text.strip() for segment in segments).strip()
         return Transcript(text=text, language=language, seconds=round(info.duration, 1))
 

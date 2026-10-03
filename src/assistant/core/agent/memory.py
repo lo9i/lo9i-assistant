@@ -17,5 +17,5 @@ class MemoryMixin(ServiceBase):
             profile={name: items for name, items in current.model_dump().items() if items},
             facts=[f.text for f in await facts.load(store, user_id, settings.memory_max_facts)],
             episodes=[e.summary for e in await episodes.recent(store, user_id, settings.memory_max_episodes)],
-            skills=[s.name for s in await asyncio.to_thread(skills.list_skills)],
+            skills=[s.name for s in await asyncio.to_thread(skills.saved_skills)],
         )

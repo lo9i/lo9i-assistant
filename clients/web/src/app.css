@@ -363,8 +363,11 @@ kbd {
 }
 
 /* Pills */
+/* A short label: never wrapped, and never squeezed by a long neighbor (a title) in a flex row. */
 .pill {
   display: inline-flex;
+  flex: none;
+  white-space: nowrap;
   align-items: center;
   gap: 6px;
   font-size: var(--font-size-xs);

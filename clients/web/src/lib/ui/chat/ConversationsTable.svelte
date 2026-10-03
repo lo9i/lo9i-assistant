@@ -1,5 +1,6 @@
 <script lang="ts">
   import MessagesSquare from "@lucide/svelte/icons/messages-square";
+  import Play from "@lucide/svelte/icons/play";
   import type { Conversation } from "$lib/api/types";
   import { duration } from "$lib/duration";
   import EmptyState from "../EmptyState.svelte";
@@ -13,8 +14,10 @@
     /** The conversation this tab is on. */
     current: string;
     onselect: (threadId: string) => void;
+    /** Continue the conversation in the chat: double-click a row, or its continue button. */
+    oncontinue: (threadId: string) => void;
   };
-  let { conversations, error, selected, current, onselect }: Props = $props();
+  let { conversations, error, selected, current, onselect, oncontinue }: Props = $props();
   let query = $state("");
 
   const shown = $derived(
@@ -35,7 +38,7 @@
   <header class="toolbar">
     <div>
       <h2 class="text-heading">All conversations</h2>
-      <p class="text-meta">Click one to read it on the right.</p>
+      <p class="text-meta">Click one to read it on the right; double-click to continue it.</p>
     </div>
     <SearchField bind:value={query} label="Search conversations" />
   </header>
@@ -46,10 +49,18 @@
       <EmptyState icon={MessagesSquare} title="No conversations yet" text="Send a message below to start one." />
     {:else if conversations}
       <table class="data-table">
-        <thead><tr><th>Title</th><th>Channel</th><th>Started</th><th>Duration</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Title</th><th>Channel</th><th>Started</th><th>Duration</th><th class="continue" aria-label="Continue"></th>
+          </tr>
+        </thead>
         <tbody>
           {#each shown as c (c.thread_id)}
-            <tr class:selected={c.thread_id === selected} onclick={() => onselect(c.thread_id)}>
+            <tr
+              class:selected={c.thread_id === selected}
+              onclick={() => onselect(c.thread_id)}
+              ondblclick={() => oncontinue(c.thread_id)}
+            >
               <td>
                 <button class="title" onclick={(e) => (e.stopPropagation(), onselect(c.thread_id))}>{c.title || "Untitled"}</button>
                 {#if c.thread_id === current}<span class="pill pill--accent">This tab</span>{/if}
@@ -61,9 +72,19 @@
               </td>
               <td class="text-label">{when(c.started_at)}</td>
               <td class="text-label">{duration(c.started_at, c.updated_at)}</td>
+              <td class="continue">
+                <button
+                  class="btn btn--icon"
+                  aria-label="Continue this conversation"
+                  title="Continue this conversation"
+                  onclick={(e) => (e.stopPropagation(), oncontinue(c.thread_id))}
+                >
+                  <Play size={16} />
+                </button>
+              </td>
             </tr>
           {:else}
-            <tr><td colspan="4" class="text-meta">No matches.</td></tr>
+            <tr><td colspan="5" class="text-meta">No matches.</td></tr>
           {/each}
         </tbody>
       </table>
@@ -118,6 +139,10 @@
   }
   .pad {
     padding: 24px;
+  }
+  .continue {
+    width: 1%;
+    text-align: right;
   }
   .channel {
     margin-right: 4px;

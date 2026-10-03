@@ -2,10 +2,11 @@
 
 import shutil
 import subprocess
+from typing import cast
 
 import pytest
 
-from assistant.core.agent import SpeechSettingsError
+from assistant.core.agent import Decoding, SpeechSettingsError
 from assistant.core.attachments import Attachment
 from assistant.core.config import settings
 from assistant.core.events import Transcribed
@@ -19,10 +20,10 @@ VOICE = Attachment("voice.ogg", "audio/ogg", b"fake audio")
 
 class FakeTranscriber:
     def __init__(self) -> None:
-        self.calls: list[tuple[str, list[str]]] = []
+        self.calls: list[tuple[str, list[str], int]] = []
 
-    async def transcribe(self, audio: bytes, model: str, languages: list[str]) -> Transcript:
-        self.calls.append((model, languages))
+    async def transcribe(self, audio: bytes, model: str, languages: list[str], beam_size: int) -> Transcript:
+        self.calls.append((model, languages, beam_size))
         return Transcript(text="hola, recordame el dentista", language="es", seconds=3.2)
 
 
@@ -50,9 +51,22 @@ async def test_voice_messages_use_the_settings_chosen_in_the_app(service, script
         await service.set_speech("base", [])
     status = await service.set_speech("base", ["en", "en", "pt"])
     assert status.languages == ["en", "pt"] and "large-v3-turbo" in status.models
+    assert status.decoding == settings.stt_decoding == "accurate"
     script.reply("ok")
     await collect(service.send(await service.session("owner", "cli"), "", [VOICE]))
-    assert transcriber.calls == [("base", ["en", "pt"])]
+    assert transcriber.calls == [("base", ["en", "pt"], 5)]
+
+
+async def test_fast_transcription_keeps_one_candidate(service, script, monkeypatch):
+    transcriber = FakeTranscriber()
+    monkeypatch.setattr(service, "_transcriber", transcriber)
+    with pytest.raises(SpeechSettingsError, match="Transcription must be one of"):
+        await service.set_speech("tiny", ["es"], cast(Decoding, "fastest"))
+    assert (await service.set_speech("tiny", ["es"], "fast")).decoding == "fast"
+    assert (await service.set_speech("base", ["es"])).decoding == "fast"  # kept when left out
+    script.reply("ok")
+    await collect(service.send(await service.session("owner", "cli"), "", [VOICE]))
+    assert transcriber.calls == [("base", ["es"], 1)]
 
 
 @pytest.mark.live
@@ -64,5 +78,5 @@ async def test_real_transcription_of_spanish(tmp_path):
     subprocess.run(
         ["say", "-v", "Paulina", "-o", str(audio), "Hola, tengo turno con el dentista el viernes."], check=True
     )
-    result = await FasterWhisperTranscriber().transcribe(audio.read_bytes(), "small", ["es", "en"])
+    result = await FasterWhisperTranscriber().transcribe(audio.read_bytes(), "small", ["es", "en"], 5)
     assert result.language == "es" and "dentista" in result.text.lower()

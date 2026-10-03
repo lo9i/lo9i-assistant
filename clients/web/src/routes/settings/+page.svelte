@@ -3,6 +3,7 @@
   import AppearanceCard from "$lib/ui/settings/AppearanceCard.svelte";
   import EmailCard from "$lib/ui/settings/EmailCard.svelte";
   import MicrophoneCard from "$lib/ui/settings/MicrophoneCard.svelte";
+  import ModelCard from "$lib/ui/settings/ModelCard.svelte";
   import NameCard from "$lib/ui/settings/NameCard.svelte";
   import SlackCard from "$lib/ui/settings/SlackCard.svelte";
   import SpeechCard from "$lib/ui/settings/SpeechCard.svelte";
@@ -29,6 +30,7 @@
   </nav>
   {#if tab === "general"}
     <div class="grid">
+      <div class="wide"><ModelCard /></div>
       <NameCard />
       <AppearanceCard />
       <div class="wide"><StartupCard /></div>

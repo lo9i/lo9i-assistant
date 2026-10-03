@@ -29,7 +29,7 @@ It downloads the assistant into `~/lo9i-assistant`, installs uv and the dependen
 
 `scripts/run.sh` builds the web app, then opens the terminal app, which starts the daemon. The daemon keeps running after the terminal app closes. Its log is `~/.lo9i/daemon.log`.
 
-The model provider is set in `.env`:
+The model provider is set in the app (`/model`, or Settings → General → Model), which tests the key before saving, or in `.env`. The app's setting wins:
 
 | Provider | Settings |
 |---|---|
@@ -45,6 +45,7 @@ Everything else is set up from inside the app, not in `.env`. Secrets are typed 
 
 | What | Terminal app | Web app |
 |---|---|---|
+| The model (provider, key, models) | `/model` | Settings → General |
 | Telegram | `/telegram` | Settings → Integrations |
 | Slack | `/slack` | Settings → Integrations |
 | Email (send and read, new-mail alerts) | `/email` | Settings → Integrations |

@@ -16,6 +16,7 @@
   const s = $derived(loaded.data);
   let model = $state("");
   let languages = $state<string[]>([]);
+  let decoding = $state<"accurate" | "fast">("accurate");
   let error = $state("");
 
   // The form starts from the saved settings, and again after they change elsewhere.
@@ -23,10 +24,13 @@
     if (s) {
       model = s.model;
       languages = [...s.languages];
+      decoding = s.decoding;
     }
   });
 
-  const changed = $derived(!!s && (model !== s.model || languages.join() !== s.languages.join()));
+  const changed = $derived(
+    !!s && (model !== s.model || languages.join() !== s.languages.join() || decoding !== s.decoding),
+  );
 
   function toggle(code: string, on: boolean): void {
     languages = on ? [...languages, code] : languages.filter((c) => c !== code);
@@ -34,7 +38,7 @@
 
   async function save(): Promise<void> {
     try {
-      await client.speech.change(model, languages);
+      await client.speech.change(model, languages, decoding);
       error = "";
       notices.notify("Saved. Used from the next voice message.");
     } catch (e) {
@@ -56,6 +60,14 @@
         {/each}
       </select>
       <span class="text-caption">A model is downloaded the first time it's used, so that voice message takes longer.</span>
+    </label>
+    <label class="field">
+      <span class="micro-label">Transcription</span>
+      <select class="input" bind:value={decoding}>
+        <option value="accurate">Accurate: weighs 5 candidate sentences</option>
+        <option value="fast">Fast: takes the likeliest word each time, about twice as fast</option>
+      </select>
+      <span class="text-caption">On a slow computer, Fast with a smaller model answers much sooner. Accurate helps most with noisy or unclear audio.</span>
     </label>
     <fieldset class="field">
       <legend class="micro-label">Languages</legend>
