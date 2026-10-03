@@ -1,5 +1,5 @@
 // Failures of MCP servers and skills (core/health.py), as the pages show them.
-import type { Failing } from "./api/types";
+import type { Failing, SignedOut } from "./api/types";
 import { local } from "./jobs";
 
 export type Health = { failures?: number; failure?: string; failed_at?: string };
@@ -21,4 +21,9 @@ export function localTime(timestamp: string, timezone = Intl.DateTimeFormat().re
 export function failingNotice(event: Failing): string {
   const what = event.area === "mcp" ? "MCP server" : "skill";
   return `The ${what} ${event.name} keeps failing: ${event.error}. It's listed in Alerts.`;
+}
+
+/** The alert for a `signed_out` bus event. */
+export function signedOutNotice(event: SignedOut): string {
+  return `The MCP server ${event.name} needs you to sign in again. It's listed in Alerts.`;
 }

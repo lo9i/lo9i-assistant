@@ -19,6 +19,7 @@ from mcp.shared.exceptions import MCPError
 from mcp.types import CallToolResult, Implementation, TextContent, Tool, ToolListChangedNotification
 
 from assistant.core.health import HealthLog
+from assistant.core.mcp.oauth import McpAuth, SignInNeededError, needs_sign_in
 from assistant.core.mcp.servers import McpServer
 
 logger = logging.getLogger(__name__)
@@ -39,29 +40,30 @@ class ConnectionLostError(Exception):
 
 @dataclass
 class ConnectionState:
-    status: str = "connecting"  # connecting, connected, failed
+    status: str = "connecting"  # connecting, connected, failed, needs_sign_in
     error: str = ""
     tools: list[Tool] = field(default_factory=list)
 
 
-ClientFactory = Callable[[McpServer, MessageHandlerFnT], Client]
+ClientFactory = Callable[[McpServer, MessageHandlerFnT, httpx2.Auth | None], Client]
 
 
-def open_client(server: McpServer, on_message: MessageHandlerFnT) -> Client:
-    """A client for the server's transport. Stdio servers get only a safe baseline of the
-    daemon's environment plus their own env (the SDK's `get_default_environment`)."""
+def open_client(server: McpServer, on_message: MessageHandlerFnT, auth: httpx2.Auth | None = None) -> Client:
+    """A client for the server's transport; `auth` signs a remote server's requests. Stdio servers
+    get only a safe baseline of the daemon's environment plus their own env (the SDK's
+    `get_default_environment`)."""
     target = (
         StdioServerParameters(command=server.command, args=server.args, env=server.env or None)
         if server.command
-        else _http_transport(server)
+        else _http_transport(server, auth)
     )
     return Client(target, message_handler=on_message, client_info=Implementation(name="lo9i", version="1"))
 
 
 @asynccontextmanager
-async def _http_transport(server: McpServer) -> AsyncIterator:
+async def _http_transport(server: McpServer, auth: httpx2.Auth | None) -> AsyncIterator:
     async with (
-        httpx2.AsyncClient(headers=server.headers, timeout=_HTTP_TIMEOUT) as http,
+        httpx2.AsyncClient(headers=server.headers, timeout=_HTTP_TIMEOUT, auth=auth) as http,
         streamable_http_client(server.url, http_client=http) as streams,
     ):
         yield streams
@@ -69,7 +71,9 @@ async def _http_transport(server: McpServer) -> AsyncIterator:
 
 class McpConnection:
     """Records its failures in `health`: failed connection attempts and failed calls. Only a call
-    that works clears them, so a server that connects but breaks on every call still counts as failing."""
+    that works clears them, so a server that connects but breaks on every call still counts as failing.
+    A server that asks to sign in isn't failing: it waits for the user, who signs in from the app. One
+    whose sign-in stopped working is recorded as signed out, which alerts the user."""
 
     def __init__(
         self,
@@ -77,12 +81,14 @@ class McpConnection:
         on_change: Callable[[], None],
         health: HealthLog,
         factory: ClientFactory = open_client,
+        auth: McpAuth | None = None,
     ) -> None:
         self.server = server
         self.state = ConnectionState()
         self._on_change = on_change
         self._health = health
         self._factory = factory
+        self._auth = auth
         self._client: Client | None = None
         self._lost = asyncio.Event()
         self._connected = asyncio.Event()
@@ -97,11 +103,21 @@ class McpConnection:
                 await self._session(stop)
                 delay = _FIRST_RETRY_SECONDS
             except Exception as e:
+                if sign_in := needs_sign_in(e):
+                    await self._wait_for_sign_in(sign_in, stop)
+                    return
                 logger.warning("MCP server %s: %s", self.server.name, describe(e))
                 self._set(ConnectionState("failed", describe(e)))
                 await self._health.failed("mcp", self.server.name, f"Couldn't connect: {describe(e)}")
                 await _wait(stop, delay)
                 delay = min(delay * 2, _MAX_RETRY_SECONDS)
+
+    async def _wait_for_sign_in(self, error: SignInNeededError, stop: asyncio.Event) -> None:
+        """Until stopped: a sign-in restarts the connection (McpHub.restart)."""
+        self._set(ConnectionState("needs_sign_in", str(error)))
+        if error.lost:
+            await self._health.signed_out(self.server.name, str(error))
+        await stop.wait()
 
     async def call(self, tool: str, arguments: dict) -> CallToolResult:
         """Raises MCPError for an error the server reported, NotConnectedError or ConnectionLostError."""
@@ -138,7 +154,8 @@ class McpConnection:
         self._set(ConnectionState("connecting"))
         async with contextlib.AsyncExitStack() as stack:
             async with asyncio.timeout(_CONNECT_SECONDS):
-                client = await stack.enter_async_context(self._factory(self.server, self._message))
+                auth = self._auth.for_connection(self.server) if self._auth else None
+                client = await stack.enter_async_context(self._factory(self.server, self._message, auth))
                 await self._open(client)
             try:
                 await self._serve(client, stop)
@@ -147,6 +164,7 @@ class McpConnection:
 
     async def _open(self, client: Client) -> None:
         tools = await list_tools(client)
+        await self._health.signed_in(self.server.name)
         self._client = client
         self._lost.clear()
         self._connected.set()

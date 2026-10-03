@@ -20,6 +20,7 @@ from assistant.core.agent import (
     InvalidTokenError,
     Job,
     JobError,
+    McpProbe,
     McpServerError,
     McpServerStatus,
     McpToolInfo,
@@ -34,6 +35,8 @@ from assistant.core.agent import (
     ServerField,
     Session,
     ShownMessage,
+    SignedIn,
+    SignInError,
     Skill,
     SkillError,
     SlackError,
@@ -196,9 +199,7 @@ class FakeEmail:
         self.sign_in = (provider, client_id, client_secret, redirect_uri, address, label, account_id)
         return f"https://login.example.com/authorize?state=s1&redirect_uri={redirect_uri}"
 
-    async def finish_sign_in(self, state, code):
-        if state != "s1":
-            raise EmailError("This sign-in has expired or was already used.")
+    def finish_sign_in(self) -> EmailAccount:
         provider, _, _, _, address, label, _ = self.sign_in
         account_id = f"a{len(self.accounts_by_id) + 1}"
         self.accounts_by_id[account_id] = EmailAccount(
@@ -353,7 +354,17 @@ class FakeMcp:
     async def probe(self, server):
         if not server.name:
             raise McpServerError("The name must be 1-24 lowercase letters.")
-        return [McpToolInfo("search", "Search.", True, True), McpToolInfo("delete", "Delete.", False, True)]
+        if server.url:
+            return McpProbe([], sign_in=True)
+        return McpProbe([McpToolInfo("search", "Search.", True, True), McpToolInfo("delete", "Delete.", False, True)])
+
+    async def start_sign_in(self, name, redirect_uri):
+        self.signing_in = (name, redirect_uri)
+        return f"https://auth.example.com/authorize?state=m1&redirect_uri={redirect_uri}"
+
+    def finish_sign_in(self) -> None:
+        name, _ = self.signing_in
+        self.items[name].status, self.items[name].error = "connected", ""
 
     async def add(self, server):
         self.added.append(server)
@@ -514,6 +525,24 @@ class FakeClients:
         return list(self.connected)
 
 
+class FakeOAuth:
+    """The browser coming back with the code, for the email account or MCP server that asked last."""
+
+    def __init__(self, email: FakeEmail, mcp: FakeMcp):
+        self._email = email
+        self._mcp = mcp
+
+    async def finish(self, state, code):
+        if state == "s1":
+            account = self._email.finish_sign_in()
+            return SignedIn("email", account.id, account.sender)
+        if state == "m1":
+            self._mcp.finish_sign_in()
+            name = self._mcp.signing_in[0]
+            return SignedIn("mcp", name, name)
+        raise SignInError("This sign-in has expired or was already used.")
+
+
 class FakeClient:
     """DaemonClient's shape: the conversation on the client, everything else in groups."""
 
@@ -538,6 +567,7 @@ class FakeClient:
         self.devices = FakeDevices()
         self.mcp = FakeMcp()
         self.repositories = FakeRepositories(self.skills, self.mcp)
+        self.oauth = FakeOAuth(self.email, self.mcp)
         self.model = FakeModel()
         self.speech = FakeSpeech()
 

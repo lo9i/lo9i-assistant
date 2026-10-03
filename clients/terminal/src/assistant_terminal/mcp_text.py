@@ -5,7 +5,13 @@ import shlex
 from assistant.core.agent import McpServerStatus, McpToolInfo
 from assistant_terminal.health_text import failures_line, label
 
-_STATUS = {"connected": "connected", "connecting": "connecting…", "failed": "can't connect", "off": "off"}
+_STATUS = {
+    "connected": "connected",
+    "connecting": "connecting…",
+    "failed": "can't connect",
+    "needs_sign_in": "needs you to sign in",
+    "off": "off",
+}
 
 
 def summary(server: McpServerStatus) -> str:

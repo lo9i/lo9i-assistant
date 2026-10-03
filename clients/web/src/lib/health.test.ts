@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { failingNotice, failures } from "./health";
+import { failingNotice, failures, signedOutNotice } from "./health";
 
 describe("failures", () => {
   it("is empty while it works", () => {
@@ -20,6 +20,14 @@ describe("failingNotice", () => {
     );
     expect(failingNotice({ area: "skill", name: "backup", error: "exit code: 1" })).toBe(
       "The skill backup keeps failing: exit code: 1. It's listed in Alerts.",
+    );
+  });
+});
+
+describe("signedOutNotice", () => {
+  it("names the server and where it's listed", () => {
+    expect(signedOutNotice({ name: "linear", error: "linear needs you to sign in again." })).toBe(
+      "The MCP server linear needs you to sign in again. It's listed in Alerts.",
     );
   });
 });

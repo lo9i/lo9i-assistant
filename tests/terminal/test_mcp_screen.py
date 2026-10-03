@@ -1,8 +1,9 @@
-from textual.widgets import Button, Input, Markdown, OptionList, SelectionList, TextArea
+from textual.widgets import Button, Input, Markdown, OptionList, Select, SelectionList, TextArea
 
 from assistant_terminal.mcp_text import describe, parse_command, parse_pairs, selection, summary
 from assistant_terminal.tui.screens import ConfirmScreen, McpScreen
 from assistant_terminal.tui.screens.mcp_add import McpAddScreen
+from assistant_terminal.tui.screens.mcp_sign_in import McpSignInScreen
 from tests.terminal.conftest import _mcp_status, wait_for
 
 
@@ -52,6 +53,40 @@ async def test_adds_a_local_server_after_looking_at_its_tools(app, client):
         added = client.mcp.added[0]
         assert (added.command, added.args) == ("npx", ["-y", "@modelcontextprotocol/server-github"])
         assert added.env == {"GITHUB_TOKEN": "secret"} and added.include == ["search"] and not added.trusted
+
+
+async def test_a_remote_server_that_asks_to_sign_in_is_added_then_signed_in(app, client, monkeypatch):
+    opened: list[str] = []
+    monkeypatch.setattr(
+        "assistant_terminal.tui.screens.mcp_sign_in.webbrowser.open", lambda url: opened.append(url) or False
+    )
+    async with app.run_test(size=(140, 45)) as pilot:
+        screen = await _open(pilot, app)
+        screen.query_one("#add", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, McpAddScreen))
+        dialog = app.screen
+        dialog.query_one("#mcp-kind", Select).value = "remote"
+        dialog.query_one("#mcp-name", Input).value = "linear"
+        dialog.query_one("#mcp-url", Input).value = "https://mcp.linear.app/mcp"
+        dialog.query_one("#probe", Button).press()
+        message = dialog.query_one("#mcp-add-message", Markdown)
+        await wait_for(pilot, lambda: "asks you to sign in" in message.source and dialog.query_one("#add").display)
+        dialog.query_one("#add", Button).press()
+        await wait_for(pilot, lambda: app.screen is screen and "linear" in client.mcp.items)
+        client.mcp.items["linear"].status = "needs_sign_in"
+        await screen.reload()
+        screen.query_one("#mcp-list", OptionList).highlighted = list(client.mcp.items).index("linear")
+        await wait_for(pilot, lambda: screen.query_one("#sign-in").display)
+        screen.query_one("#sign-in", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, McpSignInScreen))
+        sign_in = app.screen
+        body = sign_in.query_one("#mcp-sign-in-body", Markdown)
+        await wait_for(pilot, lambda: "sign in" in body.source and opened)
+        assert client.mcp.signing_in == ("linear", "http://localhost:8765/app/oauth")
+        sign_in.query_one("#mcp-returned", Input).value = "http://localhost:8765/app/oauth?code=c1&state=m1"
+        sign_in.query_one("#finish", Button).press()
+        await wait_for(pilot, lambda: app.screen is screen and client.mcp.items["linear"].status == "connected")
+        assert not screen.query_one("#sign-in").display
 
 
 def test_parsing_what_the_user_types():
@@ -104,3 +139,11 @@ def test_a_failing_server_is_marked_and_its_last_failure_shown():
     assert "**Failed 3 times in a row.**" in describe(server) and "add_note: disk full" in describe(server)
     server.failures, server.failing = 0, False
     assert summary(server) == "notes · connected" and "Failed" not in describe(server)
+
+
+async def test_a_lost_sign_in_shows_a_notification(app, client):
+    async with app.run_test() as pilot:
+        await client.bus.put(("signed_out", {"name": "linear", "error": "linear needs you to sign in again."}))
+        await wait_for(
+            pilot, lambda: any("linear needs you to sign in again" in str(n.message) for n in app._notifications)
+        )

@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-from assistant.core.agent import EmailError
+from assistant.core.agent import EmailAccount, EmailError, SignInError
 from assistant.core.integrations.email import accounts, imap, oauth, smtp
 from assistant.core.integrations.email.accounts import EmailConfig
 
@@ -44,6 +44,12 @@ def servers(monkeypatch) -> list[EmailConfig]:
     return checked
 
 
+async def _finish(service, state: str, code: str) -> EmailAccount:
+    signed_in = await service.finish_sign_in(state, code)
+    assert signed_in.kind == "email"
+    return next(a for a in await service.email_accounts() if a.id == signed_in.id)
+
+
 async def _start(service, provider_id="google", **extra) -> dict[str, list[str]]:
     url = await service.start_email_sign_in(provider_id, "client-1", "secret-1", REDIRECT, "me@gmail.com", **extra)
     return parse_qs(urlparse(url).query)
@@ -62,7 +68,7 @@ async def test_the_sign_in_page_asks_for_mail_with_pkce(service):
 
 async def test_finishing_trades_the_code_checks_the_servers_and_saves_the_account(service, provider, servers):
     query = await _start(service, label="Personal")
-    account = await service.finish_email_sign_in(query["state"][0], "code-1")
+    account = await _finish(service, query["state"][0], "code-1")
     assert (account.auth, account.oauth_provider, account.host, account.imap_host) == (
         "oauth",
         "google",
@@ -74,20 +80,20 @@ async def test_finishing_trades_the_code_checks_the_servers_and_saves_the_accoun
     assert (request["code"], request["redirect_uri"], request["secret"]) == ("code-1", REDIRECT, "secret-1")
     assert len(request["code_verifier"]) > 40
     assert [(c.auth, c.password) for c in servers] == [("oauth", "access-1"), ("oauth", "access-1")]
-    with pytest.raises(EmailError, match="expired or was already used"):
-        await service.finish_email_sign_in(query["state"][0], "code-1")
+    with pytest.raises(SignInError, match="expired or was already used"):
+        await service.finish_sign_in(query["state"][0], "code-1")
 
 
 async def test_a_refused_code_saves_nothing(service, provider, servers):
     provider["refuse"] = True
     query = await _start(service)
     with pytest.raises(EmailError, match="refused the sign-in"):
-        await service.finish_email_sign_in(query["state"][0], "bad")
+        await service.finish_sign_in(query["state"][0], "bad")
     assert await service.email_accounts() == []
 
 
 async def test_an_expired_access_token_is_refreshed_when_the_account_is_loaded(service, provider, servers):
-    await service.finish_email_sign_in((await _start(service))["state"][0], "code-1")
+    await service.finish_sign_in((await _start(service))["state"][0], "code-1")
     [account] = await service.email_accounts()
     secret = json.loads(await _secret(service, account.id))
     secret["expires_at"] = time.time() - 10
@@ -99,7 +105,7 @@ async def test_an_expired_access_token_is_refreshed_when_the_account_is_loaded(s
 
 
 async def test_a_refused_refresh_asks_to_sign_in_again(service, provider, servers):
-    await service.finish_email_sign_in((await _start(service))["state"][0], "code-1")
+    await service.finish_sign_in((await _start(service))["state"][0], "code-1")
     [account] = await service.email_accounts()
     secret = json.loads(await _secret(service, account.id))
     secret["expires_at"] = 0
@@ -114,7 +120,7 @@ async def test_a_refused_refresh_asks_to_sign_in_again(service, provider, server
     query = parse_qs(urlparse(page).query)
     assert query["client_id"] == ["client-1"]
     provider["refuse"] = False
-    again = await service.finish_email_sign_in(query["state"][0], "code-2")
+    again = await _finish(service, query["state"][0], "code-2")
     assert (again.id, again.status) == (account.id, "ok")
 
 

@@ -5,6 +5,7 @@ import httpx
 
 from assistant.client.daemon_client.transport import Transport
 from assistant.core.agent import (
+    McpProbe,
     McpServer,
     McpServerChanges,
     McpServerError,
@@ -20,7 +21,7 @@ _DOWNLOAD = httpx.Timeout(150)
 
 
 class McpApi:
-    """MCP servers: look at a server's tools, add it, choose its tools, trust it, remove it."""
+    """MCP servers: look at a server's tools, add it, sign in to it, choose its tools, trust it, remove it."""
 
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
@@ -28,11 +29,21 @@ class McpApi:
     async def servers(self) -> list[McpServerStatus]:
         return [status_from_json(s) for s in await self._transport.request("GET", "/mcp/servers")]
 
-    async def probe(self, server: McpServer) -> list[McpToolInfo]:
+    async def probe(self, server: McpServer) -> McpProbe:
+        """Its tools, or that it asks to sign in. Raises McpServerError."""
         data = await self._transport.request(
             "POST", "/mcp/probe", json=_settings(server), errors=_ERRORS, timeout=_CONNECT_TIMEOUT
         )
-        return [McpToolInfo(**t) for t in data]
+        return McpProbe([McpToolInfo(**t) for t in data["tools"]], data["sign_in"])
+
+    async def start_sign_in(self, name: str, redirect_uri: str) -> str:
+        """The remote server's sign-in page. The browser comes back to `redirect_uri`, the web app's
+        /app/oauth, which finishes it (`client.oauth`). Raises McpServerError."""
+        body = {"redirect_uri": redirect_uri}
+        data = await self._transport.request(
+            "POST", f"/mcp/servers/{name}/sign-in", json=body, errors=_ERRORS, timeout=_CONNECT_TIMEOUT
+        )
+        return data["url"]
 
     async def add(self, server: McpServer) -> McpServerStatus:
         data = await self._transport.request("POST", "/mcp/servers", json=_settings(server), errors=_ERRORS)

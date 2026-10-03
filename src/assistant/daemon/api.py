@@ -27,11 +27,11 @@ from assistant.core.agent import (
     InvalidTokenError,
     Job,
     JobError,
+    McpProbe,
     McpServer,
     McpServerChanges,
     McpServerError,
     McpServerStatus,
-    McpToolInfo,
     MemorySnapshot,
     ModelProvider,
     ModelSettingsError,
@@ -42,6 +42,8 @@ from assistant.core.agent import (
     ServerValues,
     Session,
     ShownMessage,
+    SignedIn,
+    SignInError,
     Skill,
     SkillError,
     SkillSummary,
@@ -123,13 +125,18 @@ class EmailSignIn(BaseModel):
     account_id: str = ""
 
 
-class EmailSignInPage(BaseModel):
+class SignInPage(BaseModel):
     url: str
 
 
-class EmailSignInCode(BaseModel):
+class SignInCode(BaseModel):
     state: str
     code: str
+
+
+class McpSignInStart(BaseModel):
+    # Where the server's authorization server sends the browser back: the web app's /app/oauth page.
+    redirect_uri: str
 
 
 class EmailRecipients(BaseModel):
@@ -272,6 +279,7 @@ def create_app(service: AssistantService, hub: RunHub, startup: Any = None, web_
     _add_telegram_routes(app, service)
     _add_slack_routes(app, service)
     _add_email_routes(app, service)
+    _add_sign_in_routes(app, service)
     _add_skill_routes(app, service)
     _add_job_routes(app, service)
     _add_mcp_routes(app, service)
@@ -578,7 +586,7 @@ def _add_email_routes(app: FastAPI, service: AssistantService) -> None:
         )
 
     @app.post("/integrations/email/oauth/start")
-    async def start_email_sign_in(body: EmailSignIn) -> EmailSignInPage:
+    async def start_email_sign_in(body: EmailSignIn) -> SignInPage:
         """The provider's sign-in page; the browser comes back to `redirect_uri`. 400: unknown
         provider or missing values. 404: unknown account."""
         page = await _email(
@@ -592,14 +600,7 @@ def _add_email_routes(app: FastAPI, service: AssistantService) -> None:
                 body.account_id,
             )
         )
-        return EmailSignInPage(url=page)
-
-    @app.post("/integrations/email/oauth/finish")
-    async def finish_email_sign_in(body: EmailSignInCode) -> EmailAccount:
-        """Open to unpaired browsers: the one-time state is the proof (the web app's /app/oauth page
-        may be opened on the daemon's own computer, before pairing). 400: expired state, refused
-        code, or a server that won't log in with the token."""
-        return await _email(service.finish_email_sign_in(body.state, body.code))
+        return SignInPage(url=page)
 
     @app.put("/integrations/email/accounts/{account_id}/label")
     async def rename_email_account(account_id: str, body: EmailAccountName) -> EmailAccount:
@@ -632,6 +633,19 @@ async def _email[T](call: Awaitable[T]) -> T:
         raise HTTPException(404, str(e)) from e
     except EmailError as e:
         raise HTTPException(400, str(e)) from e
+
+
+def _add_sign_in_routes(app: FastAPI, service: AssistantService) -> None:
+    @app.post("/oauth/finish")
+    async def finish_sign_in(body: SignInCode) -> SignedIn:
+        """The last step of a sign-in (an email account, a remote MCP server). Open to unpaired
+        browsers: the one-time state is the proof (the web app's /app/oauth page may be opened on
+        the daemon's own computer, before pairing). 400: expired state, refused code, or a server
+        that won't work with the tokens."""
+        try:
+            return await service.finish_sign_in(body.state, body.code)
+        except (SignInError, EmailError, McpServerError) as e:
+            raise HTTPException(400, str(e)) from e
 
 
 def _add_skill_routes(app: FastAPI, service: AssistantService) -> None:
@@ -724,8 +738,9 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
         return await service.mcp_servers()
 
     @app.post("/mcp/probe")
-    async def probe_mcp_server(body: McpServerSettings) -> list[McpToolInfo]:
-        """Connect once and list the server's tools, without saving it."""
+    async def probe_mcp_server(body: McpServerSettings) -> McpProbe:
+        """Connect once and list the server's tools, without saving it. A remote server may ask to
+        sign in instead: it can be added, then signed in to."""
         try:
             return await service.probe_mcp_server(body.server())
         except McpServerError as e:
@@ -742,6 +757,18 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
     async def change_mcp_server(name: str, body: McpServerChange) -> McpServerStatus:
         try:
             return await service.update_mcp_server(name, McpServerChanges(**body.model_dump()))
+        except McpServerError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.post("/mcp/servers/{name}/sign-in")
+    async def start_mcp_sign_in(name: str, body: McpSignInStart) -> SignInPage:
+        """The server's sign-in page; the browser comes back to `redirect_uri`, which finishes it
+        (/oauth/finish). 404: no such server. 400: a local server, one that can't be reached or
+        doesn't ask to sign in."""
+        if name not in {s.name for s in await service.mcp_servers()}:
+            raise HTTPException(404, f"No MCP server named {name}.")
+        try:
+            return SignInPage(url=await service.start_mcp_sign_in(name, body.redirect_uri))
         except McpServerError as e:
             raise HTTPException(400, str(e)) from e
 

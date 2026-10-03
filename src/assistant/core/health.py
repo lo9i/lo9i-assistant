@@ -1,10 +1,14 @@
 """Whether MCP servers and skills keep failing: per server and per skill, the failures in a row and
 the last one, in the Store. A success clears the count and keeps the last failure for reference.
 Reaching FAILING_AFTER in a row publishes a `failing` event, which clients show as an alert, and
-makes it an alert the web app keeps listing until the user dismisses it or it works again."""
+makes it an alert the web app keeps listing until the user dismisses it or it works again.
+
+A remote MCP server whose sign-in stopped working (its refresh was refused, or it was revoked) is an
+alert too, at once: it publishes a `signed_out` event and stays until the user signs in again or
+dismisses it. A server that was never signed in isn't one: the user is adding it and sees it asks."""
 
 import asyncio
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -29,11 +33,18 @@ class Health:
     at: str = ""
     # The user dismissed the alert; cleared when it works again, so a later run of failures alerts anew.
     dismissed: bool = False
+    # An MCP server's sign-in stopped working: it waits for the user to sign in again.
+    signed_out: bool = False
 
     @property
     def failing(self) -> bool:
         """Failing enough that the user was alerted."""
         return self.failures >= FAILING_AFTER
+
+    @property
+    def alerted(self) -> bool:
+        """The user was alerted, by failures in a row or a lost sign-in."""
+        return self.failing or self.signed_out
 
 
 class HealthLog:
@@ -49,7 +60,7 @@ class HealthLog:
         async with self._lock:
             previous = await self.get(area, name)
             error = error.strip()[-_ERROR_CHARS:]
-            health = Health(previous.failures + 1, error, datetime.now(UTC).isoformat(), previous.dismissed)
+            health = replace(previous, failures=previous.failures + 1, error=error, at=datetime.now(UTC).isoformat())
             await self._store.aput(_NAMESPACES[area], name, asdict(health))
         if health.failures == FAILING_AFTER:
             self._bus.publish("failing", area=area, name=name, error=health.error)
@@ -59,13 +70,33 @@ class HealthLog:
         async with self._lock:
             previous = await self.get(area, name)
             if previous.failures:
-                await self._store.aput(_NAMESPACES[area], name, asdict(Health(0, previous.error, previous.at)))
+                cleared = replace(previous, failures=0, dismissed=previous.dismissed and previous.signed_out)
+                await self._store.aput(_NAMESPACES[area], name, asdict(cleared))
+
+    async def signed_out(self, name: str, error: str) -> None:
+        """An MCP server's sign-in stopped working. Alerts once, until it's signed in again."""
+        async with self._lock:
+            previous = await self.get("mcp", name)
+            if previous.signed_out:
+                return
+            now = datetime.now(UTC).isoformat()
+            health = replace(previous, error=error.strip()[-_ERROR_CHARS:], at=now, dismissed=False, signed_out=True)
+            await self._store.aput(_NAMESPACES["mcp"], name, asdict(health))
+        self._bus.publish("signed_out", name=name, error=health.error)
+
+    async def signed_in(self, name: str) -> None:
+        """An MCP server connected: a lost sign-in is back. Writes only when it was lost."""
+        async with self._lock:
+            previous = await self.get("mcp", name)
+            if previous.signed_out:
+                back = replace(previous, signed_out=False, dismissed=previous.dismissed and previous.failing)
+                await self._store.aput(_NAMESPACES["mcp"], name, asdict(back))
 
     async def dismiss(self, area: Area, name: str) -> None:
-        """Stop listing its alert until it works and then keeps failing again."""
+        """Stop listing its alert until it works and then keeps failing again, or signs in and loses it again."""
         async with self._lock:
             previous = await self.get(area, name)
-            if previous.failing and not previous.dismissed:
+            if previous.alerted and not previous.dismissed:
                 previous.dismissed = True
                 await self._store.aput(_NAMESPACES[area], name, asdict(previous))
 

@@ -67,9 +67,13 @@ class McpAddScreen(ModalScreen[bool]):
     @reports_daemon_unavailable
     async def _probe(self) -> None:
         try:
-            self._tools = await self._mcp.probe(self._server())
+            probe = await self._mcp.probe(self._server())
         except (McpServerError, ValueError) as e:
             await self._say(f"**{e}**")
+            return
+        self._tools = probe.tools
+        if probe.sign_in:
+            await self._asks_to_sign_in()
             return
         await self._show_tools()
 
@@ -100,6 +104,11 @@ class McpAddScreen(ModalScreen[bool]):
             server.command, server.args = parse_command(self.query_one("#mcp-command", Input).value)
             server.env = parse_pairs(secrets, "=")
         return server
+
+    async def _asks_to_sign_in(self) -> None:
+        self.query_one("#mcp-add-tools").display = False
+        self.query_one("#add").display = True
+        await self._say("It asks you to sign in. Add it, then choose **Sign in**: its tools show up once you have.")
 
     async def _show_tools(self) -> None:
         tools = self.query_one("#mcp-add-tools", SelectionList)

@@ -18,6 +18,8 @@
   let headers = $state("");
   let trusted = $state(false);
   let tools = $state<McpToolInfo[] | null>(null);
+  // The server asks to sign in: it's added without a look at its tools, then signed in to.
+  let signIn = $state(false);
   let chosen = $state(new Set<string>());
   let busy = $state(false);
   let error = $state("");
@@ -52,7 +54,9 @@
 
   const look = () =>
     run(async () => {
-      tools = await client.mcp.probe(settings());
+      const probe = await client.mcp.probe(settings());
+      tools = probe.tools;
+      signIn = probe.sign_in;
       chosen = new Set(tools.map((t) => t.name));
     });
 
@@ -65,6 +69,7 @@
   // A change to the connection settings needs a new look at the tools.
   function edited(): void {
     tools = null;
+    signIn = false;
   }
 </script>
 
@@ -108,7 +113,9 @@
     <input type="checkbox" bind:checked={trusted} />
     <span>Trust this server <span class="text-caption">(otherwise every tool not marked read-only asks for approval)</span></span>
   </label>
-  {#if tools}
+  {#if signIn}
+    <p class="text-caption">It asks you to sign in. Add it, then choose Sign in: its tools show up once you have.</p>
+  {:else if tools}
     <div class="field">
       <span class="micro-label">Tools the assistant gets</span>
       <ToolChecklist {tools} {chosen} onchange={(c) => (chosen = c)} />

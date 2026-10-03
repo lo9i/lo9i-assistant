@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { McpToolInfo } from "./api/types";
-import { selectionFor, parseArgs, parsePairs } from "./mcp";
+import { selectionFor, parseArgs, parsePairs, statusLabel } from "./mcp";
 
 const tool = (name: string): McpToolInfo => ({ name, description: "", read_only: false, selected: true });
 
@@ -33,5 +33,12 @@ describe("selectionFor", () => {
   });
   it("excludes everything when none is chosen", () => {
     expect(selectionFor(tools, new Set())).toEqual({ include: [], exclude: ["*"] });
+  });
+});
+
+describe("statusLabel", () => {
+  it("spells out a server waiting for a sign-in and keeps the other words", () => {
+    expect(statusLabel("needs_sign_in")).toBe("needs you to sign in");
+    expect(statusLabel("connected")).toBe("connected");
   });
 });

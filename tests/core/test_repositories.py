@@ -120,7 +120,7 @@ async def test_an_installed_local_server_runs_from_its_folder_with_the_values_gi
     server = await servers.load(service.store, "hello")
     folder = isolated_settings / "mcp" / "hello"
     assert server.args == [f"{folder}/server.py"] and server.env["HELLO_USER"] == "Ana"
-    assert [t.name for t in await service.probe_mcp_server(server)] == ["whoami"]
+    assert [t.name for t in (await service.probe_mcp_server(server)).tools] == ["whoami"]
 
 
 async def test_a_remote_server_gets_its_fields_as_headers(service, repo):

@@ -18,10 +18,10 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## MCP
 
-- A7. OAuth for remote MCP servers (authorization code with PKCE, and device code for a headless host), through the daemon API so both clients can offer it. Tokens in the Store, refreshed automatically; a server whose refresh fails waits for the user to sign in again.
-- A8. Requests from MCP servers: elicitation (a form for the user, through the approval surface on every channel) and sampling (the server asks the model for text; rate-limited, with a token cap). Both are refused today.
-- A9. MCP resources and prompts: per-server `list_resources`, `read_resource`, `list_prompts`, `get_prompt` tools, added only when the server supports them and the user turns them on.
-- A10. MCP startup: start a server on its first call from a cached tool list (for servers that use a lot of memory), and limit how many connect at once when the daemon starts.
+- A7. Requests from MCP servers: elicitation (a form for the user, through the approval surface on every channel) and sampling (the server asks the model for text; rate-limited, with a token cap). Both are refused today.
+- A8. MCP resources and prompts: per-server `list_resources`, `read_resource`, `list_prompts`, `get_prompt` tools, added only when the server supports them and the user turns them on.
+- A9. MCP startup: start a server on its first call from a cached tool list (for servers that use a lot of memory), and limit how many connect at once when the daemon starts.
+- A12. Signing in to a remote MCP server whose authorization server has no dynamic client registration: today the sign-in fails at registration (`core/mcp/oauth.py`). The Sign in dialog takes a client ID and secret of the user's own OAuth app, saved as the server's registered client so registration is skipped, and shows the redirect URI to register with it, as email does. A client metadata URL (the spec's other option) doesn't fit: the authorization server must fetch it, and the daemon is reachable only on the tailnet.
 
 ## Memory
 
@@ -48,7 +48,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Platforms
 
-- A11. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
+- A10. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
   - Daemon connection: a named pipe or localhost with a paired device instead of the Unix socket.
   - Startup: a Task Scheduler task or a Windows service as a `daemon/startup.py` backend.
   - Clipboard: `client/clipboard/windows.py`, pasting files, images and text with PowerShell (`Get-Clipboard -Format FileDropList`, `System.Windows.Forms.Clipboard.GetImage`) and copying with `Set-Clipboard`.
@@ -56,7 +56,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Languages
 
-- A12. Multi-language support. The app's own text is English only.
+- A11. Multi-language support. The app's own text is English only.
   - Interface text: terminal app, web app, and the messages Telegram and Slack adapters send (approval buttons, errors, `/new`). Text kept in per-language files, picked in Settings → General.
   - Prompts in `core/conversation/prompts/` stay in English; the model replies in the user's language.
   - Speech: the speech-to-text language and the Kokoro voice follow the chosen language.

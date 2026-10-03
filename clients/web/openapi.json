@@ -973,46 +973,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EmailSignInPage"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/integrations/email/oauth/finish": {
-      "post": {
-        "summary": "Finish Email Sign In",
-        "description": "Open to unpaired browsers: the one-time state is the proof (the web app's /app/oauth page\nmay be opened on the daemon's own computer, before pairing). 400: expired state, refused\ncode, or a server that won't log in with the token.",
-        "operationId": "finish_email_sign_in_integrations_email_oauth_finish_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmailSignInCode"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EmailAccount"
+                  "$ref": "#/components/schemas/SignInPage"
                 }
               }
             }
@@ -1200,6 +1161,45 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EmailAccount"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth/finish": {
+      "post": {
+        "summary": "Finish Sign In",
+        "description": "The last step of a sign-in (an email account, a remote MCP server). Open to unpaired\nbrowsers: the one-time state is the proof (the web app's /app/oauth page may be opened on\nthe daemon's own computer, before pairing). 400: expired state, refused code, or a server\nthat won't work with the tokens.",
+        "operationId": "finish_sign_in_oauth_finish_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignInCode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedIn"
                 }
               }
             }
@@ -1573,7 +1573,7 @@
     "/mcp/probe": {
       "post": {
         "summary": "Probe Mcp Server",
-        "description": "Connect once and list the server's tools, without saving it.",
+        "description": "Connect once and list the server's tools, without saving it. A remote server may ask to\nsign in instead: it can be added, then signed in to.",
         "operationId": "probe_mcp_server_mcp_probe_post",
         "requestBody": {
           "content": {
@@ -1591,11 +1591,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/McpToolInfo"
-                  },
-                  "type": "array",
-                  "title": "Response Probe Mcp Server Mcp Probe Post"
+                  "$ref": "#/components/schemas/McpProbe"
                 }
               }
             }
@@ -1693,6 +1689,56 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/servers/{name}/sign-in": {
+      "post": {
+        "summary": "Start Mcp Sign In",
+        "description": "The server's sign-in page; the browser comes back to `redirect_uri`, which finishes it\n(/oauth/finish). 404: no such server. 400: a local server, one that can't be reached or\ndoesn't ask to sign in.",
+        "operationId": "start_mcp_sign_in_mcp_servers__name__sign_in_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpSignInStart"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInPage"
                 }
               }
             }
@@ -2414,6 +2460,15 @@
           "at": {
             "type": "string",
             "title": "At"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "failing",
+              "signed_out"
+            ],
+            "title": "Kind",
+            "default": "failing"
           }
         },
         "type": "object",
@@ -2883,37 +2938,6 @@
         ],
         "title": "EmailSignIn"
       },
-      "EmailSignInCode": {
-        "properties": {
-          "state": {
-            "type": "string",
-            "title": "State"
-          },
-          "code": {
-            "type": "string",
-            "title": "Code"
-          }
-        },
-        "type": "object",
-        "required": [
-          "state",
-          "code"
-        ],
-        "title": "EmailSignInCode"
-      },
-      "EmailSignInPage": {
-        "properties": {
-          "url": {
-            "type": "string",
-            "title": "Url"
-          }
-        },
-        "type": "object",
-        "required": [
-          "url"
-        ],
-        "title": "EmailSignInPage"
-      },
       "FoundServer": {
         "properties": {
           "name": {
@@ -3145,6 +3169,27 @@
           "name"
         ],
         "title": "LanguageOption"
+      },
+      "McpProbe": {
+        "properties": {
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/McpToolInfo"
+            },
+            "type": "array",
+            "title": "Tools"
+          },
+          "sign_in": {
+            "type": "boolean",
+            "title": "Sign In",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "tools"
+        ],
+        "title": "McpProbe"
       },
       "McpServerChange": {
         "properties": {
@@ -3466,6 +3511,19 @@
         ],
         "title": "McpServerStatus",
         "description": "What a client shows. Has the names of env values and headers, never the values."
+      },
+      "McpSignInStart": {
+        "properties": {
+          "redirect_uri": {
+            "type": "string",
+            "title": "Redirect Uri"
+          }
+        },
+        "type": "object",
+        "required": [
+          "redirect_uri"
+        ],
+        "title": "McpSignInStart"
       },
       "McpToolInfo": {
         "properties": {
@@ -4016,6 +4074,64 @@
           "text"
         ],
         "title": "ShownMessage"
+      },
+      "SignInCode": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "code"
+        ],
+        "title": "SignInCode"
+      },
+      "SignInPage": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "SignInPage"
+      },
+      "SignedIn": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "email",
+              "mcp"
+            ],
+            "title": "Kind"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "id",
+          "name"
+        ],
+        "title": "SignedIn"
       },
       "Skill": {
         "properties": {

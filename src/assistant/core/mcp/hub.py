@@ -19,11 +19,13 @@ from mcp.types import Tool
 from assistant.core.bus import EventBus
 from assistant.core.health import Health, HealthLog
 from assistant.core.hidden_text import strip_hidden
-from assistant.core.mcp import servers
+from assistant.core.mcp import servers, sign_in
 from assistant.core.mcp.connection import ClientFactory, McpConnection, describe, list_tools, open_client
 from assistant.core.mcp.media import ToolMedia
+from assistant.core.mcp.oauth import McpAuth, needs_sign_in
 from assistant.core.mcp.sanitize import MAX_TOOL_NAME, tool_name
 from assistant.core.mcp.servers import McpServer, McpServerError
+from assistant.core.mcp.sign_in import McpSignIn
 from assistant.core.mcp.tools import McpTool
 
 logger = logging.getLogger(__name__)
@@ -42,6 +44,13 @@ class McpToolInfo:
 
 
 @dataclass
+class McpProbe:
+    tools: list[McpToolInfo]
+    # The server asks to sign in: it can be added, and its tools show up once the user signs in.
+    sign_in: bool = False
+
+
+@dataclass
 class _Running:
     connection: McpConnection
     stop: asyncio.Event
@@ -57,6 +66,7 @@ class McpHub:
         bus: EventBus,
         health: HealthLog,
         media: ToolMedia,
+        auth: McpAuth,
         factory: ClientFactory | None = None,
     ) -> None:
         self._store = store
@@ -64,7 +74,10 @@ class McpHub:
         self._factory = factory or open_client
         self._health = health
         self._media = media
+        self._auth = auth
         self._running: dict[str, _Running] = {}
+        # The sign-in in progress per server; starting another drops it.
+        self._signing_in: dict[str, McpSignIn] = {}
         self._tools: dict[str, McpTool] = {}
         self._active = False
 
@@ -116,7 +129,7 @@ class McpHub:
         return f"{name} isn't available: its MCP server was removed or turned off."
 
     def state(self, name: str) -> tuple[str, str, list[McpToolInfo]]:
-        """A server's status (connecting, connected, failed, off), error and tools."""
+        """A server's status (connecting, connected, failed, needs_sign_in, off), error and tools."""
         running = self._running.get(name)
         if running is None:
             return "off", "", []
@@ -128,19 +141,46 @@ class McpHub:
         return await self._health.get("mcp", name)
 
     async def forget(self, name: str) -> None:
-        """Drop the failures of a removed server, so one added later under its name starts clean."""
+        """Drop the failures and the sign-in of a removed server, so one added later under its name
+        starts clean."""
         await self._health.forget("mcp", name)
+        await self.sign_out(name)
 
-    async def probe(self, server: McpServer) -> list[McpToolInfo]:
+    async def sign_out(self, name: str) -> None:
+        await self._auth.forget(name)
+
+    async def probe(self, server: McpServer) -> McpProbe:
         """Connect once to list a server's tools, before it's saved. Raises McpServerError."""
         servers.validate(server)
         try:
-            async with asyncio.timeout(_PROBE_SECONDS), self._factory(server, _ignore) as client:
+            async with (
+                asyncio.timeout(_PROBE_SECONDS),
+                self._factory(server, _ignore, self._auth.for_connection(server)) as client,
+            ):
                 tools = await list_tools(client)
         except Exception as e:
+            if needs_sign_in(e):
+                return McpProbe([], sign_in=True)
             reason = f"no answer within {_PROBE_SECONDS}s" if isinstance(e, TimeoutError) else describe(e)
             raise McpServerError(f"Couldn't connect to {server.name}: {reason}") from e
-        return [_info(server, tool) for tool in tools]
+        return McpProbe([_info(server, tool) for tool in tools])
+
+    async def start_sign_in(self, server: McpServer, redirect_uri: str) -> McpSignIn:
+        """Raises McpServerError for a local server, one that can't be reached or doesn't ask to sign in."""
+        if not server.url:
+            raise McpServerError(f"{server.name} runs on this computer: there's nothing to sign in to.")
+        if previous := self._signing_in.pop(server.name, None):
+            previous.cancel()
+        started = await sign_in.start(server, self._auth, redirect_uri, self._factory)
+        self._signing_in[server.name] = started
+        return started
+
+    async def finish_sign_in(self, started: McpSignIn, code: str) -> None:
+        """Raises SignInError. The server connects again with the new sign-in."""
+        if self._signing_in.get(started.server) is started:
+            del self._signing_in[started.server]
+        await started.finish(code)
+        await self.restart(started.server)
 
     async def _apply(self, server: McpServer) -> None:
         running = self._running.get(server.name)
@@ -152,7 +192,7 @@ class McpHub:
         self._start(server)
 
     def _start(self, server: McpServer) -> None:
-        connection = McpConnection(server, self._changed, self._health, self._factory)
+        connection = McpConnection(server, self._changed, self._health, self._factory, self._auth)
         stop = asyncio.Event()
         self._running[server.name] = _Running(connection, stop, asyncio.create_task(connection.run(stop)))
 

@@ -45,6 +45,8 @@ export type StartupStatus = Schemas["StartupStatus"];
 export type ConnectedClient = Schemas["ConnectedClient"];
 export type McpServerStatus = Schemas["McpServerStatus"];
 export type McpToolInfo = Schemas["McpToolInfo"];
+export type McpProbe = Schemas["McpProbe"];
+export type SignedIn = Schemas["SignedIn"];
 export type McpServerSettings = Schemas["McpServerSettings"];
 export type McpServerChange = Schemas["McpServerChange"];
 
@@ -86,3 +88,6 @@ export type JobFinished = { name: string; status: string; summary: string };
 
 /** A `failing` bus event: an MCP server or a skill failed FAILING_AFTER times in a row (core/health.py). */
 export type Failing = { area: "mcp" | "skill"; name: string; error: string };
+
+/** A `signed_out` bus event: a remote MCP server's sign-in stopped working (core/health.py). */
+export type SignedOut = { name: string; error: string };

@@ -1,9 +1,10 @@
-"""Alerts for clients: MCP servers and skills that keep failing (core/health.py), listed until the
-user dismisses them or they work again. A server that's turned off or removed, or a skill that was
-deleted, has none."""
+"""Alerts for clients: MCP servers and skills that keep failing, and remote MCP servers whose sign-in
+stopped working (core/health.py), listed until the user dismisses them or they work again. A server
+that's turned off or removed, or a skill that was deleted, has none."""
 
 import asyncio
 from dataclasses import dataclass
+from typing import Literal
 
 from assistant.core.agent.base import ServiceBase
 from assistant.core.health import Area, Health
@@ -21,6 +22,8 @@ class Alert:
     failures: int
     error: str
     at: str
+    # failing (failures in a row), or signed_out (an MCP server waits for the user to sign in again).
+    kind: Literal["failing", "signed_out"] = "failing"
 
 
 class AlertsMixin(ServiceBase):
@@ -43,8 +46,9 @@ class AlertsMixin(ServiceBase):
 
 
 def _shown(health: Health) -> bool:
-    return health.failing and not health.dismissed
+    return health.alerted and not health.dismissed
 
 
 def _alert(area: Area, name: str, health: Health) -> Alert:
-    return Alert(area, name, health.failures, health.error, health.at)
+    kind = "signed_out" if health.signed_out else "failing"
+    return Alert(area, name, health.failures, health.error, health.at, kind)

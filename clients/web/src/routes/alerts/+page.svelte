@@ -23,6 +23,11 @@
     return a.area === "mcp" ? "MCP server" : "Skill";
   }
 
+  /** Failures in a row, or that a remote server waits for the user to sign in again. */
+  function problem(a: Alert): string {
+    return a.kind === "signed_out" ? "Sign in again" : `${a.failures} in a row`;
+  }
+
   function href(a: Alert): string {
     return `${a.area === "mcp" ? resolve("/mcp") : resolve("/skills")}?s=${encodeURIComponent(a.name)}`;
   }
@@ -42,10 +47,10 @@
   <section class="table-card surface--glass">
     <header class="toolbar">
       <div>
-        <h2 class="text-heading">Keeps failing</h2>
+        <h2 class="text-heading">Needs attention</h2>
         <p class="text-meta">
-          MCP servers and skills that failed several times in a row. Each stays until you dismiss it or it works again. Click one
-          to see it on the right.
+          MCP servers and skills that failed several times in a row, and MCP servers whose sign-in stopped working. Each stays
+          until you dismiss it or it works again. Click one to see it on the right.
         </p>
       </div>
       {#if alerts.data}<span class="pill">{alerts.data.length}</span>{/if}
@@ -54,16 +59,16 @@
       {#if alerts.error}
         <p class="error-text pad">{alerts.error}</p>
       {:else if alerts.data?.length === 0}
-        <EmptyState icon={CircleCheck} title="Nothing is failing" text="MCP servers and skills that keep failing show up here." />
+        <EmptyState icon={CircleCheck} title="Nothing needs attention" text="MCP servers and skills that keep failing, and servers that need you to sign in again, show up here." />
       {:else if alerts.data && alert}
         <table class="data-table">
-          <thead><tr><th>Name</th><th class="hide-narrow">Kind</th><th>Failures</th><th class="hide-narrow">Last failed</th></tr></thead>
+          <thead><tr><th>Name</th><th class="hide-narrow">Kind</th><th>Problem</th><th class="hide-narrow">When</th></tr></thead>
           <tbody>
             {#each alerts.data as a (key(a))}
               <tr class:selected={key(a) === key(alert)} onclick={() => (picked = key(a))}>
                 <td><button class="row-button" onclick={() => (picked = key(a))}>{a.name}</button></td>
                 <td class="text-label hide-narrow">{kind(a)}</td>
-                <td class="text-label">{a.failures} in a row</td>
+                <td class="text-label">{problem(a)}</td>
                 <td class="text-label hide-narrow">{localTime(a.at)}</td>
               </tr>
             {/each}
@@ -78,14 +83,14 @@
       <section class="details surface--glass">
         <header>
           <h2 class="text-heading">{alert.name}</h2>
-          <span class="pill pill--danger">failing</span>
+          <span class="pill pill--danger">{alert.kind === "signed_out" ? "signed out" : "failing"}</span>
         </header>
         <dl>
           <dt class="micro-label">Kind</dt>
           <dd>{kind(alert)}</dd>
-          <dt class="micro-label">Failures</dt>
-          <dd>{alert.failures} in a row</dd>
-          <dt class="micro-label">Last failed</dt>
+          <dt class="micro-label">Problem</dt>
+          <dd>{problem(alert)}</dd>
+          <dt class="micro-label">When</dt>
           <dd>{localTime(alert.at)}</dd>
         </dl>
         <pre class="error">{alert.error}</pre>
@@ -96,7 +101,7 @@
       </section>
     {:else}
       <section class="details surface--glass">
-        <EmptyState icon={Bell} title="No alert selected" text="Alerts show here when something keeps failing." />
+        <EmptyState icon={Bell} title="No alert selected" text="Alerts show here when something keeps failing or needs you to sign in again." />
       </section>
     {/if}
   </div>
