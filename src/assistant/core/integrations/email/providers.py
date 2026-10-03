@@ -1,5 +1,6 @@
 """Mail providers to pick from when connecting email, so the user types only their address and a
-password. Clients offer "Other" for entering the servers by hand."""
+password, or signs in (OAuth: Google, Microsoft). Clients offer "Other" for entering the servers by
+hand."""
 
 from dataclasses import dataclass
 
@@ -15,8 +16,11 @@ class EmailProvider:
     # How to get the password this provider wants, and where.
     password_help: str
     password_url: str
-    # False while the provider can't connect with a password; `password_help` says why.
+    # False while the provider can't connect; `password_help` says why.
     supported: bool = True
+    # Signs in with OAuth instead of a password: "google" or "microsoft" (oauth.py). Then
+    # `password_help` explains registering the OAuth app, and `password_url` is where.
+    oauth: str = ""
 
 
 PROVIDERS = [
@@ -67,14 +71,29 @@ PROVIDERS = [
         "https://app.fastmail.com/settings/security/apps",
     ),
     EmailProvider(
+        "gmail-oauth",
+        "Gmail (sign in with Google)",
+        "smtp.gmail.com",
+        587,
+        "imap.gmail.com",
+        "Sign in with Google instead of an app password. It needs an OAuth app of your own: in Google "
+        "Cloud Console, set up the OAuth consent screen (External, published), then create an OAuth "
+        "client ID of type Web application with the redirect URI shown here, and paste its client ID "
+        "and secret.",
+        "https://console.cloud.google.com/apis/credentials",
+        oauth="google",
+    ),
+    EmailProvider(
         "microsoft",
         "Outlook.com / Microsoft 365",
-        "",
-        0,
-        "",
-        "Not supported yet: Microsoft only allows OAuth sign-in, which the assistant can't do yet.",
-        "",
-        supported=False,
+        "smtp.office365.com",
+        587,
+        "outlook.office365.com",
+        "Microsoft only allows signing in, which needs an app registration of your own: in Microsoft "
+        "Entra, register an app for personal and work accounts, add the redirect URI shown here as a "
+        "Web redirect, create a client secret, and paste the app's client ID and the secret.",
+        "https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade",
+        oauth="microsoft",
     ),
 ]
 

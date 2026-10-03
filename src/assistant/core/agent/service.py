@@ -29,6 +29,7 @@ from assistant.core.bus import EventBus
 from assistant.core.config import settings
 from assistant.core.health import HealthLog
 from assistant.core.integrations.email import accounts
+from assistant.core.integrations.email.oauth import SignIns
 from assistant.core.llm import choice
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.mcp.hub import McpHub
@@ -73,6 +74,7 @@ class AssistantService(
         self._transcriber = FasterWhisperTranscriber()
         self.mcp = McpHub(storage.store, bus, self._health, ToolMedia(self._transcriber, storage.store))
         self.pages = McpPages(storage.store)
+        self._email_sign_ins = SignIns()
         self._use_model(model)
         self._background = set()
         self._conversations_lock = asyncio.Lock()

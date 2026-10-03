@@ -3,10 +3,12 @@ asking, and where its new mail is announced. Passwords never leave the daemon.""
 
 from dataclasses import dataclass
 
+from assistant.core import accounts as core_accounts
 from assistant.core.agent.base import ServiceBase
-from assistant.core.integrations.email import accounts, imap, smtp
+from assistant.core.integrations.email import accounts, imap, oauth, smtp
 from assistant.core.integrations.email.accounts import EmailConfig, EmailError
 from assistant.core.integrations.email.providers import PROVIDERS, EmailProvider
+from assistant.core.secret_store import SecretError
 
 __all__ = ["EmailAccount", "EmailAccountNotFoundError", "EmailError", "EmailMixin", "EmailProvider"]
 
@@ -34,6 +36,9 @@ class EmailAccount:
     imap_port: int
     # telegram, slack, or "" (no announcements).
     new_mail_alerts: str
+    # "password", or "oauth" (signed in with `oauth_provider`: google, microsoft).
+    auth: str = "password"
+    oauth_provider: str = ""
 
 
 _ALERT_CHANNELS = ["", "telegram", "slack"]
@@ -97,6 +102,55 @@ class EmailMixin(ServiceBase):
         )
         config.account_id, config.label, config.default = account_id, label, current.default
         return await self._verified_save(config, config.password)
+
+    async def start_email_sign_in(
+        self,
+        provider: str,
+        client_id: str,
+        client_secret: str,
+        redirect_uri: str,
+        address: str,
+        label: str = "",
+        account_id: str = "",
+    ) -> str:
+        """The provider's sign-in page for a new account, or `account_id` signing in again. The
+        browser comes back to `redirect_uri` (the web app's /app/oauth), which calls
+        finish_email_sign_in. Raises EmailError."""
+        if account_id:
+            await self._email(account_id)
+            if not client_id.strip():
+                client_id, client_secret = await self._saved_oauth_app(account_id)
+        sign_in = oauth.new_sign_in(provider, client_id, client_secret, redirect_uri, address, label, account_id)
+        return self._email_sign_ins.start(sign_in)
+
+    async def _saved_oauth_app(self, account_id: str) -> tuple[str, str]:
+        """The client id and secret an account signed in with, to sign in again without typing them;
+        empty when they can't be read."""
+        account = await core_accounts.get(self._storage.store, accounts.KIND, account_id)
+        try:
+            secret = await core_accounts.secret(self._storage.store, self.secrets, account) if account else ""
+            tokens = oauth.Tokens.from_secret(secret)
+        except (SecretError, ValueError, TypeError):
+            return "", ""
+        return tokens.client_id, tokens.client_secret
+
+    async def finish_email_sign_in(self, state: str, code: str) -> EmailAccount:
+        """Trade the code for tokens, check both servers with them, and save the account. Raises EmailError."""
+        sign_in = self._email_sign_ins.take(state)
+        tokens = await oauth.exchange(sign_in, code)
+        config = await self._signed_in_config(sign_in, tokens.access_token)
+        return await self._verified_save(config, tokens.to_secret())
+
+    async def _signed_in_config(self, sign_in: oauth.SignIn, access_token: str) -> EmailConfig:
+        provider = oauth.provider_for(sign_in.provider)
+        config = EmailConfig(provider.smtp_host, provider.smtp_port, sign_in.address, access_token, sign_in.address)
+        config.imap_host, config.auth, config.oauth_provider = provider.imap_host, "oauth", provider.id
+        config.label = sign_in.label
+        if sign_in.account_id:
+            current = await self._email(sign_in.account_id)
+            config.account_id, config.label, config.default = current.account_id, current.label, current.default
+            config.allowed_recipients, config.new_mail_alerts = current.allowed_recipients, current.new_mail_alerts
+        return config
 
     async def rename_email_account(self, account_id: str, label: str) -> EmailAccount:
         """Change only the name; the sign-in stays. Empty goes back to the address. Raises EmailError."""
@@ -168,4 +222,6 @@ def _account(config: EmailConfig) -> EmailAccount:
         config.imap_host,
         config.imap_port,
         config.new_mail_alerts,
+        config.auth,
+        config.oauth_provider,
     )

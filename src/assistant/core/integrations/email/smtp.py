@@ -15,7 +15,7 @@ async def verify(config: EmailConfig) -> None:
     try:
         smtp = aiosmtplib.SMTP(**_connection(config))
         await smtp.connect()
-        await smtp.login(config.username, config.password)
+        await _log_in(smtp, config)
         await smtp.quit()
     except (aiosmtplib.SMTPException, OSError) as e:
         raise EmailError(f"Couldn't log in to {config.host}:{config.port}: {e}") from e
@@ -26,9 +26,21 @@ async def send(config: EmailConfig, to: list[str], subject: str, body: str) -> N
     message["From"], message["To"], message["Subject"] = config.sender, ", ".join(to), subject
     message.set_content(body)
     try:
-        await aiosmtplib.send(message, username=config.username, password=config.password, **_connection(config))
+        smtp = aiosmtplib.SMTP(**_connection(config))
+        await smtp.connect()
+        await _log_in(smtp, config)
+        await smtp.send_message(message)
+        await smtp.quit()
     except (aiosmtplib.SMTPException, OSError) as e:
         raise EmailError(f"Sending failed: {e}") from e
+
+
+async def _log_in(smtp: aiosmtplib.SMTP, config: EmailConfig) -> None:
+    """With the password, or the access token of an account signed in with OAuth (XOAUTH2)."""
+    if config.auth == "oauth":
+        await smtp.auth_xoauth2(config.username, config.password)
+    else:
+        await smtp.login(config.username, config.password)
 
 
 def _connection(config: EmailConfig) -> dict:

@@ -952,6 +952,84 @@
         }
       }
     },
+    "/integrations/email/oauth/start": {
+      "post": {
+        "summary": "Start Email Sign In",
+        "description": "The provider's sign-in page; the browser comes back to `redirect_uri`. 400: unknown\nprovider or missing values. 404: unknown account.",
+        "operationId": "start_email_sign_in_integrations_email_oauth_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailSignIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailSignInPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integrations/email/oauth/finish": {
+      "post": {
+        "summary": "Finish Email Sign In",
+        "description": "Open to unpaired browsers: the one-time state is the proof (the web app's /app/oauth page\nmay be opened on the daemon's own computer, before pairing). 400: expired state, refused\ncode, or a server that won't log in with the token.",
+        "operationId": "finish_email_sign_in_integrations_email_oauth_finish_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailSignInCode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailAccount"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/integrations/email/accounts/{account_id}/label": {
       "put": {
         "summary": "Rename Email Account",
@@ -2514,6 +2592,16 @@
           "new_mail_alerts": {
             "type": "string",
             "title": "New Mail Alerts"
+          },
+          "auth": {
+            "type": "string",
+            "title": "Auth",
+            "default": "password"
+          },
+          "oauth_provider": {
+            "type": "string",
+            "title": "Oauth Provider",
+            "default": ""
           }
         },
         "type": "object",
@@ -2581,6 +2669,11 @@
             "type": "boolean",
             "title": "Supported",
             "default": true
+          },
+          "oauth": {
+            "type": "string",
+            "title": "Oauth",
+            "default": ""
           }
         },
         "type": "object",
@@ -2658,6 +2751,80 @@
           "sender"
         ],
         "title": "EmailSettings"
+      },
+      "EmailSignIn": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "client_id": {
+            "type": "string",
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "type": "string",
+            "title": "Client Secret",
+            "default": ""
+          },
+          "redirect_uri": {
+            "type": "string",
+            "title": "Redirect Uri"
+          },
+          "address": {
+            "type": "string",
+            "title": "Address"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "default": ""
+          },
+          "account_id": {
+            "type": "string",
+            "title": "Account Id",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "client_id",
+          "redirect_uri",
+          "address"
+        ],
+        "title": "EmailSignIn"
+      },
+      "EmailSignInCode": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "code"
+        ],
+        "title": "EmailSignInCode"
+      },
+      "EmailSignInPage": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "EmailSignInPage"
       },
       "FoundServer": {
         "properties": {

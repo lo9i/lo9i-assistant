@@ -4,12 +4,15 @@ Each account is an account of kind "email" (core/accounts.py): its settings in t
 password encrypted apart. Connected from the app (/email, Settings → Integrations), not .env.
 """
 
+import time
 from dataclasses import dataclass, field, fields
 
 from langgraph.store.base import BaseStore
 
 from assistant.core import accounts
 from assistant.core.accounts import Account, Status
+from assistant.core.integrations.email import oauth
+from assistant.core.integrations.email.errors import EmailError as EmailError
 from assistant.core.integrations.email.providers import imap_host_for
 from assistant.core.secret_store import SecretBox, SecretError
 
@@ -18,10 +21,6 @@ KIND = "email"
 _LEGACY = (("integrations",), "email")
 # Fields that belong to the account record or the secret, not to its settings.
 _NOT_SETTINGS = {"password", "account_id", "label", "default", "status", "problem"}
-
-
-class EmailError(Exception):
-    pass
 
 
 @dataclass
@@ -38,6 +37,10 @@ class EmailConfig:
     imap_port: int = 993
     # Where new mail is announced (telegram or slack), or "" for nowhere.
     new_mail_alerts: str = ""
+    # "password", or "oauth": signed in with `oauth_provider` (google, microsoft), and `password`
+    # holds an access token, refreshed when the account is loaded (oauth.py).
+    auth: str = "password"
+    oauth_provider: str = ""
     # The account it belongs to (core/accounts.py).
     account_id: str = ""
     label: str = ""
@@ -73,11 +76,27 @@ async def load(store: BaseStore, box: SecretBox, name: str = "") -> EmailConfig:
         return EmailConfig()
     config = _config(account)
     try:
-        config.password = await accounts.secret(store, box, account)
+        secret = await accounts.secret(store, box, account)
     except SecretError as e:
         await mark_needs_sign_in(store, account.id, "Its password can't be read any more; connect it again.")
         raise EmailError(f"The password of {config.label} can't be read; connect it again in the app.") from e
+    config.password = await _access_token(store, box, account, secret) if config.auth == "oauth" else secret
     return config
+
+
+async def _access_token(store: BaseStore, box: SecretBox, account: Account, secret: str) -> str:
+    """The account's access token, refreshed and saved when it's about to expire. Raises EmailError,
+    marking the account as needing to sign in again, when the provider refuses."""
+    tokens = oauth.Tokens.from_secret(secret)
+    if not tokens.expired(time.time()):
+        return tokens.access_token
+    try:
+        tokens = await oauth.refresh(tokens)
+    except EmailError as e:
+        await mark_needs_sign_in(store, account.id, f"Its sign-in stopped working ({e}); sign in again.")
+        raise EmailError(f"{account.label} needs to sign in again in the app: {e}") from e
+    await accounts.set_secret(store, box, account, tokens.to_secret())
+    return tokens.access_token
 
 
 async def save(store: BaseStore, box: SecretBox, config: EmailConfig, password: str = "") -> EmailConfig:

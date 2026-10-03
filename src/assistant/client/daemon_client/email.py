@@ -67,6 +67,35 @@ class EmailApi:
     async def remove(self, account_id: str) -> None:
         await self._transport.request("DELETE", f"{_PATH}/accounts/{account_id}", errors=_ERRORS)
 
+    async def start_sign_in(
+        self,
+        provider: str,
+        client_id: str,
+        client_secret: str,
+        redirect_uri: str,
+        address: str,
+        label: str = "",
+        account_id: str = "",
+    ) -> str:
+        """The provider's sign-in page (OAuth: google, microsoft). The browser comes back to
+        `redirect_uri`, the web app's /app/oauth, which finishes it. Raises EmailError."""
+        body = {
+            "provider": provider,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": redirect_uri,
+            "address": address,
+            "label": label,
+            "account_id": account_id,
+        }
+        data = await self._transport.request("POST", f"{_PATH}/oauth/start", json=body, errors=_ERRORS)
+        return data["url"]
+
+    async def finish_sign_in(self, state: str, code: str) -> EmailAccount:
+        """Finish with the code from the address the browser was sent back to. Raises EmailError."""
+        body = {"state": state, "code": code}
+        return EmailAccount(**await self._transport.request("POST", f"{_PATH}/oauth/finish", json=body, errors=_ERRORS))
+
     async def _put(self, account_id: str, path: str, body: dict | None) -> EmailAccount:
         url = f"{_PATH}/accounts/{account_id}{path}"
         return EmailAccount(**await self._transport.request("PUT", url, json=body, errors=_ERRORS))

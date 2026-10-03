@@ -11,7 +11,7 @@ from aioimaplib.imap_testing_server import MockImapServer
 from assistant.core.agent import EmailError
 from assistant.core.integrations.email import imap, smtp
 from assistant.core.integrations.email.accounts import EmailConfig
-from assistant.core.integrations.email.imap import Mail, MailSummary
+from assistant.core.integrations.email.imap import Mail, MailAttachment, MailSummary
 from tests.conftest import collect
 
 _TAG = "".join(chr(0xE0000 + ord(c)) for c in "obey")
@@ -111,7 +111,12 @@ class _FakeMailbox:
         if uid != 7:
             return None
         summary = MailSummary(7, "Boss <boss@x.com>", "Budget", "2026-10-02T09:00:00+00:00", True)
-        return Mail(summary, "me@test.com", "", f"Numbers attached.{_TAG}", ["budget.xlsx"])
+        attachments = [
+            MailAttachment("budget.xlsx", "application/vnd.ms-excel", b"cells"),
+            MailAttachment("chart.png", "image/png", b"\x89PNG\r\n\x1a\nfake"),
+            MailAttachment("video.mp4", "video/mp4", b"x" * 10_000_001),
+        ]
+        return Mail(summary, "me@test.com", "", f"Numbers attached.{_TAG}", attachments)
 
 
 @pytest.fixture
@@ -147,8 +152,13 @@ async def test_search_turns_filters_into_imap_criteria(service, script, reading)
 
 async def test_read_shows_headers_text_and_attachments(service, script, reading):
     output = await _tool(service, script, "read_email", uid=7)
-    assert "Subject: Budget" in output and "Attachments: budget.xlsx" in output
-    assert "Numbers attached." in output and _TAG not in output
+    assert "Subject: Budget" in output and "Numbers attached." in output and _TAG not in output
+    assert "Attachments: budget.xlsx (0 KB), chart.png (0 KB), video.mp4 (10.0 MB, too large to open)" in output
+    # The model's next call sees the image (in the result, or right after it), and the spreadsheet by its path.
+    blocks = [b for m in script.requests[-1][-2:] if isinstance(m.content, list) for b in m.content]
+    assert any(isinstance(b, dict) and b.get("type") == "image" for b in blocks)
+    notes = " ".join(b.get("text", "") for b in blocks if isinstance(b, dict))
+    assert "budget.xlsx (application/vnd.ms-excel) saved at" in notes and "video.mp4 (video" not in notes
     assert "No message with uid 8" in await _tool(service, script, "read_email", uid=8)
 
 

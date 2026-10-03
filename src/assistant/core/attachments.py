@@ -149,8 +149,14 @@ def _hydrate_block(block: Any) -> list[Any]:
     if data is None:
         return [_text(f"[Uploaded file {reference['name']} is no longer available]")]
     attachment = Attachment(name=reference["name"], media_type=reference["media_type"], data=data)
-    note = _text(f"[Uploaded file {attachment.name}, saved at {uploads.absolute(reference['path'])}]")
-    return [note, _converter_for(attachment)(attachment)]
+    where = uploads.absolute(reference["path"])
+    try:
+        convert = _converter_for(attachment)
+    except ValueError:
+        # Only tool results refer to such files (an email's spreadsheet): chat attachments are checked
+        # when they're sent.
+        return [_text(f"[File {attachment.name} ({attachment.media_type}) saved at {where}; open it with bash]")]
+    return [_text(f"[Uploaded file {attachment.name}, saved at {where}]"), convert(attachment)]
 
 
 def _converter_for(attachment: Attachment) -> Callable[[Attachment], Block]:

@@ -11,6 +11,7 @@ import type {
   Decision,
   Device,
   EmailAccount,
+  EmailSignIn,
   EmailProvider,
   EmailSettings,
   InstalledFromRepository,
@@ -231,6 +232,16 @@ export class EmailGroup {
 
   async remove(id: string): Promise<void> {
     await this.transport.request("DELETE", this.path(id));
+  }
+
+  /** The provider's sign-in page (OAuth); the browser comes back to `redirect_uri`, the /oauth page. */
+  async startSignIn(body: EmailSignIn): Promise<string> {
+    return (await this.transport.request<{ url: string }>("POST", "/integrations/email/oauth/start", body)).url;
+  }
+
+  /** The /oauth page's last step: works in a browser that isn't paired; the one-time state is the proof. */
+  finishSignIn(state: string, code: string): Promise<EmailAccount> {
+    return this.transport.request("POST", "/integrations/email/oauth/finish", { state, code });
   }
 
   private path(id: string): string {

@@ -18,6 +18,7 @@ export type SpeechStatus = Schemas["SpeechStatus"];
 export type EmailAccount = Schemas["EmailAccount"];
 export type EmailSettings = Schemas["EmailSettings"];
 export type EmailProvider = Schemas["EmailProvider"];
+export type EmailSignIn = Schemas["EmailSignIn"];
 export type ModelStatus = Schemas["ModelStatus"];
 export type ModelProvider = Schemas["ModelProvider"];
 export type ModelChange = Schemas["ModelChange"];

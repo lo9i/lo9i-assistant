@@ -45,12 +45,29 @@ async def test_a_provider_needs_only_the_address_and_password(app, client):
         assert "Email: Personal <me@gmail.com> · default" in _body(screen)
 
 
-async def test_microsoft_explains_it_cant_connect_yet(app, client):
-    async with app.run_test(size=(110, 44)) as pilot:
+async def test_microsoft_signs_in_with_the_users_oauth_app(app, client, monkeypatch):
+    opened: list[str] = []
+    monkeypatch.setattr("assistant_terminal.tui.screens.email.webbrowser.open", lambda url: opened.append(url) or False)
+    async with app.run_test(size=(110, 50)) as pilot:
         screen = await _open(pilot, app)
         screen.query_one("#email-provider", Select).value = "microsoft"
-        await wait_for(pilot, lambda: "OAuth" in screen.query_one("#email-help", Markdown).source)
-        assert not screen.query_one("#connect").display and not screen.query_one("#email-password").display
+        help_text = screen.query_one("#email-help", Markdown)
+        await wait_for(pilot, lambda: "http://localhost:" in help_text.source and "/app/oauth" in help_text.source)
+        assert screen.query_one("#email-client-id").display and not screen.query_one("#email-password").display
+        assert str(screen.query_one("#connect", Button).label) == "Sign in"
+        screen.query_one("#email-address", Input).value = "me@outlook.com"
+        screen.query_one("#email-client-id", Input).value = "client-1"
+        screen.query_one("#email-client-secret", Input).value = "secret-1"
+        screen.query_one("#connect", Button).press()
+        await wait_for(pilot, lambda: screen.query_one("#finish").display)
+        assert opened and client.email.sign_in[:3] == ("microsoft", "client-1", "secret-1")
+        returned = screen.query_one("#email-returned", Input)
+        returned.value = "http://localhost:8765/app/oauth?code=c1&state=s1"
+        screen.query_one("#finish", Button).press()
+        body = screen.query_one("#email-body", Markdown)
+        await wait_for(pilot, lambda: "Signed in" in body.source and "me@outlook.com" in body.source)
+        [account] = client.email.accounts_by_id.values()
+        assert (account.auth, account.oauth_provider) == ("oauth", "microsoft")
 
 
 async def test_other_asks_for_the_server_and_saves_recipients(app, client):

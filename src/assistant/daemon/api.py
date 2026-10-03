@@ -108,6 +108,29 @@ class EmailAccountName(BaseModel):
     label: str
 
 
+class EmailSignIn(BaseModel):
+    # google or microsoft.
+    provider: str
+    # The user's OAuth app; the secret is typed in the dialog and stays in the daemon.
+    client_id: str
+    client_secret: str = ""
+    # Where the provider sends the browser back: the web app's /app/oauth page.
+    redirect_uri: str
+    address: str
+    label: str = ""
+    # Signing an existing account in again.
+    account_id: str = ""
+
+
+class EmailSignInPage(BaseModel):
+    url: str
+
+
+class EmailSignInCode(BaseModel):
+    state: str
+    code: str
+
+
 class EmailRecipients(BaseModel):
     addresses: list[str]
 
@@ -548,6 +571,30 @@ def _add_email_routes(app: FastAPI, service: AssistantService) -> None:
                 body.imap_port,
             )
         )
+
+    @app.post("/integrations/email/oauth/start")
+    async def start_email_sign_in(body: EmailSignIn) -> EmailSignInPage:
+        """The provider's sign-in page; the browser comes back to `redirect_uri`. 400: unknown
+        provider or missing values. 404: unknown account."""
+        page = await _email(
+            service.start_email_sign_in(
+                body.provider,
+                body.client_id,
+                body.client_secret,
+                body.redirect_uri,
+                body.address,
+                body.label,
+                body.account_id,
+            )
+        )
+        return EmailSignInPage(url=page)
+
+    @app.post("/integrations/email/oauth/finish")
+    async def finish_email_sign_in(body: EmailSignInCode) -> EmailAccount:
+        """Open to unpaired browsers: the one-time state is the proof (the web app's /app/oauth page
+        may be opened on the daemon's own computer, before pairing). 400: expired state, refused
+        code, or a server that won't log in with the token."""
+        return await _email(service.finish_email_sign_in(body.state, body.code))
 
     @app.put("/integrations/email/accounts/{account_id}/label")
     async def rename_email_account(account_id: str, body: EmailAccountName) -> EmailAccount:

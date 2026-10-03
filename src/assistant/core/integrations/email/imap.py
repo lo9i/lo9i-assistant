@@ -7,6 +7,7 @@ TLS on port 993. Plain IMAP only to this machine, for local bridges (Proton Mail
 import asyncio
 import contextlib
 import email
+import mimetypes
 import re
 import ssl
 from collections.abc import AsyncIterator
@@ -41,12 +42,19 @@ class MailSummary:
 
 
 @dataclass
+class MailAttachment:
+    name: str
+    media_type: str
+    data: bytes
+
+
+@dataclass
 class Mail:
     summary: MailSummary
     to: str
     cc: str
     body: str
-    attachments: list[str]
+    attachments: list[MailAttachment]
 
 
 class Mailbox:
@@ -114,7 +122,7 @@ async def open_mailbox(config: EmailConfig, folder: str = "INBOX") -> AsyncItera
         # connection at once, instead of as a timeout waiting for the server's greeting.
         await asyncio.wait_for(client._client_task, _TIMEOUT)
         await client.wait_hello_from_server()
-        _check(await client.login(config.username, config.password), "log in")
+        _check(await _log_in(client, config), "log in")
         selected = await client.select(_mailbox_name(folder))
         _check(selected, f"open {folder}")
     except (AioImapException, OSError, TimeoutError) as e:
@@ -125,6 +133,15 @@ async def open_mailbox(config: EmailConfig, folder: str = "INBOX") -> AsyncItera
         raise EmailError(f"Reading mail failed: {e}") from e
     finally:
         await _logout(client)
+
+
+async def _log_in(client: IMAP4, config: EmailConfig) -> Response:
+    """With the password, or the access token of an account signed in with OAuth (XOAUTH2)."""
+    if config.auth != "oauth":
+        return await client.login(config.username, config.password)
+    # aioimaplib types the token as bytes, but formats it into the SASL string as text: bytes would
+    # send "b'...'". The string is what works.
+    return await client.xoauth2(config.username, config.password)  # pyright: ignore[reportArgumentType]
 
 
 async def verify(config: EmailConfig) -> None:
@@ -201,8 +218,19 @@ def _mail(meta: bytes, raw: bytes) -> Mail:
     message = email.message_from_bytes(raw, policy=default)
     if not isinstance(message, EmailMessage):
         raise EmailError("The mail server sent a message that couldn't be read.")
-    names = [part.get_filename() or "unnamed" for part in message.iter_attachments()]
-    return Mail(_summary(meta, raw), str(message.get("To", "")), str(message.get("Cc", "")), _body(message), names)
+    attachments = [_attachment(part) for part in message.iter_attachments()]
+    to, cc = str(message.get("To", "")), str(message.get("Cc", ""))
+    return Mail(_summary(meta, raw), to, cc, _body(message), attachments)
+
+
+def _attachment(part: EmailMessage) -> MailAttachment:
+    name = part.get_filename() or "unnamed"
+    media_type = part.get_content_type()
+    # Mailers often send any file as application/octet-stream; its name says more.
+    if media_type == "application/octet-stream":
+        media_type = mimetypes.guess_type(name)[0] or media_type
+    payload = part.get_payload(decode=True)
+    return MailAttachment(name, media_type, payload if isinstance(payload, bytes) else b"")
 
 
 def _body(message: EmailMessage) -> str:
