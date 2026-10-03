@@ -1,4 +1,4 @@
-"""Tool and skill usage over the last 7 or 30 days."""
+"""Tokens, and tool and skill calls, over the last 7 or 30 days."""
 
 from typing import ClassVar
 
@@ -49,4 +49,5 @@ class UsageScreen(ModalScreen[None]):
         await self._load(30)
 
     async def _load(self, days: int) -> None:
-        await self.query_one("#usage-body", Markdown).update(describe(await self._usage.report(days)))
+        report, tokens = await self._usage.report(days), await self._usage.tokens(days)
+        await self.query_one("#usage-body", Markdown).update(describe(report, tokens))

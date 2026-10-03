@@ -205,3 +205,91 @@ async def test_a_repository_that_is_one_skill_is_named_after_it(service, tmp_pat
 async def test_only_https_repositories_are_downloaded(service, url):
     with pytest.raises(RepositoryError, match="https://"):
         await service.browse_repository(url)
+
+
+_WITH_PAGE = """
+name: ledger
+command: "{uv}"
+args: [run, --project, "{dir}", ledger-mcp]
+env: {LEDGER_DB: "{data}/ledger.db"}
+page:
+  command: "{uv}"
+  args: [run, --project, "{dir}", ledger-web, --socket, "{socket}"]
+"""
+
+
+async def test_a_server_gets_its_folders_uv_and_page_filled_in(service, repo, isolated_settings, monkeypatch):
+    from assistant.core.mcp import install as server_install
+
+    monkeypatch.setattr(server_install, "find_uv", lambda: "/opt/uv")
+    _write(repo / "mcp" / "ledger", {"server.yaml": _WITH_PAGE})
+    [status] = (await service.install_from_repository(URL, [], [ServerValues("ledger")])).servers
+    server = await servers.load(service.store, "ledger")
+    code, data = isolated_settings / "mcp" / "ledger", isolated_settings / "data" / "ledger"
+    assert (server.command, server.args) == ("/opt/uv", ["run", "--project", str(code), "ledger-mcp"])
+    assert server.env == {"LEDGER_DB": f"{data}/ledger.db"}
+    assert server.page_args[-1] == f"{data}/page.sock" and status.page
+    assert data.is_dir() and data.stat().st_mode & 0o777 == 0o700
+    (data / "ledger.db").write_text("kept")
+    await service.remove_mcp_server("ledger")
+    assert not code.exists() and (data / "ledger.db").read_text() == "kept"
+
+
+async def test_a_server_that_runs_with_uv_needs_uv(service, repo, monkeypatch):
+    from assistant.core.mcp import install as server_install
+
+    monkeypatch.setattr(server_install, "find_uv", lambda: None)
+    _write(repo / "mcp" / "ledger", {"server.yaml": _WITH_PAGE})
+    with pytest.raises(McpServerError, match="can't find uv"):
+        await service.install_from_repository(URL, [], [ServerValues("ledger")])
+
+
+_HELLO_SKILL = "---\nname: hello\ndescription: Greeting people\n---\n\nCall whoami first."
+
+
+async def test_a_servers_skill_is_installed_updated_and_removed_with_it(service, repo, isolated_settings):
+    _write(repo / "mcp" / "hello", {"SKILL.md": _HELLO_SKILL})
+    contents = await service.browse_repository(URL)
+    assert "hello" not in [s.name for s in contents.skills]
+    assert next(s for s in contents.servers if s.name == "hello").skill
+    await service.install_from_repository(URL, [], [HELLO])
+    skill = store.load("hello")
+    assert (skill.server, skill.instructions, skill.files) == ("hello", "Call whoami first.", [])
+    assert sorted(p.name for p in (isolated_settings / "skills" / "hello").iterdir()) == [".source.yaml", "SKILL.md"]
+
+    with pytest.raises(store.SkillError, match="comes with the hello MCP server"):
+        await service.delete_skill("hello")
+    with pytest.raises(store.SkillError, match="update the server"):
+        await skill_install.update("hello")
+
+    _write(repo / "mcp" / "hello", {"SKILL.md": _HELLO_SKILL.replace("whoami first", "whoami")})
+    await service.update_mcp_server_from_repository("hello")
+    assert store.load("hello").instructions == "Call whoami."
+    (repo / "mcp" / "hello" / "SKILL.md").unlink()
+    await service.update_mcp_server_from_repository("hello")
+    with pytest.raises(store.SkillError, match="No skill"):
+        store.load("hello")
+
+    _write(repo / "mcp" / "hello", {"SKILL.md": _HELLO_SKILL})
+    await service.update_mcp_server_from_repository("hello")
+    await service.remove_mcp_server("hello")
+    with pytest.raises(store.SkillError, match="No skill"):
+        store.load("hello")
+
+
+async def test_a_servers_skill_needs_its_name_free_and_matching(service, repo):
+    _write(repo / "mcp" / "hello", {"SKILL.md": _HELLO_SKILL})
+    store.save("hello", "Mine", "My steps")
+    with pytest.raises(McpServerError, match="already have a skill named hello"):
+        await service.install_from_repository(URL, [], [HELLO])
+    assert store.load("hello").description == "Mine"
+    _write(repo / "mcp" / "hello", {"SKILL.md": _HELLO_SKILL.replace("name: hello", "name: greeter")})
+    with pytest.raises(RepositoryError, match=r"SKILL\.md must be named hello"):
+        await service.browse_repository(URL)
+
+
+async def test_a_top_level_server_folder_is_not_also_a_skill(service, repo):
+    _write(repo / "solo", {"server.yaml": "command: run-solo", "SKILL.md": "---\nname: solo\n---\n\nUse it."})
+    contents = await service.browse_repository(URL)
+    assert "solo" not in [s.name for s in contents.skills]
+    assert next(s for s in contents.servers if s.name == "solo").skill

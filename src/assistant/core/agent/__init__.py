@@ -11,7 +11,7 @@ from assistant.core.agent.email import EmailAccount, EmailAccountNotFoundError, 
 from assistant.core.agent.identity import InvalidNameError
 from assistant.core.agent.jobs import Job, JobError, RunRecord
 from assistant.core.agent.mcp import McpServer, McpServerChanges, McpServerError, McpServerStatus, McpToolInfo
-from assistant.core.agent.model import ModelProvider, ModelSettingsError, ModelStatus
+from assistant.core.agent.model import ModelProvider, ModelSettingsError, ModelStatus, ProviderField
 from assistant.core.agent.repositories import (
     FoundServer,
     InstalledFromRepository,
@@ -28,7 +28,7 @@ from assistant.core.agent.snapshot import MemorySnapshot
 from assistant.core.agent.speech import Decoding, SpeechSettingsError, SpeechStatus, SpokenReplies, SynthesisError
 from assistant.core.agent.telegram import InvalidTokenError, TelegramStatus
 from assistant.core.agent.threads import ConversationBusyError, ConversationError
-from assistant.core.agent.usage import UsageReport
+from assistant.core.agent.usage import TokenReport, UsageReport
 
 __all__ = [
     "AssistantService",
@@ -59,6 +59,7 @@ __all__ = [
     "ModelSettingsError",
     "ModelStatus",
     "PairingCode",
+    "ProviderField",
     "RepositoryContents",
     "RepositoryError",
     "RunRecord",
@@ -76,5 +77,6 @@ __all__ = [
     "SpokenReplies",
     "SynthesisError",
     "TelegramStatus",
+    "TokenReport",
     "UsageReport",
 ]

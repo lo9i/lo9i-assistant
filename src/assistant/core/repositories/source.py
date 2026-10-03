@@ -15,6 +15,9 @@ class Source:
     # Its folder inside the repository; "." when the repository is that one thing.
     path: str
     commit: str
+    # For a skill that comes with an MCP server (its SKILL.md is in the server's folder): that
+    # server, which installs, updates and removes it.
+    server: str = ""
 
 
 def read(folder: Path) -> Source | None:
@@ -22,9 +25,11 @@ def read(folder: Path) -> Source | None:
     if not record.is_file():
         return None
     data = yaml.safe_load(record.read_text(encoding="utf-8")) or {}
-    return Source(str(data.get("url", "")), str(data.get("path", ".")), str(data.get("commit", "")))
+    return Source(
+        str(data.get("url", "")), str(data.get("path", ".")), str(data.get("commit", "")), str(data.get("server", ""))
+    )
 
 
 def write(folder: Path, source: Source) -> None:
-    data = {"url": source.url, "path": source.path, "commit": source.commit}
+    data = {"url": source.url, "path": source.path, "commit": source.commit, "server": source.server}
     (folder / _FILE).write_text(yaml.safe_dump(data), encoding="utf-8")

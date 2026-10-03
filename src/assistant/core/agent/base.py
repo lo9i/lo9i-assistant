@@ -6,6 +6,7 @@ from assistant.core.conversation.digest import Digester
 from assistant.core.conversation.titles import Titler
 from assistant.core.graph import Graph
 from assistant.core.mcp.hub import McpHub
+from assistant.core.mcp.pages import McpPages
 from assistant.core.outbox import Outbox
 from assistant.core.secret_store import SecretBox
 from assistant.core.speech.synthesizer import Synthesizer
@@ -24,6 +25,8 @@ class ServiceBase:
     approvals: RemoteApprovals
     # MCP server connections. The daemon runs it as a supervised task.
     mcp: McpHub
+    # The web pages MCP servers come with, run like `mcp`.
+    pages: McpPages
     # Encrypts accounts' passwords and tokens (core/secret_store.py).
     secrets: SecretBox
     _graph: Graph
@@ -38,3 +41,10 @@ class ServiceBase:
     _conversations_lock: asyncio.Lock
     # The task running each thread's graph, while it runs (core/agent/runs.py).
     _active_runs: dict[str, asyncio.Task]
+
+    async def _servers_changed(self) -> None:
+        """Bring MCP connections and pages in line with the saved servers. A server's skill comes
+        and goes with it, so clients refresh their skills too."""
+        await self.mcp.reload()
+        await self.pages.reload()
+        self.bus.publish("skills")

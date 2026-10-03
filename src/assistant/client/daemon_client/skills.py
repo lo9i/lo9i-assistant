@@ -28,7 +28,8 @@ class SkillsApi:
         return Skill(**data)
 
     async def delete(self, name: str) -> None:
-        await self._transport.request("DELETE", f"/skills/{name}", errors=_NOT_FOUND)
+        """Raises SkillError for an unknown skill, or one that comes with an MCP server."""
+        await self._transport.request("DELETE", f"/skills/{name}", errors={**_NOT_FOUND, 400: SkillError})
 
     async def update_installed(self, name: str) -> Skill:
         """Install the skill again from its repository. Raises SkillError if it wasn't installed from one."""

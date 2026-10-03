@@ -1,6 +1,7 @@
 """A fake daemon client for driving the terminal app headlessly."""
 
 import asyncio
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -39,13 +40,14 @@ from assistant.core.agent import (
     SpeechSettingsError,
     SpeechStatus,
     TelegramStatus,
+    TokenReport,
     UsageReport,
 )
 from assistant.core.agent.skills import FoundSkill, SkillSummary
 from assistant.core.events import ApprovalRequired, Done, TextDelta, ToolFinished, ToolStarted, Transcribed
 from assistant.core.integrations.email.providers import PROVIDERS
 from assistant.core.llm.choice import PROVIDERS as PROVIDERS_FOR_MODEL
-from assistant.core.usage.log import ToolUsage
+from assistant.core.usage.log import TokenRow, ToolUsage
 from assistant.protocol import ConnectedClient, StartupError, StartupStatus
 from assistant_terminal.history import History
 from assistant_terminal.preferences import Preferences
@@ -100,6 +102,16 @@ class FakeUsage:
         return UsageReport(
             days, tools, [ToolUsage("news-digest", 3 if days == 7 else 12, 0, 0, 5, "2026-09-30T09:00:00")]
         )
+
+    async def tokens(self, days=7):
+        total = TokenRow(
+            "total", calls=4, input_tokens=52_000, cache_read_tokens=40_000, output_tokens=1_800, cost=0.07
+        )
+        model = TokenRow(
+            "claude-opus-5-5", calls=4, input_tokens=52_000, cache_read_tokens=40_000, output_tokens=1_800, cost=0.07
+        )
+        tool = TokenRow("web_fetch", calls=1, input_tokens=9_000, output_tokens=40)
+        return TokenReport(days, total, by_model=[model], by_tool=[tool])
 
 
 class FakeTelegram:
@@ -229,26 +241,34 @@ class FakeSpeech:
         return self.state
 
 
+def _env_model() -> ModelStatus:
+    return ModelStatus("env", "anthropic", "claude-opus-5-5", "claude-sonnet-5-5", {}, ["api_key"])
+
+
 class FakeModel:
     def __init__(self):
-        self.state = ModelStatus("env", "anthropic", "", "claude-opus-5-5", "claude-sonnet-5-5", True)
+        self.state = _env_model()
         self.saved = None
+        # Groq's package isn't installed yet, to show what saving will do.
+        self.list = [replace(p, installed=p.id != "groq") for p in PROVIDERS_FOR_MODEL]
 
     async def providers(self):
-        return list(PROVIDERS_FOR_MODEL)
+        return self.list
 
     async def status(self):
         return self.state
 
-    async def set(self, provider, api_key, base_url, model, worker_model):
-        if api_key == "bad":
+    async def set(self, provider, values, model, worker_model):
+        if values.get("api_key") == "bad":
             raise ModelSettingsError(f"{model} didn't answer: 401 invalid key")
-        self.saved = (provider, api_key, base_url, model, worker_model)
-        self.state = ModelStatus("app", provider, base_url, model, worker_model, True)
+        self.saved = (provider, values, model, worker_model)
+        secret = {f.key for p in self.list if p.id == provider for f in p.fields if f.secret}
+        plain = {k: v for k, v in values.items() if k not in secret}
+        self.state = ModelStatus("app", provider, model, worker_model, plain, sorted(k for k in values if k in secret))
         return self.state
 
     async def reset(self):
-        self.state = ModelStatus("env", "anthropic", "", "claude-opus-5-5", "claude-sonnet-5-5", True)
+        self.state = _env_model()
         return self.state
 
 

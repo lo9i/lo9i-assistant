@@ -41,6 +41,8 @@ class McpServerStatus:
     tools: list[McpToolInfo]
     # The repository it was installed from; "" when added by hand.
     source: str = ""
+    # It comes with a web page, shown in the web app (daemon/pages.py).
+    page: bool = False
 
 
 @dataclass
@@ -82,18 +84,18 @@ class McpMixin(ServiceBase):
         """Raises McpServerError for an unknown server."""
         await servers.remove(self._storage.store, name)
         await asyncio.to_thread(install.uninstall, name)
-        await self.mcp.reload()
+        await self._servers_changed()
 
     async def update_mcp_server_from_repository(self, name: str) -> McpServerStatus:
         """Install the server again from its repository, keeping what the user set.
         Raises McpServerError or RepositoryError."""
         server = await install.update(self._storage.store, name)
-        await self.mcp.reload()
+        await self._servers_changed()
         return self._mcp_status(server)
 
     async def _save_mcp_server(self, server: McpServer) -> McpServerStatus:
         await servers.save(self._storage.store, server)
-        await self.mcp.reload()
+        await self._servers_changed()
         return self._mcp_status(server)
 
     def _mcp_status(self, server: McpServer) -> McpServerStatus:
@@ -118,4 +120,5 @@ def mcp_status(hub: McpHub, server: McpServer) -> McpServerStatus:
         error=error,
         tools=tools,
         source=server.source,
+        page=bool(server.page_command),
     )

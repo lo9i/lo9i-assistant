@@ -36,13 +36,14 @@ def bind() -> Bind:
     }
 
 
-async def reload_on_renewal(server: uvicorn.Server) -> None:
+async def reload_on_renewal(*servers: uvicorn.Server) -> None:
     """Loads the certificate again whenever its folder changes. Certificate tools (certbot,
     acme.sh) write renewals into place, often by swapping symlinks, so the folder is watched
     rather than the file. New connections get the new certificate; open ones keep theirs."""
     folders = {str(Path(_path(settings.https_cert)).parent), str(Path(_path(settings.https_key)).parent)}
     async for _ in awatch(*folders):
-        _reload(server)
+        for server in servers:
+            _reload(server)
 
 
 def _reload(server: uvicorn.Server) -> None:

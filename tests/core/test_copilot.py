@@ -120,7 +120,7 @@ async def test_structured_answers_come_through_a_tool_call_on_copilot(monkeypatc
     monkeypatch.setattr(
         copilot, "chat_model", lambda model, token, max_tokens: real(model, "gh-right", 1000, transport)
     )
-    model = ModelChoice("copilot", "gh-right", "", "claude-opus-5.5", "claude-sonnet-5.5")
+    model = ModelChoice("copilot", "claude-opus-5.5", "claude-sonnet-5.5", {"api_key": "gh-right"})
     answer = await build_structured(model, "claude-opus-5.5", Title).ainvoke([HumanMessage("Title this")])
     assert answer == Title(title="Rome")
     body = json.loads(fake.requests[0].content)

@@ -52,7 +52,12 @@
     return next;
   }
 
-  const kind = (s: FoundServer) => (s.transport === "stdio" ? "local" : "remote");
+  function kind(s: FoundServer): string {
+    const parts = [s.transport === "stdio" ? "local" : "remote"];
+    if (s.skill) parts.push("with its skill");
+    if (s.page) parts.push("with a web page");
+    return parts.join(", ");
+  }
 </script>
 
 <Modal

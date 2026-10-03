@@ -12,6 +12,7 @@ import type {
   EmailAccount,
   EmailProvider,
   EmailSettings,
+  InstalledFromRepository,
   Job,
   McpServerChange,
   McpServerSettings,
@@ -22,19 +23,19 @@ import type {
   ModelProvider,
   ModelStatus,
   PairingCode,
+  RepositoryContents,
   RunEvent,
+  ServerValues,
   Session,
   ShownMessage,
-  InstalledFromRepository,
-  RepositoryContents,
-  ServerValues,
   Skill,
   SkillSummary,
-  StartupStatus,
   SlackStatus,
   SlackTokens,
   SpeechStatus,
+  StartupStatus,
   TelegramStatus,
+  TokenReport,
   UsageReport,
 } from "./types";
 
@@ -312,6 +313,11 @@ export class UsageGroup {
 
   report(days: number): Promise<UsageReport> {
     return this.transport.request("GET", `/usage?days=${days}`);
+  }
+
+  /** Tokens and cost of the model calls, grouped every way the report offers. */
+  tokens(days: number): Promise<TokenReport> {
+    return this.transport.request("GET", `/usage/tokens?days=${days}`);
   }
 }
 

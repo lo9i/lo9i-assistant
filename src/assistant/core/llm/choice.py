@@ -1,106 +1,65 @@
-"""Which model the assistant uses: the provider, its key, and the main and worker models.
+"""Which model the assistant uses: the provider, the values it asks for (core/llm/providers.py), and
+the main and worker models.
 
 Set in the app (Settings → Model, /model), it's saved in the Store and overrides .env. Without it,
-the settings from .env apply. The key is kept encrypted apart from the rest (core/secret_store.py)
-and never leaves the daemon: clients only learn whether one is set.
+the settings from .env apply. Secret values (keys, tokens) are kept encrypted apart from the rest
+(core/secret_store.py) and never leave the daemon: clients only learn which are set.
 """
 
-from dataclasses import asdict, dataclass, replace
+import json
+from dataclasses import dataclass, field
 
 from langgraph.store.base import BaseStore
 
 from assistant.core import secret_store
 from assistant.core.config import settings
+from assistant.core.llm.providers import PROVIDERS, ModelProvider, provider
 from assistant.core.secret_store import SecretBox, SecretError
+
+__all__ = ["PROVIDERS", "ModelChoice", "ModelProvider", "provider"]
 
 _NAMESPACE = ("settings",)
 _KEY = "model"
-_SECRET = "model:api_key"
+_SECRETS = "model:secrets"
+# Before providers had their own fields: the one key, alone.
+_OLD_KEY = "model:api_key"
 
 
 @dataclass(frozen=True)
 class ModelChoice:
     provider: str
-    # The Anthropic or OpenAI API key, or the GitHub token for Copilot. Empty: the provider's SDK
-    # reads its usual environment variable.
-    api_key: str
-    # OpenAI-compatible servers other than OpenAI (Ollama, others). Empty for the provider's own.
-    base_url: str
     model: str
     worker_model: str
-
-
-@dataclass(frozen=True)
-class ModelProvider:
-    """A provider clients offer, with the models to suggest."""
-
-    id: str
-    name: str
-    key_label: str
-    key_help: str
-    model: str
-    worker_model: str
-    # OpenAI-compatible: the server's URL can be given.
-    takes_base_url: bool = False
-
-
-PROVIDERS = [
-    ModelProvider(
-        "anthropic",
-        "Anthropic",
-        "API key",
-        "Create one at https://console.anthropic.com/settings/keys.",
-        "claude-opus-5-5",
-        "claude-sonnet-5-5",
-    ),
-    ModelProvider(
-        "copilot",
-        "GitHub Copilot",
-        "GitHub token",
-        "A GitHub token of an account with a Copilot subscription. Copilot's model ids use dots.",
-        "claude-opus-5.5",
-        "claude-sonnet-5.5",
-    ),
-    ModelProvider(
-        "openai",
-        "OpenAI-compatible",
-        "API key",
-        "OpenAI, or another server that speaks its API (for Ollama, any text as the key).",
-        "",
-        "",
-        takes_base_url=True,
-    ),
-]
-
-
-def provider(provider_id: str) -> ModelProvider | None:
-    return next((p for p in PROVIDERS if p.id == provider_id), None)
+    # The provider's fields by key, secret ones included. An empty or missing value: the
+    # provider's SDK reads its usual environment variable, if it has one.
+    values: dict[str, str] = field(default_factory=dict)
 
 
 async def saved(store: BaseStore, box: SecretBox) -> ModelChoice | None:
-    """The choice made in the app, if any. A key that can't be read any more (the key file
-    changed) comes back empty, so the app asks for it again."""
+    """The choice made in the app, if any. Secrets that can't be read any more (the key file
+    changed) come back empty, so the app asks for them again."""
     item = await store.aget(_NAMESPACE, _KEY)
     if item is None:
         return None
-    try:
-        key = await secret_store.get(store, box, _SECRET)
-    except SecretError:
-        key = ""
-    return ModelChoice(**{**item.value, "api_key": key})
+    record = item.value
+    values = {**record.get("values", {}), **await _secrets(store, box)}
+    return ModelChoice(record["provider"], record["model"], record["worker_model"], values)
 
 
 async def save(store: BaseStore, box: SecretBox, choice: ModelChoice) -> None:
-    await store.aput(_NAMESPACE, _KEY, asdict(replace(choice, api_key="")))
-    if choice.api_key:
-        await secret_store.put(store, box, _SECRET, choice.api_key)
-    else:
-        await secret_store.delete(store, _SECRET)
+    secret = _secret_keys(choice.provider)
+    plain = {k: v for k, v in choice.values.items() if k not in secret}
+    hidden = {k: v for k, v in choice.values.items() if k in secret and v}
+    record = {"provider": choice.provider, "model": choice.model, "worker_model": choice.worker_model, "values": plain}
+    await store.aput(_NAMESPACE, _KEY, record)
+    await secret_store.put(store, box, _SECRETS, json.dumps(hidden))
+    await secret_store.delete(store, _OLD_KEY)
 
 
 async def clear(store: BaseStore) -> None:
     await store.adelete(_NAMESPACE, _KEY)
-    await secret_store.delete(store, _SECRET)
+    await secret_store.delete(store, _SECRETS)
+    await secret_store.delete(store, _OLD_KEY)
 
 
 async def current(store: BaseStore, box: SecretBox) -> ModelChoice:
@@ -109,10 +68,15 @@ async def current(store: BaseStore, box: SecretBox) -> ModelChoice:
 
 
 async def migrate(store: BaseStore, box: SecretBox) -> None:
-    """Moves a key saved in plain text, before keys were encrypted, into the secret store."""
+    """Moves a choice saved before providers had their own fields (one key, maybe a server URL,
+    perhaps in plain text) to the current form."""
     item = await store.aget(_NAMESPACE, _KEY)
-    if item is not None and item.value.get("api_key"):
-        await save(store, box, ModelChoice(**item.value))
+    if item is None or "values" in item.value:
+        return
+    old = item.value
+    key = old.get("api_key") or await _old_key(store, box)
+    values = {k: v for k, v in {"api_key": key, "base_url": old.get("base_url", "")}.items() if v}
+    await save(store, box, ModelChoice(old["provider"], old["model"], old["worker_model"], values))
 
 
 def from_env() -> ModelChoice:
@@ -121,5 +85,32 @@ def from_env() -> ModelChoice:
         "openai": settings.openai_api_key,
         "copilot": settings.copilot_github_token,
     }
-    base_url = settings.openai_base_url if settings.provider == "openai" else ""
-    return ModelChoice(settings.provider, keys[settings.provider], base_url, settings.model, settings.worker_model)
+    values = {"api_key": keys[settings.provider]}
+    if settings.provider == "openai" and settings.openai_base_url:
+        values["base_url"] = settings.openai_base_url
+    return ModelChoice(settings.provider, settings.model, settings.worker_model, values)
+
+
+def secret_keys(choice: ModelChoice) -> set[str]:
+    """The choice's values that are secret."""
+    return _secret_keys(choice.provider)
+
+
+def _secret_keys(provider_id: str) -> set[str]:
+    known = provider(provider_id)
+    return {f.key for f in known.fields if f.secret} if known else set()
+
+
+async def _secrets(store: BaseStore, box: SecretBox) -> dict[str, str]:
+    try:
+        text = await secret_store.get(store, box, _SECRETS)
+    except SecretError:
+        return {}
+    return json.loads(text) if text else {}
+
+
+async def _old_key(store: BaseStore, box: SecretBox) -> str:
+    try:
+        return await secret_store.get(store, box, _OLD_KEY)
+    except SecretError:
+        return ""

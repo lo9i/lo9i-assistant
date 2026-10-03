@@ -31,6 +31,8 @@ class Skill:
     files: list[str] = field(default_factory=list)
     # The git repository it was installed from; None when the assistant or the user wrote it.
     source: str | None = None
+    # The MCP server it comes with, which installs, updates and removes it; None for a skill of its own.
+    server: str | None = None
 
 
 def list_skills() -> list[Skill]:
@@ -75,10 +77,11 @@ def save(name: str, description: str, instructions: str, files: dict[str, str] |
     return load(name)
 
 
-def put(name: str, source_folder: Path, source: skill_source.Source) -> Skill:
-    """Install a skill folder from a repository, replacing a skill of the same name."""
+def put(name: str, source_folder: Path, source: skill_source.Source, only: list[str] | None = None) -> Skill:
+    """Install a skill folder (or the files in `only`) from a repository, replacing a skill of the
+    same name."""
     _refuse_builtin(name)
-    folders.put(source_folder, _path(name).parent, source)
+    folders.put(source_folder, _path(name).parent, source, only)
     return load(name)
 
 
@@ -86,11 +89,15 @@ def installed_from(name: str) -> skill_source.Source | None:
     return None if _is_builtin(name) else skill_source.read(_path(name).parent)
 
 
-def delete(name: str) -> None:
+def delete(name: str, server: str = "") -> None:
+    """A skill that comes with an MCP server is deleted only by removing that `server`."""
     _refuse_builtin(name)
     target = _path(name).parent
     if not target.exists():
         raise SkillError(f"No skill named {name}.")
+    owner = (skill_source.read(target) or skill_source.Source("", "", "")).server
+    if owner and owner != server:
+        raise SkillError(f"{name} comes with the {owner} MCP server: remove the server to remove it.")
     shutil.rmtree(target)
 
 
@@ -117,6 +124,7 @@ def read(skill_folder: Path, default_name: str | None = None) -> Skill | None:
         builtin,
         skill_files.listed(skill_folder),
         source.url if source else None,
+        (source.server or None) if source else None,
     )
 
 

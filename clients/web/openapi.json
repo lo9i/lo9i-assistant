@@ -1249,6 +1249,7 @@
       },
       "delete": {
         "summary": "Delete Skill",
+        "description": "404: no such skill. 400: built in, or it comes with an MCP server.",
         "operationId": "delete_skill_skills__name__delete",
         "parameters": [
           {
@@ -2053,6 +2054,47 @@
         }
       }
     },
+    "/usage/tokens": {
+      "get": {
+        "summary": "Token Usage",
+        "description": "Tokens and cost of the model calls, by day, model, purpose, channel, conversation, job, skill and tool.",
+        "operationId": "token_usage_usage_tokens_get",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 7,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/system/startup": {
       "get": {
         "summary": "Startup Status",
@@ -2529,6 +2571,16 @@
           "trusted": {
             "type": "boolean",
             "title": "Trusted"
+          },
+          "skill": {
+            "type": "boolean",
+            "title": "Skill",
+            "default": false
+          },
+          "page": {
+            "type": "boolean",
+            "title": "Page",
+            "default": false
           }
         },
         "type": "object",
@@ -2966,6 +3018,11 @@
             "type": "string",
             "title": "Source",
             "default": ""
+          },
+          "page": {
+            "type": "boolean",
+            "title": "Page",
+            "default": false
           }
         },
         "type": "object",
@@ -3085,15 +3142,13 @@
             "type": "string",
             "title": "Provider"
           },
-          "api_key": {
-            "type": "string",
-            "title": "Api Key",
-            "default": ""
-          },
-          "base_url": {
-            "type": "string",
-            "title": "Base Url",
-            "default": ""
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Values",
+            "default": {}
           },
           "model": {
             "type": "string",
@@ -3122,39 +3177,62 @@
             "type": "string",
             "title": "Name"
           },
-          "key_label": {
-            "type": "string",
-            "title": "Key Label"
-          },
-          "key_help": {
-            "type": "string",
-            "title": "Key Help"
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderField"
+            },
+            "type": "array",
+            "title": "Fields"
           },
           "model": {
             "type": "string",
-            "title": "Model"
+            "title": "Model",
+            "default": ""
           },
           "worker_model": {
             "type": "string",
-            "title": "Worker Model"
+            "title": "Worker Model",
+            "default": ""
           },
-          "takes_base_url": {
+          "help": {
+            "type": "string",
+            "title": "Help",
+            "default": ""
+          },
+          "package": {
+            "type": "string",
+            "title": "Package",
+            "default": ""
+          },
+          "module": {
+            "type": "string",
+            "title": "Module",
+            "default": ""
+          },
+          "max_tokens_key": {
+            "type": "string",
+            "title": "Max Tokens Key",
+            "default": "max_tokens"
+          },
+          "model_key": {
+            "type": "string",
+            "title": "Model Key",
+            "default": ""
+          },
+          "installed": {
             "type": "boolean",
-            "title": "Takes Base Url",
-            "default": false
+            "title": "Installed",
+            "default": true
           }
         },
         "type": "object",
         "required": [
           "id",
           "name",
-          "key_label",
-          "key_help",
-          "model",
-          "worker_model"
+          "fields"
         ],
         "title": "ModelProvider",
-        "description": "A provider clients offer, with the models to suggest."
+        "description": "A provider clients offer, with what it asks for and the models to suggest."
       },
       "ModelStatus": {
         "properties": {
@@ -3166,10 +3244,6 @@
             "type": "string",
             "title": "Provider"
           },
-          "base_url": {
-            "type": "string",
-            "title": "Base Url"
-          },
           "model": {
             "type": "string",
             "title": "Model"
@@ -3178,22 +3252,32 @@
             "type": "string",
             "title": "Worker Model"
           },
-          "key_set": {
-            "type": "boolean",
-            "title": "Key Set"
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Values"
+          },
+          "secrets_set": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Secrets Set"
           }
         },
         "type": "object",
         "required": [
           "source",
           "provider",
-          "base_url",
           "model",
           "worker_model",
-          "key_set"
+          "values",
+          "secrets_set"
         ],
         "title": "ModelStatus",
-        "description": "What a client shows. Says whether a key is set, never the key."
+        "description": "What a client shows. Says which secret values are set, never the values."
       },
       "NewMailAlerts": {
         "properties": {
@@ -3254,6 +3338,39 @@
           "expires_at"
         ],
         "title": "PairingCode"
+      },
+      "ProviderField": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "secret": {
+            "type": "boolean",
+            "title": "Secret",
+            "default": false
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required",
+            "default": true
+          },
+          "help": {
+            "type": "string",
+            "title": "Help",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "ProviderField"
       },
       "RepositoryAddress": {
         "properties": {
@@ -3477,6 +3594,17 @@
               }
             ],
             "title": "Source"
+          },
+          "server": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server"
           }
         },
         "type": "object",
@@ -3836,6 +3964,139 @@
           "thread_id"
         ],
         "title": "ThreadCreated"
+      },
+      "TokenReport": {
+        "properties": {
+          "days": {
+            "type": "integer",
+            "title": "Days"
+          },
+          "total": {
+            "$ref": "#/components/schemas/TokenRow"
+          },
+          "by_day": {
+            "items": {
+              "$ref": "#/components/schemas/TokenRow"
+            },
+            "type": "array",
+            "title": "By Day"
+          },
+          "by_model": {
+            "items": {
+              "$ref": "#/components/schemas/TokenRow"
+            },
+            "type": "array",
+            "title": "By Model"
+          },
+          "by_purpose": {
+            "items": {
+              "$ref": "#/components/schemas/TokenRow"
+            },
+            "type": "array",
+            "title": "By Purpose"
+          },
+          "by_channel": {
+            "items": {
+              "$ref": "#/components/schemas/TokenRow"
+            },
+            "type": "array",
+            "title": "By Channel"
+          },
+          "by_conversation": {
+            "items": {
+              "$ref": "#/components/schemas/TokenRow"
+            },
+            "type": "array",
+            "title": "By Conversation"
+          },
+          "by_job": {
+            "items": {
+              "$ref": "#/components/schemas/TokenRow"
+            },
+            "type": "array",
+            "title": "By Job"
+          },
+          "by_skill": {
+            "items": {
+              "$ref": "#/components/schemas/TokenRow"
+            },
+            "type": "array",
+            "title": "By Skill"
+          },
+          "by_tool": {
+            "items": {
+              "$ref": "#/components/schemas/TokenRow"
+            },
+            "type": "array",
+            "title": "By Tool"
+          },
+          "estimated_calls": {
+            "type": "integer",
+            "title": "Estimated Calls",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "days",
+          "total"
+        ],
+        "title": "TokenReport"
+      },
+      "TokenRow": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "default": ""
+          },
+          "calls": {
+            "type": "integer",
+            "title": "Calls",
+            "default": 0
+          },
+          "input_tokens": {
+            "type": "integer",
+            "title": "Input Tokens",
+            "default": 0
+          },
+          "cache_read_tokens": {
+            "type": "integer",
+            "title": "Cache Read Tokens",
+            "default": 0
+          },
+          "cache_write_tokens": {
+            "type": "integer",
+            "title": "Cache Write Tokens",
+            "default": 0
+          },
+          "output_tokens": {
+            "type": "integer",
+            "title": "Output Tokens",
+            "default": 0
+          },
+          "cost": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "TokenRow",
+        "description": "Tokens of one day, model, conversation, tool... `cost` in US dollars, None when no model\ninvolved has a price (core/usage/prices.py)."
       },
       "ToolUsage": {
         "properties": {

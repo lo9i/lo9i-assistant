@@ -3,6 +3,7 @@
   import type { ToolUsage } from "$lib/api/types";
   import { resource } from "$lib/daemon.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
+  import TokenUsage from "$lib/ui/TokenUsage.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
   type Kind = "tool" | "skill";
@@ -44,10 +45,11 @@
 </TopBar>
 
 <div class="shell">
+  <TokenUsage {days} />
   <section class="table-card surface--glass">
     <header class="toolbar">
       <div>
-        <h2 class="text-heading">Tools and skills</h2>
+        <h2 class="text-heading">Tool and skill calls</h2>
         <p class="text-meta">How often the assistant used each one in the last {days} days.</p>
       </div>
       <div class="controls">
@@ -107,6 +109,9 @@
 
 <style>
   .shell {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
     padding: 16px 16px 40px;
     max-width: 1600px;
     margin: 0 auto;

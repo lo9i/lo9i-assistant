@@ -22,6 +22,8 @@ def describe(server: McpServerStatus) -> str:
     lines.append(_trust(server.trusted))
     if server.source:
         lines.append(f"Installed from {server.source}")
+    if server.page:
+        lines.append("It has a page: open it from the sidebar of the web app.")
     secrets = server.env_keys if server.command else server.header_keys
     if secrets:
         lines.append(f"{'Env' if server.command else 'Headers'}: {', '.join(secrets)} (values hidden)")

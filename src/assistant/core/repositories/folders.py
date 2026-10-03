@@ -9,6 +9,10 @@ from assistant.core.repositories import source as folder_source
 from assistant.core.repositories.errors import RepositoryError
 from assistant.core.repositories.source import Source
 
+# What makes a repository folder a skill or an MCP server. A server's folder can also have a
+# SKILL.md: that skill is part of the server (core/mcp/install.py).
+SKILL_FILE = "SKILL.md"
+SERVER_FILE = "server.yaml"
 MAX_FILES = 100
 # All of a folder's files together.
 MAX_BYTES = 5_000_000
@@ -25,14 +29,15 @@ def subfolders(folder: Path) -> list[Path]:
     return sorted(p for p in folder.iterdir() if p.is_dir() and _visible(p)) if folder.is_dir() else []
 
 
-def put(source_folder: Path, target: Path, source: Source) -> None:
-    """Replace `target` with a copy of `source_folder` and record where it came from. Built next to
-    the target and swapped in, so a failed copy leaves the old folder as it was."""
+def put(source_folder: Path, target: Path, source: Source, only: list[str] | None = None) -> None:
+    """Replace `target` with a copy of `source_folder` (or just the files in `only`) and record where
+    it came from. Built next to the target and swapped in, so a failed copy leaves the old folder as
+    it was."""
     staging = target.with_name(f".{target.name}.installing")
     shutil.rmtree(staging, ignore_errors=True)
     staging.mkdir(parents=True)
     try:
-        _copy(source_folder, staging)
+        _copy(source_folder, staging, only)
         folder_source.write(staging, source)
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
@@ -41,9 +46,9 @@ def put(source_folder: Path, target: Path, source: Source) -> None:
     staging.rename(target)
 
 
-def _copy(source: Path, folder: Path) -> None:
+def _copy(source: Path, folder: Path, only: list[str] | None) -> None:
     paths = [p for p in sorted(source.rglob("*")) if p.is_file() and not p.is_symlink()]
-    paths = [p for p in paths if valid_path(p.relative_to(source).as_posix())]
+    paths = [p for p in paths if valid_path(rel := p.relative_to(source).as_posix()) and (only is None or rel in only)]
     if len(paths) > MAX_FILES or sum(p.stat().st_size for p in paths) > MAX_BYTES:
         raise RepositoryError(f"{source.name} has more than {MAX_FILES} files or {MAX_BYTES // 1_000_000} MB.")
     for path in paths:

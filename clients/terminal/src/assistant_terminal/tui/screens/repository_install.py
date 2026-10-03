@@ -131,5 +131,6 @@ def _skill_label(skill: FoundSkill) -> str:
 
 
 def _server_label(server: FoundServer) -> str:
-    kind = "local" if server.transport == "stdio" else "remote"
-    return f"MCP server {server.name} ({kind}): {server.description}"
+    extras = ["local" if server.transport == "stdio" else "remote"]
+    extras += [e for e, has in (("with its skill", server.skill), ("with a web page", server.page)) if has]
+    return f"MCP server {server.name} ({', '.join(extras)}): {server.description}"

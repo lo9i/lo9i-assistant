@@ -15,6 +15,8 @@ from assistant.core.llm.choice import ModelChoice
 from assistant.core.memory.facts import Fact
 from assistant.core.memory.facts import render as render_facts
 from assistant.core.memory.profile import Profile
+from assistant.core.usage.log import UsageLog
+from assistant.core.usage.meter import TokenMeter
 
 
 class EpochDigest(BaseModel):
@@ -41,8 +43,9 @@ Digester = Callable[[DigestInput], Awaitable[EpochDigest]]
 _PROMPT = prompts.load("digest")
 
 
-def build_digester(choice: ModelChoice) -> Digester:
-    llm = build_structured(choice, choice.worker_model, EpochDigest)
+def build_digester(choice: ModelChoice, usage: UsageLog) -> Digester:
+    """Its calls are recorded in `usage` as summaries."""
+    llm = build_structured(choice, choice.worker_model, EpochDigest, TokenMeter(usage, "summary"))
 
     async def _digest(data: DigestInput) -> EpochDigest:
         return EpochDigest.model_validate(await llm.ainvoke([HumanMessage(_prompt(data))]))

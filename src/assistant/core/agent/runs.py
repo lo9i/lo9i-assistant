@@ -13,6 +13,7 @@ from assistant.core.context import Context
 from assistant.core.events import Cancelled, Done, Error, Event
 from assistant.core.stream_events import approval_events, to_events
 from assistant.core.usage.log import UsageLog
+from assistant.core.usage.meter import CHANNEL, CONVERSATION
 from assistant.core.usage.tracker import UsageTracker
 
 # The result of a tool call that a cancelled run never finished. Every tool call needs a result
@@ -122,6 +123,8 @@ def _run_config(session: Session, usage: UsageLog) -> RunnableConfig:
         "configurable": {"thread_id": session.thread_id},
         "callbacks": [*observability.callbacks(), tracker],
         "metadata": {
+            CONVERSATION: session.thread_id,
+            CHANNEL: session.channel,
             "langfuse_user_id": session.user_id,
             "langfuse_session_id": session.thread_id,
             "langfuse_tags": [session.channel],
