@@ -26,6 +26,8 @@ import type {
   ModelProvider,
   ModelStatus,
   PairingCode,
+  PluginUpdate,
+  PluginUpdateChecks,
   RepositoryContents,
   RunEvent,
   ServerValues,
@@ -260,6 +262,20 @@ export class RepositoriesGroup {
   /** Installs from the assistant's extras. Servers carry the values for their fields; secret ones go straight to the daemon. */
   install(skills: string[], servers: ServerValues[]): Promise<InstalledFromRepository> {
     return this.transport.request("POST", "/repositories/install", { skills, servers });
+  }
+
+  /** Installed plugins the extras have a newer version of, as of the daemon's last check. Empty while checks are off. */
+  updates(): Promise<PluginUpdate[]> {
+    return this.transport.request("GET", "/repositories/updates");
+  }
+
+  /** Whether the daemon checks the extras for plugin updates in the background. */
+  updateChecks(): Promise<PluginUpdateChecks> {
+    return this.transport.request("GET", "/settings/plugin-updates");
+  }
+
+  setUpdateChecks(enabled: boolean): Promise<PluginUpdateChecks> {
+    return this.transport.request("PUT", "/settings/plugin-updates", { enabled });
   }
 }
 

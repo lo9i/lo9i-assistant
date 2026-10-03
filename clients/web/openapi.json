@@ -1814,6 +1814,83 @@
         }
       }
     },
+    "/repositories/updates": {
+      "get": {
+        "summary": "Plugin Updates",
+        "description": "Installed plugins the extras have a newer version of, as of the last check. Empty while\nchecks are off.",
+        "operationId": "plugin_updates_repositories_updates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PluginUpdate"
+                  },
+                  "type": "array",
+                  "title": "Response Plugin Updates Repositories Updates Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/plugin-updates": {
+      "get": {
+        "summary": "Plugin Update Checks",
+        "operationId": "plugin_update_checks_settings_plugin_updates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginUpdateChecks"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Plugin Update Checks",
+        "operationId": "set_plugin_update_checks_settings_plugin_updates_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PluginUpdateChecks"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginUpdateChecks"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/repositories/browse": {
       "post": {
         "summary": "Browse Repository",
@@ -3672,6 +3749,47 @@
           "expires_at"
         ],
         "title": "PairingCode"
+      },
+      "PluginUpdate": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "installed_version": {
+            "type": "string",
+            "title": "Installed Version"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "name",
+          "installed_version",
+          "version"
+        ],
+        "title": "PluginUpdate"
+      },
+      "PluginUpdateChecks": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "PluginUpdateChecks"
       },
       "ProviderField": {
         "properties": {

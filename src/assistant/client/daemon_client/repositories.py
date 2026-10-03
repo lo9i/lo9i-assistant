@@ -9,6 +9,7 @@ from assistant.core.agent import (
     FoundServer,
     FoundSkill,
     InstalledFromRepository,
+    PluginUpdate,
     RepositoryContents,
     RepositoryError,
     ServerField,
@@ -46,6 +47,18 @@ class RepositoriesApi:
         return InstalledFromRepository(
             [Skill(**s) for s in data["skills"]], [status_from_json(s) for s in data["servers"]]
         )
+
+    async def updates(self) -> builtins.list[PluginUpdate]:
+        """Installed plugins the extras have a newer version of, as of the daemon's last check."""
+        return [PluginUpdate(**u) for u in await self._transport.request("GET", "/repositories/updates")]
+
+    async def update_checks(self) -> bool:
+        """Whether the daemon checks the extras for plugin updates in the background."""
+        return (await self._transport.request("GET", "/settings/plugin-updates"))["enabled"]
+
+    async def set_update_checks(self, enabled: bool) -> bool:
+        data = await self._transport.request("PUT", "/settings/plugin-updates", json={"enabled": enabled})
+        return data["enabled"]
 
 
 def _server(data: dict[str, Any]) -> FoundServer:

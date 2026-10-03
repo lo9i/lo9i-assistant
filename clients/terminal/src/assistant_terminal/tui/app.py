@@ -25,6 +25,7 @@ from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.history import show_history
 from assistant_terminal.tui.live import handlers as live_handlers
 from assistant_terminal.tui.mouse import switch_mouse
+from assistant_terminal.tui.plugin_updates import PluginUpdates
 from assistant_terminal.tui.screens import (
     ApprovalScreen,
     AudioScreen,
@@ -89,6 +90,7 @@ class AssistantApp(App):
         # F3 is hidden when this session has no microphone (see client/recorder.py).
         self._can_record = recording_available()
         self._can_paste = clipboard.available()
+        self._plugin_updates = PluginUpdates(service.repositories, lambda text: self.notify(text, timeout=10))
         self._commands: dict[str, Callable[[str], Awaitable[None]]] = {
             "/new": self._command_new,
             "/conversations": self._command_conversations,
@@ -136,6 +138,7 @@ class AssistantApp(App):
         self.query_one("#prompt", Input).focus()
         await self.refresh_memory()
         await self.refresh_title()
+        await self.refresh_plugin_updates()
         self._listen()
 
     @work(exclusive=True, group="events")
@@ -315,6 +318,10 @@ class AssistantApp(App):
     @reports_daemon_unavailable
     async def refresh_title(self) -> None:
         self.title = await self._service.identity.name() or _DEFAULT_TITLE
+
+    @reports_daemon_unavailable
+    async def refresh_plugin_updates(self) -> None:
+        await self._plugin_updates.refresh()
 
     @reports_daemon_unavailable
     async def refresh_memory(self) -> None:

@@ -4,6 +4,7 @@
   import EmailCard from "$lib/ui/settings/EmailCard.svelte";
   import MicrophoneCard from "$lib/ui/settings/MicrophoneCard.svelte";
   import ModelCard from "$lib/ui/settings/ModelCard.svelte";
+  import PluginUpdatesCard from "$lib/ui/settings/PluginUpdatesCard.svelte";
   import SlackCard from "$lib/ui/settings/SlackCard.svelte";
   import SpeechCard from "$lib/ui/settings/SpeechCard.svelte";
   import SpokenRepliesCard from "$lib/ui/settings/SpokenRepliesCard.svelte";
@@ -52,6 +53,7 @@
       <div class="stack">
         <AssistantCard />
         <StartupCard />
+        <PluginUpdatesCard />
       </div>
     </div>
   {:else if tab === "audio"}
