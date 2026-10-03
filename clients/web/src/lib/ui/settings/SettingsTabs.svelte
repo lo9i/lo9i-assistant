@@ -2,18 +2,18 @@
   import { resolve } from "$app/paths";
   import { resource } from "$lib/daemon.svelte";
 
-  // The settings tabs. About you, Skills, Plugins and MCP servers are pages of their own (lists with details) shown as tabs.
+  // The settings tabs. About you, Plugins, MCP servers and Skills are pages of their own (lists with details) shown as tabs.
   let { active }: { active: string } = $props();
   // Installed plugins with a newer version in the extras, as on the sidebar.
   const updates = resource((c) => c.repositories.updates(), ["plugins", "mcp", "skills", "settings"]);
   const TABS = [
     { id: "general", label: "General", href: `${resolve("/settings")}?tab=general` },
-    { id: "integrations", label: "Integrations", href: `${resolve("/settings")}?tab=integrations` },
-    { id: "audio", label: "Audio", href: `${resolve("/settings")}?tab=audio` },
     { id: "memory", label: "About you", href: resolve("/memory") },
-    { id: "skills", label: "Skills", href: resolve("/skills") },
+    { id: "audio", label: "Audio", href: `${resolve("/settings")}?tab=audio` },
+    { id: "integrations", label: "Integrations", href: `${resolve("/settings")}?tab=integrations` },
     { id: "plugins", label: "Plugins", href: resolve("/plugins") },
     { id: "mcp", label: "MCP servers", href: resolve("/mcp") },
+    { id: "skills", label: "Skills", href: resolve("/skills") },
   ];
 </script>
 
