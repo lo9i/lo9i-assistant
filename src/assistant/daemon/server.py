@@ -93,18 +93,25 @@ def _listeners(app, socket_path: Path) -> list["_Server"]:
 
 async def _index_conversations(service: AssistantService) -> None:
     """Lists conversations saved before the conversation list existed, records the channels of
-    those listed before channels were, and titles those without a title from the model (a
-    catch-up; after it, all of this happens as conversations go)."""
+    those listed before channels were, titles those without a title from the model, and adds
+    messages not yet searchable to the search index (a catch-up; after it, all of this happens as
+    conversations go)."""
     try:
         added = await service.index_conversations(settings.owner_id)
         filled = await service.fill_channels(settings.owner_id)
         titled = await service.title_untitled(settings.owner_id)
+        searchable = await service.index_messages(settings.owner_id)
     except Exception:
         logger.exception("Couldn't catch up on earlier conversations")
         return
-    if added or filled or titled:
+    if added or filled or titled or searchable:
         logger.info(
-            "Added %s earlier conversations to the list, recorded channels for %s and titled %s.", added, filled, titled
+            "Added %s earlier conversations to the list, recorded channels for %s, titled %s and made %s "
+            "messages searchable.",
+            added,
+            filled,
+            titled,
+            searchable,
         )
 
 
