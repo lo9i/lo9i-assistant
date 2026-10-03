@@ -17,7 +17,7 @@
     "/telegram": "integrations",
     "/slack": "integrations",
     "/email": "integrations",
-    "/websearch": "integrations",
+    "/websearch": "general",
     "/audio": "audio",
   };
 
