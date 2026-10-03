@@ -39,9 +39,8 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Context
 
-- H1. Better epoch summaries: quote user messages verbatim, keep ids and paths exactly, and add a `search_history` tool over the full checkpoint.
+- H1. Better epoch summaries: quote user messages verbatim, keep ids and paths exactly, and let `search_conversations` search tool outputs too (it covers only what the user and the assistant wrote).
 - H2. Replace old tool outputs within an epoch with short stubs.
-- H3. Tell the digest to ignore instructions found in tool output, so injected text can't reach facts or the profile.
 
 ## Voice
 

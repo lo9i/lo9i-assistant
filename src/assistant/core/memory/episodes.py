@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from langgraph.store.base import BaseStore
 
-# Search reads at most this many episodes before sorting by date. Beyond it, use search (G4).
+# Search reads at most this many episodes before sorting by date. Beyond it, use search (G2).
 _SCAN_LIMIT = 1000
 
 
