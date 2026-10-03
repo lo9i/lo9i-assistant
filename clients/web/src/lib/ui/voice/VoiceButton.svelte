@@ -2,7 +2,7 @@
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
-  import Mic from "@lucide/svelte/icons/mic";
+  import AudioLines from "@lucide/svelte/icons/audio-lines";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Send from "@lucide/svelte/icons/send-horizontal";
   import Volume2 from "@lucide/svelte/icons/volume-2";
@@ -33,7 +33,7 @@
   // The chat page has its composer in the bottom corner.
   const raised = $derived(page.url.pathname === resolve("/conversations/open"));
   const LABELS: Record<Phase, string> = {
-    idle: "Talk to the assistant",
+    idle: "Voice conversation with the assistant",
     listening: "Send",
     thinking: "Stop",
     speaking: "Stop speaking",
@@ -132,19 +132,19 @@
       {:else if reply}
         <p class="reply">{reply}</p>
       {:else}
-        <p class="status">Tap the microphone and ask for something.</p>
+        <p class="status">Tap the button and ask for something.</p>
       {/if}
     </section>
   {/if}
   <button class="fab {current}" aria-label={LABELS[current]} title={LABELS[current]} onclick={press}>
     {#if current === "listening"}
-      <Send size={22} />
+      <Send size={18} />
     {:else if current === "thinking"}
-      <LoaderCircle size={22} class="spin" />
+      <LoaderCircle size={18} class="spin" />
     {:else if current === "speaking"}
-      <Volume2 size={22} />
+      <Volume2 size={18} />
     {:else}
-      <Mic size={22} />
+      <AudioLines size={18} />
     {/if}
   </button>
 </div>
@@ -170,10 +170,11 @@
   .fab {
     display: grid;
     place-items: center;
-    width: 56px;
-    height: 56px;
+    width: 44px;
+    height: 44px;
     border: none;
-    border-radius: 50%;
+    /* A speech bubble with its tail in the corner: talking with the assistant. */
+    border-radius: 22px 22px 6px 22px;
     background: var(--color-action-primary);
     color: var(--color-action-on-primary);
     box-shadow: var(--shadow-popover);

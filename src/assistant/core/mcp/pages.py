@@ -64,6 +64,12 @@ class McpPages:
             if name not in self._running:
                 self._start(server)
 
+    async def restart(self, name: str) -> None:
+        """Start the page again even if its command didn't change: its code did (an update)."""
+        if self._active and name in self._running:
+            await self._stop(name)
+        await self.reload()
+
     def socket(self, name: str) -> Path | None:
         """Where a running page listens, or None if the server has no page running."""
         return folders.page_socket(name) if name in self._running else None

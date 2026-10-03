@@ -82,6 +82,12 @@ class McpHub:
             await self._apply(server)
         self._changed()
 
+    async def restart(self, name: str) -> None:
+        """Connect to the server again even if its settings didn't change: its code did (an update)."""
+        if self._active and name in self._running:
+            await self._stop(name)
+        await self.reload()
+
     def definitions(self) -> list[dict[str, Any]]:
         """The tool definitions for the model, in a stable order."""
         return [_definition(tool) for _, tool in sorted(self._tools.items())]

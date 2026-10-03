@@ -97,6 +97,9 @@ class McpMixin(ServiceBase):
         """Install the server again from its repository, keeping what the user set.
         Raises McpServerError or RepositoryError."""
         server = await install.update(self._storage.store, name)
+        # Same command and settings, new code: both run again.
+        await self.mcp.restart(name)
+        await self.pages.restart(name)
         await self._servers_changed()
         return await self._mcp_status(server)
 
