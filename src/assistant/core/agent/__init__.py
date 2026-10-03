@@ -6,14 +6,14 @@ threads, memory, telegram, slack, email, mcp, model, identity, speech, skills, j
 
 from assistant.core.agent.conversations import Conversation, ShownMessage
 from assistant.core.agent.devices import Device, DeviceError, PairingCode
-from assistant.core.agent.email import EmailError, EmailProvider, EmailStatus
+from assistant.core.agent.email import EmailAccount, EmailAccountNotFoundError, EmailError, EmailProvider
 from assistant.core.agent.identity import InvalidNameError
 from assistant.core.agent.jobs import Job, JobError, RunRecord
 from assistant.core.agent.mcp import McpServer, McpServerChanges, McpServerError, McpServerStatus, McpToolInfo
 from assistant.core.agent.model import ModelProvider, ModelSettingsError, ModelStatus
 from assistant.core.agent.service import AssistantService
 from assistant.core.agent.session import Session
-from assistant.core.agent.skills import Skill, SkillError, SkillSummary
+from assistant.core.agent.skills import FoundSkill, Skill, SkillError, SkillSummary
 from assistant.core.agent.slack import SlackError, SlackStatus
 from assistant.core.agent.snapshot import MemorySnapshot
 from assistant.core.agent.speech import Decoding, SpeechSettingsError, SpeechStatus, SpokenReplies, SynthesisError
@@ -29,9 +29,11 @@ __all__ = [
     "Decoding",
     "Device",
     "DeviceError",
+    "EmailAccount",
+    "EmailAccountNotFoundError",
     "EmailError",
     "EmailProvider",
-    "EmailStatus",
+    "FoundSkill",
     "InvalidNameError",
     "InvalidTokenError",
     "Job",

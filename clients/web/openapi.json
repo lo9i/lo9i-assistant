@@ -806,17 +806,22 @@
         }
       }
     },
-    "/integrations/email": {
+    "/integrations/email/accounts": {
       "get": {
-        "summary": "Email Status",
-        "operationId": "email_status_integrations_email_get",
+        "summary": "Email Accounts",
+        "description": "The default account first.",
+        "operationId": "email_accounts_integrations_email_accounts_get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EmailStatus"
+                  "items": {
+                    "$ref": "#/components/schemas/EmailAccount"
+                  },
+                  "type": "array",
+                  "title": "Response Email Accounts Integrations Email Accounts Get"
                 }
               }
             }
@@ -824,8 +829,9 @@
         }
       },
       "post": {
-        "summary": "Connect Email",
-        "operationId": "connect_email_integrations_email_post",
+        "summary": "Add Email Account",
+        "description": "Checks the logins with the servers first. The first account becomes the default.",
+        "operationId": "add_email_account_integrations_email_accounts_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -842,7 +848,56 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EmailStatus"
+                  "$ref": "#/components/schemas/EmailAccount"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integrations/email/accounts/{account_id}": {
+      "put": {
+        "summary": "Update Email Account",
+        "operationId": "update_email_account_integrations_email_accounts__account_id__put",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailSettings"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailAccount"
                 }
               }
             }
@@ -860,8 +915,19 @@
         }
       },
       "delete": {
-        "summary": "Disconnect Email",
-        "operationId": "disconnect_email_integrations_email_delete",
+        "summary": "Remove Email Account",
+        "operationId": "remove_email_account_integrations_email_accounts__account_id__delete",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -869,34 +935,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Ok"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/integrations/email/alerts": {
-      "put": {
-        "summary": "New Mail Alerts",
-        "operationId": "new_mail_alerts_integrations_email_alerts_put",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NewMailAlerts"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EmailStatus"
                 }
               }
             }
@@ -914,19 +952,69 @@
         }
       }
     },
-    "/integrations/email/recipients": {
+    "/integrations/email/accounts/{account_id}/default": {
       "put": {
-        "summary": "Email Recipients",
-        "operationId": "email_recipients_integrations_email_recipients_put",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmailRecipients"
+        "summary": "Default Email Account",
+        "operationId": "default_email_account_integrations_email_accounts__account_id__default_put",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailAccount"
+                }
               }
             }
           },
-          "required": true
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integrations/email/accounts/{account_id}/alerts": {
+      "put": {
+        "summary": "New Mail Alerts",
+        "operationId": "new_mail_alerts_integrations_email_accounts__account_id__alerts_put",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewMailAlerts"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -934,7 +1022,56 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EmailStatus"
+                  "$ref": "#/components/schemas/EmailAccount"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integrations/email/accounts/{account_id}/recipients": {
+      "put": {
+        "summary": "Email Recipients",
+        "operationId": "email_recipients_integrations_email_accounts__account_id__recipients_put",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailRecipients"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailAccount"
                 }
               }
             }
@@ -1081,6 +1218,132 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills/browse": {
+      "post": {
+        "summary": "Browse Skills",
+        "description": "The skills a git repository offers. 400: it can't be read or has none.",
+        "operationId": "browse_skills_skills_browse_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillRepository"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FoundSkill"
+                  },
+                  "type": "array",
+                  "title": "Response Browse Skills Skills Browse Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills/install": {
+      "post": {
+        "summary": "Install Skills",
+        "description": "400: the repository can't be read, lacks one of the skills, or a name is taken.",
+        "operationId": "install_skills_skills_install_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillInstall"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Skill"
+                  },
+                  "type": "array",
+                  "title": "Response Install Skills Skills Install Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skills/{name}/update": {
+      "post": {
+        "summary": "Update Installed Skill",
+        "description": "Install the skill again from its repository. 404: no such skill. 400: not installed, or\nthe repository can't be read.",
+        "operationId": "update_installed_skill_skills__name__update_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Skill"
                 }
               }
             }
@@ -1959,6 +2222,82 @@
         ],
         "title": "Device"
       },
+      "EmailAccount": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "default": {
+            "type": "boolean",
+            "title": "Default"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "problem": {
+            "type": "string",
+            "title": "Problem"
+          },
+          "host": {
+            "type": "string",
+            "title": "Host"
+          },
+          "port": {
+            "type": "integer",
+            "title": "Port"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "sender": {
+            "type": "string",
+            "title": "Sender"
+          },
+          "allowed_recipients": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed Recipients"
+          },
+          "imap_host": {
+            "type": "string",
+            "title": "Imap Host"
+          },
+          "imap_port": {
+            "type": "integer",
+            "title": "Imap Port"
+          },
+          "new_mail_alerts": {
+            "type": "string",
+            "title": "New Mail Alerts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "default",
+          "status",
+          "problem",
+          "host",
+          "port",
+          "username",
+          "sender",
+          "allowed_recipients",
+          "imap_host",
+          "imap_port",
+          "new_mail_alerts"
+        ],
+        "title": "EmailAccount"
+      },
       "EmailProvider": {
         "properties": {
           "id": {
@@ -2025,6 +2364,11 @@
       },
       "EmailSettings": {
         "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "default": ""
+          },
           "host": {
             "type": "string",
             "title": "Host"
@@ -2066,61 +2410,32 @@
         ],
         "title": "EmailSettings"
       },
-      "EmailStatus": {
+      "FoundSkill": {
         "properties": {
-          "connected": {
-            "type": "boolean",
-            "title": "Connected"
-          },
-          "host": {
+          "name": {
             "type": "string",
-            "title": "Host"
+            "title": "Name"
           },
-          "port": {
-            "type": "integer",
-            "title": "Port"
-          },
-          "username": {
+          "description": {
             "type": "string",
-            "title": "Username"
+            "title": "Description"
           },
-          "sender": {
-            "type": "string",
-            "title": "Sender"
-          },
-          "allowed_recipients": {
+          "files": {
             "items": {
               "type": "string"
             },
             "type": "array",
-            "title": "Allowed Recipients"
-          },
-          "imap_host": {
-            "type": "string",
-            "title": "Imap Host"
-          },
-          "imap_port": {
-            "type": "integer",
-            "title": "Imap Port"
-          },
-          "new_mail_alerts": {
-            "type": "string",
-            "title": "New Mail Alerts"
+            "title": "Files"
           }
         },
         "type": "object",
         "required": [
-          "connected",
-          "host",
-          "port",
-          "username",
-          "sender",
-          "allowed_recipients",
-          "imap_host",
-          "imap_port",
-          "new_mail_alerts"
+          "name",
+          "description",
+          "files"
         ],
-        "title": "EmailStatus"
+        "title": "FoundSkill",
+        "description": "A skill in a repository, before it's installed."
       },
       "HTTPValidationError": {
         "properties": {
@@ -2867,6 +3182,24 @@
             "type": "boolean",
             "title": "Builtin",
             "default": false
+          },
+          "files": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Files"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
           }
         },
         "type": "object",
@@ -2894,6 +3227,40 @@
           "instructions"
         ],
         "title": "SkillChange"
+      },
+      "SkillInstall": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Names"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "names"
+        ],
+        "title": "SkillInstall"
+      },
+      "SkillRepository": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "SkillRepository"
       },
       "SkillSummary": {
         "properties": {

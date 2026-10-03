@@ -7,6 +7,7 @@ from assistant.core.conversation.titles import Titler
 from assistant.core.graph import Graph
 from assistant.core.mcp.hub import McpHub
 from assistant.core.outbox import Outbox
+from assistant.core.secret_store import SecretBox
 from assistant.core.speech.synthesizer import Synthesizer
 from assistant.core.speech.transcriber import Transcriber
 from assistant.core.storage import Storage
@@ -23,6 +24,8 @@ class ServiceBase:
     approvals: RemoteApprovals
     # MCP server connections. The daemon runs it as a supervised task.
     mcp: McpHub
+    # Encrypts accounts' passwords and tokens (core/secret_store.py).
+    secrets: SecretBox
     _graph: Graph
     _transcriber: Transcriber
     _synthesizer: Synthesizer

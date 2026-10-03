@@ -1,12 +1,13 @@
 from assistant.client.daemon_client.transport import Transport
-from assistant.core.agent import EmailError, EmailProvider, EmailStatus
+from assistant.core.agent import EmailAccount, EmailAccountNotFoundError, EmailError, EmailProvider
 
 _PATH = "/integrations/email"
+_ERRORS = {400: EmailError, 404: EmailAccountNotFoundError}
 
 
 class EmailApi:
-    """The daemon's email account (SMTP to send, IMAP to read), who the agent may email without
-    asking, and where new mail is announced."""
+    """The daemon's email accounts (SMTP to send, IMAP to read): which is the default, who each may
+    email without asking, and where its new mail is announced."""
 
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
@@ -15,25 +16,68 @@ class EmailApi:
         """Mail providers to pick from, so only the address and the password are typed."""
         return [EmailProvider(**p) for p in await self._transport.request("GET", f"{_PATH}/providers")]
 
-    async def status(self) -> EmailStatus:
-        return EmailStatus(**await self._transport.request("GET", _PATH))
+    async def accounts(self) -> list[EmailAccount]:
+        """The default first."""
+        return [EmailAccount(**a) for a in await self._transport.request("GET", f"{_PATH}/accounts")]
 
-    async def connect(
-        self, host: str, port: int, username: str, password: str, sender: str, imap_host: str = "", imap_port: int = 993
-    ) -> EmailStatus:
-        body = {"host": host, "port": port, "username": username, "password": password, "sender": sender}
-        body |= {"imap_host": imap_host, "imap_port": imap_port}
-        return EmailStatus(**await self._transport.request("POST", _PATH, json=body, errors={400: EmailError}))
+    async def add(
+        self,
+        label: str,
+        host: str,
+        port: int,
+        username: str,
+        password: str,
+        sender: str,
+        imap_host: str = "",
+        imap_port: int = 993,
+    ) -> EmailAccount:
+        """Checks the logins first. Raises EmailError."""
+        body = _settings(label, host, port, username, password, sender, imap_host, imap_port)
+        return EmailAccount(**await self._transport.request("POST", f"{_PATH}/accounts", json=body, errors=_ERRORS))
 
-    async def set_new_mail_alerts(self, channel: str) -> EmailStatus:
-        data = await self._transport.request(
-            "PUT", f"{_PATH}/alerts", json={"channel": channel}, errors={400: EmailError}
-        )
-        return EmailStatus(**data)
+    async def update(
+        self,
+        account_id: str,
+        label: str,
+        host: str,
+        port: int,
+        username: str,
+        password: str,
+        sender: str,
+        imap_host: str = "",
+        imap_port: int = 993,
+    ) -> EmailAccount:
+        """An empty password keeps the saved one. Raises EmailError."""
+        body = _settings(label, host, port, username, password, sender, imap_host, imap_port)
+        return await self._put(account_id, "", body)
 
-    async def set_recipients(self, addresses: list[str]) -> EmailStatus:
-        data = await self._transport.request("PUT", f"{_PATH}/recipients", json={"addresses": addresses})
-        return EmailStatus(**data)
+    async def make_default(self, account_id: str) -> EmailAccount:
+        return await self._put(account_id, "/default", None)
 
-    async def disconnect(self) -> None:
-        await self._transport.request("DELETE", _PATH)
+    async def set_new_mail_alerts(self, account_id: str, channel: str) -> EmailAccount:
+        return await self._put(account_id, "/alerts", {"channel": channel})
+
+    async def set_recipients(self, account_id: str, addresses: list[str]) -> EmailAccount:
+        return await self._put(account_id, "/recipients", {"addresses": addresses})
+
+    async def remove(self, account_id: str) -> None:
+        await self._transport.request("DELETE", f"{_PATH}/accounts/{account_id}", errors=_ERRORS)
+
+    async def _put(self, account_id: str, path: str, body: dict | None) -> EmailAccount:
+        url = f"{_PATH}/accounts/{account_id}{path}"
+        return EmailAccount(**await self._transport.request("PUT", url, json=body, errors=_ERRORS))
+
+
+def _settings(
+    label: str, host: str, port: int, username: str, password: str, sender: str, imap_host: str, imap_port: int
+) -> dict:
+    return {
+        "label": label,
+        "host": host,
+        "port": port,
+        "username": username,
+        "password": password,
+        "sender": sender,
+        "imap_host": imap_host,
+        "imap_port": imap_port,
+    }

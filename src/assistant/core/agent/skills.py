@@ -1,13 +1,14 @@
-"""Skills for clients: list, read and delete them."""
+"""Skills for clients: list, read, edit and delete them, and install them from git repositories."""
 
 import asyncio
 from dataclasses import dataclass
 
 from assistant.core.agent.base import ServiceBase
-from assistant.core.skills import store
+from assistant.core.skills import install, store
+from assistant.core.skills.install import FoundSkill
 from assistant.core.skills.store import Skill, SkillError
 
-__all__ = ["Skill", "SkillError", "SkillSummary", "SkillsMixin"]
+__all__ = ["FoundSkill", "Skill", "SkillError", "SkillSummary", "SkillsMixin"]
 
 
 @dataclass
@@ -38,3 +39,19 @@ class SkillsMixin(ServiceBase):
     async def delete_skill(self, name: str) -> None:
         await asyncio.to_thread(store.delete, name)
         self.bus.publish("skills")
+
+    async def browse_skills(self, url: str) -> list[FoundSkill]:
+        """The skills a git repository offers. Raises SkillError if it can't be read."""
+        return await install.browse(url)
+
+    async def install_skills(self, url: str, names: list[str]) -> list[Skill]:
+        """Raises SkillError if the repository can't be read, lacks a skill, or a name is taken."""
+        skills = await install.install(url, names)
+        self.bus.publish("skills")
+        return skills
+
+    async def update_installed_skill(self, name: str) -> Skill:
+        """Install the skill again from its repository. Raises SkillError if it wasn't installed."""
+        skill = await install.update(name)
+        self.bus.publish("skills")
+        return skill

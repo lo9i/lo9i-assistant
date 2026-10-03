@@ -1,6 +1,7 @@
 """The daemon's HTTP API. Commands are plain requests; a run's events stream as Server-Sent Events."""
 
 import json
+from collections.abc import Awaitable
 from functools import partial
 from pathlib import Path
 from typing import Annotated, Any
@@ -16,9 +17,11 @@ from assistant.core.agent import (
     ConversationBusyError,
     ConversationError,
     Decoding,
+    EmailAccount,
+    EmailAccountNotFoundError,
     EmailError,
     EmailProvider,
-    EmailStatus,
+    FoundSkill,
     InvalidNameError,
     InvalidTokenError,
     Job,
@@ -76,9 +79,12 @@ class SlackManifest(BaseModel):
 
 
 class EmailSettings(BaseModel):
+    # What the user calls the account; the sender address when empty.
+    label: str = ""
     host: str
     port: int
     username: str
+    # Empty when changing an account keeps its saved password.
     password: str
     sender: str
     # Reading mail; empty for sending only.
@@ -125,6 +131,15 @@ class SpeakRequest(BaseModel):
 class SkillChange(BaseModel):
     description: str
     instructions: str
+
+
+class SkillRepository(BaseModel):
+    url: str
+
+
+class SkillInstall(BaseModel):
+    url: str
+    names: list[str]
 
 
 class JobChange(BaseModel):
@@ -226,7 +241,7 @@ def create_app(service: AssistantService, hub: RunHub, startup: Any = None, web_
 def _require_client_header(app: FastAPI) -> None:
     """Rejects requests without the client header. A web page can't add a custom header to a
     request to another origin without CORS approval, which the daemon never gives, so a site open
-    in your browser can't send commands to 127.0.0.1. Not authentication: that comes later (A3 in BACKLOG.md)."""
+    in your browser can't send commands to 127.0.0.1. Not authentication, which is daemon/auth.py."""
 
     @app.middleware("http")
     async def check(request: Request, call_next):
@@ -476,34 +491,69 @@ def _add_email_routes(app: FastAPI, service: AssistantService) -> None:
     async def email_providers() -> list[EmailProvider]:
         return service.email_providers()
 
-    @app.get("/integrations/email")
-    async def email_status() -> EmailStatus:
-        return await service.email_status()
+    @app.get("/integrations/email/accounts")
+    async def email_accounts() -> list[EmailAccount]:
+        """The default account first."""
+        return await service.email_accounts()
 
-    @app.post("/integrations/email")
-    async def connect_email(body: EmailSettings) -> EmailStatus:
-        try:
-            return await service.connect_email(
-                body.host, body.port, body.username, body.password, body.sender, body.imap_host, body.imap_port
+    @app.post("/integrations/email/accounts")
+    async def add_email_account(body: EmailSettings) -> EmailAccount:
+        """Checks the logins with the servers first. The first account becomes the default."""
+        return await _email(
+            service.add_email_account(
+                body.label,
+                body.host,
+                body.port,
+                body.username,
+                body.password,
+                body.sender,
+                body.imap_host,
+                body.imap_port,
             )
-        except EmailError as e:
-            raise HTTPException(400, str(e)) from e
+        )
 
-    @app.put("/integrations/email/alerts")
-    async def new_mail_alerts(body: NewMailAlerts) -> EmailStatus:
-        try:
-            return await service.set_new_mail_alerts(body.channel)
-        except EmailError as e:
-            raise HTTPException(400, str(e)) from e
+    @app.put("/integrations/email/accounts/{account_id}")
+    async def update_email_account(account_id: str, body: EmailSettings) -> EmailAccount:
+        return await _email(
+            service.update_email_account(
+                account_id,
+                body.label,
+                body.host,
+                body.port,
+                body.username,
+                body.password,
+                body.sender,
+                body.imap_host,
+                body.imap_port,
+            )
+        )
 
-    @app.put("/integrations/email/recipients")
-    async def email_recipients(body: EmailRecipients) -> EmailStatus:
-        return await service.set_email_recipients(body.addresses)
+    @app.put("/integrations/email/accounts/{account_id}/default")
+    async def default_email_account(account_id: str) -> EmailAccount:
+        return await _email(service.set_default_email_account(account_id))
 
-    @app.delete("/integrations/email")
-    async def disconnect_email() -> Ok:
-        await service.disconnect_email()
+    @app.put("/integrations/email/accounts/{account_id}/alerts")
+    async def new_mail_alerts(account_id: str, body: NewMailAlerts) -> EmailAccount:
+        return await _email(service.set_new_mail_alerts(account_id, body.channel))
+
+    @app.put("/integrations/email/accounts/{account_id}/recipients")
+    async def email_recipients(account_id: str, body: EmailRecipients) -> EmailAccount:
+        return await _email(service.set_email_recipients(account_id, body.addresses))
+
+    @app.delete("/integrations/email/accounts/{account_id}")
+    async def remove_email_account(account_id: str) -> Ok:
+        await _email(service.remove_email_account(account_id))
         return Ok()
+
+
+async def _email[T](call: Awaitable[T]) -> T:
+    """404 for an unknown account, 400 for anything else that went wrong."""
+    try:
+        return await call
+    except EmailAccountNotFoundError as e:
+        raise HTTPException(404, str(e)) from e
+    except EmailError as e:
+        raise HTTPException(400, str(e)) from e
 
 
 def _add_skill_routes(app: FastAPI, service: AssistantService) -> None:
@@ -527,6 +577,35 @@ def _add_skill_routes(app: FastAPI, service: AssistantService) -> None:
             raise HTTPException(404, str(e)) from e
         try:
             return await service.update_skill(name, body.description, body.instructions)
+        except SkillError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.post("/skills/browse")
+    async def browse_skills(body: SkillRepository) -> list[FoundSkill]:
+        """The skills a git repository offers. 400: it can't be read or has none."""
+        try:
+            return await service.browse_skills(body.url)
+        except SkillError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.post("/skills/install")
+    async def install_skills(body: SkillInstall) -> list[Skill]:
+        """400: the repository can't be read, lacks one of the skills, or a name is taken."""
+        try:
+            return await service.install_skills(body.url, body.names)
+        except SkillError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.post("/skills/{name}/update")
+    async def update_installed_skill(name: str) -> Skill:
+        """Install the skill again from its repository. 404: no such skill. 400: not installed, or
+        the repository can't be read."""
+        try:
+            await service.get_skill(name)
+        except SkillError as e:
+            raise HTTPException(404, str(e)) from e
+        try:
+            return await service.update_installed_skill(name)
         except SkillError as e:
             raise HTTPException(400, str(e)) from e
 

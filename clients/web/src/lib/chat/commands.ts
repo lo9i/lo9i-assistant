@@ -10,7 +10,7 @@ export const COMMANDS: Command[] = [
   { name: "/sessions", usage: "/sessions", description: "Clients connected to the daemon" },
   { name: "/jobs", usage: "/jobs", description: "Scheduled jobs" },
   { name: "/settings", usage: "/settings", description: "Name, appearance, start at boot, integrations and audio" },
-  { name: "/skills", usage: "/skills", description: "Browse and delete skills" },
+  { name: "/skills", usage: "/skills", description: "Browse, install and delete skills" },
   { name: "/usage", usage: "/usage", description: "Tool and skill usage" },
   { name: "/telegram", usage: "/telegram", description: "Connect Telegram" },
   { name: "/slack", usage: "/slack", description: "Connect Slack" },

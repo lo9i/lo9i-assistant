@@ -1,5 +1,5 @@
-"""Saved skills: pick one to read its instructions, edit or delete it. Built-in skills aren't listed.
-Refreshes when a skill is saved or deleted."""
+"""Saved skills: pick one to read its instructions, edit, update or delete it, or install skills from a
+git repository. Built-in skills aren't listed. Refreshes when a skill is saved, installed or deleted."""
 
 from typing import ClassVar
 
@@ -16,6 +16,7 @@ from assistant.core.agent import Skill, SkillError
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 from assistant_terminal.tui.screens.skill_edit import SkillEditScreen
+from assistant_terminal.tui.screens.skill_install import SkillInstallScreen
 
 
 class SkillsScreen(ModalScreen[None]):
@@ -32,7 +33,8 @@ class SkillsScreen(ModalScreen[None]):
         with Vertical(id="skills"):
             yield Static("Skills", id="skills-title")
             yield Static(
-                "No skills yet. Ask the assistant to save one, for example: “save a skill for my daily news digest”.",
+                "No skills yet. Ask the assistant to save one, for example: “save a skill for my daily news digest”, "
+                "or install skills from a git repository.",
                 id="skills-empty",
             )
             with Horizontal(id="skills-main"):
@@ -42,7 +44,9 @@ class SkillsScreen(ModalScreen[None]):
                     yield Markdown(id="skill-body")
             with Horizontal(id="skills-buttons"):
                 yield Button("Edit", id="edit")
+                yield Button("Update", id="update")
                 yield Button("Delete", variant="error", id="delete")
+                yield Button("Install", id="install")
                 yield Button("Close", id="close")
 
     @reports_daemon_unavailable
@@ -61,7 +65,8 @@ class SkillsScreen(ModalScreen[None]):
         # Empty: just the message, and the dialog shrinks to fit.
         self.query_one("#skills").set_class(not skills, "empty")
         if not skills:
-            self.query_one("#delete").display = self.query_one("#edit").display = False
+            for button in ("#delete", "#edit", "#update"):
+                self.query_one(button).display = False
             self._selected = None
             self.query_one("#close", Button).focus()
             return
@@ -86,6 +91,28 @@ class SkillsScreen(ModalScreen[None]):
             self.notify(f"Saved skill {self._skill.name}.")
             await self.reload()
 
+    @on(Button.Pressed, "#install")
+    @work
+    @reports_daemon_unavailable
+    async def _install(self) -> None:
+        installed = await self.app.push_screen_wait(SkillInstallScreen(self._skills))
+        if installed:
+            self.notify(f"Installed {', '.join(installed)}.")
+            self._selected = installed[0]
+            await self.reload()
+
+    @on(Button.Pressed, "#update")
+    @reports_daemon_unavailable
+    async def _update(self) -> None:
+        if self._selected is None:
+            return
+        try:
+            await self._skills.update_installed(self._selected)
+            self.notify(f"Updated {self._selected} from its repository.")
+        except SkillError as e:
+            self.notify(str(e), severity="error")
+        await self.reload()
+
     @on(Button.Pressed, "#delete")
     def _delete(self) -> None:
         if self._selected is not None:
@@ -107,9 +134,18 @@ class SkillsScreen(ModalScreen[None]):
         self._selected, self._skill = name, None
         try:
             self._skill = await self._skills.get(name)
-            skill = self._skill
-            text = f"### {skill.name}\n\n{skill.description}\n\n---\n\n{skill.instructions}"
+            text = _detail(self._skill)
         except SkillError as e:
             text = str(e)
         self.query_one("#edit").display = self.query_one("#delete").display = self._skill is not None
+        self.query_one("#update").display = self._skill is not None and self._skill.source is not None
         await self.query_one("#skill-body", Markdown).update(text)
+
+
+def _detail(skill: Skill) -> str:
+    text = f"### {skill.name}\n\n{skill.description}\n\n---\n\n{skill.instructions}"
+    if skill.files:
+        text += "\n\n---\n\n**Files:** " + ", ".join(f"`{path}`" for path in skill.files)
+    if skill.source:
+        text += f"\n\n**Installed from** {skill.source}"
+    return text

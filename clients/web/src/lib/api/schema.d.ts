@@ -441,26 +441,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/integrations/email": {
+    "/integrations/email/accounts": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Email Status */
-        get: operations["email_status_integrations_email_get"];
+        /**
+         * Email Accounts
+         * @description The default account first.
+         */
+        get: operations["email_accounts_integrations_email_accounts_get"];
         put?: never;
-        /** Connect Email */
-        post: operations["connect_email_integrations_email_post"];
-        /** Disconnect Email */
-        delete: operations["disconnect_email_integrations_email_delete"];
+        /**
+         * Add Email Account
+         * @description Checks the logins with the servers first. The first account becomes the default.
+         */
+        post: operations["add_email_account_integrations_email_accounts_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/integrations/email/alerts": {
+    "/integrations/email/accounts/{account_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Email Account */
+        put: operations["update_email_account_integrations_email_accounts__account_id__put"];
+        post?: never;
+        /** Remove Email Account */
+        delete: operations["remove_email_account_integrations_email_accounts__account_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/integrations/email/accounts/{account_id}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Default Email Account */
+        put: operations["default_email_account_integrations_email_accounts__account_id__default_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/integrations/email/accounts/{account_id}/alerts": {
         parameters: {
             query?: never;
             header?: never;
@@ -469,7 +509,7 @@ export interface paths {
         };
         get?: never;
         /** New Mail Alerts */
-        put: operations["new_mail_alerts_integrations_email_alerts_put"];
+        put: operations["new_mail_alerts_integrations_email_accounts__account_id__alerts_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -477,7 +517,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/integrations/email/recipients": {
+    "/integrations/email/accounts/{account_id}/recipients": {
         parameters: {
             query?: never;
             header?: never;
@@ -486,7 +526,7 @@ export interface paths {
         };
         get?: never;
         /** Email Recipients */
-        put: operations["email_recipients_integrations_email_recipients_put"];
+        put: operations["email_recipients_integrations_email_accounts__account_id__recipients_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -528,6 +568,67 @@ export interface paths {
         post?: never;
         /** Delete Skill */
         delete: operations["delete_skill_skills__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/skills/browse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Browse Skills
+         * @description The skills a git repository offers. 400: it can't be read or has none.
+         */
+        post: operations["browse_skills_skills_browse_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/skills/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install Skills
+         * @description 400: the repository can't be read, lacks one of the skills, or a name is taken.
+         */
+        post: operations["install_skills_skills_install_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/skills/{name}/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update Installed Skill
+         * @description Install the skill again from its repository. 404: no such skill. 400: not installed, or
+         *     the repository can't be read.
+         */
+        post: operations["update_installed_skill_skills__name__update_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -874,6 +975,35 @@ export interface components {
             /** Last Ip */
             last_ip: string;
         };
+        /** EmailAccount */
+        EmailAccount: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Default */
+            default: boolean;
+            /** Status */
+            status: string;
+            /** Problem */
+            problem: string;
+            /** Host */
+            host: string;
+            /** Port */
+            port: number;
+            /** Username */
+            username: string;
+            /** Sender */
+            sender: string;
+            /** Allowed Recipients */
+            allowed_recipients: string[];
+            /** Imap Host */
+            imap_host: string;
+            /** Imap Port */
+            imap_port: number;
+            /** New Mail Alerts */
+            new_mail_alerts: string;
+        };
         /** EmailProvider */
         EmailProvider: {
             /** Id */
@@ -903,6 +1033,11 @@ export interface components {
         };
         /** EmailSettings */
         EmailSettings: {
+            /**
+             * Label
+             * @default
+             */
+            label: string;
             /** Host */
             host: string;
             /** Port */
@@ -924,26 +1059,17 @@ export interface components {
              */
             imap_port: number;
         };
-        /** EmailStatus */
-        EmailStatus: {
-            /** Connected */
-            connected: boolean;
-            /** Host */
-            host: string;
-            /** Port */
-            port: number;
-            /** Username */
-            username: string;
-            /** Sender */
-            sender: string;
-            /** Allowed Recipients */
-            allowed_recipients: string[];
-            /** Imap Host */
-            imap_host: string;
-            /** Imap Port */
-            imap_port: number;
-            /** New Mail Alerts */
-            new_mail_alerts: string;
+        /**
+         * FoundSkill
+         * @description A skill in a repository, before it's installed.
+         */
+        FoundSkill: {
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Files */
+            files: string[];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1278,6 +1404,10 @@ export interface components {
              * @default false
              */
             builtin: boolean;
+            /** Files */
+            files?: string[];
+            /** Source */
+            source?: string | null;
         };
         /** SkillChange */
         SkillChange: {
@@ -1285,6 +1415,18 @@ export interface components {
             description: string;
             /** Instructions */
             instructions: string;
+        };
+        /** SkillInstall */
+        SkillInstall: {
+            /** Url */
+            url: string;
+            /** Names */
+            names: string[];
+        };
+        /** SkillRepository */
+        SkillRepository: {
+            /** Url */
+            url: string;
         };
         /** SkillSummary */
         SkillSummary: {
@@ -2191,7 +2333,7 @@ export interface operations {
             };
         };
     };
-    email_status_integrations_email_get: {
+    email_accounts_integrations_email_accounts_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -2206,12 +2348,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EmailStatus"];
+                    "application/json": components["schemas"]["EmailAccount"][];
                 };
             };
         };
     };
-    connect_email_integrations_email_post: {
+    add_email_account_integrations_email_accounts_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -2230,7 +2372,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EmailStatus"];
+                    "application/json": components["schemas"]["EmailAccount"];
                 };
             };
             /** @description Validation Error */
@@ -2244,11 +2386,48 @@ export interface operations {
             };
         };
     };
-    disconnect_email_integrations_email_delete: {
+    update_email_account_integrations_email_accounts__account_id__put: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailAccount"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_email_account_integrations_email_accounts__account_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2262,13 +2441,55 @@ export interface operations {
                     "application/json": components["schemas"]["Ok"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
-    new_mail_alerts_integrations_email_alerts_put: {
+    default_email_account_integrations_email_accounts__account_id__default_put: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailAccount"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    new_mail_alerts_integrations_email_accounts__account_id__alerts_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
             cookie?: never;
         };
         requestBody: {
@@ -2283,7 +2504,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EmailStatus"];
+                    "application/json": components["schemas"]["EmailAccount"];
                 };
             };
             /** @description Validation Error */
@@ -2297,11 +2518,13 @@ export interface operations {
             };
         };
     };
-    email_recipients_integrations_email_recipients_put: {
+    email_recipients_integrations_email_accounts__account_id__recipients_put: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                account_id: string;
+            };
             cookie?: never;
         };
         requestBody: {
@@ -2316,7 +2539,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EmailStatus"];
+                    "application/json": components["schemas"]["EmailAccount"];
                 };
             };
             /** @description Validation Error */
@@ -2434,6 +2657,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    browse_skills_skills_browse_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillRepository"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoundSkill"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    install_skills_skills_install_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillInstall"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Skill"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_installed_skill_skills__name__update_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Skill"];
                 };
             };
             /** @description Validation Error */

@@ -106,7 +106,7 @@ async def test_threads_memory_and_telegram(client, monkeypatch):
     assert await client.new_thread("owner") != await client.new_thread("owner")
     assert (await client.memory.snapshot()).facts == []
     assert await client.clients.list() == []
-    assert not (await client.email.status()).connected
+    assert await client.email.accounts() == []
     assert not (await client.telegram.status()).connected
     with pytest.raises(InvalidTokenError):
         await client.telegram.connect("bad")
@@ -168,6 +168,35 @@ async def test_skills_and_usage_endpoints(client, script, isolated_settings, mon
     await client.skills.delete("news-digest")
     with pytest.raises(SkillError):
         await client.skills.get("news-digest")
+
+
+async def test_skills_are_browsed_installed_and_updated_from_a_repository(client, isolated_settings, monkeypatch):
+    import shutil
+
+    from assistant.core.agent import SkillError
+    from assistant.core.config import settings
+    from assistant.core.skills import install
+
+    monkeypatch.setattr(settings, "skills_dir", str(isolated_settings / "skills"))
+    remote = isolated_settings / "remote"
+    (remote / "scripts").mkdir(parents=True)
+    (remote / "SKILL.md").write_text("---\nname: expenses\ndescription: Track expenses\n---\n\nRun scripts/add.py")
+    (remote / "scripts" / "add.py").write_text("print(1)")
+
+    async def fetch(url: str, dest: Path) -> str:
+        shutil.copytree(remote, dest)
+        return "c1"
+
+    monkeypatch.setattr(install, "_fetch", fetch)
+    url = "https://example.com/me/expenses.git"
+    assert [f.name for f in await client.skills.browse(url)] == ["expenses"]
+    [skill] = await client.skills.install(url, ["expenses"])
+    assert (skill.files, skill.source) == (["scripts/add.py"], url)
+    assert (await client.skills.update_installed("expenses")).source == url
+    with pytest.raises(SkillError, match="https://"):
+        await client.skills.browse("file:///tmp")
+    with pytest.raises(SkillError, match="No skill"):
+        await client.skills.update_installed("missing")
 
 
 async def test_rename_the_assistant(client):

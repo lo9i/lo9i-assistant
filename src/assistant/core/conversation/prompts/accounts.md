@@ -1,0 +1,1 @@
+The user's connected accounts. Tools that act on one take an `account` argument: its label or address. Leave it empty to use the default. When the user names an account, or the task belongs to one (a work email to a colleague), pass it.

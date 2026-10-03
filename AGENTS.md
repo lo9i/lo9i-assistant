@@ -13,8 +13,10 @@ src/assistant/
       prompts/   prompt texts, one .md file per prompt
     memory/      long-term memory in the Store: profile, facts, episodes
     tools/       self-registering tools
-    integrations/  settings for services connected from the app (Telegram, Slack, email), sending (SMTP) and reading (IMAP) mail
-    skills/      reusable instructions as ~/.lo9i/skills/<name>/SKILL.md
+    integrations/  settings for services connected from the app (Telegram, Slack, email accounts), sending (SMTP) and reading (IMAP) mail
+    accounts.py  connected accounts per kind (email now), one default per kind; secret_store.py keeps their passwords and tokens encrypted
+    skills/      reusable instructions as ~/.lo9i/skills/<name>/SKILL.md, with optional files (scripts, references);
+                 installed from git repositories
     jobs/        scheduled jobs (cron) and their records
     mcp/         MCP servers: settings (Store), connections (hub), their tools as LangChain tools
     speech/      speech to text (faster-whisper) and spoken replies (Kokoro), set in Settings → Audio; voice audio saved under uploads/audio
@@ -55,6 +57,7 @@ clients/         the apps, each a daemon client
 - A conversation no client is on any more is left and archived in the background (`daemon/clients.py`, `core/agent/archive.py`): right away when its client moves to another, after a grace period when its client disconnects. Archiving adds an episode plus profile and fact updates, covers only what's new since the last archive, and is skipped below `EPISODE_MIN_TURNS`.
 - Tools register themselves with `@register("<toolset>")` in a module under `core/tools/`. Enabled toolsets come from settings, never per channel, because a conversation spans channels.
 - Prefer bash or MCP over a new tool. Every tool definition is sent on every model call.
+- Skills are installed from git repositories by the user from the app (`/skills`), never by the agent: their scripts run through bash. When the agent saves or deletes a skill, `approval.ask` asks the user first, so text the agent read can't plant one.
 - MCP servers are added from the app (`/mcp`), never by the agent. Their tools are named `mcp__<server>__<tool>`; the user picks which ones the agent gets. Each epoch freezes the MCP tool definitions in graph state (`mcp_tools`); when they change, the next user message starts a new epoch with nothing summarized, as with a rename. Calls look the tool up live in `McpHub`, so a tool turned off stops working at once. On an untrusted server, tools not marked read-only go through `approval.ask`; after a dropped connection only read-only calls are retried.
 - Actions that need approval go through `core/tools/approval.py::ask`: bash commands matching `bash_guard.py`, email to recipients outside the allowlist. In unattended runs (channel `worker`, scheduled jobs) the scheduler forwards them to the adapters registered in `service.approvals` (`core/approvals.py`; Telegram, with `ja:`/`jr:` buttons) and waits up to `JOB_APPROVAL_MINUTES`, which doesn't count toward the run's time limit. With no adapter registered, or no answer in time, they are denied and the job is recorded as needing attention.
 - Messages the assistant sends on a channel from outside that channel's conversation (`send_message` from a job or another chat, new-mail alerts) are recorded with `core/conversation/sent.py` and go into the turn header of the user's next message on that channel, once.
@@ -88,6 +91,7 @@ clients/         the apps, each a daemon client
 - Data lives in `~/.lo9i`: `lo9i.db` (SQLite), `uploads/`, `models/`, `workspace/` (bash), `browsers/` (headless Chromium for page rendering), `SOUL.md`, `daemon.sock`, `daemon.log`, `cli_history` (the terminal app's input history, kept by the client).
 - The model (provider, key, main and worker model) is set from the app with `/model` or Settings → General → Model, saved in the Store and overriding `.env` (`core/llm/choice.py`). Saving asks each model to answer once; the service then rebuilds its graph, digester and titler (`core/agent/model.py`), so the change applies without a restart. Model builders take a `ModelChoice`, never read the provider from `settings`.
 - Telegram is connected from the app with `/telegram`, Slack with `/slack`; their tokens and paired accounts live in the Store (`core/integrations/`), not in `.env`. Slack uses Socket Mode, so it needs no public URL.
+- Services the user can connect more than once (email now) are accounts (`core/accounts.py`): a Store record per account with its settings, one default per kind. Their passwords and tokens, and the model's API key set in the app (`core/llm/choice.py`), go only through `core/secret_store.py`, encrypted with the key file at `SECRETS_KEY_PATH` (`~/.lo9i/keys/secrets.key`, outside the database), never in a plain Store record. Tools that act on an account take an `account` argument (label, address or id; empty for the default), and the system prompt lists the accounts at the start of each epoch, so the tool list never changes.
 - Web UI conventions, including the default page layout, are in `clients/web/WEB.md`. Follow them for new pages.
 - Never require the user to run shell commands for app features. Setup flows go through the daemon API so every client, including the web UI, can offer them.
 

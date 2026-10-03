@@ -1,17 +1,21 @@
 """Which model the assistant uses: the provider, its key, and the main and worker models.
 
 Set in the app (Settings → Model, /model), it's saved in the Store and overrides .env. Without it,
-the settings from .env apply. The key never leaves the daemon: clients only learn whether one is set.
+the settings from .env apply. The key is kept encrypted apart from the rest (core/secret_store.py)
+and never leaves the daemon: clients only learn whether one is set.
 """
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 
 from langgraph.store.base import BaseStore
 
+from assistant.core import secret_store
 from assistant.core.config import settings
+from assistant.core.secret_store import SecretBox, SecretError
 
 _NAMESPACE = ("settings",)
 _KEY = "model"
+_SECRET = "model:api_key"
 
 
 @dataclass(frozen=True)
@@ -73,23 +77,42 @@ def provider(provider_id: str) -> ModelProvider | None:
     return next((p for p in PROVIDERS if p.id == provider_id), None)
 
 
-async def saved(store: BaseStore) -> ModelChoice | None:
-    """The choice made in the app, if any."""
+async def saved(store: BaseStore, box: SecretBox) -> ModelChoice | None:
+    """The choice made in the app, if any. A key that can't be read any more (the key file
+    changed) comes back empty, so the app asks for it again."""
     item = await store.aget(_NAMESPACE, _KEY)
-    return ModelChoice(**item.value) if item else None
+    if item is None:
+        return None
+    try:
+        key = await secret_store.get(store, box, _SECRET)
+    except SecretError:
+        key = ""
+    return ModelChoice(**{**item.value, "api_key": key})
 
 
-async def save(store: BaseStore, choice: ModelChoice) -> None:
-    await store.aput(_NAMESPACE, _KEY, asdict(choice))
+async def save(store: BaseStore, box: SecretBox, choice: ModelChoice) -> None:
+    await store.aput(_NAMESPACE, _KEY, asdict(replace(choice, api_key="")))
+    if choice.api_key:
+        await secret_store.put(store, box, _SECRET, choice.api_key)
+    else:
+        await secret_store.delete(store, _SECRET)
 
 
 async def clear(store: BaseStore) -> None:
     await store.adelete(_NAMESPACE, _KEY)
+    await secret_store.delete(store, _SECRET)
 
 
-async def current(store: BaseStore) -> ModelChoice:
+async def current(store: BaseStore, box: SecretBox) -> ModelChoice:
     """The app's choice, or .env's."""
-    return await saved(store) or from_env()
+    return await saved(store, box) or from_env()
+
+
+async def migrate(store: BaseStore, box: SecretBox) -> None:
+    """Moves a key saved in plain text, before keys were encrypted, into the secret store."""
+    item = await store.aget(_NAMESPACE, _KEY)
+    if item is not None and item.value.get("api_key"):
+        await save(store, box, ModelChoice(**item.value))
 
 
 def from_env() -> ModelChoice:

@@ -1,11 +1,30 @@
 <script lang="ts">
+  import Download from "@lucide/svelte/icons/download";
+  import { useDaemon } from "$lib/daemon.svelte";
+  import InstallSkillDialog from "$lib/ui/skills/InstallSkillDialog.svelte";
   import SkillsList from "$lib/ui/SkillsList.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
+
+  const { notices } = useDaemon();
+  let installing = $state(false);
 </script>
 
-<TopBar title="Skills" />
+<TopBar title="Skills">
+  {#snippet actions()}
+    <button class="btn btn--primary" onclick={() => (installing = true)}><Download size={16} /><span class="hide-narrow">Install</span></button>
+  {/snippet}
+</TopBar>
 
 <div class="shell"><SkillsList /></div>
+
+{#if installing}
+  <InstallSkillDialog
+    onclose={(installed) => {
+      installing = false;
+      if (installed) notices.notify(`Installed ${installed.join(", ")}. The assistant uses them from your next conversation.`);
+    }}
+  />
+{/if}
 
 <style>
   .shell {

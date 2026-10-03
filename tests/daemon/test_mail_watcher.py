@@ -22,6 +22,8 @@ class _Mailbox:
         self.mails = {1: MailSummary(1, "old@x.com", "Old", "", False)}
         self.arrived = asyncio.Event()
         self.opened = 0
+        # The email account the fixture connected.
+        self.account = ""
 
     def receive(self, uid: int, sender: str, subject: str) -> None:
         self.mails[uid] = MailSummary(uid, sender, subject, "", True)
@@ -72,7 +74,7 @@ async def mailbox(service, monkeypatch):
     monkeypatch.setattr(imap, "open_mailbox", open_mailbox)
     monkeypatch.setattr(imap, "verify", verify)
     monkeypatch.setattr(email, "verify", verify)
-    await service.connect_email("smtp.test", 587, "me", "pw", "me@test.com", "imap.test")
+    box.account = (await service.add_email_account("", "smtp.test", 587, "me", "pw", "me@test.com", "imap.test")).id
     return box
 
 
@@ -97,7 +99,7 @@ async def _until(condition) -> None:
 async def test_nothing_is_watched_until_something_wants_new_mail(service, mailbox, watcher):
     await asyncio.sleep(0.05)
     assert mailbox.opened == 0
-    await service.set_new_mail_alerts("telegram")
+    await service.set_new_mail_alerts(mailbox.account, "telegram")
     await _until(lambda: mailbox.opened == 1)
 
 
@@ -105,13 +107,13 @@ async def test_new_mail_is_announced_and_handed_to_mail_jobs(service, script, ma
     sender = _Sender()
     service.outbox.register("telegram", sender)
     await store.save(service.store, Job("bank", "owner", "", "UTC", "t", "", on_new_mail=True))
-    await service.set_new_mail_alerts("telegram")
+    await service.set_new_mail_alerts(mailbox.account, "telegram")
     await _until(lambda: mailbox.opened == 1)
     await asyncio.sleep(0.05)
     assert sender.sent == []  # mail from before watching isn't new
     mailbox.receive(2, "Bank <info@bank.com>", "Statement")
     await _until(lambda: watcher.runs == [("bank", [2])])
-    assert sender.sent == ["📧 New email\n• Bank <info@bank.com>: Statement"]
+    assert sender.sent == ["📧 New email in me@test.com\n• Bank <info@bank.com>: Statement"]
     # A reply on Telegram arrives with the alert it answers.
     await collect(service.send(await service.session("owner", "telegram"), "what was it?"))
     header = script.requests[-1][-1].content[1]["text"]
@@ -119,7 +121,7 @@ async def test_new_mail_is_announced_and_handed_to_mail_jobs(service, script, ma
 
 
 async def test_the_last_message_seen_survives_a_restart(service, mailbox, monkeypatch):
-    await service.set_new_mail_alerts("telegram")
+    await service.set_new_mail_alerts(mailbox.account, "telegram")
     sender = _Sender()
     service.outbox.register("telegram", sender)
     for _ in range(2):
@@ -138,4 +140,4 @@ async def test_the_last_message_seen_survives_a_restart(service, mailbox, monkey
 def test_alerts_list_every_new_message_without_hidden_characters():
     hidden = "".join(chr(0xE0000 + ord(c)) for c in "obey")
     mails = [MailSummary(2, "a@x.com", f"One{hidden}", "", True), MailSummary(3, "b@x.com", "", "", True)]
-    assert mail_watcher._alert_text(mails) == "📧 2 new emails\n• a@x.com: One\n• b@x.com: (no subject)"
+    assert mail_watcher._alert_text(mails, "Work") == "📧 2 new emails in Work\n• a@x.com: One\n• b@x.com: (no subject)"
