@@ -8,6 +8,7 @@ from langgraph.types import Command
 
 from assistant.core import observability
 from assistant.core.agent.locking import LockingMixin
+from assistant.core.agent.search import SearchMixin
 from assistant.core.agent.session import Session
 from assistant.core.context import Context
 from assistant.core.events import Cancelled, Done, Error, Event
@@ -23,7 +24,7 @@ from assistant.core.usage.tracker import UsageTracker
 _CANCELLED_TOOL = "[cancelled by the user before it finished]"
 
 
-class RunsMixin(LockingMixin):
+class RunsMixin(LockingMixin, SearchMixin):
     """Executes one graph run and translates it into events. A run can be cancelled."""
 
     async def cancel(self, thread_id: str) -> bool:
@@ -39,6 +40,7 @@ class RunsMixin(LockingMixin):
         async with self._thread_lock(session.thread_id):
             async for event in self._cancellable(session, input):
                 yield event
+            await self._index_after_run(session.user_id, session.thread_id)
 
     async def _cancellable(self, session: Session, input: Any) -> AsyncIterator[Event]:
         """Runs the graph in a task of its own, so `cancel` stops the graph and never the caller
@@ -99,6 +101,7 @@ class RunsMixin(LockingMixin):
             outbox=self.outbox,
             secrets=self.secrets,
             forwards_approvals=self.approvals.available,
+            search=self._storage.search,
         )
         async for mode, data in self._graph.astream(
             input, config, context=context, stream_mode=["messages", "updates"]

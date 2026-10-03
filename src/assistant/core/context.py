@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from langgraph.store.base import BaseStore
 
 from assistant.core.bus import EventBus
+from assistant.core.conversation.search import MessageIndex
 from assistant.core.outbox import Outbox
 from assistant.core.secret_store import SecretBox
 
@@ -22,6 +23,8 @@ class Context:
     outbox: Outbox | None = field(default=None, compare=False)
     # For tools that use an account's password or token.
     secrets: SecretBox | None = field(default=None, compare=False)
+    # For searching past conversations.
+    search: MessageIndex | None = field(default=None, compare=False)
     # An unattended run whose approvals are sent to the user (core/approvals.py) instead of denied.
     forwards_approvals: bool = False
 
@@ -36,6 +39,13 @@ def require_secrets(context: Context) -> SecretBox:
     if context.secrets is None:
         raise RuntimeError("The run was started without the secrets.")
     return context.secrets
+
+
+def require_search(context: Context) -> MessageIndex:
+    """The service always passes its search index to runs (`core/agent/runs.py`)."""
+    if context.search is None:
+        raise RuntimeError("The run was started without the search index.")
+    return context.search
 
 
 def require_store(store: BaseStore | None) -> BaseStore:
