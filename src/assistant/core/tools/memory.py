@@ -46,8 +46,9 @@ async def update_profile(section: Section, items: list[str], runtime: ToolRuntim
     """Replace one section of the user's profile with the full new list of items.
 
     Include the items to keep, not only the new ones. At most 8 items: merge or replace when full.
-    An instruction about replies ("when I ask for X, show Y") goes in how_to_reply, never in goals:
-    goals are outcomes the user works toward over weeks or months.
+    How to do one task ("when I ask for X, show Y") goes in that task's skill, never in the profile:
+    how_to_reply is the general style of replies, goals are outcomes the user works toward over weeks or months.
+    The profile is about the user's life, never about this assistant (how they use or host it, its tools or ids).
     """
     if len(items) > MAX_ITEMS:
         return f"Not saved: a section holds at most {MAX_ITEMS} items, got {len(items)}. Merge or drop some."

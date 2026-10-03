@@ -1,4 +1,5 @@
-"""The user profile: one structured document per user, a few short lists the system prompt shows."""
+"""The user profile: one structured document per user, a few short lists the system prompt shows. It is about
+the user's life, never about this assistant (its setup, channels, tools, ids) or the tasks they give it."""
 
 from typing import Literal
 
@@ -32,20 +33,26 @@ def _section(description: str) -> list[str]:
 
 
 class Profile(BaseModel):
-    about: list[str] = _section("Who the user is: name, where they live and their timezone, languages.")
+    about: list[str] = _section(
+        "Who the user is: name, where they live and their timezone, languages. Never their accounts or ids on a "
+        "channel."
+    )
     people: list[str] = _section("People in the user's life and how they relate, e.g. 'Ana: sister'.")
     how_to_reply: list[str] = _section(
-        "How the user wants replies: length, tone, format, language, and what to include when they ask for something "
-        "in particular, e.g. 'unpaid bills: list each with its obligation's details'."
+        "How the user wants replies in general: length, tone, format, language. Never how to do one task (what to "
+        "show for their bills, a report's columns): that goes in the skill for that task."
     )
     routine: list[str] = _section("The user's schedule and habits: working hours, regular commitments.")
     goals: list[str] = _section(
         "Outcomes the user is working toward over weeks or months, e.g. 'learn Italian', 'save for a trip'. Never "
-        "requests or instructions about replies: those go in how_to_reply."
+        "a task or to-do (recreate a bot, fix a setting) or an instruction about replies."
     )
     interests: list[str] = _section("Topics and things the user likes.")
     dislikes: list[str] = _section("Things the user dislikes or wants avoided.")
-    work: list[str] = _section("The user's work: role, field, tools, projects, technical level.")
+    work: list[str] = _section(
+        "The user's job: role, field, employer, projects at work. Never how they use or host this assistant or its "
+        "tools."
+    )
 
 
 def namespace(user_id: str) -> tuple[str, ...]:

@@ -2,7 +2,10 @@
   import ChartColumn from "@lucide/svelte/icons/chart-column";
   import type { ToolUsage } from "$lib/api/types";
   import { resource } from "$lib/daemon.svelte";
+  import { pageOf } from "$lib/paging";
   import EmptyState from "$lib/ui/EmptyState.svelte";
+  import Pager from "$lib/ui/Pager.svelte";
+  import SearchField from "$lib/ui/SearchField.svelte";
   import TokenUsage from "$lib/ui/TokenUsage.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
@@ -15,9 +18,12 @@
     { id: "skill", label: "Skills" },
   ];
   const KINDS: Record<Kind, string> = { tool: "Tool", skill: "Skill" };
+  const PAGE_SIZE = 20;
 
   let days = $state(7);
   let filter = $state<Filter>("all");
+  let query = $state("");
+  let page = $state(0);
   const report = resource((c) => c.usage.report(days), ["run_finished"]);
   // Tools and skills in one list, most used first.
   const rows = $derived.by(() => {
@@ -26,7 +32,17 @@
       ...report.data.tools.map((r) => ({ ...r, kind: "tool" as const })),
       ...report.data.skills.map((r) => ({ ...r, kind: "skill" as const })),
     ];
-    return all.filter((r) => filter === "all" || r.kind === filter).sort((a, b) => b.calls - a.calls);
+    const words = query.trim().toLowerCase();
+    return all
+      .filter((r) => (filter === "all" || r.kind === filter) && r.name.toLowerCase().includes(words))
+      .sort((a, b) => b.calls - a.calls);
+  });
+  const shown = $derived(rows && pageOf(rows, page, PAGE_SIZE));
+
+  // A new period, filter or search starts from the first page.
+  $effect(() => {
+    void [days, filter, query];
+    page = 0;
   });
 
   function seconds(ms: number): string {
@@ -53,6 +69,7 @@
         <p class="text-meta">How often the assistant used each one in the last {days} days.</p>
       </div>
       <div class="controls">
+        <SearchField bind:value={query} label="Search tools and skills" />
         <div class="tabs" role="radiogroup" aria-label="Show">
           {#each FILTERS as f (f.id)}
             <button role="radio" aria-checked={f.id === filter} class:active={f.id === filter} onclick={() => (filter = f.id)}>
@@ -65,9 +82,11 @@
     </header>
     {#if report.error}
       <p class="error-text pad">{report.error}</p>
+    {:else if rows?.length === 0 && query.trim()}
+      <EmptyState icon={ChartColumn} title="No matches" text="Nothing used in the last {days} days matches “{query.trim()}”." />
     {:else if rows?.length === 0}
       <EmptyState icon={ChartColumn} title="Not used yet" text="Nothing in the last {days} days." />
-    {:else if rows}
+    {:else if rows && shown}
       <table class="data-table">
         <colgroup>
           <col />
@@ -90,7 +109,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each rows as r (`${r.kind}-${r.name}`)}
+          {#each shown as r (`${r.kind}-${r.name}`)}
             <tr>
               <td class="name">{r.name}</td>
               <td><span class="pill">{KINDS[r.kind]}</span></td>
@@ -103,6 +122,7 @@
           {/each}
         </tbody>
       </table>
+      {#if rows.length > PAGE_SIZE}<Pager bind:page total={rows.length} size={PAGE_SIZE} />{/if}
     {/if}
   </section>
 </div>
@@ -160,7 +180,8 @@
     text-overflow: ellipsis;
   }
   @media (max-width: 680px) {
-    .toolbar {
+    .toolbar,
+    .controls {
       flex-direction: column;
       align-items: flex-start;
     }
