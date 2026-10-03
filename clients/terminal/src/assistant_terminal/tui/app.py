@@ -454,6 +454,8 @@ class AssistantApp(App):
         self.notify(f"Renamed to {name}. It takes effect from your next message.")
 
     async def _command_get_to_know_me(self, _: str) -> None:
+        """In a conversation of its own."""
+        await self._command_new("")
         await self._send(GET_TO_KNOW_ME, [])
 
     async def _command_help(self, _: str) -> None:
