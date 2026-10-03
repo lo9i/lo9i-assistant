@@ -11,7 +11,6 @@
   import MonitorSmartphone from "@lucide/svelte/icons/monitor-smartphone";
   import Plus from "@lucide/svelte/icons/plus";
   import Settings from "@lucide/svelte/icons/settings";
-  import UserRound from "@lucide/svelte/icons/user-round";
   import Sparkles from "@lucide/svelte/icons/sparkles";
   import PanelsTopLeft from "@lucide/svelte/icons/panels-top-left";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
@@ -63,18 +62,17 @@
       Icon: MessagesSquare,
       add: { label: "New conversation", run: newConversation },
     },
-    { href: resolve("/memory"), label: "About you", Icon: UserRound },
     { href: resolve("/usage"), label: "Usage", Icon: ChartColumn },
     { href: resolve("/sessions"), label: "Active sessions", Icon: MonitorSmartphone },
     { href: resolve("/jobs"), label: "Jobs", Icon: CalendarClock },
     { href: resolve("/devices"), label: "Devices", Icon: Laptop, add: { label: "Pair a browser", run: pairBrowser } },
     { href: resolve("/alerts"), label: "Alerts", Icon: Bell, count: () => alerts.data?.length ?? 0 },
-    // Skills, Plugins and MCP servers are settings tabs with pages of their own; plugin updates show here.
+    // About you, Skills, Plugins and MCP servers are settings tabs with pages of their own; plugin updates show here.
     {
       href: resolve("/settings"),
       label: "Settings",
       Icon: Settings,
-      also: [resolve("/skills"), resolve("/plugins"), resolve("/mcp")],
+      also: [resolve("/memory"), resolve("/skills"), resolve("/plugins"), resolve("/mcp")],
       count: () => updates.data?.length ?? 0,
     },
   ];
