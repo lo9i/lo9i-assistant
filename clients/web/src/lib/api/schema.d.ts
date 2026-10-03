@@ -209,6 +209,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/memory/profile/{section}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Profile Section
+         * @description Replaces one profile section with the user's own list. 422: an unknown section or too many items.
+         */
+        put: operations["set_profile_section_memory_profile__section__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/threads/{thread_id}/messages": {
         parameters: {
             query?: never;
@@ -1691,6 +1711,8 @@ export interface components {
             profile?: {
                 [key: string]: string[];
             };
+            /** Profile Sections */
+            profile_sections?: string[];
             /** Facts */
             facts?: string[];
             /** Episodes */
@@ -1828,6 +1850,11 @@ export interface components {
         PluginUpdateChecks: {
             /** Enabled */
             enabled: boolean;
+        };
+        /** ProfileItems */
+        ProfileItems: {
+            /** Items */
+            items: string[];
         };
         /** ProviderField */
         ProviderField: {
@@ -2567,6 +2594,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemorySnapshot"];
+                };
+            };
+        };
+    };
+    set_profile_section_memory_profile__section__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                section: "about" | "people" | "how_to_reply" | "routine" | "goals" | "interests" | "dislikes" | "work";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileItems"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemorySnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

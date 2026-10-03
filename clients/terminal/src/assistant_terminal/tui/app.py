@@ -37,6 +37,7 @@ from assistant_terminal.tui.screens import (
     McpScreen,
     ModelScreen,
     PluginsScreen,
+    ProfileScreen,
     QuestionScreen,
     SessionsScreen,
     SkillsScreen,
@@ -111,6 +112,7 @@ class AssistantApp(App):
             "/jobs": self._command_jobs,
             "/devices": self._command_devices,
             "/usage": self._command_usage,
+            "/profile": self._command_profile,
             "/sessions": self._command_sessions,
             "/name": self._command_name,
             "/get-to-know-me": self._command_get_to_know_me,
@@ -478,6 +480,9 @@ class AssistantApp(App):
 
     async def _command_usage(self, _: str) -> None:
         self.push_screen(UsageScreen(self._service.usage))
+
+    async def _command_profile(self, _: str) -> None:
+        self.push_screen(ProfileScreen(self._service.memory))
 
     async def _command_sessions(self, _: str) -> None:
         self.push_screen(SessionsScreen(self._service.clients))

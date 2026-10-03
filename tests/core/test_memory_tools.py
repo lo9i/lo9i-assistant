@@ -1,4 +1,4 @@
-"""The agent's memory tools and the read-only memory snapshot."""
+"""The agent's memory tools, the memory snapshot and profile edits from the apps."""
 
 from assistant.core.memory import profile
 from tests.conftest import collect
@@ -37,3 +37,10 @@ async def test_old_profiles_move_into_the_current_sections(service):
         "work": ["lo9i", "senior Python"],
     }
     assert snapshot.facts == ["chess"]  # beyond the section's limit
+
+
+async def test_the_user_edits_a_profile_section(service):
+    snapshot = await service.set_profile_section("u", "goals", ["  run a marathon ", "", "learn Italian"])
+    assert snapshot.profile == {"goals": ["run a marathon", "learn Italian"]}
+    assert snapshot.profile_sections[0] == "about" and "goals" in snapshot.profile_sections
+    assert (await service.set_profile_section("u", "goals", [])).profile == {}

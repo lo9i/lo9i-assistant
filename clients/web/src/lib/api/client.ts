@@ -391,6 +391,11 @@ export class MemoryGroup {
   snapshot(): Promise<MemorySnapshot> {
     return this.transport.request("GET", "/memory");
   }
+
+  /** Replaces one profile section with the user's own list (at most 8 items). */
+  setProfileSection(section: string, items: string[]): Promise<MemorySnapshot> {
+    return this.transport.request("PUT", `/memory/profile/${encodeURIComponent(section)}`, { items });
+  }
 }
 
 export class UsageGroup {

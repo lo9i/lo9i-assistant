@@ -62,7 +62,7 @@
     },
     { href: resolve("/usage"), label: "Usage", Icon: ChartColumn },
     { href: resolve("/sessions"), label: "Active sessions", Icon: MonitorSmartphone },
-    { href: resolve("/jobs"), label: "Jobs", Icon: CalendarClock },
+    { href: resolve("/jobs"), label: "Scheduled", Icon: CalendarClock },
     { href: resolve("/devices"), label: "Devices", Icon: Laptop, add: { label: "Pair a browser", run: pairBrowser } },
     { href: resolve("/alerts"), label: "Alerts", Icon: Bell, count: () => alerts.data?.length ?? 0 },
     // About you, Skills, Plugins and MCP servers are settings tabs with pages of their own; plugin updates show here.

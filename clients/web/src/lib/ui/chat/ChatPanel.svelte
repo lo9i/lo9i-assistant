@@ -81,6 +81,8 @@
         return void goto(resolve("/skills"));
       case "/usage":
         return void goto(resolve("/usage"));
+      case "/profile":
+        return void goto(resolve("/memory"));
       case "/name":
         return void rename(arg);
       case "/get-to-know-me":

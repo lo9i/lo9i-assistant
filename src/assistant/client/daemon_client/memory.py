@@ -10,3 +10,7 @@ class MemoryApi:
 
     async def snapshot(self) -> MemorySnapshot:
         return MemorySnapshot(**await self._transport.request("GET", "/memory"))
+
+    async def set_profile_section(self, section: str, items: list[str]) -> MemorySnapshot:
+        body = {"items": items}
+        return MemorySnapshot(**await self._transport.request("PUT", f"/memory/profile/{section}", json=body))

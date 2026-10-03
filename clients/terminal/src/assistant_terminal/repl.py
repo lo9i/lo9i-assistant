@@ -49,6 +49,7 @@ class Repl:
             "/get-to-know-me": self._get_to_know_me,
             "/jobs": self._jobs,
             "/usage": self._usage,
+            "/profile": self._profile,
             "/sessions": self._sessions,
             "/": self._help,
         }
@@ -135,6 +136,12 @@ class Repl:
     async def _usage(self, arg: str) -> None:
         days = int(arg) if arg.isdigit() else 7
         print(describe_usage(await self._service.usage.report(days), await self._service.usage.tokens(days)))
+
+    async def _profile(self, _: str) -> None:
+        """Shows it; editing needs the full app or the web app."""
+        profile = (await self._service.memory.snapshot()).profile
+        lines = [f"{name.replace('_', ' ').capitalize()}: {'; '.join(items)}" for name, items in profile.items()]
+        print("\n".join(lines) or "The profile is empty.")
 
     async def _sessions(self, _: str) -> None:
         print(describe_sessions(await self._service.clients.list(), self._service.clients.own_id))

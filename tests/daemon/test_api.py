@@ -113,6 +113,7 @@ async def test_threads_memory_and_telegram(client, monkeypatch):
     monkeypatch.setattr(integration, "bot_username", bot_username)
     assert await client.new_thread("owner") != await client.new_thread("owner")
     assert (await client.memory.snapshot()).facts == []
+    assert (await client.memory.set_profile_section("interests", ["chess"])).profile == {"interests": ["chess"]}
     assert await client.clients.list() == []
     assert await client.email.accounts() == []
     assert not (await client.telegram.status()).connected
@@ -174,6 +175,15 @@ async def test_unknown_run_is_404(app):
         transport=httpx.ASGITransport(app=trusted(app)), base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}
     ) as http:
         assert (await http.get("/runs/nope/events")).status_code == 404
+
+
+async def test_a_profile_edit_with_an_unknown_section_or_too_many_items_is_422(app):
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=trusted(app)), base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}
+    ) as http:
+        assert (await http.put("/memory/profile/hobbies", json={"items": ["chess"]})).status_code == 422
+        too_many = {"items": [f"goal {i}" for i in range(9)]}
+        assert (await http.put("/memory/profile/goals", json=too_many)).status_code == 422
 
 
 async def test_skills_and_usage_endpoints(client, script, isolated_settings, monkeypatch):

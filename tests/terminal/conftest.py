@@ -102,7 +102,13 @@ class FakeMemory:
         self._skills = skills
 
     async def snapshot(self):
-        return MemorySnapshot(profile=self.profile, skills=sorted(self._skills.items))
+        sections = ["about", "people", "how_to_reply", "routine", "goals", "interests", "dislikes", "work"]
+        profile = {name: items for name, items in self.profile.items() if items}
+        return MemorySnapshot(profile=profile, profile_sections=sections, skills=sorted(self._skills.items))
+
+    async def set_profile_section(self, section, items):
+        self.profile[section] = [item.strip() for item in items if item.strip()]
+        return await self.snapshot()
 
 
 class FakeUsage:
