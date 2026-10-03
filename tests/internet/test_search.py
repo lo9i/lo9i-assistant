@@ -4,10 +4,10 @@ import httpx
 import pytest
 
 from assistant.core.config import settings
-from assistant.core.web import service as web_service
-from assistant.core.web.providers import BraveProvider, SearchError
-from assistant.core.web.results import SearchResult
-from assistant.core.web.service import WebService
+from assistant.core.internet import service as web_service
+from assistant.core.internet.providers import BraveProvider, SearchError
+from assistant.core.internet.results import SearchResult
+from assistant.core.internet.service import WebService
 
 
 async def test_brave_needs_a_key(monkeypatch):
@@ -61,7 +61,7 @@ async def test_live_metasearch_returns_results():
 
 @pytest.mark.live
 async def test_live_render_of_a_javascript_page(monkeypatch):
-    from assistant.core.web import browser
+    from assistant.core.internet import browser
 
     if not browser.installed():
         pytest.skip("headless browser not installed")

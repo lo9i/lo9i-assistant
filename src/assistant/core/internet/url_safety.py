@@ -1,8 +1,8 @@
 """Blocks fetches to private and internal addresses (W2).
 
-The agent runs in the same Docker network as Postgres and SearXNG, so a page must not be able
-to point it at internal services. Each redirect hop is checked too (see fetch.py). A DNS answer
-that changes between this check and the request is not covered.
+The agent runs on the user's computer, next to the daemon, Ollama and the home network, so a page
+must not be able to point it at local or internal services. Each redirect hop is checked too (see
+fetch.py). A DNS answer that changes between this check and the request is not covered.
 """
 
 import asyncio

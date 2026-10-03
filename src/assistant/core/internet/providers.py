@@ -8,7 +8,7 @@ from typing import Protocol
 import httpx
 
 from assistant.core.config import settings
-from assistant.core.web.results import SearchResult
+from assistant.core.internet.results import SearchResult
 
 _TIMEOUT = 15
 # Slower engines (Bing) can take over ten seconds.
@@ -60,7 +60,7 @@ class MetasearchProvider:
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             "-m",
-            "assistant.core.web.ddgs_worker",
+            "assistant.core.internet.ddgs_worker",
             query,
             str(limit),
             settings.web_search_engines,

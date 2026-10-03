@@ -6,8 +6,8 @@ import pytest
 from slack_sdk.errors import SlackApiError
 from slack_sdk.web.async_client import AsyncWebClient
 
-from assistant.core.integrations.slack import SlackError
-from assistant.core.integrations.slack_workspace import Workspace
+from assistant.core.integrations.slack.connection import SlackError
+from assistant.core.integrations.slack.workspace import Workspace
 
 _PAGES = [
     {"channels": [{"id": "C1", "name": "random"}], "response_metadata": {"next_cursor": "p2"}},

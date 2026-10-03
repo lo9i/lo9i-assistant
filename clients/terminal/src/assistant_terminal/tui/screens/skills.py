@@ -11,20 +11,21 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
-from assistant.client.daemon_client import SkillsApi
+from assistant.client.daemon_client import RepositoriesApi, SkillsApi
 from assistant.core.agent import Skill, SkillError
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
+from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 from assistant_terminal.tui.screens.skill_edit import SkillEditScreen
-from assistant_terminal.tui.screens.skill_install import SkillInstallScreen
 
 
 class SkillsScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
 
-    def __init__(self, skills: SkillsApi) -> None:
+    def __init__(self, skills: SkillsApi, repositories: RepositoriesApi) -> None:
         super().__init__()
         self._skills = skills
+        self._repositories = repositories
         self._names: list[str] = []
         self._selected: str | None = None
         self._skill: Skill | None = None
@@ -95,10 +96,9 @@ class SkillsScreen(ModalScreen[None]):
     @work
     @reports_daemon_unavailable
     async def _install(self) -> None:
-        installed = await self.app.push_screen_wait(SkillInstallScreen(self._skills))
+        installed = await self.app.push_screen_wait(RepositoryInstallScreen(self._repositories))
         if installed:
             self.notify(f"Installed {', '.join(installed)}.")
-            self._selected = installed[0]
             await self.reload()
 
     @on(Button.Pressed, "#update")

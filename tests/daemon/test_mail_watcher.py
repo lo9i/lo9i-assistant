@@ -6,9 +6,8 @@ from contextlib import asynccontextmanager
 
 import pytest
 
-import assistant.core.integrations.email as email
-from assistant.core.integrations import imap
-from assistant.core.integrations.imap import MailSummary
+from assistant.core.integrations.email import imap, smtp
+from assistant.core.integrations.email.imap import MailSummary
 from assistant.core.jobs import store
 from assistant.core.jobs.store import Job
 from assistant.daemon import mail_watcher
@@ -73,7 +72,7 @@ async def mailbox(service, monkeypatch):
 
     monkeypatch.setattr(imap, "open_mailbox", open_mailbox)
     monkeypatch.setattr(imap, "verify", verify)
-    monkeypatch.setattr(email, "verify", verify)
+    monkeypatch.setattr(smtp, "verify", verify)
     box.account = (await service.add_email_account("", "smtp.test", 587, "me", "pw", "me@test.com", "imap.test")).id
     return box
 

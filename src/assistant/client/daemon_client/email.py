@@ -51,6 +51,10 @@ class EmailApi:
         body = _settings(label, host, port, username, password, sender, imap_host, imap_port)
         return await self._put(account_id, "", body)
 
+    async def rename(self, account_id: str, label: str) -> EmailAccount:
+        """Only the name; the sign-in stays. Raises EmailError when another account has it."""
+        return await self._put(account_id, "/label", {"label": label})
+
     async def make_default(self, account_id: str) -> EmailAccount:
         return await self._put(account_id, "/default", None)
 

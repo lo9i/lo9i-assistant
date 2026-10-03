@@ -1,7 +1,7 @@
 <script lang="ts">
   import Download from "@lucide/svelte/icons/download";
   import { useDaemon } from "$lib/daemon.svelte";
-  import InstallSkillDialog from "$lib/ui/skills/InstallSkillDialog.svelte";
+  import InstallDialog from "$lib/ui/repositories/InstallDialog.svelte";
   import SkillsList from "$lib/ui/SkillsList.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
@@ -18,10 +18,10 @@
 <div class="shell"><SkillsList /></div>
 
 {#if installing}
-  <InstallSkillDialog
+  <InstallDialog
     onclose={(installed) => {
       installing = false;
-      if (installed) notices.notify(`Installed ${installed.join(", ")}. The assistant uses them from your next conversation.`);
+      if (installed) notices.notify(`Installed ${installed.join(", ")}. The assistant uses them from your next message.`);
     }}
   />
 {/if}

@@ -102,3 +102,14 @@ async def test_a_second_account_can_become_the_default_and_be_removed(app, clien
         screen.query_one("#remove", Button).press()
         await wait_for(pilot, lambda: "Personal <me@gmail.com> · default" in _body(screen))
         assert list(client.email.accounts_by_id) == ["a1"]
+
+
+async def test_renaming_keeps_the_sign_in(app, client):
+    async with app.run_test(size=(110, 44)) as pilot:
+        screen = await _open(pilot, app)
+        await _add_gmail(pilot, screen, "me@gmail.com")
+        assert screen.query_one("#email-name", Input).value == "me@gmail.com"
+        screen.query_one("#email-name", Input).value = "Personal"
+        screen.query_one("#rename", Button).press()
+        await wait_for(pilot, lambda: "Email: Personal <me@gmail.com>" in _body(screen))
+        assert client.email.connected_with[4] == "right"  # signed in once, not again

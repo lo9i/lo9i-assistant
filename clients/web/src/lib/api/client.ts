@@ -25,7 +25,9 @@ import type {
   RunEvent,
   Session,
   ShownMessage,
-  FoundSkill,
+  InstalledFromRepository,
+  RepositoryContents,
+  ServerValues,
   Skill,
   SkillSummary,
   StartupStatus,
@@ -206,6 +208,11 @@ export class EmailGroup {
     return this.transport.request("PUT", this.path(id), settings);
   }
 
+  /** Only the name; the sign-in stays. Throws ApiError (400) when another account has it. */
+  rename(id: string, label: string): Promise<EmailAccount> {
+    return this.transport.request("PUT", `${this.path(id)}/label`, { label });
+  }
+
   makeDefault(id: string): Promise<EmailAccount> {
     return this.transport.request("PUT", `${this.path(id)}/default`);
   }
@@ -228,8 +235,27 @@ export class EmailGroup {
   }
 }
 
+export class RepositoriesGroup {
+  constructor(private readonly transport: Transport) {}
+
+  /** The skills and MCP servers a git repository (an https:// address) offers. */
+  browse(url: string): Promise<RepositoryContents> {
+    return this.transport.request("POST", "/repositories/browse", { url });
+  }
+
+  /** Servers carry the values for their fields; secret ones go straight to the daemon. */
+  install(url: string, skills: string[], servers: ServerValues[]): Promise<InstalledFromRepository> {
+    return this.transport.request("POST", "/repositories/install", { url, skills, servers });
+  }
+}
+
 export class McpGroup {
   constructor(private readonly transport: Transport) {}
+
+  /** Install the server again from its repository, keeping the values and choices made here. */
+  updateFromRepository(name: string): Promise<McpServerStatus> {
+    return this.transport.request("POST", `/mcp/servers/${encodeURIComponent(name)}/update`);
+  }
 
   servers(): Promise<McpServerStatus[]> {
     return this.transport.request("GET", "/mcp/servers");
@@ -273,15 +299,6 @@ export class SkillsGroup {
 
   async delete(name: string): Promise<void> {
     await this.transport.request("DELETE", `/skills/${encodeURIComponent(name)}`);
-  }
-
-  /** The skills a git repository (an https:// address) offers. */
-  browse(url: string): Promise<FoundSkill[]> {
-    return this.transport.request("POST", "/skills/browse", { url });
-  }
-
-  install(url: string, names: string[]): Promise<Skill[]> {
-    return this.transport.request("POST", "/skills/install", { url, names });
   }
 
   /** Install the skill again from its repository, replacing changes made here. */
@@ -370,6 +387,7 @@ export class DaemonClient {
   readonly email: EmailGroup;
   readonly model: ModelGroup;
   readonly mcp: McpGroup;
+  readonly repositories: RepositoriesGroup;
   readonly skills: SkillsGroup;
   readonly usage: UsageGroup;
   readonly system: SystemGroup;
@@ -387,6 +405,7 @@ export class DaemonClient {
     this.email = new EmailGroup(transport);
     this.model = new ModelGroup(transport);
     this.mcp = new McpGroup(transport);
+    this.repositories = new RepositoriesGroup(transport);
     this.skills = new SkillsGroup(transport);
     this.usage = new UsageGroup(transport);
     this.system = new SystemGroup(transport);

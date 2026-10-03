@@ -1,4 +1,4 @@
-"""Child process for MetasearchProvider: `python -m assistant.core.web.ddgs_worker <query> <limit> <engines>`.
+"""Child process for MetasearchProvider: `python -m assistant.core.internet.ddgs_worker <query> <limit> <engines>`.
 Prints the results as JSON on stdout. `engines` is a comma-separated list such as "brave,bing,google"."""
 
 import json

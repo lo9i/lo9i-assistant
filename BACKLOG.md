@@ -42,6 +42,11 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - G2. Facts and episodes are loaded up to the configured limits, with no search beyond them.
 - G3. No way to view or edit memories (Q1).
 - G4. Checkpoints are never pruned.
+- A19. "Get to know you" after setup. The first time the user chats after setup, with the profile still empty, the assistant offers to get to know them. If they agree, it asks a few friendly questions at a time, one profile section at a time (about, people, how to reply, routine, goals, interests, dislikes, work), and saves the answers with `update_profile`.
+  - Every question can be skipped, and the user can stop at any point. It fills only what they choose to share.
+  - Written as a built-in skill (steps in `SKILL.md`), not a new tool.
+  - Offered once: a Store flag records that it was offered, so it never comes back on its own. The user can start it again from the app (a `/get-to-know-me` command, a button in Settings) or by asking.
+  - Works on every channel (terminal, web, Telegram, Slack), since it's an ordinary conversation.
 
 ## Context
 
@@ -70,6 +75,14 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
   - Startup: a Task Scheduler task or a Windows service as a `daemon/startup.py` backend.
   - Clipboard: `client/clipboard/windows.py`, pasting files, images and text with PowerShell (`Get-Clipboard -Format FileDropList`, `System.Windows.Forms.Clipboard.GetImage`) and copying with `Set-Clipboard`.
   - Bash tool, data paths and `install.sh`: decide between native Windows and running under WSL.
+
+## Languages
+
+- A18. Multi-language support. The app's own text is English only.
+  - Interface text: terminal app, web app, and the messages Telegram and Slack adapters send (approval buttons, errors, `/new`). Text kept in per-language files, picked in Settings → General.
+  - Prompts in `core/conversation/prompts/` stay in English; the model replies in the user's language.
+  - Speech: the speech-to-text language and the Kokoro voice follow the chosen language.
+  - Dates and times in the apps use the language's format.
 
 ## Open questions and risks
 

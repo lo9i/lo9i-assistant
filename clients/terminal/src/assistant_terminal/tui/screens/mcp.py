@@ -1,5 +1,6 @@
 """MCP servers: pick one to see its state and tools, choose the tools the assistant gets, trust it,
-turn it off, replace its secrets, or remove it. Refreshes when a server connects or changes."""
+turn it off, replace its secrets, update it from its repository, or remove it; add one by hand or
+install from a repository. Refreshes when a server connects or changes."""
 
 from collections.abc import Awaitable, Callable
 from typing import ClassVar
@@ -12,21 +13,23 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown, OptionList, SelectionList, Static
 from textual.widgets.option_list import Option
 
-from assistant.client.daemon_client import McpApi
+from assistant.client.daemon_client import McpApi, RepositoriesApi
 from assistant.core.agent import McpServerChanges, McpServerError, McpServerStatus
 from assistant_terminal.mcp_text import describe, selection, summary, tool_label
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 from assistant_terminal.tui.screens.mcp_add import McpAddScreen
 from assistant_terminal.tui.screens.mcp_secrets import McpSecretsScreen
+from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 
 
 class McpScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
 
-    def __init__(self, mcp: McpApi) -> None:
+    def __init__(self, mcp: McpApi, repositories: RepositoriesApi) -> None:
         super().__init__()
         self._mcp = mcp
+        self._repositories = repositories
         self._shown: dict[str, McpServerStatus] = {}
         self._selected: str | None = None
 
@@ -42,10 +45,12 @@ class McpScreen(ModalScreen[None]):
                     yield SelectionList[str](id="mcp-tools")
             with Horizontal(id="mcp-buttons"):
                 yield Button("Add", variant="success", id="add")
+                yield Button("Install", id="install")
                 yield Button("Save tools", id="save-tools")
                 yield Button("Trust", id="trust")
                 yield Button("Turn off", id="toggle")
                 yield Button("Secrets", id="secrets")
+                yield Button("Update", id="update")
                 yield Button("Remove", variant="error", id="remove")
                 yield Button("Close", id="close")
 
@@ -62,7 +67,7 @@ class McpScreen(ModalScreen[None]):
         options.clear_options()
         options.add_options([Option(summary(s), id=s.name) for s in servers])
         self.query_one("#mcp").set_class(not servers, "empty")
-        for button in ("#save-tools", "#trust", "#toggle", "#secrets", "#remove"):
+        for button in ("#save-tools", "#trust", "#toggle", "#secrets", "#update", "#remove"):
             self.query_one(button).display = bool(servers)
         if not servers:
             self._selected = None
@@ -86,6 +91,22 @@ class McpScreen(ModalScreen[None]):
     async def _add(self) -> None:
         if await self.app.push_screen_wait(McpAddScreen(self._mcp)):
             await self.reload()
+
+    @on(Button.Pressed, "#install")
+    @work
+    @reports_daemon_unavailable
+    async def _install(self) -> None:
+        installed = await self.app.push_screen_wait(RepositoryInstallScreen(self._repositories))
+        if installed:
+            self.notify(f"Installed {', '.join(installed)}.")
+            await self.reload()
+
+    @on(Button.Pressed, "#update")
+    @reports_daemon_unavailable
+    async def _update(self) -> None:
+        server = self._current()
+        if server is not None:
+            await self._run(lambda: self._mcp.update_from_repository(server.name), f"Updated {server.name}.")
 
     @on(Button.Pressed, "#save-tools")
     @reports_daemon_unavailable
@@ -152,4 +173,5 @@ class McpScreen(ModalScreen[None]):
         tools.clear_options()
         tools.add_options([(tool_label(t), t.name, t.selected) for t in server.tools])
         tools.display = self.query_one("#save-tools").display = bool(server.tools)
+        self.query_one("#update").display = bool(server.source)
         await self.query_one("#mcp-body", Markdown).update(describe(server))

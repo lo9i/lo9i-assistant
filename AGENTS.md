@@ -13,14 +13,17 @@ src/assistant/
       prompts/   prompt texts, one .md file per prompt
     memory/      long-term memory in the Store: profile, facts, episodes
     tools/       self-registering tools
-    integrations/  settings for services connected from the app (Telegram, Slack, email accounts), sending (SMTP) and reading (IMAP) mail
+    integrations/  services connected from the app, one package each: email/ (accounts, providers, smtp, imap),
+                 slack/ (connection, workspace), telegram/ (connection)
     accounts.py  connected accounts per kind (email now), one default per kind; secret_store.py keeps their passwords and tokens encrypted
-    skills/      reusable instructions as ~/.lo9i/skills/<name>/SKILL.md, with optional files (scripts, references);
-                 installed from git repositories
+    skills/      reusable instructions as ~/.lo9i/skills/<name>/SKILL.md, with optional files (scripts, references)
+    repositories/  installing skills and MCP servers from git repositories: download, copy, install record
     jobs/        scheduled jobs (cron) and their records
-    mcp/         MCP servers: settings (Store), connections (hub), their tools as LangChain tools
+    mcp/         MCP servers: settings (Store), connections (hub), their tools as LangChain tools,
+                 installing them from a repository (server.yaml, code under ~/.lo9i/mcp/<name>)
     speech/      speech to text (faster-whisper) and spoken replies (Kokoro), set in Settings → Audio; voice audio saved under uploads/audio
-    web/         web search (public engines via ddgs, or the Brave API), page fetching and rendering, URL safety, caching
+    internet/    the agent's internet access: web search (public engines via ddgs, or the Brave API), page fetching
+                 and rendering, URL safety, caching
   daemon/        HTTP API (Unix socket, localhost, HTTPS), device auth, run hub (SSE events), adapter supervisor, scheduler, mail watcher, launchd
   client/        connection.py (connect, auto-starts the daemon), sse.py, errors.py (DaemonUnavailableError),
                  live.py (LiveConversation), files.py (attach by path), recorder.py (microphone)
@@ -57,7 +60,8 @@ clients/         the apps, each a daemon client
 - A conversation no client is on any more is left and archived in the background (`daemon/clients.py`, `core/agent/archive.py`): right away when its client moves to another, after a grace period when its client disconnects. Archiving adds an episode plus profile and fact updates, covers only what's new since the last archive, and is skipped below `EPISODE_MIN_TURNS`.
 - Tools register themselves with `@register("<toolset>")` in a module under `core/tools/`. Enabled toolsets come from settings, never per channel, because a conversation spans channels.
 - Prefer bash or MCP over a new tool. Every tool definition is sent on every model call.
-- Skills are installed from git repositories by the user from the app (`/skills`), never by the agent: their scripts run through bash. When the agent saves or deletes a skill, `approval.ask` asks the user first, so text the agent read can't plant one.
+- New features go in a git repository, not in core: a skill (`skills/<name>/SKILL.md`, optional `scripts/`) when it needs only steps or code without secrets, an MCP server (`mcp/<name>/server.yaml`, format in `core/mcp/install.py`) when it needs secrets, an outside service or a connection that stays open. Core changes only for the assistant itself (channels, memory, models, approvals, the apps).
+- The user installs from repositories in the app (Install in `/skills` and `/mcp`), never the agent: installed code runs on this computer. When the agent saves or deletes a skill, `approval.ask` asks the user first, so text the agent read can't plant one.
 - MCP servers are added from the app (`/mcp`), never by the agent. Their tools are named `mcp__<server>__<tool>`; the user picks which ones the agent gets. Each epoch freezes the MCP tool definitions in graph state (`mcp_tools`); when they change, the next user message starts a new epoch with nothing summarized, as with a rename. Calls look the tool up live in `McpHub`, so a tool turned off stops working at once. On an untrusted server, tools not marked read-only go through `approval.ask`; after a dropped connection only read-only calls are retried.
 - Actions that need approval go through `core/tools/approval.py::ask`: bash commands matching `bash_guard.py`, email to recipients outside the allowlist. In unattended runs (channel `worker`, scheduled jobs) the scheduler forwards them to the adapters registered in `service.approvals` (`core/approvals.py`; Telegram, with `ja:`/`jr:` buttons) and waits up to `JOB_APPROVAL_MINUTES`, which doesn't count toward the run's time limit. With no adapter registered, or no answer in time, they are denied and the job is recorded as needing attention.
 - Messages the assistant sends on a channel from outside that channel's conversation (`send_message` from a job or another chat, new-mail alerts) are recorded with `core/conversation/sent.py` and go into the turn header of the user's next message on that channel, once.
@@ -84,7 +88,7 @@ clients/         the apps, each a daemon client
 
 - Python 3.12, managed with `uv` as a workspace: the root package and `clients/terminal`. Add dependencies with `uv add` (`uv add --package assistant-terminal` for the terminal app), never pip.
 - Before every commit run `uv run ruff format`, `uv run ruff check` and `uv run pyright`; all must pass. Fix findings instead of disabling rules. A `# pyright: ignore` is only for a verified defect in a library's types, with a comment saying which.
-- Tests live in `tests/`, one folder per area (core, web, daemon, chat, telegram, slack, terminal). Run `uv run pytest` before every commit; it is offline and uses temporary data paths, never `~/.lo9i`. `uv run pytest -m live` runs the tests that need the network or large downloads (search engines, Telegram, Slack, page rendering, the speech model).
+- Tests live in `tests/`, one folder per area (core, internet, daemon, chat, telegram, slack, terminal). Run `uv run pytest` before every commit; it is offline and uses temporary data paths, never `~/.lo9i`. `uv run pytest -m live` runs the tests that need the network or large downloads (search engines, Telegram, Slack, page rendering, the speech model).
 - New behavior comes with tests. Use the fixtures in `tests/conftest.py`: `script` (fake model replies), `digests` (fake epoch digests), `service`, and `tests/terminal/conftest.py` for the terminal app.
 - Run locally: `scripts/run.sh` (starts Ollama when `.env` points at it, then the terminal app, which starts the daemon). Nothing runs in Docker. `assistant daemon` runs the daemon in the foreground; its background log is `~/.lo9i/daemon.log`.
 - Install: `install.sh` at the repo root, piped from curl (clones into `~/lo9i-assistant`) or run in a checkout. It installs uv and the dependencies, asks for the provider and key the first time and writes `.env` on that computer, and on Linux runs the daemon as the same systemd user service `/startup` installs. `scripts/deploy.sh user@host` copies this working tree to a host and runs install.sh there; it never copies `.env`.

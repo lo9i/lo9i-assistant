@@ -15,10 +15,10 @@ from playwright.async_api import Browser, Route, async_playwright
 from playwright.async_api import Error as PlaywrightError
 
 from assistant.core.config import settings
-from assistant.core.web.fetch import html_to_markdown
-from assistant.core.web.policy import BlockedDomainError, check_allowed
-from assistant.core.web.results import Page
-from assistant.core.web.url_safety import UnsafeUrlError, check_url
+from assistant.core.internet.fetch import html_to_markdown
+from assistant.core.internet.policy import BlockedDomainError, check_allowed
+from assistant.core.internet.results import Page
+from assistant.core.internet.url_safety import UnsafeUrlError, check_url
 
 logger = logging.getLogger(__name__)
 

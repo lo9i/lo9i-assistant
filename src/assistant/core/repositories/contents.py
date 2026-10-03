@@ -1,0 +1,59 @@
+"""What a repository offers, skills and MCP servers together, and installing a choice of them from
+one download. Everything is checked before anything is written."""
+
+import asyncio
+from dataclasses import dataclass
+from pathlib import Path
+
+from langgraph.store.base import BaseStore
+
+from assistant.core.mcp import install as server_install
+from assistant.core.mcp import servers
+from assistant.core.mcp.install import FoundServer, ServerValues
+from assistant.core.mcp.servers import McpServer
+from assistant.core.repositories.checkout import checkout
+from assistant.core.repositories.errors import RepositoryError
+from assistant.core.skills import install as skill_install
+from assistant.core.skills.install import FoundSkill
+from assistant.core.skills.store import Skill
+
+
+@dataclass
+class RepositoryContents:
+    skills: list[FoundSkill]
+    servers: list[FoundServer]
+
+
+@dataclass
+class Installed:
+    skills: list[Skill]
+    servers: list[McpServer]
+
+
+async def browse(url: str) -> RepositoryContents:
+    async with checkout(url) as (root, _):
+        skills, found_servers = await asyncio.to_thread(_find, root, url)
+    if not skills and not found_servers:
+        raise RepositoryError(
+            "No skills or MCP servers there: a skill is a folder with a SKILL.md, a server a folder with a server.yaml."
+        )
+    return RepositoryContents([c.found() for c in skills.values()], [c.found for c in found_servers.values()])
+
+
+async def install(store: BaseStore, url: str, skills: list[str], wanted: list[ServerValues]) -> Installed:
+    """Raises RepositoryError, SkillError or McpServerError, saying what's wrong."""
+    if not skills and not wanted:
+        raise RepositoryError("Pick at least one skill or MCP server to install.")
+    async with checkout(url) as (root, commit):
+        found_skills, found_servers = await asyncio.to_thread(_find, root, url)
+        await asyncio.to_thread(skill_install.check, skills, found_skills, url)
+        await server_install.check(store, wanted, found_servers, url)
+        installed = [await asyncio.to_thread(skill_install.install, found_skills[n], url, commit) for n in skills]
+        new = [await server_install.install(found_servers[w.name], w.values, url, commit) for w in wanted]
+    for server in new:
+        await servers.save(store, server)
+    return Installed(installed, new)
+
+
+def _find(root: Path, url: str) -> tuple[dict[str, skill_install.Candidate], dict[str, server_install.Candidate]]:
+    return skill_install.find(root, url), server_install.find(root, url)

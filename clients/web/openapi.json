@@ -952,6 +952,56 @@
         }
       }
     },
+    "/integrations/email/accounts/{account_id}/label": {
+      "put": {
+        "summary": "Rename Email Account",
+        "description": "Only the name; the sign-in stays.",
+        "operationId": "rename_email_account_integrations_email_accounts__account_id__label_put",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailAccountName"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailAccount"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/integrations/email/accounts/{account_id}/default": {
       "put": {
         "summary": "Default Email Account",
@@ -1218,92 +1268,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Ok"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/skills/browse": {
-      "post": {
-        "summary": "Browse Skills",
-        "description": "The skills a git repository offers. 400: it can't be read or has none.",
-        "operationId": "browse_skills_skills_browse_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SkillRepository"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/FoundSkill"
-                  },
-                  "type": "array",
-                  "title": "Response Browse Skills Skills Browse Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/skills/install": {
-      "post": {
-        "summary": "Install Skills",
-        "description": "400: the repository can't be read, lacks one of the skills, or a name is taken.",
-        "operationId": "install_skills_skills_install_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SkillInstall"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/Skill"
-                  },
-                  "type": "array",
-                  "title": "Response Install Skills Skills Install Post"
                 }
               }
             }
@@ -1639,6 +1603,124 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/servers/{name}/update": {
+      "post": {
+        "summary": "Update Mcp Server From Repository",
+        "description": "Install the server again from its repository. 404: no such server. 400: not installed\nfrom one, the repository can't be read, or the new version needs a value not given yet.",
+        "operationId": "update_mcp_server_from_repository_mcp_servers__name__update_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpServerStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/repositories/browse": {
+      "post": {
+        "summary": "Browse Repository",
+        "description": "The skills and MCP servers a git repository offers. 400: it can't be read or has none.",
+        "operationId": "browse_repository_repositories_browse_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepositoryAddress"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepositoryContents"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/repositories/install": {
+      "post": {
+        "summary": "Install From Repository",
+        "description": "400: the repository can't be read, lacks something picked, a name is taken, or a field is empty.",
+        "operationId": "install_from_repository_repositories_install_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepositoryInstall"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstalledFromRepository"
                 }
               }
             }
@@ -2298,6 +2380,19 @@
         ],
         "title": "EmailAccount"
       },
+      "EmailAccountName": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label"
+        ],
+        "title": "EmailAccountName"
+      },
       "EmailProvider": {
         "properties": {
           "id": {
@@ -2410,6 +2505,43 @@
         ],
         "title": "EmailSettings"
       },
+      "FoundServer": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "transport": {
+            "type": "string",
+            "title": "Transport"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/ServerField"
+            },
+            "type": "array",
+            "title": "Fields"
+          },
+          "trusted": {
+            "type": "boolean",
+            "title": "Trusted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "transport",
+          "fields",
+          "trusted"
+        ],
+        "title": "FoundServer",
+        "description": "An MCP server in a repository, before it's installed."
+      },
       "FoundSkill": {
         "properties": {
           "name": {
@@ -2449,6 +2581,30 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "InstalledFromRepository": {
+        "properties": {
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/Skill"
+            },
+            "type": "array",
+            "title": "Skills"
+          },
+          "servers": {
+            "items": {
+              "$ref": "#/components/schemas/McpServerStatus"
+            },
+            "type": "array",
+            "title": "Servers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "skills",
+          "servers"
+        ],
+        "title": "InstalledFromRepository"
       },
       "Job": {
         "properties": {
@@ -2805,6 +2961,11 @@
             },
             "type": "array",
             "title": "Tools"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "default": ""
           }
         },
         "type": "object",
@@ -3094,6 +3255,72 @@
         ],
         "title": "PairingCode"
       },
+      "RepositoryAddress": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "RepositoryAddress"
+      },
+      "RepositoryContents": {
+        "properties": {
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/FoundSkill"
+            },
+            "type": "array",
+            "title": "Skills"
+          },
+          "servers": {
+            "items": {
+              "$ref": "#/components/schemas/FoundServer"
+            },
+            "type": "array",
+            "title": "Servers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "skills",
+          "servers"
+        ],
+        "title": "RepositoryContents"
+      },
+      "RepositoryInstall": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "skills": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Skills",
+            "default": []
+          },
+          "servers": {
+            "items": {
+              "$ref": "#/components/schemas/ServerValuesBody"
+            },
+            "type": "array",
+            "title": "Servers",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "RepositoryInstall"
+      },
       "Revoked": {
         "properties": {
           "ok": {
@@ -3145,6 +3372,56 @@
           "run_id"
         ],
         "title": "RunStarted"
+      },
+      "ServerField": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "secret": {
+            "type": "boolean",
+            "title": "Secret",
+            "default": false
+          },
+          "help": {
+            "type": "string",
+            "title": "Help",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "ServerField",
+        "description": "A value the user gives when installing: an env value of a local server, a header of a remote one."
+      },
+      "ServerValuesBody": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Values",
+            "default": {}
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ServerValuesBody"
       },
       "ShownMessage": {
         "properties": {
@@ -3227,40 +3504,6 @@
           "instructions"
         ],
         "title": "SkillChange"
-      },
-      "SkillInstall": {
-        "properties": {
-          "url": {
-            "type": "string",
-            "title": "Url"
-          },
-          "names": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Names"
-          }
-        },
-        "type": "object",
-        "required": [
-          "url",
-          "names"
-        ],
-        "title": "SkillInstall"
-      },
-      "SkillRepository": {
-        "properties": {
-          "url": {
-            "type": "string",
-            "title": "Url"
-          }
-        },
-        "type": "object",
-        "required": [
-          "url"
-        ],
-        "title": "SkillRepository"
       },
       "SkillSummary": {
         "properties": {

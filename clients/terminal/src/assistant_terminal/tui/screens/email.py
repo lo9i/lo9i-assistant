@@ -43,7 +43,7 @@ _ALERTS = [
     ("Announce new mail on Telegram", "telegram"),
     ("Announce new mail on Slack", "slack"),
 ]
-_ACCOUNT_BUTTONS = ("#recipients", "#default", "#edit", "#remove")
+_ACCOUNT_BUTTONS = ("#email-name", "#rename", "#recipients", "#default", "#edit", "#remove")
 _OTHER_HELP = "Most providers need an **app password** here, not your account password."
 
 
@@ -70,6 +70,7 @@ class EmailScreen(ModalScreen[None]):
             yield Markdown(id="email-help")
             for field_id, (placeholder, secret) in _FIELDS.items():
                 yield Input(placeholder=placeholder, password=secret, id=field_id)
+            yield Input(placeholder="Account name, like Work", id="email-name")
             yield Input(
                 placeholder="Allowed recipients, comma-separated (the account itself always is)", id="email-allowed"
             )
@@ -77,6 +78,7 @@ class EmailScreen(ModalScreen[None]):
             with Horizontal(id="email-buttons"):
                 yield Button("Connect", variant="success", id="connect")
                 yield Button("Save recipients", id="recipients")
+                yield Button("Rename", id="rename")
                 yield Button("Make default", id="default")
                 yield Button("Change sign-in", id="edit")
                 yield Button("Remove", variant="error", id="remove")
@@ -151,6 +153,14 @@ class EmailScreen(ModalScreen[None]):
         if account is not None:
             addresses = self.query_one("#email-allowed", Input).value.split(",")
             await self._change(lambda: self._email.set_recipients(account.id, addresses))
+
+    @on(Button.Pressed, "#rename")
+    @reports_daemon_unavailable
+    async def _rename(self) -> None:
+        account = self._account()
+        if account is not None:
+            label = self.query_one("#email-name", Input).value
+            await self._change(lambda: self._email.rename(account.id, label))
 
     @on(Button.Pressed, "#default")
     @reports_daemon_unavailable
@@ -249,6 +259,7 @@ class EmailScreen(ModalScreen[None]):
         with alerts.prevent(Select.Changed):
             alerts.value = account.new_mail_alerts
         self.query_one("#email-allowed", Input).value = ", ".join(account.allowed_recipients)
+        self.query_one("#email-name", Input).value = account.label
         if self._editing and not self.query_one("#email-label", Input).value:
             self.query_one("#email-label", Input).value = account.label
 

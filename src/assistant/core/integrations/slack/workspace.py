@@ -12,7 +12,7 @@ from slack_sdk.errors import SlackApiError, SlackClientError
 from slack_sdk.web.async_client import AsyncWebClient
 from slack_sdk.web.async_slack_response import AsyncSlackResponse
 
-from assistant.core.integrations.slack import SlackError
+from assistant.core.integrations.slack.connection import SlackError
 
 _CONVERSATION_TYPES = "public_channel,private_channel,mpim,im"
 _PAGE = 200

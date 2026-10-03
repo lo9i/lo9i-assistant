@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 import pytest
 
 from assistant.core.config import settings
-from assistant.core.integrations.imap import MailSummary
+from assistant.core.integrations.email.imap import MailSummary
 from assistant.core.jobs import store
 from assistant.core.jobs.store import Job
 from assistant.daemon.scheduler import Scheduler

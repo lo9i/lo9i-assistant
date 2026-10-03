@@ -34,6 +34,8 @@ class McpServer:
     # Tool names or globs. When include is set, only those tools are used, and exclude is ignored.
     include: list[str] = field(default_factory=list)
     exclude: list[str] = field(default_factory=list)
+    # The repository it was installed from (core/mcp/install.py); "" when added by hand.
+    source: str = ""
 
     @property
     def transport(self) -> str:

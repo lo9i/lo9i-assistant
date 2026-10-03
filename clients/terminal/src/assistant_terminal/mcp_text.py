@@ -20,6 +20,8 @@ def describe(server: McpServerStatus) -> str:
         f"Status: {_STATUS.get(server.status, server.status)}" + (f" ({server.error})" if server.error else "")
     )
     lines.append(_trust(server.trusted))
+    if server.source:
+        lines.append(f"Installed from {server.source}")
     secrets = server.env_keys if server.command else server.header_keys
     if secrets:
         lines.append(f"{'Env' if server.command else 'Headers'}: {', '.join(secrets)} (values hidden)")

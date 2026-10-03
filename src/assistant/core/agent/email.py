@@ -4,9 +4,9 @@ asking, and where its new mail is announced. Passwords never leave the daemon.""
 from dataclasses import dataclass
 
 from assistant.core.agent.base import ServiceBase
-from assistant.core.integrations import email, imap
-from assistant.core.integrations.email import EmailConfig, EmailError
-from assistant.core.integrations.email_providers import PROVIDERS, EmailProvider
+from assistant.core.integrations.email import accounts, imap, smtp
+from assistant.core.integrations.email.accounts import EmailConfig, EmailError
+from assistant.core.integrations.email.providers import PROVIDERS, EmailProvider
 
 __all__ = ["EmailAccount", "EmailAccountNotFoundError", "EmailError", "EmailMixin", "EmailProvider"]
 
@@ -37,6 +37,7 @@ class EmailAccount:
 
 
 _ALERT_CHANNELS = ["", "telegram", "slack"]
+_LABEL_CHARS = 60
 
 
 class EmailMixin(ServiceBase):
@@ -46,7 +47,7 @@ class EmailMixin(ServiceBase):
 
     async def email_accounts(self) -> list[EmailAccount]:
         """The default first."""
-        return [_account(c) for c in await email.list_accounts(self._storage.store)]
+        return [_account(c) for c in await accounts.list_accounts(self._storage.store)]
 
     async def add_email_account(
         self,
@@ -82,7 +83,7 @@ class EmailMixin(ServiceBase):
         """Change an account's sign-in. An empty password keeps the saved one. Raises EmailError."""
         current = await self._email(account_id)
         if not password:
-            current = await email.load(self._storage.store, self.secrets, account_id)
+            current = await accounts.load(self._storage.store, self.secrets, account_id)
         config = EmailConfig(
             host.strip(),
             port,
@@ -97,9 +98,16 @@ class EmailMixin(ServiceBase):
         config.account_id, config.label, config.default = account_id, label, current.default
         return await self._verified_save(config, config.password)
 
+    async def rename_email_account(self, account_id: str, label: str) -> EmailAccount:
+        """Change only the name; the sign-in stays. Empty goes back to the address. Raises EmailError."""
+        config = await self._email(account_id)
+        config.label = label.strip()[:_LABEL_CHARS] or config.sender
+        await self._check_label(config)
+        return _account(await accounts.save(self._storage.store, self.secrets, config))
+
     async def set_default_email_account(self, account_id: str) -> EmailAccount:
         await self._email(account_id)
-        await email.make_default(self._storage.store, account_id)
+        await accounts.make_default(self._storage.store, account_id)
         return _account(await self._email(account_id))
 
     async def set_new_mail_alerts(self, account_id: str, channel: str) -> EmailAccount:
@@ -110,30 +118,39 @@ class EmailMixin(ServiceBase):
         if channel and not config.can_read:
             raise EmailError("Set up reading mail first: connect the account again with its IMAP server.")
         config.new_mail_alerts = channel
-        return _account(await email.save(self._storage.store, self.secrets, config))
+        return _account(await accounts.save(self._storage.store, self.secrets, config))
 
     async def set_email_recipients(self, account_id: str, addresses: list[str]) -> EmailAccount:
         config = await self._email(account_id)
         config.allowed_recipients = sorted({a.strip().lower() for a in addresses if a.strip()})
-        return _account(await email.save(self._storage.store, self.secrets, config))
+        return _account(await accounts.save(self._storage.store, self.secrets, config))
 
     async def remove_email_account(self, account_id: str) -> None:
         """Another account becomes the default if this one was."""
         await self._email(account_id)
-        await email.remove(self._storage.store, account_id)
+        await accounts.remove(self._storage.store, account_id)
 
     async def _email(self, account_id: str) -> EmailConfig:
         """The account without its password. Raises EmailAccountNotFoundError."""
-        config = await email.get(self._storage.store, account_id)
+        config = await accounts.get(self._storage.store, account_id)
         if config is None:
             raise EmailAccountNotFoundError(f"No email account {account_id}.")
         return config
 
+    async def _check_label(self, config: EmailConfig) -> None:
+        """Names are unique: the agent picks an account by its name."""
+        others = await accounts.list_accounts(self._storage.store)
+        taken = {c.label.lower() for c in others if c.account_id != config.account_id}
+        if (config.label or config.sender).lower() in taken:
+            raise EmailError(f"Another account is already called {config.label or config.sender}.")
+
     async def _verified_save(self, config: EmailConfig, password: str) -> EmailAccount:
-        await email.verify(config)
+        config.label = config.label.strip()[:_LABEL_CHARS]
+        await self._check_label(config)
+        await smtp.verify(config)
         if config.imap_host:
             await imap.verify(config)
-        return _account(await email.save(self._storage.store, self.secrets, config, password))
+        return _account(await accounts.save(self._storage.store, self.secrets, config, password))
 
 
 def _account(config: EmailConfig) -> EmailAccount:

@@ -15,7 +15,7 @@ from sse_starlette.sse import AppStatus
 
 from assistant.core.agent import AssistantService
 from assistant.core.config import settings
-from assistant.core.web import browser
+from assistant.core.internet import browser
 from assistant.daemon import https
 from assistant.daemon.adapters import supervise
 from assistant.daemon.api import create_app

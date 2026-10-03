@@ -483,6 +483,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/integrations/email/accounts/{account_id}/label": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rename Email Account
+         * @description Only the name; the sign-in stays.
+         */
+        put: operations["rename_email_account_integrations_email_accounts__account_id__label_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/integrations/email/accounts/{account_id}/default": {
         parameters: {
             query?: never;
@@ -568,46 +588,6 @@ export interface paths {
         post?: never;
         /** Delete Skill */
         delete: operations["delete_skill_skills__name__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/skills/browse": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Browse Skills
-         * @description The skills a git repository offers. 400: it can't be read or has none.
-         */
-        post: operations["browse_skills_skills_browse_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/skills/install": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Install Skills
-         * @description 400: the repository can't be read, lacks one of the skills, or a name is taken.
-         */
-        post: operations["install_skills_skills_install_post"];
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -723,6 +703,67 @@ export interface paths {
         head?: never;
         /** Change Mcp Server */
         patch: operations["change_mcp_server_mcp_servers__name__patch"];
+        trace?: never;
+    };
+    "/mcp/servers/{name}/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update Mcp Server From Repository
+         * @description Install the server again from its repository. 404: no such server. 400: not installed
+         *     from one, the repository can't be read, or the new version needs a value not given yet.
+         */
+        post: operations["update_mcp_server_from_repository_mcp_servers__name__update_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/repositories/browse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Browse Repository
+         * @description The skills and MCP servers a git repository offers. 400: it can't be read or has none.
+         */
+        post: operations["browse_repository_repositories_browse_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/repositories/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install From Repository
+         * @description 400: the repository can't be read, lacks something picked, a name is taken, or a field is empty.
+         */
+        post: operations["install_from_repository_repositories_install_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/assistant": {
@@ -1004,6 +1045,11 @@ export interface components {
             /** New Mail Alerts */
             new_mail_alerts: string;
         };
+        /** EmailAccountName */
+        EmailAccountName: {
+            /** Label */
+            label: string;
+        };
         /** EmailProvider */
         EmailProvider: {
             /** Id */
@@ -1060,6 +1106,22 @@ export interface components {
             imap_port: number;
         };
         /**
+         * FoundServer
+         * @description An MCP server in a repository, before it's installed.
+         */
+        FoundServer: {
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Transport */
+            transport: string;
+            /** Fields */
+            fields: components["schemas"]["ServerField"][];
+            /** Trusted */
+            trusted: boolean;
+        };
+        /**
          * FoundSkill
          * @description A skill in a repository, before it's installed.
          */
@@ -1075,6 +1137,13 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** InstalledFromRepository */
+        InstalledFromRepository: {
+            /** Skills */
+            skills: components["schemas"]["Skill"][];
+            /** Servers */
+            servers: components["schemas"]["McpServerStatus"][];
         };
         /** Job */
         Job: {
@@ -1230,6 +1299,11 @@ export interface components {
             error: string;
             /** Tools */
             tools: components["schemas"]["McpToolInfo"][];
+            /**
+             * Source
+             * @default
+             */
+            source: string;
         };
         /** McpToolInfo */
         McpToolInfo: {
@@ -1354,6 +1428,33 @@ export interface components {
             /** Expires At */
             expires_at: string;
         };
+        /** RepositoryAddress */
+        RepositoryAddress: {
+            /** Url */
+            url: string;
+        };
+        /** RepositoryContents */
+        RepositoryContents: {
+            /** Skills */
+            skills: components["schemas"]["FoundSkill"][];
+            /** Servers */
+            servers: components["schemas"]["FoundServer"][];
+        };
+        /** RepositoryInstall */
+        RepositoryInstall: {
+            /** Url */
+            url: string;
+            /**
+             * Skills
+             * @default []
+             */
+            skills: string[];
+            /**
+             * Servers
+             * @default []
+             */
+            servers: components["schemas"]["ServerValuesBody"][];
+        };
         /** Revoked */
         Revoked: {
             /**
@@ -1383,6 +1484,38 @@ export interface components {
         RunStarted: {
             /** Run Id */
             run_id: string;
+        };
+        /**
+         * ServerField
+         * @description A value the user gives when installing: an env value of a local server, a header of a remote one.
+         */
+        ServerField: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Secret
+             * @default false
+             */
+            secret: boolean;
+            /**
+             * Help
+             * @default
+             */
+            help: string;
+        };
+        /** ServerValuesBody */
+        ServerValuesBody: {
+            /** Name */
+            name: string;
+            /**
+             * Values
+             * @default {}
+             */
+            values: {
+                [key: string]: string;
+            };
         };
         /** ShownMessage */
         ShownMessage: {
@@ -1415,18 +1548,6 @@ export interface components {
             description: string;
             /** Instructions */
             instructions: string;
-        };
-        /** SkillInstall */
-        SkillInstall: {
-            /** Url */
-            url: string;
-            /** Names */
-            names: string[];
-        };
-        /** SkillRepository */
-        SkillRepository: {
-            /** Url */
-            url: string;
         };
         /** SkillSummary */
         SkillSummary: {
@@ -2452,6 +2573,41 @@ export interface operations {
             };
         };
     };
+    rename_email_account_integrations_email_accounts__account_id__label_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailAccountName"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailAccount"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     default_email_account_integrations_email_accounts__account_id__default_put: {
         parameters: {
             query?: never;
@@ -2657,72 +2813,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Ok"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    browse_skills_skills_browse_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SkillRepository"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FoundSkill"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    install_skills_skills_install_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SkillInstall"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Skill"][];
                 };
             };
             /** @description Validation Error */
@@ -2992,6 +3082,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["McpServerStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_mcp_server_from_repository_mcp_servers__name__update_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["McpServerStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    browse_repository_repositories_browse_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepositoryAddress"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepositoryContents"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    install_from_repository_repositories_install_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepositoryInstall"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstalledFromRepository"];
                 };
             };
             /** @description Validation Error */

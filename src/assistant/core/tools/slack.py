@@ -7,9 +7,9 @@ from slack_sdk.web.async_client import AsyncWebClient
 
 from assistant.core.config import settings
 from assistant.core.context import Context, require_store
-from assistant.core.integrations import slack
-from assistant.core.integrations.slack import SlackError
-from assistant.core.integrations.slack_workspace import Workspace
+from assistant.core.integrations.slack import connection
+from assistant.core.integrations.slack.connection import SlackError
+from assistant.core.integrations.slack.workspace import Workspace
 from assistant.core.skills import store as skills
 from assistant.core.tools.approval import ask
 from assistant.core.tools.registry import register
@@ -69,5 +69,5 @@ async def slack_post(channel: str, text: str, runtime: ToolRuntime[Context], thr
 
 
 async def _workspace(runtime: ToolRuntime[Context]) -> Workspace | None:
-    config = await slack.load(require_store(runtime.store))
+    config = await connection.load(require_store(runtime.store))
     return Workspace(AsyncWebClient(config.user_token), settings.timezone) if config.connected else None

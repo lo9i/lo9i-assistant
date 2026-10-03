@@ -21,7 +21,7 @@ from assistant.core.agent import AssistantService, Session
 from assistant.core.config import settings
 from assistant.core.context import UNATTENDED_CHANNEL
 from assistant.core.events import ApprovalRequired, Error, Event, ToolFinished
-from assistant.core.integrations.imap import MailSummary
+from assistant.core.integrations.email.imap import MailSummary
 from assistant.core.jobs import schedule as cron
 from assistant.core.jobs import store
 from assistant.core.jobs.store import Job, RunRecord

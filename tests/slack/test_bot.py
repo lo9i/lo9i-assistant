@@ -9,7 +9,7 @@ from slack_sdk.errors import SlackClientError
 from slack_sdk.socket_mode.request import SocketModeRequest
 
 import assistant.gateways.slack.bot as bot
-from assistant.core.integrations import slack
+from assistant.core.integrations.slack import connection
 
 
 class _Socket:
@@ -40,7 +40,7 @@ def fake_socket(monkeypatch):
 
 
 def _config(app_token="xapp-1"):
-    return slack.SlackConfig(app_token, "xoxb-1", "xoxp-1", "Acme", "U1", "ani")
+    return connection.SlackConfig(app_token, "xoxb-1", "xoxp-1", "Acme", "U1", "ani")
 
 
 async def _until(condition):
@@ -54,19 +54,19 @@ async def _until(condition):
 async def test_follows_the_stored_tokens(service):
     stop = asyncio.Event()
     run = asyncio.create_task(bot.SlackAdapter(service).run(stop))
-    await slack.save(service.store, _config())
+    await connection.save(service.store, _config())
     await _until(lambda: "slack" in service.outbox.channels)
-    await slack.save(service.store, _config("xapp-2"))
+    await connection.save(service.store, _config("xapp-2"))
     await _until(lambda: len(_Socket.instances) == 2 and "slack" in service.outbox.channels)
     assert _Socket.instances[0].closed and _Socket.instances[1].app_token == "xapp-2"
-    await slack.clear(service.store)
+    await connection.clear(service.store)
     await _until(lambda: "slack" not in service.outbox.channels)
     stop.set()
     await run
 
 
 async def test_a_connection_that_cant_open_fails_the_adapter(service):
-    await slack.save(service.store, _config("xapp-down"))
+    await connection.save(service.store, _config("xapp-down"))
     with pytest.raises(SlackClientError):
         await bot.SlackAdapter(service).run(asyncio.Event())
     assert "slack" not in service.outbox.channels
@@ -74,7 +74,7 @@ async def test_a_connection_that_cant_open_fails_the_adapter(service):
 
 async def test_requests_are_acknowledged_and_retries_skipped(service):
     stop = asyncio.Event()
-    await slack.save(service.store, _config())
+    await connection.save(service.store, _config())
     run = asyncio.create_task(bot.SlackAdapter(service).run(stop))
     await _until(lambda: "slack" in service.outbox.channels)
     socket = _Socket.instances[0]

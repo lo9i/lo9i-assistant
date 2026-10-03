@@ -19,10 +19,24 @@
   // svelte-ignore state_referenced_locally
   let expanded = $state(open || account.status !== "ok");
   let editing = $state(false);
+  let renaming = $state(false);
+  // svelte-ignore state_referenced_locally
+  let name = $state(account.label);
   let confirming = $state(false);
   // svelte-ignore state_referenced_locally
   let recipients = $state(account.allowed_recipients.join(", "));
   let message = $state("");
+
+  /** Stays open with the error when the name can't be used. */
+  async function rename(): Promise<void> {
+    try {
+      await client.email.rename(account.id, name);
+      renaming = false;
+      message = "Renamed.";
+    } catch (e) {
+      message = describe(e);
+    }
+  }
 
   async function act(action: () => Promise<unknown>, done: string): Promise<void> {
     try {
@@ -90,7 +104,29 @@
             </button>
           </div>
         </label>
+        {#if renaming}
+          <form
+            class="row"
+            onsubmit={(e) => {
+              e.preventDefault();
+              void rename();
+            }}
+          >
+            <input class="input" bind:value={name} placeholder="Account name, like Work" aria-label="Name for {account.label}" />
+            <button class="btn btn--primary" type="submit">Save name</button>
+            <button class="btn btn--ghost" type="button" onclick={() => (renaming = false)}>Cancel</button>
+          </form>
+        {/if}
         <div class="row">
+          {#if !renaming}
+            <button
+              class="btn btn--neutral btn--sm"
+              onclick={() => {
+                name = account.label;
+                renaming = true;
+              }}>Rename</button
+            >
+          {/if}
           {#if !account.default}
             <button class="btn btn--neutral btn--sm" onclick={() => act(() => client.email.makeDefault(account.id), "")}>Make default</button>
           {/if}

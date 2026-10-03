@@ -8,7 +8,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-import assistant.core.integrations.telegram as integration
+import assistant.core.integrations.telegram.connection as integration
 from assistant.client.daemon_client import DaemonClient
 from assistant.core.agent import InvalidNameError, InvalidTokenError, Session, SlackError, SpeechSettingsError
 from assistant.core.attachments import Attachment
@@ -170,33 +170,39 @@ async def test_skills_and_usage_endpoints(client, script, isolated_settings, mon
         await client.skills.get("news-digest")
 
 
-async def test_skills_are_browsed_installed_and_updated_from_a_repository(client, isolated_settings, monkeypatch):
+async def test_skills_and_servers_are_installed_from_a_repository_and_updated(client, isolated_settings, monkeypatch):
     import shutil
 
-    from assistant.core.agent import SkillError
-    from assistant.core.config import settings
-    from assistant.core.skills import install
+    from assistant.core.agent import McpServerError, RepositoryError, ServerValues, SkillError
+    from assistant.core.repositories import checkout
 
-    monkeypatch.setattr(settings, "skills_dir", str(isolated_settings / "skills"))
     remote = isolated_settings / "remote"
-    (remote / "scripts").mkdir(parents=True)
-    (remote / "SKILL.md").write_text("---\nname: expenses\ndescription: Track expenses\n---\n\nRun scripts/add.py")
-    (remote / "scripts" / "add.py").write_text("print(1)")
+    (remote / "skills" / "expenses" / "scripts").mkdir(parents=True)
+    (remote / "skills" / "expenses" / "SKILL.md").write_text("---\nname: expenses\ndescription: Track\n---\n\nRun it")
+    (remote / "skills" / "expenses" / "scripts" / "add.py").write_text("print(1)")
+    (remote / "mcp" / "tasks").mkdir(parents=True)
+    (remote / "mcp" / "tasks" / "server.yaml").write_text(
+        "url: https://tasks.example.com/mcp\nfields: [{key: Authorization, label: Token, secret: true}]"
+    )
 
     async def fetch(url: str, dest: Path) -> str:
         shutil.copytree(remote, dest)
         return "c1"
 
-    monkeypatch.setattr(install, "_fetch", fetch)
-    url = "https://example.com/me/expenses.git"
-    assert [f.name for f in await client.skills.browse(url)] == ["expenses"]
-    [skill] = await client.skills.install(url, ["expenses"])
-    assert (skill.files, skill.source) == (["scripts/add.py"], url)
+    monkeypatch.setattr(checkout, "_fetch", fetch)
+    url = "https://example.com/me/extras.git"
+    contents = await client.repositories.browse(url)
+    assert [s.name for s in contents.skills] == ["expenses"] and contents.servers[0].fields[0].secret
+    installed = await client.repositories.install(url, ["expenses"], [ServerValues("tasks", {"Authorization": "t"})])
+    assert (installed.skills[0].files, installed.servers[0].header_keys) == (["scripts/add.py"], ["Authorization"])
     assert (await client.skills.update_installed("expenses")).source == url
-    with pytest.raises(SkillError, match="https://"):
-        await client.skills.browse("file:///tmp")
+    assert (await client.mcp.update_from_repository("tasks")).source == url
+    with pytest.raises(RepositoryError, match="https://"):
+        await client.repositories.browse("file:///tmp")
     with pytest.raises(SkillError, match="No skill"):
         await client.skills.update_installed("missing")
+    with pytest.raises(McpServerError, match="No MCP server"):
+        await client.mcp.update_from_repository("missing")
 
 
 async def test_rename_the_assistant(client):
