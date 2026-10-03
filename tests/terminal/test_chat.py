@@ -211,9 +211,9 @@ async def test_attached_files_show_as_tags_that_can_be_removed(app, client, tmp_
         assert client.sent[0] == ("", [("a.txt", "text/plain")]) and not bar.pending
 
 
-async def test_get_to_know_me_sends_its_message(app, client):
+async def test_get_to_know_me_starts_its_own_conversation(app, client):
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.click("#prompt")
         await pilot.press(*"/get-to-know-me", "enter")
         await wait_for(pilot, lambda: bool(client.sent))
-        assert client.sent[0][0] == "Get to know me."
+        assert app.sub_title == "owner:new" and client.sent[0][0] == "Get to know me."

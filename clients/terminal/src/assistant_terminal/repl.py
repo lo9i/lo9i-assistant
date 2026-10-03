@@ -79,6 +79,8 @@ class Repl:
             approvals = await render(self._service.resume(self._session, decisions))
 
     async def _get_to_know_me(self, _: str) -> None:
+        """In a conversation of its own."""
+        await self._new("")
         await self._chat(GET_TO_KNOW_ME)
 
     async def _help(self, _: str) -> None:

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
-  import { GET_TO_KNOW_ME } from "$lib/chat/commands";
+  import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
   import { finalReply } from "$lib/chat/transcript";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { Player, speaksReply } from "$lib/speech";
@@ -74,7 +74,7 @@
       case "/name":
         return void rename(arg);
       case "/get-to-know-me":
-        return void send(GET_TO_KNOW_ME, []);
+        return void startGetToKnowYou(chat);
       case "/help":
         help = true;
         return;
