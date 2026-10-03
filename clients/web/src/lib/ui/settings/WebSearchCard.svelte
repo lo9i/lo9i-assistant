@@ -34,11 +34,11 @@
 <SettingsCard
   id="web-search"
   title="Web search"
-  sub="Public search engines often block automated searches. A Brave Search API key makes search reliable."
+  sub="Public engines and free search services often block or limit automated searches. A Brave Search API key makes search reliable."
 >
   {#snippet status()}
     <span class="pill" class:pill--accent={s?.brave_key_set}>
-      {s?.brave_key_set ? "Brave Search API" : "Public engines"}
+      {s?.brave_key_set ? "Brave Search API" : "Free services"}
     </span>
   {/snippet}
   {#if s === undefined}
@@ -62,7 +62,7 @@
       <button class="btn btn--primary" type="submit" disabled={saving}>{saving ? "Checking…" : "Save"}</button>
     </form>
   {:else}
-    <p class="text-meta">Searches use Brave. When Brave fails, they use the public engines.</p>
+    <p class="text-meta">Searches use Brave. When Brave fails, they use public engines and free search services.</p>
     <div class="row">
       <button class="btn btn--danger" onclick={() => act(() => client.webSearch.removeBraveKey())}>Remove key</button>
     </div>

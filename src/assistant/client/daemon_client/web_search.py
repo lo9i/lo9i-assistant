@@ -5,7 +5,7 @@ _PATH = "/integrations/web-search"
 
 
 class WebSearchApi:
-    """Web search: the Brave Search API key, used before the public engines when set."""
+    """Web search: the Brave Search API key, tried first when set."""
 
     def __init__(self, transport: Transport) -> None:
         self._transport = transport

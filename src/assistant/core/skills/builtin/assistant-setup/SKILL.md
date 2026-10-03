@@ -71,13 +71,13 @@ With Telegram connected, a scheduled job that needs approval (for example a risk
 
 Terminal app: `/websearch`. Web UI: Settings → Integrations → Web search (or `/websearch` in the web chat).
 
-Without a key, `web_search` uses public engines, which often block automated searches, so it can answer "No results" or fail. A Brave Search API key makes it reliable:
+Without a key, `web_search` uses public engines and then free search services (Exa, Parallel, Keenable). Both can block or limit automated searches, so a search can fail. A Brave Search API key makes it reliable:
 
 1. Open https://brave.com/search/api/ and sign up for the free plan.
 2. In the dashboard, open **API Keys** and copy the key.
 3. Paste it into the key field and save. It's checked with one search first.
 
-With a key, searches use Brave, and the public engines when Brave fails. **Remove key** goes back to the public engines.
+With a key, searches use Brave, and the public engines and free services when Brave fails. **Remove key** goes back to those.
 
 ## Slack
 

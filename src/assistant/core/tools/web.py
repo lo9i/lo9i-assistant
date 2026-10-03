@@ -44,9 +44,8 @@ async def web_extract(url: str) -> str:
 
 
 def _format(outcome: SearchOutcome) -> str:
-    if not outcome.results:
-        return f"No results ({outcome.provider})."
-    lines = [f"Results from {outcome.provider}" + (f" ({outcome.note})" if outcome.note else "") + ":"]
+    tried = f" (earlier ones failed: {outcome.note})" if outcome.note else ""
+    lines = [f"Results from {outcome.provider}{tried}:"]
     for i, r in enumerate(outcome.results, 1):
         lines.append(f"{i}. {r.title}\n   {r.url}\n   {r.snippet}")
     return "\n".join(lines)
