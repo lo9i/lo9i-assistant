@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { page } from "$app/state";
+  import { resolve } from "$app/paths";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import Info from "@lucide/svelte/icons/info";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
@@ -13,6 +15,8 @@
 
   // svelte-ignore state_referenced_locally
   const shown = external(notices.subscribe, notices.getSnapshot);
+  // The chat page has its composer at the bottom.
+  const raised = $derived(page.url.pathname === resolve("/conversations/open"));
 
   function autoDismiss(_: HTMLElement, notice: Notice) {
     const timer = setTimeout(() => notices.dismiss(notice.id), SHOW_MS);
@@ -20,7 +24,7 @@
   }
 </script>
 
-<div class="toasts" aria-live="polite">
+<div class="toasts" class:raised aria-live="polite">
   {#each shown.current as notice (notice.id)}
     {@const Icon = ICONS[notice.level]}
     <div class="toast {notice.level}" use:autoDismiss={notice}>
@@ -35,13 +39,15 @@
   .toasts {
     position: fixed;
     right: 24px;
-    /* Above the voice button (VoiceButton.svelte). */
-    bottom: 96px;
+    bottom: 24px;
     z-index: var(--z-toast);
     display: flex;
     flex-direction: column;
     gap: 8px;
     width: min(360px, calc(100vw - 48px));
+  }
+  .raised {
+    bottom: 96px;
   }
   .toast {
     display: grid;

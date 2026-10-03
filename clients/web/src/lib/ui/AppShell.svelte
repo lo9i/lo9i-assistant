@@ -8,7 +8,6 @@
   import { sidebar } from "$lib/sidebar.svelte";
   import Sidebar from "./Sidebar.svelte";
   import Toasts from "./Toasts.svelte";
-  import VoiceButton from "./voice/VoiceButton.svelte";
 
   let { daemon, children }: { daemon: Daemon; children: Snippet } = $props();
 
@@ -52,7 +51,6 @@
   <Sidebar name={name.data || "lo9i"} />
   <main class="main">{@render children()}</main>
 </div>
-<VoiceButton />
 <Toasts {notices} />
 
 <style>
