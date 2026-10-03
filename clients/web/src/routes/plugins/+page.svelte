@@ -10,7 +10,7 @@
   import X from "@lucide/svelte/icons/x";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { describe as describeError } from "$lib/notices";
-  import { type Plugin, describe, keyOf, kindOf, pluginsOf, shortRepository } from "$lib/plugins";
+  import { EXTRAS, type Plugin, describe, keyOf, kindOf, pluginsOf, shortRepository } from "$lib/plugins";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
@@ -37,15 +37,17 @@
 
   let picked = $state<string | null>(null);
   let adding = $state(false);
-  let installing = $state<Plugin | null>(null);
+  // A plugin picked here, or { repository } alone to choose in the dialog.
+  let installing = $state<{ repository: string; picked: string[] } | null>(null);
   let removing = $state<Plugin | null>(null);
   let busy = $state(false);
   const plugin = $derived(plugins.data?.list.find((p) => keyOf(p) === picked) ?? plugins.data?.list[0]);
 
-  // The sidebar's + links here with ?add: open the dialog, then drop the parameter so a reload doesn't open it again.
+  // The sidebar's + links here with ?install: open the install dialog on the assistant's extras, then
+  // drop the parameter so a reload doesn't open it again.
   $effect(() => {
-    if (!page.url.searchParams.has("add")) return;
-    adding = true;
+    if (!page.url.searchParams.has("install")) return;
+    installing = { repository: EXTRAS, picked: [] };
     void goto(resolve("/plugins"), { replaceState: true });
   });
 
@@ -71,7 +73,9 @@
 
 <TopBar title="Plugins">
   {#snippet actions()}
-    <button class="btn btn--primary" onclick={() => (adding = true)}><Plus size={16} /><span class="hide-narrow">Add a repository</span></button>
+    <button class="btn btn--primary" onclick={() => (installing = { repository: repositories.data?.[0] ?? EXTRAS, picked: [] })}
+      ><Download size={16} /><span class="hide-narrow">Install a plugin</span></button
+    >
   {/snippet}
 </TopBar>
 
@@ -144,14 +148,19 @@
             <button class="btn btn--neutral btn--sm" disabled={busy} onclick={() => plugin && update(plugin)}><RefreshCw size={14} />Update</button>
             <button class="btn btn--danger btn--sm" disabled={busy} onclick={() => (removing = plugin ?? null)}><Trash2 size={14} />Remove</button>
           {:else}
-            <button class="btn btn--primary btn--sm" disabled={busy} onclick={() => (installing = plugin ?? null)}><Download size={14} />Install</button>
+            <button class="btn btn--primary btn--sm" disabled={busy} onclick={() => plugin && (installing = { repository: plugin.repository, picked: [plugin.name] })}
+              ><Download size={14} />Install</button
+            >
           {/if}
         </div>
       </section>
     {/if}
     <section class="details surface--glass">
-      <header><h3 class="micro-label">Repositories</h3></header>
-      {#if repositories.data?.length === 0}<p class="text-meta">None. Add one with +.</p>{/if}
+      <header>
+        <h3 class="micro-label">Repositories</h3>
+        <button class="btn btn--ghost btn--sm" onclick={() => (adding = true)}><Plus size={14} />Add</button>
+      </header>
+      {#if repositories.data?.length === 0}<p class="text-meta">None: plugins come from the repositories listed here.</p>{/if}
       <ul class="repos">
         {#each repositories.data ?? [] as url (url)}
           <li>
@@ -174,10 +183,10 @@
 {/if}
 
 {#if installing}
-  {@const p = installing}
+  {@const choice = installing}
   <InstallDialog
-    repository={p.repository}
-    picked={[p.name]}
+    repository={choice.repository}
+    picked={choice.picked}
     onclose={(installed) => {
       installing = null;
       if (installed) notices.notify(`Installed ${installed.join(", ")}. The assistant uses it from your next message.`);
@@ -283,6 +292,12 @@
   }
   .details p {
     margin: 0;
+  }
+  .details header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
   }
   dl {
     display: grid;

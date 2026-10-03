@@ -45,9 +45,9 @@
     await goto(`${resolve("/mcp")}?install`);
   }
 
-  // The Plugins page opens its "Add a repository" dialog when it sees ?add.
-  async function addRepository(): Promise<void> {
-    await goto(`${resolve("/plugins")}?add`);
+  // The Plugins page opens the install dialog on the assistant's extras when it sees ?install.
+  async function installPlugin(): Promise<void> {
+    await goto(`${resolve("/plugins")}?install`);
   }
 
   const NAV: { href: string; label: string; Icon: typeof Plus; add?: Add }[] = [
@@ -66,7 +66,7 @@
       Icon: Blocks,
       add: { label: "Install from a repository", run: installExtra },
     },
-    { href: resolve("/plugins"), label: "Plugins", Icon: Puzzle, add: { label: "Add a repository", run: addRepository } },
+    { href: resolve("/plugins"), label: "Plugins", Icon: Puzzle, add: { label: "Install a plugin", run: installPlugin } },
     { href: resolve("/usage"), label: "Usage", Icon: ChartColumn },
     { href: resolve("/devices"), label: "Devices", Icon: Laptop, add: { label: "Pair a browser", run: pairBrowser } },
     { href: resolve("/settings"), label: "Settings", Icon: Settings },

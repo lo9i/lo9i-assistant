@@ -90,7 +90,7 @@ Keys are typed only in that dialog, never in the chat. A server is not trusted u
 
 ## Installing skills and MCP servers from a repository
 
-Web UI: **Plugins** in the sidebar lists the plugins (MCP servers and skills) of the user's repositories, the assistant's own extras (https://github.com/lo9i/lo9i-assistant-extras) included, each installed or not, with **Install**, **Update** and **Remove**; the **+** next to Plugins adds another repository. **Install** on the Skills or MCP servers page installs from any repository's address too. Terminal app: `/skills` or `/mcp`, then **Install**.
+Web UI: **Plugins** in the sidebar lists the plugins (MCP servers and skills) of the user's repositories, the assistant's own extras (https://github.com/lo9i/lo9i-assistant-extras) included, each installed or not, with **Install**, **Update** and **Remove**; the **+** next to Plugins (or **Install a plugin** on the page) opens the install dialog on the assistant's extras, and **Add** in the page's Repositories card adds another repository. **Install** on the Skills or MCP servers page installs from any repository's address too. Terminal app: `/skills` or `/mcp`, then **Install**.
 
 1. Paste the repository's https:// address (for example `https://github.com/user/extras`) and choose **Look**. The assistant downloads it and lists the skills (folders with a SKILL.md) and MCP servers (folders with a server.yaml) it offers.
 2. Check the ones to install. A server that needs values (a user name, a password, a token) shows a field for each; secret ones are typed only there, never in the chat.
