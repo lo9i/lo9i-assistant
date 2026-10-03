@@ -4,6 +4,7 @@ import type { components } from "./schema";
 import { resumableEvents, type ReconnectPolicy } from "./reconnect";
 import type { Transport } from "./transport";
 import type {
+  Alert,
   BusEvent,
   ConnectedClient,
   Conversation,
@@ -283,6 +284,19 @@ export class McpGroup {
   }
 }
 
+/** MCP servers and skills that keep failing, listed until dismissed or working again. */
+export class AlertsGroup {
+  constructor(private readonly transport: Transport) {}
+
+  list(): Promise<Alert[]> {
+    return this.transport.request("GET", "/alerts");
+  }
+
+  async dismiss(area: Alert["area"], name: string): Promise<void> {
+    await this.transport.request("POST", `/alerts/${area}/${encodeURIComponent(name)}/dismiss`);
+  }
+}
+
 export class SkillsGroup {
   constructor(private readonly transport: Transport) {}
 
@@ -403,6 +417,7 @@ export class DaemonClient {
   readonly email: EmailGroup;
   readonly model: ModelGroup;
   readonly mcp: McpGroup;
+  readonly alerts: AlertsGroup;
   readonly repositories: RepositoriesGroup;
   readonly skills: SkillsGroup;
   readonly memory: MemoryGroup;
@@ -422,6 +437,7 @@ export class DaemonClient {
     this.email = new EmailGroup(transport);
     this.model = new ModelGroup(transport);
     this.mcp = new McpGroup(transport);
+    this.alerts = new AlertsGroup(transport);
     this.repositories = new RepositoriesGroup(transport);
     this.skills = new SkillsGroup(transport);
     this.memory = new MemoryGroup(transport);

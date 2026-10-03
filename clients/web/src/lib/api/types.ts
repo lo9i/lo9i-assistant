@@ -26,6 +26,7 @@ export type PairingCode = Schemas["PairingCode"];
 export type Me = Schemas["Me"];
 export type MemorySnapshot = Schemas["MemorySnapshot"];
 export type SkillSummary = Schemas["SkillSummary"];
+export type Alert = Schemas["Alert"];
 export type Skill = Schemas["Skill"];
 export type FoundSkill = Schemas["FoundSkill"];
 export type FoundServer = Schemas["FoundServer"];
@@ -69,3 +70,6 @@ export type BusEvent = { kind: string; data: Record<string, unknown> };
 
 /** A `job` bus event: a scheduled job finished a run. */
 export type JobFinished = { name: string; status: string; summary: string };
+
+/** A `failing` bus event: an MCP server or a skill failed FAILING_AFTER times in a row (core/health.py). */
+export type Failing = { area: "mcp" | "skill"; name: string; error: string };

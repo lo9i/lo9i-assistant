@@ -261,6 +261,8 @@ def _check_skill(folder: Path, name: str) -> bool:
         return False
     if skill.name != name or not skills.valid_name(name):
         raise ValueError(f"its SKILL.md must be named {name}, a skill name (lowercase letters, digits, -)")
+    if skill.problems:
+        raise ValueError(f"its skill has problems: {' '.join(skill.problems)}")
     return True
 
 

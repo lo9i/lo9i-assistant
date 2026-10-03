@@ -1,5 +1,6 @@
 from textual.widgets import Button, Markdown, OptionList
 
+from assistant.core.agent import Skill
 from assistant_terminal.tui.screens import ConfirmScreen, SkillsScreen, UsageScreen
 from tests.terminal.conftest import wait_for
 
@@ -31,6 +32,21 @@ async def test_skills_screen_lists_shows_and_deletes(app, client):
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
         await pilot.press("y")
         await wait_for(pilot, lambda: list(client.skills.items) == ["news-digest"])
+
+
+async def test_skills_screen_shows_failing_skills_and_problems(app, client):
+    client.skills.failures["news-digest"] = (3, "exit code: 1", "2026-10-03T12:00:00+00:00", True)
+    client.skills.items["weekly-review"] = Skill(
+        "weekly-review", "Friday", "Run scripts/a.py", problems=["Missing a.py."]
+    )
+    async with app.run_test(size=(120, 40)) as pilot:
+        screen = await _open(pilot, app, "/skills", SkillsScreen)
+        options = screen.query_one("#skills-list", OptionList)
+        await wait_for(pilot, lambda: "Failed 3 times in a row" in screen.query_one("#skill-body", Markdown).source)
+        assert str(options.get_option_at_index(0).prompt) == "news-digest · failing"
+        assert str(options.get_option_at_index(1).prompt) == "weekly-review · has problems"
+        options.highlighted = 1
+        await wait_for(pilot, lambda: "**Problem:** Missing a.py." in screen.query_one("#skill-body", Markdown).source)
 
 
 async def test_usage_screen_shows_tools_and_skills(app, client):

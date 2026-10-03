@@ -2,6 +2,7 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
+  import Bell from "@lucide/svelte/icons/bell";
   import Blocks from "@lucide/svelte/icons/blocks";
   import CalendarClock from "@lucide/svelte/icons/calendar-clock";
   import ChartColumn from "@lucide/svelte/icons/chart-column";
@@ -28,6 +29,8 @@
   // MCP servers that come with a web page, shown in an iframe (routes/pages/[name]).
   const servers = resource((c) => c.mcp.servers(), ["mcp"]);
   const pages = $derived((servers.data ?? []).filter((s) => s.page && s.enabled));
+  // Failures are stored with the servers and skills, so their events refresh the count.
+  const alerts = resource((c) => c.alerts.list(), ["mcp", "skills"]);
 
   type Add = { label: string; run: () => Promise<void> };
 
@@ -46,7 +49,8 @@
     await goto(`${resolve("/mcp")}?install`);
   }
 
-  const NAV: { href: string; label: string; Icon: typeof Plus; add?: Add }[] = [
+  const NAV: { href: string; label: string; Icon: typeof Plus; add?: Add; count?: () => number }[] = [
+    { href: resolve("/alerts"), label: "Alerts", Icon: Bell, count: () => alerts.data?.length ?? 0 },
     { href: resolve("/sessions"), label: "Active sessions", Icon: MonitorSmartphone },
     {
       href: resolve("/conversations"),
@@ -92,6 +96,7 @@
         <a href={item.href} class="nav-item" aria-current={active ? "page" : undefined} title={item.label}>
           <item.Icon size={20} />
           <span class="label">{item.label}</span>
+          {#if item.count?.()}<span class="count" aria-label="{item.count()} new">{item.count()}</span>{/if}
         </a>
         {#if item.add}
           {@const add = item.add}
@@ -211,6 +216,22 @@
   .nav-row .nav-item {
     flex: 1;
     min-width: 0;
+  }
+  /* On the icon's corner, so it shows with the sidebar collapsed too. */
+  .count {
+    position: absolute;
+    top: 4px;
+    left: 24px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: var(--radius-full);
+    background: var(--color-danger);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
   }
   .add {
     position: absolute;

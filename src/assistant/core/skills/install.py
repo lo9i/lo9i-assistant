@@ -56,6 +56,8 @@ def check(names: list[str], found: dict[str, Candidate], url: str) -> None:
             raise SkillError(f"The repository has no skill named {name}.")
         if _taken(name, url):
             raise SkillError(f"You already have a skill named {name}. Delete it first to install this one.")
+        if found[name].skill.problems:
+            raise SkillError(f"{name} can't be installed: {' '.join(found[name].skill.problems)}")
 
 
 def install(candidate: Candidate, url: str, commit: str) -> store.Skill:
@@ -78,6 +80,10 @@ def _find_at(root: Path, path: str, name: str) -> Candidate:
     candidate = _candidate(root, root / path, name)
     if candidate is None or candidate.skill.name != name:
         raise SkillError(f"The repository doesn't have {name} at {path} any more.")
+    if candidate.skill.problems:
+        raise SkillError(
+            f"The new version of {name} has problems, so the installed one stays: {' '.join(candidate.skill.problems)}"
+        )
     return candidate
 
 

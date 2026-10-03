@@ -5,6 +5,7 @@ other API routes are grouped in one small class per part of the daemon (`client.
 `client.email`, ...), in their own modules. `transport.py` holds the shared HTTP connection.
 """
 
+from assistant.client.daemon_client.alerts import AlertsApi
 from assistant.client.daemon_client.client import DaemonClient
 from assistant.client.daemon_client.clients import ClientsApi
 from assistant.client.daemon_client.conversations import ConversationsApi
@@ -24,6 +25,7 @@ from assistant.client.daemon_client.telegram import TelegramApi
 from assistant.client.daemon_client.usage import UsageApi
 
 __all__ = [
+    "AlertsApi",
     "ClientsApi",
     "ConversationsApi",
     "DaemonClient",

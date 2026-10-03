@@ -169,6 +169,10 @@ class AssistantApp(App):
         severity = "information" if job["status"] == "ok" else "warning"
         self.notify(f"Job {job['name']}: {job['status']}", severity=severity)
 
+    def show_failing(self, failing: dict[str, Any]) -> None:
+        what, where = ("MCP server", "/mcp") if failing["area"] == "mcp" else ("skill", "/skills")
+        self.notify(f"The {what} {failing['name']} keeps failing: {failing['error']}. See {where}.", severity="warning")
+
     def mirror_run(self, run: dict[str, Any]) -> None:
         """Show a run started elsewhere in this conversation (another client or channel) as it happens."""
         if self._live.started_elsewhere(run):

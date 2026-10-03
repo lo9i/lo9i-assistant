@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from assistant.core import observability
+from assistant.core.agent.alerts import AlertsMixin
 from assistant.core.agent.archive import ArchiveMixin
 from assistant.core.agent.devices import DevicesMixin
 from assistant.core.agent.email import EmailMixin
@@ -26,6 +27,7 @@ from assistant.core.agent.usage import UsageMixin
 from assistant.core.approvals import RemoteApprovals
 from assistant.core.bus import EventBus
 from assistant.core.config import settings
+from assistant.core.health import HealthLog
 from assistant.core.integrations.email import accounts
 from assistant.core.llm import choice
 from assistant.core.llm.choice import ModelChoice
@@ -47,6 +49,7 @@ class AssistantService(
     SlackMixin,
     EmailMixin,
     McpMixin,
+    AlertsMixin,
     RepositoriesMixin,
     ModelMixin,
     DevicesMixin,
@@ -65,7 +68,8 @@ class AssistantService(
         self.bus = bus
         self.outbox = Outbox()
         self.approvals = RemoteApprovals()
-        self.mcp = McpHub(storage.store, bus)
+        self._health = HealthLog(storage.store, bus)
+        self.mcp = McpHub(storage.store, bus, self._health)
         self.pages = McpPages(storage.store)
         self._use_model(model)
         self._background = set()

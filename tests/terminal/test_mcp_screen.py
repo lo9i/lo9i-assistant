@@ -1,9 +1,9 @@
 from textual.widgets import Button, Input, Markdown, OptionList, SelectionList, TextArea
 
-from assistant_terminal.mcp_text import parse_command, parse_pairs, selection
+from assistant_terminal.mcp_text import describe, parse_command, parse_pairs, selection, summary
 from assistant_terminal.tui.screens import ConfirmScreen, McpScreen
 from assistant_terminal.tui.screens.mcp_add import McpAddScreen
-from tests.terminal.conftest import wait_for
+from tests.terminal.conftest import _mcp_status, wait_for
 
 
 async def _open(pilot, app) -> McpScreen:
@@ -100,3 +100,13 @@ async def test_installs_a_server_from_a_repository_and_updates_it(app, client):
         await wait_for(pilot, lambda: f"Installed from {EXTRAS}" in screen.query_one("#mcp-body", Markdown).source)
         screen.query_one("#update", Button).press()
         await wait_for(pilot, lambda: getattr(client.mcp, "updated", None) == "calendar")
+
+
+def test_a_failing_server_is_marked_and_its_last_failure_shown():
+    server = _mcp_status("notes")
+    server.failures, server.failure, server.failed_at = 3, "add_note: disk full", "2026-10-03T12:00:00+00:00"
+    server.failing = True
+    assert summary(server) == "notes · connected · failing"
+    assert "**Failed 3 times in a row.**" in describe(server) and "add_note: disk full" in describe(server)
+    server.failures, server.failing = 0, False
+    assert summary(server) == "notes · connected" and "Failed" not in describe(server)

@@ -11,6 +11,8 @@ from assistant.core.agent.locking import LockingMixin
 from assistant.core.agent.session import Session
 from assistant.core.context import Context
 from assistant.core.events import Cancelled, Done, Error, Event
+from assistant.core.health import HealthLog
+from assistant.core.skills.tracker import SkillScriptTracker
 from assistant.core.stream_events import approval_events, to_events
 from assistant.core.usage.log import UsageLog
 from assistant.core.usage.meter import CHANNEL, CONVERSATION
@@ -75,7 +77,7 @@ class RunsMixin(LockingMixin):
             await self._graph.aupdate_state(config, {"messages": results}, as_node="tools")
 
     async def _run_events(self, session: Session, input: Any) -> AsyncIterator[Event]:
-        config = _run_config(session, self._storage.usage)
+        config = _run_config(session, self._storage.usage, self._health)
         pending = await self._pending_approvals(config)
         # A new message can't be sent while tool calls wait for approval.
         if pending and not isinstance(input, Command):
@@ -117,11 +119,11 @@ def _open_calls(values: dict[str, Any]) -> list[dict[str, Any]]:
     return [dict(c) for c in last.tool_calls if c["id"] not in answered] if last else []
 
 
-def _run_config(session: Session, usage: UsageLog) -> RunnableConfig:
+def _run_config(session: Session, usage: UsageLog, health: HealthLog) -> RunnableConfig:
     tracker = UsageTracker(usage, session.thread_id, session.channel)
     return {
         "configurable": {"thread_id": session.thread_id},
-        "callbacks": [*observability.callbacks(), tracker],
+        "callbacks": [*observability.callbacks(), tracker, SkillScriptTracker(health)],
         "metadata": {
             CONVERSATION: session.thread_id,
             CHANNEL: session.channel,

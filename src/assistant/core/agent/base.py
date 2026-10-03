@@ -5,6 +5,7 @@ from assistant.core.bus import EventBus
 from assistant.core.conversation.digest import Digester
 from assistant.core.conversation.titles import Titler
 from assistant.core.graph import Graph
+from assistant.core.health import HealthLog
 from assistant.core.mcp.hub import McpHub
 from assistant.core.mcp.pages import McpPages
 from assistant.core.outbox import Outbox
@@ -29,6 +30,8 @@ class ServiceBase:
     pages: McpPages
     # Encrypts accounts' passwords and tokens (core/secret_store.py).
     secrets: SecretBox
+    # Failures of MCP servers and skills in a row (core/health.py), shared with `mcp`.
+    _health: HealthLog
     _graph: Graph
     _transcriber: Transcriber
     _synthesizer: Synthesizer

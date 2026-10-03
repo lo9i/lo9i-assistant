@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from "$app/state";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Pencil from "@lucide/svelte/icons/pencil";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
@@ -6,6 +7,7 @@
   import Wand from "@lucide/svelte/icons/wand-sparkles";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { markdown } from "$lib/markdown";
+  import { failures } from "$lib/health";
   import { describe } from "$lib/notices";
   import Confirm from "./Confirm.svelte";
   import EmptyState from "./EmptyState.svelte";
@@ -13,7 +15,8 @@
 
   const { client, notices } = useDaemon();
   const skills = resource((c) => c.skills.list(), ["skills"]);
-  let open = $state<string | null>(null);
+  // The Alerts page links here with ?s=<skill name>.
+  let open = $state<string | null>(page.url.searchParams.get("s"));
   const skill = resource((c) => (open ? c.skills.get(open) : Promise.resolve(null)), ["skills"]);
   let confirming = $state<string | null>(null);
   // The skill being edited, and the form's text.
@@ -70,7 +73,11 @@
           >
             <span class="tile"><Wand size={16} /></span>
             <span class="text">
-              <strong>{s.name}</strong>
+              <strong
+                >{s.name}
+                {#if s.problems?.length}<span class="pill pill--warn">has problems</span>
+                {:else if s.failing}<span class="pill pill--danger">failing</span>{/if}</strong
+              >
               <span class="text-meta">{s.description}</span>
             </span>
             <span class="chevron" class:turned={open === s.name}><ChevronRight size={18} /></span>
@@ -95,6 +102,8 @@
                 </div>
               {:else}
                 {@const files = skill.data.files ?? []}
+                {#each skill.data.problems ?? [] as problem (problem)}<p class="error-text">{problem}</p>{/each}
+                {#if s.failures}<p class="error-text">{failures(s)}</p>{/if}
                 <div class="prose">{@html markdown(skill.data.instructions)}</div>
                 {#if files.length || skill.data.source || skill.data.server}
                   <dl>

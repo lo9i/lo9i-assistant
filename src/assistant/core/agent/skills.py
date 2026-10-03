@@ -1,9 +1,10 @@
 """Skills for clients: list, read, edit and delete them, and update installed ones from their repository."""
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from assistant.core.agent.base import ServiceBase
+from assistant.core.health import Health
 from assistant.core.skills import install, store
 from assistant.core.skills.install import FoundSkill
 from assistant.core.skills.store import Skill, SkillError
@@ -15,13 +16,22 @@ __all__ = ["FoundSkill", "Skill", "SkillError", "SkillSummary", "SkillsMixin"]
 class SkillSummary:
     name: str
     description: str
+    # What's wrong with it as written (core/skills/store.py::problems).
+    problems: list[str] = field(default_factory=list)
+    # Its scripts' failures in a row (core/health.py), and the last failure.
+    failures: int = 0
+    failure: str = ""
+    failed_at: str = ""
+    # At least FAILING_AFTER in a row: the user was alerted.
+    failing: bool = False
 
 
 class SkillsMixin(ServiceBase):
     async def list_skills(self) -> list[SkillSummary]:
         """The saved skills. Built-in ones (assistant-setup) aren't listed: the assistant uses them,
         the user doesn't manage them."""
-        return [SkillSummary(s.name, s.description) for s in await asyncio.to_thread(store.saved_skills)]
+        health = await self._health.all("skill")
+        return [_summary(s, health.get(s.name, Health())) for s in await asyncio.to_thread(store.saved_skills)]
 
     async def get_skill(self, name: str) -> Skill:
         """Raises SkillError if it doesn't exist."""
@@ -38,6 +48,7 @@ class SkillsMixin(ServiceBase):
 
     async def delete_skill(self, name: str) -> None:
         await asyncio.to_thread(store.delete, name)
+        await self._health.forget("skill", name)
         self.bus.publish("skills")
 
     async def update_installed_skill(self, name: str) -> Skill:
@@ -45,3 +56,9 @@ class SkillsMixin(ServiceBase):
         skill = await install.update(name)
         self.bus.publish("skills")
         return skill
+
+
+def _summary(skill: Skill, health: Health) -> SkillSummary:
+    return SkillSummary(
+        skill.name, skill.description, skill.problems, health.failures, health.error, health.at, health.failing
+    )

@@ -62,9 +62,14 @@ class FakeSkills:
             "news-digest": Skill("news-digest", "Daily news summary", "1. Search news\n2. Email it"),
             "weekly-review": Skill("weekly-review", "Friday review", "1. List the week"),
         }
+        # Failures in a row, the last one, when, and whether it's failing, by skill.
+        self.failures: dict[str, tuple[int, str, str, bool]] = {}
 
     async def list(self):
-        return [SkillSummary(s.name, s.description) for s in self.items.values()]
+        return [
+            SkillSummary(s.name, s.description, s.problems, *self.failures.get(s.name, (0, "", "", False)))
+            for s in self.items.values()
+        ]
 
     async def get(self, name):
         if name not in self.items:

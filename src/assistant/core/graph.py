@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import SystemMessage, ToolMessage
 from langchain_core.tools import BaseTool
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -27,6 +27,7 @@ from assistant.core.conversation.epochs import (
 )
 from assistant.core.llm import build_llm, metered
 from assistant.core.llm.choice import ModelChoice
+from assistant.core.mcp.sanitize import MCP_PREFIX
 from assistant.core.storage import Storage
 from assistant.core.tools import tools_for
 from assistant.core.usage.meter import TokenMeter
@@ -60,6 +61,8 @@ class McpTools(Protocol):
     def definitions(self) -> list[dict[str, Any]]: ...
 
     def tool(self, name: str) -> BaseTool | None: ...
+
+    def unavailable(self, name: str) -> str: ...
 
 
 def build_graph(storage: Storage, choice: ModelChoice, digester: Digester, mcp: McpTools) -> Graph:
@@ -109,8 +112,13 @@ def _mcp_calls(mcp: McpTools) -> AsyncToolCallWrapper:
     so a tool that was turned off or whose server went away stops working at once."""
 
     async def _wrap(request: ToolCallRequest, execute: Callable[[ToolCallRequest], Awaitable[Any]]) -> Any:
-        if request.tool is None and (tool := mcp.tool(request.tool_call["name"])) is not None:
-            request = request.override(tool=tool)
+        if request.tool is not None:
+            return await execute(request)
+        name = request.tool_call["name"]
+        if (tool := mcp.tool(name)) is not None:
+            return await execute(request.override(tool=tool))
+        if name.startswith(MCP_PREFIX):
+            return ToolMessage(mcp.unavailable(name), tool_call_id=request.tool_call["id"], name=name, status="error")
         return await execute(request)
 
     return _wrap

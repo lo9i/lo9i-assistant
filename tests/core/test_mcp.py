@@ -6,12 +6,15 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
+from langgraph.store.memory import InMemoryStore
 from mcp import Client
 from mcp.server import MCPServer
 from mcp.types import CallToolResult, TextContent, ToolAnnotations
 
 from assistant.core.agent import AssistantService, McpServer, McpServerChanges, McpServerError
+from assistant.core.bus import EventBus
 from assistant.core.events import ApprovalRequired, ToolFinished
+from assistant.core.health import HealthLog
 from assistant.core.hidden_text import strip_hidden
 from assistant.core.mcp import hub as hub_module
 from assistant.core.mcp.connection import ConnectionLostError, McpConnection
@@ -106,7 +109,7 @@ async def test_excluded_tools_are_left_out_and_stop_working_at_once(service, scr
     script.call(READ).reply("ok")
     events = await _say(service, "read")
     finished = next(e for e in events if isinstance(e, ToolFinished))
-    assert "not a valid tool" in finished.output
+    assert finished.output == f"{READ} was turned off, or notes no longer has it."
 
 
 async def test_write_tools_of_an_untrusted_server_need_approval(service, script, notes):
@@ -179,7 +182,9 @@ class _DroppingConnection(McpConnection):
     """Drops the first call, then answers."""
 
     def __init__(self) -> None:
-        super().__init__(McpServer(name="flaky", command="x", trusted=True), lambda: None)
+        super().__init__(
+            McpServer(name="flaky", command="x", trusted=True), lambda: None, HealthLog(InMemoryStore(), EventBus())
+        )
         self.calls = 0
 
     async def call(self, tool: str, arguments: dict) -> CallToolResult:

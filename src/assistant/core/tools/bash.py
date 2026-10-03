@@ -18,9 +18,14 @@ from assistant.core.tools.registry import register
 _SAFE_PATH = "/opt/homebrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 
+# The artifact of a call that ran: {"exit_code": n}, with None when it timed out. Callbacks read it
+# (core/skills/tracker.py); the model sees only the text.
+Artifact = dict[str, int | None] | None
+
+
 @register("terminal")
-@tool
-async def bash(command: str, runtime: ToolRuntime[Context]) -> str:
+@tool(response_format="content_and_artifact")
+async def bash(command: str, runtime: ToolRuntime[Context]) -> tuple[str, Artifact]:
     """Run a bash command in the workspace directory and return exit code and output.
 
     Use it for file operations, scripts, and inspecting the environment. Each call
@@ -28,7 +33,7 @@ async def bash(command: str, runtime: ToolRuntime[Context]) -> str:
     """
     rejection = _request_approval(command, runtime.context)
     if rejection:
-        return rejection
+        return rejection, None
     return await _run(command)
 
 
@@ -46,7 +51,7 @@ def _request_approval(command: str, context: Context) -> str | None:
     return None if reason is None else ask({"tool": "bash", "command": command, "reason": reason}, context)
 
 
-async def _run(command: str) -> str:
+async def _run(command: str) -> tuple[str, Artifact]:
     workspace = Path(settings.workspace_dir).expanduser().resolve()
     workspace.mkdir(parents=True, exist_ok=True)
     proc = await asyncio.create_subprocess_exec(
@@ -64,11 +69,12 @@ async def _run(command: str) -> str:
         stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=settings.bash_timeout)
     except TimeoutError:
         await _kill(proc)
-        return f"Timed out after {settings.bash_timeout}s."
+        return f"Timed out after {settings.bash_timeout}s.", {"exit_code": None}
     except asyncio.CancelledError:
         await _kill(proc)
         raise
-    return f"exit code: {proc.returncode}\n{_truncate(stdout.decode(errors='replace'))}"
+    output = f"exit code: {proc.returncode}\n{_truncate(stdout.decode(errors='replace'))}"
+    return output, {"exit_code": proc.returncode}
 
 
 async def _kill(proc: asyncio.subprocess.Process) -> None:
