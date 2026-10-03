@@ -8,7 +8,7 @@ Give the user the exact steps below for the channel in the latest turn header (`
 Where things are:
 
 - Terminal app: slash commands typed in the message box. Typing `/` lists them.
-- Web UI: http://127.0.0.1:8765/app/ in a browser on the computer running the assistant; from other devices, its HTTPS address (`HTTPS_HOST` and `HTTPS_PORT` in its `.env`), after pairing the browser once with a code from `/devices`. Settings is in the sidebar, with the tabs General, Integrations and Audio.
+- Web UI: http://127.0.0.1:8765/app/ in a browser on the computer running the assistant; from other devices, its HTTPS address (`HTTPS_HOST` and `HTTPS_PORT` in its `.env`), after pairing the browser once with a code from `/devices`. Settings is in the sidebar, with the tabs General, Integrations, Audio, Plugins and MCP servers.
 - Telegram: only chatting, `/new` (start a new conversation) and `/start`. Nothing can be set up from Telegram; send the user to the terminal app or the web UI.
 - Slack: only chatting in the app's DM, and `/new` (start a new conversation). Nothing can be set up from Slack; send the user to the terminal app or the web UI.
 
@@ -82,7 +82,7 @@ The same app lets the assistant search, read and post in the workspace as the us
 
 ## MCP servers (tools from other apps)
 
-Terminal app: `/mcp`. Web UI: **MCP servers** in the sidebar.
+Terminal app: `/mcp`. Web UI: Settings → MCP servers.
 
 1. Choose **Add**, give the server a short lowercase name (for example `github`), and pick how it runs:
    - **Local command**: the command that starts it, exactly as its documentation gives it (for example `npx -y @modelcontextprotocol/server-github`). Keys it needs go in **Env**, one `KEY=value` per line.
@@ -96,7 +96,7 @@ Keys are typed only in that dialog, never in the chat. A server is not trusted u
 
 Plugins come from the assistant's own extras (https://github.com/lo9i/lo9i-assistant-extras); there's no other source to choose.
 
-Web UI: **Plugins** in the sidebar. Terminal app: `/plugins`. Both list them, with a search, each installed or not, with **Install**, **Update** and **Remove**. **Install** installs at once, or first asks for the values a server needs (a user name, a password, a token); secret ones are typed only there, never in the chat. **Install** on the MCP servers page (`/mcp`) and the Skills page (`/skills`) offers the extras' servers or skills that aren't installed yet:
+Web UI: Settings → Plugins. Terminal app: `/plugins`. Both list them, with a search, each installed or not, with **Install**, **Update** and **Remove**. **Install** installs at once, or first asks for the values a server needs (a user name, a password, a token); secret ones are typed only there, never in the chat. **Install** on the MCP servers page (`/mcp`) and the Skills page (`/skills`) offers the extras' servers or skills that aren't installed yet:
 
 1. The dialog lists what the extras offer there that isn't installed.
 2. Check the ones to install, and fill in the values a server asks for.

@@ -3,7 +3,6 @@
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
   import Bell from "@lucide/svelte/icons/bell";
-  import Blocks from "@lucide/svelte/icons/blocks";
   import CalendarClock from "@lucide/svelte/icons/calendar-clock";
   import ChartColumn from "@lucide/svelte/icons/chart-column";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
@@ -11,7 +10,6 @@
   import MessagesSquare from "@lucide/svelte/icons/messages-square";
   import MonitorSmartphone from "@lucide/svelte/icons/monitor-smartphone";
   import Plus from "@lucide/svelte/icons/plus";
-  import Puzzle from "@lucide/svelte/icons/puzzle";
   import Settings from "@lucide/svelte/icons/settings";
   import UserRound from "@lucide/svelte/icons/user-round";
   import Sparkles from "@lucide/svelte/icons/sparkles";
@@ -44,12 +42,8 @@
     await goto(`${resolve("/devices")}?pair`);
   }
 
-  // The MCP servers page opens the Install dialog when it sees ?install.
-  async function installExtra(): Promise<void> {
-    await goto(`${resolve("/mcp")}?install`);
-  }
-
-  const NAV: { href: string; label: string; Icon: typeof Plus; add?: Add; count?: () => number }[] = [
+  type Item = { href: string; label: string; Icon: typeof Plus; add?: Add; count?: () => number; also?: string[] };
+  const NAV: Item[] = [
     { href: resolve("/alerts"), label: "Alerts", Icon: Bell, count: () => alerts.data?.length ?? 0 },
     { href: resolve("/sessions"), label: "Active sessions", Icon: MonitorSmartphone },
     {
@@ -61,16 +55,16 @@
     { href: resolve("/memory"), label: "About you", Icon: UserRound },
     { href: resolve("/jobs"), label: "Jobs", Icon: CalendarClock },
     { href: resolve("/skills"), label: "Skills", Icon: WandSparkles },
-    {
-      href: resolve("/mcp"),
-      label: "MCP servers",
-      Icon: Blocks,
-      add: { label: "Install a plugin", run: installExtra },
-    },
-    { href: resolve("/plugins"), label: "Plugins", Icon: Puzzle, count: () => updates.data?.length ?? 0 },
     { href: resolve("/usage"), label: "Usage", Icon: ChartColumn },
     { href: resolve("/devices"), label: "Devices", Icon: Laptop, add: { label: "Pair a browser", run: pairBrowser } },
-    { href: resolve("/settings"), label: "Settings", Icon: Settings },
+    // Plugins and MCP servers are settings tabs with pages of their own; plugin updates show here.
+    {
+      href: resolve("/settings"),
+      label: "Settings",
+      Icon: Settings,
+      also: [resolve("/plugins"), resolve("/mcp")],
+      count: () => updates.data?.length ?? 0,
+    },
   ];
 </script>
 
@@ -89,7 +83,7 @@
   </div>
   <nav aria-label="Pages">
     {#each NAV as item (item.href)}
-      {@const active = page.url.pathname.startsWith(item.href)}
+      {@const active = [item.href, ...(item.also ?? [])].some((href) => page.url.pathname.startsWith(href))}
       <div class="nav-row">
         <a href={item.href} class="nav-item" aria-current={active ? "page" : undefined} title={item.label}>
           <item.Icon size={20} />
