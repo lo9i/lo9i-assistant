@@ -20,6 +20,8 @@ import httpx
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
+from assistant.core.attachments import TOOL_MEDIA_SENDER
+
 _EXCHANGE_URL = "https://api.github.com/copilot_internal/v2/token"
 DEFAULT_API = "https://api.githubcopilot.com"
 # Copilot accepts requests from known editors; these match VS Code's Copilot Chat.
@@ -128,12 +130,14 @@ class CopilotAuth(httpx.Auth):
 
 
 def initiator(body: bytes) -> str:
-    """`user` for a request whose last message is the user's, `agent` after tool results."""
+    """`user` for a request whose last message is the user's, `agent` after tool results, including
+    the user message that only carries the results' images."""
     try:
         messages = json.loads(body).get("messages") or [{}]
     except (ValueError, AttributeError):
         return "agent"
-    return "user" if messages[-1].get("role") == "user" else "agent"
+    last = messages[-1]
+    return "user" if last.get("role") == "user" and last.get("name") != TOOL_MEDIA_SENDER else "agent"
 
 
 def _signed(request: httpx.Request, token: CopilotToken) -> httpx.Request:

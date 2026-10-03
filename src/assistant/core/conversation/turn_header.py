@@ -11,6 +11,7 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from assistant.core.config import settings
 
 _HEADER = re.compile(r"^\[[^\]]*, via ([\w-]+)\]$")
+_HEADER_TIME = re.compile(r"^\[\w+ (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) ")
 _SENT = "[You sent this on "
 
 
@@ -40,6 +41,15 @@ def channels(messages: Sequence[BaseMessage]) -> list[str]:
             if channel is not None:
                 found[channel] = None
     return list(found)
+
+
+def sent_at(message: HumanMessage) -> str | None:
+    """The local date and time in the message's turn header ("2026-09-30 14:05"), None without one."""
+    first = message.content[0] if isinstance(message.content, list) and message.content else None
+    if not isinstance(first, dict) or _channel(first) is None:
+        return None
+    match = _HEADER_TIME.match(str(first.get("text", "")))
+    return match.group(1) if match else None
 
 
 def _channel(block: object) -> str | None:

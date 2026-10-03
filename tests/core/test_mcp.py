@@ -2,14 +2,17 @@
 and retried only when that's safe. The server runs in-process."""
 
 import asyncio
+import base64
+import json
 from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
+from langchain_core.messages import ToolMessage
 from langgraph.store.memory import InMemoryStore
 from mcp import Client
 from mcp.server import MCPServer
-from mcp.types import CallToolResult, TextContent, ToolAnnotations
+from mcp.types import AudioContent, CallToolResult, ImageContent, TextContent, ToolAnnotations
 
 from assistant.core.agent import AssistantService, McpServer, McpServerChanges, McpServerError
 from assistant.core.bus import EventBus
@@ -18,12 +21,17 @@ from assistant.core.health import HealthLog
 from assistant.core.hidden_text import strip_hidden
 from assistant.core.mcp import hub as hub_module
 from assistant.core.mcp.connection import ConnectionLostError, McpConnection
+from assistant.core.mcp.media import ToolMedia
 from assistant.core.mcp.tools import McpTool
+from assistant.core.speech.voice import audio_paths
 from assistant.core.tools.approval import UNATTENDED_DENIAL
 from tests.conftest import collect
+from tests.core.test_speech import FakeTranscriber
 
 READ = "mcp__notes__read_notes"
 ADD = "mcp__notes__add_note"
+CHART = "mcp__notes__chart"
+_PNG_BASE64 = base64.b64encode(b"\x89PNG fake").decode()
 FLAG = "\U0001f3f4\U000e0067\U000e0062\U000e0073\U000e0063\U000e0074\U000e007f"
 
 
@@ -40,6 +48,11 @@ def _notes_server(notes: list[str]) -> MCPServer:
         """Add a note."""
         notes.append(text)
         return f"added {text}"
+
+    @server.tool(annotations=ToolAnnotations(read_only_hint=True))
+    def chart() -> list[TextContent | ImageContent]:
+        """Chart the notes."""
+        return [TextContent(text="notes chart"), ImageContent(data=_PNG_BASE64, mime_type="image/png")]
 
     return server
 
@@ -84,7 +97,7 @@ async def test_tools_of_an_added_server_are_offered_from_the_next_message(servic
     await _add(service)
     script.call(READ).reply("done")
     events = await _say(service, "read my notes")
-    assert _names(script.bound[-1]) == {READ, ADD}
+    assert _names(script.bound[-1]) == {READ, ADD, CHART}
     assert ToolFinished(READ, "no notes") in events
     assert digests.inputs == []  # a new epoch at the same point: nothing summarized
 
@@ -93,7 +106,7 @@ async def test_a_change_in_the_tools_takes_effect_at_the_next_message(service, s
     await _add(service)
     script.call(READ).reply("done")
     await _say(service, "hi")
-    assert _names(script.bound[0]) == _names(script.bound[1]) == {READ, ADD}  # same list in the whole turn
+    assert _names(script.bound[0]) == _names(script.bound[1]) == {READ, ADD, CHART}  # same list in the whole turn
     await service.update_mcp_server("notes", McpServerChanges(include=["read_notes"]))
     await _say(service, "again")
     assert _names(script.bound[-1]) == {READ}
@@ -104,7 +117,7 @@ async def test_excluded_tools_are_left_out_and_stop_working_at_once(service, scr
     await _add(service, exclude=["add_*"])
     script.reply("ok")
     await _say(service, "hi")
-    assert _names(script.bound[-1]) == {READ}
+    assert _names(script.bound[-1]) == {READ, CHART}
     await service.update_mcp_server("notes", McpServerChanges(exclude=["read_*"]))
     script.call(READ).reply("ok")
     events = await _say(service, "read")
@@ -146,12 +159,13 @@ async def test_status_shows_env_and_header_names_but_never_values(service):
     assert {(t.name, t.read_only, t.selected) for t in status.tools} == {
         ("read_notes", True, True),
         ("add_note", False, True),
+        ("chart", True, True),
     }
 
 
 async def test_probe_lists_tools_without_saving(service):
     tools = await service.probe_mcp_server(McpServer(name="notes", command="notes-server", include=["read_notes"]))
-    assert {(t.name, t.selected) for t in tools} == {("read_notes", True), ("add_note", False)}
+    assert {(t.name, t.selected) for t in tools} == {("read_notes", True), ("add_note", False), ("chart", False)}
     assert await service.mcp_servers() == []
 
 
@@ -179,19 +193,20 @@ def test_hidden_tag_characters_are_stripped_but_flags_kept():
 
 
 class _DroppingConnection(McpConnection):
-    """Drops the first call, then answers."""
+    """Drops the first call, then answers with `content`."""
 
-    def __init__(self) -> None:
+    def __init__(self, content: list[Any] | None = None) -> None:
         super().__init__(
             McpServer(name="flaky", command="x", trusted=True), lambda: None, HealthLog(InMemoryStore(), EventBus())
         )
         self.calls = 0
+        self.content = content or [TextContent(text="fine")]
 
     async def call(self, tool: str, arguments: dict) -> CallToolResult:
         self.calls += 1
         if self.calls == 1:
             raise ConnectionLostError("connection reset")
-        return CallToolResult(content=[TextContent(text="fine")])
+        return CallToolResult(content=self.content)
 
     async def reconnected(self, timeout: float) -> bool:
         return True
@@ -203,6 +218,7 @@ def _tool(connection: McpConnection, read_only: bool) -> McpTool:
         description="t",
         args_schema={"type": "object", "properties": {}},
         connection=connection,
+        media=ToolMedia(FakeTranscriber(), InMemoryStore()),
         remote_name="t",
         read_only=read_only,
         trusted=True,
@@ -219,3 +235,30 @@ async def test_a_dropped_write_call_is_reported_as_uncertain_and_not_retried():
     connection = _DroppingConnection()
     assert (await _tool(connection, read_only=False).ainvoke({})).startswith("Outcome uncertain")
     assert connection.calls == 1
+
+
+async def test_images_from_a_tool_are_saved_and_the_model_sees_them(service, script):
+    await _add(service)
+    script.call(CHART).reply("a chart")
+    session = await service.session("owner", "cli")
+    events = await collect(service.send(session, "chart my notes"))
+    assert ToolFinished(CHART, "notes chart") in events
+    state = await service._graph.aget_state({"configurable": {"thread_id": session.thread_id}})
+    stored = next(m for m in state.values["messages"] if isinstance(m, ToolMessage))
+    assert stored.content == "notes chart" and stored.artifact[0]["type"] == "non_standard"
+    assert _PNG_BASE64 not in json.dumps(stored.artifact)
+    sent = next(m for m in script.requests[-1] if isinstance(m, ToolMessage))
+    assert {"type": "image", "base64": _PNG_BASE64, "mime_type": "image/png"} in list(sent.content)
+
+
+async def test_audio_from_a_tool_is_transcribed_and_kept_after_a_retry(isolated_settings):
+    audio = AudioContent(data=base64.b64encode(b"OggS fake").decode(), mime_type="audio/ogg")
+    connection = _DroppingConnection([TextContent(text="voicemail"), audio])
+    call = {"name": "mcp__flaky__t", "args": {}, "id": "c1", "type": "tool_call"}
+    message = await _tool(connection, read_only=True).ainvoke(call)
+    text, transcript = message.content
+    assert text == {"type": "text", "text": "voicemail"}
+    assert transcript["text"].startswith("[Audio from the tool, 3.2s, es, transcribed; audio at ")
+    assert "hola, recordame el dentista" in transcript["text"]
+    assert [str(p.parent.parent.name) for p in audio_paths([message])] == ["audio"]
+    assert all(p.is_file() for p in audio_paths([message]))

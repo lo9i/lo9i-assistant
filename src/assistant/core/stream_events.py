@@ -44,13 +44,7 @@ def _message_events(message: BaseMessage) -> list[Event]:
     if isinstance(message, AIMessage):
         return _ai_message_events(message)
     if isinstance(message, ToolMessage):
-        # The text only: a result can also carry files (core/attachments.py), shown to the model, not here.
-        return [
-            ToolFinished(
-                name=message.name or "",
-                output=message.text if isinstance(message.content, list) else str(message.content),
-            )
-        ]
+        return [ToolFinished(name=message.name or "", output=message.text)]
     return []
 
 

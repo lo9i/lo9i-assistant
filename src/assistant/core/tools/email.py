@@ -11,7 +11,7 @@ from datetime import date
 from langchain_core.tools import tool
 from langgraph.prebuilt import ToolRuntime
 
-from assistant.core.attachments import Attachment, Block, to_tool_content
+from assistant.core.attachments import Attachment, Block, reference
 from assistant.core.config import settings
 from assistant.core.context import Context, require_secrets, require_store
 from assistant.core.hidden_text import strip_hidden
@@ -93,26 +93,29 @@ async def search_email(
 
 
 @register("email")
-@tool
+@tool(response_format="content_and_artifact")
 async def read_email(
     uid: int, runtime: ToolRuntime[Context], folder: str = "INBOX", account: str = ""
-) -> str | list[Block]:
+) -> tuple[str, list[Block]]:
     """Read one message by the uid search_email gave, in the same `account` (empty for the
     default): headers, text and its attachments. Images, PDFs and text files are shown to you;
     other files are saved, with their path, to open with bash. Doesn't mark it as read."""
     config = await _reading_config(runtime, account)
     if isinstance(config, str):
-        return config
+        return config, []
     try:
         async with imap.open_mailbox(config, folder) as mailbox:
             mail = await mailbox.read(uid)
     except EmailError as e:
-        return str(e)
+        return str(e), []
     if mail is None:
-        return f"No message with uid {uid} in {folder}."
+        return f"No message with uid {uid} in {folder}.", []
     text = strip_hidden(_shown(mail))
     files = [Attachment(a.name, a.media_type, a.data) for a in mail.attachments if _openable(a)]
-    return await asyncio.to_thread(to_tool_content, text, files) if files else text
+    # Saved as uploads and referred to in the result's artifact; they reach the model when it's
+    # called (core/attachments.py), and never sit in the checkpoint.
+    references = [await asyncio.to_thread(reference, f) for f in files]
+    return text, references
 
 
 async def _config(runtime: ToolRuntime[Context], account: str) -> EmailConfig | str:

@@ -49,8 +49,8 @@ class ThreadsMixin(ArchiveMixin):
             raise ConversationError(f"No conversation {thread_id}.")
 
     async def delete_conversation(self, user_id: str, thread_id: str) -> None:
-        """Delete the conversation: its messages, its place in the list, and the files and voice
-        recordings sent in it. What memory learned from it stays. A channel on it (Telegram) starts
+        """Delete the conversation: its messages, its place in the list and in search, and the files
+        and voice recordings sent in it. What memory learned from it stays. A channel on it (Telegram) starts
         a new one with its next message. Raises ConversationError for an unknown one,
         ConversationBusyError while a reply is running."""
         await self.require_conversation(user_id, thread_id)
@@ -59,6 +59,7 @@ class ThreadsMixin(ArchiveMixin):
         async with self._thread_lock(thread_id):
             state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
             await self._storage.checkpointer.adelete_thread(thread_id)
+            await self._storage.search.remove(thread_id)
             async with self._conversations_lock:
                 await conversations.remove(self._storage.store, user_id, thread_id)
             await self._forget_channel_pointers(user_id, thread_id)

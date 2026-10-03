@@ -21,6 +21,7 @@ from assistant.core.health import Health, HealthLog
 from assistant.core.hidden_text import strip_hidden
 from assistant.core.mcp import servers
 from assistant.core.mcp.connection import ClientFactory, McpConnection, describe, list_tools, open_client
+from assistant.core.mcp.media import ToolMedia
 from assistant.core.mcp.sanitize import MAX_TOOL_NAME, tool_name
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.mcp.tools import McpTool
@@ -51,12 +52,18 @@ class McpHub:
     name = "mcp"
 
     def __init__(
-        self, store: BaseStore, bus: EventBus, health: HealthLog, factory: ClientFactory | None = None
+        self,
+        store: BaseStore,
+        bus: EventBus,
+        health: HealthLog,
+        media: ToolMedia,
+        factory: ClientFactory | None = None,
     ) -> None:
         self._store = store
         self._bus = bus
         self._factory = factory or open_client
         self._health = health
+        self._media = media
         self._running: dict[str, _Running] = {}
         self._tools: dict[str, McpTool] = {}
         self._active = False
@@ -172,11 +179,11 @@ class McpHub:
                 continue
             for tool in connection.state.tools:
                 if connection.server.selects(tool.name):
-                    _add(tools, connection, tool)
+                    _add(tools, connection, tool, self._media)
         return tools
 
 
-def _add(tools: dict[str, McpTool], connection: McpConnection, tool: Tool) -> None:
+def _add(tools: dict[str, McpTool], connection: McpConnection, tool: Tool, media: ToolMedia) -> None:
     name = tool_name(connection.server.name, tool.name)
     if len(name) > MAX_TOOL_NAME or name in tools:
         logger.warning("MCP tool %s left out: its name is too long or taken by another tool", name)
@@ -186,6 +193,7 @@ def _add(tools: dict[str, McpTool], connection: McpConnection, tool: Tool) -> No
         description=strip_hidden(tool.description or tool.title or tool.name),
         args_schema=json.loads(strip_hidden(json.dumps(tool.input_schema, ensure_ascii=False))),
         connection=connection,
+        media=media,
         remote_name=tool.name,
         read_only=_read_only(tool),
         trusted=connection.server.trusted,

@@ -2,11 +2,16 @@
 
 from langchain_core.tools import tool
 from langgraph.prebuilt import ToolRuntime
+from langgraph.store.base import BaseStore
 
-from assistant.core.context import Context, require_store
+from assistant.core import conversations
+from assistant.core.context import Context, require_search, require_store
+from assistant.core.conversation.search import Found
 from assistant.core.memory import facts, profile
 from assistant.core.memory.profile import MAX_ITEMS, Section
 from assistant.core.tools.registry import register
+
+_SEARCH_RESULTS = 10
 
 
 @register("memory")
@@ -44,3 +49,33 @@ async def update_profile(section: Section, items: list[str], runtime: ToolRuntim
     current = await profile.load(require_store(runtime.store), user_id)
     await profile.save(require_store(runtime.store), user_id, current.model_copy(update={section: items}))
     return f"Profile section {section} now: {'; '.join(items) or '(empty)'}"
+
+
+@register("memory")
+@tool
+async def search_conversations(query: str, runtime: ToolRuntime[Context]) -> str:
+    """Search everything the user and you wrote in past conversations and scheduled job runs, by words.
+
+    For details memory doesn't hold: what was said, a number, a name, when something came up.
+    Messages with more of the words rank first; it matches words, not meaning, so try other words
+    (or the other language) when nothing fits. Tool outputs aren't searched.
+    """
+    found = await require_search(runtime.context).search(runtime.context.user_id, query, _SEARCH_RESULTS)
+    if not found:
+        return "Nothing found."
+    titles = await _titles(require_store(runtime.store), runtime.context.user_id, {f.thread_id for f in found})
+    return "\n".join(_result(f, titles[f.thread_id]) for f in found)
+
+
+async def _titles(store: BaseStore, user_id: str, thread_ids: set[str]) -> dict[str, str]:
+    """Scheduled job runs aren't listed conversations; they're named after the job."""
+    titles = {}
+    for thread_id in thread_ids:
+        record = await conversations.load(store, user_id, thread_id)
+        titles[thread_id] = record.title if record else thread_id
+    return titles
+
+
+def _result(found: Found, title: str) -> str:
+    snippet = " ".join(found.snippet.split())
+    return f'- {found.at or "unknown time"}, in "{title}", {found.role}: {snippet}'

@@ -1,49 +1,19 @@
-"""Files in messages: saved as uploads and referred to, their content added only when the model is
-called. A tool result's files follow the tool results as a user message."""
+"""A tool result's files the model can't read (an email's spreadsheet) are named with where they're
+saved, for bash, instead of failing the model call. Images in tool results: test_uploads.py."""
 
 from typing import Any, cast
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
+import pytest
+from langchain_core.messages import AIMessage, ToolMessage
 
-from assistant.core.attachments import Attachment, hydrate, to_tool_content, upload_paths
-
-PNG = b"\x89PNG\r\n\x1a\nfake"
-
-
-def _calls(*ids: str) -> AIMessage:
-    return AIMessage("", tool_calls=[{"name": "read_email", "args": {}, "id": i} for i in ids])
+from assistant.core.attachments import Attachment, hydrate, reference
 
 
-def _result(call_id: str, *attachments: Attachment) -> ToolMessage:
-    content = cast(list[str | dict], to_tool_content("Mail text", list(attachments)))
-    return ToolMessage(content, tool_call_id=call_id, name="read_email")
-
-
-def _blocks(message: BaseMessage) -> list[dict[str, Any]]:
-    return cast(list[dict[str, Any]], message.content)
-
-
-def test_a_tool_results_files_follow_the_results_as_one_user_message():
-    first = _result("a", Attachment("chart.png", "image/png", PNG))
-    second = _result("b", Attachment("notes.txt", "text/plain", b"buy milk"))
-    hydrated = hydrate([HumanMessage("read them"), _calls("a", "b"), first, second, AIMessage("done")])
-    kinds = [type(m).__name__ for m in hydrated]
-    assert kinds == ["HumanMessage", "AIMessage", "ToolMessage", "ToolMessage", "HumanMessage", "AIMessage"]
-    note = _blocks(hydrated[2])[1]["text"]
-    assert note.startswith("[File chart.png, saved at ") and "follows the tool results" in note
-    files = _blocks(hydrated[4])
-    assert files[0]["text"] == "[Files from the tool results above]"
-    assert any(b.get("type") == "image" and b["mime_type"] == "image/png" for b in files)
-    assert any("buy milk" in b.get("text", "") for b in files)
-
-
-def test_files_the_model_cant_read_are_named_with_their_path_only():
-    result = _result("a", Attachment("budget.xlsx", "application/vnd.ms-excel", b"cells"))
-    hydrated = hydrate([_calls("a"), result])
-    assert len(hydrated) == 2 and "open it with bash" in _blocks(hydrated[1])[1]["text"]
-
-
-def test_hydration_is_the_same_every_time_and_the_files_are_the_conversations():
-    messages: list[BaseMessage] = [_calls("a"), _result("a", Attachment("chart.png", "image/png", PNG))]
-    assert hydrate(messages) == hydrate(messages)
-    assert len(upload_paths(messages)) == 1
+@pytest.mark.parametrize("images_in_tool_results", [True, False])
+def test_a_file_the_model_cant_read_is_named_with_its_path(images_in_tool_results):
+    sheet = reference(Attachment("budget.xlsx", "application/vnd.ms-excel", b"cells"))
+    calls = AIMessage("", tool_calls=[{"name": "read_email", "args": {}, "id": "a"}])
+    result = ToolMessage("Mail text", tool_call_id="a", name="read_email", artifact=[sheet])
+    hydrated = hydrate([calls, result], images_in_tool_results)
+    texts = [b.get("text", "") for m in hydrated[1:] for b in cast(list[dict[str, Any]], m.content)]
+    assert any("budget.xlsx (application/vnd.ms-excel) saved at" in t and "open it with bash" in t for t in texts)

@@ -1,7 +1,7 @@
 """SQLite storage: the LangGraph checkpointer (conversations) and store (long-term records).
 
-Only the daemon opens the database, so a single file is enough. WAL mode lets the checkpointer
-the store and the usage log each keep their own connection.
+Only the daemon opens the database, so a single file is enough. WAL mode lets the checkpointer,
+the store, the usage log and the message search index each keep their own connection.
 """
 
 from collections.abc import AsyncIterator
@@ -15,6 +15,7 @@ from langgraph.store.base import Op, PutOp, Result
 from langgraph.store.sqlite.aio import AsyncSqliteStore
 
 from assistant.core.bus import EventBus
+from assistant.core.conversation.search import MessageIndex
 from assistant.core.usage.log import UsageLog
 
 # Store namespaces, by their first part, and the event a change to them publishes.
@@ -64,6 +65,7 @@ class Storage:
     checkpointer: AsyncSqliteSaver
     store: AsyncSqliteStore
     usage: UsageLog
+    search: MessageIndex
 
 
 @asynccontextmanager
@@ -75,10 +77,12 @@ async def open_storage(path: str, bus: EventBus) -> AsyncIterator[Storage]:
         store = NotifyingStore(await stack.enter_async_context(_connect(db)))
         store.bus = bus
         usage = UsageLog(await stack.enter_async_context(_connect(db)))
+        search = MessageIndex(await stack.enter_async_context(_connect(db)))
         await checkpointer.setup()
         await store.setup()
         await usage.setup()
-        yield Storage(checkpointer=checkpointer, store=store, usage=usage)
+        await search.setup()
+        yield Storage(checkpointer=checkpointer, store=store, usage=usage, search=search)
 
 
 @asynccontextmanager
