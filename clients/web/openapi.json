@@ -568,6 +568,46 @@
         }
       }
     },
+    "/conversations/{thread_id}": {
+      "delete": {
+        "summary": "Delete Conversation",
+        "description": "Deletes a conversation no client is on. 404: no such conversation; 409: a client is on\nit or a reply is running.",
+        "operationId": "delete_conversation_conversations__thread_id__delete",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/integrations/telegram": {
       "get": {
         "summary": "Telegram Status",
@@ -949,6 +989,54 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Skill"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Skill",
+        "description": "404: no such skill. 400: built in, or the text is empty.",
+        "operationId": "update_skill_skills__name__put",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillChange"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1479,6 +1567,100 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/model/providers": {
+      "get": {
+        "summary": "Model Providers",
+        "operationId": "model_providers_settings_model_providers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ModelProvider"
+                  },
+                  "type": "array",
+                  "title": "Response Model Providers Settings Model Providers Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/model": {
+      "get": {
+        "summary": "Model Status",
+        "operationId": "model_status_settings_model_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelStatus"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Model",
+        "description": "Checks that both models answer with these settings, then uses them.",
+        "operationId": "set_model_settings_model_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Reset Model",
+        "description": "Back to the model in .env.",
+        "operationId": "reset_model_settings_model_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelStatus"
                 }
               }
             }
@@ -2421,6 +2603,122 @@
         "title": "MemorySnapshot",
         "description": "What the assistant currently knows about the user, in plain types for gateways."
       },
+      "ModelChange": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "api_key": {
+            "type": "string",
+            "title": "Api Key",
+            "default": ""
+          },
+          "base_url": {
+            "type": "string",
+            "title": "Base Url",
+            "default": ""
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "worker_model": {
+            "type": "string",
+            "title": "Worker Model"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "model",
+          "worker_model"
+        ],
+        "title": "ModelChange"
+      },
+      "ModelProvider": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "key_label": {
+            "type": "string",
+            "title": "Key Label"
+          },
+          "key_help": {
+            "type": "string",
+            "title": "Key Help"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "worker_model": {
+            "type": "string",
+            "title": "Worker Model"
+          },
+          "takes_base_url": {
+            "type": "boolean",
+            "title": "Takes Base Url",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "key_label",
+          "key_help",
+          "model",
+          "worker_model"
+        ],
+        "title": "ModelProvider",
+        "description": "A provider clients offer, with the models to suggest."
+      },
+      "ModelStatus": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "base_url": {
+            "type": "string",
+            "title": "Base Url"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "worker_model": {
+            "type": "string",
+            "title": "Worker Model"
+          },
+          "key_set": {
+            "type": "boolean",
+            "title": "Key Set"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "provider",
+          "base_url",
+          "model",
+          "worker_model",
+          "key_set"
+        ],
+        "title": "ModelStatus",
+        "description": "What a client shows. Says whether a key is set, never the key."
+      },
       "NewMailAlerts": {
         "properties": {
           "channel": {
@@ -2564,6 +2862,11 @@
           "instructions": {
             "type": "string",
             "title": "Instructions"
+          },
+          "builtin": {
+            "type": "boolean",
+            "title": "Builtin",
+            "default": false
           }
         },
         "type": "object",
@@ -2573,6 +2876,24 @@
           "instructions"
         ],
         "title": "Skill"
+      },
+      "SkillChange": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "instructions": {
+            "type": "string",
+            "title": "Instructions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "description",
+          "instructions"
+        ],
+        "title": "SkillChange"
       },
       "SkillSummary": {
         "properties": {
@@ -2687,6 +3008,21 @@
             },
             "type": "array",
             "title": "Languages"
+          },
+          "decoding": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "accurate",
+                  "fast"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decoding"
           }
         },
         "type": "object",
@@ -2708,6 +3044,14 @@
             },
             "type": "array",
             "title": "Languages"
+          },
+          "decoding": {
+            "type": "string",
+            "enum": [
+              "accurate",
+              "fast"
+            ],
+            "title": "Decoding"
           },
           "spoken_replies": {
             "type": "string",
@@ -2748,6 +3092,7 @@
         "required": [
           "model",
           "languages",
+          "decoding",
           "spoken_replies",
           "voice",
           "models",

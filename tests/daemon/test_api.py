@@ -161,7 +161,7 @@ async def test_skills_and_usage_endpoints(client, script, isolated_settings, mon
     skills.save("news-digest", "Daily news", "1. Search")
     script.call("use_skill", name="news-digest").reply("done")
     await collect(client.send(await _new_session(client), "go"))
-    assert [s.name for s in await client.skills.list()] == [skills.SETUP, "news-digest"]
+    assert [s.name for s in await client.skills.list()] == ["news-digest"]  # built-in ones aren't listed
     assert (await client.skills.get("news-digest")).instructions == "1. Search"
     report = await client.usage.report(7)
     assert report.skills[0].name == "news-digest" and report.tools[0].name == "use_skill"
@@ -212,3 +212,36 @@ async def test_mcp_servers_through_the_client(client, service, monkeypatch):
     await client.mcp.remove("notes")
     with pytest.raises(McpServerError):
         await client.mcp.remove("notes")
+
+
+async def test_the_model_through_the_client(client, monkeypatch):
+    from langchain_core.messages import AIMessage
+
+    import assistant.core.agent.model as model_module
+    from assistant.core.agent import ModelSettingsError
+
+    class _Answers:
+        async def ainvoke(self, messages):
+            return AIMessage("OK")
+
+    monkeypatch.setattr(model_module, "build_llm", lambda choice, model: _Answers())
+    assert [p.id for p in await client.model.providers()] == ["anthropic", "copilot", "openai"]
+    status = await client.model.set("copilot", "gh-token", "", "claude-opus-5.5", "claude-sonnet-5.5")
+    assert status.source == "app" and status.key_set and status.model == "claude-opus-5.5"
+    with pytest.raises(ModelSettingsError):
+        await client.model.set("nope", "k", "", "m", "m")
+    assert (await client.model.reset()).source == "env"
+
+
+async def test_a_conversation_a_client_is_on_cant_be_deleted(client, service):
+    from assistant.core.agent import ConversationError
+
+    session = await _new_session(client)
+    await collect(client.send(session, "hello"))
+    with pytest.raises(ConversationError, match="You're on this conversation"):
+        await client.conversations.delete(session.thread_id)
+    await client.new_thread("owner")
+    await client.conversations.delete(session.thread_id)
+    assert [c.thread_id for c in await client.conversations.recent()] == []
+    with pytest.raises(ConversationError, match="No conversation"):
+        await client.conversations.delete(session.thread_id)

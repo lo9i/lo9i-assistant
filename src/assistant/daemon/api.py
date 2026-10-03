@@ -13,7 +13,9 @@ from sse_starlette.sse import EventSourceResponse
 from assistant.core.agent import (
     AssistantService,
     Conversation,
+    ConversationBusyError,
     ConversationError,
+    Decoding,
     EmailError,
     EmailProvider,
     EmailStatus,
@@ -27,6 +29,9 @@ from assistant.core.agent import (
     McpServerStatus,
     McpToolInfo,
     MemorySnapshot,
+    ModelProvider,
+    ModelSettingsError,
+    ModelStatus,
     Session,
     ShownMessage,
     Skill,
@@ -90,9 +95,20 @@ class EmailRecipients(BaseModel):
     addresses: list[str]
 
 
+class ModelChange(BaseModel):
+    provider: str
+    # Empty keeps the current key when the provider stays the same.
+    api_key: str = ""
+    base_url: str = ""
+    model: str
+    worker_model: str
+
+
 class SpeechChange(BaseModel):
     model: str
     languages: list[str]
+    # accurate or fast; left out, it stays as it is.
+    decoding: Decoding | None = None
 
 
 class SpokenRepliesChange(BaseModel):
@@ -104,6 +120,11 @@ class SpeakRequest(BaseModel):
     text: str
     # Empty: the reply voice from the settings.
     voice: str = ""
+
+
+class SkillChange(BaseModel):
+    description: str
+    instructions: str
 
 
 class JobChange(BaseModel):
@@ -194,6 +215,7 @@ def create_app(service: AssistantService, hub: RunHub, startup: Any = None, web_
     _add_mcp_routes(app, service)
     _add_identity_routes(app, service)
     _add_speech_routes(app, service)
+    _add_model_routes(app, service)
     _add_usage_routes(app, service)
     if startup is not None:
         _add_startup_routes(app, startup)
@@ -332,6 +354,27 @@ def _add_conversation_routes(app: FastAPI, service: AssistantService, clients: C
         clients.on_thread(_client_id(request), thread_id)
         return Ok()
 
+    @app.delete("/conversations/{thread_id}")
+    async def delete_conversation(thread_id: str, request: Request) -> Ok:
+        """Deletes a conversation no client is on. 404: no such conversation; 409: a client is on
+        it or a reply is running."""
+        _refuse_if_open(clients, thread_id, _client_id(request))
+        try:
+            await service.delete_conversation(settings.owner_id, thread_id)
+        except ConversationBusyError as e:
+            raise HTTPException(409, str(e)) from e
+        except ConversationError as e:
+            raise HTTPException(404, str(e)) from e
+        return Ok()
+
+
+def _refuse_if_open(clients: ClientRegistry, thread_id: str, caller: str) -> None:
+    on_it = clients.on(thread_id)
+    if caller in on_it:
+        raise HTTPException(409, "You're on this conversation. Start a new one first, then delete it.")
+    if on_it:
+        raise HTTPException(409, "It's open in another window or app. Move that one to another conversation first.")
+
 
 def _add_telegram_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/integrations/telegram")
@@ -377,6 +420,29 @@ def _add_slack_routes(app: FastAPI, service: AssistantService) -> None:
         return Ok()
 
 
+def _add_model_routes(app: FastAPI, service: AssistantService) -> None:
+    @app.get("/settings/model/providers")
+    async def model_providers() -> list[ModelProvider]:
+        return service.model_providers()
+
+    @app.get("/settings/model")
+    async def model_status() -> ModelStatus:
+        return await service.model_status()
+
+    @app.put("/settings/model")
+    async def set_model(body: ModelChange) -> ModelStatus:
+        """Checks that both models answer with these settings, then uses them."""
+        try:
+            return await service.set_model(body.provider, body.api_key, body.base_url, body.model, body.worker_model)
+        except ModelSettingsError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.delete("/settings/model")
+    async def reset_model() -> ModelStatus:
+        """Back to the model in .env."""
+        return await service.reset_model()
+
+
 def _add_speech_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/settings/speech")
     async def speech_settings() -> SpeechStatus:
@@ -385,7 +451,7 @@ def _add_speech_routes(app: FastAPI, service: AssistantService) -> None:
     @app.put("/settings/speech")
     async def set_speech(body: SpeechChange) -> SpeechStatus:
         try:
-            return await service.set_speech(body.model, body.languages)
+            return await service.set_speech(body.model, body.languages, body.decoding)
         except SpeechSettingsError as e:
             raise HTTPException(400, str(e)) from e
 
@@ -451,6 +517,18 @@ def _add_skill_routes(app: FastAPI, service: AssistantService) -> None:
             return await service.get_skill(name)
         except SkillError as e:
             raise HTTPException(404, str(e)) from e
+
+    @app.put("/skills/{name}")
+    async def update_skill(name: str, body: SkillChange) -> Skill:
+        """404: no such skill. 400: built in, or the text is empty."""
+        try:
+            await service.get_skill(name)
+        except SkillError as e:
+            raise HTTPException(404, str(e)) from e
+        try:
+            return await service.update_skill(name, body.description, body.instructions)
+        except SkillError as e:
+            raise HTTPException(400, str(e)) from e
 
     @app.delete("/skills/{name}")
     async def delete_skill(name: str) -> Ok:

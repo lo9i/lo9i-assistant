@@ -8,7 +8,7 @@
   import ConversationsTable from "$lib/ui/chat/ConversationsTable.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
-  const { chat } = useDaemon();
+  const { chat, client, notices } = useDaemon();
   const current = external(chat.subscribe, () => chat.getSnapshot().threadId);
   const conversations = resource((c) => c.conversations.list(), ["conversations"]);
   const clients = resource((c) => c.clients.list(), ["clients"]);
@@ -32,6 +32,19 @@
     await goto(resolve("/conversations/open"));
   }
 
+  // The one this tab is on can't be deleted while it's on it: the tab moves to a new one first.
+  async function remove(threadId: string): Promise<void> {
+    const list = conversations.data ?? [];
+    const next = list[list.findIndex((c) => c.thread_id === threadId) + 1] ?? list.find((c) => c.thread_id !== threadId);
+    try {
+      if (threadId === current.current) await chat.startNew();
+      await client.conversations.delete(threadId);
+      picked = next?.thread_id ?? null;
+    } catch (e) {
+      notices.report(e);
+    }
+  }
+
   async function startNew(): Promise<void> {
     await chat.startNew();
     await goto(resolve("/conversations/open"));
@@ -51,6 +64,7 @@
     {selected}
     current={current.current}
     onselect={(id) => (picked = id)}
+    oncontinue={continueWith}
   />
   <ConversationPreview
     {conversation}
@@ -58,6 +72,7 @@
     {sessions}
     devices={devices.data}
     oncontinue={continueWith}
+    ondelete={remove}
   />
 </div>
 

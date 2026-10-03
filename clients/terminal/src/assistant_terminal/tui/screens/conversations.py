@@ -1,9 +1,10 @@
-"""Earlier conversations: pick one to see how it ended, then resume it. Returns the chosen
-conversation's thread id, or None."""
+"""Earlier conversations: pick one to see how it ended, then resume or delete it. Returns the chosen
+conversation's thread id, or None. The conversation this app is on can't be deleted from here:
+/new moves off it first."""
 
 from typing import ClassVar
 
-from textual import on
+from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -12,9 +13,10 @@ from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import ConversationsApi
-from assistant.core.agent import Conversation
+from assistant.core.agent import Conversation, ConversationError
 from assistant_terminal.conversations_text import preview, when
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 
 class ConversationsScreen(ModalScreen[str | None]):
@@ -43,6 +45,7 @@ class ConversationsScreen(ModalScreen[str | None]):
                     yield Markdown(id="conversation-body")
             with Horizontal(id="conversations-buttons"):
                 yield Button("Resume", variant="success", id="resume")
+                yield Button("Delete", variant="error", id="delete")
                 yield Button("Close", id="close")
 
     @reports_daemon_unavailable
@@ -59,7 +62,7 @@ class ConversationsScreen(ModalScreen[str | None]):
         # Only when; the title is in the preview next to the list.
         options.add_options([Option(when(c), id=c.thread_id) for c in items])
         self.query_one("#conversations").set_class(not items, "empty")
-        self.query_one("#resume").display = bool(items)
+        self.query_one("#resume").display = self.query_one("#delete").display = bool(items)
         if not items:
             self.query_one("#close", Button).focus()
             return
@@ -87,9 +90,35 @@ class ConversationsScreen(ModalScreen[str | None]):
     def action_close(self) -> None:
         self.dismiss(None)
 
+    @on(Button.Pressed, "#delete")
+    def _delete(self) -> None:
+        if self._selected is not None:
+            self._confirm_delete(self._selected)
+
+    @work
+    @reports_daemon_unavailable
+    async def _confirm_delete(self, thread_id: str) -> None:
+        question = (
+            "Delete this conversation? Its messages and the files sent in it are deleted; "
+            "what the assistant learned from it stays in memory."
+        )
+        if not await self.app.push_screen_wait(ConfirmScreen(question, "Delete")):
+            return
+        try:
+            await self._conversations.delete(thread_id)
+        except ConversationError as e:
+            self.notify(str(e), severity="error")
+        else:
+            self.notify("Deleted the conversation.")
+        await self.reload()
+
     async def _show(self, thread_id: str) -> None:
         self._selected = thread_id
         conversation = self._shown[thread_id]
-        self.query_one("#resume", Button).disabled = thread_id == self._current
+        current = thread_id == self._current
+        self.query_one("#resume", Button).disabled = current
+        delete = self.query_one("#delete", Button)
+        delete.disabled = current
+        delete.tooltip = "You're on this conversation: /new first, then delete it." if current else None
         messages = await self._conversations.messages(thread_id)
         await self.query_one("#conversation-body", Markdown).update(preview(conversation, messages))

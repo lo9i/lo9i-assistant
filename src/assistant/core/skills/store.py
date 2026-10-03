@@ -25,6 +25,8 @@ class Skill:
     name: str
     description: str
     instructions: str
+    # Ships with the assistant: it can't be changed or deleted.
+    builtin: bool = False
 
 
 def list_skills() -> list[Skill]:
@@ -32,8 +34,14 @@ def list_skills() -> list[Skill]:
     return [*_read_all(_BUILTIN), *[s for s in _read_all(_root()) if not _is_builtin(s.name)]]
 
 
+def saved_skills() -> list[Skill]:
+    """The skills the user or the assistant saved, without the built-in ones. What clients list."""
+    return [s for s in _read_all(_root()) if not _is_builtin(s.name)]
+
+
 def load(name: str) -> Skill:
-    skill = _read(_BUILTIN / name / "SKILL.md") if _is_builtin(name) else _read(_path(name))
+    builtin = _is_builtin(name)
+    skill = _read(_BUILTIN / name / "SKILL.md", builtin) if builtin else _read(_path(name))
     if skill is None:
         raise SkillError(f"No skill named {name}.")
     return skill
@@ -67,7 +75,7 @@ def _refuse_builtin(name: str) -> None:
 
 def _read_all(root: Path) -> list[Skill]:
     files = sorted(root.glob("*/SKILL.md")) if root.exists() else []
-    return [skill for skill in map(_read, files) if skill is not None]
+    return [skill for path in files if (skill := _read(path, root == _BUILTIN)) is not None]
 
 
 def _root() -> Path:
@@ -80,10 +88,10 @@ def _path(name: str) -> Path:
     return _root() / name / "SKILL.md"
 
 
-def _read(path: Path) -> Skill | None:
+def _read(path: Path, builtin: bool = False) -> Skill | None:
     if not path.is_file():
         return None
     match = _FRONTMATTER.match(path.read_text(encoding="utf-8"))
     meta = yaml.safe_load(match.group(1)) if match else {}
     body = match.group(2) if match else path.read_text(encoding="utf-8")
-    return Skill(meta.get("name", path.parent.name), meta.get("description", ""), body.strip())
+    return Skill(meta.get("name", path.parent.name), meta.get("description", ""), body.strip(), builtin)

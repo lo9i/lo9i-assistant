@@ -65,3 +65,28 @@ async def test_enter_closes_the_empty_skills_dialog(app, client):
         await wait_for(pilot, lambda: app.focused is not None and app.focused.id == "close")
         await pilot.press("enter")
         await wait_for(pilot, lambda: not isinstance(app.screen, SkillsScreen))
+
+
+async def test_skills_are_edited_but_built_in_ones_only_read(app, client):
+    from textual.widgets import Input, TextArea
+
+    from assistant_terminal.tui.screens.skill_edit import SkillEditScreen
+
+    async with app.run_test(size=(120, 44)) as pilot:
+        screen = await _open(pilot, app, "/skills", SkillsScreen)
+
+        def body() -> str:
+            return screen.query_one("#skill-body", Markdown).source
+
+        await wait_for(pilot, lambda: "1. Search news" in body())
+        screen.query_one("#edit", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, SkillEditScreen))
+        dialog = app.screen
+        dialog.query_one("#skill-edit-instructions", TextArea).text = ""
+        dialog.query_one("#save", Button).press()
+        await wait_for(pilot, lambda: "needs a description" in dialog.query_one("#skill-edit-message", Markdown).source)
+        dialog.query_one("#skill-edit-description", Input).value = "Morning news"
+        dialog.query_one("#skill-edit-instructions", TextArea).text = "1. Search news\n2. Send it on Telegram"
+        dialog.query_one("#save", Button).press()
+        await wait_for(pilot, lambda: app.screen is screen and "Send it on Telegram" in body())
+        assert client.skills.items["news-digest"].description == "Morning news"

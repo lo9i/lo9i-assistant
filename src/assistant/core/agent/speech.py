@@ -10,6 +10,7 @@ from assistant.core.speech.encode import to_ogg_opus, to_wav
 from assistant.core.speech.preferences import (
     LANGUAGES,
     MODELS,
+    Decoding,
     SpeechSettings,
     SpeechSettingsError,
     SpokenReplies,
@@ -19,6 +20,7 @@ from assistant.core.speech.synthesizer import SynthesisError
 from assistant.core.speech.voices import VOICES
 
 __all__ = [
+    "Decoding",
     "LanguageOption",
     "SpeechMixin",
     "SpeechSettingsError",
@@ -50,6 +52,8 @@ class SpeechStatus:
 
     model: str
     languages: list[str]
+    # accurate (beam search) or fast (greedy).
+    decoding: Decoding
     spoken_replies: SpokenReplies
     # The voice replies are spoken in: the chosen one, or the default for the first language.
     voice: str
@@ -62,10 +66,11 @@ class SpeechMixin(ServiceBase):
     async def speech_settings(self) -> SpeechStatus:
         return _status(await preferences.load(self._storage.store))
 
-    async def set_speech(self, model: str, languages: list[str]) -> SpeechStatus:
-        """Used from the next voice message. Raises SpeechSettingsError."""
+    async def set_speech(self, model: str, languages: list[str], decoding: Decoding | None = None) -> SpeechStatus:
+        """Used from the next voice message. Without `decoding`, it stays as it is. Raises SpeechSettingsError."""
         speech = await preferences.load(self._storage.store)
         speech.model, speech.languages = model, list(dict.fromkeys(languages))
+        speech.decoding = decoding or speech.decoding
         await preferences.save(self._storage.store, speech)
         return _status(speech)
 
@@ -95,5 +100,12 @@ def _status(speech: SpeechSettings) -> SpeechStatus:
     languages = [LanguageOption(code, name) for code, name in LANGUAGES.items()]
     voices = [VoiceOption(v.id, v.name, v.language) for v in VOICES]
     return SpeechStatus(
-        speech.model, speech.languages, speech.spoken_replies, speech.reply_voice, list(MODELS), languages, voices
+        model=speech.model,
+        languages=speech.languages,
+        decoding=speech.decoding,
+        spoken_replies=speech.spoken_replies,
+        voice=speech.reply_voice,
+        models=list(MODELS),
+        language_options=languages,
+        voice_options=voices,
     )

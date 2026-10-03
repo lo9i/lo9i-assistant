@@ -39,6 +39,8 @@ class Repl:
             "/email": self._email,
             "/mcp": self._mcp,
             "/startup": self._startup,
+            "/model": self._model,
+            "/audio": self._audio,
             "/skills": self._skills,
             "/name": self._name,
             "/jobs": self._jobs,
@@ -118,6 +120,18 @@ class Repl:
 
     async def _sessions(self, _: str) -> None:
         print(describe_sessions(await self._service.clients.list(), self._service.clients.own_id))
+
+    async def _audio(self, _: str) -> None:
+        status = await self._service.speech.settings()
+        print(f"Voice messages: {status.model}, {status.decoding}, languages {', '.join(status.languages)}.")
+        print(f"Spoken replies: {status.spoken_replies}, voice {status.voice}.")
+        print("Change them with /audio in the full-screen app.")
+
+    async def _model(self, _: str) -> None:
+        status = await self._service.model.status()
+        source = "set in the app" if status.source == "app" else "from .env"
+        print(f"Model: {status.provider} ({source}), main {status.model}, worker {status.worker_model}.")
+        print("Change it in the full-screen app with /model.")
 
     async def _startup(self, _: str) -> None:
         status = await self._service.system.startup_status()

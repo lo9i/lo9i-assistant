@@ -113,3 +113,34 @@ def test_a_model_reply_becomes_a_clean_title():
 
     assert _clean('\n"Trip to Rome."\nBecause the user…') == "Trip to Rome"
     assert _clean("**Hotel  booking**") == "Hotel booking"
+
+
+async def test_deleting_removes_the_messages_the_listing_and_the_files(service, script, isolated_settings):
+    from assistant.core.attachments import Attachment
+    from tests.core.test_speech import FakeTranscriber
+
+    service._transcriber = FakeTranscriber()
+    session = await service.session("owner", "telegram")
+    note = Attachment("notes.txt", "text/plain", b"buy milk")
+    voice = Attachment("voice.ogg", "audio/ogg", b"fake audio")
+    await collect(service.send(session, "read this", [note]))
+    await collect(service.send(session, "", [voice]))
+    uploads = isolated_settings / "uploads"
+    assert len([p for p in uploads.rglob("*") if p.is_file()]) == 2
+    await service.delete_conversation("owner", session.thread_id)
+    assert await service.list_conversations("owner") == []
+    assert await service.conversation_messages(session.thread_id) == []
+    assert [p for p in uploads.rglob("*") if p.is_file()] == []
+    assert (await service.session("owner", "telegram")).thread_id != session.thread_id  # Telegram starts anew
+
+
+async def test_deleting_an_unknown_or_busy_conversation_is_refused(service):
+    from assistant.core.agent import ConversationBusyError
+
+    with pytest.raises(ConversationError, match="No conversation"):
+        await service.delete_conversation("owner", "owner:nope")
+    session = await service.session("owner", "cli")
+    await _say(service, "hi", session)
+    service._active_runs[session.thread_id] = asyncio.get_running_loop().create_future()
+    with pytest.raises(ConversationBusyError):
+        await service.delete_conversation("owner", session.thread_id)

@@ -12,7 +12,7 @@ from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from pydantic import Field
 
-import assistant.core.agent.service as service_module
+import assistant.core.agent.model as model_module
 import assistant.core.graph as graph_module
 from assistant.core.agent import AssistantService
 from assistant.core.config import settings
@@ -90,7 +90,7 @@ class Script:
 @pytest.fixture
 def script(monkeypatch: pytest.MonkeyPatch) -> Script:
     script = Script()
-    monkeypatch.setattr(graph_module, "build_llm", lambda model: script.model())
+    monkeypatch.setattr(graph_module, "build_llm", lambda choice, model: script.model())
     return script
 
 
@@ -115,7 +115,7 @@ class Digests:
 @pytest.fixture
 def digests(monkeypatch: pytest.MonkeyPatch) -> Digests:
     digests = Digests()
-    monkeypatch.setattr(service_module, "build_digester", lambda model: digests)
+    monkeypatch.setattr(model_module, "build_digester", lambda choice: digests)
     return digests
 
 
@@ -137,7 +137,7 @@ class Titles:
 @pytest.fixture
 def titles(monkeypatch: pytest.MonkeyPatch) -> Titles:
     titles = Titles()
-    monkeypatch.setattr(service_module, "build_titler", lambda model: titles)
+    monkeypatch.setattr(model_module, "build_titler", lambda choice: titles)
     return titles
 
 

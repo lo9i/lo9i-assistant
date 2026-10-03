@@ -1,11 +1,13 @@
 <script lang="ts">
   import MessageSquare from "@lucide/svelte/icons/message-square";
   import Play from "@lucide/svelte/icons/play";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
   import { resolve } from "$app/paths";
   import type { ConnectedClient, Conversation, Device } from "$lib/api/types";
   import { fromHistory } from "$lib/chat/transcript";
   import { resource } from "$lib/daemon.svelte";
   import { clientLabel, deviceLabel } from "$lib/sessions";
+  import Confirm from "../Confirm.svelte";
   import EmptyState from "../EmptyState.svelte";
   import Thread from "./Thread.svelte";
 
@@ -16,8 +18,10 @@
     sessions: ConnectedClient[];
     devices: Device[] | undefined;
     oncontinue: (threadId: string) => void;
+    ondelete: (threadId: string) => void;
   };
-  let { conversation, current, sessions, devices, oncontinue }: Props = $props();
+  let { conversation, current, sessions, devices, oncontinue, ondelete }: Props = $props();
+  let confirming = $state(false);
 
   // Reloads when the conversation gets new messages, which updates the conversation list.
   const messages = resource(
@@ -67,10 +71,31 @@
           {/each}
         </dd>
       </dl>
-      <button class="btn btn--primary btn--sm continue" onclick={() => oncontinue(conversation.thread_id)}>
-        <Play size={14} />Continue
-      </button>
+      <div class="actions">
+        <button class="btn btn--primary btn--sm" onclick={() => oncontinue(conversation.thread_id)}>
+          <Play size={14} />Continue
+        </button>
+        <button
+          class="btn btn--danger btn--sm"
+          aria-label="Delete conversation"
+          title="Delete conversation"
+          onclick={() => (confirming = true)}
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
     </section>
+    {#if confirming}
+      <Confirm
+        title="Delete this conversation?"
+        text="Its messages and the files sent in it are deleted. What the assistant learned from it stays in memory."
+        action="Delete"
+        onanswer={(yes) => {
+          confirming = false;
+          if (yes) ondelete(conversation.thread_id);
+        }}
+      />
+    {/if}
     <section class="messages surface--glass">
       <h3 class="micro-label">Messages</h3>
       {#if messages.error}
@@ -129,8 +154,11 @@
     margin: 0;
     text-align: right;
   }
-  .continue {
-    align-self: flex-start;
+  /* One row however narrow the card: Continue first, Delete (icon only) at the end. */
+  .actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
   }
   /* Where the user's next message would be. */
   .reply {

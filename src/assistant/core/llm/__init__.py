@@ -15,20 +15,22 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_core.output_parsers.openai_tools import PydanticToolsParser
 from langchain_core.runnables import Runnable, RunnableLambda
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 
 from assistant.core.config import settings
 from assistant.core.llm import copilot
+from assistant.core.llm.choice import ModelChoice
 
 
-def build_llm(model: str) -> BaseChatModel:
-    return _BUILDERS[settings.provider](model)
+def build_llm(choice: ModelChoice, model: str) -> BaseChatModel:
+    """`model` (the choice's main or worker model) from the choice's provider."""
+    return _BUILDERS[choice.provider](choice, model)
 
 
-def build_structured(model: str, schema: type[BaseModel]) -> Runnable[list[BaseMessage], Any]:
+def build_structured(choice: ModelChoice, model: str, schema: type[BaseModel]) -> Runnable[list[BaseMessage], Any]:
     """A model that answers with an instance of `schema`."""
-    llm = build_llm(model)
-    if settings.provider != "copilot":
+    llm = build_llm(choice, model)
+    if choice.provider != "copilot":
         return llm.with_structured_output(schema, method="json_schema")
     # Copilot ignores response_format and refuses a forced tool choice, so the model is asked to
     # answer through the schema as its only tool.
@@ -39,7 +41,7 @@ def build_structured(model: str, schema: type[BaseModel]) -> Runnable[list[BaseM
     )
 
 
-def _anthropic(model: str) -> BaseChatModel:
+def _anthropic(choice: ModelChoice, model: str) -> BaseChatModel:
     # Top-level cache_control: the API caches the whole prefix (tools, system, history)
     # up to the last block, and the next call reads it back.
     model_kwargs: dict = {"cache_control": {"type": "ephemeral"}}
@@ -57,20 +59,28 @@ def _anthropic(model: str) -> BaseChatModel:
             "output_version": "v1",
             "betas": betas or None,
             "model_kwargs": model_kwargs,
+            # None: the SDK reads ANTHROPIC_API_KEY.
+            "api_key": choice.api_key or None,
         }
     )
 
 
-def _openai(model: str) -> BaseChatModel:
-    # Reads OPENAI_API_KEY from the environment.
-    return ChatOpenAI(model=model, max_completion_tokens=settings.max_tokens, output_version="v1")
+def _openai(choice: ModelChoice, model: str) -> BaseChatModel:
+    # Without a key or URL in the choice, the SDK reads OPENAI_API_KEY and OPENAI_BASE_URL.
+    return ChatOpenAI(
+        model=model,
+        api_key=SecretStr(choice.api_key) if choice.api_key else None,
+        base_url=choice.base_url or None,
+        max_completion_tokens=settings.max_tokens,
+        output_version="v1",
+    )
 
 
-def _copilot(model: str) -> BaseChatModel:
-    return copilot.chat_model(model, settings.copilot_github_token, settings.max_tokens)
+def _copilot(choice: ModelChoice, model: str) -> BaseChatModel:
+    return copilot.chat_model(model, choice.api_key, settings.max_tokens)
 
 
-_BUILDERS: dict[str, Callable[[str], BaseChatModel]] = {
+_BUILDERS: dict[str, Callable[[ModelChoice, str], BaseChatModel]] = {
     "anthropic": _anthropic,
     "openai": _openai,
     "copilot": _copilot,

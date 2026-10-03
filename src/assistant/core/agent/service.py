@@ -13,6 +13,7 @@ from assistant.core.agent.locking import LockingMixin
 from assistant.core.agent.mcp import McpMixin
 from assistant.core.agent.memory import MemoryMixin
 from assistant.core.agent.messaging import MessagingMixin
+from assistant.core.agent.model import ModelMixin
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.skills import SkillsMixin
 from assistant.core.agent.slack import SlackMixin
@@ -23,9 +24,8 @@ from assistant.core.agent.usage import UsageMixin
 from assistant.core.approvals import RemoteApprovals
 from assistant.core.bus import EventBus
 from assistant.core.config import settings
-from assistant.core.conversation.digest import build_digester
-from assistant.core.conversation.titles import build_titler
-from assistant.core.graph import build_graph
+from assistant.core.llm import choice
+from assistant.core.llm.choice import ModelChoice
 from assistant.core.mcp.hub import McpHub
 from assistant.core.outbox import Outbox
 from assistant.core.speech.kokoro import KokoroSynthesizer
@@ -41,6 +41,7 @@ class AssistantService(
     SlackMixin,
     EmailMixin,
     McpMixin,
+    ModelMixin,
     DevicesMixin,
     IdentityMixin,
     SpeechMixin,
@@ -51,15 +52,13 @@ class AssistantService(
     RunsMixin,
     LockingMixin,
 ):
-    def __init__(self, storage: Storage, model: str, bus: EventBus):
+    def __init__(self, storage: Storage, model: ModelChoice, bus: EventBus):
         self._storage = storage
         self.bus = bus
         self.outbox = Outbox()
         self.approvals = RemoteApprovals()
-        self._digester = build_digester(settings.worker_model)
-        self._titler = build_titler(settings.worker_model)
         self.mcp = McpHub(storage.store, bus)
-        self._graph = build_graph(storage, model, self._digester, self.mcp)
+        self._use_model(model)
         self._background = set()
         self._conversations_lock = asyncio.Lock()
         self._transcriber = FasterWhisperTranscriber()
@@ -74,11 +73,11 @@ class AssistantService(
 
     @classmethod
     @asynccontextmanager
-    async def open(cls, model: str | None = None) -> AsyncIterator["AssistantService"]:
+    async def open(cls) -> AsyncIterator["AssistantService"]:
         observability.init_tracing()
         try:
             bus = EventBus()
             async with open_storage(settings.database_path, bus) as storage:
-                yield cls(storage, model or settings.model, bus)
+                yield cls(storage, await choice.current(storage.store), bus)
         finally:
             observability.flush()

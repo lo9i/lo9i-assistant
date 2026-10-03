@@ -67,5 +67,5 @@ async def test_kokoro_speaks_spanish_that_whisper_understands():
     from assistant.core.speech.whisper import FasterWhisperTranscriber
 
     speech = await KokoroSynthesizer().synthesize("Tengo turno con el dentista el viernes.", "ef_dora")
-    heard = await FasterWhisperTranscriber().transcribe(to_wav(speech), "small", ["es", "en"])
+    heard = await FasterWhisperTranscriber().transcribe(to_wav(speech), "small", ["es", "en"], 5)
     assert heard.language == "es" and "dentista" in heard.text.lower()

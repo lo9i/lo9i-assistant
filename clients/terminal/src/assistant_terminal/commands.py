@@ -23,6 +23,8 @@ COMMANDS = [
     Command("/usage", "/usage", "Tool and skill usage"),
     Command("/sessions", "/sessions", "Clients connected to the daemon"),
     Command("/devices", "/devices", "Browsers allowed in over the network"),
+    Command("/model", "/model", "The model provider, key and models"),
+    Command("/audio", "/audio", "Speech to text and spoken replies"),
     Command("/telegram", "/telegram", "Connect Telegram"),
     Command("/slack", "/slack", "Connect Slack"),
     Command("/email", "/email", "Connect email for sending"),

@@ -1,4 +1,5 @@
-"""Skills: pick one to read its instructions, or delete it. Refreshes when a skill is saved or deleted."""
+"""Saved skills: pick one to read its instructions, edit or delete it. Built-in skills aren't listed.
+Refreshes when a skill is saved or deleted."""
 
 from typing import ClassVar
 
@@ -11,9 +12,10 @@ from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import SkillsApi
-from assistant.core.agent import SkillError
+from assistant.core.agent import Skill, SkillError
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
+from assistant_terminal.tui.screens.skill_edit import SkillEditScreen
 
 
 class SkillsScreen(ModalScreen[None]):
@@ -24,6 +26,7 @@ class SkillsScreen(ModalScreen[None]):
         self._skills = skills
         self._names: list[str] = []
         self._selected: str | None = None
+        self._skill: Skill | None = None
 
     def compose(self) -> ComposeResult:
         with Vertical(id="skills"):
@@ -38,6 +41,7 @@ class SkillsScreen(ModalScreen[None]):
                 with VerticalScroll(id="skills-detail"):
                     yield Markdown(id="skill-body")
             with Horizontal(id="skills-buttons"):
+                yield Button("Edit", id="edit")
                 yield Button("Delete", variant="error", id="delete")
                 yield Button("Close", id="close")
 
@@ -56,8 +60,8 @@ class SkillsScreen(ModalScreen[None]):
         options.add_options([Option(name, id=name) for name in self._names])
         # Empty: just the message, and the dialog shrinks to fit.
         self.query_one("#skills").set_class(not skills, "empty")
-        self.query_one("#delete").display = bool(skills)
         if not skills:
+            self.query_one("#delete").display = self.query_one("#edit").display = False
             self._selected = None
             self.query_one("#close", Button).focus()
             return
@@ -73,6 +77,14 @@ class SkillsScreen(ModalScreen[None]):
     @on(Button.Pressed, "#close")
     def _close(self) -> None:
         self.dismiss()
+
+    @on(Button.Pressed, "#edit")
+    @work
+    @reports_daemon_unavailable
+    async def _edit(self) -> None:
+        if self._skill is not None and await self.app.push_screen_wait(SkillEditScreen(self._skills, self._skill)):
+            self.notify(f"Saved skill {self._skill.name}.")
+            await self.reload()
 
     @on(Button.Pressed, "#delete")
     def _delete(self) -> None:
@@ -92,10 +104,12 @@ class SkillsScreen(ModalScreen[None]):
         await self.reload()
 
     async def _show(self, name: str) -> None:
-        self._selected = name
+        self._selected, self._skill = name, None
         try:
-            skill = await self._skills.get(name)
+            self._skill = await self._skills.get(name)
+            skill = self._skill
             text = f"### {skill.name}\n\n{skill.description}\n\n---\n\n{skill.instructions}"
         except SkillError as e:
             text = str(e)
+        self.query_one("#edit").display = self.query_one("#delete").display = self._skill is not None
         await self.query_one("#skill-body", Markdown).update(text)

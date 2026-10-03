@@ -60,6 +60,17 @@ def _reference(block: Any) -> dict[str, str] | None:
     return None
 
 
+def upload_paths(messages: Sequence[BaseMessage]) -> list[str]:
+    """The uploads (relative paths) the user's messages refer to."""
+    return [
+        reference["path"]
+        for message in messages
+        if isinstance(message, HumanMessage) and isinstance(message.content, list)
+        for block in message.content
+        if (reference := _reference(block)) is not None
+    ]
+
+
 def _hydrate_block(block: Any) -> list[Any]:
     reference = _reference(block)
     if reference is None:

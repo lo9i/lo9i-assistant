@@ -1,5 +1,6 @@
 """Speech settings chosen in the app (Settings → Audio), stored as one Store record. Until the user
-changes them, speech to text comes from .env (STT_MODEL, STT_LANGUAGES) and replies aren't spoken."""
+changes them, speech to text comes from .env (STT_MODEL, STT_LANGUAGES, STT_DECODING) and replies aren't
+spoken."""
 
 from dataclasses import asdict, dataclass, field
 from typing import Literal
@@ -36,6 +37,11 @@ LANGUAGES = {
 }
 
 
+# How Whisper picks the transcript: accurate keeps 5 candidate sentences going and picks the best
+# (beam search); fast takes the likeliest next word each time (greedy), about twice as fast.
+Decoding = Literal["accurate", "fast"]
+DECODINGS: dict[str, int] = {"accurate": 5, "fast": 1}
+
 # When replies are also spoken: never, when the user's message was a voice message, or always.
 SpokenReplies = Literal["off", "voice", "always"]
 SPOKEN_REPLIES: list[SpokenReplies] = ["off", "voice", "always"]
@@ -51,9 +57,14 @@ class SpeechSettings:
     model: str = field(default_factory=lambda: settings.stt_model)
     # Voice messages are detected as one of these languages.
     languages: list[str] = field(default_factory=lambda: list(settings.stt_languages))
+    decoding: Decoding = field(default_factory=lambda: settings.stt_decoding)
     spoken_replies: SpokenReplies = "off"
     # A Kokoro voice id (core/speech/voices.py). Empty: the default for the first language.
     voice: str = ""
+
+    @property
+    def beam_size(self) -> int:
+        return DECODINGS[self.decoding]
 
     @property
     def reply_voice(self) -> str:
@@ -85,6 +96,8 @@ def _problem(speech: SpeechSettings) -> str:
         return "Choose at least one language from the list."
     if unknown:
         return f"Unknown languages: {', '.join(unknown)}."
+    if speech.decoding not in DECODINGS:
+        return f"Transcription must be one of: {', '.join(DECODINGS)}."
     if speech.spoken_replies not in SPOKEN_REPLIES:
         return f"Spoken replies must be one of: {', '.join(SPOKEN_REPLIES)}."
     if speech.voice and voice(speech.voice) is None:

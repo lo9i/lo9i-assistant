@@ -18,6 +18,9 @@ import type {
   McpServerStatus,
   McpToolInfo,
   Me,
+  ModelChange,
+  ModelProvider,
+  ModelStatus,
   PairingCode,
   RunEvent,
   Session,
@@ -50,6 +53,11 @@ export class ConversationsGroup {
 
   messages(threadId: string): Promise<ShownMessage[]> {
     return this.transport.request("GET", `/conversations/${encodeURIComponent(threadId)}/messages`);
+  }
+
+  /** Deletes its messages, its place in the list, and the files sent in it. Fails while a client is on it. */
+  async delete(threadId: string): Promise<void> {
+    await this.transport.request("DELETE", `/conversations/${encodeURIComponent(threadId)}`);
   }
 }
 
@@ -134,8 +142,9 @@ export class SpeechGroup {
   }
 
   /** Used from the next voice message. Throws ApiError (400) for an unknown model or language. */
-  change(model: string, languages: string[]): Promise<SpeechStatus> {
-    return this.transport.request("PUT", "/settings/speech", { model, languages });
+  /** `decoding`: "accurate" (beam search) or "fast" (greedy); left out, it stays as it is. */
+  change(model: string, languages: string[], decoding?: SpeechStatus["decoding"]): Promise<SpeechStatus> {
+    return this.transport.request("PUT", "/settings/speech", { model, languages, decoding });
   }
 
   /** When replies are also spoken ("off", "voice", "always"), and in which voice. */
@@ -146,6 +155,30 @@ export class SpeechGroup {
   /** The text read aloud on the host, as WAV. `voice` "" uses the reply voice. */
   speak(text: string, voice = ""): Promise<Blob> {
     return this.transport.blob("POST", "/speech", { text, voice });
+  }
+}
+
+export class ModelGroup {
+  constructor(private readonly transport: Transport) {}
+
+  /** Providers to pick from, with the models to suggest. */
+  providers(): Promise<ModelProvider[]> {
+    return this.transport.request("GET", "/settings/model/providers");
+  }
+
+  status(): Promise<ModelStatus> {
+    return this.transport.request("GET", "/settings/model");
+  }
+
+  /** Checks that both models answer, then uses them. An empty key keeps the current one when the
+   * provider stays the same. Throws ApiError (400) when a model doesn't answer. */
+  set(change: ModelChange): Promise<ModelStatus> {
+    return this.transport.request("PUT", "/settings/model", change);
+  }
+
+  /** Back to the model in .env. */
+  reset(): Promise<ModelStatus> {
+    return this.transport.request("DELETE", "/settings/model");
   }
 }
 
@@ -216,6 +249,11 @@ export class SkillsGroup {
 
   get(name: string): Promise<Skill> {
     return this.transport.request("GET", `/skills/${encodeURIComponent(name)}`);
+  }
+
+  /** Saved skills only: a built-in one is refused. */
+  update(name: string, description: string, instructions: string): Promise<Skill> {
+    return this.transport.request("PUT", `/skills/${encodeURIComponent(name)}`, { description, instructions });
   }
 
   async delete(name: string): Promise<void> {
@@ -301,6 +339,7 @@ export class DaemonClient {
   readonly slack: SlackGroup;
   readonly speech: SpeechGroup;
   readonly email: EmailGroup;
+  readonly model: ModelGroup;
   readonly mcp: McpGroup;
   readonly skills: SkillsGroup;
   readonly usage: UsageGroup;
@@ -317,6 +356,7 @@ export class DaemonClient {
     this.slack = new SlackGroup(transport);
     this.speech = new SpeechGroup(transport);
     this.email = new EmailGroup(transport);
+    this.model = new ModelGroup(transport);
     this.mcp = new McpGroup(transport);
     this.skills = new SkillsGroup(transport);
     this.usage = new UsageGroup(transport);

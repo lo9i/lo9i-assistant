@@ -331,6 +331,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations/{thread_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Conversation
+         * @description Deletes a conversation no client is on. 404: no such conversation; 409: a client is on
+         *     it or a reply is running.
+         */
+        delete: operations["delete_conversation_conversations__thread_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/integrations/telegram": {
         parameters: {
             query?: never;
@@ -499,7 +520,11 @@ export interface paths {
         };
         /** Skill */
         get: operations["skill_skills__name__get"];
-        put?: never;
+        /**
+         * Update Skill
+         * @description 404: no such skill. 400: built in, or the text is empty.
+         */
+        put: operations["update_skill_skills__name__put"];
         post?: never;
         /** Delete Skill */
         delete: operations["delete_skill_skills__name__delete"];
@@ -667,6 +692,48 @@ export interface paths {
          */
         post: operations["speak_speech_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/model/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Model Providers */
+        get: operations["model_providers_settings_model_providers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/model": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Model Status */
+        get: operations["model_status_settings_model_get"];
+        /**
+         * Set Model
+         * @description Checks that both models answer with these settings, then uses them.
+         */
+        put: operations["set_model_settings_model_put"];
+        post?: never;
+        /**
+         * Reset Model
+         * @description Back to the model in .env.
+         */
+        delete: operations["reset_model_settings_model_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1074,6 +1141,66 @@ export interface components {
             /** Skills */
             skills?: string[];
         };
+        /** ModelChange */
+        ModelChange: {
+            /** Provider */
+            provider: string;
+            /**
+             * Api Key
+             * @default
+             */
+            api_key: string;
+            /**
+             * Base Url
+             * @default
+             */
+            base_url: string;
+            /** Model */
+            model: string;
+            /** Worker Model */
+            worker_model: string;
+        };
+        /**
+         * ModelProvider
+         * @description A provider clients offer, with the models to suggest.
+         */
+        ModelProvider: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Key Label */
+            key_label: string;
+            /** Key Help */
+            key_help: string;
+            /** Model */
+            model: string;
+            /** Worker Model */
+            worker_model: string;
+            /**
+             * Takes Base Url
+             * @default false
+             */
+            takes_base_url: boolean;
+        };
+        /**
+         * ModelStatus
+         * @description What a client shows. Says whether a key is set, never the key.
+         */
+        ModelStatus: {
+            /** Source */
+            source: string;
+            /** Provider */
+            provider: string;
+            /** Base Url */
+            base_url: string;
+            /** Model */
+            model: string;
+            /** Worker Model */
+            worker_model: string;
+            /** Key Set */
+            key_set: boolean;
+        };
         /** NewMailAlerts */
         NewMailAlerts: {
             /** Channel */
@@ -1146,6 +1273,18 @@ export interface components {
             description: string;
             /** Instructions */
             instructions: string;
+            /**
+             * Builtin
+             * @default false
+             */
+            builtin: boolean;
+        };
+        /** SkillChange */
+        SkillChange: {
+            /** Description */
+            description: string;
+            /** Instructions */
+            instructions: string;
         };
         /** SkillSummary */
         SkillSummary: {
@@ -1198,6 +1337,8 @@ export interface components {
             model: string;
             /** Languages */
             languages: string[];
+            /** Decoding */
+            decoding?: ("accurate" | "fast") | null;
         };
         /**
          * SpeechStatus
@@ -1208,6 +1349,11 @@ export interface components {
             model: string;
             /** Languages */
             languages: string[];
+            /**
+             * Decoding
+             * @enum {string}
+             */
+            decoding: "accurate" | "fast";
             /**
              * Spoken Replies
              * @enum {string}
@@ -1808,6 +1954,37 @@ export interface operations {
             };
         };
     };
+    delete_conversation_conversations__thread_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     telegram_status_integrations_telegram_get: {
         parameters: {
             query?: never;
@@ -2183,6 +2360,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Skill"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_skill_skills__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillChange"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -2641,6 +2853,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    model_providers_settings_model_providers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelProvider"][];
+                };
+            };
+        };
+    };
+    model_status_settings_model_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelStatus"];
+                };
+            };
+        };
+    };
+    set_model_settings_model_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_model_settings_model_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelStatus"];
                 };
             };
         };

@@ -155,11 +155,11 @@ AttachmentBar .tag {
     text-style: bold;
 }
 
-TelegramScreen, SlackScreen, EmailScreen, StartupScreen, McpAddScreen, McpSecretsScreen {
+TelegramScreen, SlackScreen, EmailScreen, StartupScreen, McpAddScreen, McpSecretsScreen, ModelScreen, AudioScreen, SkillEditScreen {
     align: center middle;
 }
 
-#telegram, #slack, #email, #startup, #mcp-add, #mcp-secrets-dialog {
+#telegram, #slack, #email, #startup, #mcp-add, #mcp-secrets-dialog, #model, #audio, #skill-edit {
     width: 80%;
     max-width: 100;
     height: auto;
@@ -168,7 +168,7 @@ TelegramScreen, SlackScreen, EmailScreen, StartupScreen, McpAddScreen, McpSecret
     background: $dialog-background;
 }
 
-#telegram Markdown, #slack Markdown, #email Markdown, #startup Markdown, #mcp-add Markdown, #mcp-secrets-dialog Markdown {
+#telegram Markdown, #slack Markdown, #email Markdown, #startup Markdown, #mcp-add Markdown, #mcp-secrets-dialog Markdown, #model Markdown, #audio Markdown, #skill-edit Markdown {
     background: transparent;
     margin: 0;
 }
@@ -178,12 +178,12 @@ ModalScreen Markdown > MarkdownHeader:first-child {
     margin-top: 0;
 }
 
-#telegram-buttons, #slack-buttons, #email-buttons, #startup-buttons, #mcp-add-buttons, #mcp-secrets-buttons {
+#telegram-buttons, #slack-buttons, #email-buttons, #startup-buttons, #mcp-add-buttons, #mcp-secrets-buttons, #model-buttons, #audio-buttons, #skill-edit-buttons {
     height: auto;
     margin-top: 1;
 }
 
-#telegram-buttons Button, #slack-buttons Button, #email-buttons Button, #startup-buttons Button, #mcp-add-buttons Button, #mcp-secrets-buttons Button {
+#telegram-buttons Button, #slack-buttons Button, #email-buttons Button, #startup-buttons Button, #mcp-add-buttons Button, #mcp-secrets-buttons Button, #model-buttons Button, #audio-buttons Button, #skill-edit-buttons Button {
     margin-right: 2;
 }
 
@@ -305,12 +305,12 @@ ModalScreen Input, ModalScreen OptionList, ModalScreen MarkdownHeader {
     background: transparent;
 }
 
-#telegram-token, #slack Input, #email Input, #email SelectCurrent, #mcp-add Input, #mcp-add SelectCurrent {
+#telegram-token, #slack Input, #email Input, #email SelectCurrent, #mcp-add Input, #mcp-add SelectCurrent, #model Input, #model SelectCurrent, #audio SelectCurrent, #skill-edit Input {
     border: round ansi_bright_black;
     background: transparent;
 }
 
-#telegram-token:focus, #slack Input:focus, #email Input:focus, #mcp-add Input:focus {
+#telegram-token:focus, #slack Input:focus, #email Input:focus, #mcp-add Input:focus, #model Input:focus, #skill-edit Input:focus {
     border: round #2f343f;
 }
 
@@ -438,4 +438,36 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
 
 #mcp-add {
     max-height: 90%;
+}
+
+#audio {
+    max-height: 90%;
+}
+
+#audio .audio-heading {
+    text-style: bold;
+    margin-top: 1;
+}
+
+#audio .audio-note {
+    color: ansi_bright_black;
+}
+
+#audio-languages {
+    height: auto;
+    max-height: 10;
+    background: transparent;
+}
+
+#save-stt, #save-replies {
+    margin-top: 1;
+}
+
+#skill-edit-title {
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#skill-edit-instructions {
+    height: 16;
 }
