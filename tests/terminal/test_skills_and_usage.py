@@ -98,7 +98,7 @@ async def test_skills_are_edited_but_built_in_ones_only_read(app, client):
 
 
 async def test_plugins_are_installed_from_the_extras(app, client):
-    from textual.widgets import Input, SelectionList
+    from textual.widgets import SelectionList
 
     from assistant.core.repositories.known import EXTRAS
     from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
@@ -122,23 +122,11 @@ async def test_plugins_are_installed_from_the_extras(app, client):
         await wait_for(pilot, lambda: isinstance(app.screen, RepositoryInstallScreen))
         install = app.screen
         found = install.query_one("#repository-found", SelectionList)
-        await wait_for(pilot, lambda: found.option_count == 2)
-        fields = list(install.query("#repository-fields Input").results(Input))
-        assert [f.password for f in fields] == [False, True] and not any(f.display for f in fields)
-        found.select("skill:expenses")
-        found.select("server:calendar")
-        await wait_for(pilot, lambda: all(f.display for f in fields))
-        fields[0].value = "ana"
-        install.query_one("#install", Button).press()
-        await wait_for(pilot, lambda: "needs Password" in install.query_one("#repository-message", Markdown).source)
-        fields[1].value = "s3cret"
+        # From /skills, only the skills: the extras' servers are installed from /mcp or /plugins.
+        await wait_for(pilot, lambda: found.option_count == 1 and list(found.selected) == ["skill:expenses"])
         install.query_one("#install", Button).press()
         await wait_for(pilot, lambda: app.screen is screen and "expenses" in client.skills.items)
-        [(url, skills, [server])] = client.repositories.installed
-        assert (url, skills) == (EXTRAS, ["expenses"]) and server.values == {
-            "CAL_USER": "ana",
-            "CAL_PASSWORD": "s3cret",
-        }
+        assert client.repositories.installed == [(EXTRAS, ["expenses"], [])]
 
         def body() -> str:
             return screen.query_one("#skill-body", Markdown).source

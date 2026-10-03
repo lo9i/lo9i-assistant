@@ -24,6 +24,7 @@ export type ModelChange = Schemas["ModelChange"];
 export type Device = Schemas["Device"];
 export type PairingCode = Schemas["PairingCode"];
 export type Me = Schemas["Me"];
+export type MemorySnapshot = Schemas["MemorySnapshot"];
 export type SkillSummary = Schemas["SkillSummary"];
 export type Skill = Schemas["Skill"];
 export type FoundSkill = Schemas["FoundSkill"];

@@ -110,6 +110,7 @@ def test_the_setup_skill_is_built_in_and_covers_every_setup_command(isolated_set
         "/telegram",
         "/slack",
         "/mcp",
+        "/plugins",
         "/skills",
         "/startup",
         "/name",

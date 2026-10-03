@@ -64,6 +64,8 @@
         return void goto(resolve("/sessions"));
       case "/jobs":
         return void goto(resolve("/jobs"));
+      case "/plugins":
+        return void goto(resolve("/plugins"));
       case "/skills":
         return void goto(resolve("/skills"));
       case "/usage":

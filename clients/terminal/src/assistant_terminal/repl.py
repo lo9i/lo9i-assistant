@@ -42,6 +42,7 @@ class Repl:
             "/model": self._model,
             "/audio": self._audio,
             "/skills": self._skills,
+            "/plugins": self._plugins,
             "/name": self._name,
             "/jobs": self._jobs,
             "/usage": self._usage,
@@ -97,6 +98,14 @@ class Repl:
         await self._service.resume_thread(self._session.user_id, items[index].thread_id)
         self._session.thread_id = items[index].thread_id
         print(f"Resumed: {items[index].title}")
+
+    async def _plugins(self, _: str) -> None:
+        """Lists them; installing needs the full app (it asks for values)."""
+        contents = await self._service.repositories.browse()
+        listed = [*contents.servers, *contents.skills]
+        print(
+            "\n".join(f"{p.name}: {'installed' if p.installed else 'not installed'}. {p.description}" for p in listed)
+        )
 
     async def _skills(self, _: str) -> None:
         skills = await self._service.skills.list()

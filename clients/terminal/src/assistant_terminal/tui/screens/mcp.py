@@ -96,7 +96,7 @@ class McpScreen(ModalScreen[None]):
     @work
     @reports_daemon_unavailable
     async def _install(self) -> None:
-        installed = await self.app.push_screen_wait(RepositoryInstallScreen(self._repositories))
+        installed = await self.app.push_screen_wait(RepositoryInstallScreen(self._repositories, kind="server"))
         if installed:
             self.notify(f"Installed {', '.join(installed)}.")
             await self.reload()

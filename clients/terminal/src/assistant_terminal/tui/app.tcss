@@ -318,7 +318,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     align: center middle;
 }
 
-#skills, #jobs, #conversations, #devices, #usage, #sessions, #mcp {
+#skills, #jobs, #conversations, #devices, #usage, #sessions, #mcp, #plugins {
     width: 90%;
     max-width: 120;
     height: 80%;
@@ -327,35 +327,35 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     background: $dialog-background;
 }
 
-#skills Markdown, #jobs Markdown, #conversations Markdown, #devices Markdown, #usage Markdown, #sessions Markdown, #mcp Markdown {
+#skills Markdown, #jobs Markdown, #conversations Markdown, #devices Markdown, #usage Markdown, #sessions Markdown, #mcp Markdown, #plugins Markdown {
     background: transparent;
     margin: 0;
 }
 
-#skills-title, #jobs-title, #conversations-title, #devices-title, #mcp-title {
+#skills-title, #jobs-title, #conversations-title, #devices-title, #mcp-title, #plugins-title {
     height: auto;
     text-style: bold;
     margin-bottom: 1;
 }
 
-#skills-empty, #jobs-empty, #conversations-empty, #mcp-empty {
+#skills-empty, #jobs-empty, #conversations-empty, #mcp-empty, #plugins-empty {
     display: none;
     height: auto;
 }
 
-#skills.empty, #jobs.empty, #conversations.empty, #mcp.empty {
+#skills.empty, #jobs.empty, #conversations.empty, #mcp.empty, #plugins.empty {
     height: auto;
 }
 
-#skills.empty #skills-main, #jobs.empty #jobs-main, #conversations.empty #conversations-main, #mcp.empty #mcp-main {
+#skills.empty #skills-main, #jobs.empty #jobs-main, #conversations.empty #conversations-main, #mcp.empty #mcp-main, #plugins.empty #plugins-main {
     display: none;
 }
 
-#skills.empty #skills-empty, #jobs.empty #jobs-empty, #conversations.empty #conversations-empty, #mcp.empty #mcp-empty {
+#skills.empty #skills-empty, #jobs.empty #jobs-empty, #conversations.empty #conversations-empty, #mcp.empty #mcp-empty, #plugins.empty #plugins-empty {
     display: block;
 }
 
-#skills-main, #jobs-main, #conversations-main, #devices-main, #mcp-main, #usage-scroll {
+#skills-main, #jobs-main, #conversations-main, #devices-main, #mcp-main, #usage-scroll, #plugins-main {
     height: 1fr;
 }
 
@@ -369,7 +369,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     height: auto;
 }
 
-#skills-list, #jobs-list, #conversations-list, #devices-list {
+#skills-list, #jobs-list, #conversations-list, #devices-list, #plugins-list {
     width: 36;
     border: round ansi_bright_black;
     background: transparent;
@@ -377,7 +377,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
 
 /* Lists of short labels (dates, job and skill names) have no frame; a divider sets them apart from the
    detail next to them. */
-#conversations-list, #jobs-list, #devices-list, #skills-list, #mcp-list {
+#conversations-list, #jobs-list, #devices-list, #skills-list, #mcp-list, #plugins-list {
     border: none;
 }
 
@@ -385,7 +385,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     width: 22;
 }
 
-#jobs-list, #devices-list, #skills-list, #mcp-list {
+#jobs-list, #devices-list, #skills-list, #mcp-list, #plugins-list {
     width: 32;
 }
 
@@ -395,23 +395,23 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     border-bottom: solid ansi_bright_black;
 }
 
-#conversations-main .divider, #jobs-main .divider, #devices-main .divider, #skills-main .divider, #mcp-main .divider {
+#conversations-main .divider, #jobs-main .divider, #devices-main .divider, #skills-main .divider, #mcp-main .divider, #plugins-main .divider {
     width: 1;
     height: 1fr;
     margin: 1 1 1 0;
     border-left: solid ansi_bright_black;
 }
 
-#skills-detail, #jobs-detail, #conversations-detail, #devices-detail, #mcp-detail {
+#skills-detail, #jobs-detail, #conversations-detail, #devices-detail, #mcp-detail, #plugins-detail {
     padding: 0 1;
 }
 
-#skills-buttons, #jobs-buttons, #conversations-buttons, #devices-buttons, #usage-buttons, #sessions-buttons, #mcp-buttons {
+#skills-buttons, #jobs-buttons, #conversations-buttons, #devices-buttons, #usage-buttons, #sessions-buttons, #mcp-buttons, #plugins-buttons {
     height: auto;
     margin-top: 1;
 }
 
-#skills-buttons Button, #jobs-buttons Button, #conversations-buttons Button, #devices-buttons Button, #usage-buttons Button, #mcp-buttons Button {
+#skills-buttons Button, #jobs-buttons Button, #conversations-buttons Button, #devices-buttons Button, #usage-buttons Button, #mcp-buttons Button, #plugins-buttons Button {
     margin-right: 2;
 }
 
@@ -478,4 +478,8 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
 
 #model-fields {
     height: auto;
+}
+
+#plugins-search {
+    margin: 0 0 1 0;
 }

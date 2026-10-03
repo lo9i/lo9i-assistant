@@ -1,7 +1,4 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
-  import { page } from "$app/state";
-  import { resolve } from "$app/paths";
   import Download from "@lucide/svelte/icons/download";
   import Puzzle from "@lucide/svelte/icons/puzzle";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
@@ -25,19 +22,11 @@
   const shown = $derived(
     (plugins.data ?? []).filter((p) => `${p.name} ${describe(p)} ${kindOf(p)}`.toLowerCase().includes(query.trim().toLowerCase())),
   );
-  // The plugins to check in the install dialog when it's open.
-  let installing = $state<string[] | null>(null);
+  // A plugin that asks for values, while its dialog is open.
+  let asking = $state<string | null>(null);
   let removing = $state<Plugin | null>(null);
   let busy = $state(false);
   const plugin = $derived(plugins.data?.find((p) => keyOf(p) === picked) ?? plugins.data?.[0]);
-
-  // The sidebar's + links here with ?install: open the install dialog, then drop the parameter so a
-  // reload doesn't open it again.
-  $effect(() => {
-    if (!page.url.searchParams.has("install")) return;
-    installing = [];
-    void goto(resolve("/plugins"), { replaceState: true });
-  });
 
   async function act(action: () => Promise<unknown>, done: string): Promise<void> {
     busy = true;
@@ -50,6 +39,18 @@
       busy = false;
     }
     plugins.reload();
+  }
+
+  /** At once when it asks for nothing; otherwise a dialog for its values. */
+  function install(p: Plugin): void {
+    if (p.kind === "server" && p.server.fields.length) {
+      asking = p.name;
+      return;
+    }
+    void act(
+      () => (p.kind === "server" ? client.repositories.install([], [{ name: p.name, values: {} }]) : client.repositories.install([p.name], [])),
+      `Installed ${p.name}. The assistant uses it from your next message.`,
+    );
   }
 
   const update = (p: Plugin) =>
@@ -130,7 +131,7 @@
             <button class="btn btn--neutral btn--sm" disabled={busy} onclick={() => plugin && update(plugin)}><RefreshCw size={14} />Update</button>
             <button class="btn btn--danger btn--sm" disabled={busy} onclick={() => (removing = plugin ?? null)}><Trash2 size={14} />Remove</button>
           {:else}
-            <button class="btn btn--primary btn--sm" disabled={busy} onclick={() => plugin && (installing = [plugin.name])}
+            <button class="btn btn--primary btn--sm" disabled={busy} onclick={() => plugin && install(plugin)}
               ><Download size={14} />Install</button
             >
           {/if}
@@ -140,11 +141,11 @@
   </div>
 </div>
 
-{#if installing}
+{#if asking}
   <InstallDialog
-    picked={installing}
+    only={asking}
     onclose={(installed) => {
-      installing = null;
+      asking = null;
       if (installed) notices.notify(`Installed ${installed.join(", ")}. The assistant uses it from your next message.`);
       plugins.reload();
     }}

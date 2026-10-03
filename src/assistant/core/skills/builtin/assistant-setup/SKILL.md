@@ -92,10 +92,10 @@ Keys are typed only in that dialog, never in the chat. A server is not trusted u
 
 Plugins come from the assistant's own extras (https://github.com/lo9i/lo9i-assistant-extras); there's no other source to choose.
 
-Web UI: **Plugins** in the sidebar lists them, each installed or not, with **Install**, **Update** and **Remove**; the **+** next to Plugins (or next to MCP servers, or **Install** on the Skills and MCP servers pages) opens the install dialog. Terminal app: `/skills` or `/mcp`, then **Install**.
+Web UI: **Plugins** in the sidebar. Terminal app: `/plugins`. Both list them, with a search, each installed or not, with **Install**, **Update** and **Remove**. **Install** installs at once, or first asks for the values a server needs (a user name, a password, a token); secret ones are typed only there, never in the chat. **Install** on the MCP servers page (`/mcp`) and the Skills page (`/skills`) offers the extras' servers or skills that aren't installed yet:
 
-1. The dialog lists what the extras offer.
-2. Check the ones to install. A server that needs values (a user name, a password, a token) shows a field for each; secret ones are typed only there, never in the chat.
+1. The dialog lists what the extras offer there that isn't installed.
+2. Check the ones to install, and fill in the values a server asks for.
 3. Choose **Install**. Everything is available from the user's next message.
 
 What's installed runs on this computer. Installed servers are untrusted by default unless the extras say otherwise: their tools that aren't read-only ask for approval. **Update** downloads one again: a skill's local changes are replaced; a server keeps its values, trust and tool choices, and its data. A server can come with a page (for example Expenses): it shows up in the web UI's sidebar, for paired browsers only; the terminal app and chats can't show it. Only the user installs; you can't. When you save or delete a skill yourself, the user approves it first.

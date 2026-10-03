@@ -34,6 +34,7 @@ from assistant_terminal.tui.screens import (
     JobsScreen,
     McpScreen,
     ModelScreen,
+    PluginsScreen,
     SessionsScreen,
     SkillsScreen,
     SlackScreen,
@@ -100,6 +101,7 @@ class AssistantApp(App):
             "/email": self._command_email,
             "/startup": self._command_startup,
             "/skills": self._command_skills,
+            "/plugins": self._command_plugins,
             "/jobs": self._command_jobs,
             "/devices": self._command_devices,
             "/usage": self._command_usage,
@@ -441,6 +443,9 @@ class AssistantApp(App):
         keys = ["F2 memory panel", "F3 record voice", "Ctrl+N new conversation", "Ctrl+Q quit"]
         body = "\n".join(help_lines())
         await self._chat.mount(SystemNote(f"## Commands\n\n```\n{body}\n```\n\n**Keys:** {', '.join(keys)}"))
+
+    async def _command_plugins(self, _: str) -> None:
+        self.push_screen(PluginsScreen(self._service.repositories, self._service.mcp, self._service.skills))
 
     async def _command_skills(self, _: str) -> None:
         self.push_screen(SkillsScreen(self._service.skills, self._service.repositories))

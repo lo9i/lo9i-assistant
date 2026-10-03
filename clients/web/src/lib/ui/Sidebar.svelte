@@ -12,6 +12,7 @@
   import Plus from "@lucide/svelte/icons/plus";
   import Puzzle from "@lucide/svelte/icons/puzzle";
   import Settings from "@lucide/svelte/icons/settings";
+  import UserRound from "@lucide/svelte/icons/user-round";
   import Sparkles from "@lucide/svelte/icons/sparkles";
   import SunMoon from "@lucide/svelte/icons/sun-moon";
   import WandSparkles from "@lucide/svelte/icons/wand-sparkles";
@@ -45,11 +46,6 @@
     await goto(`${resolve("/mcp")}?install`);
   }
 
-  // The Plugins page opens the install dialog on the assistant's extras when it sees ?install.
-  async function installPlugin(): Promise<void> {
-    await goto(`${resolve("/plugins")}?install`);
-  }
-
   const NAV: { href: string; label: string; Icon: typeof Plus; add?: Add }[] = [
     { href: resolve("/sessions"), label: "Active sessions", Icon: MonitorSmartphone },
     {
@@ -58,6 +54,7 @@
       Icon: MessagesSquare,
       add: { label: "New conversation", run: newConversation },
     },
+    { href: resolve("/memory"), label: "About you", Icon: UserRound },
     { href: resolve("/jobs"), label: "Jobs", Icon: CalendarClock },
     { href: resolve("/skills"), label: "Skills", Icon: WandSparkles },
     {
@@ -66,7 +63,7 @@
       Icon: Blocks,
       add: { label: "Install a plugin", run: installExtra },
     },
-    { href: resolve("/plugins"), label: "Plugins", Icon: Puzzle, add: { label: "Install a plugin", run: installPlugin } },
+    { href: resolve("/plugins"), label: "Plugins", Icon: Puzzle },
     { href: resolve("/usage"), label: "Usage", Icon: ChartColumn },
     { href: resolve("/devices"), label: "Devices", Icon: Laptop, add: { label: "Pair a browser", run: pairBrowser } },
     { href: resolve("/settings"), label: "Settings", Icon: Settings },
