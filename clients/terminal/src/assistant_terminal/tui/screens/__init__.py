@@ -1,5 +1,5 @@
 """Modal screens opened from the chat: setup (the model, audio, Telegram, Slack, email, MCP servers, start at
-boot), browsing (plugins, skills, jobs, usage, connected clients), and approvals."""
+boot), browsing (plugins, skills, jobs, usage, connected clients), approvals and questions."""
 
 from assistant_terminal.tui.screens.approval import ApprovalScreen
 from assistant_terminal.tui.screens.audio import AudioScreen
@@ -11,6 +11,7 @@ from assistant_terminal.tui.screens.jobs import JobsScreen
 from assistant_terminal.tui.screens.mcp import McpScreen
 from assistant_terminal.tui.screens.model import ModelScreen
 from assistant_terminal.tui.screens.plugins import PluginsScreen
+from assistant_terminal.tui.screens.question import QuestionScreen
 from assistant_terminal.tui.screens.sessions import SessionsScreen
 from assistant_terminal.tui.screens.skills import SkillsScreen
 from assistant_terminal.tui.screens.slack import SlackScreen
@@ -29,6 +30,7 @@ __all__ = [
     "McpScreen",
     "ModelScreen",
     "PluginsScreen",
+    "QuestionScreen",
     "SessionsScreen",
     "SkillsScreen",
     "SlackScreen",

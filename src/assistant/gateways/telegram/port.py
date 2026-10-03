@@ -30,7 +30,7 @@ class TelegramChat:
         *first, last = split_text(text, CHUNK) or [text]
         for part in first:
             await self._send_one(part, markdown, None)
-        return await self._send_one(last, markdown, _markup(buttons))
+        return await self._send_one(last, markdown, markup(buttons))
 
     async def _send_one(self, text: str, markdown: bool, markup: InlineKeyboardMarkup | None) -> int:
         try:
@@ -62,10 +62,12 @@ class TelegramChat:
             logger.warning("Telegram edit failed: %s", e)
 
 
-def _markup(buttons: Buttons | None) -> InlineKeyboardMarkup | None:
+def markup(buttons: Buttons | None) -> InlineKeyboardMarkup | None:
+    """Approve and Reject side by side; a question's options one per row, so long ones fit."""
     if not buttons:
         return None
-    return InlineKeyboardMarkup([[InlineKeyboardButton(label, callback_data=data) for label, data in buttons]])
+    keys = [InlineKeyboardButton(label, callback_data=data) for label, data in buttons]
+    return InlineKeyboardMarkup([keys] if len(keys) <= 2 else [[key] for key in keys])
 
 
 def _formatted(text: str, markdown: bool) -> tuple[str, ParseMode | None]:

@@ -1,5 +1,6 @@
 """The header at the start of every user message: date, time and channel, then the messages the
-assistant sent on this channel from elsewhere since the user last wrote (core/conversation/sent.py)."""
+assistant sent on this channel from elsewhere since the user last wrote (core/conversation/sent.py),
+and notes for the assistant (the offer to get to know the user, core/conversation/introduction.py)."""
 
 import re
 from collections.abc import Sequence
@@ -13,6 +14,7 @@ from assistant.core.config import settings
 _HEADER = re.compile(r"^\[[^\]]*, via ([\w-]+)\]$")
 _HEADER_TIME = re.compile(r"^\[\w+ (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) ")
 _SENT = "[You sent this on "
+_NOTE = "[Note for you, not from the user:]"
 
 
 def header_block(channel: str, now: datetime) -> dict[str, str]:
@@ -25,11 +27,16 @@ def sent_block(channel: str, at: datetime, text: str) -> dict[str, str]:
     return {"type": "text", "text": f"{_SENT}{channel} at {local:%a %Y-%m-%d %H:%M %Z}, outside this chat:]\n{text}"}
 
 
+def note_block(text: str) -> dict[str, str]:
+    return {"type": "text", "text": f"{_NOTE}\n{text}"}
+
+
 def is_header(block: object) -> bool:
-    """True for the blocks `header_block` and `sent_block` made, so displays can leave them out."""
+    """True for the blocks `header_block`, `sent_block` and `note_block` made, so displays can leave
+    them out."""
     if _channel(block) is not None:
         return True
-    return isinstance(block, dict) and str(block.get("text", "")).startswith(_SENT)
+    return isinstance(block, dict) and str(block.get("text", "")).startswith((_SENT, _NOTE))
 
 
 def channels(messages: Sequence[BaseMessage]) -> list[str]:

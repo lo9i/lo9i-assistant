@@ -48,9 +48,19 @@ export type McpToolInfo = Schemas["McpToolInfo"];
 export type McpServerSettings = Schemas["McpServerSettings"];
 export type McpServerChange = Schemas["McpServerChange"];
 
-export type ApprovalRequest = { tool?: string; reason?: string; command?: string } & Record<string, unknown>;
+/** An approval, or with `kind: "question"` a question with options (core/events.py). */
+export type ApprovalRequest = {
+  kind?: string;
+  tool?: string;
+  reason?: string;
+  command?: string;
+  question?: string;
+  options?: string[];
+  multiple?: boolean;
+} & Record<string, unknown>;
 export type ApprovalRequired = { type: "ApprovalRequired"; interrupt_id: string; request: ApprovalRequest };
-export type Decision = { approved: boolean; reason: string | null };
+/** An approval's answer, or a question's: the options picked, null when skipped. */
+export type Decision = { approved: boolean; reason: string | null } | { choices: string[] | null };
 
 export type RunEvent =
   | { type: "TextDelta"; text: string }

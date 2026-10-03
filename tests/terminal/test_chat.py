@@ -8,9 +8,42 @@ from assistant.client import DaemonUnavailableError, clipboard
 from assistant.core.attachments import Attachment
 from assistant.core.events import Cancelled, ToolStarted
 from assistant_terminal.tui.attachments import AttachmentBar
-from assistant_terminal.tui.screens import ApprovalScreen
+from assistant_terminal.tui.screens import ApprovalScreen, QuestionScreen
 from assistant_terminal.tui.widgets import AssistantMessage, StoppedNote, ToolCall, UserMessage
 from tests.terminal.conftest import wait_for
+
+
+async def test_a_question_with_several_options_is_answered_with_the_picked_ones(app, client):
+    client.waiting_for = {
+        "kind": "question",
+        "question": "Which?",
+        "options": ["Google", "GitHub", "X"],
+        "multiple": True,
+    }
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"look me up", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, QuestionScreen))
+        await pilot.press("space", "down", "down", "space")
+        app.screen.query_one("#done").press()
+        await wait_for(pilot, lambda: not app._busy)
+        assert client.decisions == {"i1": {"choices": ["Google", "X"]}}
+
+
+async def test_a_question_with_one_choice_answers_on_enter_and_esc_skips(app, client):
+    client.waiting_for = {"kind": "question", "question": "Which one is you?", "options": ["Ana P.", "Ana R."]}
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"look me up", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, QuestionScreen))
+        await pilot.press("down", "enter")
+        await wait_for(pilot, lambda: not app._busy)
+        assert client.decisions == {"i1": {"choices": ["Ana R."]}}
+        await pilot.press(*"again", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, QuestionScreen))
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: not app._busy)
+        assert client.decisions == {"i1": {"choices": None}}
 
 
 async def test_turn_with_approval(app, client):
@@ -176,3 +209,11 @@ async def test_attached_files_show_as_tags_that_can_be_removed(app, client, tmp_
         await pilot.press("enter")
         await wait_for(pilot, lambda: client.sent)
         assert client.sent[0] == ("", [("a.txt", "text/plain")]) and not bar.pending
+
+
+async def test_get_to_know_me_sends_its_message(app, client):
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/get-to-know-me", "enter")
+        await wait_for(pilot, lambda: bool(client.sent))
+        assert client.sent[0][0] == "Get to know me."
