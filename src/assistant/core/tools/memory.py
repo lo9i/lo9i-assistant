@@ -20,7 +20,10 @@ _MESSAGE_RESULTS = 10
 @register("memory")
 @tool
 async def remember(fact: str, runtime: ToolRuntime[Context]) -> str:
-    """Save a one-off fact about the user (an event, a detail, a decision) for future conversations.
+    """Save a detail about the user that stays true (a date, a decision, an account) for future conversations.
+
+    Not for the status of a task or a problem (a bill not paid yet, a fix in progress): conversation summaries
+    keep that.
 
     Lasting things about the user (who they are, people, how to reply, routine, goals, interests, dislikes, work)
     go in the profile instead.
