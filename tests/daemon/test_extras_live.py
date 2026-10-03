@@ -31,7 +31,7 @@ async def test_expenses_installs_from_github_and_runs_with_its_page(service, sho
     installed = await service.install_from_repository(EXTRAS, [], [ServerValues("expenses")])
     assert installed.servers[0].page and (await service.get_skill("expenses")).server == "expenses"
     server = await servers.load(service.store, "expenses")
-    assert "month_summary" in {t.name for t in await service.probe_mcp_server(server)}
+    assert "month_summary" in {t.name for t in (await service.probe_mcp_server(server)).tools}
     assert (short_data_dir / "expenses" / "expenses.db").exists()
 
     stop = asyncio.Event()

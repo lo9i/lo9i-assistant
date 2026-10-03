@@ -30,9 +30,9 @@ logger = logging.getLogger(__name__)
 
 COOKIE = "lo9i_device"
 _TRUSTED = "lo9i.trusted"
-# Email sign-in's last step comes from the browser that signed in, maybe unpaired; its one-time
-# state proves it (core/integrations/email/oauth.py).
-_OPEN_PATHS = {"/health", "/auth/pair", "/integrations/email/oauth/finish"}
+# A sign-in's last step comes from the browser that signed in, maybe unpaired; its one-time state
+# proves it (core/oauth.py).
+_OPEN_PATHS = {"/health", "/auth/pair", "/oauth/finish"}
 
 
 class PairRequest(BaseModel):

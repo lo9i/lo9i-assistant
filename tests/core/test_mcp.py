@@ -66,7 +66,7 @@ def notes() -> list[str]:
 async def service(script, digests, titles, notes, monkeypatch) -> AsyncIterator[AssistantService]:
     """The service with its MCP hub running, every server connecting to the in-process notes server."""
     fake = _notes_server(notes)
-    monkeypatch.setattr(hub_module, "open_client", lambda server, handler: Client(fake, message_handler=handler))
+    monkeypatch.setattr(hub_module, "open_client", lambda server, handler, auth: Client(fake, message_handler=handler))
     async with AssistantService.open() as svc:
         stop = asyncio.Event()
         task = asyncio.create_task(svc.mcp.run(stop))
@@ -164,7 +164,9 @@ async def test_status_shows_env_and_header_names_but_never_values(service):
 
 
 async def test_probe_lists_tools_without_saving(service):
-    tools = await service.probe_mcp_server(McpServer(name="notes", command="notes-server", include=["read_notes"]))
+    tools = (
+        await service.probe_mcp_server(McpServer(name="notes", command="notes-server", include=["read_notes"]))
+    ).tools
     assert {(t.name, t.selected) for t in tools} == {("read_notes", True), ("add_note", False), ("chart", False)}
     assert await service.mcp_servers() == []
 

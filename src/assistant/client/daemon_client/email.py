@@ -78,7 +78,7 @@ class EmailApi:
         account_id: str = "",
     ) -> str:
         """The provider's sign-in page (OAuth: google, microsoft). The browser comes back to
-        `redirect_uri`, the web app's /app/oauth, which finishes it. Raises EmailError."""
+        `redirect_uri`, the web app's /app/oauth, which finishes it (`client.oauth`). Raises EmailError."""
         body = {
             "provider": provider,
             "client_id": client_id,
@@ -90,11 +90,6 @@ class EmailApi:
         }
         data = await self._transport.request("POST", f"{_PATH}/oauth/start", json=body, errors=_ERRORS)
         return data["url"]
-
-    async def finish_sign_in(self, state: str, code: str) -> EmailAccount:
-        """Finish with the code from the address the browser was sent back to. Raises EmailError."""
-        body = {"state": state, "code": code}
-        return EmailAccount(**await self._transport.request("POST", f"{_PATH}/oauth/finish", json=body, errors=_ERRORS))
 
     async def _put(self, account_id: str, path: str, body: dict | None) -> EmailAccount:
         url = f"{_PATH}/accounts/{account_id}{path}"

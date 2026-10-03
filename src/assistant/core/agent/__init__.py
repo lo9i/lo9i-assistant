@@ -1,8 +1,8 @@
 """AssistantService: the only core API that gateways use.
 
 The service is a facade (`service.py`) composed of mixins, one per concern:
-threads, memory, telegram, slack, email, mcp, alerts, repositories, model, identity, speech, skills, jobs, usage,
-messaging, runs and locking.
+threads, memory, telegram, slack, email, mcp, sign-ins, alerts, repositories, model, identity, speech, skills, jobs,
+usage, messaging, runs and locking.
 """
 
 from assistant.core.agent.alerts import Alert
@@ -11,7 +11,14 @@ from assistant.core.agent.devices import Device, DeviceError, PairingCode
 from assistant.core.agent.email import EmailAccount, EmailAccountNotFoundError, EmailError, EmailProvider
 from assistant.core.agent.identity import InvalidNameError
 from assistant.core.agent.jobs import Job, JobError, RunRecord
-from assistant.core.agent.mcp import McpServer, McpServerChanges, McpServerError, McpServerStatus, McpToolInfo
+from assistant.core.agent.mcp import (
+    McpProbe,
+    McpServer,
+    McpServerChanges,
+    McpServerError,
+    McpServerStatus,
+    McpToolInfo,
+)
 from assistant.core.agent.model import ModelProvider, ModelSettingsError, ModelStatus, ProviderField
 from assistant.core.agent.repositories import (
     FoundServer,
@@ -23,6 +30,7 @@ from assistant.core.agent.repositories import (
 )
 from assistant.core.agent.service import AssistantService
 from assistant.core.agent.session import Session
+from assistant.core.agent.sign_ins import SignedIn, SignInError
 from assistant.core.agent.skills import FoundSkill, Skill, SkillError, SkillSummary
 from assistant.core.agent.slack import SlackError, SlackStatus
 from assistant.core.agent.snapshot import MemorySnapshot
@@ -51,6 +59,7 @@ __all__ = [
     "InvalidTokenError",
     "Job",
     "JobError",
+    "McpProbe",
     "McpServer",
     "McpServerChanges",
     "McpServerError",
@@ -69,6 +78,8 @@ __all__ = [
     "ServerValues",
     "Session",
     "ShownMessage",
+    "SignInError",
+    "SignedIn",
     "Skill",
     "SkillError",
     "SkillSummary",

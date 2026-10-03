@@ -1,16 +1,19 @@
-"""MCP servers from any client: adding one after a look at its tools, choosing which tools the agent
-gets, trusting it or not, and removing it. Env values and headers never leave the daemon."""
+"""MCP servers from any client: adding one after a look at its tools, signing in to a remote one,
+choosing which tools the agent gets, trusting it or not, and removing it. Env values, headers and
+sign-ins never leave the daemon."""
 
 import asyncio
 from dataclasses import dataclass, fields, replace
 
 from assistant.core.agent.base import ServiceBase
 from assistant.core.mcp import install, servers
-from assistant.core.mcp.hub import McpHub, McpToolInfo
+from assistant.core.mcp.hub import McpHub, McpProbe, McpToolInfo
 from assistant.core.mcp.servers import McpServer, McpServerError
+from assistant.core.mcp.sign_in import McpSignIn
 
 __all__ = [
     "McpMixin",
+    "McpProbe",
     "McpServer",
     "McpServerChanges",
     "McpServerError",
@@ -35,7 +38,7 @@ class McpServerStatus:
     trusted: bool
     include: list[str]
     exclude: list[str]
-    # connecting, connected, failed, off
+    # connecting, connected, failed, needs_sign_in (a remote server waiting for the user to sign in), off
     status: str
     error: str
     tools: list[McpToolInfo]
@@ -72,8 +75,9 @@ class McpMixin(ServiceBase):
     async def mcp_servers(self) -> list[McpServerStatus]:
         return [await self._mcp_status(s) for s in await servers.load_all(self._storage.store)]
 
-    async def probe_mcp_server(self, server: McpServer) -> list[McpToolInfo]:
-        """The server's tools, to choose from before adding it. Raises McpServerError."""
+    async def probe_mcp_server(self, server: McpServer) -> McpProbe:
+        """The server's tools, to choose from before adding it, or that it asks to sign in.
+        Raises McpServerError."""
         return await self.mcp.probe(server)
 
     async def add_mcp_server(self, server: McpServer) -> McpServerStatus:
@@ -86,7 +90,23 @@ class McpMixin(ServiceBase):
         """Raises McpServerError for an unknown server or invalid settings."""
         server = await servers.load(self._storage.store, name)
         values = {f.name: v for f in fields(changes) if (v := getattr(changes, f.name)) is not None}
+        if changes.url is not None and changes.url != server.url:
+            # A sign-in belongs to the server at the old URL.
+            await self.mcp.sign_out(name)
         return await self._save_mcp_server(replace(server, **values))
+
+    async def start_mcp_sign_in(self, name: str, redirect_uri: str) -> str:
+        """The server's sign-in page. The browser comes back to `redirect_uri` (the web app's
+        /app/oauth), which calls finish_sign_in. Raises McpServerError."""
+        server = await servers.load(self._storage.store, name)
+        started = await self.mcp.start_sign_in(server, redirect_uri)
+        self._sign_ins.add(started.state, started)
+        return started.page
+
+    async def _finish_mcp_sign_in(self, started: McpSignIn, code: str) -> McpServerStatus:
+        """Raises SignInError. The server connects again with the new sign-in."""
+        await self.mcp.finish_sign_in(started, code)
+        return await self._mcp_status(await servers.load(self._storage.store, started.server))
 
     async def remove_mcp_server(self, name: str) -> None:
         """Raises McpServerError for an unknown server."""

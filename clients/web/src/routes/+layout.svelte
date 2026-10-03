@@ -19,7 +19,7 @@
   const CHANNEL = "web";
 
   let { children }: { children: Snippet } = $props();
-  // Where an email sign-in comes back (routes/oauth): it finishes on its own, maybe in a browser that
+  // Where a sign-in comes back (routes/oauth): it finishes on its own, maybe in a browser that
   // isn't paired, so it gets no app around it.
   const standalone = page.url.pathname === resolve("/oauth");
 

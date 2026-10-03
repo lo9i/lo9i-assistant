@@ -8,6 +8,7 @@ from assistant.core.agent.base import ServiceBase
 from assistant.core.integrations.email import accounts, imap, oauth, smtp
 from assistant.core.integrations.email.accounts import EmailConfig, EmailError
 from assistant.core.integrations.email.providers import PROVIDERS, EmailProvider
+from assistant.core.oauth import new_state
 from assistant.core.secret_store import SecretError
 
 __all__ = ["EmailAccount", "EmailAccountNotFoundError", "EmailError", "EmailMixin", "EmailProvider"]
@@ -115,13 +116,15 @@ class EmailMixin(ServiceBase):
     ) -> str:
         """The provider's sign-in page for a new account, or `account_id` signing in again. The
         browser comes back to `redirect_uri` (the web app's /app/oauth), which calls
-        finish_email_sign_in. Raises EmailError."""
+        finish_sign_in. Raises EmailError."""
         if account_id:
             await self._email(account_id)
             if not client_id.strip():
                 client_id, client_secret = await self._saved_oauth_app(account_id)
         sign_in = oauth.new_sign_in(provider, client_id, client_secret, redirect_uri, address, label, account_id)
-        return self._email_sign_ins.start(sign_in)
+        state = new_state()
+        self._sign_ins.add(state, sign_in)
+        return oauth.authorization_url(sign_in, state)
 
     async def _saved_oauth_app(self, account_id: str) -> tuple[str, str]:
         """The client id and secret an account signed in with, to sign in again without typing them;
@@ -134,9 +137,8 @@ class EmailMixin(ServiceBase):
             return "", ""
         return tokens.client_id, tokens.client_secret
 
-    async def finish_email_sign_in(self, state: str, code: str) -> EmailAccount:
+    async def _finish_email_sign_in(self, sign_in: oauth.SignIn, code: str) -> EmailAccount:
         """Trade the code for tokens, check both servers with them, and save the account. Raises EmailError."""
-        sign_in = self._email_sign_ins.take(state)
         tokens = await oauth.exchange(sign_in, code)
         config = await self._signed_in_config(sign_in, tokens.access_token)
         return await self._verified_save(config, tokens.to_secret())

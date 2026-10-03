@@ -1,10 +1,10 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import type { Failing, JobFinished } from "$lib/api/types";
+  import type { Failing, JobFinished, SignedOut } from "$lib/api/types";
   import { followRuns } from "$lib/chat/events";
   import { saveThread } from "$lib/chat/tabThread";
   import { external, provideDaemon, resource, type Daemon } from "$lib/daemon.svelte";
-  import { failingNotice } from "$lib/health";
+  import { failingNotice, signedOutNotice } from "$lib/health";
   import { sidebar } from "$lib/sidebar.svelte";
   import Sidebar from "./Sidebar.svelte";
   import Toasts from "./Toasts.svelte";
@@ -36,6 +36,7 @@
     }),
   );
   $effect(() => hub.on(["failing"], (data) => notices.notify(failingNotice(data as Failing), "warning")));
+  $effect(() => hub.on(["signed_out"], (data) => notices.notify(signedOutNotice(data as SignedOut), "warning")));
 
   function onKeydown(e: KeyboardEvent): void {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {

@@ -240,9 +240,9 @@ async def test_mcp_servers_through_the_client(client, service, monkeypatch):
         """Add a note."""
         return text
 
-    monkeypatch.setattr(service.mcp, "_factory", lambda server, handler: Client(fake, message_handler=handler))
+    monkeypatch.setattr(service.mcp, "_factory", lambda server, handler, auth: Client(fake, message_handler=handler))
     server = McpServer(name="notes", command="notes-server", env={"TOKEN": "secret"})
-    assert [t.name for t in await client.mcp.probe(server)] == ["add_note"]
+    assert [t.name for t in (await client.mcp.probe(server)).tools] == ["add_note"]
     added = await client.mcp.add(server)
     assert added.env_keys == ["TOKEN"] and added.status == "off"  # the hub isn't running here
     changed = await client.mcp.change("notes", McpServerChanges(trusted=True, include=["add_note"]))

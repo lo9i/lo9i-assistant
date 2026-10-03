@@ -5,6 +5,7 @@
   import { resolve } from "$app/paths";
   import Blocks from "@lucide/svelte/icons/blocks";
   import Download from "@lucide/svelte/icons/download";
+  import LogIn from "@lucide/svelte/icons/log-in";
   import Plus from "@lucide/svelte/icons/plus";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -12,7 +13,8 @@
   import type { McpServerStatus } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { failures } from "$lib/health";
-  import { STATUS_TONES, selectionFor } from "$lib/mcp";
+  import { STATUS_TONES, selectionFor, statusLabel } from "$lib/mcp";
+  import { redirectUri } from "$lib/oauth";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Toggle from "$lib/ui/Toggle.svelte";
@@ -64,6 +66,14 @@
     });
   }
 
+  /** Opens the server's sign-in page; the /oauth page finishes it and the server connects here. */
+  function signIn(name: string): void {
+    change(async () => {
+      window.open(await client.mcp.startSignIn(name, redirectUri()), "_blank", "noopener");
+      notices.notify(`Finish signing in on the page that opened; ${name} connects here once it's done.`);
+    });
+  }
+
   function saveTools(s: McpServerStatus): void {
     change(async () => {
       await client.mcp.change(s.name, selectionFor(s.tools, chosen));
@@ -104,7 +114,7 @@
                 <td class="hide-narrow">{s.plugin ? `Plugin ${s.plugin}` : "You"}</td>
                 <td class="hide-narrow">{selected(s)}</td>
                 <td>
-                  <span class="state"><span class="status-dot" style:--tone={STATUS_TONES[s.status]}></span>{s.status}</span>
+                  <span class="state"><span class="status-dot" style:--tone={STATUS_TONES[s.status]}></span>{statusLabel(s.status)}</span>
                   {#if s.failing}<span class="pill pill--danger">failing</span>{/if}
                 </td>
               </tr>
@@ -129,7 +139,7 @@
         {#if server.error}<p class="error-text">{server.error}</p>{/if}
         <dl>
           <dt class="micro-label">Status</dt>
-          <dd>{server.status}</dd>
+          <dd>{statusLabel(server.status)}</dd>
           {#if server.failures}<dt class="micro-label">Failures</dt><dd>{failures(server)}</dd>{/if}
           {#if server.transport === "stdio"}
             <dt class="micro-label">Command</dt>
@@ -165,6 +175,9 @@
           />
         </div>
         <div class="actions">
+          {#if server.status === "needs_sign_in"}
+            <button class="btn btn--primary btn--sm" onclick={() => signIn(server.name)}><LogIn size={14} />Sign in</button>
+          {/if}
           <button class="btn btn--neutral btn--sm" onclick={() => (secrets = server.transport === "stdio" ? "env" : "headers")}>
             {server.transport === "stdio" ? "Change environment" : "Change headers"}
           </button>
@@ -180,7 +193,9 @@
           {#if dirty}<button class="btn btn--primary btn--sm" onclick={() => saveTools(server)}>Save</button>{/if}
         </header>
         <div class="tools-scroll">
-          {#if server.status !== "connected"}
+          {#if server.status === "needs_sign_in"}
+            <EmptyState icon={LogIn} title="Sign in" text="It asks you to sign in. Its tools show up here once you have." />
+          {:else if server.status !== "connected"}
             <EmptyState icon={Wrench} title="Not connected" text="Its tools show up here once it connects." />
           {:else}
             <ToolChecklist tools={server.tools} {chosen} onchange={(c) => (chosen = c)} />

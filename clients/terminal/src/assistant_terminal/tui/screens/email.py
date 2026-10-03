@@ -9,7 +9,6 @@ daemon's web app on this computer, which finishes it, or the user pastes the add
 
 import webbrowser
 from typing import ClassVar
-from urllib.parse import parse_qs, urlparse
 
 from textual import on
 from textual.app import ComposeResult
@@ -18,9 +17,9 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Markdown, Select
 
-from assistant.client.daemon_client import EmailApi
-from assistant.core.agent import EmailAccount, EmailError, EmailProvider
-from assistant.core.config import settings
+from assistant.client.daemon_client import EmailApi, OAuthApi
+from assistant.core.agent import EmailAccount, EmailError, EmailProvider, SignInError
+from assistant_terminal.sign_in_text import MISSING_CODE, PASTE_HINT, REDIRECT, returned, signing_message
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 _INTRO = """## Add an email account
@@ -42,13 +41,11 @@ _FIELDS = {
     "email-imap": ("IMAP host, to read mail (TLS on port 993; leave empty to only send)", False),
     "email-client-id": ("Your OAuth app's client ID", False),
     "email-client-secret": ("Your OAuth app's client secret", True),
-    "email-returned": ("Paste the address your browser ended on, if it didn't finish by itself", False),
+    "email-returned": (PASTE_HINT, False),
 }
 _PRESET_FIELDS = {"email-label", "email-address", "email-password"}
 _OAUTH_FIELDS = {"email-label", "email-address", "email-client-id", "email-client-secret"}
 _OTHER_FIELDS = set(_FIELDS) - {"email-address", "email-client-id", "email-client-secret", "email-returned"}
-# The daemon's web app on this computer: Google and Microsoft both allow http for localhost.
-_REDIRECT = f"http://localhost:{settings.daemon_port}/app/oauth"
 _ALERTS = [
     ("Don't announce new mail", ""),
     ("Announce new mail on Telegram", "telegram"),
@@ -61,9 +58,10 @@ _OTHER_HELP = "Most providers need an **app password** here, not your account pa
 class EmailScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
 
-    def __init__(self, email: EmailApi) -> None:
+    def __init__(self, email: EmailApi, oauth: OAuthApi) -> None:
         super().__init__()
         self._email = email
+        self._oauth = oauth
         self._message = ""
         self._providers: dict[str, EmailProvider] = {}
         self._choice: str | None = None
@@ -183,7 +181,7 @@ class EmailScreen(ModalScreen[None]):
                 provider.oauth,
                 value["email-client-id"],
                 value["email-client-secret"],
-                _REDIRECT,
+                REDIRECT,
                 value["email-address"] or (account.sender if account else ""),
                 value["email-label"],
                 account.id if account else "",
@@ -194,20 +192,20 @@ class EmailScreen(ModalScreen[None]):
             return
         opened = webbrowser.open(url)
         self._signing = True
-        self._message = _signing_message(url, opened)
+        self._message = signing_message(url, opened, "the account shows up here")
         await self._refresh()
 
     @on(Button.Pressed, "#finish")
     @reports_daemon_unavailable
     async def _finish(self) -> None:
-        state, code = _returned(self.query_one("#email-returned", Input).value)
+        state, code = returned(self.query_one("#email-returned", Input).value)
         if not state or not code:
-            self._message = "**Paste the whole address your browser ended on: it has `code=` and `state=` in it.**"
+            self._message = MISSING_CODE
             await self._refresh()
             return
         try:
-            saved = await self._email.finish_sign_in(state, code)
-        except EmailError as e:
+            saved = await self._oauth.finish(state, code)
+        except SignInError as e:
             self._message = f"**{e}**"
             await self._refresh()
             return
@@ -362,7 +360,7 @@ def _help(provider: EmailProvider | None, editing: bool) -> str:
     if provider.oauth:
         keep = "\n\nLeave the client ID and secret empty to keep the saved ones." if editing else ""
         where = f"\n\nSet it up at {provider.password_url}" if provider.password_url else ""
-        return f"{provider.password_help}{where}\n\nRedirect URI to register: `{_REDIRECT}`{keep}"
+        return f"{provider.password_help}{where}\n\nRedirect URI to register: `{REDIRECT}`{keep}"
     link = f"\n\nCreate it at {provider.password_url}" if provider.password_url else ""
     return provider.password_help + link + keep
 
@@ -384,17 +382,3 @@ def _describe(account: EmailAccount | None, editing: bool, message: str) -> str:
     if account.status != "ok":
         lines.insert(1, f"**Needs signing in again:** {account.problem} Use Change sign-in.")
     return "\n\n".join([*lines, message] if message else lines)
-
-
-def _signing_message(url: str, opened: bool) -> str:
-    browser = "A browser opened with it" if opened else "Open it in a browser"
-    return (
-        f"{browser}: [sign in]({url})\n\nOn this computer, the browser comes back to the assistant and "
-        "the account shows up here. Elsewhere (over SSH), paste the address the browser ended on, then Finish."
-    )
-
-
-def _returned(address: str) -> tuple[str, str]:
-    """The state and code in the address the provider sent the browser back to."""
-    query = parse_qs(urlparse(address.strip()).query)
-    return query.get("state", [""])[0], query.get("code", [""])[0]

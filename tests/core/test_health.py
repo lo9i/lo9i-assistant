@@ -54,7 +54,7 @@ def _disk_server() -> MCPServer:
 @pytest.fixture
 async def service(script, digests, titles, monkeypatch) -> AsyncIterator[AssistantService]:
     fake = _disk_server()
-    monkeypatch.setattr(hub_module, "open_client", lambda server, handler: Client(fake, message_handler=handler))
+    monkeypatch.setattr(hub_module, "open_client", lambda server, handler, auth: Client(fake, message_handler=handler))
     async with AssistantService.open() as svc:
         stop = asyncio.Event()
         task = asyncio.create_task(svc.mcp.run(stop))
@@ -97,7 +97,7 @@ async def test_mcp_failures_in_a_row_alert_once_and_a_success_clears_them(servic
 
 
 async def test_a_server_that_cant_connect_counts_a_failure(service, monkeypatch):
-    def refuse(server, handler):
+    def refuse(server, handler, auth):
         raise OSError("no such command")
 
     monkeypatch.setattr(service.mcp, "_factory", refuse)

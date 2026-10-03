@@ -6,11 +6,11 @@ from assistant.core.conversation.digest import Digester
 from assistant.core.conversation.titles import Titler
 from assistant.core.graph import Graph
 from assistant.core.health import HealthLog
-from assistant.core.integrations.email.oauth import SignIns
 from assistant.core.mcp.hub import McpHub
 from assistant.core.mcp.pages import McpPages
 from assistant.core.memory.indexer import MemoryIndexer
 from assistant.core.memory.recall import MemoryRecall
+from assistant.core.oauth import SignIns
 from assistant.core.outbox import Outbox
 from assistant.core.secret_store import SecretBox
 from assistant.core.speech.synthesizer import Synthesizer
@@ -36,8 +36,8 @@ class ServiceBase:
     _recall: MemoryRecall
     # Encrypts accounts' passwords and tokens (core/secret_store.py).
     secrets: SecretBox
-    # Email sign-ins (OAuth) waiting for the provider to send the browser back.
-    _email_sign_ins: SignIns
+    # Sign-ins (OAuth: email accounts, MCP servers) waiting for the browser to come back.
+    _sign_ins: SignIns
     # Failures of MCP servers and skills in a row (core/health.py), shared with `mcp`.
     _health: HealthLog
     _graph: Graph

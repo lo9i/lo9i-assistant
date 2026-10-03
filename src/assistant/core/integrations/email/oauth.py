@@ -3,7 +3,7 @@ XOAUTH2 with an access token where other accounts use a password.
 
 The user registers their own OAuth app (a shared one would need Google's paid review for mail
 scopes) and gives its client id and secret. The provider sends the browser back to the web app's
-/app/oauth page, which hands the code to the daemon with the one-time `state`. The refresh token is
+/app/oauth page, which hands the code to the daemon with the one-time `state` (core/oauth.py). The refresh token is
 the account's secret, encrypted like a password; access tokens are refreshed when they expire.
 """
 
@@ -18,10 +18,9 @@ from urllib.parse import urlencode
 import httpx
 
 from assistant.core.integrations.email.errors import EmailError
+from assistant.core.oauth import expiry
 
 _TIMEOUT = 20
-# A sign-in not finished in this time is forgotten.
-_PENDING_SECONDS = 600
 # Refreshed this long before it expires, so a token never runs out mid-connection.
 _MARGIN_SECONDS = 120
 
@@ -104,41 +103,21 @@ class SignIn:
     expires_at: float
 
 
-class SignIns:
-    """Sign-ins in progress, by their one-time `state`. Kept in memory: a restart only means
-    signing in again."""
-
-    def __init__(self) -> None:
-        self._pending: dict[str, SignIn] = {}
-
-    def start(self, sign_in: SignIn) -> str:
-        """The provider's sign-in page for it."""
-        provider = provider_for(sign_in.provider)
-        state = secrets.token_urlsafe(32)
-        self._forget_expired(time.time())
-        self._pending[state] = sign_in
-        query = {
-            "client_id": sign_in.client_id,
-            "response_type": "code",
-            "redirect_uri": sign_in.redirect_uri,
-            "scope": provider.scopes,
-            "state": state,
-            "code_challenge": _challenge(sign_in.verifier),
-            "code_challenge_method": "S256",
-            "login_hint": sign_in.address,
-            **dict(provider.extra),
-        }
-        return f"{provider.auth_url}?{urlencode(query)}"
-
-    def take(self, state: str) -> SignIn:
-        """The sign-in for this state, once. Raises EmailError for an unknown or expired one."""
-        sign_in = self._pending.pop(state, None)
-        if sign_in is None or time.time() > sign_in.expires_at:
-            raise EmailError("This sign-in has expired or was already used. Start it again from the app.")
-        return sign_in
-
-    def _forget_expired(self, now: float) -> None:
-        self._pending = {s: p for s, p in self._pending.items() if p.expires_at > now}
+def authorization_url(sign_in: SignIn, state: str) -> str:
+    """The provider's sign-in page for it."""
+    provider = provider_for(sign_in.provider)
+    query = {
+        "client_id": sign_in.client_id,
+        "response_type": "code",
+        "redirect_uri": sign_in.redirect_uri,
+        "scope": provider.scopes,
+        "state": state,
+        "code_challenge": _challenge(sign_in.verifier),
+        "code_challenge_method": "S256",
+        "login_hint": sign_in.address,
+        **dict(provider.extra),
+    }
+    return f"{provider.auth_url}?{urlencode(query)}"
 
 
 def new_sign_in(
@@ -149,7 +128,6 @@ def new_sign_in(
     if not client_id.strip() or not redirect_uri.strip() or "@" not in address:
         raise EmailError("Enter the email address and your OAuth app's client ID.")
     verifier = secrets.token_urlsafe(64)
-    expires = time.time() + _PENDING_SECONDS
     return SignIn(
         provider,
         client_id.strip(),
@@ -159,7 +137,7 @@ def new_sign_in(
         address.strip(),
         label,
         account_id,
-        expires,
+        expiry(),
     )
 
 

@@ -31,9 +31,15 @@ export function selectionFor(tools: McpToolInfo[], chosen: Set<string>): Selecti
   return { include: names, exclude: [] };
 }
 
+/** A server's status as the page shows it: the daemon's word, with needs_sign_in spelled out. */
+export function statusLabel(status: string): string {
+  return status === "needs_sign_in" ? "needs you to sign in" : status;
+}
+
 export const STATUS_TONES: Record<string, string | undefined> = {
   connected: "var(--color-success)",
   connecting: "var(--color-warn)",
   failed: "var(--color-danger)",
+  needs_sign_in: "var(--color-warn)",
   off: undefined,
 };

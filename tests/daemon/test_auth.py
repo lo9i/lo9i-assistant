@@ -142,7 +142,7 @@ async def test_revoking_ends_the_devices_open_streams():
     assert received == [1]
 
 
-async def test_an_email_sign_in_finishes_from_an_unpaired_browser_but_only_starts_from_a_paired_one(app):
+async def test_a_sign_in_finishes_from_an_unpaired_browser_but_only_starts_from_a_paired_one(app):
     sign_in = {
         "provider": "google",
         "client_id": "c",
@@ -152,5 +152,5 @@ async def test_an_email_sign_in_finishes_from_an_unpaired_browser_but_only_start
     async with _http(app) as browser:
         assert (await browser.post("/integrations/email/oauth/start", json=sign_in)).status_code == 401
         # The one-time state is the proof: a wrong one is refused, not the browser.
-        finish = await browser.post("/integrations/email/oauth/finish", json={"state": "guess", "code": "x"})
+        finish = await browser.post("/oauth/finish", json={"state": "guess", "code": "x"})
         assert finish.status_code == 400 and "expired" in finish.json()["detail"]

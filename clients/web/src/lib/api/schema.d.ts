@@ -504,28 +504,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/integrations/email/oauth/finish": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Finish Email Sign In
-         * @description Open to unpaired browsers: the one-time state is the proof (the web app's /app/oauth page
-         *     may be opened on the daemon's own computer, before pairing). 400: expired state, refused
-         *     code, or a server that won't log in with the token.
-         */
-        post: operations["finish_email_sign_in_integrations_email_oauth_finish_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/integrations/email/accounts/{account_id}/label": {
         parameters: {
             query?: never;
@@ -591,6 +569,29 @@ export interface paths {
         /** Email Recipients */
         put: operations["email_recipients_integrations_email_accounts__account_id__recipients_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish Sign In
+         * @description The last step of a sign-in (an email account, a remote MCP server). Open to unpaired
+         *     browsers: the one-time state is the proof (the web app's /app/oauth page may be opened on
+         *     the daemon's own computer, before pairing). 400: expired state, refused code, or a server
+         *     that won't work with the tokens.
+         */
+        post: operations["finish_sign_in_oauth_finish_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -724,7 +725,8 @@ export interface paths {
         put?: never;
         /**
          * Probe Mcp Server
-         * @description Connect once and list the server's tools, without saving it.
+         * @description Connect once and list the server's tools, without saving it. A remote server may ask to
+         *     sign in instead: it can be added, then signed in to.
          */
         post: operations["probe_mcp_server_mcp_probe_post"];
         delete?: never;
@@ -749,6 +751,28 @@ export interface paths {
         head?: never;
         /** Change Mcp Server */
         patch: operations["change_mcp_server_mcp_servers__name__patch"];
+        trace?: never;
+    };
+    "/mcp/servers/{name}/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Mcp Sign In
+         * @description The server's sign-in page; the browser comes back to `redirect_uri`, which finishes it
+         *     (/oauth/finish). 404: no such server. 400: a local server, one that can't be reached or
+         *     doesn't ask to sign in.
+         */
+        post: operations["start_mcp_sign_in_mcp_servers__name__sign_in_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/mcp/servers/{name}/update": {
@@ -1039,6 +1063,12 @@ export interface components {
             error: string;
             /** At */
             at: string;
+            /**
+             * Kind
+             * @default failing
+             * @enum {string}
+             */
+            kind: "failing" | "signed_out";
         };
         /** Approvals */
         Approvals: {
@@ -1265,18 +1295,6 @@ export interface components {
              */
             account_id: string;
         };
-        /** EmailSignInCode */
-        EmailSignInCode: {
-            /** State */
-            state: string;
-            /** Code */
-            code: string;
-        };
-        /** EmailSignInPage */
-        EmailSignInPage: {
-            /** Url */
-            url: string;
-        };
         /**
          * FoundServer
          * @description An MCP server in a repository, before it's installed.
@@ -1400,6 +1418,16 @@ export interface components {
             code: string;
             /** Name */
             name: string;
+        };
+        /** McpProbe */
+        McpProbe: {
+            /** Tools */
+            tools: components["schemas"]["McpToolInfo"][];
+            /**
+             * Sign In
+             * @default false
+             */
+            sign_in: boolean;
         };
         /**
          * McpServerChange
@@ -1546,6 +1574,11 @@ export interface components {
              * @default false
              */
             failing: boolean;
+        };
+        /** McpSignInStart */
+        McpSignInStart: {
+            /** Redirect Uri */
+            redirect_uri: string;
         };
         /** McpToolInfo */
         McpToolInfo: {
@@ -1821,6 +1854,30 @@ export interface components {
             role: string;
             /** Text */
             text: string;
+        };
+        /** SignInCode */
+        SignInCode: {
+            /** State */
+            state: string;
+            /** Code */
+            code: string;
+        };
+        /** SignInPage */
+        SignInPage: {
+            /** Url */
+            url: string;
+        };
+        /** SignedIn */
+        SignedIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "email" | "mcp";
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
         };
         /** Skill */
         Skill: {
@@ -2999,40 +3056,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EmailSignInPage"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    finish_email_sign_in_integrations_email_oauth_finish_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EmailSignInCode"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EmailAccount"];
+                    "application/json": components["schemas"]["SignInPage"];
                 };
             };
             /** @description Validation Error */
@@ -3169,6 +3193,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EmailAccount"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    finish_sign_in_oauth_finish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignInCode"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignedIn"];
                 };
             };
             /** @description Validation Error */
@@ -3488,7 +3545,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["McpToolInfo"][];
+                    "application/json": components["schemas"]["McpProbe"];
                 };
             };
             /** @description Validation Error */
@@ -3555,6 +3612,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["McpServerStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_mcp_sign_in_mcp_servers__name__sign_in_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["McpSignInStart"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignInPage"];
                 };
             };
             /** @description Validation Error */

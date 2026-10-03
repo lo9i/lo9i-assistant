@@ -18,6 +18,7 @@ from assistant.core.agent.messaging import MessagingMixin
 from assistant.core.agent.model import ModelMixin, usable_choice
 from assistant.core.agent.repositories import RepositoriesMixin
 from assistant.core.agent.runs import RunsMixin
+from assistant.core.agent.sign_ins import SignInsMixin
 from assistant.core.agent.skills import SkillsMixin
 from assistant.core.agent.slack import SlackMixin
 from assistant.core.agent.speech import SpeechMixin
@@ -29,16 +30,17 @@ from assistant.core.bus import EventBus
 from assistant.core.config import settings
 from assistant.core.health import HealthLog
 from assistant.core.integrations.email import accounts
-from assistant.core.integrations.email.oauth import SignIns
 from assistant.core.llm import choice
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.mcp.hub import McpHub
 from assistant.core.mcp.media import ToolMedia
+from assistant.core.mcp.oauth import McpAuth
 from assistant.core.mcp.pages import McpPages
 from assistant.core.memory import profile
 from assistant.core.memory.e5 import E5Embedder
 from assistant.core.memory.indexer import MemoryIndexer
 from assistant.core.memory.recall import MemoryRecall
+from assistant.core.oauth import SignIns
 from assistant.core.outbox import Outbox
 from assistant.core.secret_store import SecretBox
 from assistant.core.speech.kokoro import KokoroSynthesizer
@@ -52,6 +54,7 @@ class AssistantService(
     MemoryMixin,
     TelegramMixin,
     SlackMixin,
+    SignInsMixin,
     EmailMixin,
     McpMixin,
     AlertsMixin,
@@ -75,12 +78,13 @@ class AssistantService(
         self.approvals = RemoteApprovals()
         self._health = HealthLog(storage.store, bus)
         self._transcriber = FasterWhisperTranscriber()
-        self.mcp = McpHub(storage.store, bus, self._health, ToolMedia(self._transcriber, storage.store))
+        media = ToolMedia(self._transcriber, storage.store)
+        self.mcp = McpHub(storage.store, bus, self._health, media, McpAuth(storage.store, secrets))
         self.pages = McpPages(storage.store)
         embedder = E5Embedder()
         self.memory_index = MemoryIndexer(storage.store, storage.vectors, embedder, bus)
         self._recall = MemoryRecall(storage.store, storage.vectors, embedder)
-        self._email_sign_ins = SignIns()
+        self._sign_ins = SignIns()
         self._use_model(model)
         self._background = set()
         self._conversations_lock = asyncio.Lock()

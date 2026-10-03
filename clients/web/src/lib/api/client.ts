@@ -16,10 +16,10 @@ import type {
   EmailSettings,
   InstalledFromRepository,
   Job,
+  McpProbe,
   McpServerChange,
   McpServerSettings,
   McpServerStatus,
-  McpToolInfo,
   Me,
   MemorySnapshot,
   ModelChange,
@@ -31,6 +31,7 @@ import type {
   ServerValues,
   Session,
   ShownMessage,
+  SignedIn,
   Skill,
   SkillSummary,
   SlackStatus,
@@ -239,13 +240,18 @@ export class EmailGroup {
     return (await this.transport.request<{ url: string }>("POST", "/integrations/email/oauth/start", body)).url;
   }
 
-  /** The /oauth page's last step: works in a browser that isn't paired; the one-time state is the proof. */
-  finishSignIn(state: string, code: string): Promise<EmailAccount> {
-    return this.transport.request("POST", "/integrations/email/oauth/finish", { state, code });
-  }
-
   private path(id: string): string {
     return `/integrations/email/accounts/${encodeURIComponent(id)}`;
+  }
+}
+
+export class OAuthGroup {
+  constructor(private readonly transport: Transport) {}
+
+  /** The /oauth page's last step, for an email account or a remote MCP server: works in a browser
+   * that isn't paired; the one-time state is the proof. */
+  finish(state: string, code: string): Promise<SignedIn> {
+    return this.transport.request("POST", "/oauth/finish", { state, code });
   }
 }
 
@@ -275,9 +281,17 @@ export class McpGroup {
     return this.transport.request("GET", "/mcp/servers");
   }
 
-  /** Connects once and lists the server's tools, without saving it. Throws ApiError (400) when it fails. */
-  probe(settings: McpServerSettings): Promise<McpToolInfo[]> {
+  /** Connects once and lists the server's tools, or says it asks to sign in, without saving it.
+   * Throws ApiError (400) when it fails. */
+  probe(settings: McpServerSettings): Promise<McpProbe> {
     return this.transport.request("POST", "/mcp/probe", settings);
+  }
+
+  /** A remote server's sign-in page; the browser comes back to `redirectUri`, the /oauth page.
+   * Throws ApiError (400) when the server doesn't ask to sign in or can't be reached. */
+  async startSignIn(name: string, redirectUri: string): Promise<string> {
+    const path = `/mcp/servers/${encodeURIComponent(name)}/sign-in`;
+    return (await this.transport.request<{ url: string }>("POST", path, { redirect_uri: redirectUri })).url;
   }
 
   /** Throws ApiError (400) for invalid settings or a name in use. */
@@ -426,6 +440,7 @@ export class DaemonClient {
   readonly slack: SlackGroup;
   readonly speech: SpeechGroup;
   readonly email: EmailGroup;
+  readonly oauth: OAuthGroup;
   readonly model: ModelGroup;
   readonly mcp: McpGroup;
   readonly alerts: AlertsGroup;
@@ -446,6 +461,7 @@ export class DaemonClient {
     this.slack = new SlackGroup(transport);
     this.speech = new SpeechGroup(transport);
     this.email = new EmailGroup(transport);
+    this.oauth = new OAuthGroup(transport);
     this.model = new ModelGroup(transport);
     this.mcp = new McpGroup(transport);
     this.alerts = new AlertsGroup(transport);

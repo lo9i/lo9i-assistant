@@ -173,6 +173,9 @@ class AssistantApp(App):
         what, where = ("MCP server", "/mcp") if failing["area"] == "mcp" else ("skill", "/skills")
         self.notify(f"The {what} {failing['name']} keeps failing: {failing['error']}. See {where}.", severity="warning")
 
+    def show_signed_out(self, signed_out: dict[str, Any]) -> None:
+        self.notify(f"The MCP server {signed_out['name']} needs you to sign in again. See /mcp.", severity="warning")
+
     def mirror_run(self, run: dict[str, Any]) -> None:
         """Show a run started elsewhere in this conversation (another client or channel) as it happens."""
         if self._live.started_elsewhere(run):
@@ -470,7 +473,7 @@ class AssistantApp(App):
         self.push_screen(StartupScreen(self._service.system))
 
     async def _command_email(self, _: str) -> None:
-        self.push_screen(EmailScreen(self._service.email))
+        self.push_screen(EmailScreen(self._service.email, self._service.oauth))
 
     async def _command_telegram(self, _: str) -> None:
         self.push_screen(TelegramScreen(self._service.telegram))
@@ -485,7 +488,7 @@ class AssistantApp(App):
         self.push_screen(ModelScreen(self._service.model))
 
     async def _command_mcp(self, _: str) -> None:
-        self.push_screen(McpScreen(self._service.mcp, self._service.repositories))
+        self.push_screen(McpScreen(self._service.mcp, self._service.repositories, self._service.oauth))
 
     async def _command_quit(self, _: str) -> None:
         self.exit()

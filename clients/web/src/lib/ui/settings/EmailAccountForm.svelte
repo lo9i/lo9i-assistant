@@ -2,7 +2,7 @@
   import type { EmailAccount, EmailProvider, EmailSettings } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { describe } from "$lib/notices";
-  import { resolve } from "$app/paths";
+  import { redirectUri } from "$lib/oauth";
 
   // "Other": the server is entered by hand.
   const OTHER = "other";
@@ -42,7 +42,7 @@
   let clientId = $state("");
   let clientSecret = $state("");
   // Where Google or Microsoft send the browser back; the user registers this with their OAuth app.
-  const redirectUri = `${window.location.origin}${resolve("/oauth")}`;
+  const redirect = redirectUri();
   const providerName = $derived(provider?.oauth === "microsoft" ? "Microsoft" : "Google");
   // Signing an existing account in again reuses the app it signed in with.
   const again = $derived(account?.auth === "oauth" && account.oauth_provider === provider?.oauth);
@@ -60,7 +60,7 @@
     if (!provider) return;
     saving = true;
     try {
-      const body = { provider: provider.oauth, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri };
+      const body = { provider: provider.oauth, client_id: clientId, client_secret: clientSecret, redirect_uri: redirect };
       const url = await client.email.startSignIn({ ...body, address, label, account_id: account?.id ?? "" });
       window.open(url, "_blank", "noopener");
       message = `Finish signing in on the ${providerName} page that opened; the account shows up here once it's done.`;
@@ -106,7 +106,7 @@
       <input class="input" type="email" placeholder="Your email address" aria-label="Your email address" bind:value={address} />
       <div class="fields">
         <span class="text-caption">Redirect URI to register with your OAuth app</span>
-        <code class="uri">{redirectUri}</code>
+        <code class="uri">{redirect}</code>
       </div>
       <input class="input" placeholder={again ? "Client ID (leave empty to keep the saved one)" : "Client ID"} aria-label="Client ID" bind:value={clientId} />
       <input

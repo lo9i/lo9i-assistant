@@ -87,10 +87,11 @@ Terminal app: `/mcp`. Web UI: **MCP servers** in the sidebar.
 1. Choose **Add**, give the server a short lowercase name (for example `github`), and pick how it runs:
    - **Local command**: the command that starts it, exactly as its documentation gives it (for example `npx -y @modelcontextprotocol/server-github`). Keys it needs go in **Env**, one `KEY=value` per line.
    - **Remote URL**: the server's URL. Keys it needs go in **Headers**, one `Name: value` per line (for example `Authorization: Bearer <token>`).
-2. Choose **Look at tools**. The assistant connects once and lists the server's tools, all checked. Uncheck the ones the assistant shouldn't get, then choose **Add**.
+2. Choose **Look at tools**. The assistant connects once and lists the server's tools, all checked. Uncheck the ones the assistant shouldn't get, then choose **Add**. A remote server that signs in through a browser (OAuth) says it asks to sign in instead: choose **Add**, then step 4.
 3. The tools are available from the user's next message.
+4. Signing in: the server's status says it needs you to sign in, with a **Sign in** button. It opens the server's sign-in page in a browser; after signing in, the browser comes back to the assistant and the server connects. In the terminal app the browser comes back to the assistant's web UI on its own computer (`http://localhost:8765/app/oauth`); when the browser is on another computer (the terminal app over SSH), paste the address the browser ended on and choose **Finish**. Nothing needs registering: the assistant registers itself with the server. When a sign-in stops working (it expired or was revoked), the server asks to sign in again.
 
-Keys are typed only in that dialog, never in the chat. A server is not trusted unless **Trusted** is checked: its tools that aren't marked read-only then ask for approval first, and scheduled jobs can't use them. The same screen shows whether each server is connected, and has **Save tools** (after changing the checked tools), **Trust**, **Turn off**, **Secrets** (replace the env values or headers) and **Remove**. Servers that sign in through a browser (OAuth) aren't supported yet.
+Keys are typed only in that dialog, never in the chat. A server is not trusted unless **Trusted** is checked: its tools that aren't marked read-only then ask for approval first, and scheduled jobs can't use them. The same screen shows whether each server is connected, and has **Save tools** (after changing the checked tools), **Trust**, **Turn off**, **Secrets** (replace the env values or headers) and **Remove**.
 
 ## Installing plugins (MCP servers and skills)
 
