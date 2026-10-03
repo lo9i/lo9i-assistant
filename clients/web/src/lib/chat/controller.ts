@@ -92,7 +92,7 @@ export class ChatController {
       this.notify(
         stillRunning
           ? "Started a new conversation. The previous reply keeps running; you'll be notified when it's done."
-          : "Started a new conversation. The previous one is being summarized.",
+          : "Started a new conversation.",
       );
     });
   }

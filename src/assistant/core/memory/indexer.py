@@ -16,6 +16,7 @@ from assistant.core.bus import EventBus
 from assistant.core.memory import episodes, facts
 from assistant.core.memory.embedder import Embedder
 from assistant.core.memory.vectors import MemoryKey, MemoryVectors
+from assistant.core.waiting import first
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ class MemoryIndexer:
             # Taken before syncing, so a change made during the sync starts another one.
             after = self._bus.last_id
             await self._sync_logged()
-            await _first(stop.wait(), self._next_change(after))
+            await first(stop.wait(), self._next_change(after))
 
     async def sync_all(self) -> int:
         """Syncs every user with memories. Returns how many memories were embedded."""
@@ -73,13 +74,3 @@ class MemoryIndexer:
     async def _users(self) -> set[str]:
         found = [await self._store.alist_namespaces(prefix=(kind,), max_depth=2) for kind in ("facts", "episodes")]
         return {namespace[1] for listed in found for namespace in listed if len(namespace) == 2}
-
-
-async def _first(*waits) -> None:
-    """Returns when the first of `waits` finishes, and cancels the others."""
-    tasks = [asyncio.ensure_future(w) for w in waits]
-    try:
-        await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-    finally:
-        for task in tasks:
-            task.cancel()

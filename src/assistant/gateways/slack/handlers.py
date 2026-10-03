@@ -11,8 +11,16 @@ from slack_sdk.web.async_client import AsyncWebClient
 from assistant.core.agent import Session
 from assistant.core.attachments import Attachment
 from assistant.core.config import settings
-from assistant.core.events import Event
+from assistant.core.events import ApprovalRequired, Event, is_question
 from assistant.gateways.chat.approvals import parse_decision
+from assistant.gateways.chat.questions import (
+    Press,
+    answered_text,
+    choices,
+    parse_press,
+    question_buttons,
+    question_text,
+)
 from assistant.gateways.chat.turn import ChatTurn
 from assistant.gateways.slack.media import UnsupportedMediaError, attachments_from
 from assistant.gateways.slack.port import LIMITS, SlackChat
@@ -29,6 +37,7 @@ class Conversations(Protocol):
     def send(self, session: Session, text: str, attachments: Sequence[Attachment] = ()) -> AsyncIterator[Event]: ...
     def resume(self, session: Session, decisions: dict[str, dict[str, Any]]) -> AsyncIterator[Event]: ...
     async def new_channel_thread(self, user_id: str, channel: str) -> str: ...
+    async def pending_approvals(self, thread_id: str) -> list[ApprovalRequired]: ...
 
 
 class Handlers:
@@ -51,6 +60,9 @@ class Handlers:
     async def approval(self, payload: dict[str, Any]) -> None:
         if payload.get("type") != "block_actions" or payload.get("user", {}).get("id") != self._owner_id:
             return
+        if press := parse_press(payload["actions"][0].get("value", "")):
+            await self._answer_question(payload, press)
+            return
         decision = parse_decision(payload["actions"][0].get("value", ""), "Slack")
         if decision is None:
             return
@@ -59,6 +71,27 @@ class Handlers:
         await chat.edit(payload["message"]["ts"], payload["message"].get("text", ""))
         await chat.send("Approved." if answer["approved"] else "Rejected.")
         await ChatTurn(chat, LIMITS).render(self._service.resume(await self._session(), {interrupt_id: answer}))
+
+    async def _answer_question(self, payload: dict[str, Any], press: Press) -> None:
+        """A toggle only redraws the buttons; a pick or Done answers and the run goes on."""
+        chat = SlackChat(self._client, payload["channel"]["id"])
+        ts, session = payload["message"]["ts"], await self._session()
+        waiting = await self._service.pending_approvals(session.thread_id)
+        found = (a.request for a in waiting if a.interrupt_id == press.interrupt_id and is_question(a.request))
+        request = next(found, None)
+        if request is None:
+            await chat.edit(ts, payload["message"].get("text", ""))
+            await chat.send("This question isn't waiting for an answer any more.")
+            return
+        if not press.answers:
+            buttons = question_buttons(press.interrupt_id, request, press.picked)
+            await chat.edit(ts, question_text(request), buttons=buttons)
+            return
+        picked = choices(request, press.picked)
+        await chat.edit(ts, question_text(request))
+        await chat.send(answered_text(picked))
+        answer = {press.interrupt_id: {"choices": picked}}
+        await ChatTurn(chat, LIMITS).render(self._service.resume(session, answer))
 
     async def command(self, payload: dict[str, Any]) -> dict[str, str]:
         """Slash commands. The reply is sent with the acknowledgement, visible only to the owner."""

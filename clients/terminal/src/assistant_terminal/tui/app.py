@@ -16,7 +16,8 @@ from assistant.client.recorder import Recorder, RecordingUnavailableError
 from assistant.client.recorder import available as recording_available
 from assistant.core.agent import ConversationError, InvalidNameError, Session
 from assistant.core.attachments import Attachment
-from assistant_terminal.commands import Command, help_lines
+from assistant.core.events import is_question
+from assistant_terminal.commands import GET_TO_KNOW_ME, Command, help_lines
 from assistant_terminal.history import History
 from assistant_terminal.preferences import Preferences
 from assistant_terminal.tui.attachments import AttachmentBar
@@ -25,6 +26,7 @@ from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.history import show_history
 from assistant_terminal.tui.live import handlers as live_handlers
 from assistant_terminal.tui.mouse import switch_mouse
+from assistant_terminal.tui.plugin_updates import PluginUpdates
 from assistant_terminal.tui.screens import (
     ApprovalScreen,
     AudioScreen,
@@ -35,6 +37,7 @@ from assistant_terminal.tui.screens import (
     McpScreen,
     ModelScreen,
     PluginsScreen,
+    QuestionScreen,
     SessionsScreen,
     SkillsScreen,
     SlackScreen,
@@ -89,6 +92,7 @@ class AssistantApp(App):
         # F3 is hidden when this session has no microphone (see client/recorder.py).
         self._can_record = recording_available()
         self._can_paste = clipboard.available()
+        self._plugin_updates = PluginUpdates(service.repositories, lambda text: self.notify(text, timeout=10))
         self._commands: dict[str, Callable[[str], Awaitable[None]]] = {
             "/new": self._command_new,
             "/conversations": self._command_conversations,
@@ -107,6 +111,7 @@ class AssistantApp(App):
             "/usage": self._command_usage,
             "/sessions": self._command_sessions,
             "/name": self._command_name,
+            "/get-to-know-me": self._command_get_to_know_me,
             "/mouse": self._command_mouse,
             "/help": self._command_help,
             "/quit": self._command_quit,
@@ -136,6 +141,7 @@ class AssistantApp(App):
         self.query_one("#prompt", Input).focus()
         await self.refresh_memory()
         await self.refresh_title()
+        await self.refresh_plugin_updates()
         self._listen()
 
     @work(exclusive=True, group="events")
@@ -311,13 +317,17 @@ class AssistantApp(App):
         view = TurnView(self._chat, self._status)
         approvals = await view.render(self._service.send(self._live.session, text, attachments))
         while approvals:
-            decisions = {a.interrupt_id: await self.push_screen_wait(ApprovalScreen(a.request)) for a in approvals}
+            decisions = {a.interrupt_id: await self.push_screen_wait(_screen_for(a.request)) for a in approvals}
             approvals = await view.render(self._service.resume(self._live.session, decisions))
         await self.refresh_memory()
 
     @reports_daemon_unavailable
     async def refresh_title(self) -> None:
         self.title = await self._service.identity.name() or _DEFAULT_TITLE
+
+    @reports_daemon_unavailable
+    async def refresh_plugin_updates(self) -> None:
+        await self._plugin_updates.refresh()
 
     @reports_daemon_unavailable
     async def refresh_memory(self) -> None:
@@ -368,12 +378,8 @@ class AssistantApp(App):
         await self._live.start_new(leave_running=still_running)
         self.sub_title = self._live.session.thread_id
         await self._chat.remove_children()
-        previous = (
-            "The previous reply keeps running; you'll be notified when it's done."
-            if still_running
-            else "The previous one is being summarized; it shows under Recent conversations when done."
-        )
-        self.notify(f"Started a new conversation. {previous}")
+        previous = " The previous reply keeps running; you'll be notified when it's done." if still_running else ""
+        self.notify(f"Started a new conversation.{previous}")
 
     async def _command_conversations(self, _: str) -> None:
         screen = ConversationsScreen(self._service.conversations, self._live.session.thread_id)
@@ -446,6 +452,11 @@ class AssistantApp(App):
             return
         self.notify(f"Renamed to {name}. It takes effect from your next message.")
 
+    async def _command_get_to_know_me(self, _: str) -> None:
+        """In a conversation of its own."""
+        await self._command_new("")
+        await self._send(GET_TO_KNOW_ME, [])
+
     async def _command_help(self, _: str) -> None:
         keys = ["F2 memory panel", "F3 record voice", "Ctrl+N new conversation", "Ctrl+Q quit"]
         body = "\n".join(help_lines())
@@ -455,7 +466,7 @@ class AssistantApp(App):
         self.push_screen(PluginsScreen(self._service.repositories, self._service.mcp, self._service.skills))
 
     async def _command_skills(self, _: str) -> None:
-        self.push_screen(SkillsScreen(self._service.skills, self._service.repositories))
+        self.push_screen(SkillsScreen(self._service.skills))
 
     async def _command_jobs(self, _: str) -> None:
         self.push_screen(JobsScreen(self._service.jobs))
@@ -488,7 +499,7 @@ class AssistantApp(App):
         self.push_screen(ModelScreen(self._service.model))
 
     async def _command_mcp(self, _: str) -> None:
-        self.push_screen(McpScreen(self._service.mcp, self._service.repositories, self._service.oauth))
+        self.push_screen(McpScreen(self._service.mcp, self._service.oauth))
 
     async def _command_quit(self, _: str) -> None:
         self.exit()
@@ -496,3 +507,8 @@ class AssistantApp(App):
 
 def _attachment_label(attachments: list[Attachment]) -> str:
     return "🎤 voice message" if any(a.media_type.startswith("audio/") for a in attachments) else "(attachment)"
+
+
+def _screen_for(request: dict[str, Any]) -> ApprovalScreen | QuestionScreen:
+    """What the run waits for: a question with options, or an approval."""
+    return QuestionScreen(request) if is_question(request) else ApprovalScreen(request)

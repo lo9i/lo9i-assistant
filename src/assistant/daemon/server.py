@@ -64,6 +64,7 @@ async def serve() -> None:
         tasks.append(asyncio.create_task(supervise(service.mcp, stop)))
         tasks.append(asyncio.create_task(supervise(service.pages, stop)))
         tasks.append(asyncio.create_task(supervise(service.memory_index, stop)))
+        tasks.append(asyncio.create_task(supervise(service.update_checker, stop)))
         # Downloads once in the background; until then pages are read without rendering.
         install = asyncio.create_task(browser.install_browser()) if settings.web_render else None
         logger.info("Daemon ready on %s and http://127.0.0.1:%s", socket_path, settings.daemon_port)

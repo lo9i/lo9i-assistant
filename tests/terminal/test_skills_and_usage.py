@@ -113,36 +113,14 @@ async def test_skills_are_edited_but_built_in_ones_only_read(app, client):
         assert client.skills.items["news-digest"].description == "Morning news"
 
 
-async def test_plugins_are_installed_from_the_extras(app, client):
-    from textual.widgets import SelectionList
-
+async def test_a_skill_installed_from_the_extras_is_updated_here(app, client):
     from assistant.core.repositories.known import EXTRAS
-    from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 
     async with app.run_test(size=(120, 50)) as pilot:
         screen = await _open(pilot, app, "/skills", SkillsScreen)
-        client.repositories.unreachable = True
-        screen.query_one("#install", Button).press()
-        await wait_for(pilot, lambda: isinstance(app.screen, RepositoryInstallScreen))
-        install = app.screen
-
-        def message() -> str:
-            return install.query_one("#repository-message", Markdown).source
-
-        await wait_for(pilot, lambda: "no network" in message())
-        assert not install.query("#repository-url")  # no address to type: always the extras
-        await pilot.press("escape")
-        await wait_for(pilot, lambda: app.screen is screen)
-        client.repositories.unreachable = False
-        screen.query_one("#install", Button).press()
-        await wait_for(pilot, lambda: isinstance(app.screen, RepositoryInstallScreen))
-        install = app.screen
-        found = install.query_one("#repository-found", SelectionList)
-        # From /skills, only the skills: the extras' servers are installed from /mcp or /plugins.
-        await wait_for(pilot, lambda: found.option_count == 1 and list(found.selected) == ["skill:expenses"])
-        install.query_one("#install", Button).press()
-        await wait_for(pilot, lambda: app.screen is screen and "expenses" in client.skills.items)
-        assert client.repositories.installed == [(EXTRAS, ["expenses"], [])]
+        assert not screen.query("#install")  # the extras are installed from /plugins
+        await client.repositories.install(["expenses"], [])
+        await screen.reload()
 
         def body() -> str:
             return screen.query_one("#skill-body", Markdown).source

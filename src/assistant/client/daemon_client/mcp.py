@@ -60,8 +60,10 @@ class McpApi:
         data = await self._transport.request("POST", f"/mcp/servers/{name}/update", errors=_ERRORS, timeout=_DOWNLOAD)
         return status_from_json(data)
 
-    async def remove(self, name: str) -> None:
-        await self._transport.request("DELETE", f"/mcp/servers/{name}", errors=_ERRORS)
+    async def remove(self, name: str, delete_data: bool = False) -> None:
+        """Its data stays, for installing it again, unless `delete_data`."""
+        params = {"delete_data": "true"} if delete_data else {}
+        await self._transport.request("DELETE", f"/mcp/servers/{name}", errors=_ERRORS, params=params)
 
 
 def _settings(server: McpServer) -> dict[str, Any]:

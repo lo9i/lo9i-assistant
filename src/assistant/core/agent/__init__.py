@@ -23,6 +23,7 @@ from assistant.core.agent.model import ModelProvider, ModelSettingsError, ModelS
 from assistant.core.agent.repositories import (
     FoundServer,
     InstalledFromRepository,
+    PluginUpdate,
     RepositoryContents,
     RepositoryError,
     ServerField,
@@ -70,6 +71,7 @@ __all__ = [
     "ModelSettingsError",
     "ModelStatus",
     "PairingCode",
+    "PluginUpdate",
     "ProviderField",
     "RepositoryContents",
     "RepositoryError",

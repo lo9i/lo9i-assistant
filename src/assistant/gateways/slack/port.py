@@ -38,10 +38,10 @@ class SlackChat:
             response = await self._client.chat_postMessage(channel=self._channel, text=text, mrkdwn=False)
         return str(response["ts"])
 
-    async def edit(self, message_id: str, text: str, *, markdown: bool = False) -> None:
+    async def edit(self, message_id: str, text: str, *, markdown: bool = False, buttons: Buttons | None = None) -> None:
         try:
             await self._client.chat_update(
-                channel=self._channel, ts=message_id, text=text, blocks=_blocks(text, markdown)
+                channel=self._channel, ts=message_id, text=text, blocks=_blocks(text, markdown, buttons)
             )
         except SlackApiError as e:
             logger.warning("Slack edit failed: %s", e)

@@ -26,6 +26,8 @@ import type {
   ModelProvider,
   ModelStatus,
   PairingCode,
+  PluginUpdate,
+  PluginUpdateChecks,
   RepositoryContents,
   RunEvent,
   ServerValues,
@@ -267,6 +269,20 @@ export class RepositoriesGroup {
   install(skills: string[], servers: ServerValues[]): Promise<InstalledFromRepository> {
     return this.transport.request("POST", "/repositories/install", { skills, servers });
   }
+
+  /** Installed plugins the extras have a newer version of, as of the daemon's last check. Empty while checks are off. */
+  updates(): Promise<PluginUpdate[]> {
+    return this.transport.request("GET", "/repositories/updates");
+  }
+
+  /** Whether the daemon checks the extras for plugin updates in the background. */
+  updateChecks(): Promise<PluginUpdateChecks> {
+    return this.transport.request("GET", "/settings/plugin-updates");
+  }
+
+  setUpdateChecks(enabled: boolean): Promise<PluginUpdateChecks> {
+    return this.transport.request("PUT", "/settings/plugin-updates", { enabled });
+  }
 }
 
 export class McpGroup {
@@ -304,8 +320,10 @@ export class McpGroup {
     return this.transport.request("PATCH", `/mcp/servers/${encodeURIComponent(name)}`, change);
   }
 
-  async remove(name: string): Promise<void> {
-    await this.transport.request("DELETE", `/mcp/servers/${encodeURIComponent(name)}`);
+  /** Its data stays, for installing it again, unless `deleteData`. */
+  async remove(name: string, deleteData = false): Promise<void> {
+    const query = deleteData ? "?delete_data=true" : "";
+    await this.transport.request("DELETE", `/mcp/servers/${encodeURIComponent(name)}${query}`);
   }
 }
 

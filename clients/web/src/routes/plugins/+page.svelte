@@ -4,11 +4,12 @@
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { resource, useDaemon } from "$lib/daemon.svelte";
-  import { type Plugin, describe, keyOf, kindOf, pluginsOf, versionOf } from "$lib/plugins";
+  import { type Plugin, describe, keyOf, kindOf, pluginsOf, updatable, versionOf } from "$lib/plugins";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import SearchField from "$lib/ui/SearchField.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
+  import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
   import InstallDialog from "$lib/ui/repositories/InstallDialog.svelte";
 
   const { client, notices } = useDaemon();
@@ -55,11 +56,14 @@
 
   const update = (p: Plugin) =>
     act(() => (p.kind === "server" ? client.mcp.updateFromRepository(p.name) : client.skills.updateInstalled(p.name)), `Updated ${p.name}.`);
-  const remove = (p: Plugin) =>
-    act(() => (p.kind === "server" ? client.mcp.remove(p.name) : client.skills.delete(p.name)), `Removed ${p.name}.`);
+  const remove = (p: Plugin, deleteData: boolean) =>
+    act(() => (p.kind === "server" ? client.mcp.remove(p.name, deleteData) : client.skills.delete(p.name)), `Removed ${p.name}.`);
 </script>
 
-<TopBar title="Plugins" />
+<!-- A settings tab of its own page: the list and details need the full height. -->
+<TopBar title="Settings" />
+
+<div class="tabs-bar"><SettingsTabs active="plugins" /></div>
 
 <div class="screen">
   <section class="table-card surface--glass">
@@ -131,7 +135,9 @@
         </dl>
         <div class="actions">
           {#if plugin.installed}
-            <button class="btn btn--neutral btn--sm" disabled={busy} onclick={() => plugin && update(plugin)}><RefreshCw size={14} />Update</button>
+            {#if updatable(plugin)}
+              <button class="btn btn--neutral btn--sm" disabled={busy} onclick={() => plugin && update(plugin)}><RefreshCw size={14} />Update</button>
+            {/if}
             <button class="btn btn--danger btn--sm" disabled={busy} onclick={() => (removing = plugin ?? null)}><Trash2 size={14} />Remove</button>
           {:else}
             <button class="btn btn--primary btn--sm" disabled={busy} onclick={() => plugin && install(plugin)}
@@ -159,22 +165,28 @@
   {@const p = removing}
   <Confirm
     title="Remove {p.name}?"
-    text={p.kind === "server" ? "Its tools, skill and page go. Its data stays, for installing it again." : "The assistant won't be able to use this skill any more."}
+    text={p.kind === "server" ? "Its tools, skill and page go. Its data stays, for installing it again, unless you delete it too." : "The assistant won't be able to use this skill any more."}
     action="Remove"
-    onanswer={(yes) => {
+    option={p.kind === "server" ? "Also delete its data (can't be undone)" : undefined}
+    onanswer={(yes, deleteData) => {
       removing = null;
-      if (yes) void remove(p);
+      if (yes) void remove(p, deleteData);
     }}
   />
 {/if}
 
 <style>
+  .tabs-bar {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 16px 16px 0;
+  }
   .screen {
     display: flex;
     align-items: flex-start;
     gap: 16px;
     padding: 16px;
-    height: calc(100dvh - 76px);
+    height: calc(100dvh - 76px - 50px);
     max-width: 1600px;
     margin: 0 auto;
   }

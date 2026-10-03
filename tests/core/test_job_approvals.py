@@ -8,7 +8,8 @@ import pytest
 
 from assistant.core.config import settings
 from assistant.core.integrations.email.imap import MailSummary
-from assistant.core.jobs import store
+from assistant.core.jobs import active, store
+from assistant.core.jobs.active import ActiveRun
 from assistant.core.jobs.store import Job
 from assistant.daemon.scheduler import Scheduler
 from tests.conftest import collect
@@ -21,9 +22,11 @@ class _Forwarder:
         self._service = service
         self._decision = decision
         self.requests: list[tuple[str, dict]] = []
+        self.ids: list[str] = []
 
     async def forward(self, interrupt_id, title, request):
         self.requests.append((title, request))
+        self.ids.append(interrupt_id)
         if self._decision is not None:
             asyncio.get_running_loop().call_soon(self._service.approvals.answer, interrupt_id, self._decision)
 
@@ -122,3 +125,78 @@ async def test_a_message_sent_from_the_channels_own_chat_isnt_repeated(service, 
 @pytest.fixture(autouse=True)
 def _short_timeouts(monkeypatch):
     monkeypatch.setattr(settings, "jobs_timeout_minutes", 1)
+
+
+class _SlowForwarder(_Forwarder):
+    """Never answers; `asked` is set once a request is shown."""
+
+    def __init__(self, service) -> None:
+        super().__init__(service, None)
+        self.asked = asyncio.Event()
+
+    async def forward(self, interrupt_id, title, request):
+        await super().forward(interrupt_id, title, request)
+        self.asked.set()
+
+
+async def _stop_while_asking(service, script) -> str:
+    """Start a run that stops for approval, then stop the scheduler as the daemon does on restart.
+    Returns the approval's interrupt id."""
+    forwarder = _SlowForwarder(service)
+    service.approvals.register("telegram", forwarder)
+    script.call("bash", command="rm -rf build").reply("Cleaned up.")
+    await store.save(service.store, _due_job())
+    scheduler = Scheduler(service)
+    await scheduler.tick(datetime.now(UTC))
+    await forwarder.asked.wait()
+    for task in list(scheduler._running.values()):
+        task.cancel()
+    await asyncio.gather(*scheduler._running.values(), return_exceptions=True)
+    service.approvals.unregister("telegram")
+    return forwarder.ids[0]
+
+
+async def _resume(service) -> Job:
+    scheduler = Scheduler(service)
+    await scheduler.resume_interrupted()
+    for task in list(scheduler._running.values()):
+        await task
+    saved = await store.load(service.store, "owner", "cleanup")
+    assert saved is not None
+    return saved
+
+
+async def test_a_run_waiting_for_approval_asks_again_after_a_restart(service, script):
+    interrupt_id = await _stop_while_asking(service, script)
+    forwarder = _Forwarder(service, {"approved": True})
+    service.approvals.register("telegram", forwarder)
+    job = await _resume(service)
+    # The same request, so the buttons sent before the restart still answer it.
+    assert forwarder.ids == [interrupt_id] and forwarder.requests[0][1]["command"] == "rm -rf build"
+    assert job.runs[-1].status == "ok" and job.runs[-1].summary == "Cleaned up."
+    assert job.runs[-1].thread_id.startswith("job:cleanup:") and await active.all_runs(service.store) == []
+
+
+async def test_after_a_restart_the_run_waits_for_telegram_to_connect(service, script):
+    await _stop_while_asking(service, script)
+    resumed = asyncio.create_task(_resume(service))
+    await asyncio.sleep(0.05)
+    assert not resumed.done()
+    service.approvals.register("telegram", _Forwarder(service, {"approved": True}))
+    job = await resumed
+    assert job.runs[-1].status == "ok"
+
+
+async def test_a_run_stopped_outside_an_approval_is_recorded_as_failed(service):
+    await store.save(service.store, _due_job())
+    run = ActiveRun("owner", "cleanup", "job:cleanup:2026-10-03T09:00:00", "2026-10-03T09:00:00+00:00")
+    await active.start(service.store, run)
+    job = await _resume(service)
+    assert job.runs[-1].status == "failed" and job.runs[-1].summary == "the daemon stopped during the run"
+    assert await active.all_runs(service.store) == []
+
+
+async def test_a_finished_run_leaves_nothing_to_resume(service, script):
+    script.reply("Done.")
+    await _run(service, _due_job())
+    assert await active.all_runs(service.store) == []

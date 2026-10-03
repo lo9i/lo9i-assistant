@@ -172,10 +172,22 @@ async def test_a_server_whose_new_version_needs_a_new_value_isnt_updated(service
         await service.update_mcp_server_from_repository("mine")
 
 
-async def test_removing_an_installed_server_deletes_its_folder(service, repo, isolated_settings):
+async def test_removing_an_installed_server_deletes_its_folder_and_keeps_its_data(service, repo, isolated_settings):
+    data = isolated_settings / "data" / "hello"
     await service.install_from_repository(URL, [], [HELLO])
+    data.mkdir(parents=True, exist_ok=True)
+    (data / "expenses.db").write_text("kept")
     await service.remove_mcp_server("hello")
-    assert not (isolated_settings / "mcp" / "hello").exists()
+    assert not (isolated_settings / "mcp" / "hello").exists() and (data / "expenses.db").exists()
+
+
+async def test_removing_a_server_can_delete_its_data_too(service, repo, isolated_settings):
+    data = isolated_settings / "data" / "hello"
+    await service.install_from_repository(URL, [], [HELLO])
+    data.mkdir(parents=True, exist_ok=True)
+    (data / "expenses.db").write_text("gone")
+    await service.remove_mcp_server("hello", delete_data=True)
+    assert not data.exists()
 
 
 async def test_a_server_yaml_that_cant_work_is_reported(service, repo):
@@ -358,3 +370,14 @@ async def test_what_a_plugin_added_is_told_apart_from_what_was_added_here(servic
     assert by_server == {"hello": "hello", "mine": ""}
     by_skill = {s.name: s.plugin for s in await service.list_skills()}
     assert by_skill == {"expenses": "expenses", "hello": "hello", "notes": ""}
+
+
+async def test_the_assistant_cant_delete_a_skill_a_plugin_installed(service, repo, script):
+    from assistant.core.events import ToolFinished
+    from tests.conftest import collect
+
+    await service.install_from_repository(URL, ["expenses"], [])
+    script.call("delete_skill", name="expenses").reply("can't")
+    events = await collect(service.send(await service.session("u", "cli"), "delete the expenses skill"))
+    [finished] = [e for e in events if isinstance(e, ToolFinished)]
+    assert "installed by the expenses plugin" in finished.output and "expenses" in [s.name for s in store.list_skills()]

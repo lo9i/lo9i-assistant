@@ -36,6 +36,7 @@ from assistant.core.agent import (
     ModelProvider,
     ModelSettingsError,
     ModelStatus,
+    PluginUpdate,
     RepositoryContents,
     RepositoryError,
     ServerValues,
@@ -177,6 +178,10 @@ class SkillChange(BaseModel):
 class RepositoryAddress(BaseModel):
     # The apps leave it out: plugins come from the assistant's own extras.
     url: str = EXTRAS
+
+
+class PluginUpdateChecks(BaseModel):
+    enabled: bool
 
 
 class ServerValuesBody(BaseModel):
@@ -695,6 +700,20 @@ def _add_skill_routes(app: FastAPI, service: AssistantService) -> None:
 
 
 def _add_repository_routes(app: FastAPI, service: AssistantService) -> None:
+    @app.get("/repositories/updates")
+    async def plugin_updates() -> list[PluginUpdate]:
+        """Installed plugins the extras have a newer version of, as of the last check. Empty while
+        checks are off."""
+        return await service.plugin_updates()
+
+    @app.get("/settings/plugin-updates")
+    async def plugin_update_checks() -> PluginUpdateChecks:
+        return PluginUpdateChecks(enabled=await service.plugin_update_checks())
+
+    @app.put("/settings/plugin-updates")
+    async def set_plugin_update_checks(body: PluginUpdateChecks) -> PluginUpdateChecks:
+        return PluginUpdateChecks(enabled=await service.set_plugin_update_checks(body.enabled))
+
     @app.post("/repositories/browse")
     async def browse_repository(body: RepositoryAddress) -> RepositoryContents:
         """The skills and MCP servers a git repository offers. 400: it can't be read or has none."""
@@ -765,9 +784,10 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
             raise HTTPException(400, str(e)) from e
 
     @app.delete("/mcp/servers/{name}")
-    async def remove_mcp_server(name: str) -> Ok:
+    async def remove_mcp_server(name: str, delete_data: bool = False) -> Ok:
+        """With `delete_data`, the server's data folder goes too; otherwise it stays."""
         try:
-            await service.remove_mcp_server(name)
+            await service.remove_mcp_server(name, delete_data)
         except McpServerError as e:
             raise HTTPException(404, str(e)) from e
         return Ok()

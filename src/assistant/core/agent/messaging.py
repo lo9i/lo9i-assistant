@@ -11,7 +11,7 @@ from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
 from assistant.core.agent.titles import TitlesMixin
 from assistant.core.attachments import Attachment, Block, to_content
-from assistant.core.conversation import sent
+from assistant.core.conversation import introduction, sent
 from assistant.core.conversation.turn_header import header_block
 from assistant.core.events import Error, Event, Transcribed
 from assistant.core.speech import preferences
@@ -34,11 +34,18 @@ class MessagingMixin(RunsMixin, ConversationsMixin, TitlesMixin):
         for transcript in transcripts:
             yield Transcribed(transcript.text, transcript.language)
         await self._note_activity(session, _title_text(text, [t.text for t in transcripts], attachments))
-        sent_here = await sent.take(self._storage.store, session.user_id, session.channel)
-        message = _message(session, [*sent_here, *voice_blocks, *content])
+        notes = await self._header_notes(session)
+        message = _message(session, [*notes, *voice_blocks, *content])
         async for event in self._run(session, {"messages": [message]}):
             yield event
         self._title_in_background(session)
+
+    async def _header_notes(self, session: Session) -> list[Block]:
+        """What goes in the turn header after the date: messages sent here from elsewhere, and the
+        one-time offer to get to know the user."""
+        store = self._storage.store
+        sent_here = await sent.take(store, session.user_id, session.channel)
+        return [*sent_here, *await introduction.offer(store, session.user_id, session.channel)]
 
     async def resume(self, session: Session, decisions: dict[str, dict[str, Any]]) -> AsyncIterator[Event]:
         """Answer pending approvals. `decisions` maps interrupt id to {"approved": bool, "reason": str}."""

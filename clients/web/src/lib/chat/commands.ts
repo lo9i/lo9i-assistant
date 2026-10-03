@@ -9,7 +9,8 @@ export const COMMANDS: Command[] = [
   { name: "/attach", usage: "/attach", description: "Attach files to the next message" },
   { name: "/sessions", usage: "/sessions", description: "Clients connected to the daemon" },
   { name: "/jobs", usage: "/jobs", description: "Scheduled jobs" },
-  { name: "/settings", usage: "/settings", description: "Name, appearance, start at boot, integrations and audio" },
+  { name: "/settings", usage: "/settings", description: "Name, appearance, start at boot, integrations, audio and MCP servers" },
+  { name: "/mcp", usage: "/mcp", description: "MCP servers and their tools" },
   { name: "/plugins", usage: "/plugins", description: "Install, update and remove plugins from the extras" },
   { name: "/skills", usage: "/skills", description: "Browse, install and delete skills" },
   { name: "/usage", usage: "/usage", description: "Tool and skill usage" },
@@ -19,6 +20,7 @@ export const COMMANDS: Command[] = [
   { name: "/email", usage: "/email", description: "Connect email for sending" },
   { name: "/startup", usage: "/startup", description: "Start the assistant at boot" },
   { name: "/name", usage: "/name <name>", description: "Rename the assistant" },
+  { name: "/get-to-know-me", usage: "/get-to-know-me", description: "Let the assistant get to know you" },
   { name: "/help", usage: "/help", description: "Show commands and keys" },
 ];
 
@@ -44,3 +46,6 @@ export function parse(text: string): { name: string; arg: string } | null {
 export function known(name: string): boolean {
   return COMMANDS.some((c) => c.name === name);
 }
+
+/** What /get-to-know-me and the Settings button send: the get-to-know-you skill starts from it. */
+export const GET_TO_KNOW_ME = "Get to know me.";

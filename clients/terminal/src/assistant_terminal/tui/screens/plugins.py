@@ -15,9 +15,9 @@ from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import McpApi, RepositoriesApi, SkillsApi
 from assistant.core.agent import McpServerError, RepositoryError, ServerValues, SkillError
-from assistant_terminal.plugins_text import Plugin, describe, label, matches, plugins
+from assistant_terminal.plugins_text import Plugin, describe, label, matches, plugins, updatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
-from assistant_terminal.tui.screens.confirm import ConfirmScreen
+from assistant_terminal.tui.screens.confirm import ConfirmScreen, ConfirmWithOptionScreen
 from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 
 
@@ -44,11 +44,24 @@ class PluginsScreen(ModalScreen[None]):
                 yield Button("Update", id="update")
                 yield Button("Remove", variant="error", id="remove")
                 yield Button("Refresh", id="refresh")
+                yield Button("Daily update checks", id="checks")
                 yield Button("Close", id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
+        self._show_checks(await self._repositories.update_checks())
         await self._load()
+
+    @on(Button.Pressed, "#checks")
+    @reports_daemon_unavailable
+    async def _toggle_checks(self) -> None:
+        """Off: the extras are checked only when Plugins opens, and no update notifications."""
+        enabled = await self._repositories.set_update_checks(not await self._repositories.update_checks())
+        self._show_checks(enabled)
+        self.notify(f"Daily plugin update checks {'on' if enabled else 'off'}.")
+
+    def _show_checks(self, enabled: bool) -> None:
+        self.query_one("#checks", Button).label = f"Daily update checks: {'on' if enabled else 'off'}"
 
     @reports_daemon_unavailable
     async def _load(self) -> None:
@@ -117,10 +130,17 @@ class PluginsScreen(ModalScreen[None]):
     @reports_daemon_unavailable
     async def _remove(self) -> None:
         plugin = self._current()
-        if plugin is None or not await self.app.push_screen_wait(ConfirmScreen(f"Remove {plugin.name}?", "Remove")):
+        if plugin is None:
             return
-        remove = self._mcp.remove if plugin.server else self._skills.delete
-        await self._run(lambda: remove(plugin.name), f"Removed {plugin.name}.")
+        if plugin.server is None:
+            if await self.app.push_screen_wait(ConfirmScreen(f"Remove {plugin.name}?", "Remove")):
+                await self._run(lambda: self._skills.delete(plugin.name), f"Removed {plugin.name}.")
+            return
+        question = f"Remove {plugin.name}? Its data stays, for installing it again, unless you delete it too."
+        option = "Also delete its data (can't be undone)"
+        delete_data = await self.app.push_screen_wait(ConfirmWithOptionScreen(question, "Remove", option))
+        if delete_data is not None:
+            await self._run(lambda: self._mcp.remove(plugin.name, delete_data), f"Removed {plugin.name}.")
 
     async def _run(self, action: Callable[[], Awaitable[object]], done: str) -> None:
         try:
@@ -137,7 +157,8 @@ class PluginsScreen(ModalScreen[None]):
         self._selected = plugin.key if plugin else None
         installed = plugin is not None and plugin.installed
         self.query_one("#install").display = plugin is not None and not installed
-        self.query_one("#update").display = self.query_one("#remove").display = installed
+        self.query_one("#remove").display = installed
+        self.query_one("#update").display = plugin is not None and updatable(plugin)
         if plugin is not None:
             await self.query_one("#plugin-body", Markdown).update(describe(plugin))
         elif self._all:

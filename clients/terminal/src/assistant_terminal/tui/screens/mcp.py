@@ -14,7 +14,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown, OptionList, SelectionList, Static
 from textual.widgets.option_list import Option
 
-from assistant.client.daemon_client import McpApi, OAuthApi, RepositoriesApi
+from assistant.client.daemon_client import McpApi, OAuthApi
 from assistant.core.agent import McpServerChanges, McpServerError, McpServerStatus
 from assistant_terminal.mcp_text import describe, selection, summary, tool_label
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
@@ -22,16 +22,14 @@ from assistant_terminal.tui.screens.confirm import ConfirmScreen
 from assistant_terminal.tui.screens.mcp_add import McpAddScreen
 from assistant_terminal.tui.screens.mcp_secrets import McpSecretsScreen
 from assistant_terminal.tui.screens.mcp_sign_in import McpSignInScreen
-from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 
 
 class McpScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
 
-    def __init__(self, mcp: McpApi, repositories: RepositoriesApi, oauth: OAuthApi) -> None:
+    def __init__(self, mcp: McpApi, oauth: OAuthApi) -> None:
         super().__init__()
         self._mcp = mcp
-        self._repositories = repositories
         self._oauth = oauth
         self._shown: dict[str, McpServerStatus] = {}
         self._selected: str | None = None
@@ -49,7 +47,6 @@ class McpScreen(ModalScreen[None]):
             with Horizontal(id="mcp-buttons"):
                 yield Button("Sign in", variant="success", id="sign-in")
                 yield Button("Add", variant="success", id="add")
-                yield Button("Install", id="install")
                 yield Button("Save tools", id="save-tools")
                 yield Button("Trust", id="trust")
                 yield Button("Turn off", id="toggle")
@@ -95,15 +92,6 @@ class McpScreen(ModalScreen[None]):
     @reports_daemon_unavailable
     async def _add(self) -> None:
         if await self.app.push_screen_wait(McpAddScreen(self._mcp)):
-            await self.reload()
-
-    @on(Button.Pressed, "#install")
-    @work
-    @reports_daemon_unavailable
-    async def _install(self) -> None:
-        installed = await self.app.push_screen_wait(RepositoryInstallScreen(self._repositories, kind="server"))
-        if installed:
-            self.notify(f"Installed {', '.join(installed)}.")
             await self.reload()
 
     @on(Button.Pressed, "#sign-in")
@@ -189,4 +177,6 @@ class McpScreen(ModalScreen[None]):
         tools.display = self.query_one("#save-tools").display = bool(server.tools)
         self.query_one("#update").display = bool(server.source)
         self.query_one("#sign-in").display = server.status == "needs_sign_in"
+        # What a plugin installed goes with the plugin, in /plugins.
+        self.query_one("#remove").display = not server.plugin
         await self.query_one("#mcp-body", Markdown).update(describe(server))

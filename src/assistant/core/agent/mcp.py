@@ -108,12 +108,16 @@ class McpMixin(ServiceBase):
         await self.mcp.finish_sign_in(started, code)
         return await self._mcp_status(await servers.load(self._storage.store, started.server))
 
-    async def remove_mcp_server(self, name: str) -> None:
-        """Raises McpServerError for an unknown server."""
+    async def remove_mcp_server(self, name: str, delete_data: bool = False) -> None:
+        """Its data stays, for installing it again, unless `delete_data`. Raises McpServerError for
+        an unknown server."""
         await servers.remove(self._storage.store, name)
         await asyncio.to_thread(install.uninstall, name)
         await self.mcp.forget(name)
         await self._servers_changed()
+        # After the server and its page stopped, so nothing writes there any more.
+        if delete_data:
+            await asyncio.to_thread(install.delete_data, name)
 
     async def update_mcp_server_from_repository(self, name: str) -> McpServerStatus:
         """Install the server again from its repository, keeping what the user set.

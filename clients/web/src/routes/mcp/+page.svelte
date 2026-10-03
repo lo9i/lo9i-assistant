@@ -1,10 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { resolve } from "$app/paths";
   import Blocks from "@lucide/svelte/icons/blocks";
-  import Download from "@lucide/svelte/icons/download";
   import LogIn from "@lucide/svelte/icons/log-in";
   import Plus from "@lucide/svelte/icons/plus";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
@@ -19,9 +16,9 @@
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Toggle from "$lib/ui/Toggle.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
+  import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
   import AddServerDialog from "$lib/ui/mcp/AddServerDialog.svelte";
   import SecretsDialog from "$lib/ui/mcp/SecretsDialog.svelte";
-  import InstallDialog from "$lib/ui/repositories/InstallDialog.svelte";
   import ToolChecklist from "$lib/ui/mcp/ToolChecklist.svelte";
 
   const { client, notices } = useDaemon();
@@ -29,13 +26,6 @@
   // The Alerts page links here with ?s=<server name>.
   let picked = $state<string | null>(page.url.searchParams.get("s"));
   let adding = $state(false);
-  let installing = $state(false);
-  // The sidebar's + links here with ?install: open the dialog, then drop the parameter so a reload doesn't open it again.
-  $effect(() => {
-    if (!page.url.searchParams.has("install")) return;
-    installing = true;
-    void goto(resolve("/mcp"), { replaceState: true });
-  });
   let removing = $state(false);
   let secrets = $state<"env" | "headers" | null>(null);
   const server = $derived(servers.data?.find((s) => s.name === picked) ?? servers.data?.[0]);
@@ -82,12 +72,14 @@
   }
 </script>
 
-<TopBar title="MCP servers">
+<!-- A settings tab of its own page: the list and details need the full height. -->
+<TopBar title="Settings">
   {#snippet actions()}
-    <button class="btn btn--neutral" onclick={() => (installing = true)}><Download size={16} /><span class="hide-narrow">Install</span></button>
     <button class="btn btn--primary" onclick={() => (adding = true)}><Plus size={16} /><span class="hide-narrow">Add a server</span></button>
   {/snippet}
 </TopBar>
+
+<div class="tabs-bar"><SettingsTabs active="mcp" /></div>
 
 <div class="screen">
   <section class="table-card surface--glass">
@@ -184,7 +176,12 @@
           {#if server.source}
             <button class="btn btn--neutral btn--sm" onclick={() => updateFromRepository(server.name)}><RefreshCw size={14} />Update</button>
           {/if}
-          <button class="btn btn--danger btn--sm" onclick={() => (removing = true)}><Trash2 size={14} />Remove</button>
+          <!-- What a plugin installed goes with the plugin, in Settings → Plugins. -->
+          {#if server.plugin}
+            <span class="text-caption">To remove it, remove the {server.plugin} plugin in Settings → Plugins.</span>
+          {:else}
+            <button class="btn btn--danger btn--sm" onclick={() => (removing = true)}><Trash2 size={14} />Remove</button>
+          {/if}
         </div>
       </section>
       <section class="tools-card surface--glass">
@@ -209,16 +206,6 @@
     {/if}
   </div>
 </div>
-
-{#if installing}
-  <InstallDialog
-    kind="server"
-    onclose={(installed) => {
-      installing = false;
-      if (installed) notices.notify(`Installed ${installed.join(", ")}. The assistant uses them from your next message.`);
-    }}
-  />
-{/if}
 
 {#if adding}
   <AddServerDialog
@@ -246,13 +233,18 @@
 {/if}
 
 <style>
+  .tabs-bar {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 16px 16px 0;
+  }
   .screen {
     display: flex;
-    /* Cards take the height of their content, up to the screen; long lists scroll inside. */
+    /* Cards take the height of their content, up to the screen below the tabs; long lists scroll inside. */
     align-items: flex-start;
     gap: 16px;
     padding: 16px;
-    height: calc(100dvh - 76px);
+    height: calc(100dvh - 76px - 50px);
     max-width: 1600px;
     margin: 0 auto;
   }

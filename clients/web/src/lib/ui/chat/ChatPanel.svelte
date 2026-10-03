@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
+  import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
   import { finalReply } from "$lib/chat/transcript";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { Player, speaksReply } from "$lib/speech";
@@ -35,7 +36,7 @@
     const reply = finalReply(chat.getSnapshot().transcript);
     if (!reply || !speaksReply(speech.data?.spoken_replies, files.some((f) => f.type.startsWith("audio/")))) return;
     try {
-      await player.play(await client.speech.speak(reply));
+      await player.speak(reply, (part) => client.speech.speak(part));
     } catch (e) {
       notices.report(e);
     }
@@ -66,12 +67,16 @@
         return void goto(resolve("/jobs"));
       case "/plugins":
         return void goto(resolve("/plugins"));
+      case "/mcp":
+        return void goto(resolve("/mcp"));
       case "/skills":
         return void goto(resolve("/skills"));
       case "/usage":
         return void goto(resolve("/usage"));
       case "/name":
         return void rename(arg);
+      case "/get-to-know-me":
+        return void startGetToKnowYou(chat);
       case "/help":
         help = true;
         return;

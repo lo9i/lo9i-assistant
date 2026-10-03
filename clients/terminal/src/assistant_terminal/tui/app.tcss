@@ -216,6 +216,33 @@ ApprovalScreen {
     margin-right: 2;
 }
 
+QuestionScreen {
+    align: center middle;
+}
+
+#question {
+    width: 80%;
+    max-width: 100;
+    height: auto;
+    padding: 1 2;
+    border: round ansi_cyan;
+    background: $dialog-background;
+}
+
+#question-options {
+    height: auto;
+    max-height: 14;
+    margin: 1 0;
+}
+
+#question-buttons {
+    height: auto;
+}
+
+#question-buttons Button {
+    margin-right: 2;
+}
+
 ConfirmScreen {
     align: center middle;
 }

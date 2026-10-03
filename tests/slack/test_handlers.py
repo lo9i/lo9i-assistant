@@ -5,13 +5,14 @@ from unittest.mock import create_autospec
 from slack_sdk.web.async_client import AsyncWebClient
 
 from assistant.core.agent import Session
-from assistant.core.events import Done, TextDelta
+from assistant.core.events import ApprovalRequired, Done, TextDelta
 from assistant.gateways.slack.handlers import Handlers
 
 
 class _Service:
     def __init__(self):
         self.sent, self.resumed, self.new_threads = [], [], 0
+        self.waiting = []
 
     async def session(self, user_id, channel):
         return Session(user_id, channel, "t1")
@@ -28,6 +29,9 @@ class _Service:
     async def new_channel_thread(self, user_id, channel):
         self.new_threads += 1
         return "t2"
+
+    async def pending_approvals(self, thread_id):
+        return self.waiting
 
 
 def _handlers():
@@ -83,3 +87,35 @@ async def test_new_starts_a_conversation_for_the_owner_only():
     assert (await handlers.command({"user_id": "U1", "command": "/new"}))["text"] == "Started a new conversation."
     assert "only answers" in (await handlers.command({"user_id": "U2", "command": "/new"}))["text"]
     assert service.new_threads == 1
+
+
+def _press(value):
+    return {
+        "type": "block_actions",
+        "user": {"id": "U1"},
+        "actions": [{"value": value}],
+        "channel": {"id": "D1"},
+        "message": {"ts": "5.0", "text": "Which sources?"},
+    }
+
+
+_SOURCES = {"kind": "question", "question": "Which sources?", "options": ["Google", "GitHub", "X"], "multiple": True}
+
+
+async def test_question_toggles_redraw_the_buttons_and_done_answers():
+    handlers, service, client = _handlers()
+    service.waiting = [ApprovalRequired("q1", _SOURCES)]
+    await handlers.approval(_press("qt:q1:0:2"))
+    labels = [e["text"]["text"] for e in client.chat_update.call_args.kwargs["blocks"][-1]["elements"]]
+    assert labels == ["☐ Google", "☐ GitHub", "☑ X", "✅ Done"]
+    assert service.resumed == []
+    await handlers.approval(_press("qd:q1:5"))
+    assert service.resumed == [{"q1": {"choices": ["Google", "X"]}}]
+    assert "Picked: Google, X." in client.chat_postMessage.call_args_list[0].kwargs["text"]
+
+
+async def test_a_question_no_longer_waiting_is_said_so():
+    handlers, service, client = _handlers()
+    await handlers.approval(_press("qp:q1:0"))
+    assert service.resumed == []
+    assert "isn't waiting" in client.chat_postMessage.call_args.kwargs["text"]

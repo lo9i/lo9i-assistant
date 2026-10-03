@@ -73,10 +73,16 @@
   async function speak(text: string, mine: number): Promise<void> {
     preparingSpeech = true;
     try {
-      const audio = await client.speech.speak(text);
-      if (mine !== turn) return;
-      speaking = true;
-      await player.play(audio);
+      await player.speak(
+        text,
+        (part) => client.speech.speak(part),
+        () => {
+          // A newer turn started while the first part was being prepared: leave it silent.
+          if (mine !== turn) return player.stop();
+          preparingSpeech = false;
+          speaking = true;
+        },
+      );
     } catch {
       // Speech output isn't set up (or failed): the reply is still shown.
       speaking = false;
@@ -138,13 +144,13 @@
   {/if}
   <button class="fab {current}" aria-label={LABELS[current]} title={LABELS[current]} onclick={press}>
     {#if current === "listening"}
-      <Send size={18} />
+      <Send size={11} />
     {:else if current === "thinking"}
-      <LoaderCircle size={18} class="spin" />
+      <LoaderCircle size={11} class="spin" />
     {:else if current === "speaking"}
-      <Volume2 size={18} />
+      <Volume2 size={11} />
     {:else}
-      <AudioLines size={18} />
+      <AudioLines size={11} />
     {/if}
   </button>
 </div>
@@ -170,11 +176,11 @@
   .fab {
     display: grid;
     place-items: center;
-    width: 44px;
-    height: 44px;
+    width: 26px;
+    height: 26px;
     border: none;
     /* A speech bubble with its tail in the corner: talking with the assistant. */
-    border-radius: 22px 22px 6px 22px;
+    border-radius: 13px 13px 4px 13px;
     background: var(--color-action-primary);
     color: var(--color-action-on-primary);
     box-shadow: var(--shadow-popover);
@@ -249,7 +255,7 @@
   }
   @keyframes pulse {
     50% {
-      box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-danger) 20%, transparent);
+      box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-danger) 20%, transparent);
     }
   }
   @keyframes spin {

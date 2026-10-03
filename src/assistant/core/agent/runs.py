@@ -11,7 +11,7 @@ from assistant.core.agent.locking import LockingMixin
 from assistant.core.agent.search import SearchMixin
 from assistant.core.agent.session import Session
 from assistant.core.context import Context
-from assistant.core.events import Cancelled, Done, Error, Event
+from assistant.core.events import ApprovalRequired, Cancelled, Done, Error, Event
 from assistant.core.health import HealthLog
 from assistant.core.skills.tracker import SkillScriptTracker
 from assistant.core.stream_events import approval_events, to_events
@@ -67,6 +67,10 @@ class RunsMixin(LockingMixin, SearchMixin):
         except Exception as e:
             events.put_nowait(Error(f"{type(e).__name__}: {e}"))
 
+    async def pending_approvals(self, thread_id: str) -> list[ApprovalRequired]:
+        """The approvals the conversation's run stopped for, still waiting for an answer."""
+        return await self._pending_approvals({"configurable": {"thread_id": thread_id}})
+
     async def _answer_open_tool_calls(self, thread_id: str) -> None:
         """A run cancelled while tools ran leaves calls without results. They get one saying so,
         appended like any tool result, so the next model call is valid."""
@@ -110,7 +114,7 @@ class RunsMixin(LockingMixin, SearchMixin):
             for event in to_events(mode, data):
                 yield event
 
-    async def _pending_approvals(self, config: RunnableConfig) -> list[Event]:
+    async def _pending_approvals(self, config: RunnableConfig) -> list[ApprovalRequired]:
         state = await self._graph.aget_state(config)
         return approval_events(state.interrupts)
 

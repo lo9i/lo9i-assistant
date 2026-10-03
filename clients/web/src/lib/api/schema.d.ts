@@ -745,7 +745,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Remove Mcp Server */
+        /**
+         * Remove Mcp Server
+         * @description With `delete_data`, the server's data folder goes too; otherwise it stays.
+         */
         delete: operations["remove_mcp_server_mcp_servers__name__delete"];
         options?: never;
         head?: never;
@@ -827,6 +830,45 @@ export interface paths {
         put?: never;
         /** Dismiss Alert */
         post: operations["dismiss_alert_alerts__area___name__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/repositories/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plugin Updates
+         * @description Installed plugins the extras have a newer version of, as of the last check. Empty while
+         *     checks are off.
+         */
+        get: operations["plugin_updates_repositories_updates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/plugin-updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Plugin Update Checks */
+        get: operations["plugin_update_checks_settings_plugin_updates_get"];
+        /** Set Plugin Update Checks */
+        put: operations["set_plugin_update_checks_settings_plugin_updates_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1730,6 +1772,22 @@ export interface components {
             code: string;
             /** Expires At */
             expires_at: string;
+        };
+        /** PluginUpdate */
+        PluginUpdate: {
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Installed Version */
+            installed_version: string;
+            /** Version */
+            version: string;
+        };
+        /** PluginUpdateChecks */
+        PluginUpdateChecks: {
+            /** Enabled */
+            enabled: boolean;
         };
         /** ProviderField */
         ProviderField: {
@@ -3561,7 +3619,9 @@ export interface operations {
     };
     remove_mcp_server_mcp_servers__name__delete: {
         parameters: {
-            query?: never;
+            query?: {
+                delete_data?: boolean;
+            };
             header?: never;
             path: {
                 name: string;
@@ -3730,6 +3790,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plugin_updates_repositories_updates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginUpdate"][];
+                };
+            };
+        };
+    };
+    plugin_update_checks_settings_plugin_updates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginUpdateChecks"];
+                };
+            };
+        };
+    };
+    set_plugin_update_checks_settings_plugin_updates_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginUpdateChecks"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginUpdateChecks"];
                 };
             };
             /** @description Validation Error */

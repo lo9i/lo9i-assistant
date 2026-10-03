@@ -2,38 +2,33 @@
   import { page } from "$app/state";
   import AssistantCard from "$lib/ui/settings/AssistantCard.svelte";
   import EmailCard from "$lib/ui/settings/EmailCard.svelte";
+  import GetToKnowYouCard from "$lib/ui/settings/GetToKnowYouCard.svelte";
   import MicrophoneCard from "$lib/ui/settings/MicrophoneCard.svelte";
   import ModelCard from "$lib/ui/settings/ModelCard.svelte";
+  import PluginUpdatesCard from "$lib/ui/settings/PluginUpdatesCard.svelte";
   import SlackCard from "$lib/ui/settings/SlackCard.svelte";
   import SpeechCard from "$lib/ui/settings/SpeechCard.svelte";
   import SpokenRepliesCard from "$lib/ui/settings/SpokenRepliesCard.svelte";
   import StartupCard from "$lib/ui/settings/StartupCard.svelte";
   import TelegramCard from "$lib/ui/settings/TelegramCard.svelte";
+  import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
   import { theme, type ThemePreference } from "$lib/theme.svelte";
 
-  const TABS = [
-    { id: "general", label: "General" },
-    { id: "integrations", label: "Integrations" },
-    { id: "audio", label: "Audio" },
-  ];
+  const TABS = ["general", "integrations", "audio"];
   const THEMES: Array<[ThemePreference, string]> = [
     ["dark", "Dark"],
     ["light", "Light"],
     ["system", "System"],
   ];
-  const tab = $derived(TABS.find((t) => t.id === page.url.searchParams.get("tab"))?.id ?? "general");
+  const tab = $derived(TABS.find((t) => t === page.url.searchParams.get("tab")) ?? "general");
 </script>
 
 <TopBar title="Settings" />
 
 <div class="shell">
   <div class="bar">
-    <nav class="tabs" aria-label="Settings">
-      {#each TABS as t (t.id)}
-        <a href="?tab={t.id}" class:active={t.id === tab} aria-current={t.id === tab ? "page" : undefined}>{t.label}</a>
-      {/each}
-    </nav>
+    <SettingsTabs active={tab} />
     <!-- Kept in this browser. -->
     <div class="tabs" role="radiogroup" aria-label="Theme" title="Theme, kept in this browser">
       {#each THEMES as [value, label] (value)}
@@ -51,7 +46,9 @@
       </div>
       <div class="stack">
         <AssistantCard />
+        <GetToKnowYouCard />
         <StartupCard />
+        <PluginUpdatesCard />
       </div>
     </div>
   {:else if tab === "audio"}

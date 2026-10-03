@@ -36,6 +36,8 @@ _CHANGE_EVENTS = {
     # Failures of MCP servers and skills (core/health.py), shown with them.
     "mcp_health": "mcp",
     "skill_health": "skills",
+    # What the extras offer, kept between downloads (core/repositories/cache.py).
+    "repository_listings": "plugins",
 }
 # Written every few seconds by the Telegram adapter; not worth telling clients about.
 _QUIET_KEYS = {"telegram_heartbeat"}

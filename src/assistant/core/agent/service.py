@@ -42,6 +42,7 @@ from assistant.core.memory.indexer import MemoryIndexer
 from assistant.core.memory.recall import MemoryRecall
 from assistant.core.oauth import SignIns
 from assistant.core.outbox import Outbox
+from assistant.core.repositories.checker import UpdateChecker
 from assistant.core.secret_store import SecretBox
 from assistant.core.speech.kokoro import KokoroSynthesizer
 from assistant.core.speech.whisper import FasterWhisperTranscriber
@@ -84,6 +85,7 @@ class AssistantService(
         embedder = E5Embedder()
         self.memory_index = MemoryIndexer(storage.store, storage.vectors, embedder, bus)
         self._recall = MemoryRecall(storage.store, storage.vectors, embedder)
+        self.update_checker = UpdateChecker(storage.store, bus)
         self._sign_ins = SignIns()
         self._use_model(model)
         self._background = set()

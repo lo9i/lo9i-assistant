@@ -28,6 +28,7 @@ from assistant.core.agent import (
     ModelSettingsError,
     ModelStatus,
     PairingCode,
+    PluginUpdate,
     RepositoryContents,
     RepositoryError,
     RunRecord,
@@ -377,8 +378,9 @@ class FakeMcp:
                 setattr(server, field, value)
         return server
 
-    async def remove(self, name):
+    async def remove(self, name, delete_data=False):
         del self.items[name]
+        self.data_deleted = delete_data
 
     async def update_from_repository(self, name):
         self.updated = name
@@ -392,6 +394,19 @@ class FakeRepositories:
         self._skills, self._mcp = skills, mcp
         self.installed: list = []
         self.unreachable = False
+        self.checks = True
+        # Installed plugins the extras have a newer version of, as the daemon reports them.
+        self.pending: list[PluginUpdate] = []
+
+    async def updates(self):
+        return list(self.pending) if self.checks else []
+
+    async def update_checks(self):
+        return self.checks
+
+    async def set_update_checks(self, enabled):
+        self.checks = enabled
+        return enabled
 
     async def browse(self, url=None):
         if self.unreachable:
@@ -533,6 +548,8 @@ class FakeClient:
 
     def __init__(self):
         self.sent, self.decisions, self.cancelled = [], None, []
+        # What the run stops for after its tool calls: an approval, or a question with options.
+        self.waiting_for = {"tool": "bash", "command": "rm -rf build", "reason": "recursive delete"}
         self.bus = asyncio.Queue()
         self.runs = {}
         self.active_thread = "owner:abc"
@@ -561,7 +578,7 @@ class FakeClient:
         yield ToolStarted("bash", {"command": "ls -la"})
         yield ToolFinished("bash", "exit code: 0\nfile1")
         yield ToolStarted("bash", {"command": "rm -rf build"})
-        yield ApprovalRequired("i1", {"tool": "bash", "command": "rm -rf build", "reason": "recursive delete"})
+        yield ApprovalRequired("i1", self.waiting_for)
 
     async def resume(self, session, decisions):
         self.decisions = decisions
