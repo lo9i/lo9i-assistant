@@ -1,6 +1,6 @@
 """MCP servers: pick one to see its state and tools, choose the tools the assistant gets, trust it,
-turn it off, replace its secrets, update it from its repository, or remove it; add one by hand or
-install from a repository. Refreshes when a server connects or changes."""
+turn it off, replace its secrets, update it from the extras, or remove it; add one by hand or
+install one from the assistant's extras. Refreshes when a server connects or changes."""
 
 from collections.abc import Awaitable, Callable
 from typing import ClassVar

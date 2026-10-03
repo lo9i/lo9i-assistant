@@ -5,16 +5,11 @@
   import { describe } from "$lib/notices";
   import Modal from "../Modal.svelte";
 
-  type Props = {
-    onclose: (installed?: string[]) => void;
-    // Opened for a repository and plugins already picked (the Plugins page): it looks right away.
-    repository?: string;
-    picked?: string[];
-  };
-  let { onclose, repository = "", picked = [] }: Props = $props();
+  // `picked`: plugins to check already (the Plugins page).
+  type Props = { onclose: (installed?: string[]) => void; picked?: string[] };
+  let { onclose, picked = [] }: Props = $props();
   const { client } = useDaemon();
 
-  let url = $state(untrack(() => repository));
   let found = $state<RepositoryContents | null>(null);
   let skills = $state(new Set<string>());
   let servers = $state(new Set<string>());
@@ -37,7 +32,7 @@
 
   const look = () =>
     run(async () => {
-      const contents = await client.repositories.browse(url.trim());
+      const contents = await client.repositories.browse();
       const onlyOne = contents.skills.length + contents.servers.length === 1;
       const chosen = (name: string) => onlyOne || picked.includes(name);
       skills = new Set(contents.skills.filter((s) => chosen(s.name)).map((s) => s.name));
@@ -49,13 +44,13 @@
   const install = () =>
     run(async () => {
       const chosen = [...servers].map((name) => ({ name, values: values[name] }));
-      await client.repositories.install(url.trim(), [...skills], chosen);
+      await client.repositories.install([...skills], chosen);
       onclose([...skills, ...servers]);
     });
 
-  // Opened for a repository: look at it at once.
+  // What the extras offer, as soon as it opens.
   $effect(() => {
-    if (untrack(() => repository)) void untrack(look);
+    void untrack(look);
   });
 
   function toggled(set: Set<string>, name: string, on: boolean): Set<string> {
@@ -74,15 +69,12 @@
 </script>
 
 <Modal
-  title="Install from a repository"
-  description="Skills and MCP servers from a git repository. What you install runs on the computer running the assistant, so install only from people you trust."
+  title="Install a plugin"
+  description="MCP servers and skills from the assistant's extras. What you install runs on the computer running the assistant."
   width={600}
   onclose={() => onclose()}
 >
-  <label class="field">
-    <span class="micro-label">Repository</span>
-    <input class="input" bind:value={url} oninput={() => (found = null)} placeholder="https://github.com/user/extras" autocomplete="off" />
-  </label>
+  {#if found === null && !error}<p class="text-meta">Looking at the extras…</p>{/if}
   {#if found}
     <ul>
       {#each found.skills as skill (skill.name)}
@@ -120,8 +112,8 @@
     <button class="btn btn--ghost" onclick={() => onclose()}>Cancel</button>
     {#if found}
       <button class="btn btn--primary" disabled={busy || skills.size + servers.size === 0} onclick={install}>{busy ? "Installing…" : "Install"}</button>
-    {:else}
-      <button class="btn btn--primary" disabled={busy || !url.trim()} onclick={look}>{busy ? "Downloading…" : "Look"}</button>
+    {:else if error}
+      <button class="btn btn--primary" disabled={busy} onclick={look}>Try again</button>
     {/if}
   {/snippet}
 </Modal>

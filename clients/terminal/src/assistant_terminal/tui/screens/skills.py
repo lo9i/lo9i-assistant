@@ -1,5 +1,5 @@
-"""Saved skills: pick one to read its instructions, edit, update or delete it, or install skills from a
-git repository. Built-in skills aren't listed. Refreshes when a skill is saved, installed or deleted."""
+"""Saved skills: pick one to read its instructions, edit, update or delete it, or install plugins from
+the assistant's extras. Built-in skills aren't listed. Refreshes when a skill is saved, installed or deleted."""
 
 from typing import ClassVar
 
@@ -35,7 +35,7 @@ class SkillsScreen(ModalScreen[None]):
             yield Static("Skills", id="skills-title")
             yield Static(
                 "No skills yet. Ask the assistant to save one, for example: “save a skill for my daily news digest”, "
-                "or install skills from a git repository.",
+                "or install one from the assistant's extras (Install).",
                 id="skills-empty",
             )
             with Horizontal(id="skills-main"):
@@ -108,7 +108,7 @@ class SkillsScreen(ModalScreen[None]):
             return
         try:
             await self._skills.update_installed(self._selected)
-            self.notify(f"Updated {self._selected} from its repository.")
+            self.notify(f"Updated {self._selected} from the extras.")
         except SkillError as e:
             self.notify(str(e), severity="error")
         await self.reload()

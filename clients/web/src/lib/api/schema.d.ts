@@ -729,31 +729,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/repositories": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Repositories */
-        get: operations["repositories_repositories_get"];
-        put?: never;
-        /**
-         * Add Repository
-         * @description 400: it can't be read or offers nothing.
-         */
-        post: operations["add_repository_repositories_post"];
-        /**
-         * Remove Repository
-         * @description Forgets it; what was installed from it stays.
-         */
-        delete: operations["remove_repository_repositories_delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/repositories/browse": {
         parameters: {
             query?: never;
@@ -1551,17 +1526,12 @@ export interface components {
              */
             help: string;
         };
-        /**
-         * Repositories
-         * @description The repositories the Plugins page lists plugins from.
-         */
-        Repositories: {
-            /** Urls */
-            urls: string[];
-        };
         /** RepositoryAddress */
         RepositoryAddress: {
-            /** Url */
+            /**
+             * Url
+             * @default https://github.com/lo9i/lo9i-assistant-extras
+             */
             url: string;
         };
         /** RepositoryContents */
@@ -1573,7 +1543,10 @@ export interface components {
         };
         /** RepositoryInstall */
         RepositoryInstall: {
-            /** Url */
+            /**
+             * Url
+             * @default https://github.com/lo9i/lo9i-assistant-extras
+             */
             url: string;
             /**
              * Skills
@@ -3314,90 +3287,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["McpServerStatus"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    repositories_repositories_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Repositories"];
-                };
-            };
-        };
-    };
-    add_repository_repositories_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RepositoryAddress"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Repositories"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    remove_repository_repositories_delete: {
-        parameters: {
-            query: {
-                url: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Repositories"];
                 };
             };
             /** @description Validation Error */

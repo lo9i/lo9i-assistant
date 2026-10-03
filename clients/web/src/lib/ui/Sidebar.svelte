@@ -64,7 +64,7 @@
       href: resolve("/mcp"),
       label: "MCP servers",
       Icon: Blocks,
-      add: { label: "Install from a repository", run: installExtra },
+      add: { label: "Install a plugin", run: installExtra },
     },
     { href: resolve("/plugins"), label: "Plugins", Icon: Puzzle, add: { label: "Install a plugin", run: installPlugin } },
     { href: resolve("/usage"), label: "Usage", Icon: ChartColumn },

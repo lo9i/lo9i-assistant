@@ -88,15 +88,17 @@ Terminal app: `/mcp`. Web UI: **MCP servers** in the sidebar.
 
 Keys are typed only in that dialog, never in the chat. A server is not trusted unless **Trusted** is checked: its tools that aren't marked read-only then ask for approval first, and scheduled jobs can't use them. The same screen shows whether each server is connected, and has **Save tools** (after changing the checked tools), **Trust**, **Turn off**, **Secrets** (replace the env values or headers) and **Remove**. Servers that sign in through a browser (OAuth) aren't supported yet.
 
-## Installing skills and MCP servers from a repository
+## Installing plugins (MCP servers and skills)
 
-Web UI: **Plugins** in the sidebar lists the plugins (MCP servers and skills) of the user's repositories, the assistant's own extras (https://github.com/lo9i/lo9i-assistant-extras) included, each installed or not, with **Install**, **Update** and **Remove**; the **+** next to Plugins (or **Install a plugin** on the page) opens the install dialog on the assistant's extras, and **Add** in the page's Repositories card adds another repository. **Install** on the Skills or MCP servers page installs from any repository's address too. Terminal app: `/skills` or `/mcp`, then **Install**.
+Plugins come from the assistant's own extras (https://github.com/lo9i/lo9i-assistant-extras); there's no other source to choose.
 
-1. Paste the repository's https:// address (for example `https://github.com/user/extras`) and choose **Look**. The assistant downloads it and lists the skills (folders with a SKILL.md) and MCP servers (folders with a server.yaml) it offers.
+Web UI: **Plugins** in the sidebar lists them, each installed or not, with **Install**, **Update** and **Remove**; the **+** next to Plugins (or next to MCP servers, or **Install a plugin** on the Plugins page, or **Install** on the Skills and MCP servers pages) opens the install dialog. Terminal app: `/skills` or `/mcp`, then **Install**.
+
+1. The dialog lists what the extras offer.
 2. Check the ones to install. A server that needs values (a user name, a password, a token) shows a field for each; secret ones are typed only there, never in the chat.
 3. Choose **Install**. Everything is available from the user's next message.
 
-What's installed runs on this computer, so the user should install only from people they trust. Installed servers are untrusted by default unless the repository says otherwise: their tools that aren't read-only ask for approval. **Update** (in `/skills` or `/mcp`, or on the web pages) downloads one again: a skill's local changes are replaced; a server keeps its values, trust and tool choices, and its data. A server can come with a page (for example Expenses): it shows up in the web UI's sidebar, for paired browsers only; the terminal app and chats can't show it. Only the user installs; you can't. When you save or delete a skill yourself, the user approves it first.
+What's installed runs on this computer. Installed servers are untrusted by default unless the extras say otherwise: their tools that aren't read-only ask for approval. **Update** downloads one again: a skill's local changes are replaced; a server keeps its values, trust and tool choices, and its data. A server can come with a page (for example Expenses): it shows up in the web UI's sidebar, for paired browsers only; the terminal app and chats can't show it. Only the user installs; you can't. When you save or delete a skill yourself, the user approves it first.
 
 ## Audio (voice messages and spoken replies)
 

@@ -76,6 +76,7 @@ def test_the_checked_tools_become_include_and_exclude_lists():
 
 
 async def test_installs_a_server_from_a_repository_and_updates_it(app, client):
+    from assistant.core.repositories.known import EXTRAS
     from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 
     async with app.run_test(size=(120, 50)) as pilot:
@@ -84,8 +85,6 @@ async def test_installs_a_server_from_a_repository_and_updates_it(app, client):
         screen.query_one("#install", Button).press()
         await wait_for(pilot, lambda: isinstance(app.screen, RepositoryInstallScreen))
         install = app.screen
-        install.query_one("#repository-url", Input).value = "https://example.com/extras"
-        install.query_one("#browse", Button).press()
         found = install.query_one("#repository-found", SelectionList)
         await wait_for(pilot, lambda: found.option_count == 2)
         found.select("server:calendar")
@@ -94,8 +93,6 @@ async def test_installs_a_server_from_a_repository_and_updates_it(app, client):
         install.query_one("#install", Button).press()
         await wait_for(pilot, lambda: app.screen is screen and "calendar" in client.mcp.items)
         screen.query_one("#mcp-list", OptionList).highlighted = 1
-        await wait_for(
-            pilot, lambda: "Installed from https://example.com/extras" in screen.query_one("#mcp-body", Markdown).source
-        )
+        await wait_for(pilot, lambda: f"Installed from {EXTRAS}" in screen.query_one("#mcp-body", Markdown).source)
         screen.query_one("#update", Button).press()
         await wait_for(pilot, lambda: getattr(client.mcp, "updated", None) == "calendar")
