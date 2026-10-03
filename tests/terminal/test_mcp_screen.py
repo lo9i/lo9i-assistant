@@ -75,27 +75,16 @@ def test_the_checked_tools_become_include_and_exclude_lists():
     assert selection(tools, set()) == ([], ["*"])
 
 
-async def test_installs_a_server_from_a_repository_and_updates_it(app, client):
+async def test_a_server_installed_from_the_extras_is_updated_here(app, client):
+    from assistant.core.agent import ServerValues
     from assistant.core.repositories.known import EXTRAS
-    from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 
     async with app.run_test(size=(120, 50)) as pilot:
         screen = await _open(pilot, app)
+        assert not screen.query("#install")  # the extras are installed from /plugins
         assert not screen.query_one("#update").display  # notes was added by hand
-        screen.query_one("#install", Button).press()
-        await wait_for(pilot, lambda: isinstance(app.screen, RepositoryInstallScreen))
-        install = app.screen
-        found = install.query_one("#repository-found", SelectionList)
-        # From /mcp, only the servers.
-        await wait_for(
-            pilot,
-            lambda: found.option_count == 2 and not any("skill:" in str(v) for v in [o.value for o in found._options]),
-        )
-        found.select("server:calendar")
-        for field, value in zip(install.query("#repository-fields Input").results(Input), ["ana", "pw"], strict=True):
-            field.value = value
-        install.query_one("#install", Button).press()
-        await wait_for(pilot, lambda: app.screen is screen and "calendar" in client.mcp.items)
+        await client.repositories.install([], [ServerValues("calendar", {"CAL_USER": "ana", "CAL_PASSWORD": "pw"})])
+        await screen.reload()
         screen.query_one("#mcp-list", OptionList).highlighted = 1
         await wait_for(pilot, lambda: f"Installed from {EXTRAS}" in screen.query_one("#mcp-body", Markdown).source)
         screen.query_one("#update", Button).press()

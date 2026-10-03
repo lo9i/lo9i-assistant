@@ -44,8 +44,6 @@
 
   type Item = { href: string; label: string; Icon: typeof Plus; add?: Add; count?: () => number; also?: string[] };
   const NAV: Item[] = [
-    { href: resolve("/alerts"), label: "Alerts", Icon: Bell, count: () => alerts.data?.length ?? 0 },
-    { href: resolve("/sessions"), label: "Active sessions", Icon: MonitorSmartphone },
     {
       href: resolve("/conversations"),
       label: "Conversations",
@@ -53,10 +51,12 @@
       add: { label: "New conversation", run: newConversation },
     },
     { href: resolve("/memory"), label: "About you", Icon: UserRound },
-    { href: resolve("/jobs"), label: "Jobs", Icon: CalendarClock },
     { href: resolve("/skills"), label: "Skills", Icon: WandSparkles },
     { href: resolve("/usage"), label: "Usage", Icon: ChartColumn },
+    { href: resolve("/sessions"), label: "Active sessions", Icon: MonitorSmartphone },
+    { href: resolve("/jobs"), label: "Jobs", Icon: CalendarClock },
     { href: resolve("/devices"), label: "Devices", Icon: Laptop, add: { label: "Pair a browser", run: pairBrowser } },
+    { href: resolve("/alerts"), label: "Alerts", Icon: Bell, count: () => alerts.data?.length ?? 0 },
     // Plugins and MCP servers are settings tabs with pages of their own; plugin updates show here.
     {
       href: resolve("/settings"),

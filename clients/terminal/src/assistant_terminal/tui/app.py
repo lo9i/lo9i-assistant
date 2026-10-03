@@ -463,7 +463,7 @@ class AssistantApp(App):
         self.push_screen(PluginsScreen(self._service.repositories, self._service.mcp, self._service.skills))
 
     async def _command_skills(self, _: str) -> None:
-        self.push_screen(SkillsScreen(self._service.skills, self._service.repositories))
+        self.push_screen(SkillsScreen(self._service.skills))
 
     async def _command_jobs(self, _: str) -> None:
         self.push_screen(JobsScreen(self._service.jobs))
@@ -496,7 +496,7 @@ class AssistantApp(App):
         self.push_screen(ModelScreen(self._service.model))
 
     async def _command_mcp(self, _: str) -> None:
-        self.push_screen(McpScreen(self._service.mcp, self._service.repositories))
+        self.push_screen(McpScreen(self._service.mcp))
 
     async def _command_quit(self, _: str) -> None:
         self.exit()

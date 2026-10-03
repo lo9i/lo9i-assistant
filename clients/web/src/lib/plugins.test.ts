@@ -1,6 +1,6 @@
 import { describe as group, expect, it } from "vitest";
 import type { RepositoryContents } from "./api/types";
-import { kindOf, pluginsOf, versionOf } from "./plugins";
+import { kindOf, pluginsOf, updatable, versionOf } from "./plugins";
 
 const contents: RepositoryContents = {
   skills: [{ name: "notes", description: "Notes", files: [], installed: false, version: "", installed_version: "" }],
@@ -25,5 +25,16 @@ group("versionOf", () => {
     expect(versionOf(server("1.1.0", "1.1.0", true))).toBe("1.1.0");
     expect(versionOf(server("1.1.0", "", false))).toBe("1.1.0");
     expect(versionOf(server("", "", false))).toBe("–");
+  });
+});
+
+group("updatable", () => {
+  it("offers Update only when the extras have another version, or none is declared", () => {
+    const server = (version: string, installed_version: string, installed: boolean) =>
+      pluginsOf({ skills: [], servers: [{ name: "x", description: "", transport: "stdio", fields: [], trusted: false, skill: false, page: false, version, installed_version, installed }] })[0];
+    expect(updatable(server("0.2.1", "0.2.1", true))).toBe(false);
+    expect(updatable(server("0.3.0", "0.2.1", true))).toBe(true);
+    expect(updatable(server("", "", true))).toBe(true);
+    expect(updatable(server("0.3.0", "", false))).toBe(false);
   });
 });

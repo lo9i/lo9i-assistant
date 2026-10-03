@@ -29,6 +29,14 @@ export function versionOf(p: Plugin): string {
   return here || "–";
 }
 
+/** Whether Update makes sense: the extras have another version than the one installed. Without a
+ *  declared version there's no telling, so it's offered. */
+export function updatable(p: Plugin): boolean {
+  const found = p.kind === "server" ? p.server : p.skill;
+  const available = found.version ?? "";
+  return p.installed && (!available || available !== (found.installed_version ?? ""));
+}
+
 export function describe(p: Plugin): string {
   return p.kind === "server" ? p.server.description : p.skill.description;
 }

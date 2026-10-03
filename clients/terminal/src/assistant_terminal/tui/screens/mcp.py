@@ -13,23 +13,21 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown, OptionList, SelectionList, Static
 from textual.widgets.option_list import Option
 
-from assistant.client.daemon_client import McpApi, RepositoriesApi
+from assistant.client.daemon_client import McpApi
 from assistant.core.agent import McpServerChanges, McpServerError, McpServerStatus
 from assistant_terminal.mcp_text import describe, selection, summary, tool_label
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 from assistant_terminal.tui.screens.mcp_add import McpAddScreen
 from assistant_terminal.tui.screens.mcp_secrets import McpSecretsScreen
-from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 
 
 class McpScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
 
-    def __init__(self, mcp: McpApi, repositories: RepositoriesApi) -> None:
+    def __init__(self, mcp: McpApi) -> None:
         super().__init__()
         self._mcp = mcp
-        self._repositories = repositories
         self._shown: dict[str, McpServerStatus] = {}
         self._selected: str | None = None
 
@@ -45,7 +43,6 @@ class McpScreen(ModalScreen[None]):
                     yield SelectionList[str](id="mcp-tools")
             with Horizontal(id="mcp-buttons"):
                 yield Button("Add", variant="success", id="add")
-                yield Button("Install", id="install")
                 yield Button("Save tools", id="save-tools")
                 yield Button("Trust", id="trust")
                 yield Button("Turn off", id="toggle")
@@ -90,15 +87,6 @@ class McpScreen(ModalScreen[None]):
     @reports_daemon_unavailable
     async def _add(self) -> None:
         if await self.app.push_screen_wait(McpAddScreen(self._mcp)):
-            await self.reload()
-
-    @on(Button.Pressed, "#install")
-    @work
-    @reports_daemon_unavailable
-    async def _install(self) -> None:
-        installed = await self.app.push_screen_wait(RepositoryInstallScreen(self._repositories, kind="server"))
-        if installed:
-            self.notify(f"Installed {', '.join(installed)}.")
             await self.reload()
 
     @on(Button.Pressed, "#update")

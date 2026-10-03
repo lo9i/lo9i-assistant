@@ -15,7 +15,7 @@ from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import McpApi, RepositoriesApi, SkillsApi
 from assistant.core.agent import McpServerError, RepositoryError, ServerValues, SkillError
-from assistant_terminal.plugins_text import Plugin, describe, label, matches, plugins
+from assistant_terminal.plugins_text import Plugin, describe, label, matches, plugins, updatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
@@ -150,7 +150,8 @@ class PluginsScreen(ModalScreen[None]):
         self._selected = plugin.key if plugin else None
         installed = plugin is not None and plugin.installed
         self.query_one("#install").display = plugin is not None and not installed
-        self.query_one("#update").display = self.query_one("#remove").display = installed
+        self.query_one("#remove").display = installed
+        self.query_one("#update").display = plugin is not None and updatable(plugin)
         if plugin is not None:
             await self.query_one("#plugin-body", Markdown).update(describe(plugin))
         elif self._all:

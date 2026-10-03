@@ -2,7 +2,6 @@
   import { untrack } from "svelte";
   import { page } from "$app/state";
   import Blocks from "@lucide/svelte/icons/blocks";
-  import Download from "@lucide/svelte/icons/download";
   import Plus from "@lucide/svelte/icons/plus";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -18,7 +17,6 @@
   import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
   import AddServerDialog from "$lib/ui/mcp/AddServerDialog.svelte";
   import SecretsDialog from "$lib/ui/mcp/SecretsDialog.svelte";
-  import InstallDialog from "$lib/ui/repositories/InstallDialog.svelte";
   import ToolChecklist from "$lib/ui/mcp/ToolChecklist.svelte";
 
   const { client, notices } = useDaemon();
@@ -26,7 +24,6 @@
   // The Alerts page links here with ?s=<server name>.
   let picked = $state<string | null>(page.url.searchParams.get("s"));
   let adding = $state(false);
-  let installing = $state(false);
   let removing = $state(false);
   let secrets = $state<"env" | "headers" | null>(null);
   const server = $derived(servers.data?.find((s) => s.name === picked) ?? servers.data?.[0]);
@@ -68,7 +65,6 @@
 <!-- A settings tab of its own page: the list and details need the full height. -->
 <TopBar title="Settings">
   {#snippet actions()}
-    <button class="btn btn--neutral" onclick={() => (installing = true)}><Download size={16} /><span class="hide-narrow">Install</span></button>
     <button class="btn btn--primary" onclick={() => (adding = true)}><Plus size={16} /><span class="hide-narrow">Add a server</span></button>
   {/snippet}
 </TopBar>
@@ -190,16 +186,6 @@
     {/if}
   </div>
 </div>
-
-{#if installing}
-  <InstallDialog
-    kind="server"
-    onclose={(installed) => {
-      installing = false;
-      if (installed) notices.notify(`Installed ${installed.join(", ")}. The assistant uses them from your next message.`);
-    }}
-  />
-{/if}
 
 {#if adding}
   <AddServerDialog
