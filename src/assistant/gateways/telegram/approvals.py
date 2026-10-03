@@ -1,24 +1,31 @@
-"""Approval messages with Approve / Reject buttons. Button data is `a:<interrupt id>` or `r:<interrupt id>`."""
+"""Shows scheduled jobs' approval requests in Telegram (core/approvals.py). The buttons are answered
+in handlers.py."""
 
 from typing import Any
 
-from assistant.gateways.telegram.port import Buttons
+from telegram.error import TelegramError
 
-_APPROVE, _REJECT = "a", "r"
-
-
-def approval_text(request: dict[str, Any]) -> str:
-    return f"Approve {request.get('tool')}? ({request.get('reason')})\n\n{request.get('command', request)}"
-
-
-def approval_buttons(interrupt_id: str) -> Buttons:
-    return [("✅ Approve", f"{_APPROVE}:{interrupt_id}"), ("❌ Reject", f"{_REJECT}:{interrupt_id}")]
+from assistant.core.outbox import DeliveryError
+from assistant.gateways.chat.approvals import job_approval_buttons, job_approval_text
+from assistant.gateways.telegram.port import TelegramChat
+from assistant.gateways.telegram.sender import Recipients
+from telegram import Bot
 
 
-def parse_decision(data: str) -> tuple[str, dict[str, Any]] | None:
-    """(interrupt id, decision) from button data, or None if it isn't an approval button."""
-    action, _, interrupt_id = data.partition(":")
-    if action not in (_APPROVE, _REJECT) or not interrupt_id:
-        return None
-    approved = action == _APPROVE
-    return interrupt_id, {"approved": approved, "reason": None if approved else "rejected in Telegram"}
+class TelegramApprovals:
+    """Registered in the service's approvals while the bot runs (bot.py)."""
+
+    def __init__(self, bot: Bot, service: Recipients) -> None:
+        self._bot = bot
+        self._service = service
+
+    async def forward(self, interrupt_id: str, title: str, request: dict[str, Any]) -> None:
+        recipients = await self._service.telegram_recipients()
+        if not recipients:
+            raise DeliveryError("No Telegram account is paired.")
+        text, buttons = job_approval_text(title, request), job_approval_buttons(interrupt_id)
+        try:
+            for chat_id in recipients:
+                await TelegramChat(self._bot, chat_id).send(text, buttons=buttons)
+        except TelegramError as e:
+            raise DeliveryError(f"Telegram didn't take the request: {e}") from e

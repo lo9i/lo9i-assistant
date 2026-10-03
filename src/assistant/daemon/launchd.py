@@ -32,6 +32,7 @@ def status() -> StartupStatus:
         enabled=_plist_path(DAEMON_LABEL).exists(),
         managed=os.environ.get(MANAGED_ENV) == "1",
         includes_ollama=_plist_path(OLLAMA_LABEL).exists(),
+        platform="macos",
     )
 
 

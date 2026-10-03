@@ -14,4 +14,6 @@ class TranscriptionError(Exception):
 
 
 class Transcriber(Protocol):
-    async def transcribe(self, audio: bytes) -> Transcript: ...
+    async def transcribe(self, audio: bytes, model: str, languages: list[str]) -> Transcript:
+        """Transcribe with this faster-whisper model, detecting one of `languages`."""
+        ...

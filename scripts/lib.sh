@@ -67,6 +67,6 @@ build_web_ui() {
     echo "npm isn't installed; skipping the web UI build." >&2
     return
   fi
-  npm --prefix web install --no-audit --no-fund --silent
-  npm --prefix web run build --silent >/dev/null
+  npm --prefix clients/web install --no-audit --no-fund --silent
+  npm --prefix clients/web run build --silent >/dev/null
 }

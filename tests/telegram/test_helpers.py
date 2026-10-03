@@ -1,12 +1,13 @@
-from assistant.gateways.telegram.approvals import parse_decision
-from assistant.gateways.telegram.formatting import split_text, to_markdown_v2
+from assistant.gateways.chat.approvals import parse_decision
+from assistant.gateways.chat.split import split_text
+from assistant.gateways.telegram.formatting import to_markdown_v2
 
 
 def test_parse_decision():
-    assert parse_decision("a:abc") == ("abc", {"approved": True, "reason": None})
-    rejected = parse_decision("r:abc")
+    assert parse_decision("a:abc", "Telegram") == ("abc", {"approved": True, "reason": None})
+    rejected = parse_decision("r:abc", "Telegram")
     assert rejected is not None and rejected[1]["approved"] is False
-    assert parse_decision("junk") is None
+    assert parse_decision("junk", "Telegram") is None
 
 
 def test_split_text_respects_the_limit():

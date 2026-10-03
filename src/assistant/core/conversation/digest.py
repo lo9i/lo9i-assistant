@@ -10,7 +10,7 @@ from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
 
 from assistant.core.conversation import prompts
-from assistant.core.llm import build_llm
+from assistant.core.llm import build_structured
 from assistant.core.memory.facts import Fact
 from assistant.core.memory.facts import render as render_facts
 from assistant.core.memory.profile import Profile
@@ -41,7 +41,7 @@ _PROMPT = prompts.load("digest")
 
 
 def build_digester(model: str) -> Digester:
-    llm = build_llm(model).with_structured_output(EpochDigest, method="json_schema")
+    llm = build_structured(model, EpochDigest)
 
     async def _digest(data: DigestInput) -> EpochDigest:
         return EpochDigest.model_validate(await llm.ainvoke([HumanMessage(_prompt(data))]))

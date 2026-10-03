@@ -19,10 +19,12 @@ class Context:
     bus: EventBus | None = field(default=None, compare=False)
     # For messages the agent starts itself (send_message).
     outbox: Outbox | None = field(default=None, compare=False)
+    # An unattended run whose approvals are sent to the user (core/approvals.py) instead of denied.
+    forwards_approvals: bool = False
 
     @property
     def unattended(self) -> bool:
-        """Scheduled runs: nobody is there to approve anything."""
+        """Scheduled runs: nobody is watching them."""
         return self.channel == UNATTENDED_CHANNEL
 
 

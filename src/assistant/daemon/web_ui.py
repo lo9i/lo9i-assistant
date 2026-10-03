@@ -1,4 +1,4 @@
-"""Serves the web UI, a single-page app built from `web/` into this package, at /app/. The page is
+"""Serves the web UI, a single-page app built from `clients/web/` into this package, at /app/. The page is
 served from the API's own origin, so its requests need no CORS and carry the client header like
 any other client's."""
 
@@ -12,7 +12,7 @@ from starlette.responses import Response
 from starlette.types import Scope
 
 PREFIX = "/app"
-# Where `npm run build` in web/ writes the page.
+# Where `npm run build` in clients/web/ writes the page.
 BUILD_DIR = Path(__file__).parent / "webui"
 
 

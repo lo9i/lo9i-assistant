@@ -3,9 +3,11 @@
 import asyncio
 
 import httpx
+from starlette.requests import Request
 
 from assistant.core.bus import EventBus
-from assistant.daemon.api import _bus_events, create_app, resume_point
+from assistant.core.devices import Device
+from assistant.daemon.api import _bus_events, _client, create_app, resume_point
 from assistant.daemon.auth import trusted
 from assistant.daemon.clients import ClientRegistry
 from assistant.daemon.runs import RunHub
@@ -15,7 +17,7 @@ from assistant.protocol import CLIENT_HEADER
 async def test_a_client_is_listed_while_it_reads_events(service):
     clients = ClientRegistry(service.bus, leave=lambda thread_id: None)
     service.bus.publish("memory")
-    stream = _bus_events(service, 0, clients, ("abc", "cli", "unix socket"))
+    stream = _bus_events(service, 0, clients, ("abc", "cli", "unix socket", ""))
     await anext(stream)
     assert [(c.id, c.kind, c.transport) for c in clients.list()] == [("abc", "cli", "unix socket")]
     await stream.aclose()
@@ -46,6 +48,25 @@ async def test_clients_route(service):
 def _registry(grace_seconds: float = 0) -> tuple[ClientRegistry, list[str]]:
     left: list[str] = []
     return ClientRegistry(EventBus(), leave=left.append, grace_seconds=grace_seconds), left
+
+
+async def test_a_client_is_listed_with_its_device_and_conversation():
+    bus = EventBus()
+    clients = ClientRegistry(bus, leave=lambda thread_id: None)
+    clients.add("abc", "web", "10.0.0.2:5000", "dev1")
+    assert (clients.list()[0].device_id, clients.list()[0].thread_id) == ("dev1", "")
+    after = bus.last_id
+    clients.on_thread("abc", "t1")
+    clients.on_thread("abc", "t1")
+    assert clients.list()[0].thread_id == "t1"
+    assert [e.kind for e in list(bus._history) if e.id > after] == ["clients"]  # only a real change is announced
+
+
+def test_a_connection_is_tied_to_the_device_that_made_it():
+    request = Request({"type": "http", "headers": [(b"x-lo9i-client", b"web")], "client": ("10.0.0.2", 5000)})
+    assert _client(request) == ("", "web", "10.0.0.2:5000", "")
+    request.state.device = Device("dev1", "Laptop", "", "", "")
+    assert _client(request)[3] == "dev1"
 
 
 async def test_moving_to_another_conversation_leaves_the_one_nobody_else_is_on():

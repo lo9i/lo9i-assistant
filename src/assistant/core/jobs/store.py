@@ -2,6 +2,7 @@
 
 import re
 from dataclasses import asdict, dataclass, field
+from typing import Literal
 
 from langgraph.store.base import BaseStore
 
@@ -22,6 +23,9 @@ class RunRecord:
     thread_id: str = ""
 
 
+JobState = Literal["active", "paused", "done"]
+
+
 @dataclass
 class Job:
     name: str
@@ -34,6 +38,16 @@ class Job:
     runs: list[RunRecord] = field(default_factory=list)
     # Runs once at next_run_at, then turns itself off. `schedule` is empty.
     one_time: bool = False
+    # Runs when new mail arrives, with the new messages. `schedule` and `next_run_at` are empty.
+    on_new_mail: bool = False
+
+    @property
+    def state(self) -> JobState:
+        """active: it will run. paused: turned off, runs again only when resumed. done: a one-time
+        job that already ran (or was missed) and turned itself off."""
+        if self.enabled:
+            return "active"
+        return "done" if self.one_time and self.runs else "paused"
 
     def record(self, run: RunRecord) -> None:
         self.runs = [*self.runs, run][-_HISTORY:]
@@ -59,7 +73,7 @@ async def list_jobs(store: BaseStore, user_id: str) -> list[Job]:
 
 
 async def all_jobs(store: BaseStore) -> list[Job]:
-    """Every user's jobs, for the scheduler."""
+    """Every user's jobs, for the scheduler and the mail watcher."""
     items = await store.asearch(("jobs",), limit=10_000)
     return [from_value(i.value) for i in items]
 

@@ -40,9 +40,9 @@ async def is_renamed(state: Mapping[str, Any], store: BaseStore) -> bool:
     return state.get("assistant_name", "") != await load_name(store)
 
 
-async def rename(state: Mapping[str, Any], store: BaseStore, user_id: str, now: datetime) -> dict[str, Any]:
-    """A new epoch at the same point, with the prompt rebuilt for the new name. Nothing is
-    summarized: the messages stay, only the prompt changes (one cache miss)."""
+async def reopen(state: Mapping[str, Any], store: BaseStore, user_id: str, now: datetime) -> dict[str, Any]:
+    """A new epoch at the same point, after a rename or a change in the MCP tools. Nothing is
+    summarized: the messages stay, only the prompt and tools change (one cache miss)."""
     return await open_epoch(store, user_id, now, state.get("epoch_summary", ""))
 
 

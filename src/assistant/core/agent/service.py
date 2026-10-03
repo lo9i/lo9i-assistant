@@ -10,19 +10,25 @@ from assistant.core.agent.email import EmailMixin
 from assistant.core.agent.identity import IdentityMixin
 from assistant.core.agent.jobs import JobsMixin
 from assistant.core.agent.locking import LockingMixin
+from assistant.core.agent.mcp import McpMixin
 from assistant.core.agent.memory import MemoryMixin
 from assistant.core.agent.messaging import MessagingMixin
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.skills import SkillsMixin
+from assistant.core.agent.slack import SlackMixin
+from assistant.core.agent.speech import SpeechMixin
 from assistant.core.agent.telegram import TelegramMixin
 from assistant.core.agent.threads import ThreadsMixin
 from assistant.core.agent.usage import UsageMixin
+from assistant.core.approvals import RemoteApprovals
 from assistant.core.bus import EventBus
 from assistant.core.config import settings
 from assistant.core.conversation.digest import build_digester
 from assistant.core.conversation.titles import build_titler
 from assistant.core.graph import build_graph
+from assistant.core.mcp.hub import McpHub
 from assistant.core.outbox import Outbox
+from assistant.core.speech.kokoro import KokoroSynthesizer
 from assistant.core.speech.whisper import FasterWhisperTranscriber
 from assistant.core.storage import Storage, open_storage
 
@@ -32,9 +38,12 @@ class AssistantService(
     ArchiveMixin,
     MemoryMixin,
     TelegramMixin,
+    SlackMixin,
     EmailMixin,
+    McpMixin,
     DevicesMixin,
     IdentityMixin,
+    SpeechMixin,
     SkillsMixin,
     JobsMixin,
     UsageMixin,
@@ -46,12 +55,15 @@ class AssistantService(
         self._storage = storage
         self.bus = bus
         self.outbox = Outbox()
+        self.approvals = RemoteApprovals()
         self._digester = build_digester(settings.worker_model)
         self._titler = build_titler(settings.worker_model)
-        self._graph = build_graph(storage, model, self._digester)
+        self.mcp = McpHub(storage.store, bus)
+        self._graph = build_graph(storage, model, self._digester, self.mcp)
         self._background = set()
         self._conversations_lock = asyncio.Lock()
         self._transcriber = FasterWhisperTranscriber()
+        self._synthesizer = KokoroSynthesizer()
         self._thread_locks = defaultdict(asyncio.Lock)
         self._active_runs = {}
 

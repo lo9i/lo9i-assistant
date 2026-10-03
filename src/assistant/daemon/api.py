@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
@@ -21,12 +21,23 @@ from assistant.core.agent import (
     InvalidTokenError,
     Job,
     JobError,
+    McpServer,
+    McpServerChanges,
+    McpServerError,
+    McpServerStatus,
+    McpToolInfo,
     MemorySnapshot,
     Session,
     ShownMessage,
     Skill,
     SkillError,
     SkillSummary,
+    SlackError,
+    SlackStatus,
+    SpeechSettingsError,
+    SpeechStatus,
+    SpokenReplies,
+    SynthesisError,
     TelegramStatus,
     UsageReport,
 )
@@ -49,20 +60,84 @@ class TelegramToken(BaseModel):
     token: str
 
 
+class SlackTokens(BaseModel):
+    app_token: str
+    bot_token: str
+    user_token: str
+
+
+class SlackManifest(BaseModel):
+    manifest: str
+
+
 class EmailSettings(BaseModel):
     host: str
     port: int
     username: str
     password: str
     sender: str
+    # Reading mail; empty for sending only.
+    imap_host: str = ""
+    imap_port: int = 993
+
+
+class NewMailAlerts(BaseModel):
+    # telegram, slack, or "" for none.
+    channel: str
 
 
 class EmailRecipients(BaseModel):
     addresses: list[str]
 
 
+class SpeechChange(BaseModel):
+    model: str
+    languages: list[str]
+
+
+class SpokenRepliesChange(BaseModel):
+    spoken_replies: SpokenReplies
+    voice: str
+
+
+class SpeakRequest(BaseModel):
+    text: str
+    # Empty: the reply voice from the settings.
+    voice: str = ""
+
+
 class JobChange(BaseModel):
     enabled: bool
+
+
+class McpServerSettings(BaseModel):
+    name: str
+    # Either command (a local server) or url (a remote one).
+    command: str = ""
+    args: list[str] = []
+    env: dict[str, str] = {}
+    url: str = ""
+    headers: dict[str, str] = {}
+    trusted: bool = False
+    include: list[str] = []
+    exclude: list[str] = []
+
+    def server(self) -> McpServer:
+        return McpServer(**self.model_dump())
+
+
+class McpServerChange(BaseModel):
+    """Fields to change; the ones left out keep their value."""
+
+    command: str | None = None
+    args: list[str] | None = None
+    env: dict[str, str] | None = None
+    url: str | None = None
+    headers: dict[str, str] | None = None
+    enabled: bool | None = None
+    trusted: bool | None = None
+    include: list[str] | None = None
+    exclude: list[str] | None = None
 
 
 class AssistantName(BaseModel):
@@ -84,6 +159,9 @@ class RunStarted(BaseModel):
 class CancelResult(BaseModel):
     cancelled: bool
 
+
+# How the OpenAPI schema describes a route that answers with audio.
+_WAV: dict[int | str, dict[str, Any]] = {200: {"content": {"audio/wav": {}}}}
 
 # How the OpenAPI schema describes a route that answers with Server-Sent Events.
 _EVENT_STREAM: dict[int | str, dict[str, Any]] = {200: {"content": {"text/event-stream": {}}}}
@@ -109,10 +187,13 @@ def create_app(service: AssistantService, hub: RunHub, startup: Any = None, web_
     _add_run_routes(app, service, hub, clients, streams)
     _add_conversation_routes(app, service, clients)
     _add_telegram_routes(app, service)
+    _add_slack_routes(app, service)
     _add_email_routes(app, service)
     _add_skill_routes(app, service)
     _add_job_routes(app, service)
+    _add_mcp_routes(app, service)
     _add_identity_routes(app, service)
+    _add_speech_routes(app, service)
     _add_usage_routes(app, service)
     if startup is not None:
         _add_startup_routes(app, startup)
@@ -123,7 +204,7 @@ def create_app(service: AssistantService, hub: RunHub, startup: Any = None, web_
 def _require_client_header(app: FastAPI) -> None:
     """Rejects requests without the client header. A web page can't add a custom header to a
     request to another origin without CORS approval, which the daemon never gives, so a site open
-    in your browser can't send commands to 127.0.0.1. Not authentication: that comes later (A7 in BACKLOG.md)."""
+    in your browser can't send commands to 127.0.0.1. Not authentication: that comes later (A3 in BACKLOG.md)."""
 
     @app.middleware("http")
     async def check(request: Request, call_next):
@@ -274,6 +355,56 @@ def _add_telegram_routes(app: FastAPI, service: AssistantService) -> None:
         return Ok()
 
 
+def _add_slack_routes(app: FastAPI, service: AssistantService) -> None:
+    @app.get("/integrations/slack")
+    async def slack_status() -> SlackStatus:
+        return await service.slack_status()
+
+    @app.get("/integrations/slack/manifest")
+    async def slack_manifest() -> SlackManifest:
+        return SlackManifest(manifest=await service.slack_manifest())
+
+    @app.post("/integrations/slack")
+    async def connect_slack(body: SlackTokens) -> SlackStatus:
+        try:
+            return await service.connect_slack(body.app_token, body.bot_token, body.user_token)
+        except SlackError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.delete("/integrations/slack")
+    async def disconnect_slack() -> Ok:
+        await service.disconnect_slack()
+        return Ok()
+
+
+def _add_speech_routes(app: FastAPI, service: AssistantService) -> None:
+    @app.get("/settings/speech")
+    async def speech_settings() -> SpeechStatus:
+        return await service.speech_settings()
+
+    @app.put("/settings/speech")
+    async def set_speech(body: SpeechChange) -> SpeechStatus:
+        try:
+            return await service.set_speech(body.model, body.languages)
+        except SpeechSettingsError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.put("/settings/speech/replies")
+    async def set_spoken_replies(body: SpokenRepliesChange) -> SpeechStatus:
+        try:
+            return await service.set_spoken_replies(body.spoken_replies, body.voice)
+        except SpeechSettingsError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.post("/speech", response_class=Response, responses=_WAV)
+    async def speak(body: SpeakRequest) -> Response:
+        """The text read aloud on this host (Kokoro), as WAV."""
+        try:
+            return Response(await service.speak(body.text, "wav", body.voice), media_type="audio/wav")
+        except SynthesisError as e:
+            raise HTTPException(400, str(e)) from e
+
+
 def _add_email_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/integrations/email/providers")
     async def email_providers() -> list[EmailProvider]:
@@ -286,7 +417,16 @@ def _add_email_routes(app: FastAPI, service: AssistantService) -> None:
     @app.post("/integrations/email")
     async def connect_email(body: EmailSettings) -> EmailStatus:
         try:
-            return await service.connect_email(body.host, body.port, body.username, body.password, body.sender)
+            return await service.connect_email(
+                body.host, body.port, body.username, body.password, body.sender, body.imap_host, body.imap_port
+            )
+        except EmailError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.put("/integrations/email/alerts")
+    async def new_mail_alerts(body: NewMailAlerts) -> EmailStatus:
+        try:
+            return await service.set_new_mail_alerts(body.channel)
         except EmailError as e:
             raise HTTPException(400, str(e)) from e
 
@@ -317,6 +457,42 @@ def _add_skill_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             await service.delete_skill(name)
         except SkillError as e:
+            raise HTTPException(404, str(e)) from e
+        return Ok()
+
+
+def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
+    @app.get("/mcp/servers")
+    async def mcp_servers() -> list[McpServerStatus]:
+        return await service.mcp_servers()
+
+    @app.post("/mcp/probe")
+    async def probe_mcp_server(body: McpServerSettings) -> list[McpToolInfo]:
+        """Connect once and list the server's tools, without saving it."""
+        try:
+            return await service.probe_mcp_server(body.server())
+        except McpServerError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.post("/mcp/servers")
+    async def add_mcp_server(body: McpServerSettings) -> McpServerStatus:
+        try:
+            return await service.add_mcp_server(body.server())
+        except McpServerError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.patch("/mcp/servers/{name}")
+    async def change_mcp_server(name: str, body: McpServerChange) -> McpServerStatus:
+        try:
+            return await service.update_mcp_server(name, McpServerChanges(**body.model_dump()))
+        except McpServerError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.delete("/mcp/servers/{name}")
+    async def remove_mcp_server(name: str) -> Ok:
+        try:
+            await service.remove_mcp_server(name)
+        except McpServerError as e:
             raise HTTPException(404, str(e)) from e
         return Ok()
 
@@ -362,7 +538,7 @@ def _add_usage_routes(app: FastAPI, service: AssistantService) -> None:
 
 
 def _add_startup_routes(app: FastAPI, startup: Any) -> None:
-    """Start at boot (macOS LaunchDaemon). `startup` offers status(), enable() and disable()."""
+    """Start at boot (daemon/startup.py). `startup` offers status(), enable() and disable()."""
 
     @app.get("/system/startup")
     async def startup_status() -> StartupStatus:
@@ -398,7 +574,9 @@ async def _sse(events):
             yield {"id": str(event_id), "data": json.dumps(event)}
 
 
-async def _bus_events(service: AssistantService, after: int, clients: ClientRegistry, client: tuple[str, str, str]):
+async def _bus_events(
+    service: AssistantService, after: int, clients: ClientRegistry, client: tuple[str, str, str, str]
+):
     """The client is listed as connected for as long as it reads the stream."""
     key = clients.add(*client)
     try:
@@ -419,8 +597,10 @@ def _client_id(request: Request) -> str:
     return request.headers.get(CLIENT_ID_HEADER, "")
 
 
-def _client(request: Request) -> tuple[str, str, str]:
-    """(id, kind, transport). Connections on the Unix socket have no peer address."""
+def _client(request: Request) -> tuple[str, str, str, str]:
+    """(id, kind, transport, device id). Connections on the Unix socket have no peer address and no device."""
     peer = request.client
     transport = f"{peer.host}:{peer.port}" if peer and peer.host else "unix socket"
-    return request.headers.get(CLIENT_ID_HEADER, ""), request.headers.get(CLIENT_HEADER, ""), transport
+    device = device_of(request)
+    client_id, kind = request.headers.get(CLIENT_ID_HEADER, ""), request.headers.get(CLIENT_HEADER, "")
+    return client_id, kind, transport, device.id if device else ""

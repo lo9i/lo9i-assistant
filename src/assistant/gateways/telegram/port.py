@@ -1,23 +1,19 @@
-"""The Telegram operations a turn needs, behind a small interface so rendering can be tested without Telegram."""
+"""ChatPort for Telegram (see gateways/chat/port.py), and the limits a turn keeps there."""
 
 import logging
-from typing import Protocol
 
 from telegram.constants import ChatAction, ParseMode
 from telegram.error import BadRequest
 
-from assistant.gateways.telegram.formatting import to_markdown_v2
+from assistant.gateways.chat.port import Buttons
+from assistant.gateways.chat.turn import Limits
+from assistant.gateways.telegram.formatting import CHUNK, to_markdown_v2
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 
 logger = logging.getLogger(__name__)
 
-Buttons = list[tuple[str, str]]  # (label, callback data)
-
-
-class ChatPort(Protocol):
-    async def send(self, text: str, *, markdown: bool = False, buttons: Buttons | None = None) -> int: ...
-    async def edit(self, message_id: int, text: str, *, markdown: bool = False) -> None: ...
-    async def typing(self) -> None: ...
+# Telegram allows about one edit per second in a chat.
+LIMITS = Limits(edit_interval=1.0, stream_limit=CHUNK, chunk=CHUNK)
 
 
 class TelegramChat:
@@ -51,6 +47,9 @@ class TelegramChat:
 
     async def typing(self) -> None:
         await self._bot.send_chat_action(self._chat_id, ChatAction.TYPING)
+
+    async def send_voice(self, ogg_opus: bytes) -> None:
+        await self._bot.send_voice(self._chat_id, ogg_opus)
 
     async def _edit_plain(self, message_id: int, text: str) -> None:
         try:

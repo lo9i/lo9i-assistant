@@ -10,7 +10,7 @@ import pytest
 
 import assistant.core.integrations.telegram as integration
 from assistant.client.daemon_client import DaemonClient
-from assistant.core.agent import InvalidNameError, InvalidTokenError, Session
+from assistant.core.agent import InvalidNameError, InvalidTokenError, Session, SlackError, SpeechSettingsError
 from assistant.core.attachments import Attachment
 from assistant.core.events import ApprovalRequired, Cancelled, Done, ToolFinished
 from assistant.daemon.api import create_app
@@ -59,22 +59,24 @@ async def test_every_json_response_has_a_typed_schema(service):
     assert untyped == []
 
 
-_WEB_SCHEMA = Path(__file__).parents[2] / "web" / "openapi.json"
+_WEB_SCHEMA = Path(__file__).parents[2] / "clients" / "web" / "openapi.json"
 
 
 async def test_the_web_clients_schema_matches_the_routes(service):
-    """The web client's types are generated from web/openapi.json. Run with UPDATE_OPENAPI=1
-    (`npm run api` in web/) to rewrite it after changing a route."""
+    """The web client's types are generated from clients/web/openapi.json. Run with UPDATE_OPENAPI=1
+    (`npm run api` in clients/web/) to rewrite it after changing a route."""
     current = json.dumps(create_app(service, RunHub(), _Startup()).openapi(), indent=2) + "\n"
     if os.environ.get("UPDATE_OPENAPI"):
         _WEB_SCHEMA.write_text(current)
-    assert _WEB_SCHEMA.read_text() == current, "web/openapi.json is out of date: run `npm run api` in web/"
+    assert _WEB_SCHEMA.read_text() == current, (
+        "clients/web/openapi.json is out of date: run `npm run api` in clients/web/"
+    )
 
 
 def _json_schema(operation: dict) -> dict:
-    """The 200 response's JSON schema. Event streams aren't JSON and count as typed."""
+    """The 200 response's JSON schema. Event streams and audio aren't JSON and count as typed."""
     content = operation["responses"]["200"]["content"]
-    return content["application/json"]["schema"] if "application/json" in content else {"$ref": "event stream"}
+    return content["application/json"]["schema"] if "application/json" in content else {"$ref": "not JSON"}
 
 
 def _typed(schema: dict) -> bool:
@@ -108,6 +110,22 @@ async def test_threads_memory_and_telegram(client, monkeypatch):
     assert not (await client.telegram.status()).connected
     with pytest.raises(InvalidTokenError):
         await client.telegram.connect("bad")
+
+
+async def test_speech_routes(client):
+    assert (await client.speech.settings()).model in (await client.speech.settings()).models
+    assert (await client.speech.change("tiny", ["es"])).languages == ["es"]
+    with pytest.raises(SpeechSettingsError):
+        await client.speech.change("tiny", ["xx"])
+    assert any(v.id == "ef_dora" for v in (await client.speech.settings()).voice_options)
+
+
+async def test_slack_routes(client):
+    assert not (await client.slack.status()).connected
+    assert '"socket_mode_enabled": true' in await client.slack.manifest()
+    with pytest.raises(SlackError, match="should start with xapp-"):
+        await client.slack.connect("bad", "xoxb-1", "xoxp-1")
+    await client.slack.disconnect()
 
 
 async def test_a_client_moving_on_leaves_its_conversation_to_be_archived(client, service, digests):
@@ -168,3 +186,29 @@ async def test_cancel_stops_the_conversations_run(client, script, tmp_path):
     assert await client.cancel(session)
     assert isinstance((await asyncio.wait_for(run, 10))[-1], Cancelled)
     assert not await client.cancel(session)
+
+
+async def test_mcp_servers_through_the_client(client, service, monkeypatch):
+    from mcp import Client
+    from mcp.server import MCPServer
+
+    from assistant.core.agent import McpServer, McpServerChanges, McpServerError
+
+    fake = MCPServer("notes")
+
+    @fake.tool()
+    def add_note(text: str) -> str:
+        """Add a note."""
+        return text
+
+    monkeypatch.setattr(service.mcp, "_factory", lambda server, handler: Client(fake, message_handler=handler))
+    server = McpServer(name="notes", command="notes-server", env={"TOKEN": "secret"})
+    assert [t.name for t in await client.mcp.probe(server)] == ["add_note"]
+    added = await client.mcp.add(server)
+    assert added.env_keys == ["TOKEN"] and added.status == "off"  # the hub isn't running here
+    changed = await client.mcp.change("notes", McpServerChanges(trusted=True, include=["add_note"]))
+    assert changed.trusted and changed.include == ["add_note"]
+    assert [s.name for s in await client.mcp.servers()] == ["notes"]
+    await client.mcp.remove("notes")
+    with pytest.raises(McpServerError):
+        await client.mcp.remove("notes")

@@ -1,4 +1,5 @@
-"""The header at the start of every user message: date, time and channel."""
+"""The header at the start of every user message: date, time and channel, then the messages the
+assistant sent on this channel from elsewhere since the user last wrote (core/conversation/sent.py)."""
 
 import re
 from collections.abc import Sequence
@@ -10,6 +11,7 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from assistant.core.config import settings
 
 _HEADER = re.compile(r"^\[[^\]]*, via ([\w-]+)\]$")
+_SENT = "[You sent this on "
 
 
 def header_block(channel: str, now: datetime) -> dict[str, str]:
@@ -17,9 +19,16 @@ def header_block(channel: str, now: datetime) -> dict[str, str]:
     return {"type": "text", "text": f"[{local:%a %Y-%m-%d %H:%M %Z}, via {channel}]"}
 
 
+def sent_block(channel: str, at: datetime, text: str) -> dict[str, str]:
+    local = at.astimezone(ZoneInfo(settings.timezone))
+    return {"type": "text", "text": f"{_SENT}{channel} at {local:%a %Y-%m-%d %H:%M %Z}, outside this chat:]\n{text}"}
+
+
 def is_header(block: object) -> bool:
-    """True for the block `header_block` made, so displays can leave it out."""
-    return _channel(block) is not None
+    """True for the blocks `header_block` and `sent_block` made, so displays can leave them out."""
+    if _channel(block) is not None:
+        return True
+    return isinstance(block, dict) and str(block.get("text", "")).startswith(_SENT)
 
 
 def channels(messages: Sequence[BaseMessage]) -> list[str]:

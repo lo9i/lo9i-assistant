@@ -1,0 +1,441 @@
+/* Dialogs are a gray panel over the terminal's background, so they stand apart from the chat.
+   What sits inside them is transparent, so the panel shows through. */
+$dialog-background: #333333;
+
+Screen {
+    layout: vertical;
+}
+
+#main {
+    height: 1fr;
+}
+
+#chat {
+    width: 1fr;
+    padding: 0 1;
+}
+
+MemoryPanel {
+    width: 40;
+    border-left: solid ansi_bright_black;
+    padding: 0 1;
+}
+
+MemoryPanel.hidden {
+    display: none;
+}
+
+UserMessage {
+    color: ansi_green;
+    margin: 1 0 0 0;
+}
+
+AssistantMessage {
+    margin: 1 0 0 0;
+    padding: 0 0 0 1;
+    background: transparent;
+    border-left: outer ansi_bright_black;
+}
+
+/* Markdown blocks keep a blank line below them; the reply's last one doesn't need it. */
+AssistantMessage > MarkdownBlock:last-child {
+    margin-bottom: 0;
+}
+
+AssistantMessage MarkdownParagraph, AssistantMessage MarkdownBullet, AssistantMessage MarkdownListItem {
+    color: ansi_white;
+}
+
+TranscriptNote, ToolNote, StoppedNote {
+    color: ansi_bright_black;
+    padding: 0 0 0 2;
+}
+
+SystemNote {
+    margin: 1 0 0 0;
+    padding: 0 1;
+    background: transparent;
+    border: round ansi_bright_black;
+}
+
+ErrorMessage {
+    color: ansi_red;
+    margin: 1 0 0 0;
+}
+
+ToolCall {
+    margin: 1 0 0 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+}
+
+ToolCall .tool-result {
+    color: ansi_bright_black;
+    padding: 0 0 0 2;
+}
+
+StatusLine {
+    height: 1;
+    margin-top: 1;
+    padding: 0 1;
+    color: ansi_bright_black;
+}
+
+CommandMenu {
+    display: none;
+    height: auto;
+    max-height: 10;
+    padding: 0 1;
+    color: ansi_default;
+}
+
+.command-row {
+    width: 100%;
+    height: 1;
+}
+
+.command-row.highlighted {
+    /* The color the memory panel headings ("Recent conversations") show in the user's terminal. */
+    background: #0078ab;
+    color: #ffffff;
+}
+
+CommandMenu.visible {
+    display: block;
+}
+
+#footer-row {
+    dock: bottom;
+    height: 1;
+}
+
+#footer-row Footer {
+    dock: none;
+    width: 1fr;
+}
+
+MouseStatus {
+    width: auto;
+    padding: 0 1;
+    color: ansi_bright_black;
+}
+
+#prompt-box {
+    height: auto;
+    border: round ansi_bright_black;
+}
+
+#prompt-box:focus-within {
+    border: round #2f343f;
+}
+
+/* Inside the box's border, so the message box itself has none. */
+#prompt, #prompt:focus {
+    border: none;
+    height: 1;
+    width: 1fr;
+}
+
+AttachmentBar {
+    display: none;
+    width: auto;
+    height: 1;
+    padding-left: 1;
+}
+
+AttachmentBar.visible {
+    display: block;
+}
+
+AttachmentBar .tag {
+    width: auto;
+    margin-right: 1;
+    color: ansi_bright_black;
+    text-style: bold;
+}
+
+TelegramScreen, SlackScreen, EmailScreen, StartupScreen, McpAddScreen, McpSecretsScreen {
+    align: center middle;
+}
+
+#telegram, #slack, #email, #startup, #mcp-add, #mcp-secrets-dialog {
+    width: 80%;
+    max-width: 100;
+    height: auto;
+    padding: 1 2;
+    border: round ansi_bright_black;
+    background: $dialog-background;
+}
+
+#telegram Markdown, #slack Markdown, #email Markdown, #startup Markdown, #mcp-add Markdown, #mcp-secrets-dialog Markdown {
+    background: transparent;
+    margin: 0;
+}
+
+/* Dialogs already have top padding; a heading's default top margin would add two more empty rows. */
+ModalScreen Markdown > MarkdownHeader:first-child {
+    margin-top: 0;
+}
+
+#telegram-buttons, #slack-buttons, #email-buttons, #startup-buttons, #mcp-add-buttons, #mcp-secrets-buttons {
+    height: auto;
+    margin-top: 1;
+}
+
+#telegram-buttons Button, #slack-buttons Button, #email-buttons Button, #startup-buttons Button, #mcp-add-buttons Button, #mcp-secrets-buttons Button {
+    margin-right: 2;
+}
+
+ApprovalScreen {
+    align: center middle;
+}
+
+#approval {
+    width: 80%;
+    max-width: 100;
+    height: auto;
+    padding: 1 2;
+    border: round ansi_yellow;
+    background: $dialog-background;
+}
+
+#approval-command {
+    margin: 1 0;
+    padding: 0 1;
+    background: transparent;
+    color: ansi_yellow;
+}
+
+#approval-buttons {
+    height: auto;
+    margin-top: 1;
+}
+
+#approval-buttons Button {
+    margin-right: 2;
+}
+
+ConfirmScreen {
+    align: center middle;
+}
+
+#confirm {
+    width: 60%;
+    max-width: 70;
+    height: auto;
+    padding: 1 2;
+    border: round ansi_red;
+    background: $dialog-background;
+}
+
+#confirm-buttons {
+    height: auto;
+    margin-top: 1;
+}
+
+#confirm-buttons Button {
+    margin-right: 2;
+}
+
+Toast {
+    background: ansi_default;
+    color: ansi_default;
+    border: round ansi_bright_black;
+    padding: 0 1;
+    max-width: 60;
+}
+
+Toast.-warning {
+    border: round ansi_yellow;
+}
+
+Toast.-error {
+    border: round ansi_red;
+}
+
+/* Markdown everywhere: default text color, dim structure, no colored inline code or headings. */
+Markdown {
+    color: ansi_default;
+}
+
+MarkdownH1, MarkdownH2, MarkdownH3 {
+    content-align: left middle;
+}
+
+MarkdownBullet {
+    color: ansi_bright_black;
+}
+
+Markdown MarkdownBlock > .code_inline {
+    color: ansi_default !important;
+    background: transparent !important;
+    text-style: bold;
+}
+
+/* Buttons: gray outline, bold when focused; red text only for destructive actions. */
+Button {
+    background: transparent;
+    color: ansi_default;
+    border: round ansi_bright_black;
+    text-style: none;
+}
+
+Button:focus {
+    border: round ansi_default;
+    text-style: bold;
+}
+
+Button:hover {
+    background: transparent;
+    border: round ansi_default;
+}
+
+Button.-success, Button.-primary {
+    background: transparent;
+    color: ansi_default;
+}
+
+Button.-error {
+    background: transparent;
+    color: ansi_red;
+}
+
+ModalScreen Input, ModalScreen OptionList, ModalScreen MarkdownHeader {
+    background: transparent;
+}
+
+#telegram-token, #slack Input, #email Input, #email SelectCurrent, #mcp-add Input, #mcp-add SelectCurrent {
+    border: round ansi_bright_black;
+    background: transparent;
+}
+
+#telegram-token:focus, #slack Input:focus, #email Input:focus, #mcp-add Input:focus {
+    border: round #2f343f;
+}
+
+SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, SessionsScreen, McpScreen {
+    align: center middle;
+}
+
+#skills, #jobs, #conversations, #devices, #usage, #sessions, #mcp {
+    width: 90%;
+    max-width: 120;
+    height: 80%;
+    padding: 1 2;
+    border: round ansi_bright_black;
+    background: $dialog-background;
+}
+
+#skills Markdown, #jobs Markdown, #conversations Markdown, #devices Markdown, #usage Markdown, #sessions Markdown, #mcp Markdown {
+    background: transparent;
+    margin: 0;
+}
+
+#skills-title, #jobs-title, #conversations-title, #devices-title, #mcp-title {
+    height: auto;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#skills-empty, #jobs-empty, #conversations-empty, #mcp-empty {
+    display: none;
+    height: auto;
+}
+
+#skills.empty, #jobs.empty, #conversations.empty, #mcp.empty {
+    height: auto;
+}
+
+#skills.empty #skills-main, #jobs.empty #jobs-main, #conversations.empty #conversations-main, #mcp.empty #mcp-main {
+    display: none;
+}
+
+#skills.empty #skills-empty, #jobs.empty #jobs-empty, #conversations.empty #conversations-empty, #mcp.empty #mcp-empty {
+    display: block;
+}
+
+#skills-main, #jobs-main, #conversations-main, #devices-main, #mcp-main, #usage-scroll {
+    height: 1fr;
+}
+
+/* A short list: the dialog fits its content. */
+#sessions {
+    height: auto;
+    max-height: 80%;
+}
+
+#sessions-scroll {
+    height: auto;
+}
+
+#skills-list, #jobs-list, #conversations-list, #devices-list {
+    width: 36;
+    border: round ansi_bright_black;
+    background: transparent;
+}
+
+/* Lists of short labels (dates, job and skill names) have no frame; a divider sets them apart from the
+   detail next to them. */
+#conversations-list, #jobs-list, #devices-list, #skills-list, #mcp-list {
+    border: none;
+}
+
+#conversations-list {
+    width: 22;
+}
+
+#jobs-list, #devices-list, #skills-list, #mcp-list {
+    width: 32;
+}
+
+/* "Last active" is underlined across the preview, separating it from what was said. A Markdown
+   rule would leave an empty line above itself. */
+#conversation-body > MarkdownParagraph:first-of-type {
+    border-bottom: solid ansi_bright_black;
+}
+
+#conversations-main .divider, #jobs-main .divider, #devices-main .divider, #skills-main .divider, #mcp-main .divider {
+    width: 1;
+    height: 1fr;
+    margin: 1 1 1 0;
+    border-left: solid ansi_bright_black;
+}
+
+#skills-detail, #jobs-detail, #conversations-detail, #devices-detail, #mcp-detail {
+    padding: 0 1;
+}
+
+#skills-buttons, #jobs-buttons, #conversations-buttons, #devices-buttons, #usage-buttons, #sessions-buttons, #mcp-buttons {
+    height: auto;
+    margin-top: 1;
+}
+
+#skills-buttons Button, #jobs-buttons Button, #conversations-buttons Button, #devices-buttons Button, #usage-buttons Button, #mcp-buttons Button {
+    margin-right: 2;
+}
+
+/* Scrollbars in gray, like the rest of the structure. */
+* {
+    scrollbar-color: ansi_bright_black;
+    scrollbar-color-hover: ansi_white;
+    scrollbar-color-active: ansi_white;
+    scrollbar-background: ansi_default;
+    scrollbar-background-hover: ansi_default;
+    scrollbar-background-active: ansi_default;
+    scrollbar-corner-color: ansi_default;
+}
+
+#mcp-tools, #mcp-add-tools {
+    height: auto;
+    max-height: 16;
+    background: transparent;
+}
+
+#mcp-secrets, #mcp-secrets-text {
+    height: 6;
+}
+
+#mcp-add {
+    max-height: 90%;
+}

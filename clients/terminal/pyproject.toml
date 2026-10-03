@@ -1,0 +1,19 @@
+[project]
+name = "assistant-terminal"
+version = "0.1.0"
+description = "The assistant's terminal app, a client of the daemon."
+requires-python = ">=3.12"
+dependencies = [
+    "assistant",
+    "textual>=8.2.8",
+]
+
+[project.scripts]
+assistant = "assistant_terminal.main:run"
+
+[tool.uv.sources]
+assistant = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"

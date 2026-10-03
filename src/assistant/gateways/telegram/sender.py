@@ -5,7 +5,8 @@ from typing import Protocol
 from telegram.error import TelegramError
 
 from assistant.core.outbox import DeliveryError
-from assistant.gateways.telegram.formatting import split_text
+from assistant.gateways.chat.split import split_text
+from assistant.gateways.telegram.formatting import CHUNK
 from assistant.gateways.telegram.port import TelegramChat
 from telegram import Bot
 
@@ -35,5 +36,5 @@ class TelegramSender:
 
     async def _send_to(self, chat_id: int, text: str) -> None:
         chat = TelegramChat(self._bot, chat_id)
-        for part in split_text(text):
+        for part in split_text(text, CHUNK):
             await chat.send(part, markdown=True)

@@ -11,8 +11,10 @@ from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
 from assistant.core.agent.titles import TitlesMixin
 from assistant.core.attachments import Attachment, Block, to_content
+from assistant.core.conversation import sent
 from assistant.core.conversation.turn_header import header_block
 from assistant.core.events import Error, Event, Transcribed
+from assistant.core.speech import preferences
 from assistant.core.speech.transcriber import TranscriptionError
 from assistant.core.speech.voice import is_voice, transcribe_voice
 
@@ -23,7 +25,8 @@ class MessagingMixin(RunsMixin, ConversationsMixin, TitlesMixin):
     async def send(self, session: Session, text: str, attachments: Sequence[Attachment] = ()) -> AsyncIterator[Event]:
         voice = [a for a in attachments if is_voice(a)]
         try:
-            transcripts, voice_blocks = await transcribe_voice(self._transcriber, voice)
+            speech = await preferences.load(self._storage.store)
+            transcripts, voice_blocks = await transcribe_voice(self._transcriber, voice, speech)
             content = await asyncio.to_thread(to_content, text, [a for a in attachments if not is_voice(a)])
         except (TranscriptionError, ValueError) as e:
             yield Error(str(e))
@@ -31,7 +34,9 @@ class MessagingMixin(RunsMixin, ConversationsMixin, TitlesMixin):
         for transcript in transcripts:
             yield Transcribed(transcript.text, transcript.language)
         await self._note_activity(session, _title_text(text, [t.text for t in transcripts], attachments))
-        async for event in self._run(session, {"messages": [_message(session, [*voice_blocks, *content])]}):
+        sent_here = await sent.take(self._storage.store, session.user_id, session.channel)
+        message = _message(session, [*sent_here, *voice_blocks, *content])
+        async for event in self._run(session, {"messages": [message]}):
             yield event
         self._title_in_background(session)
 

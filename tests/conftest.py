@@ -45,11 +45,13 @@ def isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 class ScriptedModel(GenericFakeChatModel):
-    """Answers with the queued replies, records every request, and accepts any tool binding."""
+    """Answers with the queued replies, records every request and the tools bound for it."""
 
     requests: list[list[BaseMessage]] = Field(default_factory=list)
+    bound: list[list[Any]] = Field(default_factory=list)
 
     def bind_tools(self, tools: Any, **kwargs: Any) -> "ScriptedModel":
+        self.bound.append(list(tools))
         return self
 
     async def ainvoke(self, messages: Any, *args: Any, **kwargs: Any) -> Any:
@@ -63,6 +65,8 @@ class Script:
     def __init__(self) -> None:
         self._replies: deque[AIMessage] = deque()
         self.requests: list[list[BaseMessage]] = []
+        # The tools bound for each request.
+        self.bound: list[list[Any]] = []
 
     def reply(self, text: str = "", **kwargs: Any) -> "Script":
         self._replies.append(AIMessage(content=text, **kwargs))
@@ -79,6 +83,7 @@ class Script:
     def model(self) -> ScriptedModel:
         model = ScriptedModel(messages=self._next(), disable_streaming=True)
         model.requests = self.requests
+        model.bound = self.bound
         return model
 
 

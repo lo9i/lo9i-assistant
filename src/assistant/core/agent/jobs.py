@@ -38,6 +38,8 @@ class JobsMixin(ServiceBase):
 
 
 def _resume(job: Job, now: datetime) -> None:
+    if job.on_new_mail:
+        return
     if not job.one_time:
         job.next_run_at = cron.next_runs(job.schedule, job.timezone, now)[0].astimezone(UTC).isoformat()
     elif datetime.fromisoformat(job.next_run_at) <= now:
