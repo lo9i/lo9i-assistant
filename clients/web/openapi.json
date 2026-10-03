@@ -608,6 +608,29 @@
         }
       }
     },
+    "/files": {
+      "get": {
+        "summary": "File List",
+        "description": "The files the user sent in their conversations, newest first.",
+        "operationId": "file_list_files_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UploadedFile"
+                  },
+                  "type": "array",
+                  "title": "Response File List Files Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/integrations/telegram": {
       "get": {
         "summary": "Telegram Status",
@@ -4844,6 +4867,49 @@
           "last_used"
         ],
         "title": "ToolUsage"
+      },
+      "UploadedFile": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "media_type": {
+            "type": "string",
+            "title": "Media Type"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "uploaded_at": {
+            "type": "string",
+            "title": "Uploaded At"
+          },
+          "thread_id": {
+            "type": "string",
+            "title": "Thread Id"
+          },
+          "conversation": {
+            "type": "string",
+            "title": "Conversation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "name",
+          "media_type",
+          "size",
+          "uploaded_at",
+          "thread_id",
+          "conversation"
+        ],
+        "title": "UploadedFile"
       },
       "UsageReport": {
         "properties": {

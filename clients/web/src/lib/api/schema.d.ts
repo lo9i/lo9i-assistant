@@ -352,6 +352,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * File List
+         * @description The files the user sent in their conversations, newest first.
+         */
+        get: operations["file_list_files_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/integrations/telegram": {
         parameters: {
             query?: never;
@@ -2268,6 +2288,23 @@ export interface components {
             /** Last Used */
             last_used: string;
         };
+        /** UploadedFile */
+        UploadedFile: {
+            /** Path */
+            path: string;
+            /** Name */
+            name: string;
+            /** Media Type */
+            media_type: string;
+            /** Size */
+            size: number;
+            /** Uploaded At */
+            uploaded_at: string;
+            /** Thread Id */
+            thread_id: string;
+            /** Conversation */
+            conversation: string;
+        };
         /** UsageReport */
         UsageReport: {
             /** Days */
@@ -2814,6 +2851,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    file_list_files_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadedFile"][];
                 };
             };
         };

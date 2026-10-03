@@ -42,6 +42,7 @@ import type {
   StartupStatus,
   TelegramStatus,
   TokenReport,
+  UploadedFile,
   UsageReport,
   WebSearchStatus,
 } from "./types";
@@ -69,6 +70,15 @@ export class ConversationsGroup {
   /** Deletes its messages, its place in the list, and the files sent in it. Fails while a client is on it. */
   async delete(threadId: string): Promise<void> {
     await this.transport.request("DELETE", `/conversations/${encodeURIComponent(threadId)}`);
+  }
+}
+
+export class FilesGroup {
+  constructor(private readonly transport: Transport) {}
+
+  /** The files the user sent in their conversations, newest first. */
+  list(): Promise<UploadedFile[]> {
+    return this.transport.request("GET", "/files");
   }
 }
 
@@ -470,6 +480,7 @@ export class ClientsGroup {
 
 export class DaemonClient {
   readonly conversations: ConversationsGroup;
+  readonly files: FilesGroup;
   readonly identity: IdentityGroup;
   readonly jobs: JobsGroup;
   readonly telegram: TelegramGroup;
@@ -492,6 +503,7 @@ export class DaemonClient {
 
   constructor(private readonly transport: Transport) {
     this.conversations = new ConversationsGroup(transport);
+    this.files = new FilesGroup(transport);
     this.identity = new IdentityGroup(transport);
     this.jobs = new JobsGroup(transport);
     this.telegram = new TelegramGroup(transport);

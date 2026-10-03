@@ -56,6 +56,7 @@ from assistant.core.agent import (
     SynthesisError,
     TelegramStatus,
     TokenReport,
+    UploadedFile,
     UsageReport,
     WebSearchStatus,
 )
@@ -282,6 +283,7 @@ def create_app(service: AssistantService, hub: RunHub, startup: Any = None, web_
     _add_session_routes(app, service, clients)
     _add_run_routes(app, service, hub, clients, streams)
     _add_conversation_routes(app, service, clients)
+    _add_file_routes(app, service)
     _add_telegram_routes(app, service)
     _add_slack_routes(app, service)
     _add_web_search_routes(app, service)
@@ -453,6 +455,13 @@ def _refuse_if_open(clients: ClientRegistry, thread_id: str, caller: str) -> Non
         raise HTTPException(409, "You're on this conversation. Start a new one first, then delete it.")
     if on_it:
         raise HTTPException(409, "It's open in another window or app. Move that one to another conversation first.")
+
+
+def _add_file_routes(app: FastAPI, service: AssistantService) -> None:
+    @app.get("/files")
+    async def file_list() -> list[UploadedFile]:
+        """The files the user sent in their conversations, newest first."""
+        return await service.list_files(settings.owner_id)
 
 
 def _add_telegram_routes(app: FastAPI, service: AssistantService) -> None:

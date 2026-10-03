@@ -326,6 +326,15 @@ async def test_a_conversation_a_client_is_on_cant_be_deleted(client, service):
         await client.conversations.delete(session.thread_id)
 
 
+async def test_files_through_the_client(client):
+    from assistant.core.attachments import Attachment
+
+    session = await _new_session(client)
+    await collect(client.send(session, "read this", [Attachment("notes.txt", "text/plain", b"buy milk")]))
+    [listed] = await client.files.list()
+    assert (listed.name, listed.size, listed.thread_id) == ("notes.txt", 8, session.thread_id)
+
+
 async def test_token_usage_through_the_client(client, script):
     script.reply("hi", usage_metadata={"input_tokens": 50, "output_tokens": 5, "total_tokens": 55})
     await collect(client.send(await _new_session(client), "hello"))
