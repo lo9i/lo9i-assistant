@@ -2,7 +2,9 @@
   import BookOpen from "@lucide/svelte/icons/book-open";
   import Lightbulb from "@lucide/svelte/icons/lightbulb";
   import UserRound from "@lucide/svelte/icons/user-round";
-  import { resource } from "$lib/daemon.svelte";
+  import Sparkles from "@lucide/svelte/icons/sparkles";
+  import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
+  import { resource, useDaemon } from "$lib/daemon.svelte";
   import { sectionLabel } from "$lib/memory";
   import Card from "$lib/ui/Card.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
@@ -10,6 +12,7 @@
 
   // Read only: the assistant keeps this up to date from conversations, and changes it when asked in chat.
   const memory = resource((c) => c.memory.snapshot(), ["memory"]);
+  const { chat } = useDaemon();
   const sections = $derived(Object.entries(memory.data?.profile ?? {}));
   const facts = $derived(memory.data?.facts ?? []);
   const episodes = $derived(memory.data?.episodes ?? []);
@@ -21,10 +24,12 @@
   {#if memory.error}
     <p class="error-text">{memory.error}</p>
   {:else if memory.data}
-    <p class="text-meta intro">What the assistant has learned about you. To change something, tell it in a conversation.</p>
     <div class="grid">
       <div class="stack">
         <Card title="Profile" sub="Always in the assistant's mind. Changes apply from the next conversation.">
+          {#snippet status()}
+            <button class="btn btn--neutral btn--sm" onclick={() => startGetToKnowYou(chat)}><Sparkles size={14} />Get to know me</button>
+          {/snippet}
           {#if sections.length === 0}
             <EmptyState icon={UserRound} title="Nothing yet" text="The profile fills in as you talk." />
           {:else}
@@ -77,9 +82,6 @@
     padding: 16px 16px 40px;
     max-width: 1600px;
     margin: 0 auto;
-  }
-  .intro {
-    margin: 0;
   }
   .grid {
     display: grid;
