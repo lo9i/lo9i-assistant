@@ -11,22 +11,20 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
-from assistant.client.daemon_client import RepositoriesApi, SkillsApi
+from assistant.client.daemon_client import SkillsApi
 from assistant.core.agent import Skill, SkillError, SkillSummary
 from assistant_terminal.health_text import failures_line, label
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
-from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 from assistant_terminal.tui.screens.skill_edit import SkillEditScreen
 
 
 class SkillsScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
 
-    def __init__(self, skills: SkillsApi, repositories: RepositoriesApi) -> None:
+    def __init__(self, skills: SkillsApi) -> None:
         super().__init__()
         self._skills = skills
-        self._repositories = repositories
         self._names: list[str] = []
         self._summaries: dict[str, SkillSummary] = {}
         self._selected: str | None = None
@@ -37,7 +35,7 @@ class SkillsScreen(ModalScreen[None]):
             yield Static("Skills", id="skills-title")
             yield Static(
                 "No skills yet. Ask the assistant to save one, for example: “save a skill for my daily news digest”, "
-                "or install one from the assistant's extras (Install).",
+                "or install one from the assistant's extras with /plugins.",
                 id="skills-empty",
             )
             with Horizontal(id="skills-main"):
@@ -49,7 +47,6 @@ class SkillsScreen(ModalScreen[None]):
                 yield Button("Edit", id="edit")
                 yield Button("Update", id="update")
                 yield Button("Delete", variant="error", id="delete")
-                yield Button("Install", id="install")
                 yield Button("Close", id="close")
 
     @reports_daemon_unavailable
@@ -93,15 +90,6 @@ class SkillsScreen(ModalScreen[None]):
     async def _edit(self) -> None:
         if self._skill is not None and await self.app.push_screen_wait(SkillEditScreen(self._skills, self._skill)):
             self.notify(f"Saved skill {self._skill.name}.")
-            await self.reload()
-
-    @on(Button.Pressed, "#install")
-    @work
-    @reports_daemon_unavailable
-    async def _install(self) -> None:
-        installed = await self.app.push_screen_wait(RepositoryInstallScreen(self._repositories, kind="skill"))
-        if installed:
-            self.notify(f"Installed {', '.join(installed)}.")
             await self.reload()
 
     @on(Button.Pressed, "#update")

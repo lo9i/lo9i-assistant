@@ -45,6 +45,14 @@ def version(plugin: Plugin) -> str:
     return here or "-"
 
 
+def updatable(plugin: Plugin) -> bool:
+    """Whether Update makes sense: the extras have another version than the one installed. Without a
+    declared version there's no telling, so it's offered."""
+    found = plugin.server or plugin.skill
+    available, here = (found.version, found.installed_version) if found else ("", "")
+    return plugin.installed and (not available or available != here)
+
+
 def plugins(contents: RepositoryContents) -> list[Plugin]:
     return [Plugin(s.name, s.installed, server=s) for s in contents.servers] + [
         Plugin(s.name, s.installed, skill=s) for s in contents.skills

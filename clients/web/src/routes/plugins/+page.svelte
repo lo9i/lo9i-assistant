@@ -4,7 +4,7 @@
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { resource, useDaemon } from "$lib/daemon.svelte";
-  import { type Plugin, describe, keyOf, kindOf, pluginsOf, versionOf } from "$lib/plugins";
+  import { type Plugin, describe, keyOf, kindOf, pluginsOf, updatable, versionOf } from "$lib/plugins";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import SearchField from "$lib/ui/SearchField.svelte";
@@ -135,7 +135,9 @@
         </dl>
         <div class="actions">
           {#if plugin.installed}
-            <button class="btn btn--neutral btn--sm" disabled={busy} onclick={() => plugin && update(plugin)}><RefreshCw size={14} />Update</button>
+            {#if updatable(plugin)}
+              <button class="btn btn--neutral btn--sm" disabled={busy} onclick={() => plugin && update(plugin)}><RefreshCw size={14} />Update</button>
+            {/if}
             <button class="btn btn--danger btn--sm" disabled={busy} onclick={() => (removing = plugin ?? null)}><Trash2 size={14} />Remove</button>
           {:else}
             <button class="btn btn--primary btn--sm" disabled={busy} onclick={() => plugin && install(plugin)}
