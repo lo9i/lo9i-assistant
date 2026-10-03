@@ -7,6 +7,7 @@ from tests.conftest import collect
 
 async def _drain(service):
     await asyncio.gather(*service._background)
+    await service.memory_writer.write_all()
 
 
 async def test_a_new_channel_conversation_archives_the_previous_one(service, digests):

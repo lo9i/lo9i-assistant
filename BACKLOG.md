@@ -5,7 +5,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Next, in order
 
-1. G3. Prune old checkpoints.
+1. G2. Prune old checkpoints.
 
 ## Daemon
 
@@ -25,10 +25,9 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Memory
 
-- G1. Memory extraction runs in the same call as the epoch summary, which delays the reply that starts a new epoch. Move it to a background task after the reply.
-- G2. No way to view or edit memories (Q1).
-- G3. Checkpoints are never pruned.
-- G4. The epoch digest sees only the most recent `memory_max_facts` facts, so it can save a duplicate of an older one or miss one that turned outdated. Give it the saved facts closest to the transcript (`core/memory/recall.py`) too.
+- G1. No way to view or edit memories (Q1).
+- G2. Checkpoints are never pruned.
+- G3. The memory digest sees only the most recent `memory_max_facts` facts, so it can save a duplicate of an older one or miss one that turned outdated. Give it the saved facts closest to the transcript (`core/memory/recall.py`) too.
 
 ## Context
 

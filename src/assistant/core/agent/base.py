@@ -3,6 +3,7 @@ import asyncio
 from assistant.core.approvals import RemoteApprovals
 from assistant.core.bus import EventBus
 from assistant.core.conversation.digest import Digester
+from assistant.core.conversation.memory_writer import MemoryWriter
 from assistant.core.conversation.titles import Titler
 from assistant.core.graph import Graph
 from assistant.core.health import HealthLog
@@ -34,6 +35,8 @@ class ServiceBase:
     pages: McpPages
     # Embeds new facts and episodes for memory search. The daemon runs it as a supervised task.
     memory_index: MemoryIndexer
+    # Digests archived parts of conversations into memory. The daemon runs it as a supervised task.
+    memory_writer: MemoryWriter
     _recall: MemoryRecall
     # Checks the extras for newer plugin versions. The daemon runs it as a supervised task.
     update_checker: UpdateChecker

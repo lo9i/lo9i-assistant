@@ -1,6 +1,6 @@
 """The model from any client: which provider, its values (keys, URLs) and models the assistant
-uses. Set in the app, it overrides .env and applies at once: the graph, digester and titler are
-rebuilt, and runs already going finish on the model they started with. A provider's package is
+uses. Set in the app, it overrides .env and applies at once: the graph (with its summarizer),
+digester and titler are rebuilt, and runs already going finish on the model they started with. A provider's package is
 installed the first time it's chosen. Secret values never leave the daemon."""
 
 import asyncio
@@ -12,6 +12,7 @@ from langgraph.store.base import BaseStore
 
 from assistant.core.agent.base import ServiceBase
 from assistant.core.conversation.digest import build_digester
+from assistant.core.conversation.summary import build_summarizer
 from assistant.core.conversation.titles import build_titler
 from assistant.core.graph import build_graph
 from assistant.core.llm import build_llm, choice, packages
@@ -97,7 +98,7 @@ class ModelMixin(ServiceBase):
         self._model = model
         self._digester = build_digester(model, self._storage.usage)
         self._titler = build_titler(model, self._storage.usage)
-        self._graph = build_graph(self._storage, model, self._digester, self.mcp)
+        self._graph = build_graph(self._storage, model, build_summarizer(model, self._storage.usage), self.mcp)
 
 
 async def usable_choice(store: BaseStore, secrets: SecretBox) -> ModelChoice:
