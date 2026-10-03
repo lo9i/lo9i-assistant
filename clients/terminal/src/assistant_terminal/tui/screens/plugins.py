@@ -44,11 +44,24 @@ class PluginsScreen(ModalScreen[None]):
                 yield Button("Update", id="update")
                 yield Button("Remove", variant="error", id="remove")
                 yield Button("Refresh", id="refresh")
+                yield Button("Daily update checks", id="checks")
                 yield Button("Close", id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
+        self._show_checks(await self._repositories.update_checks())
         await self._load()
+
+    @on(Button.Pressed, "#checks")
+    @reports_daemon_unavailable
+    async def _toggle_checks(self) -> None:
+        """Off: the extras are checked only when Plugins opens, and no update notifications."""
+        enabled = await self._repositories.set_update_checks(not await self._repositories.update_checks())
+        self._show_checks(enabled)
+        self.notify(f"Daily plugin update checks {'on' if enabled else 'off'}.")
+
+    def _show_checks(self, enabled: bool) -> None:
+        self.query_one("#checks", Button).label = f"Daily update checks: {'on' if enabled else 'off'}"
 
     @reports_daemon_unavailable
     async def _load(self) -> None:

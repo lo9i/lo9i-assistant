@@ -27,6 +27,7 @@ from assistant.core.agent import (
     ModelSettingsError,
     ModelStatus,
     PairingCode,
+    PluginUpdate,
     RepositoryContents,
     RepositoryError,
     RunRecord,
@@ -381,6 +382,19 @@ class FakeRepositories:
         self._skills, self._mcp = skills, mcp
         self.installed: list = []
         self.unreachable = False
+        self.checks = True
+        # Installed plugins the extras have a newer version of, as the daemon reports them.
+        self.pending: list[PluginUpdate] = []
+
+    async def updates(self):
+        return list(self.pending) if self.checks else []
+
+    async def update_checks(self):
+        return self.checks
+
+    async def set_update_checks(self, enabled):
+        self.checks = enabled
+        return enabled
 
     async def browse(self, url=None):
         if self.unreachable:

@@ -209,6 +209,13 @@ async def test_skills_and_servers_are_installed_from_a_repository_and_updated(cl
         await client.mcp.update_from_repository("missing")
 
 
+async def test_plugin_update_routes(client):
+    assert await client.repositories.updates() == []  # the extras were never read
+    assert await client.repositories.update_checks()
+    assert not await client.repositories.set_update_checks(False)
+    assert not await client.repositories.update_checks()
+
+
 async def test_rename_the_assistant(client):
     assert await client.identity.name() == ""
     assert await client.identity.rename("  Max   Power ") == "Max Power"

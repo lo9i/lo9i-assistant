@@ -12,6 +12,7 @@ from assistant.core.mcp.pages import McpPages
 from assistant.core.memory.indexer import MemoryIndexer
 from assistant.core.memory.recall import MemoryRecall
 from assistant.core.outbox import Outbox
+from assistant.core.repositories.checker import UpdateChecker
 from assistant.core.secret_store import SecretBox
 from assistant.core.speech.synthesizer import Synthesizer
 from assistant.core.speech.transcriber import Transcriber
@@ -34,6 +35,8 @@ class ServiceBase:
     # Embeds new facts and episodes for memory search. The daemon runs it as a supervised task.
     memory_index: MemoryIndexer
     _recall: MemoryRecall
+    # Checks the extras for newer plugin versions. The daemon runs it as a supervised task.
+    update_checker: UpdateChecker
     # Encrypts accounts' passwords and tokens (core/secret_store.py).
     secrets: SecretBox
     # Email sign-ins (OAuth) waiting for the provider to send the browser back.

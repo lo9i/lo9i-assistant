@@ -35,7 +35,16 @@ class Installed:
 
 async def browse(store: BaseStore, url: str) -> RepositoryContents:
     """What the repository offers, each saying whether it's installed here from it."""
-    listing = await _listing(store, url)
+    return await _with_state(store, url, await _listing(store, url))
+
+
+async def kept(store: BaseStore, url: str) -> RepositoryContents | None:
+    """What the repository offered when it was last read, without reaching it; None if never read."""
+    listing = await cache.load(store, url)
+    return await _with_state(store, url, listing) if listing else None
+
+
+async def _with_state(store: BaseStore, url: str, listing: Listing) -> RepositoryContents:
     installed = {s.name for s in await servers.load_all(store) if s.source == url}
     found = [await _with_server_state(s, s.name in installed) for s in listing.servers]
     skills = [await _with_skill_state(s, url) for s in listing.skills]

@@ -1,6 +1,6 @@
-"""Reacts to daemon events while the app is open: memory and skills reload the panel, finished jobs and
-MCP servers or skills that keep failing show a notification, integration, client, job and settings
-changes refresh an open screen, a rename updates the title, runs started elsewhere in this
+"""Reacts to daemon events while the app is open: memory and skills reload the panel, finished jobs,
+MCP servers or skills that keep failing and new plugin updates show a notification, integration,
+client, job and settings changes refresh an open screen, a rename updates the title, runs started elsewhere in this
 conversation appear in the chat live, and a conversation left with /new while its reply was running
 reports when it finishes."""
 
@@ -12,6 +12,7 @@ class LiveApp(Protocol):
     def refresh_memory(self) -> Awaitable[None]: ...
     def reload_screen(self) -> Awaitable[None]: ...
     def refresh_title(self) -> Awaitable[None]: ...
+    def refresh_plugin_updates(self) -> Awaitable[None]: ...
     def mirror_run(self, run: dict[str, Any]) -> None: ...
     def show_job(self, job: dict[str, Any]) -> None: ...
     def show_failing(self, failing: dict[str, Any]) -> None: ...
@@ -27,7 +28,11 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
 
     async def settings(_: dict[str, Any]) -> None:
         await app.refresh_title()
+        await app.refresh_plugin_updates()
         await app.reload_screen()
+
+    async def plugins(_: dict[str, Any]) -> None:
+        await app.refresh_plugin_updates()
 
     return {
         "memory": memory,
@@ -39,6 +44,7 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         "devices": screen,
         "mcp": screen,
         "settings": settings,
+        "plugins": plugins,
         "job": app.show_job,
         "failing": app.show_failing,
         "run": app.mirror_run,

@@ -29,6 +29,8 @@
   const pages = $derived((servers.data ?? []).filter((s) => s.page && s.enabled));
   // Failures are stored with the servers and skills, so their events refresh the count.
   const alerts = resource((c) => c.alerts.list(), ["mcp", "skills"]);
+  // A new listing of the extras, an install or update, or the setting changes what's newer.
+  const updates = resource((c) => c.repositories.updates(), ["plugins", "mcp", "skills", "settings"]);
 
   type Add = { label: string; run: () => Promise<void> };
 
@@ -65,7 +67,7 @@
       Icon: Blocks,
       add: { label: "Install a plugin", run: installExtra },
     },
-    { href: resolve("/plugins"), label: "Plugins", Icon: Puzzle },
+    { href: resolve("/plugins"), label: "Plugins", Icon: Puzzle, count: () => updates.data?.length ?? 0 },
     { href: resolve("/usage"), label: "Usage", Icon: ChartColumn },
     { href: resolve("/devices"), label: "Devices", Icon: Laptop, add: { label: "Pair a browser", run: pairBrowser } },
     { href: resolve("/settings"), label: "Settings", Icon: Settings },
