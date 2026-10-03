@@ -83,13 +83,19 @@
 >
   {#if found === null && !error}<p class="text-meta">Looking at the extras…</p>{/if}
   {#if found && found.skills.length + found.servers.length === 0}
-    <p class="text-meta">Everything the extras offer{shownKind === "server" ? " as MCP servers" : shownKind === "skill" ? " as skills" : ""} is installed already.</p>
+    <p class="text-meta">
+      Everything the extras offer{shownKind === "server" ? " as MCP servers" : shownKind === "skill" ? " as skills" : ""} is installed already.
+    </p>
   {:else if found}
     <ul>
       {#each found.skills as skill (skill.name)}
         <li>
           <label>
-            <input type="checkbox" checked={skills.has(skill.name)} onchange={(e) => (skills = toggled(skills, skill.name, e.currentTarget.checked))} />
+            <input
+              type="checkbox"
+              checked={skills.has(skill.name)}
+              onchange={(e) => (skills = toggled(skills, skill.name, e.currentTarget.checked))}
+            />
             <span class="pill">skill</span><code>{skill.name}</code>
           </label>
           <p class="text-caption">{skill.description}</p>
@@ -99,7 +105,11 @@
       {#each found.servers as server (server.name)}
         <li>
           <label>
-            <input type="checkbox" checked={servers.has(server.name)} onchange={(e) => (servers = toggled(servers, server.name, e.currentTarget.checked))} />
+            <input
+              type="checkbox"
+              checked={servers.has(server.name)}
+              onchange={(e) => (servers = toggled(servers, server.name, e.currentTarget.checked))}
+            />
             <span class="pill">MCP server, {kind(server)}</span><code>{server.name}</code>
           </label>
           <p class="text-caption">{server.description}</p>
@@ -120,7 +130,9 @@
   {#snippet footer()}
     <button class="btn btn--ghost" onclick={() => onclose()}>Cancel</button>
     {#if found}
-      <button class="btn btn--primary" disabled={busy || skills.size + servers.size === 0} onclick={install}>{busy ? "Installing…" : "Install"}</button>
+      <button class="btn btn--primary" disabled={busy || skills.size + servers.size === 0} onclick={install}
+        >{busy ? "Installing…" : "Install"}</button
+      >
     {:else if error}
       <button class="btn btn--primary" disabled={busy} onclick={look}>Try again</button>
     {/if}

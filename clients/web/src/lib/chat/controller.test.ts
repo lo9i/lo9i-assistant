@@ -36,8 +36,7 @@ class FakeDaemon implements ChatClient {
   }
 }
 
-const texts = (chat: ChatController) =>
-  chat.getSnapshot().transcript.items.map((i) => ("text" in i ? i.text : i.kind));
+const texts = (chat: ChatController) => chat.getSnapshot().transcript.items.map((i) => ("text" in i ? i.text : i.kind));
 
 let board: NoticeBoard;
 

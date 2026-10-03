@@ -50,12 +50,7 @@
     {/if}
     <label class="field">
       <span class="micro-label">Input</span>
-      <select
-        class="input"
-        bind:value={chosen}
-        onchange={() => setPreferredMicrophone(chosen)}
-        aria-label="Microphone"
-      >
+      <select class="input" bind:value={chosen} onchange={() => setPreferredMicrophone(chosen)} aria-label="Microphone">
         <option value="">Browser default</option>
         {#each devices.filter((d) => d.deviceId && d.deviceId !== "default") as d, i (d.deviceId)}
           <option value={d.deviceId}>{d.label || `Microphone ${i + 1}`}</option>

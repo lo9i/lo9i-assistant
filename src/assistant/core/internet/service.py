@@ -1,13 +1,15 @@
-"""Web search and extraction with caching and a fallback search provider."""
+"""Web search and extraction with caching. Searches use the Brave Search API when the user set a
+key, with the public engines as the fallback, and only the public engines otherwise."""
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from assistant.core.config import settings
 from assistant.core.internet import browser
 from assistant.core.internet.cache import TtlCache
 from assistant.core.internet.fetch import fetch_page
-from assistant.core.internet.providers import SearchError, SearchProvider, build_provider
+from assistant.core.internet.providers import BraveProvider, MetasearchProvider, SearchError, SearchProvider
 from assistant.core.internet.results import Page, SearchResult
 from assistant.core.internet.truncate import fit
 
@@ -20,18 +22,23 @@ class SearchOutcome:
 
 
 class WebService:
-    def __init__(self) -> None:
-        self._primary = build_provider(settings.web_search_backend)
-        self._fallback = _fallback_for(self._primary)
+    def __init__(
+        self,
+        metasearch: SearchProvider | None = None,
+        brave: Callable[[str], SearchProvider] = BraveProvider,
+    ) -> None:
+        self._metasearch = metasearch or MetasearchProvider()
+        self._brave = brave
         self._searches = TtlCache()
         self._pages = TtlCache()
         self._renderer = browser.BrowserRenderer()
 
-    async def search(self, query: str, limit: int) -> SearchOutcome:
-        key = (query.strip().lower(), limit)
+    async def search(self, query: str, limit: int, brave_key: str = "") -> SearchOutcome:
+        """With `brave_key`, Brave first. Raises SearchError when every provider tried failed."""
+        key = (query.strip().lower(), limit, bool(brave_key))
         cached = self._searches.get(key)
         if cached is None:
-            cached = await self._search_uncached(query, limit)
+            cached = await self._search_uncached(query, limit, brave_key)
             self._searches.put(key, cached)
         return cached
 
@@ -54,18 +61,12 @@ class WebService:
             return page
         return rendered if len(rendered.text) > len(page.text) else page
 
-    async def _search_uncached(self, query: str, limit: int) -> SearchOutcome:
+    async def _search_uncached(self, query: str, limit: int, brave_key: str) -> SearchOutcome:
+        if not brave_key:
+            return SearchOutcome(await self._metasearch.search(query, limit), self._metasearch.name)
+        brave = self._brave(brave_key)
         try:
-            return SearchOutcome(await self._primary.search(query, limit), self._primary.name)
+            return SearchOutcome(await brave.search(query, limit), brave.name)
         except SearchError as e:
-            if self._fallback is None:
-                raise
-            results = await self._fallback.search(query, limit)
-            return SearchOutcome(results, self._fallback.name, note=f"{e}; used {self._fallback.name} instead")
-
-
-def _fallback_for(primary: SearchProvider) -> SearchProvider | None:
-    name = settings.web_search_fallback
-    if name == "none" or name == primary.name:
-        return None
-    return build_provider(name)
+            results = await self._metasearch.search(query, limit)
+            return SearchOutcome(results, self._metasearch.name, note=f"{e}; used {self._metasearch.name} instead")

@@ -15,6 +15,7 @@ export type TelegramStatus = Schemas["TelegramStatus"];
 export type SlackStatus = Schemas["SlackStatus"];
 export type SlackTokens = Schemas["SlackTokens"];
 export type SpeechStatus = Schemas["SpeechStatus"];
+export type WebSearchStatus = Schemas["WebSearchStatus"];
 export type EmailAccount = Schemas["EmailAccount"];
 export type EmailSettings = Schemas["EmailSettings"];
 export type EmailProvider = Schemas["EmailProvider"];

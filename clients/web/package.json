@@ -7,6 +7,8 @@
     "build": "npm run api:types && npm run check && vite build",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
     "test": "vitest run",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "api": "cd ../.. && UPDATE_OPENAPI=1 uv run pytest tests/daemon/test_api.py -q -k schema_matches && cd clients/web && npm run api:types",
     "api:types": "openapi-typescript openapi.json -o src/lib/api/schema.d.ts"
   },
@@ -15,6 +17,8 @@
     "@sveltejs/kit": "^2.70.3",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "openapi-typescript": "^7.13.0",
+    "prettier": "^3.9.9",
+    "prettier-plugin-svelte": "^4.1.1",
     "svelte": "^5.57.1",
     "svelte-check": "^4.7.6",
     "typescript": "^5.9.3",

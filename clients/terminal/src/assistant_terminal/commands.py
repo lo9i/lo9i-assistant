@@ -29,6 +29,7 @@ COMMANDS = [
     Command("/devices", "/devices", "Browsers allowed in over the network"),
     Command("/model", "/model", "The model provider, key and models"),
     Command("/audio", "/audio", "Speech to text and spoken replies"),
+    Command("/websearch", "/websearch", "Web search: the Brave Search API key"),
     Command("/telegram", "/telegram", "Connect Telegram"),
     Command("/slack", "/slack", "Connect Slack"),
     Command("/email", "/email", "Connect email for sending"),

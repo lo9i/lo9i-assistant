@@ -10,9 +10,17 @@ import pytest
 
 import assistant.core.integrations.telegram.connection as integration
 from assistant.client.daemon_client import DaemonClient
-from assistant.core.agent import InvalidNameError, InvalidTokenError, Session, SlackError, SpeechSettingsError
+from assistant.core.agent import (
+    InvalidNameError,
+    InvalidSearchKeyError,
+    InvalidTokenError,
+    Session,
+    SlackError,
+    SpeechSettingsError,
+)
 from assistant.core.attachments import Attachment
 from assistant.core.events import ApprovalRequired, Cancelled, Done, ToolFinished
+from assistant.core.internet import brave_key
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
 from assistant.daemon.runs import RunHub
@@ -118,6 +126,20 @@ async def test_speech_routes(client):
     with pytest.raises(SpeechSettingsError):
         await client.speech.change("tiny", ["xx"])
     assert any(v.id == "ef_dora" for v in (await client.speech.settings()).voice_options)
+
+
+async def test_web_search_routes(client, monkeypatch):
+    async def check(key):
+        if key != "good":
+            raise InvalidSearchKeyError("Brave didn't accept the key: 401")
+
+    monkeypatch.setattr(brave_key, "check", check)
+    assert not (await client.web_search.status()).brave_key_set
+    with pytest.raises(InvalidSearchKeyError, match="401"):
+        await client.web_search.set_brave_key("bad")
+    assert (await client.web_search.set_brave_key(" good ")).brave_key_set
+    assert (await client.web_search.status()).brave_key_set
+    assert not (await client.web_search.remove_brave_key()).brave_key_set
 
 
 async def test_slack_routes(client):

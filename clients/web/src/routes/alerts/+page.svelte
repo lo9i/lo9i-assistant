@@ -49,8 +49,8 @@
       <div>
         <h2 class="text-heading">Needs attention</h2>
         <p class="text-meta">
-          MCP servers and skills that failed several times in a row, and MCP servers whose sign-in stopped working. Each stays
-          until you dismiss it or it works again. Click one to see it on the right.
+          MCP servers and skills that failed several times in a row, and MCP servers whose sign-in stopped working. Each stays until you
+          dismiss it or it works again. Click one to see it on the right.
         </p>
       </div>
       {#if alerts.data}<span class="pill">{alerts.data.length}</span>{/if}
@@ -59,7 +59,11 @@
       {#if alerts.error}
         <p class="error-text pad">{alerts.error}</p>
       {:else if alerts.data?.length === 0}
-        <EmptyState icon={CircleCheck} title="Nothing needs attention" text="MCP servers and skills that keep failing, and servers that need you to sign in again, show up here." />
+        <EmptyState
+          icon={CircleCheck}
+          title="Nothing needs attention"
+          text="MCP servers and skills that keep failing, and servers that need you to sign in again, show up here."
+        />
       {:else if alerts.data && alert}
         <table class="data-table">
           <thead><tr><th>Name</th><th class="hide-narrow">Kind</th><th>Problem</th><th class="hide-narrow">When</th></tr></thead>
@@ -101,7 +105,11 @@
       </section>
     {:else}
       <section class="details surface--glass">
-        <EmptyState icon={Bell} title="No alert selected" text="Alerts show here when something keeps failing or needs you to sign in again." />
+        <EmptyState
+          icon={Bell}
+          title="No alert selected"
+          text="Alerts show here when something keeps failing or needs you to sign in again."
+        />
       </section>
     {/if}
   </div>

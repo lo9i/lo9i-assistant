@@ -49,13 +49,17 @@
       return;
     }
     void act(
-      () => (p.kind === "server" ? client.repositories.install([], [{ name: p.name, values: {} }]) : client.repositories.install([p.name], [])),
+      () =>
+        p.kind === "server" ? client.repositories.install([], [{ name: p.name, values: {} }]) : client.repositories.install([p.name], []),
       `Installed ${p.name}. The assistant uses it from your next message.`,
     );
   }
 
   const update = (p: Plugin) =>
-    act(() => (p.kind === "server" ? client.mcp.updateFromRepository(p.name) : client.skills.updateInstalled(p.name)), `Updated ${p.name}.`);
+    act(
+      () => (p.kind === "server" ? client.mcp.updateFromRepository(p.name) : client.skills.updateInstalled(p.name)),
+      `Updated ${p.name}.`,
+    );
   const remove = (p: Plugin, deleteData: boolean) =>
     act(() => (p.kind === "server" ? client.mcp.remove(p.name, deleteData) : client.skills.delete(p.name)), `Removed ${p.name}.`);
 </script>
@@ -75,7 +79,9 @@
       <div class="tools">
         <SearchField bind:value={query} label="Search plugins" />
         {#if plugins.data}<span class="pill">{plugins.data.length}</span>{/if}
-        <button class="btn btn--ghost btn--sm" title="Check the extras for a newer version" onclick={() => plugins.reload()}><RefreshCw size={14} /></button>
+        <button class="btn btn--ghost btn--sm" title="Check the extras for a newer version" onclick={() => plugins.reload()}
+          ><RefreshCw size={14} /></button
+        >
       </div>
     </header>
     <div class="scroll">
@@ -96,7 +102,11 @@
                   <td class="hide-narrow">{kindOf(p)}</td>
                   <td>{versionOf(p)}</td>
                   <td>
-                    <span class="state"><span class="status-dot" style:--tone={p.installed ? "var(--color-success)" : undefined}></span>{p.installed ? "Installed" : "Not installed"}</span>
+                    <span class="state"
+                      ><span class="status-dot" style:--tone={p.installed ? "var(--color-success)" : undefined}></span>{p.installed
+                        ? "Installed"
+                        : "Not installed"}</span
+                    >
                   </td>
                 </tr>
               {:else}
@@ -136,9 +146,13 @@
         <div class="actions">
           {#if plugin.installed}
             {#if updatable(plugin)}
-              <button class="btn btn--neutral btn--sm" disabled={busy} onclick={() => plugin && update(plugin)}><RefreshCw size={14} />Update</button>
+              <button class="btn btn--neutral btn--sm" disabled={busy} onclick={() => plugin && update(plugin)}
+                ><RefreshCw size={14} />Update</button
+              >
             {/if}
-            <button class="btn btn--danger btn--sm" disabled={busy} onclick={() => (removing = plugin ?? null)}><Trash2 size={14} />Remove</button>
+            <button class="btn btn--danger btn--sm" disabled={busy} onclick={() => (removing = plugin ?? null)}
+              ><Trash2 size={14} />Remove</button
+            >
           {:else}
             <button class="btn btn--primary btn--sm" disabled={busy} onclick={() => plugin && install(plugin)}
               ><Download size={14} />Install</button
@@ -165,7 +179,9 @@
   {@const p = removing}
   <Confirm
     title="Remove {p.name}?"
-    text={p.kind === "server" ? "Its tools, skill and page go. Its data stays, for installing it again, unless you delete it too." : "The assistant won't be able to use this skill any more."}
+    text={p.kind === "server"
+      ? "Its tools, skill and page go. Its data stays, for installing it again, unless you delete it too."
+      : "The assistant won't be able to use this skill any more."}
     action="Remove"
     option={p.kind === "server" ? "Also delete its data (can't be undone)" : undefined}
     onanswer={(yes, deleteData) => {

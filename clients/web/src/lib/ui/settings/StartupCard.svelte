@@ -40,7 +40,11 @@
   }
 </script>
 
-<SettingsCard id="startup" title="Start at boot" sub="Run the assistant from the moment {computer} starts, so jobs and Telegram keep working.">
+<SettingsCard
+  id="startup"
+  title="Start at boot"
+  sub="Run the assistant from the moment {computer} starts, so jobs and Telegram keep working."
+>
   {#snippet status()}
     {#if s}
       <span class="pill" class:pill--accent={s.enabled}>{s.enabled ? `On${s.includes_ollama ? " · with Ollama" : ""}` : "Off"}</span>
@@ -56,8 +60,8 @@
     </ul>
     {#if s.platform === "linux" && !s.starts_without_login}
       <p class="text-meta">
-        <strong>Without lingering, it runs only while you're logged in.</strong> To start it at boot without logging in, an
-        administrator runs this once on the computer: <code>sudo loginctl enable-linger $USER</code>
+        <strong>Without lingering, it runs only while you're logged in.</strong> To start it at boot without logging in, an administrator
+        runs this once on the computer: <code>sudo loginctl enable-linger $USER</code>
       </p>
     {/if}
     <div>

@@ -22,9 +22,7 @@
   let code = $state<PairingCode | null>(null);
   let revoking = $state<Device | null>(null);
   // Until one is picked: this browser, or the first one.
-  const device = $derived(
-    devices.data?.find((d) => d.id === picked) ?? devices.data?.find((d) => isMe(d)) ?? devices.data?.[0],
-  );
+  const device = $derived(devices.data?.find((d) => d.id === picked) ?? devices.data?.find((d) => isMe(d)) ?? devices.data?.[0]);
 
   const sessions = $derived((clients.data ?? []).filter((c) => c.device_id && c.device_id === device?.id));
 

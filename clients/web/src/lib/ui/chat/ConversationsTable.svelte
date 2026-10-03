@@ -56,18 +56,14 @@
         </thead>
         <tbody>
           {#each shown as c (c.thread_id)}
-            <tr
-              class:selected={c.thread_id === selected}
-              onclick={() => onselect(c.thread_id)}
-              ondblclick={() => oncontinue(c.thread_id)}
-            >
+            <tr class:selected={c.thread_id === selected} onclick={() => onselect(c.thread_id)} ondblclick={() => oncontinue(c.thread_id)}>
               <td>
                 <button class="title" onclick={(e) => (e.stopPropagation(), onselect(c.thread_id))}>{c.title || "Untitled"}</button>
                 {#if c.thread_id === current}<span class="pill pill--accent">This tab</span>{/if}
               </td>
               <td>
-                {#each c.channels ?? [] as channel (channel)}<span class="pill channel">{channel}</span>{:else}<span
-                    class="text-caption">—</span
+                {#each c.channels ?? [] as channel (channel)}<span class="pill channel">{channel}</span>{:else}<span class="text-caption"
+                    >—</span
                   >{/each}
               </td>
               <td class="text-label">{when(c.started_at)}</td>

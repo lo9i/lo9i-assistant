@@ -46,12 +46,7 @@ export class ChatController {
   }
 
   /** Opens on `earlier`, the conversation this tab was on before a reload, or a new one. */
-  static async open(
-    client: ChatClient,
-    channel: string,
-    earlier: string | null,
-    notices: NoticeBoard,
-  ): Promise<ChatController> {
+  static async open(client: ChatClient, channel: string, earlier: string | null, notices: NoticeBoard): Promise<ChatController> {
     const threadId = await rejoin(client, earlier);
     const history = threadId === earlier ? await client.conversations.messages(threadId) : [];
     const live = new LiveConversation(client, { channel, thread_id: threadId });
@@ -67,7 +62,13 @@ export class ChatController {
 
   async send(text: string, files: File[]): Promise<void> {
     if (this.ownRun !== null) return;
-    this.set({ transcript: addUser(this.state.transcript, text, files.map((f) => f.name)) });
+    this.set({
+      transcript: addUser(
+        this.state.transcript,
+        text,
+        files.map((f) => f.name),
+      ),
+    });
     const run = new AbortController();
     this.ownRun = run;
     await this.show(run, () => this.turn(text, files, run.signal));

@@ -101,13 +101,10 @@ class Settings(BaseSettings):
     # doesn't count toward JOBS_TIMEOUT_MINUTES.
     job_approval_minutes: int = 60
 
-    # Web tools. metasearch queries public engines in WEB_SEARCH_ENGINES order (no key needed);
-    # brave uses the Brave Search API (BRAVE_SEARCH_API_KEY).
-    web_search_backend: Literal["metasearch", "brave"] = "metasearch"
-    web_search_engines: str = "brave,bing,google"
-    # Tried when the main backend fails. "none" disables it.
-    web_search_fallback: Literal["metasearch", "brave", "none"] = "none"
-    brave_search_api_key: str = ""
+    # Web tools. Without a Brave Search API key (set in the app, core/internet/brave_key.py), search
+    # queries public engines through ddgs: "auto" for every engine ddgs has enabled, or a list
+    # such as "yahoo,duckduckgo". With a key, they're the fallback when Brave fails.
+    web_search_engines: str = "auto"
     web_blocked_domains: list[str] = []
     web_cache_minutes: int = 20
     web_extract_max_chars: int = 20_000

@@ -40,11 +40,12 @@ describe("transcript", () => {
   });
 
   it("shows errors, transcripts and history", () => {
-    expect(kinds([{ type: "Transcribed", text: "hi", language: "en" }, { type: "Error", message: "x" }])).toEqual([
-      "user",
-      "transcript",
-      "error",
-    ]);
+    expect(
+      kinds([
+        { type: "Transcribed", text: "hi", language: "en" },
+        { type: "Error", message: "x" },
+      ]),
+    ).toEqual(["user", "transcript", "error"]);
     const history = fromHistory([
       { role: "user", text: "q" },
       { role: "tool", text: "bash" },

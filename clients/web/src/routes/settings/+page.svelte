@@ -11,6 +11,7 @@
   import SpokenRepliesCard from "$lib/ui/settings/SpokenRepliesCard.svelte";
   import StartupCard from "$lib/ui/settings/StartupCard.svelte";
   import TelegramCard from "$lib/ui/settings/TelegramCard.svelte";
+  import WebSearchCard from "$lib/ui/settings/WebSearchCard.svelte";
   import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
   import { theme, type ThemePreference } from "$lib/theme.svelte";
@@ -32,7 +33,12 @@
     <!-- Kept in this browser. -->
     <div class="tabs" role="radiogroup" aria-label="Theme" title="Theme, kept in this browser">
       {#each THEMES as [value, label] (value)}
-        <button role="radio" aria-checked={theme.preference === value} class:active={theme.preference === value} onclick={() => theme.set(value)}>
+        <button
+          role="radio"
+          aria-checked={theme.preference === value}
+          class:active={theme.preference === value}
+          onclick={() => theme.set(value)}
+        >
           {label}
         </button>
       {/each}
@@ -70,6 +76,7 @@
       </div>
       <div class="stack">
         <SlackCard />
+        <WebSearchCard />
       </div>
     </div>
   {/if}

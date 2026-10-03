@@ -22,6 +22,7 @@ from assistant.client.daemon_client.system import SystemApi
 from assistant.client.daemon_client.telegram import TelegramApi
 from assistant.client.daemon_client.transport import Transport
 from assistant.client.daemon_client.usage import UsageApi
+from assistant.client.daemon_client.web_search import WebSearchApi
 
 
 class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
@@ -40,6 +41,7 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         self.telegram = TelegramApi(transport)
         self.slack = SlackApi(transport)
         self.speech = SpeechApi(transport)
+        self.web_search = WebSearchApi(transport)
         self.model = ModelApi(transport)
         self.email = EmailApi(transport)
         self.oauth = OAuthApi(transport)

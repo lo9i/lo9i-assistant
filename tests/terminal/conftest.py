@@ -17,6 +17,7 @@ from assistant.core.agent import (
     FoundServer,
     InstalledFromRepository,
     InvalidNameError,
+    InvalidSearchKeyError,
     InvalidTokenError,
     Job,
     JobError,
@@ -46,6 +47,7 @@ from assistant.core.agent import (
     TelegramStatus,
     TokenReport,
     UsageReport,
+    WebSearchStatus,
 )
 from assistant.core.agent.skills import FoundSkill, SkillSummary
 from assistant.core.events import ApprovalRequired, Done, TextDelta, ToolFinished, ToolStarted, Transcribed
@@ -143,6 +145,24 @@ class FakeTelegram:
 
     async def disconnect(self):
         self.state = TelegramStatus(False, False, "", [], "", "")
+
+
+class FakeWebSearch:
+    def __init__(self):
+        self.state = WebSearchStatus(brave_key_set=False)
+
+    async def status(self):
+        return self.state
+
+    async def set_brave_key(self, key):
+        if key != "GOOD":
+            raise InvalidSearchKeyError("Brave didn't accept the key: 401 Unauthorized")
+        self.state = WebSearchStatus(brave_key_set=True)
+        return self.state
+
+    async def remove_brave_key(self):
+        self.state = WebSearchStatus(brave_key_set=False)
+        return self.state
 
 
 class FakeSlack:
@@ -570,6 +590,7 @@ class FakeClient:
         self.oauth = FakeOAuth(self.email, self.mcp)
         self.model = FakeModel()
         self.speech = FakeSpeech()
+        self.web_search = FakeWebSearch()
 
     async def send(self, session, text, attachments=()):
         self.sent.append((text, [(a.name, a.media_type) for a in attachments]))

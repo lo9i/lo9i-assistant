@@ -1,4 +1,4 @@
-"""Search providers. Add one by implementing SearchProvider and listing it in `build_provider`."""
+"""Search providers. Add one by implementing SearchProvider and using it in `core/internet/service.py`."""
 
 import asyncio
 import json
@@ -26,21 +26,22 @@ class SearchProvider(Protocol):
 
 
 class BraveProvider:
-    """The Brave Search API. Needs BRAVE_SEARCH_API_KEY."""
+    """The Brave Search API, with the key the user set in the app."""
 
     name = "brave"
     _ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
     _MAX_COUNT = 20
 
+    def __init__(self, api_key: str) -> None:
+        self._api_key = api_key
+
     async def search(self, query: str, limit: int) -> list[SearchResult]:
-        if not settings.brave_search_api_key:
-            raise SearchError("Brave: BRAVE_SEARCH_API_KEY is not set")
         try:
             async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
                 response = await client.get(
                     self._ENDPOINT,
                     params={"q": query, "count": min(limit, self._MAX_COUNT)},
-                    headers={"X-Subscription-Token": settings.brave_search_api_key, "Accept": "application/json"},
+                    headers={"X-Subscription-Token": self._api_key, "Accept": "application/json"},
                 )
                 response.raise_for_status()
                 rows = response.json().get("web", {}).get("results", [])
@@ -50,8 +51,8 @@ class BraveProvider:
 
 
 class MetasearchProvider:
-    """Queries public search engines (Brave, Bing, Google, ...) through the ddgs library, trying
-    the engines in WEB_SEARCH_ENGINES. Runs in a child process: ddgs can block without releasing
+    """Queries public search engines (Yahoo, DuckDuckGo, Wikipedia, ...) through the ddgs library,
+    the ones in WEB_SEARCH_ENGINES. Runs in a child process: ddgs can block without releasing
     control, and a child process can always be killed on timeout."""
 
     name = "metasearch"
@@ -76,13 +77,3 @@ class MetasearchProvider:
         if proc.returncode != 0:
             raise SearchError(f"Search failed: {stderr.decode(errors='replace').strip().splitlines()[-1:]}")
         return [SearchResult(**row) for row in json.loads(stdout)]
-
-
-_PROVIDERS: dict[str, type[SearchProvider]] = {
-    "metasearch": MetasearchProvider,
-    "brave": BraveProvider,
-}
-
-
-def build_provider(name: str) -> SearchProvider:
-    return _PROVIDERS[name]()

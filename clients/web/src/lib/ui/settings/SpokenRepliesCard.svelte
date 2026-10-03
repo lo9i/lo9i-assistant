@@ -53,7 +53,11 @@
   }
 </script>
 
-<SettingsCard id="spoken-replies" title="Spoken replies" sub="Replies read aloud on this host, in the web chat and as Telegram voice notes.">
+<SettingsCard
+  id="spoken-replies"
+  title="Spoken replies"
+  sub="Replies read aloud on this host, in the web chat and as Telegram voice notes."
+>
   {#if s === undefined}
     <p class="text-meta">{loaded.error ?? "Loading…"}</p>
   {:else}
@@ -61,12 +65,7 @@
       <legend class="micro-label">Speak replies</legend>
       {#each MODES as m (m.id)}
         <label class="choice">
-          <input
-            type="radio"
-            name="spoken-replies"
-            checked={s.spoken_replies === m.id}
-            onchange={() => change(m.id, s.voice)}
-          />
+          <input type="radio" name="spoken-replies" checked={s.spoken_replies === m.id} onchange={() => change(m.id, s.voice)} />
           {m.label}
         </label>
       {/each}

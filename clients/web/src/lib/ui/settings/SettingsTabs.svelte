@@ -20,7 +20,9 @@
   {#each TABS as t (t.id)}
     <a href={t.href} class:active={t.id === active} aria-current={t.id === active ? "page" : undefined}>
       {t.label}
-      {#if t.id === "plugins" && updates.data?.length}<span class="count" aria-label="{updates.data.length} updates">{updates.data.length}</span>{/if}
+      {#if t.id === "plugins" && updates.data?.length}<span class="count" aria-label="{updates.data.length} updates"
+          >{updates.data.length}</span
+        >{/if}
     </a>
   {/each}
 </nav>

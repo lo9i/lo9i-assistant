@@ -25,6 +25,7 @@ from assistant.core.agent.speech import SpeechMixin
 from assistant.core.agent.telegram import TelegramMixin
 from assistant.core.agent.threads import ThreadsMixin
 from assistant.core.agent.usage import UsageMixin
+from assistant.core.agent.web_search import WebSearchMixin
 from assistant.core.approvals import RemoteApprovals
 from assistant.core.bus import EventBus
 from assistant.core.config import settings
@@ -65,6 +66,7 @@ class AssistantService(
     DevicesMixin,
     IdentityMixin,
     SpeechMixin,
+    WebSearchMixin,
     SkillsMixin,
     JobsMixin,
     UsageMixin,

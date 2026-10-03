@@ -98,8 +98,16 @@
         <label class="fields">
           <span class="text-label">Sends without asking to {account.sender} and:</span>
           <div class="row">
-            <input class="input" bind:value={recipients} placeholder="Addresses, comma-separated" aria-label="Allowed recipients for {account.label}" />
-            <button class="btn btn--neutral" onclick={() => act(() => client.email.setRecipients(account.id, recipients.split(",")), "Saved.")}>
+            <input
+              class="input"
+              bind:value={recipients}
+              placeholder="Addresses, comma-separated"
+              aria-label="Allowed recipients for {account.label}"
+            />
+            <button
+              class="btn btn--neutral"
+              onclick={() => act(() => client.email.setRecipients(account.id, recipients.split(",")), "Saved.")}
+            >
               Save
             </button>
           </div>
@@ -128,7 +136,9 @@
             >
           {/if}
           {#if !account.default}
-            <button class="btn btn--neutral btn--sm" onclick={() => act(() => client.email.makeDefault(account.id), "")}>Make default</button>
+            <button class="btn btn--neutral btn--sm" onclick={() => act(() => client.email.makeDefault(account.id), "")}
+              >Make default</button
+            >
           {/if}
           <button class="btn btn--neutral btn--sm" onclick={() => (editing = true)}>Change sign-in</button>
           <button class="btn btn--danger btn--sm" onclick={() => (confirming = true)}>Remove</button>

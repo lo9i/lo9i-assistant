@@ -17,9 +17,7 @@
   let picked = $state<string | null>(null);
   let query = $state("");
   // By name or task.
-  const shown = $derived(
-    (jobs.data ?? []).filter((j) => `${j.name} ${j.task}`.toLowerCase().includes(query.trim().toLowerCase())),
-  );
+  const shown = $derived((jobs.data ?? []).filter((j) => `${j.name} ${j.task}`.toLowerCase().includes(query.trim().toLowerCase())));
   let confirming = $state(false);
   const job = $derived(jobs.data?.find((j) => j.name === picked) ?? jobs.data?.[0]);
   const runs = $derived([...(job?.runs ?? [])].reverse());
