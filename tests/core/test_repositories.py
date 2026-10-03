@@ -295,17 +295,6 @@ async def test_a_top_level_server_folder_is_not_also_a_skill(service, repo):
     assert next(s for s in contents.servers if s.name == "solo").skill
 
 
-async def test_the_plugins_page_lists_the_extras_and_added_repositories(service, repo):
-    from assistant.core.repositories.known import EXTRAS
-
-    assert await service.repositories() == [EXTRAS]
-    assert await service.add_repository(URL + "/") == [EXTRAS, URL]
-    with pytest.raises(RepositoryError, match="https://"):
-        await service.add_repository("file:///tmp/x")
-    assert await service.remove_repository(EXTRAS) == [URL]
-    assert await service.repositories() == [URL]
-
-
 async def test_browsing_says_what_is_installed_from_that_repository(service, repo):
     store.save("news-digest", "Mine", "My steps")
     await service.install_from_repository(URL, ["expenses"], [HELLO])

@@ -33,7 +33,7 @@
   async function updateInstalled(name: string): Promise<void> {
     try {
       await client.skills.updateInstalled(name);
-      notices.notify(`Updated ${name} from its repository.`);
+      notices.notify(`Updated ${name} from the extras.`);
     } catch (e) {
       notices.report(e);
     }
@@ -58,7 +58,7 @@
   {#if skills.data === undefined}
     <p class="text-meta">{skills.error ?? "Loading…"}</p>
   {:else if skills.data.length === 0}
-    <EmptyState icon={Wand} title="No skills yet" text="Ask the assistant to save how to do something as a skill, or install skills from a git repository." />
+    <EmptyState icon={Wand} title="No skills yet" text="Ask the assistant to save how to do something as a skill, or install one from Plugins." />
   {:else}
     <div class="list">
       {#each skills.data as s (s.name)}

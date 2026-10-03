@@ -239,29 +239,14 @@ export class EmailGroup {
 export class RepositoriesGroup {
   constructor(private readonly transport: Transport) {}
 
-  /** The repositories the Plugins page lists plugins from. */
-  async list(): Promise<string[]> {
-    return (await this.transport.request<{ urls: string[] }>("GET", "/repositories")).urls;
+  /** The plugins (MCP servers and skills) the assistant's extras offer, each saying whether it's installed. */
+  browse(): Promise<RepositoryContents> {
+    return this.transport.request("POST", "/repositories/browse", {});
   }
 
-  /** Saved once it's been read and offers something; throws ApiError (400) otherwise. */
-  async add(url: string): Promise<string[]> {
-    return (await this.transport.request<{ urls: string[] }>("POST", "/repositories", { url })).urls;
-  }
-
-  /** Forgets it; what was installed from it stays. */
-  async remove(url: string): Promise<string[]> {
-    return (await this.transport.request<{ urls: string[] }>("DELETE", `/repositories?url=${encodeURIComponent(url)}`)).urls;
-  }
-
-  /** The skills and MCP servers a git repository (an https:// address) offers. */
-  browse(url: string): Promise<RepositoryContents> {
-    return this.transport.request("POST", "/repositories/browse", { url });
-  }
-
-  /** Servers carry the values for their fields; secret ones go straight to the daemon. */
-  install(url: string, skills: string[], servers: ServerValues[]): Promise<InstalledFromRepository> {
-    return this.transport.request("POST", "/repositories/install", { url, skills, servers });
+  /** Installs from the assistant's extras. Servers carry the values for their fields; secret ones go straight to the daemon. */
+  install(skills: string[], servers: ServerValues[]): Promise<InstalledFromRepository> {
+    return this.transport.request("POST", "/repositories/install", { skills, servers });
   }
 }
 

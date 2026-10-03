@@ -58,7 +58,7 @@
   function updateFromRepository(name: string): void {
     change(async () => {
       await client.mcp.updateFromRepository(name);
-      notices.notify(`Updated ${name} from its repository.`);
+      notices.notify(`Updated ${name} from the extras.`);
     });
   }
 

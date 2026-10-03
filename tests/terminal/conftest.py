@@ -47,6 +47,7 @@ from assistant.core.agent.skills import FoundSkill, SkillSummary
 from assistant.core.events import ApprovalRequired, Done, TextDelta, ToolFinished, ToolStarted, Transcribed
 from assistant.core.integrations.email.providers import PROVIDERS
 from assistant.core.llm.choice import PROVIDERS as PROVIDERS_FOR_MODEL
+from assistant.core.repositories.known import EXTRAS
 from assistant.core.usage.log import TokenRow, ToolUsage
 from assistant.protocol import ConnectedClient, StartupError, StartupStatus
 from assistant_terminal.history import History
@@ -344,17 +345,19 @@ class FakeRepositories:
     def __init__(self, skills: FakeSkills, mcp: FakeMcp):
         self._skills, self._mcp = skills, mcp
         self.installed: list = []
+        self.unreachable = False
 
-    async def browse(self, url):
-        if not url.startswith("https://"):
-            raise RepositoryError("Give the repository's https:// address.")
+    async def browse(self, url=None):
+        if self.unreachable:
+            raise RepositoryError("Couldn't get the repository: no network")
         fields = [ServerField("CAL_USER", "User"), ServerField("CAL_PASSWORD", "Password", secret=True)]
         return RepositoryContents(
             [FoundSkill("expenses", "Track expenses", ["scripts/add.py"])],
             [FoundServer("calendar", "Calendar", "stdio", fields, False)],
         )
 
-    async def install(self, url, skills, servers):
+    async def install(self, skills, servers, url=None):
+        url = url or EXTRAS
         if any(not all(v for v in s.values.values()) or len(s.values) < 2 for s in servers):
             raise RepositoryError("calendar needs Password.")
         self.installed.append((url, skills, servers))

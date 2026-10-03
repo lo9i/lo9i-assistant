@@ -97,13 +97,15 @@ async def test_skills_are_edited_but_built_in_ones_only_read(app, client):
         assert client.skills.items["news-digest"].description == "Morning news"
 
 
-async def test_skills_and_servers_are_installed_from_a_repository(app, client):
+async def test_plugins_are_installed_from_the_extras(app, client):
     from textual.widgets import Input, SelectionList
 
+    from assistant.core.repositories.known import EXTRAS
     from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 
     async with app.run_test(size=(120, 50)) as pilot:
         screen = await _open(pilot, app, "/skills", SkillsScreen)
+        client.repositories.unreachable = True
         screen.query_one("#install", Button).press()
         await wait_for(pilot, lambda: isinstance(app.screen, RepositoryInstallScreen))
         install = app.screen
@@ -111,11 +113,14 @@ async def test_skills_and_servers_are_installed_from_a_repository(app, client):
         def message() -> str:
             return install.query_one("#repository-message", Markdown).source
 
-        install.query_one("#repository-url", Input).value = "file:///tmp/x"
-        install.query_one("#browse", Button).press()
-        await wait_for(pilot, lambda: "https://" in message())
-        install.query_one("#repository-url", Input).value = "https://example.com/extras"
-        install.query_one("#browse", Button).press()
+        await wait_for(pilot, lambda: "no network" in message())
+        assert not install.query("#repository-url")  # no address to type: always the extras
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is screen)
+        client.repositories.unreachable = False
+        screen.query_one("#install", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, RepositoryInstallScreen))
+        install = app.screen
         found = install.query_one("#repository-found", SelectionList)
         await wait_for(pilot, lambda: found.option_count == 2)
         fields = list(install.query("#repository-fields Input").results(Input))
@@ -125,17 +130,20 @@ async def test_skills_and_servers_are_installed_from_a_repository(app, client):
         await wait_for(pilot, lambda: all(f.display for f in fields))
         fields[0].value = "ana"
         install.query_one("#install", Button).press()
-        await wait_for(pilot, lambda: "needs Password" in message())
+        await wait_for(pilot, lambda: "needs Password" in install.query_one("#repository-message", Markdown).source)
         fields[1].value = "s3cret"
         install.query_one("#install", Button).press()
         await wait_for(pilot, lambda: app.screen is screen and "expenses" in client.skills.items)
-        [(_, skills, [server])] = client.repositories.installed
-        assert skills == ["expenses"] and server.values == {"CAL_USER": "ana", "CAL_PASSWORD": "s3cret"}
+        [(url, skills, [server])] = client.repositories.installed
+        assert (url, skills) == (EXTRAS, ["expenses"]) and server.values == {
+            "CAL_USER": "ana",
+            "CAL_PASSWORD": "s3cret",
+        }
 
         def body() -> str:
             return screen.query_one("#skill-body", Markdown).source
 
         screen.query_one("#skills-list", OptionList).highlighted = 2
-        await wait_for(pilot, lambda: "Installed from** https://example.com/extras" in body())
+        await wait_for(pilot, lambda: f"Installed from** {EXTRAS}" in body())
         screen.query_one("#update", Button).press()
         await wait_for(pilot, lambda: getattr(client.skills, "updated", None) == "expenses")

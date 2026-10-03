@@ -193,7 +193,7 @@ async def test_skills_and_servers_are_installed_from_a_repository_and_updated(cl
     url = "https://example.com/me/extras.git"
     contents = await client.repositories.browse(url)
     assert [s.name for s in contents.skills] == ["expenses"] and contents.servers[0].fields[0].secret
-    installed = await client.repositories.install(url, ["expenses"], [ServerValues("tasks", {"Authorization": "t"})])
+    installed = await client.repositories.install(["expenses"], [ServerValues("tasks", {"Authorization": "t"})], url)
     assert (installed.skills[0].files, installed.servers[0].header_keys) == (["scripts/add.py"], ["Authorization"])
     assert (await client.skills.update_installed("expenses")).source == url
     assert (await client.mcp.update_from_repository("tasks")).source == url
@@ -293,10 +293,3 @@ async def test_token_usage_through_the_client(client, script):
     await collect(client.send(await _new_session(client), "hello"))
     report = await client.usage.tokens(7)
     assert report.total.calls == 1 and report.total.input_tokens == 50 and report.by_purpose[0].name == "reply"
-
-
-async def test_the_plugins_repositories_through_the_client(client):
-    from assistant.core.repositories.known import EXTRAS
-
-    assert await client.repositories.list() == [EXTRAS]
-    assert await client.repositories.remove(EXTRAS) == []

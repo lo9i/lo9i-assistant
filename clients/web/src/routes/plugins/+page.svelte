@@ -3,51 +3,33 @@
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
   import Download from "@lucide/svelte/icons/download";
-  import Plus from "@lucide/svelte/icons/plus";
   import Puzzle from "@lucide/svelte/icons/puzzle";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
-  import X from "@lucide/svelte/icons/x";
   import { resource, useDaemon } from "$lib/daemon.svelte";
-  import { describe as describeError } from "$lib/notices";
-  import { EXTRAS, type Plugin, describe, keyOf, kindOf, pluginsOf, shortRepository } from "$lib/plugins";
+  import { type Plugin, describe, keyOf, kindOf, pluginsOf } from "$lib/plugins";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
-  import AddRepositoryDialog from "$lib/ui/repositories/AddRepositoryDialog.svelte";
   import InstallDialog from "$lib/ui/repositories/InstallDialog.svelte";
 
   const { client, notices } = useDaemon();
-  const repositories = resource((c) => c.repositories.list(), ["repositories"]);
-  // Each repository is downloaded to list its plugins, so this reloads only when the list changes
-  // or after an action here, not on every server's status change.
-  const plugins = resource(async (c) => {
-    const urls = await c.repositories.list();
-    const read = await Promise.all(
-      urls.map(async (url) => {
-        try {
-          return { url, contents: await c.repositories.browse(url), error: "" };
-        } catch (e) {
-          return { url, contents: { skills: [], servers: [] }, error: describeError(e) };
-        }
-      }),
-    );
-    return { list: pluginsOf(read), errors: read.filter((r) => r.error) };
-  }, ["repositories"]);
+  // The extras are downloaded to list them, so this reloads after an action here or on refresh,
+  // not on every server's status change.
+  const plugins = resource(async (c) => pluginsOf(await c.repositories.browse()), []);
 
   let picked = $state<string | null>(null);
-  let adding = $state(false);
-  // A plugin picked here, or { repository } alone to choose in the dialog.
-  let installing = $state<{ repository: string; picked: string[] } | null>(null);
+  // The plugins to check in the install dialog when it's open.
+  let installing = $state<string[] | null>(null);
   let removing = $state<Plugin | null>(null);
   let busy = $state(false);
-  const plugin = $derived(plugins.data?.list.find((p) => keyOf(p) === picked) ?? plugins.data?.list[0]);
+  const plugin = $derived(plugins.data?.find((p) => keyOf(p) === picked) ?? plugins.data?.[0]);
 
-  // The sidebar's + links here with ?install: open the install dialog on the assistant's extras, then
-  // drop the parameter so a reload doesn't open it again.
+  // The sidebar's + links here with ?install: open the install dialog, then drop the parameter so a
+  // reload doesn't open it again.
   $effect(() => {
     if (!page.url.searchParams.has("install")) return;
-    installing = { repository: EXTRAS, picked: [] };
+    installing = [];
     void goto(resolve("/plugins"), { replaceState: true });
   });
 
@@ -68,14 +50,11 @@
     act(() => (p.kind === "server" ? client.mcp.updateFromRepository(p.name) : client.skills.updateInstalled(p.name)), `Updated ${p.name}.`);
   const remove = (p: Plugin) =>
     act(() => (p.kind === "server" ? client.mcp.remove(p.name) : client.skills.delete(p.name)), `Removed ${p.name}.`);
-  const forget = (url: string) => act(() => client.repositories.remove(url), `Removed ${shortRepository(url)} from the list.`);
 </script>
 
 <TopBar title="Plugins">
   {#snippet actions()}
-    <button class="btn btn--primary" onclick={() => (installing = { repository: repositories.data?.[0] ?? EXTRAS, picked: [] })}
-      ><Download size={16} /><span class="hide-narrow">Install a plugin</span></button
-    >
+    <button class="btn btn--primary" onclick={() => (installing = [])}><Download size={16} /><span class="hide-narrow">Install a plugin</span></button>
   {/snippet}
 </TopBar>
 
@@ -84,29 +63,29 @@
     <header class="toolbar">
       <div>
         <h2 class="text-heading">Plugins</h2>
-        <p class="text-meta">MCP servers and skills from your repositories. Click one to see it on the right.</p>
+        <p class="text-meta">MCP servers and skills from the assistant's extras. Click one to see it on the right.</p>
       </div>
       <div class="tools">
-        {#if plugins.data}<span class="pill">{plugins.data.list.length}</span>{/if}
-        <button class="btn btn--ghost btn--sm" title="Download the repositories again" onclick={() => plugins.reload()}><RefreshCw size={14} /></button>
+        {#if plugins.data}<span class="pill">{plugins.data.length}</span>{/if}
+        <button class="btn btn--ghost btn--sm" title="Look at the extras again" onclick={() => plugins.reload()}><RefreshCw size={14} /></button>
       </div>
     </header>
     <div class="scroll">
-      {#if plugins.data === undefined}
-        <p class="text-meta pad">{plugins.error ?? "Reading the repositories…"}</p>
+      {#if plugins.error}
+        <p class="error-text pad">{plugins.error}</p>
+      {:else if plugins.data === undefined}
+        <p class="text-meta pad">Looking at the extras…</p>
       {:else}
-        {#each plugins.data.errors as e (e.url)}<p class="error-text pad">{shortRepository(e.url)}: {e.error}</p>{/each}
-        {#if plugins.data.list.length === 0}
-          <EmptyState icon={Puzzle} title="No plugins" text="Add a repository with MCP servers or skills." />
+        {#if plugins.data.length === 0}
+          <EmptyState icon={Puzzle} title="No plugins" text="The extras offer none yet." />
         {:else}
           <table class="data-table">
-            <thead><tr><th>Plugin</th><th class="hide-narrow">Kind</th><th class="hide-narrow">Repository</th><th>State</th></tr></thead>
+            <thead><tr><th>Plugin</th><th class="hide-narrow">Kind</th><th>State</th></tr></thead>
             <tbody>
-              {#each plugins.data.list as p (keyOf(p))}
+              {#each plugins.data as p (keyOf(p))}
                 <tr class:selected={plugin && keyOf(p) === keyOf(plugin)} onclick={() => (picked = keyOf(p))}>
                   <td><button class="row-button" onclick={() => (picked = keyOf(p))}>{p.name}</button></td>
                   <td class="hide-narrow">{kindOf(p)}</td>
-                  <td class="hide-narrow">{shortRepository(p.repository)}</td>
                   <td>
                     <span class="state"><span class="status-dot" style:--tone={p.installed ? "var(--color-success)" : undefined}></span>{p.installed ? "Installed" : "Not installed"}</span>
                   </td>
@@ -127,8 +106,6 @@
         <dl>
           <dt class="micro-label">Kind</dt>
           <dd>{kindOf(plugin)}</dd>
-          <dt class="micro-label">Repository</dt>
-          <dd>{shortRepository(plugin.repository)}</dd>
           {#if plugin.kind === "server"}
             <dt class="micro-label">Runs</dt>
             <dd>{plugin.server.transport === "stdio" ? "On this computer" : "Remotely"}</dd>
@@ -148,45 +125,19 @@
             <button class="btn btn--neutral btn--sm" disabled={busy} onclick={() => plugin && update(plugin)}><RefreshCw size={14} />Update</button>
             <button class="btn btn--danger btn--sm" disabled={busy} onclick={() => (removing = plugin ?? null)}><Trash2 size={14} />Remove</button>
           {:else}
-            <button class="btn btn--primary btn--sm" disabled={busy} onclick={() => plugin && (installing = { repository: plugin.repository, picked: [plugin.name] })}
+            <button class="btn btn--primary btn--sm" disabled={busy} onclick={() => plugin && (installing = [plugin.name])}
               ><Download size={14} />Install</button
             >
           {/if}
         </div>
       </section>
     {/if}
-    <section class="details surface--glass">
-      <header>
-        <h3 class="micro-label">Repositories</h3>
-        <button class="btn btn--ghost btn--sm" onclick={() => (adding = true)}><Plus size={14} />Add</button>
-      </header>
-      {#if repositories.data?.length === 0}<p class="text-meta">None: plugins come from the repositories listed here.</p>{/if}
-      <ul class="repos">
-        {#each repositories.data ?? [] as url (url)}
-          <li>
-            <a href={url} target="_blank" rel="noreferrer">{shortRepository(url)}</a>
-            <button class="btn btn--ghost btn--sm" title="Remove from the list (what's installed stays)" aria-label="Remove {shortRepository(url)}" onclick={() => forget(url)}><X size={14} /></button>
-          </li>
-        {/each}
-      </ul>
-    </section>
   </div>
 </div>
 
-{#if adding}
-  <AddRepositoryDialog
-    onclose={(added) => {
-      adding = false;
-      if (added) notices.notify(`Added ${shortRepository(added)}.`);
-    }}
-  />
-{/if}
-
 {#if installing}
-  {@const choice = installing}
   <InstallDialog
-    repository={choice.repository}
-    picked={choice.picked}
+    picked={installing}
     onclose={(installed) => {
       installing = null;
       if (installed) notices.notify(`Installed ${installed.join(", ")}. The assistant uses it from your next message.`);
@@ -313,20 +264,6 @@
   }
   .actions {
     display: flex;
-    gap: 8px;
-  }
-  .repos {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .repos li {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     gap: 8px;
   }
   @media (max-width: 900px) {
