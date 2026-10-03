@@ -2,7 +2,8 @@ from textual.widgets import Button, Input, Markdown, OptionList
 
 from assistant.core.agent import PluginUpdate
 from assistant.core.repositories.known import EXTRAS
-from assistant_terminal.tui.screens import ConfirmScreen, PluginsScreen
+from assistant_terminal.tui.screens import PluginsScreen
+from assistant_terminal.tui.screens.confirm import ConfirmWithOptionScreen
 from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 from tests.terminal.conftest import wait_for
 
@@ -35,9 +36,10 @@ async def test_lists_the_extras_with_a_search_and_installs_one_that_asks_for_not
         screen.query_one("#update", Button).press()
         await wait_for(pilot, lambda: getattr(client.mcp, "updated", None) == "weather")
         screen.query_one("#remove", Button).press()
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
-        await pilot.press("y")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmWithOptionScreen))
+        app.screen.query_one("#confirm-yes", Button).press()
         await wait_for(pilot, lambda: "weather" not in client.mcp.items)
+        assert client.mcp.data_deleted is False  # the box starts unchecked
 
 
 async def test_a_plugin_that_asks_for_values_gets_a_screen_for_just_those(app, client):

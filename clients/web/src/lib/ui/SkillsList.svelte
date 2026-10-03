@@ -118,7 +118,12 @@
                   {#if skill.data.source && !skill.data.server}
                     <button class="btn btn--neutral btn--sm" onclick={() => updateInstalled(s.name)}><RefreshCw size={14} />Update</button>
                   {/if}
-                  {#if !skill.data.server}<button class="btn btn--danger btn--sm" onclick={() => (confirming = s.name)}><Trash2 size={14} />Delete</button>{/if}
+                  <!-- What a plugin installed goes with the plugin, in Settings → Plugins. -->
+                  {#if skill.data.plugin}
+                    <span class="text-caption">To delete it, remove the {skill.data.plugin} plugin in Settings → Plugins.</span>
+                  {:else}
+                    <button class="btn btn--danger btn--sm" onclick={() => (confirming = s.name)}><Trash2 size={14} />Delete</button>
+                  {/if}
                 </div>
               {/if}
             </div>

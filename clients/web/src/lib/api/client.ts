@@ -306,8 +306,10 @@ export class McpGroup {
     return this.transport.request("PATCH", `/mcp/servers/${encodeURIComponent(name)}`, change);
   }
 
-  async remove(name: string): Promise<void> {
-    await this.transport.request("DELETE", `/mcp/servers/${encodeURIComponent(name)}`);
+  /** Its data stays, for installing it again, unless `deleteData`. */
+  async remove(name: string, deleteData = false): Promise<void> {
+    const query = deleteData ? "?delete_data=true" : "";
+    await this.transport.request("DELETE", `/mcp/servers/${encodeURIComponent(name)}${query}`);
   }
 }
 

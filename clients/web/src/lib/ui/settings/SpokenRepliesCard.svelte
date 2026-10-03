@@ -43,7 +43,7 @@
     const language = s?.voice_options.find((v) => v.id === voice)?.language ?? "";
     trying = true;
     try {
-      await player.play(await client.speech.speak(SAMPLES[language] ?? "Hi, this is how I'll sound when I reply.", voice));
+      await player.speak(SAMPLES[language] ?? "Hi, this is how I'll sound when I reply.", (part) => client.speech.speak(part, voice));
       error = "";
     } catch (e) {
       error = describe(e);

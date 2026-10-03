@@ -129,10 +129,11 @@ class SkillsScreen(ModalScreen[None]):
         except SkillError as e:
             text = str(e)
         skill = self._skill
-        # A skill that comes with an MCP server is updated and removed with the server, not here.
+        # A skill that comes with an MCP server is updated with the server; what a plugin installed is
+        # removed with the plugin, in /plugins.
         own = skill is not None and skill.server is None
         self.query_one("#edit").display = skill is not None
-        self.query_one("#delete").display = own
+        self.query_one("#delete").display = skill is not None and not skill.plugin
         self.query_one("#update").display = own and skill is not None and skill.source is not None
         await self.query_one("#skill-body", Markdown).update(text)
 
@@ -148,8 +149,10 @@ def _detail(skill: Skill, summary: SkillSummary | None) -> str:
     text += f"\n\n---\n\n**Added by** {origin}"
     if skill.files:
         text += "\n\n**Files:** " + ", ".join(f"`{path}`" for path in skill.files)
+    if skill.plugin:
+        text += f"\n\nTo delete it, remove the {skill.plugin} plugin in /plugins."
     if skill.server:
-        text += f"\n\n**Comes with the {skill.server} MCP server**: updated and removed with it, in /mcp."
+        text += f"\n\n**Comes with the {skill.server} MCP server**: updated with it."
     elif skill.source:
         text += f"\n\n**Installed from** {skill.source}"
     return text

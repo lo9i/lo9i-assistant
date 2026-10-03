@@ -13,9 +13,8 @@
   import Settings from "@lucide/svelte/icons/settings";
   import UserRound from "@lucide/svelte/icons/user-round";
   import Sparkles from "@lucide/svelte/icons/sparkles";
-  import WandSparkles from "@lucide/svelte/icons/wand-sparkles";
   import PanelsTopLeft from "@lucide/svelte/icons/panels-top-left";
-  import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { pageLabel } from "$lib/pages";
   import { sidebar } from "$lib/sidebar.svelte";
 
@@ -29,6 +28,19 @@
   const alerts = resource((c) => c.alerts.list(), ["mcp", "skills"]);
   // A new listing of the extras, an install or update, or the setting changes what's newer.
   const updates = resource((c) => c.repositories.updates(), ["plugins", "mcp", "skills", "settings"]);
+
+  // The latest conversations, under Conversations, to continue one in a click.
+  const RECENT = 10;
+  const conversations = resource((c) => c.conversations.list(), ["conversations"]);
+  const recent = $derived(
+    [...(conversations.data ?? [])].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, RECENT),
+  );
+  const current = external(chat.subscribe, () => chat.getSnapshot().threadId);
+
+  async function continueWith(threadId: string): Promise<void> {
+    await chat.resume(threadId);
+    await goto(resolve("/conversations/open"));
+  }
 
   type Add = { label: string; run: () => Promise<void> };
 
@@ -51,18 +63,17 @@
       add: { label: "New conversation", run: newConversation },
     },
     { href: resolve("/memory"), label: "About you", Icon: UserRound },
-    { href: resolve("/skills"), label: "Skills", Icon: WandSparkles },
     { href: resolve("/usage"), label: "Usage", Icon: ChartColumn },
     { href: resolve("/sessions"), label: "Active sessions", Icon: MonitorSmartphone },
     { href: resolve("/jobs"), label: "Jobs", Icon: CalendarClock },
     { href: resolve("/devices"), label: "Devices", Icon: Laptop, add: { label: "Pair a browser", run: pairBrowser } },
     { href: resolve("/alerts"), label: "Alerts", Icon: Bell, count: () => alerts.data?.length ?? 0 },
-    // Plugins and MCP servers are settings tabs with pages of their own; plugin updates show here.
+    // Skills, Plugins and MCP servers are settings tabs with pages of their own; plugin updates show here.
     {
       href: resolve("/settings"),
       label: "Settings",
       Icon: Settings,
-      also: [resolve("/plugins"), resolve("/mcp")],
+      also: [resolve("/skills"), resolve("/plugins"), resolve("/mcp")],
       count: () => updates.data?.length ?? 0,
     },
   ];
@@ -97,6 +108,17 @@
           </button>
         {/if}
       </div>
+      {#if item.href === resolve("/conversations") && recent.length}
+        <ul class="recent" aria-label="Recent conversations">
+          {#each recent as c (c.thread_id)}
+            <li>
+              <button class:current={c.thread_id === current.current} title={c.title} onclick={() => continueWith(c.thread_id)}>
+                {c.title || "Untitled"}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
     {/each}
     {#each pages as p (p.name)}
       {@const href = resolve("/pages/[name]", { name: p.name })}
@@ -256,6 +278,35 @@
     border-radius: 0 2px 2px 0;
     background: var(--color-accent);
   }
+  .recent {
+    list-style: none;
+    margin: 0 0 4px;
+    padding: 0 0 0 30px;
+    display: flex;
+    flex-direction: column;
+  }
+  .recent button {
+    width: 100%;
+    padding: 5px 8px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+  }
+  .recent button:hover,
+  .recent button.current {
+    background: var(--color-bg-hover-ghost);
+    color: var(--color-text-primary);
+  }
+  :global(.collapsed) .recent {
+    display: none;
+  }
   :global(.collapsed) .label,
   :global(.collapsed) .mark {
     display: none;
@@ -278,7 +329,8 @@
     .label,
     .mark,
     .collapse,
-    .add {
+    .add,
+    .recent {
       display: none;
     }
     .nav-item {

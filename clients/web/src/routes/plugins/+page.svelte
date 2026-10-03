@@ -56,8 +56,8 @@
 
   const update = (p: Plugin) =>
     act(() => (p.kind === "server" ? client.mcp.updateFromRepository(p.name) : client.skills.updateInstalled(p.name)), `Updated ${p.name}.`);
-  const remove = (p: Plugin) =>
-    act(() => (p.kind === "server" ? client.mcp.remove(p.name) : client.skills.delete(p.name)), `Removed ${p.name}.`);
+  const remove = (p: Plugin, deleteData: boolean) =>
+    act(() => (p.kind === "server" ? client.mcp.remove(p.name, deleteData) : client.skills.delete(p.name)), `Removed ${p.name}.`);
 </script>
 
 <!-- A settings tab of its own page: the list and details need the full height. -->
@@ -165,11 +165,12 @@
   {@const p = removing}
   <Confirm
     title="Remove {p.name}?"
-    text={p.kind === "server" ? "Its tools, skill and page go. Its data stays, for installing it again." : "The assistant won't be able to use this skill any more."}
+    text={p.kind === "server" ? "Its tools, skill and page go. Its data stays, for installing it again, unless you delete it too." : "The assistant won't be able to use this skill any more."}
     action="Remove"
-    onanswer={(yes) => {
+    option={p.kind === "server" ? "Also delete its data (can't be undone)" : undefined}
+    onanswer={(yes, deleteData) => {
       removing = null;
-      if (yes) void remove(p);
+      if (yes) void remove(p, deleteData);
     }}
   />
 {/if}

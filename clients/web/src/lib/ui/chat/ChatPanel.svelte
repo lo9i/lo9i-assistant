@@ -36,7 +36,7 @@
     const reply = finalReply(chat.getSnapshot().transcript);
     if (!reply || !speaksReply(speech.data?.spoken_replies, files.some((f) => f.type.startsWith("audio/")))) return;
     try {
-      await player.play(await client.speech.speak(reply));
+      await player.speak(reply, (part) => client.speech.speak(part));
     } catch (e) {
       notices.report(e);
     }

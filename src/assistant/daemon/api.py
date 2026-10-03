@@ -757,9 +757,10 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
             raise HTTPException(400, str(e)) from e
 
     @app.delete("/mcp/servers/{name}")
-    async def remove_mcp_server(name: str) -> Ok:
+    async def remove_mcp_server(name: str, delete_data: bool = False) -> Ok:
+        """With `delete_data`, the server's data folder goes too; otherwise it stays."""
         try:
-            await service.remove_mcp_server(name)
+            await service.remove_mcp_server(name, delete_data)
         except McpServerError as e:
             raise HTTPException(404, str(e)) from e
         return Ok()

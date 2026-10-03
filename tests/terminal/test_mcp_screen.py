@@ -85,8 +85,13 @@ async def test_a_server_installed_from_the_extras_is_updated_here(app, client):
         assert not screen.query_one("#update").display  # notes was added by hand
         await client.repositories.install([], [ServerValues("calendar", {"CAL_USER": "ana", "CAL_PASSWORD": "pw"})])
         await screen.reload()
+        client.mcp.items["calendar"].plugin = "calendar"
+        await screen.reload()
         screen.query_one("#mcp-list", OptionList).highlighted = 1
         await wait_for(pilot, lambda: f"Installed from {EXTRAS}" in screen.query_one("#mcp-body", Markdown).source)
+        # What a plugin installed is removed with the plugin, in /plugins.
+        assert not screen.query_one("#remove").display
+        assert "remove the calendar plugin in /plugins" in screen.query_one("#mcp-body", Markdown).source
         screen.query_one("#update", Button).press()
         await wait_for(pilot, lambda: getattr(client.mcp, "updated", None) == "calendar")
 

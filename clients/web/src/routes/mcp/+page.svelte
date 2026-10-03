@@ -163,7 +163,12 @@
           {#if server.source}
             <button class="btn btn--neutral btn--sm" onclick={() => updateFromRepository(server.name)}><RefreshCw size={14} />Update</button>
           {/if}
-          <button class="btn btn--danger btn--sm" onclick={() => (removing = true)}><Trash2 size={14} />Remove</button>
+          <!-- What a plugin installed goes with the plugin, in Settings → Plugins. -->
+          {#if server.plugin}
+            <span class="text-caption">To remove it, remove the {server.plugin} plugin in Settings → Plugins.</span>
+          {:else}
+            <button class="btn btn--danger btn--sm" onclick={() => (removing = true)}><Trash2 size={14} />Remove</button>
+          {/if}
         </div>
       </section>
       <section class="tools-card surface--glass">

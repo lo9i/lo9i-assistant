@@ -234,7 +234,7 @@ async def test_cancel_stops_the_conversations_run(client, script, tmp_path):
     assert not await client.cancel(session)
 
 
-async def test_mcp_servers_through_the_client(client, service, monkeypatch):
+async def test_mcp_servers_through_the_client(client, service, monkeypatch, isolated_settings):
     from mcp import Client
     from mcp.server import MCPServer
 
@@ -255,7 +255,10 @@ async def test_mcp_servers_through_the_client(client, service, monkeypatch):
     changed = await client.mcp.change("notes", McpServerChanges(trusted=True, include=["add_note"]))
     assert changed.trusted and changed.include == ["add_note"]
     assert [s.name for s in await client.mcp.servers()] == ["notes"]
-    await client.mcp.remove("notes")
+    data = isolated_settings / "data" / "notes"
+    data.mkdir(parents=True)
+    await client.mcp.remove("notes", delete_data=True)
+    assert not data.exists()
     with pytest.raises(McpServerError):
         await client.mcp.remove("notes")
 
