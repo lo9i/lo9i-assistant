@@ -60,7 +60,7 @@ async def test_the_agent_finds_earlier_conversations_and_job_runs(service, scrip
     await collect(service.send(Session("owner", UNATTENDED_CHANNEL, "job:news:1"), "check the weather in Madrid"))
     await _say(service, "I flew to Madrid last spring")
     await service.new_channel_thread("owner", "cli")
-    script.call("search_conversations", query="Madrid trip").reply("found it")
+    script.call("search_memory", query="Madrid trip").reply("found it")
     await _say(service, "when was I in Madrid?")
     [result] = [m for m in script.requests[-1] if isinstance(m, ToolMessage)]
     lines = str(result.content).splitlines()

@@ -102,6 +102,7 @@ class RunsMixin(LockingMixin, SearchMixin):
             secrets=self.secrets,
             forwards_approvals=self.approvals.available,
             search=self._storage.search,
+            recall=self._recall,
         )
         async for mode, data in self._graph.astream(
             input, config, context=context, stream_mode=["messages", "updates"]

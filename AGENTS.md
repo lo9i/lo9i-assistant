@@ -11,7 +11,9 @@ src/assistant/
     agent/       AssistantService facade + one mixin per concern
     conversation/  system prompt, epochs (compaction), digest, transcript, turn header
       prompts/   prompt texts, one .md file per prompt
-    memory/      long-term memory in the Store: profile, facts, episodes
+    memory/      long-term memory in the Store: profile, facts, episodes; search by meaning with a local
+                 embedding model (e5.py), whose vectors a background indexer keeps in their own table, so saving
+                 a memory never waits on the model
     tools/       self-registering tools
     integrations/  services connected from the app, one package each: email/ (accounts, providers, smtp, imap),
                  slack/ (connection, workspace), telegram/ (connection)

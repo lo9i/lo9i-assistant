@@ -5,13 +5,16 @@ from langgraph.prebuilt import ToolRuntime
 from langgraph.store.base import BaseStore
 
 from assistant.core import conversations
-from assistant.core.context import Context, require_search, require_store
+from assistant.core.context import Context, require_recall, require_search, require_store
 from assistant.core.conversation.search import Found
-from assistant.core.memory import facts, profile
+from assistant.core.memory import episodes, facts, profile
+from assistant.core.memory.embedder import EmbeddingError
 from assistant.core.memory.profile import MAX_ITEMS, Section
 from assistant.core.tools.registry import register
 
-_SEARCH_RESULTS = 10
+_FACT_RESULTS = 5
+_EPISODE_RESULTS = 3
+_MESSAGE_RESULTS = 10
 
 
 @register("memory")
@@ -53,18 +56,38 @@ async def update_profile(section: Section, items: list[str], runtime: ToolRuntim
 
 @register("memory")
 @tool
-async def search_conversations(query: str, runtime: ToolRuntime[Context]) -> str:
-    """Search everything the user and you wrote in past conversations and scheduled job runs, by words.
+async def search_memory(query: str, runtime: ToolRuntime[Context]) -> str:
+    """Search everything remembered about the user, beyond what this prompt shows.
 
-    For details memory doesn't hold: what was said, a number, a name, when something came up.
-    Messages with more of the words rank first; it matches words, not meaning, so try other words
-    (or the other language) when nothing fits. Tool outputs aren't searched.
+    Returns the saved facts and past conversation summaries closest in meaning to the query (in any
+    language), and messages the user and you wrote in past conversations and scheduled job runs that
+    contain the query's words (for exact details: a number, a name, when something came up; try other
+    words when nothing fits). Tool outputs aren't searched.
     """
-    found = await require_search(runtime.context).search(runtime.context.user_id, query, _SEARCH_RESULTS)
+    context = runtime.context
+    sections = [
+        await _recalled(context, query),
+        await _messages(require_store(runtime.store), context, query),
+    ]
+    return "\n\n".join(sections)
+
+
+async def _recalled(context: Context, query: str) -> str:
+    try:
+        found = await require_recall(context).search(context.user_id, query, _FACT_RESULTS, _EPISODE_RESULTS)
+    except EmbeddingError as e:
+        return f"Saved facts and conversation summaries couldn't be searched: {e}"
+    return (
+        f"Saved facts:\n{facts.render(found.facts)}\n\nPast conversation summaries:\n{episodes.render(found.episodes)}"
+    )
+
+
+async def _messages(store: BaseStore, context: Context, query: str) -> str:
+    found = await require_search(context).search(context.user_id, query, _MESSAGE_RESULTS)
     if not found:
-        return "Nothing found."
-    titles = await _titles(require_store(runtime.store), runtime.context.user_id, {f.thread_id for f in found})
-    return "\n".join(_result(f, titles[f.thread_id]) for f in found)
+        return "Messages: none with these words."
+    titles = await _titles(store, context.user_id, {f.thread_id for f in found})
+    return "Messages:\n" + "\n".join(_result(f, titles[f.thread_id]) for f in found)
 
 
 async def _titles(store: BaseStore, user_id: str, thread_ids: set[str]) -> dict[str, str]:
