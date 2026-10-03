@@ -92,7 +92,7 @@ Keys are typed only in that dialog, never in the chat. A server is not trusted u
 
 Plugins come from the assistant's own extras (https://github.com/lo9i/lo9i-assistant-extras); there's no other source to choose.
 
-Web UI: **Plugins** in the sidebar lists them, each installed or not, with **Install**, **Update** and **Remove**; the **+** next to Plugins (or next to MCP servers, or **Install a plugin** on the Plugins page, or **Install** on the Skills and MCP servers pages) opens the install dialog. Terminal app: `/skills` or `/mcp`, then **Install**.
+Web UI: **Plugins** in the sidebar lists them, each installed or not, with **Install**, **Update** and **Remove**; the **+** next to Plugins (or next to MCP servers, or **Install** on the Skills and MCP servers pages) opens the install dialog. Terminal app: `/skills` or `/mcp`, then **Install**.
 
 1. The dialog lists what the extras offer.
 2. Check the ones to install. A server that needs values (a user name, a password, a token) shows a field for each; secret ones are typed only there, never in the chat.
