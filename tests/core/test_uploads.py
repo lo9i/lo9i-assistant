@@ -36,7 +36,8 @@ async def test_model_gets_file_contents_rendered_the_same_every_turn(service, sc
 async def test_deleted_file_becomes_a_placeholder(service, script):
     session = await service.session("u", "cli")
     await collect(service.send(session, "look", [PNG]))
-    reference = (await _stored_first_message(service, session))[1]["value"]["upload"]["path"]
+    blocks = await _stored_first_message(service, session)
+    reference = next(b for b in blocks if b.get("type") == "non_standard")["value"]["upload"]["path"]
     uploads.absolute(reference).unlink()
     await collect(service.send(session, "again"))
     assert "is no longer available" in json.dumps(script.requests[-1][1].content)

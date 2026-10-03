@@ -23,8 +23,19 @@ class ToolFinished:
 
 @dataclass
 class ApprovalRequired:
+    """The run waits for the user. Usually an approval, answered with {"approved", "reason"}; a
+    request whose `kind` is QUESTION is a question with options (core/tools/questions.py), with
+    `question`, `options` and `multiple`, answered with {"choices": [picked options]}."""
+
     interrupt_id: str
     request: dict[str, Any]
+
+
+QUESTION = "question"
+
+
+def is_question(request: dict[str, Any]) -> bool:
+    return request.get("kind") == QUESTION
 
 
 @dataclass

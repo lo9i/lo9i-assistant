@@ -27,5 +27,6 @@ async def test_memory_writes_publish_but_heartbeats_do_not(service, script):
     await service.telegram_heartbeat()
     script.call("remember", fact="dentist on Friday").reply("ok")
     await collect(service.send(await service.session("u", "cli"), "remember"))
-    kinds = [e.kind for e in await _take(subscription, 3)]
+    # threads, conversations, settings (the get-to-know-you offer, decided on the first message), memory
+    kinds = [e.kind for e in await _take(subscription, 4)]
     assert "memory" in kinds and "integrations" not in kinds

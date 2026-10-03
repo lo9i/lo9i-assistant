@@ -36,7 +36,7 @@ async def test_save_use_list_and_delete_a_skill(service, script, skills_dir):
     prompt = await build_system_prompt(service.store, "u", "", "")
     assert "- news-digest: Daily news summary" in prompt
     store.delete("news-digest")
-    assert [s.name for s in store.list_skills()] == [store.SETUP]
+    assert [s.name for s in store.list_skills() if not s.builtin] == []
 
 
 async def test_a_skill_with_files_is_shown_whole_before_approval_and_rejecting_saves_nothing(

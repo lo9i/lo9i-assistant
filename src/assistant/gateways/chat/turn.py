@@ -1,5 +1,5 @@
 """Shows one run's events in a chat: a typing indicator, a status message listing tool calls,
-the reply streamed by editing its message, and approval buttons."""
+the reply streamed by editing its message, and approval or question buttons."""
 
 import asyncio
 import json
@@ -18,9 +18,11 @@ from assistant.core.events import (
     ToolFinished,
     ToolStarted,
     Transcribed,
+    is_question,
 )
 from assistant.gateways.chat.approvals import approval_buttons, approval_text
 from assistant.gateways.chat.port import ChatPort
+from assistant.gateways.chat.questions import question_buttons, question_text
 from assistant.gateways.chat.split import split_text
 
 _TYPING_INTERVAL = 4.0
@@ -72,6 +74,9 @@ class ChatTurn[M]:
                 await self._status.started(name, args)
             case ToolFinished(name, _):
                 await self._status.finished(name)
+            case ApprovalRequired(interrupt_id, request) if is_question(request):
+                await self._after_reply()
+                await self._chat.send(question_text(request), buttons=question_buttons(interrupt_id, request))
             case ApprovalRequired(interrupt_id, request):
                 await self._after_reply()
                 await self._chat.send(approval_text(request), buttons=approval_buttons(interrupt_id))

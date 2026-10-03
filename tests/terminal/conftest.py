@@ -518,6 +518,8 @@ class FakeClient:
 
     def __init__(self):
         self.sent, self.decisions, self.cancelled = [], None, []
+        # What the run stops for after its tool calls: an approval, or a question with options.
+        self.waiting_for = {"tool": "bash", "command": "rm -rf build", "reason": "recursive delete"}
         self.bus = asyncio.Queue()
         self.runs = {}
         self.active_thread = "owner:abc"
@@ -545,7 +547,7 @@ class FakeClient:
         yield ToolStarted("bash", {"command": "ls -la"})
         yield ToolFinished("bash", "exit code: 0\nfile1")
         yield ToolStarted("bash", {"command": "rm -rf build"})
-        yield ApprovalRequired("i1", {"tool": "bash", "command": "rm -rf build", "reason": "recursive delete"})
+        yield ApprovalRequired("i1", self.waiting_for)
 
     async def resume(self, session, decisions):
         self.decisions = decisions

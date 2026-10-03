@@ -7,8 +7,8 @@ from assistant.client import DaemonClient, DaemonUnavailableError
 from assistant.client.files import load_attachment
 from assistant.core.agent import InvalidNameError, InvalidTokenError, Session
 from assistant.core.attachments import Attachment
-from assistant.core.events import ApprovalRequired
-from assistant_terminal.commands import help_lines
+from assistant.core.events import ApprovalRequired, is_question
+from assistant_terminal.commands import GET_TO_KNOW_ME, help_lines
 from assistant_terminal.conversations_text import when
 from assistant_terminal.jobs_text import summary as jobs_summary
 from assistant_terminal.mcp_text import summary as mcp_summary
@@ -44,6 +44,7 @@ class Repl:
             "/skills": self._skills,
             "/plugins": self._plugins,
             "/name": self._name,
+            "/get-to-know-me": self._get_to_know_me,
             "/jobs": self._jobs,
             "/usage": self._usage,
             "/sessions": self._sessions,
@@ -76,6 +77,9 @@ class Repl:
         while approvals:
             decisions = await _collect_decisions(approvals)
             approvals = await render(self._service.resume(self._session, decisions))
+
+    async def _get_to_know_me(self, _: str) -> None:
+        await self._chat(GET_TO_KNOW_ME)
 
     async def _help(self, _: str) -> None:
         print(_HELP)
@@ -212,8 +216,24 @@ async def _collect_decisions(approvals: list[ApprovalRequired]) -> dict[str, dic
     decisions = {}
     for approval in approvals:
         request = approval.request
+        if is_question(request):
+            decisions[approval.interrupt_id] = await _answer_question(request)
+            continue
         print(paint(YELLOW, f"\nApprove {request.get('tool')} ({request.get('reason')}): {request.get('command')}"))
         answer = await _read_line("[y/N or reason to reject] ") or ""
         approved = answer.lower() in ("y", "yes")
         decisions[approval.interrupt_id] = {"approved": approved, "reason": None if approved else answer}
     return decisions
+
+
+async def _answer_question(request: dict) -> dict:
+    """Numbers of the options picked, separated by spaces; nothing skips."""
+    options = list(request.get("options", []))
+    print(paint(YELLOW, f"\n{request.get('question')}"))
+    for number, option in enumerate(options, 1):
+        print(f"  {number}. {option}")
+    hint = "numbers, separated by spaces" if request.get("multiple") else "a number"
+    answer = await _read_line(f"[{hint}, or Enter to skip] ") or ""
+    numbers = {int(n) for n in answer.split() if n.isdigit()}
+    picked = [o for i, o in enumerate(options, 1) if i in numbers]
+    return {"choices": (picked if request.get("multiple") else picked[:1]) if answer else None}

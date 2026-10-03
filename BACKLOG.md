@@ -29,11 +29,6 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - G2. No way to view or edit memories (Q1).
 - G3. Checkpoints are never pruned.
 - G4. The epoch digest sees only the most recent `memory_max_facts` facts, so it can save a duplicate of an older one or miss one that turned outdated. Give it the saved facts closest to the transcript (`core/memory/recall.py`) too.
-- A13. "Get to know you" after setup. The first time the user chats after setup, with the profile still empty, the assistant offers to get to know them. If they agree, it asks a few friendly questions at a time, one profile section at a time (about, people, how to reply, routine, goals, interests, dislikes, work), and saves the answers with `update_profile`.
-  - Every question can be skipped, and the user can stop at any point. It fills only what they choose to share.
-  - Written as a built-in skill (steps in `SKILL.md`), not a new tool.
-  - Offered once: a Store flag records that it was offered, so it never comes back on its own. The user can start it again from the app (a `/get-to-know-me` command, a button in Settings) or by asking.
-  - Works on every channel (terminal, web, Telegram, Slack), since it's an ordinary conversation.
 
 ## Context
 

@@ -19,6 +19,7 @@ export const COMMANDS: Command[] = [
   { name: "/email", usage: "/email", description: "Connect email for sending" },
   { name: "/startup", usage: "/startup", description: "Start the assistant at boot" },
   { name: "/name", usage: "/name <name>", description: "Rename the assistant" },
+  { name: "/get-to-know-me", usage: "/get-to-know-me", description: "Let the assistant get to know you" },
   { name: "/help", usage: "/help", description: "Show commands and keys" },
 ];
 
@@ -44,3 +45,6 @@ export function parse(text: string): { name: string; arg: string } | null {
 export function known(name: string): boolean {
   return COMMANDS.some((c) => c.name === name);
 }
+
+/** What /get-to-know-me and the Settings button send: the get-to-know-you skill starts from it. */
+export const GET_TO_KNOW_ME = "Get to know me.";
