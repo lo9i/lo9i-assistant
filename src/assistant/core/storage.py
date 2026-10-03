@@ -31,6 +31,7 @@ _CHANGE_EVENTS = {
     "conversations": "conversations",
     "devices": "devices",
     "mcp_servers": "mcp",
+    "repositories": "repositories",
 }
 # Written every few seconds by the Telegram adapter; not worth telling clients about.
 _QUIET_KEYS = {"telegram_heartbeat"}

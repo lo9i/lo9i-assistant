@@ -1,3 +1,4 @@
+import builtins
 from typing import Any
 
 import httpx
@@ -21,10 +22,24 @@ DOWNLOAD_TIMEOUT = httpx.Timeout(150)
 
 
 class RepositoriesApi:
-    """Skills and MCP servers from a git repository: look at what it offers, install a choice."""
+    """Skills and MCP servers from a git repository: look at what it offers, install a choice, and
+    the repositories the Plugins page lists."""
 
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
+
+    async def list(self) -> list[str]:
+        return (await self._transport.request("GET", "/repositories"))["urls"]
+
+    async def add(self, url: str) -> builtins.list[str]:
+        """Raises RepositoryError if it can't be read or offers nothing."""
+        data = await self._transport.request(
+            "POST", "/repositories", json={"url": url}, errors=_ERRORS, timeout=DOWNLOAD_TIMEOUT
+        )
+        return data["urls"]
+
+    async def remove(self, url: str) -> builtins.list[str]:
+        return (await self._transport.request("DELETE", "/repositories", params={"url": url}))["urls"]
 
     async def browse(self, url: str) -> RepositoryContents:
         """Raises RepositoryError if it can't be read or has nothing to install."""
@@ -33,7 +48,9 @@ class RepositoriesApi:
         )
         return RepositoryContents([FoundSkill(**s) for s in data["skills"]], [_server(s) for s in data["servers"]])
 
-    async def install(self, url: str, skills: list[str], servers: list[ServerValues]) -> InstalledFromRepository:
+    async def install(
+        self, url: str, skills: builtins.list[str], servers: builtins.list[ServerValues]
+    ) -> InstalledFromRepository:
         """Raises RepositoryError saying what's wrong: a name taken, a field empty, a download failed."""
         body = {"url": url, "skills": skills, "servers": [{"name": s.name, "values": s.values} for s in servers]}
         data = await self._transport.request(

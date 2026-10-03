@@ -145,6 +145,12 @@ class RepositoryAddress(BaseModel):
     url: str
 
 
+class Repositories(BaseModel):
+    """The repositories the Plugins page lists plugins from."""
+
+    urls: list[str]
+
+
 class ServerValuesBody(BaseModel):
     name: str
     # Values for the server's fields (env values or headers); secrets, never shown again.
@@ -629,6 +635,23 @@ def _add_skill_routes(app: FastAPI, service: AssistantService) -> None:
 
 
 def _add_repository_routes(app: FastAPI, service: AssistantService) -> None:
+    @app.get("/repositories")
+    async def repositories() -> Repositories:
+        return Repositories(urls=await service.repositories())
+
+    @app.post("/repositories")
+    async def add_repository(body: RepositoryAddress) -> Repositories:
+        """400: it can't be read or offers nothing."""
+        try:
+            return Repositories(urls=await service.add_repository(body.url))
+        except RepositoryError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.delete("/repositories")
+    async def remove_repository(url: str) -> Repositories:
+        """Forgets it; what was installed from it stays."""
+        return Repositories(urls=await service.remove_repository(url))
+
     @app.post("/repositories/browse")
     async def browse_repository(body: RepositoryAddress) -> RepositoryContents:
         """The skills and MCP servers a git repository offers. 400: it can't be read or has none."""

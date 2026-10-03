@@ -1661,6 +1661,99 @@
         }
       }
     },
+    "/repositories": {
+      "get": {
+        "summary": "Repositories",
+        "operationId": "repositories_repositories_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Repositories"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add Repository",
+        "description": "400: it can't be read or offers nothing.",
+        "operationId": "add_repository_repositories_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepositoryAddress"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Repositories"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove Repository",
+        "description": "Forgets it; what was installed from it stays.",
+        "operationId": "remove_repository_repositories_delete",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Url"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Repositories"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/repositories/browse": {
       "post": {
         "summary": "Browse Repository",
@@ -2581,6 +2674,11 @@
             "type": "boolean",
             "title": "Page",
             "default": false
+          },
+          "installed": {
+            "type": "boolean",
+            "title": "Installed",
+            "default": false
           }
         },
         "type": "object",
@@ -2610,6 +2708,11 @@
             },
             "type": "array",
             "title": "Files"
+          },
+          "installed": {
+            "type": "boolean",
+            "title": "Installed",
+            "default": false
           }
         },
         "type": "object",
@@ -3371,6 +3474,23 @@
           "label"
         ],
         "title": "ProviderField"
+      },
+      "Repositories": {
+        "properties": {
+          "urls": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Urls"
+          }
+        },
+        "type": "object",
+        "required": [
+          "urls"
+        ],
+        "title": "Repositories",
+        "description": "The repositories the Plugins page lists plugins from."
       },
       "RepositoryAddress": {
         "properties": {

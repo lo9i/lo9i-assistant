@@ -1,13 +1,20 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import type { FoundServer, RepositoryContents } from "$lib/api/types";
   import { useDaemon } from "$lib/daemon.svelte";
   import { describe } from "$lib/notices";
   import Modal from "../Modal.svelte";
 
-  let { onclose }: { onclose: (installed?: string[]) => void } = $props();
+  type Props = {
+    onclose: (installed?: string[]) => void;
+    // Opened for a repository and plugins already picked (the Plugins page): it looks right away.
+    repository?: string;
+    picked?: string[];
+  };
+  let { onclose, repository = "", picked = [] }: Props = $props();
   const { client } = useDaemon();
 
-  let url = $state("");
+  let url = $state(untrack(() => repository));
   let found = $state<RepositoryContents | null>(null);
   let skills = $state(new Set<string>());
   let servers = $state(new Set<string>());
@@ -32,8 +39,9 @@
     run(async () => {
       const contents = await client.repositories.browse(url.trim());
       const onlyOne = contents.skills.length + contents.servers.length === 1;
-      skills = new Set(onlyOne ? contents.skills.map((s) => s.name) : []);
-      servers = new Set(onlyOne ? contents.servers.map((s) => s.name) : []);
+      const chosen = (name: string) => onlyOne || picked.includes(name);
+      skills = new Set(contents.skills.filter((s) => chosen(s.name)).map((s) => s.name));
+      servers = new Set(contents.servers.filter((s) => chosen(s.name)).map((s) => s.name));
       values = Object.fromEntries(contents.servers.map((s) => [s.name, Object.fromEntries(s.fields.map((f) => [f.key, ""]))]));
       found = contents;
     });
@@ -44,6 +52,11 @@
       await client.repositories.install(url.trim(), [...skills], chosen);
       onclose([...skills, ...servers]);
     });
+
+  // Opened for a repository: look at it at once.
+  $effect(() => {
+    if (untrack(() => repository)) void untrack(look);
+  });
 
   function toggled(set: Set<string>, name: string, on: boolean): Set<string> {
     const next = new Set(set);
