@@ -17,6 +17,7 @@
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { pageLabel } from "$lib/pages";
   import { sidebar } from "$lib/sidebar.svelte";
+  import VoiceButton from "./voice/VoiceButton.svelte";
 
   let { name }: { name: string } = $props();
 
@@ -130,6 +131,7 @@
       </div>
     {/each}
   </nav>
+  <div class="voice-slot"><VoiceButton /></div>
 </aside>
 
 <style>
@@ -197,6 +199,12 @@
     gap: 4px;
     padding-inline: 8px;
     overflow-y: auto;
+  }
+  .voice-slot {
+    display: flex;
+    justify-content: center;
+    padding: 12px 8px;
+    border-top: 1px solid var(--color-border);
   }
   .nav-item {
     position: relative;

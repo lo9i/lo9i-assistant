@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { page } from "$app/state";
-  import { resolve } from "$app/paths";
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import AudioLines from "@lucide/svelte/icons/audio-lines";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
@@ -30,8 +28,6 @@
     phase({ recording: recorder.recording, busy: snapshot.current.busy, preparingSpeech, speaking }),
   );
   const reply = $derived(finalReply(snapshot.current.transcript));
-  // The chat page has its composer in the bottom corner.
-  const raised = $derived(page.url.pathname === resolve("/conversations/open"));
   const LABELS: Record<Phase, string> = {
     idle: "Voice conversation with the assistant",
     listening: "Send",
@@ -111,7 +107,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="voice" class:raised>
+<div class="voice">
   {#if open}
     <section class="bubble surface--glass" aria-live="polite">
       <header>
@@ -161,17 +157,7 @@
 
 <style>
   .voice {
-    position: fixed;
-    right: 24px;
-    bottom: 24px;
-    z-index: var(--z-popover);
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 12px;
-  }
-  .raised {
-    bottom: 132px;
   }
   .fab {
     display: grid;
@@ -200,8 +186,13 @@
   .fab :global(.spin) {
     animation: spin 1s linear infinite;
   }
+  /* Fixed beside the sidebar's bottom, since the sidebar clips what overflows it. */
   .bubble {
-    width: min(360px, calc(100vw - 48px));
+    position: fixed;
+    left: calc(var(--sidebar-rail) + 40px);
+    bottom: 16px;
+    z-index: var(--z-popover);
+    width: min(360px, calc(100vw - var(--sidebar-rail) - 56px));
     max-height: 50vh;
     overflow-y: auto;
     padding: 12px 16px 16px;
@@ -261,15 +252,6 @@
   @keyframes spin {
     to {
       transform: rotate(360deg);
-    }
-  }
-  @media (max-width: 680px) {
-    .voice {
-      right: 16px;
-      bottom: 16px;
-    }
-    .raised {
-      bottom: 112px;
     }
   }
 </style>
