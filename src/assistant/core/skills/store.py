@@ -37,6 +37,8 @@ class Skill:
     server: str | None = None
     # What's wrong with it as written (`problems`); empty when nothing is.
     problems: list[str] = field(default_factory=list)
+    # `version:` in its SKILL.md; "" when it declares none.
+    version: str = ""
 
 
 def list_skills() -> list[Skill]:
@@ -154,6 +156,7 @@ def read(skill_folder: Path, default_name: str | None = None) -> Skill | None:
         source.url if source else None,
         (source.server or None) if source else None,
         [*header_problems, *problems(body, files)],
+        str(meta.get("version") or ""),
     )
 
 

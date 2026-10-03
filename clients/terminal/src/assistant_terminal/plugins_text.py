@@ -33,6 +33,18 @@ class Plugin:
         )
 
 
+def version(plugin: Plugin) -> str:
+    """The version installed, and the newer one the extras have ("1.0.0 → 1.1.0"); what the extras
+    have when it isn't installed; "-" when none is declared."""
+    found = plugin.server or plugin.skill
+    available, here = (found.version, found.installed_version) if found else ("", "")
+    if not plugin.installed:
+        return available or "-"
+    if available and available != here:
+        return f"{here or '-'} → {available}"
+    return here or "-"
+
+
 def plugins(contents: RepositoryContents) -> list[Plugin]:
     return [Plugin(s.name, s.installed, server=s) for s in contents.servers] + [
         Plugin(s.name, s.installed, skill=s) for s in contents.skills
@@ -40,7 +52,7 @@ def plugins(contents: RepositoryContents) -> list[Plugin]:
 
 
 def label(plugin: Plugin) -> str:
-    return f"{plugin.name}  {'✓ installed' if plugin.installed else '· not installed'}"
+    return f"{plugin.name} {version(plugin)}  {'✓ installed' if plugin.installed else '· not installed'}"
 
 
 def matches(plugin: Plugin, query: str) -> bool:
@@ -50,7 +62,7 @@ def matches(plugin: Plugin, query: str) -> bool:
 
 def describe(plugin: Plugin) -> str:
     """Markdown: what it is, what it asks for, and its state."""
-    lines = [f"## {plugin.name}", plugin.description, f"Kind: {plugin.kind}"]
+    lines = [f"## {plugin.name}", plugin.description, f"Kind: {plugin.kind}", f"Version: {version(plugin)}"]
     if plugin.server is not None:
         lines.append(f"Runs: {'on this computer' if plugin.server.transport == 'stdio' else 'remotely'}")
         if plugin.server.fields:

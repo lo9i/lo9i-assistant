@@ -83,6 +83,9 @@ class FoundServer:
     page: bool = False
     # Installed here from the same repository.
     installed: bool = False
+    # `version:` in its server.yaml, and the one installed here; "" when none is declared or installed.
+    version: str = ""
+    installed_version: str = ""
 
 
 @dataclass(frozen=True)
@@ -152,7 +155,7 @@ async def install(candidate: Candidate, values: dict[str, str], url: str, commit
     caller saves them."""
     name = candidate.found.name
     server = candidate.server(values, url)
-    source = Source(url, candidate.path, commit)
+    source = Source(url, candidate.path, commit, version=candidate.found.version)
     await asyncio.to_thread(put, candidate.folder, folders.code(name), source)
     await asyncio.to_thread(folders.data(name).mkdir, 0o700, True, True)
     await asyncio.to_thread(_put_skill, candidate, replace(source, server=name))
@@ -177,6 +180,12 @@ async def update(store: BaseStore, name: str) -> McpServer:
     )
     await servers.save(store, kept)
     return kept
+
+
+def installed_version(name: str) -> str:
+    """The version of the server installed here from a repository; "" when it declared none."""
+    record = folder_source.read(folders.code(name))
+    return record.version if record else ""
 
 
 def uninstall(name: str) -> None:
@@ -249,7 +258,10 @@ def _parse(data: dict[str, Any], name: str, root: Path, folder: Path) -> Candida
     skill = _check_skill(folder, template.name)
     description = str(data.get("description", ""))
     page = bool(template.page_command)
-    found = FoundServer(template.name, description, template.transport, fields, template.trusted, skill, page)
+    version = str(data.get("version", ""))
+    found = FoundServer(
+        template.name, description, template.transport, fields, template.trusted, skill, page, version=version
+    )
     return Candidate(found, template, folder, folder.relative_to(root).as_posix())
 
 

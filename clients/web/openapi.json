@@ -2698,6 +2698,16 @@
             "type": "boolean",
             "title": "Installed",
             "default": false
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "default": ""
+          },
+          "installed_version": {
+            "type": "string",
+            "title": "Installed Version",
+            "default": ""
           }
         },
         "type": "object",
@@ -2732,6 +2742,16 @@
             "type": "boolean",
             "title": "Installed",
             "default": false
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "default": ""
+          },
+          "installed_version": {
+            "type": "string",
+            "title": "Installed Version",
+            "default": ""
           }
         },
         "type": "object",
@@ -3750,6 +3770,11 @@
             },
             "type": "array",
             "title": "Problems"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "default": ""
           }
         },
         "type": "object",

@@ -25,10 +25,12 @@ async def test_lists_the_extras_with_a_search_and_installs_one_that_asks_for_not
         assert "Kind: MCP server" in _body(screen) and screen.query_one("#install").display
         screen.query_one("#plugins-search", Input).value = "page"
         await wait_for(pilot, lambda: plugins.option_count == 1 and "## weather" in _body(screen))
+        assert "Version: 1.1.0" in _body(screen)
         screen.query_one("#install", Button).press()
         await wait_for(pilot, lambda: "weather" in client.mcp.items)
         assert client.repositories.installed[-1][2][0].name == "weather"
         await wait_for(pilot, lambda: "State: installed" in _body(screen) and screen.query_one("#update").display)
+        assert "Version: 1.0.0 → 1.1.0" in _body(screen)
         screen.query_one("#update", Button).press()
         await wait_for(pilot, lambda: getattr(client.mcp, "updated", None) == "weather")
         screen.query_one("#remove", Button).press()

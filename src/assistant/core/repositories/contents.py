@@ -37,11 +37,19 @@ async def browse(store: BaseStore, url: str) -> RepositoryContents:
     """What the repository offers, each saying whether it's installed here from it."""
     listing = await _listing(store, url)
     installed = {s.name for s in await servers.load_all(store) if s.source == url}
-    found = [replace(s, installed=s.name in installed) for s in listing.servers]
-    skills = [
-        replace(s, installed=await asyncio.to_thread(skill_install.installed, s.name, url)) for s in listing.skills
-    ]
+    found = [await _with_server_state(s, s.name in installed) for s in listing.servers]
+    skills = [await _with_skill_state(s, url) for s in listing.skills]
     return RepositoryContents(skills, found)
+
+
+async def _with_server_state(server: FoundServer, installed: bool) -> FoundServer:
+    version = await asyncio.to_thread(server_install.installed_version, server.name) if installed else ""
+    return replace(server, installed=installed, installed_version=version)
+
+
+async def _with_skill_state(skill: FoundSkill, url: str) -> FoundSkill:
+    version = await asyncio.to_thread(skill_install.installed_version, skill.name, url)
+    return replace(skill, installed=version is not None, installed_version=version or "")
 
 
 async def _listing(store: BaseStore, url: str) -> Listing:

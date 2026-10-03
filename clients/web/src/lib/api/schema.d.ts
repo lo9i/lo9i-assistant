@@ -1211,6 +1211,16 @@ export interface components {
              * @default false
              */
             installed: boolean;
+            /**
+             * Version
+             * @default
+             */
+            version: string;
+            /**
+             * Installed Version
+             * @default
+             */
+            installed_version: string;
         };
         /**
          * FoundSkill
@@ -1228,6 +1238,16 @@ export interface components {
              * @default false
              */
             installed: boolean;
+            /**
+             * Version
+             * @default
+             */
+            version: string;
+            /**
+             * Installed Version
+             * @default
+             */
+            installed_version: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1722,6 +1742,11 @@ export interface components {
             server?: string | null;
             /** Problems */
             problems?: string[];
+            /**
+             * Version
+             * @default
+             */
+            version: string;
         };
         /** SkillChange */
         SkillChange: {

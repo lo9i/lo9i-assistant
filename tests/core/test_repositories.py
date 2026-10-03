@@ -334,3 +334,16 @@ async def test_an_unreachable_repository_shows_the_kept_listing(service, repo):
     await service.install_from_repository(URL, ["expenses"], [])
     contents = await service.browse_repository(URL)
     assert {s.name: s.installed for s in contents.skills}["expenses"]  # installed is read fresh, not kept
+
+
+async def test_versions_say_what_is_installed_and_what_is_newer(service, repo):
+    manifest = repo / "mcp" / "hello" / "server.yaml"
+    manifest.write_text("version: 1.0.0\n" + manifest.read_text())
+    await service.install_from_repository(URL, [], [HELLO])
+    manifest.write_text(manifest.read_text().replace("version: 1.0.0", "version: 1.1.0"))
+    REMOTE["head"] = "head2"
+    hello = next(s for s in (await service.browse_repository(URL)).servers if s.name == "hello")
+    assert (hello.version, hello.installed_version) == ("1.1.0", "1.0.0")
+    await service.update_mcp_server_from_repository("hello")
+    hello = next(s for s in (await service.browse_repository(URL)).servers if s.name == "hello")
+    assert hello.installed_version == "1.1.0"

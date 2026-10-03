@@ -34,9 +34,15 @@ def _section(description: str) -> list[str]:
 class Profile(BaseModel):
     about: list[str] = _section("Who the user is: name, where they live and their timezone, languages.")
     people: list[str] = _section("People in the user's life and how they relate, e.g. 'Ana: sister'.")
-    how_to_reply: list[str] = _section("How the user wants replies: length, tone, format, language.")
+    how_to_reply: list[str] = _section(
+        "How the user wants replies: length, tone, format, language, and what to include when they ask for something "
+        "in particular, e.g. 'unpaid bills: list each with its obligation's details'."
+    )
     routine: list[str] = _section("The user's schedule and habits: working hours, regular commitments.")
-    goals: list[str] = _section("What the user is working toward now.")
+    goals: list[str] = _section(
+        "Outcomes the user is working toward over weeks or months, e.g. 'learn Italian', 'save for a trip'. Never "
+        "requests or instructions about replies: those go in how_to_reply."
+    )
     interests: list[str] = _section("Topics and things the user likes.")
     dislikes: list[str] = _section("Things the user dislikes or wants avoided.")
     work: list[str] = _section("The user's work: role, field, tools, projects, technical level.")
