@@ -1,10 +1,9 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import AppearanceCard from "$lib/ui/settings/AppearanceCard.svelte";
+  import AssistantCard from "$lib/ui/settings/AssistantCard.svelte";
   import EmailCard from "$lib/ui/settings/EmailCard.svelte";
   import MicrophoneCard from "$lib/ui/settings/MicrophoneCard.svelte";
   import ModelCard from "$lib/ui/settings/ModelCard.svelte";
-  import NameCard from "$lib/ui/settings/NameCard.svelte";
   import SlackCard from "$lib/ui/settings/SlackCard.svelte";
   import SpeechCard from "$lib/ui/settings/SpeechCard.svelte";
   import SpokenRepliesCard from "$lib/ui/settings/SpokenRepliesCard.svelte";
@@ -29,11 +28,15 @@
     {/each}
   </nav>
   {#if tab === "general"}
+    <!-- The model on one side; the small settings stacked on the other. -->
     <div class="grid">
-      <div class="wide"><ModelCard /></div>
-      <NameCard />
-      <AppearanceCard />
-      <div class="wide"><StartupCard /></div>
+      <div class="stack">
+        <ModelCard />
+      </div>
+      <div class="stack">
+        <AssistantCard />
+        <StartupCard />
+      </div>
     </div>
   {:else if tab === "audio"}
     <div class="grid">
@@ -73,9 +76,6 @@
     grid-template-columns: 1fr 1fr;
     gap: 24px;
     align-items: start;
-  }
-  .wide {
-    grid-column: 1 / -1;
   }
   .stack {
     display: flex;

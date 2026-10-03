@@ -293,3 +293,22 @@ async def test_a_top_level_server_folder_is_not_also_a_skill(service, repo):
     contents = await service.browse_repository(URL)
     assert "solo" not in [s.name for s in contents.skills]
     assert next(s for s in contents.servers if s.name == "solo").skill
+
+
+async def test_the_plugins_page_lists_the_extras_and_added_repositories(service, repo):
+    from assistant.core.repositories.known import EXTRAS
+
+    assert await service.repositories() == [EXTRAS]
+    assert await service.add_repository(URL + "/") == [EXTRAS, URL]
+    with pytest.raises(RepositoryError, match="https://"):
+        await service.add_repository("file:///tmp/x")
+    assert await service.remove_repository(EXTRAS) == [URL]
+    assert await service.repositories() == [URL]
+
+
+async def test_browsing_says_what_is_installed_from_that_repository(service, repo):
+    store.save("news-digest", "Mine", "My steps")
+    await service.install_from_repository(URL, ["expenses"], [HELLO])
+    contents = await service.browse_repository(URL)
+    assert {s.name: s.installed for s in contents.skills} == {"expenses": True, "news-digest": False}
+    assert {s.name: s.installed for s in contents.servers} == {"hello": True, "tasks": False}

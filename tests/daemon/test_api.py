@@ -293,3 +293,10 @@ async def test_token_usage_through_the_client(client, script):
     await collect(client.send(await _new_session(client), "hello"))
     report = await client.usage.tokens(7)
     assert report.total.calls == 1 and report.total.input_tokens == 50 and report.by_purpose[0].name == "reply"
+
+
+async def test_the_plugins_repositories_through_the_client(client):
+    from assistant.core.repositories.known import EXTRAS
+
+    assert await client.repositories.list() == [EXTRAS]
+    assert await client.repositories.remove(EXTRAS) == []

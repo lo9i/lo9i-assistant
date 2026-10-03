@@ -2,7 +2,7 @@
 one download. Everything is checked before anything is written."""
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from langgraph.store.base import BaseStore
@@ -30,14 +30,17 @@ class Installed:
     servers: list[McpServer]
 
 
-async def browse(url: str) -> RepositoryContents:
+async def browse(store: BaseStore, url: str) -> RepositoryContents:
+    """What the repository offers, each saying whether it's installed here from it."""
     async with checkout(url) as (root, _):
         skills, found_servers = await asyncio.to_thread(_find, root, url)
     if not skills and not found_servers:
         raise RepositoryError(
             "No skills or MCP servers there: a skill is a folder with a SKILL.md, a server a folder with a server.yaml."
         )
-    return RepositoryContents([c.found() for c in skills.values()], [c.found for c in found_servers.values()])
+    installed = {s.name for s in await servers.load_all(store) if s.source == url}
+    found = [replace(c.found, installed=c.found.name in installed) for c in found_servers.values()]
+    return RepositoryContents([await asyncio.to_thread(c.found, url) for c in skills.values()], found)
 
 
 async def install(store: BaseStore, url: str, skills: list[str], wanted: list[ServerValues]) -> Installed:

@@ -26,6 +26,8 @@ class FoundSkill:
     name: str
     description: str
     files: list[str]
+    # Installed here from the same repository.
+    installed: bool = False
 
 
 @dataclass(frozen=True)
@@ -35,8 +37,8 @@ class Candidate:
     # Relative to the repository root.
     path: str
 
-    def found(self) -> FoundSkill:
-        return FoundSkill(self.skill.name, self.skill.description, self.skill.files)
+    def found(self, url: str) -> FoundSkill:
+        return FoundSkill(self.skill.name, self.skill.description, self.skill.files, _installed(self.skill.name, url))
 
 
 def find(root: Path, url: str) -> dict[str, Candidate]:
@@ -86,6 +88,14 @@ def _candidate(root: Path, folder: Path, name: str) -> Candidate | None:
     if skill is None or not store.valid_name(skill.name):
         return None
     return Candidate(skill, folder, folder.relative_to(root).as_posix())
+
+
+def _installed(name: str, url: str) -> bool:
+    try:
+        existing = store.load(name)
+    except SkillError:
+        return False
+    return existing.source == url and existing.server is None
 
 
 def _taken(name: str, url: str) -> bool:

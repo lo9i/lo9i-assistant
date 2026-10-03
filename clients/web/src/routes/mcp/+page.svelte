@@ -1,5 +1,8 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { goto } from "$app/navigation";
+  import { page } from "$app/state";
+  import { resolve } from "$app/paths";
   import Blocks from "@lucide/svelte/icons/blocks";
   import Download from "@lucide/svelte/icons/download";
   import Plus from "@lucide/svelte/icons/plus";
@@ -23,6 +26,12 @@
   let picked = $state<string | null>(null);
   let adding = $state(false);
   let installing = $state(false);
+  // The sidebar's + links here with ?install: open the dialog, then drop the parameter so a reload doesn't open it again.
+  $effect(() => {
+    if (!page.url.searchParams.has("install")) return;
+    installing = true;
+    void goto(resolve("/mcp"), { replaceState: true });
+  });
   let removing = $state(false);
   let secrets = $state<"env" | "headers" | null>(null);
   const server = $derived(servers.data?.find((s) => s.name === picked) ?? servers.data?.[0]);

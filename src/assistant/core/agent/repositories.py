@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from assistant.core.agent.base import ServiceBase
 from assistant.core.agent.mcp import McpServerStatus, mcp_status
 from assistant.core.mcp.install import FoundServer, ServerField, ServerValues
-from assistant.core.repositories import contents
+from assistant.core.repositories import contents, known
 from assistant.core.repositories.contents import RepositoryContents
 from assistant.core.repositories.errors import RepositoryError
 from assistant.core.skills.store import Skill
@@ -31,7 +31,20 @@ class InstalledFromRepository:
 class RepositoriesMixin(ServiceBase):
     async def browse_repository(self, url: str) -> RepositoryContents:
         """The skills and MCP servers a repository offers. Raises RepositoryError."""
-        return await contents.browse(url)
+        return await contents.browse(self._storage.store, url)
+
+    async def repositories(self) -> list[str]:
+        """The repositories the Plugins page lists, the assistant's extras first."""
+        return await known.load(self._storage.store)
+
+    async def add_repository(self, url: str) -> list[str]:
+        """Saved once it's been read and offers something. Raises RepositoryError."""
+        await contents.browse(self._storage.store, url.strip().rstrip("/"))
+        return await known.add(self._storage.store, url)
+
+    async def remove_repository(self, url: str) -> list[str]:
+        """Only forgets it: what was installed from it stays."""
+        return await known.remove(self._storage.store, url)
 
     async def install_from_repository(
         self, url: str, skills: list[str], servers: list[ServerValues]

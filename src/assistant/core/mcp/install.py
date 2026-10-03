@@ -81,6 +81,8 @@ class FoundServer:
     skill: bool = False
     # It comes with a web page.
     page: bool = False
+    # Installed here from the same repository.
+    installed: bool = False
 
 
 @dataclass(frozen=True)
