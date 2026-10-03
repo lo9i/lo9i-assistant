@@ -5,6 +5,11 @@ Stored form: files are saved under the uploads dir and the message keeps a refer
 Request form: `hydrate` replaces each reference with the file's content before the model call.
 Hydration is deterministic, so every turn renders earlier messages identically and the prompt
 cache and thinking blocks stay valid.
+
+Tool results keep their references (images from MCP tools) in the message's `artifact`, which
+LangChain never sends to the model: the tool node accepts only its own block types as content.
+`hydrate` adds them to the result, or, for APIs that take images only in user messages, to a user
+message after the results, built for the request and never saved.
 """
 
 import base64
@@ -12,11 +17,16 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from langchain_core.messages import BaseMessage, HumanMessage
+from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
 
 from assistant.core import uploads
 
 Block = dict[str, Any]
+
+# The name on the user message that carries images from tool results, so it isn't taken for the
+# user speaking (core/llm/copilot.py).
+TOOL_MEDIA_SENDER = "tool_results"
+_TOOL_MEDIA_INTRO = "[Images from the tool results above]"
 
 
 @dataclass
@@ -30,28 +40,83 @@ def to_content(text: str, attachments: Sequence[Attachment]) -> list[Block]:
     """Save attachments and build stored message content. Raises ValueError on unsupported types."""
     for attachment in attachments:
         _converter_for(attachment)
-    blocks = [_reference_block(a) for a in attachments]
+    blocks = [reference(a) for a in attachments]
     return [*blocks, {"type": "text", "text": text}] if text else blocks
 
 
-def hydrate(messages: Sequence[BaseMessage]) -> list[BaseMessage]:
-    """Messages with every upload reference replaced by the file's content."""
+def hydrate(messages: Sequence[BaseMessage], images_in_tool_results: bool) -> list[BaseMessage]:
+    """Messages with every upload reference replaced by the file's content. Without
+    `images_in_tool_results`, the files from tool results go in a user message after them."""
+    if images_in_tool_results:
+        messages = [_with_tool_media(m) for m in messages]
+    else:
+        messages = _tool_media_after_results(messages)
     return [_hydrate_message(m) for m in messages]
 
 
-def _reference_block(attachment: Attachment) -> Block:
+def reference(attachment: Attachment) -> Block:
+    """Saves the file and returns the block that refers to it."""
     path = uploads.save(attachment.name, attachment.data)
     reference = {"path": path, "name": attachment.name, "media_type": attachment.media_type}
     return {"type": "non_standard", "value": {"upload": reference}}
 
 
+def _with_tool_media(message: BaseMessage) -> BaseMessage:
+    """A tool result with its references after its content."""
+    references = _tool_references(message)
+    if not references:
+        return message
+    return message.model_copy(update={"content": [*_blocks(message.content), *references]})
+
+
+def _tool_media_after_results(messages: Sequence[BaseMessage]) -> list[BaseMessage]:
+    result: list[BaseMessage] = []
+    moved: list[Block] = []
+    for message in messages:
+        if moved and not isinstance(message, ToolMessage):
+            result.append(_tool_media_message(moved))
+            moved = []
+        references = _tool_references(message)
+        if references:
+            notes = [_moved_note(r) for r in references]
+            message = message.model_copy(update={"content": [*_blocks(message.content), *notes]})
+            moved += references
+        result.append(message)
+    return [*result, _tool_media_message(moved)] if moved else result
+
+
+def _moved_note(block: Block) -> Block:
+    name = (_reference(block) or {}).get("name", "a file")
+    return _text(f"[{name}: in the next message]")
+
+
+def _tool_references(message: BaseMessage) -> list[Block]:
+    if not isinstance(message, ToolMessage) or not isinstance(message.artifact, list):
+        return []
+    return [block for block in message.artifact if _reference(block)]
+
+
+def _blocks(content: str | list[Any]) -> list[Any]:
+    if isinstance(content, str):
+        return [_text(content)] if content else []
+    return list(content)
+
+
+def _tool_media_message(references: list[Block]) -> HumanMessage:
+    return HumanMessage([_text(_TOOL_MEDIA_INTRO), *references], name=TOOL_MEDIA_SENDER)
+
+
 def _hydrate_message(message: BaseMessage) -> BaseMessage:
-    if not isinstance(message, HumanMessage) or not isinstance(message.content, list):
+    if not isinstance(message, HumanMessage | ToolMessage) or not isinstance(message.content, list):
         return message
     if not any(_reference(block) for block in message.content):
         return message
     content = [hydrated for block in message.content for hydrated in _hydrate_block(block)]
     return message.model_copy(update={"content": content})
+
+
+def is_reference(block: Any) -> bool:
+    return _reference(block) is not None
 
 
 def _reference(block: Any) -> dict[str, str] | None:
@@ -61,14 +126,19 @@ def _reference(block: Any) -> dict[str, str] | None:
 
 
 def upload_paths(messages: Sequence[BaseMessage]) -> list[str]:
-    """The uploads (relative paths) the user's messages refer to."""
+    """The uploads (relative paths) the user's messages and tool results refer to."""
     return [
         reference["path"]
         for message in messages
-        if isinstance(message, HumanMessage) and isinstance(message.content, list)
-        for block in message.content
+        for block in _stored_references(message)
         if (reference := _reference(block)) is not None
     ]
+
+
+def _stored_references(message: BaseMessage) -> list[Any]:
+    if isinstance(message, HumanMessage) and isinstance(message.content, list):
+        return message.content
+    return _tool_references(message)
 
 
 def _hydrate_block(block: Any) -> list[Any]:

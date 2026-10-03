@@ -11,6 +11,9 @@ from dataclasses import dataclass
 
 # Prompt caching, token exchange or server URLs that lo9i handles itself (core/llm/__init__.py).
 NATIVE = ("anthropic", "copilot", "openai")
+# Providers whose API takes images inside tool results. Others get images from tools in a message
+# after the results (core/attachments.py): OpenAI-style APIs accept images only in user messages.
+IMAGES_IN_TOOL_RESULTS = frozenset({"anthropic"})
 
 
 @dataclass(frozen=True)

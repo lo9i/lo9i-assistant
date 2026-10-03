@@ -32,6 +32,7 @@ from assistant.core.integrations.email import accounts
 from assistant.core.llm import choice
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.mcp.hub import McpHub
+from assistant.core.mcp.media import ToolMedia
 from assistant.core.mcp.pages import McpPages
 from assistant.core.memory import profile
 from assistant.core.outbox import Outbox
@@ -69,12 +70,12 @@ class AssistantService(
         self.outbox = Outbox()
         self.approvals = RemoteApprovals()
         self._health = HealthLog(storage.store, bus)
-        self.mcp = McpHub(storage.store, bus, self._health)
+        self._transcriber = FasterWhisperTranscriber()
+        self.mcp = McpHub(storage.store, bus, self._health, ToolMedia(self._transcriber, storage.store))
         self.pages = McpPages(storage.store)
         self._use_model(model)
         self._background = set()
         self._conversations_lock = asyncio.Lock()
-        self._transcriber = FasterWhisperTranscriber()
         self._synthesizer = KokoroSynthesizer()
         self._thread_locks = defaultdict(asyncio.Lock)
         self._active_runs = {}

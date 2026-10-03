@@ -8,6 +8,7 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from pydantic import BaseModel
 
+from assistant.core.attachments import Attachment, hydrate, reference
 from assistant.core.llm import build_structured, copilot
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.copilot import CopilotAuthError, CopilotTokens
@@ -82,6 +83,18 @@ async def test_a_request_after_tool_results_is_the_agents_and_reuses_the_token()
     await model.ainvoke([HumanMessage("again")])
     assert [r.headers["X-Initiator"] for r in fake.requests] == ["agent", "user"]
     assert fake.exchanges == 1
+
+
+async def test_images_from_tools_go_after_the_results_and_dont_count_as_the_user():
+    fake = _Copilot()
+    call = AIMessage("", tool_calls=[{"id": "t1", "name": "chart", "args": {}}])
+    image = reference(Attachment("chart.png", "image/png", b"\x89PNG fake"))
+    result = ToolMessage("sales", tool_call_id="t1", artifact=[image])
+    await _model(fake).ainvoke(hydrate([HumanMessage("chart it"), call, result], images_in_tool_results=False))
+    messages = json.loads(fake.requests[0].content)["messages"]
+    assert [m["role"] for m in messages] == ["user", "assistant", "tool", "user"]
+    assert "image_url" not in json.dumps(messages[2]) and "image_url" in json.dumps(messages[3])
+    assert fake.requests[0].headers["X-Initiator"] == "agent"
 
 
 async def test_a_rejected_token_is_exchanged_again_and_the_request_retried():
