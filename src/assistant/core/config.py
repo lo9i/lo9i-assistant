@@ -103,7 +103,8 @@ class Settings(BaseSettings):
 
     # Web tools. Without a Brave Search API key (set in the app, core/internet/brave_key.py), search
     # queries public engines through ddgs: "auto" for every engine ddgs has enabled, or a list
-    # such as "yahoo,duckduckgo". With a key, they're the fallback when Brave fails.
+    # such as "yahoo,duckduckgo". With a key, they're a fallback when Brave fails. Free search services
+    # (core/internet/keyless.py) come after them.
     web_search_engines: str = "auto"
     web_blocked_domains: list[str] = []
     web_cache_minutes: int = 20

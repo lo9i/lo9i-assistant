@@ -46,7 +46,7 @@ class BraveProvider:
                 response.raise_for_status()
                 rows = response.json().get("web", {}).get("results", [])
         except (httpx.HTTPError, ValueError) as e:
-            raise SearchError(f"Brave: {e}") from e
+            raise SearchError(f"brave: {e}") from e
         return [SearchResult(r.get("title", ""), r.get("url", ""), r.get("description", "")) for r in rows[:limit]]
 
 
@@ -73,7 +73,8 @@ class MetasearchProvider:
         except TimeoutError as e:
             proc.kill()
             await proc.wait()
-            raise SearchError("Search timed out") from e
+            raise SearchError("metasearch: timed out") from e
         if proc.returncode != 0:
-            raise SearchError(f"Search failed: {stderr.decode(errors='replace').strip().splitlines()[-1:]}")
+            last_line = stderr.decode(errors="replace").strip().splitlines()[-1:]
+            raise SearchError(f"metasearch: {last_line[0] if last_line else 'failed'}")
         return [SearchResult(**row) for row in json.loads(stdout)]

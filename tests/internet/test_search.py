@@ -4,6 +4,7 @@ import httpx
 import pytest
 
 from assistant.core.config import settings
+from assistant.core.internet.keyless import ExaProvider, KeenableProvider, ParallelProvider
 from assistant.core.internet.providers import BraveProvider, SearchError
 from assistant.core.internet.results import SearchResult
 from assistant.core.internet.service import WebService
@@ -33,33 +34,50 @@ class _Provider:
         return self.results
 
 
-async def test_without_a_key_only_the_public_engines_are_used():
-    metasearch, brave = _Provider("metasearch", [SearchResult("T", "u", "s")]), _Provider("brave")
-    outcome = await WebService(metasearch, lambda key: brave).search("q", 3)
-    assert outcome.provider == "metasearch" and (brave.calls, metasearch.calls) == (0, 1)
+_HIT = [SearchResult("T", "u", "s")]
+
+
+async def test_without_a_key_the_first_keyless_provider_that_answers():
+    metasearch, exa, brave = _Provider("metasearch", []), _Provider("exa", _HIT), _Provider("brave")
+    outcome = await WebService([metasearch, exa], lambda key: brave).search("q", 3)
+    assert (outcome.provider, outcome.note) == ("exa", "metasearch: no results")
+    assert brave.calls == 0
 
 
 async def test_brave_first_with_a_key():
     metasearch, brave = _Provider("metasearch"), _Provider("brave", [SearchResult("B", "u", "s")])
     keys = []
-    web = WebService(metasearch, lambda key: keys.append(key) or brave)
+    web = WebService([metasearch], lambda key: keys.append(key) or brave)
     assert (await web.search("q", 3, "key")).provider == "brave"
     assert keys == ["key"] and metasearch.calls == 0
 
 
 async def test_fallback_when_brave_fails_and_cache():
-    metasearch, brave = _Provider("metasearch", [SearchResult("T", "u", "s")]), _Provider("brave")
-    web = WebService(metasearch, lambda key: brave)
+    metasearch, brave = _Provider("metasearch", _HIT), _Provider("brave")
+    web = WebService([metasearch], lambda key: brave)
     first = await web.search("q", 3, "key")
-    assert first.provider == "metasearch" and "brave failed" in first.note
+    assert first.provider == "metasearch" and first.note == "brave failed"
     await web.search(" Q ", 3, "key")
     assert (brave.calls, metasearch.calls) == (1, 1)
+
+
+async def test_every_provider_failing_is_reported():
+    web = WebService([_Provider("metasearch"), _Provider("exa", [])])
+    with pytest.raises(SearchError, match="metasearch failed; exa: no results"):
+        await web.search("q", 3)
 
 
 @pytest.mark.live
 async def test_live_metasearch_returns_results():
     outcome = await WebService().search("langgraph sqlite checkpointer", 3)
     assert outcome.results and outcome.results[0].url.startswith("http")
+
+
+@pytest.mark.live
+@pytest.mark.parametrize("provider", [ExaProvider(), ParallelProvider(), KeenableProvider()], ids=lambda p: p.name)
+async def test_live_keyless_provider_returns_results(provider):
+    results = await provider.search("python asyncio timeout", 3)
+    assert 0 < len(results) <= 3 and results[0].url.startswith("http") and results[0].title
 
 
 @pytest.mark.live

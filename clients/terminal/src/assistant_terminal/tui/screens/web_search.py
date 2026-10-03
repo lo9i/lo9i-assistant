@@ -1,5 +1,5 @@
-"""Set the Brave Search API key, so web search doesn't depend on public engines that block automated
-searches."""
+"""Set the Brave Search API key, so web search doesn't depend on public engines and free services
+that block or limit automated searches."""
 
 from typing import ClassVar
 
