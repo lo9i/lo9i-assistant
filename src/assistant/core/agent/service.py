@@ -9,6 +9,7 @@ from assistant.core.agent.alerts import AlertsMixin
 from assistant.core.agent.archive import ArchiveMixin
 from assistant.core.agent.devices import DevicesMixin
 from assistant.core.agent.email import EmailMixin
+from assistant.core.agent.files import FilesMixin
 from assistant.core.agent.identity import IdentityMixin
 from assistant.core.agent.jobs import JobsMixin
 from assistant.core.agent.locking import LockingMixin
@@ -54,6 +55,7 @@ from assistant.core.storage import Storage, open_storage
 class AssistantService(
     ThreadsMixin,
     ArchiveMixin,
+    FilesMixin,
     MemoryMixin,
     TelegramMixin,
     SlackMixin,

@@ -46,6 +46,7 @@ from assistant.core.agent import (
     SpeechStatus,
     TelegramStatus,
     TokenReport,
+    UploadedFile,
     UsageReport,
     WebSearchStatus,
 )
@@ -541,6 +542,18 @@ class FakeDevices:
         self.items = [d for d in self.items if d.id != device_id]
 
 
+class FakeFiles:
+    def __init__(self):
+        self.items = [
+            UploadedFile(
+                "a1/notes.txt", "notes.txt", "text/plain", 2048, "2026-09-30T09:00:00+00:00", "owner:abc", "Groceries"
+            )
+        ]
+
+    async def list(self):
+        return list(self.items)
+
+
 class FakeClients:
     own_id = "me"
 
@@ -591,6 +604,7 @@ class FakeClient:
         self.clients = FakeClients()
         self.conversations = FakeConversations()
         self.devices = FakeDevices()
+        self.files = FakeFiles()
         self.mcp = FakeMcp()
         self.repositories = FakeRepositories(self.skills, self.mcp)
         self.oauth = FakeOAuth(self.email, self.mcp)

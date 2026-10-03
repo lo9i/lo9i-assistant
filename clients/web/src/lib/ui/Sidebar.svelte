@@ -6,6 +6,7 @@
   import CalendarClock from "@lucide/svelte/icons/calendar-clock";
   import ChartColumn from "@lucide/svelte/icons/chart-column";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
+  import Files from "@lucide/svelte/icons/files";
   import Laptop from "@lucide/svelte/icons/laptop";
   import MessagesSquare from "@lucide/svelte/icons/messages-square";
   import MonitorSmartphone from "@lucide/svelte/icons/monitor-smartphone";
@@ -60,6 +61,7 @@
       Icon: MessagesSquare,
       add: { label: "New conversation", run: newConversation },
     },
+    { href: resolve("/files"), label: "Files", Icon: Files },
     { href: resolve("/usage"), label: "Usage", Icon: ChartColumn },
     { href: resolve("/sessions"), label: "Active sessions", Icon: MonitorSmartphone },
     { href: resolve("/jobs"), label: "Scheduled", Icon: CalendarClock },

@@ -135,6 +135,17 @@ def upload_paths(messages: Sequence[BaseMessage]) -> list[str]:
     ]
 
 
+def user_uploads(messages: Sequence[BaseMessage]) -> list[dict[str, str]]:
+    """The references of the files the user sent, oldest first. Files from tool results aren't theirs."""
+    return [
+        reference
+        for message in messages
+        if isinstance(message, HumanMessage) and message.name != TOOL_MEDIA_SENDER and isinstance(message.content, list)
+        for block in message.content
+        if (reference := _reference(block)) is not None
+    ]
+
+
 def _stored_references(message: BaseMessage) -> list[Any]:
     if isinstance(message, HumanMessage) and isinstance(message.content, list):
         return message.content
