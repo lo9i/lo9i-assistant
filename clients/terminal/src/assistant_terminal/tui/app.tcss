@@ -96,7 +96,7 @@ CommandMenu {
 }
 
 .command-row.highlighted {
-    /* The color the memory panel headings ("Recent conversations") show in the user's terminal. */
+    /* The color the memory panel headings ("Profile") show in the user's terminal. */
     background: #0078ab;
     color: #ffffff;
 }

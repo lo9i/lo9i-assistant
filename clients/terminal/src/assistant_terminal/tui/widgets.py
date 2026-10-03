@@ -118,7 +118,7 @@ class StatusLine(Static):
 
 
 class MemoryPanel(VerticalScroll):
-    """Read-only view of the profile, facts and recent conversations."""
+    """Read-only view of the profile and skills."""
 
     def compose(self):
         yield Static(id="memory-body")
@@ -134,8 +134,6 @@ def _render_snapshot(snapshot: MemorySnapshot) -> str:
     ]
     sections = [
         ("Profile", profile),
-        ("Facts", [f"• {escape(f)}" for f in snapshot.facts]),
-        ("Recent conversations", [f"• {escape(e)}" for e in snapshot.episodes]),
         ("Skills", [f"• {escape(s)}" for s in snapshot.skills]),
     ]
     return "\n\n".join(f"[b]{title}[/b]\n" + ("\n".join(lines) or "[dim](empty)[/]") for title, lines in sections)
