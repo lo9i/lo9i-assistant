@@ -51,6 +51,7 @@
       <div class="stack">
         <AssistantCard />
         <StartupCard />
+        <WebSearchCard />
       </div>
     </div>
   {:else if tab === "audio"}
@@ -72,7 +73,6 @@
       </div>
       <div class="stack">
         <SlackCard />
-        <WebSearchCard />
       </div>
     </div>
   {/if}
