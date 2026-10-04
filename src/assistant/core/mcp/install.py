@@ -1,7 +1,8 @@
 """MCP servers in a downloaded repository: finding them, installing them, and updating one later.
 
 A server is a folder with a `server.yaml`, at the repository's root, in its folders, or under
-`mcp/`. A `SKILL.md` next to it is the server's skill: how to use its tools. It's installed, updated
+`mcp/` (MCP servers and chat channels) or `plugins/` (plugins without a process, such as mail
+providers). A `SKILL.md` next to it is the server's skill: how to use its tools. It's installed, updated
 and removed with the server, under the server's name.
 
 The folder is copied to `settings.mcp_dir/<name>` (core/mcp/folders.py), so a local server can run
@@ -151,7 +152,7 @@ class ServerValues:
 
 def find(root: Path, url: str) -> dict[str, Candidate]:
     """The repository's servers by name. Raises RepositoryError for a server.yaml that can't work."""
-    folders = [root, *subfolders(root), *subfolders(root / "mcp")]
+    folders = [root, *subfolders(root), *subfolders(root / "mcp"), *subfolders(root / "plugins")]
     found = [_candidate(root, f, default_name(url) if f == root else f.name) for f in folders]
     return {c.found.name: c for c in found if c is not None}
 
@@ -197,7 +198,7 @@ async def update(store: BaseStore, name: str) -> McpServer:
     if not current.source or source is None:
         raise McpServerError(f"{name} wasn't installed from a repository, so there's nothing to update it from.")
     async with checkout(source.url) as (root, commit):
-        candidate = await asyncio.to_thread(_find_at, root, source.path, name)
+        candidate = await asyncio.to_thread(_find_at, root, source.url, source.path, name)
         values = current.headers if current.url else current.env
         if (missing := _missing(candidate, values)) is not None:
             raise McpServerError(f"The new version of {name} needs {missing.label}: remove it and install it again.")
@@ -253,11 +254,15 @@ def _missing(candidate: Candidate, values: dict[str, str]) -> ServerField | None
     return next((f for f in candidate.found.fields if not values.get(f.key, "").strip()), None)
 
 
-def _find_at(root: Path, path: str, name: str) -> Candidate:
+def _find_at(root: Path, url: str, path: str, name: str) -> Candidate:
+    """The server where it was installed from, or wherever the repository moved it."""
     candidate = _candidate(root, root / path, name)
-    if candidate is None or candidate.found.name != name:
-        raise McpServerError(f"The repository doesn't have {name} at {path} any more.")
-    return candidate
+    if candidate is not None and candidate.found.name == name:
+        return candidate
+    moved = find(root, url).get(name)
+    if moved is None:
+        raise McpServerError(f"The repository doesn't have {name} any more.")
+    return moved
 
 
 def _candidate(root: Path, folder: Path, name: str) -> Candidate | None:
