@@ -85,7 +85,10 @@ class Settings(BaseSettings):
     # Prices per million tokens for models without built-in ones (core/usage/prices.py), as JSON:
     # MODEL_PRICES='{"gpt-5": {"input": 1.25, "output": 10, "cache_read": 0.125}}'. Overrides them too.
     model_prices: dict[str, dict[str, float]] = {}
-    toolsets: list[str] = ["terminal", "memory", "web", "skills", "email", "jobs", "messages", "identity"]
+    toolsets: list[str] = ["terminal", "memory", "web", "skills", "email", "jobs", "messages", "identity", "subagents"]
+    # Model calls a subagent (core/subagent.py) gets. The last one's tool calls don't run, so it
+    # answers with what it has.
+    subagent_max_steps: int = 25
     skills_dir: str = "~/.lo9i/skills"
     # Email bodies longer than this are cut when the agent reads them.
     email_max_chars: int = 20_000

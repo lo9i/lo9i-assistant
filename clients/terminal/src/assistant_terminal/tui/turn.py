@@ -36,8 +36,11 @@ class TurnView:
         self._chat = chat
         self._status = status
         self._stream: MarkdownStream | None = None
-        # Tool results carry only the tool name, so match them to calls in order.
+        # Tool results carry only the tool name, so match them to calls in order. A subagent's calls
+        # are matched within their delegate call, keyed by its id.
         self._pending: dict[str, list[ToolCall]] = defaultdict(list)
+        self._calls: dict[str, ToolCall] = {}
+        self._steps: dict[tuple[str, str], list[ToolCall]] = defaultdict(list)
 
     async def render(self, events: AsyncIterator[Event]) -> list[ApprovalRequired]:
         """Show the events and return the approvals the run is waiting on."""
@@ -60,8 +63,12 @@ class TurnView:
             return
         await self._end_text()
         match event:
-            case ToolStarted(name, args):
-                await self._tool_started(name, args)
+            case ToolStarted(name, args, _, within) if within:
+                await self._step_started(within, name, args)
+            case ToolFinished(name, output, within) if within:
+                self._step_finished(within, name, output)
+            case ToolStarted(name, args, call_id):
+                await self._tool_started(name, args, call_id)
             case ToolFinished(name, output):
                 self._tool_finished(name, output)
             case Transcribed(text, language):
@@ -86,16 +93,30 @@ class TurnView:
             await self._stream.stop()
             self._stream = None
 
-    async def _tool_started(self, name: str, args: dict[str, Any]) -> None:
+    async def _tool_started(self, name: str, args: dict[str, Any], call_id: str) -> None:
         call = ToolCall(name, args)
         self._pending[name].append(call)
+        self._calls[call_id] = call
         await self._chat.mount(call)
         self._status.show(f"Running {name}", _STOP_HINT)
 
+    async def _step_started(self, within: str, name: str, args: dict[str, Any]) -> None:
+        if (call := self._calls.get(within)) is None:
+            return
+        step = ToolCall(name, args)
+        self._steps[within, name].append(step)
+        await call.add_step(step)
+        self._status.show(f"Running {name}", _STOP_HINT)
+
+    def _step_finished(self, within: str, name: str, output: str) -> None:
+        if self._steps[within, name]:
+            self._steps[within, name].pop(0).finish(output)
+
     async def _cancelled(self) -> None:
-        for call in [c for calls in self._pending.values() for c in calls]:
+        for call in [c for calls in [*self._pending.values(), *self._steps.values()] for c in calls]:
             call.cancel()
         self._pending.clear()
+        self._steps.clear()
         await self._chat.mount(StoppedNote())
 
     def _tool_finished(self, name: str, output: str) -> None:

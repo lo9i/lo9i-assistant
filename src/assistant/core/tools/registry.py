@@ -7,18 +7,24 @@ from collections.abc import Callable, Iterable
 from langchain_core.tools import BaseTool
 
 _REGISTRY: dict[str, tuple[str, BaseTool]] = {}
+# Tools a subagent gets (core/subagent.py): ones that read or work on this computer. Tools that talk
+# to the user, change memory, schedule or send are left to the main agent, so a new tool is left out
+# unless it says otherwise.
+_FOR_SUBAGENTS: set[str] = set()
 
 # Tool modules live next to this one.
 _PACKAGE = __name__.rpartition(".")[0]
 
 
-def register(toolset: str) -> Callable[[BaseTool], BaseTool]:
-    """Add a tool to the registry under a toolset name."""
+def register(toolset: str, *, subagents: bool = False) -> Callable[[BaseTool], BaseTool]:
+    """Add a tool to the registry under a toolset name. With `subagents`, subagents get it too."""
 
     def _decorator(tool: BaseTool) -> BaseTool:
         if tool.name in _REGISTRY:
             raise ValueError(f"Tool already registered: {tool.name}")
         _REGISTRY[tool.name] = (toolset, tool)
+        if subagents:
+            _FOR_SUBAGENTS.add(tool.name)
         return tool
 
     return _decorator
@@ -30,6 +36,11 @@ def tools_for(toolsets: Iterable[str]) -> list[BaseTool]:
     wanted = set(toolsets)
     _check_known(wanted)
     return [tool for name, (toolset, tool) in sorted(_REGISTRY.items()) if toolset in wanted]
+
+
+def subagent_tools(toolsets: Iterable[str]) -> list[BaseTool]:
+    """The tools of `tools_for` that subagents get."""
+    return [tool for tool in tools_for(toolsets) if tool.name in _FOR_SUBAGENTS]
 
 
 def _discover() -> None:

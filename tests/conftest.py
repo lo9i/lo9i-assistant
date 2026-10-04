@@ -18,6 +18,7 @@ from pydantic import Field
 import assistant.core.agent.model as model_module
 import assistant.core.agent.service as service_module
 import assistant.core.graph as graph_module
+import assistant.core.subagent as subagent_module
 from assistant.core.agent import AssistantService
 from assistant.core.config import settings
 from assistant.core.conversation.digest import DigestInput, MemoryDigest
@@ -133,6 +134,8 @@ class Script:
 def script(monkeypatch: pytest.MonkeyPatch) -> Script:
     script = Script()
     monkeypatch.setattr(graph_module, "build_llm", lambda choice, model: script.model())
+    # Subagents answer from the same script, in the order the calls happen.
+    monkeypatch.setattr(subagent_module, "build_llm", lambda choice, model: script.model())
     return script
 
 

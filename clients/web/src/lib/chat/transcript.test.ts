@@ -34,6 +34,30 @@ describe("transcript", () => {
     expect(t.items.map((i) => (i.kind === "tool" ? i.state : i.kind))).toEqual(["user", "cancelled", "stopped"]);
   });
 
+  it("shows a subagent's calls as steps of its delegate call", () => {
+    const t = play([
+      { type: "ToolStarted", name: "delegate", args: {}, id: "d1" },
+      { type: "ToolStarted", name: "delegate", args: {}, id: "d2" },
+      { type: "ToolStarted", name: "bash", args: { command: "ls" }, within: "d2" },
+      { type: "ToolStarted", name: "bash", args: { command: "pwd" }, within: "d2" },
+      { type: "ToolFinished", name: "bash", output: "a.txt", within: "d2" },
+      { type: "ToolFinished", name: "delegate", output: "found" },
+    ]);
+    const tools = t.items.filter((i) => i.kind === "tool");
+    expect(tools.map((i) => [i.state, i.steps ?? []])).toEqual([
+      ["done", []],
+      [
+        "running",
+        [
+          { name: "bash", args: { command: "ls" }, output: "a.txt", state: "done" },
+          { name: "bash", args: { command: "pwd" }, state: "running" },
+        ],
+      ],
+    ]);
+    const stopped = apply(t, { type: "Cancelled" }).items.find((i) => i.kind === "tool" && i.callId === "d2");
+    expect(stopped?.kind === "tool" && stopped.steps?.map((s) => s.state)).toEqual(["done", "cancelled"]);
+  });
+
   it("starts a new message after the run ends", () => {
     const t = apply(endRun(play([{ type: "TextDelta", text: "a" }])), { type: "TextDelta", text: "b" });
     expect(t.items.filter((i) => i.kind === "assistant")).toHaveLength(2);

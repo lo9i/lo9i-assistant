@@ -18,7 +18,7 @@ _MAX_RESULTS = 10
 _web = WebService()
 
 
-@register("web")
+@register("web", subagents=True)
 @tool
 async def web_search(query: str, runtime: ToolRuntime[Context], limit: int = 5) -> str:
     """Search the web. Returns titles, URLs and short snippets. Use web_extract to read a result."""
@@ -33,7 +33,7 @@ async def web_search(query: str, runtime: ToolRuntime[Context], limit: int = 5) 
     return _format(outcome)
 
 
-@register("web")
+@register("web", subagents=True)
 @tool
 async def web_extract(url: str) -> str:
     """Read a web page as text. Long pages are shortened; the full text is saved in the workspace."""

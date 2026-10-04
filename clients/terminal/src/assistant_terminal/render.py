@@ -55,6 +55,10 @@ class _Printer:
             return
         self.end_text()
         match event:
+            case ToolStarted(name, args, _, within) if within:
+                _write(f"{_INDENT}{_BULLET}{name}({_describe(args)})\n")
+            case ToolFinished(_, output, within) if within:
+                _write(paint(DIM, _result(output, _INDENT * 2)) + "\n")
             case ToolStarted(name, args):
                 _write(f"\n{_BULLET}{paint(BOLD, name)}({_describe(args)})\n")
             case ToolFinished(_, output):
@@ -86,13 +90,13 @@ def _describe(args: dict[str, Any]) -> str:
     return json.dumps(args, ensure_ascii=False)
 
 
-def _result(output: str) -> str:
+def _result(output: str, indent: str = _INDENT) -> str:
     lines = output.strip().splitlines() or ["(no output)"]
     shown = lines[:_RESULT_LINES]
     if len(lines) > _RESULT_LINES:
         shown.append(f"… +{len(lines) - _RESULT_LINES} lines")
     first, *rest = shown
-    return "\n".join([f"{_INDENT}⎿  {first}", *(f"{_INDENT}   {line}" for line in rest)])
+    return "\n".join([f"{indent}⎿  {first}", *(f"{indent}   {line}" for line in rest)])
 
 
 def _write(text: str) -> None:

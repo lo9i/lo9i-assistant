@@ -9,8 +9,14 @@ from langgraph.types import Interrupt
 from assistant.core.events import ApprovalRequired, Error, Event, TextDelta, ToolFinished, ToolStarted
 
 
-def to_events(mode: str, data: Any) -> list[Event]:
-    """Events for one item of `graph.astream(stream_mode=["messages", "updates"])`."""
+def to_events(namespace: tuple[str, ...], mode: str, data: Any) -> list[Event]:
+    """Events for one item of `graph.astream(stream_mode=["messages", "updates", "custom"],
+    subgraphs=True)`. Subagents (core/subagent.py) report their tool calls as custom events; their
+    messages and updates aren't the conversation's."""
+    if mode == "custom":
+        return [data]
+    if namespace:
+        return []
     if mode == "messages":
         return _chunk_events(*data)
     return _update_events(data)
@@ -52,4 +58,4 @@ def _ai_message_events(message: AIMessage) -> list[Event]:
     events: list[Event] = []
     if message.response_metadata.get("stop_reason") == "refusal":
         events.append(Error("The model declined this request."))
-    return events + [ToolStarted(name=c["name"], args=c["args"]) for c in message.tool_calls]
+    return events + [ToolStarted(name=c["name"], args=c["args"], id=c["id"] or "") for c in message.tool_calls]

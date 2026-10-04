@@ -52,20 +52,27 @@ class ErrorMessage(Static):
 
 
 class ToolCall(Collapsible):
-    """A tool call. The title shows the call; the collapsed body holds the result."""
+    """A tool call. The title shows the call; the collapsed body holds the result, after the calls
+    of a delegate call's subagent."""
 
     def __init__(self, name: str, args: dict[str, Any]) -> None:
         self._call = f"{name}({_describe(args)})"
+        self._steps = 0
         self._result = Static("…", classes="tool-result", markup=False)
         super().__init__(self._result, title=f"⏺ {self._call}", collapsed=True)
 
+    async def add_step(self, step: "ToolCall") -> None:
+        self._steps += 1
+        await self.query_one(Collapsible.Contents).mount(step, before=self._result)
+        self.title = f"⏺ {self._call} · {self._steps} {'step' if self._steps == 1 else 'steps'}"
+
     def finish(self, output: str) -> None:
         self._result.update(output.strip() or "(no output)")
-        self.title = f"✓ {self._call}"
+        self.title = self.title.replace("⏺", "✓", 1)
 
     def cancel(self) -> None:
         self._result.update("(cancelled)")
-        self.title = f"✗ {self._call}"
+        self.title = self.title.replace("⏺", "✗", 1)
 
 
 class MouseStatus(Static):

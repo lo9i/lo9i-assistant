@@ -1,6 +1,6 @@
 """Transport-neutral events streamed from the service to gateways."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -13,12 +13,18 @@ class TextDelta:
 class ToolStarted:
     name: str
     args: dict[str, Any]
+    # The tool call's id, so a subagent's tools can name the delegate call they belong to.
+    id: str = field(default="", compare=False)
+    # The id of the delegate call whose subagent made this call; empty for the agent's own calls.
+    within: str = ""
 
 
 @dataclass
 class ToolFinished:
     name: str
     output: str
+    # As in ToolStarted.
+    within: str = ""
 
 
 @dataclass
