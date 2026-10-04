@@ -8,7 +8,7 @@ Give the user the exact steps below for the channel in the latest turn header (`
 Where things are:
 
 - Terminal app: slash commands typed in the message box. Typing `/` lists them.
-- Web UI: http://127.0.0.1:8765/app/ in a browser on the computer running the assistant; from other devices, its HTTPS address (`HTTPS_HOST` and `HTTPS_PORT` in its `.env`), after pairing the browser once with a code from `/devices`. Settings is in the sidebar, with the tabs General, Integrations, Audio, About you, Skills, Plugins and MCP servers.
+- Web UI: http://127.0.0.1:8765/app/ in a browser on the computer running the assistant; from other devices, its HTTPS address (`HTTPS_HOST` and `HTTPS_PORT` in its `.env`), after pairing the browser once with a code from `/devices`. Settings is in the sidebar, with the tabs General, About you, Audio, Plugins, MCP servers and Skills.
 - Telegram: only chatting, `/new` (start a new conversation) and `/start`. Nothing can be set up from Telegram; send the user to the terminal app or the web UI.
 - Slack: only chatting in the app's DM, and `/new` (start a new conversation). Nothing can be set up from Slack; send the user to the terminal app or the web UI.
 
@@ -25,15 +25,17 @@ Saved in the app, the model overrides the one in `.env` and is used from the nex
 
 ## Email (sending and reading)
 
-Terminal app: `/email`. Web UI: Settings → Integrations → Email. The user can connect several accounts (personal, work), each with an optional name; the first one is the default, used whenever no account is named, and any other can be made the default. To add one: in the terminal, pick "Add an account" at the top; on the web, "Add an account". Both start with a provider choice:
+Each mail provider is a plugin in the Communications category: install it first in Plugins (terminal app `/plugins`, web UI Settings → Plugins), from the extras: gmail, icloud, yahoo, aol, fastmail or microsoft. Its accounts are then in that plugin's details: in the terminal app, select the plugin and choose Accounts; on the web, the plugin's Accounts section. An account belongs to its provider's plugin: while the plugin is off or removed, its accounts aren't used, and removing the plugin with its data deletes them. A server not offered by any plugin is entered by hand under Communications' own settings (terminal app: select Communications and choose Settings; web UI: click Communications in the list).
 
-- Gmail, iCloud Mail, Yahoo Mail, AOL Mail, Fastmail: choose it, then enter only the email address and the app password. The dialog explains how to create the app password and links to the page. The assistant can then both send and read mail.
-- Other (enter the server yourself): SMTP host, port (587, or 465), user name (usually the full address), password (an app password for most providers), the address to send as, and the IMAP host for reading mail (TLS on port 993; left empty, the assistant only sends).
-- Outlook.com / Microsoft 365, and Gmail (sign in with Google): signing in instead of a password (OAuth), with an OAuth app of the user's own (steps below). The dialog asks for the address, the app's client ID and client secret, and shows the redirect URI to register. Sign in opens Google's or Microsoft's page; after signing in, the browser comes back to the assistant and the account shows up. In the terminal app the redirect is the assistant's web UI on its own computer (`http://localhost:8765/app/oauth`); when the browser is on another computer (the terminal app over SSH), the user pastes the address the browser ended on and chooses Finish.
+The user can connect several accounts (personal, work), each with an optional name; the first one is the default, used whenever no account is named, and any other can be made the default. To add one, "Add an account":
 
-Then Connect. The assistant tries to log in right away and says whether it worked. A rejected login means a wrong user name or password (for Gmail, usually the account password instead of an app password). Other errors, such as certificate or connection errors, are problems in the assistant itself: tell the user the exact error and that it needs fixing in the assistant, and never suggest Terminal commands, installing packages or changing Python to work around it. Each account has its own list of addresses the assistant may email without asking; the account's own address is always allowed, and anyone else needs the user's approval. An account marked "needs sign-in" (its saved password can no longer be read, or its OAuth sign-in stopped working) is fixed with Change sign-in; an OAuth account signs in again with its saved client ID and secret. Rename changes only an account's name (unique; the assistant uses it to pick the account), without signing in again. Removing an account deletes its saved password.
+- Gmail, iCloud Mail, Yahoo Mail, AOL Mail, Fastmail: enter only the email address and the app password. The dialog explains how to create the app password and links to the page. The assistant can then both send and read mail.
+- Servers entered by hand (Communications): SMTP host, port (587, or 465), user name (usually the full address), password (an app password for most providers), the address to send as, and the IMAP host for reading mail (TLS on port 993; left empty, the assistant only sends).
+- Outlook.com / Microsoft 365, and Gmail's "sign in with Google": signing in instead of a password (OAuth), with an OAuth app of the user's own (steps below). The dialog asks for the address, the app's client ID and client secret, and shows the redirect URI to register. Sign in opens Google's or Microsoft's page; after signing in, the browser comes back to the assistant and the account shows up. In the terminal app the redirect is the assistant's web UI on its own computer (`http://localhost:8765/app/oauth`); when the browser is on another computer (the terminal app over SSH), the user pastes the address the browser ended on and chooses Finish.
 
-Once an account can read mail, it has **New mail alerts**: Don't announce, or one of the installed chat channels (Telegram, Slack). A short message with the account's name and the sender and subject of each new email then arrives there. For anything smarter ("tell me only when my bank writes", "summarize newsletters"), the user asks the assistant for a job that runs on new mail; jobs watch the default account. Email connected before reading existed: providers read mail automatically; with Other, connect again with the IMAP host.
+Then Connect. The assistant tries to log in right away and says whether it worked. A rejected login means a wrong user name or password (for Gmail, usually the account password instead of an app password). Other errors, such as certificate or connection errors, are problems in the assistant itself: tell the user the exact error and that it needs fixing in the assistant, and never suggest Terminal commands, installing packages or changing Python to work around it. One list, in Communications' settings, holds the addresses the assistant may email without asking, from any account; the user's own accounts are always allowed, and anyone else needs the user's approval. An account marked "needs sign-in" (its saved password can no longer be read, or its OAuth sign-in stopped working) is fixed with Change sign-in; an OAuth account signs in again with its saved client ID and secret. Rename changes only an account's name (unique; the assistant uses it to pick the account), without signing in again. Removing an account deletes its saved password.
+
+Once an account can read mail, it has **New mail alerts**: Don't announce, or one of the installed chat channels (Telegram, Slack). A short message with the account's name and the sender and subject of each new email then arrives there. For anything smarter ("tell me only when my bank writes", "summarize newsletters"), the user asks the assistant for a job that runs on new mail; jobs watch the default account.
 
 Getting the app password:
 
@@ -63,7 +65,7 @@ Telegram is a plugin. Install it first: terminal app `/plugins`, web UI Settings
 1. In Telegram, open @BotFather and send `/newbot`.
 2. Choose a name, then a username ending in `bot`.
 3. BotFather replies with a token like `123456789:AAH…`. Paste it into the **Bot token** field when installing. Someone who had Telegram set up before it was a plugin can leave the field empty: the saved token and paired accounts are kept.
-4. Open Channels: terminal app `/channels`, web UI Settings → Integrations → Channels. Telegram shows the bot's name and a pairing code. Open the bot in Telegram (t.me/<bot username>), press Start, and send the code within 10 minutes. **New pairing code** makes another, to pair a second account. Only paired accounts can talk to the assistant.
+4. Open the Telegram plugin: terminal app `/plugins`, web UI Settings → Plugins, then telegram. Its setup shows the bot's name and a pairing code. Open the bot in Telegram (t.me/<bot username>), press Start, and send the code within 10 minutes. **New pairing code** makes another, to pair a second account. Only paired accounts can talk to the assistant.
 
 To change the token, remove the plugin in Plugins and install it again (choose to keep its data, so paired accounts stay).
 
@@ -71,7 +73,7 @@ With a chat channel connected, a scheduled job that needs approval (for example 
 
 ## Web search
 
-Terminal app: `/websearch`. Web UI: Settings → Integrations → Web search (or `/websearch` in the web chat).
+Terminal app: `/websearch`. Web UI: Settings → General → Web search (or `/websearch` in the web chat).
 
 Without a key, `web_search` uses public engines and then free search services (Exa, Parallel, Keenable). Both can block or limit automated searches, so a search can fail. A Brave Search API key makes it reliable:
 
@@ -90,9 +92,9 @@ Slack is a plugin. Install it first: terminal app `/plugins`, web UI Settings �
 3. In **Basic Information → App-Level Tokens**, choose **Generate Token and Scopes**, add the scope `connections:write`, and generate. Copy the token that starts with `xapp-`.
 4. In **OAuth & Permissions**, choose **Install to** the workspace, then **Allow**. The same page then shows the **Bot User OAuth Token** (`xoxb-`) and the **User OAuth Token** (`xoxp-`).
 5. Paste the three tokens into the install fields and install. Someone who had Slack set up before it was a plugin can leave them empty: the saved tokens are kept.
-6. Channels (terminal app `/channels`, web UI Settings → Integrations → Channels) shows the workspace and owner once it connects. In Slack, open the app under **Apps** in the sidebar and send it a message. Only the person who installed the app can talk to the assistant.
+6. The Slack plugin (terminal app `/plugins`, web UI Settings → Plugins, then slack) shows the workspace and owner once it connects. In Slack, open the app under **Apps** in the sidebar and send it a message. Only the person who installed the app can talk to the assistant.
 
-The plugin also gives the assistant tools to search, read and post in the workspace as the user (posting always asks first); turn them on or off in MCP servers like any other server's tools. The bot's name in Slack is set when the app is created; Channels also shows a manifest named after the assistant to copy.
+The plugin also gives the assistant tools to search, read and post in the workspace as the user (posting always asks first); turn them on or off in MCP servers like any other server's tools. The bot's name in Slack is set when the app is created; its setup in Plugins also shows a manifest named after the assistant to copy.
 
 ## MCP servers (tools from other apps)
 

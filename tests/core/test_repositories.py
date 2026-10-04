@@ -6,7 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from assistant.core.agent import McpServer, McpServerChanges, McpServerError, RepositoryError, ServerValues
+from assistant.core.agent import (
+    McpServer,
+    McpServerChanges,
+    McpServerError,
+    RepositoryError,
+    ServerValues,
+    SkillError,
+)
 from assistant.core.mcp import servers
 from assistant.core.repositories import checkout
 from assistant.core.repositories.source import Source
@@ -316,6 +323,68 @@ async def test_a_top_level_server_folder_is_not_also_a_skill(service, repo):
     contents = await service.browse_repository(URL)
     assert "solo" not in [s.name for s in contents.skills]
     assert next(s for s in contents.servers if s.name == "solo").skill
+
+
+async def test_plugins_say_their_category_or_are_in_other(service, repo):
+    _write(repo / "mcp" / "tasks", {"server.yaml": "url: https://tasks.example.com/mcp\ncategory: finance"})
+    _skill(repo / "skills" / "news", "news-digest", "Daily news\ncategory: communications", {})
+    contents = await service.browse_repository(URL)
+    assert {s.name: s.category for s in contents.servers} == {"hello": "other", "tasks": "finance"}
+    assert {s.name: s.category for s in contents.skills} == {"expenses": "other", "news-digest": "communications"}
+
+
+async def test_a_category_not_in_the_list_is_refused(service, repo):
+    _write(repo / "mcp" / "tasks", {"server.yaml": "url: https://tasks.example.com/mcp\ncategory: chat"})
+    with pytest.raises(RepositoryError, match="its category 'chat' isn't one of communications, finance, other"):
+        await service.browse_repository(URL)
+
+
+async def test_a_channel_is_in_communications(service, repo):
+    _write(repo / "mcp" / "tasks", {"server.yaml": "channel: {command: run-bot}"})
+    contents = await service.browse_repository(URL)
+    assert next(s for s in contents.servers if s.name == "tasks").category == "communications"
+    _write(repo / "mcp" / "tasks", {"server.yaml": "channel: {command: run-bot}\ncategory: finance"})
+    REMOTE["head"] = "head2"
+    with pytest.raises(RepositoryError, match="it's a channel plugin, so its category must be communications"):
+        await service.browse_repository(URL)
+
+
+_GMAIL = """
+email:
+  - {id: gmail, name: Gmail, host: smtp.gmail.com, port: 587, imap_host: imap.gmail.com}
+  - {id: gmail-oauth, name: Gmail (sign in with Google), host: smtp.gmail.com, imap_host: imap.gmail.com, oauth: google}
+"""
+
+
+async def test_an_email_plugin_offers_its_providers_once_installed(service, repo):
+    _write(repo / "mcp" / "gmail", {"server.yaml": _GMAIL})
+    found = next(s for s in (await service.browse_repository(URL)).servers if s.name == "gmail")
+    assert (found.email, found.transport, found.category) == (True, "none", "communications")
+    await service.install_from_repository(URL, [], [ServerValues("gmail")])
+    assert [(p.id, p.oauth, p.plugin) for p in await service.email_providers()] == [
+        ("gmail", "", "gmail"),
+        ("gmail-oauth", "google", "gmail"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("section", "problem"),
+    [
+        ("email: {id: gmail}", "must be a list of providers"),
+        ("email: [{id: gmail, name: Gmail}]", "has no host, imap_host"),
+        ("email: [{id: g, name: G, host: s, imap_host: i, oauth: yahoo}]", "signs in with 'yahoo'"),
+    ],
+)
+async def test_an_email_section_that_cant_work_is_reported(service, repo, section, problem):
+    _write(repo / "mcp" / "gmail", {"server.yaml": section})
+    with pytest.raises(RepositoryError, match=problem):
+        await service.browse_repository(URL)
+
+
+async def test_a_skill_with_an_unknown_category_has_a_problem_and_isnt_installed(service, repo):
+    _skill(repo / "skills" / "news", "news-digest", "Daily news\ncategory: chat", {})
+    with pytest.raises(SkillError, match="its category 'chat' isn't one of"):
+        await service.install_from_repository(URL, ["news-digest"], [])
 
 
 async def test_browsing_says_what_is_installed_from_that_repository(service, repo):

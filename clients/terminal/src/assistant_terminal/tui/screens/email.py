@@ -1,11 +1,13 @@
-"""Email accounts without leaving the app: connect one or more, pick the default, change a sign-in,
-and where each one's new mail is announced; and who the agent may email without asking, from any
-account.
+"""Email accounts, opened from /plugins: an email plugin's accounts (connect one or more, pick the
+default, change a sign-in, where each one's new mail is announced), or, from the Communications
+category, the accounts whose servers were entered by hand and who the agent may email without asking,
+from any account.
 
-The user picks their provider, so only the address and the password are typed; "Other" asks for
-the servers too (SMTP to send, IMAP to read; without IMAP the assistant only sends). Google and
-Microsoft can sign in instead (OAuth), with the user's own OAuth app: the browser is sent back to the
-daemon's web app on this computer, which finishes it, or the user pastes the address it ended on.
+An email plugin's account uses one of its providers, so only the address and the password are typed;
+servers entered by hand need SMTP to send, IMAP to read (without IMAP the assistant only sends).
+Google and Microsoft can sign in instead (OAuth), with the user's own OAuth app: the browser is sent
+back to the daemon's web app on this computer, which finishes it, or the user pastes the address it
+ended on.
 """
 
 import webbrowser
@@ -26,8 +28,8 @@ from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 _INTRO = """## Add an email account
 
-Choose your mail provider. The assistant sends from your account and reads your mail through the
-provider's servers. Connect more than one (personal, work) and pick which is the default."""
+The assistant sends from your account and reads your mail through the provider's servers. Connect
+more than one (personal, work) and pick which is the default."""
 
 _NEW = "new"
 _OTHER = "other"
@@ -49,7 +51,7 @@ _PRESET_FIELDS = {"email-label", "email-address", "email-password"}
 _OAUTH_FIELDS = {"email-label", "email-address", "email-client-id", "email-client-secret"}
 _OTHER_FIELDS = set(_FIELDS) - {"email-address", "email-client-id", "email-client-secret", "email-returned"}
 _NO_ALERTS = ("Don't announce new mail", "")
-_ACCOUNT_BUTTONS = ("#email-name", "#rename", "#recipients", "#default", "#edit", "#remove")
+_ACCOUNT_BUTTONS = ("#email-name", "#rename", "#default", "#edit", "#remove")
 _ALLOWED_PLACEHOLDER = "Sends without asking to, from any account (your accounts always): addresses, comma-separated"
 _OTHER_HELP = "Most providers need an **app password** here, not your account password."
 
@@ -57,11 +59,14 @@ _OTHER_HELP = "Most providers need an **app password** here, not your account pa
 class EmailScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
 
-    def __init__(self, email: EmailApi, oauth: OAuthApi, channels: ChannelsApi) -> None:
+    def __init__(self, email: EmailApi, oauth: OAuthApi, channels: ChannelsApi, plugin: str) -> None:
+        """`plugin`: the email plugin whose accounts this shows, or "" for the accounts whose servers
+        were entered by hand and the allowed recipients."""
         super().__init__()
         self._email = email
         self._oauth = oauth
         self._channels = channels
+        self._plugin = plugin
         # The installed chat channels, where new mail can be announced.
         self._channel_names: list[str] = []
         self._message = ""
@@ -99,10 +104,10 @@ class EmailScreen(ModalScreen[None]):
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
-        providers = await self._email.providers()
+        providers = [p for p in await self._email.providers() if p.plugin == self._plugin]
         self._providers = {p.id: p for p in providers}
-        options = [(p.name, p.id) for p in providers] + [("Other (enter the server yourself)", _OTHER)]
-        self.query_one("#email-provider", Select).set_options(options)
+        self.query_one("#email-provider", Select).set_options([(p.name, p.id) for p in providers])
+        self._choice = self._only_choice()
         await self._load(select=None)
 
     @reports_daemon_unavailable
@@ -163,7 +168,7 @@ class EmailScreen(ModalScreen[None]):
             if account is not None and self._editing:
                 saved = await self._email.update(account.id, *settings)
             else:
-                saved = await self._email.add(*settings)
+                saved = await self._email.add(*settings, plugin=self._plugin)
             self._message = "Connected ✓ The login worked."
         except (EmailError, ValueError) as e:
             self._message = f"**{e}**"
@@ -186,6 +191,7 @@ class EmailScreen(ModalScreen[None]):
                 value["email-address"] or (account.sender if account else ""),
                 value["email-label"],
                 account.id if account else "",
+                self._plugin,
             )
         except EmailError as e:
             self._message = f"**{e}**"
@@ -265,9 +271,10 @@ class EmailScreen(ModalScreen[None]):
 
     async def _load(self, select: str | None) -> None:
         """Reads the accounts and shows `select`, else the default account, else the add form."""
-        self._accounts = await self._email.accounts()
+        self._accounts = [a for a in await self._email.accounts() if a.plugin == self._plugin]
         self._channel_names = [c.name for c in await self._channels.list()]
         self._recipients = await self._email.recipients()
+        self.query_one("#email-allowed", Input).value = ", ".join(self._recipients)
         ids = {a.id for a in self._accounts}
         default = self._accounts[0].id if self._accounts else _NEW
         self._selected = select if select in ids or select == _NEW else default
@@ -279,14 +286,20 @@ class EmailScreen(ModalScreen[None]):
         await self._refresh()
 
     def _reset_form(self) -> None:
-        """Clears the provider and what was typed, the password included."""
-        self._choice = None
+        """Clears what was typed, the password included, and the provider, unless there's only one
+        way to connect: servers entered by hand, or a plugin's only provider."""
+        self._choice = self._only_choice()
         provider = self.query_one("#email-provider", Select)
         with provider.prevent(Select.Changed):
             provider.clear()
         for field_id in _FIELDS:
             self.query_one(f"#{field_id}", Input).value = ""
         self._signing = False
+
+    def _only_choice(self) -> str | None:
+        if not self._plugin:
+            return _OTHER
+        return next(iter(self._providers)) if len(self._providers) == 1 else None
 
     def _account(self) -> EmailAccount | None:
         return next((a for a in self._accounts if a.id == self._selected), None)
@@ -313,15 +326,18 @@ class EmailScreen(ModalScreen[None]):
             shown = shown | {"email-returned"}
         for field_id in _FIELDS:
             self.query_one(f"#{field_id}").display = field_id in shown
-        self.query_one("#email-provider").display = form
+        self.query_one("#email-provider").display = form and len(self._providers) > 1
         self.query_one("#email-help").display = form and self._choice is not None
         self.query_one("#connect").display = bool(shown)
         self.query_one("#finish").display = self._signing
         oauth = self._providers.get(self._choice or "")
         self.query_one("#connect", Button).label = "Sign in" if oauth is not None and oauth.oauth else "Connect"
         self.query_one("#email-account").display = bool(self._accounts)
-        for widget_id in ("#email-allowed", *_ACCOUNT_BUTTONS):
+        for widget_id in _ACCOUNT_BUTTONS:
             self.query_one(widget_id).display = account is not None and not self._editing
+        # Who the agent emails without asking is shared by every account: shown with Communications.
+        for widget_id in ("#email-allowed", "#recipients"):
+            self.query_one(widget_id).display = not self._plugin and not self._editing
         self.query_one("#default").display = account is not None and not self._editing and not account.default
         self.query_one("#email-alerts").display = account is not None and not self._editing and bool(account.imap_host)
         if account is not None:
@@ -338,7 +354,6 @@ class EmailScreen(ModalScreen[None]):
         with alerts.prevent(Select.Changed):
             alerts.set_options(_alert_options(self._channel_names, account.new_mail_alerts))
             alerts.value = account.new_mail_alerts
-        self.query_one("#email-allowed", Input).value = ", ".join(self._recipients)
         self.query_one("#email-name", Input).value = account.label
         if self._editing and not self.query_one("#email-label", Input).value:
             self.query_one("#email-label", Input).value = account.label

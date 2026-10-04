@@ -1,8 +1,6 @@
 <script lang="ts">
   import { page } from "$app/state";
   import AssistantCard from "$lib/ui/settings/AssistantCard.svelte";
-  import ChannelsCard from "$lib/ui/settings/ChannelsCard.svelte";
-  import EmailCard from "$lib/ui/settings/EmailCard.svelte";
   import MicrophoneCard from "$lib/ui/settings/MicrophoneCard.svelte";
   import ModelCard from "$lib/ui/settings/ModelCard.svelte";
   import SpeechCard from "$lib/ui/settings/SpeechCard.svelte";
@@ -13,7 +11,7 @@
   import TopBar from "$lib/ui/TopBar.svelte";
   import { theme, type ThemePreference } from "$lib/theme.svelte";
 
-  const TABS = ["general", "integrations", "audio"];
+  const TABS = ["general", "audio"];
   const THEMES: Array<[ThemePreference, string]> = [
     ["dark", "Dark"],
     ["light", "Light"],
@@ -53,7 +51,7 @@
         <WebSearchCard />
       </div>
     </div>
-  {:else if tab === "audio"}
+  {:else}
     <div class="grid">
       <div class="stack">
         <SpeechCard />
@@ -61,16 +59,6 @@
       <div class="stack">
         <SpokenRepliesCard />
         <MicrophoneCard />
-      </div>
-    </div>
-  {:else}
-    <!-- Two independent stacks, so a tall card doesn't leave a gap beside it. -->
-    <div class="grid">
-      <div class="stack">
-        <ChannelsCard />
-      </div>
-      <div class="stack">
-        <EmailCard />
       </div>
     </div>
   {/if}

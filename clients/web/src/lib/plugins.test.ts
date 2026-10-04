@@ -1,9 +1,19 @@
 import { describe as group, expect, it } from "vitest";
 import type { FoundServer, RepositoryContents } from "./api/types";
-import { kindOf, missingField, optional, pluginsOf, runsOf, updatable, versionOf } from "./plugins";
+import { byCategory, categoryLabel, hasSettings, kindOf, missingField, optional, pluginsOf, runsOf, updatable, versionOf } from "./plugins";
 
 const contents: RepositoryContents = {
-  skills: [{ name: "notes", description: "Notes", files: [], installed: false, version: "", installed_version: "" }],
+  skills: [
+    {
+      name: "notes",
+      description: "Notes",
+      files: [],
+      installed: false,
+      version: "",
+      installed_version: "",
+      category: "other",
+    },
+  ],
   servers: [
     {
       name: "expenses",
@@ -17,6 +27,8 @@ const contents: RepositoryContents = {
       installed: true,
       version: "",
       installed_version: "",
+      category: "other",
+      email: false,
     },
   ],
 };
@@ -29,6 +41,22 @@ group("pluginsOf", () => {
       ["skill", "notes", false],
     ]);
     expect(plugins.map(kindOf)).toEqual(["MCP server · skill · page", "Skill"]);
+  });
+});
+
+group("byCategory", () => {
+  it("groups by category, alphabetically with other last", () => {
+    const server = (name: string, category = "other"): FoundServer => ({ ...contents.servers[0], name, category });
+    const plugins = pluginsOf({
+      skills: contents.skills,
+      servers: [server("ledger", "finance"), server("bot", "communications"), server("misc")],
+    });
+    expect(byCategory(plugins).map((g) => [g.category, g.plugins.map((p) => p.name)])).toEqual([
+      ["communications", ["bot"]],
+      ["finance", ["ledger"]],
+      ["other", ["misc", "notes"]],
+    ]);
+    expect(categoryLabel("communications")).toBe("Communications");
   });
 });
 
@@ -50,6 +78,8 @@ group("versionOf", () => {
             version,
             installed_version,
             installed,
+            category: "other",
+            email: false,
           },
         ],
       })[0];
@@ -78,6 +108,8 @@ group("updatable", () => {
             version,
             installed_version,
             installed,
+            category: "other",
+            email: false,
           },
         ],
       })[0];
@@ -91,7 +123,7 @@ group("updatable", () => {
 const found = (over: Partial<FoundServer>): FoundServer => ({
   name: "telegram",
   description: "Chat on Telegram",
-  transport: "channel",
+  transport: "none",
   fields: [{ key: "BOT_TOKEN", label: "Bot token", secret: true, help: "" }],
   trusted: true,
   skill: false,
@@ -100,6 +132,8 @@ const found = (over: Partial<FoundServer>): FoundServer => ({
   installed: false,
   version: "",
   installed_version: "",
+  category: "other",
+  email: false,
   ...over,
 });
 
@@ -109,6 +143,12 @@ group("channel plugins", () => {
     expect(kinds).toEqual(["Channel", "MCP server · channel · skill"]);
     expect(runsOf(found({}))).toBe("On this computer");
     expect(runsOf(found({ transport: "http" }))).toBe("Remotely");
+  });
+
+  it("label an email provider, and only Communications has shared settings", () => {
+    const gmail = found({ name: "gmail", channel: false, email: true, category: "communications" });
+    expect(pluginsOf({ skills: [], servers: [gmail] }).map(kindOf)).toEqual(["Email provider"]);
+    expect([hasSettings("communications"), hasSettings("finance")]).toEqual([true, false]);
   });
 
   it("may leave empty a value the daemon already has", () => {

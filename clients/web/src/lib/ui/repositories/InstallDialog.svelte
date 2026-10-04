@@ -37,8 +37,8 @@
       const all = await client.repositories.browse();
       const offered = (k: "server" | "skill", p: { name: string; installed?: boolean }) =>
         !p.installed && (!shownKind || shownKind === k) && (!only || only === p.name);
-      // The MCP servers page lists servers with tools: a plugin that's only a chat channel is installed from Plugins.
-      const listed = (s: FoundServer) => !(shownKind === "server" && s.transport === "channel");
+      // The MCP servers page lists servers with tools: a plugin without them is installed from Plugins.
+      const listed = (s: FoundServer) => !(shownKind === "server" && s.transport === "none");
       const contents = {
         skills: all.skills.filter((s) => offered("skill", s)),
         servers: all.servers.filter((s) => offered("server", s) && listed(s)),
@@ -83,7 +83,7 @@
   }
 
   function kind(s: FoundServer): string {
-    if (s.transport === "channel") return "Channel";
+    if (s.transport === "none") return s.email ? "Email provider" : "Channel";
     const parts = [s.transport === "http" ? "remote" : "local"];
     if (s.channel) parts.push("a chat channel");
     if (s.skill) parts.push("with its skill");

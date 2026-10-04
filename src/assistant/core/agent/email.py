@@ -2,13 +2,14 @@
 is announced; and who the agent may email without asking, from any account. Passwords never leave
 the daemon."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from assistant.core import accounts as core_accounts
 from assistant.core.agent.channels import ChannelsMixin
 from assistant.core.integrations.email import accounts, imap, oauth, recipients, smtp
+from assistant.core.integrations.email import plugins as email_plugins
 from assistant.core.integrations.email.accounts import EmailConfig, EmailError
-from assistant.core.integrations.email.providers import PROVIDERS, EmailProvider
+from assistant.core.integrations.email.providers import EmailProvider
 from assistant.core.oauth import new_state
 from assistant.core.secret_store import SecretError
 
@@ -40,15 +41,17 @@ class EmailAccount:
     # "password", or "oauth" (signed in with `oauth_provider`: google, microsoft).
     auth: str = "password"
     oauth_provider: str = ""
+    # The email plugin it belongs to, or "" for servers entered by hand.
+    plugin: str = ""
 
 
 _LABEL_CHARS = 60
 
 
 class EmailMixin(ChannelsMixin):
-    def email_providers(self) -> list[EmailProvider]:
-        """Providers clients offer to pick from, in display order."""
-        return list(PROVIDERS)
+    async def email_providers(self) -> list[EmailProvider]:
+        """Providers clients offer to pick from: the presets of the email plugins that are on."""
+        return await email_plugins.providers(self._storage.store)
 
     async def email_accounts(self) -> list[EmailAccount]:
         """The default first."""
@@ -64,13 +67,16 @@ class EmailMixin(ChannelsMixin):
         sender: str,
         imap_host: str = "",
         imap_port: int = 993,
+        plugin: str = "",
     ) -> EmailAccount:
-        """Check the logins with the servers (IMAP too when given), then save. The first account
-        becomes the default. Raises EmailError."""
+        """Check the logins with the servers (IMAP too when given), then save, as an account of
+        `plugin` ("" for servers entered by hand). The first account becomes the default. Raises
+        EmailError."""
+        await self._check_plugin(plugin)
         config = EmailConfig(
             host.strip(), port, username.strip(), password, sender.strip(), imap_host.strip(), imap_port
         )
-        config.label = label
+        config.label, config.plugin = label, plugin
         return await self._verified_save(config, password)
 
     async def update_email_account(
@@ -100,6 +106,7 @@ class EmailMixin(ChannelsMixin):
             current.new_mail_alerts,
         )
         config.account_id, config.label, config.default = account_id, label, current.default
+        config.plugin = current.plugin
         return await self._verified_save(config, config.password)
 
     async def start_email_sign_in(
@@ -111,15 +118,18 @@ class EmailMixin(ChannelsMixin):
         address: str,
         label: str = "",
         account_id: str = "",
+        plugin: str = "",
     ) -> str:
-        """The provider's sign-in page for a new account, or `account_id` signing in again. The
-        browser comes back to `redirect_uri` (the web app's /app/oauth), which calls
+        """The provider's sign-in page for a new account of `plugin`, or `account_id` signing in
+        again. The browser comes back to `redirect_uri` (the web app's /app/oauth), which calls
         finish_sign_in. Raises EmailError."""
+        await self._check_plugin(plugin)
         if account_id:
             await self._email(account_id)
             if not client_id.strip():
                 client_id, client_secret = await self._saved_oauth_app(account_id)
         sign_in = oauth.new_sign_in(provider, client_id, client_secret, redirect_uri, address, label, account_id)
+        sign_in = replace(sign_in, plugin=plugin)
         state = new_state()
         self._sign_ins.add(state, sign_in)
         return oauth.authorization_url(sign_in, state)
@@ -145,11 +155,11 @@ class EmailMixin(ChannelsMixin):
         provider = oauth.provider_for(sign_in.provider)
         config = EmailConfig(provider.smtp_host, provider.smtp_port, sign_in.address, access_token, sign_in.address)
         config.imap_host, config.auth, config.oauth_provider = provider.imap_host, "oauth", provider.id
-        config.label = sign_in.label
+        config.label, config.plugin = sign_in.label, sign_in.plugin
         if sign_in.account_id:
             current = await self._email(sign_in.account_id)
             config.account_id, config.label, config.default = current.account_id, current.label, current.default
-            config.new_mail_alerts = current.new_mail_alerts
+            config.new_mail_alerts, config.plugin = current.new_mail_alerts, current.plugin
         return config
 
     async def rename_email_account(self, account_id: str, label: str) -> EmailAccount:
@@ -196,6 +206,11 @@ class EmailMixin(ChannelsMixin):
             raise EmailAccountNotFoundError(f"No email account {account_id}.")
         return config
 
+    async def _check_plugin(self, plugin: str) -> None:
+        """An account belongs to an email plugin that is on, or to none (servers entered by hand)."""
+        if plugin and plugin not in await email_plugins.active(self._storage.store):
+            raise EmailError(f"{plugin} isn't an email plugin that's installed and on.")
+
     async def _check_label(self, config: EmailConfig) -> None:
         """Names are unique: the agent picks an account by its name."""
         others = await accounts.list_accounts(self._storage.store)
@@ -228,4 +243,5 @@ def _account(config: EmailConfig) -> EmailAccount:
         config.new_mail_alerts,
         config.auth,
         config.oauth_provider,
+        config.plugin,
     )

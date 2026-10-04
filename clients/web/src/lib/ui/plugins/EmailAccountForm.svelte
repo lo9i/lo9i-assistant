@@ -15,22 +15,27 @@
   ];
 
   type Props = {
+    /** The email plugin whose providers it offers; "" for servers entered by hand. */
+    plugin: string;
     /** The account whose sign-in changes; a new account when absent. */
     account?: EmailAccount;
     onsaved: (account: EmailAccount) => void;
     oncancel?: () => void;
   };
-  let { account, onsaved, oncancel }: Props = $props();
+  let { plugin, account, onsaved, oncancel }: Props = $props();
 
   const { client } = useDaemon();
-  const providers = resource((c) => c.email.providers(), []);
-  let choice = $state("");
-  // An account that signed in with OAuth starts on its provider, to sign in again.
+  const loaded = resource((c) => c.email.providers(), []);
+  const providers = $derived((loaded.data ?? []).filter((p) => p.plugin === plugin));
+  // svelte-ignore state_referenced_locally
+  let choice = $state(plugin ? "" : OTHER);
+  // A plugin with one provider starts on it; an account that signed in with OAuth on its provider, to sign in again.
   $effect(() => {
-    const signedIn = account?.auth === "oauth" ? providers.data?.find((p) => p.oauth === account.oauth_provider) : undefined;
-    if (signedIn && !choice) choice = signedIn.id;
+    const signedIn = account?.auth === "oauth" ? providers.find((p) => p.oauth === account.oauth_provider) : undefined;
+    const only = providers.length === 1 ? providers[0] : undefined;
+    if (!choice && (signedIn ?? only)) choice = (signedIn ?? only)!.id;
   });
-  const provider = $derived<EmailProvider | undefined>(providers.data?.find((p) => p.id === choice));
+  const provider = $derived<EmailProvider | undefined>(providers.find((p) => p.id === choice));
   // svelte-ignore state_referenced_locally
   let label = $state(account?.label ?? "");
   // svelte-ignore state_referenced_locally
@@ -44,6 +49,7 @@
     sender: "",
     imap_host: "",
     imap_port: 993,
+    plugin: "",
   });
   let message = $state("");
   let saving = $state(false);
@@ -58,9 +64,9 @@
 
   /** A provider's user name and sender are the address. */
   function settings(): EmailSettings {
-    if (!provider) return { ...form, label };
+    if (!provider) return { ...form, label, plugin };
     const { host, port, imap_host } = provider;
-    return { label, host, port, imap_host, imap_port: 993, username: address, password: form.password, sender: address };
+    return { label, host, port, imap_host, imap_port: 993, username: address, password: form.password, sender: address, plugin };
   }
 
   /** Opens the provider's sign-in page; the /oauth page finishes it and the account shows up here. */
@@ -70,7 +76,7 @@
     saving = true;
     try {
       const body = { provider: provider.oauth, client_id: clientId, client_secret: clientSecret, redirect_uri: redirect };
-      const url = await client.email.startSignIn({ ...body, address, label, account_id: account?.id ?? "" });
+      const url = await client.email.startSignIn({ ...body, address, label, account_id: account?.id ?? "", plugin });
       window.open(url, "_blank", "noopener");
       message = `Finish signing in on the ${providerName} page that opened; the account shows up here once it's done.`;
     } catch (err) {
@@ -94,13 +100,14 @@
 </script>
 
 <div class="fields">
-  <select class="input" bind:value={choice} aria-label="Mail provider">
-    <option value="" disabled>Choose your provider</option>
-    {#each providers.data ?? [] as p (p.id)}
-      <option value={p.id}>{p.name}</option>
-    {/each}
-    <option value={OTHER}>Other (enter the server yourself)</option>
-  </select>
+  {#if providers.length > 1}
+    <select class="input" bind:value={choice} aria-label="How to connect">
+      <option value="" disabled>Choose how to connect</option>
+      {#each providers as p (p.id)}
+        <option value={p.id}>{p.name}</option>
+      {/each}
+    </select>
+  {/if}
   {#if provider}
     <p class="text-label">
       {provider.password_help}

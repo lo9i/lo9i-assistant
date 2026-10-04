@@ -4,7 +4,7 @@ from textual.widgets import Button, Input, Markdown, OptionList
 
 from assistant.core.agent import FoundServer, PluginUpdate, ServerField
 from assistant.core.repositories.known import EXTRAS
-from assistant_terminal.plugins_text import Plugin, describe
+from assistant_terminal.plugins_text import Plugin, by_category, describe
 from assistant_terminal.tui.screens import PluginsScreen
 from assistant_terminal.tui.screens.confirm import ConfirmWithOptionScreen
 from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen, _field_input
@@ -26,10 +26,11 @@ async def test_lists_the_extras_with_a_search_and_installs_one_that_asks_for_not
     async with app.run_test(size=(120, 44)) as pilot:
         screen = await _open(pilot, app)
         plugins = screen.query_one("#plugins-list", OptionList)
-        await wait_for(pilot, lambda: plugins.option_count == 3)
+        # The three are in Other, under its name.
+        await wait_for(pilot, lambda: plugins.option_count == 4)
         assert "Kind: MCP server" in _body(screen) and screen.query_one("#install").display
         screen.query_one("#plugins-search", Input).value = "page"
-        await wait_for(pilot, lambda: plugins.option_count == 1 and "## weather" in _body(screen))
+        await wait_for(pilot, lambda: plugins.option_count == 2 and "## weather" in _body(screen))
         assert "Version: 1.1.0" in _body(screen)
         screen.query_one("#install", Button).press()
         await wait_for(pilot, lambda: "weather" in client.mcp.items)
@@ -94,16 +95,29 @@ def _told(app) -> int:
 
 
 def test_a_channel_plugin_is_labelled_as_a_channel():
-    telegram = FoundServer("telegram", "Chat on Telegram", "channel", [], True, channel=True)
+    telegram = FoundServer("telegram", "Chat on Telegram", "none", [], True, channel=True)
     slack = FoundServer("slack", "Slack", "stdio", [], True, skill=True, channel=True)
     assert Plugin("telegram", False, server=telegram).kind == "Channel"
     assert Plugin("slack", False, server=slack).kind == "MCP server · channel · skill"
     assert "Runs: on this computer" in describe(Plugin("telegram", False, server=telegram))
 
 
+def test_plugins_are_grouped_by_category_with_other_last():
+    def plugin(name: str, category: str) -> Plugin:
+        return Plugin(name, False, server=FoundServer(name, "", "stdio", [], False, category=category))
+
+    shown = [plugin("misc", "other"), plugin("ledger", "finance"), plugin("bot", "communications")]
+    assert [(c, [p.name for p in g]) for c, g in by_category(shown)] == [
+        ("communications", ["bot"]),
+        ("finance", ["ledger"]),
+        ("other", ["misc"]),
+    ]
+    assert "Category: Finance" in describe(shown[1])
+
+
 def test_a_value_the_daemon_already_has_may_be_left_empty():
     token = ServerField("BOT_TOKEN", "Bot token", secret=True)
-    telegram = FoundServer("telegram", "Chat on Telegram", "channel", [token], True, known_fields=["BOT_TOKEN"])
+    telegram = FoundServer("telegram", "Chat on Telegram", "none", [token], True, known_fields=["BOT_TOKEN"])
     assert "leave empty to keep the one you set before" in str(_field_input(telegram, token).placeholder)
     asked = replace(telegram, known_fields=[])
     assert "leave empty" not in str(_field_input(asked, token).placeholder)

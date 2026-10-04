@@ -628,7 +628,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Email Providers */
+        /**
+         * Email Providers
+         * @description The presets of the email plugins that are on.
+         */
         get: operations["email_providers_integrations_email_providers_get"];
         put?: never;
         post?: never;
@@ -1502,6 +1505,11 @@ export interface components {
              * @default
              */
             oauth_provider: string;
+            /**
+             * Plugin
+             * @default
+             */
+            plugin: string;
         };
         /** EmailAccountName */
         EmailAccountName: {
@@ -1520,9 +1528,15 @@ export interface components {
             port: number;
             /** Imap Host */
             imap_host: string;
-            /** Password Help */
+            /**
+             * Password Help
+             * @default
+             */
             password_help: string;
-            /** Password Url */
+            /**
+             * Password Url
+             * @default
+             */
             password_url: string;
             /**
              * Supported
@@ -1534,6 +1548,11 @@ export interface components {
              * @default
              */
             oauth: string;
+            /**
+             * Plugin
+             * @default
+             */
+            plugin: string;
         };
         /** EmailRecipients */
         EmailRecipients: {
@@ -1567,6 +1586,11 @@ export interface components {
              * @default 993
              */
             imap_port: number;
+            /**
+             * Plugin
+             * @default
+             */
+            plugin: string;
         };
         /** EmailSignIn */
         EmailSignIn: {
@@ -1593,6 +1617,11 @@ export interface components {
              * @default
              */
             account_id: string;
+            /**
+             * Plugin
+             * @default
+             */
+            plugin: string;
         };
         /**
          * FoundServer
@@ -1641,6 +1670,16 @@ export interface components {
              * @default
              */
             installed_version: string;
+            /**
+             * Category
+             * @default other
+             */
+            category: string;
+            /**
+             * Email
+             * @default false
+             */
+            email: boolean;
         };
         /**
          * FoundSkill
@@ -1668,6 +1707,11 @@ export interface components {
              * @default
              */
             installed_version: string;
+            /**
+             * Category
+             * @default other
+             */
+            category: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -2273,6 +2317,11 @@ export interface components {
              * @default
              */
             plugin: string;
+            /**
+             * Category
+             * @default other
+             */
+            category: string;
         };
         /** SkillChange */
         SkillChange: {

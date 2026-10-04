@@ -10,7 +10,6 @@
     { id: "general", label: "General", href: `${resolve("/settings")}?tab=general` },
     { id: "memory", label: "About you", href: resolve("/memory") },
     { id: "audio", label: "Audio", href: `${resolve("/settings")}?tab=audio` },
-    { id: "integrations", label: "Integrations", href: `${resolve("/settings")}?tab=integrations` },
     { id: "plugins", label: "Plugins", href: resolve("/plugins") },
     { id: "mcp", label: "MCP servers", href: resolve("/mcp") },
     { id: "skills", label: "Skills", href: resolve("/skills") },

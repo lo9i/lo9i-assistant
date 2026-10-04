@@ -1,4 +1,4 @@
-"""The Brave Search API key, set from any client (Settings → Integrations → Web search, /websearch)."""
+"""The Brave Search API key, set from any client (Settings → General → Web search, /websearch)."""
 
 from dataclasses import dataclass
 

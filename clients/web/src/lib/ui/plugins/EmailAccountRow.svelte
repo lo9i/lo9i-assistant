@@ -61,6 +61,7 @@
       {#if account.status !== "ok"}<p class="warn">{account.problem}</p>{/if}
       {#if editing}
         <EmailAccountForm
+          plugin={account.plugin}
           {account}
           onsaved={() => {
             editing = false;

@@ -23,6 +23,10 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - A9. MCP startup: start a server on its first call from a cached tool list (for servers that use a lot of memory), and limit how many connect at once when the daemon starts.
 - A12. Signing in to a remote MCP server whose authorization server has no dynamic client registration: today the sign-in fails at registration (`core/mcp/oauth.py`). The Sign in dialog takes a client ID and secret of the user's own OAuth app, saved as the server's registered client so registration is skipped, and shows the redirect URI to register with it, as email does. A client metadata URL (the spec's other option) doesn't fit: the authorization server must fetch it, and the daemon is reachable only on the tailnet.
 
+## Plugins
+
+- A13. Email accounts connected before providers were plugins have no plugin, so they show under Communications as servers entered by hand. One that signed in with OAuth can't sign in again there (that form has no OAuth): remove it and connect it again from its provider's plugin.
+
 ## Memory
 
 - G1. No way to view or edit memories (Q1).

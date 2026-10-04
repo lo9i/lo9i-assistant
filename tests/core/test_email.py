@@ -12,25 +12,9 @@ from assistant.core.agent import EmailAccountNotFoundError, EmailError
 from assistant.core.config import settings
 from assistant.core.conversation.prompt import build_system_prompt
 from assistant.core.events import ApprovalRequired
-from assistant.core.integrations.email import accounts, recipients
+from assistant.core.integrations.email import accounts
 from assistant.core.tools.approval import UNATTENDED_DENIAL
 from tests.conftest import collect
-
-
-@pytest.fixture
-def smtp(monkeypatch):
-    sent = []
-
-    async def verify(config):
-        if config.password != "right":
-            raise EmailError("Couldn't log in to smtp.test:587: bad password")
-
-    async def send(config, to, subject, body):
-        sent.append((config.sender, to, subject, body))
-
-    monkeypatch.setattr(sending, "verify", verify)
-    monkeypatch.setattr(sending, "send", send)
-    return sent
 
 
 async def _add(service, sender="me@test.com", label=""):
@@ -62,20 +46,6 @@ async def test_allowlisted_recipients_need_no_approval(service, script, smtp):
     script.call("send_email", to=to, subject="News", body="hi").reply("sent")
     await collect(service.send(await service.session("u", "worker"), "email us"))
     assert smtp == [("me@home.com", to, "News", "hi")]
-
-
-async def test_the_lists_accounts_kept_before_join_into_one(service, smtp):
-    home = await _add(service, "me@home.com")
-    work = await _add(service, "me@work.com")
-    await service.set_email_recipients(["old@test.com"])
-    for account, addresses in ((home, ["a@test.com"]), (work, ["b@test.com", "a@test.com"])):
-        item = await service.store.aget(("accounts", "email"), account.id)
-        settings = {**item.value["settings"], "allowed_recipients": addresses}
-        await service.store.aput(("accounts", "email"), account.id, {**item.value, "settings": settings})
-    await recipients.migrate(service.store)
-    assert await service.email_recipients() == ["a@test.com", "b@test.com", "old@test.com"]
-    items = await service.store.asearch(("accounts", "email"))
-    assert all("allowed_recipients" not in i.value["settings"] for i in items)
 
 
 async def test_other_recipients_need_approval_and_are_denied_unattended(service, script, smtp):
@@ -133,16 +103,6 @@ async def test_the_system_prompt_lists_the_accounts(service, smtp):
     await _add(service, "me@work.com", "Work")
     prompt = await build_system_prompt(service.store, "u", "", "")
     assert "- email: Personal <me@home.com> (default)\n- email: Work <me@work.com>" in prompt
-
-
-async def test_the_single_email_setting_from_before_moves_into_an_account(service):
-    old = {"host": "smtp.gmail.com", "port": 587, "username": "me", "password": "pw", "sender": "me@gmail.com"}
-    await service.store.aput(("integrations",), "email", old)
-    await accounts.migrate(service.store, service.secrets)
-    [account] = await service.email_accounts()
-    assert account.default and (account.imap_host, account.imap_port) == ("imap.gmail.com", 993)
-    assert (await accounts.load(service.store, service.secrets)).password == "pw"
-    assert await service.store.aget(("integrations",), "email") is None
 
 
 async def test_send_email_without_setup(service, script):

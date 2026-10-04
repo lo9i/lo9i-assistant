@@ -25,17 +25,25 @@ class Plugin:
         return self.server.description if self.server else self.skill.description if self.skill else ""
 
     @property
+    def category(self) -> str:
+        """What it's for, from the daemon's fixed list ("communications", ..., "other")."""
+        return self.server.category if self.server else self.skill.category if self.skill else "other"
+
+    @property
     def kind(self) -> str:
-        """ "MCP server · channel · skill · page", "Channel" (a chat channel without tools), or "Skill"."""
+        """ "MCP server · channel · skill · page", "Channel" (a chat channel without tools), "Email
+        provider", or "Skill"."""
         if self.server is None:
             return "Skill"
-        only_channel = self.server.transport == "channel"
         parts = [
-            ("Channel" if only_channel else "MCP server", True),
-            ("channel", self.server.channel and not only_channel),
+            ("MCP server", self.server.transport != "none"),
+            ("channel", self.server.channel),
+            ("email provider", self.server.email),
+            ("skill", self.server.skill),
+            ("page", self.server.page),
         ]
-        parts += [("skill", self.server.skill), ("page", self.server.page)]
-        return " · ".join(part for part, has in parts if has)
+        kind = " · ".join(part for part, has in parts if has)
+        return kind[:1].upper() + kind[1:]
 
 
 def version(plugin: Plugin) -> str:
@@ -64,18 +72,49 @@ def plugins(contents: RepositoryContents) -> list[Plugin]:
     ]
 
 
+def by_category(shown: list[Plugin]) -> list[tuple[str, list[Plugin]]]:
+    """The plugins grouped by category, in alphabetical order with "other" last, keeping their order
+    within a group."""
+    categories = sorted({p.category for p in shown}, key=lambda c: (c == "other", c))
+    return [(c, [p for p in shown if p.category == c]) for c in categories]
+
+
+def category_label(category: str) -> str:
+    return category.capitalize()
+
+
+def has_settings(category: str) -> bool:
+    """Whether a category has settings its plugins share, opened from its name."""
+    return category == "communications"
+
+
+def describe_category(category: str) -> str:
+    """Markdown for a category with shared settings."""
+    return (
+        f"## {category_label(category)}\n\nSettings shared by the email and chat plugins: who the assistant "
+        "emails without asking, and the email accounts whose servers you enter yourself. Open them with "
+        "Settings."
+    )
+
+
 def label(plugin: Plugin) -> str:
     return f"{plugin.name} {version(plugin)}  {'✓ installed' if plugin.installed else '· not installed'}"
 
 
 def matches(plugin: Plugin, query: str) -> bool:
-    """By name, description or kind."""
-    return query.strip().lower() in f"{plugin.name} {plugin.description} {plugin.kind}".lower()
+    """By name, description, kind or category."""
+    return query.strip().lower() in f"{plugin.name} {plugin.description} {plugin.kind} {plugin.category}".lower()
 
 
 def describe(plugin: Plugin) -> str:
     """Markdown: what it is, what it asks for, and its state."""
-    lines = [f"## {plugin.name}", plugin.description, f"Kind: {plugin.kind}", f"Version: {version(plugin)}"]
+    lines = [
+        f"## {plugin.name}",
+        plugin.description,
+        f"Category: {category_label(plugin.category)}",
+        f"Kind: {plugin.kind}",
+        f"Version: {version(plugin)}",
+    ]
     if plugin.server is not None:
         lines.append(f"Runs: {'remotely' if plugin.server.transport == 'http' else 'on this computer'}")
         if plugin.server.fields:
@@ -83,7 +122,9 @@ def describe(plugin: Plugin) -> str:
         if plugin.server.page:
             lines.append("Its page shows in the sidebar of the web app.")
         if plugin.server.channel:
-            lines.append("Once it's installed, set it up in /channels.")
+            lines.append("Once it's installed, its setup shows here.")
+        if plugin.server.email:
+            lines.append("Once it's installed, connect its accounts with Accounts.")
     elif plugin.skill is not None and plugin.skill.files:
         lines.append(f"Files: {', '.join(plugin.skill.files)}")
     lines.append(f"State: {'installed' if plugin.installed else 'not installed'}")

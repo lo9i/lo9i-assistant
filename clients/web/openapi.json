@@ -1317,6 +1317,7 @@
     "/integrations/email/providers": {
       "get": {
         "summary": "Email Providers",
+        "description": "The presets of the email plugins that are on.",
         "operationId": "email_providers_integrations_email_providers_get",
         "responses": {
           "200": {
@@ -3406,6 +3407,11 @@
             "type": "string",
             "title": "Oauth Provider",
             "default": ""
+          },
+          "plugin": {
+            "type": "string",
+            "title": "Plugin",
+            "default": ""
           }
         },
         "type": "object",
@@ -3462,11 +3468,13 @@
           },
           "password_help": {
             "type": "string",
-            "title": "Password Help"
+            "title": "Password Help",
+            "default": ""
           },
           "password_url": {
             "type": "string",
-            "title": "Password Url"
+            "title": "Password Url",
+            "default": ""
           },
           "supported": {
             "type": "boolean",
@@ -3477,6 +3485,11 @@
             "type": "string",
             "title": "Oauth",
             "default": ""
+          },
+          "plugin": {
+            "type": "string",
+            "title": "Plugin",
+            "default": ""
           }
         },
         "type": "object",
@@ -3485,9 +3498,7 @@
           "name",
           "host",
           "port",
-          "imap_host",
-          "password_help",
-          "password_url"
+          "imap_host"
         ],
         "title": "EmailProvider"
       },
@@ -3543,6 +3554,11 @@
             "type": "integer",
             "title": "Imap Port",
             "default": 993
+          },
+          "plugin": {
+            "type": "string",
+            "title": "Plugin",
+            "default": ""
           }
         },
         "type": "object",
@@ -3586,6 +3602,11 @@
           "account_id": {
             "type": "string",
             "title": "Account Id",
+            "default": ""
+          },
+          "plugin": {
+            "type": "string",
+            "title": "Plugin",
             "default": ""
           }
         },
@@ -3659,6 +3680,16 @@
             "type": "string",
             "title": "Installed Version",
             "default": ""
+          },
+          "category": {
+            "type": "string",
+            "title": "Category",
+            "default": "other"
+          },
+          "email": {
+            "type": "boolean",
+            "title": "Email",
+            "default": false
           }
         },
         "type": "object",
@@ -3703,6 +3734,11 @@
             "type": "string",
             "title": "Installed Version",
             "default": ""
+          },
+          "category": {
+            "type": "string",
+            "title": "Category",
+            "default": "other"
           }
         },
         "type": "object",
@@ -4946,6 +4982,11 @@
             "type": "string",
             "title": "Plugin",
             "default": ""
+          },
+          "category": {
+            "type": "string",
+            "title": "Category",
+            "default": "other"
           }
         },
         "type": "object",

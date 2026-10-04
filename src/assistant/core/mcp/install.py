@@ -32,6 +32,10 @@ code from it. In its commands, arguments and env values:
       args: [run, --project, "{dir}", my-channel]
       style: A phone chat. Short messages.   # how to write there, for the system prompt
     libraries: [lo9i-chat]         # folders under lib/ in the repository it uses (folders.library)
+    category: communications       # what it's for, to group it in the apps (repositories/categories.py)
+    email:                         # optional: email providers it offers (core/integrations/email/providers.py)
+      - {id: gmail, name: Gmail, host: smtp.gmail.com, port: 587, imap_host: imap.gmail.com,
+         password_help: Gmail needs an app password., password_url: https://myaccount.google.com/apppasswords}
 """
 
 import asyncio
@@ -40,15 +44,17 @@ import re
 import shutil
 import sys
 from collections.abc import Callable
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
 import yaml
 from langgraph.store.base import BaseStore
 
+from assistant.core.integrations.email import providers as email_providers
 from assistant.core.mcp import folders, servers
 from assistant.core.mcp.servers import McpServer, McpServerError
+from assistant.core.repositories import categories
 from assistant.core.repositories import source as folder_source
 from assistant.core.repositories.checkout import checkout, default_name
 from assistant.core.repositories.errors import RepositoryError
@@ -95,6 +101,10 @@ class FoundServer:
     # `version:` in its server.yaml, and the one installed here; "" when none is declared or installed.
     version: str = ""
     installed_version: str = ""
+    # What it's for, to group it in the apps (repositories/categories.py).
+    category: str = categories.DEFAULT
+    # It offers email providers (an `email:` section).
+    email: bool = False
 
 
 @dataclass(frozen=True)
@@ -262,7 +272,15 @@ def _candidate(root: Path, folder: Path, name: str) -> Candidate | None:
 
 
 def _parse(data: dict[str, Any], name: str, root: Path, folder: Path) -> Candidate:
-    template = McpServer(
+    template = _template(data, name)
+    servers.validate(template)
+    found = _found(data, template, folder)
+    libraries = [_library(root, str(n)) for n in data.get("libraries", [])]
+    return Candidate(found, template, folder, folder.relative_to(root).as_posix(), libraries)
+
+
+def _template(data: dict[str, Any], name: str) -> McpServer:
+    return McpServer(
         name=str(data.get("name", name)),
         command=str(data.get("command", "")),
         args=[str(a) for a in data.get("args", [])],
@@ -277,19 +295,27 @@ def _parse(data: dict[str, Any], name: str, root: Path, folder: Path) -> Candida
         channel_command=str(data.get("channel", {}).get("command", "")),
         channel_args=[str(a) for a in data.get("channel", {}).get("args", [])],
         channel_style=str(data.get("channel", {}).get("style", "")).strip(),
+        email_providers=[asdict(p) for p in email_providers.parse(data.get("email"), name)],
     )
-    servers.validate(template)
-    fields = [_field(f) for f in data.get("fields", [])]
-    skill = _check_skill(folder, template.name)
-    description = str(data.get("description", ""))
-    page = bool(template.page_command)
-    version = str(data.get("version", ""))
-    channel = bool(template.channel_command)
-    found = FoundServer(
-        template.name, description, template.transport, fields, template.trusted, skill, page, channel, version=version
+
+
+def _found(data: dict[str, Any], template: McpServer, folder: Path) -> FoundServer:
+    """Raises ValueError for fields, a skill or a category that can't be used."""
+    channel, email = bool(template.channel_command), bool(template.email_providers)
+    sections = {s for s, has in (("channel", channel), ("email", email)) if has}
+    return FoundServer(
+        template.name,
+        str(data.get("description", "")),
+        template.transport,
+        [_field(f) for f in data.get("fields", [])],
+        template.trusted,
+        _check_skill(folder, template.name),
+        bool(template.page_command),
+        channel,
+        version=str(data.get("version", "")),
+        category=categories.parse(data.get("category"), sections),
+        email=email,
     )
-    libraries = [_library(root, str(n)) for n in data.get("libraries", [])]
-    return Candidate(found, template, folder, folder.relative_to(root).as_posix(), libraries)
 
 
 def _library(root: Path, name: str) -> Path:

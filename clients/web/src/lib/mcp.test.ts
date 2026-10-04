@@ -44,9 +44,9 @@ describe("statusLabel", () => {
 });
 
 describe("withTools", () => {
-  it("leaves out a plugin that's only a chat channel, and keeps Slack, which has tools too", () => {
+  it("leaves out a plugin without tools, and keeps Slack, which has tools too", () => {
     const server = (name: string, transport: string, channel: boolean) => ({ name, transport, channel }) as McpServerStatus;
-    const servers = [server("notes", "stdio", false), server("telegram", "channel", true), server("slack", "stdio", true)];
+    const servers = [server("notes", "stdio", false), server("telegram", "none", true), server("slack", "stdio", true)];
     expect(withTools(servers).map((s) => s.name)).toEqual(["notes", "slack"]);
   });
 });

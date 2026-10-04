@@ -1,29 +1,19 @@
-"""Chat channels (Telegram, Slack), installed as plugins: whether each is connected, and what it shows
-for setting it up. Each channel sends its own items (lines, a code to read out, a value to copy,
-buttons), so this screen draws them without knowing any channel. Refreshes when the daemon reports a
-change, so a new pairing code or a finished pairing shows up by itself."""
-
-from typing import ClassVar
+"""A chat channel's setup, shown in its plugin's details in /plugins: whether it's connected, and what
+it shows for setting it up. Each channel sends its own items (lines, a code to read out, a value to
+copy, buttons), so this draws them without knowing any channel."""
 
 from rich.text import Text
 from textual import on
 from textual.app import ComposeResult
-from textual.binding import Binding, BindingType
-from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen
+from textual.containers import Horizontal, Vertical
 from textual.widget import Widget
-from textual.widgets import Button, Markdown, Static, TextArea
+from textual.widgets import Button, Static, TextArea
 
 from assistant.client import clipboard
 from assistant.client.daemon_client import ChannelsApi
 from assistant.core.agent import ChannelNotConnectedError, ChannelStatus, SetupItem
-from assistant_terminal.channels_text import NONE_INSTALLED, heading, line, title
+from assistant_terminal.channels_text import heading, line, title
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
-
-_INTRO = """## Channels
-
-Chat with the assistant from other apps. Channels are plugins: install, update or remove them in
-/plugins."""
 
 
 class _ActionButton(Button):
@@ -41,38 +31,13 @@ class _CopyButton(Button):
         self.copy_name, self.copy_value = item.label or "it", item.value
 
 
-class ChannelsScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
-
-    def __init__(self, channels: ChannelsApi) -> None:
-        super().__init__()
-        self._channels = channels
+class ChannelSetup(Vertical):
+    def __init__(self, channels: ChannelsApi, channel: ChannelStatus) -> None:
+        super().__init__(classes="channel-setup")
+        self._channels, self._channel = channels, channel
 
     def compose(self) -> ComposeResult:
-        with VerticalScroll(id="channels"):
-            yield Markdown(_INTRO)
-            yield Vertical(id="channels-list")
-            with Horizontal(id="channels-buttons"):
-                yield Button("Close", id="close")
-
-    @reports_daemon_unavailable
-    async def on_mount(self) -> None:
-        await self.reload()
-
-    @reports_daemon_unavailable
-    async def reload(self) -> None:
-        """Called when the daemon reports a change: a channel connected, or changed what it shows."""
-        channels = await self._channels.list()
-        box = self.query_one("#channels-list", Vertical)
-        await box.remove_children()
-        if not channels:
-            await box.mount(Static(NONE_INSTALLED, markup=False, classes="channel-empty"))
-            return
-        await box.mount_all([w for channel in channels for w in _channel_widgets(channel)])
-
-    @on(Button.Pressed, "#close")
-    def _close(self) -> None:
-        self.dismiss()
+        yield from _channel_widgets(self._channel)
 
     @on(Button.Pressed, ".channel-action")
     @reports_daemon_unavailable
@@ -80,6 +45,7 @@ class ChannelsScreen(ModalScreen[None]):
         button = event.button
         if not isinstance(button, _ActionButton):
             return
+        event.stop()
         try:
             await self._channels.press(button.channel, button.channel_action)
         except ChannelNotConnectedError:
@@ -92,6 +58,7 @@ class ChannelsScreen(ModalScreen[None]):
         button = event.button
         if not isinstance(button, _CopyButton):
             return
+        event.stop()
         self.app.copy_to_clipboard(button.copy_value)
         copied = await clipboard.copy(button.copy_value)
         self.notify(f"Copied {button.copy_name}." if copied else "Sent it to your terminal's clipboard.")

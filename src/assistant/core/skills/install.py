@@ -12,6 +12,7 @@ import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
+from assistant.core.repositories import categories
 from assistant.core.repositories.checkout import checkout, default_name
 from assistant.core.repositories.folders import SERVER_FILE, subfolders
 from assistant.core.repositories.source import Source
@@ -31,6 +32,8 @@ class FoundSkill:
     # `version:` in its SKILL.md, and the one installed here; "" when none is declared or installed.
     version: str = ""
     installed_version: str = ""
+    # What it's for, to group it in the apps (repositories/categories.py).
+    category: str = categories.DEFAULT
 
 
 @dataclass(frozen=True)
@@ -41,7 +44,8 @@ class Candidate:
     path: str
 
     def found(self) -> FoundSkill:
-        return FoundSkill(self.skill.name, self.skill.description, self.skill.files, version=self.skill.version)
+        skill = self.skill
+        return FoundSkill(skill.name, skill.description, skill.files, version=skill.version, category=skill.category)
 
 
 def find(root: Path, url: str) -> dict[str, Candidate]:

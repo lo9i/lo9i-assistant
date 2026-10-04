@@ -101,6 +101,8 @@ class SignIn:
     # Signing an existing account in again; "" for a new one.
     account_id: str
     expires_at: float
+    # The email plugin a new account belongs to (plugins.py).
+    plugin: str = ""
 
 
 def authorization_url(sign_in: SignIn, state: str) -> str:

@@ -34,10 +34,10 @@ export function selectionFor(tools: McpToolInfo[], chosen: Set<string>): Selecti
   return { include: names, exclude: [] };
 }
 
-/** The servers the MCP servers page lists: a plugin that's only a chat channel has no tools, and is
- *  set up in Settings → Integrations. Slack has tools as well as its channel, so it stays. */
+/** The servers the MCP servers page lists: a plugin without tools (a chat channel, an email provider) is
+ *  set up in Plugins. Slack has tools as well as its channel, so it stays. */
 export function withTools(servers: McpServerStatus[]): McpServerStatus[] {
-  return servers.filter((s) => s.transport !== "channel");
+  return servers.filter((s) => s.transport !== "none");
 }
 
 /** A server's status as the page shows it: the daemon's word, with needs_sign_in spelled out. */
