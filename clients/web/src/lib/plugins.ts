@@ -1,6 +1,6 @@
 import type { FoundServer, FoundSkill, RepositoryContents } from "./api/types";
 
-/** A plugin the assistant's extras offer: an MCP server (maybe with its skill and a page) or a skill of its own. */
+/** A plugin the assistant's extras offer: an MCP server (maybe with its skill, a page or a chat channel), a chat channel, or a skill of its own. */
 export type Plugin =
   | { kind: "server"; name: string; installed: boolean; server: FoundServer }
   | { kind: "skill"; name: string; installed: boolean; skill: FoundSkill };
@@ -12,10 +12,36 @@ export function pluginsOf(contents: RepositoryContents): Plugin[] {
   ];
 }
 
-/** "MCP server · skill · page", or "Skill". */
+/** "MCP server · channel · skill · page", "Channel" (a chat channel without tools), or "Skill". */
 export function kindOf(p: Plugin): string {
   if (p.kind === "skill") return "Skill";
-  return ["MCP server", ...(p.server.skill ? ["skill"] : []), ...(p.server.page ? ["page"] : [])].join(" · ");
+  const onlyChannel = p.server.transport === "channel";
+  const parts: Array<[string, boolean | undefined]> = [
+    [onlyChannel ? "Channel" : "MCP server", true],
+    ["channel", p.server.channel && !onlyChannel],
+    ["skill", p.server.skill],
+    ["page", p.server.page],
+  ];
+  return parts
+    .filter(([, has]) => has)
+    .map(([part]) => part)
+    .join(" · ");
+}
+
+/** Where it runs: a remote MCP server runs elsewhere; a local one or a channel on this computer. */
+export function runsOf(server: FoundServer): string {
+  return server.transport === "http" ? "Remotely" : "On this computer";
+}
+
+/** A field the daemon already has a value for (from before channels were plugins) may be left empty. */
+export function optional(server: FoundServer, key: string): boolean {
+  return (server.known_fields ?? []).includes(key);
+}
+
+/** The first required field left empty, to say so before installing; null when all are there. */
+export function missingField(server: FoundServer, values: Record<string, string>): string | null {
+  const field = server.fields.find((f) => !optional(server, f.key) && !(values[f.key] ?? "").trim());
+  return field ? field.label : null;
 }
 
 /** The version installed, and the newer one the extras have ("1.0.0 → 1.1.0"); what the extras

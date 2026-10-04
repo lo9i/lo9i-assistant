@@ -1,6 +1,6 @@
 """Reacts to daemon events while the app is open: memory and skills reload the panel, finished jobs,
 MCP servers or skills that keep failing, MCP servers whose sign-in stopped working and new plugin
-updates show a notification, integration, client, job and settings changes refresh an open screen, a
+updates show a notification, integration, channel, client, job and settings changes refresh an open screen, a
 rename updates the title, runs started elsewhere in this conversation appear in the chat live, and a
 conversation left with /new while its reply was running reports when it finishes."""
 
@@ -39,6 +39,7 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         "memory": memory,
         "skills": memory,
         "integrations": screen,
+        "channels": screen,
         "clients": screen,
         "jobs": screen,
         "conversations": screen,

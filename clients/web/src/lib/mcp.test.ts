@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { McpToolInfo } from "./api/types";
-import { selectionFor, parseArgs, parsePairs, statusLabel } from "./mcp";
+import type { McpServerStatus, McpToolInfo } from "./api/types";
+import { selectionFor, parseArgs, parsePairs, statusLabel, withTools } from "./mcp";
 
 const tool = (name: string): McpToolInfo => ({ name, description: "", read_only: false, selected: true });
 
@@ -40,5 +40,13 @@ describe("statusLabel", () => {
   it("spells out a server waiting for a sign-in and keeps the other words", () => {
     expect(statusLabel("needs_sign_in")).toBe("needs you to sign in");
     expect(statusLabel("connected")).toBe("connected");
+  });
+});
+
+describe("withTools", () => {
+  it("leaves out a plugin that's only a chat channel, and keeps Slack, which has tools too", () => {
+    const server = (name: string, transport: string, channel: boolean) => ({ name, transport, channel }) as McpServerStatus;
+    const servers = [server("notes", "stdio", false), server("telegram", "channel", true), server("slack", "stdio", true)];
+    expect(withTools(servers).map((s) => s.name)).toEqual(["notes", "slack"]);
   });
 });

@@ -30,6 +30,7 @@ from assistant_terminal.tui.plugin_updates import PluginUpdates
 from assistant_terminal.tui.screens import (
     ApprovalScreen,
     AudioScreen,
+    ChannelsScreen,
     ConversationsScreen,
     DevicesScreen,
     EmailScreen,
@@ -42,9 +43,7 @@ from assistant_terminal.tui.screens import (
     QuestionScreen,
     SessionsScreen,
     SkillsScreen,
-    SlackScreen,
     StartupScreen,
-    TelegramScreen,
     UsageScreen,
     WebSearchScreen,
 )
@@ -100,8 +99,7 @@ class AssistantApp(App):
             "/new": self._command_new,
             "/conversations": self._command_conversations,
             "/attach": self._command_attach,
-            "/telegram": self._command_telegram,
-            "/slack": self._command_slack,
+            "/channels": self._command_channels,
             "/mcp": self._command_mcp,
             "/model": self._command_model,
             "/audio": self._command_audio,
@@ -496,13 +494,10 @@ class AssistantApp(App):
         self.push_screen(StartupScreen(self._service.system))
 
     async def _command_email(self, _: str) -> None:
-        self.push_screen(EmailScreen(self._service.email, self._service.oauth))
+        self.push_screen(EmailScreen(self._service.email, self._service.oauth, self._service.channels))
 
-    async def _command_telegram(self, _: str) -> None:
-        self.push_screen(TelegramScreen(self._service.telegram))
-
-    async def _command_slack(self, _: str) -> None:
-        self.push_screen(SlackScreen(self._service.slack))
+    async def _command_channels(self, _: str) -> None:
+        self.push_screen(ChannelsScreen(self._service.channels))
 
     async def _command_audio(self, _: str) -> None:
         self.push_screen(AudioScreen(self._service.speech))

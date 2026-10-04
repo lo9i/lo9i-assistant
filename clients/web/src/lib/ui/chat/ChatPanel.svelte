@@ -14,8 +14,7 @@
   const SETTINGS_TABS: Record<string, string> = {
     "/settings": "general",
     "/startup": "general",
-    "/telegram": "integrations",
-    "/slack": "integrations",
+    "/channels": "integrations",
     "/email": "integrations",
     "/websearch": "general",
     "/audio": "audio",

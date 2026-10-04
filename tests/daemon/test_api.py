@@ -8,14 +8,11 @@ from pathlib import Path
 import httpx
 import pytest
 
-import assistant.core.integrations.telegram.connection as integration
 from assistant.client.daemon_client import DaemonClient
 from assistant.core.agent import (
     InvalidNameError,
     InvalidSearchKeyError,
-    InvalidTokenError,
     Session,
-    SlackError,
     SpeechSettingsError,
 )
 from assistant.core.attachments import Attachment
@@ -106,11 +103,7 @@ async def test_send_with_attachment_approve_and_resume(client, script):
     assert events[0] == ToolFinished("bash", "The user rejected this (no).")
 
 
-async def test_threads_memory_and_telegram(client, monkeypatch):
-    async def bot_username(token):
-        raise InvalidTokenError("Telegram rejected the token: Unauthorized")
-
-    monkeypatch.setattr(integration, "bot_username", bot_username)
+async def test_threads_memory_and_channels(client):
     assert await client.new_thread("owner") != await client.new_thread("owner")
     assert (await client.memory.snapshot()).facts == []
     assert (await client.memory.set_profile_section("interests", ["chess"])).profile == {"interests": ["chess"]}
@@ -118,9 +111,7 @@ async def test_threads_memory_and_telegram(client, monkeypatch):
     assert await client.email.accounts() == []
     assert await client.email.set_recipients(["Friend@Test.com"]) == ["friend@test.com"]
     assert await client.email.recipients() == ["friend@test.com"]
-    assert not (await client.telegram.status()).connected
-    with pytest.raises(InvalidTokenError):
-        await client.telegram.connect("bad")
+    assert await client.channels.list() == []
 
 
 async def test_speech_routes(client):
@@ -143,14 +134,6 @@ async def test_web_search_routes(client, monkeypatch):
     assert (await client.web_search.set_brave_key(" good ")).brave_key_set
     assert (await client.web_search.status()).brave_key_set
     assert not (await client.web_search.remove_brave_key()).brave_key_set
-
-
-async def test_slack_routes(client):
-    assert not (await client.slack.status()).connected
-    assert '"socket_mode_enabled": true' in await client.slack.manifest()
-    with pytest.raises(SlackError, match="should start with xapp-"):
-        await client.slack.connect("bad", "xoxb-1", "xoxp-1")
-    await client.slack.disconnect()
 
 
 async def test_a_client_moving_on_leaves_its_conversation_to_be_archived(client, service, digests):

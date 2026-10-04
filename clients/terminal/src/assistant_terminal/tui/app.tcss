@@ -155,11 +155,11 @@ AttachmentBar .tag {
     text-style: bold;
 }
 
-TelegramScreen, ProfileScreen, WebSearchScreen, SlackScreen, EmailScreen, StartupScreen, McpAddScreen, McpSecretsScreen, ModelScreen, AudioScreen, SkillEditScreen {
+ChannelsScreen, ProfileScreen, WebSearchScreen, EmailScreen, StartupScreen, McpAddScreen, McpSecretsScreen, ModelScreen, AudioScreen, SkillEditScreen {
     align: center middle;
 }
 
-#telegram, #profile, #web-search, #slack, #email, #startup, #mcp-add, #mcp-secrets-dialog, #mcp-sign-in, #model, #audio, #skill-edit, #repository-install {
+#channels, #profile, #web-search, #email, #startup, #mcp-add, #mcp-secrets-dialog, #mcp-sign-in, #model, #audio, #skill-edit, #repository-install {
     width: 80%;
     max-width: 100;
     height: auto;
@@ -168,7 +168,7 @@ TelegramScreen, ProfileScreen, WebSearchScreen, SlackScreen, EmailScreen, Startu
     background: $dialog-background;
 }
 
-#telegram Markdown, #profile Markdown, #web-search Markdown, #slack Markdown, #email Markdown, #startup Markdown, #mcp-add Markdown, #mcp-secrets-dialog Markdown, #mcp-sign-in Markdown, #model Markdown, #audio Markdown, #skill-edit Markdown, #repository-install Markdown {
+#channels Markdown, #profile Markdown, #web-search Markdown, #email Markdown, #startup Markdown, #mcp-add Markdown, #mcp-secrets-dialog Markdown, #mcp-sign-in Markdown, #model Markdown, #audio Markdown, #skill-edit Markdown, #repository-install Markdown {
     background: transparent;
     margin: 0;
 }
@@ -178,12 +178,49 @@ ModalScreen Markdown > MarkdownHeader:first-child {
     margin-top: 0;
 }
 
-#telegram-buttons, #profile-buttons, #web-search-buttons, #slack-buttons, #email-buttons, #startup-buttons, #mcp-add-buttons, #mcp-secrets-buttons, #mcp-sign-in-buttons, #model-buttons, #audio-buttons, #skill-edit-buttons, #repository-buttons {
+#channels-buttons, #profile-buttons, #web-search-buttons, #email-buttons, #startup-buttons, #mcp-add-buttons, #mcp-secrets-buttons, #mcp-sign-in-buttons, #model-buttons, #audio-buttons, #skill-edit-buttons, #repository-buttons {
     height: auto;
     margin-top: 1;
 }
 
-#telegram-buttons Button, #profile-buttons Button, #web-search-buttons Button, #slack-buttons Button, #email-buttons Button, #startup-buttons Button, #mcp-add-buttons Button, #mcp-secrets-buttons Button, #mcp-sign-in-buttons Button, #model-buttons Button, #audio-buttons Button, #skill-edit-buttons Button, #repository-buttons Button {
+#channels-buttons Button, #profile-buttons Button, #web-search-buttons Button, #email-buttons Button, #startup-buttons Button, #mcp-add-buttons Button, #mcp-secrets-buttons Button, #mcp-sign-in-buttons Button, #model-buttons Button, #audio-buttons Button, #skill-edit-buttons Button, #repository-buttons Button {
+    margin-right: 2;
+}
+
+/* Channels: one block per channel, drawn from the items it sends. */
+#channels {
+    max-height: 90%;
+}
+
+#channels-list {
+    height: auto;
+}
+
+#channels-list Static {
+    margin-bottom: 1;
+}
+
+#channels-list .channel-heading {
+    text-style: bold;
+    margin-top: 1;
+}
+
+#channels-list .channel-code {
+    color: $accent;
+}
+
+#channels-list .channel-copy {
+    height: 8;
+    border: round ansi_bright_black;
+    background: transparent;
+}
+
+#channels-list .channel-actions {
+    height: auto;
+    margin-bottom: 1;
+}
+
+#channels-list .channel-actions Button {
     margin-right: 2;
 }
 
@@ -332,12 +369,12 @@ ModalScreen Input, ModalScreen OptionList, ModalScreen MarkdownHeader {
     background: transparent;
 }
 
-#telegram-token, #profile Input, #profile SelectCurrent, #web-search Input, #slack Input, #email Input, #email SelectCurrent, #mcp-add Input, #mcp-add SelectCurrent, #mcp-sign-in Input, #model Input, #model SelectCurrent, #audio SelectCurrent, #skill-edit Input, #repository-install Input {
+#profile Input, #profile SelectCurrent, #web-search Input, #email Input, #email SelectCurrent, #mcp-add Input, #mcp-add SelectCurrent, #mcp-sign-in Input, #model Input, #model SelectCurrent, #audio SelectCurrent, #skill-edit Input, #repository-install Input {
     border: round ansi_bright_black;
     background: transparent;
 }
 
-#telegram-token:focus, #profile Input:focus, #web-search Input:focus, #slack Input:focus, #email Input:focus, #mcp-add Input:focus, #mcp-sign-in Input:focus, #model Input:focus, #skill-edit Input:focus, #repository-install Input:focus {
+#profile Input:focus, #web-search Input:focus, #email Input:focus, #mcp-add Input:focus, #mcp-sign-in Input:focus, #model Input:focus, #skill-edit Input:focus, #repository-install Input:focus {
     border: round #2f343f;
 }
 

@@ -18,6 +18,7 @@ from mcp.client.streamable_http import streamable_http_client
 from mcp.shared.exceptions import MCPError
 from mcp.types import CallToolResult, Implementation, TextContent, Tool, ToolListChangedNotification
 
+from assistant.core.config import settings
 from assistant.core.health import HealthLog
 from assistant.core.mcp.oauth import McpAuth, SignInNeededError, needs_sign_in
 from assistant.core.mcp.servers import McpServer
@@ -50,10 +51,10 @@ ClientFactory = Callable[[McpServer, MessageHandlerFnT, httpx2.Auth | None], Cli
 
 def open_client(server: McpServer, on_message: MessageHandlerFnT, auth: httpx2.Auth | None = None) -> Client:
     """A client for the server's transport; `auth` signs a remote server's requests. Stdio servers
-    get only a safe baseline of the daemon's environment plus their own env (the SDK's
-    `get_default_environment`)."""
+    get only a safe baseline of the daemon's environment (the SDK's `get_default_environment`), the
+    assistant's time zone, and their own env."""
     target = (
-        StdioServerParameters(command=server.command, args=server.args, env=server.env or None)
+        StdioServerParameters(command=server.command, args=server.args, env={"TZ": settings.timezone, **server.env})
         if server.command
         else _http_transport(server, auth)
     )

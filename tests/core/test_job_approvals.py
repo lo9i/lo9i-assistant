@@ -65,7 +65,7 @@ async def test_an_unanswered_approval_is_rejected_after_the_wait(service, script
     job = await _run(service, _due_job())
     assert job.runs[-1].status == "needs attention"
     tool_result = script.requests[-1][-1]
-    assert "nobody answered on Telegram" in tool_result.content
+    assert "nobody answered on a chat channel" in tool_result.content
 
 
 async def test_an_answer_after_the_run_went_on_is_refused(service):
@@ -98,7 +98,7 @@ class _Sender:
 
 async def test_a_message_sent_from_elsewhere_reaches_the_channels_next_turn(service, script):
     service.outbox.register("telegram", _Sender())
-    script.call("send_message", text="Time to stretch!").reply("Sent.")
+    script.call("send_message", text="Time to stretch!", channel="telegram").reply("Sent.")
     await collect(service.send(await service.session("owner", "cli"), "remind me on telegram"))
     script.reply("You're welcome.")
     telegram = await service.session("owner", "telegram")
@@ -115,7 +115,7 @@ async def test_a_message_sent_from_elsewhere_reaches_the_channels_next_turn(serv
 async def test_a_message_sent_from_the_channels_own_chat_isnt_repeated(service, script):
     service.outbox.register("telegram", _Sender())
     telegram = await service.session("owner", "telegram")
-    script.call("send_message", text="Note").reply("Sent.")
+    script.call("send_message", text="Note", channel="telegram").reply("Sent.")
     await collect(service.send(telegram, "send me a note"))
     script.reply("ok")
     await collect(service.send(telegram, "next"))

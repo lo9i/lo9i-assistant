@@ -95,7 +95,7 @@ class McpHub:
         """Bring the connections in line with the saved servers. Called after every change."""
         if not self._active:
             return
-        wanted = {s.name: s for s in await servers.load_all(self._store) if s.enabled}
+        wanted = {s.name: s for s in await servers.load_all(self._store) if s.enabled and s.is_mcp}
         for name in [n for n in self._running if n not in wanted]:
             await self._stop(name)
         for server in wanted.values():

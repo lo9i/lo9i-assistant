@@ -1,6 +1,7 @@
 from textual.widgets import Button, Input, Markdown, Select
 
 from assistant_terminal.tui.screens import EmailScreen
+from assistant_terminal.tui.screens.email import _alert_options
 from tests.terminal.conftest import wait_for
 
 
@@ -105,6 +106,12 @@ async def test_new_mail_alerts_are_chosen_once_mail_can_be_read(app, client):
         assert screen.query_one("#email-alerts").display
         screen.query_one("#email-alerts", Select).value = "telegram"
         await wait_for(pilot, lambda: client.email.accounts_by_id["a1"].new_mail_alerts == "telegram")
+
+
+def test_new_mail_can_be_announced_on_installed_channels_only():
+    """A channel set before its plugin was removed stays offered, so the account still shows it."""
+    assert [v for _, v in _alert_options(["telegram"], "")] == ["", "telegram"]
+    assert [v for _, v in _alert_options(["telegram"], "slack")] == ["", "telegram", "slack"]
 
 
 async def test_a_second_account_can_become_the_default_and_be_removed(app, client):

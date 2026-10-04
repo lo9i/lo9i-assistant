@@ -7,7 +7,8 @@ from assistant.core.agent import FoundServer, FoundSkill, RepositoryContents
 
 @dataclass(frozen=True)
 class Plugin:
-    """A plugin the extras offer: an MCP server (maybe with its skill and a page) or a skill of its own."""
+    """A plugin the extras offer: an MCP server (maybe with its skill, a page or a chat channel), a chat
+    channel, or a skill of its own."""
 
     name: str
     installed: bool
@@ -25,12 +26,16 @@ class Plugin:
 
     @property
     def kind(self) -> str:
-        """ "MCP server · skill · page", or "Skill"."""
+        """ "MCP server · channel · skill · page", "Channel" (a chat channel without tools), or "Skill"."""
         if self.server is None:
             return "Skill"
-        return " · ".join(
-            ["MCP server", *(["skill"] if self.server.skill else []), *(["page"] if self.server.page else [])]
-        )
+        only_channel = self.server.transport == "channel"
+        parts = [
+            ("Channel" if only_channel else "MCP server", True),
+            ("channel", self.server.channel and not only_channel),
+        ]
+        parts += [("skill", self.server.skill), ("page", self.server.page)]
+        return " · ".join(part for part, has in parts if has)
 
 
 def version(plugin: Plugin) -> str:
@@ -72,11 +77,13 @@ def describe(plugin: Plugin) -> str:
     """Markdown: what it is, what it asks for, and its state."""
     lines = [f"## {plugin.name}", plugin.description, f"Kind: {plugin.kind}", f"Version: {version(plugin)}"]
     if plugin.server is not None:
-        lines.append(f"Runs: {'on this computer' if plugin.server.transport == 'stdio' else 'remotely'}")
+        lines.append(f"Runs: {'remotely' if plugin.server.transport == 'http' else 'on this computer'}")
         if plugin.server.fields:
             lines.append(f"Asks for: {', '.join(f.label for f in plugin.server.fields)}")
         if plugin.server.page:
             lines.append("Its page shows in the sidebar of the web app.")
+        if plugin.server.channel:
+            lines.append("Once it's installed, set it up in /channels.")
     elif plugin.skill is not None and plugin.skill.files:
         lines.append(f"Files: {', '.join(plugin.skill.files)}")
     lines.append(f"State: {'installed' if plugin.installed else 'not installed'}")

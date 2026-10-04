@@ -7,6 +7,9 @@ forwarding and proxies make remote traffic arrive from there.
 
 Without a device, the network only reaches /health, pairing, and the web UI's files (its login
 page). Revoking a device ends its open event streams.
+
+A channel plugin's process (core/channels/) sends the token the daemon gave it when it started
+instead. That token reaches only its own channel's routes, `/channels/<name>/...`.
 """
 
 import asyncio
@@ -62,6 +65,11 @@ def trusted(app: ASGIApp) -> ASGIApp:
 
 def is_trusted(request: Request) -> bool:
     return bool(request.scope.get(_TRUSTED))
+
+
+def channel_of(request: Request) -> str | None:
+    """The channel plugin making the request, when it carries a channel's token."""
+    return getattr(request.state, "channel", None)
 
 
 def device_of(request: Request) -> Device | None:
@@ -129,6 +137,8 @@ def require_device(app: FastAPI, service: AssistantService) -> None:
         if is_trusted(request) or request.url.path in _OPEN_PATHS or is_web_ui(request.url.path):
             return await call_next(request)
         token = _token(request)
+        if token and (channel := service.channels_hub.channel_for(token)) is not None:
+            return await _as_channel(request, call_next, channel)
         device = await service.device_for_token(token, _ip(request)) if token else None
         if device is None:
             return JSONResponse({"detail": "This device isn't paired."}, status_code=401)
@@ -137,6 +147,13 @@ def require_device(app: FastAPI, service: AssistantService) -> None:
         if request.cookies.get(COOKIE):
             _set_cookie(response, token)  # Kept for as long as the device is in use.
         return response
+
+
+async def _as_channel(request: Request, call_next, channel: str):
+    if not request.url.path.startswith(f"/channels/{channel}/"):
+        return JSONResponse({"detail": "A channel's token reaches only its own channel's routes."}, status_code=403)
+    request.state.channel = channel
+    return await call_next(request)
 
 
 def add_device_routes(app: FastAPI, service: AssistantService, streams: DeviceStreams) -> None:

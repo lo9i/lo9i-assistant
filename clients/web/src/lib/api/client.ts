@@ -6,6 +6,7 @@ import type { Transport } from "./transport";
 import type {
   Alert,
   BusEvent,
+  ChannelStatus,
   ConnectedClient,
   Conversation,
   Decision,
@@ -36,11 +37,8 @@ import type {
   SignedIn,
   Skill,
   SkillSummary,
-  SlackStatus,
-  SlackTokens,
   SpeechStatus,
   StartupStatus,
-  TelegramStatus,
   TokenReport,
   UploadedFile,
   UsageReport,
@@ -111,24 +109,17 @@ export class JobsGroup {
   }
 }
 
-export class TelegramGroup {
+/** The chat channels installed as plugins (Telegram, Slack): what each shows for setting it up, and its buttons. */
+export class ChannelsGroup {
   constructor(private readonly transport: Transport) {}
 
-  status(): Promise<TelegramStatus> {
-    return this.transport.request("GET", "/integrations/telegram");
+  list(): Promise<ChannelStatus[]> {
+    return this.transport.request("GET", "/channels");
   }
 
-  /** Checks and saves the bot token, and opens pairing. Throws ApiError (400) for a bad token. */
-  connect(token: string): Promise<TelegramStatus> {
-    return this.transport.request("POST", "/integrations/telegram", { token });
-  }
-
-  startPairing(): Promise<TelegramStatus> {
-    return this.transport.request("POST", "/integrations/telegram/pairing");
-  }
-
-  async disconnect(): Promise<void> {
-    await this.transport.request("DELETE", "/integrations/telegram");
+  /** Presses a setup button (a SetupItem of kind "action"). Throws ApiError (409) when the channel isn't connected. */
+  async press(name: string, action: string): Promise<void> {
+    await this.transport.request("POST", `/channels/${encodeURIComponent(name)}/actions/${encodeURIComponent(action)}`);
   }
 }
 
@@ -146,29 +137,6 @@ export class WebSearchGroup {
 
   removeBraveKey(): Promise<WebSearchStatus> {
     return this.transport.request("DELETE", "/integrations/web-search/brave-key");
-  }
-}
-
-export class SlackGroup {
-  constructor(private readonly transport: Transport) {}
-
-  status(): Promise<SlackStatus> {
-    return this.transport.request("GET", "/integrations/slack");
-  }
-
-  /** The app manifest to paste in Slack's "Create New App → From a manifest". */
-  async manifest(): Promise<string> {
-    const body: { manifest: string } = await this.transport.request("GET", "/integrations/slack/manifest");
-    return body.manifest;
-  }
-
-  /** Checks the three tokens with Slack and saves them. Throws ApiError (400) for a bad token. */
-  connect(tokens: SlackTokens): Promise<SlackStatus> {
-    return this.transport.request("POST", "/integrations/slack", tokens);
-  }
-
-  async disconnect(): Promise<void> {
-    await this.transport.request("DELETE", "/integrations/slack");
   }
 }
 
@@ -262,7 +230,7 @@ export class EmailGroup {
     return (await this.transport.request<{ addresses: string[] }>("PUT", "/integrations/email/recipients", body)).addresses;
   }
 
-  /** Announce new mail on "telegram" or "slack", or nowhere (""). Throws ApiError (400) when reading isn't set up. */
+  /** Announce new mail on an installed channel (its name), or nowhere (""). Throws ApiError (400) when reading isn't set up. */
   setNewMailAlerts(id: string, channel: string): Promise<EmailAccount> {
     return this.transport.request("PUT", `${this.path(id)}/alerts`, { channel });
   }
@@ -494,8 +462,7 @@ export class DaemonClient {
   readonly files: FilesGroup;
   readonly identity: IdentityGroup;
   readonly jobs: JobsGroup;
-  readonly telegram: TelegramGroup;
-  readonly slack: SlackGroup;
+  readonly channels: ChannelsGroup;
   readonly speech: SpeechGroup;
   readonly webSearch: WebSearchGroup;
   readonly email: EmailGroup;
@@ -517,8 +484,7 @@ export class DaemonClient {
     this.files = new FilesGroup(transport);
     this.identity = new IdentityGroup(transport);
     this.jobs = new JobsGroup(transport);
-    this.telegram = new TelegramGroup(transport);
-    this.slack = new SlackGroup(transport);
+    this.channels = new ChannelsGroup(transport);
     this.speech = new SpeechGroup(transport);
     this.webSearch = new WebSearchGroup(transport);
     this.email = new EmailGroup(transport);

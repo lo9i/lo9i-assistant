@@ -48,6 +48,8 @@ class McpServerStatus:
     plugin: str = ""
     # It comes with a web page, shown in the web app (daemon/pages.py).
     page: bool = False
+    # It's a chat channel (core/channels/), shown in the apps' Channels.
+    channel: bool = False
     # Failed connection attempts and calls in a row (core/health.py), and the last failure.
     failures: int = 0
     failure: str = ""
@@ -126,6 +128,7 @@ class McpMixin(ServiceBase):
         # Same command and settings, new code: both run again.
         await self.mcp.restart(name)
         await self.pages.restart(name)
+        await self.channel_processes.restart(name)
         await self._servers_changed()
         return await self._mcp_status(server)
 
@@ -159,6 +162,7 @@ async def mcp_status(hub: McpHub, server: McpServer) -> McpServerStatus:
         source=server.source,
         plugin=server.name if server.source else "",
         page=bool(server.page_command),
+        channel=bool(server.channel_command),
         failures=health.failures,
         failure=health.error,
         failed_at=health.at,

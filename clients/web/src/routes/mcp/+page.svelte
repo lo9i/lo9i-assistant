@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { resolve } from "$app/paths";
   import { page } from "$app/state";
   import Blocks from "@lucide/svelte/icons/blocks";
   import LogIn from "@lucide/svelte/icons/log-in";
@@ -10,7 +11,7 @@
   import type { McpServerStatus } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { failures } from "$lib/health";
-  import { STATUS_TONES, selectionFor, statusLabel } from "$lib/mcp";
+  import { STATUS_TONES, selectionFor, statusLabel, withTools } from "$lib/mcp";
   import { redirectUri } from "$lib/oauth";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
@@ -22,7 +23,7 @@
   import ToolChecklist from "$lib/ui/mcp/ToolChecklist.svelte";
 
   const { client, notices } = useDaemon();
-  const servers = resource((c) => c.mcp.servers(), ["mcp"]);
+  const servers = resource(async (c) => withTools(await c.mcp.servers()), ["mcp"]);
   // The Alerts page links here with ?s=<server name>.
   let picked = $state<string | null>(page.url.searchParams.get("s"));
   let adding = $state(false);
@@ -162,6 +163,10 @@
           {#if server.source}
             <dt class="micro-label">Installed from</dt>
             <dd>{server.source}</dd>
+          {/if}
+          {#if server.channel}
+            <dt class="micro-label">Channel</dt>
+            <dd>Set it up in <a href={resolve("/settings") + "?tab=integrations"}>Settings → Integrations</a></dd>
           {/if}
         </dl>
         <div class="trust">

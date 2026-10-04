@@ -1,12 +1,12 @@
 """Runs scheduled jobs, and jobs that run on new mail (started by the mail watcher). Supervised
-inside the daemon like a channel adapter.
+inside the daemon like the other background tasks.
 
 Every tick it reloads the jobs (so edits apply without restarts) and starts the due ones. A job's
 next run is moved forward (or a one-time job turned off) before its run starts, so a crash never
 repeats a run. A run that was due while the daemon was down runs once if it's within the grace
 window, otherwise it's recorded as missed.
 
-A run that needs approval waits for the user's answer on Telegram (core/approvals.py), up to
+A run that needs approval waits for the user's answer on a connected chat channel (core/approvals.py), up to
 JOB_APPROVAL_MINUTES; the run's time limit doesn't count the wait. Runs in progress are kept in the
 Store (core/jobs/active.py): on start, a run the daemon stopped while it waited for approval asks
 again and goes on, and one stopped in the middle of anything else is recorded as failed.
@@ -131,8 +131,8 @@ class Scheduler:
         await self._finish(job, run, RunRecord(run.started, status, summary[-_SUMMARY_CHARS:], run.thread_id))
 
     async def _resume(self, job: Job, run: ActiveRun, approvals: list[ApprovalRequired]) -> None:
-        """Ask again for the approvals a run stopped for, once a channel can show them: Telegram
-        connects after the scheduler starts. With none by then, asking finds nobody and the run
+        """Ask again for the approvals a run stopped for, once a channel can show them: channels
+        connect after the scheduler starts. With none by then, asking finds nobody and the run
         goes on rejected, as when nobody answers."""
         await self._service.approvals.wait_available(settings.job_approval_minutes * 60)
         await self._execute(job, run, _replay(approvals))
@@ -163,7 +163,7 @@ class Scheduler:
         if decision is not None:
             return decision
         outcome.status = "needs attention"
-        return {"approved": False, "reason": f"nobody answered on Telegram within {minutes} minutes"}
+        return {"approved": False, "reason": f"nobody answered on a chat channel within {minutes} minutes"}
 
     async def _finish(self, job: Job, run: ActiveRun, record: RunRecord) -> None:
         await self._record(job, record)

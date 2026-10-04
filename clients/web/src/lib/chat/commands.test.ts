@@ -4,7 +4,7 @@ import { known, offered, parse } from "./commands";
 describe("commands", () => {
   it("offers commands while the name is typed", () => {
     expect(offered("/").length).toBeGreaterThan(10);
-    expect(offered("/s").map((c) => c.name)).toEqual(["/sessions", "/settings", "/skills", "/slack", "/startup"]);
+    expect(offered("/s").map((c) => c.name)).toEqual(["/sessions", "/settings", "/skills", "/startup"]);
     expect(offered("/name Max")).toEqual([]);
     expect(offered("hello")).toEqual([]);
   });

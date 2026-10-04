@@ -4,7 +4,7 @@
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { resource, useDaemon } from "$lib/daemon.svelte";
-  import { type Plugin, describe, keyOf, kindOf, pluginsOf, updatable, versionOf } from "$lib/plugins";
+  import { type Plugin, describe, keyOf, kindOf, pluginsOf, runsOf, updatable, versionOf } from "$lib/plugins";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import SearchField from "$lib/ui/SearchField.svelte";
@@ -75,7 +75,7 @@
     <header class="toolbar">
       <div>
         <h2 class="text-heading">Plugins</h2>
-        <p class="text-meta">MCP servers and skills from the assistant's extras. Click one to see it on the right.</p>
+        <p class="text-meta">MCP servers, chat channels and skills from the assistant's extras. Click one to see it on the right.</p>
       </div>
       <div class="tools">
         <SearchField bind:value={query} label="Search plugins" />
@@ -132,7 +132,7 @@
           <dd>{versionOf(plugin)}</dd>
           {#if plugin.kind === "server"}
             <dt class="micro-label">Runs</dt>
-            <dd>{plugin.server.transport === "stdio" ? "On this computer" : "Remotely"}</dd>
+            <dd>{runsOf(plugin.server)}</dd>
             {#if plugin.server.fields.length}
               <dt class="micro-label">Asks for</dt>
               <dd>{plugin.server.fields.map((f) => f.label).join(", ")}</dd>

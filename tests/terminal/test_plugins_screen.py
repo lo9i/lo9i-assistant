@@ -1,10 +1,13 @@
+from dataclasses import replace
+
 from textual.widgets import Button, Input, Markdown, OptionList
 
-from assistant.core.agent import PluginUpdate
+from assistant.core.agent import FoundServer, PluginUpdate, ServerField
 from assistant.core.repositories.known import EXTRAS
+from assistant_terminal.plugins_text import Plugin, describe
 from assistant_terminal.tui.screens import PluginsScreen
 from assistant_terminal.tui.screens.confirm import ConfirmWithOptionScreen
-from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
+from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen, _field_input
 from tests.terminal.conftest import wait_for
 
 
@@ -88,3 +91,19 @@ def _messages(app) -> list[str]:
 
 def _told(app) -> int:
     return sum("Plugin update" in m for m in _messages(app))
+
+
+def test_a_channel_plugin_is_labelled_as_a_channel():
+    telegram = FoundServer("telegram", "Chat on Telegram", "channel", [], True, channel=True)
+    slack = FoundServer("slack", "Slack", "stdio", [], True, skill=True, channel=True)
+    assert Plugin("telegram", False, server=telegram).kind == "Channel"
+    assert Plugin("slack", False, server=slack).kind == "MCP server · channel · skill"
+    assert "Runs: on this computer" in describe(Plugin("telegram", False, server=telegram))
+
+
+def test_a_value_the_daemon_already_has_may_be_left_empty():
+    token = ServerField("BOT_TOKEN", "Bot token", secret=True)
+    telegram = FoundServer("telegram", "Chat on Telegram", "channel", [token], True, known_fields=["BOT_TOKEN"])
+    assert "leave empty to keep the one you set before" in str(_field_input(telegram, token).placeholder)
+    asked = replace(telegram, known_fields=[])
+    assert "leave empty" not in str(_field_input(asked, token).placeholder)

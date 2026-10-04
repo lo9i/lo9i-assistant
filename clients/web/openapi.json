@@ -691,35 +691,136 @@
         }
       }
     },
-    "/integrations/telegram": {
+    "/channels": {
       "get": {
-        "summary": "Telegram Status",
-        "operationId": "telegram_status_integrations_telegram_get",
+        "summary": "Channels",
+        "operationId": "channels_channels_get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TelegramStatus"
+                  "items": {
+                    "$ref": "#/components/schemas/ChannelStatus"
+                  },
+                  "type": "array",
+                  "title": "Response Channels Channels Get"
                 }
               }
             }
           }
         }
-      },
+      }
+    },
+    "/channels/{name}/actions/{action}": {
       "post": {
-        "summary": "Connect Telegram",
-        "operationId": "connect_telegram_integrations_telegram_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TelegramToken"
+        "summary": "Press Channel Action",
+        "description": "409: the channel isn't connected.",
+        "operationId": "press_channel_action_channels__name__actions__action__post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Action"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
               }
             }
           },
-          "required": true
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/channels/{name}/stream": {
+      "get": {
+        "summary": "Channel Stream",
+        "operationId": "channel_stream_channels__name__stream_get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/event-stream": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/channels/{name}/status": {
+      "put": {
+        "summary": "Channel Status",
+        "operationId": "channel_status_channels__name__status_put",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelItems"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -727,7 +828,308 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TelegramStatus"
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/channels/{name}/deliveries/{delivery_id}": {
+      "post": {
+        "summary": "Channel Delivered",
+        "operationId": "channel_delivered_channels__name__deliveries__delivery_id__post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "delivery_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Delivery Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryResult"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/channels/{name}/job-approvals/{interrupt_id}": {
+      "post": {
+        "summary": "Answer Job Approval",
+        "operationId": "answer_job_approval_channels__name__job_approvals__interrupt_id__post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "interrupt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Interrupt Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobDecision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StillWaiting"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/channels/{name}/speech": {
+      "post": {
+        "summary": "Channel Speech",
+        "description": "The reply as an OGG Opus voice note when Settings \u2192 Audio speaks it, else 204.",
+        "operationId": "channel_speech_channels__name__speech_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelSpeech"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "audio/ogg": {}
+            }
+          },
+          "204": {
+            "description": "Not spoken"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/channels/{name}/conversation": {
+      "post": {
+        "summary": "New Channel Conversation",
+        "operationId": "new_channel_conversation_channels__name__conversation_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/channels/{name}/messages": {
+      "post": {
+        "summary": "Channel Message",
+        "operationId": "channel_message_channels__name__messages_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_channel_message_channels__name__messages_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunStarted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/channels/{name}/approvals": {
+      "post": {
+        "summary": "Channel Approvals",
+        "operationId": "channel_approvals_channels__name__approvals_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelDecisions"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunStarted"
                 }
               }
             }
@@ -744,78 +1146,31 @@
           }
         }
       },
-      "delete": {
-        "summary": "Disconnect Telegram",
-        "operationId": "disconnect_telegram_integrations_telegram_delete",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Ok"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/integrations/telegram/pairing": {
-      "post": {
-        "summary": "Telegram Pairing",
-        "operationId": "telegram_pairing_integrations_telegram_pairing_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TelegramStatus"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/integrations/slack": {
       "get": {
-        "summary": "Slack Status",
-        "operationId": "slack_status_integrations_slack_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SlackStatus"
-                }
-              }
+        "summary": "Channel Waiting",
+        "operationId": "channel_waiting_channels__name__approvals_get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
             }
           }
-        }
-      },
-      "post": {
-        "summary": "Connect Slack",
-        "operationId": "connect_slack_integrations_slack_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SlackTokens"
-              }
-            }
-          },
-          "required": true
-        },
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SlackStatus"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WaitingApproval"
+                  },
+                  "title": "Response Channel Waiting Channels  Name  Approvals Get"
                 }
               }
             }
@@ -831,35 +1186,55 @@
             }
           }
         }
-      },
-      "delete": {
-        "summary": "Disconnect Slack",
-        "operationId": "disconnect_slack_integrations_slack_delete",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Ok"
-                }
-              }
-            }
-          }
-        }
       }
     },
-    "/integrations/slack/manifest": {
+    "/channels/{name}/runs/{run_id}/events": {
       "get": {
-        "summary": "Slack Manifest",
-        "operationId": "slack_manifest_integrations_slack_manifest_get",
+        "summary": "Channel Run Events",
+        "operationId": "channel_run_events_channels__name__runs__run_id__events_get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "After"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
+              "text/event-stream": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SlackManifest"
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -2677,6 +3052,32 @@
         ],
         "title": "AssistantName"
       },
+      "Body_channel_message_channels__name__messages_post": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "title": "Body_channel_message_channels__name__messages_post"
+      },
       "Body_send_threads__thread_id__messages_post": {
         "properties": {
           "channel": {
@@ -2735,6 +3136,88 @@
           "cancelled"
         ],
         "title": "CancelResult"
+      },
+      "ChannelDecisions": {
+        "properties": {
+          "decisions": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Decisions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decisions"
+        ],
+        "title": "ChannelDecisions"
+      },
+      "ChannelItems": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SetupItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "ChannelItems"
+      },
+      "ChannelSpeech": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "after_voice_message": {
+            "type": "boolean",
+            "title": "After Voice Message",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "ChannelSpeech"
+      },
+      "ChannelStatus": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "connected": {
+            "type": "boolean",
+            "title": "Connected"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SetupItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "enabled",
+          "connected",
+          "items"
+        ],
+        "title": "ChannelStatus"
       },
       "ConnectedClient": {
         "properties": {
@@ -2819,6 +3302,17 @@
           "updated_at"
         ],
         "title": "Conversation"
+      },
+      "DeliveryResult": {
+        "properties": {
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "DeliveryResult"
       },
       "Device": {
         "properties": {
@@ -3139,6 +3633,18 @@
             "title": "Page",
             "default": false
           },
+          "channel": {
+            "type": "boolean",
+            "title": "Channel",
+            "default": false
+          },
+          "known_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Known Fields"
+          },
           "installed": {
             "type": "boolean",
             "title": "Installed",
@@ -3317,6 +3823,24 @@
           "enabled"
         ],
         "title": "JobChange"
+      },
+      "JobDecision": {
+        "properties": {
+          "approved": {
+            "type": "boolean",
+            "title": "Approved"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "approved"
+        ],
+        "title": "JobDecision"
       },
       "LanguageOption": {
         "properties": {
@@ -3635,6 +4159,11 @@
           "page": {
             "type": "boolean",
             "title": "Page",
+            "default": false
+          },
+          "channel": {
+            "type": "boolean",
+            "title": "Channel",
             "default": false
           },
           "failures": {
@@ -4247,6 +4776,36 @@
         ],
         "title": "ServerValuesBody"
       },
+      "SetupItem": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text",
+              "code",
+              "copy",
+              "action"
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "label"
+        ],
+        "title": "SetupItem",
+        "description": "A line the apps show for a channel: text, a code to read out, a value to copy, or a button\n(`value` is the action it sends back)."
+      },
       "ShownMessage": {
         "properties": {
           "role": {
@@ -4465,71 +5024,6 @@
         ],
         "title": "SkillSummary"
       },
-      "SlackManifest": {
-        "properties": {
-          "manifest": {
-            "type": "string",
-            "title": "Manifest"
-          }
-        },
-        "type": "object",
-        "required": [
-          "manifest"
-        ],
-        "title": "SlackManifest"
-      },
-      "SlackStatus": {
-        "properties": {
-          "connected": {
-            "type": "boolean",
-            "title": "Connected"
-          },
-          "running": {
-            "type": "boolean",
-            "title": "Running"
-          },
-          "team": {
-            "type": "string",
-            "title": "Team"
-          },
-          "owner_name": {
-            "type": "string",
-            "title": "Owner Name"
-          }
-        },
-        "type": "object",
-        "required": [
-          "connected",
-          "running",
-          "team",
-          "owner_name"
-        ],
-        "title": "SlackStatus",
-        "description": "What a setup screen shows. Never includes the tokens."
-      },
-      "SlackTokens": {
-        "properties": {
-          "app_token": {
-            "type": "string",
-            "title": "App Token"
-          },
-          "bot_token": {
-            "type": "string",
-            "title": "Bot Token"
-          },
-          "user_token": {
-            "type": "string",
-            "title": "User Token"
-          }
-        },
-        "type": "object",
-        "required": [
-          "app_token",
-          "bot_token",
-          "user_token"
-        ],
-        "title": "SlackTokens"
-      },
       "SpeakRequest": {
         "properties": {
           "text": {
@@ -4711,60 +5205,18 @@
         "title": "StartupStatus",
         "description": "Whether the daemon starts at boot, and whether this daemon was started that way."
       },
-      "TelegramStatus": {
+      "StillWaiting": {
         "properties": {
-          "connected": {
+          "waiting": {
             "type": "boolean",
-            "title": "Connected"
-          },
-          "bot_running": {
-            "type": "boolean",
-            "title": "Bot Running"
-          },
-          "bot_username": {
-            "type": "string",
-            "title": "Bot Username"
-          },
-          "paired_users": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Paired Users"
-          },
-          "pairing_code": {
-            "type": "string",
-            "title": "Pairing Code"
-          },
-          "pairing_expires": {
-            "type": "string",
-            "title": "Pairing Expires"
+            "title": "Waiting"
           }
         },
         "type": "object",
         "required": [
-          "connected",
-          "bot_running",
-          "bot_username",
-          "paired_users",
-          "pairing_code",
-          "pairing_expires"
+          "waiting"
         ],
-        "title": "TelegramStatus",
-        "description": "What a setup screen shows. Never includes the token."
-      },
-      "TelegramToken": {
-        "properties": {
-          "token": {
-            "type": "string",
-            "title": "Token"
-          }
-        },
-        "type": "object",
-        "required": [
-          "token"
-        ],
-        "title": "TelegramToken"
+        "title": "StillWaiting"
       },
       "ThreadCreated": {
         "properties": {
@@ -5084,6 +5536,25 @@
           "language"
         ],
         "title": "VoiceOption"
+      },
+      "WaitingApproval": {
+        "properties": {
+          "interrupt_id": {
+            "type": "string",
+            "title": "Interrupt Id"
+          },
+          "request": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Request"
+          }
+        },
+        "type": "object",
+        "required": [
+          "interrupt_id",
+          "request"
+        ],
+        "title": "WaitingApproval"
       },
       "WebSearchStatus": {
         "properties": {

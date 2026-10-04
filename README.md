@@ -1,6 +1,6 @@
 # lo9i assistant
 
-A personal AI assistant built on LangGraph. A daemon owns all state and runs the agent. You reach it from a terminal app, a web app, Telegram and Slack, and one conversation continues across them.
+A personal AI assistant built on LangGraph. A daemon owns all state and runs the agent. You reach it from a terminal app, a web app, and chat channels installed as plugins (Telegram, Slack), and one conversation continues across them.
 
 It remembers you (a profile, facts and past episodes), runs shell commands, searches and reads the web, sends and reads email, runs scheduled jobs, and uses tools from MCP servers. Risky actions ask for your approval first.
 
@@ -46,8 +46,7 @@ Everything else is set up from inside the app, not in `.env`. Secrets are typed 
 | What | Terminal app | Web app |
 |---|---|---|
 | The model (provider, key, models) | `/model` | Settings → General |
-| Telegram | `/telegram` | Settings → Integrations |
-| Slack | `/slack` | Settings → Integrations |
+| Telegram, Slack (install the plugin first: `/plugins`, or Plugins in the web app) | `/channels` | Settings → Channels |
 | Email (send and read, new-mail alerts) | `/email` | Settings → Integrations |
 | MCP servers | `/mcp` | MCP servers |
 | Start at boot | `/startup` | Settings → General |

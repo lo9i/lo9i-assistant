@@ -17,8 +17,8 @@ from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 _INTRO = """## Install a plugin
 
-MCP servers and skills from the assistant's extras. What you install runs on the computer running
-the assistant."""
+MCP servers, chat channels and skills from the assistant's extras. What you install runs on the
+computer running the assistant."""
 
 _SKILL, _SERVER = "skill:", "server:"
 
@@ -70,8 +70,12 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
 
         return RepositoryContents(
             [s for s in contents.skills if offered("skill", s.name, s.installed)],
-            [s for s in contents.servers if offered("server", s.name, s.installed)],
+            [s for s in contents.servers if offered("server", s.name, s.installed) and self._offers_server(s)],
         )
+
+    def _offers_server(self, server: FoundServer) -> bool:
+        """/mcp lists servers with tools: a plugin that's only a chat channel is installed from /plugins."""
+        return not (self._kind == "server" and server.transport == "channel")
 
     @on(SelectionList.SelectedChanged, "#repository-found")
     def _selection_changed(self) -> None:
@@ -125,8 +129,13 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
         await self.query_one("#repository-message", Markdown).update(text)
 
 
+# For a field the daemon already has a value for, from before channels were plugins.
+_KNOWN_HINT = "leave empty to keep the one you set before"
+
+
 def _field_input(server: FoundServer, field: ServerField) -> Input:
-    hint = f" ({field.help})" if field.help else ""
+    hints = [*([field.help] if field.help else []), *([_KNOWN_HINT] if field.key in server.known_fields else [])]
+    hint = f" ({'; '.join(hints)})" if hints else ""
     return Input(placeholder=f"{server.name}: {field.label}{hint}", password=field.secret)
 
 
@@ -136,6 +145,9 @@ def _skill_label(skill: FoundSkill) -> str:
 
 
 def _server_label(server: FoundServer) -> str:
-    extras = ["local" if server.transport == "stdio" else "remote"]
-    extras += [e for e, has in (("with its skill", server.skill), ("with a web page", server.page)) if has]
+    if server.transport == "channel":
+        return f"Channel {server.name}: {server.description}"
+    extras = ["remote" if server.transport == "http" else "local"]
+    pairs = (("a chat channel", server.channel), ("with its skill", server.skill), ("with a web page", server.page))
+    extras += [e for e, has in pairs if has]
     return f"MCP server {server.name} ({', '.join(extras)}): {server.description}"

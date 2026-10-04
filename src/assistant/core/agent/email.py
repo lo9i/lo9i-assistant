@@ -5,7 +5,7 @@ the daemon."""
 from dataclasses import dataclass
 
 from assistant.core import accounts as core_accounts
-from assistant.core.agent.base import ServiceBase
+from assistant.core.agent.channels import ChannelsMixin
 from assistant.core.integrations.email import accounts, imap, oauth, recipients, smtp
 from assistant.core.integrations.email.accounts import EmailConfig, EmailError
 from assistant.core.integrations.email.providers import PROVIDERS, EmailProvider
@@ -35,18 +35,17 @@ class EmailAccount:
     # Reading mail: empty when only sending is set up.
     imap_host: str
     imap_port: int
-    # telegram, slack, or "" (no announcements).
+    # A chat channel (core/agent/channels.py), or "" (no announcements).
     new_mail_alerts: str
     # "password", or "oauth" (signed in with `oauth_provider`: google, microsoft).
     auth: str = "password"
     oauth_provider: str = ""
 
 
-_ALERT_CHANNELS = ["", "telegram", "slack"]
 _LABEL_CHARS = 60
 
 
-class EmailMixin(ServiceBase):
+class EmailMixin(ChannelsMixin):
     def email_providers(self) -> list[EmailProvider]:
         """Providers clients offer to pick from, in display order."""
         return list(PROVIDERS)
@@ -166,10 +165,13 @@ class EmailMixin(ServiceBase):
         return _account(await self._email(account_id))
 
     async def set_new_mail_alerts(self, account_id: str, channel: str) -> EmailAccount:
-        """Announce the account's new mail on `channel` (telegram or slack), or nowhere (""). Raises EmailError."""
+        """Announce the account's new mail on an installed chat channel, or nowhere (""). Raises EmailError."""
         config = await self._email(account_id)
-        if channel not in _ALERT_CHANNELS:
-            raise EmailError(f"New mail can be announced on {' or '.join(_ALERT_CHANNELS[1:])}, not {channel}.")
+        installed = await self.channel_names()
+        if channel and channel not in installed:
+            raise EmailError(
+                f"New mail can be announced on {' or '.join(installed) or 'an installed chat channel'}, not {channel}."
+            )
         if channel and not config.can_read:
             raise EmailError("Set up reading mail first: connect the account again with its IMAP server.")
         config.new_mail_alerts = channel

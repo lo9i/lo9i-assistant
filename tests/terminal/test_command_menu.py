@@ -16,8 +16,8 @@ async def test_menu_filters_moves_and_completes(app):
         await pilot.press("down", "down", "tab")
         assert prompt.value == "/conversations"
         prompt.value = ""
-        await pilot.press("/", "t")
-        assert [c.name for c in menu._matches] == ["/telegram"]
+        await pilot.press("/", "c", "h")
+        assert [c.name for c in menu._matches] == ["/channels"]
         prompt.value = "hello"
         await pilot.pause()
         assert not menu.open

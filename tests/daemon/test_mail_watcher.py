@@ -10,6 +10,8 @@ from assistant.core.integrations.email import imap, smtp
 from assistant.core.integrations.email.imap import MailSummary
 from assistant.core.jobs import store
 from assistant.core.jobs.store import Job
+from assistant.core.mcp import servers
+from assistant.core.mcp.servers import McpServer
 from assistant.daemon import mail_watcher
 from assistant.daemon.mail_watcher import MailWatcher
 from tests.conftest import collect
@@ -72,6 +74,8 @@ async def mailbox(service, monkeypatch):
 
     monkeypatch.setattr(imap, "open_mailbox", open_mailbox)
     monkeypatch.setattr(imap, "verify", verify)
+    # New mail is announced on a chat channel, so one is installed.
+    await servers.save(service.store, McpServer("telegram", channel_command="uv"))
     monkeypatch.setattr(smtp, "verify", verify)
     box.account = (await service.add_email_account("", "smtp.test", 587, "me", "pw", "me@test.com", "imap.test")).id
     return box

@@ -32,7 +32,9 @@ class PluginsScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="plugins"):
-            yield Static("Plugins: MCP servers and skills from the assistant's extras", id="plugins-title")
+            yield Static(
+                "Plugins: MCP servers, chat channels and skills from the assistant's extras", id="plugins-title"
+            )
             yield Input(placeholder="Search plugins", id="plugins-search")
             with Horizontal(id="plugins-main"):
                 yield OptionList(id="plugins-list")

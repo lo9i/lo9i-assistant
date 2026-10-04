@@ -24,11 +24,14 @@ async def _send(service, script, **args) -> str:
 async def test_sends_through_the_registered_channel(service, script):
     sender = _Sender()
     service.outbox.register("telegram", sender)
-    assert await _send(service, script, text="Stretch!") == "Sent on telegram."
+    assert await _send(service, script, text="Stretch!", channel="telegram") == "Sent on telegram."
     assert sender.sent == ["Stretch!"]
 
 
 async def test_reports_channels_that_cant_deliver(service, script):
-    assert await _send(service, script, text="hi") == "Can't send on telegram right now (available: none)."
+    assert (
+        await _send(service, script, text="hi", channel="telegram")
+        == "Can't send on telegram right now (available: none)."
+    )
     service.outbox.register("telegram", _Sender("No Telegram account is paired yet."))
-    assert await _send(service, script, text="hi") == "No Telegram account is paired yet."
+    assert await _send(service, script, text="hi", channel="telegram") == "No Telegram account is paired yet."

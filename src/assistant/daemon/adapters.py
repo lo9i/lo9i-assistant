@@ -1,6 +1,7 @@
-"""Channel adapters (Telegram, and later others) run inside the daemon as supervised tasks.
+"""The daemon's background tasks (scheduler, mail watcher, MCP connections, channels) run as
+supervised tasks.
 
-An adapter that crashes is logged and restarted after a pause, without affecting the rest.
+A task that crashes is logged and restarted after a pause, without affecting the rest.
 """
 
 import asyncio
@@ -26,6 +27,6 @@ async def supervise(adapter: Adapter, stop: asyncio.Event) -> None:
         try:
             await adapter.run(stop)
         except Exception:
-            logger.exception("Adapter %s crashed; restarting in %ss", adapter.name, _RESTART_SECONDS)
+            logger.exception("%s crashed; restarting in %ss", adapter.name, _RESTART_SECONDS)
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(stop.wait(), timeout=_RESTART_SECONDS)

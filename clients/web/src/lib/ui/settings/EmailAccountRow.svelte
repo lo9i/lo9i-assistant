@@ -2,18 +2,15 @@
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Mail from "@lucide/svelte/icons/mail";
   import type { EmailAccount } from "$lib/api/types";
+  import { alertOptions } from "$lib/channels";
   import { useDaemon } from "$lib/daemon.svelte";
   import { describe } from "$lib/notices";
   import Confirm from "../Confirm.svelte";
   import EmailAccountForm from "./EmailAccountForm.svelte";
 
-  const ALERTS = [
-    { value: "", label: "Don't announce" },
-    { value: "telegram", label: "Telegram" },
-    { value: "slack", label: "Slack" },
-  ];
-
-  let { account, open = false }: { account: EmailAccount; open?: boolean } = $props();
+  // `channels`: the installed chat channels, where new mail can be announced.
+  let { account, channels, open = false }: { account: EmailAccount; channels: string[]; open?: boolean } = $props();
+  const alerts = $derived(alertOptions(channels, account.new_mail_alerts));
 
   const { client } = useDaemon();
   // svelte-ignore state_referenced_locally
@@ -87,7 +84,7 @@
               aria-label="New mail alerts for {account.label}"
               onchange={(e) => act(() => client.email.setNewMailAlerts(account.id, e.currentTarget.value), "Saved.")}
             >
-              {#each ALERTS as a (a.value)}
+              {#each alerts as a (a.value)}
                 <option value={a.value}>{a.label}</option>
               {/each}
             </select>

@@ -106,7 +106,7 @@ async def test_unknown_or_turned_off_pages_are_not_found(pages):
 
 
 async def test_a_page_that_exits_is_started_again(pages, monkeypatch):
-    monkeypatch.setattr("assistant.core.mcp.pages._FIRST_RETRY_SECONDS", 0.1)
+    monkeypatch.setattr("assistant.core.mcp.process._FIRST_RETRY_SECONDS", 0.1)
     socket = folders.page_socket("notes")
     async with _http(pages, await _paired(pages)) as http:
         await http.get("/notes/quit")

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from langgraph.store.base import BaseStore
 
+from assistant.core.channels import legacy
 from assistant.core.mcp import install as server_install
 from assistant.core.mcp import servers
 from assistant.core.mcp.install import FoundServer, ServerValues
@@ -46,14 +47,15 @@ async def kept(store: BaseStore, url: str) -> RepositoryContents | None:
 
 async def _with_state(store: BaseStore, url: str, listing: Listing) -> RepositoryContents:
     installed = {s.name for s in await servers.load_all(store) if s.source == url}
-    found = [await _with_server_state(s, s.name in installed) for s in listing.servers]
+    found = [await _with_server_state(store, s, s.name in installed) for s in listing.servers]
     skills = [await _with_skill_state(s, url) for s in listing.skills]
     return RepositoryContents(skills, found)
 
 
-async def _with_server_state(server: FoundServer, installed: bool) -> FoundServer:
+async def _with_server_state(store: BaseStore, server: FoundServer, installed: bool) -> FoundServer:
     version = await asyncio.to_thread(server_install.installed_version, server.name) if installed else ""
-    return replace(server, installed=installed, installed_version=version)
+    known = await legacy.known_fields(store, server.name)
+    return replace(server, installed=installed, installed_version=version, known_fields=known)
 
 
 async def _with_skill_state(skill: FoundSkill, url: str) -> FoundSkill:
@@ -92,6 +94,7 @@ async def install(store: BaseStore, url: str, skills: list[str], wanted: list[Se
     """Raises RepositoryError, SkillError or McpServerError, saying what's wrong."""
     if not skills and not wanted:
         raise RepositoryError("Pick at least one skill or MCP server to install.")
+    wanted = [await legacy.fill(store, w) for w in wanted]
     async with git.checkout(url) as (root, commit):
         found_skills, found_servers = await asyncio.to_thread(_find, root, url)
         await asyncio.to_thread(skill_install.check, skills, found_skills, url)
@@ -100,6 +103,7 @@ async def install(store: BaseStore, url: str, skills: list[str], wanted: list[Se
         new = [await server_install.install(found_servers[w.name], w.values, url, commit) for w in wanted]
     for server in new:
         await servers.save(store, server)
+        await legacy.hand_over(store, server.name)
     return Installed(installed, new)
 
 
