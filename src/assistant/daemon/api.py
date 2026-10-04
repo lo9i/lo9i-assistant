@@ -55,6 +55,7 @@ from assistant.core.agent import (
     SpokenReplies,
     SynthesisError,
     TokenReport,
+    UploadedFile,
     UsageReport,
     WebSearchStatus,
 )
@@ -314,6 +315,7 @@ def create_app(service: AssistantService, hub: RunHub, startup: Any = None, web_
     _add_session_routes(app, service, clients)
     _add_run_routes(app, service, hub, clients, streams)
     _add_conversation_routes(app, service, clients)
+    _add_file_routes(app, service)
     _add_channel_routes(app, service)
     _add_channel_plugin_routes(app, service)
     _add_channel_run_routes(app, service, hub)
@@ -491,6 +493,13 @@ def _refuse_if_open(clients: ClientRegistry, thread_id: str, caller: str) -> Non
         raise HTTPException(409, "You're on this conversation. Start a new one first, then delete it.")
     if on_it:
         raise HTTPException(409, "It's open in another window or app. Move that one to another conversation first.")
+
+
+def _add_file_routes(app: FastAPI, service: AssistantService) -> None:
+    @app.get("/files")
+    async def file_list() -> list[UploadedFile]:
+        """The files the user sent in their conversations, newest first."""
+        return await service.list_files(settings.owner_id)
 
 
 def _add_web_search_routes(app: FastAPI, service: AssistantService) -> None:
@@ -742,9 +751,14 @@ def _add_email_routes(app: FastAPI, service: AssistantService) -> None:
     async def new_mail_alerts(account_id: str, body: NewMailAlerts) -> EmailAccount:
         return await _email(service.set_new_mail_alerts(account_id, body.channel))
 
-    @app.put("/integrations/email/accounts/{account_id}/recipients")
-    async def email_recipients(account_id: str, body: EmailRecipients) -> EmailAccount:
-        return await _email(service.set_email_recipients(account_id, body.addresses))
+    @app.get("/integrations/email/recipients")
+    async def email_recipients() -> EmailRecipients:
+        """Who the agent may email without asking, from any account, besides the user's own accounts."""
+        return EmailRecipients(addresses=await service.email_recipients())
+
+    @app.put("/integrations/email/recipients")
+    async def set_email_recipients(body: EmailRecipients) -> EmailRecipients:
+        return EmailRecipients(addresses=await service.set_email_recipients(body.addresses))
 
     @app.delete("/integrations/email/accounts/{account_id}")
     async def remove_email_account(account_id: str) -> Ok:

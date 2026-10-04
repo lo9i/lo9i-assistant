@@ -1,18 +1,36 @@
 <script lang="ts">
   import Mail from "@lucide/svelte/icons/mail";
   import Plus from "@lucide/svelte/icons/plus";
-  import { resource } from "$lib/daemon.svelte";
+  import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { describe } from "$lib/notices";
   import SettingsCard from "../Card.svelte";
   import EmptyState from "../EmptyState.svelte";
   import EmailAccountForm from "./EmailAccountForm.svelte";
   import EmailAccountRow from "./EmailAccountRow.svelte";
 
+  const { client } = useDaemon();
   const accounts = resource((c) => c.email.accounts(), ["integrations"]);
   // Where new mail can be announced.
   const channels = resource((c) => c.channels.list(), ["channels"]);
   const channelNames = $derived((channels.data ?? []).map((c) => c.name));
+  const allowed = resource((c) => c.email.recipients(), ["integrations"]);
   let adding = $state(false);
   let added = $state<string | null>(null);
+  let recipients = $state("");
+  let saved = $state("");
+
+  $effect(() => {
+    recipients = allowed.data?.join(", ") ?? "";
+  });
+
+  async function saveRecipients(): Promise<void> {
+    try {
+      await client.email.setRecipients(recipients.split(","));
+      saved = "Saved.";
+    } catch (e) {
+      saved = describe(e);
+    }
+  }
 </script>
 
 <SettingsCard
@@ -34,6 +52,14 @@
           <EmailAccountRow {account} channels={channelNames} open={account.id === added} />
         {/each}
       </div>
+      <label class="fields">
+        <span class="text-label">Sends without asking, from any account, to your accounts and:</span>
+        <div class="row">
+          <input class="input" bind:value={recipients} placeholder="Addresses, comma-separated" aria-label="Allowed recipients" />
+          <button class="btn btn--neutral" onclick={saveRecipients}>Save</button>
+        </div>
+        {#if saved}<span class="text-meta">{saved}</span>{/if}
+      </label>
     {:else if !adding}
       <EmptyState icon={Mail} title="No email account yet" text="Connect one so the assistant can send and read mail for you." />
     {/if}
@@ -59,6 +85,16 @@
   .list {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
+  }
+  .fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
   }
   .add {
     display: flex;

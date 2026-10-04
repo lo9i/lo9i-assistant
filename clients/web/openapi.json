@@ -668,6 +668,29 @@
         }
       }
     },
+    "/files": {
+      "get": {
+        "summary": "File List",
+        "description": "The files the user sent in their conversations, newest first.",
+        "operationId": "file_list_files_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UploadedFile"
+                  },
+                  "type": "array",
+                  "title": "Response File List Files Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/channels": {
       "get": {
         "summary": "Channels",
@@ -1636,30 +1659,36 @@
         }
       }
     },
-    "/integrations/email/accounts/{account_id}/recipients": {
-      "put": {
+    "/integrations/email/recipients": {
+      "get": {
         "summary": "Email Recipients",
-        "operationId": "email_recipients_integrations_email_accounts__account_id__recipients_put",
-        "parameters": [
-          {
-            "name": "account_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Account Id"
+        "description": "Who the agent may email without asking, from any account, besides the user's own accounts.",
+        "operationId": "email_recipients_integrations_email_recipients_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailRecipients"
+                }
+              }
             }
           }
-        ],
+        }
+      },
+      "put": {
+        "summary": "Set Email Recipients",
+        "operationId": "set_email_recipients_integrations_email_recipients_put",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/EmailRecipients"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -1667,7 +1696,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EmailAccount"
+                  "$ref": "#/components/schemas/EmailRecipients"
                 }
               }
             }
@@ -3356,13 +3385,6 @@
             "type": "string",
             "title": "Sender"
           },
-          "allowed_recipients": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Allowed Recipients"
-          },
           "imap_host": {
             "type": "string",
             "title": "Imap Host"
@@ -3397,7 +3419,6 @@
           "port",
           "username",
           "sender",
-          "allowed_recipients",
           "imap_host",
           "imap_port",
           "new_mail_alerts"
@@ -5380,6 +5401,49 @@
           "last_used"
         ],
         "title": "ToolUsage"
+      },
+      "UploadedFile": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "media_type": {
+            "type": "string",
+            "title": "Media Type"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "uploaded_at": {
+            "type": "string",
+            "title": "Uploaded At"
+          },
+          "thread_id": {
+            "type": "string",
+            "title": "Thread Id"
+          },
+          "conversation": {
+            "type": "string",
+            "title": "Conversation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "name",
+          "media_type",
+          "size",
+          "uploaded_at",
+          "thread_id",
+          "conversation"
+        ],
+        "title": "UploadedFile"
       },
       "UsageReport": {
         "properties": {

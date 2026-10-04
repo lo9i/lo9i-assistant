@@ -382,7 +382,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     align: center middle;
 }
 
-#skills, #jobs, #conversations, #devices, #usage, #sessions, #mcp, #plugins {
+#skills, #jobs, #conversations, #devices, #files, #usage, #sessions, #mcp, #plugins {
     width: 90%;
     max-width: 120;
     height: 80%;
@@ -391,12 +391,12 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     background: $dialog-background;
 }
 
-#skills Markdown, #jobs Markdown, #conversations Markdown, #devices Markdown, #usage Markdown, #sessions Markdown, #mcp Markdown, #plugins Markdown {
+#skills Markdown, #jobs Markdown, #conversations Markdown, #devices Markdown, #files Markdown, #usage Markdown, #sessions Markdown, #mcp Markdown, #plugins Markdown {
     background: transparent;
     margin: 0;
 }
 
-#skills-title, #jobs-title, #conversations-title, #devices-title, #mcp-title, #plugins-title {
+#skills-title, #jobs-title, #conversations-title, #devices-title, #files-title, #mcp-title, #plugins-title {
     height: auto;
     text-style: bold;
     margin-bottom: 1;
@@ -419,7 +419,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     display: block;
 }
 
-#skills-main, #jobs-main, #conversations-main, #devices-main, #mcp-main, #usage-scroll, #plugins-main {
+#skills-main, #jobs-main, #conversations-main, #devices-main, #files-main, #mcp-main, #usage-scroll, #plugins-main {
     height: 1fr;
 }
 
@@ -433,7 +433,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     height: auto;
 }
 
-#skills-list, #jobs-list, #conversations-list, #devices-list, #plugins-list {
+#skills-list, #jobs-list, #conversations-list, #devices-list, #files-list, #plugins-list {
     width: 36;
     border: round ansi_bright_black;
     background: transparent;
@@ -441,7 +441,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
 
 /* Lists of short labels (dates, job and skill names) have no frame; a divider sets them apart from the
    detail next to them. */
-#conversations-list, #jobs-list, #devices-list, #skills-list, #mcp-list, #plugins-list {
+#conversations-list, #jobs-list, #devices-list, #files-list, #skills-list, #mcp-list, #plugins-list {
     border: none;
 }
 
@@ -449,7 +449,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     width: 22;
 }
 
-#jobs-list, #devices-list, #skills-list, #mcp-list, #plugins-list {
+#jobs-list, #devices-list, #files-list, #skills-list, #mcp-list, #plugins-list {
     width: 32;
 }
 
@@ -459,18 +459,18 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     border-bottom: solid ansi_bright_black;
 }
 
-#conversations-main .divider, #jobs-main .divider, #devices-main .divider, #skills-main .divider, #mcp-main .divider, #plugins-main .divider {
+#conversations-main .divider, #jobs-main .divider, #devices-main .divider, #files-main .divider, #skills-main .divider, #mcp-main .divider, #plugins-main .divider {
     width: 1;
     height: 1fr;
     margin: 1 1 1 0;
     border-left: solid ansi_bright_black;
 }
 
-#skills-detail, #jobs-detail, #conversations-detail, #devices-detail, #mcp-detail, #plugins-detail {
+#skills-detail, #jobs-detail, #conversations-detail, #devices-detail, #files-detail, #mcp-detail, #plugins-detail {
     padding: 0 1;
 }
 
-#skills-buttons, #jobs-buttons, #conversations-buttons, #devices-buttons, #usage-buttons, #sessions-buttons, #mcp-buttons, #plugins-buttons {
+#skills-buttons, #jobs-buttons, #conversations-buttons, #devices-buttons, #files-buttons, #usage-buttons, #sessions-buttons, #mcp-buttons, #plugins-buttons {
     height: auto;
     margin-top: 1;
 }

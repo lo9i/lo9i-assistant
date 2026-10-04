@@ -1,5 +1,6 @@
 """Email accounts without leaving the app: connect one or more, pick the default, change a sign-in,
-choose who the agent may email from each without asking, and where its new mail is announced.
+and where each one's new mail is announced; and who the agent may email without asking, from any
+account.
 
 The user picks their provider, so only the address and the password are typed; "Other" asks for
 the servers too (SMTP to send, IMAP to read; without IMAP the assistant only sends). Google and
@@ -49,6 +50,7 @@ _OAUTH_FIELDS = {"email-label", "email-address", "email-client-id", "email-clien
 _OTHER_FIELDS = set(_FIELDS) - {"email-address", "email-client-id", "email-client-secret", "email-returned"}
 _NO_ALERTS = ("Don't announce new mail", "")
 _ACCOUNT_BUTTONS = ("#email-name", "#rename", "#recipients", "#default", "#edit", "#remove")
+_ALLOWED_PLACEHOLDER = "Sends without asking to, from any account (your accounts always): addresses, comma-separated"
 _OTHER_HELP = "Most providers need an **app password** here, not your account password."
 
 
@@ -66,6 +68,7 @@ class EmailScreen(ModalScreen[None]):
         self._providers: dict[str, EmailProvider] = {}
         self._choice: str | None = None
         self._accounts: list[EmailAccount] = []
+        self._recipients: list[str] = []
         # An account's id, or _NEW while adding one.
         self._selected = _NEW
         # Changing the selected account's sign-in.
@@ -82,9 +85,7 @@ class EmailScreen(ModalScreen[None]):
             for field_id, (placeholder, secret) in _FIELDS.items():
                 yield Input(placeholder=placeholder, password=secret, id=field_id)
             yield Input(placeholder="Account name, like Work", id="email-name")
-            yield Input(
-                placeholder="Allowed recipients, comma-separated (the account itself always is)", id="email-allowed"
-            )
+            yield Input(placeholder=_ALLOWED_PLACEHOLDER, id="email-allowed")
             yield Select[str]([_NO_ALERTS], allow_blank=False, value="", id="email-alerts")
             with Horizontal(id="email-buttons"):
                 yield Button("Connect", variant="success", id="connect")
@@ -217,10 +218,10 @@ class EmailScreen(ModalScreen[None]):
     @on(Button.Pressed, "#recipients")
     @reports_daemon_unavailable
     async def _save_recipients(self) -> None:
-        account = self._account()
-        if account is not None:
-            addresses = self.query_one("#email-allowed", Input).value.split(",")
-            await self._change(lambda: self._email.set_recipients(account.id, addresses))
+        addresses = self.query_one("#email-allowed", Input).value.split(",")
+        self._recipients = await self._email.set_recipients(addresses)
+        self._message = "Saved who the assistant sends to without asking."
+        await self._refresh()
 
     @on(Button.Pressed, "#rename")
     @reports_daemon_unavailable
@@ -266,6 +267,7 @@ class EmailScreen(ModalScreen[None]):
         """Reads the accounts and shows `select`, else the default account, else the add form."""
         self._accounts = await self._email.accounts()
         self._channel_names = [c.name for c in await self._channels.list()]
+        self._recipients = await self._email.recipients()
         ids = {a.id for a in self._accounts}
         default = self._accounts[0].id if self._accounts else _NEW
         self._selected = select if select in ids or select == _NEW else default
@@ -327,14 +329,16 @@ class EmailScreen(ModalScreen[None]):
         await self.query_one("#email-help", Markdown).update(
             _help(self._providers.get(self._choice or ""), self._editing)
         )
-        await self.query_one("#email-body", Markdown).update(_describe(account, self._editing, self._message))
+        await self.query_one("#email-body", Markdown).update(
+            _describe(account, self._recipients, self._editing, self._message)
+        )
 
     def _show_account(self, account: EmailAccount) -> None:
         alerts = self.query_one("#email-alerts", Select)
         with alerts.prevent(Select.Changed):
             alerts.set_options(_alert_options(self._channel_names, account.new_mail_alerts))
             alerts.value = account.new_mail_alerts
-        self.query_one("#email-allowed", Input).value = ", ".join(account.allowed_recipients)
+        self.query_one("#email-allowed", Input).value = ", ".join(self._recipients)
         self.query_one("#email-name", Input).value = account.label
         if self._editing and not self.query_one("#email-label", Input).value:
             self.query_one("#email-label", Input).value = account.label
@@ -373,19 +377,19 @@ def _help(provider: EmailProvider | None, editing: bool) -> str:
     return provider.password_help + link + keep
 
 
-def _describe(account: EmailAccount | None, editing: bool, message: str) -> str:
+def _describe(account: EmailAccount | None, recipients: list[str], editing: bool, message: str) -> str:
     if account is None:
         return _INTRO + (f"\n\n{message}" if message else "")
     if editing:
         text = f"## Change the sign-in of {account.label}\n\nChoose the provider and sign in again."
         return text + (f"\n\n{message}" if message else "")
-    allowed = ", ".join([account.sender, *account.allowed_recipients])
+    allowed = ", ".join(["your accounts", *recipients])
     reads = f"Reads mail from: {account.imap_host}" if account.imap_host else "Reading mail: off (no IMAP server)"
     lines = [
         f"## Email: {account.label} <{account.sender}>" + (" · default" if account.default else ""),
         f"Server: {account.host}:{account.port}",
         reads,
-        f"Sends without asking to: {allowed}",
+        f"Sends without asking, from any account, to: {allowed}",
     ]
     if account.status != "ok":
         lines.insert(1, f"**Needs signing in again:** {account.problem} Use Change sign-in.")

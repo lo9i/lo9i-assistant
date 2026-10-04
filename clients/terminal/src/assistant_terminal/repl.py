@@ -168,9 +168,10 @@ class Repl:
             print("No email account is connected. Set one up in the full-screen app with /email.")
         for account in accounts:
             default = " (default)" if account.default else ""
-            allowed = ", ".join(account.allowed_recipients) or "(only itself)"
-            server = f"{account.host}:{account.port}"
-            print(f"Email: {account.label} <{account.sender}>{default} via {server}. Allowed: {allowed}")
+            print(f"Email: {account.label} <{account.sender}>{default} via {account.host}:{account.port}")
+        if accounts:
+            allowed = ", ".join(["your accounts", *await self._service.email.recipients()])
+            print(f"Sends without asking to: {allowed}")
 
     async def _mcp(self, _: str) -> None:
         servers = shown_servers(await self._service.mcp.servers())

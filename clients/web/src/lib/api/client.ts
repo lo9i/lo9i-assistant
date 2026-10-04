@@ -40,6 +40,7 @@ import type {
   SpeechStatus,
   StartupStatus,
   TokenReport,
+  UploadedFile,
   UsageReport,
   WebSearchStatus,
 } from "./types";
@@ -67,6 +68,15 @@ export class ConversationsGroup {
   /** Deletes its messages, its place in the list, and the files sent in it. Fails while a client is on it. */
   async delete(threadId: string): Promise<void> {
     await this.transport.request("DELETE", `/conversations/${encodeURIComponent(threadId)}`);
+  }
+}
+
+export class FilesGroup {
+  constructor(private readonly transport: Transport) {}
+
+  /** The files the user sent in their conversations, newest first. */
+  list(): Promise<UploadedFile[]> {
+    return this.transport.request("GET", "/files");
   }
 }
 
@@ -210,8 +220,14 @@ export class EmailGroup {
     return this.transport.request("PUT", `${this.path(id)}/default`);
   }
 
-  setRecipients(id: string, addresses: string[]): Promise<EmailAccount> {
-    return this.transport.request("PUT", `${this.path(id)}/recipients`, { addresses });
+  /** Who the assistant emails without asking, from any account, besides the user's own accounts. */
+  async recipients(): Promise<string[]> {
+    return (await this.transport.request<{ addresses: string[] }>("GET", "/integrations/email/recipients")).addresses;
+  }
+
+  async setRecipients(addresses: string[]): Promise<string[]> {
+    const body = { addresses };
+    return (await this.transport.request<{ addresses: string[] }>("PUT", "/integrations/email/recipients", body)).addresses;
   }
 
   /** Announce new mail on an installed channel (its name), or nowhere (""). Throws ApiError (400) when reading isn't set up. */
@@ -443,6 +459,7 @@ export class ClientsGroup {
 
 export class DaemonClient {
   readonly conversations: ConversationsGroup;
+  readonly files: FilesGroup;
   readonly identity: IdentityGroup;
   readonly jobs: JobsGroup;
   readonly channels: ChannelsGroup;
@@ -464,6 +481,7 @@ export class DaemonClient {
 
   constructor(private readonly transport: Transport) {
     this.conversations = new ConversationsGroup(transport);
+    this.files = new FilesGroup(transport);
     this.identity = new IdentityGroup(transport);
     this.jobs = new JobsGroup(transport);
     this.channels = new ChannelsGroup(transport);

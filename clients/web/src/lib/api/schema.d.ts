@@ -372,6 +372,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * File List
+         * @description The files the user sent in their conversations, newest first.
+         */
+        get: operations["file_list_files_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/channels": {
         parameters: {
             query?: never;
@@ -735,16 +755,20 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/integrations/email/accounts/{account_id}/recipients": {
+    "/integrations/email/recipients": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        /** Email Recipients */
-        put: operations["email_recipients_integrations_email_accounts__account_id__recipients_put"];
+        /**
+         * Email Recipients
+         * @description Who the agent may email without asking, from any account, besides the user's own accounts.
+         */
+        get: operations["email_recipients_integrations_email_recipients_get"];
+        /** Set Email Recipients */
+        put: operations["set_email_recipients_integrations_email_recipients_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1462,8 +1486,6 @@ export interface components {
             username: string;
             /** Sender */
             sender: string;
-            /** Allowed Recipients */
-            allowed_recipients: string[];
             /** Imap Host */
             imap_host: string;
             /** Imap Port */
@@ -2465,6 +2487,23 @@ export interface components {
             /** Last Used */
             last_used: string;
         };
+        /** UploadedFile */
+        UploadedFile: {
+            /** Path */
+            path: string;
+            /** Name */
+            name: string;
+            /** Media Type */
+            media_type: string;
+            /** Size */
+            size: number;
+            /** Uploaded At */
+            uploaded_at: string;
+            /** Thread Id */
+            thread_id: string;
+            /** Conversation */
+            conversation: string;
+        };
         /** UsageReport */
         UsageReport: {
             /** Days */
@@ -3055,6 +3094,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    file_list_files_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadedFile"][];
                 };
             };
         };
@@ -3803,13 +3862,31 @@ export interface operations {
             };
         };
     };
-    email_recipients_integrations_email_accounts__account_id__recipients_put: {
+    email_recipients_integrations_email_recipients_get: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                account_id: string;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailRecipients"];
+                };
             };
+        };
+    };
+    set_email_recipients_integrations_email_recipients_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody: {
@@ -3824,7 +3901,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EmailAccount"];
+                    "application/json": components["schemas"]["EmailRecipients"];
                 };
             };
             /** @description Validation Error */

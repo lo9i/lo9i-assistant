@@ -23,6 +23,7 @@ export type ModelStatus = Schemas["ModelStatus"];
 export type ModelProvider = Schemas["ModelProvider"];
 export type ModelChange = Schemas["ModelChange"];
 export type Device = Schemas["Device"];
+export type UploadedFile = Schemas["UploadedFile"];
 export type PairingCode = Schemas["PairingCode"];
 export type Me = Schemas["Me"];
 export type MemorySnapshot = Schemas["MemorySnapshot"];

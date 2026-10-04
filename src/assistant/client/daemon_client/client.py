@@ -7,6 +7,7 @@ from assistant.client.daemon_client.conversations import ConversationsApi
 from assistant.client.daemon_client.devices import DevicesApi
 from assistant.client.daemon_client.email import EmailApi
 from assistant.client.daemon_client.events import EventsMixin
+from assistant.client.daemon_client.files import FilesApi
 from assistant.client.daemon_client.identity import IdentityApi
 from assistant.client.daemon_client.jobs import JobsApi
 from assistant.client.daemon_client.mcp import McpApi
@@ -32,6 +33,7 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         transport = Transport(http)
         super().__init__(transport)
         self.conversations = ConversationsApi(transport)
+        self.files = FilesApi(transport)
         self.identity = IdentityApi(transport)
         self.memory = MemoryApi(transport)
         self.skills = SkillsApi(transport)

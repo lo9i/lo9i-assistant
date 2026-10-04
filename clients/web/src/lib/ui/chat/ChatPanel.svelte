@@ -16,7 +16,7 @@
     "/startup": "general",
     "/channels": "integrations",
     "/email": "integrations",
-    "/websearch": "integrations",
+    "/websearch": "general",
     "/audio": "audio",
   };
 

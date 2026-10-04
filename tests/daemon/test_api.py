@@ -109,6 +109,8 @@ async def test_threads_memory_and_channels(client):
     assert (await client.memory.set_profile_section("interests", ["chess"])).profile == {"interests": ["chess"]}
     assert await client.clients.list() == []
     assert await client.email.accounts() == []
+    assert await client.email.set_recipients(["Friend@Test.com"]) == ["friend@test.com"]
+    assert await client.email.recipients() == ["friend@test.com"]
     assert await client.channels.list() == []
 
 
@@ -317,6 +319,15 @@ async def test_a_conversation_a_client_is_on_cant_be_deleted(client, service):
     assert [c.thread_id for c in await client.conversations.recent()] == []
     with pytest.raises(ConversationError, match="No conversation"):
         await client.conversations.delete(session.thread_id)
+
+
+async def test_files_through_the_client(client):
+    from assistant.core.attachments import Attachment
+
+    session = await _new_session(client)
+    await collect(client.send(session, "read this", [Attachment("notes.txt", "text/plain", b"buy milk")]))
+    [listed] = await client.files.list()
+    assert (listed.name, listed.size, listed.thread_id) == ("notes.txt", 8, session.thread_id)
 
 
 async def test_token_usage_through_the_client(client, script):

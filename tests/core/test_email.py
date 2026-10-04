@@ -12,7 +12,7 @@ from assistant.core.agent import EmailAccountNotFoundError, EmailError
 from assistant.core.config import settings
 from assistant.core.conversation.prompt import build_system_prompt
 from assistant.core.events import ApprovalRequired
-from assistant.core.integrations.email import accounts
+from assistant.core.integrations.email import accounts, recipients
 from assistant.core.tools.approval import UNATTENDED_DENIAL
 from tests.conftest import collect
 
@@ -42,8 +42,6 @@ async def test_adding_checks_the_login_and_hides_the_password(service, smtp):
         await service.add_email_account("", "smtp.test", 587, "me", "wrong", "me@test.com")
     account = await _add(service)
     assert account.default and account.label == "me@test.com" and not hasattr(account, "password")
-    account = await service.set_email_recipients(account.id, ["Friend@Test.com", ""])
-    assert account.allowed_recipients == ["friend@test.com"]
 
 
 async def test_passwords_are_encrypted_apart_with_a_private_key_file(service, smtp):
@@ -57,10 +55,27 @@ async def test_passwords_are_encrypted_apart_with_a_private_key_file(service, sm
 
 
 async def test_allowlisted_recipients_need_no_approval(service, script, smtp):
-    await _add(service)
-    script.call("send_email", to=["me@test.com"], subject="News", body="hi").reply("sent")
-    await collect(service.send(await service.session("u", "cli"), "email me"))
-    assert smtp == [("me@test.com", ["me@test.com"], "News", "hi")]
+    await _add(service, "me@home.com")
+    await _add(service, "me@work.com")
+    assert await service.set_email_recipients(["Friend@Test.com", "", "friend@test.com"]) == ["friend@test.com"]
+    to = ["me@home.com", "me@work.com", "friend@test.com"]
+    script.call("send_email", to=to, subject="News", body="hi").reply("sent")
+    await collect(service.send(await service.session("u", "worker"), "email us"))
+    assert smtp == [("me@home.com", to, "News", "hi")]
+
+
+async def test_the_lists_accounts_kept_before_join_into_one(service, smtp):
+    home = await _add(service, "me@home.com")
+    work = await _add(service, "me@work.com")
+    await service.set_email_recipients(["old@test.com"])
+    for account, addresses in ((home, ["a@test.com"]), (work, ["b@test.com", "a@test.com"])):
+        item = await service.store.aget(("accounts", "email"), account.id)
+        settings = {**item.value["settings"], "allowed_recipients": addresses}
+        await service.store.aput(("accounts", "email"), account.id, {**item.value, "settings": settings})
+    await recipients.migrate(service.store)
+    assert await service.email_recipients() == ["a@test.com", "b@test.com", "old@test.com"]
+    items = await service.store.asearch(("accounts", "email"))
+    assert all("allowed_recipients" not in i.value["settings"] for i in items)
 
 
 async def test_other_recipients_need_approval_and_are_denied_unattended(service, script, smtp):

@@ -10,6 +10,7 @@ from assistant.core.agent.archive import ArchiveMixin
 from assistant.core.agent.channels import ChannelsMixin
 from assistant.core.agent.devices import DevicesMixin
 from assistant.core.agent.email import EmailMixin
+from assistant.core.agent.files import FilesMixin
 from assistant.core.agent.identity import IdentityMixin
 from assistant.core.agent.jobs import JobsMixin
 from assistant.core.agent.locking import LockingMixin
@@ -32,7 +33,7 @@ from assistant.core.channels.processes import ChannelProcesses
 from assistant.core.config import settings
 from assistant.core.conversation.memory_writer import MemoryWriter
 from assistant.core.health import HealthLog
-from assistant.core.integrations.email import accounts
+from assistant.core.integrations.email import accounts, recipients
 from assistant.core.llm import choice
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.mcp.hub import McpHub
@@ -55,6 +56,7 @@ from assistant.core.storage import Storage, open_storage
 class AssistantService(
     ThreadsMixin,
     ArchiveMixin,
+    FilesMixin,
     MemoryMixin,
     SignInsMixin,
     EmailMixin,
@@ -114,6 +116,7 @@ class AssistantService(
             secrets = await asyncio.to_thread(SecretBox.open, Path(settings.secrets_key_path).expanduser())
             async with open_storage(settings.database_path, bus) as storage:
                 await accounts.migrate(storage.store, secrets)
+                await recipients.migrate(storage.store)
                 await choice.migrate(storage.store, secrets)
                 await profile.migrate(storage.store)
                 yield cls(storage, await usable_choice(storage.store, secrets), bus, secrets)

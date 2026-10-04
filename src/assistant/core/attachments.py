@@ -90,6 +90,11 @@ def _moved_note(block: Block) -> Block:
     return _text(f"[{name}: in the next message]")
 
 
+def carries_files(message: BaseMessage) -> bool:
+    """A tool result whose artifact refers to saved files, which `hydrate` adds to the request."""
+    return bool(_tool_references(message))
+
+
 def _tool_references(message: BaseMessage) -> list[Block]:
     if not isinstance(message, ToolMessage) or not isinstance(message.artifact, list):
         return []
@@ -131,6 +136,17 @@ def upload_paths(messages: Sequence[BaseMessage]) -> list[str]:
         reference["path"]
         for message in messages
         for block in _stored_references(message)
+        if (reference := _reference(block)) is not None
+    ]
+
+
+def user_uploads(messages: Sequence[BaseMessage]) -> list[dict[str, str]]:
+    """The references of the files the user sent, oldest first. Files from tool results aren't theirs."""
+    return [
+        reference
+        for message in messages
+        if isinstance(message, HumanMessage) and message.name != TOOL_MEDIA_SENDER and isinstance(message.content, list)
+        for block in message.content
         if (reference := _reference(block)) is not None
     ]
 
