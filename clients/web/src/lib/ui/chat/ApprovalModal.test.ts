@@ -13,7 +13,7 @@ describe("ApprovalModal", () => {
       installed: false,
       version: "",
       installed_version: "",
-      category: "other",
+      category: "other/general",
     };
     const approval = { type: "ApprovalRequired" as const, interrupt_id: "i1", request: { kind: "plugin", name: "notes", skill } };
     const { body } = render(ApprovalModal, { props: { approval, onanswer: () => {} } });

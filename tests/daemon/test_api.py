@@ -196,11 +196,13 @@ async def test_skills_and_servers_are_installed_from_a_repository_and_updated(cl
     from assistant.core.repositories import checkout
 
     remote = isolated_settings / "remote"
-    (remote / "skills" / "expenses" / "scripts").mkdir(parents=True)
-    (remote / "skills" / "expenses" / "SKILL.md").write_text("---\nname: expenses\ndescription: Track\n---\n\nRun it")
-    (remote / "skills" / "expenses" / "scripts" / "add.py").write_text("print(1)")
-    (remote / "mcp" / "tasks").mkdir(parents=True)
-    (remote / "mcp" / "tasks" / "server.yaml").write_text(
+    (remote / "other" / "general" / "expenses" / "scripts").mkdir(parents=True)
+    (remote / "other" / "general" / "expenses" / "SKILL.md").write_text(
+        "---\nname: expenses\ndescription: Track\n---\n\nRun it"
+    )
+    (remote / "other" / "general" / "expenses" / "scripts" / "add.py").write_text("print(1)")
+    (remote / "other" / "general" / "tasks").mkdir(parents=True)
+    (remote / "other" / "general" / "tasks" / "server.yaml").write_text(
         "url: https://tasks.example.com/mcp\nfields: [{key: Authorization, label: Token, secret: true}]"
     )
 

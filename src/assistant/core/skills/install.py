@@ -1,7 +1,8 @@
 """Skills in a downloaded repository: finding them, installing them, and updating one later.
 
 A repository can be one skill (SKILL.md at its root) or hold several, one folder each, at its root
-or under `skills/`. A folder with a server.yaml is an MCP server, and its SKILL.md is part of it
+or in a category's folder (repositories/categories.py). A folder with a server.yaml is an MCP server,
+and its SKILL.md is part of it
 (core/mcp/install.py), never a skill of its own.
 
 Only the user installs skills, from the app: their scripts run on this computer through bash, so
@@ -9,7 +10,7 @@ picking the repository is the user's decision, never the agent's.
 """
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from assistant.core.repositories import categories
@@ -49,8 +50,9 @@ class Candidate:
 
 
 def find(root: Path, url: str) -> dict[str, Candidate]:
-    """The repository's skills by name: the root itself, its folders, and the folders in skills/."""
-    folders = [root, *subfolders(root), *subfolders(root / "skills")]
+    """The repository's skills by name: the root itself, its folders, and the folders in its category
+    folders, which give their category."""
+    folders = [root, *subfolders(root), *categories.plugin_folders(root)]
     candidates = [_candidate(root, f, default_name(url) if f == root else f.name) for f in folders]
     return {c.skill.name: c for c in candidates if c is not None}
 
@@ -101,7 +103,19 @@ def _candidate(root: Path, folder: Path, name: str) -> Candidate | None:
     skill = store.read(folder, name)
     if skill is None or not store.valid_name(skill.name):
         return None
-    return Candidate(skill, folder, folder.relative_to(root).as_posix())
+    return Candidate(
+        _in_folder_category(skill, categories.of_folder(root, folder)), folder, folder.relative_to(root).as_posix()
+    )
+
+
+def _in_folder_category(skill: store.Skill, folder: str) -> store.Skill:
+    """In a category's folder, the skill is in that category; one its SKILL.md says otherwise has a problem."""
+    if not folder or skill.category == folder:
+        return skill
+    if skill.category != categories.DEFAULT:
+        problem = f"It's in the {folder} folder, but its SKILL.md says category {skill.category}."
+        return replace(skill, category=folder, problems=[*skill.problems, problem])
+    return replace(skill, category=folder)
 
 
 def installed_version(name: str, url: str) -> str | None:

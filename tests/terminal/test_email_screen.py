@@ -155,7 +155,7 @@ async def test_renaming_keeps_the_sign_in(app, client):
 
 
 async def test_plugins_open_an_email_plugins_accounts_and_communications_settings(app, client):
-    gmail = FoundServer("gmail", "Gmail", "none", [], True, installed=True, category="communications", email=True)
+    gmail = FoundServer("gmail", "Gmail", "none", [], True, installed=True, category="communications/email", email=True)
     client.repositories.more = [gmail]
     async with app.run_test(size=(120, 44)) as pilot:
         await pilot.click("#prompt")

@@ -1672,7 +1672,7 @@ export interface components {
             installed_version: string;
             /**
              * Category
-             * @default other
+             * @default other/general
              */
             category: string;
             /**
@@ -1709,7 +1709,7 @@ export interface components {
             installed_version: string;
             /**
              * Category
-             * @default other
+             * @default other/general
              */
             category: string;
         };
@@ -2319,7 +2319,7 @@ export interface components {
             plugin: string;
             /**
              * Category
-             * @default other
+             * @default other/general
              */
             category: string;
         };

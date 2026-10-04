@@ -18,6 +18,7 @@ from assistant.core.mcp import folders, servers
 from assistant.core.mcp.install import ServerValues
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.outbox import DeliveryError, Outbox
+from assistant.core.repositories import source as folder_source
 
 
 def _hub(name: str = "lo9i") -> tuple[ChannelHub, Outbox, RemoteApprovals, EventBus]:
@@ -203,10 +204,10 @@ async def test_a_channel_plugin_is_installed_with_its_library_and_the_old_settin
     from assistant.core.repositories import checkout
 
     remote = isolated_settings / "remote"
-    (remote / "lib" / "lo9i-chat").mkdir(parents=True)
-    (remote / "lib" / "lo9i-chat" / "pyproject.toml").write_text("[project]\nname = 'lo9i-chat'\n")
-    (remote / "mcp" / "telegram").mkdir(parents=True)
-    (remote / "mcp" / "telegram" / "server.yaml").write_text(
+    (remote / "communications" / "lib" / "lo9i-chat").mkdir(parents=True)
+    (remote / "communications" / "lib" / "lo9i-chat" / "pyproject.toml").write_text("[project]\nname = 'lo9i-chat'\n")
+    (remote / "communications" / "chat" / "telegram").mkdir(parents=True)
+    (remote / "communications" / "chat" / "telegram" / "server.yaml").write_text(
         "libraries: [lo9i-chat]\n"
         "env: {TELEGRAM_DATA: '{data}'}\n"
         "fields: [{key: TELEGRAM_TOKEN, label: Bot token, secret: true}]\n"
@@ -233,5 +234,7 @@ async def test_a_channel_plugin_is_installed_with_its_library_and_the_old_settin
     assert server.channel_args == [f"{folders.code('telegram')}/main.py"]
     assert (folders.library("lo9i-chat") / "pyproject.toml").is_file()
     assert folders.library("lo9i-chat") == folders.code("telegram").parent.parent / "lib" / "lo9i-chat"
+    library_source = folder_source.read(folders.library("lo9i-chat"))
+    assert library_source is not None and library_source.path == "communications/lib/lo9i-chat"
     assert (folders.data("telegram") / legacy.IMPORT_FILE).is_file()
     assert [c.name for c in await service.channels()] == ["telegram"]

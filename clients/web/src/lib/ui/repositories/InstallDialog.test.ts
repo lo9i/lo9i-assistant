@@ -18,7 +18,7 @@ const telegram: FoundServer = {
   installed: false,
   version: "1.0.0",
   installed_version: "",
-  category: "communications",
+  category: "communications/chat",
   email: false,
 };
 
@@ -43,7 +43,7 @@ describe("InstallDialog for a skill the agent offers", () => {
       installed: false,
       version: "",
       installed_version: "",
-      category: "other",
+      category: "other/general",
     };
     const { body } = render(InstallDialog, { props: { skill, onclose: () => {} } });
     expect(body).toContain("Install notes");

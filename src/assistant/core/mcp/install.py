@@ -1,9 +1,9 @@
 """MCP servers in a downloaded repository: finding them, installing them, and updating one later.
 
-A server is a folder with a `server.yaml`, at the repository's root, in its folders, or under
-`mcp/` (MCP servers and chat channels) or `plugins/` (plugins without a process, such as mail
-providers). A `SKILL.md` next to it is the server's skill: how to use its tools. It's installed, updated
-and removed with the server, under the server's name.
+A server is a folder with a `server.yaml`, at the repository's root, in its folders, or in a
+category's folder (`communications/telegram`, repositories/categories.py), which gives its category.
+A `SKILL.md` next to it is the server's skill: how to use its tools. It's installed, updated and
+removed with the server, under the server's name.
 
 The folder is copied to `settings.mcp_dir/<name>` (core/mcp/folders.py), so a local server can run
 code from it. In its commands, arguments and env values:
@@ -32,8 +32,8 @@ code from it. In its commands, arguments and env values:
       command: "{uv}"
       args: [run, --project, "{dir}", my-channel]
       style: A phone chat. Short messages.   # how to write there, for the system prompt
-    libraries: [lo9i-chat]         # folders under lib/ in the repository it uses (folders.library)
-    category: communications       # what it's for, to group it in the apps (repositories/categories.py)
+    libraries: [lo9i-chat]         # folders at ../../lib/ from its folder it uses (folders.library)
+    category: communications       # outside a category's folder: what it's for (repositories/categories.py)
     email:                         # optional: email providers it offers (core/integrations/email/providers.py)
       - {id: gmail, name: Gmail, host: smtp.gmail.com, port: 587, imap_host: imap.gmail.com,
          password_help: Gmail needs an app password., password_url: https://myaccount.google.com/apppasswords}
@@ -46,7 +46,7 @@ import shutil
 import sys
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, replace
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import yaml
@@ -152,7 +152,7 @@ class ServerValues:
 
 def find(root: Path, url: str) -> dict[str, Candidate]:
     """The repository's servers by name. Raises RepositoryError for a server.yaml that can't work."""
-    folders = [root, *subfolders(root), *subfolders(root / "mcp"), *subfolders(root / "plugins")]
+    folders = [root, *subfolders(root), *categories.plugin_folders(root)]
     found = [_candidate(root, f, default_name(url) if f == root else f.name) for f in folders]
     return {c.found.name: c for c in found if c is not None}
 
@@ -183,7 +183,7 @@ async def install(candidate: Candidate, values: dict[str, str], url: str, commit
     await asyncio.to_thread(put, candidate.folder, folders.code(name), source)
     for library in candidate.libraries:
         await asyncio.to_thread(
-            put, library, folders.library(library.name), replace(source, path=f"lib/{library.name}")
+            put, library, folders.library(library.name), replace(source, path=_library_path(candidate, library))
         )
     await asyncio.to_thread(folders.data(name).mkdir, 0o700, True, True)
     await asyncio.to_thread(_put_skill, candidate, replace(source, server=name))
@@ -279,8 +279,8 @@ def _candidate(root: Path, folder: Path, name: str) -> Candidate | None:
 def _parse(data: dict[str, Any], name: str, root: Path, folder: Path) -> Candidate:
     template = _template(data, name)
     servers.validate(template)
-    found = _found(data, template, folder)
-    libraries = [_library(root, str(n)) for n in data.get("libraries", [])]
+    found = _found(data, template, folder, categories.of_folder(root, folder))
+    libraries = [_library(root, folder, str(n)) for n in data.get("libraries", [])]
     return Candidate(found, template, folder, folder.relative_to(root).as_posix(), libraries)
 
 
@@ -304,7 +304,7 @@ def _template(data: dict[str, Any], name: str) -> McpServer:
     )
 
 
-def _found(data: dict[str, Any], template: McpServer, folder: Path) -> FoundServer:
+def _found(data: dict[str, Any], template: McpServer, folder: Path, category_folder: str) -> FoundServer:
     """Raises ValueError for fields, a skill or a category that can't be used."""
     channel, email = bool(template.channel_command), bool(template.email_providers)
     sections = {s for s, has in (("channel", channel), ("email", email)) if has}
@@ -318,16 +318,24 @@ def _found(data: dict[str, Any], template: McpServer, folder: Path) -> FoundServ
         bool(template.page_command),
         channel,
         version=str(data.get("version", "")),
-        category=categories.parse(data.get("category"), sections),
+        category=categories.parse(data.get("category"), sections, category_folder),
         email=email,
     )
 
 
-def _library(root: Path, name: str) -> Path:
-    """Raises ValueError for a library the repository doesn't have under lib/."""
-    folder = root / "lib" / name
-    if "/" in name or not valid_path(name) or folder.is_symlink() or not folder.is_dir():
-        raise ValueError(f"it uses the library {name!r}, which isn't a folder under lib/")
+def _library_path(candidate: Candidate, library: Path) -> str:
+    """The library's folder in the repository: `../../lib/<name>` from the plugin's."""
+    return (PurePosixPath(candidate.path).parent.parent / "lib" / library.name).as_posix()
+
+
+def _library(root: Path, plugin: Path, name: str) -> Path:
+    """The library at `../../lib/<name>` from the plugin's folder, where a uv path dependency finds it
+    both in the repository and once installed (folders.library). Raises ValueError when the repository
+    has no such folder."""
+    folder = plugin.parent.parent / "lib" / name
+    inside = folder.resolve().is_relative_to(root.resolve())
+    if "/" in name or not valid_path(name) or not inside or folder.is_symlink() or not folder.is_dir():
+        raise ValueError(f"it uses the library {name!r}, which isn't a folder at ../../lib/{name}")
     return folder
 
 

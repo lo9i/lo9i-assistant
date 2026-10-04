@@ -19,7 +19,7 @@ def extras(repo: Path) -> Path:  # noqa: F811
 
 def _release(extras, version: str) -> None:
     """Publish the hello server at `version` as the extras' next commit."""
-    manifest = extras / "mcp" / "hello" / "server.yaml"
+    manifest = extras / "other" / "general" / "hello" / "server.yaml"
     text = manifest.read_text()
     old = next((line for line in text.splitlines() if line.startswith("version:")), None)
     manifest.write_text(text.replace(old, f"version: {version}") if old else f"version: {version}\n{text}")
