@@ -5,7 +5,7 @@ password encrypted apart. Connected from the app (/email, Settings → Integrati
 """
 
 import time
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, fields
 
 from langgraph.store.base import BaseStore
 
@@ -30,8 +30,6 @@ class EmailConfig:
     username: str = ""
     password: str = ""
     sender: str = ""
-    # Addresses the agent may email without asking. The sender is always included.
-    allowed_recipients: list[str] = field(default_factory=list)
     # Reading mail. Empty when only sending is set up. Same user name and password.
     imap_host: str = ""
     imap_port: int = 993
@@ -55,9 +53,6 @@ class EmailConfig:
     @property
     def can_read(self) -> bool:
         return self.connected and bool(self.imap_host)
-
-    def allowed(self, address: str) -> bool:
-        return address.strip().lower() in {a.lower() for a in [self.sender, *self.allowed_recipients]}
 
 
 async def list_accounts(store: BaseStore) -> list[EmailConfig]:

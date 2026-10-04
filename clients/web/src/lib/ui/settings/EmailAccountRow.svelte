@@ -23,8 +23,6 @@
   // svelte-ignore state_referenced_locally
   let name = $state(account.label);
   let confirming = $state(false);
-  // svelte-ignore state_referenced_locally
-  let recipients = $state(account.allowed_recipients.join(", "));
   let message = $state("");
 
   /** Stays open with the error when the name can't be used. */
@@ -95,23 +93,6 @@
             </select>
           </label>
         {/if}
-        <label class="fields">
-          <span class="text-label">Sends without asking to {account.sender} and:</span>
-          <div class="row">
-            <input
-              class="input"
-              bind:value={recipients}
-              placeholder="Addresses, comma-separated"
-              aria-label="Allowed recipients for {account.label}"
-            />
-            <button
-              class="btn btn--neutral"
-              onclick={() => act(() => client.email.setRecipients(account.id, recipients.split(",")), "Saved.")}
-            >
-              Save
-            </button>
-          </div>
-        </label>
         {#if renaming}
           <form
             class="row"

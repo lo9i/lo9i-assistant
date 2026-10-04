@@ -252,8 +252,14 @@ export class EmailGroup {
     return this.transport.request("PUT", `${this.path(id)}/default`);
   }
 
-  setRecipients(id: string, addresses: string[]): Promise<EmailAccount> {
-    return this.transport.request("PUT", `${this.path(id)}/recipients`, { addresses });
+  /** Who the assistant emails without asking, from any account, besides the user's own accounts. */
+  async recipients(): Promise<string[]> {
+    return (await this.transport.request<{ addresses: string[] }>("GET", "/integrations/email/recipients")).addresses;
+  }
+
+  async setRecipients(addresses: string[]): Promise<string[]> {
+    const body = { addresses };
+    return (await this.transport.request<{ addresses: string[] }>("PUT", "/integrations/email/recipients", body)).addresses;
   }
 
   /** Announce new mail on "telegram" or "slack", or nowhere (""). Throws ApiError (400) when reading isn't set up. */

@@ -116,6 +116,8 @@ async def test_threads_memory_and_telegram(client, monkeypatch):
     assert (await client.memory.set_profile_section("interests", ["chess"])).profile == {"interests": ["chess"]}
     assert await client.clients.list() == []
     assert await client.email.accounts() == []
+    assert await client.email.set_recipients(["Friend@Test.com"]) == ["friend@test.com"]
+    assert await client.email.recipients() == ["friend@test.com"]
     assert not (await client.telegram.status()).connected
     with pytest.raises(InvalidTokenError):
         await client.telegram.connect("bad")

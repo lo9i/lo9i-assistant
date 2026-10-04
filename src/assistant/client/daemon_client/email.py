@@ -6,8 +6,8 @@ _ERRORS = {400: EmailError, 404: EmailAccountNotFoundError}
 
 
 class EmailApi:
-    """The daemon's email accounts (SMTP to send, IMAP to read): which is the default, who each may
-    email without asking, and where its new mail is announced."""
+    """The daemon's email accounts (SMTP to send, IMAP to read): which is the default and where each
+    one's new mail is announced; and who the agent may email without asking, from any account."""
 
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
@@ -61,8 +61,13 @@ class EmailApi:
     async def set_new_mail_alerts(self, account_id: str, channel: str) -> EmailAccount:
         return await self._put(account_id, "/alerts", {"channel": channel})
 
-    async def set_recipients(self, account_id: str, addresses: list[str]) -> EmailAccount:
-        return await self._put(account_id, "/recipients", {"addresses": addresses})
+    async def recipients(self) -> list[str]:
+        """Besides the user's own accounts, which always are."""
+        return (await self._transport.request("GET", f"{_PATH}/recipients"))["addresses"]
+
+    async def set_recipients(self, addresses: list[str]) -> list[str]:
+        body = {"addresses": addresses}
+        return (await self._transport.request("PUT", f"{_PATH}/recipients", json=body))["addresses"]
 
     async def remove(self, account_id: str) -> None:
         await self._transport.request("DELETE", f"{_PATH}/accounts/{account_id}", errors=_ERRORS)

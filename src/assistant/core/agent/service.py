@@ -32,7 +32,7 @@ from assistant.core.bus import EventBus
 from assistant.core.config import settings
 from assistant.core.conversation.memory_writer import MemoryWriter
 from assistant.core.health import HealthLog
-from assistant.core.integrations.email import accounts
+from assistant.core.integrations.email import accounts, recipients
 from assistant.core.llm import choice
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.mcp.hub import McpHub
@@ -114,6 +114,7 @@ class AssistantService(
             secrets = await asyncio.to_thread(SecretBox.open, Path(settings.secrets_key_path).expanduser())
             async with open_storage(settings.database_path, bus) as storage:
                 await accounts.migrate(storage.store, secrets)
+                await recipients.migrate(storage.store)
                 await choice.migrate(storage.store, secrets)
                 await profile.migrate(storage.store)
                 yield cls(storage, await usable_choice(storage.store, secrets), bus, secrets)
