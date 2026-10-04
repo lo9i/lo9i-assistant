@@ -91,6 +91,7 @@ async def test_other_asks_for_the_server_and_saves_recipients(app, client):
         screen.query_one("#email-allowed", Input).value = "friend@test.com"
         screen.query_one("#recipients", Button).press()
         await wait_for(pilot, lambda: "friend@test.com" in _body(screen))
+        assert client.email.allowed == ["friend@test.com"]
 
 
 async def test_new_mail_alerts_are_chosen_once_mail_can_be_read(app, client):

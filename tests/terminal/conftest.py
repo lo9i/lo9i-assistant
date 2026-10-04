@@ -195,6 +195,7 @@ class FakeSlack:
 class FakeEmail:
     def __init__(self):
         self.accounts_by_id: dict[str, EmailAccount] = {}
+        self.allowed: list[str] = []
         self.connected_with = None
 
     async def providers(self):
@@ -210,7 +211,7 @@ class FakeEmail:
         account_id = f"a{len(self.accounts_by_id) + 1}"
         default = not self.accounts_by_id
         self.accounts_by_id[account_id] = EmailAccount(
-            account_id, label or sender, default, "ok", "", host, port, username, sender, [], imap_host, imap_port, ""
+            account_id, label or sender, default, "ok", "", host, port, username, sender, imap_host, imap_port, ""
         )
         return self.accounts_by_id[account_id]
 
@@ -239,7 +240,6 @@ class FakeEmail:
             587,
             address,
             address,
-            [],
             "outlook.office365.com",
             993,
             "",
@@ -265,10 +265,12 @@ class FakeEmail:
         account.new_mail_alerts = channel
         return account
 
-    async def set_recipients(self, account_id, addresses):
-        account = self.accounts_by_id[account_id]
-        account.allowed_recipients = sorted(a.strip() for a in addresses if a.strip())
-        return account
+    async def recipients(self):
+        return self.allowed
+
+    async def set_recipients(self, addresses):
+        self.allowed = sorted(a.strip() for a in addresses if a.strip())
+        return self.allowed
 
     async def remove(self, account_id):
         removed = self.accounts_by_id.pop(account_id)

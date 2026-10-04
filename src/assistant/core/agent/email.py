@@ -1,11 +1,12 @@
-"""Email accounts from any client: connect, change, pick the default, who each may email without
-asking, and where its new mail is announced. Passwords never leave the daemon."""
+"""Email accounts from any client: connect, change, pick the default, and where each one's new mail
+is announced; and who the agent may email without asking, from any account. Passwords never leave
+the daemon."""
 
 from dataclasses import dataclass
 
 from assistant.core import accounts as core_accounts
 from assistant.core.agent.base import ServiceBase
-from assistant.core.integrations.email import accounts, imap, oauth, smtp
+from assistant.core.integrations.email import accounts, imap, oauth, recipients, smtp
 from assistant.core.integrations.email.accounts import EmailConfig, EmailError
 from assistant.core.integrations.email.providers import PROVIDERS, EmailProvider
 from assistant.core.oauth import new_state
@@ -31,7 +32,6 @@ class EmailAccount:
     port: int
     username: str
     sender: str
-    allowed_recipients: list[str]
     # Reading mail: empty when only sending is set up.
     imap_host: str
     imap_port: int
@@ -69,7 +69,7 @@ class EmailMixin(ServiceBase):
         """Check the logins with the servers (IMAP too when given), then save. The first account
         becomes the default. Raises EmailError."""
         config = EmailConfig(
-            host.strip(), port, username.strip(), password, sender.strip(), [], imap_host.strip(), imap_port
+            host.strip(), port, username.strip(), password, sender.strip(), imap_host.strip(), imap_port
         )
         config.label = label
         return await self._verified_save(config, password)
@@ -96,7 +96,6 @@ class EmailMixin(ServiceBase):
             username.strip(),
             password or current.password,
             sender.strip(),
-            current.allowed_recipients,
             imap_host.strip(),
             imap_port,
             current.new_mail_alerts,
@@ -151,7 +150,7 @@ class EmailMixin(ServiceBase):
         if sign_in.account_id:
             current = await self._email(sign_in.account_id)
             config.account_id, config.label, config.default = current.account_id, current.label, current.default
-            config.allowed_recipients, config.new_mail_alerts = current.allowed_recipients, current.new_mail_alerts
+            config.new_mail_alerts = current.new_mail_alerts
         return config
 
     async def rename_email_account(self, account_id: str, label: str) -> EmailAccount:
@@ -176,10 +175,12 @@ class EmailMixin(ServiceBase):
         config.new_mail_alerts = channel
         return _account(await accounts.save(self._storage.store, self.secrets, config))
 
-    async def set_email_recipients(self, account_id: str, addresses: list[str]) -> EmailAccount:
-        config = await self._email(account_id)
-        config.allowed_recipients = sorted({a.strip().lower() for a in addresses if a.strip()})
-        return _account(await accounts.save(self._storage.store, self.secrets, config))
+    async def email_recipients(self) -> list[str]:
+        """Who the agent may email without asking, besides the user's own accounts."""
+        return await recipients.get(self._storage.store)
+
+    async def set_email_recipients(self, addresses: list[str]) -> list[str]:
+        return await recipients.save(self._storage.store, addresses)
 
     async def remove_email_account(self, account_id: str) -> None:
         """Another account becomes the default if this one was."""
@@ -220,7 +221,6 @@ def _account(config: EmailConfig) -> EmailAccount:
         config.port,
         config.username,
         config.sender,
-        config.allowed_recipients,
         config.imap_host,
         config.imap_port,
         config.new_mail_alerts,

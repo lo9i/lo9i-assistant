@@ -1,4 +1,4 @@
-"""Email tools: send (recipients outside the account's allowlist need approval), search and read.
+"""Email tools: send (recipients outside the allowlist, recipients.py, need approval), search and read.
 
 Each takes the account to use (its label or address, listed in the system prompt), or the default.
 What a message says is the sender's text, not the user's: results say so, so the model doesn't
@@ -15,7 +15,7 @@ from assistant.core.attachments import Attachment, Block, reference
 from assistant.core.config import settings
 from assistant.core.context import Context, require_secrets, require_store
 from assistant.core.hidden_text import strip_hidden
-from assistant.core.integrations.email import accounts, imap, smtp
+from assistant.core.integrations.email import accounts, imap, recipients, smtp
 from assistant.core.integrations.email.accounts import EmailConfig, EmailError
 from assistant.core.integrations.email.imap import Mail, MailAttachment, MailSummary
 from assistant.core.skills import store as skills
@@ -33,7 +33,8 @@ async def send_email(to: list[str], subject: str, body: str, runtime: ToolRuntim
         return config
     if not config.connected:
         return f"Email isn't set up. Load the {skills.SETUP} skill and give the user its steps for email."
-    outsiders = [a for a in to if not config.allowed(a)]
+    store = require_store(runtime.store)
+    outsiders = [a for a in to if not await recipients.allowed(store, a)]
     if outsiders:
         request = {
             "tool": "send_email",

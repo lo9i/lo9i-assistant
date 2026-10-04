@@ -658,9 +658,14 @@ def _add_email_routes(app: FastAPI, service: AssistantService) -> None:
     async def new_mail_alerts(account_id: str, body: NewMailAlerts) -> EmailAccount:
         return await _email(service.set_new_mail_alerts(account_id, body.channel))
 
-    @app.put("/integrations/email/accounts/{account_id}/recipients")
-    async def email_recipients(account_id: str, body: EmailRecipients) -> EmailAccount:
-        return await _email(service.set_email_recipients(account_id, body.addresses))
+    @app.get("/integrations/email/recipients")
+    async def email_recipients() -> EmailRecipients:
+        """Who the agent may email without asking, from any account, besides the user's own accounts."""
+        return EmailRecipients(addresses=await service.email_recipients())
+
+    @app.put("/integrations/email/recipients")
+    async def set_email_recipients(body: EmailRecipients) -> EmailRecipients:
+        return EmailRecipients(addresses=await service.set_email_recipients(body.addresses))
 
     @app.delete("/integrations/email/accounts/{account_id}")
     async def remove_email_account(account_id: str) -> Ok:
