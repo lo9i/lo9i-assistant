@@ -7,7 +7,7 @@ from assistant.client import DaemonClient, DaemonUnavailableError
 from assistant.client.files import load_attachment
 from assistant.core.agent import InvalidNameError, Session
 from assistant.core.attachments import Attachment
-from assistant.core.events import ApprovalRequired, is_question
+from assistant.core.events import ApprovalRequired, is_plugin_offer, is_question
 from assistant_terminal.channels_text import NONE_INSTALLED
 from assistant_terminal.channels_text import describe as describe_channel
 from assistant_terminal.commands import GET_TO_KNOW_ME, help_lines
@@ -219,6 +219,15 @@ async def _collect_decisions(approvals: list[ApprovalRequired]) -> dict[str, dic
         request = approval.request
         if is_question(request):
             decisions[approval.interrupt_id] = await _answer_question(request)
+            continue
+        if is_plugin_offer(request):
+            # Tokens are typed only in the install dialog, which the full app has.
+            print(
+                paint(
+                    YELLOW, f"\nThe assistant offers {request.get('name')}. Install it with /plugins in the full app."
+                )
+            )
+            decisions[approval.interrupt_id] = {"installed": False}
             continue
         print(paint(YELLOW, f"\nApprove {request.get('tool')} ({request.get('reason')}): {request.get('command')}"))
         answer = await _read_line("[y/N or reason to reject] ") or ""

@@ -22,7 +22,7 @@
 <SettingsCard
   id="plugin-updates"
   title="Plugin updates"
-  sub="Newer versions of installed plugins show as a count on Settings in the sidebar and on the Plugins tab."
+  sub="Checks the extras once a day for newer versions of your plugins, and keeps the list of plugins the assistant can offer you current. When there are newer versions, Settings in the sidebar and the Plugins tab show how many."
 >
   {#if checks.data === undefined}
     <p class="text-meta">{checks.error ?? "Loading…"}</p>

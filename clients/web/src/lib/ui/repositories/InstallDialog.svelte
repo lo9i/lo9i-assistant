@@ -1,15 +1,22 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import type { FoundServer, RepositoryContents } from "$lib/api/types";
+  import type { FoundServer, FoundSkill, RepositoryContents } from "$lib/api/types";
   import { useDaemon } from "$lib/daemon.svelte";
   import { describe } from "$lib/notices";
   import { missingField, optional } from "$lib/plugins";
   import Modal from "../Modal.svelte";
 
-  // `kind`: only MCP servers (the MCP servers page) or only skills (the Skills page). `only`: just this
-  // plugin, to give the values it asks for (the Plugins page). What's installed already isn't offered.
-  type Props = { onclose: (installed?: string[]) => void; kind?: "server" | "skill"; only?: string };
-  let { onclose, kind: shownKind, only }: Props = $props();
+  // `kind`: only MCP servers (the MCP servers page) or only skills (the Skills page). `server` or
+  // `skill`: just this plugin, already read from the extras (the Plugins page, or one the agent offers
+  // in the chat). What's installed already isn't offered.
+  type Props = {
+    onclose: (installed?: string[]) => void;
+    kind?: "server" | "skill";
+    server?: FoundServer;
+    skill?: FoundSkill;
+  };
+  let { onclose, kind: shownKind, server: onlyServer, skill: onlySkill }: Props = $props();
+  const only = $derived(onlyServer ?? onlySkill);
   const { client } = useDaemon();
 
   let found = $state<RepositoryContents | null>(null);
@@ -32,23 +39,24 @@
     }
   }
 
+  function offer(contents: RepositoryContents): void {
+    const onlyOne = contents.skills.length + contents.servers.length === 1;
+    skills = new Set(onlyOne ? contents.skills.map((s) => s.name) : []);
+    servers = new Set(onlyOne ? contents.servers.map((s) => s.name) : []);
+    values = Object.fromEntries(contents.servers.map((s) => [s.name, Object.fromEntries(s.fields.map((f) => [f.key, ""]))]));
+    found = contents;
+  }
+
   const look = () =>
     run(async () => {
       const all = await client.repositories.browse();
-      const offered = (k: "server" | "skill", p: { name: string; installed?: boolean }) =>
-        !p.installed && (!shownKind || shownKind === k) && (!only || only === p.name);
+      const offered = (k: "server" | "skill", p: { name: string; installed?: boolean }) => !p.installed && (!shownKind || shownKind === k);
       // The MCP servers page lists servers with tools: a plugin that's only a chat channel is installed from Plugins.
       const listed = (s: FoundServer) => !(shownKind === "server" && s.transport === "channel");
-      const contents = {
+      offer({
         skills: all.skills.filter((s) => offered("skill", s)),
         servers: all.servers.filter((s) => offered("server", s) && listed(s)),
-      };
-      const onlyOne = contents.skills.length + contents.servers.length === 1;
-      const chosen = (name: string) => onlyOne || name === only;
-      skills = new Set(contents.skills.filter((s) => chosen(s.name)).map((s) => s.name));
-      servers = new Set(contents.servers.filter((s) => chosen(s.name)).map((s) => s.name));
-      values = Object.fromEntries(contents.servers.map((s) => [s.name, Object.fromEntries(s.fields.map((f) => [f.key, ""]))]));
-      found = contents;
+      });
     });
 
   /** "telegram needs Bot token." for the first chosen server with a required value left empty. */
@@ -70,9 +78,12 @@
     });
   };
 
-  // What the extras offer, as soon as it opens.
+  // A plugin given already is offered before the first render, which reads its values; otherwise
+  // what the extras offer, as soon as it opens.
+  // The dialog is opened for one plugin and closed after; it never changes to another.
+  untrack(() => only && offer({ skills: onlySkill ? [onlySkill] : [], servers: onlyServer ? [onlyServer] : [] }));
   $effect(() => {
-    void untrack(look);
+    if (!only) void untrack(look);
   });
 
   function toggled(set: Set<string>, name: string, on: boolean): Set<string> {
@@ -90,16 +101,44 @@
     if (s.page) parts.push("with a web page");
     return `MCP server, ${parts.join(", ")}`;
   }
+
+  /** "t.me/BotFather" for a help link: the address without its scheme reads better. */
+  function shortLink(url: string): string {
+    return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  }
 </script>
 
+{#snippet fields(server: FoundServer)}
+  {#each server.fields as f (f.key)}
+    <label class="field">
+      <span class="field-label">{f.label}</span>
+      <input
+        class="input"
+        type={f.secret ? "password" : "text"}
+        bind:value={values[server.name][f.key]}
+        required={!optional(server, f.key)}
+        placeholder={optional(server, f.key) ? "Leave empty to keep the one already saved" : ""}
+        autocomplete="off"
+      />
+      {#if f.help}<span class="text-caption">Get it at <a href={f.help} target="_blank" rel="noreferrer">{shortLink(f.help)}</a></span>{/if}
+    </label>
+  {/each}
+{/snippet}
+
 <Modal
-  title={only ? `Install ${only}` : "Install a plugin"}
-  description="MCP servers, chat channels and skills from the assistant's extras. What you install runs on the computer running the assistant."
+  title={only ? `Install ${only.name}` : "Install a plugin"}
+  description={only
+    ? only.description
+    : "MCP servers, chat channels and skills from the assistant's extras. What you install runs on the computer running the assistant."}
   width={600}
   onclose={() => onclose()}
 >
-  {#if found === null && !error}<p class="text-meta">Looking at the extras…</p>{/if}
-  {#if found && found.skills.length + found.servers.length === 0}
+  {#if onlyServer}
+    <div class="form">{@render fields(onlyServer)}</div>
+  {:else if onlySkill}
+    {#if onlySkill.files.length}<p class="text-caption flush">Files: {onlySkill.files.join(", ")}</p>{/if}
+  {:else if found === null && !error}<p class="text-meta">Looking at the extras…</p>
+  {:else if found && found.skills.length + found.servers.length === 0}
     <p class="text-meta">
       Everything the extras offer{shownKind === "server" ? " as MCP servers" : shownKind === "skill" ? " as skills" : ""} is installed already.
     </p>
@@ -131,20 +170,7 @@
           </label>
           <p class="text-caption">{server.description}</p>
           {#if servers.has(server.name)}
-            {#each server.fields as f (f.key)}
-              <label class="field indented">
-                <span class="micro-label">{f.label}{f.secret ? " (secret)" : ""}{optional(server, f.key) ? " (optional)" : ""}</span>
-                <input
-                  class="input"
-                  type={f.secret ? "password" : "text"}
-                  bind:value={values[server.name][f.key]}
-                  required={!optional(server, f.key)}
-                  autocomplete="off"
-                />
-                {#if optional(server, f.key)}<span class="text-caption">Leave empty to keep the one you set before.</span>{/if}
-                {#if f.help}<a class="text-caption" href={f.help} target="_blank" rel="noreferrer">{f.help}</a>{/if}
-              </label>
-            {/each}
+            <div class="form indented">{@render fields(server)}</div>
           {/if}
         </li>
       {/each}
@@ -164,10 +190,19 @@
 </Modal>
 
 <style>
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
   .field {
     display: flex;
     flex-direction: column;
+    align-items: stretch;
     gap: 6px;
+  }
+  .field-label {
+    font-weight: 600;
   }
   .indented {
     padding: 8px 0 0 22px;
@@ -180,7 +215,7 @@
     flex-direction: column;
     gap: 12px;
   }
-  li > label {
+  li > label:not(.field) {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -190,7 +225,8 @@
     margin: 0;
     padding-left: 22px;
   }
-  .error-text {
+  .error-text,
+  .flush {
     padding-left: 0;
   }
 </style>

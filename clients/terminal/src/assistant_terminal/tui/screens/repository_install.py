@@ -26,19 +26,27 @@ _SKILL, _SERVER = "skill:", "server:"
 class RepositoryInstallScreen(ModalScreen[list[str]]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss([])", "Close")]
 
-    def __init__(self, repositories: RepositoriesApi, kind: str = "", only: str = "") -> None:
+    def __init__(
+        self,
+        repositories: RepositoriesApi,
+        kind: str = "",
+        only: str = "",
+        offered: FoundServer | FoundSkill | None = None,
+    ) -> None:
         """`kind`: only "server"s (from /mcp) or only "skill"s (from /skills). `only`: just this plugin,
-        to give the values it asks for (from /plugins). What's installed already isn't offered."""
+        to give the values it asks for (from /plugins). `offered`: a plugin the agent offers in the
+        chat, already read from the extras. What's installed already isn't offered."""
         super().__init__()
         self._repositories = repositories
         self._kind, self._only = kind, only
+        self._offer = offered
         self._servers: dict[str, FoundServer] = {}
         # One input per field of each server, by server name and field key.
         self._inputs: dict[str, dict[str, Input]] = {}
 
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="repository-install"):
-            yield Markdown(_INTRO)
+            yield Markdown(_offer_intro(self._offer) if self._offer else _INTRO)
             yield Markdown(id="repository-message")
             yield SelectionList[str](id="repository-found")
             yield Vertical(id="repository-fields")
@@ -48,7 +56,13 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
 
     async def on_mount(self) -> None:
         self._show_choice(False)
-        await self._browse()
+        if self._offer is None:
+            await self._browse()
+            return
+        offer = self._offer
+        await self._show(
+            RepositoryContents([], [offer]) if isinstance(offer, FoundServer) else RepositoryContents([offer], [])
+        )
 
     @on(Button.Pressed, "#cancel")
     def _cancel(self) -> None:
@@ -127,6 +141,10 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
 
     async def _say(self, text: str) -> None:
         await self.query_one("#repository-message", Markdown).update(text)
+
+
+def _offer_intro(plugin: FoundServer | FoundSkill) -> str:
+    return f"## Install {plugin.name}\n\nThe assistant offers it: {plugin.description}"
 
 
 # For a field the daemon already has a value for, from before channels were plugins.

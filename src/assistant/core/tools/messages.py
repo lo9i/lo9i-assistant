@@ -4,10 +4,12 @@ from datetime import UTC, datetime
 
 from langchain_core.tools import tool
 from langgraph.prebuilt import ToolRuntime
+from langgraph.store.base import BaseStore
 
 from assistant.core.context import Context, require_store
 from assistant.core.conversation import sent
 from assistant.core.outbox import DeliveryError
+from assistant.core.repositories import offers
 from assistant.core.tools.registry import register
 
 
@@ -23,8 +25,15 @@ async def send_message(text: str, channel: str, runtime: ToolRuntime[Context]) -
     try:
         await outbox.send(channel, text)
     except DeliveryError as e:
-        return str(e)
+        return await _not_installed(require_store(runtime.store), channel) or str(e)
     # Sent from this channel's own conversation, it's already in its history.
     if channel != runtime.context.channel:
         await sent.record(require_store(runtime.store), runtime.context.user_id, channel, text, datetime.now(UTC))
     return f"Sent on {channel}."
+
+
+async def _not_installed(store: BaseStore, channel: str) -> str:
+    """Points to offer_plugin when the channel is a plugin the extras have but this computer doesn't."""
+    if channel not in {o.name for o in await offers.offerable(store)}:
+        return ""
+    return f"{channel} isn't installed. Offer it to the user with offer_plugin."

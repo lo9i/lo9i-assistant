@@ -217,3 +217,35 @@ async def test_get_to_know_me_starts_its_own_conversation(app, client):
         await pilot.press(*"/get-to-know-me", "enter")
         await wait_for(pilot, lambda: bool(client.sent))
         assert app.sub_title == "owner:new" and client.sent[0][0] == "Get to know me."
+
+
+async def test_a_plugin_the_agent_offers_is_installed_in_the_dialog(app, client):
+    from dataclasses import asdict
+
+    from assistant.core.agent import FoundServer, ServerField
+    from assistant_terminal.tui.screens import RepositoryInstallScreen
+
+    fields = [ServerField("TELEGRAM_TOKEN", "Bot token", secret=True)]
+    telegram = FoundServer("telegram", "Chat on Telegram", "channel", fields, False, channel=True)
+    client.waiting_for = {
+        "kind": "plugin",
+        "name": "telegram",
+        "description": telegram.description,
+        "server": asdict(telegram),
+    }
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"message me on Telegram", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, RepositoryInstallScreen))
+        app.screen.query(Input).first().value = "123:abc"
+        app.screen.query_one("#install").press()
+        await wait_for(pilot, lambda: not app._busy)
+        assert client.decisions == {"i1": {"installed": True}}
+        assert [(s.name, s.values) for s in client.repositories.installed[0][2]] == [
+            ("telegram", {"TELEGRAM_TOKEN": "123:abc"})
+        ]
+        await pilot.press(*"again", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, RepositoryInstallScreen))
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: not app._busy)
+        assert client.decisions == {"i1": {"installed": False}}

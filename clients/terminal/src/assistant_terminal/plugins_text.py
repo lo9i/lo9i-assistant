@@ -77,7 +77,7 @@ def describe(plugin: Plugin) -> str:
     """Markdown: what it is, what it asks for, and its state."""
     lines = [f"## {plugin.name}", plugin.description, f"Kind: {plugin.kind}", f"Version: {version(plugin)}"]
     if plugin.server is not None:
-        lines.append(f"Runs: {'remotely' if plugin.server.transport == 'http' else 'on this computer'}")
+        lines.append(f"Runs: {'remotely' if plugin.server.transport == 'http' else "on the assistant's computer"}")
         if plugin.server.fields:
             lines.append(f"Asks for: {', '.join(f.label for f in plugin.server.fields)}")
         if plugin.server.page:
