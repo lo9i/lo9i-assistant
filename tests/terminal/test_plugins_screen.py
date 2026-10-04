@@ -102,17 +102,22 @@ def test_a_channel_plugin_is_labelled_as_a_channel():
     assert "Runs: on the assistant's computer" in describe(Plugin("telegram", False, server=telegram))
 
 
-def test_plugins_are_grouped_by_category_with_other_last():
+def test_plugins_are_grouped_by_their_categorys_group_with_other_last():
     def plugin(name: str, category: str) -> Plugin:
         return Plugin(name, False, server=FoundServer(name, "", "stdio", [], False, category=category))
 
-    shown = [plugin("misc", "other"), plugin("ledger", "finance"), plugin("bot", "communications")]
+    shown = [
+        plugin("misc", "other/general"),
+        plugin("ledger", "apps/finance"),
+        plugin("bot", "communications/chat"),
+        plugin("mail", "communications/email"),
+    ]
     assert [(c, [p.name for p in g]) for c, g in by_category(shown)] == [
-        ("communications", ["bot"]),
-        ("finance", ["ledger"]),
+        ("apps", ["ledger"]),
+        ("communications", ["bot", "mail"]),
         ("other", ["misc"]),
     ]
-    assert "Category: Finance" in describe(shown[1])
+    assert "Category: Apps / Finance" in describe(shown[1])
 
 
 def test_a_value_the_daemon_already_has_may_be_left_empty():

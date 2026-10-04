@@ -73,22 +73,30 @@ export function describe(p: Plugin): string {
   return p.kind === "server" ? p.server.description : p.skill.description;
 }
 
-/** What it's for, from the daemon's fixed list ("communications", ..., "other"). */
+/** What it's for, from the daemon's fixed list: a group and a category in it ("communications/email"). */
 export function categoryOf(p: Plugin): string {
   return p.kind === "server" ? p.server.category : p.skill.category;
 }
 
-/** "communications" → "Communications". */
-export function categoryLabel(category: string): string {
-  return category.charAt(0).toUpperCase() + category.slice(1);
+/** The group a category is in: "communications/email" → "communications". */
+export function groupOf(category: string): string {
+  return category.split("/")[0];
 }
 
-/** The plugins grouped by category, in alphabetical order with "other" last, keeping their order within a group. */
+/** "communications/email" → "Communications / Email"; a group alone, "communications" → "Communications". */
+export function categoryLabel(category: string): string {
+  return category
+    .split("/")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" / ");
+}
+
+/** The plugins grouped by their category's group, in alphabetical order with "other" last, keeping their order within a group. */
 export function byCategory(plugins: Plugin[]): Array<{ category: string; plugins: Plugin[] }> {
-  const categories = [...new Set(plugins.map(categoryOf))].sort(
+  const groups = [...new Set(plugins.map((p) => groupOf(categoryOf(p))))].sort(
     (a, b) => Number(a === "other") - Number(b === "other") || a.localeCompare(b),
   );
-  return categories.map((category) => ({ category, plugins: plugins.filter((p) => categoryOf(p) === category) }));
+  return groups.map((group) => ({ category: group, plugins: plugins.filter((p) => groupOf(categoryOf(p)) === group) }));
 }
 
 /** A plugin's key in the list: a server and a skill can share a name. */

@@ -13,9 +13,10 @@ description: Chat with the assistant on Telegram
 # Folders under lib/ in the repository that the plugin uses. They're installed next to the plugins'
 # folders, so a uv path dependency on ../../lib/<name> works both in the repository and once installed.
 libraries: [lo9i-chat]
-# Groups it in the apps' Plugins list (core/repositories/categories.py). A channel is always in
-# communications, which is also what it gets without this line.
-category: communications
+# Only for a plugin outside a category's folder: in the extras it lives in communications/chat/,
+# which gives its category (core/repositories/categories.py). A channel is always in
+# communications/chat, which is also what it gets without this line.
+category: communications/chat
 fields:
   - {key: TELEGRAM_TOKEN, label: Bot token, secret: true, help: https://t.me/BotFather}
 channel:

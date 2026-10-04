@@ -26,8 +26,13 @@ class Plugin:
 
     @property
     def category(self) -> str:
-        """What it's for, from the daemon's fixed list ("communications", ..., "other")."""
-        return self.server.category if self.server else self.skill.category if self.skill else "other"
+        """What it's for, from the daemon's fixed list: a group and a category in it ("communications/email")."""
+        return self.server.category if self.server else self.skill.category if self.skill else "other/general"
+
+    @property
+    def group(self) -> str:
+        """The group its category is in: "communications/email" → "communications"."""
+        return self.category.split("/")[0]
 
     @property
     def kind(self) -> str:
@@ -73,14 +78,15 @@ def plugins(contents: RepositoryContents) -> list[Plugin]:
 
 
 def by_category(shown: list[Plugin]) -> list[tuple[str, list[Plugin]]]:
-    """The plugins grouped by category, in alphabetical order with "other" last, keeping their order
-    within a group."""
-    categories = sorted({p.category for p in shown}, key=lambda c: (c == "other", c))
-    return [(c, [p for p in shown if p.category == c]) for c in categories]
+    """The plugins grouped by their category's group, in alphabetical order with "other" last, keeping
+    their order within a group."""
+    groups = sorted({p.group for p in shown}, key=lambda g: (g == "other", g))
+    return [(g, [p for p in shown if p.group == g]) for g in groups]
 
 
 def category_label(category: str) -> str:
-    return category.capitalize()
+    """ "communications/email" → "Communications / Email"; a group alone, "communications" → "Communications"."""
+    return " / ".join(part.capitalize() for part in category.split("/"))
 
 
 def has_settings(category: str) -> bool:

@@ -52,17 +52,17 @@ fields:
 
 @pytest.fixture
 def repo(tmp_path, monkeypatch) -> Path:
-    """Two skills under skills/, a local and a remote server under mcp/, the way the download sees them."""
+    """Two skills, a local and a remote server, in the other folder, the way the download sees them."""
     root = tmp_path / "remote"
-    _skill(root / "skills" / "expenses", "expenses", "Track expenses", {"scripts/add.py": "print('v1')"})
-    _skill(root / "skills" / "news", "news-digest", "Daily news", {})
-    _write(root / "mcp" / "hello", {"server.yaml": _MANIFEST, "server.py": _SERVER})
+    _skill(root / "other" / "general" / "expenses", "expenses", "Track expenses", {"scripts/add.py": "print('v1')"})
+    _skill(root / "other" / "general" / "news", "news-digest", "Daily news", {})
+    _write(root / "other" / "general" / "hello", {"server.yaml": _MANIFEST, "server.py": _SERVER})
     _write(
-        root / "mcp" / "tasks",
+        root / "other" / "general" / "tasks",
         {"server.yaml": "url: https://tasks.example.com/mcp\nfields: [{key: Authorization, label: Token}]"},
     )
     _write(root / ".git", {"config": "[core]"})
-    (root / "skills" / "expenses" / "link.py").symlink_to("/etc/hosts")
+    (root / "other" / "general" / "expenses" / "link.py").symlink_to("/etc/hosts")
 
     async def fetch(url: str, dest: Path) -> str:
         REMOTE["downloads"] += 1
@@ -117,7 +117,7 @@ async def test_skills_are_installed_with_visible_files_and_their_source(service,
     [skill] = installed.skills
     assert (skill.name, skill.files, skill.source) == ("expenses", ["scripts/add.py"], URL)
     assert not (isolated_settings / "skills" / "expenses" / "link.py").exists()
-    assert store.installed_from("expenses") == Source(URL, "skills/expenses", "head1")
+    assert store.installed_from("expenses") == Source(URL, "other/general/expenses", "head1")
 
 
 async def test_an_installed_local_server_runs_from_its_folder_with_the_values_given(service, repo, isolated_settings):
@@ -159,7 +159,7 @@ async def test_names_taken_by_other_skills_or_servers_are_refused(service, repo)
 async def test_updating_a_server_keeps_the_values_and_choices_of_the_user(service, repo):
     await service.install_from_repository(URL, [], [HELLO])
     await service.update_mcp_server("hello", McpServerChanges(trusted=True, include=["whoami"]))
-    (repo / "mcp" / "hello" / "server.yaml").write_text(
+    (repo / "other" / "general" / "hello" / "server.yaml").write_text(
         _MANIFEST.replace("HELLO_GREETING: hi", "HELLO_GREETING: hello")
     )
     status = await service.update_mcp_server_from_repository("hello")
@@ -171,7 +171,7 @@ async def test_updating_a_server_keeps_the_values_and_choices_of_the_user(servic
 async def test_a_server_whose_new_version_needs_a_new_value_isnt_updated(service, repo):
     await service.install_from_repository(URL, [], [HELLO])
     manifest = _MANIFEST + "  - {key: HELLO_CITY, label: Your city}\n"
-    (repo / "mcp" / "hello" / "server.yaml").write_text(manifest)
+    (repo / "other" / "general" / "hello" / "server.yaml").write_text(manifest)
     with pytest.raises(McpServerError, match="needs Your city: remove it and install it again"):
         await service.update_mcp_server_from_repository("hello")
     await service.add_mcp_server(McpServer("mine", command="mine"))
@@ -198,15 +198,15 @@ async def test_removing_a_server_can_delete_its_data_too(service, repo, isolated
 
 
 async def test_a_server_yaml_that_cant_work_is_reported(service, repo):
-    (repo / "mcp" / "tasks" / "server.yaml").write_text("command: run\nurl: https://x")
-    with pytest.raises(RepositoryError, match=r"mcp/tasks/server\.yaml can.t be used: Give either a command"):
+    (repo / "other" / "general" / "tasks" / "server.yaml").write_text("command: run\nurl: https://x")
+    with pytest.raises(RepositoryError, match=r"other/general/tasks/server\.yaml can.t be used: Give either a command"):
         await service.browse_repository(URL)
 
 
 async def test_updating_a_skill_replaces_local_changes(service, repo, isolated_settings):
     await service.install_from_repository(URL, ["expenses"], [])
     store.save("expenses", "Mine", "My steps", {"scripts/mine.py": "x"})
-    (repo / "skills" / "expenses" / "scripts" / "add.py").write_text("print('v2')")
+    (repo / "other" / "general" / "expenses" / "scripts" / "add.py").write_text("print('v2')")
     skill = await skill_install.update("expenses")
     assert skill.description == "Track expenses" and skill.files == ["scripts/add.py"]
     assert (isolated_settings / "skills" / "expenses" / "scripts" / "add.py").read_text() == "print('v2')"
@@ -252,7 +252,7 @@ async def test_a_server_gets_its_folders_uv_and_page_filled_in(service, repo, is
     from assistant.core.mcp import install as server_install
 
     monkeypatch.setattr(server_install, "find_uv", lambda: "/opt/uv")
-    _write(repo / "mcp" / "ledger", {"server.yaml": _WITH_PAGE})
+    _write(repo / "other" / "general" / "ledger", {"server.yaml": _WITH_PAGE})
     [status] = (await service.install_from_repository(URL, [], [ServerValues("ledger")])).servers
     server = await servers.load(service.store, "ledger")
     code, data = isolated_settings / "mcp" / "ledger", isolated_settings / "data" / "ledger"
@@ -269,7 +269,7 @@ async def test_a_server_that_runs_with_uv_needs_uv(service, repo, monkeypatch):
     from assistant.core.mcp import install as server_install
 
     monkeypatch.setattr(server_install, "find_uv", lambda: None)
-    _write(repo / "mcp" / "ledger", {"server.yaml": _WITH_PAGE})
+    _write(repo / "other" / "general" / "ledger", {"server.yaml": _WITH_PAGE})
     with pytest.raises(McpServerError, match="can't find uv"):
         await service.install_from_repository(URL, [], [ServerValues("ledger")])
 
@@ -278,7 +278,7 @@ _HELLO_SKILL = "---\nname: hello\ndescription: Greeting people\n---\n\nCall whoa
 
 
 async def test_a_servers_skill_is_installed_updated_and_removed_with_it(service, repo, isolated_settings):
-    _write(repo / "mcp" / "hello", {"SKILL.md": _HELLO_SKILL})
+    _write(repo / "other" / "general" / "hello", {"SKILL.md": _HELLO_SKILL})
     contents = await service.browse_repository(URL)
     assert "hello" not in [s.name for s in contents.skills]
     assert next(s for s in contents.servers if s.name == "hello").skill
@@ -292,15 +292,15 @@ async def test_a_servers_skill_is_installed_updated_and_removed_with_it(service,
     with pytest.raises(store.SkillError, match="update the server"):
         await skill_install.update("hello")
 
-    _write(repo / "mcp" / "hello", {"SKILL.md": _HELLO_SKILL.replace("whoami first", "whoami")})
+    _write(repo / "other" / "general" / "hello", {"SKILL.md": _HELLO_SKILL.replace("whoami first", "whoami")})
     await service.update_mcp_server_from_repository("hello")
     assert store.load("hello").instructions == "Call whoami."
-    (repo / "mcp" / "hello" / "SKILL.md").unlink()
+    (repo / "other" / "general" / "hello" / "SKILL.md").unlink()
     await service.update_mcp_server_from_repository("hello")
     with pytest.raises(store.SkillError, match="No skill"):
         store.load("hello")
 
-    _write(repo / "mcp" / "hello", {"SKILL.md": _HELLO_SKILL})
+    _write(repo / "other" / "general" / "hello", {"SKILL.md": _HELLO_SKILL})
     await service.update_mcp_server_from_repository("hello")
     await service.remove_mcp_server("hello")
     with pytest.raises(store.SkillError, match="No skill"):
@@ -308,12 +308,12 @@ async def test_a_servers_skill_is_installed_updated_and_removed_with_it(service,
 
 
 async def test_a_servers_skill_needs_its_name_free_and_matching(service, repo):
-    _write(repo / "mcp" / "hello", {"SKILL.md": _HELLO_SKILL})
+    _write(repo / "other" / "general" / "hello", {"SKILL.md": _HELLO_SKILL})
     store.save("hello", "Mine", "My steps")
     with pytest.raises(McpServerError, match="already have a skill named hello"):
         await service.install_from_repository(URL, [], [HELLO])
     assert store.load("hello").description == "Mine"
-    _write(repo / "mcp" / "hello", {"SKILL.md": _HELLO_SKILL.replace("name: hello", "name: greeter")})
+    _write(repo / "other" / "general" / "hello", {"SKILL.md": _HELLO_SKILL.replace("name: hello", "name: greeter")})
     with pytest.raises(RepositoryError, match=r"SKILL\.md must be named hello"):
         await service.browse_repository(URL)
 
@@ -325,27 +325,50 @@ async def test_a_top_level_server_folder_is_not_also_a_skill(service, repo):
     assert next(s for s in contents.servers if s.name == "solo").skill
 
 
-async def test_plugins_say_their_category_or_are_in_other(service, repo):
-    _write(repo / "mcp" / "tasks", {"server.yaml": "url: https://tasks.example.com/mcp\ncategory: finance"})
-    _skill(repo / "skills" / "news", "news-digest", "Daily news\ncategory: communications", {})
+async def test_a_plugins_folder_gives_its_category(service, repo):
+    _write(repo / "apps" / "finance" / "ledger", {"server.yaml": "url: https://ledger.example.com/mcp"})
+    _skill(repo / "communications" / "chat" / "digest", "digest", "Daily digest", {})
     contents = await service.browse_repository(URL)
-    assert {s.name: s.category for s in contents.servers} == {"hello": "other", "tasks": "finance"}
-    assert {s.name: s.category for s in contents.skills} == {"expenses": "other", "news-digest": "communications"}
+    assert {s.name: s.category for s in contents.servers} == {
+        "hello": "other/general",
+        "ledger": "apps/finance",
+        "tasks": "other/general",
+    }
+    assert {s.name: s.category for s in contents.skills}["digest"] == "communications/chat"
+
+
+async def test_outside_a_category_folder_a_plugin_declares_it(service, repo):
+    _write(repo / "ledger", {"server.yaml": "url: https://ledger.example.com/mcp\ncategory: apps/finance"})
+    _write(repo / "plain", {"server.yaml": "url: https://plain.example.com/mcp"})
+    contents = await service.browse_repository(URL)
+    assert {s.name: s.category for s in contents.servers if s.name in ("ledger", "plain")} == {
+        "ledger": "apps/finance",
+        "plain": "other/general",
+    }
+
+
+async def test_a_category_that_disagrees_with_its_folder_is_refused(service, repo):
+    _write(
+        repo / "apps" / "finance" / "ledger",
+        {"server.yaml": "url: https://ledger.example.com/mcp\ncategory: other/general"},
+    )
+    with pytest.raises(RepositoryError, match="it's in the apps/finance folder, but its category says other/general"):
+        await service.browse_repository(URL)
 
 
 async def test_a_category_not_in_the_list_is_refused(service, repo):
-    _write(repo / "mcp" / "tasks", {"server.yaml": "url: https://tasks.example.com/mcp\ncategory: chat"})
-    with pytest.raises(RepositoryError, match="its category 'chat' isn't one of communications, finance, other"):
+    _write(repo / "tasks2", {"server.yaml": "url: https://tasks.example.com/mcp\ncategory: chat"})
+    with pytest.raises(RepositoryError, match="its category 'chat' isn't one of apps/finance, communications/chat"):
         await service.browse_repository(URL)
 
 
 async def test_a_channel_is_in_communications(service, repo):
-    _write(repo / "mcp" / "tasks", {"server.yaml": "channel: {command: run-bot}"})
+    _write(repo / "bot", {"server.yaml": "channel: {command: run-bot}"})
     contents = await service.browse_repository(URL)
-    assert next(s for s in contents.servers if s.name == "tasks").category == "communications"
-    _write(repo / "mcp" / "tasks", {"server.yaml": "channel: {command: run-bot}\ncategory: finance"})
+    assert next(s for s in contents.servers if s.name == "bot").category == "communications/chat"
+    _write(repo / "apps" / "finance" / "bot2", {"server.yaml": "channel: {command: run-bot}"})
     REMOTE["head"] = "head2"
-    with pytest.raises(RepositoryError, match="it's a channel plugin, so its category must be communications"):
+    with pytest.raises(RepositoryError, match="it's a channel plugin, so its category must be communications/chat"):
         await service.browse_repository(URL)
 
 
@@ -357,9 +380,9 @@ email:
 
 
 async def test_an_email_plugin_offers_its_providers_once_installed(service, repo):
-    _write(repo / "mcp" / "gmail", {"server.yaml": _GMAIL})
+    _write(repo / "communications" / "email" / "gmail", {"server.yaml": _GMAIL})
     found = next(s for s in (await service.browse_repository(URL)).servers if s.name == "gmail")
-    assert (found.email, found.transport, found.category) == (True, "none", "communications")
+    assert (found.email, found.transport, found.category) == (True, "none", "communications/email")
     await service.install_from_repository(URL, [], [ServerValues("gmail")])
     assert [(p.id, p.oauth, p.plugin) for p in await service.email_providers()] == [
         ("gmail", "", "gmail"),
@@ -367,16 +390,11 @@ async def test_an_email_plugin_offers_its_providers_once_installed(service, repo
     ]
 
 
-async def test_plugins_without_a_process_live_under_plugins(service, repo):
-    _write(repo / "plugins" / "gmail", {"server.yaml": _GMAIL})
-    assert "gmail" in [s.name for s in (await service.browse_repository(URL)).servers]
-
-
 async def test_a_plugin_the_repository_moved_still_updates(service, repo):
-    _write(repo / "mcp" / "gmail", {"server.yaml": _GMAIL})
+    _write(repo / "gmail", {"server.yaml": _GMAIL})
     await service.install_from_repository(URL, [], [ServerValues("gmail")])
-    (repo / "plugins").mkdir()
-    (repo / "mcp" / "gmail").rename(repo / "plugins" / "gmail")
+    (repo / "communications" / "email").mkdir(parents=True)
+    (repo / "gmail").rename(repo / "communications" / "email" / "gmail")
     await service.update_mcp_server_from_repository("gmail")
     assert [p.id for p in await service.email_providers()] == ["gmail", "gmail-oauth"]
 
@@ -390,14 +408,22 @@ async def test_a_plugin_the_repository_moved_still_updates(service, repo):
     ],
 )
 async def test_an_email_section_that_cant_work_is_reported(service, repo, section, problem):
-    _write(repo / "mcp" / "gmail", {"server.yaml": section})
+    _write(repo / "communications" / "email" / "gmail", {"server.yaml": section})
     with pytest.raises(RepositoryError, match=problem):
         await service.browse_repository(URL)
 
 
 async def test_a_skill_with_an_unknown_category_has_a_problem_and_isnt_installed(service, repo):
-    _skill(repo / "skills" / "news", "news-digest", "Daily news\ncategory: chat", {})
+    _skill(repo / "notes", "notes", "Notes\ncategory: chat", {})
     with pytest.raises(SkillError, match="its category 'chat' isn't one of"):
+        await service.install_from_repository(URL, ["notes"], [])
+
+
+async def test_a_skill_whose_category_disagrees_with_its_folder_isnt_installed(service, repo):
+    _skill(repo / "other" / "general" / "news", "news-digest", "Daily news\ncategory: communications/chat", {})
+    with pytest.raises(
+        SkillError, match=r"in the other/general folder, but its SKILL\.md says category communications/chat"
+    ):
         await service.install_from_repository(URL, ["news-digest"], [])
 
 
@@ -413,7 +439,7 @@ async def test_the_listing_is_kept_until_the_repository_has_a_newer_commit(servi
     await service.browse_repository(URL)
     await service.browse_repository(URL)
     assert REMOTE["downloads"] == 1
-    _write(repo / "skills" / "later", {"SKILL.md": "---\nname: later\ndescription: New\n---\n\nSteps."})
+    _write(repo / "other" / "general" / "later", {"SKILL.md": "---\nname: later\ndescription: New\n---\n\nSteps."})
     REMOTE["head"] = "head2"
     contents = await service.browse_repository(URL)
     assert REMOTE["downloads"] == 2 and "later" in [s.name for s in contents.skills]
@@ -432,7 +458,7 @@ async def test_an_unreachable_repository_shows_the_kept_listing(service, repo):
 
 
 async def test_versions_say_what_is_installed_and_what_is_newer(service, repo):
-    manifest = repo / "mcp" / "hello" / "server.yaml"
+    manifest = repo / "other" / "general" / "hello" / "server.yaml"
     manifest.write_text("version: 1.0.0\n" + manifest.read_text())
     await service.install_from_repository(URL, [], [HELLO])
     manifest.write_text(manifest.read_text().replace("version: 1.0.0", "version: 1.1.0"))
@@ -445,7 +471,7 @@ async def test_versions_say_what_is_installed_and_what_is_newer(service, repo):
 
 
 async def test_what_a_plugin_added_is_told_apart_from_what_was_added_here(service, repo):
-    _write(repo / "mcp" / "hello", {"SKILL.md": _HELLO_SKILL})
+    _write(repo / "other" / "general" / "hello", {"SKILL.md": _HELLO_SKILL})
     await service.install_from_repository(URL, ["expenses"], [HELLO])
     await service.add_mcp_server(McpServer("mine", command="mine"))
     store.save("notes", "Mine", "My steps")

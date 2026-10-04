@@ -11,7 +11,7 @@ const contents: RepositoryContents = {
       installed: false,
       version: "",
       installed_version: "",
-      category: "other",
+      category: "other/general",
     },
   ],
   servers: [
@@ -27,7 +27,7 @@ const contents: RepositoryContents = {
       installed: true,
       version: "",
       installed_version: "",
-      category: "other",
+      category: "other/general",
       email: false,
     },
   ],
@@ -45,18 +45,23 @@ group("pluginsOf", () => {
 });
 
 group("byCategory", () => {
-  it("groups by category, alphabetically with other last", () => {
-    const server = (name: string, category = "other"): FoundServer => ({ ...contents.servers[0], name, category });
+  it("groups by the category's group, alphabetically with other last", () => {
+    const server = (name: string, category = "other/general"): FoundServer => ({ ...contents.servers[0], name, category });
     const plugins = pluginsOf({
       skills: contents.skills,
-      servers: [server("ledger", "finance"), server("bot", "communications"), server("misc")],
+      servers: [
+        server("ledger", "apps/finance"),
+        server("bot", "communications/chat"),
+        server("mail", "communications/email"),
+        server("misc"),
+      ],
     });
     expect(byCategory(plugins).map((g) => [g.category, g.plugins.map((p) => p.name)])).toEqual([
-      ["communications", ["bot"]],
-      ["finance", ["ledger"]],
+      ["apps", ["ledger"]],
+      ["communications", ["bot", "mail"]],
       ["other", ["misc", "notes"]],
     ]);
-    expect(categoryLabel("communications")).toBe("Communications");
+    expect([categoryLabel("communications"), categoryLabel("communications/email")]).toEqual(["Communications", "Communications / Email"]);
   });
 });
 
@@ -78,7 +83,7 @@ group("versionOf", () => {
             version,
             installed_version,
             installed,
-            category: "other",
+            category: "other/general",
             email: false,
           },
         ],
@@ -108,7 +113,7 @@ group("updatable", () => {
             version,
             installed_version,
             installed,
-            category: "other",
+            category: "other/general",
             email: false,
           },
         ],
@@ -132,7 +137,7 @@ const found = (over: Partial<FoundServer>): FoundServer => ({
   installed: false,
   version: "",
   installed_version: "",
-  category: "other",
+  category: "other/general",
   email: false,
   ...over,
 });
@@ -146,7 +151,7 @@ group("channel plugins", () => {
   });
 
   it("label an email provider, and only Communications has shared settings", () => {
-    const gmail = found({ name: "gmail", channel: false, email: true, category: "communications" });
+    const gmail = found({ name: "gmail", channel: false, email: true, category: "communications/email" });
     expect(pluginsOf({ skills: [], servers: [gmail] }).map(kindOf)).toEqual(["Email provider"]);
     expect([hasSettings("communications"), hasSettings("finance")]).toEqual([true, false]);
   });

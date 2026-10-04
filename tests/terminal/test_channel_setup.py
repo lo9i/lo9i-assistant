@@ -15,7 +15,9 @@ _PAIRING = [
 
 
 def _channel(name: str, installed: bool = True) -> FoundServer:
-    return FoundServer(name, "Chat", "none", [], True, channel=True, installed=installed, category="communications")
+    return FoundServer(
+        name, "Chat", "none", [], True, channel=True, installed=installed, category="communications/chat"
+    )
 
 
 async def _open(pilot, app, client, *channels: FoundServer) -> PluginsScreen:

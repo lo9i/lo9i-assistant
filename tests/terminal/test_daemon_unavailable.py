@@ -27,7 +27,7 @@ async def test_a_screen_button_reports_it(app, client):
             "telegram", True, True, [SetupItem("action", "New pairing code", "new_pairing_code")]
         )
         telegram = FoundServer("telegram", "", "none", [], True, channel=True, installed=True)
-        client.repositories.more = [replace(telegram, category="communications")]
+        client.repositories.more = [replace(telegram, category="communications/chat")]
         await pilot.press(*"/plugins", "enter")
         await wait_for(pilot, lambda: isinstance(app.screen, PluginsScreen) and app.screen.query(".channel-action"))
         client.channels.press = _unavailable
