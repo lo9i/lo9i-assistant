@@ -6,7 +6,7 @@ from textual.widgets import Input
 
 from assistant.client import DaemonUnavailableError, clipboard
 from assistant.core.attachments import Attachment
-from assistant.core.events import Cancelled, ToolStarted
+from assistant.core.events import Cancelled, Done, ToolFinished, ToolStarted
 from assistant_terminal.tui.attachments import AttachmentBar
 from assistant_terminal.tui.screens import ApprovalScreen, QuestionScreen
 from assistant_terminal.tui.widgets import AssistantMessage, StoppedNote, ToolCall, UserMessage
@@ -189,6 +189,24 @@ async def test_esc_stops_the_reply(app, client, monkeypatch):
         await pilot.press("escape")
         await wait_for(pilot, lambda: app.query(StoppedNote) and not app._busy)
         assert str(app.query_one(ToolCall).title).startswith("✗")
+
+
+async def test_a_subagents_calls_show_inside_its_delegate_call(app, client, monkeypatch):
+    async def send(session, text, attachments=()):
+        yield ToolStarted("delegate", {"task": "look"}, id="d1")
+        yield ToolStarted("bash", {"command": "ls"}, within="d1")
+        yield ToolFinished("bash", "a.txt", within="d1")
+        yield ToolFinished("delegate", "found a.txt")
+        yield Done()
+
+    monkeypatch.setattr(client, "send", send)
+    async with app.run_test() as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"look", "enter")
+        await wait_for(pilot, lambda: not app._busy and app.query(ToolCall))
+        delegate, step = app.query(ToolCall)
+        assert delegate.title == "✓ delegate(look) · 1 step" and step.title == "✓ bash(ls)"
+        assert step.parent is not None and delegate in step.ancestors
 
 
 async def test_attached_files_show_as_tags_that_can_be_removed(app, client, tmp_path):

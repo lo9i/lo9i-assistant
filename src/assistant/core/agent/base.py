@@ -20,6 +20,7 @@ from assistant.core.secret_store import SecretBox
 from assistant.core.speech.synthesizer import Synthesizer
 from assistant.core.speech.transcriber import Transcriber
 from assistant.core.storage import Storage
+from assistant.core.subagent import SubagentRunner
 
 
 class ServiceBase:
@@ -53,6 +54,8 @@ class ServiceBase:
     # Failures of MCP servers and skills in a row (core/health.py), shared with `mcp`.
     _health: HealthLog
     _graph: Graph
+    # Runs delegated tasks; rebuilt with the graph when the model changes.
+    _subagents: SubagentRunner
     _transcriber: Transcriber
     _synthesizer: Synthesizer
     _digester: Digester

@@ -112,6 +112,10 @@ class McpHub:
         """The tool definitions for the model, in a stable order."""
         return [_definition(tool) for _, tool in sorted(self._tools.items())]
 
+    def read_only_definitions(self) -> list[dict[str, Any]]:
+        """Definitions of the tools that say they only read, for subagents."""
+        return [_definition(tool) for _, tool in sorted(self._tools.items()) if tool.read_only]
+
     def tool(self, name: str) -> McpTool | None:
         return self._tools.get(name)
 

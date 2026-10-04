@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
 from langgraph.store.base import BaseStore
@@ -10,6 +11,15 @@ from assistant.core.secret_store import SecretBox
 
 # The channel scheduled jobs run on.
 UNATTENDED_CHANNEL = "worker"
+
+
+class Subagents(ABC):
+    """Runs a task in a subagent of its own and returns its answer (core/subagent.py). A base class,
+    not a Protocol: tools validate the context with pydantic, which can't check a Protocol."""
+
+    @abstractmethod
+    async def run(self, task: str, context: "Context", call_id: str) -> str:
+        """`call_id`: the delegate call's, which the subagent's tool events name."""
 
 
 @dataclass
@@ -28,6 +38,8 @@ class Context:
     search: MessageIndex | None = field(default=None, compare=False)
     # For searching saved facts and episodes by meaning.
     recall: MemoryRecall | None = field(default=None, compare=False)
+    # For delegate. None inside a subagent, so subagents don't start their own.
+    subagents: Subagents | None = field(default=None, compare=False)
     # An unattended run whose approvals are sent to the user (core/approvals.py) instead of denied.
     forwards_approvals: bool = False
 

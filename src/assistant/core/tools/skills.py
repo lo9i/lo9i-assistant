@@ -44,7 +44,7 @@ async def save_skill(
     return f"Saved skill {name}. It shows up in the skill list from the next epoch; use_skill works now."
 
 
-@register("skills")
+@register("skills", subagents=True)
 @tool
 async def use_skill(name: str) -> str:
     """Load a skill's full instructions. Follow them step by step."""
@@ -78,7 +78,7 @@ async def delete_skill(name: str, runtime: ToolRuntime[Context]) -> str:
     return f"Deleted skill {name}."
 
 
-@register("skills")
+@register("skills", subagents=True)
 @tool
 async def list_skills() -> str:
     """List the saved skills with their descriptions (current, including ones saved in this conversation)."""

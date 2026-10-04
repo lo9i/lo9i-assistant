@@ -23,7 +23,7 @@ _SAFE_PATH = "/opt/homebrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bi
 Artifact = dict[str, int | None] | None
 
 
-@register("terminal")
+@register("terminal", subagents=True)
 @tool(response_format="content_and_artifact")
 async def bash(command: str, runtime: ToolRuntime[Context]) -> tuple[str, Artifact]:
     """Run a bash command in the workspace directory and return exit code and output.

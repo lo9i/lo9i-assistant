@@ -7,6 +7,13 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 1. G2. Prune old checkpoints.
 
+## Agent
+
+- A14. Named subagents (a researcher, a coder) as plugins from the extras with an `agent:` section in server.yaml: their own prompt, tools and model.
+- A15. Subagents in scheduled jobs. Approvals inside a delegated task follow the job's forwarding rules (`core/approvals.py`).
+- A16. Subagent steps in Telegram and Slack: `lib/lo9i-chat` in the extras doesn't know `within` on tool events yet, so a subagent's calls show there as the agent's own. Show them under the delegate call, or not at all.
+- A17. A subagent's steps aren't kept: after a reload, or in a conversation opened later, a delegate call shows only its task and answer. Its checkpoint is in the conversation's thread under the call's namespace; the history the apps load could include them.
+
 ## Daemon
 
 - A1. Restart or stop the daemon from the app.

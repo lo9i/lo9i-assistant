@@ -1,6 +1,6 @@
 import asyncio
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, cast
 
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
@@ -107,11 +107,13 @@ class RunsMixin(LockingMixin, SearchMixin):
             forwards_approvals=self.approvals.available,
             search=self._storage.search,
             recall=self._recall,
+            subagents=self._subagents,
         )
-        async for mode, data in self._graph.astream(
-            input, config, context=context, stream_mode=["messages", "updates"]
+        async for namespace, mode, data in self._graph.astream(
+            input, config, context=context, stream_mode=["messages", "updates", "custom"], subgraphs=True
         ):
-            for event in to_events(mode, data):
+            # astream types its items as `dict | Any`; with subgraphs=True they're (namespace, mode, data).
+            for event in to_events(cast(tuple[str, ...], namespace), mode, data):
                 yield event
 
     async def _pending_approvals(self, config: RunnableConfig) -> list[ApprovalRequired]:

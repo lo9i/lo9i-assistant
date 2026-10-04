@@ -96,9 +96,27 @@
           <span>{item.name}</span>
           {#if item.state === "running"}<span class="dots"><i></i><i></i><i></i></span>{/if}
           {#if item.state === "cancelled"}<span class="stopped">stopped</span>{/if}
-          {#if item.args || item.output}<span class="chevron"><ChevronRight size={12} /></span>{/if}
+          {#if item.steps?.length}<span class="steps-count">{item.steps.length} {item.steps.length === 1 ? "step" : "steps"}</span>{/if}
+          {#if item.args || item.output || item.steps?.length}<span class="chevron"><ChevronRight size={12} /></span>{/if}
         </summary>
         {#if item.args}<pre>{JSON.stringify(item.args, null, 2)}</pre>{/if}
+        {#if item.steps?.length}
+          <div class="steps">
+            {#each item.steps as step, i (i)}
+              <details class="tool step {step.state}">
+                <summary>
+                  <Wrench size={12} />
+                  <span>{step.name}</span>
+                  {#if step.state === "running"}<span class="dots"><i></i><i></i><i></i></span>{/if}
+                  {#if step.state === "cancelled"}<span class="stopped">stopped</span>{/if}
+                  <span class="chevron"><ChevronRight size={12} /></span>
+                </summary>
+                {#if step.args}<pre>{JSON.stringify(step.args, null, 2)}</pre>{/if}
+                {#if step.output}<pre>{step.output}</pre>{/if}
+              </details>
+            {/each}
+          </div>
+        {/if}
         {#if item.output}<pre>{item.output}</pre>{/if}
       </details>
     {:else if item.kind === "transcript"}
@@ -230,6 +248,17 @@
   }
   .stopped {
     color: var(--color-danger);
+  }
+  .steps-count {
+    color: var(--color-text-muted);
+  }
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+    padding-left: 12px;
+    border-left: 1px solid var(--color-border);
   }
   .dots {
     display: inline-flex;

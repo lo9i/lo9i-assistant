@@ -5,12 +5,17 @@ import type { RunEvent, ShownMessage } from "../api/types";
 export type ChatItem =
   | { kind: "user"; id: number; text: string; files: string[]; channel?: string }
   | { kind: "assistant"; id: number; text: string }
-  | { kind: "tool"; id: number; name: string; args?: Record<string, unknown>; output?: string; state: ToolState }
+  | ToolItem
   | { kind: "transcript"; id: number; text: string; language: string }
   | { kind: "error"; id: number; message: string }
   | { kind: "stopped"; id: number };
 
 export type ToolState = "running" | "done" | "cancelled";
+
+/** A tool call. A delegate call's subagent reports its own calls as `steps`. */
+export type ToolItem = ToolStep & { kind: "tool"; id: number; callId?: string; steps?: ToolStep[] };
+
+export type ToolStep = { name: string; args?: Record<string, unknown>; output?: string; state: ToolState };
 
 export type Transcript = {
   items: ChatItem[];
@@ -47,8 +52,10 @@ export function apply(t: Transcript, event: RunEvent): Transcript {
   const ended = { ...t, streaming: null };
   switch (event.type) {
     case "ToolStarted":
-      return toolStarted(ended, event.name, event.args);
+      if (event.within) return stepStarted(ended, event.within, { name: event.name, args: event.args, state: "running" });
+      return toolStarted(ended, event.name, event.args, event.id);
     case "ToolFinished":
+      if (event.within) return stepFinished(ended, event.within, event.name, event.output);
       return toolFinished(ended, event.name, event.output);
     case "Transcribed":
       return add(ended, { kind: "transcript", text: event.text, language: event.language });
@@ -91,9 +98,28 @@ function addText(t: Transcript, text: string): Transcript {
   return update(t, t.streaming, (item) => (item.kind === "assistant" ? { ...item, text: item.text + text } : item));
 }
 
-function toolStarted(t: Transcript, name: string, args: Record<string, unknown>): Transcript {
+function toolStarted(t: Transcript, name: string, args: Record<string, unknown>, callId?: string): Transcript {
   const pending = { ...t.pending, [name]: [...(t.pending[name] ?? []), t.nextId] };
-  return add({ ...t, pending }, { kind: "tool", name, args, state: "running" });
+  return add({ ...t, pending }, { kind: "tool", name, args, callId, state: "running" });
+}
+
+function stepStarted(t: Transcript, within: string, step: ToolStep): Transcript {
+  return updateCall(t, within, (steps) => [...steps, step]);
+}
+
+/** Results carry only the tool name, so they finish the call's first running step of that name. */
+function stepFinished(t: Transcript, within: string, name: string, output: string): Transcript {
+  return updateCall(t, within, (steps) => {
+    const index = steps.findIndex((s) => s.name === name && s.state === "running");
+    return steps.map((s, i) => (i === index ? { ...s, output, state: "done" } : s));
+  });
+}
+
+function updateCall(t: Transcript, callId: string, change: (steps: ToolStep[]) => ToolStep[]): Transcript {
+  const items = t.items.map((item) =>
+    item.kind === "tool" && item.callId === callId ? { ...item, steps: change(item.steps ?? []) } : item,
+  );
+  return { ...t, items };
 }
 
 function toolFinished(t: Transcript, name: string, output: string): Transcript {
@@ -105,8 +131,13 @@ function toolFinished(t: Transcript, name: string, output: string): Transcript {
 
 function cancelled(t: Transcript): Transcript {
   const running = new Set(Object.values(t.pending).flat());
-  const items = t.items.map((item) => (item.kind === "tool" && running.has(item.id) ? { ...item, state: "cancelled" as const } : item));
+  const items = t.items.map((item) => (item.kind === "tool" && running.has(item.id) ? cancelCall(item) : item));
   return add({ ...t, items, pending: {} }, { kind: "stopped" });
+}
+
+function cancelCall(item: ToolItem): ToolItem {
+  const steps = item.steps?.map((s) => (s.state === "running" ? { ...s, state: "cancelled" as const } : s));
+  return { ...item, steps, state: "cancelled" };
 }
 
 function update(t: Transcript, id: number, change: (item: ChatItem) => ChatItem): Transcript {

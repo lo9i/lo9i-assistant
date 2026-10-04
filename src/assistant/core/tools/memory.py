@@ -58,7 +58,7 @@ async def update_profile(section: Section, items: list[str], runtime: ToolRuntim
     return f"Profile section {section} now: {'; '.join(items) or '(empty)'}"
 
 
-@register("memory")
+@register("memory", subagents=True)
 @tool
 async def search_memory(query: str, runtime: ToolRuntime[Context]) -> str:
     """Search everything remembered about the user, beyond what this prompt shows.

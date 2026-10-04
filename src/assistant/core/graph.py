@@ -4,14 +4,15 @@ from datetime import UTC, datetime
 from typing import Any, Protocol, cast
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
-from langgraph.graph import START, MessagesState, StateGraph
+from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.graph.state import CompiledStateGraph
-from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.prebuilt import ToolNode
 from langgraph.prebuilt.tool_node import AsyncToolCallWrapper, ToolCallRequest
 from langgraph.runtime import Runtime
+from langgraph.types import Send
 
 from assistant.core.attachments import hydrate
 from assistant.core.config import settings
@@ -67,6 +68,8 @@ class McpTools(Protocol):
 
     def definitions(self) -> list[dict[str, Any]]: ...
 
+    def read_only_definitions(self) -> list[dict[str, Any]]: ...
+
     def tool(self, name: str) -> BaseTool | None: ...
 
     def unavailable(self, name: str) -> str: ...
@@ -78,10 +81,10 @@ def build_graph(storage: Storage, choice: ModelChoice, summarizer: Summarizer, m
     builder.add_node("epoch", _epoch_node(summarizer, mcp))
     llm = metered(build_llm(choice, choice.model), TokenMeter(storage.usage, "reply"))
     builder.add_node("agent", _agent_node(llm, tools, choice.provider in IMAGES_IN_TOOL_RESULTS))
-    builder.add_node("tools", ToolNode(tools, awrap_tool_call=_mcp_calls(mcp)))
+    builder.add_node("tools", ToolNode(tools, awrap_tool_call=mcp_calls(mcp)))
     builder.add_edge(START, "epoch")
     builder.add_edge("epoch", "agent")
-    builder.add_conditional_edges("agent", tools_condition)
+    builder.add_conditional_edges("agent", each_tool_call("tools"), ["tools", END])
     builder.add_edge("tools", "agent")
     return builder.compile(checkpointer=storage.checkpointer, store=storage.store)
 
@@ -116,7 +119,20 @@ async def _epoch_update(
     return {}
 
 
-def _mcp_calls(mcp: McpTools) -> AsyncToolCallWrapper:
+def each_tool_call(node: str) -> Callable[[MessagesState], str | list[Send]]:
+    """Routes each tool call of the last reply to `node` as a task of its own. Subagents started by
+    parallel delegate calls then keep their checkpoints apart, so each pauses and resumes for its own
+    approvals (core/subagent.py)."""
+
+    def _route(state: MessagesState) -> str | list[Send]:
+        last = state["messages"][-1]
+        calls = last.tool_calls if isinstance(last, AIMessage) else []
+        return [Send(node, [call]) for call in calls] or END
+
+    return _route
+
+
+def mcp_calls(mcp: McpTools) -> AsyncToolCallWrapper:
     """Runs calls to MCP tools, which the tool node doesn't know: they're looked up when called,
     so a tool that was turned off or whose server went away stops working at once."""
 

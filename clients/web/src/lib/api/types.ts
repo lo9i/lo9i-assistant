@@ -74,8 +74,9 @@ export type Decision =
 
 export type RunEvent =
   | { type: "TextDelta"; text: string }
-  | { type: "ToolStarted"; name: string; args: Record<string, unknown> }
-  | { type: "ToolFinished"; name: string; output: string }
+  // `within`: the id of the delegate call whose subagent made this call; empty for the agent's own.
+  | { type: "ToolStarted"; name: string; args: Record<string, unknown>; id?: string; within?: string }
+  | { type: "ToolFinished"; name: string; output: string; within?: string }
   | ApprovalRequired
   | { type: "Transcribed"; text: string; language: string }
   | { type: "Done" }
