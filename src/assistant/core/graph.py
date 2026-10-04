@@ -1,7 +1,7 @@
 import asyncio
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage, ToolMessage
@@ -26,6 +26,7 @@ from assistant.core.conversation.epochs import (
     usage_anchor,
 )
 from assistant.core.conversation.summary import Summarizer
+from assistant.core.conversation.trim import trim_update, trimmed
 from assistant.core.llm import build_llm, metered
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.providers import IMAGES_IN_TOOL_RESULTS
@@ -47,6 +48,10 @@ class AgentState(MessagesState):
     last_activity: str
     # Reported token count of the last model call (H3). Cleared when an epoch starts.
     usage_anchor: dict | None
+    # When the last model call was, and before which message tool results are sent as stubs
+    # (conversation/trim.py).
+    last_model_call: str
+    trimmed_before: int
     # The name in this epoch's system prompt; a rename starts a new epoch.
     assistant_name: str
     # Definitions of the MCP tools this epoch offers, frozen when it starts like the system
@@ -87,10 +92,11 @@ def _epoch_node(summarizer: Summarizer, mcp: McpTools) -> Node:
     async def _epoch(state: AgentState, runtime: Runtime[Context], config: RunnableConfig) -> dict:
         now = datetime.now(UTC)
         thread_id = config.get("configurable", {})["thread_id"]
-        update = await _epoch_update(state, runtime, thread_id, summarizer, mcp, now)
+        trim = trim_update(state, now)
+        update = await _epoch_update(cast(AgentState, {**state, **trim}), runtime, thread_id, summarizer, mcp, now)
         if "system_prompt" in update:
             update["mcp_tools"] = mcp.definitions()
-        return {**update, "last_activity": now.isoformat()}
+        return {**trim, **update, "last_activity": now.isoformat()}
 
     return _epoch
 
@@ -129,10 +135,14 @@ def _mcp_calls(mcp: McpTools) -> AsyncToolCallWrapper:
 
 def _agent_node(llm: BaseChatModel, tools: Sequence[BaseTool], images_in_tool_results: bool) -> Node:
     async def _agent(state: AgentState) -> dict:
-        epoch = state["messages"][state.get("epoch_start", 0) :]
+        epoch = trimmed(state["messages"], state.get("epoch_start", 0), state.get("trimmed_before", 0))
         messages = await asyncio.to_thread(hydrate, epoch, images_in_tool_results)
         bound = llm.bind_tools([*tools, *state.get("mcp_tools", [])])
         response = await bound.ainvoke([SystemMessage(state["system_prompt"]), *messages])
-        return {"messages": [response], "usage_anchor": usage_anchor(response, len(state["messages"]) + 1)}
+        return {
+            "messages": [response],
+            "usage_anchor": usage_anchor(response, len(state["messages"]) + 1),
+            "last_model_call": datetime.now(UTC).isoformat(),
+        }
 
     return _agent

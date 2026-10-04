@@ -90,6 +90,11 @@ def _moved_note(block: Block) -> Block:
     return _text(f"[{name}: in the next message]")
 
 
+def carries_files(message: BaseMessage) -> bool:
+    """A tool result whose artifact refers to saved files, which `hydrate` adds to the request."""
+    return bool(_tool_references(message))
+
+
 def _tool_references(message: BaseMessage) -> list[Block]:
     if not isinstance(message, ToolMessage) or not isinstance(message.artifact, list):
         return []
