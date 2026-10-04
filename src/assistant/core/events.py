@@ -28,7 +28,9 @@ class ApprovalRequired:
     `question`, `options` and `multiple`, answered with {"choices": [picked options]}. One whose
     `kind` is PLUGIN_OFFER offers a plugin from the extras (core/tools/plugins.py), with `name`,
     `description` and the plugin as the repository lists it (`server` or `skill`): the app installs
-    it through its usual route and answers {"installed": bool}."""
+    it through its usual route and answers {"installed": bool}. One whose `kind` is PLUGIN_SETUP opens
+    an installed plugin's setup (its email accounts, a channel's pairing), with `name`, `description`
+    and `server`, answered with {"done": true} once the user closes it."""
 
     interrupt_id: str
     request: dict[str, Any]
@@ -46,6 +48,13 @@ PLUGIN_OFFER = "plugin"
 
 def is_plugin_offer(request: dict[str, Any]) -> bool:
     return request.get("kind") == PLUGIN_OFFER
+
+
+PLUGIN_SETUP = "plugin_setup"
+
+
+def is_plugin_setup(request: dict[str, Any]) -> bool:
+    return request.get("kind") == PLUGIN_SETUP
 
 
 @dataclass

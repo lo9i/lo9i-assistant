@@ -223,7 +223,7 @@ async def test_a_plugin_the_agent_offers_is_installed_in_the_dialog(app, client)
     from dataclasses import asdict
 
     from assistant.core.agent import FoundServer, ServerField
-    from assistant_terminal.tui.screens import RepositoryInstallScreen
+    from assistant_terminal.tui.screens import ChannelSetupScreen, RepositoryInstallScreen
 
     fields = [ServerField("TELEGRAM_TOKEN", "Bot token", secret=True)]
     telegram = FoundServer("telegram", "Chat on Telegram", "channel", fields, False, channel=True)
@@ -239,6 +239,9 @@ async def test_a_plugin_the_agent_offers_is_installed_in_the_dialog(app, client)
         await wait_for(pilot, lambda: isinstance(app.screen, RepositoryInstallScreen))
         app.screen.query(Input).first().value = "123:abc"
         app.screen.query_one("#install").press()
+        # Then its setup, in the conversation too.
+        await wait_for(pilot, lambda: isinstance(app.screen, ChannelSetupScreen))
+        app.screen.query_one("#done").press()
         await wait_for(pilot, lambda: not app._busy)
         assert client.decisions == {"i1": {"installed": True}}
         assert [(s.name, s.values) for s in client.repositories.installed[0][2]] == [
@@ -264,3 +267,25 @@ async def test_files_dropped_on_the_window_are_attached_and_text_is_typed(app, c
         assert prompt.value == ""
         prompt.post_message(events.Paste("just text"))
         await wait_for(pilot, lambda: prompt.value == "just text")
+
+
+async def test_the_agent_opens_a_plugins_setup_in_the_conversation(app, client):
+    from dataclasses import asdict
+
+    from assistant.core.agent import FoundServer
+    from assistant_terminal.tui.screens import EmailScreen
+
+    gmail = FoundServer("gmail", "Send and read Gmail", "none", [], False, installed=True, email=True)
+    client.waiting_for = {
+        "kind": "plugin_setup",
+        "name": "gmail",
+        "description": gmail.description,
+        "server": asdict(gmail),
+    }
+    async with app.run_test(size=(120, 44)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"set up my Gmail", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, EmailScreen) and app.screen._plugin == "gmail")
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: not app._busy)
+        assert client.decisions == {"i1": {"done": True}}

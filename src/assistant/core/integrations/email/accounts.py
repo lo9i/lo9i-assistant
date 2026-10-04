@@ -131,6 +131,11 @@ async def remove(store: BaseStore, account_id: str) -> None:
         await accounts.remove(store, account)
 
 
+async def plugin_accounts(store: BaseStore, plugin: str) -> list[Account]:
+    """The accounts of one email plugin, whether it's on or not."""
+    return [a for a in await accounts.list_kind(store, KIND) if a.settings.get("plugin") == plugin]
+
+
 async def adopt_hand_entered(store: BaseStore, plugin: str) -> list[str]:
     """Gives the accounts that belong to no plugin (servers entered by hand, before a plugin held them)
     to `plugin`, which offers a custom provider. Returns their addresses."""

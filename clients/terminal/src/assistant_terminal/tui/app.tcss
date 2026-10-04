@@ -155,11 +155,11 @@ AttachmentBar .tag {
     text-style: bold;
 }
 
-ProfileScreen, WebSearchScreen, EmailScreen, EmailRecipientsScreen, StartupScreen, McpAddScreen, McpSecretsScreen, ModelScreen, AudioScreen, SkillEditScreen {
+ProfileScreen, WebSearchScreen, EmailScreen, EmailRecipientsScreen, ChannelSetupScreen, StartupScreen, McpAddScreen, McpSecretsScreen, ModelScreen, AudioScreen, SkillEditScreen {
     align: center middle;
 }
 
-#profile, #web-search, #email, #email-recipients, #startup, #mcp-add, #mcp-secrets-dialog, #mcp-sign-in, #model, #audio, #skill-edit, #repository-install {
+#profile, #web-search, #email, #email-recipients, #channel-setup-dialog, #startup, #mcp-add, #mcp-secrets-dialog, #mcp-sign-in, #model, #audio, #skill-edit, #repository-install {
     width: 80%;
     max-width: 100;
     height: auto;
@@ -168,7 +168,7 @@ ProfileScreen, WebSearchScreen, EmailScreen, EmailRecipientsScreen, StartupScree
     background: $dialog-background;
 }
 
-#profile Markdown, #web-search Markdown, #email Markdown, #email-recipients Markdown, #startup Markdown, #mcp-add Markdown, #mcp-secrets-dialog Markdown, #mcp-sign-in Markdown, #model Markdown, #audio Markdown, #skill-edit Markdown, #repository-install Markdown {
+#profile Markdown, #web-search Markdown, #email Markdown, #email-recipients Markdown, #channel-setup-dialog Markdown, #startup Markdown, #mcp-add Markdown, #mcp-secrets-dialog Markdown, #mcp-sign-in Markdown, #model Markdown, #audio Markdown, #skill-edit Markdown, #repository-install Markdown {
     background: transparent;
     margin: 0;
 }
@@ -178,12 +178,12 @@ ModalScreen Markdown > MarkdownHeader:first-child {
     margin-top: 0;
 }
 
-#profile-buttons, #web-search-buttons, #email-buttons, #email-recipients-buttons, #startup-buttons, #mcp-add-buttons, #mcp-secrets-buttons, #mcp-sign-in-buttons, #model-buttons, #audio-buttons, #skill-edit-buttons, #repository-buttons {
+#profile-buttons, #web-search-buttons, #email-buttons, #email-recipients-buttons, #channel-setup-buttons, #startup-buttons, #mcp-add-buttons, #mcp-secrets-buttons, #mcp-sign-in-buttons, #model-buttons, #audio-buttons, #skill-edit-buttons, #repository-buttons {
     height: auto;
     margin-top: 1;
 }
 
-#profile-buttons Button, #web-search-buttons Button, #email-buttons Button, #email-recipients-buttons Button, #startup-buttons Button, #mcp-add-buttons Button, #mcp-secrets-buttons Button, #mcp-sign-in-buttons Button, #model-buttons Button, #audio-buttons Button, #skill-edit-buttons Button, #repository-buttons Button {
+#profile-buttons Button, #web-search-buttons Button, #email-buttons Button, #email-recipients-buttons Button, #channel-setup-buttons Button, #startup-buttons Button, #mcp-add-buttons Button, #mcp-secrets-buttons Button, #mcp-sign-in-buttons Button, #model-buttons Button, #audio-buttons Button, #skill-edit-buttons Button, #repository-buttons Button {
     margin-right: 2;
 }
 

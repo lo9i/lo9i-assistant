@@ -29,6 +29,11 @@ export function kindOf(p: Plugin): string {
   return kind.charAt(0).toUpperCase() + kind.slice(1);
 }
 
+/** Whether an installed plugin has a setup to go through: email accounts, or a channel's pairing. */
+export function hasSetup(server: FoundServer): boolean {
+  return Boolean(server.email || server.channel);
+}
+
 /** Where it runs: a remote MCP server runs elsewhere; a local one or a channel on the computer the assistant runs on. */
 export function runsOf(server: FoundServer): string {
   return server.transport === "http" ? "Remotely" : "On the assistant's computer";

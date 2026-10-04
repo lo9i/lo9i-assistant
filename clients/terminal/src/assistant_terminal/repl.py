@@ -7,7 +7,7 @@ from assistant.client import DaemonClient, DaemonUnavailableError
 from assistant.client.files import load_attachment
 from assistant.core.agent import InvalidNameError, Session
 from assistant.core.attachments import Attachment
-from assistant.core.events import ApprovalRequired, is_plugin_offer, is_question
+from assistant.core.events import ApprovalRequired, is_plugin_offer, is_plugin_setup, is_question
 from assistant_terminal.channels_text import describe as describe_channel
 from assistant_terminal.commands import GET_TO_KNOW_ME, help_lines
 from assistant_terminal.conversations_text import when
@@ -216,6 +216,10 @@ async def _collect_decisions(approvals: list[ApprovalRequired]) -> dict[str, dic
         request = approval.request
         if is_question(request):
             decisions[approval.interrupt_id] = await _answer_question(request)
+            continue
+        if is_plugin_setup(request):
+            print(paint(YELLOW, f"\nSet up {request.get('name')} in /plugins in the full app."))
+            decisions[approval.interrupt_id] = {"done": True}
             continue
         if is_plugin_offer(request):
             # Tokens are typed only in the install dialog, which the full app has.
