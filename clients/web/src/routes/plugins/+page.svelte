@@ -23,7 +23,7 @@
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import SearchField from "$lib/ui/SearchField.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
-  import PluginUpdatesCard from "$lib/ui/settings/PluginUpdatesCard.svelte";
+  import PluginUpdatesSwitch from "$lib/ui/settings/PluginUpdatesSwitch.svelte";
   import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
   import InstallDialog from "$lib/ui/repositories/InstallDialog.svelte";
   import ChannelSetup from "$lib/ui/plugins/ChannelSetup.svelte";
@@ -95,7 +95,7 @@
 <!-- A settings tab of its own page: the list and details need the full height. -->
 <TopBar title="Settings" />
 
-<div class="tabs-bar"><SettingsTabs active="plugins" /></div>
+<div class="tabs-bar"><SettingsTabs active="plugins" /><PluginUpdatesSwitch /></div>
 
 <div class="screen">
   <section class="table-card surface--glass">
@@ -218,7 +218,6 @@
         <EmailAccounts plugin="" title="Other accounts (servers entered by hand)" />
       </section>
     {/if}
-    <PluginUpdatesCard />
   </div>
 </div>
 
@@ -251,6 +250,11 @@
 
 <style>
   .tabs-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
     max-width: 1600px;
     margin: 0 auto;
     padding: 16px 16px 0;
