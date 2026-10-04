@@ -6,6 +6,7 @@ import asyncio
 from dataclasses import dataclass, fields, replace
 
 from assistant.core.agent.base import ServiceBase
+from assistant.core.integrations.email import accounts as email_accounts
 from assistant.core.mcp import install, servers
 from assistant.core.mcp.hub import McpHub, McpProbe, McpToolInfo
 from assistant.core.mcp.servers import McpServer, McpServerError
@@ -48,7 +49,7 @@ class McpServerStatus:
     plugin: str = ""
     # It comes with a web page, shown in the web app (daemon/pages.py).
     page: bool = False
-    # It's a chat channel (core/channels/), shown in the apps' Channels.
+    # It's a chat channel (core/channels/), set up in its plugin's details in the apps.
     channel: bool = False
     # Failed connection attempts and calls in a row (core/health.py), and the last failure.
     failures: int = 0
@@ -117,9 +118,11 @@ class McpMixin(ServiceBase):
         await asyncio.to_thread(install.uninstall, name)
         await self.mcp.forget(name)
         await self._servers_changed()
-        # After the server and its page stopped, so nothing writes there any more.
+        # After the server and its page stopped, so nothing writes there any more. An email
+        # plugin's accounts are its data too: without it they're kept, unused, for installing it again.
         if delete_data:
             await asyncio.to_thread(install.delete_data, name)
+            await email_accounts.remove_plugin_accounts(self._storage.store, name)
 
     async def update_mcp_server_from_repository(self, name: str) -> McpServerStatus:
         """Install the server again from its repository, keeping what the user set.

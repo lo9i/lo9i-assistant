@@ -1,7 +1,9 @@
 """Email accounts: their settings, used by SMTP for sending and IMAP for reading.
 
 Each account is an account of kind "email" (core/accounts.py): its settings in the Store, its
-password encrypted apart. Connected from the app (/email, Settings → Accounts), not .env.
+password encrypted apart. Connected from the app (Plugins), not .env. An account belongs to the email
+plugin whose provider it was connected with (plugins.py), or to none when its servers were entered by
+hand. While its plugin isn't installed and on, the account is kept but not used or listed.
 """
 
 import time
@@ -12,13 +14,11 @@ from langgraph.store.base import BaseStore
 from assistant.core import accounts
 from assistant.core.accounts import Account, Status
 from assistant.core.integrations.email import oauth
+from assistant.core.integrations.email import plugins as email_plugins
 from assistant.core.integrations.email.errors import EmailError as EmailError
-from assistant.core.integrations.email.providers import imap_host_for
 from assistant.core.secret_store import SecretBox, SecretError
 
 KIND = "email"
-# Where the single email setting lived before accounts; moved into the first account on start.
-_LEGACY = (("integrations",), "email")
 # Fields that belong to the account record or the secret, not to its settings.
 _NOT_SETTINGS = {"password", "account_id", "label", "default", "status", "problem"}
 
@@ -39,6 +39,8 @@ class EmailConfig:
     # holds an access token, refreshed when the account is loaded (oauth.py).
     auth: str = "password"
     oauth_provider: str = ""
+    # The email plugin it belongs to, or "" for servers entered by hand.
+    plugin: str = ""
     # The account it belongs to (core/accounts.py).
     account_id: str = ""
     label: str = ""
@@ -56,15 +58,15 @@ class EmailConfig:
 
 
 async def list_accounts(store: BaseStore) -> list[EmailConfig]:
-    """Every email account, the default first, without passwords."""
-    return [_config(a) for a in await accounts.list_kind(store, KIND)]
+    """The accounts in use (their plugin is on), the default first, without passwords."""
+    return [_config(a) for a in await _in_use(store)]
 
 
 async def load(store: BaseStore, box: SecretBox, name: str = "") -> EmailConfig:
-    """The account called `name` (label, address or id), or the default, with its password. Not
-    connected when there's no account. Raises EmailError for an unknown name, or a password that
+    """The account in use called `name` (label, address or id), or the default, with its password.
+    Not connected when there's no account. Raises EmailError for an unknown name, or a password that
     can't be read (the account is then marked as needing to be connected again)."""
-    account = await accounts.find(store, KIND, name)
+    account = _find(await _in_use(store), name)
     if account is None:
         if name.strip():
             raise EmailError(await _unknown(store, name))
@@ -113,9 +115,8 @@ async def save(store: BaseStore, box: SecretBox, config: EmailConfig, password: 
 
 
 async def get(store: BaseStore, account_id: str) -> EmailConfig | None:
-    """The account by id, without its password."""
-    account = await accounts.get(store, KIND, account_id)
-    return _config(account) if account else None
+    """The account in use by id, without its password."""
+    return next((_config(a) for a in await _in_use(store) if a.id == account_id), None)
 
 
 async def make_default(store: BaseStore, account_id: str) -> None:
@@ -130,6 +131,13 @@ async def remove(store: BaseStore, account_id: str) -> None:
         await accounts.remove(store, account)
 
 
+async def remove_plugin_accounts(store: BaseStore, plugin: str) -> None:
+    """Removes the accounts of an email plugin, with their passwords: its data, deleted with it."""
+    for account in await accounts.list_kind(store, KIND):
+        if plugin and account.settings.get("plugin") == plugin:
+            await accounts.remove(store, account)
+
+
 async def mark_needs_sign_in(store: BaseStore, account_id: str, problem: str) -> None:
     account = await accounts.get(store, KIND, account_id)
     if account is not None:
@@ -137,18 +145,19 @@ async def mark_needs_sign_in(store: BaseStore, account_id: str, problem: str) ->
         await accounts.save(store, account)
 
 
-async def migrate(store: BaseStore, box: SecretBox) -> None:
-    """Moves the single email setting saved before accounts into the first account."""
-    item = await store.aget(*_LEGACY)
-    if item is None:
-        return
-    legacy = EmailConfig(**{k: v for k, v in item.value.items() if k in {f.name for f in fields(EmailConfig)}})
-    # Saved before reading mail existed: a provider's IMAP server is known from its SMTP server.
-    if "imap_host" not in item.value:
-        legacy.imap_host = imap_host_for(legacy.host)
-    if legacy.connected:
-        await save(store, box, legacy, legacy.password)
-    await store.adelete(*_LEGACY)
+async def _in_use(store: BaseStore) -> list[Account]:
+    """The accounts whose plugin is on, the default first."""
+    active = await email_plugins.active(store)
+    return [a for a in await accounts.list_kind(store, KIND) if a.settings.get("plugin", "") in {"", *active}]
+
+
+def _find(listed: list[Account], name: str) -> Account | None:
+    """The account called `name` (its id, label or address, any case), or the default for "". While
+    the default isn't in use, the first account in use stands in for it."""
+    wanted = name.strip().lower()
+    if not wanted:
+        return next((a for a in listed if a.default), listed[0] if listed else None)
+    return next((a for a in listed if wanted in {a.id, a.label.lower(), a.handle.lower()}), None)
 
 
 def _config(account: Account) -> EmailConfig:

@@ -21,7 +21,6 @@ from assistant.core.tools.registry import register
 # The apps, which show the install dialog.
 _APPS = {"cli", "web"}
 _IN_THE_APP = "Settings → Plugins in the web app, or /plugins in the terminal app"
-_CHANNELS = "/channels in the terminal app, Settings → Accounts → Channels in the web app"
 
 
 @register("skills")
@@ -54,7 +53,9 @@ def _request(plugin: Any) -> dict[str, Any]:
 
 def _next_steps(plugin: Any) -> str:
     if isinstance(plugin, FoundServer) and plugin.channel:
-        return f" Its setup (such as a pairing code) shows in Channels: {_CHANNELS}."
+        return f" Its setup (such as a pairing code) shows in its details in {_IN_THE_APP}."
+    if isinstance(plugin, FoundServer) and plugin.email:
+        return f" The user adds its email accounts in its details in {_IN_THE_APP}."
     if isinstance(plugin, FoundServer):
         return " Its tools are there from the user's next message."
     return ""

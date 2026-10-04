@@ -12,20 +12,26 @@ export function pluginsOf(contents: RepositoryContents): Plugin[] {
   ];
 }
 
-/** "MCP server · channel · skill · page", "Channel" (a chat channel without tools), or "Skill". */
+/** "MCP server · channel · skill · page", "Channel" (a chat channel without tools), "Email provider", or "Skill". */
 export function kindOf(p: Plugin): string {
   if (p.kind === "skill") return "Skill";
-  const onlyChannel = p.server.transport === "channel";
   const parts: Array<[string, boolean | undefined]> = [
-    [onlyChannel ? "Channel" : "MCP server", true],
-    ["channel", p.server.channel && !onlyChannel],
+    ["MCP server", p.server.transport !== "none"],
+    ["channel", p.server.channel],
+    ["email provider", p.server.email],
     ["skill", p.server.skill],
     ["page", p.server.page],
   ];
-  return parts
+  const kind = parts
     .filter(([, has]) => has)
     .map(([part]) => part)
     .join(" · ");
+  return kind.charAt(0).toUpperCase() + kind.slice(1);
+}
+
+/** Whether a category has settings its plugins share, shown when its name is picked. */
+export function hasSettings(category: string): boolean {
+  return category === "communications";
 }
 
 /** Where it runs: a remote MCP server runs elsewhere; a local one or a channel on the computer the assistant runs on. */
@@ -65,6 +71,24 @@ export function updatable(p: Plugin): boolean {
 
 export function describe(p: Plugin): string {
   return p.kind === "server" ? p.server.description : p.skill.description;
+}
+
+/** What it's for, from the daemon's fixed list ("communications", ..., "other"). */
+export function categoryOf(p: Plugin): string {
+  return p.kind === "server" ? p.server.category : p.skill.category;
+}
+
+/** "communications" → "Communications". */
+export function categoryLabel(category: string): string {
+  return category.charAt(0).toUpperCase() + category.slice(1);
+}
+
+/** The plugins grouped by category, in alphabetical order with "other" last, keeping their order within a group. */
+export function byCategory(plugins: Plugin[]): Array<{ category: string; plugins: Plugin[] }> {
+  const categories = [...new Set(plugins.map(categoryOf))].sort(
+    (a, b) => Number(a === "other") - Number(b === "other") || a.localeCompare(b),
+  );
+  return categories.map((category) => ({ category, plugins: plugins.filter((p) => categoryOf(p) === category) }));
 }
 
 /** A plugin's key in the list: a server and a skill can share a name. */

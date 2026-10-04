@@ -40,7 +40,7 @@
 <main class="oauth">
   <p class:error-text={!signedIn && !message.startsWith("Finishing")}>{message}</p>
   {#if signedIn?.kind === "email"}
-    <a class="btn btn--neutral" href={resolve("/settings") + "?tab=accounts"}>Open email settings</a>
+    <a class="btn btn--neutral" href={resolve("/plugins")}>Open Plugins</a>
   {:else if signedIn}
     <a class="btn btn--neutral" href={resolve("/mcp") + `?s=${encodeURIComponent(signedIn.id)}`}>Open MCP servers</a>
   {/if}

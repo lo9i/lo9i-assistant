@@ -33,7 +33,8 @@ _IDLE_SECONDS = 25 * 60
 _FIRST_RETRY_SECONDS = 30
 _MAX_RETRY_SECONDS = 600
 # Store writes that may change what to watch.
-_CHANGES = {"integrations", "jobs"}
+# Accounts, mail jobs, and plugins (an email plugin turned on or off brings its accounts or takes them).
+_CHANGES = {"integrations", "jobs", "mcp"}
 
 
 class MailWatcher:

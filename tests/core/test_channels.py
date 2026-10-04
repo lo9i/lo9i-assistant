@@ -154,7 +154,7 @@ async def test_the_channel_process_runs_with_the_daemons_address_and_its_token(s
 def test_a_plugin_is_an_mcp_server_a_channel_or_both():
     servers.validate(McpServer("telegram", channel_command="uv"))
     servers.validate(McpServer("slack", command="uv", channel_command="uv"))
-    assert McpServer("telegram", channel_command="uv").transport == "channel"
+    assert McpServer("telegram", channel_command="uv").transport == "none"
     with pytest.raises(McpServerError, match="Give either"):
         servers.validate(McpServer("nothing"))
 
@@ -225,7 +225,7 @@ async def test_a_channel_plugin_is_installed_with_its_library_and_the_old_settin
     await service.store.aput(("integrations",), "telegram", {"token": "123:abc", "users": [{"id": 7, "name": "Ana"}]})
     url = "https://example.com/me/extras.git"
     found = (await service.browse_repository(url)).servers[0]
-    assert (found.channel, found.transport, found.known_fields) == (True, "channel", ["TELEGRAM_TOKEN"])
+    assert (found.channel, found.transport, found.known_fields) == (True, "none", ["TELEGRAM_TOKEN"])
     installed = await service.install_from_repository(url, [], [ServerValues("telegram", {"TELEGRAM_TOKEN": ""})])
     assert installed.servers[0].channel
     server = await servers.load(service.store, "telegram")

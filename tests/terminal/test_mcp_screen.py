@@ -153,7 +153,7 @@ async def test_a_lost_sign_in_shows_a_notification(app, client):
 
 async def test_a_plugin_that_is_only_a_chat_channel_is_not_listed(app, client):
     """It has no tools; Slack has tools as well as its channel, so it is."""
-    client.mcp.items["telegram"] = replace(_mcp_status("telegram"), transport="channel", tools=[])
+    client.mcp.items["telegram"] = replace(_mcp_status("telegram"), transport="none", tools=[])
     client.mcp.items["slack"] = replace(_mcp_status("slack"), channel=True)
     async with app.run_test(size=(140, 45)) as pilot:
         screen = await _open(pilot, app)

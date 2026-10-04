@@ -134,6 +134,9 @@ class EmailSettings(BaseModel):
     # Reading mail; empty for sending only.
     imap_host: str = ""
     imap_port: int = 993
+    # The email plugin whose provider it's connected with; "" for servers entered by hand. Only
+    # read when adding an account: an account stays with its plugin.
+    plugin: str = ""
 
 
 class NewMailAlerts(BaseModel):
@@ -157,6 +160,8 @@ class EmailSignIn(BaseModel):
     label: str = ""
     # Signing an existing account in again.
     account_id: str = ""
+    # The email plugin a new account belongs to.
+    plugin: str = ""
 
 
 class SignInPage(BaseModel):
@@ -682,7 +687,8 @@ def _add_speech_routes(app: FastAPI, service: AssistantService) -> None:
 def _add_email_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/integrations/email/providers")
     async def email_providers() -> list[EmailProvider]:
-        return service.email_providers()
+        """The presets of the email plugins that are on."""
+        return await service.email_providers()
 
     @app.get("/integrations/email/accounts")
     async def email_accounts() -> list[EmailAccount]:
@@ -702,6 +708,7 @@ def _add_email_routes(app: FastAPI, service: AssistantService) -> None:
                 body.sender,
                 body.imap_host,
                 body.imap_port,
+                body.plugin,
             )
         )
 
@@ -734,6 +741,7 @@ def _add_email_routes(app: FastAPI, service: AssistantService) -> None:
                 body.address,
                 body.label,
                 body.account_id,
+                body.plugin,
             )
         )
         return SignInPage(url=page)

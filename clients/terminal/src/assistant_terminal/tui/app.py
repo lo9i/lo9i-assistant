@@ -31,10 +31,8 @@ from assistant_terminal.tui.plugin_updates import PluginUpdates
 from assistant_terminal.tui.screens import (
     ApprovalScreen,
     AudioScreen,
-    ChannelsScreen,
     ConversationsScreen,
     DevicesScreen,
-    EmailScreen,
     FilesScreen,
     JobsScreen,
     McpScreen,
@@ -101,12 +99,10 @@ class AssistantApp(App):
             "/new": self._command_new,
             "/conversations": self._command_conversations,
             "/attach": self._command_attach,
-            "/channels": self._command_channels,
             "/mcp": self._command_mcp,
             "/model": self._command_model,
             "/audio": self._command_audio,
             "/websearch": self._command_web_search,
-            "/email": self._command_email,
             "/startup": self._command_startup,
             "/skills": self._command_skills,
             "/plugins": self._command_plugins,
@@ -477,7 +473,16 @@ class AssistantApp(App):
         await self._chat.mount(SystemNote(f"## Commands\n\n```\n{body}\n```\n\n**Keys:** {', '.join(keys)}"))
 
     async def _command_plugins(self, _: str) -> None:
-        self.push_screen(PluginsScreen(self._service.repositories, self._service.mcp, self._service.skills))
+        self.push_screen(
+            PluginsScreen(
+                self._service.repositories,
+                self._service.mcp,
+                self._service.skills,
+                self._service.channels,
+                self._service.email,
+                self._service.oauth,
+            )
+        )
 
     async def _command_skills(self, _: str) -> None:
         self.push_screen(SkillsScreen(self._service.skills))
@@ -502,12 +507,6 @@ class AssistantApp(App):
 
     async def _command_startup(self, _: str) -> None:
         self.push_screen(StartupScreen(self._service.system))
-
-    async def _command_email(self, _: str) -> None:
-        self.push_screen(EmailScreen(self._service.email, self._service.oauth, self._service.channels))
-
-    async def _command_channels(self, _: str) -> None:
-        self.push_screen(ChannelsScreen(self._service.channels))
 
     async def _command_audio(self, _: str) -> None:
         self.push_screen(AudioScreen(self._service.speech))

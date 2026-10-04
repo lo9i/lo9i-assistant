@@ -15,9 +15,9 @@ _STATUS = {
 
 
 def shown(servers: list[McpServerStatus]) -> list[McpServerStatus]:
-    """The servers /mcp lists: a plugin that's only a chat channel has no tools, and is set up in
-    /channels. Slack has tools as well as its channel, so it stays."""
-    return [s for s in servers if s.transport != "channel"]
+    """The servers /mcp lists: a plugin without tools (a chat channel, an email provider) is set up in
+    /plugins. Slack has tools as well as its channel, so it stays."""
+    return [s for s in servers if s.transport != "none"]
 
 
 def summary(server: McpServerStatus) -> str:
@@ -44,7 +44,7 @@ def describe(server: McpServerStatus) -> str:
     if server.page:
         lines.append("It has a page: open it from the sidebar of the web app.")
     if server.channel:
-        lines.append("It's also a chat channel: set it up in /channels.")
+        lines.append("It's also a chat channel: set it up in /plugins.")
     secrets = server.env_keys if server.command else server.header_keys
     if secrets:
         lines.append(f"{'Env' if server.command else 'Headers'}: {', '.join(secrets)} (values hidden)")

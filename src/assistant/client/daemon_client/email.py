@@ -30,9 +30,11 @@ class EmailApi:
         sender: str,
         imap_host: str = "",
         imap_port: int = 993,
+        plugin: str = "",
     ) -> EmailAccount:
-        """Checks the logins first. Raises EmailError."""
-        body = _settings(label, host, port, username, password, sender, imap_host, imap_port)
+        """Checks the logins first. The account belongs to `plugin`, the email plugin whose provider it
+        uses ("" for servers entered by hand). Raises EmailError."""
+        body = _settings(label, host, port, username, password, sender, imap_host, imap_port) | {"plugin": plugin}
         return EmailAccount(**await self._transport.request("POST", f"{_PATH}/accounts", json=body, errors=_ERRORS))
 
     async def update(
@@ -81,9 +83,11 @@ class EmailApi:
         address: str,
         label: str = "",
         account_id: str = "",
+        plugin: str = "",
     ) -> str:
-        """The provider's sign-in page (OAuth: google, microsoft). The browser comes back to
-        `redirect_uri`, the web app's /app/oauth, which finishes it (`client.oauth`). Raises EmailError."""
+        """The provider's sign-in page (OAuth: google, microsoft), for a new account of `plugin` or
+        `account_id` again. The browser comes back to `redirect_uri`, the web app's /app/oauth, which
+        finishes it (`client.oauth`). Raises EmailError."""
         body = {
             "provider": provider,
             "client_id": client_id,
@@ -92,6 +96,7 @@ class EmailApi:
             "address": address,
             "label": label,
             "account_id": account_id,
+            "plugin": plugin,
         }
         data = await self._transport.request("POST", f"{_PATH}/oauth/start", json=body, errors=_ERRORS)
         return data["url"]

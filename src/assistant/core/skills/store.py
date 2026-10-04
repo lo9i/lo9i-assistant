@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 
 from assistant.core.config import settings
-from assistant.core.repositories import folders
+from assistant.core.repositories import categories, folders
 from assistant.core.repositories import source as skill_source
 from assistant.core.skills import files as skill_files
 from assistant.core.skills.errors import SkillError as SkillError
@@ -42,6 +42,8 @@ class Skill:
     # The plugin that added it: the MCP server it comes with, or itself when it was installed on its
     # own; "" when the user or the assistant wrote it here.
     plugin: str = ""
+    # `category:` in its SKILL.md, to group it in the apps (repositories/categories.py).
+    category: str = categories.DEFAULT
 
 
 def list_skills() -> list[Skill]:
@@ -150,6 +152,7 @@ def read(skill_folder: Path, default_name: str | None = None) -> Skill | None:
     description = str(meta.get("description") or "")
     files = skill_files.listed(skill_folder)
     source = skill_source.read(skill_folder)
+    category, category_problems = _category(meta)
     return Skill(
         str(meta.get("name") or default_name or skill_folder.name),
         description,
@@ -158,10 +161,19 @@ def read(skill_folder: Path, default_name: str | None = None) -> Skill | None:
         files,
         source.url if source else None,
         (source.server or None) if source else None,
-        [*header_problems, *problems(body, files)],
+        [*header_problems, *category_problems, *problems(body, files)],
         str(meta.get("version") or ""),
         _plugin(source, str(meta.get("name") or default_name or skill_folder.name)),
+        category,
     )
+
+
+def _category(meta: dict) -> tuple[str, list[str]]:
+    """The category its SKILL.md declares, or the default and the problem with the one it declares."""
+    try:
+        return categories.parse(meta.get("category"), set()), []
+    except ValueError as e:
+        return categories.DEFAULT, [f"In its SKILL.md, {e}."]
 
 
 def _plugin(source: skill_source.Source | None, name: str) -> str:

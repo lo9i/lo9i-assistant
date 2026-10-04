@@ -88,8 +88,8 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
         )
 
     def _offers_server(self, server: FoundServer) -> bool:
-        """/mcp lists servers with tools: a plugin that's only a chat channel is installed from /plugins."""
-        return not (self._kind == "server" and server.transport == "channel")
+        """/mcp lists servers with tools: a plugin without them is installed from /plugins."""
+        return not (self._kind == "server" and server.transport == "none")
 
     @on(SelectionList.SelectedChanged, "#repository-found")
     def _selection_changed(self) -> None:
@@ -163,8 +163,8 @@ def _skill_label(skill: FoundSkill) -> str:
 
 
 def _server_label(server: FoundServer) -> str:
-    if server.transport == "channel":
-        return f"Channel {server.name}: {server.description}"
+    if server.transport == "none":
+        return f"{'Email provider' if server.email else 'Channel'} {server.name}: {server.description}"
     extras = ["remote" if server.transport == "http" else "local"]
     pairs = (("a chat channel", server.channel), ("with its skill", server.skill), ("with a web page", server.page))
     extras += [e for e, has in pairs if has]

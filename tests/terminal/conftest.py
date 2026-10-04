@@ -50,7 +50,7 @@ from assistant.core.agent import (
 )
 from assistant.core.agent.skills import FoundSkill, SkillSummary
 from assistant.core.events import ApprovalRequired, Done, TextDelta, ToolFinished, ToolStarted, Transcribed
-from assistant.core.integrations.email.providers import PROVIDERS
+from assistant.core.integrations.email.providers import EmailProvider
 from assistant.core.llm.choice import PROVIDERS as PROVIDERS_FOR_MODEL
 from assistant.core.repositories.known import EXTRAS
 from assistant.core.usage.log import TokenRow, ToolUsage
@@ -165,6 +165,31 @@ class FakeWebSearch:
         return self.state
 
 
+# The installed email plugins: gmail with an app password, microsoft signing in.
+_PROVIDERS = [
+    EmailProvider(
+        "gmail",
+        "Gmail",
+        "smtp.gmail.com",
+        587,
+        "imap.gmail.com",
+        "Gmail needs an app password.",
+        "https://myaccount.google.com/apppasswords",
+        plugin="gmail",
+    ),
+    EmailProvider(
+        "microsoft",
+        "Outlook.com",
+        "smtp.office365.com",
+        587,
+        "outlook.office365.com",
+        "Microsoft needs an app registration.",
+        oauth="microsoft",
+        plugin="microsoft",
+    ),
+]
+
+
 class FakeEmail:
     def __init__(self):
         self.accounts_by_id: dict[str, EmailAccount] = {}
@@ -172,19 +197,31 @@ class FakeEmail:
         self.connected_with = None
 
     async def providers(self):
-        return list(PROVIDERS)
+        return list(_PROVIDERS)
 
     async def accounts(self):
         return sorted(self.accounts_by_id.values(), key=lambda a: not a.default)
 
-    async def add(self, label, host, port, username, password, sender, imap_host="", imap_port=993):
+    async def add(self, label, host, port, username, password, sender, imap_host="", imap_port=993, plugin=""):
         self.connected_with = (label, host, port, username, password, sender, imap_host)
         if password != "right":
             raise EmailError("Couldn't log in: bad password")
         account_id = f"a{len(self.accounts_by_id) + 1}"
         default = not self.accounts_by_id
         self.accounts_by_id[account_id] = EmailAccount(
-            account_id, label or sender, default, "ok", "", host, port, username, sender, imap_host, imap_port, ""
+            account_id,
+            label or sender,
+            default,
+            "ok",
+            "",
+            host,
+            port,
+            username,
+            sender,
+            imap_host,
+            imap_port,
+            "",
+            plugin=plugin,
         )
         return self.accounts_by_id[account_id]
 
@@ -194,14 +231,16 @@ class FakeEmail:
         account.label, account.host, account.sender, account.status = label or sender, host, sender, "ok"
         return account
 
-    async def start_sign_in(self, provider, client_id, client_secret, redirect_uri, address, label="", account_id=""):
+    async def start_sign_in(
+        self, provider, client_id, client_secret, redirect_uri, address, label="", account_id="", plugin=""
+    ):
         if not client_id and not account_id:
             raise EmailError("Enter the email address and your OAuth app's client ID.")
-        self.sign_in = (provider, client_id, client_secret, redirect_uri, address, label, account_id)
+        self.sign_in = (provider, client_id, client_secret, redirect_uri, address, label, account_id, plugin)
         return f"https://login.example.com/authorize?state=s1&redirect_uri={redirect_uri}"
 
     def finish_sign_in(self) -> EmailAccount:
-        provider, _, _, _, address, label, _ = self.sign_in
+        provider, _, _, _, address, label, _, plugin = self.sign_in
         account_id = f"a{len(self.accounts_by_id) + 1}"
         self.accounts_by_id[account_id] = EmailAccount(
             account_id,
@@ -218,6 +257,7 @@ class FakeEmail:
             "",
             "oauth",
             provider,
+            plugin,
         )
         return self.accounts_by_id[account_id]
 
@@ -399,6 +439,8 @@ class FakeRepositories:
         self.checks = True
         # Installed plugins the extras have a newer version of, as the daemon reports them.
         self.pending: list[PluginUpdate] = []
+        # More servers the extras offer, for a test to add (a chat channel).
+        self.more: list[FoundServer] = []
 
     async def updates(self):
         return list(self.pending) if self.checks else []
@@ -430,6 +472,7 @@ class FakeRepositories:
                     version="1.1.0",
                     installed_version="1.0.0" if "weather" in self._mcp.items else "",
                 ),
+                *self.more,
             ],
         )
 

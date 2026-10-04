@@ -5,7 +5,20 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import type { FoundServer } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
-  import { type Plugin, describe, keyOf, kindOf, pluginsOf, runsOf, updatable, versionOf } from "$lib/plugins";
+  import {
+    type Plugin,
+    byCategory,
+    categoryLabel,
+    categoryOf,
+    describe,
+    hasSettings,
+    keyOf,
+    kindOf,
+    pluginsOf,
+    runsOf,
+    updatable,
+    versionOf,
+  } from "$lib/plugins";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import SearchField from "$lib/ui/SearchField.svelte";
@@ -13,23 +26,36 @@
   import PluginUpdatesCard from "$lib/ui/settings/PluginUpdatesCard.svelte";
   import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
   import InstallDialog from "$lib/ui/repositories/InstallDialog.svelte";
+  import ChannelSetup from "$lib/ui/plugins/ChannelSetup.svelte";
+  import EmailAccounts from "$lib/ui/plugins/EmailAccounts.svelte";
+  import EmailRecipients from "$lib/ui/plugins/EmailRecipients.svelte";
 
   const { client, notices } = useDaemon();
   // The extras are downloaded to list them, so this reloads after an action here or on refresh,
   // not on every server's status change.
   const plugins = resource(async (c) => pluginsOf(await c.repositories.browse()), []);
+  // Installed chat channels' setup; the `channels` event comes when one connects or changes its items.
+  const channels = resource((c) => c.channels.list(), ["channels"]);
 
   let picked = $state<string | null>(null);
   let query = $state("");
-  // By name, description or kind.
+  // By name, description, kind or category; grouped by category.
   const shown = $derived(
-    (plugins.data ?? []).filter((p) => `${p.name} ${describe(p)} ${kindOf(p)}`.toLowerCase().includes(query.trim().toLowerCase())),
+    byCategory(
+      (plugins.data ?? []).filter((p) =>
+        `${p.name} ${describe(p)} ${kindOf(p)} ${categoryOf(p)}`.toLowerCase().includes(query.trim().toLowerCase()),
+      ),
+    ),
   );
   // A plugin that asks for values, while its dialog is open.
   let asking = $state<FoundServer | null>(null);
   let removing = $state<Plugin | null>(null);
   let busy = $state(false);
-  const plugin = $derived(plugins.data?.find((p) => keyOf(p) === picked) ?? plugins.data?.[0]);
+  // A category with settings shared by its plugins, when its name was picked.
+  const category = $derived(picked?.startsWith("category:") ? picked.slice("category:".length) : null);
+  // Until one is picked: the first in the list.
+  const plugin = $derived(category ? undefined : (plugins.data?.find((p) => keyOf(p) === picked) ?? shown[0]?.plugins[0]));
+  const channel = $derived(plugin?.installed && plugin.kind === "server" ? channels.data?.find((c) => c.name === plugin.name) : undefined);
 
   async function act(action: () => Promise<unknown>, done: string): Promise<void> {
     busy = true;
@@ -98,22 +124,35 @@
           <table class="data-table">
             <thead><tr><th>Plugin</th><th class="hide-narrow">Kind</th><th>Version</th><th>State</th></tr></thead>
             <tbody>
-              {#each shown as p (keyOf(p))}
-                <tr class:selected={plugin && keyOf(p) === keyOf(plugin)} onclick={() => (picked = keyOf(p))}>
-                  <td>
-                    <button class="row-button" onclick={() => (picked = keyOf(p))}>{p.name}</button>
-                    {#if describe(p)}<p class="text-caption row-description">{describe(p)}</p>{/if}
-                  </td>
-                  <td class="hide-narrow">{kindOf(p)}</td>
-                  <td>{versionOf(p)}</td>
-                  <td>
-                    <span class="state"
-                      ><span class="status-dot" style:--tone={p.installed ? "var(--color-success)" : undefined}></span>{p.installed
-                        ? "Installed"
-                        : "Not installed"}</span
-                    >
-                  </td>
-                </tr>
+              {#each shown as group (group.category)}
+                {#if hasSettings(group.category)}
+                  <tr class="category" class:selected={category === group.category} onclick={() => (picked = `category:${group.category}`)}>
+                    <th colspan="4" class="micro-label">
+                      <button class="row-button" onclick={() => (picked = `category:${group.category}`)}
+                        >{categoryLabel(group.category)} · settings</button
+                      >
+                    </th>
+                  </tr>
+                {:else}
+                  <tr class="category"><th colspan="4" class="micro-label">{categoryLabel(group.category)}</th></tr>
+                {/if}
+                {#each group.plugins as p (keyOf(p))}
+                  <tr class:selected={plugin && keyOf(p) === keyOf(plugin)} onclick={() => (picked = keyOf(p))}>
+                    <td>
+                      <button class="row-button" onclick={() => (picked = keyOf(p))}>{p.name}</button>
+                      {#if describe(p)}<p class="text-caption row-description">{describe(p)}</p>{/if}
+                    </td>
+                    <td class="hide-narrow">{kindOf(p)}</td>
+                    <td>{versionOf(p)}</td>
+                    <td>
+                      <span class="state"
+                        ><span class="status-dot" style:--tone={p.installed ? "var(--color-success)" : undefined}></span>{p.installed
+                          ? "Installed"
+                          : "Not installed"}</span
+                      >
+                    </td>
+                  </tr>
+                {/each}
               {:else}
                 <tr><td colspan="4" class="text-meta">No matches.</td></tr>
               {/each}
@@ -130,6 +169,8 @@
         <header><h2 class="text-heading">{plugin.name}</h2></header>
         {#if describe(plugin)}<p>{describe(plugin)}</p>{/if}
         <dl>
+          <dt class="micro-label">Category</dt>
+          <dd>{categoryLabel(categoryOf(plugin))}</dd>
           <dt class="micro-label">Kind</dt>
           <dd>{kindOf(plugin)}</dd>
           <dt class="micro-label">Version</dt>
@@ -164,6 +205,17 @@
             >
           {/if}
         </div>
+        {#if channel}<ChannelSetup {channel} />{/if}
+        {#if plugin.installed && plugin.kind === "server" && plugin.server.email}
+          <EmailAccounts plugin={plugin.name} title="Accounts" />
+        {/if}
+      </section>
+    {:else if category === "communications"}
+      <section class="details surface--glass">
+        <header><h2 class="text-heading">Communications</h2></header>
+        <p>Settings shared by the email and chat plugins.</p>
+        <EmailRecipients />
+        <EmailAccounts plugin="" title="Other accounts (servers entered by hand)" />
       </section>
     {/if}
     <PluginUpdatesCard />
@@ -259,6 +311,13 @@
   }
   tr {
     cursor: pointer;
+  }
+  tr.category:not(:has(button)) {
+    cursor: default;
+  }
+  tr.category th {
+    padding-top: 16px;
+    text-align: left;
   }
   tr.selected {
     background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);

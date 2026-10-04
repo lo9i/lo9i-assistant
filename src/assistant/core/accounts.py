@@ -48,15 +48,6 @@ async def get(store: BaseStore, kind: str, account_id: str) -> Account | None:
     return Account(**item.value) if item else None
 
 
-async def find(store: BaseStore, kind: str, name: str) -> Account | None:
-    """The account called `name` (its id, label or handle, any case), or the default for ""."""
-    listed = await list_kind(store, kind)
-    wanted = name.strip().lower()
-    if not wanted:
-        return next((a for a in listed if a.default), None)
-    return next((a for a in listed if wanted in {a.id, a.label.lower(), a.handle.lower()}), None)
-
-
 async def save(store: BaseStore, account: Account) -> None:
     """The first account of a kind becomes its default."""
     if not account.default and not any(a.default for a in await list_kind(store, account.kind) if a.id != account.id):

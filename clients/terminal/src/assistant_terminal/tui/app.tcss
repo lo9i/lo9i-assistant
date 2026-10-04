@@ -155,11 +155,11 @@ AttachmentBar .tag {
     text-style: bold;
 }
 
-ChannelsScreen, ProfileScreen, WebSearchScreen, EmailScreen, StartupScreen, McpAddScreen, McpSecretsScreen, ModelScreen, AudioScreen, SkillEditScreen {
+ProfileScreen, WebSearchScreen, EmailScreen, StartupScreen, McpAddScreen, McpSecretsScreen, ModelScreen, AudioScreen, SkillEditScreen {
     align: center middle;
 }
 
-#channels, #profile, #web-search, #email, #startup, #mcp-add, #mcp-secrets-dialog, #mcp-sign-in, #model, #audio, #skill-edit, #repository-install {
+#profile, #web-search, #email, #startup, #mcp-add, #mcp-secrets-dialog, #mcp-sign-in, #model, #audio, #skill-edit, #repository-install {
     width: 80%;
     max-width: 100;
     height: auto;
@@ -168,7 +168,7 @@ ChannelsScreen, ProfileScreen, WebSearchScreen, EmailScreen, StartupScreen, McpA
     background: $dialog-background;
 }
 
-#channels Markdown, #profile Markdown, #web-search Markdown, #email Markdown, #startup Markdown, #mcp-add Markdown, #mcp-secrets-dialog Markdown, #mcp-sign-in Markdown, #model Markdown, #audio Markdown, #skill-edit Markdown, #repository-install Markdown {
+#profile Markdown, #web-search Markdown, #email Markdown, #startup Markdown, #mcp-add Markdown, #mcp-secrets-dialog Markdown, #mcp-sign-in Markdown, #model Markdown, #audio Markdown, #skill-edit Markdown, #repository-install Markdown {
     background: transparent;
     margin: 0;
 }
@@ -178,49 +178,45 @@ ModalScreen Markdown > MarkdownHeader:first-child {
     margin-top: 0;
 }
 
-#channels-buttons, #profile-buttons, #web-search-buttons, #email-buttons, #startup-buttons, #mcp-add-buttons, #mcp-secrets-buttons, #mcp-sign-in-buttons, #model-buttons, #audio-buttons, #skill-edit-buttons, #repository-buttons {
+#profile-buttons, #web-search-buttons, #email-buttons, #startup-buttons, #mcp-add-buttons, #mcp-secrets-buttons, #mcp-sign-in-buttons, #model-buttons, #audio-buttons, #skill-edit-buttons, #repository-buttons {
     height: auto;
     margin-top: 1;
 }
 
-#channels-buttons Button, #profile-buttons Button, #web-search-buttons Button, #email-buttons Button, #startup-buttons Button, #mcp-add-buttons Button, #mcp-secrets-buttons Button, #mcp-sign-in-buttons Button, #model-buttons Button, #audio-buttons Button, #skill-edit-buttons Button, #repository-buttons Button {
+#profile-buttons Button, #web-search-buttons Button, #email-buttons Button, #startup-buttons Button, #mcp-add-buttons Button, #mcp-secrets-buttons Button, #mcp-sign-in-buttons Button, #model-buttons Button, #audio-buttons Button, #skill-edit-buttons Button, #repository-buttons Button {
     margin-right: 2;
 }
 
-/* Channels: one block per channel, drawn from the items it sends. */
-#channels {
-    max-height: 90%;
-}
-
-#channels-list {
+/* A channel's setup in /plugins, drawn from the items it sends. */
+#plugin-setup, .channel-setup {
     height: auto;
 }
 
-#channels-list Static {
+.channel-setup Static {
     margin-bottom: 1;
 }
 
-#channels-list .channel-heading {
+.channel-setup .channel-heading {
     text-style: bold;
     margin-top: 1;
 }
 
-#channels-list .channel-code {
+.channel-setup .channel-code {
     color: $accent;
 }
 
-#channels-list .channel-copy {
+.channel-setup .channel-copy {
     height: 8;
     border: round ansi_bright_black;
     background: transparent;
 }
 
-#channels-list .channel-actions {
+.channel-setup .channel-actions {
     height: auto;
     margin-bottom: 1;
 }
 
-#channels-list .channel-actions Button {
+.channel-setup .channel-actions Button {
     margin-right: 2;
 }
 

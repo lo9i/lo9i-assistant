@@ -8,7 +8,6 @@ from assistant.client.files import load_attachment
 from assistant.core.agent import InvalidNameError, Session
 from assistant.core.attachments import Attachment
 from assistant.core.events import ApprovalRequired, is_plugin_offer, is_question
-from assistant_terminal.channels_text import NONE_INSTALLED
 from assistant_terminal.channels_text import describe as describe_channel
 from assistant_terminal.commands import GET_TO_KNOW_ME, help_lines
 from assistant_terminal.conversations_text import when
@@ -36,8 +35,6 @@ class Repl:
             "/new": self._new,
             "/conversations": self._conversations,
             "/attach": self._attach,
-            "/channels": self._channels,
-            "/email": self._email,
             "/mcp": self._mcp,
             "/startup": self._startup,
             "/model": self._model,
@@ -109,12 +106,17 @@ class Repl:
         print(f"Resumed: {items[index].title}")
 
     async def _plugins(self, _: str) -> None:
-        """Lists them; installing needs the full app (it asks for values)."""
+        """Lists them, the installed channels' setup and the email accounts; installing, pressing a
+        channel's buttons and connecting an account need the full app (they ask for values)."""
         contents = await self._service.repositories.browse()
         listed = [*contents.servers, *contents.skills]
         print(
             "\n".join(f"{p.name}: {'installed' if p.installed else 'not installed'}. {p.description}" for p in listed)
         )
+        channels = await self._service.channels.list()
+        if channels:
+            print("\n\n".join(describe_channel(c) for c in channels))
+        await self._email()
 
     async def _skills(self, _: str) -> None:
         skills = await self._service.skills.list()
@@ -162,10 +164,10 @@ class Repl:
         status = await self._service.system.startup_status()
         print(f"Start at boot is {'on' if status.enabled else 'off'}. Change it in the full-screen app with /startup.")
 
-    async def _email(self, _: str) -> None:
+    async def _email(self) -> None:
         accounts = await self._service.email.accounts()
         if not accounts:
-            print("No email account is connected. Set one up in the full-screen app with /email.")
+            print("No email account is connected. Set one up in the full-screen app, in /plugins.")
         for account in accounts:
             default = " (default)" if account.default else ""
             print(f"Email: {account.label} <{account.sender}>{default} via {account.host}:{account.port}")
@@ -178,11 +180,6 @@ class Repl:
         for server in servers:
             print(mcp_summary(server))
         print(f"{'No MCP servers. Add' if not servers else 'Manage'} them in the full-screen app with /mcp.")
-
-    async def _channels(self, _: str) -> None:
-        """Status only: buttons (a new pairing code) are pressed in the full-screen app."""
-        channels = await self._service.channels.list()
-        print("\n\n".join(describe_channel(c) for c in channels) if channels else NONE_INSTALLED)
 
     async def _web_search(self, _: str) -> None:
         """Status only: the key is set in the full-screen app, so it never lands in the input history."""

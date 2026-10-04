@@ -166,7 +166,7 @@
           {/if}
           {#if server.channel}
             <dt class="micro-label">Channel</dt>
-            <dd>Set it up in <a href={resolve("/settings") + "?tab=accounts"}>Settings → Accounts</a></dd>
+            <dd>Set it up in <a href={resolve("/plugins")}>Plugins</a></dd>
           {/if}
         </dl>
         <div class="trust">

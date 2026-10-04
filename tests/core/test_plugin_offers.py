@@ -18,7 +18,7 @@ from tests.conftest import collect
 _TELEGRAM = FoundServer(
     "telegram",
     "Chat with the assistant on Telegram, and get its messages and reminders there",
-    "channel",
+    "none",
     [ServerField("TELEGRAM_TOKEN", "Bot token", secret=True, help="https://t.me/BotFather")],
     False,
     channel=True,
@@ -69,8 +69,24 @@ async def test_the_run_waits_while_the_user_installs_it_in_the_app(service, scri
     assert offer.request["server"]["fields"][0]["key"] == "TELEGRAM_TOKEN"
     await _install_telegram(service)
     events = await collect(service.resume(session, {offer.interrupt_id: {"installed": True}}))
-    assert events[0].output.startswith("telegram is installed. Its setup (such as a pairing code) shows in Channels")
+    assert events[0].output.startswith(
+        "telegram is installed. Its setup (such as a pairing code) shows in its details in Settings → Plugins"
+    )
     assert isinstance(events[-1], Done)
+
+
+async def test_an_installed_email_plugin_points_to_adding_its_accounts(service, script, extras):
+    gmail = FoundServer("gmail", "Send and read Gmail", "none", [], False, email=True)
+    await cache.save(service.store, EXTRAS, cache.Listing("c1", [_NOTES], [_TELEGRAM, gmail]))
+    session, events = await _offered(service, script, name="gmail")
+    offer = next(e for e in events if isinstance(e, ApprovalRequired))
+    gmail_provider = {"id": "gmail", "name": "Gmail", "host": "smtp.gmail.com", "port": 587, "imap_host": "i"}
+    await servers.save(service.store, McpServer("gmail", email_providers=[gmail_provider], source=EXTRAS))
+    events = await collect(service.resume(session, {offer.interrupt_id: {"installed": True}}))
+    assert events[0].output == (
+        "gmail is installed. The user adds its email accounts in its details in Settings → Plugins in the web app, "
+        "or /plugins in the terminal app."
+    )
 
 
 async def test_what_counts_is_whats_installed_not_the_answer(service, script, extras):

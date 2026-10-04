@@ -2,13 +2,15 @@
 
 A server runs as a local command (stdio) or is reached at a URL (Streamable HTTP). A plugin
 installed from a repository can instead, or also, be a chat channel (core/channels/): a process
-the daemon runs that talks to it over HTTP. Its env values and headers are secrets: they are
-entered in a dialog, stay in the daemon and never reach a client or the model.
+the daemon runs that talks to it over HTTP; or offer email providers (core/integrations/email/),
+running nothing. Its env values and headers are secrets: they are entered in a dialog, stay in the
+daemon and never reach a client or the model.
 """
 
 import fnmatch
 import re
 from dataclasses import asdict, dataclass, field
+from typing import Any
 
 from langgraph.store.base import BaseStore
 
@@ -46,13 +48,17 @@ class McpServer:
     channel_command: str = ""
     channel_args: list[str] = field(default_factory=list)
     channel_style: str = ""
+    # The email providers it offers (core/integrations/email/providers.py), as written in its
+    # server.yaml's `email:` section. Only plugins installed from a repository have them.
+    email_providers: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def transport(self) -> str:
-        """stdio or http for an MCP server; channel for a plugin that is only a chat channel."""
+        """stdio or http for an MCP server; none for a plugin without MCP tools (a chat channel, an
+        email provider)."""
         if self.command:
             return "stdio"
-        return "http" if self.url else "channel"
+        return "http" if self.url else "none"
 
     @property
     def is_mcp(self) -> bool:
@@ -74,7 +80,7 @@ def validate(server: McpServer) -> None:
         )
     if server.command.strip() and server.url.strip():
         raise McpServerError("Give either a command (local server) or a URL (remote server), not both.")
-    if not (server.command.strip() or server.url.strip() or server.channel_command.strip()):
+    if not (server.command.strip() or server.url.strip() or server.channel_command.strip() or server.email_providers):
         raise McpServerError("Give either a command (local server) or a URL (remote server).")
     if server.url and not server.url.startswith(("https://", "http://")):
         raise McpServerError("The URL must start with https:// or http://.")

@@ -1,9 +1,7 @@
-"""Chat channels (Telegram, Slack: plugins) as text, for the /channels screen and the plain REPL. Each
+"""Chat channels (Telegram, Slack: plugins) as text, for /plugins and the plain REPL. Each
 channel says what to show for setting it up (its items); nothing here knows a particular channel."""
 
 from assistant.core.agent import ChannelStatus, SetupItem
-
-NONE_INSTALLED = "No channel is installed. Install Telegram or Slack in /plugins; once it's installed, set it up here."
 
 
 def state(channel: ChannelStatus) -> str:
@@ -38,5 +36,5 @@ def _markdown(item: SetupItem) -> str:
     if item.kind == "copy":
         return f"{item.label}:\n\n```\n{item.value}\n```"
     if item.kind == "action":
-        return f"Button: {item.label} (press it in the full-screen app with /channels)"
+        return f"Button: {item.label} (press it in the full-screen app, in /plugins)"
     return line(item)

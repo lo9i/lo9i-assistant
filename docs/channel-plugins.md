@@ -13,6 +13,9 @@ description: Chat with the assistant on Telegram
 # Folders under lib/ in the repository that the plugin uses. They're installed next to the plugins'
 # folders, so a uv path dependency on ../../lib/<name> works both in the repository and once installed.
 libraries: [lo9i-chat]
+# Groups it in the apps' Plugins list (core/repositories/categories.py). A channel is always in
+# communications, which is also what it gets without this line.
+category: communications
 fields:
   - {key: TELEGRAM_TOKEN, label: Bot token, secret: true, help: https://t.me/BotFather}
 channel:
@@ -80,4 +83,5 @@ token reaches only `/channels/<its name>/...`; anything else answers 403.
 
 `GET /channels` lists the installed channel plugins for the apps: name, description, whether its
 process is connected, and its items. `POST /channels/{name}/actions/{action}` presses an action.
-These two are for paired devices and the Unix socket, not channel tokens.
+These two are for paired devices and the Unix socket, not channel tokens. The apps show a channel's
+items in its plugin's details in Plugins.
