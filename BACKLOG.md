@@ -33,6 +33,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 ## Plugins
 
 - A13. Email accounts connected before providers were plugins have no plugin, so they show under Communications as servers entered by hand. One that signed in with OAuth can't sign in again there (that form has no OAuth): remove it and connect it again from its provider's plugin.
+- A18. The expenses plugin's settings page asks for the number format as a typed locale (es_AR). Offer a list of the formats used with the chosen currency, each shown with an example amount.
 
 ## Memory
 
