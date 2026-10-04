@@ -165,7 +165,8 @@ class FakeWebSearch:
         return self.state
 
 
-# The installed email plugins: gmail with an app password, microsoft signing in.
+# The installed email plugins: gmail with an app password, microsoft signing in, custom-email with
+# servers the user types.
 _PROVIDERS = [
     EmailProvider(
         "gmail",
@@ -187,6 +188,7 @@ _PROVIDERS = [
         oauth="microsoft",
         plugin="microsoft",
     ),
+    EmailProvider("custom", "Other server", "", 587, "", "Use an app password.", plugin="custom-email", custom=True),
 ]
 
 

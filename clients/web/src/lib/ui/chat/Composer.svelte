@@ -18,13 +18,14 @@
     oncommand: (name: string, arg: string) => void;
     /** Lets the page put text in the box, such as a suggested prompt. */
     text?: string;
+    /** Files waiting to be sent; the page adds the ones dropped on the chat. */
+    files?: File[];
   };
-  let { busy, running, onsend, onstop, oncommand, text = $bindable("") }: Props = $props();
+  let { busy, running, onsend, onstop, oncommand, text = $bindable(""), files = $bindable([]) }: Props = $props();
 
   const { notices } = useDaemon();
   const recorder = new Recorder();
   let now = $state(Date.now());
-  let files = $state<File[]>([]);
   let highlight = $state(0);
   let picker = $state<HTMLInputElement>();
   let box = $state<HTMLTextAreaElement>();

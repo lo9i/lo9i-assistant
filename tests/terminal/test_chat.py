@@ -249,3 +249,18 @@ async def test_a_plugin_the_agent_offers_is_installed_in_the_dialog(app, client)
         await pilot.press("escape")
         await wait_for(pilot, lambda: not app._busy)
         assert client.decisions == {"i1": {"installed": False}}
+
+
+async def test_files_dropped_on_the_window_are_attached_and_text_is_typed(app, client, tmp_path):
+    from textual import events
+
+    photo = tmp_path / "My Photo.png"
+    photo.write_bytes(b"png")
+    async with app.run_test(size=(120, 36)) as pilot:
+        prompt = app.query_one("#prompt", Input)
+        prompt.post_message(events.Paste(str(photo).replace(" ", "\\ ") + " "))
+        await wait_for(pilot, lambda: bool(app.query_one(AttachmentBar).pending))
+        assert [a.name for a in app.query_one(AttachmentBar).pending] == ["My Photo.png"]
+        assert prompt.value == ""
+        prompt.post_message(events.Paste("just text"))
+        await wait_for(pilot, lambda: prompt.value == "just text")

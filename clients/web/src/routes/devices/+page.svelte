@@ -174,8 +174,10 @@
     text="It will need a new code to use the assistant again."
     action={isMe(d) ? "Log out" : "Revoke"}
     onanswer={(yes) => {
+      // `d` follows `revoking`: read it before clearing that.
+      const device = d;
       revoking = null;
-      if (yes) void revoke(d);
+      if (yes) void revoke(device);
     }}
   />
 {/if}

@@ -11,7 +11,6 @@
     categoryLabel,
     categoryOf,
     describe,
-    hasSettings,
     keyOf,
     kindOf,
     pluginsOf,
@@ -28,7 +27,6 @@
   import InstallDialog from "$lib/ui/repositories/InstallDialog.svelte";
   import ChannelSetup from "$lib/ui/plugins/ChannelSetup.svelte";
   import EmailAccounts from "$lib/ui/plugins/EmailAccounts.svelte";
-  import EmailRecipients from "$lib/ui/plugins/EmailRecipients.svelte";
 
   const { client, notices } = useDaemon();
   // The extras are downloaded to list them, so this reloads after an action here or on refresh,
@@ -51,10 +49,8 @@
   let asking = $state<FoundServer | null>(null);
   let removing = $state<Plugin | null>(null);
   let busy = $state(false);
-  // A category with settings shared by its plugins, when its name was picked.
-  const category = $derived(picked?.startsWith("category:") ? picked.slice("category:".length) : null);
   // Until one is picked: the first in the list.
-  const plugin = $derived(category ? undefined : (plugins.data?.find((p) => keyOf(p) === picked) ?? shown[0]?.plugins[0]));
+  const plugin = $derived(plugins.data?.find((p) => keyOf(p) === picked) ?? shown[0]?.plugins[0]);
   const channel = $derived(plugin?.installed && plugin.kind === "server" ? channels.data?.find((c) => c.name === plugin.name) : undefined);
 
   async function act(action: () => Promise<unknown>, done: string): Promise<void> {
@@ -125,17 +121,7 @@
             <thead><tr><th>Plugin</th><th class="hide-narrow">Kind</th><th>Version</th><th>State</th></tr></thead>
             <tbody>
               {#each shown as group (group.category)}
-                {#if hasSettings(group.category)}
-                  <tr class="category" class:selected={category === group.category} onclick={() => (picked = `category:${group.category}`)}>
-                    <th colspan="4" class="micro-label">
-                      <button class="row-button" onclick={() => (picked = `category:${group.category}`)}
-                        >{categoryLabel(group.category)} · settings</button
-                      >
-                    </th>
-                  </tr>
-                {:else}
-                  <tr class="category"><th colspan="4" class="micro-label">{categoryLabel(group.category)}</th></tr>
-                {/if}
+                <tr class="category"><th colspan="4" class="micro-label">{categoryLabel(group.category)}</th></tr>
                 {#each group.plugins as p (keyOf(p))}
                   <tr class:selected={plugin && keyOf(p) === keyOf(plugin)} onclick={() => (picked = keyOf(p))}>
                     <td>
@@ -210,13 +196,6 @@
           <EmailAccounts plugin={plugin.name} title="Accounts" />
         {/if}
       </section>
-    {:else if category === "communications"}
-      <section class="details surface--glass">
-        <header><h2 class="text-heading">Communications</h2></header>
-        <p>Settings shared by the email and chat plugins.</p>
-        <EmailRecipients />
-        <EmailAccounts plugin="" title="Other accounts (servers entered by hand)" />
-      </section>
     {/if}
   </div>
 </div>
@@ -242,8 +221,10 @@
     action="Remove"
     option={p.kind === "server" ? "Also delete its data (can't be undone)" : undefined}
     onanswer={(yes, deleteData) => {
+      // `p` follows `removing`: read it before clearing that.
+      const plugin = p;
       removing = null;
-      if (yes) void remove(p, deleteData);
+      if (yes) void remove(plugin, deleteData);
     }}
   />
 {/if}
@@ -316,7 +297,7 @@
   tr {
     cursor: pointer;
   }
-  tr.category:not(:has(button)) {
+  tr.category {
     cursor: default;
   }
   tr.category th {

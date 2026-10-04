@@ -4,8 +4,7 @@
   import EmailAccountForm from "./EmailAccountForm.svelte";
   import EmailAccountRow from "./EmailAccountRow.svelte";
 
-  // The email accounts of one email plugin, in its details; "" for the accounts whose servers were
-  // entered by hand, in the Communications category.
+  // The email accounts of one email plugin, in its details.
   let { plugin, title }: { plugin: string; title: string } = $props();
   const accounts = resource((c) => c.email.accounts(), ["integrations", "mcp"]);
   const mine = $derived((accounts.data ?? []).filter((a) => a.plugin === plugin));

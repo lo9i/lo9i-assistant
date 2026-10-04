@@ -4,8 +4,6 @@
   import { describe } from "$lib/notices";
   import { redirectUri } from "$lib/oauth";
 
-  // "Other": the server is entered by hand.
-  const OTHER = "other";
   const FIELDS: Array<{ key: Exclude<keyof EmailSettings, "port" | "imap_port" | "label">; label: string; type?: string }> = [
     { key: "host", label: "SMTP host" },
     { key: "username", label: "User name (usually your address)" },
@@ -15,7 +13,7 @@
   ];
 
   type Props = {
-    /** The email plugin whose providers it offers; "" for servers entered by hand. */
+    /** The email plugin whose providers it offers. */
     plugin: string;
     /** The account whose sign-in changes; a new account when absent. */
     account?: EmailAccount;
@@ -27,8 +25,7 @@
   const { client } = useDaemon();
   const loaded = resource((c) => c.email.providers(), []);
   const providers = $derived((loaded.data ?? []).filter((p) => p.plugin === plugin));
-  // svelte-ignore state_referenced_locally
-  let choice = $state(plugin ? "" : OTHER);
+  let choice = $state("");
   // A plugin with one provider starts on it; an account that signed in with OAuth on its provider, to sign in again.
   $effect(() => {
     const signedIn = account?.auth === "oauth" ? providers.find((p) => p.oauth === account.oauth_provider) : undefined;
@@ -36,6 +33,8 @@
     if (!choice && (signedIn ?? only)) choice = (signedIn ?? only)!.id;
   });
   const provider = $derived<EmailProvider | undefined>(providers.find((p) => p.id === choice));
+  // A custom provider has no servers: they're entered here.
+  const byHand = $derived(provider?.custom ?? false);
   // svelte-ignore state_referenced_locally
   let label = $state(account?.label ?? "");
   // svelte-ignore state_referenced_locally
@@ -62,9 +61,9 @@
   // Signing an existing account in again reuses the app it signed in with.
   const again = $derived(account?.auth === "oauth" && account.oauth_provider === provider?.oauth);
 
-  /** A provider's user name and sender are the address. */
+  /** A provider's user name and sender are the address; a custom one takes the servers entered. */
   function settings(): EmailSettings {
-    if (!provider) return { ...form, label, plugin };
+    if (!provider || byHand) return { ...form, label, plugin };
     const { host, port, imap_host } = provider;
     return { label, host, port, imap_host, imap_port: 993, username: address, password: form.password, sender: address, plugin };
   }
@@ -113,8 +112,6 @@
       {provider.password_help}
       {#if provider.password_url}<a href={provider.password_url} target="_blank" rel="noreferrer">Create it here</a>.{/if}
     </p>
-  {:else if choice === OTHER}
-    <p class="text-label">Most providers need an <strong>app password</strong> here, not your account password.</p>
   {/if}
   {#if provider?.oauth}
     <form class="fields" onsubmit={signIn}>
@@ -144,10 +141,10 @@
         {#if oncancel}<button class="btn btn--ghost" type="button" onclick={oncancel}>Cancel</button>{/if}
       </div>
     </form>
-  {:else if choice === OTHER || provider?.supported}
+  {:else if provider?.supported}
     <form class="fields" onsubmit={save}>
       <input class="input" placeholder="Name for this account, like Work (optional)" aria-label="Account name" bind:value={label} />
-      {#if provider}
+      {#if !byHand}
         <input class="input" type="email" placeholder="Your email address" aria-label="Your email address" bind:value={address} />
         <input class="input" type="password" placeholder="App password" aria-label="App password" bind:value={form.password} />
       {:else}
