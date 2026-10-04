@@ -1,6 +1,6 @@
 ---
 name: assistant-setup
-description: How to set up and connect the assistant (the model and its key, email sending, reading and new-mail alerts, Telegram, Slack, MCP servers, installing skills and MCP servers from a repository, audio, start at boot, its name) from the terminal app, the web UI, Telegram or Slack. Use it whenever the user asks how to configure or connect something, or a tool says something isn't set up.
+description: How to set up and connect the assistant (the model and its key, email sending, reading and new-mail alerts, Telegram and Slack (chat channel plugins), MCP servers, installing skills and MCP servers from a repository, audio, start at boot, its name) from the terminal app, the web UI, Telegram or Slack. Use it whenever the user asks how to configure or connect something, or a tool says something isn't set up.
 ---
 
 Give the user the exact steps below for the channel in the latest turn header (`cli` is the terminal app, `web` the web UI, `telegram` Telegram, `slack` Slack). Quote commands and menu names exactly. If what they ask isn't covered here, say you don't know how rather than guessing; never describe steps as "usually" or "something like".
@@ -33,7 +33,7 @@ Terminal app: `/email`. Web UI: Settings → Integrations → Email. The user ca
 
 Then Connect. The assistant tries to log in right away and says whether it worked. A rejected login means a wrong user name or password (for Gmail, usually the account password instead of an app password). Other errors, such as certificate or connection errors, are problems in the assistant itself: tell the user the exact error and that it needs fixing in the assistant, and never suggest Terminal commands, installing packages or changing Python to work around it. Each account has its own list of addresses the assistant may email without asking; the account's own address is always allowed, and anyone else needs the user's approval. An account marked "needs sign-in" (its saved password can no longer be read, or its OAuth sign-in stopped working) is fixed with Change sign-in; an OAuth account signs in again with its saved client ID and secret. Rename changes only an account's name (unique; the assistant uses it to pick the account), without signing in again. Removing an account deletes its saved password.
 
-Once an account can read mail, it has **New mail alerts**: Don't announce, Telegram or Slack. A short message with the account's name and the sender and subject of each new email then arrives there. For anything smarter ("tell me only when my bank writes", "summarize newsletters"), the user asks the assistant for a job that runs on new mail; jobs watch the default account. Email connected before reading existed: providers read mail automatically; with Other, connect again with the IMAP host.
+Once an account can read mail, it has **New mail alerts**: Don't announce, or one of the installed chat channels (Telegram, Slack). A short message with the account's name and the sender and subject of each new email then arrives there. For anything smarter ("tell me only when my bank writes", "summarize newsletters"), the user asks the assistant for a job that runs on new mail; jobs watch the default account. Email connected before reading existed: providers read mail automatically; with Other, connect again with the IMAP host.
 
 Getting the app password:
 
@@ -58,14 +58,16 @@ Paired devices are listed in `/devices` and on the Devices page in the web UI si
 
 ## Telegram
 
-Terminal app: `/telegram`. Web UI: Settings → Integrations → Telegram.
+Telegram is a plugin. Install it first: terminal app `/plugins`, web UI Settings → Plugins; pick **telegram**.
 
 1. In Telegram, open @BotFather and send `/newbot`.
 2. Choose a name, then a username ending in `bot`.
-3. BotFather replies with a token like `123456789:AAH…`. Paste it into the token field and connect.
-4. A pairing code appears. Open the bot in Telegram (t.me/<bot username>), press Start, and send the code. Only paired accounts can talk to the assistant.
+3. BotFather replies with a token like `123456789:AAH…`. Paste it into the **Bot token** field when installing. Someone who had Telegram set up before it was a plugin can leave the field empty: the saved token and paired accounts are kept.
+4. Open Channels: terminal app `/channels`, web UI Settings → Integrations → Channels. Telegram shows the bot's name and a pairing code. Open the bot in Telegram (t.me/<bot username>), press Start, and send the code within 10 minutes. **New pairing code** makes another, to pair a second account. Only paired accounts can talk to the assistant.
 
-With Telegram connected, a scheduled job that needs approval (for example a risky command, or an email to someone not on the allowlist) sends the request there with Approve and Reject buttons, and waits up to an hour for the answer before going on without it. Without Telegram, such actions are denied and the job shows "needs attention".
+To change the token, remove the plugin in Plugins and install it again (choose to keep its data, so paired accounts stay).
+
+With a chat channel connected, a scheduled job that needs approval (for example a risky command, or an email to someone not on the allowlist) sends the request there with Approve and Reject buttons, and waits up to an hour for the answer before going on without it. Without one, such actions are denied and the job shows "needs attention".
 
 ## Web search
 
@@ -81,16 +83,16 @@ With a key, searches use Brave, and the public engines and free services when Br
 
 ## Slack
 
-Terminal app: `/slack`. Web UI: Settings → Integrations → Slack.
+Slack is a plugin. Install it first: terminal app `/plugins`, web UI Settings → Plugins; pick **slack**. The install asks for three tokens from a Slack app:
 
 1. Open https://api.slack.com/apps, choose **Create New App → From a manifest**, and pick the workspace.
-2. Paste the app manifest: the **Copy manifest** button in the dialog copies it. Then choose **Next → Create**.
+2. Paste the app manifest from https://github.com/lo9i/lo9i-assistant-extras/blob/main/mcp/slack/manifest.json (the App token field's help link opens it). Then choose **Next → Create**.
 3. In **Basic Information → App-Level Tokens**, choose **Generate Token and Scopes**, add the scope `connections:write`, and generate. Copy the token that starts with `xapp-`.
 4. In **OAuth & Permissions**, choose **Install to** the workspace, then **Allow**. The same page then shows the **Bot User OAuth Token** (`xoxb-`) and the **User OAuth Token** (`xoxp-`).
-5. Paste the three tokens into the dialog and connect.
-6. In Slack, open the app under **Apps** in the sidebar and send it a message. Only the person who installed the app can talk to the assistant.
+5. Paste the three tokens into the install fields and install. Someone who had Slack set up before it was a plugin can leave them empty: the saved tokens are kept.
+6. Channels (terminal app `/channels`, web UI Settings → Integrations → Channels) shows the workspace and owner once it connects. In Slack, open the app under **Apps** in the sidebar and send it a message. Only the person who installed the app can talk to the assistant.
 
-The same app lets the assistant search, read and post in the workspace as the user (posting always asks first). The bot's name in Slack is set when the app is created; renaming the assistant doesn't change it.
+The plugin also gives the assistant tools to search, read and post in the workspace as the user (posting always asks first); turn them on or off in MCP servers like any other server's tools. The bot's name in Slack is set when the app is created; Channels also shows a manifest named after the assistant to copy.
 
 ## MCP servers (tools from other apps)
 

@@ -17,8 +17,9 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Markdown, Select
 
-from assistant.client.daemon_client import EmailApi, OAuthApi
+from assistant.client.daemon_client import ChannelsApi, EmailApi, OAuthApi
 from assistant.core.agent import EmailAccount, EmailError, EmailProvider, SignInError
+from assistant_terminal.channels_text import title
 from assistant_terminal.sign_in_text import MISSING_CODE, PASTE_HINT, REDIRECT, returned, signing_message
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
@@ -46,11 +47,7 @@ _FIELDS = {
 _PRESET_FIELDS = {"email-label", "email-address", "email-password"}
 _OAUTH_FIELDS = {"email-label", "email-address", "email-client-id", "email-client-secret"}
 _OTHER_FIELDS = set(_FIELDS) - {"email-address", "email-client-id", "email-client-secret", "email-returned"}
-_ALERTS = [
-    ("Don't announce new mail", ""),
-    ("Announce new mail on Telegram", "telegram"),
-    ("Announce new mail on Slack", "slack"),
-]
+_NO_ALERTS = ("Don't announce new mail", "")
 _ACCOUNT_BUTTONS = ("#email-name", "#rename", "#recipients", "#default", "#edit", "#remove")
 _OTHER_HELP = "Most providers need an **app password** here, not your account password."
 
@@ -58,10 +55,13 @@ _OTHER_HELP = "Most providers need an **app password** here, not your account pa
 class EmailScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
 
-    def __init__(self, email: EmailApi, oauth: OAuthApi) -> None:
+    def __init__(self, email: EmailApi, oauth: OAuthApi, channels: ChannelsApi) -> None:
         super().__init__()
         self._email = email
         self._oauth = oauth
+        self._channels = channels
+        # The installed chat channels, where new mail can be announced.
+        self._channel_names: list[str] = []
         self._message = ""
         self._providers: dict[str, EmailProvider] = {}
         self._choice: str | None = None
@@ -85,7 +85,7 @@ class EmailScreen(ModalScreen[None]):
             yield Input(
                 placeholder="Allowed recipients, comma-separated (the account itself always is)", id="email-allowed"
             )
-            yield Select[str](_ALERTS, allow_blank=False, value="", id="email-alerts")
+            yield Select[str]([_NO_ALERTS], allow_blank=False, value="", id="email-alerts")
             with Horizontal(id="email-buttons"):
                 yield Button("Connect", variant="success", id="connect")
                 yield Button("Finish", variant="success", id="finish")
@@ -265,6 +265,7 @@ class EmailScreen(ModalScreen[None]):
     async def _load(self, select: str | None) -> None:
         """Reads the accounts and shows `select`, else the default account, else the add form."""
         self._accounts = await self._email.accounts()
+        self._channel_names = [c.name for c in await self._channels.list()]
         ids = {a.id for a in self._accounts}
         default = self._accounts[0].id if self._accounts else _NEW
         self._selected = select if select in ids or select == _NEW else default
@@ -331,11 +332,18 @@ class EmailScreen(ModalScreen[None]):
     def _show_account(self, account: EmailAccount) -> None:
         alerts = self.query_one("#email-alerts", Select)
         with alerts.prevent(Select.Changed):
+            alerts.set_options(_alert_options(self._channel_names, account.new_mail_alerts))
             alerts.value = account.new_mail_alerts
         self.query_one("#email-allowed", Input).value = ", ".join(account.allowed_recipients)
         self.query_one("#email-name", Input).value = account.label
         if self._editing and not self.query_one("#email-label", Input).value:
             self.query_one("#email-label", Input).value = account.label
+
+
+def _alert_options(channels: list[str], current: str) -> list[tuple[str, str]]:
+    """None, or an installed channel; the one set stays offered after its channel is removed."""
+    names = channels if current in ("", *channels) else [*channels, current]
+    return [_NO_ALERTS, *[(f"Announce new mail on {title(name)}", name) for name in names]]
 
 
 def _option(account: EmailAccount) -> str:

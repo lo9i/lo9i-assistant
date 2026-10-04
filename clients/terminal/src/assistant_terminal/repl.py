@@ -5,18 +5,19 @@ from collections.abc import Awaitable, Callable
 
 from assistant.client import DaemonClient, DaemonUnavailableError
 from assistant.client.files import load_attachment
-from assistant.core.agent import InvalidNameError, InvalidTokenError, Session
+from assistant.core.agent import InvalidNameError, Session
 from assistant.core.attachments import Attachment
 from assistant.core.events import ApprovalRequired, is_question
+from assistant_terminal.channels_text import NONE_INSTALLED
+from assistant_terminal.channels_text import describe as describe_channel
 from assistant_terminal.commands import GET_TO_KNOW_ME, help_lines
 from assistant_terminal.conversations_text import when
 from assistant_terminal.jobs_text import summary as jobs_summary
+from assistant_terminal.mcp_text import shown as shown_servers
 from assistant_terminal.mcp_text import summary as mcp_summary
 from assistant_terminal.render import render
 from assistant_terminal.sessions_text import describe as describe_sessions
-from assistant_terminal.slack_text import describe as describe_slack
 from assistant_terminal.style import GREEN, RESET, YELLOW, code, paint
-from assistant_terminal.telegram_text import describe as describe_telegram
 from assistant_terminal.usage_text import describe as describe_usage
 from assistant_terminal.web_search_text import describe as describe_web_search
 
@@ -35,8 +36,7 @@ class Repl:
             "/new": self._new,
             "/conversations": self._conversations,
             "/attach": self._attach,
-            "/telegram": self._telegram,
-            "/slack": self._slack,
+            "/channels": self._channels,
             "/email": self._email,
             "/mcp": self._mcp,
             "/startup": self._startup,
@@ -173,17 +173,15 @@ class Repl:
             print(f"Email: {account.label} <{account.sender}>{default} via {server}. Allowed: {allowed}")
 
     async def _mcp(self, _: str) -> None:
-        servers = await self._service.mcp.servers()
+        servers = shown_servers(await self._service.mcp.servers())
         for server in servers:
             print(mcp_summary(server))
         print(f"{'No MCP servers. Add' if not servers else 'Manage'} them in the full-screen app with /mcp.")
 
-    async def _slack(self, _: str) -> None:
-        status = await self._service.slack.status()
-        if status.connected:
-            print(describe_slack(status, ""))
-        else:
-            print("Slack isn't connected. Set it up in the full-screen app with /slack.")
+    async def _channels(self, _: str) -> None:
+        """Status only: buttons (a new pairing code) are pressed in the full-screen app."""
+        channels = await self._service.channels.list()
+        print("\n\n".join(describe_channel(c) for c in channels) if channels else NONE_INSTALLED)
 
     async def _web_search(self, _: str) -> None:
         """Status only: the key is set in the full-screen app, so it never lands in the input history."""
@@ -194,25 +192,6 @@ class Repl:
             if not status.brave_key_set
             else text
         )
-
-    async def _telegram(self, arg: str) -> None:
-        """/telegram shows status; /telegram <token> connects; /telegram pair or disconnect."""
-        if arg == "disconnect":
-            await self._service.telegram.disconnect()
-        try:
-            status = await self._telegram_action(arg)
-        except InvalidTokenError as e:
-            print(e)
-            return
-        text = describe_telegram(status, "")
-        print(text.replace("Paste it below.", "Connect with: /telegram <token>") if not status.connected else text)
-
-    async def _telegram_action(self, arg: str):
-        if arg == "pair":
-            return await self._service.telegram.start_pairing()
-        if arg and arg != "disconnect":
-            return await self._service.telegram.connect(arg)
-        return await self._service.telegram.status()
 
     async def _attach(self, arg: str) -> None:
         try:

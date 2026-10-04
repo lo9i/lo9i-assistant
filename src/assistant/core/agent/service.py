@@ -7,6 +7,7 @@ from pathlib import Path
 from assistant.core import observability
 from assistant.core.agent.alerts import AlertsMixin
 from assistant.core.agent.archive import ArchiveMixin
+from assistant.core.agent.channels import ChannelsMixin
 from assistant.core.agent.devices import DevicesMixin
 from assistant.core.agent.email import EmailMixin
 from assistant.core.agent.identity import IdentityMixin
@@ -20,14 +21,14 @@ from assistant.core.agent.repositories import RepositoriesMixin
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.sign_ins import SignInsMixin
 from assistant.core.agent.skills import SkillsMixin
-from assistant.core.agent.slack import SlackMixin
 from assistant.core.agent.speech import SpeechMixin
-from assistant.core.agent.telegram import TelegramMixin
 from assistant.core.agent.threads import ThreadsMixin
 from assistant.core.agent.usage import UsageMixin
 from assistant.core.agent.web_search import WebSearchMixin
 from assistant.core.approvals import RemoteApprovals
 from assistant.core.bus import EventBus
+from assistant.core.channels.hub import ChannelHub
+from assistant.core.channels.processes import ChannelProcesses
 from assistant.core.config import settings
 from assistant.core.conversation.memory_writer import MemoryWriter
 from assistant.core.health import HealthLog
@@ -55,10 +56,9 @@ class AssistantService(
     ThreadsMixin,
     ArchiveMixin,
     MemoryMixin,
-    TelegramMixin,
-    SlackMixin,
     SignInsMixin,
     EmailMixin,
+    ChannelsMixin,
     McpMixin,
     AlertsMixin,
     RepositoriesMixin,
@@ -85,6 +85,8 @@ class AssistantService(
         media = ToolMedia(self._transcriber, storage.store)
         self.mcp = McpHub(storage.store, bus, self._health, media, McpAuth(storage.store, secrets))
         self.pages = McpPages(storage.store)
+        self.channels_hub = ChannelHub(self.outbox, self.approvals, bus, self.assistant_name)
+        self.channel_processes = ChannelProcesses(storage.store, self.channels_hub)
         embedder = E5Embedder()
         self.memory_index = MemoryIndexer(storage.store, storage.vectors, embedder, bus)
         self.memory_writer = MemoryWriter(storage.store, storage.checkpointer, bus, lambda: self._digester)

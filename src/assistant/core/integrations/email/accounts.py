@@ -35,7 +35,7 @@ class EmailConfig:
     # Reading mail. Empty when only sending is set up. Same user name and password.
     imap_host: str = ""
     imap_port: int = 993
-    # Where new mail is announced (telegram or slack), or "" for nowhere.
+    # The chat channel new mail is announced on, or "" for nowhere.
     new_mail_alerts: str = ""
     # "password", or "oauth": signed in with `oauth_provider` (google, microsoft), and `password`
     # holds an access token, refreshed when the account is loaded (oauth.py).

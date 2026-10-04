@@ -1,6 +1,6 @@
 """Starts the daemon: opens the service, serves the API on a Unix socket, on localhost and, when
-configured, over HTTPS for other hosts, and supervises the channel adapters. Stops cleanly on
-SIGINT or SIGTERM."""
+configured, over HTTPS for other hosts, and supervises its background tasks, including the chat
+channels' processes. Stops cleanly on SIGINT or SIGTERM."""
 
 import asyncio
 import contextlib
@@ -25,8 +25,6 @@ from assistant.daemon.pages import create_pages_app
 from assistant.daemon.runs import RunHub
 from assistant.daemon.scheduler import Scheduler
 from assistant.daemon.startup import Startup
-from assistant.gateways.slack.bot import SlackAdapter
-from assistant.gateways.telegram.bot import TelegramAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -56,13 +54,13 @@ async def serve() -> None:
         background = [asyncio.create_task(_index_conversations(service))]
         if https.enabled():
             background.append(asyncio.create_task(https.reload_on_renewal(servers[-1], page_servers[-1])))
-        tasks.append(asyncio.create_task(supervise(TelegramAdapter(service), stop)))
-        tasks.append(asyncio.create_task(supervise(SlackAdapter(service), stop)))
         scheduler = Scheduler(service)
         tasks.append(asyncio.create_task(supervise(scheduler, stop)))
         tasks.append(asyncio.create_task(supervise(MailWatcher(service, scheduler), stop)))
         tasks.append(asyncio.create_task(supervise(service.mcp, stop)))
         tasks.append(asyncio.create_task(supervise(service.pages, stop)))
+        tasks.append(asyncio.create_task(supervise(service.channels_hub, stop)))
+        tasks.append(asyncio.create_task(supervise(service.channel_processes, stop)))
         tasks.append(asyncio.create_task(supervise(service.memory_index, stop)))
         tasks.append(asyncio.create_task(supervise(service.memory_writer, stop)))
         tasks.append(asyncio.create_task(supervise(service.update_checker, stop)))

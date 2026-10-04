@@ -14,6 +14,8 @@ from sse_starlette.sse import EventSourceResponse
 from assistant.core.agent import (
     Alert,
     AssistantService,
+    ChannelNotConnectedError,
+    ChannelStatus,
     Conversation,
     ConversationBusyError,
     ConversationError,
@@ -25,7 +27,6 @@ from assistant.core.agent import (
     InstalledFromRepository,
     InvalidNameError,
     InvalidSearchKeyError,
-    InvalidTokenError,
     Job,
     JobError,
     McpProbe,
@@ -42,19 +43,17 @@ from assistant.core.agent import (
     RepositoryError,
     ServerValues,
     Session,
+    SetupItem,
     ShownMessage,
     SignedIn,
     SignInError,
     Skill,
     SkillError,
     SkillSummary,
-    SlackError,
-    SlackStatus,
     SpeechSettingsError,
     SpeechStatus,
     SpokenReplies,
     SynthesisError,
-    TelegramStatus,
     TokenReport,
     UsageReport,
     WebSearchStatus,
@@ -64,7 +63,14 @@ from assistant.core.config import settings
 from assistant.core.health import Area
 from assistant.core.memory.profile import MAX_ITEMS, Section
 from assistant.core.repositories.known import EXTRAS
-from assistant.daemon.auth import DeviceStreams, add_device_routes, device_of, is_trusted, require_device
+from assistant.daemon.auth import (
+    DeviceStreams,
+    add_device_routes,
+    channel_of,
+    device_of,
+    is_trusted,
+    require_device,
+)
 from assistant.daemon.clients import ClientRegistry
 from assistant.daemon.launchd import StartupError
 from assistant.daemon.runs import RunHub
@@ -77,22 +83,42 @@ class Approvals(BaseModel):
     decisions: dict[str, dict[str, Any]]
 
 
-class TelegramToken(BaseModel):
-    token: str
-
-
 class BraveKey(BaseModel):
     key: str
 
 
-class SlackTokens(BaseModel):
-    app_token: str
-    bot_token: str
-    user_token: str
+class ChannelItems(BaseModel):
+    items: list[SetupItem]
 
 
-class SlackManifest(BaseModel):
-    manifest: str
+class DeliveryResult(BaseModel):
+    # Empty when the channel delivered it; otherwise why it couldn't.
+    error: str = ""
+
+
+class ChannelDecisions(BaseModel):
+    decisions: dict[str, dict[str, Any]]
+
+
+class JobDecision(BaseModel):
+    approved: bool
+    reason: str = ""
+
+
+class StillWaiting(BaseModel):
+    # False when the job's run already went on without the answer.
+    waiting: bool
+
+
+class WaitingApproval(BaseModel):
+    interrupt_id: str
+    request: dict[str, Any]
+
+
+class ChannelSpeech(BaseModel):
+    text: str
+    # The user's message was a voice note (Settings → Audio can speak only those replies).
+    after_voice_message: bool = False
 
 
 class EmailSettings(BaseModel):
@@ -110,7 +136,7 @@ class EmailSettings(BaseModel):
 
 
 class NewMailAlerts(BaseModel):
-    # telegram, slack, or "" for none.
+    # An installed chat channel, or "" for none.
     channel: str
 
 
@@ -263,6 +289,7 @@ class CancelResult(BaseModel):
 
 # How the OpenAPI schema describes a route that answers with audio.
 _WAV: dict[int | str, dict[str, Any]] = {200: {"content": {"audio/wav": {}}}}
+_OGG: dict[int | str, dict[str, Any]] = {200: {"content": {"audio/ogg": {}}}, 204: {"description": "Not spoken"}}
 
 # How the OpenAPI schema describes a route that answers with Server-Sent Events.
 _EVENT_STREAM: dict[int | str, dict[str, Any]] = {200: {"content": {"text/event-stream": {}}}}
@@ -287,8 +314,9 @@ def create_app(service: AssistantService, hub: RunHub, startup: Any = None, web_
     _add_session_routes(app, service, clients)
     _add_run_routes(app, service, hub, clients, streams)
     _add_conversation_routes(app, service, clients)
-    _add_telegram_routes(app, service)
-    _add_slack_routes(app, service)
+    _add_channel_routes(app, service)
+    _add_channel_plugin_routes(app, service)
+    _add_channel_run_routes(app, service, hub)
     _add_web_search_routes(app, service)
     _add_email_routes(app, service)
     _add_sign_in_routes(app, service)
@@ -465,28 +493,6 @@ def _refuse_if_open(clients: ClientRegistry, thread_id: str, caller: str) -> Non
         raise HTTPException(409, "It's open in another window or app. Move that one to another conversation first.")
 
 
-def _add_telegram_routes(app: FastAPI, service: AssistantService) -> None:
-    @app.get("/integrations/telegram")
-    async def telegram_status() -> TelegramStatus:
-        return await service.telegram_status()
-
-    @app.post("/integrations/telegram")
-    async def connect_telegram(body: TelegramToken) -> TelegramStatus:
-        try:
-            return await service.connect_telegram(body.token)
-        except InvalidTokenError as e:
-            raise HTTPException(400, str(e)) from e
-
-    @app.post("/integrations/telegram/pairing")
-    async def telegram_pairing() -> TelegramStatus:
-        return await service.start_telegram_pairing()
-
-    @app.delete("/integrations/telegram")
-    async def disconnect_telegram() -> Ok:
-        await service.disconnect_telegram()
-        return Ok()
-
-
 def _add_web_search_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/integrations/web-search")
     async def web_search_status() -> WebSearchStatus:
@@ -504,26 +510,113 @@ def _add_web_search_routes(app: FastAPI, service: AssistantService) -> None:
         return await service.remove_brave_key()
 
 
-def _add_slack_routes(app: FastAPI, service: AssistantService) -> None:
-    @app.get("/integrations/slack")
-    async def slack_status() -> SlackStatus:
-        return await service.slack_status()
+def _add_channel_routes(app: FastAPI, service: AssistantService) -> None:
+    """For the apps: the installed chat channels and their setup buttons."""
 
-    @app.get("/integrations/slack/manifest")
-    async def slack_manifest() -> SlackManifest:
-        return SlackManifest(manifest=await service.slack_manifest())
+    @app.get("/channels")
+    async def channels() -> list[ChannelStatus]:
+        return await service.channels()
 
-    @app.post("/integrations/slack")
-    async def connect_slack(body: SlackTokens) -> SlackStatus:
+    @app.post("/channels/{name}/actions/{action}")
+    async def press_channel_action(name: str, action: str, request: Request) -> Ok:
+        """409: the channel isn't connected."""
+        if channel_of(request) is not None:
+            raise HTTPException(403, "Only the apps press a channel's buttons.")
         try:
-            return await service.connect_slack(body.app_token, body.bot_token, body.user_token)
-        except SlackError as e:
+            service.press_channel_action(name, action)
+        except ChannelNotConnectedError as e:
+            raise HTTPException(409, str(e)) from e
+        return Ok()
+
+
+def _add_channel_plugin_routes(app: FastAPI, service: AssistantService) -> None:
+    """For a channel plugin's process, with its token (docs/channel-plugins.md)."""
+
+    @app.get("/channels/{name}/stream", response_class=EventSourceResponse, responses=_EVENT_STREAM)
+    async def channel_stream(name: str, request: Request) -> EventSourceResponse:
+        _require_channel(request, name)
+        events = service.channels_hub.attach(name)
+        return EventSourceResponse(({"event": e.kind, "data": json.dumps(e.data)} async for e in events), ping=15)
+
+    @app.put("/channels/{name}/status")
+    async def channel_status(name: str, body: ChannelItems, request: Request) -> Ok:
+        _require_channel(request, name)
+        service.channels_hub.set_status(name, body.items)
+        return Ok()
+
+    @app.post("/channels/{name}/deliveries/{delivery_id}")
+    async def channel_delivered(name: str, delivery_id: str, body: DeliveryResult, request: Request) -> Ok:
+        _require_channel(request, name)
+        service.channels_hub.confirm(delivery_id, body.error)
+        return Ok()
+
+    @app.post("/channels/{name}/job-approvals/{interrupt_id}")
+    async def answer_job_approval(name: str, interrupt_id: str, body: JobDecision, request: Request) -> StillWaiting:
+        _require_channel(request, name)
+        decision = {"approved": body.approved, "reason": body.reason}
+        return StillWaiting(waiting=service.approvals.answer(interrupt_id, decision))
+
+    @app.post("/channels/{name}/speech", response_class=Response, responses=_OGG)
+    async def channel_speech(name: str, body: ChannelSpeech, request: Request) -> Response:
+        """The reply as an OGG Opus voice note when Settings → Audio speaks it, else 204."""
+        _require_channel(request, name)
+        if not await service.speaks_reply(body.after_voice_message):
+            return Response(status_code=204)
+        try:
+            return Response(await service.speak(body.text, "ogg"), media_type="audio/ogg")
+        except SynthesisError as e:
             raise HTTPException(400, str(e)) from e
 
-    @app.delete("/integrations/slack")
-    async def disconnect_slack() -> Ok:
-        await service.disconnect_slack()
-        return Ok()
+
+def _add_channel_run_routes(app: FastAPI, service: AssistantService, hub: RunHub) -> None:
+    """A channel plugin's conversation: it keeps one in the Store until its /new (ThreadsMixin.session)."""
+
+    @app.post("/channels/{name}/conversation")
+    async def new_channel_conversation(name: str, request: Request) -> ThreadCreated:
+        _require_channel(request, name)
+        return ThreadCreated(thread_id=await service.new_channel_thread(settings.owner_id, name))
+
+    @app.post("/channels/{name}/messages")
+    async def channel_message(
+        name: str,
+        request: Request,
+        text: Annotated[str, Form()] = "",
+        files: Annotated[list[UploadFile] | None, File()] = None,
+    ) -> RunStarted:
+        _require_channel(request, name)
+        attachments = [await _attachment(f) for f in files or []]
+        session = await service.session(settings.owner_id, name)
+        run = hub.start(session.thread_id, service.send(session, text, attachments), name, text=text)
+        return RunStarted(run_id=run.id)
+
+    @app.post("/channels/{name}/approvals")
+    async def channel_approvals(name: str, body: ChannelDecisions, request: Request) -> RunStarted:
+        _require_channel(request, name)
+        session = await service.session(settings.owner_id, name)
+        run = hub.start(session.thread_id, service.resume(session, body.decisions), name)
+        return RunStarted(run_id=run.id)
+
+    @app.get("/channels/{name}/approvals")
+    async def channel_waiting(name: str, request: Request) -> list[WaitingApproval]:
+        _require_channel(request, name)
+        session = await service.session(settings.owner_id, name)
+        waiting = await service.pending_approvals(session.thread_id)
+        return [WaitingApproval(interrupt_id=a.interrupt_id, request=a.request) for a in waiting]
+
+    @app.get("/channels/{name}/runs/{run_id}/events", response_class=EventSourceResponse, responses=_EVENT_STREAM)
+    async def channel_run_events(name: str, run_id: str, request: Request, after: int = 0) -> EventSourceResponse:
+        _require_channel(request, name)
+        run = hub.get(run_id)
+        if run is None or run.channel != name:
+            raise HTTPException(404, "Unknown or expired run")
+        start = int(request.headers.get("last-event-id") or after)
+        return EventSourceResponse(_sse(hub.follow(run, start)))
+
+
+def _require_channel(request: Request, name: str) -> None:
+    """These routes are only for the channel's own process."""
+    if channel_of(request) != name:
+        raise HTTPException(403, f"Only the {name} channel's process uses this.")
 
 
 def _add_model_routes(app: FastAPI, service: AssistantService) -> None:

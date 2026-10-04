@@ -1,6 +1,6 @@
 import { describe as group, expect, it } from "vitest";
-import type { RepositoryContents } from "./api/types";
-import { kindOf, pluginsOf, updatable, versionOf } from "./plugins";
+import type { FoundServer, RepositoryContents } from "./api/types";
+import { kindOf, missingField, optional, pluginsOf, runsOf, updatable, versionOf } from "./plugins";
 
 const contents: RepositoryContents = {
   skills: [{ name: "notes", description: "Notes", files: [], installed: false, version: "", installed_version: "" }],
@@ -13,6 +13,7 @@ const contents: RepositoryContents = {
       trusted: false,
       skill: true,
       page: true,
+      channel: false,
       installed: true,
       version: "",
       installed_version: "",
@@ -45,6 +46,7 @@ group("versionOf", () => {
             trusted: false,
             skill: false,
             page: false,
+            channel: false,
             version,
             installed_version,
             installed,
@@ -72,6 +74,7 @@ group("updatable", () => {
             trusted: false,
             skill: false,
             page: false,
+            channel: false,
             version,
             installed_version,
             installed,
@@ -82,5 +85,37 @@ group("updatable", () => {
     expect(updatable(server("0.3.0", "0.2.1", true))).toBe(true);
     expect(updatable(server("", "", true))).toBe(true);
     expect(updatable(server("0.3.0", "", false))).toBe(false);
+  });
+});
+
+const found = (over: Partial<FoundServer>): FoundServer => ({
+  name: "telegram",
+  description: "Chat on Telegram",
+  transport: "channel",
+  fields: [{ key: "BOT_TOKEN", label: "Bot token", secret: true, help: "" }],
+  trusted: true,
+  skill: false,
+  page: false,
+  channel: true,
+  installed: false,
+  version: "",
+  installed_version: "",
+  ...over,
+});
+
+group("channel plugins", () => {
+  it("are labelled as channels", () => {
+    const kinds = pluginsOf({ skills: [], servers: [found({}), found({ name: "slack", transport: "stdio", skill: true })] }).map(kindOf);
+    expect(kinds).toEqual(["Channel", "MCP server · channel · skill"]);
+    expect(runsOf(found({}))).toBe("On this computer");
+    expect(runsOf(found({ transport: "http" }))).toBe("Remotely");
+  });
+
+  it("may leave empty a value the daemon already has", () => {
+    const known = found({ known_fields: ["BOT_TOKEN"] });
+    expect(optional(known, "BOT_TOKEN")).toBe(true);
+    expect(missingField(known, { BOT_TOKEN: "" })).toBeNull();
+    expect(missingField(found({}), { BOT_TOKEN: " " })).toBe("Bot token");
+    expect(missingField(found({}), { BOT_TOKEN: "123:abc" })).toBeNull();
   });
 });

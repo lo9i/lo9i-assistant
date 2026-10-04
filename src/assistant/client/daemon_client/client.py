@@ -1,6 +1,7 @@
 import httpx
 
 from assistant.client.daemon_client.alerts import AlertsApi
+from assistant.client.daemon_client.channels import ChannelsApi
 from assistant.client.daemon_client.clients import ClientsApi
 from assistant.client.daemon_client.conversations import ConversationsApi
 from assistant.client.daemon_client.devices import DevicesApi
@@ -16,10 +17,8 @@ from assistant.client.daemon_client.repositories import RepositoriesApi
 from assistant.client.daemon_client.runs import RunsMixin
 from assistant.client.daemon_client.sessions import SessionsMixin
 from assistant.client.daemon_client.skills import SkillsApi
-from assistant.client.daemon_client.slack import SlackApi
 from assistant.client.daemon_client.speech import SpeechApi
 from assistant.client.daemon_client.system import SystemApi
-from assistant.client.daemon_client.telegram import TelegramApi
 from assistant.client.daemon_client.transport import Transport
 from assistant.client.daemon_client.usage import UsageApi
 from assistant.client.daemon_client.web_search import WebSearchApi
@@ -38,8 +37,7 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         self.skills = SkillsApi(transport)
         self.jobs = JobsApi(transport)
         self.usage = UsageApi(transport)
-        self.telegram = TelegramApi(transport)
-        self.slack = SlackApi(transport)
+        self.channels = ChannelsApi(transport)
         self.speech = SpeechApi(transport)
         self.web_search = WebSearchApi(transport)
         self.model = ModelApi(transport)

@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from textual.widgets import Button, Input, Markdown, OptionList, Select, SelectionList, TextArea
 
 from assistant_terminal.mcp_text import describe, parse_command, parse_pairs, selection, summary
@@ -147,3 +149,14 @@ async def test_a_lost_sign_in_shows_a_notification(app, client):
         await wait_for(
             pilot, lambda: any("linear needs you to sign in again" in str(n.message) for n in app._notifications)
         )
+
+
+async def test_a_plugin_that_is_only_a_chat_channel_is_not_listed(app, client):
+    """It has no tools; Slack has tools as well as its channel, so it is."""
+    client.mcp.items["telegram"] = replace(_mcp_status("telegram"), transport="channel", tools=[])
+    client.mcp.items["slack"] = replace(_mcp_status("slack"), channel=True)
+    async with app.run_test(size=(140, 45)) as pilot:
+        screen = await _open(pilot, app)
+        options = screen.query_one("#mcp-list", OptionList)
+        await wait_for(pilot, lambda: options.option_count == 2)
+        assert [options.get_option_at_index(i).id for i in range(2)] == ["notes", "slack"]

@@ -2,12 +2,13 @@
 
 import asyncio
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
 
 import pytest
 
 import assistant_terminal.tui.app as app_module
 from assistant.core.agent import (
+    ChannelNotConnectedError,
+    ChannelStatus,
     Conversation,
     ConversationError,
     Device,
@@ -18,7 +19,6 @@ from assistant.core.agent import (
     InstalledFromRepository,
     InvalidNameError,
     InvalidSearchKeyError,
-    InvalidTokenError,
     Job,
     JobError,
     McpProbe,
@@ -35,16 +35,14 @@ from assistant.core.agent import (
     RunRecord,
     ServerField,
     Session,
+    SetupItem,
     ShownMessage,
     SignedIn,
     SignInError,
     Skill,
     SkillError,
-    SlackError,
-    SlackStatus,
     SpeechSettingsError,
     SpeechStatus,
-    TelegramStatus,
     TokenReport,
     UsageReport,
     WebSearchStatus,
@@ -132,25 +130,20 @@ class FakeUsage:
         return TokenReport(days, total, by_model=[model], by_tool=[tool])
 
 
-class FakeTelegram:
+class FakeChannels:
+    """One channel, telegram, installed but not connected until a test says so."""
+
     def __init__(self):
-        self.state = TelegramStatus(False, False, "", [], "", "")
+        self.items = {"telegram": ChannelStatus("telegram", True, False, [SetupItem("text", "", "Starting…")])}
+        self.pressed = []
 
-    async def status(self):
-        return self.state
+    async def list(self):
+        return list(self.items.values())
 
-    async def connect(self, token):
-        if token != "111:GOOD":
-            raise InvalidTokenError("Telegram rejected the token: Unauthorized")
-        expires = (datetime.now(UTC) + timedelta(minutes=10)).isoformat()
-        self.state = TelegramStatus(True, True, "lo9i_bot", [], "lo9i-4821", expires)
-        return self.state
-
-    async def start_pairing(self):
-        return self.state
-
-    async def disconnect(self):
-        self.state = TelegramStatus(False, False, "", [], "", "")
+    async def press(self, name, action):
+        if not self.items[name].connected:
+            raise ChannelNotConnectedError(f"{name} isn't connected.")
+        self.pressed.append((name, action))
 
 
 class FakeWebSearch:
@@ -169,26 +162,6 @@ class FakeWebSearch:
     async def remove_brave_key(self):
         self.state = WebSearchStatus(brave_key_set=False)
         return self.state
-
-
-class FakeSlack:
-    def __init__(self):
-        self.state = SlackStatus(False, False, "", "")
-
-    async def status(self):
-        return self.state
-
-    async def manifest(self):
-        return '{"display_information": {"name": "lo9i"}}'
-
-    async def connect(self, app_token, bot_token, user_token):
-        if app_token != "xapp-1":
-            raise SlackError("Slack rejected the app token: invalid_auth")
-        self.state = SlackStatus(True, False, "Acme", "ani")
-        return self.state
-
-    async def disconnect(self):
-        self.state = SlackStatus(False, False, "", "")
 
 
 class FakeEmail:
@@ -584,8 +557,7 @@ class FakeClient:
         self.jobs = FakeJobs()
         self.memory = FakeMemory(self.skills)
         self.usage = FakeUsage()
-        self.telegram = FakeTelegram()
-        self.slack = FakeSlack()
+        self.channels = FakeChannels()
         self.email = FakeEmail()
         self.system = FakeSystem()
         self.clients = FakeClients()

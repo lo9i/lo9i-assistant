@@ -1,5 +1,5 @@
 // Turning what the MCP dialogs take as text into what the daemon expects.
-import type { McpToolInfo } from "./api/types";
+import type { McpServerStatus, McpToolInfo } from "./api/types";
 
 /** `KEY=value` lines (env) or `Name: value` lines (headers) as a map. Blank lines are skipped.
  * Throws an Error naming the first line without the separator. */
@@ -32,6 +32,12 @@ export function selectionFor(tools: McpToolInfo[], chosen: Set<string>): Selecti
   if (names.length === tools.length) return { include: [], exclude: [] };
   if (names.length === 0) return { include: [], exclude: ["*"] };
   return { include: names, exclude: [] };
+}
+
+/** The servers the MCP servers page lists: a plugin that's only a chat channel has no tools, and is
+ *  set up in Settings → Integrations. Slack has tools as well as its channel, so it stays. */
+export function withTools(servers: McpServerStatus[]): McpServerStatus[] {
+  return servers.filter((s) => s.transport !== "channel");
 }
 
 /** A server's status as the page shows it: the daemon's word, with needs_sign_in spelled out. */

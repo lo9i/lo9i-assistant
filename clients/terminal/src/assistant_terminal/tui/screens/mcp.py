@@ -16,7 +16,7 @@ from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import McpApi, OAuthApi
 from assistant.core.agent import McpServerChanges, McpServerError, McpServerStatus
-from assistant_terminal.mcp_text import describe, selection, summary, tool_label
+from assistant_terminal.mcp_text import describe, selection, shown, summary, tool_label
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 from assistant_terminal.tui.screens.mcp_add import McpAddScreen
@@ -62,7 +62,7 @@ class McpScreen(ModalScreen[None]):
     @reports_daemon_unavailable
     async def reload(self) -> None:
         """Called when a server connects, fails or changes."""
-        servers = await self._mcp.servers()
+        servers = shown(await self._mcp.servers())
         self._shown = {s.name: s for s in servers}
         options = self.query_one("#mcp-list", OptionList)
         options.clear_options()

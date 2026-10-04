@@ -41,8 +41,6 @@ _CHANGE_EVENTS = {
     # What the extras offer, kept between downloads (core/repositories/cache.py).
     "repository_listings": "plugins",
 }
-# Written every few seconds by the Telegram adapter; not worth telling clients about.
-_QUIET_KEYS = {"telegram_heartbeat"}
 
 
 class NotifyingStore(AsyncSqliteStore):
@@ -60,7 +58,7 @@ class NotifyingStore(AsyncSqliteStore):
 
 
 def _change_event(op: Op) -> str | None:
-    if not isinstance(op, PutOp) or op.key in _QUIET_KEYS:
+    if not isinstance(op, PutOp):
         return None
     return _CHANGE_EVENTS.get(op.namespace[0])
 

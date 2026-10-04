@@ -13,7 +13,7 @@ async def test_persona_file_replaces_the_default(service, isolated_settings):
 async def test_default_persona_and_channel_hints(service):
     prompt = await build_system_prompt(service._storage.store, "u", "", "")
     assert prompt.startswith(prompts.load("persona"))
-    assert "- telegram:" in prompt and "- cli:" in prompt
+    assert "- web:" in prompt and "- cli:" in prompt
 
 
 def test_digest_prompt_has_its_placeholders():

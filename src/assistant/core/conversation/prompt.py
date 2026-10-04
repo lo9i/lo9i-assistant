@@ -13,6 +13,7 @@ from assistant.core.config import settings
 from assistant.core.conversation import prompts
 from assistant.core.conversation.persona import load_persona
 from assistant.core.integrations.email import accounts
+from assistant.core.mcp import servers
 from assistant.core.memory import episodes, facts, profile
 from assistant.core.skills import store as skills
 
@@ -28,7 +29,7 @@ async def build_system_prompt(store: BaseStore, user_id: str, name: str, convers
         await load_persona(),
         *([_NAME.format(name=name)] if name else []),
         _OPERATING,
-        f"# Channels\n\n{_CHANNELS}",
+        f"# Channels\n\n{await _channels_index(store)}",
         f"# Skills\n\n{await _skills_index()}",
         f"# Accounts\n\n{await _accounts_index(store)}",
         f"# User profile\n\n{profile.render(await profile.load(store, user_id))}",
@@ -38,6 +39,12 @@ async def build_system_prompt(store: BaseStore, user_id: str, name: str, convers
     if conversation_summary:
         sections.append(f"# Conversation so far\n\n{conversation_summary}")
     return "\n\n".join(sections)
+
+
+async def _channels_index(store: BaseStore) -> str:
+    """The apps' channels, then the chat channels installed as plugins, each saying how to write there."""
+    installed = [s for s in await servers.load_all(store) if s.channel_command and s.enabled]
+    return "\n".join([_CHANNELS, *(f"- {s.name}: {s.channel_style}" for s in installed if s.channel_style)])
 
 
 async def _skills_index() -> str:

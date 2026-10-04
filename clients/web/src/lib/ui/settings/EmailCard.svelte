@@ -8,6 +8,9 @@
   import EmailAccountRow from "./EmailAccountRow.svelte";
 
   const accounts = resource((c) => c.email.accounts(), ["integrations"]);
+  // Where new mail can be announced.
+  const channels = resource((c) => c.channels.list(), ["channels"]);
+  const channelNames = $derived((channels.data ?? []).map((c) => c.name));
   let adding = $state(false);
   let added = $state<string | null>(null);
 </script>
@@ -28,7 +31,7 @@
     {#if accounts.data.length}
       <div class="list">
         {#each accounts.data as account (account.id)}
-          <EmailAccountRow {account} open={account.id === added} />
+          <EmailAccountRow {account} channels={channelNames} open={account.id === added} />
         {/each}
       </div>
     {:else if !adding}

@@ -13,10 +13,10 @@ from assistant.core.tools.registry import register
 
 @register("messages")
 @tool
-async def send_message(text: str, runtime: ToolRuntime[Context], channel: str = "telegram") -> str:
-    """Send the user a message on another channel, for example a reminder on Telegram. Use it in
-    scheduled jobs to reach the user, or when asked to message them somewhere. `channel`: telegram
-    or slack (a DM from the assistant's Slack app)."""
+async def send_message(text: str, channel: str, runtime: ToolRuntime[Context]) -> str:
+    """Send the user a message on a chat channel, for example a reminder on Telegram. Use it in
+    scheduled jobs to reach the user, or when asked to message them somewhere. `channel`: one of the
+    chat channels listed under Channels in the system prompt (not cli, web or worker)."""
     outbox = runtime.context.outbox
     if outbox is None:
         return "Messages can't be sent from here."

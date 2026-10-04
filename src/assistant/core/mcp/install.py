@@ -27,6 +27,11 @@ code from it. In its commands, arguments and env values:
     page:                          # optional: a web page, shown in the web app (core/mcp/pages.py)
       command: "{uv}"
       args: [run, --project, "{dir}", my-page, --socket, "{socket}"]
+    channel:                       # optional: a chat channel (core/channels/), with or without `command`
+      command: "{uv}"
+      args: [run, --project, "{dir}", my-channel]
+      style: A phone chat. Short messages.   # how to write there, for the system prompt
+    libraries: [lo9i-chat]         # folders under lib/ in the repository it uses (folders.library)
 """
 
 import asyncio
@@ -47,7 +52,7 @@ from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.repositories import source as folder_source
 from assistant.core.repositories.checkout import checkout, default_name
 from assistant.core.repositories.errors import RepositoryError
-from assistant.core.repositories.folders import SERVER_FILE, SKILL_FILE, put, subfolders
+from assistant.core.repositories.folders import SERVER_FILE, SKILL_FILE, put, subfolders, valid_path
 from assistant.core.repositories.source import Source
 from assistant.core.skills import store as skills
 from assistant.core.skills.errors import SkillError
@@ -81,6 +86,10 @@ class FoundServer:
     skill: bool = False
     # It comes with a web page.
     page: bool = False
+    # It's a chat channel.
+    channel: bool = False
+    # Fields the daemon already has values for (core/channels/legacy.py): they may be left empty.
+    known_fields: list[str] = field(default_factory=list)
     # Installed here from the same repository.
     installed: bool = False
     # `version:` in its server.yaml, and the one installed here; "" when none is declared or installed.
@@ -96,6 +105,8 @@ class Candidate:
     folder: Path
     # Relative to the repository root.
     path: str
+    # The repository's folders of the libraries it uses (folders.library).
+    libraries: list[Path] = field(default_factory=list)
 
     def server(self, values: dict[str, str], url: str) -> McpServer:
         """The server with its placeholders and fields filled in. Raises McpServerError if it needs
@@ -107,13 +118,15 @@ class Candidate:
             t,
             command=fill(t.command),
             args=[fill(a) for a in t.args],
-            env={k: fill(v) for k, v in t.env.items()} | (given if t.command else {}),
-            headers=t.headers | ({} if t.command else given),
+            env={k: fill(v) for k, v in t.env.items()} | ({} if t.url else given),
+            headers=t.headers | (given if t.url else {}),
             page_command=fill(t.page_command),
             page_args=[fill(a) for a in t.page_args],
+            channel_command=fill(t.channel_command),
+            channel_args=[fill(a) for a in t.channel_args],
             source=url,
         )
-        if any("{uv}" in text for text in [filled.command, *filled.args, filled.page_command, *filled.page_args]):
+        if any("{uv}" in text for text in _commands(filled)):
             raise McpServerError(f"{t.name} runs with uv, and the assistant can't find uv on this computer.")
         return filled
 
@@ -157,6 +170,10 @@ async def install(candidate: Candidate, values: dict[str, str], url: str, commit
     server = candidate.server(values, url)
     source = Source(url, candidate.path, commit, version=candidate.found.version)
     await asyncio.to_thread(put, candidate.folder, folders.code(name), source)
+    for library in candidate.libraries:
+        await asyncio.to_thread(
+            put, library, folders.library(library.name), replace(source, path=f"lib/{library.name}")
+        )
     await asyncio.to_thread(folders.data(name).mkdir, 0o700, True, True)
     await asyncio.to_thread(_put_skill, candidate, replace(source, server=name))
     return server
@@ -171,7 +188,7 @@ async def update(store: BaseStore, name: str) -> McpServer:
         raise McpServerError(f"{name} wasn't installed from a repository, so there's nothing to update it from.")
     async with checkout(source.url) as (root, commit):
         candidate = await asyncio.to_thread(_find_at, root, source.path, name)
-        values = current.env if current.command else current.headers
+        values = current.headers if current.url else current.env
         if (missing := _missing(candidate, values)) is not None:
             raise McpServerError(f"The new version of {name} needs {missing.label}: remove it and install it again.")
         new = await install(candidate, values, source.url, commit)
@@ -257,6 +274,9 @@ def _parse(data: dict[str, Any], name: str, root: Path, folder: Path) -> Candida
         exclude=[str(t) for t in data.get("exclude", [])],
         page_command=str(data.get("page", {}).get("command", "")),
         page_args=[str(a) for a in data.get("page", {}).get("args", [])],
+        channel_command=str(data.get("channel", {}).get("command", "")),
+        channel_args=[str(a) for a in data.get("channel", {}).get("args", [])],
+        channel_style=str(data.get("channel", {}).get("style", "")).strip(),
     )
     servers.validate(template)
     fields = [_field(f) for f in data.get("fields", [])]
@@ -264,10 +284,32 @@ def _parse(data: dict[str, Any], name: str, root: Path, folder: Path) -> Candida
     description = str(data.get("description", ""))
     page = bool(template.page_command)
     version = str(data.get("version", ""))
+    channel = bool(template.channel_command)
     found = FoundServer(
-        template.name, description, template.transport, fields, template.trusted, skill, page, version=version
+        template.name, description, template.transport, fields, template.trusted, skill, page, channel, version=version
     )
-    return Candidate(found, template, folder, folder.relative_to(root).as_posix())
+    libraries = [_library(root, str(n)) for n in data.get("libraries", [])]
+    return Candidate(found, template, folder, folder.relative_to(root).as_posix(), libraries)
+
+
+def _library(root: Path, name: str) -> Path:
+    """Raises ValueError for a library the repository doesn't have under lib/."""
+    folder = root / "lib" / name
+    if "/" in name or not valid_path(name) or folder.is_symlink() or not folder.is_dir():
+        raise ValueError(f"it uses the library {name!r}, which isn't a folder under lib/")
+    return folder
+
+
+def _commands(server: McpServer) -> list[str]:
+    """Everything the server runs, with its arguments."""
+    return [
+        server.command,
+        *server.args,
+        server.page_command,
+        *server.page_args,
+        server.channel_command,
+        *server.channel_args,
+    ]
 
 
 def _check_skill(folder: Path, name: str) -> bool:

@@ -1,7 +1,8 @@
 """The assistant's name, chosen by the user. Stored as one Store record; empty means unnamed.
 
 The system prompt tells the model its name, and a rename rebuilds the prompt at the next message
-(core/graph.py). The Telegram bot shows it as its display name (gateways/telegram/bot.py).
+(core/graph.py). Chat channels hear about a rename (core/channels/hub.py): the Telegram bot
+shows it as its display name.
 """
 
 from langgraph.store.base import BaseStore

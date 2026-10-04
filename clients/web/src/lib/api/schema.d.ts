@@ -372,26 +372,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/integrations/telegram": {
+    "/channels": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Telegram Status */
-        get: operations["telegram_status_integrations_telegram_get"];
+        /** Channels */
+        get: operations["channels_channels_get"];
         put?: never;
-        /** Connect Telegram */
-        post: operations["connect_telegram_integrations_telegram_post"];
-        /** Disconnect Telegram */
-        delete: operations["disconnect_telegram_integrations_telegram_delete"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/integrations/telegram/pairing": {
+    "/channels/{name}/actions/{action}": {
         parameters: {
             query?: never;
             header?: never;
@@ -400,42 +398,166 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Telegram Pairing */
-        post: operations["telegram_pairing_integrations_telegram_pairing_post"];
+        /**
+         * Press Channel Action
+         * @description 409: the channel isn't connected.
+         */
+        post: operations["press_channel_action_channels__name__actions__action__post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/integrations/slack": {
+    "/channels/{name}/stream": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Slack Status */
-        get: operations["slack_status_integrations_slack_get"];
+        /** Channel Stream */
+        get: operations["channel_stream_channels__name__stream_get"];
         put?: never;
-        /** Connect Slack */
-        post: operations["connect_slack_integrations_slack_post"];
-        /** Disconnect Slack */
-        delete: operations["disconnect_slack_integrations_slack_delete"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/integrations/slack/manifest": {
+    "/channels/{name}/status": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Slack Manifest */
-        get: operations["slack_manifest_integrations_slack_manifest_get"];
+        get?: never;
+        /** Channel Status */
+        put: operations["channel_status_channels__name__status_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/channels/{name}/deliveries/{delivery_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Channel Delivered */
+        post: operations["channel_delivered_channels__name__deliveries__delivery_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/channels/{name}/job-approvals/{interrupt_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer Job Approval */
+        post: operations["answer_job_approval_channels__name__job_approvals__interrupt_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/channels/{name}/speech": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Channel Speech
+         * @description The reply as an OGG Opus voice note when Settings → Audio speaks it, else 204.
+         */
+        post: operations["channel_speech_channels__name__speech_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/channels/{name}/conversation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** New Channel Conversation */
+        post: operations["new_channel_conversation_channels__name__conversation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/channels/{name}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Channel Message */
+        post: operations["channel_message_channels__name__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/channels/{name}/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Channel Waiting */
+        get: operations["channel_waiting_channels__name__approvals_get"];
+        put?: never;
+        /** Channel Approvals */
+        post: operations["channel_approvals_channels__name__approvals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/channels/{name}/runs/{run_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Channel Run Events */
+        get: operations["channel_run_events_channels__name__runs__run_id__events_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1183,6 +1305,16 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** Body_channel_message_channels__name__messages_post */
+        Body_channel_message_channels__name__messages_post: {
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /** Files */
+            files?: string[] | null;
+        };
         /** Body_send_threads__thread_id__messages_post */
         Body_send_threads__thread_id__messages_post: {
             /** Channel */
@@ -1204,6 +1336,41 @@ export interface components {
         CancelResult: {
             /** Cancelled */
             cancelled: boolean;
+        };
+        /** ChannelDecisions */
+        ChannelDecisions: {
+            /** Decisions */
+            decisions: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        /** ChannelItems */
+        ChannelItems: {
+            /** Items */
+            items: components["schemas"]["SetupItem"][];
+        };
+        /** ChannelSpeech */
+        ChannelSpeech: {
+            /** Text */
+            text: string;
+            /**
+             * After Voice Message
+             * @default false
+             */
+            after_voice_message: boolean;
+        };
+        /** ChannelStatus */
+        ChannelStatus: {
+            /** Name */
+            name: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Connected */
+            connected: boolean;
+            /** Items */
+            items: components["schemas"]["SetupItem"][];
         };
         /**
          * ConnectedClient
@@ -1253,6 +1420,14 @@ export interface components {
             titled: boolean;
             /** Channels */
             channels?: string[];
+        };
+        /** DeliveryResult */
+        DeliveryResult: {
+            /**
+             * Error
+             * @default
+             */
+            error: string;
         };
         /** Device */
         Device: {
@@ -1423,6 +1598,13 @@ export interface components {
              */
             page: boolean;
             /**
+             * Channel
+             * @default false
+             */
+            channel: boolean;
+            /** Known Fields */
+            known_fields?: string[];
+            /**
              * Installed
              * @default false
              */
@@ -1513,6 +1695,16 @@ export interface components {
         JobChange: {
             /** Enabled */
             enabled: boolean;
+        };
+        /** JobDecision */
+        JobDecision: {
+            /** Approved */
+            approved: boolean;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
         };
         /** LanguageOption */
         LanguageOption: {
@@ -1656,6 +1848,11 @@ export interface components {
              * @default false
              */
             page: boolean;
+            /**
+             * Channel
+             * @default false
+             */
+            channel: boolean;
             /**
              * Failures
              * @default 0
@@ -1973,6 +2170,25 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /**
+         * SetupItem
+         * @description A line the apps show for a channel: text, a code to read out, a value to copy, or a button
+         *     (`value` is the action it sends back).
+         */
+        SetupItem: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "text" | "code" | "copy" | "action";
+            /** Label */
+            label: string;
+            /**
+             * Value
+             * @default
+             */
+            value: string;
+        };
         /** ShownMessage */
         ShownMessage: {
             /** Role */
@@ -2077,34 +2293,6 @@ export interface components {
              */
             plugin: string;
         };
-        /** SlackManifest */
-        SlackManifest: {
-            /** Manifest */
-            manifest: string;
-        };
-        /**
-         * SlackStatus
-         * @description What a setup screen shows. Never includes the tokens.
-         */
-        SlackStatus: {
-            /** Connected */
-            connected: boolean;
-            /** Running */
-            running: boolean;
-            /** Team */
-            team: string;
-            /** Owner Name */
-            owner_name: string;
-        };
-        /** SlackTokens */
-        SlackTokens: {
-            /** App Token */
-            app_token: string;
-            /** Bot Token */
-            bot_token: string;
-            /** User Token */
-            user_token: string;
-        };
         /** SpeakRequest */
         SpeakRequest: {
             /** Text */
@@ -2184,28 +2372,10 @@ export interface components {
              */
             starts_without_login: boolean;
         };
-        /**
-         * TelegramStatus
-         * @description What a setup screen shows. Never includes the token.
-         */
-        TelegramStatus: {
-            /** Connected */
-            connected: boolean;
-            /** Bot Running */
-            bot_running: boolean;
-            /** Bot Username */
-            bot_username: string;
-            /** Paired Users */
-            paired_users: string[];
-            /** Pairing Code */
-            pairing_code: string;
-            /** Pairing Expires */
-            pairing_expires: string;
-        };
-        /** TelegramToken */
-        TelegramToken: {
-            /** Token */
-            token: string;
+        /** StillWaiting */
+        StillWaiting: {
+            /** Waiting */
+            waiting: boolean;
         };
         /** ThreadCreated */
         ThreadCreated: {
@@ -2325,6 +2495,15 @@ export interface components {
             name: string;
             /** Language */
             language: string;
+        };
+        /** WaitingApproval */
+        WaitingApproval: {
+            /** Interrupt Id */
+            interrupt_id: string;
+            /** Request */
+            request: {
+                [key: string]: unknown;
+            };
         };
         /**
          * WebSearchStatus
@@ -2880,7 +3059,7 @@ export interface operations {
             };
         };
     };
-    telegram_status_integrations_telegram_get: {
+    channels_channels_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -2895,49 +3074,19 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TelegramStatus"];
+                    "application/json": components["schemas"]["ChannelStatus"][];
                 };
             };
         };
     };
-    connect_telegram_integrations_telegram_post: {
+    press_channel_action_channels__name__actions__action__post: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TelegramToken"];
+            path: {
+                name: string;
+                action: string;
             };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TelegramStatus"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    disconnect_telegram_integrations_telegram_delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -2951,13 +3100,24 @@ export interface operations {
                     "application/json": components["schemas"]["Ok"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
-    telegram_pairing_integrations_telegram_pairing_post: {
+    channel_stream_channels__name__stream_get: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                name: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -2968,51 +3128,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TelegramStatus"];
-                };
-            };
-        };
-    };
-    slack_status_integrations_slack_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SlackStatus"];
-                };
-            };
-        };
-    };
-    connect_slack_integrations_slack_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SlackTokens"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SlackStatus"];
+                    "text/event-stream": unknown;
                 };
             };
             /** @description Validation Error */
@@ -3026,14 +3142,20 @@ export interface operations {
             };
         };
     };
-    disconnect_slack_integrations_slack_delete: {
+    channel_status_channels__name__status_put: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                name: string;
+            };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelItems"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -3044,13 +3166,138 @@ export interface operations {
                     "application/json": components["schemas"]["Ok"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
-    slack_manifest_integrations_slack_manifest_get: {
+    channel_delivered_channels__name__deliveries__delivery_id__post: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                name: string;
+                delivery_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeliveryResult"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answer_job_approval_channels__name__job_approvals__interrupt_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                interrupt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StillWaiting"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    channel_speech_channels__name__speech_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelSpeech"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/ogg": unknown;
+                };
+            };
+            /** @description Not spoken */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    new_channel_conversation_channels__name__conversation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3061,7 +3308,151 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SlackManifest"];
+                    "application/json": components["schemas"]["ThreadCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    channel_message_channels__name__messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_channel_message_channels__name__messages_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    channel_waiting_channels__name__approvals_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaitingApproval"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    channel_approvals_channels__name__approvals_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelDecisions"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    channel_run_events_channels__name__runs__run_id__events_get: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: never;
+            path: {
+                name: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

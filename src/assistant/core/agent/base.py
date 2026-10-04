@@ -2,6 +2,8 @@ import asyncio
 
 from assistant.core.approvals import RemoteApprovals
 from assistant.core.bus import EventBus
+from assistant.core.channels.hub import ChannelHub
+from assistant.core.channels.processes import ChannelProcesses
 from assistant.core.conversation.digest import Digester
 from assistant.core.conversation.memory_writer import MemoryWriter
 from assistant.core.conversation.titles import Titler
@@ -25,10 +27,14 @@ class ServiceBase:
 
     _storage: Storage
     bus: EventBus
-    # Channel adapters register here to deliver messages the agent starts (core/outbox.py).
+    # Connected channels register here to deliver messages the agent starts (core/outbox.py).
     outbox: Outbox
-    # Adapters that can show approvals for scheduled runs register here (core/approvals.py).
+    # Connected channels that can show approvals for scheduled runs register here (core/approvals.py).
     approvals: RemoteApprovals
+    # The channel plugins' processes while they're connected (core/channels/hub.py).
+    channels_hub: ChannelHub
+    # Runs those processes. The daemon runs it as a supervised task.
+    channel_processes: ChannelProcesses
     # MCP server connections. The daemon runs it as a supervised task.
     mcp: McpHub
     # The web pages MCP servers come with, run like `mcp`.
@@ -60,8 +66,10 @@ class ServiceBase:
     _active_runs: dict[str, asyncio.Task]
 
     async def _servers_changed(self) -> None:
-        """Bring MCP connections and pages in line with the saved servers. A server's skill comes
-        and goes with it, so clients refresh their skills too."""
+        """Bring MCP connections, pages and channels in line with the saved servers. A server's skill
+        comes and goes with it, so clients refresh their skills too."""
         await self.mcp.reload()
         await self.pages.reload()
+        await self.channel_processes.reload()
         self.bus.publish("skills")
+        self.bus.publish("channels")

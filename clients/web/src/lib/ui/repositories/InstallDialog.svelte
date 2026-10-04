@@ -3,6 +3,7 @@
   import type { FoundServer, RepositoryContents } from "$lib/api/types";
   import { useDaemon } from "$lib/daemon.svelte";
   import { describe } from "$lib/notices";
+  import { missingField, optional } from "$lib/plugins";
   import Modal from "../Modal.svelte";
 
   // `kind`: only MCP servers (the MCP servers page) or only skills (the Skills page). `only`: just this
@@ -36,9 +37,11 @@
       const all = await client.repositories.browse();
       const offered = (k: "server" | "skill", p: { name: string; installed?: boolean }) =>
         !p.installed && (!shownKind || shownKind === k) && (!only || only === p.name);
+      // The MCP servers page lists servers with tools: a plugin that's only a chat channel is installed from Plugins.
+      const listed = (s: FoundServer) => !(shownKind === "server" && s.transport === "channel");
       const contents = {
         skills: all.skills.filter((s) => offered("skill", s)),
-        servers: all.servers.filter((s) => offered("server", s)),
+        servers: all.servers.filter((s) => offered("server", s) && listed(s)),
       };
       const onlyOne = contents.skills.length + contents.servers.length === 1;
       const chosen = (name: string) => onlyOne || name === only;
@@ -48,12 +51,24 @@
       found = contents;
     });
 
-  const install = () =>
-    run(async () => {
+  /** "telegram needs Bot token." for the first chosen server with a required value left empty. */
+  function missing(): string {
+    for (const s of found?.servers ?? []) {
+      const label = servers.has(s.name) ? missingField(s, values[s.name]) : null;
+      if (label) return `${s.name} needs ${label}.`;
+    }
+    return "";
+  }
+
+  const install = () => {
+    error = missing();
+    if (error) return;
+    return run(async () => {
       const chosen = [...servers].map((name) => ({ name, values: values[name] }));
       await client.repositories.install([...skills], chosen);
       onclose([...skills, ...servers]);
     });
+  };
 
   // What the extras offer, as soon as it opens.
   $effect(() => {
@@ -68,16 +83,18 @@
   }
 
   function kind(s: FoundServer): string {
-    const parts = [s.transport === "stdio" ? "local" : "remote"];
+    if (s.transport === "channel") return "Channel";
+    const parts = [s.transport === "http" ? "remote" : "local"];
+    if (s.channel) parts.push("a chat channel");
     if (s.skill) parts.push("with its skill");
     if (s.page) parts.push("with a web page");
-    return parts.join(", ");
+    return `MCP server, ${parts.join(", ")}`;
   }
 </script>
 
 <Modal
   title={only ? `Install ${only}` : "Install a plugin"}
-  description="MCP servers and skills from the assistant's extras. What you install runs on the computer running the assistant."
+  description="MCP servers, chat channels and skills from the assistant's extras. What you install runs on the computer running the assistant."
   width={600}
   onclose={() => onclose()}
 >
@@ -110,14 +127,21 @@
               checked={servers.has(server.name)}
               onchange={(e) => (servers = toggled(servers, server.name, e.currentTarget.checked))}
             />
-            <span class="pill">MCP server, {kind(server)}</span><code>{server.name}</code>
+            <span class="pill">{kind(server)}</span><code>{server.name}</code>
           </label>
           <p class="text-caption">{server.description}</p>
           {#if servers.has(server.name)}
             {#each server.fields as f (f.key)}
               <label class="field indented">
-                <span class="micro-label">{f.label}{f.secret ? " (secret)" : ""}</span>
-                <input class="input" type={f.secret ? "password" : "text"} bind:value={values[server.name][f.key]} autocomplete="off" />
+                <span class="micro-label">{f.label}{f.secret ? " (secret)" : ""}{optional(server, f.key) ? " (optional)" : ""}</span>
+                <input
+                  class="input"
+                  type={f.secret ? "password" : "text"}
+                  bind:value={values[server.name][f.key]}
+                  required={!optional(server, f.key)}
+                  autocomplete="off"
+                />
+                {#if optional(server, f.key)}<span class="text-caption">Leave empty to keep the one you set before.</span>{/if}
                 {#if f.help}<a class="text-caption" href={f.help} target="_blank" rel="noreferrer">{f.help}</a>{/if}
               </label>
             {/each}

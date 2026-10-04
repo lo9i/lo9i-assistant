@@ -22,11 +22,10 @@ async def test_subscribers_get_missed_events_then_live_ones():
     assert resumed[0].kind == "jobs"
 
 
-async def test_memory_writes_publish_but_heartbeats_do_not(service, script):
+async def test_memory_writes_publish(service, script):
     subscription = service.bus.subscribe(after=0)
-    await service.telegram_heartbeat()
     script.call("remember", fact="dentist on Friday").reply("ok")
     await collect(service.send(await service.session("u", "cli"), "remember"))
     # threads, conversations, settings (the get-to-know-you offer, decided on the first message), memory
     kinds = [e.kind for e in await _take(subscription, 4)]
-    assert "memory" in kinds and "integrations" not in kinds
+    assert "memory" in kinds

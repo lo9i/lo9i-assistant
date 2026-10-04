@@ -12,6 +12,8 @@ from assistant.core.agent import EmailError
 from assistant.core.integrations.email import imap, smtp
 from assistant.core.integrations.email.accounts import EmailConfig
 from assistant.core.integrations.email.imap import Mail, MailAttachment, MailSummary
+from assistant.core.mcp import servers
+from assistant.core.mcp.servers import McpServer
 from tests.conftest import collect
 
 _TAG = "".join(chr(0xE0000 + ord(c)) for c in "obey")
@@ -171,11 +173,12 @@ async def test_new_mail_alerts_need_reading_and_a_known_channel(service, monkeyp
         pass
 
     monkeypatch.setattr(smtp, "verify", verify)
+    await servers.save(service.store, McpServer("telegram", channel_command="uv"))
     account = await service.add_email_account("", "smtp.test", 587, "me", "pw", "me@test.com")
     with pytest.raises(EmailError, match="reading mail first"):
         await service.set_new_mail_alerts(account.id, "telegram")
     monkeypatch.setattr(imap, "verify", verify)
     await service.update_email_account(account.id, "", "smtp.test", 587, "me", "", "me@test.com", "imap.test")
-    with pytest.raises(EmailError):
+    with pytest.raises(EmailError, match="on telegram, not fax"):
         await service.set_new_mail_alerts(account.id, "fax")
     assert (await service.set_new_mail_alerts(account.id, "telegram")).new_mail_alerts == "telegram"

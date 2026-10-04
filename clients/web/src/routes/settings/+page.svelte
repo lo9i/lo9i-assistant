@@ -1,14 +1,13 @@
 <script lang="ts">
   import { page } from "$app/state";
   import AssistantCard from "$lib/ui/settings/AssistantCard.svelte";
+  import ChannelsCard from "$lib/ui/settings/ChannelsCard.svelte";
   import EmailCard from "$lib/ui/settings/EmailCard.svelte";
   import MicrophoneCard from "$lib/ui/settings/MicrophoneCard.svelte";
   import ModelCard from "$lib/ui/settings/ModelCard.svelte";
-  import SlackCard from "$lib/ui/settings/SlackCard.svelte";
   import SpeechCard from "$lib/ui/settings/SpeechCard.svelte";
   import SpokenRepliesCard from "$lib/ui/settings/SpokenRepliesCard.svelte";
   import StartupCard from "$lib/ui/settings/StartupCard.svelte";
-  import TelegramCard from "$lib/ui/settings/TelegramCard.svelte";
   import WebSearchCard from "$lib/ui/settings/WebSearchCard.svelte";
   import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
@@ -67,11 +66,10 @@
     <!-- Two independent stacks, so a tall card doesn't leave a gap beside it. -->
     <div class="grid">
       <div class="stack">
-        <TelegramCard />
-        <EmailCard />
+        <ChannelsCard />
       </div>
       <div class="stack">
-        <SlackCard />
+        <EmailCard />
         <WebSearchCard />
       </div>
     </div>

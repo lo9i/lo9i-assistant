@@ -44,7 +44,7 @@ async def schedule_job(
     like "in 5 minutes". `on_new_mail`: run whenever new email arrives, given the new messages, e.g.
     for "tell me on Telegram when my bank writes". `task`: what to do, e.g. "Run the skill
     news-digest" or "Send the user a Telegram message: stretch". Actions that need approval are
-    sent to the user's Telegram to approve when Telegram is connected, and denied otherwise.
+    sent to the user's connected chat channels to approve, and denied when none is connected.
     Replaces a job with the same name.
     """
     timezone = timezone or settings.timezone

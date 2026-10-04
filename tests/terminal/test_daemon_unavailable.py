@@ -3,7 +3,8 @@
 from textual.widgets import Button
 
 from assistant.client import DaemonUnavailableError
-from assistant_terminal.tui.screens import TelegramScreen
+from assistant.core.agent import ChannelStatus, SetupItem
+from assistant_terminal.tui.screens import ChannelsScreen
 from tests.terminal.conftest import wait_for
 
 _DOWN = "Can't reach the daemon."
@@ -20,14 +21,15 @@ def _reported(app) -> bool:
 async def test_a_screen_button_reports_it(app, client):
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.click("#prompt")
-        await pilot.press(*"/telegram", "enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, TelegramScreen))
-        client.telegram.start_pairing = _unavailable
-        client.telegram.state.connected = True
-        await app.screen.reload()
-        app.screen.query_one("#pair", Button).press()
+        client.channels.items["telegram"] = ChannelStatus(
+            "telegram", True, True, [SetupItem("action", "New pairing code", "new_pairing_code")]
+        )
+        await pilot.press(*"/channels", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ChannelsScreen) and app.screen.query(".channel-action"))
+        client.channels.press = _unavailable
+        app.screen.query_one(".channel-action", Button).press()
         await wait_for(pilot, lambda: _reported(app))
-        assert isinstance(app.screen, TelegramScreen)
+        assert isinstance(app.screen, ChannelsScreen)
 
 
 async def test_a_background_event_reports_it(app, client):

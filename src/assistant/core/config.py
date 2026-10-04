@@ -81,7 +81,7 @@ class Settings(BaseSettings):
     # Prices per million tokens for models without built-in ones (core/usage/prices.py), as JSON:
     # MODEL_PRICES='{"gpt-5": {"input": 1.25, "output": 10, "cache_read": 0.125}}'. Overrides them too.
     model_prices: dict[str, dict[str, float]] = {}
-    toolsets: list[str] = ["terminal", "memory", "web", "skills", "email", "slack", "jobs", "messages", "identity"]
+    toolsets: list[str] = ["terminal", "memory", "web", "skills", "email", "jobs", "messages", "identity"]
     skills_dir: str = "~/.lo9i/skills"
     # Email bodies longer than this are cut when the agent reads them.
     email_max_chars: int = 20_000
@@ -97,7 +97,7 @@ class Settings(BaseSettings):
     jobs_grace_hours: float = 6
     jobs_max_concurrent: int = 2
     jobs_timeout_minutes: int = 15
-    # How long a scheduled run waits for an approval on Telegram before it's rejected. The wait
+    # How long a scheduled run waits for an approval on a chat channel before it's rejected. The wait
     # doesn't count toward JOBS_TIMEOUT_MINUTES.
     job_approval_minutes: int = 60
 
