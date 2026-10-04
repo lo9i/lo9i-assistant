@@ -17,8 +17,10 @@ HOST="${1:?Usage: scripts/deploy.sh user@host [DIR]}"
 DIR="${2:-lo9i-assistant}"
 
 build_web_ui
+# Not .git: the host runs the files, not the repository, and from a worktree .git is a file pointing at
+# this computer, which breaks git (installing plugins) in the daemon's folder on the host.
 rsync -az --delete \
-  --exclude .venv --exclude .env --exclude workspace --exclude .idea \
+  --exclude .git --exclude .venv --exclude .env --exclude workspace --exclude .idea \
   --exclude __pycache__ --exclude .pytest_cache --exclude .ruff_cache \
   --exclude clients/web/node_modules --exclude clients/web/.svelte-kit \
   ./ "$HOST:$DIR/"
