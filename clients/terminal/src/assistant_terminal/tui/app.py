@@ -10,13 +10,14 @@ from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Footer, Header, Input
 
 from assistant.client import DaemonClient, DaemonUnavailableError, clipboard
+from assistant.client.daemon_client import offered_plugin
 from assistant.client.files import load_attachment
 from assistant.client.live import LiveConversation
 from assistant.client.recorder import Recorder, RecordingUnavailableError
 from assistant.client.recorder import available as recording_available
 from assistant.core.agent import ConversationError, InvalidNameError, Session
 from assistant.core.attachments import Attachment
-from assistant.core.events import is_question
+from assistant.core.events import is_plugin_offer, is_question
 from assistant_terminal.commands import GET_TO_KNOW_ME, Command, help_lines
 from assistant_terminal.history import History
 from assistant_terminal.preferences import Preferences
@@ -41,6 +42,7 @@ from assistant_terminal.tui.screens import (
     PluginsScreen,
     ProfileScreen,
     QuestionScreen,
+    RepositoryInstallScreen,
     SessionsScreen,
     SkillsScreen,
     StartupScreen,
@@ -321,9 +323,17 @@ class AssistantApp(App):
         view = TurnView(self._chat, self._status)
         approvals = await view.render(self._service.send(self._live.session, text, attachments))
         while approvals:
-            decisions = {a.interrupt_id: await self.push_screen_wait(_screen_for(a.request)) for a in approvals}
+            decisions = {a.interrupt_id: await self._decide(a.request) for a in approvals}
             approvals = await view.render(self._service.resume(self._live.session, decisions))
         await self.refresh_memory()
+
+    async def _decide(self, request: dict[str, Any]) -> dict[str, Any]:
+        """The user's answer to what the run waits for. A plugin the agent offers is installed here,
+        with its tokens typed in the dialog, and the answer only says whether it was."""
+        if is_plugin_offer(request):
+            screen = RepositoryInstallScreen(self._service.repositories, offered=offered_plugin(request))
+            return {"installed": bool(await self.push_screen_wait(screen))}
+        return await self.push_screen_wait(_screen_for(request))
 
     @reports_daemon_unavailable
     async def refresh_title(self) -> None:

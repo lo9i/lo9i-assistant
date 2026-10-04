@@ -19,7 +19,7 @@ from assistant.client.daemon_client.mcp import McpApi
 from assistant.client.daemon_client.memory import MemoryApi
 from assistant.client.daemon_client.model import ModelApi
 from assistant.client.daemon_client.oauth import OAuthApi
-from assistant.client.daemon_client.repositories import RepositoriesApi
+from assistant.client.daemon_client.repositories import RepositoriesApi, offered_plugin
 from assistant.client.daemon_client.skills import SkillsApi
 from assistant.client.daemon_client.speech import SpeechApi
 from assistant.client.daemon_client.system import SystemApi
@@ -47,4 +47,5 @@ __all__ = [
     "SystemApi",
     "UsageApi",
     "WebSearchApi",
+    "offered_plugin",
 ]

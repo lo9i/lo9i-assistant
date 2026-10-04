@@ -8,7 +8,7 @@ Give the user the exact steps below for the channel in the latest turn header (`
 Where things are:
 
 - Terminal app: slash commands typed in the message box. Typing `/` lists them.
-- Web UI: http://127.0.0.1:8765/app/ in a browser on the computer running the assistant; from other devices, its HTTPS address (`HTTPS_HOST` and `HTTPS_PORT` in its `.env`), after pairing the browser once with a code from `/devices`. Settings is in the sidebar, with the tabs General, Integrations, Audio, About you, Skills, Plugins and MCP servers.
+- Web UI: http://127.0.0.1:8765/app/ in a browser on the computer running the assistant; from other devices, its HTTPS address (`HTTPS_HOST` and `HTTPS_PORT` in its `.env`), after pairing the browser once with a code from `/devices`. Settings is in the sidebar, with the tabs General, Accounts, Audio, About you, Skills, Plugins and MCP servers.
 - Telegram: only chatting, `/new` (start a new conversation) and `/start`. Nothing can be set up from Telegram; send the user to the terminal app or the web UI.
 - Slack: only chatting in the app's DM, and `/new` (start a new conversation). Nothing can be set up from Slack; send the user to the terminal app or the web UI.
 
@@ -25,7 +25,7 @@ Saved in the app, the model overrides the one in `.env` and is used from the nex
 
 ## Email (sending and reading)
 
-Terminal app: `/email`. Web UI: Settings → Integrations → Email. The user can connect several accounts (personal, work), each with an optional name; the first one is the default, used whenever no account is named, and any other can be made the default. To add one: in the terminal, pick "Add an account" at the top; on the web, "Add an account". Both start with a provider choice:
+Terminal app: `/email`. Web UI: Settings → Accounts → Email. The user can connect several accounts (personal, work), each with an optional name; the first one is the default, used whenever no account is named, and any other can be made the default. To add one: in the terminal, pick "Add an account" at the top; on the web, "Add an account". Both start with a provider choice:
 
 - Gmail, iCloud Mail, Yahoo Mail, AOL Mail, Fastmail: choose it, then enter only the email address and the app password. The dialog explains how to create the app password and links to the page. The assistant can then both send and read mail.
 - Other (enter the server yourself): SMTP host, port (587, or 465), user name (usually the full address), password (an app password for most providers), the address to send as, and the IMAP host for reading mail (TLS on port 993; left empty, the assistant only sends).
@@ -58,12 +58,12 @@ Paired devices are listed in `/devices` and on the Devices page in the web UI si
 
 ## Telegram
 
-Telegram is a plugin. Install it first: terminal app `/plugins`, web UI Settings → Plugins; pick **telegram**.
+Telegram is a plugin. If it isn't installed, offer it with offer_plugin (in the terminal app or web UI the install opens right in the chat); otherwise the user installs it from terminal app `/plugins` or web UI Settings → Plugins, picking **telegram**.
 
 1. In Telegram, open @BotFather and send `/newbot`.
 2. Choose a name, then a username ending in `bot`.
 3. BotFather replies with a token like `123456789:AAH…`. Paste it into the **Bot token** field when installing. Someone who had Telegram set up before it was a plugin can leave the field empty: the saved token and paired accounts are kept.
-4. Open Channels: terminal app `/channels`, web UI Settings → Integrations → Channels. Telegram shows the bot's name and a pairing code. Open the bot in Telegram (t.me/<bot username>), press Start, and send the code within 10 minutes. **New pairing code** makes another, to pair a second account. Only paired accounts can talk to the assistant.
+4. Open Channels: terminal app `/channels`, web UI Settings → Accounts → Channels. Telegram shows the bot's name and a pairing code. Open the bot in Telegram (t.me/<bot username>), press Start, and send the code within 10 minutes. **New pairing code** makes another, to pair a second account. Only paired accounts can talk to the assistant.
 
 To change the token, remove the plugin in Plugins and install it again (choose to keep its data, so paired accounts stay).
 
@@ -71,7 +71,7 @@ With a chat channel connected, a scheduled job that needs approval (for example 
 
 ## Web search
 
-Terminal app: `/websearch`. Web UI: Settings → Integrations → Web search (or `/websearch` in the web chat).
+Terminal app: `/websearch`. Web UI: Settings → General → Web search (or `/websearch` in the web chat).
 
 Without a key, `web_search` uses public engines and then free search services (Exa, Parallel, Keenable). Both can block or limit automated searches, so a search can fail. A Brave Search API key makes it reliable:
 
@@ -83,14 +83,14 @@ With a key, searches use Brave, and the public engines and free services when Br
 
 ## Slack
 
-Slack is a plugin. Install it first: terminal app `/plugins`, web UI Settings → Plugins; pick **slack**. The install asks for three tokens from a Slack app:
+Slack is a plugin. If it isn't installed, offer it with offer_plugin (in the terminal app or web UI the install opens right in the chat); otherwise the user installs it from terminal app `/plugins` or web UI Settings → Plugins, picking **slack**. The install asks for three tokens from a Slack app:
 
 1. Open https://api.slack.com/apps, choose **Create New App → From a manifest**, and pick the workspace.
 2. Paste the app manifest from https://github.com/lo9i/lo9i-assistant-extras/blob/main/mcp/slack/manifest.json (the App token field's help link opens it). Then choose **Next → Create**.
 3. In **Basic Information → App-Level Tokens**, choose **Generate Token and Scopes**, add the scope `connections:write`, and generate. Copy the token that starts with `xapp-`.
 4. In **OAuth & Permissions**, choose **Install to** the workspace, then **Allow**. The same page then shows the **Bot User OAuth Token** (`xoxb-`) and the **User OAuth Token** (`xoxp-`).
 5. Paste the three tokens into the install fields and install. Someone who had Slack set up before it was a plugin can leave them empty: the saved tokens are kept.
-6. Channels (terminal app `/channels`, web UI Settings → Integrations → Channels) shows the workspace and owner once it connects. In Slack, open the app under **Apps** in the sidebar and send it a message. Only the person who installed the app can talk to the assistant.
+6. Channels (terminal app `/channels`, web UI Settings → Accounts → Channels) shows the workspace and owner once it connects. In Slack, open the app under **Apps** in the sidebar and send it a message. Only the person who installed the app can talk to the assistant.
 
 The plugin also gives the assistant tools to search, read and post in the workspace as the user (posting always asks first); turn them on or off in MCP servers like any other server's tools. The bot's name in Slack is set when the app is created; Channels also shows a manifest named after the assistant to copy.
 
@@ -111,9 +111,9 @@ Keys are typed only in that dialog, never in the chat. A server is not trusted u
 
 Plugins come from the assistant's own extras (https://github.com/lo9i/lo9i-assistant-extras); there's no other source to choose.
 
-Web UI: Settings → Plugins. Terminal app: `/plugins`. Both list them, with a search, each installed or not, with **Install**, **Remove**, and **Update** when the extras have a newer version. **Install** installs at once, or first asks for the values a server needs (a user name, a password, a token); secret ones are typed only there, never in the chat. Everything is available from the user's next message. Plugins is the only place to install from the extras. Installed skills are listed in `/skills` in the terminal app and Settings → Skills in the web UI, to read, edit, update or delete.
+Web UI: Settings → Plugins. Terminal app: `/plugins`. Both list them, with a search, each installed or not, with **Install**, **Remove**, and **Update** when the extras have a newer version. **Install** installs at once, or first asks for the values a server needs (a user name, a password, a token); secret ones are typed only there, never in the chat. Everything is available from the user's next message. You can also offer one with offer_plugin when the user asks for what it does: in the terminal app or web UI the same install opens in the chat. Installed skills are listed in `/skills` in the terminal app and Settings → Skills in the web UI, to read, edit, update or delete.
 
-What's installed runs on this computer. Installed servers are untrusted by default unless the extras say otherwise: their tools that aren't read-only ask for approval. **Update** downloads one again: a skill's local changes are replaced; a server keeps its values, trust and tool choices, and its data. A server can come with a page (for example Expenses): it shows up in the web UI's sidebar, for paired browsers only; the terminal app and chats can't show it. Only the user installs; you can't. When you save or delete a skill yourself, the user approves it first.
+What's installed runs on the computer the assistant runs on. Installed servers are untrusted by default unless the extras say otherwise: their tools that aren't read-only ask for approval. **Update** downloads one again: a skill's local changes are replaced; a server keeps its values, trust and tool choices, and its data. A server can come with a page (for example Expenses): it shows up in the web UI's sidebar, for paired browsers only; the terminal app and chats can't show it. Only the user installs; you can offer, they approve. When you save or delete a skill yourself, the user approves it first.
 
 ## Audio (voice messages and spoken replies)
 

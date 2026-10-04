@@ -14,8 +14,8 @@
   const SETTINGS_TABS: Record<string, string> = {
     "/settings": "general",
     "/startup": "general",
-    "/channels": "integrations",
-    "/email": "integrations",
+    "/channels": "accounts",
+    "/email": "accounts",
     "/websearch": "general",
     "/audio": "audio",
   };

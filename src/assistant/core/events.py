@@ -25,7 +25,10 @@ class ToolFinished:
 class ApprovalRequired:
     """The run waits for the user. Usually an approval, answered with {"approved", "reason"}; a
     request whose `kind` is QUESTION is a question with options (core/tools/questions.py), with
-    `question`, `options` and `multiple`, answered with {"choices": [picked options]}."""
+    `question`, `options` and `multiple`, answered with {"choices": [picked options]}. One whose
+    `kind` is PLUGIN_OFFER offers a plugin from the extras (core/tools/plugins.py), with `name`,
+    `description` and the plugin as the repository lists it (`server` or `skill`): the app installs
+    it through its usual route and answers {"installed": bool}."""
 
     interrupt_id: str
     request: dict[str, Any]
@@ -36,6 +39,13 @@ QUESTION = "question"
 
 def is_question(request: dict[str, Any]) -> bool:
     return request.get("kind") == QUESTION
+
+
+PLUGIN_OFFER = "plugin"
+
+
+def is_plugin_offer(request: dict[str, Any]) -> bool:
+    return request.get("kind") == PLUGIN_OFFER
 
 
 @dataclass

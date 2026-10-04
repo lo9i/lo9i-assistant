@@ -16,6 +16,7 @@ from assistant_terminal.tui.screens.model import ModelScreen
 from assistant_terminal.tui.screens.plugins import PluginsScreen
 from assistant_terminal.tui.screens.profile import ProfileScreen
 from assistant_terminal.tui.screens.question import QuestionScreen
+from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 from assistant_terminal.tui.screens.sessions import SessionsScreen
 from assistant_terminal.tui.screens.skills import SkillsScreen
 from assistant_terminal.tui.screens.startup import StartupScreen
@@ -37,6 +38,7 @@ __all__ = [
     "PluginsScreen",
     "ProfileScreen",
     "QuestionScreen",
+    "RepositoryInstallScreen",
     "SessionsScreen",
     "SkillsScreen",
     "StartupScreen",

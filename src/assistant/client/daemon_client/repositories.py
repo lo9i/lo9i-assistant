@@ -65,6 +65,11 @@ def _server(data: dict[str, Any]) -> FoundServer:
     return FoundServer(**{**data, "fields": [ServerField(**f) for f in data["fields"]]})
 
 
+def offered_plugin(request: dict[str, Any]) -> FoundServer | FoundSkill:
+    """The plugin in a request the agent paused for (core/events.py::PLUGIN_OFFER)."""
+    return _server(request["server"]) if "server" in request else FoundSkill(**request["skill"])
+
+
 def _with_url(body: dict[str, Any], url: str | None) -> dict[str, Any]:
     """Without a url, the daemon uses the assistant's extras."""
     return {**body, "url": url} if url else body

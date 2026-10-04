@@ -4,11 +4,17 @@
   import Files from "@lucide/svelte/icons/files";
   import { resource } from "$lib/daemon.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
+  import SearchField from "$lib/ui/SearchField.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
   // A file arrives with a message, which updates its conversation; deleting one removes its files.
   const files = resource((c) => c.files.list(), ["conversations"]);
   let picked = $state<string | null>(null);
+  let query = $state("");
+  // By name, type or conversation.
+  const shown = $derived(
+    (files.data ?? []).filter((f) => `${f.name} ${f.media_type} ${f.conversation}`.toLowerCase().includes(query.trim().toLowerCase())),
+  );
   // Until one is picked: the newest.
   const file = $derived(files.data?.find((f) => f.path === picked) ?? files.data?.[0]);
 
@@ -32,7 +38,10 @@
         <h2 class="text-heading">Uploaded files</h2>
         <p class="text-meta">Files you sent in your conversations, newest first. Click one to see it on the right.</p>
       </div>
-      {#if files.data}<span class="pill">{files.data.length}</span>{/if}
+      <div class="tools">
+        <SearchField bind:value={query} label="Search files" />
+        {#if files.data}<span class="pill">{files.data.length}</span>{/if}
+      </div>
     </header>
     <div class="scroll">
       {#if files.error}
@@ -51,7 +60,7 @@
             </tr>
           </thead>
           <tbody>
-            {#each files.data as f (f.path)}
+            {#each shown as f (f.path)}
               <tr class:selected={f.path === file.path} onclick={() => (picked = f.path)}>
                 <td><button class="row-button" onclick={() => (picked = f.path)}>{f.name}</button></td>
                 <td class="text-label hide-narrow">{f.media_type}</td>
@@ -127,6 +136,11 @@
     padding: 16px 24px;
     min-height: 66px;
     border-bottom: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
+  }
+  .tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
   .toolbar p {
     margin: 4px 0 0;

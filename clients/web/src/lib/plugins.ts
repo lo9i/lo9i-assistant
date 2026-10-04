@@ -28,9 +28,9 @@ export function kindOf(p: Plugin): string {
     .join(" · ");
 }
 
-/** Where it runs: a remote MCP server runs elsewhere; a local one or a channel on this computer. */
+/** Where it runs: a remote MCP server runs elsewhere; a local one or a channel on the computer the assistant runs on. */
 export function runsOf(server: FoundServer): string {
-  return server.transport === "http" ? "Remotely" : "On this computer";
+  return server.transport === "http" ? "Remotely" : "On the assistant's computer";
 }
 
 /** A field the daemon already has a value for (from before channels were plugins) may be left empty. */

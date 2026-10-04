@@ -3,6 +3,7 @@
   import Puzzle from "@lucide/svelte/icons/puzzle";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
+  import type { FoundServer } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { type Plugin, describe, keyOf, kindOf, pluginsOf, runsOf, updatable, versionOf } from "$lib/plugins";
   import Confirm from "$lib/ui/Confirm.svelte";
@@ -25,7 +26,7 @@
     (plugins.data ?? []).filter((p) => `${p.name} ${describe(p)} ${kindOf(p)}`.toLowerCase().includes(query.trim().toLowerCase())),
   );
   // A plugin that asks for values, while its dialog is open.
-  let asking = $state<string | null>(null);
+  let asking = $state<FoundServer | null>(null);
   let removing = $state<Plugin | null>(null);
   let busy = $state(false);
   const plugin = $derived(plugins.data?.find((p) => keyOf(p) === picked) ?? plugins.data?.[0]);
@@ -46,7 +47,7 @@
   /** At once when it asks for nothing; otherwise a dialog for its values. */
   function install(p: Plugin): void {
     if (p.kind === "server" && p.server.fields.length) {
-      asking = p.name;
+      asking = p.server;
       return;
     }
     void act(
@@ -99,7 +100,10 @@
             <tbody>
               {#each shown as p (keyOf(p))}
                 <tr class:selected={plugin && keyOf(p) === keyOf(plugin)} onclick={() => (picked = keyOf(p))}>
-                  <td><button class="row-button" onclick={() => (picked = keyOf(p))}>{p.name}</button></td>
+                  <td>
+                    <button class="row-button" onclick={() => (picked = keyOf(p))}>{p.name}</button>
+                    {#if describe(p)}<p class="text-caption row-description">{describe(p)}</p>{/if}
+                  </td>
                   <td class="hide-narrow">{kindOf(p)}</td>
                   <td>{versionOf(p)}</td>
                   <td>
@@ -168,7 +172,7 @@
 
 {#if asking}
   <InstallDialog
-    only={asking}
+    server={asking}
     onclose={(installed) => {
       asking = null;
       if (installed) notices.notify(`Installed ${installed.join(", ")}. The assistant uses it from your next message.`);
@@ -282,6 +286,9 @@
   }
   .details p {
     margin: 0;
+  }
+  .row-description {
+    margin: 2px 0 0;
   }
   .details header {
     display: flex;

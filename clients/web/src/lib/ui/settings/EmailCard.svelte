@@ -52,14 +52,6 @@
           <EmailAccountRow {account} channels={channelNames} open={account.id === added} />
         {/each}
       </div>
-      <label class="fields">
-        <span class="text-label">Sends without asking, from any account, to your accounts and:</span>
-        <div class="row">
-          <input class="input" bind:value={recipients} placeholder="Addresses, comma-separated" aria-label="Allowed recipients" />
-          <button class="btn btn--neutral" onclick={saveRecipients}>Save</button>
-        </div>
-        {#if saved}<span class="text-meta">{saved}</span>{/if}
-      </label>
     {:else if !adding}
       <EmptyState icon={Mail} title="No email account yet" text="Connect one so the assistant can send and read mail for you." />
     {/if}
@@ -77,6 +69,19 @@
       </div>
     {:else}
       <div><button class="btn btn--neutral" onclick={() => (adding = true)}><Plus size={16} />Add an account</button></div>
+    {/if}
+    {#if accounts.data.length}
+      <div class="fields">
+        <h3 class="text-heading">Allowed recipients</h3>
+        <label class="fields">
+          <span class="text-label">Sends without asking, from any account, to your accounts and:</span>
+          <div class="row">
+            <input class="input" bind:value={recipients} placeholder="Addresses, comma-separated" aria-label="Allowed recipients" />
+            <button class="btn btn--neutral" onclick={saveRecipients}>Save</button>
+          </div>
+          {#if saved}<span class="text-meta">{saved}</span>{/if}
+        </label>
+      </div>
     {/if}
   {/if}
 </SettingsCard>

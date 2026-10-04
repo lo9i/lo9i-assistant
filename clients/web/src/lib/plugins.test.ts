@@ -107,7 +107,7 @@ group("channel plugins", () => {
   it("are labelled as channels", () => {
     const kinds = pluginsOf({ skills: [], servers: [found({}), found({ name: "slack", transport: "stdio", skill: true })] }).map(kindOf);
     expect(kinds).toEqual(["Channel", "MCP server · channel · skill"]);
-    expect(runsOf(found({}))).toBe("On this computer");
+    expect(runsOf(found({}))).toBe("On the assistant's computer");
     expect(runsOf(found({ transport: "http" }))).toBe("Remotely");
   });
 

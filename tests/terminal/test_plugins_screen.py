@@ -98,7 +98,7 @@ def test_a_channel_plugin_is_labelled_as_a_channel():
     slack = FoundServer("slack", "Slack", "stdio", [], True, skill=True, channel=True)
     assert Plugin("telegram", False, server=telegram).kind == "Channel"
     assert Plugin("slack", False, server=slack).kind == "MCP server · channel · skill"
-    assert "Runs: on this computer" in describe(Plugin("telegram", False, server=telegram))
+    assert "Runs: on the assistant's computer" in describe(Plugin("telegram", False, server=telegram))
 
 
 def test_a_value_the_daemon_already_has_may_be_left_empty():

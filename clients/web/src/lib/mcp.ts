@@ -35,7 +35,7 @@ export function selectionFor(tools: McpToolInfo[], chosen: Set<string>): Selecti
 }
 
 /** The servers the MCP servers page lists: a plugin that's only a chat channel has no tools, and is
- *  set up in Settings → Integrations. Slack has tools as well as its channel, so it stays. */
+ *  set up in Settings → Accounts. Slack has tools as well as its channel, so it stays. */
 export function withTools(servers: McpServerStatus[]): McpServerStatus[] {
   return servers.filter((s) => s.transport !== "channel");
 }

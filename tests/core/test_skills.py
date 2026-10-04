@@ -101,7 +101,7 @@ def test_the_setup_skill_is_built_in_and_covers_every_setup_command(isolated_set
     monkeypatch.setattr("assistant.core.config.settings.skills_dir", str(isolated_settings / "skills"))
     setup = store.load(store.SETUP)
     assert setup.builtin and next(s for s in store.list_skills() if s.name == store.SETUP).builtin
-    assert "Settings → Integrations → Email" in setup.instructions
+    assert "Settings → Accounts → Email" in setup.instructions
     # Every command that sets something up must be explained in it, so it can't fall behind.
     for command in (
         "/model",

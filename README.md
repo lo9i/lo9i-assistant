@@ -46,8 +46,8 @@ Everything else is set up from inside the app, not in `.env`. Secrets are typed 
 | What | Terminal app | Web app |
 |---|---|---|
 | The model (provider, key, models) | `/model` | Settings → General |
-| Telegram, Slack (install the plugin first: `/plugins`, or Plugins in the web app) | `/channels` | Settings → Channels |
-| Email (send and read, new-mail alerts) | `/email` | Settings → Integrations |
+| Telegram, Slack (install the plugin first: `/plugins`, or Plugins in the web app) | `/channels` | Settings → Accounts → Channels |
+| Email (send and read, new-mail alerts) | `/email` | Settings → Accounts |
 | MCP servers | `/mcp` | MCP servers |
 | Start at boot | `/startup` | Settings → General |
 | Browsers on other computers | `/devices` | Devices |

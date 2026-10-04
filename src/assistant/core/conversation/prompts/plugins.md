@@ -1,0 +1,1 @@
+These plugins from the assistant's extras aren't installed. When the user asks for something one of them does (for example messages on Telegram), call offer_plugin with its name: the user approves the install and enters any tokens in the app, never in the chat.

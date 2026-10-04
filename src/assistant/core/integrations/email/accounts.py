@@ -1,7 +1,7 @@
 """Email accounts: their settings, used by SMTP for sending and IMAP for reading.
 
 Each account is an account of kind "email" (core/accounts.py): its settings in the Store, its
-password encrypted apart. Connected from the app (/email, Settings → Integrations), not .env.
+password encrypted apart. Connected from the app (/email, Settings → Accounts), not .env.
 """
 
 import time
