@@ -1,4 +1,4 @@
-"""Email accounts, opened from /plugins: an email plugin's accounts, or Communications' shared settings
+"""Email accounts, opened from /plugins: an email plugin's accounts, or from /email the shared settings
 (the accounts whose servers were entered by hand, and who the agent emails without asking)."""
 
 from textual.widgets import Button, Input, Markdown, Select
@@ -34,7 +34,6 @@ async def test_a_plugin_with_one_provider_needs_only_the_address_and_password(ap
         screen = await _open(pilot, app, client, "gmail")
         await wait_for(pilot, lambda: screen.query_one("#email-address").display)
         assert not screen.query_one("#email-host").display and not screen.query_one("#email-provider").display
-        assert not screen.query_one("#email-allowed").display
         assert "myaccount.google.com/apppasswords" in screen.query_one("#email-help", Markdown).source
         await _add_gmail(pilot, screen, "me@gmail.com", "Personal")
         assert client.email.connected_with == (
@@ -55,7 +54,7 @@ async def test_a_plugin_lists_only_its_own_accounts(app, client):
         screen = await _open(pilot, app, client, "gmail")
         await _add_gmail(pilot, screen, "me@gmail.com")
         await pilot.press("escape")
-        other = await _open(pilot, app, client, "")
+        other = await _open(pilot, app, client, "custom-email")
         await wait_for(pilot, lambda: "Add an email account" in _body(other))
         assert not other.query_one("#email-account").display
 
@@ -85,11 +84,11 @@ async def test_microsoft_signs_in_with_the_users_oauth_app(app, client, monkeypa
         assert (account.auth, account.oauth_provider, account.plugin) == ("oauth", "microsoft", "microsoft")
 
 
-async def test_communications_asks_for_the_server_and_saves_recipients(app, client):
+async def test_a_custom_provider_asks_for_the_servers(app, client):
     async with app.run_test(size=(110, 44)) as pilot:
-        screen = await _open(pilot, app, client, "")
+        screen = await _open(pilot, app, client, "custom-email")
         await wait_for(pilot, lambda: screen.query_one("#email-host").display)
-        assert screen.query_one("#email-allowed").display
+        assert not screen.query_one("#email-address").display
         for field, value in {
             "email-host": "smtp.test",
             "email-port": "587",
@@ -103,11 +102,20 @@ async def test_communications_asks_for_the_server_and_saves_recipients(app, clie
         screen.query_one("#email-password", Input).value = "right"
         screen.query_one("#connect", Button).press()
         await wait_for(pilot, lambda: "Email: me@test.com" in _body(screen))
-        assert client.email.accounts_by_id["a1"].plugin == ""
-        screen.query_one("#email-allowed", Input).value = "friend@test.com"
-        screen.query_one("#recipients", Button).press()
-        await wait_for(pilot, lambda: "friend@test.com" in _body(screen))
-        assert client.email.allowed == ["friend@test.com"]
+        assert client.email.accounts_by_id["a1"].plugin == "custom-email"
+        assert client.email.connected_with[1:3] == ("smtp.test", 587)
+
+
+async def test_email_saves_who_the_assistant_emails_without_asking(app, client):
+    from assistant_terminal.tui.screens import EmailRecipientsScreen
+
+    async with app.run_test(size=(110, 44)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/email", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, EmailRecipientsScreen))
+        app.screen.query_one(Input).value = "friend@test.com"
+        app.screen.query_one("#save", Button).press()
+        await wait_for(pilot, lambda: client.email.allowed == ["friend@test.com"])
 
 
 async def test_new_mail_alerts_are_chosen_once_mail_can_be_read(app, client):
@@ -154,7 +162,7 @@ async def test_renaming_keeps_the_sign_in(app, client):
         assert client.email.connected_with[4] == "right"  # signed in once, not again
 
 
-async def test_plugins_open_an_email_plugins_accounts_and_communications_settings(app, client):
+async def test_plugins_open_an_email_plugins_accounts_and_email_opens_the_shared_settings(app, client):
     gmail = FoundServer("gmail", "Gmail", "none", [], True, installed=True, category="communications/email", email=True)
     client.repositories.more = [gmail]
     async with app.run_test(size=(120, 44)) as pilot:
@@ -168,8 +176,6 @@ async def test_plugins_open_an_email_plugins_accounts_and_communications_setting
         await wait_for(pilot, lambda: isinstance(app.screen, EmailScreen) and app.screen._plugin == "gmail")
         await pilot.press("escape")
         await wait_for(pilot, lambda: app.screen is plugins)
-        listed = plugins.query_one("#plugins-list")
-        listed.highlighted = listed.get_option_index("category:communications")
-        await wait_for(pilot, lambda: plugins.query_one("#category-settings").display)
-        plugins.query_one("#category-settings", Button).press()
-        await wait_for(pilot, lambda: isinstance(app.screen, EmailScreen) and app.screen._plugin == "")
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is not plugins)
+        assert not isinstance(app.screen, EmailScreen)

@@ -1,7 +1,7 @@
 """Mail providers to pick from when connecting email, so the user types only their address and a
 password, or signs in (OAuth: Google, Microsoft). Each comes from an email plugin, which declares its
-presets in the `email:` section of its server.yaml (core/mcp/install.py) and runs nothing. Clients
-offer "Other" for entering the servers by hand, which needs no plugin."""
+presets in the `email:` section of its server.yaml (core/mcp/install.py) and runs nothing. A `custom`
+preset has no servers: the user enters them (the extras' custom-email plugin)."""
 
 from dataclasses import dataclass
 from typing import Any
@@ -29,6 +29,8 @@ class EmailProvider:
     oauth: str = ""
     # The plugin that offers it; its accounts belong to that plugin.
     plugin: str = ""
+    # The user enters the servers (SMTP host and port, IMAP host), so it declares none.
+    custom: bool = False
 
 
 def parse(section: object, plugin: str) -> list[EmailProvider]:
@@ -44,19 +46,22 @@ def parse(section: object, plugin: str) -> list[EmailProvider]:
 
 
 def _provider(entry: dict[str, Any], plugin: str) -> EmailProvider:
-    if missing := [key for key in _REQUIRED if not str(entry.get(key) or "").strip()]:
+    custom = bool(entry.get("custom", False))
+    required = ("id", "name") if custom else _REQUIRED
+    if missing := [key for key in required if not str(entry.get(key) or "").strip()]:
         raise ValueError(f"a provider in its email: section has no {', '.join(missing)}")
     if (oauth := str(entry.get("oauth") or "")) not in _OAUTH:
         raise ValueError(f"its email: provider {entry['id']} signs in with {oauth!r}, not google or microsoft")
     return EmailProvider(
         str(entry["id"]),
         str(entry["name"]),
-        str(entry["host"]),
+        str(entry.get("host") or ""),
         int(entry.get("port", 587)),
-        str(entry["imap_host"]),
+        str(entry.get("imap_host") or ""),
         str(entry.get("password_help") or "").strip(),
         str(entry.get("password_url") or ""),
         bool(entry.get("supported", True)),
         oauth,
         plugin,
+        custom,
     )

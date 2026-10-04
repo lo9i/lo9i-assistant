@@ -2,7 +2,7 @@
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { describe } from "$lib/notices";
 
-  // Who the assistant emails without asking, from any account, in the Communications category.
+  // Who the assistant emails without asking, from any account (Settings → General → Email).
   const { client } = useDaemon();
   const allowed = resource((c) => c.email.recipients(), ["integrations"]);
   let recipients = $state("");

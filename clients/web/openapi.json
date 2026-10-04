@@ -3490,6 +3490,11 @@
             "type": "string",
             "title": "Plugin",
             "default": ""
+          },
+          "custom": {
+            "type": "boolean",
+            "title": "Custom",
+            "default": false
           }
         },
         "type": "object",

@@ -1,10 +1,9 @@
-"""Email accounts, opened from /plugins: an email plugin's accounts (connect one or more, pick the
-default, change a sign-in, where each one's new mail is announced), or, from the Communications
-category, the accounts whose servers were entered by hand and who the agent may email without asking,
-from any account.
+"""An email plugin's accounts, opened from /plugins: connect one or more, pick the default, change a
+sign-in, where each one's new mail is announced.
 
-An email plugin's account uses one of its providers, so only the address and the password are typed;
-servers entered by hand need SMTP to send, IMAP to read (without IMAP the assistant only sends).
+An account uses one of its plugin's providers, so only the address and the password are typed; a
+custom provider (the custom-email plugin) has no servers, so its accounts take the ones typed: SMTP to
+send, IMAP to read (without IMAP the assistant only sends).
 Google and Microsoft can sign in instead (OAuth), with the user's own OAuth app: the browser is sent
 back to the daemon's web app on this computer, which finishes it, or the user pastes the address it
 ended on.
@@ -32,7 +31,6 @@ The assistant sends from your account and reads your mail through the provider's
 more than one (personal, work) and pick which is the default."""
 
 _NEW = "new"
-_OTHER = "other"
 # id: (placeholder, secret)
 _FIELDS = {
     "email-label": ("Name for this account, like Work (optional)", False),
@@ -49,19 +47,16 @@ _FIELDS = {
 }
 _PRESET_FIELDS = {"email-label", "email-address", "email-password"}
 _OAUTH_FIELDS = {"email-label", "email-address", "email-client-id", "email-client-secret"}
-_OTHER_FIELDS = set(_FIELDS) - {"email-address", "email-client-id", "email-client-secret", "email-returned"}
+_SERVER_FIELDS = set(_FIELDS) - {"email-address", "email-client-id", "email-client-secret", "email-returned"}
 _NO_ALERTS = ("Don't announce new mail", "")
 _ACCOUNT_BUTTONS = ("#email-name", "#rename", "#default", "#edit", "#remove")
-_ALLOWED_PLACEHOLDER = "Sends without asking to, from any account (your accounts always): addresses, comma-separated"
-_OTHER_HELP = "Most providers need an **app password** here, not your account password."
 
 
 class EmailScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
 
     def __init__(self, email: EmailApi, oauth: OAuthApi, channels: ChannelsApi, plugin: str) -> None:
-        """`plugin`: the email plugin whose accounts this shows, or "" for the accounts whose servers
-        were entered by hand and the allowed recipients."""
+        """`plugin`: the email plugin whose accounts this shows."""
         super().__init__()
         self._email = email
         self._oauth = oauth
@@ -90,12 +85,10 @@ class EmailScreen(ModalScreen[None]):
             for field_id, (placeholder, secret) in _FIELDS.items():
                 yield Input(placeholder=placeholder, password=secret, id=field_id)
             yield Input(placeholder="Account name, like Work", id="email-name")
-            yield Input(placeholder=_ALLOWED_PLACEHOLDER, id="email-allowed")
             yield Select[str]([_NO_ALERTS], allow_blank=False, value="", id="email-alerts")
             with Horizontal(id="email-buttons"):
                 yield Button("Connect", variant="success", id="connect")
                 yield Button("Finish", variant="success", id="finish")
-                yield Button("Save recipients", id="recipients")
                 yield Button("Rename", id="rename")
                 yield Button("Make default", id="default")
                 yield Button("Change sign-in", id="edit")
@@ -221,14 +214,6 @@ class EmailScreen(ModalScreen[None]):
         self._reset_form()
         await self._load(select=saved.id)
 
-    @on(Button.Pressed, "#recipients")
-    @reports_daemon_unavailable
-    async def _save_recipients(self) -> None:
-        addresses = self.query_one("#email-allowed", Input).value.split(",")
-        self._recipients = await self._email.set_recipients(addresses)
-        self._message = "Saved who the assistant sends to without asking."
-        await self._refresh()
-
     @on(Button.Pressed, "#rename")
     @reports_daemon_unavailable
     async def _rename(self) -> None:
@@ -274,7 +259,6 @@ class EmailScreen(ModalScreen[None]):
         self._accounts = [a for a in await self._email.accounts() if a.plugin == self._plugin]
         self._channel_names = [c.name for c in await self._channels.list()]
         self._recipients = await self._email.recipients()
-        self.query_one("#email-allowed", Input).value = ", ".join(self._recipients)
         ids = {a.id for a in self._accounts}
         default = self._accounts[0].id if self._accounts else _NEW
         self._selected = select if select in ids or select == _NEW else default
@@ -287,7 +271,7 @@ class EmailScreen(ModalScreen[None]):
 
     def _reset_form(self) -> None:
         """Clears what was typed, the password included, and the provider, unless there's only one
-        way to connect: servers entered by hand, or a plugin's only provider."""
+        way to connect: the plugin's only provider."""
         self._choice = self._only_choice()
         provider = self.query_one("#email-provider", Select)
         with provider.prevent(Select.Changed):
@@ -297,19 +281,18 @@ class EmailScreen(ModalScreen[None]):
         self._signing = False
 
     def _only_choice(self) -> str | None:
-        if not self._plugin:
-            return _OTHER
         return next(iter(self._providers)) if len(self._providers) == 1 else None
 
     def _account(self) -> EmailAccount | None:
         return next((a for a in self._accounts if a.id == self._selected), None)
 
     def _settings(self) -> tuple[str, str, int, str, str, str, str]:
-        """label, host, port, user, password, sender, IMAP host. A provider's user and sender are the address."""
+        """label, host, port, user, password, sender, IMAP host. A provider's user and sender are the
+        address; a custom provider's account takes the servers typed."""
         value = {field_id: self.query_one(f"#{field_id}", Input).value.strip() for field_id in _FIELDS}
         label = value["email-label"]
         provider = self._providers.get(self._choice or "")
-        if provider is not None:
+        if provider is not None and not provider.custom:
             address = value["email-address"]
             return label, provider.host, provider.port, address, value["email-password"], address, provider.imap_host
         port = int(value["email-port"] or 587)
@@ -335,9 +318,6 @@ class EmailScreen(ModalScreen[None]):
         self.query_one("#email-account").display = bool(self._accounts)
         for widget_id in _ACCOUNT_BUTTONS:
             self.query_one(widget_id).display = account is not None and not self._editing
-        # Who the agent emails without asking is shared by every account: shown with Communications.
-        for widget_id in ("#email-allowed", "#recipients"):
-            self.query_one(widget_id).display = not self._plugin and not self._editing
         self.query_one("#default").display = account is not None and not self._editing and not account.default
         self.query_one("#email-alerts").display = account is not None and not self._editing and bool(account.imap_host)
         if account is not None:
@@ -372,9 +352,9 @@ def _option(account: EmailAccount) -> str:
 
 
 def _form_fields(choice: str | None, providers: dict[str, EmailProvider]) -> set[str]:
-    if choice == _OTHER:
-        return _OTHER_FIELDS
     provider = providers.get(choice or "")
+    if provider is not None and provider.custom:
+        return _SERVER_FIELDS
     if provider is not None and provider.oauth:
         return _OAUTH_FIELDS
     return _PRESET_FIELDS if provider is not None and provider.supported else set()
@@ -383,7 +363,7 @@ def _form_fields(choice: str | None, providers: dict[str, EmailProvider]) -> set
 def _help(provider: EmailProvider | None, editing: bool) -> str:
     keep = "\n\nLeave the password empty to keep the saved one." if editing else ""
     if provider is None:
-        return _OTHER_HELP + keep
+        return ""
     if provider.oauth:
         keep = "\n\nLeave the client ID and secret empty to keep the saved ones." if editing else ""
         where = f"\n\nSet it up at {provider.password_url}" if provider.password_url else ""

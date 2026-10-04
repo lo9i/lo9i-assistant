@@ -89,20 +89,6 @@ def category_label(category: str) -> str:
     return " / ".join(part.capitalize() for part in category.split("/"))
 
 
-def has_settings(category: str) -> bool:
-    """Whether a category has settings its plugins share, opened from its name."""
-    return category == "communications"
-
-
-def describe_category(category: str) -> str:
-    """Markdown for a category with shared settings."""
-    return (
-        f"## {category_label(category)}\n\nSettings shared by the email and chat plugins: who the assistant "
-        "emails without asking, and the email accounts whose servers you enter yourself. Open them with "
-        "Settings."
-    )
-
-
 def label(plugin: Plugin) -> str:
     return f"{plugin.name} {version(plugin)}  {'✓ installed' if plugin.installed else '· not installed'}"
 

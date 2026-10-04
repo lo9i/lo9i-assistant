@@ -13,6 +13,13 @@
   };
   let { title, description, width = 520, onclose, children, footer }: Props = $props();
 
+  // Shown from the page's body: a card with a backdrop filter (the glass surfaces) would otherwise hold
+  // the fixed scrim inside itself, so a dialog opened from a card never showed.
+  function portal(node: HTMLElement): { destroy: () => void } {
+    document.body.appendChild(node);
+    return { destroy: () => node.remove() };
+  }
+
   function onKeydown(e: KeyboardEvent): void {
     if (e.key === "Escape" && onclose) onclose();
   }
@@ -20,7 +27,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="scrim" role="presentation" onclick={onclose}>
+<div class="scrim" role="presentation" onclick={onclose} use:portal>
   <div
     class="modal"
     style:max-width="{width}px"

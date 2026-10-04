@@ -31,6 +31,7 @@ COMMANDS = [
     Command("/model", "/model", "The model provider, key and models"),
     Command("/audio", "/audio", "Speech to text and spoken replies"),
     Command("/websearch", "/websearch", "Web search: the Brave Search API key"),
+    Command("/email", "/email", "Who the assistant emails without asking, from any account"),
     Command("/mcp", "/mcp", "MCP servers and their tools"),
     Command("/startup", "/startup", "Start the assistant at boot"),
     Command("/name", "/name <name>", "Rename the assistant"),

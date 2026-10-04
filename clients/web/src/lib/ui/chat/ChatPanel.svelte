@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
+  import { carriesFiles, droppedFiles } from "$lib/chat/dropped";
   import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
   import { finalReply } from "$lib/chat/transcript";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
@@ -25,6 +26,9 @@
   const player = new Player();
   let help = $state(false);
   let draft = $state("");
+  let attached = $state<File[]>([]);
+  // Drags enter and leave every element they pass over; the chat is under a drag while this is above 0.
+  let dragging = $state(0);
   const streaming = $derived(snapshot.current.transcript.streaming !== null);
 
   /** Sends, then reads the answer aloud when Settings → Audio says so. */
@@ -45,6 +49,27 @@
     } catch (e) {
       notices.report(e);
     }
+  }
+
+  function dragenter(e: DragEvent): void {
+    if (!carriesFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    dragging += 1;
+  }
+
+  function dragover(e: DragEvent): void {
+    if (!carriesFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+  }
+
+  function drop(e: DragEvent): void {
+    dragging = 0;
+    if (!e.dataTransfer || !carriesFiles(e.dataTransfer)) return;
+    e.preventDefault();
+    const { files, folders } = droppedFiles(e.dataTransfer);
+    attached = [...attached, ...files];
+    if (folders) notices.notify("Folders can't be attached; drop the files in them instead.", "warning");
   }
 
   async function rename(value: string): Promise<void> {
@@ -93,7 +118,21 @@
   }
 </script>
 
-<section class="chat surface--glass">
+<!-- A file dropped beside the chat would make the browser open it, leaving the app. -->
+<svelte:window
+  ondragover={(e) => carriesFiles(e.dataTransfer) && e.preventDefault()}
+  ondrop={(e) => carriesFiles(e.dataTransfer) && e.preventDefault()}
+/>
+
+<section
+  class="chat surface--glass"
+  class:dragging={dragging > 0}
+  aria-label="Conversation"
+  ondragenter={dragenter}
+  ondragover={dragover}
+  ondragleave={() => (dragging = Math.max(0, dragging - 1))}
+  ondrop={drop}
+>
   <Thread
     items={snapshot.current.transcript.items}
     thinking={(snapshot.current.busy || snapshot.current.mirroring) && !streaming}
@@ -102,12 +141,14 @@
   />
   <Composer
     bind:text={draft}
+    bind:files={attached}
     busy={snapshot.current.busy}
     running={snapshot.current.busy || snapshot.current.mirroring}
     onsend={send}
     onstop={() => chat.stop()}
     oncommand={command}
   />
+  {#if dragging > 0}<div class="drop-hint" aria-hidden="true">Drop files to attach them</div>{/if}
 </section>
 
 {#if snapshot.current.approval}
@@ -117,9 +158,21 @@
 
 <style>
   .chat {
+    position: relative;
     display: flex;
     flex-direction: column;
     min-height: 0;
     height: 100%;
+  }
+  .drop-hint {
+    position: absolute;
+    inset: 8px;
+    display: grid;
+    place-items: center;
+    border: 2px dashed color-mix(in srgb, var(--color-accent) 60%, transparent);
+    border-radius: var(--radius-lg, 16px);
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+    font-weight: 600;
+    pointer-events: none;
   }
 </style>

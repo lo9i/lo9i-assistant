@@ -28,11 +28,13 @@ from assistant_terminal.tui.history import show_history
 from assistant_terminal.tui.live import handlers as live_handlers
 from assistant_terminal.tui.mouse import switch_mouse
 from assistant_terminal.tui.plugin_updates import PluginUpdates
+from assistant_terminal.tui.prompt import PromptInput
 from assistant_terminal.tui.screens import (
     ApprovalScreen,
     AudioScreen,
     ConversationsScreen,
     DevicesScreen,
+    EmailRecipientsScreen,
     FilesScreen,
     JobsScreen,
     McpScreen,
@@ -103,6 +105,7 @@ class AssistantApp(App):
             "/model": self._command_model,
             "/audio": self._command_audio,
             "/websearch": self._command_web_search,
+            "/email": self._command_email,
             "/startup": self._command_startup,
             "/skills": self._command_skills,
             "/plugins": self._command_plugins,
@@ -129,7 +132,7 @@ class AssistantApp(App):
         # One bordered box: the attached files, then the text being typed.
         with Horizontal(id="prompt-box"):
             yield AttachmentBar(id="attachments")
-            yield Input(placeholder=_PLACEHOLDER_WITH_MIC if self._can_record else _PLACEHOLDER, id="prompt")
+            yield PromptInput(placeholder=_PLACEHOLDER_WITH_MIC if self._can_record else _PLACEHOLDER, id="prompt")
         with Horizontal(id="footer-row"):
             yield Footer()
             yield MouseStatus(self._preferences.mouse)
@@ -423,6 +426,10 @@ class AssistantApp(App):
         else:
             await self._attachment_bar.add(pasted)
 
+    async def on_prompt_input_files_dropped(self, message: PromptInput.FilesDropped) -> None:
+        for path in message.paths:
+            await self._command_attach(str(path))
+
     async def action_remove_attachment(self) -> None:
         await self._attachment_bar.remove_last()
 
@@ -510,6 +517,10 @@ class AssistantApp(App):
 
     async def _command_audio(self, _: str) -> None:
         self.push_screen(AudioScreen(self._service.speech))
+
+    async def _command_email(self, _: str) -> None:
+        """Who the assistant emails without asking: the web app's Settings → General → Email."""
+        self.push_screen(EmailRecipientsScreen(self._service.email))
 
     async def _command_web_search(self, _: str) -> None:
         self.push_screen(WebSearchScreen(self._service.web_search))

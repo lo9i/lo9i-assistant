@@ -20,8 +20,6 @@ from assistant_terminal.plugins_text import (
     by_category,
     category_label,
     describe,
-    describe_category,
-    has_settings,
     label,
     matches,
     plugins,
@@ -72,7 +70,6 @@ class PluginsScreen(ModalScreen[None]):
                 yield Button("Update", id="update")
                 yield Button("Remove", variant="error", id="remove")
                 yield Button("Accounts", id="email-accounts")
-                yield Button("Settings", id="category-settings")
                 yield Button("Refresh", id="refresh")
                 yield Button("Daily update checks", id="checks")
                 yield Button("Close", id="close")
@@ -122,9 +119,6 @@ class PluginsScreen(ModalScreen[None]):
 
     async def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
         key = event.option.id or ""
-        if key.startswith(_CATEGORY):
-            await self._show_category(key.removeprefix(_CATEGORY))
-            return
         await self._show(next((p for p in self._all if p.key == key), None))
 
     @on(Button.Pressed, "#email-accounts")
@@ -133,12 +127,6 @@ class PluginsScreen(ModalScreen[None]):
         plugin = self._current()
         if plugin is not None:
             self.app.push_screen(EmailScreen(self._email, self._oauth, self._channels, plugin.name))
-
-    @on(Button.Pressed, "#category-settings")
-    def _category_settings(self) -> None:
-        """Communications' shared settings: who the agent emails without asking, and the accounts whose
-        servers were entered by hand."""
-        self.app.push_screen(EmailScreen(self._email, self._oauth, self._channels, ""))
 
     @on(Button.Pressed, "#close")
     def _close(self) -> None:
@@ -216,15 +204,6 @@ class PluginsScreen(ModalScreen[None]):
     def _current(self) -> Plugin | None:
         return next((p for p in self._all if p.key == self._selected), None)
 
-    async def _show_category(self, category: str) -> None:
-        """A category's shared settings, opened with Settings."""
-        self._selected = f"{_CATEGORY}{category}"
-        for button in ("#install", "#remove", "#update", "#email-accounts"):
-            self.query_one(button).display = False
-        self.query_one("#category-settings").display = True
-        await self._show_setup(None)
-        await self.query_one("#plugin-body", Markdown).update(describe_category(category))
-
     async def _show(self, plugin: Plugin | None) -> None:
         self._selected = plugin.key if plugin else None
         installed = plugin is not None and plugin.installed
@@ -233,7 +212,6 @@ class PluginsScreen(ModalScreen[None]):
         self.query_one("#update").display = plugin is not None and updatable(plugin)
         email = installed and plugin is not None and plugin.server is not None and plugin.server.email
         self.query_one("#email-accounts").display = email
-        self.query_one("#category-settings").display = False
         await self._show_setup(plugin)
         if plugin is not None:
             await self.query_one("#plugin-body", Markdown).update(describe(plugin))
@@ -244,11 +222,9 @@ class PluginsScreen(ModalScreen[None]):
 
 
 def _grouped(shown: list[Plugin]) -> list[Option]:
-    """Each category's name, picked for its shared settings when it has some, then its plugins."""
+    """Each category's name, then its plugins."""
     options: list[Option] = []
     for category, group in by_category(shown):
-        settings = has_settings(category)
-        name = f"[b]{category_label(category)}[/b]" + (" · settings" if settings else "")
-        options.append(Option(name, id=f"{_CATEGORY}{category}", disabled=not settings))
+        options.append(Option(f"[b]{category_label(category)}[/b]", id=f"{_CATEGORY}{category}", disabled=True))
         options += [Option(f"  {label(p)}", id=p.key) for p in group]
     return options

@@ -1,6 +1,6 @@
 import { describe as group, expect, it } from "vitest";
 import type { FoundServer, RepositoryContents } from "./api/types";
-import { byCategory, categoryLabel, hasSettings, kindOf, missingField, optional, pluginsOf, runsOf, updatable, versionOf } from "./plugins";
+import { byCategory, categoryLabel, kindOf, missingField, optional, pluginsOf, runsOf, updatable, versionOf } from "./plugins";
 
 const contents: RepositoryContents = {
   skills: [
@@ -150,10 +150,9 @@ group("channel plugins", () => {
     expect(runsOf(found({ transport: "http" }))).toBe("Remotely");
   });
 
-  it("label an email provider, and only Communications has shared settings", () => {
+  it("label an email provider", () => {
     const gmail = found({ name: "gmail", channel: false, email: true, category: "communications/email" });
     expect(pluginsOf({ skills: [], servers: [gmail] }).map(kindOf)).toEqual(["Email provider"]);
-    expect([hasSettings("communications"), hasSettings("finance")]).toEqual([true, false]);
   });
 
   it("may leave empty a value the daemon already has", () => {

@@ -1553,6 +1553,11 @@ export interface components {
              * @default
              */
             plugin: string;
+            /**
+             * Custom
+             * @default false
+             */
+            custom: boolean;
         };
         /** EmailRecipients */
         EmailRecipients: {

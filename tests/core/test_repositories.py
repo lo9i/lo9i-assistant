@@ -390,6 +390,25 @@ async def test_an_email_plugin_offers_its_providers_once_installed(service, repo
     ]
 
 
+async def test_a_custom_email_plugin_takes_the_accounts_that_belong_to_no_plugin(service, repo, monkeypatch):
+    from assistant.core.integrations.email import smtp
+
+    async def verify(config):
+        pass
+
+    monkeypatch.setattr(smtp, "verify", verify)
+    by_hand = await service.add_email_account("", "smtp.example.com", 587, "me", "pw", "me@example.com")
+    custom = "email:\n  - {id: custom, name: Other server, custom: true, password_help: Use an app password.}"
+    _write(repo / "communications" / "email" / "custom-email", {"server.yaml": custom})
+    await service.install_from_repository(URL, [], [ServerValues("custom-email")])
+    [provider] = await service.email_providers()
+    assert (provider.id, provider.custom, provider.host, provider.plugin) == ("custom", True, "", "custom-email")
+    [account] = await service.email_accounts()
+    assert (account.id, account.plugin) == (by_hand.id, "custom-email")
+    await service.update_mcp_server("custom-email", McpServerChanges(enabled=False))
+    assert await service.email_accounts() == []  # its plugin is off
+
+
 async def test_a_plugin_the_repository_moved_still_updates(service, repo):
     _write(repo / "gmail", {"server.yaml": _GMAIL})
     await service.install_from_repository(URL, [], [ServerValues("gmail")])
@@ -404,6 +423,7 @@ async def test_a_plugin_the_repository_moved_still_updates(service, repo):
     [
         ("email: {id: gmail}", "must be a list of providers"),
         ("email: [{id: gmail, name: Gmail}]", "has no host, imap_host"),
+        ("email: [{id: custom, custom: true}]", "has no name"),
         ("email: [{id: g, name: G, host: s, imap_host: i, oauth: yahoo}]", "signs in with 'yahoo'"),
     ],
 )
