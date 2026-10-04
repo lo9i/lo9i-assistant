@@ -367,6 +367,20 @@ async def test_an_email_plugin_offers_its_providers_once_installed(service, repo
     ]
 
 
+async def test_plugins_without_a_process_live_under_plugins(service, repo):
+    _write(repo / "plugins" / "gmail", {"server.yaml": _GMAIL})
+    assert "gmail" in [s.name for s in (await service.browse_repository(URL)).servers]
+
+
+async def test_a_plugin_the_repository_moved_still_updates(service, repo):
+    _write(repo / "mcp" / "gmail", {"server.yaml": _GMAIL})
+    await service.install_from_repository(URL, [], [ServerValues("gmail")])
+    (repo / "plugins").mkdir()
+    (repo / "mcp" / "gmail").rename(repo / "plugins" / "gmail")
+    await service.update_mcp_server_from_repository("gmail")
+    assert [p.id for p in await service.email_providers()] == ["gmail", "gmail-oauth"]
+
+
 @pytest.mark.parametrize(
     ("section", "problem"),
     [
