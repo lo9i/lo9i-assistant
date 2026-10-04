@@ -409,6 +409,13 @@ async def test_a_custom_email_plugin_takes_the_accounts_that_belong_to_no_plugin
     assert await service.email_accounts() == []  # its plugin is off
 
 
+async def test_a_plugins_steps_come_with_it_for_the_install_dialogs(service, repo):
+    yaml = "channel: {command: run-bot}\nsteps:\n  - Open @BotFather and send /newbot.\n  - Paste the token below.\n"
+    _write(repo / "communications" / "chat" / "bot", {"server.yaml": yaml})
+    found = next(s for s in (await service.browse_repository(URL)).servers if s.name == "bot")
+    assert found.steps == ["Open @BotFather and send /newbot.", "Paste the token below."]
+
+
 async def test_a_plugin_the_repository_moved_still_updates(service, repo):
     _write(repo / "gmail", {"server.yaml": _GMAIL})
     await service.install_from_repository(URL, [], [ServerValues("gmail")])

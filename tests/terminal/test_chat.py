@@ -2,7 +2,7 @@
 
 import asyncio
 
-from textual.widgets import Input
+from textual.widgets import Input, Markdown
 
 from assistant.client import DaemonUnavailableError, clipboard
 from assistant.core.attachments import Attachment
@@ -244,7 +244,8 @@ async def test_a_plugin_the_agent_offers_is_installed_in_the_dialog(app, client)
     from assistant_terminal.tui.screens import ChannelSetupScreen, RepositoryInstallScreen
 
     fields = [ServerField("TELEGRAM_TOKEN", "Bot token", secret=True)]
-    telegram = FoundServer("telegram", "Chat on Telegram", "channel", fields, False, channel=True)
+    steps = ["Open @BotFather and send /newbot."]
+    telegram = FoundServer("telegram", "Chat on Telegram", "channel", fields, False, channel=True, steps=steps)
     client.waiting_for = {
         "kind": "plugin",
         "name": "telegram",
@@ -255,6 +256,8 @@ async def test_a_plugin_the_agent_offers_is_installed_in_the_dialog(app, client)
         await pilot.click("#prompt")
         await pilot.press(*"message me on Telegram", "enter")
         await wait_for(pilot, lambda: isinstance(app.screen, RepositoryInstallScreen))
+        message = app.screen.query_one("#repository-message", Markdown)
+        await wait_for(pilot, lambda: "1. Open @BotFather and send /newbot." in message.source)
         app.screen.query(Input).first().value = "123:abc"
         app.screen.query_one("#install").press()
         # Then its setup, in the conversation too.

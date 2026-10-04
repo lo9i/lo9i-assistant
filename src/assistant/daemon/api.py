@@ -5,6 +5,7 @@ from collections.abc import Awaitable
 from functools import partial
 from pathlib import Path
 from typing import Annotated, Any
+from urllib.parse import quote
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
@@ -24,6 +25,7 @@ from assistant.core.agent import (
     EmailAccountNotFoundError,
     EmailError,
     EmailProvider,
+    FileUnavailableError,
     InstalledFromRepository,
     InvalidNameError,
     InvalidSearchKeyError,
@@ -35,6 +37,7 @@ from assistant.core.agent import (
     McpServerError,
     McpServerStatus,
     MemorySnapshot,
+    ModelOption,
     ModelProvider,
     ModelSettingsError,
     ModelStatus,
@@ -191,6 +194,12 @@ class ModelChange(BaseModel):
     worker_model: str
 
 
+class ModelValues(BaseModel):
+    provider: str
+    # The provider's fields by key; a secret left empty uses the saved one for the same provider.
+    values: dict[str, str] = {}
+
+
 class SpeechChange(BaseModel):
     model: str
     languages: list[str]
@@ -296,6 +305,9 @@ class CancelResult(BaseModel):
 # How the OpenAPI schema describes a route that answers with audio.
 _WAV: dict[int | str, dict[str, Any]] = {200: {"content": {"audio/wav": {}}}}
 _OGG: dict[int | str, dict[str, Any]] = {200: {"content": {"audio/ogg": {}}}, 204: {"description": "Not spoken"}}
+
+# How the OpenAPI schema describes a route that answers with a file.
+_FILE: dict[int | str, dict[str, Any]] = {200: {"content": {"application/octet-stream": {}}}}
 
 # How the OpenAPI schema describes a route that answers with Server-Sent Events.
 _EVENT_STREAM: dict[int | str, dict[str, Any]] = {200: {"content": {"text/event-stream": {}}}}
@@ -506,6 +518,16 @@ def _add_file_routes(app: FastAPI, service: AssistantService) -> None:
         """The files the user sent in their conversations, newest first."""
         return await service.list_files(settings.owner_id)
 
+    @app.get("/files/content", response_class=Response, responses=_FILE)
+    async def file_content(path: str) -> Response:
+        """One of those files, by its path in the list, to view or save. 404: no such file."""
+        try:
+            file, data = await service.file_content(settings.owner_id, path)
+        except FileUnavailableError as e:
+            raise HTTPException(404, str(e)) from e
+        disposition = f"inline; filename*=UTF-8''{quote(file.name)}"
+        return Response(data, media_type=file.media_type, headers={"Content-Disposition": disposition})
+
 
 def _add_web_search_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/integrations/web-search")
@@ -647,6 +669,15 @@ def _add_model_routes(app: FastAPI, service: AssistantService) -> None:
         """Checks that both models answer with these settings, then uses them."""
         try:
             return await service.set_model(body.provider, body.values, body.model, body.worker_model)
+        except ModelSettingsError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.post("/settings/model/available")
+    async def available_models(body: ModelValues) -> list[ModelOption]:
+        """The models the provider offers for these values, to pick from; empty when it can't list
+        them. 400: the provider refused the values or can't be reached."""
+        try:
+            return await service.available_models(body.provider, body.values)
         except ModelSettingsError as e:
             raise HTTPException(400, str(e)) from e
 

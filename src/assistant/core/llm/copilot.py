@@ -58,6 +58,26 @@ def chat_model(
     )
 
 
+async def list_models(github_token: str, transport: httpx.AsyncBaseTransport | None = None) -> list[tuple[str, str]]:
+    """The chat models this account can pick, as (id, name), in Copilot's order. Raises
+    CopilotAuthError when the token is refused or Copilot can't be reached."""
+    tokens = CopilotTokens(github_token, httpx.AsyncClient(transport=transport))
+    async with httpx.AsyncClient(transport=transport, auth=CopilotAuth(tokens), headers=HEADERS) as http:
+        try:
+            response = await http.get(f"{DEFAULT_API}/models", timeout=_TIMEOUT)
+        except httpx.HTTPError as e:
+            raise CopilotAuthError(f"Couldn't reach Copilot for its models: {e}") from e
+    if response.status_code != 200:
+        raise CopilotAuthError(f"Copilot didn't list its models ({response.status_code}).")
+    return [(str(m["id"]), str(m.get("name") or m["id"])) for m in response.json().get("data", []) if _pickable(m)]
+
+
+def _pickable(model: dict) -> bool:
+    """A chat model the account may pick, as Copilot's own model picker shows it."""
+    capabilities = model.get("capabilities") or {}
+    return bool(model.get("id")) and capabilities.get("type") == "chat" and model.get("model_picker_enabled", True)
+
+
 class CopilotAuthError(Exception):
     """The GitHub token couldn't be exchanged for a Copilot token. The text says why."""
 

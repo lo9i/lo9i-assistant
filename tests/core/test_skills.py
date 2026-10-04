@@ -121,11 +121,11 @@ def test_the_setup_skill_is_built_in_and_covers_every_setup_command(isolated_set
             change()
 
 
-async def test_send_email_points_to_the_setup_skill_when_email_isnt_set_up(service, script):
+async def test_send_email_points_to_setting_up_email_when_none_is_connected(service, script):
     script.call("send_email", to=["me@example.com"], subject="Hi", body="Hi").reply("ok")
     events = await collect(service.send(await service.session("u", "web"), "email me hi"))
     output = next(e.output for e in events if hasattr(e, "output"))
-    assert f"Load the {store.SETUP} skill" in output
+    assert "Call set_up_email" in output
 
 
 async def test_saved_skills_are_edited_and_built_in_ones_refused(service, isolated_settings, monkeypatch):

@@ -14,11 +14,12 @@ from langgraph.store.base import BaseStore
 from langgraph.types import interrupt
 
 from assistant.core.context import Context, require_store
-from assistant.core.events import PLUGIN_OFFER, PLUGIN_SETUP
+from assistant.core.events import PLUGIN_OFFER, PLUGIN_SETUP, QUESTION
 from assistant.core.integrations.email import accounts as email_accounts
-from assistant.core.mcp.install import FoundServer
-from assistant.core.repositories import offers
+from assistant.core.mcp.install import FoundServer, ServerValues
+from assistant.core.repositories import contents, offers
 from assistant.core.repositories.errors import RepositoryError
+from assistant.core.repositories.known import EXTRAS
 from assistant.core.tools.registry import register
 
 # The apps, which show the install dialog.
@@ -73,6 +74,53 @@ async def open_plugin_setup(name: str, runtime: ToolRuntime[Context]) -> str:
 def _request(plugin: Any) -> dict[str, Any]:
     kind = "server" if isinstance(plugin, FoundServer) else "skill"
     return {"kind": PLUGIN_OFFER, "name": plugin.name, "description": plugin.description, kind: asdict(plugin)}
+
+
+@register("email")
+@tool
+async def set_up_email(runtime: ToolRuntime[Context]) -> str:
+    """Set up the user's email when no account is connected (or they want one with another
+    provider): asks which provider their account is with, installs that mail provider's plugin, and
+    opens its accounts here for the user to connect. Passwords are typed in the app, never in the chat."""
+    store = require_store(runtime.store)
+    if runtime.context.channel not in _APPS:
+        return f"Not here: {runtime.context.channel} can't show it. Ask the user to set up email in {_IN_THE_APP}."
+    try:
+        providers = {_provider_label(p): p for p in await offers.email_providers(store)}
+    except RepositoryError as e:
+        return f"The extras can't be read right now: {e}"
+    plugin = providers.get(_picked(interrupt(_provider_question(list(providers)))))
+    if plugin is None:
+        return "The user didn't pick a provider."
+    # The tool runs again from the start once the setup closes, so it installs only the first time.
+    if not plugin.installed:
+        if not _runs_nothing(plugin):
+            return f"{plugin.name} runs code on this computer: offer it with offer_plugin instead."
+        await contents.install(store, EXTRAS, [], [ServerValues(plugin.name)])
+    server = asdict(plugin) | {"installed": True}
+    interrupt({"kind": PLUGIN_SETUP, "name": plugin.name, "description": plugin.description, "server": server})
+    return await _setup_state(store, plugin)
+
+
+def _provider_question(options: list[str]) -> dict[str, Any]:
+    return {"kind": QUESTION, "question": "Which email provider is your account with?", "options": options}
+
+
+def _picked(answer: Any) -> str:
+    choices = answer.get("choices") if isinstance(answer, dict) else None
+    return choices[0] if choices else ""
+
+
+def _provider_label(plugin: FoundServer) -> str:
+    """ "Gmail" from "Send and read Gmail"; "Mail on any other server" for the custom one."""
+    text = plugin.description.removeprefix("Send and read ").split(",")[0].strip() or plugin.name
+    return text[:1].upper() + text[1:]
+
+
+def _runs_nothing(plugin: FoundServer) -> bool:
+    """A mail provider plugin only holds presets: no tools, page or channel run. Picking it in the
+    question is the user's say-so; anything that runs code is installed only from its dialog."""
+    return plugin.transport == "none" and not (plugin.page or plugin.channel or plugin.skill)
 
 
 async def _setup_state(store: BaseStore, plugin: FoundServer) -> str:

@@ -330,6 +330,13 @@ async def test_files_through_the_client(client):
     await collect(client.send(session, "read this", [Attachment("notes.txt", "text/plain", b"buy milk")]))
     [listed] = await client.files.list()
     assert (listed.name, listed.size, listed.thread_id) == ("notes.txt", 8, session.thread_id)
+    assert await client.files.content(listed) == b"buy milk"
+    from dataclasses import replace
+
+    from assistant.core.agent import FileUnavailableError
+
+    with pytest.raises(FileUnavailableError):
+        await client.files.content(replace(listed, path="../../lo9i.db"))
 
 
 async def test_token_usage_through_the_client(client, script):

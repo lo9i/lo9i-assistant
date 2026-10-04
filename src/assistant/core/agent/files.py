@@ -9,7 +9,7 @@ from assistant.core.agent.base import ServiceBase
 from assistant.core.attachments import user_uploads
 from assistant.core.conversations import Conversation
 
-__all__ = ["FilesMixin", "UploadedFile"]
+__all__ = ["FileUnavailableError", "FilesMixin", "UploadedFile"]
 
 
 @dataclass
@@ -24,6 +24,10 @@ class UploadedFile:
     conversation: str
 
 
+class FileUnavailableError(Exception):
+    """No file the user sent has that path (deleted with its conversation, or never one of theirs)."""
+
+
 class FilesMixin(ServiceBase):
     async def list_files(self, user_id: str) -> list[UploadedFile]:
         """Newest first. Files no longer on disk are left out."""
@@ -33,6 +37,15 @@ class FilesMixin(ServiceBase):
             references = user_uploads(state.values.get("messages", []))
             found += await asyncio.to_thread(_on_disk, conversation, references)
         return sorted(found, key=lambda f: f.uploaded_at, reverse=True)
+
+    async def file_content(self, user_id: str, path: str) -> tuple[UploadedFile, bytes]:
+        """A file the user sent, to view or download. Only paths the list has, so nothing else in the
+        uploads folder can be read through it. Raises FileUnavailableError."""
+        file = next((f for f in await self.list_files(user_id) if f.path == path), None)
+        data = await asyncio.to_thread(uploads.load, path) if file else None
+        if file is None or data is None:
+            raise FileUnavailableError("That file isn't there any more.")
+        return file, data
 
 
 def _on_disk(conversation: Conversation, references: list[dict[str, str]]) -> list[UploadedFile]:

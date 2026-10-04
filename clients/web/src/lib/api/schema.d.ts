@@ -392,6 +392,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/files/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * File Content
+         * @description One of those files, by its path in the list, to view or save. 404: no such file.
+         */
+        get: operations["file_content_files_content_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/channels": {
         parameters: {
             query?: never;
@@ -1234,6 +1254,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings/model/available": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Available Models
+         * @description The models the provider offers for these values, to pick from; empty when it can't list
+         *     them. 400: the provider refused the values or can't be reached.
+         */
+        post: operations["available_models_settings_model_available_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/usage": {
         parameters: {
             query?: never;
@@ -1685,6 +1726,8 @@ export interface components {
              * @default false
              */
             email: boolean;
+            /** Steps */
+            steps?: string[];
         };
         /**
          * FoundSkill
@@ -2004,6 +2047,13 @@ export interface components {
             /** Worker Model */
             worker_model: string;
         };
+        /** ModelOption */
+        ModelOption: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /**
          * ModelProvider
          * @description A provider clients offer, with what it asks for and the models to suggest.
@@ -2075,6 +2125,18 @@ export interface components {
             };
             /** Secrets Set */
             secrets_set: string[];
+        };
+        /** ModelValues */
+        ModelValues: {
+            /** Provider */
+            provider: string;
+            /**
+             * Values
+             * @default {}
+             */
+            values: {
+                [key: string]: string;
+            };
         };
         /** NewMailAlerts */
         NewMailAlerts: {
@@ -3168,6 +3230,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UploadedFile"][];
+                };
+            };
+        };
+    };
+    file_content_files_content_get: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -4908,6 +5001,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelStatus"];
+                };
+            };
+        };
+    };
+    available_models_settings_model_available_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelValues"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelOption"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

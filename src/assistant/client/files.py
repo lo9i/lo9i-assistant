@@ -34,3 +34,16 @@ def _path(word: str) -> Path:
     if word.startswith("file://"):
         return Path(unquote(urlparse(word).path))
     return Path(word).expanduser()
+
+
+def save_download(name: str, data: bytes, folder: Path | None = None) -> Path:
+    """Saves a file from the daemon in the Downloads folder (`folder` for tests), under its name, or
+    "name (2).ext" and so on when that's taken. Returns where it went."""
+    target_folder = folder or Path.home() / "Downloads"
+    target_folder.mkdir(parents=True, exist_ok=True)
+    safe = Path(name).name or "file"
+    target, number = target_folder / safe, 2
+    while target.exists():
+        target, number = target_folder / f"{Path(safe).stem} ({number}){Path(safe).suffix}", number + 1
+    target.write_bytes(data)
+    return target

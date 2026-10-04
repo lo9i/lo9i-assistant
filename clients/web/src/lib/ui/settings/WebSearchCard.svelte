@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SecretInput from "../SecretInput.svelte";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { describe } from "$lib/notices";
   import SettingsCard from "../Card.svelte";
@@ -58,7 +59,7 @@
         void save();
       }}
     >
-      <input class="input" type="password" bind:value={key} placeholder="API key" aria-label="Brave Search API key" autocomplete="off" />
+      <SecretInput bind:value={key} placeholder="API key" label="Brave Search API key" />
       <button class="btn btn--primary" type="submit" disabled={saving}>{saving ? "Checking…" : "Save"}</button>
     </form>
   {:else}

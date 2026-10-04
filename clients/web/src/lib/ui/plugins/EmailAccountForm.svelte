@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SecretInput from "../SecretInput.svelte";
   import type { EmailAccount, EmailProvider, EmailSettings } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { describe } from "$lib/notices";
@@ -127,11 +128,9 @@
         aria-label="Client ID"
         bind:value={clientId}
       />
-      <input
-        class="input"
-        type="password"
+      <SecretInput
+        label="Client secret"
         placeholder={again ? "Client secret (leave empty to keep the saved one)" : "Client secret"}
-        aria-label="Client secret"
         bind:value={clientSecret}
       />
       <div class="row">
@@ -146,10 +145,14 @@
       <input class="input" placeholder="Name for this account, like Work (optional)" aria-label="Account name" bind:value={label} />
       {#if !byHand}
         <input class="input" type="email" placeholder="Your email address" aria-label="Your email address" bind:value={address} />
-        <input class="input" type="password" placeholder="App password" aria-label="App password" bind:value={form.password} />
+        <SecretInput label="App password" placeholder="App password" bind:value={form.password} />
       {:else}
         {#each FIELDS as f (f.key)}
-          <input class="input" type={f.type ?? "text"} placeholder={f.label} aria-label={f.label} bind:value={form[f.key]} />
+          {#if f.type === "password"}
+            <SecretInput label={f.label} placeholder={f.label} bind:value={form[f.key]} />
+          {:else}
+            <input class="input" placeholder={f.label} aria-label={f.label} bind:value={form[f.key]} />
+          {/if}
         {/each}
         <input class="input" type="number" placeholder="Port (587, or 465)" aria-label="Port" bind:value={form.port} />
       {/if}

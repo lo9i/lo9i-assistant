@@ -4,6 +4,7 @@
   import Files from "@lucide/svelte/icons/files";
   import { resource } from "$lib/daemon.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
+  import FilePreview from "$lib/ui/FilePreview.svelte";
   import SearchField from "$lib/ui/SearchField.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
@@ -36,7 +37,7 @@
     <header class="toolbar">
       <div>
         <h2 class="text-heading">Uploaded files</h2>
-        <p class="text-meta">Files you sent in your conversations, newest first. Click one to see it on the right.</p>
+        <p class="text-meta">Files you sent in your conversations, newest first. Click one to see or download it on the right.</p>
       </div>
       <div class="tools">
         <SearchField bind:value={query} label="Search files" />
@@ -91,6 +92,7 @@
           <dt class="micro-label">Conversation</dt>
           <dd><a href="{resolve('/conversations')}?c={file.thread_id}">{file.conversation || "Untitled"}</a></dd>
         </dl>
+        <FilePreview {file} />
       </section>
     {:else}
       <section class="details surface--glass">

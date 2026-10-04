@@ -15,6 +15,7 @@ const telegram: FoundServer = {
   page: false,
   channel: true,
   known_fields: ["TELEGRAM_TOKEN"],
+  steps: ["Open @BotFather and send /newbot."],
   installed: false,
   version: "1.0.0",
   installed_version: "",
@@ -30,6 +31,7 @@ describe("InstallDialog for one plugin", () => {
     expect(body).toContain("Bot token");
     expect(body).toContain("Leave empty to keep the one already saved");
     expect(body).toContain("t.me/BotFather");
+    expect(body).toContain('<li class="text-label">Open @BotFather and send /newbot.</li>');
     expect(body).not.toContain('type="checkbox"');
   });
 });

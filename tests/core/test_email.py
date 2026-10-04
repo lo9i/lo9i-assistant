@@ -108,7 +108,7 @@ async def test_the_system_prompt_lists_the_accounts(service, smtp):
 async def test_send_email_without_setup(service, script):
     script.call("send_email", to=["a@b.com"], subject="S", body="b").reply("ok")
     events = await collect(service.send(await service.session("u", "cli"), "email"))
-    assert "isn't set up" in events[1].output
+    assert events[1].output.startswith("No email account is connected. Call set_up_email")
 
 
 def test_tls_trusts_certifis_authorities_not_pythons_defaults():

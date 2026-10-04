@@ -17,13 +17,22 @@ from assistant.core.conversation.titles import build_titler
 from assistant.core.graph import build_graph
 from assistant.core.llm import build_llm, choice, packages
 from assistant.core.llm.choice import ModelChoice
+from assistant.core.llm.listing import ModelListError, ModelOption, available
 from assistant.core.llm.packages import PackageError
 from assistant.core.llm.providers import PROVIDERS, ModelProvider, ProviderField, provider
 from assistant.core.secret_store import SecretBox
 from assistant.core.subagent import build_subagents
 from assistant.core.usage.meter import TokenMeter
 
-__all__ = ["ModelMixin", "ModelProvider", "ModelSettingsError", "ModelStatus", "ProviderField", "usable_choice"]
+__all__ = [
+    "ModelMixin",
+    "ModelOption",
+    "ModelProvider",
+    "ModelSettingsError",
+    "ModelStatus",
+    "ProviderField",
+    "usable_choice",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +97,17 @@ class ModelMixin(ServiceBase):
             if value:
                 values[f.key] = value
         return values
+
+    async def available_models(self, provider_id: str, values: dict[str, str]) -> list[ModelOption]:
+        """The models the provider offers for these values (a secret left empty uses the saved one),
+        to pick from; empty when the provider can't list them. Raises ModelSettingsError."""
+        known = provider(provider_id)
+        if known is None:
+            raise ModelSettingsError(f"Unknown provider {provider_id}.")
+        try:
+            return await available(known.id, self._values(known, values))
+        except ModelListError as e:
+            raise ModelSettingsError(str(e)) from e
 
     async def reset_model(self) -> ModelStatus:
         """Forget the app's choice and use .env's again."""

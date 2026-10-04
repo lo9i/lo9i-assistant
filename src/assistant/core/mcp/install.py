@@ -34,6 +34,8 @@ code from it. In its commands, arguments and env values:
       style: A phone chat. Short messages.   # how to write there, for the system prompt
     libraries: [lo9i-chat]         # folders at ../../lib/ from its folder it uses (folders.library)
     category: communications       # outside a category's folder: what it's for (repositories/categories.py)
+    steps:                         # optional: how to get what it asks for, shown when installing
+      - In your provider's settings, create an app password.
     email:                         # optional: email providers it offers (core/integrations/email/providers.py)
       - {id: gmail, name: Gmail, host: smtp.gmail.com, port: 587, imap_host: imap.gmail.com,
          password_help: Gmail needs an app password., password_url: https://myaccount.google.com/apppasswords}
@@ -106,6 +108,8 @@ class FoundServer:
     category: str = categories.DEFAULT
     # It offers email providers (an `email:` section).
     email: bool = False
+    # How to get what it asks for, one step each (`steps:`), shown in the install dialogs.
+    steps: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -320,6 +324,7 @@ def _found(data: dict[str, Any], template: McpServer, folder: Path, category_fol
         version=str(data.get("version", "")),
         category=categories.parse(data.get("category"), sections, category_folder),
         email=email,
+        steps=[str(s).strip() for s in data.get("steps", []) if str(s).strip()],
     )
 
 

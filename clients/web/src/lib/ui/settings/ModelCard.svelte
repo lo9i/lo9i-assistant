@@ -1,8 +1,10 @@
 <script lang="ts">
-  import type { ModelChange, ModelProvider } from "$lib/api/types";
+  import { untrack } from "svelte";
+  import type { ModelChange, ModelOption, ModelProvider } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { describe } from "$lib/notices";
   import SettingsCard from "../Card.svelte";
+  import SecretInput from "../SecretInput.svelte";
 
   const { client } = useDaemon();
   const loaded = resource((c) => c.model.status(), ["settings"]);
@@ -13,6 +15,15 @@
   let testing = $state(false);
   const provider = $derived<ModelProvider | undefined>(providers.data?.find((p) => p.id === form.provider));
   const current = $derived(s !== undefined && form.provider === s.provider);
+  // The provider's models for the key typed or saved, to pick from (Copilot lists them); empty
+  // otherwise, and the model ids are typed.
+  let options = $state<ModelOption[]>([]);
+  // Sorted by name; a model in use that the provider no longer lists stays offered, so it shows.
+  function choices(current: string): ModelOption[] {
+    const known = options.some((m) => m.id === current) || !current ? [] : [{ id: current, name: `${current} (not listed)` }];
+    return [...options, ...known].sort((a, b) => a.name.localeCompare(b.name));
+  }
+  let listing = $state("");
 
   // The form starts from what's in use, and follows it when it changes elsewhere.
   $effect(() => {
@@ -30,6 +41,23 @@
       worker_model: inUse ? (s?.worker_model ?? "") : (p?.worker_model ?? ""),
     };
   }
+
+  async function loadModels(): Promise<void> {
+    if (!form.provider) return;
+    try {
+      options = await client.model.available(form.provider, form.values);
+      listing = "";
+    } catch (e) {
+      options = [];
+      listing = describe(e);
+    }
+  }
+
+  // Again whenever the provider changes; after a key is typed, when it's left (SecretInput's onchange).
+  $effect(() => {
+    void form.provider;
+    untrack(loadModels);
+  });
 
   /** Saved secrets are never sent back: an empty field keeps them. */
   function placeholder(key: string, label: string, required: boolean): string {
@@ -67,6 +95,17 @@
   }
 </script>
 
+<!-- A dropdown of the provider's models when it lists them, else the model id typed. -->
+{#snippet modelField(label: string, key: "model" | "worker_model")}
+  {#if options.length}
+    <select class="input" aria-label={label} bind:value={form[key]}>
+      {#each choices(form[key]) as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
+    </select>
+  {:else}
+    <input class="input" aria-label={label} bind:value={form[key]} />
+  {/if}
+{/snippet}
+
 <SettingsCard id="model" title="Model" sub="Which AI model the assistant uses. Set here, it overrides .env.">
   {#snippet status()}
     {#if s}
@@ -98,14 +137,22 @@
         {#each provider.fields as f (f.key)}
           <label class="fields">
             <span class="text-label">{f.label}</span>
-            <input
-              class="input"
-              type={f.secret ? "password" : "text"}
-              autocomplete="off"
-              placeholder={placeholder(f.key, f.label, f.required)}
-              aria-label={f.label}
-              bind:value={form.values[f.key]}
-            />
+            {#if f.secret}
+              <SecretInput
+                label={f.label}
+                placeholder={placeholder(f.key, f.label, f.required)}
+                bind:value={form.values[f.key]}
+                onchange={loadModels}
+              />
+            {:else}
+              <input
+                class="input"
+                autocomplete="off"
+                placeholder={placeholder(f.key, f.label, f.required)}
+                aria-label={f.label}
+                bind:value={form.values[f.key]}
+              />
+            {/if}
             {#if f.help}<span class="text-caption">{f.help}</span>{/if}
           </label>
         {/each}
@@ -116,13 +163,18 @@
       <div class="row">
         <label class="fields grow">
           <span class="text-label">Main model</span>
-          <input class="input" aria-label="Main model" bind:value={form.model} />
+          {@render modelField("Main model", "model")}
         </label>
         <label class="fields grow">
           <span class="text-label">Worker model (summaries, titles)</span>
-          <input class="input" aria-label="Worker model" bind:value={form.worker_model} />
+          {@render modelField("Worker model", "worker_model")}
         </label>
       </div>
+      {#if options.length}
+        <span class="text-caption">{options.length} models available with this key.</span>
+      {:else if listing}
+        <span class="text-caption">Couldn't list the models: {listing}</span>
+      {/if}
       <div class="row">
         <button class="btn btn--primary" type="submit" disabled={testing}>Save and test</button>
         {#if s.source === "app"}

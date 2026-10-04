@@ -43,6 +43,12 @@ async def names(store: BaseStore) -> list[str]:
     return sorted(p.name for p in _plugins(listing))
 
 
+async def email_providers(store: BaseStore) -> list[FoundServer]:
+    """The extras' mail provider plugins, installed or not. Raises RepositoryError when they can't be read."""
+    listing = await contents.kept(store, EXTRAS) or await contents.browse(store, EXTRAS)
+    return [s for s in listing.servers if s.email]
+
+
 def _plugins(listing: RepositoryContents) -> list[FoundServer | FoundSkill]:
     return [*listing.servers, *listing.skills]
 

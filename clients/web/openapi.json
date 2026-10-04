@@ -691,6 +691,42 @@
         }
       }
     },
+    "/files/content": {
+      "get": {
+        "summary": "File Content",
+        "description": "One of those files, by its path in the list, to view or save. 404: no such file.",
+        "operationId": "file_content_files_content_get",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/channels": {
       "get": {
         "summary": "Channels",
@@ -2838,6 +2874,49 @@
         }
       }
     },
+    "/settings/model/available": {
+      "post": {
+        "summary": "Available Models",
+        "description": "The models the provider offers for these values, to pick from; empty when it can't list\nthem. 400: the provider refused the values or can't be reached.",
+        "operationId": "available_models_settings_model_available_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelValues"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ModelOption"
+                  },
+                  "type": "array",
+                  "title": "Response Available Models Settings Model Available Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/usage": {
       "get": {
         "summary": "Usage",
@@ -3695,6 +3774,13 @@
             "type": "boolean",
             "title": "Email",
             "default": false
+          },
+          "steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Steps"
           }
         },
         "type": "object",
@@ -4390,6 +4476,24 @@
         ],
         "title": "ModelChange"
       },
+      "ModelOption": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ModelOption"
+      },
       "ModelProvider": {
         "properties": {
           "id": {
@@ -4501,6 +4605,27 @@
         ],
         "title": "ModelStatus",
         "description": "What a client shows. Says which secret values are set, never the values."
+      },
+      "ModelValues": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Values",
+            "default": {}
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider"
+        ],
+        "title": "ModelValues"
       },
       "NewMailAlerts": {
         "properties": {

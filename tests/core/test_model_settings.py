@@ -183,3 +183,28 @@ async def test_a_saved_provider_whose_package_is_gone_falls_back_to_env_at_start
     monkeypatch.setattr(packages, "ensure", gone)
     async with AssistantService.open() as restarted:
         assert (await restarted.model_status()).provider == settings.provider
+
+
+async def test_available_models_use_the_saved_key_and_are_empty_where_they_cant_be_listed(service, monkeypatch):
+    import pytest
+
+    from assistant.core.agent import ModelOption, ModelSettingsError
+    from assistant.core.llm import copilot
+
+    seen: list[str] = []
+
+    async def list_models(github_token: str, transport=None):
+        seen.append(github_token)
+        if github_token == "bad":
+            raise copilot.CopilotAuthError("Bad credentials")
+        return [("gpt-5", "GPT-5")]
+
+    monkeypatch.setattr(copilot, "list_models", list_models)
+    assert await service.available_models("copilot", {"api_key": "gh-1"}) == [ModelOption("gpt-5", "GPT-5")]
+    assert await service.available_models("anthropic", {"api_key": "sk"}) == []
+    assert await service.available_models("copilot", {}) == []  # no token yet
+    with pytest.raises(ModelSettingsError, match="Bad credentials"):
+        await service.available_models("copilot", {"api_key": "bad"})
+    with pytest.raises(ModelSettingsError, match="Unknown provider"):
+        await service.available_models("nope", {})
+    assert seen == ["gh-1", "bad"]
