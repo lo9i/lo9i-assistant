@@ -51,8 +51,9 @@ export type SignedIn = Schemas["SignedIn"];
 export type McpServerSettings = Schemas["McpServerSettings"];
 export type McpServerChange = Schemas["McpServerChange"];
 
-/** An approval, with `kind: "question"` a question with options, or with `kind: "plugin"` a plugin
- *  the agent offers to install, with the extras' listing of it as `server` or `skill` (core/events.py). */
+/** An approval, with `kind: "question"` a question with options, with `kind: "plugin"` a plugin the
+ *  agent offers to install, or with `kind: "plugin_setup"` an installed plugin's setup to open; the
+ *  plugin comes as the extras list it, `server` or `skill` (core/events.py). */
 export type ApprovalRequest = {
   kind?: string;
   tool?: string;
@@ -68,7 +69,8 @@ export type ApprovalRequest = {
 export type ApprovalRequired = { type: "ApprovalRequired"; interrupt_id: string; request: ApprovalRequest };
 /** An approval's answer, a question's (the options picked, null when skipped), or whether the user
  *  installed the plugin offered. */
-export type Decision = { approved: boolean; reason: string | null } | { choices: string[] | null } | { installed: boolean };
+export type Decision =
+  { approved: boolean; reason: string | null } | { choices: string[] | null } | { installed: boolean } | { done: boolean };
 
 export type RunEvent =
   | { type: "TextDelta"; text: string }

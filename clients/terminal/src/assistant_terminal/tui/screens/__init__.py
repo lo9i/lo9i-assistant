@@ -4,6 +4,7 @@ approvals and questions."""
 
 from assistant_terminal.tui.screens.approval import ApprovalScreen
 from assistant_terminal.tui.screens.audio import AudioScreen
+from assistant_terminal.tui.screens.channel_setup import ChannelSetupScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 from assistant_terminal.tui.screens.conversations import ConversationsScreen
 from assistant_terminal.tui.screens.devices import DevicesScreen
@@ -26,6 +27,7 @@ from assistant_terminal.tui.screens.web_search import WebSearchScreen
 __all__ = [
     "ApprovalScreen",
     "AudioScreen",
+    "ChannelSetupScreen",
     "ConfirmScreen",
     "ConversationsScreen",
     "DevicesScreen",

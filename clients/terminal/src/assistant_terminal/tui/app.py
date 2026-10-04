@@ -15,9 +15,9 @@ from assistant.client.files import load_attachment
 from assistant.client.live import LiveConversation
 from assistant.client.recorder import Recorder, RecordingUnavailableError
 from assistant.client.recorder import available as recording_available
-from assistant.core.agent import ConversationError, InvalidNameError, Session
+from assistant.core.agent import ConversationError, FoundServer, InvalidNameError, Session
 from assistant.core.attachments import Attachment
-from assistant.core.events import is_plugin_offer, is_question
+from assistant.core.events import is_plugin_offer, is_plugin_setup, is_question
 from assistant_terminal.commands import GET_TO_KNOW_ME, Command, help_lines
 from assistant_terminal.history import History
 from assistant_terminal.preferences import Preferences
@@ -32,9 +32,11 @@ from assistant_terminal.tui.prompt import PromptInput
 from assistant_terminal.tui.screens import (
     ApprovalScreen,
     AudioScreen,
+    ChannelSetupScreen,
     ConversationsScreen,
     DevicesScreen,
     EmailRecipientsScreen,
+    EmailScreen,
     FilesScreen,
     JobsScreen,
     McpScreen,
@@ -330,9 +332,28 @@ class AssistantApp(App):
         """The user's answer to what the run waits for. A plugin the agent offers is installed here,
         with its tokens typed in the dialog, and the answer only says whether it was."""
         if is_plugin_offer(request):
-            screen = RepositoryInstallScreen(self._service.repositories, offered=offered_plugin(request))
-            return {"installed": bool(await self.push_screen_wait(screen))}
+            plugin = offered_plugin(request)
+            installed = bool(
+                await self.push_screen_wait(RepositoryInstallScreen(self._service.repositories, offered=plugin))
+            )
+            if installed and isinstance(plugin, FoundServer):
+                await self._set_up(plugin)
+            return {"installed": installed}
+        if is_plugin_setup(request):
+            plugin = offered_plugin(request)
+            if isinstance(plugin, FoundServer):
+                await self._set_up(plugin)
+            return {"done": True}
         return await self.push_screen_wait(_screen_for(request))
+
+    async def _set_up(self, plugin: FoundServer) -> None:
+        """An installed plugin's setup, in the conversation: an email plugin's accounts, a channel's pairing."""
+        if plugin.email:
+            await self.push_screen_wait(
+                EmailScreen(self._service.email, self._service.oauth, self._service.channels, plugin.name)
+            )
+        if plugin.channel:
+            await self.push_screen_wait(ChannelSetupScreen(self._service.channels, plugin))
 
     @reports_daemon_unavailable
     async def refresh_title(self) -> None:

@@ -25,15 +25,12 @@
   import PluginUpdatesSwitch from "$lib/ui/settings/PluginUpdatesSwitch.svelte";
   import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
   import InstallDialog from "$lib/ui/repositories/InstallDialog.svelte";
-  import ChannelSetup from "$lib/ui/plugins/ChannelSetup.svelte";
-  import EmailAccounts from "$lib/ui/plugins/EmailAccounts.svelte";
+  import PluginSetup from "$lib/ui/plugins/PluginSetup.svelte";
 
   const { client, notices } = useDaemon();
   // The extras are downloaded to list them, so this reloads after an action here or on refresh,
   // not on every server's status change.
   const plugins = resource(async (c) => pluginsOf(await c.repositories.browse()), []);
-  // Installed chat channels' setup; the `channels` event comes when one connects or changes its items.
-  const channels = resource((c) => c.channels.list(), ["channels"]);
 
   let picked = $state<string | null>(null);
   let query = $state("");
@@ -51,7 +48,6 @@
   let busy = $state(false);
   // Until one is picked: the first in the list.
   const plugin = $derived(plugins.data?.find((p) => keyOf(p) === picked) ?? shown[0]?.plugins[0]);
-  const channel = $derived(plugin?.installed && plugin.kind === "server" ? channels.data?.find((c) => c.name === plugin.name) : undefined);
 
   async function act(action: () => Promise<unknown>, done: string): Promise<void> {
     busy = true;
@@ -191,10 +187,7 @@
             >
           {/if}
         </div>
-        {#if channel}<ChannelSetup {channel} />{/if}
-        {#if plugin.installed && plugin.kind === "server" && plugin.server.email}
-          <EmailAccounts plugin={plugin.name} title="Accounts" />
-        {/if}
+        {#if plugin.installed && plugin.kind === "server"}<PluginSetup server={plugin.server} />{/if}
       </section>
     {/if}
   </div>

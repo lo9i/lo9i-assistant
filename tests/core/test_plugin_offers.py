@@ -23,6 +23,7 @@ _TELEGRAM = FoundServer(
     False,
     channel=True,
 )
+_SETUP_HINT = " If it isn't set up yet (email accounts, a channel's pairing), open_plugin_setup opens it here."
 _NOTES = FoundSkill("notes", "Keep notes in a folder", [])
 
 
@@ -69,13 +70,11 @@ async def test_the_run_waits_while_the_user_installs_it_in_the_app(service, scri
     assert offer.request["server"]["fields"][0]["key"] == "TELEGRAM_TOKEN"
     await _install_telegram(service)
     events = await collect(service.resume(session, {offer.interrupt_id: {"installed": True}}))
-    assert events[0].output.startswith(
-        "telegram is installed. Its setup (such as a pairing code) shows in its details in Settings → Plugins"
-    )
+    assert events[0].output == "telegram is installed." + _SETUP_HINT
     assert isinstance(events[-1], Done)
 
 
-async def test_an_installed_email_plugin_points_to_adding_its_accounts(service, script, extras):
+async def test_an_installed_email_plugin_points_to_its_setup(service, script, extras):
     gmail = FoundServer("gmail", "Send and read Gmail", "none", [], False, email=True)
     await cache.save(service.store, EXTRAS, cache.Listing("c1", [_NOTES], [_TELEGRAM, gmail]))
     session, events = await _offered(service, script, name="gmail")
@@ -83,10 +82,7 @@ async def test_an_installed_email_plugin_points_to_adding_its_accounts(service, 
     gmail_provider = {"id": "gmail", "name": "Gmail", "host": "smtp.gmail.com", "port": 587, "imap_host": "i"}
     await servers.save(service.store, McpServer("gmail", email_providers=[gmail_provider], source=EXTRAS))
     events = await collect(service.resume(session, {offer.interrupt_id: {"installed": True}}))
-    assert events[0].output == (
-        "gmail is installed. The user adds its email accounts in its details in Settings → Plugins in the web app, "
-        "or /plugins in the terminal app."
-    )
+    assert events[0].output == "gmail is installed." + _SETUP_HINT
 
 
 async def test_what_counts_is_whats_installed_not_the_answer(service, script, extras):
@@ -123,3 +119,35 @@ async def test_a_failed_send_on_a_channel_not_installed_points_to_the_offer(serv
     script.call("send_message", text="Stretch!", channel="fax").reply("ok")
     events = await collect(service.send(await service.session("owner", "cli"), "fax me"))
     assert events[1].output.startswith("Can't send on fax right now")
+
+
+async def test_the_setup_opens_in_the_conversation_and_tells_what_it_left(service, script, extras, monkeypatch):
+    from assistant.core.events import is_plugin_setup
+    from assistant.core.integrations.email import smtp
+
+    async def verify(config):
+        pass
+
+    monkeypatch.setattr(smtp, "verify", verify)
+    gmail = FoundServer("gmail", "Send and read Gmail", "none", [], False, email=True)
+    await cache.save(service.store, EXTRAS, cache.Listing("c1", [_NOTES], [_TELEGRAM, gmail]))
+    gmail_provider = {"id": "gmail", "name": "Gmail", "host": "smtp.gmail.com", "port": 587, "imap_host": "i"}
+    await servers.save(service.store, McpServer("gmail", email_providers=[gmail_provider], source=EXTRAS))
+    script.call("open_plugin_setup", name="gmail").reply("ok")
+    session = await service.session("owner", "web")
+    events = await collect(service.send(session, "set up my Gmail"))
+    setup = next(e for e in events if isinstance(e, ApprovalRequired))
+    assert is_plugin_setup(setup.request) and setup.request["server"]["email"]
+    await service.add_email_account("", "smtp.gmail.com", 587, "me@gmail.com", "pw", "me@gmail.com", plugin="gmail")
+    events = await collect(service.resume(session, {setup.interrupt_id: {"done": True}}))
+    assert events[0].output == "The user closed gmail's setup. Its email accounts: me@gmail.com."
+
+
+async def test_the_setup_needs_an_installed_plugin_with_something_to_set_up(service, script, extras):
+    script.call("open_plugin_setup", name="telegram").reply("ok")
+    events = await collect(service.send(await service.session("owner", "web"), "pair telegram"))
+    assert events[1].output == "telegram isn't an installed plugin. Offer it with offer_plugin first."
+    await _install_telegram(service)
+    script.call("open_plugin_setup", name="telegram").reply("ok")
+    events = await collect(service.send(await service.session("owner", "telegram"), "pair"))
+    assert events[1].output.startswith("Not opened: telegram can't show it.")
