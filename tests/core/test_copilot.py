@@ -139,3 +139,26 @@ async def test_structured_answers_come_through_a_tool_call_on_copilot(monkeypatc
     body = json.loads(fake.requests[0].content)
     assert body["tool_choice"] == "auto" and "response_format" not in body
     assert body["messages"][-1]["content"] == "Answer only by calling the Title tool."
+
+
+async def test_the_accounts_chat_models_are_listed_from_its_host():
+    fake = _Copilot()
+    models = {
+        "data": [
+            {"id": "claude-opus-5.5", "name": "Claude Opus 5.5", "capabilities": {"type": "chat"}},
+            {"id": "gpt-5", "name": "GPT-5", "capabilities": {"type": "chat"}, "model_picker_enabled": True},
+            {"id": "text-embedding-3", "capabilities": {"type": "embeddings"}},
+            {"id": "hidden", "capabilities": {"type": "chat"}, "model_picker_enabled": False},
+        ]
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == _EXCHANGE:
+            return fake.handler(request)
+        assert (request.url.host, request.url.path) == (_HOST, "/models")
+        return httpx.Response(200, json=models)
+
+    listed = await copilot.list_models("gh-right", transport=httpx.MockTransport(handler))
+    assert listed == [("claude-opus-5.5", "Claude Opus 5.5"), ("gpt-5", "GPT-5")]
+    with pytest.raises(CopilotAuthError, match="rejected"):
+        await copilot.list_models("gh-wrong", transport=httpx.MockTransport(handler))

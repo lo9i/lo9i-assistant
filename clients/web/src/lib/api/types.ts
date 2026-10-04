@@ -22,6 +22,7 @@ export type EmailSignIn = Schemas["EmailSignIn"];
 export type ModelStatus = Schemas["ModelStatus"];
 export type ModelProvider = Schemas["ModelProvider"];
 export type ModelChange = Schemas["ModelChange"];
+export type ModelOption = Schemas["ModelOption"];
 export type Device = Schemas["Device"];
 export type UploadedFile = Schemas["UploadedFile"];
 export type PairingCode = Schemas["PairingCode"];

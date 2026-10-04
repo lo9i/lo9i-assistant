@@ -90,7 +90,8 @@ def category_label(category: str) -> str:
 
 
 def label(plugin: Plugin) -> str:
-    return f"{plugin.name} {version(plugin)}  {'✓ installed' if plugin.installed else '· not installed'}"
+    """Its row in the list: the name only. Its version and state are in its details beside it."""
+    return plugin.name
 
 
 def matches(plugin: Plugin, query: str) -> bool:

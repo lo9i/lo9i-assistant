@@ -1,7 +1,7 @@
 import httpx
 
 from assistant.client.daemon_client.transport import Transport
-from assistant.core.agent import ModelProvider, ModelSettingsError, ModelStatus, ProviderField
+from assistant.core.agent import ModelOption, ModelProvider, ModelSettingsError, ModelStatus, ProviderField
 
 _PATH = "/settings/model"
 # Saving may install the provider's package (up to 10 minutes) and asks each model to answer once.
@@ -30,6 +30,13 @@ class ModelApi:
             "PUT", _PATH, json=body, errors={400: ModelSettingsError}, timeout=_CHECK_TIMEOUT
         )
         return ModelStatus(**data)
+
+    async def available(self, provider: str, values: dict[str, str]) -> list[ModelOption]:
+        """The provider's models for these values, to pick from; empty when it can't list them.
+        Raises ModelSettingsError."""
+        body = {"provider": provider, "values": values}
+        data = await self._transport.request("POST", f"{_PATH}/available", json=body, errors={400: ModelSettingsError})
+        return [ModelOption(**m) for m in data]
 
     async def reset(self) -> ModelStatus:
         """Back to the model in .env."""

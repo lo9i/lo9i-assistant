@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from assistant.client.files import dropped_paths
+from assistant.client.files import dropped_paths, save_download
 
 
 def test_pasted_paths_of_existing_files_are_files(tmp_path: Path):
@@ -23,3 +23,10 @@ def test_anything_else_is_text(tmp_path: Path):
     assert dropped_paths(str(tmp_path)) == []  # a folder
     assert dropped_paths("it's") == []  # unbalanced quote
     assert dropped_paths("") == []
+
+
+def test_a_download_never_overwrites(tmp_path: Path):
+    assert save_download("notes.txt", b"a", tmp_path) == tmp_path / "notes.txt"
+    assert save_download("notes.txt", b"b", tmp_path) == tmp_path / "notes (2).txt"
+    assert save_download("../../etc/passwd", b"c", tmp_path) == tmp_path / "passwd"
+    assert (tmp_path / "notes.txt").read_bytes() == b"a"

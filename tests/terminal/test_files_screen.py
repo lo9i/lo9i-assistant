@@ -20,3 +20,16 @@ async def test_lists_the_files_sent(app, client):
         client.files.items = []
         await screen.reload()
         await wait_for(pilot, lambda: "No files yet" in body())
+
+
+async def test_a_file_is_saved_to_downloads(app, client, tmp_path, monkeypatch):
+    from pathlib import Path
+
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/files", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, FilesScreen))
+        app.screen.query_one("#save").press()
+        await wait_for(pilot, lambda: (tmp_path / "Downloads" / "notes.txt").exists())
+        assert (tmp_path / "Downloads" / "notes.txt").read_bytes() == b"buy milk"

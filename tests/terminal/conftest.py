@@ -573,6 +573,9 @@ class FakeFiles:
     async def list(self):
         return list(self.items)
 
+    async def content(self, file):
+        return b"buy milk"
+
 
 class FakeClients:
     own_id = "me"

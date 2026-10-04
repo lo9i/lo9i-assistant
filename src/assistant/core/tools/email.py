@@ -22,6 +22,10 @@ from assistant.core.skills import store as skills
 from assistant.core.tools.approval import ask
 from assistant.core.tools.registry import register
 
+_NOT_SET_UP = (
+    "No email account is connected. Call set_up_email: it asks the user for their provider and sets it up here."
+)
+
 
 @register("email")
 @tool
@@ -32,7 +36,7 @@ async def send_email(to: list[str], subject: str, body: str, runtime: ToolRuntim
     if isinstance(config, str):
         return config
     if not config.connected:
-        return f"Email isn't set up. Load the {skills.SETUP} skill and give the user its steps for email."
+        return _NOT_SET_UP
     store = require_store(runtime.store)
     outsiders = [a for a in to if not await recipients.allowed(store, a)]
     if outsiders:
@@ -132,6 +136,8 @@ async def _reading_config(runtime: ToolRuntime[Context], account: str) -> EmailC
     config = await _config(runtime, account)
     if isinstance(config, str):
         return config
+    if not config.connected:
+        return _NOT_SET_UP
     if not config.can_read:
         return f"Reading email isn't set up. Load the {skills.SETUP} skill and give the user its steps for email."
     return config

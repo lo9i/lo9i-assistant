@@ -164,8 +164,8 @@ async def test_read_shows_headers_text_and_attachments(service, script, reading)
     assert "No message with uid 8" in await _tool(service, script, "read_email", uid=8)
 
 
-async def test_tools_point_to_setup_when_reading_isnt_set_up(service, script):
-    assert "Reading email isn't set up" in await _tool(service, script, "search_email")
+async def test_tools_point_to_setting_up_email_without_an_account(service, script):
+    assert "Call set_up_email" in await _tool(service, script, "search_email")
 
 
 async def test_new_mail_alerts_need_reading_and_a_known_channel(service, monkeypatch):

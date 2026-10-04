@@ -123,7 +123,7 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
         await self._mount_fields(contents.servers)
         self._show_choice(True)
         self._selection_changed()
-        await self._say("Check what to install. Servers ask for their values below, then Install.")
+        await self._say(_guide(contents))
 
     async def _mount_fields(self, servers: list[FoundServer]) -> None:
         box = self.query_one("#repository-fields", Vertical)
@@ -141,6 +141,14 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
 
     async def _say(self, text: str) -> None:
         await self.query_one("#repository-message", Markdown).update(text)
+
+
+def _guide(contents: RepositoryContents) -> str:
+    """What to do: a single plugin's steps for what it asks for, numbered, when it has them."""
+    steps = contents.servers[0].steps if len(contents.servers) == 1 and not contents.skills else []
+    if steps:
+        return "\n".join(f"{i}. {step}" for i, step in enumerate(steps, 1))
+    return "Check what to install. Servers ask for their values below, then Install."
 
 
 def _offer_intro(plugin: FoundServer | FoundSkill) -> str:

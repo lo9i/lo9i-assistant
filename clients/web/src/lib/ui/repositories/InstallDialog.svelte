@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SecretInput from "../SecretInput.svelte";
   import { untrack } from "svelte";
   import type { FoundServer, FoundSkill, RepositoryContents } from "$lib/api/types";
   import { useDaemon } from "$lib/daemon.svelte";
@@ -109,17 +110,30 @@
 </script>
 
 {#snippet fields(server: FoundServer)}
+  {#if server.steps?.length}
+    <ol class="steps">
+      {#each server.steps as step, i (i)}<li class="text-label">{step}</li>{/each}
+    </ol>
+  {/if}
   {#each server.fields as f (f.key)}
     <label class="field">
       <span class="field-label">{f.label}</span>
-      <input
-        class="input"
-        type={f.secret ? "password" : "text"}
-        bind:value={values[server.name][f.key]}
-        required={!optional(server, f.key)}
-        placeholder={optional(server, f.key) ? "Leave empty to keep the one already saved" : ""}
-        autocomplete="off"
-      />
+      {#if f.secret}
+        <SecretInput
+          label={f.label}
+          bind:value={values[server.name][f.key]}
+          required={!optional(server, f.key)}
+          placeholder={optional(server, f.key) ? "Leave empty to keep the one already saved" : ""}
+        />
+      {:else}
+        <input
+          class="input"
+          bind:value={values[server.name][f.key]}
+          required={!optional(server, f.key)}
+          placeholder={optional(server, f.key) ? "Leave empty to keep the one already saved" : ""}
+          autocomplete="off"
+        />
+      {/if}
       {#if f.help}<span class="text-caption">Get it at <a href={f.help} target="_blank" rel="noreferrer">{shortLink(f.help)}</a></span>{/if}
     </label>
   {/each}
@@ -194,6 +208,13 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
+  }
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding-left: 20px;
   }
   .field {
     display: flex;

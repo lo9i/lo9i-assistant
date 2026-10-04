@@ -151,3 +151,77 @@ async def test_the_setup_needs_an_installed_plugin_with_something_to_set_up(serv
     script.call("open_plugin_setup", name="telegram").reply("ok")
     events = await collect(service.send(await service.session("owner", "telegram"), "pair"))
     assert events[1].output.startswith("Not opened: telegram can't show it.")
+
+
+_GMAIL_YAML = (
+    "description: Send and read Gmail\n"
+    "email:\n  - {id: gmail, name: Gmail, host: smtp.gmail.com, port: 587, imap_host: imap.gmail.com}\n"
+)
+_CUSTOM_YAML = (
+    "description: Send and read mail on any other server, such as your own domain\n"
+    "email:\n  - {id: custom, name: Other server, custom: true}\n"
+)
+
+
+@pytest.fixture
+async def mail_extras(service, isolated_settings, monkeypatch):
+    """The extras with two mail providers, as GitHub would serve them."""
+    import shutil
+
+    remote = isolated_settings / "remote" / "communications" / "email"
+    for name, text in (("gmail", _GMAIL_YAML), ("custom-email", _CUSTOM_YAML)):
+        (remote / name).mkdir(parents=True)
+        (remote / name / "server.yaml").write_text(text)
+
+    async def fetch(url, dest):
+        shutil.copytree(isolated_settings / "remote", dest)
+        return "c1"
+
+    async def latest_commit(url: str) -> str:
+        return "c1"
+
+    monkeypatch.setattr(checkout, "_fetch", fetch)
+    monkeypatch.setattr(checkout, "latest_commit", latest_commit)
+
+
+async def test_set_up_email_asks_the_provider_installs_it_and_opens_its_accounts(
+    service, script, mail_extras, monkeypatch
+):
+    from assistant.core.events import is_plugin_setup, is_question
+    from assistant.core.integrations.email import smtp
+
+    async def verify(config):
+        pass
+
+    monkeypatch.setattr(smtp, "verify", verify)
+    script.call("set_up_email").reply("ok")
+    session = await service.session("owner", "web")
+    events = await collect(service.send(session, "email Ana"))
+    question = next(e for e in events if isinstance(e, ApprovalRequired))
+    assert is_question(question.request) and question.request["options"] == ["Mail on any other server", "Gmail"]
+    events = await collect(service.resume(session, {question.interrupt_id: {"choices": ["Gmail"]}}))
+    setup = next(e for e in events if isinstance(e, ApprovalRequired))
+    assert is_plugin_setup(setup.request) and setup.request["name"] == "gmail"
+    assert [p.plugin for p in await service.email_providers()] == ["gmail"]  # installed, nothing asked
+    await service.add_email_account("", "smtp.gmail.com", 587, "me@gmail.com", "pw", "me@gmail.com", plugin="gmail")
+    events = await collect(service.resume(session, {setup.interrupt_id: {"done": True}}))
+    assert events[0].output == "The user closed gmail's setup. Its email accounts: me@gmail.com."
+
+
+async def test_set_up_email_skipped_or_from_a_chat_channel(service, script, mail_extras):
+    script.call("set_up_email").reply("ok")
+    session = await service.session("owner", "web")
+    events = await collect(service.send(session, "email Ana"))
+    question = next(e for e in events if isinstance(e, ApprovalRequired))
+    events = await collect(service.resume(session, {question.interrupt_id: {"choices": None}}))
+    assert events[0].output == "The user didn't pick a provider."
+    assert await service.email_providers() == []
+    script.call("set_up_email").reply("ok")
+    events = await collect(service.send(await service.session("owner", "telegram"), "email Ana"))
+    assert events[1].output.startswith("Not here: telegram can't show it.")
+
+
+async def test_email_tools_point_to_set_up_email_without_an_account(service, script):
+    script.call("send_email", to=["ana@example.com"], subject="Hi", body="Hello").reply("ok")
+    events = await collect(service.send(await service.session("owner", "web"), "email Ana"))
+    assert events[1].output.startswith("No email account is connected. Call set_up_email")

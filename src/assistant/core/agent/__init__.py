@@ -10,7 +10,7 @@ from assistant.core.agent.channels import ChannelNotConnectedError, ChannelStatu
 from assistant.core.agent.conversations import Conversation, ShownMessage
 from assistant.core.agent.devices import Device, DeviceError, PairingCode
 from assistant.core.agent.email import EmailAccount, EmailAccountNotFoundError, EmailError, EmailProvider
-from assistant.core.agent.files import UploadedFile
+from assistant.core.agent.files import FileUnavailableError, UploadedFile
 from assistant.core.agent.identity import InvalidNameError
 from assistant.core.agent.jobs import Job, JobError, RunRecord
 from assistant.core.agent.mcp import (
@@ -21,7 +21,7 @@ from assistant.core.agent.mcp import (
     McpServerStatus,
     McpToolInfo,
 )
-from assistant.core.agent.model import ModelProvider, ModelSettingsError, ModelStatus, ProviderField
+from assistant.core.agent.model import ModelOption, ModelProvider, ModelSettingsError, ModelStatus, ProviderField
 from assistant.core.agent.repositories import (
     FoundServer,
     InstalledFromRepository,
@@ -56,6 +56,7 @@ __all__ = [
     "EmailAccountNotFoundError",
     "EmailError",
     "EmailProvider",
+    "FileUnavailableError",
     "FoundServer",
     "FoundSkill",
     "InstalledFromRepository",
@@ -70,6 +71,7 @@ __all__ = [
     "McpServerStatus",
     "McpToolInfo",
     "MemorySnapshot",
+    "ModelOption",
     "ModelProvider",
     "ModelSettingsError",
     "ModelStatus",

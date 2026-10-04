@@ -24,6 +24,7 @@ import type {
   Me,
   MemorySnapshot,
   ModelChange,
+  ModelOption,
   ModelProvider,
   ModelStatus,
   PairingCode,
@@ -77,6 +78,11 @@ export class FilesGroup {
   /** The files the user sent in their conversations, newest first. */
   list(): Promise<UploadedFile[]> {
     return this.transport.request("GET", "/files");
+  }
+
+  /** A file's content, to show or save. Throws ApiError (404) when it isn't there any more. */
+  content(file: UploadedFile): Promise<Blob> {
+    return this.transport.blob("GET", `/files/content?path=${encodeURIComponent(file.path)}`);
   }
 }
 
@@ -180,6 +186,12 @@ export class ModelGroup {
    * provider stays the same. Throws ApiError (400) when a model doesn't answer. */
   set(change: ModelChange): Promise<ModelStatus> {
     return this.transport.request("PUT", "/settings/model", change);
+  }
+
+  /** The provider's models for these values, to pick from; empty when it can't list them. A key left
+   * empty uses the saved one. Throws ApiError (400) when the provider refuses the key. */
+  available(provider: string, values: Record<string, string>): Promise<ModelOption[]> {
+    return this.transport.request("POST", "/settings/model/available", { provider, values });
   }
 
   /** Back to the model in .env. */
