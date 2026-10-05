@@ -3,19 +3,14 @@
 Open work, tackled one at a time. Finished items are deleted and the remaining codes renumbered.
 A = action, G = memory gap, H = context improvement, Q = open question, R = risk.
 
-## Next, in order
-
-1. G2. Prune old checkpoints.
-
 ## Agent
 
-- A14. Named subagents (a researcher, a coder) as plugins from the extras with an `agent:` section in server.yaml: their own prompt, tools and model.
-- A15. Subagents in scheduled jobs. Approvals inside a delegated task follow the job's forwarding rules (`core/approvals.py`).
-- A16. Subagent steps in Telegram and Slack: `lib/lo9i-chat` in the extras doesn't know `within` on tool events yet, so a subagent's calls show there as the agent's own. Show them under the delegate call, or not at all.
-- A17. A subagent's steps aren't kept: after a reload, or in a conversation opened later, a delegate call shows only its task and answer. Its checkpoint is in the conversation's thread under the call's namespace; the history the apps load could include them.
-- A19. Slack apps created before the home conversation have no `/home` command: their manifest lists only `/new`. Until the user adds `/home` in the Slack app's settings (Slash Commands), Slack can't go back home after a `/new`. Offer it in the plugin's setup items, with the steps.
-- A20. An approval waiting in home blocks every channel there: a message from Telegram while the web app's approval is open only repeats the approval (`core/agent/runs.py`). Show it on the channel with its buttons so it can be answered there, or let the message through and answer the approval as rejected.
-- A21. Pinning skills from Telegram and Slack. The web and terminal apps pin with `/pin` and `/unpin` (`core/conversation/pinned.py`); a channel's token reaches only `/channels/<name>/...`, so the channel protocol needs pin routes and `lib/lo9i-chat` in the extras the commands.
+- A13. Named subagents (a researcher, a coder) as plugins from the extras with an `agent:` section in server.yaml: their own prompt, tools and model.
+- A14. Subagents in scheduled jobs. Approvals inside a delegated task follow the job's forwarding rules (`core/approvals.py`).
+- A15. Subagent steps in Telegram and Slack: `lib/lo9i-chat` in the extras doesn't know `within` on tool events yet, so a subagent's calls show there as the agent's own. Show them under the delegate call, or not at all.
+- A16. A subagent's steps aren't kept: after a reload, or in a conversation opened later, a delegate call shows only its task and answer. Its checkpoint is in the conversation's thread under the call's namespace; the history the apps load could include them.
+- A17. An approval waiting in home blocks every channel there: a message from Telegram while the web app's approval is open only repeats the approval (`core/agent/runs.py`). Show it on the channel with its buttons so it can be answered there, or let the message through and answer the approval as rejected.
+- A18. Pinning skills from Telegram and Slack. The web and terminal apps pin with `/pin` and `/unpin` (`core/conversation/pinned.py`); a channel's token reaches only `/channels/<name>/...`, so the channel protocol needs pin routes and `lib/lo9i-chat` in the extras the commands.
 
 ## Daemon
 
@@ -35,17 +30,9 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Plugins
 
-- A13. Email accounts connected before providers were plugins have no plugin, so they show under Communications as servers entered by hand. One that signed in with OAuth can't sign in again there (that form has no OAuth): remove it and connect it again from its provider's plugin.
-- A18. The expenses plugin's settings page asks for the number format as a typed locale (es_AR). Offer a list of the formats used with the chosen currency, each shown with an example amount.
-- A22. A plugin can't tell lo9i that background work finished. The coding agents' tasks (`assistant/agents/claude-code`, `copilot` in the extras) run for minutes; the agent learns the result only by calling `task_status`, and the user isn't told when one ends. Let an MCP server send an event (a notification on its connection) that lo9i delivers to the conversation that started the task, as a turn header note or a message on its channel.
-- A23. A plugin's token is checked only when it's first used: a wrong Claude key fails the first coding task after about three minutes of Claude Code's retries. Let a plugin declare a check that runs when its fields are saved (a command or a tool), and show its error in the install dialog.
-- A24. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen.
-
-## Memory
-
-- G1. No way to view or edit memories (Q1).
-- G2. Checkpoints are never pruned.
-- G3. The memory digest sees only the most recent `memory_max_facts` facts, so it can save a duplicate of an older one or miss one that turned outdated. Give it the saved facts closest to the transcript (`core/memory/recall.py`) too.
+- A19. A plugin can't tell lo9i that background work finished. The coding agents' tasks (`assistant/agents/claude-code`, `copilot` in the extras) run for minutes; the agent learns the result only by calling `task_status`, and the user isn't told when one ends. Let an MCP server send an event (a notification on its connection) that lo9i delivers to the conversation that started the task, as a turn header note or a message on its channel.
+- A20. A plugin's token is checked only when it's first used: a wrong Claude key fails the first coding task after about three minutes of Claude Code's retries. Let a plugin declare a check that runs when its fields are saved (a command or a tool), and show its error in the install dialog.
+- A21. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen.
 
 ## Context
 
@@ -81,7 +68,6 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Open questions and risks
 
-- Q1. Memory management UI: view, edit, delete.
 - R1. Bash runs on the host as the daemon's user. It can read `~/.lo9i` (including the database with the Telegram token, the email password and MCP servers' keys) and that user's other files. Only dangerous-command approvals stand in the way. With remote access (A2), a stolen paired device can reach this too until it's revoked. A paired device can also add a local MCP server, which runs its command without approval. Options: run the daemon as a dedicated user with little else on the host, and run just the bash tool in a sandbox container.
 - R2. MCP servers send text the model reads (tool descriptions and results). Hidden Unicode tag characters are stripped and write tools on untrusted servers need approval, but visible injected instructions still reach the model. A server whose tool list keeps changing starts a new epoch at each message (a prompt cache miss each time).
 - Langfuse: run the self-hosted stack and set keys.
