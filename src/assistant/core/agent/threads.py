@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from langchain_core.messages import AIMessage, BaseMessage
 
-from assistant.core import conversations, uploads
+from assistant.core import conversations, home, uploads
 from assistant.core.agent.archive import ArchiveMixin
 from assistant.core.agent.session import Session
 from assistant.core.attachments import upload_paths
@@ -22,25 +22,43 @@ class ConversationBusyError(ConversationError):
 
 class ThreadsMixin(ArchiveMixin):
     """Conversations. A client (terminal, web page) holds its own and says when it leaves one; a
-    channel without a client (Telegram) keeps its current one here."""
+    channel without a client (Telegram) is on home (core/home.py) unless it started a side
+    conversation with /new, which it keeps here until its /home."""
 
     async def session(self, user_id: str, channel: str) -> Session:
-        """The channel's current conversation, started on first use."""
-        item = await self._storage.store.aget(_namespace(user_id), channel)
-        thread_id = item.value["thread_id"] if item else await self.new_channel_thread(user_id, channel)
+        """The channel's current conversation: its side conversation, or home."""
+        thread_id = await home.channel_thread(self._storage.store, user_id, channel)
+        thread_id = thread_id or await self.home_thread(user_id)
         return Session(user_id=user_id, channel=channel, thread_id=thread_id)
+
+    async def home_thread(self, user_id: str) -> str:
+        """The home conversation's id, started on first use."""
+        store = self._storage.store
+        if (thread_id := await home.current(store, user_id)) is None:
+            thread_id = await self.new_thread(user_id)
+            await home.start(store, user_id, thread_id)
+        return thread_id
+
+    async def channel_home(self, user_id: str, channel: str) -> str:
+        """Moves the channel back to home (its /home) and returns home's id. The side conversation
+        it leaves is archived in the background."""
+        previous = await self._storage.store.aget(home.channels_namespace(user_id), channel)
+        if previous is not None:
+            await self._storage.store.adelete(home.channels_namespace(user_id), channel)
+            self.leave_thread(user_id, previous.value["thread_id"])
+        return await self.home_thread(user_id)
 
     async def new_thread(self, user_id: str) -> str:
         """A new conversation's id. It's saved, and listed, once it has a message."""
         return f"{user_id}:{uuid4().hex[:12]}"
 
     async def new_channel_thread(self, user_id: str, channel: str) -> str:
-        """Start a new conversation for the channel. The one being left is archived in the background."""
+        """Start a side conversation for the channel (its /new). What's new in the conversation it
+        leaves, home or another side one, is archived in the background."""
+        left = (await self.session(user_id, channel)).thread_id
         thread_id = await self.new_thread(user_id)
-        previous = await self._storage.store.aget(_namespace(user_id), channel)
-        await self._storage.store.aput(_namespace(user_id), channel, {"thread_id": thread_id})
-        if previous is not None:
-            self.leave_thread(user_id, previous.value["thread_id"])
+        await self._storage.store.aput(home.channels_namespace(user_id), channel, {"thread_id": thread_id})
+        self.leave_thread(user_id, left)
         return thread_id
 
     async def require_conversation(self, user_id: str, thread_id: str) -> None:
@@ -63,13 +81,14 @@ class ThreadsMixin(ArchiveMixin):
             async with self._conversations_lock:
                 await conversations.remove(self._storage.store, user_id, thread_id)
             await self._forget_channel_pointers(user_id, thread_id)
+            await home.forget(self._storage.store, user_id, thread_id)
         await asyncio.to_thread(_delete_files, state.values.get("messages", []))
         self.bus.publish("conversations")
 
     async def _forget_channel_pointers(self, user_id: str, thread_id: str) -> None:
-        for item in await self._storage.store.asearch(_namespace(user_id), limit=100):
+        for item in await self._storage.store.asearch(home.channels_namespace(user_id), limit=100):
             if item.value.get("thread_id") == thread_id:
-                await self._storage.store.adelete(_namespace(user_id), item.key)
+                await self._storage.store.adelete(home.channels_namespace(user_id), item.key)
 
     def leave_thread(self, user_id: str, thread_id: str) -> None:
         """Nobody is on the conversation any more: archive what's new in it, in the background."""
@@ -96,7 +115,3 @@ def _remove_empty(folder: Path, root: Path) -> None:
     """Each upload has a folder of its own; it goes with its file."""
     if folder != root and folder.is_relative_to(root) and not any(folder.iterdir()):
         folder.rmdir()
-
-
-def _namespace(user_id: str) -> tuple[str, ...]:
-    return ("threads", user_id)

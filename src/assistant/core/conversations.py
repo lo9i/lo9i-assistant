@@ -22,6 +22,8 @@ class Conversation:
     titled: bool = False
     # The channels its messages came from (cli, web, telegram), in the order they were first used.
     channels: list[str] = field(default_factory=list)
+    # Whether it's the home conversation (core/home.py). Set when listed, not stored.
+    home: bool = False
 
 
 def namespace(user_id: str) -> tuple[str, ...]:
@@ -39,7 +41,8 @@ async def load(store: BaseStore, user_id: str, thread_id: str) -> Conversation |
 
 
 async def save(store: BaseStore, user_id: str, conversation: Conversation) -> None:
-    await store.aput(namespace(user_id), conversation.thread_id, asdict(conversation))
+    record = {k: v for k, v in asdict(conversation).items() if k != "home"}
+    await store.aput(namespace(user_id), conversation.thread_id, record)
 
 
 async def recent(store: BaseStore, user_id: str) -> list[Conversation]:

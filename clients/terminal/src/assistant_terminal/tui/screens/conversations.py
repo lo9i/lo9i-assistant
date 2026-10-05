@@ -60,7 +60,7 @@ class ConversationsScreen(ModalScreen[str | None]):
         options = self.query_one("#conversations-list", OptionList)
         options.clear_options()
         # Only when; the title is in the preview next to the list.
-        options.add_options([Option(when(c), id=c.thread_id) for c in items])
+        options.add_options([Option(f"Home · {when(c)}" if c.home else when(c), id=c.thread_id) for c in items])
         self.query_one("#conversations").set_class(not items, "empty")
         self.query_one("#resume").display = self.query_one("#delete").display = bool(items)
         if not items:

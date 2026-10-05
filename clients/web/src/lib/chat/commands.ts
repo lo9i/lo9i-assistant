@@ -4,8 +4,9 @@
 export type Command = { name: string; usage: string; description: string };
 
 export const COMMANDS: Command[] = [
-  { name: "/new", usage: "/new", description: "Start a new conversation" },
+  { name: "/new", usage: "/new", description: "Start a side conversation" },
   { name: "/conversations", usage: "/conversations", description: "Earlier conversations, to resume one" },
+  { name: "/home", usage: "/home", description: "Go back to the home conversation" },
   { name: "/attach", usage: "/attach", description: "Attach files to the next message" },
   { name: "/sessions", usage: "/sessions", description: "Clients connected to the daemon" },
   { name: "/jobs", usage: "/jobs", description: "Scheduled jobs" },

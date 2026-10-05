@@ -15,6 +15,7 @@
   import Sparkles from "@lucide/svelte/icons/sparkles";
   import PanelsTopLeft from "@lucide/svelte/icons/panels-top-left";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
+  import { homeFirst } from "$lib/chat/order";
   import { pageLabel } from "$lib/pages";
   import { sidebar } from "$lib/sidebar.svelte";
   import VoiceButton from "./voice/VoiceButton.svelte";
@@ -33,7 +34,7 @@
   // The latest conversations, under Conversations, to continue one in a click.
   const RECENT = 10;
   const conversations = resource((c) => c.conversations.list(), ["conversations"]);
-  const recent = $derived([...(conversations.data ?? [])].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, RECENT));
+  const recent = $derived([...(conversations.data ?? [])].sort(homeFirst).slice(0, RECENT));
   const current = external(chat.subscribe, () => chat.getSnapshot().threadId);
 
   async function continueWith(threadId: string): Promise<void> {
@@ -112,7 +113,7 @@
           {#each recent as c (c.thread_id)}
             <li>
               <button class:current={c.thread_id === current.current} title={c.title} onclick={() => continueWith(c.thread_id)}>
-                {c.title || "Untitled"}
+                {c.home ? "Home" : c.title || "Untitled"}
               </button>
             </li>
           {/each}

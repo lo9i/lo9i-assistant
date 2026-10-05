@@ -6,6 +6,7 @@ import type { RunAnnounced, RunFinished, Session } from "./types";
 /** The DaemonClient calls LiveConversation needs. */
 export interface Conversations {
   readonly clientId: string;
+  homeThread(): Promise<string>;
   newThread(): Promise<string>;
   resumeThread(threadId: string): Promise<void>;
 }
@@ -19,11 +20,17 @@ export class LiveConversation {
     public session: Session,
   ) {}
 
-  /** Move to a new conversation. With `leaveRunning`, the reply running in the current one keeps
+  /** Move to a new side conversation. With `leaveRunning`, the reply running in the current one keeps
    * going in the daemon, and `leftRunFinished` reports when it ends. */
   async startNew(leaveRunning = false): Promise<void> {
     if (leaveRunning) this.leftRunning.add(this.session.thread_id);
     this.session = { ...this.session, thread_id: await this.client.newThread() };
+  }
+
+  /** Move to the home conversation, like `startNew`. */
+  async goHome(leaveRunning = false): Promise<void> {
+    if (leaveRunning) this.leftRunning.add(this.session.thread_id);
+    this.session = { ...this.session, thread_id: await this.client.homeThread() };
   }
 
   /** Move back to an earlier conversation, like `startNew`. Throws ApiError for an unknown one. */

@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from assistant.core.agent import Session
 from assistant.core.config import settings
 from assistant.core.integrations.email.imap import MailSummary
 from assistant.core.jobs import active, store
@@ -99,7 +100,8 @@ class _Sender:
 async def test_a_message_sent_from_elsewhere_reaches_the_channels_next_turn(service, script):
     service.outbox.register("telegram", _Sender())
     script.call("send_message", text="Time to stretch!", channel="telegram").reply("Sent.")
-    await collect(service.send(await service.session("owner", "cli"), "remind me on telegram"))
+    side = Session("owner", "cli", await service.new_thread("owner"))
+    await collect(service.send(side, "remind me on telegram"))
     script.reply("You're welcome.")
     telegram = await service.session("owner", "telegram")
     await collect(service.send(telegram, "thanks"))
@@ -110,6 +112,15 @@ async def test_a_message_sent_from_elsewhere_reaches_the_channels_next_turn(serv
     assert not any("Time to stretch" in b.get("text", "") for b in script.requests[-1][-1].content)  # only once
     shown = await service.conversation_messages(telegram.thread_id)
     assert [m.text for m in shown if m.role == "user"] == ["thanks", "hi"]
+
+
+async def test_a_message_sent_from_home_to_a_channel_on_home_isnt_repeated(service, script):
+    service.outbox.register("telegram", _Sender())
+    script.call("send_message", text="Time to stretch!", channel="telegram").reply("Sent.")
+    await collect(service.send(await service.session("owner", "cli"), "remind me on telegram"))
+    script.reply("You're welcome.")
+    await collect(service.send(await service.session("owner", "telegram"), "thanks"))
+    assert not any("Time to stretch" in b.get("text", "") for b in script.requests[-1][-1].content)
 
 
 async def test_a_message_sent_from_the_channels_own_chat_isnt_repeated(service, script):

@@ -11,6 +11,7 @@ from assistant.core.agent import Session
 class Conversations(Protocol):
     """The DaemonClient calls LiveConversation needs."""
 
+    async def home_thread(self, user_id: str) -> str: ...
     async def new_thread(self, user_id: str) -> str: ...
     async def resume_thread(self, user_id: str, thread_id: str) -> None: ...
 
@@ -25,11 +26,17 @@ class LiveConversation:
         self._left_running: set[str] = set()
 
     async def start_new(self, *, leave_running: bool = False) -> None:
-        """Move to a new conversation. With `leave_running`, the reply running in the current one
+        """Move to a new side conversation. With `leave_running`, the reply running in the current one
         keeps going in the daemon, and `left_run_finished` reports when it ends."""
         if leave_running:
             self._left_running.add(self.session.thread_id)
         self.session.thread_id = await self._client.new_thread(self.session.user_id)
+
+    async def go_home(self, *, leave_running: bool = False) -> None:
+        """Move to the home conversation, like `start_new`."""
+        if leave_running:
+            self._left_running.add(self.session.thread_id)
+        self.session.thread_id = await self._client.home_thread(self.session.user_id)
 
     async def resume(self, thread_id: str, *, leave_running: bool = False) -> None:
         """Move back to an earlier conversation, like `start_new`. Raises ConversationError."""

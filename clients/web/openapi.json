@@ -244,10 +244,29 @@
         }
       }
     },
+    "/threads/home": {
+      "post": {
+        "summary": "Home Thread",
+        "description": "Moves the calling client to the home conversation, leaving the one it was on.",
+        "operationId": "home_thread_threads_home_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadCreated"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/threads": {
       "post": {
         "summary": "New Thread",
-        "description": "A new conversation for the calling client, which leaves the one it was on.",
+        "description": "A new side conversation for the calling client, which leaves the one it was on.",
         "operationId": "new_thread_threads_post",
         "responses": {
           "200": {
@@ -1050,7 +1069,46 @@
     "/channels/{name}/conversation": {
       "post": {
         "summary": "New Channel Conversation",
+        "description": "Starts a side conversation for the channel (its /new).",
         "operationId": "new_channel_conversation_channels__name__conversation_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Channel Home",
+        "description": "Moves the channel back to the home conversation (its /home).",
+        "operationId": "channel_home_channels__name__conversation_delete",
         "parameters": [
           {
             "name": "name",
@@ -3372,6 +3430,11 @@
             },
             "type": "array",
             "title": "Channels"
+          },
+          "home": {
+            "type": "boolean",
+            "title": "Home",
+            "default": false
           }
         },
         "type": "object",

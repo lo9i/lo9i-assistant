@@ -45,10 +45,10 @@ export class ChatController {
     this.state = { threadId: live.session.thread_id, transcript, busy: false, mirroring: false, approval: null };
   }
 
-  /** Opens on `earlier`, the conversation this tab was on before a reload, or a new one. */
+  /** Opens on `earlier`, the conversation this tab was on before a reload, or home. */
   static async open(client: ChatClient, channel: string, earlier: string | null, notices: NoticeBoard): Promise<ChatController> {
     const threadId = await rejoin(client, earlier);
-    const history = threadId === earlier ? await client.conversations.messages(threadId) : [];
+    const history = await client.conversations.messages(threadId);
     const live = new LiveConversation(client, { channel, thread_id: threadId });
     return new ChatController(client, live, notices, fromHistory(history));
   }
@@ -71,9 +71,11 @@ export class ChatController {
     });
     const run = new AbortController();
     this.ownRun = run;
-    await this.show(run, () => this.turn(text, files, run.signal));
+    let carried: string | null = null;
+    await this.show(run, async () => (carried = await this.turn(text, files, run.signal)));
     if (this.ownRun === run) this.ownRun = null;
     this.showing();
+    if (carried !== null) await this.moveToSide(carried);
   }
 
   /** Stop the reply in progress, whichever channel started it. */
@@ -83,6 +85,15 @@ export class ChatController {
 
   answer(decision: Decision): void {
     this.decide?.(decision);
+  }
+
+  async goHome(): Promise<void> {
+    await this.guarded(async () => {
+      const stillRunning = this.stopShowing();
+      await this.live.goHome(stillRunning);
+      await this.showHistory();
+      this.notify("Back home." + (stillRunning ? " The previous reply keeps running." : ""));
+    });
   }
 
   async startNew(): Promise<void> {
@@ -131,13 +142,30 @@ export class ChatController {
     this.stopShowing();
   }
 
-  private async turn(text: string, files: File[], signal: AbortSignal): Promise<void> {
+  /** Runs the turn and returns the first message of the side conversation the user moved it to, if any. */
+  private async turn(text: string, files: File[], signal: AbortSignal): Promise<string | null> {
+    let carried: string | null = null;
     let approvals = await this.render(this.client.send(this.live.session, text, files, signal));
     while (approvals.length) {
       const decisions: Record<string, Decision> = {};
-      for (const approval of approvals) decisions[approval.interrupt_id] = await this.ask(approval, signal);
+      for (const approval of approvals) {
+        const decision = await this.ask(approval, signal);
+        if ("moved" in decision && decision.moved) carried = approval.request.first_message ?? null;
+        decisions[approval.interrupt_id] = decision;
+      }
       approvals = await this.render(this.client.resume(this.live.session, decisions, signal));
     }
+    return carried;
+  }
+
+  /** The agent's suggestion was taken: the task goes on in a side conversation, starting with its brief. */
+  private async moveToSide(firstMessage: string): Promise<void> {
+    await this.guarded(async () => {
+      await this.live.startNew();
+      this.set({ threadId: this.live.session.thread_id, transcript: empty });
+      this.notify("Moved to a side conversation. /home goes back.");
+    });
+    await this.send(firstMessage, []);
   }
 
   /** Show the events and return the approvals the run is waiting on. */
@@ -228,15 +256,15 @@ export class ChatController {
   }
 }
 
-/** The conversation to open on: `earlier` if the daemon still has it, else a new one. A conversation
+/** The conversation to open on: `earlier` if the daemon still has it, else home. A conversation
  * without messages isn't saved, so the daemon doesn't know it. */
 async function rejoin(client: ChatClient, earlier: string | null): Promise<string> {
-  if (earlier === null) return client.newThread();
+  if (earlier === null) return client.homeThread();
   try {
     await client.resumeThread(earlier);
     return earlier;
   } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return client.newThread();
+    if (error instanceof ApiError && error.status === 404) return client.homeThread();
     throw error;
   }
 }

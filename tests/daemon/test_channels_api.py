@@ -74,6 +74,9 @@ async def test_a_channel_chats_in_its_own_conversation(app, service, script):
         created = (await http.post("/channels/telegram/conversation")).json()
         assert created["thread_id"] != session.thread_id
         assert (await service.session("owner", "telegram")).thread_id == created["thread_id"]
+        home = (await http.delete("/channels/telegram/conversation")).json()["thread_id"]
+        assert home == session.thread_id == await service.home_thread("owner")
+        assert (await service.session("owner", "telegram")).thread_id == home
     async with _client(app, service.channels_hub.issue_token("slack")) as http:
         response = await http.get(f"/channels/slack/runs/{run['run_id']}/events")
         assert response.status_code == 404  # another channel's run

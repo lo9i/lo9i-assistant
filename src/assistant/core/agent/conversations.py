@@ -1,8 +1,9 @@
 """Conversations for clients: list them, show one, and keep the list up to date."""
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
-from assistant.core import conversations
+from assistant.core import conversations, home
 from assistant.core.agent.session import Session
 from assistant.core.agent.titles import TitlesMixin
 from assistant.core.context import UNATTENDED_CHANNEL
@@ -15,8 +16,12 @@ __all__ = ["Conversation", "ConversationsMixin", "ShownMessage"]
 
 class ConversationsMixin(TitlesMixin):
     async def list_conversations(self, user_id: str) -> list[Conversation]:
-        """Newest activity first."""
-        return await conversations.recent(self._storage.store, user_id)
+        """Home first, then newest activity first."""
+        home_id = await home.current(self._storage.store, user_id)
+        listed = [
+            replace(c, home=c.thread_id == home_id) for c in await conversations.recent(self._storage.store, user_id)
+        ]
+        return sorted(listed, key=lambda c: not c.home)
 
     async def conversation_messages(self, thread_id: str) -> list[ShownMessage]:
         state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})

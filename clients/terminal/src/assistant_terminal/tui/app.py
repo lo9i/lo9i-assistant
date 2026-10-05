@@ -17,7 +17,7 @@ from assistant.client.recorder import Recorder, RecordingUnavailableError
 from assistant.client.recorder import available as recording_available
 from assistant.core.agent import ConversationError, FoundServer, InvalidNameError, Session
 from assistant.core.attachments import Attachment
-from assistant.core.events import is_plugin_offer, is_plugin_setup, is_question
+from assistant.core.events import is_plugin_offer, is_plugin_setup, is_question, is_side_conversation
 from assistant_terminal.commands import GET_TO_KNOW_ME, Command, help_lines
 from assistant_terminal.history import History
 from assistant_terminal.preferences import Preferences
@@ -46,6 +46,7 @@ from assistant_terminal.tui.screens import (
     QuestionScreen,
     RepositoryInstallScreen,
     SessionsScreen,
+    SideConversationScreen,
     SkillsScreen,
     StartupScreen,
     UsageScreen,
@@ -101,6 +102,7 @@ class AssistantApp(App):
         self._plugin_updates = PluginUpdates(service.repositories, lambda text: self.notify(text, timeout=10))
         self._commands: dict[str, Callable[[str], Awaitable[None]]] = {
             "/new": self._command_new,
+            "/home": self._command_home,
             "/conversations": self._command_conversations,
             "/attach": self._command_attach,
             "/mcp": self._command_mcp,
@@ -313,20 +315,38 @@ class AssistantApp(App):
     async def _run_turn(self, text: str, attachments: list[Attachment]) -> None:
         self._busy = True
         try:
-            await self._turn(text, attachments)
+            carried = await self._turn(text, attachments)
+            if carried is not None:
+                await self._move_to_side(carried)
         except DaemonUnavailableError as e:
             self._status.clear()
             self.notify(f"{e} Your message may not have been answered.", severity="error", timeout=10)
         finally:
             self._busy = False
 
-    async def _turn(self, text: str, attachments: list[Attachment]) -> None:
+    async def _turn(self, text: str, attachments: list[Attachment]) -> str | None:
+        """Runs the turn and returns the first message of the side conversation the user moved it to, if any."""
         view = TurnView(self._chat, self._status)
+        carried: str | None = None
         approvals = await view.render(self._service.send(self._live.session, text, attachments))
         while approvals:
-            decisions = {a.interrupt_id: await self._decide(a.request) for a in approvals}
+            decisions: dict[str, dict[str, Any]] = {}
+            for approval in approvals:
+                decisions[approval.interrupt_id] = decision = await self._decide(approval.request)
+                if is_side_conversation(approval.request) and decision.get("moved"):
+                    carried = str(approval.request.get("first_message", ""))
             approvals = await view.render(self._service.resume(self._live.session, decisions))
         await self.refresh_memory()
+        return carried
+
+    async def _move_to_side(self, first_message: str) -> None:
+        """The agent's suggestion was taken: the task goes on in a side conversation, starting with its brief."""
+        await self._live.start_new()
+        self.sub_title = self._live.session.thread_id
+        await self._chat.remove_children()
+        self.notify("Moved to a side conversation. /home goes back.")
+        await self._chat.mount(UserMessage(first_message, []))
+        await self._turn(first_message, [])
 
     async def _decide(self, request: dict[str, Any]) -> dict[str, Any]:
         """The user's answer to what the run waits for. A plugin the agent offers is installed here,
@@ -414,6 +434,15 @@ class AssistantApp(App):
         await self._chat.remove_children()
         previous = " The previous reply keeps running; you'll be notified when it's done." if still_running else ""
         self.notify(f"Started a new conversation.{previous}")
+
+    async def _command_home(self, _: str) -> None:
+        still_running = self._busy
+        if still_running:
+            self._stop_showing_turn()
+        await self._live.go_home(leave_running=still_running)
+        self.sub_title = self._live.session.thread_id
+        await show_history(self._chat, await self._service.conversations.messages(self._live.session.thread_id))
+        self.notify("Back home." + (" The previous reply keeps running." if still_running else ""))
 
     async def _command_conversations(self, _: str) -> None:
         screen = ConversationsScreen(self._service.conversations, self._live.session.thread_id)
@@ -560,6 +589,10 @@ def _attachment_label(attachments: list[Attachment]) -> str:
     return "🎤 voice message" if any(a.media_type.startswith("audio/") for a in attachments) else "(attachment)"
 
 
-def _screen_for(request: dict[str, Any]) -> ApprovalScreen | QuestionScreen:
-    """What the run waits for: a question with options, or an approval."""
-    return QuestionScreen(request) if is_question(request) else ApprovalScreen(request)
+def _screen_for(request: dict[str, Any]) -> ApprovalScreen | QuestionScreen | SideConversationScreen:
+    """What the run waits for: a question with options, a task to move to a side conversation, or an approval."""
+    if is_question(request):
+        return QuestionScreen(request)
+    if is_side_conversation(request):
+        return SideConversationScreen(request)
+    return ApprovalScreen(request)

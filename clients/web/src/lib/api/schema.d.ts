@@ -172,6 +172,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/threads/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Home Thread
+         * @description Moves the calling client to the home conversation, leaving the one it was on.
+         */
+        post: operations["home_thread_threads_home_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/threads": {
         parameters: {
             query?: never;
@@ -183,7 +203,7 @@ export interface paths {
         put?: never;
         /**
          * New Thread
-         * @description A new conversation for the calling client, which leaves the one it was on.
+         * @description A new side conversation for the calling client, which leaves the one it was on.
          */
         post: operations["new_thread_threads_post"];
         delete?: never;
@@ -546,9 +566,16 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** New Channel Conversation */
+        /**
+         * New Channel Conversation
+         * @description Starts a side conversation for the channel (its /new).
+         */
         post: operations["new_channel_conversation_channels__name__conversation_post"];
-        delete?: never;
+        /**
+         * Channel Home
+         * @description Moves the channel back to the home conversation (its /home).
+         */
+        delete: operations["channel_home_channels__name__conversation_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1488,6 +1515,11 @@ export interface components {
             titled: boolean;
             /** Channels */
             channels?: string[];
+            /**
+             * Home
+             * @default false
+             */
+            home: boolean;
         };
         /** DeliveryResult */
         DeliveryResult: {
@@ -2892,6 +2924,26 @@ export interface operations {
             };
         };
     };
+    home_thread_threads_home_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThreadCreated"];
+                };
+            };
+        };
+    };
     new_thread_threads_post: {
         parameters: {
             query?: never;
@@ -3498,6 +3550,37 @@ export interface operations {
         };
     };
     new_channel_conversation_channels__name__conversation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThreadCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    channel_home_channels__name__conversation_delete: {
         parameters: {
             query?: never;
             header?: never;

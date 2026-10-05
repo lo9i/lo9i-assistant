@@ -6,9 +6,9 @@ from textual.widgets import Input, Markdown
 
 from assistant.client import DaemonUnavailableError, clipboard
 from assistant.core.attachments import Attachment
-from assistant.core.events import Cancelled, Done, ToolFinished, ToolStarted
+from assistant.core.events import ApprovalRequired, Cancelled, Done, TextDelta, ToolFinished, ToolStarted
 from assistant_terminal.tui.attachments import AttachmentBar
-from assistant_terminal.tui.screens import ApprovalScreen, QuestionScreen
+from assistant_terminal.tui.screens import ApprovalScreen, QuestionScreen, SideConversationScreen
 from assistant_terminal.tui.widgets import AssistantMessage, StoppedNote, ToolCall, UserMessage
 from tests.terminal.conftest import wait_for
 
@@ -71,6 +71,46 @@ async def test_new_conversation_clears_the_chat(app):
         await pilot.press("ctrl+n")
         await wait_for(pilot, lambda: app.sub_title == "owner:new")
         assert len(app.query_one("#chat").children) == 0
+
+
+async def test_home_goes_back_with_its_history(app):
+    async with app.run_test() as pilot:
+        await pilot.press("ctrl+n")
+        await wait_for(pilot, lambda: app.sub_title == "owner:new")
+        await pilot.click("#prompt")
+        await pilot.press(*"/home", "enter")
+        await wait_for(pilot, lambda: app.sub_title == "owner:abc" and app.query(UserMessage))
+        assert "plan my trip" in str(app.query_one(UserMessage).render())
+
+
+async def test_taking_the_suggestion_moves_the_task_to_a_side_conversation(app, client, monkeypatch):
+    request = {"kind": "side_conversation", "title": "Taxes", "brief": "Do them.", "first_message": "Carried over"}
+    sent = []
+
+    async def send(session, text, attachments=()):
+        sent.append((session.thread_id, text))
+        if len(sent) == 1:
+            yield ApprovalRequired("i1", request)
+        else:
+            yield TextDelta("On it.")
+            yield Done()
+
+    async def resume(session, decisions):
+        client.decisions = decisions
+        yield TextDelta("Moved.")
+        yield Done()
+
+    monkeypatch.setattr(client, "send", send)
+    monkeypatch.setattr(client, "resume", resume)
+    async with app.run_test() as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"taxes", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, SideConversationScreen))
+        await pilot.click("#move")
+        await wait_for(pilot, lambda: len(sent) == 2 and not app._busy)
+        assert client.decisions == {"i1": {"moved": True}}
+        assert sent == [("owner:abc", "taxes"), ("owner:new", "Carried over")]
+        assert [str(m.render()) for m in app.query(UserMessage)] == ["> Carried over"]
 
 
 async def test_attachment_can_be_sent_without_text(app, client, tmp_path):
