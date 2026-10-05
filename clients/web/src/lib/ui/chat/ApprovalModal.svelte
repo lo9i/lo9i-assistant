@@ -4,8 +4,10 @@
   import PluginOfferModal from "./PluginOfferModal.svelte";
   import PluginSetupModal from "./PluginSetupModal.svelte";
   import QuestionModal from "./QuestionModal.svelte";
+  import SideConversationModal from "./SideConversationModal.svelte";
 
-  // What the run waits for: an approval, a question with options, a plugin to install or to set up.
+  // What the run waits for: an approval, a question with options, a plugin to install or to set up,
+  // or a task to move to a side conversation.
   let { approval, onanswer }: { approval: ApprovalRequired; onanswer: (d: Decision) => void } = $props();
   let reason = $state("");
   const request = $derived(approval.request);
@@ -16,6 +18,8 @@
   <QuestionModal question={approval} {onanswer} />
 {:else if request.kind === "plugin"}
   <PluginOfferModal offer={approval} {onanswer} />
+{:else if request.kind === "side_conversation"}
+  <SideConversationModal suggestion={approval} {onanswer} />
 {:else if request.kind === "plugin_setup" && request.server}
   <PluginSetupModal server={request.server} ondone={() => onanswer({ done: true })} />
 {:else}

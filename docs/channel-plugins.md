@@ -51,9 +51,10 @@ token reaches only `/channels/<its name>/...`; anything else answers 403.
 | `GET /stream` | Server-Sent Events, kept open while the process runs. Each event has an `event:` kind and JSON `data:`. While it's open the channel can deliver `send_message` messages and job approvals. A second stream replaces the first. |
 | `PUT /status` | `{"items": [SetupItem, ...]}`: what the apps show for this channel (see below). Send it after connecting and whenever it changes. |
 | `POST /deliveries/{id}` | `{"error": ""}`: the result of a `deliver` or `approval` event. Empty error means delivered. Unanswered within 30 seconds counts as failed. |
-| `POST /conversation` | Start a new conversation (the channel's `/new`). Returns `{"thread_id": "..."}`. |
+| `POST /conversation` | Start a side conversation (the channel's `/new`). Returns `{"thread_id": "..."}`. |
+| `DELETE /conversation` | Go back to the home conversation (the channel's `/home`). Returns `{"thread_id": "..."}`. A channel is on home until its `/new`. |
 | `POST /messages` | Multipart form: `text`, and `files` (repeated). Sends a user message in the channel's current conversation. Returns `{"run_id": "..."}`. |
-| `POST /approvals` | `{"decisions": {"<interrupt_id>": {"approved": true, "reason": ""}}}` or a question's `{"choices": [...]}` (`null` when skipped). Resumes the channel's conversation. Returns `{"run_id": "..."}`. |
+| `POST /approvals` | `{"decisions": {"<interrupt_id>": {"approved": true, "reason": ""}}}`, a question's `{"choices": [...]}` (`null` when skipped), or a side conversation suggestion's `{"moved": bool}`. Resumes the channel's conversation. Returns `{"run_id": "..."}`. On `moved: true`, once that run ends, start a side conversation (`POST /conversation`) and send the request's `first_message` there. |
 | `GET /approvals` | The approvals and questions the channel's conversation waits for: `[{"interrupt_id": "...", "request": {...}}]`. |
 | `GET /runs/{run_id}/events` | A run's events as Server-Sent Events: `data:` is an event (`{"type": "TextDelta", ...}`, the same JSON as `/runs/{id}/events`), each with an `id:`; the last one has `event: end`. Send `Last-Event-ID` to resume. |
 | `POST /job-approvals/{interrupt_id}` | `{"approved": true, "reason": ""}`: the answer to an `approval` event. Returns `{"waiting": bool}`: false when the job's run already went on without it. |

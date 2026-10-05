@@ -1,6 +1,6 @@
 """Modal screens opened from the chat: setup (the model, audio, web search, chat channels, email, MCP
 servers, start at boot), browsing (plugins, skills, jobs, files, usage, connected clients), the profile,
-approvals and questions."""
+approvals, questions and the suggestion to move a task to a side conversation."""
 
 from assistant_terminal.tui.screens.approval import ApprovalScreen
 from assistant_terminal.tui.screens.audio import AudioScreen
@@ -19,6 +19,7 @@ from assistant_terminal.tui.screens.profile import ProfileScreen
 from assistant_terminal.tui.screens.question import QuestionScreen
 from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 from assistant_terminal.tui.screens.sessions import SessionsScreen
+from assistant_terminal.tui.screens.side_conversation import SideConversationScreen
 from assistant_terminal.tui.screens.skills import SkillsScreen
 from assistant_terminal.tui.screens.startup import StartupScreen
 from assistant_terminal.tui.screens.usage import UsageScreen
@@ -42,6 +43,7 @@ __all__ = [
     "QuestionScreen",
     "RepositoryInstallScreen",
     "SessionsScreen",
+    "SideConversationScreen",
     "SkillsScreen",
     "StartupScreen",
     "UsageScreen",

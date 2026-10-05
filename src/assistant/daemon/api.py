@@ -417,9 +417,16 @@ def _add_session_routes(app: FastAPI, service: AssistantService, clients: Client
     async def health() -> Ok:
         return Ok()
 
+    @app.post("/threads/home")
+    async def home_thread(request: Request) -> ThreadCreated:
+        """Moves the calling client to the home conversation, leaving the one it was on."""
+        thread_id = await service.home_thread(settings.owner_id)
+        clients.on_thread(_client_id(request), thread_id)
+        return ThreadCreated(thread_id=thread_id)
+
     @app.post("/threads")
     async def new_thread(request: Request) -> ThreadCreated:
-        """A new conversation for the calling client, which leaves the one it was on."""
+        """A new side conversation for the calling client, which leaves the one it was on."""
         thread_id = await service.new_thread(settings.owner_id)
         clients.on_thread(_client_id(request), thread_id)
         return ThreadCreated(thread_id=thread_id)
@@ -605,12 +612,20 @@ def _add_channel_plugin_routes(app: FastAPI, service: AssistantService) -> None:
 
 
 def _add_channel_run_routes(app: FastAPI, service: AssistantService, hub: RunHub) -> None:
-    """A channel plugin's conversation: it keeps one in the Store until its /new (ThreadsMixin.session)."""
+    """A channel plugin's conversation: home, or a side conversation from its /new until its /home
+    (ThreadsMixin.session)."""
 
     @app.post("/channels/{name}/conversation")
     async def new_channel_conversation(name: str, request: Request) -> ThreadCreated:
+        """Starts a side conversation for the channel (its /new)."""
         _require_channel(request, name)
         return ThreadCreated(thread_id=await service.new_channel_thread(settings.owner_id, name))
+
+    @app.delete("/channels/{name}/conversation")
+    async def channel_home(name: str, request: Request) -> ThreadCreated:
+        """Moves the channel back to the home conversation (its /home)."""
+        _require_channel(request, name)
+        return ThreadCreated(thread_id=await service.channel_home(settings.owner_id, name))
 
     @app.post("/channels/{name}/messages")
     async def channel_message(

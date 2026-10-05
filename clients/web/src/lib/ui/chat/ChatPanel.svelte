@@ -90,6 +90,8 @@
     switch (name) {
       case "/new":
         return void chat.startNew();
+      case "/home":
+        return void chat.goHome();
       case "/conversations":
         return void goto(resolve("/conversations"));
       case "/sessions":

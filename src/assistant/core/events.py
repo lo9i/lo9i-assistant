@@ -34,7 +34,10 @@ class ApprovalRequired:
     `question`, `options` and `multiple`, answered with {"choices": [picked options]}. One whose
     `kind` is PLUGIN_OFFER offers a plugin from the extras (core/tools/plugins.py), with `name`,
     `description` and the plugin as the repository lists it (`server` or `skill`): the app installs
-    it through its usual route and answers {"installed": bool}. One whose `kind` is PLUGIN_SETUP opens
+    it through its usual route and answers {"installed": bool}. One whose `kind` is SIDE_CONVERSATION
+    suggests moving a task out of home (core/tools/side.py), with `title`, `brief` and
+    `first_message`: it's answered {"moved": bool}, and on yes the client starts a side conversation
+    once this run ends and sends `first_message` there. One whose `kind` is PLUGIN_SETUP opens
     an installed plugin's setup (its email accounts, a channel's pairing), with `name`, `description`
     and `server`, answered with {"done": true} once the user closes it."""
 
@@ -61,6 +64,13 @@ PLUGIN_SETUP = "plugin_setup"
 
 def is_plugin_setup(request: dict[str, Any]) -> bool:
     return request.get("kind") == PLUGIN_SETUP
+
+
+SIDE_CONVERSATION = "side_conversation"
+
+
+def is_side_conversation(request: dict[str, Any]) -> bool:
+    return request.get("kind") == SIDE_CONVERSATION
 
 
 @dataclass

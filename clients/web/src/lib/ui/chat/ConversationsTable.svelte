@@ -2,6 +2,7 @@
   import MessagesSquare from "@lucide/svelte/icons/messages-square";
   import Play from "@lucide/svelte/icons/play";
   import type { Conversation } from "$lib/api/types";
+  import { homeFirst } from "$lib/chat/order";
   import { duration } from "$lib/duration";
   import EmptyState from "../EmptyState.svelte";
   import SearchField from "../SearchField.svelte";
@@ -20,11 +21,7 @@
   let { conversations, error, selected, current, onselect, oncontinue }: Props = $props();
   let query = $state("");
 
-  const shown = $derived(
-    (conversations ?? [])
-      .filter((c) => c.title.toLowerCase().includes(query.trim().toLowerCase()))
-      .sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
-  );
+  const shown = $derived((conversations ?? []).filter((c) => c.title.toLowerCase().includes(query.trim().toLowerCase())).sort(homeFirst));
 
   function when(iso: string): string {
     const date = new Date(iso);
@@ -59,6 +56,7 @@
             <tr class:selected={c.thread_id === selected} onclick={() => onselect(c.thread_id)} ondblclick={() => oncontinue(c.thread_id)}>
               <td>
                 <button class="title" onclick={(e) => (e.stopPropagation(), onselect(c.thread_id))}>{c.title || "Untitled"}</button>
+                {#if c.home}<span class="pill">Home</span>{/if}
                 {#if c.thread_id === current}<span class="pill pill--accent">This tab</span>{/if}
               </td>
               <td>

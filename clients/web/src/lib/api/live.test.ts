@@ -3,6 +3,7 @@ import { LiveConversation, type Conversations } from "./live";
 
 const daemon: Conversations = {
   clientId: "me",
+  homeThread: async () => "home",
   newThread: async () => "t2",
   resumeThread: async () => {},
 };

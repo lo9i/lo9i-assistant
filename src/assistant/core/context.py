@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
+from langchain_core.runnables import RunnableConfig
 from langgraph.store.base import BaseStore
 
 from assistant.core.bus import EventBus
@@ -68,6 +69,11 @@ def require_recall(context: Context) -> MemoryRecall:
     if context.recall is None:
         raise RuntimeError("The run was started without the memory search.")
     return context.recall
+
+
+def thread_of(config: RunnableConfig) -> str:
+    """The id of the conversation a run is in."""
+    return (config.get("configurable") or {}).get("thread_id", "")
 
 
 def require_store(store: BaseStore | None) -> BaseStore:

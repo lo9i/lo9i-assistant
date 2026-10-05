@@ -8,8 +8,9 @@ import certifi
 import pytest
 
 import assistant.core.integrations.email.smtp as sending
-from assistant.core.agent import EmailAccountNotFoundError, EmailError
+from assistant.core.agent import EmailAccountNotFoundError, EmailError, Session
 from assistant.core.config import settings
+from assistant.core.context import UNATTENDED_CHANNEL
 from assistant.core.conversation.prompt import build_system_prompt
 from assistant.core.events import ApprovalRequired
 from assistant.core.integrations.email import accounts
@@ -54,7 +55,7 @@ async def test_other_recipients_need_approval_and_are_denied_unattended(service,
     events = await collect(service.send(await service.session("u", "cli"), "email them"))
     assert any(isinstance(e, ApprovalRequired) and "stranger@x.com" in e.request["reason"] for e in events)
     script.call("send_email", to=["stranger@x.com"], subject="S", body="b").reply("could not")
-    events = await collect(service.send(await service.session("u", "worker"), "email them"))
+    events = await collect(service.send(Session("u", UNATTENDED_CHANNEL, "job:mail:1"), "email them"))
     assert events[1].output.startswith(UNATTENDED_DENIAL) and smtp == []
 
 

@@ -26,7 +26,7 @@ async def test_menu_filters_moves_and_completes(app):
 async def test_enter_runs_the_highlighted_command(app):
     async with app.run_test() as pilot:
         await pilot.click("#prompt")
-        await pilot.press("/", "h", "enter")  # /help
+        await pilot.press("/", "h", "e", "enter")  # /help
         await pilot.pause(0.2)
         assert len(app.query(SystemNote)) == 1
 

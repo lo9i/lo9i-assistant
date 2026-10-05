@@ -90,6 +90,12 @@ def _typed(schema: dict) -> bool:
     return "$ref" in schema or bool(schema.get("properties"))
 
 
+async def test_clients_open_on_home_and_new_starts_a_side_conversation(client, service):
+    home = await client.home_thread("owner")
+    assert home == await service.home_thread("owner") == await client.home_thread("owner")
+    assert await client.new_thread("owner") != home
+
+
 async def test_send_with_attachment_approve_and_resume(client, script):
     script.call("bash", command="cat notes.txt || true").reply("read it")
     script.call("bash", command="rm -rf build").reply("left it")

@@ -53,8 +53,9 @@ export type McpServerSettings = Schemas["McpServerSettings"];
 export type McpServerChange = Schemas["McpServerChange"];
 
 /** An approval, with `kind: "question"` a question with options, with `kind: "plugin"` a plugin the
- *  agent offers to install, or with `kind: "plugin_setup"` an installed plugin's setup to open; the
- *  plugin comes as the extras list it, `server` or `skill` (core/events.py). */
+ *  agent offers to install, with `kind: "plugin_setup"` an installed plugin's setup to open (the
+ *  plugin comes as the extras list it, `server` or `skill`), or with `kind: "side_conversation"` a
+ *  task to move out of home, with its `title`, `brief` and `first_message` (core/events.py). */
 export type ApprovalRequest = {
   kind?: string;
   tool?: string;
@@ -66,12 +67,19 @@ export type ApprovalRequest = {
   name?: string;
   server?: FoundServer;
   skill?: FoundSkill;
+  title?: string;
+  brief?: string;
+  first_message?: string;
 } & Record<string, unknown>;
 export type ApprovalRequired = { type: "ApprovalRequired"; interrupt_id: string; request: ApprovalRequest };
-/** An approval's answer, a question's (the options picked, null when skipped), or whether the user
- *  installed the plugin offered. */
+/** An approval's answer, a question's (the options picked, null when skipped), whether the user
+ *  installed the plugin offered, or moved the task to a side conversation. */
 export type Decision =
-  { approved: boolean; reason: string | null } | { choices: string[] | null } | { installed: boolean } | { done: boolean };
+  | { approved: boolean; reason: string | null }
+  | { choices: string[] | null }
+  | { installed: boolean }
+  | { done: boolean }
+  | { moved: boolean };
 
 export type RunEvent =
   | { type: "TextDelta"; text: string }

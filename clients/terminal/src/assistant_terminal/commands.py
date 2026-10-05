@@ -18,8 +18,9 @@ class Command:
 GET_TO_KNOW_ME = "Get to know me."
 
 COMMANDS = [
-    Command("/new", "/new", "Start a new conversation"),
+    Command("/new", "/new", "Start a side conversation"),
     Command("/conversations", "/conversations", "Earlier conversations, to resume one"),
+    Command("/home", "/home", "Go back to the home conversation"),
     Command("/attach", "/attach <path>", "Attach a file to the next message"),
     Command("/plugins", "/plugins", "Install, update and remove plugins from the extras"),
     Command("/skills", "/skills", "Browse, install and delete skills"),

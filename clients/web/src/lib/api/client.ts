@@ -519,7 +519,12 @@ export class DaemonClient {
     return this.transport.clientId;
   }
 
-  /** Move this client to a new conversation. */
+  /** Move this client to the home conversation and return its id. */
+  async homeThread(): Promise<string> {
+    return (await this.transport.request<Schemas["ThreadCreated"]>("POST", "/threads/home")).thread_id;
+  }
+
+  /** Move this client to a new side conversation. */
   async newThread(): Promise<string> {
     return (await this.transport.request<Schemas["ThreadCreated"]>("POST", "/threads")).thread_id;
   }

@@ -40,13 +40,22 @@ async def test_bash_runs_in_the_workspace_without_app_secrets(service, script, m
     assert str(isolated_settings / "workspace") in output and output.strip().endswith("0")
 
 
-async def test_each_channel_keeps_its_own_conversation(service):
-    cli = await service.session("u", "cli")
-    telegram = await service.session("u", "telegram")
-    assert cli.thread_id != telegram.thread_id
-    new = await service.new_channel_thread("u", "telegram")
-    assert (await service.session("u", "telegram")).thread_id == new
-    assert (await service.session("u", "cli")).thread_id == cli.thread_id
+async def test_channels_share_home_until_their_new_and_go_back_with_home(service):
+    home = await service.home_thread("u")
+    assert (await service.session("u", "telegram")).thread_id == home
+    assert (await service.session("u", "slack")).thread_id == home
+    side = await service.new_channel_thread("u", "telegram")
+    assert side != home and (await service.session("u", "telegram")).thread_id == side
+    assert (await service.session("u", "slack")).thread_id == home
+    assert await service.channel_home("u", "telegram") == home
+    assert (await service.session("u", "telegram")).thread_id == home
+
+
+async def test_deleting_home_starts_a_new_one(service, script):
+    home = await service.home_thread("u")
+    await collect(service.send(await service.session("u", "telegram"), "hi"))
+    await service.delete_conversation("u", home)
+    assert await service.home_thread("u") not in {home, ""}
 
 
 async def test_every_user_message_starts_with_a_turn_header(service, script):

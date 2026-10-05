@@ -652,6 +652,9 @@ class FakeClient:
         self.memory.profile = {"work": ["backend engineer"]}
         yield Done()
 
+    async def home_thread(self, user_id):
+        return "owner:abc"
+
     async def new_thread(self, user_id):
         return "owner:new"
 

@@ -7,7 +7,7 @@ from assistant.client import DaemonClient, DaemonUnavailableError
 from assistant.client.files import load_attachment
 from assistant.core.agent import InvalidNameError, Session
 from assistant.core.attachments import Attachment
-from assistant.core.events import ApprovalRequired, is_plugin_offer, is_plugin_setup, is_question
+from assistant.core.events import ApprovalRequired, is_plugin_offer, is_plugin_setup, is_question, is_side_conversation
 from assistant_terminal.channels_text import describe as describe_channel
 from assistant_terminal.commands import GET_TO_KNOW_ME, help_lines
 from assistant_terminal.conversations_text import when
@@ -33,6 +33,7 @@ class Repl:
         self._commands: dict[str, Callable[[str], Awaitable[None]]] = {
             "/help": self._help,
             "/new": self._new,
+            "/home": self._home,
             "/conversations": self._conversations,
             "/attach": self._attach,
             "/mcp": self._mcp,
@@ -73,10 +74,15 @@ class Repl:
             print(e)
 
     async def _run_turn(self, text: str, attachments: list[Attachment]) -> None:
+        carried: str | None = None
         approvals = await render(self._service.send(self._session, text, attachments))
         while approvals:
             decisions = await _collect_decisions(approvals)
+            carried = _moved(approvals, decisions) or carried
             approvals = await render(self._service.resume(self._session, decisions))
+        if carried is not None:
+            await self._new("")
+            await self._run_turn(carried, [])
 
     async def _get_to_know_me(self, _: str) -> None:
         """In a conversation of its own."""
@@ -88,7 +94,11 @@ class Repl:
 
     async def _new(self, _: str) -> None:
         self._session.thread_id = await self._service.new_thread(self._session.user_id)
-        print(f"New thread {self._session.thread_id}.")
+        print(f"Side conversation {self._session.thread_id}. /home goes back.")
+
+    async def _home(self, _: str) -> None:
+        self._session.thread_id = await self._service.home_thread(self._session.user_id)
+        print(f"Home {self._session.thread_id}.")
 
     async def _conversations(self, arg: str) -> None:
         """/conversations lists them, numbered; /conversations <number> resumes one."""
@@ -217,6 +227,11 @@ async def _collect_decisions(approvals: list[ApprovalRequired]) -> dict[str, dic
         if is_question(request):
             decisions[approval.interrupt_id] = await _answer_question(request)
             continue
+        if is_side_conversation(request):
+            print(paint(YELLOW, f"\nMove to a side conversation? {request.get('title')}\n{request.get('brief')}"))
+            answer = await _read_line("[y/N] ") or ""
+            decisions[approval.interrupt_id] = {"moved": answer.lower() in ("y", "yes")}
+            continue
         if is_plugin_setup(request):
             print(paint(YELLOW, f"\nSet up {request.get('name')} in /plugins in the full app."))
             decisions[approval.interrupt_id] = {"done": True}
@@ -235,6 +250,14 @@ async def _collect_decisions(approvals: list[ApprovalRequired]) -> dict[str, dic
         approved = answer.lower() in ("y", "yes")
         decisions[approval.interrupt_id] = {"approved": approved, "reason": None if approved else answer}
     return decisions
+
+
+def _moved(approvals: list[ApprovalRequired], decisions: dict[str, dict]) -> str | None:
+    """The first message of the side conversation the user moved the task to, if they did."""
+    for approval in approvals:
+        if is_side_conversation(approval.request) and decisions[approval.interrupt_id].get("moved"):
+            return str(approval.request.get("first_message", ""))
+    return None
 
 
 async def _answer_question(request: dict) -> dict:

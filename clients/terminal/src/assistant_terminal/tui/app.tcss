@@ -276,6 +276,31 @@ QuestionScreen {
     margin-right: 2;
 }
 
+SideConversationScreen {
+    align: center middle;
+}
+
+#side-conversation {
+    width: 80%;
+    max-width: 100;
+    height: auto;
+    padding: 1 2;
+    border: round ansi_cyan;
+    background: $dialog-background;
+}
+
+#side-conversation-brief {
+    margin: 1 0;
+}
+
+#side-conversation-buttons {
+    height: auto;
+}
+
+#side-conversation-buttons Button {
+    margin-right: 2;
+}
+
 ConfirmScreen {
     align: center middle;
 }

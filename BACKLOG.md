@@ -13,6 +13,8 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - A15. Subagents in scheduled jobs. Approvals inside a delegated task follow the job's forwarding rules (`core/approvals.py`).
 - A16. Subagent steps in Telegram and Slack: `lib/lo9i-chat` in the extras doesn't know `within` on tool events yet, so a subagent's calls show there as the agent's own. Show them under the delegate call, or not at all.
 - A17. A subagent's steps aren't kept: after a reload, or in a conversation opened later, a delegate call shows only its task and answer. Its checkpoint is in the conversation's thread under the call's namespace; the history the apps load could include them.
+- A19. Slack apps created before the home conversation have no `/home` command: their manifest lists only `/new`. Until the user adds `/home` in the Slack app's settings (Slash Commands), Slack can't go back home after a `/new`. Offer it in the plugin's setup items, with the steps.
+- A20. An approval waiting in home blocks every channel there: a message from Telegram while the web app's approval is open only repeats the approval (`core/agent/runs.py`). Show it on the channel with its buttons so it can be answered there, or let the message through and answer the approval as rejected.
 
 ## Daemon
 

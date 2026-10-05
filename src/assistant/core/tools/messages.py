@@ -6,7 +6,8 @@ from langchain_core.tools import tool
 from langgraph.prebuilt import ToolRuntime
 from langgraph.store.base import BaseStore
 
-from assistant.core.context import Context, require_store
+from assistant.core import home
+from assistant.core.context import Context, require_store, thread_of
 from assistant.core.conversation import sent
 from assistant.core.outbox import DeliveryError
 from assistant.core.repositories import offers
@@ -26,9 +27,10 @@ async def send_message(text: str, channel: str, runtime: ToolRuntime[Context]) -
         await outbox.send(channel, text)
     except DeliveryError as e:
         return await _not_installed(require_store(runtime.store), channel) or str(e)
-    # Sent from this channel's own conversation, it's already in its history.
-    if channel != runtime.context.channel:
-        await sent.record(require_store(runtime.store), runtime.context.user_id, channel, text, datetime.now(UTC))
+    # Sent from the conversation the channel is on (home, often), it's already in its history.
+    store, user_id = require_store(runtime.store), runtime.context.user_id
+    if await home.channel_thread(store, user_id, channel) != thread_of(runtime.config):
+        await sent.record(store, user_id, channel, text, datetime.now(UTC))
     return f"Sent on {channel}."
 
 
