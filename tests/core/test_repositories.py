@@ -358,7 +358,9 @@ async def test_a_category_that_disagrees_with_its_folder_is_refused(service, rep
 
 async def test_a_category_not_in_the_list_is_refused(service, repo):
     _write(repo / "tasks2", {"server.yaml": "url: https://tasks.example.com/mcp\ncategory: chat"})
-    with pytest.raises(RepositoryError, match="its category 'chat' isn't one of apps/finance, communications/chat"):
+    with pytest.raises(
+        RepositoryError, match="its category 'chat' isn't one of apps/finance, assistant/modes, communications/chat"
+    ):
         await service.browse_repository(URL)
 
 
