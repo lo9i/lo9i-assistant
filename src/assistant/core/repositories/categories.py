@@ -9,7 +9,13 @@ from pathlib import Path, PurePosixPath
 
 from assistant.core.repositories.folders import subfolders
 
-CATEGORIES = ("apps/finance", "communications/chat", "communications/email", "other/general")
+CATEGORIES = (
+    "apps/finance",
+    "assistant/modes",
+    "communications/chat",
+    "communications/email",
+    "other/general",
+)
 DEFAULT = "other/general"
 # The category a plugin with that section of server.yaml is in.
 _SECTIONS = {"channel": "communications/chat", "email": "communications/email"}
