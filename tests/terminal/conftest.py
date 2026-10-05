@@ -15,6 +15,8 @@ from assistant.core.agent import (
     DeviceError,
     EmailAccount,
     EmailError,
+    Episode,
+    Fact,
     FoundServer,
     InstalledFromRepository,
     InvalidNameError,
@@ -25,6 +27,7 @@ from assistant.core.agent import (
     McpServerError,
     McpServerStatus,
     McpToolInfo,
+    MemoryEditError,
     MemorySnapshot,
     ModelSettingsError,
     ModelStatus,
@@ -99,6 +102,33 @@ class FakeMemory:
     def __init__(self, skills: FakeSkills):
         self.profile = {}
         self._skills = skills
+        self.saved_facts = [Fact("f1", "likes jazz", "2026-10-01T09:00:00")]
+        self.saved_episodes = [Episode("2026-10-01T09:00", "2026-10-01T10:00", "Planned a trip", "e1")]
+
+    async def facts(self):
+        return list(self.saved_facts)
+
+    async def edit_fact(self, fact_id, text):
+        if not text.strip():
+            raise MemoryEditError("Write something, or delete it instead.")
+        self.saved_facts = [Fact(f"{fact_id}+", text) if f.id == fact_id else f for f in self.saved_facts]
+        return self.saved_facts[0]
+
+    async def delete_fact(self, fact_id):
+        self.saved_facts = [f for f in self.saved_facts if f.id != fact_id]
+
+    async def episodes(self):
+        return list(self.saved_episodes)
+
+    async def edit_episode(self, episode_id, summary):
+        self.saved_episodes = [
+            Episode(e.started_at, e.ended_at, summary, f"{episode_id}+") if e.id == episode_id else e
+            for e in self.saved_episodes
+        ]
+        return self.saved_episodes[0]
+
+    async def delete_episode(self, episode_id):
+        self.saved_episodes = [e for e in self.saved_episodes if e.id != episode_id]
 
     async def snapshot(self):
         sections = ["about", "people", "how_to_reply", "routine", "goals", "interests", "dislikes", "work"]

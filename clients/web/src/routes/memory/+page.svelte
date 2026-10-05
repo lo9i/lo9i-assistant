@@ -1,5 +1,7 @@
 <script lang="ts">
+  import BookOpen from "@lucide/svelte/icons/book-open";
   import Briefcase from "@lucide/svelte/icons/briefcase";
+  import Lightbulb from "@lucide/svelte/icons/lightbulb";
   import Clock from "@lucide/svelte/icons/clock";
   import Heart from "@lucide/svelte/icons/heart";
   import MessageSquareText from "@lucide/svelte/icons/message-square-text";
@@ -11,6 +13,7 @@
   import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
+  import MemoryList from "$lib/ui/memory/MemoryList.svelte";
   import ProfileSection from "$lib/ui/memory/ProfileSection.svelte";
   import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
 
@@ -30,6 +33,12 @@
   const memory = resource((c) => c.memory.snapshot(), ["memory"]);
   const { chat, client, notices } = useDaemon();
 
+  // What it saved on its own: facts, and a summary of each past conversation.
+  const facts = resource((c) => c.memory.facts(), ["memory"]);
+  const episodes = resource((c) => c.memory.episodes(), ["memory"]);
+  const factItems = $derived((facts.data ?? []).map((f) => ({ id: f.id, text: f.text, when: f.saved_at.slice(0, 10) })));
+  const episodeItems = $derived((episodes.data ?? []).map((e) => ({ id: e.id ?? "", text: e.summary, when: e.started_at.slice(0, 10) })));
+
   async function saveSection(name: string, items: string[]): Promise<void> {
     try {
       await client.memory.setProfileSection(name, items);
@@ -37,6 +46,15 @@
       notices.report(e);
     }
     memory.reload();
+  }
+
+  /** Lists reload from the `memory` event every change publishes. */
+  async function change(call: () => Promise<unknown>): Promise<void> {
+    try {
+      await call();
+    } catch (e) {
+      notices.report(e);
+    }
   }
 </script>
 
@@ -69,6 +87,32 @@
       {/each}
     </div>
   {/if}
+  <header class="intro">
+    <h2 class="text-heading">Saved along the way</h2>
+    <p class="text-meta">What the assistant noted in conversations. The newest facts are in its mind; it searches the rest.</p>
+  </header>
+  {#if facts.error || episodes.error}
+    <p class="error-text">{facts.error ?? episodes.error}</p>
+  {:else}
+    <div class="lists">
+      <MemoryList
+        title="Facts"
+        noun="fact"
+        items={factItems}
+        Icon={Lightbulb}
+        onedit={(id, text) => change(() => client.memory.editFact(id, text))}
+        ondelete={(id) => change(() => client.memory.deleteFact(id))}
+      />
+      <MemoryList
+        title="Past conversations"
+        noun="summary"
+        items={episodeItems}
+        Icon={BookOpen}
+        onedit={(id, text) => change(() => client.memory.editEpisode(id, text))}
+        ondelete={(id) => change(() => client.memory.deleteEpisode(id))}
+      />
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -85,6 +129,12 @@
   }
   .intro p {
     margin: 4px 0 0;
+  }
+  .lists {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(520px, 100%), 1fr));
+    gap: 16px;
+    align-items: start;
   }
   .grid {
     display: grid;

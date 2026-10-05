@@ -54,7 +54,7 @@ async def serve() -> None:
         servers = _listeners(app, socket_path)
         page_servers = [_server(create_pages_app(service), **bind) for bind in pages.ports()]
         tasks = [asyncio.create_task(s.serve()) for s in [*servers, *page_servers]]
-        background = [asyncio.create_task(_index_conversations(service))]
+        background = [asyncio.create_task(_index_conversations(service)), asyncio.create_task(_prune(service))]
         if https.enabled():
             background.append(asyncio.create_task(https.reload_on_renewal(servers[-1], page_servers[-1])))
         scheduler = Scheduler(service)
@@ -93,6 +93,15 @@ def _listeners(app, socket_path: Path) -> list["_Server"]:
     if https.enabled():
         servers.append(_server(app, **https.bind()))
     return servers
+
+
+async def _prune(service: AssistantService) -> None:
+    """Prunes the checkpoints of conversations saved before runs pruned their own (a catch-up)."""
+    try:
+        if pruned := await service.prune_checkpoints():
+            logger.info("Pruned %s old checkpoints.", pruned)
+    except Exception:
+        logger.exception("Couldn't prune old checkpoints")
 
 
 async def _index_conversations(service: AssistantService) -> None:

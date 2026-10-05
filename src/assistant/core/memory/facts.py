@@ -11,6 +11,8 @@ from assistant.core.memory.items import all_items
 class Fact:
     id: str
     text: str
+    # When it was saved, in UTC without a zone like the Store's times; "" for one not read from the Store.
+    saved_at: str = ""
 
 
 def namespace(user_id: str) -> tuple[str, ...]:
@@ -42,7 +44,7 @@ def _saved_at(item: Item) -> datetime:
 
 
 def _fact(item: Item) -> Fact:
-    return Fact(id=item.key, text=item.value["fact"])
+    return Fact(id=item.key, text=item.value["fact"], saved_at=_saved_at(item).isoformat())
 
 
 async def add(store: BaseStore, user_id: str, text: str) -> str:
@@ -54,6 +56,18 @@ async def add(store: BaseStore, user_id: str, text: str) -> str:
 
 async def remove(store: BaseStore, user_id: str, fact_id: str) -> None:
     await store.adelete(namespace(user_id), fact_id)
+
+
+async def replace(store: BaseStore, user_id: str, fact_id: str, text: str) -> Fact | None:
+    """Saves the new text under a new id, keeping when it was saved, and deletes the old one: the search
+    index (indexer.py) embeds what has a new key, so the vector follows the text. None when it's gone."""
+    item = await store.aget(namespace(user_id), fact_id)
+    if item is None:
+        return None
+    new_id = uuid4().hex[:8]
+    await store.aput(namespace(user_id), new_id, {"fact": text, "saved_at": _saved_at(item).isoformat()})
+    await remove(store, user_id, fact_id)
+    return Fact(new_id, text, _saved_at(item).isoformat())
 
 
 def render(facts: list[Fact]) -> str:

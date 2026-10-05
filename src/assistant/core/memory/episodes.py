@@ -26,6 +26,22 @@ async def save(store: BaseStore, user_id: str, episode: Episode) -> None:
     await store.aput(namespace(user_id), uuid4().hex, value)
 
 
+async def replace(store: BaseStore, user_id: str, episode_id: str, summary: str) -> Episode | None:
+    """Saves the new summary under a new key with the same times, and deletes the old one: the search
+    index (indexer.py) embeds what has a new key, so the vector follows the text. None when it's gone."""
+    item = await store.aget(namespace(user_id), episode_id)
+    if item is None:
+        return None
+    new_id = uuid4().hex
+    await store.aput(namespace(user_id), new_id, {**item.value, "summary": summary})
+    await remove(store, user_id, episode_id)
+    return Episode(item.value["started_at"], item.value["ended_at"], summary, new_id)
+
+
+async def remove(store: BaseStore, user_id: str, episode_id: str) -> None:
+    await store.adelete(namespace(user_id), episode_id)
+
+
 async def recent(store: BaseStore, user_id: str, limit: int) -> list[Episode]:
     """The latest `limit` episodes, oldest first. Older ones are found with search_memory."""
     episodes = sorted(await load_all(store, user_id), key=lambda e: e.ended_at)

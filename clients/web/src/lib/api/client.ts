@@ -23,6 +23,8 @@ import type {
   McpServerStatus,
   Me,
   MemorySnapshot,
+  Fact,
+  Episode,
   ModelChange,
   ModelOption,
   ModelProvider,
@@ -411,6 +413,34 @@ export class MemoryGroup {
   /** Replaces one profile section with the user's own list (at most 8 items). */
   setProfileSection(section: string, items: string[]): Promise<MemorySnapshot> {
     return this.transport.request("PUT", `/memory/profile/${encodeURIComponent(section)}`, { items });
+  }
+
+  /** Every saved fact, newest first. */
+  facts(): Promise<Fact[]> {
+    return this.transport.request("GET", "/memory/facts");
+  }
+
+  /** It gets a new id. Throws ApiError: 404 when it's gone, 400 for empty text. */
+  editFact(id: string, text: string): Promise<Fact> {
+    return this.transport.request("PUT", `/memory/facts/${encodeURIComponent(id)}`, { text });
+  }
+
+  async deleteFact(id: string): Promise<void> {
+    await this.transport.request("DELETE", `/memory/facts/${encodeURIComponent(id)}`);
+  }
+
+  /** Every summary of a past conversation, newest first. */
+  episodes(): Promise<Episode[]> {
+    return this.transport.request("GET", "/memory/episodes");
+  }
+
+  /** It gets a new id. Throws ApiError: 404 when it's gone, 400 for empty text. */
+  editEpisode(id: string, text: string): Promise<Episode> {
+    return this.transport.request("PUT", `/memory/episodes/${encodeURIComponent(id)}`, { text });
+  }
+
+  async deleteEpisode(id: string): Promise<void> {
+    await this.transport.request("DELETE", `/memory/episodes/${encodeURIComponent(id)}`);
   }
 }
 
