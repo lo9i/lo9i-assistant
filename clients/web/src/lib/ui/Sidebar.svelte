@@ -17,7 +17,6 @@
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { pageLabel } from "$lib/pages";
   import { sidebar } from "$lib/sidebar.svelte";
-  import VoiceButton from "./voice/VoiceButton.svelte";
 
   let { name }: { name: string } = $props();
 
@@ -54,6 +53,7 @@
   }
 
   type Item = { href: string; label: string; Icon: typeof Plus; add?: Add; count?: () => number; also?: string[] };
+  const ALERTS = resolve("/alerts");
   const NAV: Item[] = [
     {
       href: resolve("/conversations"),
@@ -66,7 +66,6 @@
     { href: resolve("/sessions"), label: "Active sessions", Icon: MonitorSmartphone },
     { href: resolve("/jobs"), label: "Scheduled", Icon: CalendarClock },
     { href: resolve("/devices"), label: "Devices", Icon: Laptop, add: { label: "Pair a browser", run: pairBrowser } },
-    { href: resolve("/alerts"), label: "Alerts", Icon: Bell, count: () => alerts.data?.length ?? 0 },
     // About you, Skills, Plugins and MCP servers are settings tabs with pages of their own; plugin updates show here.
     {
       href: resolve("/settings"),
@@ -129,7 +128,16 @@
       </div>
     {/each}
   </nav>
-  <div class="voice-slot"><VoiceButton /></div>
+  <!-- At the bottom, on its own: what needs attention. -->
+  <div class="footer-slot">
+    <div class="nav-row">
+      <a href={ALERTS} class="nav-item" aria-current={page.url.pathname.startsWith(ALERTS) ? "page" : undefined} title="Alerts">
+        <Bell size={20} />
+        <span class="label">Alerts</span>
+        {#if alerts.data?.length}<span class="count" aria-label="{alerts.data.length} new">{alerts.data.length}</span>{/if}
+      </a>
+    </div>
+  </div>
 </aside>
 
 <style>
@@ -198,10 +206,8 @@
     padding-inline: 8px;
     overflow-y: auto;
   }
-  .voice-slot {
-    display: flex;
-    justify-content: center;
-    padding: 12px 8px;
+  .footer-slot {
+    padding: 8px;
     border-top: 1px solid var(--color-border);
   }
   .nav-item {

@@ -5,6 +5,7 @@
   import Square from "@lucide/svelte/icons/square";
   import X from "@lucide/svelte/icons/x";
   import { offered, parse, takesArgument, type Command } from "$lib/chat/commands";
+  import { onEdgeLine, step } from "$lib/chat/history";
   import { pastedFiles } from "$lib/chat/pasted";
   import { useDaemon } from "$lib/daemon.svelte";
   import { Recorder } from "$lib/microphone.svelte";
@@ -20,8 +21,13 @@
     text?: string;
     /** Files waiting to be sent; the page adds the ones dropped on the chat. */
     files?: File[];
+    /** The messages sent in this conversation, oldest first, for Up and Down. */
+    sent?: string[];
   };
-  let { busy, running, onsend, onstop, oncommand, text = $bindable(""), files = $bindable([]) }: Props = $props();
+  let { busy, running, onsend, onstop, oncommand, text = $bindable(""), files = $bindable([]), sent = [] }: Props = $props();
+  // The sent message shown (an index into `sent`), and what was being typed before Up.
+  let recalled = $state<number | null>(null);
+  let typed = "";
 
   const { notices } = useDaemon();
   const recorder = new Recorder();
@@ -39,6 +45,18 @@
   function type(value: string): void {
     text = value;
     highlight = 0;
+    recalled = null;
+  }
+
+  /** Up or Down from the box's first or last line: an earlier or later sent message. */
+  function recall(e: KeyboardEvent, direction: -1 | 1): boolean {
+    const caret = (e.currentTarget as HTMLTextAreaElement).selectionStart;
+    if (!onEdgeLine(text, caret, direction) || (direction === 1 && recalled === null)) return false;
+    if (recalled === null) typed = text;
+    const next = step(sent.length, recalled, direction);
+    text = next === null ? typed : sent[next];
+    recalled = next;
+    return true;
   }
 
   function run(name: string, arg: string): void {
@@ -115,6 +133,11 @@
 
   function onkeydown(e: KeyboardEvent): void {
     if (menu.length && menuKey(e)) return;
+    const arrows: Record<string, -1 | 1> = { ArrowUp: -1, ArrowDown: 1 };
+    if (e.key in arrows && !e.shiftKey && recall(e, arrows[e.key])) {
+      e.preventDefault();
+      return;
+    }
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
       submit();
@@ -214,7 +237,8 @@
 <style>
   .dock {
     position: relative;
-    padding: 8px 16px 12px;
+    /* Room on the right for the voice button floating in the window's corner. */
+    padding: 8px 48px 12px 16px;
   }
   .composer {
     display: flex;

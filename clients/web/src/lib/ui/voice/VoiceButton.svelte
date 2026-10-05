@@ -138,13 +138,13 @@
   {/if}
   <button class="fab {current}" aria-label={LABELS[current]} title={LABELS[current]} onclick={press}>
     {#if current === "listening"}
-      <Send size={11} />
+      <Send size={12} />
     {:else if current === "thinking"}
-      <LoaderCircle size={11} class="spin" />
+      <LoaderCircle size={12} class="spin" />
     {:else if current === "speaking"}
-      <Volume2 size={11} />
+      <Volume2 size={12} />
     {:else}
-      <AudioLines size={11} />
+      <AudioLines size={12} />
     {/if}
   </button>
 </div>
@@ -154,17 +154,22 @@
 {/if}
 
 <style>
+  /* Floating in the window's bottom right corner, on every page. */
   .voice {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: var(--z-popover);
     display: flex;
   }
   .fab {
     display: grid;
     place-items: center;
-    width: 26px;
-    height: 26px;
+    width: 29px;
+    height: 29px;
     border: none;
     /* A speech bubble with its tail in the corner: talking with the assistant. */
-    border-radius: 13px 13px 4px 13px;
+    border-radius: 15px 15px 4px 15px;
     background: var(--color-action-primary);
     color: var(--color-action-on-primary);
     box-shadow: var(--shadow-popover);
@@ -184,13 +189,13 @@
   .fab :global(.spin) {
     animation: spin 1s linear infinite;
   }
-  /* Fixed beside the sidebar's bottom, since the sidebar clips what overflows it. */
+  /* Above the button, in the same corner. */
   .bubble {
     position: fixed;
-    left: calc(var(--sidebar-rail) + 40px);
-    bottom: 16px;
+    right: 24px;
+    bottom: 64px;
     z-index: var(--z-popover);
-    width: min(360px, calc(100vw - var(--sidebar-rail) - 56px));
+    width: min(360px, calc(100vw - 48px));
     max-height: 50vh;
     overflow-y: auto;
     padding: 12px 16px 16px;
