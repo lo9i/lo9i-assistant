@@ -21,6 +21,7 @@ from assistant.core.agent.mcp import (
     McpServerStatus,
     McpToolInfo,
 )
+from assistant.core.agent.memory import Episode, Fact, MemoryEditError, MemoryNotFoundError
 from assistant.core.agent.model import ModelOption, ModelProvider, ModelSettingsError, ModelStatus, ProviderField
 from assistant.core.agent.repositories import (
     FoundServer,
@@ -56,6 +57,8 @@ __all__ = [
     "EmailAccountNotFoundError",
     "EmailError",
     "EmailProvider",
+    "Episode",
+    "Fact",
     "FileUnavailableError",
     "FoundServer",
     "FoundSkill",
@@ -70,6 +73,8 @@ __all__ = [
     "McpServerError",
     "McpServerStatus",
     "McpToolInfo",
+    "MemoryEditError",
+    "MemoryNotFoundError",
     "MemorySnapshot",
     "ModelOption",
     "ModelProvider",

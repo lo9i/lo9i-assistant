@@ -25,6 +25,8 @@ from assistant.core.agent import (
     EmailAccountNotFoundError,
     EmailError,
     EmailProvider,
+    Episode,
+    Fact,
     FileUnavailableError,
     InstalledFromRepository,
     InvalidNameError,
@@ -36,6 +38,8 @@ from assistant.core.agent import (
     McpServerChanges,
     McpServerError,
     McpServerStatus,
+    MemoryEditError,
+    MemoryNotFoundError,
     MemorySnapshot,
     ModelOption,
     ModelProvider,
@@ -294,6 +298,10 @@ class ThreadCreated(BaseModel):
     thread_id: str
 
 
+class MemoryText(BaseModel):
+    text: str
+
+
 class PinnedSkills(BaseModel):
     # In the order they were pinned.
     skills: list[str]
@@ -338,6 +346,7 @@ def create_app(service: AssistantService, hub: RunHub, startup: Any = None, web_
     _add_run_routes(app, service, hub, clients, streams)
     _add_conversation_routes(app, service, clients)
     _add_pinned_skill_routes(app, service)
+    _add_memory_routes(app, service)
     _add_file_routes(app, service)
     _add_channel_routes(app, service)
     _add_channel_plugin_routes(app, service)
@@ -515,6 +524,46 @@ def _add_conversation_routes(app: FastAPI, service: AssistantService, clients: C
         except ConversationError as e:
             raise HTTPException(404, str(e)) from e
         return Ok()
+
+
+def _add_memory_routes(app: FastAPI, service: AssistantService) -> None:
+    """Saved facts and summaries of past conversations, edited and deleted from the apps. 404: it's gone;
+    400: empty text."""
+
+    @app.get("/memory/facts")
+    async def saved_facts() -> list[Fact]:
+        return await service.saved_facts(settings.owner_id)
+
+    @app.put("/memory/facts/{fact_id}")
+    async def edit_fact(fact_id: str, body: MemoryText) -> Fact:
+        return await _memory_call(service.edit_fact(settings.owner_id, fact_id, body.text))
+
+    @app.delete("/memory/facts/{fact_id}")
+    async def delete_fact(fact_id: str) -> Ok:
+        await _memory_call(service.delete_fact(settings.owner_id, fact_id))
+        return Ok()
+
+    @app.get("/memory/episodes")
+    async def saved_episodes() -> list[Episode]:
+        return await service.saved_episodes(settings.owner_id)
+
+    @app.put("/memory/episodes/{episode_id}")
+    async def edit_episode(episode_id: str, body: MemoryText) -> Episode:
+        return await _memory_call(service.edit_episode(settings.owner_id, episode_id, body.text))
+
+    @app.delete("/memory/episodes/{episode_id}")
+    async def delete_episode(episode_id: str) -> Ok:
+        await _memory_call(service.delete_episode(settings.owner_id, episode_id))
+        return Ok()
+
+
+async def _memory_call[T](call: Awaitable[T]) -> T:
+    try:
+        return await call
+    except MemoryNotFoundError as e:
+        raise HTTPException(404, str(e)) from e
+    except MemoryEditError as e:
+        raise HTTPException(400, str(e)) from e
 
 
 def _add_pinned_skill_routes(app: FastAPI, service: AssistantService) -> None:

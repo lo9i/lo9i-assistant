@@ -144,3 +144,36 @@ async def _until(condition) -> None:
             return
         await asyncio.sleep(0.02)
     raise TimeoutError("the index never caught up")
+
+
+async def _archive_saying(service, texts):
+    session = await service.session("owner", "telegram")
+    for text in texts:
+        await collect(service.send(session, text))
+    await service.new_channel_thread("owner", "telegram")
+    await asyncio.gather(*service._background)
+    await service.memory_writer.write_all()
+
+
+async def test_the_digest_also_gets_older_facts_close_to_what_the_user_said(service, digests, monkeypatch):
+    monkeypatch.setattr(settings, "memory_max_facts", 1)
+    monkeypatch.setattr("assistant.core.conversation.memory_writer._RELATED_PER_MESSAGE", 1)
+    await _fact(service, "the car goes to the garage on Tuesday")
+    await _fact(service, "likes jazz records")
+    await _fact(service, "prefers window seats")  # the most recent, the one the digest always gets
+    await service.memory_index.sync_all()
+    await _archive_saying(service, ["the car needs the garage again", "the garage for the car, Tuesday?"])
+    given = [f.text for f in digests.inputs[0].facts]
+    assert given == ["prefers window seats", "the car goes to the garage on Tuesday"]
+
+
+async def test_without_the_embedding_model_the_digest_gets_the_recent_facts(service, digests, monkeypatch):
+    from assistant.core.memory.embedder import EmbeddingError
+
+    async def unavailable(user_id, texts, limit_each):
+        raise EmbeddingError("the model is still downloading")
+
+    monkeypatch.setattr(service._recall, "facts_near", unavailable)
+    await _fact(service, "prefers window seats")
+    await _archive_saying(service, ["book a flight", "a window seat please"])
+    assert [f.text for f in digests.inputs[0].facts] == ["prefers window seats"]

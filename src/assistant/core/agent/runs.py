@@ -6,7 +6,7 @@ from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
-from assistant.core import observability
+from assistant.core import checkpoints, observability
 from assistant.core.agent.locking import LockingMixin
 from assistant.core.agent.search import SearchMixin
 from assistant.core.agent.session import Session
@@ -41,6 +41,16 @@ class RunsMixin(LockingMixin, SearchMixin):
             async for event in self._cancellable(session, input):
                 yield event
             await self._index_after_run(session.user_id, session.thread_id)
+            await checkpoints.prune(self._storage.checkpointer, session.thread_id)
+
+    async def prune_checkpoints(self) -> int:
+        """Prunes the conversations saved before runs pruned their own (core/checkpoints.py), one at a
+        time under its lock. Returns how many checkpoints went."""
+        pruned = 0
+        for thread_id in await checkpoints.prunable(self._storage.checkpointer):
+            async with self._thread_lock(thread_id):
+                pruned += await checkpoints.prune(self._storage.checkpointer, thread_id)
+        return pruned
 
     async def _cancellable(self, session: Session, input: Any) -> AsyncIterator[Event]:
         """Runs the graph in a task of its own, so `cancel` stops the graph and never the caller

@@ -50,3 +50,36 @@ async def test_a_full_section_takes_no_more_items(app, client):
         await pilot.press("enter")
         await wait_for(pilot, lambda: "full" in screen.query_one("#profile-body", Markdown).source)
         assert len(client.memory.profile["about"]) == 8
+
+
+async def test_saved_facts_are_edited_and_deleted_after_confirming(app, client):
+    async with app.run_test(size=(110, 40)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/profile", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ProfileScreen))
+        screen = app.screen
+        screen.query_one("#profile-section", Select).value = "saved:facts"
+        await wait_for(pilot, lambda: "1 saved." in screen.query_one("#profile-body", Markdown).source)
+
+        prompt = screen.query_one("#profile-input", Input)
+        prompt.focus()
+        prompt.value = "something new"
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: "Pick one to edit it" in screen.query_one("#profile-body", Markdown).source)
+        assert [f.text for f in client.memory.saved_facts] == ["likes jazz"]  # nothing added
+
+        items = screen.query_one("#profile-items", OptionList)
+        items.focus()
+        items.highlighted = 0
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: prompt.value == "likes jazz")
+        prompt.value = "likes jazz and blues"
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: [f.text for f in client.memory.saved_facts] == ["likes jazz and blues"])
+
+        items.focus()
+        items.highlighted = 0
+        await pilot.press("delete")
+        await wait_for(pilot, lambda: app.screen is not screen)
+        await pilot.press("y")
+        await wait_for(pilot, lambda: client.memory.saved_facts == [])

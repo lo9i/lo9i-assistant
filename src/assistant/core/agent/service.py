@@ -92,8 +92,10 @@ class AssistantService(
         self.channel_processes = ChannelProcesses(storage.store, self.channels_hub)
         embedder = E5Embedder()
         self.memory_index = MemoryIndexer(storage.store, storage.vectors, embedder, bus)
-        self.memory_writer = MemoryWriter(storage.store, storage.checkpointer, bus, lambda: self._digester)
         self._recall = MemoryRecall(storage.store, storage.vectors, embedder)
+        self.memory_writer = MemoryWriter(
+            storage.store, storage.checkpointer, bus, lambda: self._digester, self._recall
+        )
         self.update_checker = UpdateChecker(storage.store, bus)
         self._sign_ins = SignIns()
         self._use_model(model)

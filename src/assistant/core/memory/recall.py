@@ -1,5 +1,6 @@
-"""Finds saved facts and episodes by meaning, for search_memory."""
+"""Finds saved facts and episodes by meaning, for search_memory and the memory digest."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from langgraph.store.base import BaseStore
@@ -33,6 +34,14 @@ class MemoryRecall:
             facts=await facts.get(self._store, user_id, fact_ids),
             episodes=await episodes.get(self._store, user_id, episode_ids),
         )
+
+    async def facts_near(self, user_id: str, texts: Sequence[str], limit_each: int) -> list[Fact]:
+        """The saved facts closest to each text, once each, in the texts' order. Raises EmbeddingError."""
+        found: dict[str, None] = {}
+        for text in texts:
+            vector = await self._embedder.embed_query(text)
+            found.update(dict.fromkeys(await self._nearest(user_id, "fact", vector, limit_each)))
+        return await facts.get(self._store, user_id, list(found))
 
     async def _nearest(self, user_id: str, kind: str, vector: list[float], limit: int) -> list[str]:
         return await self._vectors.nearest(user_id, kind, self._embedder.model, vector, limit)

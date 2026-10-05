@@ -195,6 +195,27 @@ async def test_skills_and_usage_endpoints(client, script, isolated_settings, mon
         await client.skills.get("news-digest")
 
 
+async def test_facts_and_episodes_are_edited_and_deleted(client, service):
+    from assistant.core.agent import MemoryEditError, MemoryNotFoundError
+    from assistant.core.config import settings
+    from assistant.core.memory import episodes, facts
+    from assistant.core.memory.episodes import Episode
+
+    fact_id = await facts.add(service.store, settings.owner_id, "likes jazz")
+    await episodes.save(service.store, settings.owner_id, Episode("2026-10-01T09:00", "2026-10-01T10:00", "A trip"))
+    edited = await client.memory.edit_fact(fact_id, "likes jazz and blues")
+    assert [f.text for f in await client.memory.facts()] == ["likes jazz and blues"]
+    with pytest.raises(MemoryEditError):
+        await client.memory.edit_fact(edited.id, " ")
+    await client.memory.delete_fact(edited.id)
+    with pytest.raises(MemoryNotFoundError):
+        await client.memory.delete_fact(edited.id)
+    episode = (await client.memory.episodes())[0]
+    assert (await client.memory.edit_episode(episode.id, "A trip to Rome")).summary == "A trip to Rome"
+    await client.memory.delete_episode((await client.memory.episodes())[0].id)
+    assert await client.memory.facts() == [] and await client.memory.episodes() == []
+
+
 async def test_skills_are_pinned_to_a_conversation(client, isolated_settings, monkeypatch):
     from assistant.core.agent import SkillError
     from assistant.core.config import settings
