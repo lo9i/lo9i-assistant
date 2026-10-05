@@ -37,6 +37,8 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 - A13. Email accounts connected before providers were plugins have no plugin, so they show under Communications as servers entered by hand. One that signed in with OAuth can't sign in again there (that form has no OAuth): remove it and connect it again from its provider's plugin.
 - A18. The expenses plugin's settings page asks for the number format as a typed locale (es_AR). Offer a list of the formats used with the chosen currency, each shown with an example amount.
+- A22. A plugin can't tell lo9i that background work finished. The coding agents' tasks (`assistant/agents/claude-code`, `copilot` in the extras) run for minutes; the agent learns the result only by calling `task_status`, and the user isn't told when one ends. Let an MCP server send an event (a notification on its connection) that lo9i delivers to the conversation that started the task, as a turn header note or a message on its channel.
+- A23. A plugin's token is checked only when it's first used: a wrong Claude key fails the first coding task after about three minutes of Claude Code's retries. Let a plugin declare a check that runs when its fields are saved (a command or a tool), and show its error in the install dialog.
 
 ## Memory
 

@@ -11,6 +11,7 @@ from assistant.core.repositories.folders import subfolders
 
 CATEGORIES = (
     "apps/finance",
+    "assistant/agents",
     "assistant/modes",
     "communications/chat",
     "communications/email",
