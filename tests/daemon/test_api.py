@@ -195,6 +195,21 @@ async def test_skills_and_usage_endpoints(client, script, isolated_settings, mon
         await client.skills.get("news-digest")
 
 
+async def test_skills_are_pinned_to_a_conversation(client, isolated_settings, monkeypatch):
+    from assistant.core.agent import SkillError
+    from assistant.core.config import settings
+    from assistant.core.skills import store as skills
+
+    monkeypatch.setattr(settings, "skills_dir", str(isolated_settings / "skills"))
+    skills.save("coding", "Programming help", "Run the tests.")
+    thread_id = (await _new_session(client)).thread_id
+    assert await client.conversations.pin(thread_id, "coding") == ["coding"]
+    assert await client.conversations.pinned(thread_id) == ["coding"]
+    with pytest.raises(SkillError):
+        await client.conversations.pin(thread_id, "nope")
+    assert await client.conversations.unpin(thread_id, "coding") == []
+
+
 async def test_skills_and_servers_are_installed_from_a_repository_and_updated(client, isolated_settings, monkeypatch):
     import shutil
 

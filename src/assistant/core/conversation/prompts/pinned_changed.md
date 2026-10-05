@@ -1,0 +1,1 @@
+The user changed the skills pinned to this conversation. Pinned now: {pinned}. Follow the pinned skills' instructions in your system prompt from this message on, and stop following any skill that was unpinned.

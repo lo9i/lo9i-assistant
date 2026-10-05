@@ -33,6 +33,8 @@ _CHANGE_EVENTS = {
     "threads": "threads",
     "settings": "settings",
     "conversations": "conversations",
+    # Skills pinned to a conversation (core/conversation/pinned.py).
+    "pinned_skills": "pinned_skills",
     "devices": "devices",
     "mcp_servers": "mcp",
     # Failures of MCP servers and skills (core/health.py), shown with them.

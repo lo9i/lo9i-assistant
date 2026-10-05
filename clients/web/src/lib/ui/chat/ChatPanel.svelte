@@ -10,6 +10,7 @@
   import ApprovalModal from "./ApprovalModal.svelte";
   import Composer from "./Composer.svelte";
   import HelpModal from "./HelpModal.svelte";
+  import PinnedSkills from "./PinnedSkills.svelte";
   import Thread from "./Thread.svelte";
 
   // Commands that open a tab of the settings page.
@@ -24,6 +25,7 @@
   const snapshot = external(chat.subscribe, chat.getSnapshot);
   const name = resource((c) => c.identity.name(), ["settings"]);
   const speech = resource((c) => c.speech.settings(), ["settings"]);
+  const pinned = resource((c) => c.conversations.pinned(snapshot.current.threadId), ["pinned_skills"]);
   const player = new Player();
   let help = $state(false);
   let draft = $state("");
@@ -82,6 +84,26 @@
     }
   }
 
+  async function pin(skill: string): Promise<void> {
+    if (!skill) return notices.notify("Usage: /pin <skill>", "warning");
+    try {
+      await client.conversations.pin(snapshot.current.threadId, skill);
+      notices.notify(`Pinned ${skill} to this conversation. It takes effect from your next message.`);
+    } catch (e) {
+      notices.report(e);
+    }
+  }
+
+  async function unpin(skill: string): Promise<void> {
+    if (!skill) return notices.notify("Usage: /unpin <skill>", "warning");
+    try {
+      await client.conversations.unpin(snapshot.current.threadId, skill);
+      notices.notify(`Unpinned ${skill}. It takes effect from your next message.`);
+    } catch (e) {
+      notices.report(e);
+    }
+  }
+
   function command(name: string, arg: string): void {
     if (name in SETTINGS_TABS) {
       void goto(`${resolve("/settings")}?tab=${SETTINGS_TABS[name]}`);
@@ -110,6 +132,10 @@
         return void goto(resolve("/memory"));
       case "/name":
         return void rename(arg);
+      case "/pin":
+        return void pin(arg);
+      case "/unpin":
+        return void unpin(arg);
       case "/get-to-know-me":
         return void startGetToKnowYou(chat);
       case "/help":
@@ -142,6 +168,7 @@
     name={name.data || "the assistant"}
     onsuggest={(text) => (draft = text)}
   />
+  <PinnedSkills skills={pinned.data ?? []} onunpin={unpin} />
   <Composer
     bind:text={draft}
     bind:files={attached}

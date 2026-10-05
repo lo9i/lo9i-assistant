@@ -70,6 +70,26 @@ export class ConversationsGroup {
   async delete(threadId: string): Promise<void> {
     await this.transport.request("DELETE", `/conversations/${encodeURIComponent(threadId)}`);
   }
+
+  /** The skills pinned to the conversation, in the order they were pinned. */
+  async pinned(threadId: string): Promise<string[]> {
+    return (await this.transport.request<Schemas["PinnedSkills"]>("GET", this.pinPath(threadId))).skills;
+  }
+
+  /** Takes effect from the next message. Throws ApiError (404) for an unknown skill. */
+  async pin(threadId: string, name: string): Promise<string[]> {
+    const path = `${this.pinPath(threadId)}/${encodeURIComponent(name)}`;
+    return (await this.transport.request<Schemas["PinnedSkills"]>("PUT", path)).skills;
+  }
+
+  async unpin(threadId: string, name: string): Promise<string[]> {
+    const path = `${this.pinPath(threadId)}/${encodeURIComponent(name)}`;
+    return (await this.transport.request<Schemas["PinnedSkills"]>("DELETE", path)).skills;
+  }
+
+  private pinPath(threadId: string): string {
+    return `/conversations/${encodeURIComponent(threadId)}/pinned`;
+  }
 }
 
 export class FilesGroup {
