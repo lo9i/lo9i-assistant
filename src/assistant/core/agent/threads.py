@@ -39,6 +39,19 @@ class ThreadsMixin(ArchiveMixin):
             await home.start(store, user_id, thread_id)
         return thread_id
 
+    async def channels_to_home(self, user_id: str) -> int:
+        """Moves channels still on a conversation from before home existed to home, once: without a
+        home, every channel's saved conversation predates it (a /new now starts home first). Those
+        conversations are archived in the background. Returns how many channels moved."""
+        store = self._storage.store
+        if await home.current(store, user_id) is not None:
+            return 0
+        saved = await store.asearch(home.channels_namespace(user_id), limit=100)
+        for item in saved:
+            await store.adelete(home.channels_namespace(user_id), item.key)
+            self.leave_thread(user_id, item.value["thread_id"])
+        return len(saved)
+
     async def channel_home(self, user_id: str, channel: str) -> str:
         """Moves the channel back to home (its /home) and returns home's id. The side conversation
         it leaves is archived in the background."""
