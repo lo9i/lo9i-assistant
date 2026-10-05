@@ -15,6 +15,7 @@ CATEGORIES = (
     "assistant/modes",
     "communications/chat",
     "communications/email",
+    "communications/phone",
     "other/general",
 )
 DEFAULT = "other/general"

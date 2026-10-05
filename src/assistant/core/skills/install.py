@@ -13,7 +13,7 @@ import asyncio
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from assistant.core.repositories import categories
+from assistant.core.repositories import categories, platforms
 from assistant.core.repositories.checkout import checkout, default_name
 from assistant.core.repositories.folders import SERVER_FILE, subfolders
 from assistant.core.repositories.source import Source
@@ -50,11 +50,11 @@ class Candidate:
 
 
 def find(root: Path, url: str) -> dict[str, Candidate]:
-    """The repository's skills by name: the root itself, its folders, and the folders in its category
-    folders, which give their category."""
+    """The repository's skills that run on this system, by name: the root itself, its folders, and the
+    folders in its category folders, which give their category."""
     folders = [root, *subfolders(root), *categories.plugin_folders(root)]
     candidates = [_candidate(root, f, default_name(url) if f == root else f.name) for f in folders]
-    return {c.skill.name: c for c in candidates if c is not None}
+    return {c.skill.name: c for c in candidates if c is not None and platforms.runs_here(c.skill.platforms)}
 
 
 def check(names: list[str], found: dict[str, Candidate], url: str) -> None:
@@ -90,6 +90,8 @@ def _find_at(root: Path, path: str, name: str) -> Candidate:
     candidate = _candidate(root, root / path, name)
     if candidate is None or candidate.skill.name != name:
         raise SkillError(f"The repository doesn't have {name} at {path} any more.")
+    if not platforms.runs_here(candidate.skill.platforms):
+        raise SkillError(f"The new version of {name} doesn't run on {platforms.current()}.")
     if candidate.skill.problems:
         raise SkillError(
             f"The new version of {name} has problems, so the installed one stays: {' '.join(candidate.skill.problems)}"
