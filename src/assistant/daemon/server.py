@@ -47,6 +47,9 @@ async def serve() -> None:
         return
     socket_path.unlink(missing_ok=True)
     async with AssistantService.open() as service:
+        # Before any request, so no channel message lands in a conversation it's leaving.
+        if moved := await service.channels_to_home(settings.owner_id):
+            logger.info("Moved %s chat channels to the home conversation.", moved)
         app = create_app(service, RunHub(service.bus), Startup(stop))
         servers = _listeners(app, socket_path)
         page_servers = [_server(create_pages_app(service), **bind) for bind in pages.ports()]

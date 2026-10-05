@@ -72,3 +72,14 @@ async def test_unattended_runs_deny_instead_of_asking(service, script):
     events = await collect(service.send(await service.session("u", "worker"), "clean up"))
     assert not any(isinstance(e, ApprovalRequired) for e in events)
     assert events[1].output.startswith(UNATTENDED_DENIAL)
+
+
+async def test_channels_on_a_conversation_from_before_home_move_there_once(service):
+    namespace = ("threads", "u")
+    await service._storage.store.aput(namespace, "telegram", {"thread_id": "u:old"})
+    assert await service.channels_to_home("u") == 1
+    home = (await service.session("u", "telegram")).thread_id
+    assert home != "u:old" and home == await service.home_thread("u")
+    side = await service.new_channel_thread("u", "telegram")
+    assert await service.channels_to_home("u") == 0
+    assert (await service.session("u", "telegram")).thread_id == side
