@@ -1,4 +1,5 @@
 <script lang="ts">
+  import VoiceButton from "./voice/VoiceButton.svelte";
   import type { Snippet } from "svelte";
   import type { Failing, JobFinished, SignedOut } from "$lib/api/types";
   import { followRuns } from "$lib/chat/events";
@@ -50,6 +51,7 @@
 <div class="app-layout" class:collapsed={sidebar.collapsed}>
   <Sidebar name={name.data || "lo9i"} />
   <main class="main">{@render children()}</main>
+  <VoiceButton />
 </div>
 <Toasts {notices} />
 

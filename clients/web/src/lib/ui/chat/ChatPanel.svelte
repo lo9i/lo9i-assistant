@@ -3,6 +3,7 @@
   import { resolve } from "$app/paths";
   import { carriesFiles, droppedFiles } from "$lib/chat/dropped";
   import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
+  import { sentTexts } from "$lib/chat/history";
   import { finalReply } from "$lib/chat/transcript";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { Player, speaksReply } from "$lib/speech";
@@ -142,6 +143,7 @@
   <Composer
     bind:text={draft}
     bind:files={attached}
+    sent={sentTexts(snapshot.current.transcript.items)}
     busy={snapshot.current.busy}
     running={snapshot.current.busy || snapshot.current.mirroring}
     onsend={send}

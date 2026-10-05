@@ -7,6 +7,7 @@
   const KEYS = [
     ["Enter", "Send"],
     ["Shift+Enter", "New line"],
+    ["↑ / ↓", "Your earlier messages in this conversation"],
     ["Esc", "Stop the reply"],
     ["Tab", "Complete a command"],
     ["⌘B", "Collapse the sidebar"],
