@@ -294,6 +294,11 @@ class ThreadCreated(BaseModel):
     thread_id: str
 
 
+class PinnedSkills(BaseModel):
+    # In the order they were pinned.
+    skills: list[str]
+
+
 class RunStarted(BaseModel):
     run_id: str
 
@@ -332,6 +337,7 @@ def create_app(service: AssistantService, hub: RunHub, startup: Any = None, web_
     _add_session_routes(app, service, clients)
     _add_run_routes(app, service, hub, clients, streams)
     _add_conversation_routes(app, service, clients)
+    _add_pinned_skill_routes(app, service)
     _add_file_routes(app, service)
     _add_channel_routes(app, service)
     _add_channel_plugin_routes(app, service)
@@ -509,6 +515,26 @@ def _add_conversation_routes(app: FastAPI, service: AssistantService, clients: C
         except ConversationError as e:
             raise HTTPException(404, str(e)) from e
         return Ok()
+
+
+def _add_pinned_skill_routes(app: FastAPI, service: AssistantService) -> None:
+    """Skills pinned to a conversation: in full in its system prompt from the next user message on."""
+
+    @app.get("/conversations/{thread_id}/pinned")
+    async def pinned_skills(thread_id: str) -> PinnedSkills:
+        return PinnedSkills(skills=await service.pinned_skills(settings.owner_id, thread_id))
+
+    @app.put("/conversations/{thread_id}/pinned/{name}")
+    async def pin_skill(thread_id: str, name: str) -> PinnedSkills:
+        """404: no such skill."""
+        try:
+            return PinnedSkills(skills=await service.pin_skill(settings.owner_id, thread_id, name))
+        except SkillError as e:
+            raise HTTPException(404, str(e)) from e
+
+    @app.delete("/conversations/{thread_id}/pinned/{name}")
+    async def unpin_skill(thread_id: str, name: str) -> PinnedSkills:
+        return PinnedSkills(skills=await service.unpin_skill(settings.owner_id, thread_id, name))
 
 
 def _refuse_if_open(clients: ClientRegistry, thread_id: str, caller: str) -> None:

@@ -3,13 +3,13 @@ changes what the assistant does in every later conversation, so text the agent r
 (a web page, an email) must not be able to plant one."""
 
 import asyncio
-import sys
 
 from langchain_core.tools import tool
 from langgraph.prebuilt import ToolRuntime
 
 from assistant.core.context import Context
 from assistant.core.skills import store
+from assistant.core.skills.instructions import render as render_skill
 from assistant.core.skills.store import Skill, SkillError
 from assistant.core.tools.approval import ask
 from assistant.core.tools.registry import register
@@ -52,7 +52,7 @@ async def use_skill(name: str) -> str:
         skill = await asyncio.to_thread(store.load, name)
     except SkillError as e:
         return str(e)
-    return f"# Skill: {skill.name}\n\n{_problems_note(skill)}{skill.instructions}{_files_note(skill)}"
+    return f"# Skill: {skill.name}\n\n{render_skill(skill)}"
 
 
 @register("skills")
@@ -108,23 +108,6 @@ def _save_request(
         "reason": "a skill changes what the assistant does in later conversations",
         "command": "\n\n".join(parts),
     }
-
-
-def _problems_note(skill: Skill) -> str:
-    if not skill.problems:
-        return ""
-    found = "\n".join(f"- {problem}" for problem in skill.problems)
-    return f"This skill has problems; tell the user if they stop you from following it:\n{found}\n\n"
-
-
-def _files_note(skill: Skill) -> str:
-    if not skill.files:
-        return ""
-    listed = "\n".join(f"- {path}" for path in skill.files)
-    return (
-        f"\n\n## Files\n\nThis skill's folder is {store.folder(skill.name)}; paths in the instructions are "
-        f"relative to it. Run its Python scripts with {sys.executable}, through bash.\n\n{listed}"
-    )
 
 
 def _changed(context: Context) -> None:

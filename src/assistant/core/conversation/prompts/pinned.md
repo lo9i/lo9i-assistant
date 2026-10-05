@@ -1,0 +1,1 @@
+The user pinned these skills to this conversation. Follow their instructions for the whole conversation, without calling use_skill for them, until the user unpins them. When a pinned skill and the user's request disagree, the request wins.

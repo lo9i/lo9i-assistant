@@ -1,11 +1,12 @@
 """Builds the system prompt at the start of each epoch.
 
 Order runs from stable to volatile: persona, the assistant's name, operating instructions, channel hints,
-skills, connected accounts, plugins it can offer, then profile, facts, recent episodes and the running
-summary. Prompt texts live in `prompts/`.
+skills, the skills pinned to the conversation, connected accounts, plugins it can offer, then profile,
+facts, recent episodes and the running summary. Prompt texts live in `prompts/`.
 """
 
 import asyncio
+from collections.abc import Sequence
 
 from langgraph.store.base import BaseStore
 
@@ -17,15 +18,20 @@ from assistant.core.mcp import servers
 from assistant.core.memory import episodes, facts, profile
 from assistant.core.repositories import offers
 from assistant.core.skills import store as skills
+from assistant.core.skills.instructions import render as render_skill
+from assistant.core.skills.store import SkillError
 
 _OPERATING = prompts.load("operating")
 _CHANNELS = prompts.load("channels")
 _NAME = prompts.load("name")
 _ACCOUNTS = prompts.load("accounts")
 _PLUGINS = prompts.load("plugins")
+_PINNED = prompts.load("pinned")
 
 
-async def build_system_prompt(store: BaseStore, user_id: str, name: str, conversation_summary: str) -> str:
+async def build_system_prompt(
+    store: BaseStore, user_id: str, name: str, conversation_summary: str, pinned: Sequence[str] = ()
+) -> str:
     recent = await episodes.recent(store, user_id, settings.memory_max_episodes)
     sections = [
         await load_persona(),
@@ -33,6 +39,7 @@ async def build_system_prompt(store: BaseStore, user_id: str, name: str, convers
         _OPERATING,
         f"# Channels\n\n{await _channels_index(store)}",
         f"# Skills\n\n{await _skills_index()}",
+        *await _pinned_section(pinned),
         f"# Accounts\n\n{await _accounts_index(store)}",
         *await _plugins_section(store),
         f"# User profile\n\n{profile.render(await profile.load(store, user_id))}",
@@ -54,6 +61,23 @@ async def _skills_index() -> str:
     listed = await asyncio.to_thread(skills.list_skills)
     lines = "\n".join(f"- {s.name}: {s.description}" for s in listed)
     return f"To run a skill, call use_skill with its name and follow the instructions.\n\n{lines or '(none yet)'}"
+
+
+async def _pinned_section(names: Sequence[str]) -> list[str]:
+    """The pinned skills in full; no section when none is pinned. A pinned skill that was deleted is
+    left out. Like memory, a pinned skill edited mid-epoch shows from the next one."""
+    parts = [f"## Skill: {skill.name}\n\n{render_skill(skill)}" for skill in await _loaded(names)]
+    return [f"# Pinned skills\n\n{_PINNED}\n\n" + "\n\n".join(parts)] if parts else []
+
+
+async def _loaded(names: Sequence[str]) -> list[skills.Skill]:
+    loaded = []
+    for name in names:
+        try:
+            loaded.append(await asyncio.to_thread(skills.load, name))
+        except SkillError:
+            continue
+    return loaded
 
 
 async def _plugins_section(store: BaseStore) -> list[str]:

@@ -12,6 +12,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.prebuilt.tool_node import AsyncToolCallWrapper, ToolCallRequest
 from langgraph.runtime import Runtime
+from langgraph.store.base import BaseStore
 from langgraph.types import Send
 
 from assistant.core.attachments import hydrate
@@ -21,6 +22,7 @@ from assistant.core.conversation.epochs import (
     compact,
     is_idle,
     is_renamed,
+    is_repinned,
     is_too_large,
     open_epoch,
     reopen,
@@ -55,6 +57,9 @@ class AgentState(MessagesState):
     trimmed_before: int
     # The name in this epoch's system prompt; a rename starts a new epoch.
     assistant_name: str
+    # The skills pinned to this conversation when the epoch started (conversation/pinned.py), in full in
+    # its system prompt; pinning or unpinning one starts a new epoch.
+    pinned_skills: list[str]
     # Definitions of the MCP tools this epoch offers, frozen when it starts like the system
     # prompt. When the servers' tools change, the next user message starts a new epoch.
     mcp_tools: list[dict[str, Any]]
@@ -109,14 +114,22 @@ async def _epoch_update(
 ) -> dict:
     user_id, store = runtime.context.user_id, require_store(runtime.store)
     if not state.get("system_prompt"):
-        return await open_epoch(store, user_id, now)
+        return await open_epoch(store, user_id, thread_id, now)
     if is_idle(state, now) or is_too_large(state):
         update = await compact(state, store, user_id, thread_id, summarizer, now)
         if update:
             return update
-    if await is_renamed(state, store) or state.get("mcp_tools", []) != mcp.definitions():
-        return await reopen(state, store, user_id, now)
+    if await _prompt_changed(state, store, user_id, thread_id, mcp):
+        return await reopen(state, store, user_id, thread_id, now)
     return {}
+
+
+async def _prompt_changed(state: AgentState, store: BaseStore, user_id: str, thread_id: str, mcp: McpTools) -> bool:
+    """What the epoch's system prompt or tools were built from changed: the name, the pinned skills
+    or the MCP tools."""
+    if await is_renamed(state, store) or await is_repinned(state, store, user_id, thread_id):
+        return True
+    return state.get("mcp_tools", []) != mcp.definitions()
 
 
 def each_tool_call(node: str) -> Callable[[MessagesState], str | list[Send]]:

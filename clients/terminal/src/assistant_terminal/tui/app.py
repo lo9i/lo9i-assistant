@@ -15,7 +15,7 @@ from assistant.client.files import load_attachment
 from assistant.client.live import LiveConversation
 from assistant.client.recorder import Recorder, RecordingUnavailableError
 from assistant.client.recorder import available as recording_available
-from assistant.core.agent import ConversationError, FoundServer, InvalidNameError, Session
+from assistant.core.agent import ConversationError, FoundServer, InvalidNameError, Session, SkillError
 from assistant.core.attachments import Attachment
 from assistant.core.events import is_plugin_offer, is_plugin_setup, is_question, is_side_conversation
 from assistant_terminal.commands import GET_TO_KNOW_ME, Command, help_lines
@@ -120,6 +120,8 @@ class AssistantApp(App):
             "/profile": self._command_profile,
             "/sessions": self._command_sessions,
             "/name": self._command_name,
+            "/pin": self._command_pin,
+            "/unpin": self._command_unpin,
             "/get-to-know-me": self._command_get_to_know_me,
             "/mouse": self._command_mouse,
             "/help": self._command_help,
@@ -145,7 +147,7 @@ class AssistantApp(App):
     async def on_mount(self) -> None:
         self.register_theme(THEME)
         self.theme = THEME_NAME
-        self.sub_title = self._live.session.thread_id
+        await self.refresh_thread()
         self.query_one("#chat", VerticalScroll).anchor()
         self.query_one("#prompt", Input).focus()
         await self.refresh_memory()
@@ -342,7 +344,7 @@ class AssistantApp(App):
     async def _move_to_side(self, first_message: str) -> None:
         """The agent's suggestion was taken: the task goes on in a side conversation, starting with its brief."""
         await self._live.start_new()
-        self.sub_title = self._live.session.thread_id
+        await self.refresh_thread()
         await self._chat.remove_children()
         self.notify("Moved to a side conversation. /home goes back.")
         await self._chat.mount(UserMessage(first_message, []))
@@ -376,6 +378,12 @@ class AssistantApp(App):
             await self.push_screen_wait(ChannelSetupScreen(self._service.channels, plugin))
 
     @reports_daemon_unavailable
+    async def refresh_thread(self) -> None:
+        """The conversation's id under the title, then the skills pinned to it."""
+        thread_id = self._live.session.thread_id
+        pinned = await self._service.conversations.pinned(thread_id)
+        self.sub_title = f"{thread_id} · pinned: {', '.join(pinned)}" if pinned else thread_id
+
     async def refresh_title(self) -> None:
         self.title = await self._service.identity.name() or _DEFAULT_TITLE
 
@@ -430,7 +438,7 @@ class AssistantApp(App):
         if still_running:
             self._stop_showing_turn()
         await self._live.start_new(leave_running=still_running)
-        self.sub_title = self._live.session.thread_id
+        await self.refresh_thread()
         await self._chat.remove_children()
         previous = " The previous reply keeps running; you'll be notified when it's done." if still_running else ""
         self.notify(f"Started a new conversation.{previous}")
@@ -440,7 +448,7 @@ class AssistantApp(App):
         if still_running:
             self._stop_showing_turn()
         await self._live.go_home(leave_running=still_running)
-        self.sub_title = self._live.session.thread_id
+        await self.refresh_thread()
         await show_history(self._chat, await self._service.conversations.messages(self._live.session.thread_id))
         self.notify("Back home." + (" The previous reply keeps running." if still_running else ""))
 
@@ -460,7 +468,7 @@ class AssistantApp(App):
         except ConversationError as e:
             self.notify(str(e), severity="error")
             return
-        self.sub_title = thread_id
+        await self.refresh_thread()
         await show_history(self._chat, await self._service.conversations.messages(thread_id))
         self.notify("Resumed the conversation." + (" The previous reply keeps running." if still_running else ""))
 
@@ -518,6 +526,26 @@ class AssistantApp(App):
             self.notify(str(e), severity="error")
             return
         self.notify(f"Renamed to {name}. It takes effect from your next message.")
+
+    async def _command_pin(self, arg: str) -> None:
+        thread_id = self._live.session.thread_id
+        if not arg:
+            pinned = await self._service.conversations.pinned(thread_id)
+            self.notify(f"Pinned: {', '.join(pinned)}." if pinned else "No skills pinned: /pin <skill>.")
+            return
+        try:
+            await self._service.conversations.pin(thread_id, arg)
+        except SkillError as e:
+            self.notify(str(e), severity="error")
+            return
+        self.notify(f"Pinned {arg} to this conversation. It takes effect from your next message.")
+
+    async def _command_unpin(self, arg: str) -> None:
+        if not arg:
+            self.notify("Which skill? /unpin <skill>.", severity="warning")
+            return
+        await self._service.conversations.unpin(self._live.session.thread_id, arg)
+        self.notify(f"Unpinned {arg}. It takes effect from your next message.")
 
     async def _command_get_to_know_me(self, _: str) -> None:
         """In a conversation of its own."""

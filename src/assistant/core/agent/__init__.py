@@ -2,7 +2,7 @@
 
 The service is a facade (`service.py`) composed of mixins, one per concern:
 threads, files, memory, channels, email, mcp, sign-ins, alerts, repositories, model, identity, speech,
-web search, skills, jobs, usage, messaging, runs and locking.
+web search, skills, pinned skills, jobs, usage, messaging, runs and locking.
 """
 
 from assistant.core.agent.alerts import Alert

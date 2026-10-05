@@ -19,6 +19,12 @@ export const COMMANDS: Command[] = [
   { name: "/websearch", usage: "/websearch", description: "Web search: the Brave Search API key" },
   { name: "/startup", usage: "/startup", description: "Start the assistant at boot" },
   { name: "/name", usage: "/name <name>", description: "Rename the assistant" },
+  {
+    name: "/pin",
+    usage: "/pin <skill>",
+    description: "Keep a skill's instructions on for this conversation",
+  },
+  { name: "/unpin", usage: "/unpin <skill>", description: "Turn a pinned skill off for this conversation" },
   { name: "/profile", usage: "/profile", description: "What the assistant knows about you: add, edit and remove" },
   { name: "/get-to-know-me", usage: "/get-to-know-me", description: "Let the assistant get to know you" },
   { name: "/help", usage: "/help", description: "Show commands and keys" },

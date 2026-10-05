@@ -5,7 +5,7 @@ from collections.abc import Awaitable, Callable
 
 from assistant.client import DaemonClient, DaemonUnavailableError
 from assistant.client.files import load_attachment
-from assistant.core.agent import InvalidNameError, Session
+from assistant.core.agent import InvalidNameError, Session, SkillError
 from assistant.core.attachments import Attachment
 from assistant.core.events import ApprovalRequired, is_plugin_offer, is_plugin_setup, is_question, is_side_conversation
 from assistant_terminal.channels_text import describe as describe_channel
@@ -44,6 +44,8 @@ class Repl:
             "/skills": self._skills,
             "/plugins": self._plugins,
             "/name": self._name,
+            "/pin": self._pin,
+            "/unpin": self._unpin,
             "/get-to-know-me": self._get_to_know_me,
             "/jobs": self._jobs,
             "/usage": self._usage,
@@ -140,6 +142,26 @@ class Repl:
             print(f"Renamed to {await self._service.identity.rename(arg)}.")
         except InvalidNameError as e:
             print(e)
+
+    async def _pin(self, arg: str) -> None:
+        thread_id = self._session.thread_id
+        if not arg:
+            pinned = await self._service.conversations.pinned(thread_id)
+            print(f"Pinned: {', '.join(pinned)}." if pinned else "No skills pinned: /pin <skill>.")
+            return
+        try:
+            await self._service.conversations.pin(thread_id, arg)
+        except SkillError as e:
+            print(e)
+            return
+        print(f"Pinned {arg} to this conversation, from your next message.")
+
+    async def _unpin(self, arg: str) -> None:
+        if not arg:
+            print("Which skill? /unpin <skill>.")
+            return
+        await self._service.conversations.unpin(self._session.thread_id, arg)
+        print(f"Unpinned {arg}, from your next message.")
 
     async def _jobs(self, _: str) -> None:
         jobs = await self._service.jobs.list()

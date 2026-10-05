@@ -14,7 +14,7 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from langgraph.store.base import BaseStore
 
 from assistant.core.config import settings
-from assistant.core.conversation import pending
+from assistant.core.conversation import pending, pinned
 from assistant.core.conversation.pending import PendingPart
 from assistant.core.conversation.prompt import build_system_prompt
 from assistant.core.conversation.summary import Summarizer
@@ -24,12 +24,16 @@ from assistant.core.identity import load_name
 _CHARS_PER_TOKEN = 4
 
 
-async def open_epoch(store: BaseStore, user_id: str, now: datetime, summary: str = "") -> dict[str, Any]:
+async def open_epoch(
+    store: BaseStore, user_id: str, thread_id: str, now: datetime, summary: str = ""
+) -> dict[str, Any]:
     """State update that starts an epoch with a freshly built system prompt."""
     name = await load_name(store)
+    pinned_skills = await pinned.load(store, user_id, thread_id)
     return {
-        "system_prompt": await build_system_prompt(store, user_id, name, summary),
+        "system_prompt": await build_system_prompt(store, user_id, name, summary, pinned_skills),
         "assistant_name": name,
+        "pinned_skills": pinned_skills,
         "epoch_summary": summary,
         "epoch_started_at": now.isoformat(),
         "usage_anchor": None,
@@ -41,10 +45,17 @@ async def is_renamed(state: Mapping[str, Any], store: BaseStore) -> bool:
     return state.get("assistant_name", "") != await load_name(store)
 
 
-async def reopen(state: Mapping[str, Any], store: BaseStore, user_id: str, now: datetime) -> dict[str, Any]:
-    """A new epoch at the same point, after a rename or a change in the MCP tools. Nothing is
-    summarized: the messages stay, only the prompt and tools change (one cache miss)."""
-    return await open_epoch(store, user_id, now, state.get("epoch_summary", ""))
+async def is_repinned(state: Mapping[str, Any], store: BaseStore, user_id: str, thread_id: str) -> bool:
+    """The user pinned or unpinned a skill since this epoch's prompt was built."""
+    return state.get("pinned_skills", []) != await pinned.load(store, user_id, thread_id)
+
+
+async def reopen(
+    state: Mapping[str, Any], store: BaseStore, user_id: str, thread_id: str, now: datetime
+) -> dict[str, Any]:
+    """A new epoch at the same point, after a rename, a pinned skill or a change in the MCP tools.
+    Nothing is summarized: the messages stay, only the prompt and tools change (one cache miss)."""
+    return await open_epoch(store, user_id, thread_id, now, state.get("epoch_summary", ""))
 
 
 def is_idle(state: Mapping[str, Any], now: datetime) -> bool:
@@ -90,7 +101,7 @@ async def compact(
         return {}
     summary = await summarizer(state.get("epoch_summary", ""), render(state["messages"][start:cut]))
     await pending.add(store, user_id, _part(state, thread_id, start, cut, now))
-    return {"epoch_start": cut, **await open_epoch(store, user_id, now, summary)}
+    return {"epoch_start": cut, **await open_epoch(store, user_id, thread_id, now, summary)}
 
 
 async def archive(

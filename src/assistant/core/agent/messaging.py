@@ -11,7 +11,7 @@ from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
 from assistant.core.agent.titles import TitlesMixin
 from assistant.core.attachments import Attachment, Block, to_content
-from assistant.core.conversation import introduction, sent
+from assistant.core.conversation import introduction, pinned, sent
 from assistant.core.conversation.turn_header import header_block
 from assistant.core.events import Error, Event, Transcribed
 from assistant.core.speech import preferences
@@ -41,11 +41,12 @@ class MessagingMixin(RunsMixin, ConversationsMixin, TitlesMixin):
         self._title_in_background(session)
 
     async def _header_notes(self, session: Session) -> list[Block]:
-        """What goes in the turn header after the date: messages sent here from elsewhere, and the
-        one-time offer to get to know the user."""
+        """What goes in the turn header after the date: messages sent here from elsewhere, a change in
+        the pinned skills, and the one-time offer to get to know the user."""
         store = self._storage.store
         sent_here = await sent.take(store, session.user_id, session.channel)
-        return [*sent_here, *await introduction.offer(store, session.user_id, session.channel)]
+        repinned = await pinned.take_notice(store, session.user_id, session.thread_id)
+        return [*sent_here, *repinned, *await introduction.offer(store, session.user_id, session.channel)]
 
     async def resume(self, session: Session, decisions: dict[str, dict[str, Any]]) -> AsyncIterator[Event]:
         """Answer pending approvals. `decisions` maps interrupt id to {"approved": bool, "reason": str}."""

@@ -18,6 +18,7 @@ from assistant.core.agent.mcp import McpMixin
 from assistant.core.agent.memory import MemoryMixin
 from assistant.core.agent.messaging import MessagingMixin
 from assistant.core.agent.model import ModelMixin, usable_choice
+from assistant.core.agent.pinned import PinnedSkillsMixin
 from assistant.core.agent.repositories import RepositoriesMixin
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.sign_ins import SignInsMixin
@@ -69,6 +70,7 @@ class AssistantService(
     SpeechMixin,
     WebSearchMixin,
     SkillsMixin,
+    PinnedSkillsMixin,
     JobsMixin,
     UsageMixin,
     MessagingMixin,

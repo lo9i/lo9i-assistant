@@ -533,6 +533,7 @@ class FakeConversations:
     def __init__(self):
         self.items = [Conversation("owner:abc", "plan my trip", _NEXT, _NEXT)]
         self.said = {"owner:abc": [ShownMessage("user", "plan my trip"), ShownMessage("assistant", "Rome it is.")]}
+        self.pins: dict[str, list[str]] = {}
 
     async def recent(self):
         return list(self.items)
@@ -542,6 +543,19 @@ class FakeConversations:
 
     async def delete(self, thread_id):
         self.items = [c for c in self.items if c.thread_id != thread_id]
+
+    async def pinned(self, thread_id):
+        return list(self.pins.get(thread_id, []))
+
+    async def pin(self, thread_id, name):
+        if name != "coding":
+            raise SkillError(f"No skill named {name}.")
+        self.pins.setdefault(thread_id, []).append(name)
+        return await self.pinned(thread_id)
+
+    async def unpin(self, thread_id, name):
+        self.pins[thread_id] = [s for s in self.pins.get(thread_id, []) if s != name]
+        return await self.pinned(thread_id)
 
 
 class FakeDevices:
