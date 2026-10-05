@@ -5330,6 +5330,13 @@
             "type": "string",
             "title": "Category",
             "default": "other/general"
+          },
+          "platforms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Platforms"
           }
         },
         "type": "object",

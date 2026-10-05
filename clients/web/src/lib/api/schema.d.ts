@@ -2464,6 +2464,8 @@ export interface components {
              * @default other/general
              */
             category: string;
+            /** Platforms */
+            platforms?: string[];
         };
         /** SkillChange */
         SkillChange: {

@@ -39,6 +39,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - A18. The expenses plugin's settings page asks for the number format as a typed locale (es_AR). Offer a list of the formats used with the chosen currency, each shown with an example amount.
 - A22. A plugin can't tell lo9i that background work finished. The coding agents' tasks (`assistant/agents/claude-code`, `copilot` in the extras) run for minutes; the agent learns the result only by calling `task_status`, and the user isn't told when one ends. Let an MCP server send an event (a notification on its connection) that lo9i delivers to the conversation that started the task, as a turn header note or a message on its channel.
 - A23. A plugin's token is checked only when it's first used: a wrong Claude key fails the first coding task after about three minutes of Claude Code's retries. Let a plugin declare a check that runs when its fields are saved (a command or a tool), and show its error in the install dialog.
+- A24. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen.
 
 ## Memory
 

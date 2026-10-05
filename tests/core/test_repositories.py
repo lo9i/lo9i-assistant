@@ -362,6 +362,48 @@ async def test_a_category_not_in_the_list_is_refused(service, repo):
         await service.browse_repository(URL)
 
 
+@pytest.mark.parametrize("system", ["darwin", "linux"])
+async def test_plugins_for_another_system_arent_listed_or_installed(service, repo, monkeypatch, system):
+    monkeypatch.setattr("assistant.core.repositories.platforms.sys.platform", system)
+    _write(repo / "phone", {"server.yaml": "url: https://phone.example.com/mcp\nplatforms: [macos]"})
+    _write(repo / "anywhere", {"server.yaml": "url: https://anywhere.example.com/mcp\nplatforms: [linux, macos]"})
+    _write(
+        repo / "linux-tool", {"SKILL.md": "---\nname: linux-tool\ndescription: Linux\nplatforms: linux\n---\n\nSteps."}
+    )
+    contents = await service.browse_repository(URL)
+    servers_here = {s.name for s in contents.servers}
+    skills_here = {s.name for s in contents.skills}
+    assert "anywhere" in servers_here
+    assert ("phone" in servers_here) == (system == "darwin")
+    assert ("linux-tool" in skills_here) == (system == "linux")
+    if system == "linux":
+        with pytest.raises(McpServerError, match="has no MCP server named phone"):
+            await service.install_from_repository(URL, [], [ServerValues("phone")])
+
+
+async def test_a_platform_not_in_the_list_is_refused(service, repo):
+    _write(repo / "phone", {"server.yaml": "url: https://phone.example.com/mcp\nplatforms: [windows]"})
+    with pytest.raises(RepositoryError, match="its platforms windows aren't any of linux, macos"):
+        await service.browse_repository(URL)
+
+
+def test_a_skill_with_a_platform_not_in_the_list_has_a_problem(tmp_path):
+    _write(tmp_path / "x", {"SKILL.md": "---\nname: x\ndescription: X\nplatforms: [beos]\n---\n\nSteps."})
+    skill = store.read(tmp_path / "x")
+    assert skill is not None
+    assert skill.problems == ["In its SKILL.md, its platforms beos aren't any of linux, macos."]
+
+
+async def test_an_update_that_drops_this_system_keeps_the_installed_version(service, repo, monkeypatch):
+    monkeypatch.setattr("assistant.core.repositories.platforms.sys.platform", "linux")
+    await service.install_from_repository(URL, ["expenses"], [])
+    manifest = repo / "other" / "general" / "expenses" / "SKILL.md"
+    manifest.write_text(manifest.read_text().replace("description:", "platforms: [macos]\ndescription:"))
+    REMOTE["head"] = "head2"
+    with pytest.raises(SkillError, match="The new version of expenses doesn't run on linux"):
+        await service.update_installed_skill("expenses")
+
+
 async def test_a_channel_is_in_communications(service, repo):
     _write(repo / "bot", {"server.yaml": "channel: {command: run-bot}"})
     contents = await service.browse_repository(URL)
