@@ -14,13 +14,20 @@ from typing import Any
 
 from langgraph.store.base import BaseStore
 from mcp.client.session import IncomingMessage
-from mcp.types import Tool
+from mcp.types import CallToolResult, Tool
 
 from assistant.core.bus import EventBus
 from assistant.core.health import Health, HealthLog
 from assistant.core.hidden_text import strip_hidden
 from assistant.core.mcp import logins, servers, sign_in
-from assistant.core.mcp.connection import ClientFactory, McpConnection, describe, list_tools, open_client
+from assistant.core.mcp.connection import (
+    ClientFactory,
+    McpConnection,
+    NotConnectedError,
+    describe,
+    list_tools,
+    open_client,
+)
 from assistant.core.mcp.logins import SharedLogins
 from assistant.core.mcp.media import ToolMedia
 from assistant.core.mcp.oauth import McpAuth, needs_sign_in
@@ -123,6 +130,15 @@ class McpHub:
 
     def tool(self, name: str) -> McpTool | None:
         return self._tools.get(name)
+
+    async def call(self, server: str, tool: str, arguments: dict[str, Any]) -> CallToolResult:
+        """Calls a server's tool directly, not through the model: no approval and no selection apply,
+        as for a conversation the user handed to the server's agent (core/conversation/handoffs.py).
+        Raises NotConnectedError when the server isn't connected, and what McpConnection.call raises."""
+        running = self._running.get(server)
+        if running is None:
+            raise NotConnectedError(f"{server} isn't running. Turn it on in Plugins.")
+        return await running.connection.call(tool, arguments)
 
     def unavailable(self, name: str) -> str:
         """Why a tool this epoch offers can't run now, for the model."""

@@ -23,8 +23,10 @@
     files?: File[];
     /** The messages sent in this conversation, oldest first, for Up and Down. */
     sent?: string[];
+    /** Commands installed plugins add, such as /claude. */
+    extra?: Command[];
   };
-  let { busy, running, onsend, onstop, oncommand, text = $bindable(""), files = $bindable([]), sent = [] }: Props = $props();
+  let { busy, running, onsend, onstop, oncommand, text = $bindable(""), files = $bindable([]), sent = [], extra = [] }: Props = $props();
   // The sent message shown (an index into `sent`), and what was being typed before Up.
   let recalled = $state<number | null>(null);
   let typed = "";
@@ -36,7 +38,7 @@
   let picker = $state<HTMLInputElement>();
   let box = $state<HTMLTextAreaElement>();
   let list = $state<HTMLUListElement>();
-  const menu = $derived(offered(text));
+  const menu = $derived(offered(text, extra));
   const chosen = $derived(menu[Math.min(highlight, menu.length - 1)]);
   const previews = $derived(files.map((file) => (file.type.startsWith("image/") ? URL.createObjectURL(file) : null)));
 

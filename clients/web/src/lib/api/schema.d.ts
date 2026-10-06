@@ -500,6 +500,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Agents
+         * @description The agents installed plugins bring, with the command the apps offer for each.
+         */
+        get: operations["agents_agents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{thread_id}/agent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Conversation Agent */
+        get: operations["conversation_agent_conversations__thread_id__agent_get"];
+        /**
+         * Hand Conversation
+         * @description 400: no plugin brings that agent, or the folder doesn't exist.
+         */
+        put: operations["hand_conversation_conversations__thread_id__agent_put"];
+        post?: never;
+        /** Take Back Conversation */
+        delete: operations["take_back_conversation_conversations__thread_id__agent_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/files": {
         parameters: {
             query?: never;
@@ -1470,6 +1512,20 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * Agent
+         * @description An agent a plugin brings.
+         */
+        Agent: {
+            /** Server */
+            server: string;
+            /** Command */
+            command: string;
+            /** Name */
+            name: string;
+            /** Tool */
+            tool: string;
+        };
         /** Alert */
         Alert: {
             /**
@@ -1628,6 +1684,10 @@ export interface components {
              * @default false
              */
             home: boolean;
+        };
+        /** ConversationAgent */
+        ConversationAgent: {
+            handoff?: components["schemas"]["Handoff"] | null;
         };
         /** DeliveryResult */
         DeliveryResult: {
@@ -1899,6 +1959,11 @@ export interface components {
              * @default
              */
             model_login: string;
+            /**
+             * Agent
+             * @default
+             */
+            agent: string;
         };
         /**
          * FoundSkill
@@ -1936,6 +2001,27 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HandTo */
+        HandTo: {
+            /** Command */
+            command: string;
+            /** Folder */
+            folder: string;
+        };
+        /**
+         * Handoff
+         * @description The agent a conversation is with, and the folder it works in.
+         */
+        Handoff: {
+            /** Server */
+            server: string;
+            /** Command */
+            command: string;
+            /** Name */
+            name: string;
+            /** Folder */
+            folder: string;
         };
         /** InstalledFromRepository */
         InstalledFromRepository: {
@@ -3676,6 +3762,123 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agents_agents_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Agent"][];
+                };
+            };
+        };
+    };
+    conversation_agent_conversations__thread_id__agent_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationAgent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hand_conversation_conversations__thread_id__agent_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandTo"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationAgent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    take_back_conversation_conversations__thread_id__agent_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationAgent"];
                 };
             };
             /** @description Validation Error */

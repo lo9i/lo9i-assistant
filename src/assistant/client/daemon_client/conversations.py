@@ -1,5 +1,5 @@
 from assistant.client.daemon_client.transport import Transport
-from assistant.core.agent import Conversation, ConversationError, ShownMessage, SkillError
+from assistant.core.agent import Agent, Conversation, ConversationError, Handoff, HandoffError, ShownMessage, SkillError
 
 
 class ConversationsApi:
@@ -33,3 +33,23 @@ class ConversationsApi:
     async def unpin(self, thread_id: str, name: str) -> list[str]:
         """Returns the pinned skills."""
         return (await self._transport.request("DELETE", f"/conversations/{thread_id}/pinned/{name}"))["skills"]
+
+    async def agents(self) -> list[Agent]:
+        """The agents installed plugins bring: /<command> hands a conversation to one."""
+        return [Agent(**a) for a in await self._transport.request("GET", "/agents")]
+
+    async def agent(self, thread_id: str) -> Handoff | None:
+        """The agent the conversation is handed to; None while the assistant answers."""
+        found = (await self._transport.request("GET", f"/conversations/{thread_id}/agent"))["handoff"]
+        return Handoff(**found) if found else None
+
+    async def hand_to(self, thread_id: str, command: str, folder: str) -> Handoff:
+        """From the next message, the agent answers in `folder`. Raises HandoffError."""
+        body = {"command": command, "folder": folder}
+        path = f"/conversations/{thread_id}/agent"
+        found = await self._transport.request("PUT", path, json=body, errors={400: HandoffError})
+        return Handoff(**found["handoff"])
+
+    async def take_back(self, thread_id: str) -> None:
+        """The assistant answers again from the next message."""
+        await self._transport.request("DELETE", f"/conversations/{thread_id}/agent")

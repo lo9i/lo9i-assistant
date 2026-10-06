@@ -1037,6 +1037,153 @@
         }
       }
     },
+    "/agents": {
+      "get": {
+        "summary": "Agents",
+        "description": "The agents installed plugins bring, with the command the apps offer for each.",
+        "operationId": "agents_agents_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Agent"
+                  },
+                  "type": "array",
+                  "title": "Response Agents Agents Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{thread_id}/agent": {
+      "get": {
+        "summary": "Conversation Agent",
+        "operationId": "conversation_agent_conversations__thread_id__agent_get",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationAgent"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Hand Conversation",
+        "description": "400: no plugin brings that agent, or the folder doesn't exist.",
+        "operationId": "hand_conversation_conversations__thread_id__agent_put",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandTo"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationAgent"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Take Back Conversation",
+        "operationId": "take_back_conversation_conversations__thread_id__agent_delete",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationAgent"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/files": {
       "get": {
         "summary": "File List",
@@ -3459,6 +3606,35 @@
   },
   "components": {
     "schemas": {
+      "Agent": {
+        "properties": {
+          "server": {
+            "type": "string",
+            "title": "Server"
+          },
+          "command": {
+            "type": "string",
+            "title": "Command"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "tool": {
+            "type": "string",
+            "title": "Tool"
+          }
+        },
+        "type": "object",
+        "required": [
+          "server",
+          "command",
+          "name",
+          "tool"
+        ],
+        "title": "Agent",
+        "description": "An agent a plugin brings."
+      },
       "Alert": {
         "properties": {
           "area": {
@@ -3795,6 +3971,22 @@
           "updated_at"
         ],
         "title": "Conversation"
+      },
+      "ConversationAgent": {
+        "properties": {
+          "handoff": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Handoff"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ConversationAgent"
       },
       "DeliveryResult": {
         "properties": {
@@ -4250,6 +4442,11 @@
             "type": "string",
             "title": "Model Login",
             "default": ""
+          },
+          "agent": {
+            "type": "string",
+            "title": "Agent",
+            "default": ""
           }
         },
         "type": "object",
@@ -4322,6 +4519,53 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "HandTo": {
+        "properties": {
+          "command": {
+            "type": "string",
+            "title": "Command"
+          },
+          "folder": {
+            "type": "string",
+            "title": "Folder"
+          }
+        },
+        "type": "object",
+        "required": [
+          "command",
+          "folder"
+        ],
+        "title": "HandTo"
+      },
+      "Handoff": {
+        "properties": {
+          "server": {
+            "type": "string",
+            "title": "Server"
+          },
+          "command": {
+            "type": "string",
+            "title": "Command"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "folder": {
+            "type": "string",
+            "title": "Folder"
+          }
+        },
+        "type": "object",
+        "required": [
+          "server",
+          "command",
+          "name",
+          "folder"
+        ],
+        "title": "Handoff",
+        "description": "The agent a conversation is with, and the folder it works in."
       },
       "InstalledFromRepository": {
         "properties": {

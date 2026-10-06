@@ -11,6 +11,7 @@ from assistant.core.agent.conversations import Conversation, ShownMessage
 from assistant.core.agent.devices import Device, DeviceError, PairingCode
 from assistant.core.agent.email import EmailAccount, EmailAccountNotFoundError, EmailError, EmailProvider
 from assistant.core.agent.files import FileUnavailableError, UploadedFile
+from assistant.core.agent.handoffs import Agent, Handoff, HandoffError
 from assistant.core.agent.identity import InvalidNameError
 from assistant.core.agent.jobs import Job, JobError, RunRecord
 from assistant.core.agent.mcp import (
@@ -43,6 +44,7 @@ from assistant.core.agent.usage import TokenReport, UsageReport
 from assistant.core.agent.web_search import InvalidSearchKeyError, WebSearchStatus
 
 __all__ = [
+    "Agent",
     "Alert",
     "AssistantService",
     "ChannelNotConnectedError",
@@ -62,6 +64,8 @@ __all__ = [
     "FileUnavailableError",
     "FoundServer",
     "FoundSkill",
+    "Handoff",
+    "HandoffError",
     "InstalledFromRepository",
     "InvalidNameError",
     "InvalidSearchKeyError",

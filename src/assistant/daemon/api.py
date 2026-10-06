@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from assistant.core.agent import (
+    Agent,
     Alert,
     AssistantService,
     ChannelNotConnectedError,
@@ -28,6 +29,8 @@ from assistant.core.agent import (
     Episode,
     Fact,
     FileUnavailableError,
+    Handoff,
+    HandoffError,
     InstalledFromRepository,
     InvalidNameError,
     InvalidSearchKeyError,
@@ -302,6 +305,17 @@ class MemoryText(BaseModel):
     text: str
 
 
+class ConversationAgent(BaseModel):
+    # The agent the conversation is handed to; None while the assistant answers.
+    handoff: Handoff | None = None
+
+
+class HandTo(BaseModel):
+    # The agent's command, without the slash: "claude".
+    command: str
+    folder: str
+
+
 class PinnedSkills(BaseModel):
     # In the order they were pinned.
     skills: list[str]
@@ -347,6 +361,7 @@ def create_app(service: AssistantService, hub: RunHub, startup: Any = None, web_
     _add_conversation_routes(app, service, clients)
     _add_pinned_skill_routes(app, service)
     _add_memory_routes(app, service)
+    _add_handoff_routes(app, service)
     _add_file_routes(app, service)
     _add_channel_routes(app, service)
     _add_channel_plugin_routes(app, service)
@@ -524,6 +539,33 @@ def _add_conversation_routes(app: FastAPI, service: AssistantService, clients: C
         except ConversationError as e:
             raise HTTPException(404, str(e)) from e
         return Ok()
+
+
+def _add_handoff_routes(app: FastAPI, service: AssistantService) -> None:
+    """Conversations handed to a plugin's agent (core/conversation/handoffs.py)."""
+
+    @app.get("/agents")
+    async def agents() -> list[Agent]:
+        """The agents installed plugins bring, with the command the apps offer for each."""
+        return await service.agents()
+
+    @app.get("/conversations/{thread_id}/agent")
+    async def conversation_agent(thread_id: str) -> ConversationAgent:
+        return ConversationAgent(handoff=await service.conversation_agent(settings.owner_id, thread_id))
+
+    @app.put("/conversations/{thread_id}/agent")
+    async def hand_conversation(thread_id: str, body: HandTo) -> ConversationAgent:
+        """400: no plugin brings that agent, or the folder doesn't exist."""
+        try:
+            handoff = await service.hand_conversation(settings.owner_id, thread_id, body.command, body.folder)
+        except HandoffError as e:
+            raise HTTPException(400, str(e)) from e
+        return ConversationAgent(handoff=handoff)
+
+    @app.delete("/conversations/{thread_id}/agent")
+    async def take_back_conversation(thread_id: str) -> ConversationAgent:
+        await service.take_back_conversation(settings.owner_id, thread_id)
+        return ConversationAgent()
 
 
 def _add_memory_routes(app: FastAPI, service: AssistantService) -> None:

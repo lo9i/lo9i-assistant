@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { known, offered, parse } from "./commands";
+import { agentCommands, known, offered, parse } from "./commands";
 
 describe("commands", () => {
   it("offers commands while the name is typed", () => {
@@ -14,5 +14,16 @@ describe("commands", () => {
     expect(parse("/new")).toEqual({ name: "/new", arg: "" });
     expect(parse("hello /new")).toBeNull();
     expect(known("/jobs") && !known("/mouse")).toBe(true);
+  });
+});
+
+describe("agent commands", () => {
+  const claude = { server: "claude-code", command: "claude", name: "Claude Code", tool: "converse" };
+  it("adds a command per agent, never hiding a built-in one", () => {
+    const extra = agentCommands([claude, { ...claude, command: "new" }]);
+    expect(extra.map((c) => c.name)).toEqual(["/claude"]);
+    expect(extra[0].usage).toBe("/claude <folder> | off");
+    expect(offered("/cl", extra).map((c) => c.name)).toEqual(["/claude"]);
+    expect(offered("/cl").map((c) => c.name)).toEqual([]);
   });
 });

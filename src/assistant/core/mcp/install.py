@@ -35,6 +35,10 @@ code from it. In its commands, arguments and env values:
       style: A phone chat. Short messages.   # how to write there, for the system prompt
     libraries: [lo9i-chat]         # folders at ../../lib/ from its folder it uses (folders.library)
     model_login: copilot           # optional: a login of lo9i's its server gets instead of its own (logins.py)
+    agent:                         # optional: an agent the apps can hand a conversation to (handoffs.py)
+      command: claude              # /claude <folder> switches to it, /claude off back
+      name: Claude Code
+      tool: converse               # takes {conversation, folder, message}, returns the reply
     platforms: [macos]             # optional: the systems it runs on (repositories/platforms.py); all if absent
     category: communications       # outside a category's folder: what it's for (repositories/categories.py)
     steps:                         # optional: how to get what it asks for, shown when installing
@@ -71,6 +75,7 @@ from assistant.core.skills.errors import SkillError
 from assistant.core.uv import find as find_uv
 
 _KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]{0,63}$")
+_COMMAND = re.compile(r"^[a-z][a-z0-9-]{1,23}$")
 
 
 @dataclass(frozen=True)
@@ -118,6 +123,8 @@ class FoundServer:
     # A login of lo9i's its server uses instead of one of its own, like "copilot" (core/mcp/logins.py),
     # for the install dialogs to say; "" for none.
     model_login: str = ""
+    # The command of the agent it adds, like "claude" for /claude (core/conversation/handoffs.py); "" for none.
+    agent: str = ""
 
 
 @dataclass(frozen=True)
@@ -320,6 +327,7 @@ def _template(data: dict[str, Any], name: str) -> McpServer:
         channel_style=str(data.get("channel", {}).get("style", "")).strip(),
         email_providers=[asdict(p) for p in email_providers.parse(data.get("email"), name)],
         model_login=logins.parse(data.get("model_login")),
+        **dict(zip(("agent_command", "agent_name", "agent_tool"), _agent(data.get("agent")), strict=True)),
     )
 
 
@@ -341,6 +349,7 @@ def _found(data: dict[str, Any], template: McpServer, folder: Path, category_fol
         email=email,
         steps=[str(s).strip() for s in data.get("steps", []) if str(s).strip()],
         model_login=template.model_login,
+        agent=template.agent_command,
     )
 
 
@@ -383,6 +392,21 @@ def _check_skill(folder: Path, name: str) -> bool:
     if skill.problems:
         raise ValueError(f"its skill has problems: {' '.join(skill.problems)}")
     return True
+
+
+def _agent(section: object) -> tuple[str, str, str]:
+    """The `agent:` section's command, name and tool; empty ones without it. Raises ValueError for one
+    missing a part or with a command the apps can't offer."""
+    if not section:
+        return "", "", ""
+    if not isinstance(section, dict):
+        raise ValueError("its agent section must have command, name and tool")
+    parts = {key: str(section.get(key) or "").strip() for key in ("command", "name", "tool")}
+    if not all(parts.values()):
+        raise ValueError("its agent section must have command, name and tool")
+    if not _COMMAND.match(parts["command"]):
+        raise ValueError(f"its agent command {parts['command']!r} must be a lowercase word, like claude")
+    return parts["command"], parts["name"], parts["tool"]
 
 
 def _field(data: dict[str, Any]) -> ServerField:

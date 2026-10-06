@@ -14,6 +14,7 @@ class LiveApp(Protocol):
     def reload_screen(self) -> Awaitable[None]: ...
     def refresh_title(self) -> Awaitable[None]: ...
     def refresh_thread(self) -> Awaitable[None]: ...
+    def refresh_agents(self) -> Awaitable[None]: ...
     def refresh_plugin_updates(self) -> Awaitable[None]: ...
     def mirror_run(self, run: dict[str, Any]) -> None: ...
     def show_job(self, job: dict[str, Any]) -> None: ...
@@ -37,8 +38,14 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
     async def plugins(_: dict[str, Any]) -> None:
         await app.refresh_plugin_updates()
 
-    async def pinned_skills(_: dict[str, Any]) -> None:
+    async def thread(_: dict[str, Any]) -> None:
+        """The conversation's pinned skills or the agent it's handed to changed."""
         await app.refresh_thread()
+
+    async def mcp(_: dict[str, Any]) -> None:
+        """Plugins changed: an agent's command may have come or gone."""
+        await app.refresh_agents()
+        await app.reload_screen()
 
     return {
         "memory": memory,
@@ -49,10 +56,11 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         "jobs": screen,
         "conversations": screen,
         "devices": screen,
-        "mcp": screen,
+        "mcp": mcp,
         "settings": settings,
         "plugins": plugins,
-        "pinned_skills": pinned_skills,
+        "pinned_skills": thread,
+        "handoffs": thread,
         "job": app.show_job,
         "failing": app.show_failing,
         "signed_out": app.show_signed_out,

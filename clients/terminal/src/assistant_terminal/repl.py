@@ -5,11 +5,11 @@ from collections.abc import Awaitable, Callable
 
 from assistant.client import DaemonClient, DaemonUnavailableError
 from assistant.client.files import load_attachment
-from assistant.core.agent import InvalidNameError, Session, SkillError
+from assistant.core.agent import Agent, HandoffError, InvalidNameError, Session, SkillError
 from assistant.core.attachments import Attachment
 from assistant.core.events import ApprovalRequired, is_plugin_offer, is_plugin_setup, is_question, is_side_conversation
 from assistant_terminal.channels_text import describe as describe_channel
-from assistant_terminal.commands import GET_TO_KNOW_ME, help_lines
+from assistant_terminal.commands import GET_TO_KNOW_ME, agent_commands, help_lines
 from assistant_terminal.conversations_text import when
 from assistant_terminal.jobs_text import summary as jobs_summary
 from assistant_terminal.mcp_text import shown as shown_servers
@@ -19,8 +19,6 @@ from assistant_terminal.sessions_text import describe as describe_sessions
 from assistant_terminal.style import GREEN, RESET, YELLOW, code, paint
 from assistant_terminal.usage_text import describe as describe_usage
 from assistant_terminal.web_search_text import describe as describe_web_search
-
-_HELP = "Commands:\n" + "\n".join(f"  {line}" for line in help_lines())
 
 _USER_PROMPT = f"\n{paint(GREEN, '> ')}{code(GREEN)}"
 
@@ -65,8 +63,34 @@ class Repl:
         command = self._commands.get(name)
         if command:
             await command(arg.strip())
+        elif agent := await self._agent(name):
+            await self._hand(agent, arg.strip())
         else:
             await self._chat(line)
+
+    async def _agent(self, name: str) -> Agent | None:
+        """The installed plugin's agent this command switches to, like /claude."""
+        if not name.startswith("/"):
+            return None
+        agents = await self._service.conversations.agents()
+        offered = {c.name for c in agent_commands(agents)}
+        return next((a for a in agents if f"/{a.command}" == name and name in offered), None)
+
+    async def _hand(self, agent: Agent, arg: str) -> None:
+        """`/claude <folder>` hands the conversation to the agent, `/claude off` back."""
+        thread_id = self._session.thread_id
+        if arg == "off":
+            await self._service.conversations.take_back(thread_id)
+            print("The assistant answers again from your next message.")
+        elif not arg:
+            print(f"/{agent.command} <folder> talks to {agent.name}; /{agent.command} off goes back.")
+        else:
+            try:
+                handoff = await self._service.conversations.hand_to(thread_id, agent.command, arg)
+            except HandoffError as e:
+                print(e)
+                return
+            print(f"{handoff.name} answers from your next message, working in {handoff.folder}.")
 
     async def _chat(self, text: str) -> None:
         attachments, self._attachments = self._attachments, []
@@ -92,7 +116,8 @@ class Repl:
         await self._chat(GET_TO_KNOW_ME)
 
     async def _help(self, _: str) -> None:
-        print(_HELP)
+        extra = agent_commands(await self._service.conversations.agents())
+        print("Commands:\n" + "\n".join(f"  {line}" for line in help_lines(extra)))
 
     async def _new(self, _: str) -> None:
         self._session.thread_id = await self._service.new_thread(self._session.user_id)

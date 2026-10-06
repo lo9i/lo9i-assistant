@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { COMMANDS } from "$lib/chat/commands";
+  import { COMMANDS, type Command } from "$lib/chat/commands";
   import Modal from "../Modal.svelte";
 
-  let { onclose }: { onclose: () => void } = $props();
+  // `extra`: the commands installed plugins add, such as /claude.
+  let { onclose, extra = [] }: { onclose: () => void; extra?: Command[] } = $props();
 
   const KEYS = [
     ["Enter", "Send"],
@@ -18,7 +19,7 @@
 <Modal title="Commands and keys" width={580} {onclose}>
   <table class="help">
     <tbody>
-      {#each COMMANDS as c (c.name)}
+      {#each [...COMMANDS, ...extra] as c (c.name)}
         <tr><td><code>{c.usage}</code></td><td>{c.description}</td></tr>
       {/each}
       {#each KEYS as [key, what] (key)}

@@ -20,6 +20,8 @@ class CommandMenu(VerticalScroll):
         self._matches: list[Command] = []
         self._index = 0
         self._rows = {c.name: _CommandRow(c) for c in COMMANDS}
+        # Commands installed plugins add (set_extra).
+        self._extra: list[Command] = []
 
     def compose(self) -> ComposeResult:
         yield from self._rows.values()
@@ -32,9 +34,19 @@ class CommandMenu(VerticalScroll):
     def highlighted(self) -> Command | None:
         return self._matches[self._index] if self._matches else None
 
+    def set_extra(self, commands: list[Command]) -> None:
+        """The commands installed plugins add, like /claude: rows for new ones, none for those gone."""
+        for gone in [c for c in self._extra if c.name not in {n.name for n in commands}]:
+            self._rows.pop(gone.name).remove()
+        for command in commands:
+            if command.name not in self._rows:
+                self._rows[command.name] = _CommandRow(command)
+                self.mount(self._rows[command.name])
+        self._extra = list(commands)
+
     def filter(self, text: str) -> None:
         """Show commands matching `text` while it is a slash command without arguments yet."""
-        self._matches = matching(text) if text.startswith("/") and " " not in text else []
+        self._matches = matching(text, self._extra) if text.startswith("/") and " " not in text else []
         self._index = 0
         self._render_menu()
 
@@ -48,7 +60,7 @@ class CommandMenu(VerticalScroll):
         self.set_class(self.open, "visible")
         shown = {c.name for c in self._matches}
         highlighted = self.highlighted.name if self.highlighted else None
-        for command in COMMANDS:
+        for command in [*COMMANDS, *self._extra]:
             row, is_highlighted = self._rows[command.name], command.name == highlighted
             row.display = command.name in shown
             row.set_class(is_highlighted, "highlighted")

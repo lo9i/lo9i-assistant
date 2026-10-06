@@ -1,6 +1,9 @@
 """The CLI's slash commands, listed once for the command menu, /help and the plain REPL."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
+
+from assistant.core.agent import Agent
 
 
 @dataclass(frozen=True)
@@ -46,10 +49,25 @@ COMMANDS = [
 ]
 
 
-def matching(prefix: str) -> list[Command]:
-    return [c for c in COMMANDS if c.name.startswith(prefix)]
+def agent_commands(agents: Sequence[Agent]) -> list[Command]:
+    """The commands installed plugins' agents add (/claude), leaving out any that would hide a built-in one."""
+    built_in = {c.name for c in COMMANDS}
+    return [
+        Command(
+            f"/{a.command}",
+            f"/{a.command} <folder> | off",
+            f"Talk to {a.name} directly, working in a folder; off goes back to the assistant",
+        )
+        for a in agents
+        if f"/{a.command}" not in built_in
+    ]
 
 
-def help_lines() -> list[str]:
-    width = max(len(c.usage) for c in COMMANDS)
-    return [f"{c.usage.ljust(width)}   {c.description}" for c in COMMANDS]
+def matching(prefix: str, extra: Sequence[Command] = ()) -> list[Command]:
+    return [c for c in [*COMMANDS, *extra] if c.name.startswith(prefix)]
+
+
+def help_lines(extra: Sequence[Command] = ()) -> list[str]:
+    shown = [*COMMANDS, *extra]
+    width = max(len(c.usage) for c in shown)
+    return [f"{c.usage.ljust(width)}   {c.description}" for c in shown]

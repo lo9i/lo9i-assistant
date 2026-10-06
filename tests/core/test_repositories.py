@@ -416,6 +416,30 @@ async def test_a_server_can_ask_for_the_copilot_login_and_leave_a_field_optional
     assert (await servers.load(service.store, "coder")).model_login == "copilot"
 
 
+async def test_a_server_can_bring_an_agent_with_its_command(service, repo):
+    manifest = (
+        'command: "{python}"\nargs: ["{dir}/server.py"]\nagent: {command: claude, name: Claude Code, tool: converse}\n'
+    )
+    _write(repo / "coder", {"server.yaml": manifest, "server.py": _SERVER})
+    found = next(s for s in (await service.browse_repository(URL)).servers if s.name == "coder")
+    assert found.agent == "claude"
+    await service.install_from_repository(URL, [], [ServerValues("coder", {})])
+    assert [(a.command, a.name, a.tool) for a in await service.agents()] == [("claude", "Claude Code", "converse")]
+
+
+@pytest.mark.parametrize(
+    ("agent", "problem"),
+    [
+        ("{command: claude, name: Claude Code}", "must have command, name and tool"),
+        ("{command: Claude!, name: X, tool: t}", "must be a lowercase word"),
+    ],
+)
+async def test_an_agent_section_that_cant_work_is_refused(service, repo, agent, problem):
+    _write(repo / "coder", {"server.yaml": f"url: https://coder.example.com/mcp\nagent: {agent}"})
+    with pytest.raises(RepositoryError, match=problem):
+        await service.browse_repository(URL)
+
+
 async def test_an_unknown_model_login_is_refused(service, repo):
     _write(repo / "coder", {"server.yaml": "url: https://coder.example.com/mcp\nmodel_login: claude"})
     with pytest.raises(RepositoryError, match="its model_login 'claude' isn't one of copilot"):
