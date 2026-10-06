@@ -124,6 +124,7 @@ class RunsMixin(LockingMixin, SearchMixin):
             search=self._storage.search,
             recall=self._recall,
             subagents=self._subagents,
+            mcp=self.mcp,
         )
         async for namespace, mode, data in self._graph.astream(
             input, config, context=context, stream_mode=["messages", "updates", "custom"], subgraphs=True

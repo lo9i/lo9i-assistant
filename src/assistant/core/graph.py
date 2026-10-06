@@ -61,7 +61,8 @@ class AgentState(MessagesState):
     # its system prompt; pinning or unpinning one starts a new epoch.
     pinned_skills: list[str]
     # Definitions of the MCP tools this epoch offers, frozen when it starts like the system
-    # prompt. When the servers' tools change, the next user message starts a new epoch.
+    # prompt. When the servers' tools change, the next user message starts a new epoch, or right
+    # after offer_plugin when the user installed a server (_installed_node).
     mcp_tools: list[dict[str, Any]]
 
 
@@ -87,10 +88,12 @@ def build_graph(storage: Storage, choice: ModelChoice, summarizer: Summarizer, m
     llm = metered(build_llm(choice, choice.model), TokenMeter(storage.usage, "reply"))
     builder.add_node("agent", _agent_node(llm, tools, choice.provider in IMAGES_IN_TOOL_RESULTS))
     builder.add_node("tools", ToolNode(tools, awrap_tool_call=mcp_calls(mcp)))
+    builder.add_node("installed", _installed_node(mcp))
     builder.add_edge(START, "epoch")
     builder.add_edge("epoch", "agent")
     builder.add_conditional_edges("agent", each_tool_call("tools"), ["tools", END])
-    builder.add_edge("tools", "agent")
+    builder.add_edge("tools", "installed")
+    builder.add_edge("installed", "agent")
     return builder.compile(checkpointer=storage.checkpointer, store=storage.store)
 
 
@@ -130,6 +133,27 @@ async def _prompt_changed(state: AgentState, store: BaseStore, user_id: str, thr
     if await is_renamed(state, store) or await is_repinned(state, store, user_id, thread_id):
         return True
     return state.get("mcp_tools", []) != mcp.definitions()
+
+
+def _installed_node(mcp: McpTools) -> Node:
+    """Runs after each round of tool calls. When the round offered a plugin and the user installed a server,
+    a new epoch at the same point brings its tools, so the agent uses them now, not from the user's next
+    message. Nothing is split or summarized: the prompt and tools change, the messages stay."""
+
+    async def _installed(state: AgentState, runtime: Runtime[Context], config: RunnableConfig) -> dict:
+        if not _offered_plugin(state["messages"]) or state.get("mcp_tools", []) == mcp.definitions():
+            return {}
+        user_id, store = runtime.context.user_id, require_store(runtime.store)
+        thread_id = config.get("configurable", {})["thread_id"]
+        update = await reopen(state, store, user_id, thread_id, datetime.now(UTC))
+        return {**update, "mcp_tools": mcp.definitions()}
+
+    return _installed
+
+
+def _offered_plugin(messages: Sequence[Any]) -> bool:
+    last = next((m for m in reversed(messages) if isinstance(m, AIMessage)), None)
+    return last is not None and any(call["name"] == "offer_plugin" for call in last.tool_calls)
 
 
 def each_tool_call(node: str) -> Callable[[MessagesState], str | list[Send]]:

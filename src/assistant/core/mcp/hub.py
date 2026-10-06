@@ -17,6 +17,7 @@ from mcp.client.session import IncomingMessage
 from mcp.types import CallToolResult, Tool
 
 from assistant.core.bus import EventBus
+from assistant.core.context import McpStarts
 from assistant.core.health import Health, HealthLog
 from assistant.core.hidden_text import strip_hidden
 from assistant.core.mcp import logins, servers, sign_in
@@ -65,7 +66,7 @@ class _Running:
     task: asyncio.Task
 
 
-class McpHub:
+class McpHub(McpStarts):
     name = "mcp"
 
     def __init__(
@@ -161,6 +162,14 @@ class McpHub:
         connection = running.connection
         tools = [_info(connection.server, tool) for tool in connection.state.tools]
         return connection.state.status, connection.state.error, tools
+
+    async def started(self, name: str, timeout: float) -> str:
+        """A server just installed or turned on: its first start can be slow (uv builds its environment)
+        and can time out once before a retry connects."""
+        running = self._running.get(name)
+        if running is not None and running.connection.state.status in ("connecting", "failed"):
+            await running.connection.reconnected(timeout)
+        return self.state(name)[0]
 
     async def health(self, name: str) -> Health:
         return await self._health.get("mcp", name)
