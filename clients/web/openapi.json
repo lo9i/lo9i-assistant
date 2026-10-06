@@ -3602,6 +3602,24 @@
           }
         }
       }
+    },
+    "/system/restart": {
+      "post": {
+        "summary": "Restart Daemon",
+        "operationId": "restart_daemon_system_restart_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestartStatus"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5581,6 +5599,20 @@
         },
         "type": "object",
         "title": "RepositoryInstall"
+      },
+      "RestartStatus": {
+        "properties": {
+          "waiting_for_runs": {
+            "type": "integer",
+            "title": "Waiting For Runs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "waiting_for_runs"
+        ],
+        "title": "RestartStatus",
+        "description": "A requested restart: the daemon restarts once these runs end, at once when none."
       },
       "Revoked": {
         "properties": {

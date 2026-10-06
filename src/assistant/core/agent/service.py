@@ -106,6 +106,8 @@ class AssistantService(
         self._synthesizer = KokoroSynthesizer()
         self._thread_locks = defaultdict(asyncio.Lock)
         self._active_runs = {}
+        self._no_runs = asyncio.Event()
+        self._no_runs.set()
 
     @property
     def store(self):

@@ -86,7 +86,7 @@ from assistant.daemon.clients import ClientRegistry
 from assistant.daemon.launchd import StartupError
 from assistant.daemon.runs import RunHub
 from assistant.daemon.web_ui import BUILD_DIR, add_web_ui, is_web_ui
-from assistant.protocol import CLIENT_HEADER, CLIENT_ID_HEADER, END, ConnectedClient, StartupStatus
+from assistant.protocol import CLIENT_HEADER, CLIENT_ID_HEADER, END, ConnectedClient, RestartStatus, StartupStatus
 
 
 class Approvals(BaseModel):
@@ -345,7 +345,9 @@ _EVENT_STREAM: dict[int | str, dict[str, Any]] = {200: {"content": {"text/event-
 _LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 
-def create_app(service: AssistantService, hub: RunHub, startup: Any = None, web_ui: Path = BUILD_DIR) -> FastAPI:
+def create_app(
+    service: AssistantService, hub: RunHub, startup: Any = None, restart: Any = None, web_ui: Path = BUILD_DIR
+) -> FastAPI:
     app = FastAPI(title="lo9i daemon")
     # Checked outside in: the host name, the client header, then the device.
     require_device(app, service)
@@ -380,6 +382,8 @@ def create_app(service: AssistantService, hub: RunHub, startup: Any = None, web_
     _add_usage_routes(app, service)
     if startup is not None:
         _add_startup_routes(app, startup)
+    if restart is not None:
+        _add_restart_route(app, restart)
     add_web_ui(app, web_ui)
     return app
 
@@ -1182,6 +1186,14 @@ def _add_startup_routes(app: FastAPI, startup: Any) -> None:
             return await startup.disable()
         except StartupError as e:
             raise HTTPException(400, str(e)) from e
+
+
+def _add_restart_route(app: FastAPI, restart: Any) -> None:
+    """Restarting the daemon once no run is in progress (daemon/restart.py). `restart` offers request()."""
+
+    @app.post("/system/restart")
+    async def restart_daemon() -> RestartStatus:
+        return RestartStatus(waiting_for_runs=restart.request())
 
 
 async def _attachment(upload: UploadFile) -> Attachment:

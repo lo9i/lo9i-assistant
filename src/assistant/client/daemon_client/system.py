@@ -1,14 +1,14 @@
 import httpx
 
 from assistant.client.daemon_client.transport import Transport
-from assistant.protocol import StartupError, StartupStatus
+from assistant.protocol import RestartStatus, StartupError, StartupStatus
 
 # Enabling waits for the user to answer the macOS password dialog.
 _PASSWORD_DIALOG = httpx.Timeout(300, connect=5)
 
 
 class SystemApi:
-    """Start at boot (macOS LaunchDaemon)."""
+    """Start at boot (macOS LaunchDaemon), and restarting the daemon."""
 
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
@@ -22,6 +22,10 @@ class SystemApi:
 
     async def disable_startup(self) -> StartupStatus:
         return await self._change_startup("DELETE")
+
+    async def restart(self) -> RestartStatus:
+        """The daemon restarts once no run is in progress."""
+        return RestartStatus(**await self._transport.request("POST", "/system/restart"))
 
     async def _change_startup(self, method: str) -> StartupStatus:
         data = await self._transport.request(

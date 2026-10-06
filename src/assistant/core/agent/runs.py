@@ -36,6 +36,13 @@ class RunsMixin(LockingMixin, SearchMixin):
         task.cancel()
         return True
 
+    def runs_in_progress(self) -> int:
+        return len(self._active_runs)
+
+    async def until_no_runs(self) -> None:
+        """Returns once no conversation has a run in progress."""
+        await self._no_runs.wait()
+
     async def _run(self, session: Session, input: Any) -> AsyncIterator[Event]:
         async for event in self._run_with(session, lambda: self._run_events(session, input)):
             yield event
@@ -66,11 +73,14 @@ class RunsMixin(LockingMixin, SearchMixin):
         # A callback, not a `finally` in the task: a task cancelled before it starts never runs one.
         task.add_done_callback(lambda _: events.put_nowait(None))
         self._active_runs[session.thread_id] = task
+        self._no_runs.clear()
         try:
             while (event := await events.get()) is not None:
                 yield event
         finally:
             self._active_runs.pop(session.thread_id, None)
+            if not self._active_runs:
+                self._no_runs.set()
             task.cancel()  # Stops the graph when the caller stops reading; no-op once it's done.
         if task.cancelled():
             await self._answer_open_tool_calls(session.thread_id)
