@@ -10,13 +10,14 @@ from mcp.shared.exceptions import MCPError
 
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
-from assistant.core.conversation import handoffs
+from assistant.core.conversation import agent_folders, handoffs
+from assistant.core.conversation.agent_folders import AgentFolders, FolderError, FolderListing
 from assistant.core.conversation.handoffs import Agent, Handoff
 from assistant.core.events import Done, Error, Event, TextDelta, ToolFinished, ToolStarted
 from assistant.core.mcp.connection import ConnectionLostError, NotConnectedError
 from assistant.core.mcp.tools import render
 
-__all__ = ["Agent", "Handoff", "HandoffError", "HandoffsMixin"]
+__all__ = ["Agent", "AgentFolders", "FolderError", "FolderListing", "Handoff", "HandoffError", "HandoffsMixin"]
 
 
 class HandoffError(Exception):
@@ -38,11 +39,22 @@ class HandoffsMixin(RunsMixin):
         if agent is None:
             raise HandoffError(f"No plugin brings /{command}. Install it from Plugins.")
         where = Path(folder).expanduser()
+        if where == agent_folders.workspace():
+            await agent_folders.ensure_workspace()
         if not where.is_absolute() or not where.is_dir():
             raise HandoffError(f"{folder} isn't an existing folder. Give its full path.")
         handoff = Handoff(agent.server, agent.command, agent.name, str(where))
         await handoffs.hand(self._storage.store, user_id, thread_id, handoff)
+        await agent_folders.remember(self._storage.store, user_id, where)
         return handoff
+
+    async def agent_folders(self, user_id: str) -> AgentFolders:
+        """The folders the apps offer to hand a conversation to: the workspace and the ones used before."""
+        return await agent_folders.offered(self._storage.store, user_id)
+
+    async def child_folders(self, folder: str) -> FolderListing:
+        """The folders inside `folder`, to browse to one. Raises FolderError."""
+        return await agent_folders.children(folder)
 
     async def take_back_conversation(self, user_id: str, thread_id: str) -> None:
         await handoffs.take_back(self._storage.store, user_id, thread_id)

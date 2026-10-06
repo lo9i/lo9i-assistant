@@ -2,12 +2,14 @@
 
 import asyncio
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
 import assistant_terminal.tui.app as app_module
 from assistant.core.agent import (
     Agent,
+    AgentFolders,
     ChannelNotConnectedError,
     ChannelStatus,
     Conversation,
@@ -18,6 +20,7 @@ from assistant.core.agent import (
     EmailError,
     Episode,
     Fact,
+    FolderListing,
     FoundServer,
     Handoff,
     HandoffError,
@@ -583,6 +586,16 @@ class FakeConversations:
 
     async def agent(self, thread_id):
         return self.handoffs.get(thread_id)
+
+    async def agent_folders(self):
+        return AgentFolders("/home/me/.lo9i/claude-workspace", ["/home/me/projects/app"], "/home/me")
+
+    async def child_folders(self, path):
+        inside = {
+            "/home/me": ["/home/me/projects"],
+            "/home/me/projects": ["/home/me/projects/app", "/home/me/projects/new"],
+        }
+        return FolderListing(path, str(Path(path).parent), inside.get(path, []))
 
     async def hand_to(self, thread_id, command, folder):
         if not folder.startswith("/"):

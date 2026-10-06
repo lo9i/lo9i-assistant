@@ -1,5 +1,5 @@
 """Conversations handed to another agent. A plugin can bring one (`agent:` in its server.yaml, like Claude
-Code): the apps offer its command (/claude <folder>), and from then on the user's messages in that
+Code): the apps offer its command (/claude, with a folder or picking one), and from then on the user's messages in that
 conversation go to the plugin's tool in that folder and its replies come back, instead of the
 assistant's model answering. Both are added to the conversation, so when the user hands it back
 (/claude off) the assistant sees what was said, and that message's turn header says it was another

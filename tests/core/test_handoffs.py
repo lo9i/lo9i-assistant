@@ -3,13 +3,14 @@ messages are kept, and the assistant hears about it when the user hands the conv
 
 import asyncio
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import pytest
 from mcp import Client
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
-from assistant.core.agent import AssistantService, HandoffError
+from assistant.core.agent import AssistantService, FolderError, HandoffError
 from assistant.core.attachments import Attachment
 from assistant.core.events import Done, Error, TextDelta, ToolStarted
 from assistant.core.mcp import hub as hub_module
@@ -142,3 +143,38 @@ async def test_with_no_run_in_progress_a_restart_is_at_once(service):
     assert restart.request() == 0
     await asyncio.wait_for(stop.wait(), 1)
     assert restart.requested
+
+
+async def test_the_workspace_is_created_when_handed_to_and_not_listed_as_recent(service):
+    from assistant.core.config import settings
+
+    session = await service.session("owner", "cli")
+    workspace = str(Path(settings.agent_workspace_dir))
+    handoff = await service.hand_conversation("owner", session.thread_id, "claude", workspace)
+    assert handoff.folder == workspace and Path(workspace).is_dir()
+    assert (await service.agent_folders("owner")).recent == []
+
+
+async def test_folders_used_before_are_offered_newest_first_while_they_exist(service, tmp_path):
+    first, second, gone = tmp_path / "first", tmp_path / "second", tmp_path / "gone"
+    for folder in (first, second, gone):
+        folder.mkdir()
+    session = await service.session("owner", "cli")
+    for folder in (first, gone, second, first):
+        await service.hand_conversation("owner", session.thread_id, "claude", str(folder))
+    gone.rmdir()
+    assert (await service.agent_folders("owner")).recent == [str(first), str(second)]
+
+
+async def test_browsing_lists_the_folders_inside_without_hidden_ones_or_files(service, tmp_path):
+    root = tmp_path / "browsed"
+    for name in ("b", "A", ".git"):
+        (root / name).mkdir(parents=True)
+    (root / "notes.txt").write_text("")
+    listing = await service.child_folders(str(root))
+    assert listing.children == [str(root / "A"), str(root / "b")]
+    assert listing.parent == str(tmp_path)
+    assert (await service.child_folders("/")).parent is None
+    for wrong in ("relative", str(root / "missing"), str(root / "notes.txt")):
+        with pytest.raises(FolderError):
+            await service.child_folders(wrong)
