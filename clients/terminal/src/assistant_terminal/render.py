@@ -56,7 +56,7 @@ class _Printer:
         self.end_text()
         match event:
             case ToolStarted(name, args, _, within) if within:
-                _write(f"{_INDENT}{_BULLET}{name}({_describe(args)})\n")
+                _write(f"{_INDENT}{_BULLET}{name}" + (f"({_describe(args)})" if args else "") + "\n")
             case ToolFinished(_, output, within) if within:
                 _write(paint(DIM, _result(output, _INDENT * 2)) + "\n")
             case ToolStarted(name, args):

@@ -231,7 +231,7 @@ class _DroppingConnection(McpConnection):
         self.calls = 0
         self.content = content or [TextContent(text="fine")]
 
-    async def call(self, tool: str, arguments: dict) -> CallToolResult:
+    async def call(self, tool: str, arguments: dict, progress=None) -> CallToolResult:
         self.calls += 1
         if self.calls == 1:
             raise ConnectionLostError("connection reset")

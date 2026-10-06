@@ -56,7 +56,8 @@ class ToolCall(Collapsible):
     of a delegate call's subagent."""
 
     def __init__(self, name: str, args: dict[str, Any]) -> None:
-        self._call = f"{name}({_describe(args)})"
+        # A step a handed-off agent reports is a line of text, with no arguments to show.
+        self._call = f"{name}({_describe(args)})" if args else name
         self._steps = 0
         self._result = Static("…", classes="tool-result", markup=False)
         super().__init__(self._result, title=f"⏺ {self._call}", collapsed=True)

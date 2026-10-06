@@ -15,6 +15,7 @@ import httpx2
 from mcp import Client, StdioServerParameters
 from mcp.client.session import IncomingMessage, MessageHandlerFnT
 from mcp.client.streamable_http import streamable_http_client
+from mcp.shared.dispatcher import ProgressFnT
 from mcp.shared.exceptions import MCPError
 from mcp.types import CallToolResult, Implementation, TextContent, Tool, ToolListChangedNotification
 
@@ -120,10 +121,11 @@ class McpConnection:
             await self._health.signed_out(self.server.name, str(error))
         await stop.wait()
 
-    async def call(self, tool: str, arguments: dict) -> CallToolResult:
-        """Raises MCPError for an error the server reported, NotConnectedError or ConnectionLostError."""
+    async def call(self, tool: str, arguments: dict, progress: ProgressFnT | None = None) -> CallToolResult:
+        """Raises MCPError for an error the server reported, NotConnectedError or ConnectionLostError.
+        `progress` gets the progress notifications the server sends while the call runs."""
         try:
-            result = await self._call(tool, arguments)
+            result = await self._call(tool, arguments, progress)
         except Exception as e:
             await self._health.failed("mcp", self.server.name, f"{tool}: {describe(e)}")
             raise
@@ -133,12 +135,12 @@ class McpConnection:
             await self._health.succeeded("mcp", self.server.name)
         return result
 
-    async def _call(self, tool: str, arguments: dict) -> CallToolResult:
+    async def _call(self, tool: str, arguments: dict, progress: ProgressFnT | None) -> CallToolResult:
         client = self._client
         if client is None:
             raise NotConnectedError(self.state.error or self.state.status)
         try:
-            return await client.call_tool(tool, arguments)
+            return await client.call_tool(tool, arguments, progress_callback=progress)
         except MCPError:
             raise
         except Exception as e:

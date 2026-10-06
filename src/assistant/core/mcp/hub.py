@@ -14,6 +14,7 @@ from typing import Any
 
 from langgraph.store.base import BaseStore
 from mcp.client.session import IncomingMessage
+from mcp.shared.dispatcher import ProgressFnT
 from mcp.types import CallToolResult, Tool
 
 from assistant.core.bus import EventBus
@@ -132,14 +133,16 @@ class McpHub(McpStarts):
     def tool(self, name: str) -> McpTool | None:
         return self._tools.get(name)
 
-    async def call(self, server: str, tool: str, arguments: dict[str, Any]) -> CallToolResult:
+    async def call(
+        self, server: str, tool: str, arguments: dict[str, Any], progress: ProgressFnT | None = None
+    ) -> CallToolResult:
         """Calls a server's tool directly, not through the model: no approval and no selection apply,
         as for a conversation the user handed to the server's agent (core/conversation/handoffs.py).
         Raises NotConnectedError when the server isn't connected, and what McpConnection.call raises."""
         running = self._running.get(server)
         if running is None:
             raise NotConnectedError(f"{server} isn't running. Turn it on in Plugins.")
-        return await running.connection.call(tool, arguments)
+        return await running.connection.call(tool, arguments, progress)
 
     def unavailable(self, name: str) -> str:
         """Why a tool this epoch offers can't run now, for the model."""

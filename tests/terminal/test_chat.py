@@ -350,3 +350,20 @@ async def test_the_agent_opens_a_plugins_setup_in_the_conversation(app, client):
         await pilot.press("escape")
         await wait_for(pilot, lambda: not app._busy)
         assert client.decisions == {"i1": {"done": True}}
+
+
+async def test_a_handed_off_agents_steps_show_as_lines_inside_its_call(app, client, monkeypatch):
+    async def send(session, text, attachments=()):
+        yield ToolStarted("Claude Code", {"folder": "/repo"}, id="h1")
+        yield ToolStarted("Bash: pytest", {}, within="h1")
+        yield ToolFinished("Bash: pytest", "", within="h1")
+        yield ToolFinished("Claude Code", "Replied, working in /repo")
+        yield Done()
+
+    monkeypatch.setattr(client, "send", send)
+    async with app.run_test() as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"run the tests", "enter")
+        await wait_for(pilot, lambda: not app._busy and app.query(ToolCall))
+        call, step = app.query(ToolCall)
+        assert call.title == "✓ Claude Code(/repo) · 1 step" and step.title == "✓ Bash: pytest"
