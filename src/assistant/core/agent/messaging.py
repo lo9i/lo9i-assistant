@@ -6,12 +6,13 @@ from typing import Any
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 
+from assistant.core import uploads
 from assistant.core.agent.conversations import ConversationsMixin
 from assistant.core.agent.handoffs import HandoffsMixin
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
 from assistant.core.agent.titles import TitlesMixin
-from assistant.core.attachments import Attachment, Block, to_content
+from assistant.core.attachments import Attachment, Block, is_reference, to_content
 from assistant.core.conversation import handoffs, introduction, pinned, sent
 from assistant.core.conversation.handoffs import Handoff
 from assistant.core.conversation.turn_header import header_block
@@ -38,7 +39,7 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
         await self._note_activity(session, _title_text(text, [t.text for t in transcripts], attachments))
         handoff = await handoffs.current(self._storage.store, session.user_id, session.thread_id)
         if handoff is not None:
-            async for event in self._to_agent(session, handoff, text, [t.text for t in transcripts], attachments):
+            async for event in self._to_agent(session, handoff, text, [t.text for t in transcripts], content):
                 yield event
         else:
             notes = await self._header_notes(session)
@@ -48,15 +49,15 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
         self._title_in_background(session)
 
     async def _to_agent(
-        self, session: Session, handoff: Handoff, text: str, transcripts: list[str], attachments: Sequence[Attachment]
+        self, session: Session, handoff: Handoff, text: str, transcripts: list[str], content: list[Block]
     ) -> AsyncIterator[Event]:
-        """The agent gets what was written and said; files can't reach it."""
-        if any(not is_voice(a) for a in attachments):
-            yield Error(f"{handoff.name} takes text only. /{handoff.command} off goes back to send files.")
-            return
+        """The agent gets what was written and said, and where the files sent with it are saved: it runs
+        on this computer and reads them from there. The conversation keeps the files as any message does."""
+        files = [b for b in content if is_reference(b)]
         said = "\n\n".join(part for part in [text, *transcripts] if part.strip())
-        message = _message(session, [{"type": "text", "text": said}])
-        async for event in self._handed_off(session, handoff, message, said):
+        message = _message(session, [*files, {"type": "text", "text": said}])
+        to_agent = "\n\n".join(part for part in [said, _files_note(files)] if part)
+        async for event in self._handed_off(session, handoff, message, to_agent):
             yield event
 
     async def _header_notes(self, session: Session) -> list[Block]:
@@ -82,3 +83,12 @@ def _title_text(text: str, transcripts: list[str], attachments: Sequence[Attachm
 
 def _message(session: Session, content: list[Block]) -> HumanMessage:
     return HumanMessage(content=[header_block(session.channel, datetime.now(UTC)), *content])
+
+
+def _files_note(files: list[Block]) -> str:
+    """The files' full paths, for an agent a conversation is handed to."""
+    if not files:
+        return ""
+    saved = [f["value"]["upload"] for f in files]
+    lines = [f"- {uploads.absolute(f['path'])} ({f['name']})" for f in saved]
+    return "Files sent with this message, saved on this computer:\n" + "\n".join(lines)
