@@ -5,7 +5,7 @@
   import { agentCommands } from "$lib/chat/commands";
   import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
   import { sentTexts } from "$lib/chat/history";
-  import { finalReply } from "$lib/chat/transcript";
+  import { finalReply, toolRunning } from "$lib/chat/transcript";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { Player, speaksReply } from "$lib/speech";
   import AgentBar from "./AgentBar.svelte";
@@ -194,7 +194,7 @@
 >
   <Thread
     items={snapshot.current.transcript.items}
-    thinking={(snapshot.current.busy || snapshot.current.mirroring) && !streaming}
+    thinking={(snapshot.current.busy || snapshot.current.mirroring) && !streaming && !toolRunning(snapshot.current.transcript)}
     name={name.data || "the assistant"}
     onsuggest={(text) => (draft = text)}
   />

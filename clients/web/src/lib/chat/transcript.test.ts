@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RunEvent } from "../api/types";
-import { addUser, apply, empty, endRun, fromHistory } from "./transcript";
+import { addUser, apply, empty, endRun, fromHistory, toolRunning } from "./transcript";
 
 const play = (events: RunEvent[]) => events.reduce(apply, addUser(empty, "hi", []));
 const kinds = (events: RunEvent[]) => play(events).items.map((item) => item.kind);
@@ -27,6 +27,15 @@ describe("transcript", () => {
       ["done", "first"],
       ["running", undefined],
     ]);
+  });
+
+  it("knows while a tool call runs, so the chat shows its card and not Thinking too", () => {
+    expect(toolRunning(play([{ type: "ToolStarted", name: "Claude Code", args: {} }]))).toBe(true);
+    const finished = play([
+      { type: "ToolStarted", name: "bash", args: {} },
+      { type: "ToolFinished", name: "bash", output: "ok" },
+    ]);
+    expect(toolRunning(finished)).toBe(false);
   });
 
   it("marks running tools cancelled when the run is stopped", () => {
