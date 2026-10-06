@@ -82,6 +82,12 @@ export function updatable(p: Plugin): boolean {
   return p.installed && (!available || available !== (found.installed_version ?? ""));
 }
 
+/** The extras have a newer version than the one installed: both declare one and they differ. */
+export function hasNewer(p: Plugin): boolean {
+  const found = p.kind === "server" ? p.server : p.skill;
+  return p.installed && Boolean(found.version) && found.version !== (found.installed_version ?? "");
+}
+
 export function describe(p: Plugin): string {
   return p.kind === "server" ? p.server.description : p.skill.description;
 }

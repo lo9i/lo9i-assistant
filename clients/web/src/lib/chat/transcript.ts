@@ -69,6 +69,11 @@ export function apply(t: Transcript, event: RunEvent): Transcript {
 }
 
 /** A run's events ended. Its tool calls stay pending: after approvals, the resumed run reports them. */
+/** A tool call is running: its card shows that the reply is in progress. */
+export function toolRunning(t: Transcript): boolean {
+  return t.items.some((item) => item.kind === "tool" && item.state === "running");
+}
+
 export function endText(t: Transcript): Transcript {
   return { ...t, streaming: null };
 }

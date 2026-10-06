@@ -15,6 +15,7 @@
     kindOf,
     pluginsOf,
     runsOf,
+    hasNewer,
     updatable,
     versionOf,
   } from "$lib/plugins";
@@ -26,6 +27,7 @@
   import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
   import InstallDialog from "$lib/ui/repositories/InstallDialog.svelte";
   import PluginSetup from "$lib/ui/plugins/PluginSetup.svelte";
+  import PluginUpdates from "$lib/ui/plugins/PluginUpdates.svelte";
 
   const { client, notices } = useDaemon();
   // The extras are downloaded to list them, so this reloads after an action here or on refresh,
@@ -75,11 +77,28 @@
     );
   }
 
-  const update = (p: Plugin) =>
-    act(
-      () => (p.kind === "server" ? client.mcp.updateFromRepository(p.name) : client.skills.updateInstalled(p.name)),
-      `Updated ${p.name}.`,
-    );
+  const updateOne = (p: Plugin) => (p.kind === "server" ? client.mcp.updateFromRepository(p.name) : client.skills.updateInstalled(p.name));
+  const update = (p: Plugin) => act(() => updateOne(p), `Updated ${p.name}.`);
+  // Installed plugins the extras have a newer version of, for the Updates table.
+  const newer = $derived((plugins.data ?? []).filter(hasNewer));
+
+  /** One after the other: an update restarts the plugin. One that fails doesn't stop the rest. */
+  async function updateMany(picked: Plugin[]): Promise<void> {
+    busy = true;
+    const failed: string[] = [];
+    for (const p of picked) {
+      try {
+        await updateOne(p);
+      } catch (e) {
+        failed.push(p.name);
+        notices.report(e);
+      }
+    }
+    busy = false;
+    const updated = picked.filter((p) => !failed.includes(p.name)).map((p) => p.name);
+    if (updated.length) notices.notify(`Updated ${updated.join(", ")}.`);
+    plugins.reload();
+  }
   const remove = (p: Plugin, deleteData: boolean) =>
     act(() => (p.kind === "server" ? client.mcp.remove(p.name, deleteData) : client.skills.delete(p.name)), `Removed ${p.name}.`);
 </script>
@@ -90,60 +109,63 @@
 <div class="tabs-bar"><SettingsTabs active="plugins" /><PluginUpdatesSwitch /></div>
 
 <div class="screen">
-  <section class="table-card surface--glass">
-    <header class="toolbar">
-      <div>
-        <h2 class="text-heading">Plugins</h2>
-        <p class="text-meta">MCP servers, chat channels and skills from the assistant's extras. Click one to see it on the right.</p>
-      </div>
-      <div class="tools">
-        <SearchField bind:value={query} label="Search plugins" />
-        {#if plugins.data}<span class="pill">{plugins.data.length}</span>{/if}
-        <button class="btn btn--ghost btn--sm" title="Check the extras for a newer version" onclick={() => plugins.reload()}
-          ><RefreshCw size={14} /></button
-        >
-      </div>
-    </header>
-    <div class="scroll">
-      {#if plugins.error}
-        <p class="error-text pad">{plugins.error}</p>
-      {:else if plugins.data === undefined}
-        <p class="text-meta pad">Looking at the extras…</p>
-      {:else}
-        {#if plugins.data.length === 0}
-          <EmptyState icon={Puzzle} title="No plugins" text="The extras offer none yet." />
+  <div class="main">
+    {#if newer.length}<PluginUpdates plugins={newer} {busy} onupdate={updateMany} />{/if}
+    <section class="table-card surface--glass">
+      <header class="toolbar">
+        <div>
+          <h2 class="text-heading">Plugins</h2>
+          <p class="text-meta">MCP servers, chat channels and skills from the assistant's extras. Click one to see it on the right.</p>
+        </div>
+        <div class="tools">
+          <SearchField bind:value={query} label="Search plugins" />
+          {#if plugins.data}<span class="pill">{plugins.data.length}</span>{/if}
+          <button class="btn btn--ghost btn--sm" title="Check the extras for a newer version" onclick={() => plugins.reload()}
+            ><RefreshCw size={14} /></button
+          >
+        </div>
+      </header>
+      <div class="scroll">
+        {#if plugins.error}
+          <p class="error-text pad">{plugins.error}</p>
+        {:else if plugins.data === undefined}
+          <p class="text-meta pad">Looking at the extras…</p>
         {:else}
-          <table class="data-table">
-            <thead><tr><th>Plugin</th><th class="hide-narrow">Kind</th><th>Version</th><th>State</th></tr></thead>
-            <tbody>
-              {#each shown as group (group.category)}
-                <tr class="category"><th colspan="4" class="micro-label">{categoryLabel(group.category)}</th></tr>
-                {#each group.plugins as p (keyOf(p))}
-                  <tr class:selected={plugin && keyOf(p) === keyOf(plugin)} onclick={() => (picked = keyOf(p))}>
-                    <td>
-                      <button class="row-button" onclick={() => (picked = keyOf(p))}>{p.name}</button>
-                      {#if describe(p)}<p class="text-caption row-description">{describe(p)}</p>{/if}
-                    </td>
-                    <td class="hide-narrow">{kindOf(p)}</td>
-                    <td>{versionOf(p)}</td>
-                    <td>
-                      <span class="state"
-                        ><span class="status-dot" style:--tone={p.installed ? "var(--color-success)" : undefined}></span>{p.installed
-                          ? "Installed"
-                          : "Not installed"}</span
-                      >
-                    </td>
-                  </tr>
+          {#if plugins.data.length === 0}
+            <EmptyState icon={Puzzle} title="No plugins" text="The extras offer none yet." />
+          {:else}
+            <table class="data-table">
+              <thead><tr><th>Plugin</th><th class="hide-narrow">Kind</th><th>Version</th><th>State</th></tr></thead>
+              <tbody>
+                {#each shown as group (group.category)}
+                  <tr class="category"><th colspan="4" class="micro-label">{categoryLabel(group.category)}</th></tr>
+                  {#each group.plugins as p (keyOf(p))}
+                    <tr class:selected={plugin && keyOf(p) === keyOf(plugin)} onclick={() => (picked = keyOf(p))}>
+                      <td>
+                        <button class="row-button" onclick={() => (picked = keyOf(p))}>{p.name}</button>
+                        {#if describe(p)}<p class="text-caption row-description">{describe(p)}</p>{/if}
+                      </td>
+                      <td class="hide-narrow">{kindOf(p)}</td>
+                      <td>{versionOf(p)}</td>
+                      <td>
+                        <span class="state"
+                          ><span class="status-dot" style:--tone={p.installed ? "var(--color-success)" : undefined}></span>{p.installed
+                            ? "Installed"
+                            : "Not installed"}</span
+                        >
+                      </td>
+                    </tr>
+                  {/each}
+                {:else}
+                  <tr><td colspan="4" class="text-meta">No matches.</td></tr>
                 {/each}
-              {:else}
-                <tr><td colspan="4" class="text-meta">No matches.</td></tr>
-              {/each}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          {/if}
         {/if}
-      {/if}
-    </div>
-  </section>
+      </div>
+    </section>
+  </div>
 
   <div class="column">
     {#if plugin}
@@ -242,10 +264,17 @@
     max-width: 1600px;
     margin: 0 auto;
   }
-  .table-card {
+  .main {
     flex: 3 1 0;
     min-width: 0;
     max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .table-card {
+    min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -355,6 +384,7 @@
       align-items: stretch;
       height: auto;
     }
+    .main,
     .table-card,
     .column {
       flex: none;

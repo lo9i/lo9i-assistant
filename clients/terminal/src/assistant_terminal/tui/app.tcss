@@ -249,11 +249,11 @@ ApprovalScreen {
     margin-right: 2;
 }
 
-QuestionScreen {
+QuestionScreen, PluginUpdatesScreen {
     align: center middle;
 }
 
-#question {
+#question, #plugin-updates {
     width: 80%;
     max-width: 100;
     height: auto;
@@ -262,17 +262,17 @@ QuestionScreen {
     background: $dialog-background;
 }
 
-#question-options {
+#question-options, #plugin-updates-list {
     height: auto;
     max-height: 14;
     margin: 1 0;
 }
 
-#question-buttons {
+#question-buttons, #plugin-updates-buttons {
     height: auto;
 }
 
-#question-buttons Button {
+#question-buttons Button, #plugin-updates-buttons Button {
     margin-right: 2;
 }
 

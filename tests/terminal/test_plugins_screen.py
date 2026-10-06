@@ -139,3 +139,33 @@ def test_an_optional_field_and_the_shared_copilot_login_are_explained():
     assert "optional" in str(_field_input(coder, token).placeholder)
     guide = _guide(RepositoryContents(skills=[], servers=[coder]))
     assert guide.startswith("It uses your GitHub Copilot login from /model") and "1. Paste it." in guide
+
+
+async def test_updates_lists_the_newer_plugins_and_updates_the_picked_ones(app, client):
+    from textual.widgets import SelectionList
+
+    from assistant_terminal.tui.screens.plugin_updates import PluginUpdatesScreen
+    from tests.terminal.conftest import _mcp_status
+
+    updated = []
+
+    async def update(name):
+        updated.append(name)
+
+    client.mcp.update_from_repository = update
+    for name in ("weather", "radar"):
+        client.mcp.items[name] = _mcp_status(name)
+    client.repositories.more = [
+        FoundServer("radar", "Radar", "stdio", [], False, installed=True, version="2.0.0", installed_version="1.0.0")
+    ]
+    async with app.run_test(size=(120, 40)) as pilot:
+        screen = await _open(pilot, app)
+        updates = screen.query_one("#updates", Button)
+        await wait_for(pilot, lambda: updates.display and str(updates.label) == "Updates (2)")
+        updates.press()
+        await wait_for(pilot, lambda: isinstance(app.screen, PluginUpdatesScreen))
+        picks = app.screen.query_one("#plugin-updates-list", SelectionList)
+        assert set(picks.selected) == {"server:weather", "server:radar"}
+        picks.deselect("server:radar")
+        app.screen.query_one("#update-selected", Button).press()
+        await wait_for(pilot, lambda: updated == ["weather"])
