@@ -4,15 +4,13 @@
   import { resource } from "$lib/daemon.svelte";
   import { pageLabel, pageUrl } from "$lib/pages";
   import EmptyState from "$lib/ui/EmptyState.svelte";
-  import TopBar from "$lib/ui/TopBar.svelte";
 
   const servers = resource((c) => c.mcp.servers(), ["mcp"]);
   const name = $derived(page.params.name ?? "");
   const server = $derived(servers.data?.find((s) => s.name === name && s.page));
 </script>
 
-<TopBar title={pageLabel(name)} />
-
+<!-- Only the page: it has its own title and layout, so no top bar above it. -->
 <div class="frame-shell">
   {#if servers.data === undefined}
     <p class="text-meta">{servers.error ?? "Loading…"}</p>
@@ -28,16 +26,18 @@
 
 <style>
   .frame-shell {
-    height: calc(100dvh - 76px);
+    height: 100dvh;
     max-width: 1600px;
     margin: 0 auto;
-    padding: 0 16px 16px;
+    padding: 16px;
   }
   iframe {
     width: 100%;
     height: 100%;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
-    background: var(--color-surface, white);
+    /* Under the border too, the page's white would show through its translucent color. */
+    background: var(--color-bg-page);
+    background-clip: padding-box;
   }
 </style>
