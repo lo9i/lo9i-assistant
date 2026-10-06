@@ -2,11 +2,13 @@
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { carriesFiles, droppedFiles } from "$lib/chat/dropped";
+  import { agentCommands } from "$lib/chat/commands";
   import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
   import { sentTexts } from "$lib/chat/history";
   import { finalReply } from "$lib/chat/transcript";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { Player, speaksReply } from "$lib/speech";
+  import AgentBar from "./AgentBar.svelte";
   import ApprovalModal from "./ApprovalModal.svelte";
   import Composer from "./Composer.svelte";
   import HelpModal from "./HelpModal.svelte";
@@ -26,6 +28,10 @@
   const name = resource((c) => c.identity.name(), ["settings"]);
   const speech = resource((c) => c.speech.settings(), ["settings"]);
   const pinned = resource((c) => c.conversations.pinned(snapshot.current.threadId), ["pinned_skills"]);
+  // Plugins can bring agents a conversation is handed to (/claude); the one this conversation is with.
+  const agents = resource((c) => c.conversations.agents(), ["mcp"]);
+  const handoff = resource((c) => c.conversations.agent(snapshot.current.threadId), ["handoffs"]);
+  const extra = $derived(agentCommands(agents.data ?? []));
   const player = new Player();
   let help = $state(false);
   let draft = $state("");
@@ -104,7 +110,31 @@
     }
   }
 
+  /** `/claude <folder>` hands the conversation to the agent, `/claude off` back; alone it says where it is. */
+  async function agentCommand(name: string, arg: string): Promise<void> {
+    const agent = (agents.data ?? []).find((a) => `/${a.command}` === name);
+    if (!agent) return;
+    const threadId = snapshot.current.threadId;
+    try {
+      if (arg === "off") {
+        await client.conversations.takeBack(threadId);
+        notices.notify("The assistant answers again from your next message.");
+      } else if (arg) {
+        const to = await client.conversations.handTo(threadId, agent.command, arg);
+        notices.notify(`${to.name} answers from your next message, working in ${to.folder}. ${name} off goes back.`);
+      } else {
+        notices.notify(`Usage: ${name} <folder> to talk to ${agent.name}, ${name} off to go back.`, "warning");
+      }
+    } catch (e) {
+      notices.report(e);
+    }
+  }
+
   function command(name: string, arg: string): void {
+    if (extra.some((c) => c.name === name)) {
+      void agentCommand(name, arg);
+      return;
+    }
     if (name in SETTINGS_TABS) {
       void goto(`${resolve("/settings")}?tab=${SETTINGS_TABS[name]}`);
       return;
@@ -169,6 +199,9 @@
     onsuggest={(text) => (draft = text)}
   />
   <PinnedSkills skills={pinned.data ?? []} onunpin={unpin} />
+  {#if handoff.data}
+    <AgentBar handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")} />
+  {/if}
   <Composer
     bind:text={draft}
     bind:files={attached}
@@ -178,6 +211,7 @@
     onsend={send}
     onstop={() => chat.stop()}
     oncommand={command}
+    {extra}
   />
   {#if dragging > 0}<div class="drop-hint" aria-hidden="true">Drop files to attach them</div>{/if}
 </section>
@@ -185,7 +219,7 @@
 {#if snapshot.current.approval}
   <ApprovalModal approval={snapshot.current.approval} onanswer={(d) => chat.answer(d)} />
 {/if}
-{#if help}<HelpModal onclose={() => (help = false)} />{/if}
+{#if help}<HelpModal onclose={() => (help = false)} {extra} />{/if}
 
 <style>
   .chat {

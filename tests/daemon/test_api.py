@@ -195,6 +195,31 @@ async def test_skills_and_usage_endpoints(client, script, isolated_settings, mon
         await client.skills.get("news-digest")
 
 
+async def test_a_conversation_is_handed_to_an_agent_and_back(client, service, tmp_path):
+    from assistant.core.agent import HandoffError
+    from assistant.core.mcp.servers import McpServer
+
+    await service.add_mcp_server(
+        McpServer(
+            "coder",
+            url="https://coder.example.com/mcp",
+            agent_command="claude",
+            agent_name="Claude Code",
+            agent_tool="t",
+        )
+    )
+    assert [a.command for a in await client.conversations.agents()] == ["claude"]
+    thread_id = (await _new_session(client)).thread_id
+    assert await client.conversations.agent(thread_id) is None
+    handoff = await client.conversations.hand_to(thread_id, "claude", str(tmp_path))
+    assert (handoff.name, handoff.folder) == ("Claude Code", str(tmp_path))
+    assert await client.conversations.agent(thread_id) == handoff
+    with pytest.raises(HandoffError):
+        await client.conversations.hand_to(thread_id, "claude", "relative/folder")
+    await client.conversations.take_back(thread_id)
+    assert await client.conversations.agent(thread_id) is None
+
+
 async def test_facts_and_episodes_are_edited_and_deleted(client, service):
     from assistant.core.agent import MemoryEditError, MemoryNotFoundError
     from assistant.core.config import settings

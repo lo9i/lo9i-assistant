@@ -1,0 +1,108 @@
+"""Conversations handed to a plugin's agent: its tool answers instead of the assistant's model, both
+messages are kept, and the assistant hears about it when the user hands the conversation back."""
+
+import asyncio
+from collections.abc import AsyncIterator
+
+import pytest
+from mcp import Client
+from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
+
+from assistant.core.agent import AssistantService, HandoffError
+from assistant.core.attachments import Attachment
+from assistant.core.events import Done, Error, TextDelta, ToolStarted
+from assistant.core.mcp import hub as hub_module
+from assistant.core.mcp.servers import McpServer
+from tests.conftest import collect
+
+
+def _agent_server(asked: list[dict]) -> MCPServer:
+    server = MCPServer("claude-code")
+
+    @server.tool()
+    def converse(conversation: str, folder: str, message: str) -> str:
+        asked.append({"conversation": conversation, "folder": folder, "message": message})
+        if message == "break":
+            raise ToolError("the agent gave up")
+        return f"Done in {folder}: {message}"
+
+    return server
+
+
+@pytest.fixture
+def asked() -> list[dict]:
+    return []
+
+
+@pytest.fixture
+async def service(script, digests, summaries, titles, asked, monkeypatch) -> AsyncIterator[AssistantService]:
+    fake = _agent_server(asked)
+    monkeypatch.setattr(hub_module, "open_client", lambda server, handler, auth: Client(fake, message_handler=handler))
+    async with AssistantService.open() as svc:
+        stop = asyncio.Event()
+        task = asyncio.create_task(svc.mcp.run(stop))
+        await svc.add_mcp_server(
+            McpServer(
+                "claude-code", command="x", agent_command="claude", agent_name="Claude Code", agent_tool="converse"
+            )
+        )
+        for _ in range(100):
+            if (await svc.mcp_servers())[0].status == "connected":
+                break
+            await asyncio.sleep(0.02)
+        yield svc
+        stop.set()
+        await task
+
+
+async def _handed(service, tmp_path):
+    session = await service.session("owner", "cli")
+    await service.hand_conversation("owner", session.thread_id, "claude", str(tmp_path))
+    return session
+
+
+async def test_the_agent_answers_instead_of_the_assistant_and_both_messages_are_kept(service, script, asked, tmp_path):
+    assert [(a.command, a.name) for a in await service.agents()] == [("claude", "Claude Code")]
+    session = await _handed(service, tmp_path)
+    events = await collect(service.send(session, "fix the tests"))
+    assert isinstance(events[0], ToolStarted) and events[0].name == "Claude Code"
+    assert TextDelta(f"Done in {tmp_path}: fix the tests") in events and isinstance(events[-1], Done)
+    assert asked == [{"conversation": session.thread_id, "folder": str(tmp_path), "message": "fix the tests"}]
+    assert script.requests == []  # the assistant's model wasn't asked
+    shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
+    assert shown[-2:] == [("user", "fix the tests"), ("assistant", f"Done in {tmp_path}: fix the tests")]
+
+
+async def test_handed_back_the_assistant_answers_and_hears_who_did_meanwhile(service, script, tmp_path):
+    script.reply("I see Claude Code fixed them.")
+    session = await _handed(service, tmp_path)
+    await collect(service.send(session, "fix the tests"))
+    await service.take_back_conversation("owner", session.thread_id)
+    assert await service.conversation_agent("owner", session.thread_id) is None
+    await collect(service.send(session, "what happened?"))
+    _, *messages = script.requests[-1]
+    header = " ".join(b["text"] for b in messages[-1].content if b.get("type") == "text")
+    assert "handed this conversation to Claude Code" in header and f"Done in {tmp_path}" in messages[-2].content
+
+
+async def test_an_agent_error_is_shown_and_nothing_is_added(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    events = await collect(service.send(session, "break"))
+    assert isinstance(events[-1], Error) and "the agent gave up" in events[-1].message
+    assert await service.conversation_messages(session.thread_id) == []
+
+
+async def test_files_dont_reach_the_agent(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    photo = Attachment("photo.png", "image/png", b"\x89PNG")
+    events = await collect(service.send(session, "look", [photo]))
+    assert isinstance(events[-1], Error) and "takes text only" in events[-1].message
+
+
+async def test_only_an_installed_agent_and_an_existing_folder_can_be_handed_to(service, tmp_path):
+    session = await service.session("owner", "cli")
+    with pytest.raises(HandoffError, match="No plugin brings /codex"):
+        await service.hand_conversation("owner", session.thread_id, "codex", str(tmp_path))
+    with pytest.raises(HandoffError, match="isn't an existing folder"):
+        await service.hand_conversation("owner", session.thread_id, "claude", str(tmp_path / "missing"))

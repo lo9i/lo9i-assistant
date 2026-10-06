@@ -15,10 +15,18 @@ from assistant.client.files import load_attachment
 from assistant.client.live import LiveConversation
 from assistant.client.recorder import Recorder, RecordingUnavailableError
 from assistant.client.recorder import available as recording_available
-from assistant.core.agent import ConversationError, FoundServer, InvalidNameError, Session, SkillError
+from assistant.core.agent import (
+    Agent,
+    ConversationError,
+    FoundServer,
+    HandoffError,
+    InvalidNameError,
+    Session,
+    SkillError,
+)
 from assistant.core.attachments import Attachment
 from assistant.core.events import is_plugin_offer, is_plugin_setup, is_question, is_side_conversation
-from assistant_terminal.commands import GET_TO_KNOW_ME, Command, help_lines
+from assistant_terminal.commands import GET_TO_KNOW_ME, Command, agent_commands, help_lines
 from assistant_terminal.history import History
 from assistant_terminal.preferences import Preferences
 from assistant_terminal.tui.attachments import AttachmentBar
@@ -99,6 +107,9 @@ class AssistantApp(App):
         # F3 is hidden when this session has no microphone (see client/recorder.py).
         self._can_record = recording_available()
         self._can_paste = clipboard.available()
+        # The commands installed plugins' agents add, like /claude (refresh_agents).
+        self._agent_commands: list[Command] = []
+        self._agents: dict[str, Agent] = {}
         self._plugin_updates = PluginUpdates(service.repositories, lambda text: self.notify(text, timeout=10))
         self._commands: dict[str, Callable[[str], Awaitable[None]]] = {
             "/new": self._command_new,
@@ -153,6 +164,7 @@ class AssistantApp(App):
         await self.refresh_memory()
         await self.refresh_title()
         await self.refresh_plugin_updates()
+        await self.refresh_agents()
         self._listen()
 
     @work(exclusive=True, group="events")
@@ -292,6 +304,8 @@ class AssistantApp(App):
         command = self._commands.get(name)
         if command:
             await command(arg.strip())
+        elif name in self._agents:
+            await self._command_agent(name, arg.strip())
         elif text or self._attachment_bar.pending:
             await self._send_with_attachments(text)
 
@@ -379,10 +393,25 @@ class AssistantApp(App):
 
     @reports_daemon_unavailable
     async def refresh_thread(self) -> None:
-        """The conversation's id under the title, then the skills pinned to it."""
+        """The conversation's id under the title, then the agent it's handed to and the skills pinned to it."""
         thread_id = self._live.session.thread_id
+        handoff = await self._service.conversations.agent(thread_id)
         pinned = await self._service.conversations.pinned(thread_id)
-        self.sub_title = f"{thread_id} · pinned: {', '.join(pinned)}" if pinned else thread_id
+        parts = [
+            thread_id,
+            *([f"talking to {handoff.name} in {handoff.folder}"] if handoff else []),
+            *([f"pinned: {', '.join(pinned)}"] if pinned else []),
+        ]
+        self.sub_title = " · ".join(parts)
+
+    async def refresh_agents(self) -> None:
+        """The commands installed plugins' agents add, like /claude."""
+        agents = await self._service.conversations.agents()
+        self._agent_commands = agent_commands(agents)
+        self._agents = {
+            f"/{a.command}": a for a in agents if any(c.name == f"/{a.command}" for c in self._agent_commands)
+        }
+        self.query_one(CommandMenu).set_extra(self._agent_commands)
 
     async def refresh_title(self) -> None:
         self.title = await self._service.identity.name() or _DEFAULT_TITLE
@@ -547,6 +576,23 @@ class AssistantApp(App):
         await self._service.conversations.unpin(self._live.session.thread_id, arg)
         self.notify(f"Unpinned {arg}. It takes effect from your next message.")
 
+    async def _command_agent(self, name: str, arg: str) -> None:
+        """`/claude <folder>` hands the conversation to the agent, `/claude off` back."""
+        agent, thread_id = self._agents[name], self._live.session.thread_id
+        if arg == "off":
+            await self._service.conversations.take_back(thread_id)
+            self.notify("The assistant answers again from your next message.")
+        elif not arg:
+            self.notify(f"{name} <folder> talks to {agent.name}; {name} off goes back.", severity="warning")
+        else:
+            try:
+                handoff = await self._service.conversations.hand_to(thread_id, agent.command, arg)
+            except HandoffError as e:
+                self.notify(str(e), severity="error")
+                return
+            self.notify(f"{handoff.name} answers from your next message, working in {handoff.folder}.")
+        await self.refresh_thread()
+
     async def _command_get_to_know_me(self, _: str) -> None:
         """In a conversation of its own."""
         await self._command_new("")
@@ -554,7 +600,7 @@ class AssistantApp(App):
 
     async def _command_help(self, _: str) -> None:
         keys = ["F2 memory panel", "F3 record voice", "Ctrl+N new conversation", "Ctrl+Q quit"]
-        body = "\n".join(help_lines())
+        body = "\n".join(help_lines(self._agent_commands))
         await self._chat.mount(SystemNote(f"## Commands\n\n```\n{body}\n```\n\n**Keys:** {', '.join(keys)}"))
 
     async def _command_plugins(self, _: str) -> None:

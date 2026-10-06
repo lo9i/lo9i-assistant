@@ -7,6 +7,7 @@ import pytest
 
 import assistant_terminal.tui.app as app_module
 from assistant.core.agent import (
+    Agent,
     ChannelNotConnectedError,
     ChannelStatus,
     Conversation,
@@ -18,6 +19,8 @@ from assistant.core.agent import (
     Episode,
     Fact,
     FoundServer,
+    Handoff,
+    HandoffError,
     InstalledFromRepository,
     InvalidNameError,
     InvalidSearchKeyError,
@@ -564,6 +567,7 @@ class FakeConversations:
         self.items = [Conversation("owner:abc", "plan my trip", _NEXT, _NEXT)]
         self.said = {"owner:abc": [ShownMessage("user", "plan my trip"), ShownMessage("assistant", "Rome it is.")]}
         self.pins: dict[str, list[str]] = {}
+        self.handoffs: dict[str, Handoff] = {}
 
     async def recent(self):
         return list(self.items)
@@ -573,6 +577,21 @@ class FakeConversations:
 
     async def delete(self, thread_id):
         self.items = [c for c in self.items if c.thread_id != thread_id]
+
+    async def agents(self):
+        return [Agent("claude-code", "claude", "Claude Code", "converse")]
+
+    async def agent(self, thread_id):
+        return self.handoffs.get(thread_id)
+
+    async def hand_to(self, thread_id, command, folder):
+        if not folder.startswith("/"):
+            raise HandoffError(f"{folder} isn't an existing folder. Give its full path.")
+        self.handoffs[thread_id] = Handoff("claude-code", command, "Claude Code", folder)
+        return self.handoffs[thread_id]
+
+    async def take_back(self, thread_id):
+        self.handoffs.pop(thread_id, None)
 
     async def pinned(self, thread_id):
         return list(self.pins.get(thread_id, []))

@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from typing import Any, cast
 
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
@@ -37,8 +37,14 @@ class RunsMixin(LockingMixin, SearchMixin):
         return True
 
     async def _run(self, session: Session, input: Any) -> AsyncIterator[Event]:
+        async for event in self._run_with(session, lambda: self._run_events(session, input)):
+            yield event
+
+    async def _run_with(self, session: Session, events: Callable[[], AsyncIterator[Event]]) -> AsyncIterator[Event]:
+        """A run of the conversation: the graph's, or a handed-off agent's (handoffs.py). One at a time
+        per conversation, cancellable, and indexed and pruned when it ends."""
         async with self._thread_lock(session.thread_id):
-            async for event in self._cancellable(session, input):
+            async for event in self._cancellable(session, events):
                 yield event
             await self._index_after_run(session.user_id, session.thread_id)
             await checkpoints.prune(self._storage.checkpointer, session.thread_id)
@@ -52,11 +58,11 @@ class RunsMixin(LockingMixin, SearchMixin):
                 pruned += await checkpoints.prune(self._storage.checkpointer, thread_id)
         return pruned
 
-    async def _cancellable(self, session: Session, input: Any) -> AsyncIterator[Event]:
-        """Runs the graph in a task of its own, so `cancel` stops the graph and never the caller
-        reading the events (the run hub, a Telegram handler)."""
+    async def _cancellable(self, session: Session, produce: Callable[[], AsyncIterator[Event]]) -> AsyncIterator[Event]:
+        """Runs in a task of its own, so `cancel` stops the run and never the caller reading the events
+        (the run hub, a Telegram handler)."""
         events: asyncio.Queue[Event | None] = asyncio.Queue()
-        task = asyncio.create_task(self._produce(session, input, events))
+        task = asyncio.create_task(self._produce(produce, events))
         # A callback, not a `finally` in the task: a task cancelled before it starts never runs one.
         task.add_done_callback(lambda _: events.put_nowait(None))
         self._active_runs[session.thread_id] = task
@@ -70,9 +76,9 @@ class RunsMixin(LockingMixin, SearchMixin):
             await self._answer_open_tool_calls(session.thread_id)
             yield Cancelled()
 
-    async def _produce(self, session: Session, input: Any, events: asyncio.Queue[Event | None]) -> None:
+    async def _produce(self, produce: Callable[[], AsyncIterator[Event]], events: asyncio.Queue[Event | None]) -> None:
         try:
-            async for event in self._run_events(session, input):
+            async for event in produce():
                 events.put_nowait(event)
         except Exception as e:
             events.put_nowait(Error(f"{type(e).__name__}: {e}"))

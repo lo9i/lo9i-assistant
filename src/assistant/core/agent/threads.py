@@ -9,7 +9,7 @@ from assistant.core.agent.archive import ArchiveMixin
 from assistant.core.agent.session import Session
 from assistant.core.attachments import upload_paths
 from assistant.core.config import settings
-from assistant.core.conversation import pinned
+from assistant.core.conversation import handoffs, pinned
 from assistant.core.speech.voice import audio_paths
 
 
@@ -97,6 +97,7 @@ class ThreadsMixin(ArchiveMixin):
             await self._forget_channel_pointers(user_id, thread_id)
             await home.forget(self._storage.store, user_id, thread_id)
             await pinned.forget(self._storage.store, user_id, thread_id)
+            await handoffs.forget(self._storage.store, user_id, thread_id)
         await asyncio.to_thread(_delete_files, state.values.get("messages", []))
         self.bus.publish("conversations")
 

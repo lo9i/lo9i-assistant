@@ -25,6 +25,8 @@ import type {
   MemorySnapshot,
   Fact,
   Episode,
+  Agent,
+  Handoff,
   ModelChange,
   ModelOption,
   ModelProvider,
@@ -87,6 +89,32 @@ export class ConversationsGroup {
   async unpin(threadId: string, name: string): Promise<string[]> {
     const path = `${this.pinPath(threadId)}/${encodeURIComponent(name)}`;
     return (await this.transport.request<Schemas["PinnedSkills"]>("DELETE", path)).skills;
+  }
+
+  /** The agents installed plugins bring: /<command> hands a conversation to one. */
+  agents(): Promise<Agent[]> {
+    return this.transport.request("GET", "/agents");
+  }
+
+  /** The agent the conversation is handed to; null while the assistant answers. */
+  async agent(threadId: string): Promise<Handoff | null> {
+    const found = await this.transport.request<Schemas["ConversationAgent"]>("GET", this.agentPath(threadId));
+    return found.handoff ?? null;
+  }
+
+  /** From the next message the agent answers, working in `folder`. Throws ApiError (400) for an unknown agent or folder. */
+  async handTo(threadId: string, command: string, folder: string): Promise<Handoff> {
+    const found = await this.transport.request<Schemas["ConversationAgent"]>("PUT", this.agentPath(threadId), { command, folder });
+    return found.handoff as Handoff;
+  }
+
+  /** The assistant answers again from the next message. */
+  async takeBack(threadId: string): Promise<void> {
+    await this.transport.request("DELETE", this.agentPath(threadId));
+  }
+
+  private agentPath(threadId: string): string {
+    return `/conversations/${encodeURIComponent(threadId)}/agent`;
   }
 
   private pinPath(threadId: string): string {

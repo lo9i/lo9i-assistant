@@ -1,0 +1,1 @@
+The user had handed this conversation to {name}, working in {folder}, and just handed it back to you. The assistant messages since they handed it over were {name}'s replies, not yours: speak of that work as {name}'s.

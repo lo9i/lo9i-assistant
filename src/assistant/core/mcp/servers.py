@@ -53,6 +53,11 @@ class McpServer:
     email_providers: list[dict[str, Any]] = field(default_factory=list)
     # A login of lo9i's its MCP server gets instead of one of its own (core/mcp/logins.py); "" for none.
     model_login: str = ""
+    # An agent a conversation can be handed to (core/conversation/handoffs.py): the apps' command that
+    # switches to it (/claude), its name, and the tool that takes a message and returns the reply.
+    agent_command: str = ""
+    agent_name: str = ""
+    agent_tool: str = ""
 
     @property
     def transport(self) -> str:
