@@ -23,6 +23,16 @@ class Subagents(ABC):
         """`call_id`: the delegate call's, which the subagent's tool events name."""
 
 
+class McpStarts(ABC):
+    """Waits for an MCP server that's starting (core/mcp/hub.py). A base class for the same reason as
+    Subagents."""
+
+    @abstractmethod
+    async def started(self, name: str, timeout: float) -> str:
+        """Waits up to `timeout` seconds while the server is connecting or retrying, and returns its status
+        then: connected, connecting, failed, needs_sign_in, or off when it isn't running."""
+
+
 @dataclass
 class Context:
     """Per-run values passed to graph nodes and tools. Not stored in checkpoints."""
@@ -41,6 +51,8 @@ class Context:
     recall: MemoryRecall | None = field(default=None, compare=False)
     # For delegate. None inside a subagent, so subagents don't start their own.
     subagents: Subagents | None = field(default=None, compare=False)
+    # For offer_plugin, which waits for the server the user just installed.
+    mcp: McpStarts | None = field(default=None, compare=False)
     # An unattended run whose approvals are sent to the user (core/approvals.py) instead of denied.
     forwards_approvals: bool = False
 

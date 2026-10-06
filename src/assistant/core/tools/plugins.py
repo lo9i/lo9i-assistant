@@ -25,6 +25,8 @@ from assistant.core.tools.registry import register
 # The apps, which show the install dialog.
 _APPS = {"cli", "web"}
 _IN_THE_APP = "Settings → Plugins in the web app, or /plugins in the terminal app"
+# How long offer_plugin waits for a server the user just installed. Its first start builds its environment.
+_START_SECONDS = 120
 
 
 @register("skills")
@@ -42,7 +44,7 @@ async def offer_plugin(name: str, runtime: ToolRuntime[Context]) -> str:
         return f"The extras have no plugin named {name}. They have: {', '.join(await offers.names(store)) or 'none'}."
     # Also how a resumed run ends once the user installed it: the tool runs again from the start.
     if plugin.installed:
-        return f"{name} is installed.{_next_steps(plugin)}"
+        return f"{name} is installed.{await _next_steps(plugin, runtime.context)}"
     if runtime.context.channel not in _APPS:
         channel = runtime.context.channel
         return f"Not offered: {channel} can't show the install. Ask the user to install {name} from {_IN_THE_APP}."
@@ -64,7 +66,7 @@ async def open_plugin_setup(name: str, runtime: ToolRuntime[Context]) -> str:
     if not isinstance(plugin, FoundServer) or not plugin.installed:
         return f"{name} isn't an installed plugin. Offer it with offer_plugin first."
     if not (plugin.email or plugin.channel):
-        return f"{name} has nothing to set up here.{_next_steps(plugin)}"
+        return f"{name} has nothing to set up here.{await _next_steps(plugin, runtime.context)}"
     if runtime.context.channel not in _APPS:
         return f"Not opened: {runtime.context.channel} can't show it. Ask the user to open {name} in {_IN_THE_APP}."
     interrupt({"kind": PLUGIN_SETUP, "name": name, "description": plugin.description, "server": asdict(plugin)})
@@ -132,10 +134,16 @@ async def _setup_state(store: BaseStore, plugin: FoundServer) -> str:
     return f"The user closed {plugin.name}'s setup. Its email accounts: {listed}."
 
 
-def _next_steps(plugin: Any) -> str:
+async def _next_steps(plugin: Any, context: Context) -> str:
     if isinstance(plugin, FoundServer) and (plugin.channel or plugin.email):
         # After an install from the chat the app has just shown the setup, so only offer it again.
         return " If it isn't set up yet (email accounts, a channel's pairing), open_plugin_setup opens it here."
-    if isinstance(plugin, FoundServer):
-        return " Its tools are there from the user's next message."
-    return ""
+    if not isinstance(plugin, FoundServer):
+        return ""
+    status = await context.mcp.started(plugin.name, _START_SECONDS) if context.mcp else "off"
+    # Once it's connected, the graph gives this run its tools after this call (graph.py, _installed_node).
+    if status == "connected":
+        return " Its tools are available now."
+    if status in ("connecting", "failed"):
+        return " It's still starting (the first start sets it up); its tools are there from the user's next message."
+    return " Its tools are there from the user's next message."

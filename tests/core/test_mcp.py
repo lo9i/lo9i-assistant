@@ -22,8 +22,11 @@ from assistant.core.hidden_text import strip_hidden
 from assistant.core.mcp import hub as hub_module
 from assistant.core.mcp import servers
 from assistant.core.mcp.connection import ConnectionLostError, McpConnection
+from assistant.core.mcp.install import FoundServer
 from assistant.core.mcp.media import ToolMedia
 from assistant.core.mcp.tools import McpTool
+from assistant.core.repositories import cache, checkout
+from assistant.core.repositories.known import EXTRAS
 from assistant.core.speech.voice import audio_paths
 from assistant.core.tools.approval import UNATTENDED_DENIAL
 from tests.conftest import collect
@@ -112,6 +115,29 @@ async def test_a_change_in_the_tools_takes_effect_at_the_next_message(service, s
     await _say(service, "again")
     assert _names(script.bound[-1]) == {READ}
     assert len(script.requests[-1]) == 6 and summaries.inputs == []  # every message kept
+
+
+async def test_a_server_installed_from_an_offer_brings_its_tools_to_the_same_run(
+    service, script, summaries, monkeypatch
+):
+    await cache.save(
+        service.store, EXTRAS, cache.Listing("c1", [], [FoundServer("notes", "Notes", "stdio", [], False)])
+    )
+
+    async def latest_commit(url: str) -> str:
+        return "c1"
+
+    monkeypatch.setattr(checkout, "latest_commit", latest_commit)
+    script.call("offer_plugin", name="notes").call(READ).reply("done")
+    session = await service.session("owner", "web")
+    offer = next(e for e in await collect(service.send(session, "keep my notes")) if isinstance(e, ApprovalRequired))
+    # What the app's install dialog does; the server then connects in the background.
+    await service.add_mcp_server(McpServer(name="notes", command="notes-server", source=EXTRAS))
+    events = await collect(service.resume(session, {offer.interrupt_id: {"installed": True}}))
+    assert events[0] == ToolFinished("offer_plugin", "notes is installed. Its tools are available now.")
+    assert _names(script.bound[0]) == set() and _names(script.bound[1]) == {READ, ADD, CHART}
+    assert ToolFinished(READ, "no notes") in events
+    assert summaries.inputs == []  # a new epoch at the same point: nothing summarized
 
 
 async def test_excluded_tools_are_left_out_and_stop_working_at_once(service, script):
