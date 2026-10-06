@@ -36,6 +36,7 @@ describe("ApprovalModal for a plugin's setup", () => {
       channel: false,
       email: true,
       category: "communications/email",
+      model_login: "",
       installed: true,
       version: "1.0.0",
       installed_version: "1.0.0",

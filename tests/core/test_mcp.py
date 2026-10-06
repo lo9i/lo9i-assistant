@@ -20,6 +20,7 @@ from assistant.core.events import ApprovalRequired, ToolFinished
 from assistant.core.health import HealthLog
 from assistant.core.hidden_text import strip_hidden
 from assistant.core.mcp import hub as hub_module
+from assistant.core.mcp import servers
 from assistant.core.mcp.connection import ConnectionLostError, McpConnection
 from assistant.core.mcp.media import ToolMedia
 from assistant.core.mcp.tools import McpTool
@@ -264,3 +265,20 @@ async def test_audio_from_a_tool_is_transcribed_and_kept_after_a_retry(isolated_
     assert "hola, recordame el dentista" in transcript["text"]
     assert [str(p.parent.parent.name) for p in audio_paths([message])] == ["audio"]
     assert all(p.is_file() for p in audio_paths([message]))
+
+
+async def test_a_server_asking_for_the_copilot_login_gets_it_while_the_model_is_copilot(service):
+    from assistant.core.llm.choice import ModelChoice
+    from assistant.core.mcp.logins import ENV
+
+    def env() -> dict[str, str]:
+        return service.mcp._running["notes"].connection.server.env
+
+    await _add(service, model_login="copilot")
+    assert ENV["copilot"] not in env()
+    service._use_model(ModelChoice("copilot", "claude-opus-5.5", "claude-sonnet-5.5", {"api_key": "ghu_x"}))
+    await service.mcp.reload()
+    assert env()[ENV["copilot"]] == "ghu_x"
+    assert (await servers.load(service.store, "notes")).env == {}  # never saved with the plugin
+    await service.reset_model()
+    assert ENV["copilot"] not in env()

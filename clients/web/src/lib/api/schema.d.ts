@@ -1894,6 +1894,11 @@ export interface components {
             email: boolean;
             /** Steps */
             steps?: string[];
+            /**
+             * Model Login
+             * @default
+             */
+            model_login: string;
         };
         /**
          * FoundSkill
@@ -2466,6 +2471,11 @@ export interface components {
              * @default
              */
             help: string;
+            /**
+             * Optional
+             * @default false
+             */
+            optional: boolean;
         };
         /** ServerValuesBody */
         ServerValuesBody: {

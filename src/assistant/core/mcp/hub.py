@@ -19,8 +19,9 @@ from mcp.types import Tool
 from assistant.core.bus import EventBus
 from assistant.core.health import Health, HealthLog
 from assistant.core.hidden_text import strip_hidden
-from assistant.core.mcp import servers, sign_in
+from assistant.core.mcp import logins, servers, sign_in
 from assistant.core.mcp.connection import ClientFactory, McpConnection, describe, list_tools, open_client
+from assistant.core.mcp.logins import SharedLogins
 from assistant.core.mcp.media import ToolMedia
 from assistant.core.mcp.oauth import McpAuth, needs_sign_in
 from assistant.core.mcp.sanitize import MAX_TOOL_NAME, tool_name
@@ -68,8 +69,11 @@ class McpHub:
         media: ToolMedia,
         auth: McpAuth,
         factory: ClientFactory | None = None,
+        shared: SharedLogins | None = None,
     ) -> None:
+        """`shared` gives the logins servers can use instead of their own (core/mcp/logins.py)."""
         self._store = store
+        self._shared = shared or dict
         self._bus = bus
         self._factory = factory or open_client
         self._health = health
@@ -95,7 +99,8 @@ class McpHub:
         """Bring the connections in line with the saved servers. Called after every change."""
         if not self._active:
             return
-        wanted = {s.name: s for s in await servers.load_all(self._store) if s.enabled and s.is_mcp}
+        saved = [s for s in await servers.load_all(self._store) if s.enabled and s.is_mcp]
+        wanted = {s.name: logins.with_login(s, self._shared()) for s in saved}
         for name in [n for n in self._running if n not in wanted]:
             await self._stop(name)
         for server in wanted.values():

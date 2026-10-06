@@ -9,7 +9,7 @@ const telegram: FoundServer = {
   name: "telegram",
   description: "Chat with the assistant on Telegram",
   transport: "none",
-  fields: [{ key: "TELEGRAM_TOKEN", label: "Bot token", secret: true, help: "https://t.me/BotFather" }],
+  fields: [{ key: "TELEGRAM_TOKEN", label: "Bot token", secret: true, help: "https://t.me/BotFather", optional: false }],
   trusted: false,
   skill: false,
   page: false,
@@ -20,6 +20,7 @@ const telegram: FoundServer = {
   version: "1.0.0",
   installed_version: "",
   category: "communications/chat",
+  model_login: "",
   email: false,
 };
 

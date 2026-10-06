@@ -126,3 +126,16 @@ def test_a_value_the_daemon_already_has_may_be_left_empty():
     assert "leave empty to keep the one you set before" in str(_field_input(telegram, token).placeholder)
     asked = replace(telegram, known_fields=[])
     assert "leave empty" not in str(_field_input(asked, token).placeholder)
+
+
+def test_an_optional_field_and_the_shared_copilot_login_are_explained():
+    from assistant.core.agent import RepositoryContents
+    from assistant_terminal.tui.screens.repository_install import _guide
+
+    token = ServerField("CLAUDE_TOKEN", "Claude token", secret=True, optional=True)
+    coder = FoundServer(
+        "claude-code", "Coding tasks", "stdio", [token], False, steps=["Paste it."], model_login="copilot"
+    )
+    assert "optional" in str(_field_input(coder, token).placeholder)
+    guide = _guide(RepositoryContents(skills=[], servers=[coder]))
+    assert guide.startswith("It uses your GitHub Copilot login from /model") and "1. Paste it." in guide

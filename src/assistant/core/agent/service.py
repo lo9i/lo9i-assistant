@@ -36,6 +36,7 @@ from assistant.core.conversation.memory_writer import MemoryWriter
 from assistant.core.health import HealthLog
 from assistant.core.llm import choice
 from assistant.core.llm.choice import ModelChoice
+from assistant.core.mcp import logins
 from assistant.core.mcp.hub import McpHub
 from assistant.core.mcp.media import ToolMedia
 from assistant.core.mcp.oauth import McpAuth
@@ -86,7 +87,8 @@ class AssistantService(
         self._health = HealthLog(storage.store, bus)
         self._transcriber = FasterWhisperTranscriber()
         media = ToolMedia(self._transcriber, storage.store)
-        self.mcp = McpHub(storage.store, bus, self._health, media, McpAuth(storage.store, secrets))
+        auth = McpAuth(storage.store, secrets)
+        self.mcp = McpHub(storage.store, bus, self._health, media, auth, shared=lambda: logins.of_model(self._model))
         self.pages = McpPages(storage.store)
         self.channels_hub = ChannelHub(self.outbox, self.approvals, bus, self.assistant_name)
         self.channel_processes = ChannelProcesses(storage.store, self.channels_hub)

@@ -84,6 +84,7 @@ class ModelMixin(ServiceBase):
         await _check(new, TokenMeter(self._storage.usage, "check"))
         await choice.save(self._storage.store, self.secrets, new)
         self._use_model(new)
+        await self.mcp.reload()  # plugins using the model's login get the new one (core/mcp/logins.py)
         return _status(new, saved=True)
 
     def _values(self, known: ModelProvider, given: dict[str, str]) -> dict[str, str]:
@@ -113,6 +114,7 @@ class ModelMixin(ServiceBase):
         """Forget the app's choice and use .env's again."""
         await choice.clear(self._storage.store)
         self._use_model(choice.from_env())
+        await self.mcp.reload()
         return _status(self._model, saved=False)
 
     def _use_model(self, model: ModelChoice) -> None:

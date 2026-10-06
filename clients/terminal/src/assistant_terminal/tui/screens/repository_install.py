@@ -145,10 +145,11 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
 
 def _guide(contents: RepositoryContents) -> str:
     """What to do: a single plugin's steps for what it asks for, numbered, when it has them."""
-    steps = contents.servers[0].steps if len(contents.servers) == 1 and not contents.skills else []
-    if steps:
-        return "\n".join(f"{i}. {step}" for i, step in enumerate(steps, 1))
-    return "Check what to install. Servers ask for their values below, then Install."
+    one = contents.servers[0] if len(contents.servers) == 1 and not contents.skills else None
+    if one is None or not (one.steps or one.model_login):
+        return "Check what to install. Servers ask for their values below, then Install."
+    shared = [_SHARED_LOGIN] if one.model_login == "copilot" else []
+    return "\n\n".join([*shared, "\n".join(f"{i}. {step}" for i, step in enumerate(one.steps, 1))]).strip()
 
 
 def _offer_intro(plugin: FoundServer | FoundSkill) -> str:
@@ -157,10 +158,13 @@ def _offer_intro(plugin: FoundServer | FoundSkill) -> str:
 
 # For a field the daemon already has a value for, from before channels were plugins.
 _KNOWN_HINT = "leave empty to keep the one you set before"
+# A plugin that uses the assistant's Copilot login (core/mcp/logins.py).
+_SHARED_LOGIN = "It uses your GitHub Copilot login from /model while the model is GitHub Copilot."
 
 
 def _field_input(server: FoundServer, field: ServerField) -> Input:
-    hints = [*([field.help] if field.help else []), *([_KNOWN_HINT] if field.key in server.known_fields else [])]
+    known = [_KNOWN_HINT] if field.key in server.known_fields else []
+    hints = [*([field.help] if field.help else []), *known, *(["optional"] if field.optional else [])]
     hint = f" ({'; '.join(hints)})" if hints else ""
     return Input(placeholder=f"{server.name}: {field.label}{hint}", password=field.secret)
 
