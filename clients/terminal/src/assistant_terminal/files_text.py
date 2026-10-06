@@ -1,4 +1,4 @@
-"""Uploaded files as text, for the /files screen."""
+"""Files in the conversations as text, for the /files screen."""
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -8,12 +8,21 @@ from assistant.core.config import settings
 
 
 def describe(file: UploadedFile) -> str:
-    """Markdown: the file, its type and size, when it was sent and in which conversation."""
+    """Markdown: the file, its type and size, where it came from, when, and in which conversation."""
+    came = f"From {source(file)}" if file.tool else "Sent"
     return (
         f"### {file.name}\n\n"
         f"{file.media_type}, {size(file.size)}\n\n"
-        f"Sent {_local(file.uploaded_at)} in {file.conversation or 'an untitled conversation'}"
+        f"{came} {_local(file.uploaded_at)} in {file.conversation or 'an untitled conversation'}"
     )
+
+
+def source(file: UploadedFile) -> str:
+    """The user, or the tool whose result brought it (an MCP tool as "server: tool")."""
+    server, _, tool = file.tool.removeprefix("mcp__").partition("__")
+    if file.tool.startswith("mcp__") and tool:
+        return f"{server}: {tool}"
+    return file.tool or "you"
 
 
 def size(count: int) -> str:

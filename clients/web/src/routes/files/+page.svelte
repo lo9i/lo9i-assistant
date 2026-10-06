@@ -1,5 +1,6 @@
 <script lang="ts">
   import { resolve } from "$app/paths";
+  import type { UploadedFile } from "$lib/api/types";
   import FileIcon from "@lucide/svelte/icons/file";
   import Files from "@lucide/svelte/icons/files";
   import { resource } from "$lib/daemon.svelte";
@@ -12,12 +13,20 @@
   const files = resource((c) => c.files.list(), ["conversations"]);
   let picked = $state<string | null>(null);
   let query = $state("");
-  // By name, type or conversation.
+  // By name, type, where it came from or conversation.
   const shown = $derived(
-    (files.data ?? []).filter((f) => `${f.name} ${f.media_type} ${f.conversation}`.toLowerCase().includes(query.trim().toLowerCase())),
+    (files.data ?? []).filter((f) =>
+      `${f.name} ${f.media_type} ${source(f)} ${f.conversation}`.toLowerCase().includes(query.trim().toLowerCase()),
+    ),
   );
   // Until one is picked: the newest.
   const file = $derived(files.data?.find((f) => f.path === picked) ?? files.data?.[0]);
+
+  // The user, or the tool whose result brought it (an MCP tool as "server: tool").
+  function source(f: UploadedFile): string {
+    const [, server, tool] = f.tool.match(/^mcp__(.+?)__(.+)$/) ?? [];
+    return server ? `${server}: ${tool}` : f.tool || "You";
+  }
 
   function when(iso: string): string {
     return new Date(iso).toLocaleString([], { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -36,8 +45,10 @@
   <section class="table-card surface--glass">
     <header class="toolbar">
       <div>
-        <h2 class="text-heading">Uploaded files</h2>
-        <p class="text-meta">Files you sent in your conversations, newest first. Click one to see or download it on the right.</p>
+        <h2 class="text-heading">Conversation files</h2>
+        <p class="text-meta">
+          Files you sent and files tools brought (email attachments, images), newest first. Click one to see or download it on the right.
+        </p>
       </div>
       <div class="tools">
         <SearchField bind:value={query} label="Search files" />
@@ -48,7 +59,7 @@
       {#if files.error}
         <p class="error-text pad">{files.error}</p>
       {:else if files.data?.length === 0}
-        <EmptyState icon={Files} title="No files yet" text="Files you attach to a message show up here." />
+        <EmptyState icon={Files} title="No files yet" text="Files you attach to a message, and the ones tools bring in, show up here." />
       {:else if files.data && file}
         <table class="data-table">
           <thead>
@@ -56,8 +67,9 @@
               <th>Name</th>
               <th class="hide-narrow">Type</th>
               <th>Size</th>
+              <th class="hide-narrow">From</th>
               <th class="hide-narrow">Conversation</th>
-              <th>Uploaded</th>
+              <th>Added</th>
             </tr>
           </thead>
           <tbody>
@@ -66,6 +78,7 @@
                 <td><button class="row-button" onclick={() => (picked = f.path)}>{f.name}</button></td>
                 <td class="text-label hide-narrow">{f.media_type}</td>
                 <td class="text-label">{size(f.size)}</td>
+                <td class="text-label hide-narrow">{source(f)}</td>
                 <td class="text-label hide-narrow">{f.conversation || "Untitled"}</td>
                 <td class="text-label">{when(f.uploaded_at)}</td>
               </tr>
@@ -87,7 +100,9 @@
           <dd>{file.media_type}</dd>
           <dt class="micro-label">Size</dt>
           <dd>{size(file.size)}</dd>
-          <dt class="micro-label">Uploaded</dt>
+          <dt class="micro-label">From</dt>
+          <dd>{source(file)}</dd>
+          <dt class="micro-label">Added</dt>
           <dd>{when(file.uploaded_at)}</dd>
           <dt class="micro-label">Conversation</dt>
           <dd><a href="{resolve('/conversations')}?c={file.thread_id}">{file.conversation || "Untitled"}</a></dd>

@@ -1,6 +1,6 @@
-"""/files: the files the user sent, with their type, size and conversation."""
+"""/files: the files in the conversations, with their type, size, where they came from and conversation."""
 
-from textual.widgets import Markdown
+from textual.widgets import Markdown, OptionList
 
 from assistant_terminal.tui.screens import FilesScreen
 from tests.terminal.conftest import wait_for
@@ -16,7 +16,11 @@ async def test_lists_the_files_sent(app, client):
         def body() -> str:
             return screen.query_one("#file-body", Markdown).source
 
-        await wait_for(pilot, lambda: "notes.txt" in body() and "2.0 KB" in body() and "Groceries" in body())
+        await wait_for(pilot, lambda: "notes.txt" in body() and "2.0 KB" in body() and "Sent" in body())
+        screen.query_one("#files-list", OptionList).highlighted = 1
+        await wait_for(
+            pilot, lambda: "chart.png" in body() and "From sheets: chart" in body() and "Groceries" in body()
+        )
         client.files.items = []
         await screen.reload()
         await wait_for(pilot, lambda: "No files yet" in body())

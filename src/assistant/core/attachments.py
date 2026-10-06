@@ -151,6 +151,17 @@ def user_uploads(messages: Sequence[BaseMessage]) -> list[dict[str, str]]:
     ]
 
 
+def tool_uploads(messages: Sequence[BaseMessage]) -> list[tuple[str, dict[str, str]]]:
+    """The references of the files tool results brought (an email's attachments, an MCP tool's images),
+    each with the tool's name, oldest first."""
+    return [
+        (message.name or "", reference)
+        for message in messages
+        for block in _tool_references(message)
+        if (reference := _reference(block)) is not None
+    ]
+
+
 def _stored_references(message: BaseMessage) -> list[Any]:
     if isinstance(message, HumanMessage) and isinstance(message.content, list):
         return message.content

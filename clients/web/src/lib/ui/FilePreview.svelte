@@ -5,7 +5,7 @@
   import { useDaemon } from "$lib/daemon.svelte";
   import { describe } from "$lib/notices";
 
-  // A file the user sent: shown when the browser can (images inline; PDFs, plain text, audio and video
+  // A file from the user's conversations: shown when the browser can (images inline; PDFs, plain text, audio and video
   // in a new tab) and saved with Download. It's fetched with the app's credentials, then kept as a local URL.
   let { file }: { file: UploadedFile } = $props();
   const { client } = useDaemon();

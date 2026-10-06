@@ -1,5 +1,5 @@
-"""The files the user sent in their conversations, newest first, to save to Downloads or open in their
-app on this computer. Refreshes when a conversation changes."""
+"""The files in the user's conversations, sent by them or brought by tool results, newest first, to save
+to Downloads or open in their app on this computer. Refreshes when a conversation changes."""
 
 import asyncio
 import webbrowser
@@ -20,7 +20,7 @@ from assistant.core.agent import FileUnavailableError, UploadedFile
 from assistant_terminal.files_text import describe
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
-_EMPTY = "No files yet. Files you attach to a message show up here."
+_EMPTY = "No files yet. Files you attach to a message, and the ones tools bring in, show up here."
 
 
 class FilesScreen(ModalScreen[None]):

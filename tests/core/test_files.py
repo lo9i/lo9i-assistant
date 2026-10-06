@@ -1,9 +1,10 @@
-"""The Files list: the files the user sent, newest first, with the conversation they're in."""
+"""The Files list: the files the user sent and the ones tool results brought, newest first, with the
+conversation they're in."""
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from assistant.core import uploads
-from assistant.core.attachments import TOOL_MEDIA_SENDER, Attachment, reference, user_uploads
+from assistant.core.attachments import TOOL_MEDIA_SENDER, Attachment, reference, tool_uploads, user_uploads
 from tests.conftest import collect
 
 NOTE = Attachment("notes.txt", "text/plain", b"buy milk")
@@ -16,9 +17,9 @@ async def test_lists_the_files_sent_with_their_conversation(service):
     second = await service.session("owner", "telegram")
     await collect(service.send(second, "look", [PNG]))
     files = await service.list_files("owner")
-    assert {(f.name, f.media_type, f.size, f.thread_id) for f in files} == {
-        ("notes.txt", "text/plain", 8, first.thread_id),
-        ("shot.png", "image/png", 9, second.thread_id),
+    assert {(f.name, f.media_type, f.size, f.thread_id, f.tool) for f in files} == {
+        ("notes.txt", "text/plain", 8, first.thread_id, ""),
+        ("shot.png", "image/png", 9, second.thread_id, ""),
     }
     assert all(f.conversation for f in files)
 
@@ -36,7 +37,8 @@ def test_files_from_tool_results_arent_the_users():
     messages = [
         HumanMessage([reference(NOTE), {"type": "text", "text": "chart it"}]),
         call,
-        ToolMessage("sales", tool_call_id="t1", artifact=[reference(PNG)]),
+        ToolMessage("sales", tool_call_id="t1", name="chart", artifact=[reference(PNG)]),
         HumanMessage([reference(PNG)], name=TOOL_MEDIA_SENDER),
     ]
     assert [r["name"] for r in user_uploads(messages)] == ["notes.txt"]
+    assert [(tool, r["name"]) for tool, r in tool_uploads(messages)] == [("chart", "shot.png")]

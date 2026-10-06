@@ -14,6 +14,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 - A22. A conversation handed to an agent (/claude) shows nothing while the agent works, which can take minutes: only its reply when it's done. Stream its steps (the task's progress lines, through MCP progress notifications) as they happen, like a delegate call's.
 - A23. Telegram and Slack can't hand a conversation to an agent: their commands are fixed in `lib/lo9i-chat`. Offer the agents' commands there too, with the folder typed after the command.
+- A24. Files a subagent's tools bring (an email's attachments read inside `delegate`) sit in its checkpoint under the call's namespace, which the Files list (`core/agent/files.py`) and deleting a conversation (`core/agent/threads.py::_delete_files`) don't read: they aren't listed, and stay on disk after the conversation is deleted. Read the delegate calls' namespaces too.
 
 ## Daemon
 
