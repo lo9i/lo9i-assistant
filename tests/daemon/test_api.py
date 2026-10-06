@@ -52,9 +52,28 @@ class _Startup:
         return StartupStatus(enabled=False, managed=False, includes_ollama=False)
 
 
+class _Restart:
+    def __init__(self) -> None:
+        self.requests = 0
+
+    def request(self) -> int:
+        self.requests += 1
+        return 2
+
+
+async def test_a_restart_is_requested_and_says_how_many_runs_it_waits_for(service):
+    restart = _Restart()
+    transport = httpx.ASGITransport(app=trusted(create_app(service, RunHub(), restart=restart)))
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}
+    ) as http:
+        assert (await DaemonClient(http).system.restart()).waiting_for_runs == 2
+    assert restart.requests == 1
+
+
 async def test_every_json_response_has_a_typed_schema(service):
     """Web clients generate their types from /openapi.json, so no route may answer an untyped object."""
-    openapi = create_app(service, RunHub(), _Startup()).openapi()
+    openapi = create_app(service, RunHub(), _Startup(), _Restart()).openapi()
     untyped = [
         f"{method.upper()} {path}"
         for path, operations in openapi["paths"].items()
@@ -70,7 +89,7 @@ _WEB_SCHEMA = Path(__file__).parents[2] / "clients" / "web" / "openapi.json"
 async def test_the_web_clients_schema_matches_the_routes(service):
     """The web client's types are generated from clients/web/openapi.json. Run with UPDATE_OPENAPI=1
     (`npm run api` in clients/web/) to rewrite it after changing a route."""
-    current = json.dumps(create_app(service, RunHub(), _Startup()).openapi(), indent=2) + "\n"
+    current = json.dumps(create_app(service, RunHub(), _Startup(), _Restart()).openapi(), indent=2) + "\n"
     if os.environ.get("UPDATE_OPENAPI"):
         _WEB_SCHEMA.write_text(current)
     assert _WEB_SCHEMA.read_text() == current, (

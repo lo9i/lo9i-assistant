@@ -14,17 +14,20 @@ from assistant.core.attachments import Attachment
 from assistant.core.events import Done, Error, TextDelta, ToolStarted
 from assistant.core.mcp import hub as hub_module
 from assistant.core.mcp.servers import McpServer
+from assistant.daemon.restart import Restart
 from tests.conftest import collect
 
 
-def _agent_server(asked: list[dict]) -> MCPServer:
+def _agent_server(asked: list[dict], release: asyncio.Event) -> MCPServer:
     server = MCPServer("claude-code")
 
     @server.tool()
-    def converse(conversation: str, folder: str, message: str) -> str:
+    async def converse(conversation: str, folder: str, message: str) -> str:
         asked.append({"conversation": conversation, "folder": folder, "message": message})
         if message == "break":
             raise ToolError("the agent gave up")
+        if message == "work a while":
+            await release.wait()
         return f"Done in {folder}: {message}"
 
     return server
@@ -36,8 +39,14 @@ def asked() -> list[dict]:
 
 
 @pytest.fixture
-async def service(script, digests, summaries, titles, asked, monkeypatch) -> AsyncIterator[AssistantService]:
-    fake = _agent_server(asked)
+def release() -> asyncio.Event:
+    """Lets the agent answer \"work a while\"."""
+    return asyncio.Event()
+
+
+@pytest.fixture
+async def service(script, digests, summaries, titles, asked, release, monkeypatch) -> AsyncIterator[AssistantService]:
+    fake = _agent_server(asked, release)
     monkeypatch.setattr(hub_module, "open_client", lambda server, handler, auth: Client(fake, message_handler=handler))
     async with AssistantService.open() as svc:
         stop = asyncio.Event()
@@ -106,3 +115,30 @@ async def test_only_an_installed_agent_and_an_existing_folder_can_be_handed_to(s
         await service.hand_conversation("owner", session.thread_id, "codex", str(tmp_path))
     with pytest.raises(HandoffError, match="isn't an existing folder"):
         await service.hand_conversation("owner", session.thread_id, "claude", str(tmp_path / "missing"))
+
+
+async def test_a_restart_waits_until_the_agent_has_replied(service, asked, release, tmp_path):
+    """The agent may restart the daemon it answers through; stopping it at once would stop the agent."""
+    session = await _handed(service, tmp_path)
+    run = asyncio.create_task(collect(service.send(session, "work a while")))
+    for _ in range(100):
+        if asked:
+            break
+        await asyncio.sleep(0.02)
+    stop = asyncio.Event()
+    restart = Restart(service, stop)
+    assert restart.request() == 1
+    await asyncio.sleep(0.05)
+    assert not stop.is_set()
+    release.set()
+    assert isinstance((await run)[-1], Done)
+    await asyncio.wait_for(stop.wait(), 1)
+    assert restart.requested
+
+
+async def test_with_no_run_in_progress_a_restart_is_at_once(service):
+    stop = asyncio.Event()
+    restart = Restart(service, stop)
+    assert restart.request() == 0
+    await asyncio.wait_for(stop.wait(), 1)
+    assert restart.requested

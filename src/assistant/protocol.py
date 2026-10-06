@@ -43,6 +43,13 @@ def event_from_dict(data: dict[str, Any]) -> Event:
 
 
 @dataclass
+class RestartStatus:
+    """A requested restart: the daemon restarts once these runs end, at once when none."""
+
+    waiting_for_runs: int
+
+
+@dataclass
 class StartupStatus:
     """Whether the daemon starts at boot, and whether this daemon was started that way."""
 

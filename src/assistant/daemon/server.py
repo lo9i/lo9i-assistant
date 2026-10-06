@@ -1,6 +1,6 @@
 """Starts the daemon: opens the service, serves the API on a Unix socket, on localhost and, when
 configured, over HTTPS for other hosts, and supervises its background tasks, including the chat
-channels' processes. Stops cleanly on SIGINT or SIGTERM."""
+channels' processes. Stops cleanly on SIGINT or SIGTERM, and starts again when asked to restart."""
 
 import asyncio
 import contextlib
@@ -22,6 +22,7 @@ from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
 from assistant.daemon.mail_watcher import MailWatcher
 from assistant.daemon.pages import create_pages_app
+from assistant.daemon.restart import Restart, exec_again
 from assistant.daemon.runs import RunHub
 from assistant.daemon.scheduler import Scheduler
 from assistant.daemon.startup import Startup
@@ -37,20 +38,22 @@ class _Server(uvicorn.Server):
         yield
 
 
-async def serve() -> None:
+async def serve() -> bool:
+    """Returns whether the daemon stopped to restart."""
     stop = _stop_event()
     socket_path = Path(settings.daemon_socket).expanduser()
     if await _already_running(socket_path):
         # One daemon at a time. Started at boot (launchd, systemd), this one is retried and takes over
         # once the other exits.
         logger.info("Another daemon is already running on %s; exiting.", socket_path)
-        return
+        return False
     socket_path.unlink(missing_ok=True)
     async with AssistantService.open() as service:
         # Before any request, so no channel message lands in a conversation it's leaving.
         if moved := await service.channels_to_home(settings.owner_id):
             logger.info("Moved %s chat channels to the home conversation.", moved)
-        app = create_app(service, RunHub(service.bus), Startup(stop))
+        restart = Restart(service, stop)
+        app = create_app(service, RunHub(service.bus), Startup(stop), restart)
         servers = _listeners(app, socket_path)
         page_servers = [_server(create_pages_app(service), **bind) for bind in pages.ports()]
         tasks = [asyncio.create_task(s.serve()) for s in [*servers, *page_servers]]
@@ -84,6 +87,7 @@ async def serve() -> None:
             server.should_exit = True
         await asyncio.gather(*tasks, return_exceptions=True)
     socket_path.unlink(missing_ok=True)
+    return restart.requested
 
 
 def _listeners(app, socket_path: Path) -> list["_Server"]:
@@ -156,4 +160,6 @@ def run() -> None:
     load_dotenv(".env", override=False)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    asyncio.run(serve())
+    if asyncio.run(serve()):
+        logger.info("Restarting the daemon.")
+        exec_again()

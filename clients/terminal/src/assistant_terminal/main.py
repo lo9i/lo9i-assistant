@@ -1,5 +1,6 @@
 """CLI entry point. `assistant` opens the chat, starting the daemon if it isn't running;
-`assistant daemon` runs the daemon in the foreground."""
+`assistant daemon` runs the daemon in the foreground; `assistant daemon restart` restarts the running one
+once no run is in progress."""
 
 import asyncio
 import sys
@@ -30,13 +31,19 @@ async def _open(client: DaemonClient, session: Session) -> None:
         await Repl(client, session).loop()
 
 
+async def _restart() -> None:
+    async with connect() as client:
+        waiting = (await client.system.restart()).waiting_for_runs
+    print(f"The daemon restarts once the {waiting} runs in progress end." if waiting else "The daemon restarts now.")
+
+
 def run() -> None:
-    if sys.argv[1:2] == ["daemon"]:
+    if sys.argv[1:] == ["daemon"]:
         from assistant.daemon.server import run as run_daemon
 
         run_daemon()
         return
     try:
-        asyncio.run(_chat())
+        asyncio.run(_restart() if sys.argv[1:] == ["daemon", "restart"] else _chat())
     except DaemonUnavailableError as e:
         sys.exit(str(e))

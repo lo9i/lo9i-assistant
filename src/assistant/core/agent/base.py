@@ -67,6 +67,8 @@ class ServiceBase:
     _conversations_lock: asyncio.Lock
     # The task running each thread's graph, while it runs (core/agent/runs.py).
     _active_runs: dict[str, asyncio.Task]
+    # Set while no run is in progress (core/agent/runs.py).
+    _no_runs: asyncio.Event
 
     async def _servers_changed(self) -> None:
         """Bring MCP connections, pages and channels in line with the saved servers. A server's skill
