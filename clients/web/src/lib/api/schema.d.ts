@@ -551,7 +551,7 @@ export interface paths {
         };
         /**
          * File List
-         * @description The files the user sent in their conversations, newest first.
+         * @description The files in the user's conversations, sent by them or brought by tool results, newest first.
          */
         get: operations["file_list_files_get"];
         put?: never;
@@ -2893,6 +2893,8 @@ export interface components {
             thread_id: string;
             /** Conversation */
             conversation: string;
+            /** Tool */
+            tool: string;
         };
         /** UsageReport */
         UsageReport: {

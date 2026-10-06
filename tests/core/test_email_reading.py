@@ -164,6 +164,12 @@ async def test_read_shows_headers_text_and_attachments(service, script, reading)
     assert "No message with uid 8" in await _tool(service, script, "read_email", uid=8)
 
 
+async def test_attachments_read_are_listed_in_files(service, script, reading):
+    await _tool(service, script, "read_email", uid=7)
+    listed = {(f.name, f.tool) for f in await service.list_files("u")}
+    assert listed == {("budget.xlsx", "read_email"), ("chart.png", "read_email")}  # not the one too large
+
+
 async def test_tools_point_to_setting_up_email_without_an_account(service, script):
     assert "Call set_up_email" in await _tool(service, script, "search_email")
 

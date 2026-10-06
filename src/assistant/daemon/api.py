@@ -639,7 +639,7 @@ def _refuse_if_open(clients: ClientRegistry, thread_id: str, caller: str) -> Non
 def _add_file_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/files")
     async def file_list() -> list[UploadedFile]:
-        """The files the user sent in their conversations, newest first."""
+        """The files in the user's conversations, sent by them or brought by tool results, newest first."""
         return await service.list_files(settings.owner_id)
 
     @app.get("/files/content", response_class=Response, responses=_FILE)

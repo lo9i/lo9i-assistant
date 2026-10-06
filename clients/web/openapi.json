@@ -1187,7 +1187,7 @@
     "/files": {
       "get": {
         "summary": "File List",
-        "description": "The files the user sent in their conversations, newest first.",
+        "description": "The files in the user's conversations, sent by them or brought by tool results, newest first.",
         "operationId": "file_list_files_get",
         "responses": {
           "200": {
@@ -6356,6 +6356,10 @@
           "conversation": {
             "type": "string",
             "title": "Conversation"
+          },
+          "tool": {
+            "type": "string",
+            "title": "Tool"
           }
         },
         "type": "object",
@@ -6366,7 +6370,8 @@
           "size",
           "uploaded_at",
           "thread_id",
-          "conversation"
+          "conversation",
+          "tool"
         ],
         "title": "UploadedFile"
       },

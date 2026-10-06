@@ -254,6 +254,15 @@ async def test_images_from_a_tool_are_saved_and_the_model_sees_them(service, scr
     assert {"type": "image", "base64": _PNG_BASE64, "mime_type": "image/png"} in list(sent.content)
 
 
+async def test_images_from_a_tool_are_listed_in_files_with_the_tool(service, script):
+    await _add(service)
+    script.call(CHART).reply("a chart")
+    await _say(service, "chart my notes")
+    [listed] = await service.list_files("owner")
+    assert (listed.name, listed.media_type, listed.tool) == ("mcp__notes__chart-image.png", "image/png", CHART)
+    assert (await service.file_content("owner", listed.path))[1] == b"\x89PNG fake"
+
+
 async def test_audio_from_a_tool_is_transcribed_and_kept_after_a_retry(isolated_settings):
     audio = AudioContent(data=base64.b64encode(b"OggS fake").decode(), mime_type="audio/ogg")
     connection = _DroppingConnection([TextContent(text="voicemail"), audio])

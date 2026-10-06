@@ -3,7 +3,7 @@ from assistant.core.agent import FileUnavailableError, UploadedFile
 
 
 class FilesApi:
-    """The files the user sent in their conversations."""
+    """The files in the user's conversations: the ones they sent and the ones tool results brought."""
 
     def __init__(self, transport: Transport) -> None:
         self._transport = transport

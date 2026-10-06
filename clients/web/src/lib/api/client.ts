@@ -125,7 +125,7 @@ export class ConversationsGroup {
 export class FilesGroup {
   constructor(private readonly transport: Transport) {}
 
-  /** The files the user sent in their conversations, newest first. */
+  /** The files in the user's conversations, sent by them or brought by tool results, newest first. */
   list(): Promise<UploadedFile[]> {
     return this.transport.request("GET", "/files");
   }

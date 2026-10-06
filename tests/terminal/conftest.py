@@ -629,8 +629,25 @@ class FakeFiles:
     def __init__(self):
         self.items = [
             UploadedFile(
-                "a1/notes.txt", "notes.txt", "text/plain", 2048, "2026-09-30T09:00:00+00:00", "owner:abc", "Groceries"
-            )
+                "a1/notes.txt",
+                "notes.txt",
+                "text/plain",
+                2048,
+                "2026-09-30T09:00:00+00:00",
+                "owner:abc",
+                "Groceries",
+                "",
+            ),
+            UploadedFile(
+                "b2/chart.png",
+                "chart.png",
+                "image/png",
+                512,
+                "2026-09-29T09:00:00+00:00",
+                "owner:abc",
+                "Groceries",
+                "mcp__sheets__chart",
+            ),
         ]
 
     async def list(self):
