@@ -16,6 +16,7 @@ CATEGORIES = (
     "communications/chat",
     "communications/email",
     "communications/phone",
+    "media/video",
     "other/general",
 )
 DEFAULT = "other/general"
