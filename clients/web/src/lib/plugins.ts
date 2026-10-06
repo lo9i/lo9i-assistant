@@ -41,7 +41,20 @@ export function runsOf(server: FoundServer): string {
 
 /** A field the daemon already has a value for (from before channels were plugins) may be left empty. */
 export function optional(server: FoundServer, key: string): boolean {
-  return (server.known_fields ?? []).includes(key);
+  return (server.known_fields ?? []).includes(key) || Boolean(server.fields.find((f) => f.key === key)?.optional);
+}
+
+/** What an empty field says: the value saved before stays, or it may be left empty. */
+export function emptyHint(server: FoundServer, key: string): string {
+  if ((server.known_fields ?? []).includes(key)) return "Leave empty to keep the one already saved";
+  return optional(server, key) ? "Optional" : "";
+}
+
+/** What an install dialog says about a login of the assistant's the plugin uses instead of its own. */
+export function sharedLogin(server: FoundServer): string {
+  return server.model_login === "copilot"
+    ? "It uses your GitHub Copilot login from Settings → Model while the model is GitHub Copilot."
+    : "";
 }
 
 /** The first required field left empty, to say so before installing; null when all are there. */

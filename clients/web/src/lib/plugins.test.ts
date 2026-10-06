@@ -1,6 +1,18 @@
 import { describe as group, expect, it } from "vitest";
 import type { FoundServer, RepositoryContents } from "./api/types";
-import { byCategory, categoryLabel, kindOf, missingField, optional, pluginsOf, runsOf, updatable, versionOf } from "./plugins";
+import {
+  byCategory,
+  categoryLabel,
+  emptyHint,
+  kindOf,
+  missingField,
+  optional,
+  pluginsOf,
+  runsOf,
+  sharedLogin,
+  updatable,
+  versionOf,
+} from "./plugins";
 
 const contents: RepositoryContents = {
   skills: [
@@ -28,6 +40,7 @@ const contents: RepositoryContents = {
       version: "",
       installed_version: "",
       category: "other/general",
+      model_login: "",
       email: false,
     },
   ],
@@ -84,6 +97,7 @@ group("versionOf", () => {
             installed_version,
             installed,
             category: "other/general",
+            model_login: "",
             email: false,
           },
         ],
@@ -114,6 +128,7 @@ group("updatable", () => {
             installed_version,
             installed,
             category: "other/general",
+            model_login: "",
             email: false,
           },
         ],
@@ -129,7 +144,7 @@ const found = (over: Partial<FoundServer>): FoundServer => ({
   name: "telegram",
   description: "Chat on Telegram",
   transport: "none",
-  fields: [{ key: "BOT_TOKEN", label: "Bot token", secret: true, help: "" }],
+  fields: [{ key: "BOT_TOKEN", label: "Bot token", secret: true, help: "", optional: false }],
   trusted: true,
   skill: false,
   page: false,
@@ -138,6 +153,7 @@ const found = (over: Partial<FoundServer>): FoundServer => ({
   version: "",
   installed_version: "",
   category: "other/general",
+  model_login: "",
   email: false,
   ...over,
 });
@@ -161,5 +177,24 @@ group("channel plugins", () => {
     expect(missingField(known, { BOT_TOKEN: "" })).toBeNull();
     expect(missingField(found({}), { BOT_TOKEN: " " })).toBe("Bot token");
     expect(missingField(found({}), { BOT_TOKEN: "123:abc" })).toBeNull();
+  });
+});
+
+group("emptyHint and sharedLogin", () => {
+  const coder = found({
+    name: "claude-code",
+    fields: [{ key: "CLAUDE_TOKEN", label: "Claude token", secret: true, help: "", optional: true }],
+    known_fields: [],
+    model_login: "copilot",
+  });
+  it("says a field may be left empty", () => {
+    expect(optional(coder, "CLAUDE_TOKEN")).toBe(true);
+    expect(emptyHint(coder, "CLAUDE_TOKEN")).toBe("Optional");
+    expect(missingField(coder, { CLAUDE_TOKEN: "" })).toBeNull();
+    expect(emptyHint(found({}), "BOT_TOKEN")).toBe("");
+  });
+  it("says when the plugin uses the Copilot login", () => {
+    expect(sharedLogin(coder)).toContain("GitHub Copilot login");
+    expect(sharedLogin(found({}))).toBe("");
   });
 });

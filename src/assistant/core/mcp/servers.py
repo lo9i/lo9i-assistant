@@ -51,6 +51,8 @@ class McpServer:
     # The email providers it offers (core/integrations/email/providers.py), as written in its
     # server.yaml's `email:` section. Only plugins installed from a repository have them.
     email_providers: list[dict[str, Any]] = field(default_factory=list)
+    # A login of lo9i's its MCP server gets instead of one of its own (core/mcp/logins.py); "" for none.
+    model_login: str = ""
 
     @property
     def transport(self) -> str:

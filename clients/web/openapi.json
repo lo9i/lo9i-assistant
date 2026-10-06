@@ -4245,6 +4245,11 @@
             },
             "type": "array",
             "title": "Steps"
+          },
+          "model_login": {
+            "type": "string",
+            "title": "Model Login",
+            "default": ""
           }
         },
         "type": "object",
@@ -5404,6 +5409,11 @@
             "type": "string",
             "title": "Help",
             "default": ""
+          },
+          "optional": {
+            "type": "boolean",
+            "title": "Optional",
+            "default": false
           }
         },
         "type": "object",

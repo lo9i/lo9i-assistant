@@ -404,6 +404,24 @@ async def test_an_update_that_drops_this_system_keeps_the_installed_version(serv
         await service.update_installed_skill("expenses")
 
 
+async def test_a_server_can_ask_for_the_copilot_login_and_leave_a_field_optional(service, repo):
+    manifest = (
+        'command: "{python}"\nargs: ["{dir}/server.py"]\nmodel_login: copilot\n'
+        "fields:\n  - {key: CLAUDE_TOKEN, label: Claude token, secret: true, optional: true}\n"
+    )
+    _write(repo / "coder", {"server.yaml": manifest, "server.py": _SERVER})
+    found = next(s for s in (await service.browse_repository(URL)).servers if s.name == "coder")
+    assert found.model_login == "copilot" and found.fields[0].optional
+    await service.install_from_repository(URL, [], [ServerValues("coder", {})])
+    assert (await servers.load(service.store, "coder")).model_login == "copilot"
+
+
+async def test_an_unknown_model_login_is_refused(service, repo):
+    _write(repo / "coder", {"server.yaml": "url: https://coder.example.com/mcp\nmodel_login: claude"})
+    with pytest.raises(RepositoryError, match="its model_login 'claude' isn't one of copilot"):
+        await service.browse_repository(URL)
+
+
 async def test_a_channel_is_in_communications(service, repo):
     _write(repo / "bot", {"server.yaml": "channel: {command: run-bot}"})
     contents = await service.browse_repository(URL)

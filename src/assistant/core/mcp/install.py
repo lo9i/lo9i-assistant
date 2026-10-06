@@ -22,6 +22,7 @@ code from it. In its commands, arguments and env values:
     fields:                        # asked for when it's installed: env values, or headers for a URL
       - {key: DAV_USER, label: Apple ID}
       - {key: DAV_PASSWORD, label: App-specific password, secret: true, help: https://account.apple.com}
+      - {key: DAV_CALENDAR, label: Calendar name, optional: true}   # may be left empty
     trusted: false
     include: []                    # tools the agent gets; empty means all but `exclude`
     exclude: []
@@ -33,6 +34,7 @@ code from it. In its commands, arguments and env values:
       args: [run, --project, "{dir}", my-channel]
       style: A phone chat. Short messages.   # how to write there, for the system prompt
     libraries: [lo9i-chat]         # folders at ../../lib/ from its folder it uses (folders.library)
+    model_login: copilot           # optional: a login of lo9i's its server gets instead of its own (logins.py)
     platforms: [macos]             # optional: the systems it runs on (repositories/platforms.py); all if absent
     category: communications       # outside a category's folder: what it's for (repositories/categories.py)
     steps:                         # optional: how to get what it asks for, shown when installing
@@ -56,7 +58,7 @@ import yaml
 from langgraph.store.base import BaseStore
 
 from assistant.core.integrations.email import providers as email_providers
-from assistant.core.mcp import folders, servers
+from assistant.core.mcp import folders, logins, servers
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.repositories import categories, platforms
 from assistant.core.repositories import source as folder_source
@@ -80,6 +82,8 @@ class ServerField:
     secret: bool = False
     # Where to get it, such as a page that creates the password.
     help: str = ""
+    # It may be left empty.
+    optional: bool = False
 
 
 @dataclass(frozen=True)
@@ -111,6 +115,9 @@ class FoundServer:
     email: bool = False
     # How to get what it asks for, one step each (`steps:`), shown in the install dialogs.
     steps: list[str] = field(default_factory=list)
+    # A login of lo9i's its server uses instead of one of its own, like "copilot" (core/mcp/logins.py),
+    # for the install dialogs to say; "" for none.
+    model_login: str = ""
 
 
 @dataclass(frozen=True)
@@ -259,7 +266,7 @@ def _skill_taken(name: str) -> bool:
 
 
 def _missing(candidate: Candidate, values: dict[str, str]) -> ServerField | None:
-    return next((f for f in candidate.found.fields if not values.get(f.key, "").strip()), None)
+    return next((f for f in candidate.found.fields if not f.optional and not values.get(f.key, "").strip()), None)
 
 
 def _find_at(root: Path, url: str, path: str, name: str) -> Candidate:
@@ -312,6 +319,7 @@ def _template(data: dict[str, Any], name: str) -> McpServer:
         channel_args=[str(a) for a in data.get("channel", {}).get("args", [])],
         channel_style=str(data.get("channel", {}).get("style", "")).strip(),
         email_providers=[asdict(p) for p in email_providers.parse(data.get("email"), name)],
+        model_login=logins.parse(data.get("model_login")),
     )
 
 
@@ -332,6 +340,7 @@ def _found(data: dict[str, Any], template: McpServer, folder: Path, category_fol
         category=categories.parse(data.get("category"), sections, category_folder),
         email=email,
         steps=[str(s).strip() for s in data.get("steps", []) if str(s).strip()],
+        model_login=template.model_login,
     )
 
 
@@ -380,7 +389,8 @@ def _field(data: dict[str, Any]) -> ServerField:
     key = str(data["key"])
     if not _KEY.match(key):
         raise ValueError(f"{key!r} isn't a valid field key")
-    return ServerField(key, str(data.get("label", key)), bool(data.get("secret", False)), str(data.get("help", "")))
+    label, help_url = str(data.get("label", key)), str(data.get("help", ""))
+    return ServerField(key, label, bool(data.get("secret", False)), help_url, bool(data.get("optional", False)))
 
 
 def _filler(name: str) -> Callable[[str], str]:

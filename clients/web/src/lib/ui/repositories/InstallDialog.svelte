@@ -4,7 +4,7 @@
   import type { FoundServer, FoundSkill, RepositoryContents } from "$lib/api/types";
   import { useDaemon } from "$lib/daemon.svelte";
   import { describe } from "$lib/notices";
-  import { missingField, optional } from "$lib/plugins";
+  import { emptyHint, missingField, optional, sharedLogin } from "$lib/plugins";
   import Modal from "../Modal.svelte";
 
   // `kind`: only MCP servers (the MCP servers page) or only skills (the Skills page). `server` or
@@ -110,6 +110,7 @@
 </script>
 
 {#snippet fields(server: FoundServer)}
+  {#if sharedLogin(server)}<p class="text-label">{sharedLogin(server)}</p>{/if}
   {#if server.steps?.length}
     <ol class="steps">
       {#each server.steps as step, i (i)}<li class="text-label">{step}</li>{/each}
@@ -123,14 +124,14 @@
           label={f.label}
           bind:value={values[server.name][f.key]}
           required={!optional(server, f.key)}
-          placeholder={optional(server, f.key) ? "Leave empty to keep the one already saved" : ""}
+          placeholder={emptyHint(server, f.key)}
         />
       {:else}
         <input
           class="input"
           bind:value={values[server.name][f.key]}
           required={!optional(server, f.key)}
-          placeholder={optional(server, f.key) ? "Leave empty to keep the one already saved" : ""}
+          placeholder={emptyHint(server, f.key)}
           autocomplete="off"
         />
       {/if}
