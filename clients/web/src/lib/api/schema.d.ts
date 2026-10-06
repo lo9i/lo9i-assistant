@@ -520,6 +520,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/agents/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Agent Folders
+         * @description The folders the apps offer to hand a conversation to: the workspace and the ones used before.
+         */
+        get: operations["agent_folders_agents_folders_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agents/folders/children": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Child Folders
+         * @description The folders inside `path`, to browse to one. 400: not a full path, or it can't be read.
+         */
+        get: operations["child_folders_agents_folders_children_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/conversations/{thread_id}/agent": {
         parameters: {
             query?: never;
@@ -1543,6 +1583,15 @@ export interface components {
             /** Tool */
             tool: string;
         };
+        /** AgentFolders */
+        AgentFolders: {
+            /** Workspace */
+            workspace: string;
+            /** Recent */
+            recent: string[];
+            /** Home */
+            home: string;
+        };
         /** Alert */
         Alert: {
             /**
@@ -1911,6 +1960,15 @@ export interface components {
              * @default
              */
             saved_at: string;
+        };
+        /** FolderListing */
+        FolderListing: {
+            /** Path */
+            path: string;
+            /** Parent */
+            parent: string | null;
+            /** Children */
+            children: string[];
         };
         /**
          * FoundServer
@@ -3818,6 +3876,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Agent"][];
+                };
+            };
+        };
+    };
+    agent_folders_agents_folders_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentFolders"];
+                };
+            };
+        };
+    };
+    child_folders_agents_folders_children_get: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderListing"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

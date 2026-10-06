@@ -8,7 +8,9 @@
   import { finalReply, toolRunning } from "$lib/chat/transcript";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { Player, speaksReply } from "$lib/speech";
+  import type { Agent } from "$lib/api/types";
   import AgentBar from "./AgentBar.svelte";
+  import AgentFolderModal from "./AgentFolderModal.svelte";
   import ApprovalModal from "./ApprovalModal.svelte";
   import Composer from "./Composer.svelte";
   import HelpModal from "./HelpModal.svelte";
@@ -34,6 +36,8 @@
   const extra = $derived(agentCommands(agents.data ?? []));
   const player = new Player();
   let help = $state(false);
+  // The agent /claude alone picks a folder for.
+  let picking = $state<Agent | null>(null);
   let draft = $state("");
   let attached = $state<File[]>([]);
   // Drags enter and leave every element they pass over; the chat is under a drag while this is above 0.
@@ -110,24 +114,37 @@
     }
   }
 
-  /** `/claude <folder>` hands the conversation to the agent, `/claude off` back; alone it says where it is. */
+  /** `/claude <folder>` hands the conversation to the agent, `/claude off` back; alone it picks the folder. */
   async function agentCommand(name: string, arg: string): Promise<void> {
     const agent = (agents.data ?? []).find((a) => `/${a.command}` === name);
     if (!agent) return;
-    const threadId = snapshot.current.threadId;
-    try {
-      if (arg === "off") {
-        await client.conversations.takeBack(threadId);
+    if (arg === "off") {
+      try {
+        await client.conversations.takeBack(snapshot.current.threadId);
         notices.notify("The assistant answers again from your next message.");
-      } else if (arg) {
-        const to = await client.conversations.handTo(threadId, agent.command, arg);
-        notices.notify(`${to.name} answers from your next message, working in ${to.folder}. ${name} off goes back.`);
-      } else {
-        notices.notify(`Usage: ${name} <folder> to talk to ${agent.name}, ${name} off to go back.`, "warning");
+      } catch (e) {
+        notices.report(e);
       }
+    } else if (arg) {
+      await handTo(agent, arg);
+    } else {
+      picking = agent;
+    }
+  }
+
+  async function handTo(agent: Agent, folder: string): Promise<void> {
+    try {
+      const to = await client.conversations.handTo(snapshot.current.threadId, agent.command, folder);
+      notices.notify(`${to.name} answers from your next message, working in ${to.folder}. /${agent.command} off goes back.`);
     } catch (e) {
       notices.report(e);
     }
+  }
+
+  function picked(folder: string | null): void {
+    const agent = picking;
+    picking = null;
+    if (agent && folder) void handTo(agent, folder);
   }
 
   function command(name: string, arg: string): void {
@@ -220,6 +237,7 @@
   <ApprovalModal approval={snapshot.current.approval} onanswer={(d) => chat.answer(d)} />
 {/if}
 {#if help}<HelpModal onclose={() => (help = false)} {extra} />{/if}
+{#if picking}<AgentFolderModal agentName={picking.name} onpick={picked} />{/if}
 
 <style>
   .chat {

@@ -1,5 +1,16 @@
 from assistant.client.daemon_client.transport import Transport
-from assistant.core.agent import Agent, Conversation, ConversationError, Handoff, HandoffError, ShownMessage, SkillError
+from assistant.core.agent import (
+    Agent,
+    AgentFolders,
+    Conversation,
+    ConversationError,
+    FolderError,
+    FolderListing,
+    Handoff,
+    HandoffError,
+    ShownMessage,
+    SkillError,
+)
 
 
 class ConversationsApi:
@@ -37,6 +48,17 @@ class ConversationsApi:
     async def agents(self) -> list[Agent]:
         """The agents installed plugins bring: /<command> hands a conversation to one."""
         return [Agent(**a) for a in await self._transport.request("GET", "/agents")]
+
+    async def agent_folders(self) -> AgentFolders:
+        """The folders to offer for /<command>: the workspace and the ones used before."""
+        return AgentFolders(**await self._transport.request("GET", "/agents/folders"))
+
+    async def child_folders(self, path: str) -> FolderListing:
+        """The folders inside `path`, to browse to one. Raises FolderError."""
+        found = await self._transport.request(
+            "GET", "/agents/folders/children", params={"path": path}, errors={400: FolderError}
+        )
+        return FolderListing(**found)
 
     async def agent(self, thread_id: str) -> Handoff | None:
         """The agent the conversation is handed to; None while the assistant answers."""

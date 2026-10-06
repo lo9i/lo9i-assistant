@@ -237,6 +237,18 @@ async def test_a_conversation_is_handed_to_an_agent_and_back(client, service, tm
         await client.conversations.hand_to(thread_id, "claude", "relative/folder")
     await client.conversations.take_back(thread_id)
     assert await client.conversations.agent(thread_id) is None
+    assert (await client.conversations.agent_folders()).recent == [str(tmp_path)]
+
+
+async def test_the_folders_inside_one_are_listed_to_browse_to(client, tmp_path):
+    from assistant.core.agent import FolderError
+
+    root = tmp_path / "browsed"
+    (root / "project").mkdir(parents=True)
+    listing = await client.conversations.child_folders(str(root))
+    assert (listing.path, listing.children) == (str(root), [str(root / "project")])
+    with pytest.raises(FolderError):
+        await client.conversations.child_folders("relative")
 
 
 async def test_facts_and_episodes_are_edited_and_deleted(client, service):

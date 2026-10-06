@@ -1060,6 +1060,65 @@
         }
       }
     },
+    "/agents/folders": {
+      "get": {
+        "summary": "Agent Folders",
+        "description": "The folders the apps offer to hand a conversation to: the workspace and the ones used before.",
+        "operationId": "agent_folders_agents_folders_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentFolders"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agents/folders/children": {
+      "get": {
+        "summary": "Child Folders",
+        "description": "The folders inside `path`, to browse to one. 400: not a full path, or it can't be read.",
+        "operationId": "child_folders_agents_folders_children_get",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderListing"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/conversations/{thread_id}/agent": {
       "get": {
         "summary": "Conversation Agent",
@@ -3653,6 +3712,32 @@
         "title": "Agent",
         "description": "An agent a plugin brings."
       },
+      "AgentFolders": {
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "title": "Workspace"
+          },
+          "recent": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recent"
+          },
+          "home": {
+            "type": "string",
+            "title": "Home"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workspace",
+          "recent",
+          "home"
+        ],
+        "title": "AgentFolders"
+      },
       "Alert": {
         "properties": {
           "area": {
@@ -4376,6 +4461,39 @@
           "text"
         ],
         "title": "Fact"
+      },
+      "FolderListing": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent"
+          },
+          "children": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Children"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "parent",
+          "children"
+        ],
+        "title": "FolderListing"
       },
       "FoundServer": {
         "properties": {

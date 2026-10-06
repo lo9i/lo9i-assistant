@@ -5,7 +5,7 @@ from collections.abc import Awaitable, Callable
 
 from assistant.client import DaemonClient, DaemonUnavailableError
 from assistant.client.files import load_attachment
-from assistant.core.agent import Agent, HandoffError, InvalidNameError, Session, SkillError
+from assistant.core.agent import Agent, AgentFolders, HandoffError, InvalidNameError, Session, SkillError
 from assistant.core.attachments import Attachment
 from assistant.core.events import ApprovalRequired, is_plugin_offer, is_plugin_setup, is_question, is_side_conversation
 from assistant_terminal.channels_text import describe as describe_channel
@@ -77,20 +77,20 @@ class Repl:
         return next((a for a in agents if f"/{a.command}" == name and name in offered), None)
 
     async def _hand(self, agent: Agent, arg: str) -> None:
-        """`/claude <folder>` hands the conversation to the agent, `/claude off` back."""
-        thread_id = self._session.thread_id
+        """`/claude <folder>` hands the conversation to the agent, `/claude off` back; alone it picks the folder."""
         if arg == "off":
-            await self._service.conversations.take_back(thread_id)
+            await self._service.conversations.take_back(self._session.thread_id)
             print("The assistant answers again from your next message.")
-        elif not arg:
-            print(f"/{agent.command} <folder> talks to {agent.name}; /{agent.command} off goes back.")
-        else:
-            try:
-                handoff = await self._service.conversations.hand_to(thread_id, agent.command, arg)
-            except HandoffError as e:
-                print(e)
-                return
-            print(f"{handoff.name} answers from your next message, working in {handoff.folder}.")
+            return
+        folder = arg or await _pick_folder(await self._service.conversations.agent_folders(), agent.name)
+        if not folder:
+            return
+        try:
+            handoff = await self._service.conversations.hand_to(self._session.thread_id, agent.command, folder)
+        except HandoffError as e:
+            print(e)
+            return
+        print(f"{handoff.name} answers from your next message, working in {handoff.folder}.")
 
     async def _chat(self, text: str) -> None:
         attachments, self._attachments = self._attachments, []
@@ -305,6 +305,18 @@ def _moved(approvals: list[ApprovalRequired], decisions: dict[str, dict]) -> str
         if is_side_conversation(approval.request) and decisions[approval.interrupt_id].get("moved"):
             return str(approval.request.get("first_message", ""))
     return None
+
+
+async def _pick_folder(folders: AgentFolders, agent_name: str) -> str | None:
+    """The workspace or a folder used before by its number, or a full path; nothing cancels."""
+    offered = [folders.workspace, *folders.recent]
+    print(paint(YELLOW, f"\nWhere should {agent_name} work?"))
+    for number, folder in enumerate(offered, 1):
+        print(f"  {number}. {folder}" + (" (workspace)" if number == 1 else ""))
+    answer = (await _read_line("[a number or a full path, or Enter to cancel] ") or "").strip()
+    if answer.isdigit() and 1 <= int(answer) <= len(offered):
+        return offered[int(answer) - 1]
+    return answer or None
 
 
 async def _answer_question(request: dict) -> dict:

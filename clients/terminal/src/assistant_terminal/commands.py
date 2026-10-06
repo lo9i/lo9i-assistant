@@ -55,8 +55,8 @@ def agent_commands(agents: Sequence[Agent]) -> list[Command]:
     return [
         Command(
             f"/{a.command}",
-            f"/{a.command} <folder> | off",
-            f"Talk to {a.name} directly, working in a folder; off goes back to the assistant",
+            f"/{a.command} [folder] | off",
+            f"Talk to {a.name} directly, in a folder (alone it lets you pick one); off goes back to the assistant",
         )
         for a in agents
         if f"/{a.command}" not in built_in

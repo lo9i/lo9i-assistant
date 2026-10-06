@@ -22,7 +22,7 @@ describe("agent commands", () => {
   it("adds a command per agent, never hiding a built-in one", () => {
     const extra = agentCommands([claude, { ...claude, command: "new" }]);
     expect(extra.map((c) => c.name)).toEqual(["/claude"]);
-    expect(extra[0].usage).toBe("/claude <folder> | off");
+    expect(extra[0].usage).toBe("/claude [folder] | off");
     expect(offered("/cl", extra).map((c) => c.name)).toEqual(["/claude"]);
     expect(offered("/cl").map((c) => c.name)).toEqual([]);
   });

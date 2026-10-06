@@ -38,6 +38,7 @@ from assistant_terminal.tui.mouse import switch_mouse
 from assistant_terminal.tui.plugin_updates import PluginUpdates
 from assistant_terminal.tui.prompt import PromptInput
 from assistant_terminal.tui.screens import (
+    AgentFolderScreen,
     ApprovalScreen,
     AudioScreen,
     ChannelSetupScreen,
@@ -577,20 +578,28 @@ class AssistantApp(App):
         self.notify(f"Unpinned {arg}. It takes effect from your next message.")
 
     async def _command_agent(self, name: str, arg: str) -> None:
-        """`/claude <folder>` hands the conversation to the agent, `/claude off` back."""
-        agent, thread_id = self._agents[name], self._live.session.thread_id
+        """`/claude <folder>` hands the conversation to the agent, `/claude off` back; alone it picks the folder."""
+        agent = self._agents[name]
         if arg == "off":
-            await self._service.conversations.take_back(thread_id)
+            await self._service.conversations.take_back(self._live.session.thread_id)
             self.notify("The assistant answers again from your next message.")
+            await self.refresh_thread()
         elif not arg:
-            self.notify(f"{name} <folder> talks to {agent.name}; {name} off goes back.", severity="warning")
+            screen = AgentFolderScreen(self._service.conversations, agent.name)
+            self.push_screen(screen, lambda folder: self._hand_to(agent, folder))
         else:
-            try:
-                handoff = await self._service.conversations.hand_to(thread_id, agent.command, arg)
-            except HandoffError as e:
-                self.notify(str(e), severity="error")
-                return
-            self.notify(f"{handoff.name} answers from your next message, working in {handoff.folder}.")
+            await self._hand_to(agent, arg)
+
+    @reports_daemon_unavailable
+    async def _hand_to(self, agent: Agent, folder: str | None) -> None:
+        if folder is None:
+            return
+        try:
+            handoff = await self._service.conversations.hand_to(self._live.session.thread_id, agent.command, folder)
+        except HandoffError as e:
+            self.notify(str(e), severity="error")
+            return
+        self.notify(f"{handoff.name} answers from your next message, working in {handoff.folder}.")
         await self.refresh_thread()
 
     async def _command_get_to_know_me(self, _: str) -> None:

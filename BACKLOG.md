@@ -16,6 +16,8 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - A23. Telegram and Slack can't hand a conversation to an agent: their commands are fixed in `lib/lo9i-chat`. Offer the agents' commands there too, with the folder typed after the command.
 - A24. Files a subagent's tools bring (an email's attachments read inside `delegate`) sit in its checkpoint under the call's namespace, which the Files list (`core/agent/files.py`) and deleting a conversation (`core/agent/threads.py::_delete_files`) don't read: they aren't listed, and stay on disk after the conversation is deleted. Read the delegate calls' namespaces too.
 - A25. The GitHub Copilot agent (`assistant/agents/copilot` in the extras, /copilot) isn't told not to stop lo9i's daemon, as Claude Code is (`_UNDER_LO9I` in its runner.py): stopping the daemon during a handed-off conversation stops it before it replies. Its CLI takes only `--prompt`; find how it takes extra instructions and give it the same note, with `/system/restart` as the way to restart.
+- A26. The /claude folder picker (`core/conversation/agent_folders.py`) leaves out hidden folders, so a project under a dot folder can only be typed as a path. The plain REPL (pipes) offers only the workspace and the folders used before, with no browsing. Add a way to show hidden folders, and browsing in the REPL if it's needed there.
+- A27. The web app's folder picker (`clients/web/src/lib/ui/chat/AgentFolderModal.svelte`) has no component test, unlike `ApprovalModal`. Cover picking a recent folder and browsing to a new one.
 
 ## Daemon
 

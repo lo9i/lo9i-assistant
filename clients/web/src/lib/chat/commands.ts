@@ -42,8 +42,8 @@ export function agentCommands(agents: Agent[]): Command[] {
     .filter((a) => !known(`/${a.command}`))
     .map((a) => ({
       name: `/${a.command}`,
-      usage: `/${a.command} <folder> | off`,
-      description: `Talk to ${a.name} directly, working in a folder; off goes back to the assistant`,
+      usage: `/${a.command} [folder] | off`,
+      description: `Talk to ${a.name} directly, in a folder (alone it lets you pick one); off goes back to the assistant`,
     }));
 }
 

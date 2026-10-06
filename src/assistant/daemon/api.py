@@ -14,6 +14,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from assistant.core.agent import (
     Agent,
+    AgentFolders,
     Alert,
     AssistantService,
     ChannelNotConnectedError,
@@ -29,6 +30,8 @@ from assistant.core.agent import (
     Episode,
     Fact,
     FileUnavailableError,
+    FolderError,
+    FolderListing,
     Handoff,
     HandoffError,
     InstalledFromRepository,
@@ -552,6 +555,19 @@ def _add_handoff_routes(app: FastAPI, service: AssistantService) -> None:
     async def agents() -> list[Agent]:
         """The agents installed plugins bring, with the command the apps offer for each."""
         return await service.agents()
+
+    @app.get("/agents/folders")
+    async def agent_folders() -> AgentFolders:
+        """The folders the apps offer to hand a conversation to: the workspace and the ones used before."""
+        return await service.agent_folders(settings.owner_id)
+
+    @app.get("/agents/folders/children")
+    async def child_folders(path: str) -> FolderListing:
+        """The folders inside `path`, to browse to one. 400: not a full path, or it can't be read."""
+        try:
+            return await service.child_folders(path)
+        except FolderError as e:
+            raise HTTPException(400, str(e)) from e
 
     @app.get("/conversations/{thread_id}/agent")
     async def conversation_agent(thread_id: str) -> ConversationAgent:

@@ -123,6 +123,8 @@ class Settings(BaseSettings):
     browsers_dir: str = "~/.lo9i/browsers"
 
     workspace_dir: str = "~/.lo9i/workspace"
+    # Where an agent a conversation is handed to (/claude) works when the user picks no project.
+    agent_workspace_dir: str = "~/.lo9i/claude-workspace"
     # What the user typed in the terminal app, for Up and Down.
     cli_history_path: str = "~/.lo9i/cli_history"
     cli_history_limit: int = 1000

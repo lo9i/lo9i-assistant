@@ -249,11 +249,11 @@ ApprovalScreen {
     margin-right: 2;
 }
 
-QuestionScreen, PluginUpdatesScreen {
+QuestionScreen, PluginUpdatesScreen, AgentFolderScreen {
     align: center middle;
 }
 
-#question, #plugin-updates {
+#question, #plugin-updates, #agent-folder {
     width: 80%;
     max-width: 100;
     height: auto;
@@ -262,13 +262,13 @@ QuestionScreen, PluginUpdatesScreen {
     background: $dialog-background;
 }
 
-#question-options, #plugin-updates-list {
+#question-options, #plugin-updates-list, #agent-folder-options {
     height: auto;
     max-height: 14;
     margin: 1 0;
 }
 
-#question-buttons, #plugin-updates-buttons {
+#question-buttons, #plugin-updates-buttons, #agent-folder-buttons {
     height: auto;
 }
 

@@ -26,6 +26,8 @@ import type {
   Fact,
   Episode,
   Agent,
+  AgentFolders,
+  FolderListing,
   Handoff,
   ModelChange,
   ModelOption,
@@ -94,6 +96,16 @@ export class ConversationsGroup {
   /** The agents installed plugins bring: /<command> hands a conversation to one. */
   agents(): Promise<Agent[]> {
     return this.transport.request("GET", "/agents");
+  }
+
+  /** The folders to offer for /<command>: the workspace and the ones used before. */
+  agentFolders(): Promise<AgentFolders> {
+    return this.transport.request("GET", "/agents/folders");
+  }
+
+  /** The folders inside `path`, to browse to one. Throws ApiError (400) when it isn't a full path or can't be read. */
+  childFolders(path: string): Promise<FolderListing> {
+    return this.transport.request("GET", `/agents/folders/children?path=${encodeURIComponent(path)}`);
   }
 
   /** The agent the conversation is handed to; null while the assistant answers. */
