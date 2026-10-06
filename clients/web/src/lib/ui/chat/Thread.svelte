@@ -111,7 +111,8 @@
                   {#if step.state === "cancelled"}<span class="stopped">stopped</span>{/if}
                   <span class="chevron"><ChevronRight size={12} /></span>
                 </summary>
-                {#if step.args}<pre>{JSON.stringify(step.args, null, 2)}</pre>{/if}
+                <!-- A step a handed-off agent reports is a line of text, with no arguments. -->
+                {#if step.args && Object.keys(step.args).length}<pre>{JSON.stringify(step.args, null, 2)}</pre>{/if}
                 {#if step.output}<pre>{step.output}</pre>{/if}
               </details>
             {/each}

@@ -1,11 +1,14 @@
 """Conversations handed to a plugin's agent, like Claude Code (core/conversation/handoffs.py): switching
 from the apps, and a message's run when the agent answers it instead of the assistant's model."""
 
+import asyncio
+import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
+from mcp.shared.dispatcher import ProgressFnT
 from mcp.shared.exceptions import MCPError
 
 from assistant.core.agent.runs import RunsMixin
@@ -68,10 +71,17 @@ class HandoffsMixin(RunsMixin):
     async def _agent_turn(
         self, session: Session, handoff: Handoff, message: HumanMessage, said: str
     ) -> AsyncIterator[Event]:
-        """The agent answers; the message and its reply are added to the conversation."""
-        yield ToolStarted(handoff.name, {"folder": handoff.folder})
+        """The agent answers, its steps shown inside its call as it works; the message and its reply
+        are added to the conversation."""
+        call_id = f"handoff-{uuid.uuid4().hex}"
+        yield ToolStarted(handoff.name, {"folder": handoff.folder}, id=call_id)
+        steps: asyncio.Queue[str] = asyncio.Queue()
+        asking = asyncio.create_task(self._ask_agent(session, handoff, said, _ProgressSteps(steps)))
+        async for step in _steps_while(asking, steps):
+            yield ToolStarted(step, {}, within=call_id)
+            yield ToolFinished(step, "", within=call_id)
         try:
-            reply = await self._ask_agent(session, handoff, said)
+            reply = await asking
         except HandoffError as e:
             yield Error(str(e))
             return
@@ -82,16 +92,41 @@ class HandoffsMixin(RunsMixin):
         yield TextDelta(reply)
         yield Done()
 
-    async def _ask_agent(self, session: Session, handoff: Handoff, said: str) -> str:
+    async def _ask_agent(self, session: Session, handoff: Handoff, said: str, progress: ProgressFnT) -> str:
         """Raises HandoffError with what went wrong, for the user."""
         agent = next((a for a in await self.agents() if a.server == handoff.server), None)
         if agent is None:
             raise HandoffError(f"{handoff.name} isn't installed or is turned off. /{handoff.command} off goes back.")
         arguments = {"conversation": session.thread_id, "folder": handoff.folder, "message": said}
         try:
-            result = await self.mcp.call(agent.server, agent.tool, arguments)
+            result = await self.mcp.call(agent.server, agent.tool, arguments, progress)
         except (NotConnectedError, ConnectionLostError, MCPError) as e:
             raise HandoffError(f"{handoff.name} couldn't answer: {e}") from e
         if result.is_error:
             raise HandoffError(f"{handoff.name}: {render(result)}")
         return render(result)
+
+
+class _ProgressSteps:
+    """Each progress notification's message is a step the agent took (a file read, a command run)."""
+
+    def __init__(self, steps: asyncio.Queue[str]) -> None:
+        self._steps = steps
+
+    async def __call__(self, progress: float, total: float | None, message: str | None) -> None:
+        if message:
+            self._steps.put_nowait(message)
+
+
+async def _steps_while(asking: asyncio.Task[str], steps: asyncio.Queue[str]) -> AsyncIterator[str]:
+    """The steps as they come, until the agent has replied. Stopping the run stops the call too."""
+    try:
+        while not (asking.done() and steps.empty()):
+            step = asyncio.ensure_future(steps.get())
+            await asyncio.wait({asking, step}, return_when=asyncio.FIRST_COMPLETED)
+            if step.done():
+                yield step.result()
+            else:
+                step.cancel()
+    finally:
+        asking.cancel()

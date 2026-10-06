@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 from mcp import Client
-from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
 from assistant.core.agent import AssistantService, FolderError, HandoffError
 from assistant.core.attachments import Attachment
-from assistant.core.events import Done, Error, TextDelta, ToolStarted
+from assistant.core.events import Done, Error, TextDelta, ToolFinished, ToolStarted
 from assistant.core.mcp import hub as hub_module
 from assistant.core.mcp.servers import McpServer
 from assistant.daemon.restart import Restart
@@ -23,8 +23,11 @@ def _agent_server(asked: list[dict], release: asyncio.Event) -> MCPServer:
     server = MCPServer("claude-code")
 
     @server.tool()
-    async def converse(conversation: str, folder: str, message: str) -> str:
+    async def converse(conversation: str, folder: str, message: str, ctx: Context) -> str:
         asked.append({"conversation": conversation, "folder": folder, "message": message})
+        if message == "show your steps":
+            await ctx.report_progress(1, message="Read: README.md")
+            await ctx.report_progress(2, message="Ran: pytest")
         if message == "break":
             raise ToolError("the agent gave up")
         if message == "work a while":
@@ -82,6 +85,16 @@ async def test_the_agent_answers_instead_of_the_assistant_and_both_messages_are_
     assert script.requests == []  # the assistant's model wasn't asked
     shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
     assert shown[-2:] == [("user", "fix the tests"), ("assistant", f"Done in {tmp_path}: fix the tests")]
+
+
+async def test_the_agents_steps_are_shown_inside_its_call_as_it_works(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    events = await collect(service.send(session, "show your steps"))
+    call = events[0]
+    assert isinstance(call, ToolStarted) and call.id
+    steps = [(e.name, e.within) for e in events if isinstance(e, ToolStarted | ToolFinished) and e.within]
+    assert steps == [(s, call.id) for s in ("Read: README.md", "Read: README.md", "Ran: pytest", "Ran: pytest")]
+    assert isinstance(events[-1], Done)
 
 
 async def test_handed_back_the_assistant_answers_and_hears_who_did_meanwhile(service, script, tmp_path):
