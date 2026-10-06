@@ -10,6 +10,7 @@ import {
   pluginsOf,
   runsOf,
   sharedLogin,
+  hasNewer,
   updatable,
   versionOf,
 } from "./plugins";
@@ -112,34 +113,41 @@ group("versionOf", () => {
 });
 
 group("updatable", () => {
+  const server = (version: string, installed_version: string, installed: boolean) =>
+    pluginsOf({
+      skills: [],
+      servers: [
+        {
+          name: "x",
+          description: "",
+          transport: "stdio",
+          fields: [],
+          trusted: false,
+          skill: false,
+          page: false,
+          channel: false,
+          version,
+          installed_version,
+          installed,
+          category: "other/general",
+          model_login: "",
+          agent: "",
+          email: false,
+        },
+      ],
+    })[0];
   it("offers Update only when the extras have another version, or none is declared", () => {
-    const server = (version: string, installed_version: string, installed: boolean) =>
-      pluginsOf({
-        skills: [],
-        servers: [
-          {
-            name: "x",
-            description: "",
-            transport: "stdio",
-            fields: [],
-            trusted: false,
-            skill: false,
-            page: false,
-            channel: false,
-            version,
-            installed_version,
-            installed,
-            category: "other/general",
-            model_login: "",
-            agent: "",
-            email: false,
-          },
-        ],
-      })[0];
     expect(updatable(server("0.2.1", "0.2.1", true))).toBe(false);
     expect(updatable(server("0.3.0", "0.2.1", true))).toBe(true);
     expect(updatable(server("", "", true))).toBe(true);
     expect(updatable(server("0.3.0", "", false))).toBe(false);
+  });
+
+  it("lists as newer only a declared version that differs from the installed one", () => {
+    expect(hasNewer(server("0.3.0", "0.2.1", true))).toBe(true);
+    expect(hasNewer(server("0.2.1", "0.2.1", true))).toBe(false);
+    expect(hasNewer(server("", "", true))).toBe(false);
+    expect(hasNewer(server("0.3.0", "", false))).toBe(false);
   });
 });
 

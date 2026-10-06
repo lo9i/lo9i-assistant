@@ -20,6 +20,7 @@ from assistant_terminal.plugins_text import (
     by_category,
     category_label,
     describe,
+    has_newer,
     label,
     matches,
     plugins,
@@ -29,6 +30,7 @@ from assistant_terminal.tui.channel_setup import ChannelSetup
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen, ConfirmWithOptionScreen
 from assistant_terminal.tui.screens.email import EmailScreen
+from assistant_terminal.tui.screens.plugin_updates import PluginUpdatesScreen
 from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 
 _CATEGORY = "category:"
@@ -66,6 +68,7 @@ class PluginsScreen(ModalScreen[None]):
                     yield Markdown("Looking at the extras…", id="plugin-body")
                     yield Vertical(id="plugin-setup")
             with Horizontal(id="plugins-buttons"):
+                yield Button("Updates", variant="primary", id="updates")
                 yield Button("Install", variant="success", id="install")
                 yield Button("Update", id="update")
                 yield Button("Remove", variant="error", id="remove")
@@ -100,6 +103,9 @@ class PluginsScreen(ModalScreen[None]):
         await self._list()
 
     async def _list(self) -> None:
+        newer = [p for p in self._all if has_newer(p)]
+        updates = self.query_one("#updates", Button)
+        updates.display, updates.label = bool(newer), f"Updates ({len(newer)})"
         query = self.query_one("#plugins-search", Input).value
         shown = [p for p in self._all if matches(p, query)]
         options = self.query_one("#plugins-list", OptionList)
@@ -159,6 +165,28 @@ class PluginsScreen(ModalScreen[None]):
         if plugin is not None:
             update = self._mcp.update_from_repository if plugin.server else self._skills.update_installed
             await self._run(lambda: update(plugin.name), f"Updated {plugin.name}.")
+
+    @on(Button.Pressed, "#updates")
+    @work
+    @reports_daemon_unavailable
+    async def _updates(self) -> None:
+        picked = await self.app.push_screen_wait(PluginUpdatesScreen([p for p in self._all if has_newer(p)]))
+        if picked:
+            await self._update_many(picked)
+
+    async def _update_many(self, picked: list[Plugin]) -> None:
+        """One after the other: an update restarts the plugin. One that fails doesn't stop the rest."""
+        updated = []
+        for plugin in picked:
+            update = self._mcp.update_from_repository if plugin.server else self._skills.update_installed
+            try:
+                await update(plugin.name)
+                updated.append(plugin.name)
+            except (RepositoryError, McpServerError, SkillError) as e:
+                self.notify(f"{plugin.name}: {e}", severity="error")
+        if updated:
+            self.notify(f"Updated {', '.join(updated)}.")
+        await self._load()
 
     @on(Button.Pressed, "#remove")
     @work

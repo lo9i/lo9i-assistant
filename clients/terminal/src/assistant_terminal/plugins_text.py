@@ -71,6 +71,19 @@ def updatable(plugin: Plugin) -> bool:
     return plugin.installed and (not available or available != here)
 
 
+def has_newer(plugin: Plugin) -> bool:
+    """The extras have a newer version than the one installed: both declare one and they differ."""
+    found = plugin.server or plugin.skill
+    return plugin.installed and found is not None and bool(found.version) and found.version != found.installed_version
+
+
+def update_label(plugin: Plugin) -> str:
+    """ "expenses  0.2.2 → 0.3.0", for the list of updates."""
+    found = plugin.server or plugin.skill
+    installed, available = (found.installed_version or "none", found.version) if found else ("none", "")
+    return f"{plugin.name}  {installed} → {available}"
+
+
 def plugins(contents: RepositoryContents) -> list[Plugin]:
     return [Plugin(s.name, s.installed, server=s) for s in contents.servers] + [
         Plugin(s.name, s.installed, skill=s) for s in contents.skills
