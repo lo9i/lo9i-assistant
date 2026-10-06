@@ -12,6 +12,9 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - A17. An approval waiting in home blocks every channel there: a message from Telegram while the web app's approval is open only repeats the approval (`core/agent/runs.py`). Show it on the channel with its buttons so it can be answered there, or let the message through and answer the approval as rejected.
 - A18. Pinning skills from Telegram and Slack. The web and terminal apps pin with `/pin` and `/unpin` (`core/conversation/pinned.py`); a channel's token reaches only `/channels/<name>/...`, so the channel protocol needs pin routes and `lib/lo9i-chat` in the extras the commands.
 
+- A22. A conversation handed to an agent (/claude) shows nothing while the agent works, which can take minutes: only its reply when it's done. Stream its steps (the task's progress lines, through MCP progress notifications) as they happen, like a delegate call's.
+- A23. Telegram and Slack can't hand a conversation to an agent: their commands are fixed in `lib/lo9i-chat`. Offer the agents' commands there too, with the folder typed after the command.
+
 ## Daemon
 
 - A1. Restart or stop the daemon from the app.
