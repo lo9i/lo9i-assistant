@@ -23,7 +23,7 @@ _KEYS = "Enter on an item edits it, Delete removes it. Type below and press Ente
 _SAVED_ABOUT = "Noted by the assistant in conversations. Enter on one edits it, Delete deletes it."
 # The sections after the profile's, by their value in the section list.
 _FACTS, _EPISODES = "saved:facts", "saved:episodes"
-_SAVED_LABELS = {_FACTS: "Saved facts", _EPISODES: "Past conversations"}
+_SAVED_LABELS = {_FACTS: "Saved facts", _EPISODES: "Conversation summaries"}
 
 
 def _label(section: str) -> str:
@@ -31,7 +31,7 @@ def _label(section: str) -> str:
 
 
 class _Saved:
-    """Facts and past conversations: (id, text) of each, newest first, edited and deleted by id."""
+    """Facts and conversation summaries: (id, text) of each, newest first, edited and deleted by id."""
 
     def __init__(self, memory: MemoryApi) -> None:
         self._memory = memory

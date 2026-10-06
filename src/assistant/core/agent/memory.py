@@ -68,12 +68,12 @@ class MemoryMixin(ServiceBase):
         """It gets a new id. Raises MemoryNotFoundError for one that's gone, MemoryEditError for empty text."""
         edited = await episodes.replace(self._storage.store, user_id, episode_id, _text(summary))
         if edited is None:
-            raise MemoryNotFoundError(f"There's no past conversation {episode_id} any more.")
+            raise MemoryNotFoundError(f"There's no conversation summary {episode_id} any more.")
         return edited
 
     async def delete_episode(self, user_id: str, episode_id: str) -> None:
         if not await episodes.get(self._storage.store, user_id, [episode_id]):
-            raise MemoryNotFoundError(f"There's no past conversation {episode_id} any more.")
+            raise MemoryNotFoundError(f"There's no conversation summary {episode_id} any more.")
         await episodes.remove(self._storage.store, user_id, episode_id)
 
 

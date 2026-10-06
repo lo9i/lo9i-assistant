@@ -104,7 +104,7 @@
         ondelete={(id) => change(() => client.memory.deleteFact(id))}
       />
       <MemoryList
-        title="Past conversations"
+        title="Conversation summaries"
         noun="summary"
         items={episodeItems}
         Icon={BookOpen}
