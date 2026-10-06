@@ -18,6 +18,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - A25. The /claude folder picker (`core/conversation/agent_folders.py`) leaves out hidden folders, so a project under a dot folder can only be typed as a path. The plain REPL (pipes) offers only the workspace and the folders used before, with no browsing. Add a way to show hidden folders, and browsing in the REPL if it's needed there.
 - A26. The web app's folder picker (`clients/web/src/lib/ui/chat/AgentFolderModal.svelte`) has no component test, unlike `ApprovalModal`. Cover picking a recent folder and browsing to a new one.
 - A27. A handed-off agent's steps (the /claude call's progress lines) are only streamed: after a reload, or in a conversation opened later, the call shows no steps. Keep them with the reply (a ToolMessage-like record, or the task's progress.log by task id) so the history the apps load can show them, as A16 asks for a subagent's.
+- A28. Files sent to a handed-off agent reach it as full paths under `~/.lo9i/uploads`, outside the folder it works in. Claude Code reads them (`bypassPermissions`); the Copilot CLI may refuse paths outside its folder with only `--allow-all-tools`. Check it on a computer with Copilot and pass the uploads folder (`--add-dir`) if needed.
 
 ## Daemon
 

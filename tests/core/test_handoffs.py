@@ -116,11 +116,19 @@ async def test_an_agent_error_is_shown_and_nothing_is_added(service, tmp_path):
     assert await service.conversation_messages(session.thread_id) == []
 
 
-async def test_files_dont_reach_the_agent(service, tmp_path):
+async def test_the_agent_gets_the_full_paths_of_the_files_sent_and_the_conversation_keeps_them(
+    service, asked, tmp_path
+):
     session = await _handed(service, tmp_path)
     photo = Attachment("photo.png", "image/png", b"\x89PNG")
     events = await collect(service.send(session, "look", [photo]))
-    assert isinstance(events[-1], Error) and "takes text only" in events[-1].message
+    assert isinstance(events[-1], Done)
+    message = asked[0]["message"]
+    assert message.startswith("look\n\nFiles sent with this message, saved on this computer:\n- ")
+    saved = Path(message.splitlines()[-1].removeprefix("- ").removesuffix(" (photo.png)"))
+    assert saved.read_bytes() == b"\x89PNG"
+    assert [f.name for f in await service.list_files("owner")] == ["photo.png"]
+    assert (await service.conversation_messages(session.thread_id))[0].text == "[attachment photo.png]\nlook"
 
 
 async def test_only_an_installed_agent_and_an_existing_folder_can_be_handed_to(service, tmp_path):
