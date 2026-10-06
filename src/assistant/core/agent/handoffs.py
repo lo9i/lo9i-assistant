@@ -83,6 +83,7 @@ class HandoffsMixin(RunsMixin):
         try:
             reply = await asking
         except HandoffError as e:
+            yield ToolFinished(handoff.name, "Failed")
             yield Error(str(e))
             return
         yield ToolFinished(handoff.name, f"Replied, working in {handoff.folder}")

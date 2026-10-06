@@ -113,6 +113,7 @@ async def test_an_agent_error_is_shown_and_nothing_is_added(service, tmp_path):
     session = await _handed(service, tmp_path)
     events = await collect(service.send(session, "break"))
     assert isinstance(events[-1], Error) and "the agent gave up" in events[-1].message
+    assert events[-2] == ToolFinished("Claude Code", "Failed")  # the call stops showing as running
     assert await service.conversation_messages(session.thread_id) == []
 
 
