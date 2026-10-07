@@ -30,6 +30,7 @@ from assistant.core.mcp.connection import (
     list_tools,
     open_client,
 )
+from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.logins import SharedLogins
 from assistant.core.mcp.media import ToolMedia
 from assistant.core.mcp.oauth import McpAuth, needs_sign_in
@@ -79,8 +80,11 @@ class McpHub(McpStarts):
         auth: McpAuth,
         factory: ClientFactory | None = None,
         shared: SharedLogins | None = None,
+        environments: Environments | None = None,
     ) -> None:
-        """`shared` gives the logins servers can use instead of their own (core/mcp/logins.py)."""
+        """`shared` gives the logins servers can use instead of their own (core/mcp/logins.py);
+        `environments` rebuilds a server's lost environment before it starts."""
+        self._environments = environments
         self._store = store
         self._shared = shared or dict
         self._bus = bus
@@ -229,9 +233,13 @@ class McpHub(McpStarts):
         self._start(server)
 
     def _start(self, server: McpServer) -> None:
-        connection = McpConnection(server, self._changed, self._health, self._factory, self._auth)
+        connection = McpConnection(server, self._changed, self._health, self._factory, self._auth, self._prepare)
         stop = asyncio.Event()
         self._running[server.name] = _Running(connection, stop, asyncio.create_task(connection.run(stop)))
+
+    async def _prepare(self, server: McpServer) -> None:
+        if self._environments is not None:
+            await self._environments.ensure(server.name, server.command)
 
     async def _stop(self, name: str) -> None:
         running = self._running.pop(name)

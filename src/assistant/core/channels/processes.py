@@ -11,6 +11,7 @@ from mcp.client.stdio import get_default_environment
 from assistant.core.channels.hub import ChannelHub
 from assistant.core.config import settings
 from assistant.core.mcp import folders, servers
+from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.process import ProcessSpec, keep_running
 from assistant.core.mcp.servers import McpServer
 
@@ -25,9 +26,10 @@ class _Running:
 class ChannelProcesses:
     name = "channel-processes"
 
-    def __init__(self, store: BaseStore, hub: ChannelHub) -> None:
+    def __init__(self, store: BaseStore, hub: ChannelHub, environments: Environments) -> None:
         self._store = store
         self._hub = hub
+        self._environments = environments
         self._running: dict[str, _Running] = {}
         self._active = False
 
@@ -62,7 +64,12 @@ class ChannelProcesses:
 
     def _start(self, server: McpServer) -> None:
         stop = asyncio.Event()
-        running = keep_running(f"channel {server.name}", lambda: self._spec(server), stop)
+        running = keep_running(
+            f"channel {server.name}",
+            lambda: self._spec(server),
+            stop,
+            prepare=lambda: self._environments.ensure(server.name, server.channel_command),
+        )
         self._running[server.name] = _Running(server, stop, asyncio.create_task(running))
 
     async def _stop(self, name: str) -> None:

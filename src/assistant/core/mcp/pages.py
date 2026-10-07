@@ -12,6 +12,7 @@ from mcp.client.stdio import get_default_environment
 
 from assistant.core.config import settings
 from assistant.core.mcp import folders, servers
+from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.process import ProcessSpec, keep_running
 from assistant.core.mcp.servers import McpServer
 
@@ -26,8 +27,9 @@ class _Running:
 class McpPages:
     name = "mcp-pages"
 
-    def __init__(self, store: BaseStore) -> None:
+    def __init__(self, store: BaseStore, environments: Environments) -> None:
         self._store = store
+        self._environments = environments
         self._running: dict[str, _Running] = {}
         self._active = False
 
@@ -67,7 +69,13 @@ class McpPages:
     def _start(self, server: McpServer) -> None:
         stop = asyncio.Event()
         socket = folders.page_socket(server.name)
-        running = keep_running(f"page of {server.name}", lambda: _spec(server), stop, lambda: socket.unlink(True))
+        running = keep_running(
+            f"page of {server.name}",
+            lambda: _spec(server),
+            stop,
+            lambda: socket.unlink(True),
+            lambda: self._environments.ensure(server.name, server.page_command),
+        )
         self._running[server.name] = _Running(server, stop, asyncio.create_task(running))
 
     async def _stop(self, name: str) -> None:

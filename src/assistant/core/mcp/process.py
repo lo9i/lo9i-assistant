@@ -7,7 +7,7 @@ import contextlib
 import logging
 import os
 import signal
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,14 +29,18 @@ class ProcessSpec:
 
 
 async def keep_running(
-    label: str, spec: Callable[[], ProcessSpec], stop: asyncio.Event, after: Callable[[], None] | None = None
+    label: str,
+    spec: Callable[[], ProcessSpec],
+    stop: asyncio.Event,
+    after: Callable[[], None] | None = None,
+    prepare: Callable[[], Awaitable[None]] | None = None,
 ) -> None:
-    """Run the process until `stop` is set. `spec` is asked again before every start; `after` runs
-    after every exit."""
+    """Run the process until `stop` is set. `prepare` runs and `spec` is asked again before every start
+    (core/mcp/environment.py rebuilds a lost environment); `after` runs after every exit."""
     wait = _FIRST_RETRY_SECONDS
     while not stop.is_set():
         started = asyncio.get_running_loop().time()
-        code = await _run_once(label, spec(), stop)
+        code = await _start(label, spec, prepare, stop)
         if after is not None:
             after()
         if stop.is_set():
@@ -47,6 +51,19 @@ async def keep_running(
         with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(stop.wait(), wait)
         wait = min(wait * 2, _MAX_RETRY_SECONDS)
+
+
+async def _start(
+    label: str, spec: Callable[[], ProcessSpec], prepare: Callable[[], Awaitable[None]] | None, stop: asyncio.Event
+) -> int | None:
+    """The exit code of one run, None when it couldn't start."""
+    try:
+        if prepare is not None:
+            await prepare()
+    except Exception as e:
+        logger.warning("Couldn't get the %s ready: %s", label, e)
+        return None
+    return await _run_once(label, spec(), stop)
 
 
 async def _run_once(label: str, spec: ProcessSpec, stop: asyncio.Event) -> int | None:

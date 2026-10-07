@@ -15,6 +15,7 @@ from assistant.core.channels.hub import ChannelHub, ChannelNotConnectedError, Se
 from assistant.core.channels.processes import ChannelProcesses
 from assistant.core.conversation.prompt import build_system_prompt
 from assistant.core.mcp import folders, servers
+from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.install import ServerValues
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.outbox import DeliveryError, Outbox
@@ -137,7 +138,7 @@ async def test_the_channel_process_runs_with_the_daemons_address_and_its_token(s
     )
     server = McpServer("telegram", env={"BOT": "b"}, channel_command=sys.executable, channel_args=["-c", script])
     await servers.save(service.store, server)
-    processes = ChannelProcesses(service.store, service.channels_hub)
+    processes = ChannelProcesses(service.store, service.channels_hub, Environments(folders.code))
     stop = asyncio.Event()
     running = asyncio.create_task(processes.run(stop))
     for _ in range(200):

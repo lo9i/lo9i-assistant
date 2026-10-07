@@ -7,7 +7,7 @@ task (`run`); calls from tools use the open session.
 import asyncio
 import contextlib
 import logging
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 
@@ -84,8 +84,11 @@ class McpConnection:
         health: HealthLog,
         factory: ClientFactory = open_client,
         auth: McpAuth | None = None,
+        prepare: Callable[[McpServer], Awaitable[None]] | None = None,
     ) -> None:
+        """`prepare` runs before every attempt to connect (core/mcp/environment.py rebuilds a lost environment)."""
         self.server = server
+        self._prepare = prepare
         self.state = ConnectionState()
         self._on_change = on_change
         self._health = health
@@ -155,6 +158,9 @@ class McpConnection:
 
     async def _session(self, stop: asyncio.Event) -> None:
         self._set(ConnectionState("connecting"))
+        if self._prepare is not None:
+            # Outside the connect timeout: rebuilding an environment can take minutes.
+            await self._prepare(self.server)
         async with contextlib.AsyncExitStack() as stack:
             async with asyncio.timeout(_CONNECT_SECONDS):
                 auth = self._auth.for_connection(self.server) if self._auth else None

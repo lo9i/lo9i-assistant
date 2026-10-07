@@ -317,3 +317,30 @@ async def test_a_server_asking_for_the_copilot_login_gets_it_while_the_model_is_
     assert (await servers.load(service.store, "notes")).env == {}  # never saved with the plugin
     await service.reset_model()
     assert ENV["copilot"] not in env()
+
+
+async def test_a_connection_that_cant_be_got_ready_fails_without_connecting():
+    opened: list[str] = []
+
+    async def prepare(server: McpServer) -> None:
+        raise McpServerError(f"Couldn't install what {server.name} needs")
+
+    def factory(server, on_message, auth):
+        opened.append(server.name)
+        raise AssertionError("not reached")
+
+    connection = McpConnection(
+        McpServer(name="ledger", command="x"),
+        lambda: None,
+        HealthLog(InMemoryStore(), EventBus()),
+        factory,
+        None,
+        prepare,
+    )
+    stop = asyncio.Event()
+    running = asyncio.create_task(connection.run(stop))
+    while connection.state.status != "failed":
+        await asyncio.sleep(0)
+    stop.set()
+    await running
+    assert opened == [] and "Couldn't install" in connection.state.error
