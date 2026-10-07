@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
+  import { draft } from "$lib/chat/draft.svelte";
   import { carriesFiles, droppedFiles } from "$lib/chat/dropped";
   import { agentCommands } from "$lib/chat/commands";
   import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
@@ -38,8 +39,6 @@
   let help = $state(false);
   // The agent /claude alone picks a folder for.
   let picking = $state<Agent | null>(null);
-  let draft = $state("");
-  let attached = $state<File[]>([]);
   // Drags enter and leave every element they pass over; the chat is under a drag while this is above 0.
   let dragging = $state(0);
   const streaming = $derived(snapshot.current.transcript.streaming !== null);
@@ -81,7 +80,7 @@
     if (!e.dataTransfer || !carriesFiles(e.dataTransfer)) return;
     e.preventDefault();
     const { files, folders } = droppedFiles(e.dataTransfer);
-    attached = [...attached, ...files];
+    draft.files = [...draft.files, ...files];
     if (folders) notices.notify("Folders can't be attached; drop the files in them instead.", "warning");
   }
 
@@ -213,15 +212,15 @@
     items={snapshot.current.transcript.items}
     thinking={(snapshot.current.busy || snapshot.current.mirroring) && !streaming && !toolRunning(snapshot.current.transcript)}
     name={name.data || "the assistant"}
-    onsuggest={(text) => (draft = text)}
+    onsuggest={(text) => (draft.text = text)}
   />
   <PinnedSkills skills={pinned.data ?? []} onunpin={unpin} />
   {#if handoff.data}
     <AgentBar handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")} />
   {/if}
   <Composer
-    bind:text={draft}
-    bind:files={attached}
+    bind:text={draft.text}
+    bind:files={draft.files}
     sent={sentTexts(snapshot.current.transcript.items)}
     busy={snapshot.current.busy}
     running={snapshot.current.busy || snapshot.current.mirroring}
