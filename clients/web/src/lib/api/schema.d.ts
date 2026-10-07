@@ -1188,7 +1188,8 @@ export interface paths {
         post?: never;
         /**
          * Remove Mcp Server
-         * @description With `delete_data`, the server's data folder goes too; otherwise it stays.
+         * @description With `delete_data`, the server's data folder goes too; otherwise it stays. Its keys stay
+         *     until the user deletes them (`kept`, POST /plugins/keys/forget).
          */
         delete: operations["remove_mcp_server_mcp_servers__name__delete"];
         options?: never;
@@ -1309,6 +1310,90 @@ export interface paths {
         get: operations["plugin_update_checks_settings_plugin_updates_get"];
         /** Set Plugin Update Checks */
         put: operations["set_plugin_update_checks_settings_plugin_updates_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/repositories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Repositories
+         * @description The repositories plugins are listed from: the official extras first, then the added ones.
+         */
+        get: operations["repositories_repositories_get"];
+        put?: never;
+        /**
+         * Add Repository
+         * @description 400: listed already, can't be read (with the token, for a private one), or offers no plugins.
+         */
+        post: operations["add_repository_repositories_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/repositories/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove Repository
+         * @description Its installed plugins stay. 400: the extras, or a repository not listed.
+         */
+        post: operations["remove_repository_repositories_remove_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plugins/keys/forget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forget Plugin Keys
+         * @description Delete what a removed plugin left kept (Removed.kept), when the user says so.
+         */
+        post: operations["forget_plugin_keys_plugins_keys_forget_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/repositories/plugins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Repository Plugins
+         * @description What every listed repository offers; one that can't be read has an error instead.
+         */
+        get: operations["repository_plugins_repositories_plugins_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2263,6 +2348,27 @@ export interface components {
              */
             reason: string;
         };
+        /**
+         * KeptKeys
+         * @description What a removed plugin left kept, for the user to keep or delete: its keys' names, and the
+         *     token of the private repository it came from when nothing else needs that any more.
+         */
+        KeptKeys: {
+            /** Plugin */
+            plugin: string;
+            /** Keys */
+            keys: string[];
+            /**
+             * Repository
+             * @default
+             */
+            repository: string;
+            /**
+             * Repository Name
+             * @default
+             */
+            repository_name: string;
+        };
         /** LanguageOption */
         LanguageOption: {
             /** Code */
@@ -2709,6 +2815,34 @@ export interface components {
              */
             help: string;
         };
+        /** Removed */
+        Removed: {
+            kept?: components["schemas"]["KeptKeys"] | null;
+        };
+        /** Repository */
+        Repository: {
+            /** Url */
+            url: string;
+            /** Name */
+            name: string;
+            /** Official */
+            official: boolean;
+            /**
+             * Private
+             * @default false
+             */
+            private: boolean;
+        };
+        /** RepositoryAdd */
+        RepositoryAdd: {
+            /** Url */
+            url: string;
+            /**
+             * Token
+             * @default
+             */
+            token: string;
+        };
         /** RepositoryAddress */
         RepositoryAddress: {
             /**
@@ -2741,6 +2875,24 @@ export interface components {
              * @default []
              */
             servers: components["schemas"]["ServerValuesBody"][];
+        };
+        /**
+         * RepositoryPlugins
+         * @description What one repository offers, or why it couldn't be read.
+         */
+        RepositoryPlugins: {
+            repository: components["schemas"]["Repository"];
+            contents: components["schemas"]["RepositoryContents"] | null;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+        };
+        /** RepositoryUrl */
+        RepositoryUrl: {
+            /** Url */
+            url: string;
         };
         /**
          * RestartStatus
@@ -5202,7 +5354,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Ok"];
+                    "application/json": components["schemas"]["Removed"];
                 };
             };
             /** @description Validation Error */
@@ -5438,7 +5590,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Ok"];
+                    "application/json": components["schemas"]["Removed"];
                 };
             };
             /** @description Validation Error */
@@ -5674,6 +5826,145 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    repositories_repositories_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Repository"][];
+                };
+            };
+        };
+    };
+    add_repository_repositories_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepositoryAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Repository"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_repository_repositories_remove_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepositoryUrl"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forget_plugin_keys_plugins_keys_forget_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeptKeys"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    repository_plugins_repositories_plugins_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepositoryPlugins"][];
                 };
             };
         };

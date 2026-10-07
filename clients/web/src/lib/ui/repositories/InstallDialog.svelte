@@ -9,14 +9,15 @@
 
   // `kind`: only MCP servers (the MCP servers page) or only skills (the Skills page). `server` or
   // `skill`: just this plugin, already read from the extras (the Plugins page, or one the agent offers
-  // in the chat). What's installed already isn't offered.
+  // in the chat). `url`: the repository it's from, the extras when absent. What's installed already isn't offered.
   type Props = {
     onclose: (installed?: string[]) => void;
     kind?: "server" | "skill";
     server?: FoundServer;
     skill?: FoundSkill;
+    url?: string;
   };
-  let { onclose, kind: shownKind, server: onlyServer, skill: onlySkill }: Props = $props();
+  let { onclose, kind: shownKind, server: onlyServer, skill: onlySkill, url }: Props = $props();
   const only = $derived(onlyServer ?? onlySkill);
   const { client } = useDaemon();
 
@@ -50,7 +51,7 @@
 
   const look = () =>
     run(async () => {
-      const all = await client.repositories.browse();
+      const all = await client.repositories.browse(url);
       const offered = (k: "server" | "skill", p: { name: string; installed?: boolean }) => !p.installed && (!shownKind || shownKind === k);
       // The MCP servers page lists servers with tools: a plugin without them is installed from Plugins.
       const listed = (s: FoundServer) => !(shownKind === "server" && s.transport === "none");
@@ -74,7 +75,7 @@
     if (error) return;
     return run(async () => {
       const chosen = [...servers].map((name) => ({ name, values: values[name] }));
-      await client.repositories.install([...skills], chosen);
+      await client.repositories.install([...skills], chosen, url);
       onclose([...skills, ...servers]);
     });
   };

@@ -253,7 +253,7 @@ QuestionScreen, PluginUpdatesScreen, AgentFolderScreen {
     align: center middle;
 }
 
-#question, #plugin-updates, #agent-folder {
+#question, #plugin-updates, #agent-folder, #repositories {
     width: 80%;
     max-width: 100;
     height: auto;
@@ -262,17 +262,17 @@ QuestionScreen, PluginUpdatesScreen, AgentFolderScreen {
     background: $dialog-background;
 }
 
-#question-options, #plugin-updates-list, #agent-folder-options {
+#question-options, #plugin-updates-list, #agent-folder-options, #repositories-list {
     height: auto;
     max-height: 14;
     margin: 1 0;
 }
 
-#question-buttons, #plugin-updates-buttons, #agent-folder-buttons {
+#question-buttons, #plugin-updates-buttons, #agent-folder-buttons, #repositories-buttons {
     height: auto;
 }
 
-#question-buttons Button, #plugin-updates-buttons Button {
+#question-buttons Button, #plugin-updates-buttons Button, #repositories-buttons Button {
     margin-right: 2;
 }
 

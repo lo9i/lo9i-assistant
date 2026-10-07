@@ -126,7 +126,7 @@ async def test_a_server_installed_from_an_offer_brings_its_tools_to_the_same_run
         service.store, EXTRAS, cache.Listing("c1", [], [FoundServer("notes", "Notes", "stdio", [], False)])
     )
 
-    async def latest_commit(url: str) -> str:
+    async def latest_commit(url: str, token: str = "") -> str:
         return "c1"
 
     monkeypatch.setattr(checkout, "latest_commit", latest_commit)
@@ -423,6 +423,7 @@ async def test_tools_learned_by_the_hub_are_offered_after_a_restart_without_star
         HealthLog(service.store, EventBus()),
         ToolMedia(FakeTranscriber(), service.store),
         McpAuth(service.store, service.secrets),
+        service.secrets,
         opens,
     )
     running = asyncio.create_task(hub.run(stop))

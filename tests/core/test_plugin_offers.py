@@ -32,7 +32,7 @@ async def extras(service, monkeypatch):
     """The extras as last read by the update checker; reading them again finds the same commit."""
     await cache.save(service.store, EXTRAS, cache.Listing("c1", [_NOTES], [_TELEGRAM]))
 
-    async def latest_commit(url: str) -> str:
+    async def latest_commit(url: str, token: str = "") -> str:
         return "c1"
 
     monkeypatch.setattr(checkout, "latest_commit", latest_commit)
@@ -104,7 +104,7 @@ async def test_chat_channels_point_to_the_app_and_unknown_names_list_the_plugins
 
 
 async def test_the_extras_unreachable_and_never_read(service, script, monkeypatch):
-    async def latest_commit(url: str) -> str:
+    async def latest_commit(url: str, token: str = "") -> str:
         raise RepositoryError("Couldn't reach GitHub")
 
     monkeypatch.setattr(checkout, "latest_commit", latest_commit)
@@ -173,11 +173,11 @@ async def mail_extras(service, isolated_settings, monkeypatch):
         (remote / name).mkdir(parents=True)
         (remote / name / "server.yaml").write_text(text)
 
-    async def fetch(url, dest):
+    async def fetch(url, dest, token=""):
         shutil.copytree(isolated_settings / "remote", dest)
         return "c1"
 
-    async def latest_commit(url: str) -> str:
+    async def latest_commit(url: str, token: str = "") -> str:
         return "c1"
 
     monkeypatch.setattr(checkout, "_fetch", fetch)

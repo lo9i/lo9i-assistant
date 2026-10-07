@@ -3,8 +3,10 @@ from typing import Any
 
 import httpx
 
+from assistant.client.daemon_client.kept import kept_keys
 from assistant.client.daemon_client.transport import Transport
 from assistant.core.agent import (
+    KeptKeys,
     McpProbe,
     McpServer,
     McpServerChanges,
@@ -60,10 +62,12 @@ class McpApi:
         data = await self._transport.request("POST", f"/mcp/servers/{name}/update", errors=_ERRORS, timeout=_DOWNLOAD)
         return status_from_json(data)
 
-    async def remove(self, name: str, delete_data: bool = False) -> None:
-        """Its data stays, for installing it again, unless `delete_data`."""
+    async def remove(self, name: str, delete_data: bool = False) -> KeptKeys | None:
+        """Its data stays, for installing it again, unless `delete_data`. Returns what it left kept (its
+        keys, its private repository's token), for asking whether to keep it."""
         params = {"delete_data": "true"} if delete_data else {}
-        await self._transport.request("DELETE", f"/mcp/servers/{name}", errors=_ERRORS, params=params)
+        data = await self._transport.request("DELETE", f"/mcp/servers/{name}", errors=_ERRORS, params=params)
+        return kept_keys(data)
 
 
 def _settings(server: McpServer) -> dict[str, Any]:

@@ -2533,7 +2533,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Ok"
+                  "$ref": "#/components/schemas/Removed"
                 }
               }
             }
@@ -2846,7 +2846,7 @@
       },
       "delete": {
         "summary": "Remove Mcp Server",
-        "description": "With `delete_data`, the server's data folder goes too; otherwise it stays.",
+        "description": "With `delete_data`, the server's data folder goes too; otherwise it stays. Its keys stay\nuntil the user deletes them (`kept`, POST /plugins/keys/forget).",
         "operationId": "remove_mcp_server_mcp_servers__name__delete",
         "parameters": [
           {
@@ -2875,7 +2875,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Ok"
+                  "$ref": "#/components/schemas/Removed"
                 }
               }
             }
@@ -3128,6 +3128,167 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/repositories": {
+      "get": {
+        "summary": "Repositories",
+        "description": "The repositories plugins are listed from: the official extras first, then the added ones.",
+        "operationId": "repositories_repositories_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Repository"
+                  },
+                  "type": "array",
+                  "title": "Response Repositories Repositories Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add Repository",
+        "description": "400: listed already, can't be read (with the token, for a private one), or offers no plugins.",
+        "operationId": "add_repository_repositories_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepositoryAdd"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Repository"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/repositories/remove": {
+      "post": {
+        "summary": "Remove Repository",
+        "description": "Its installed plugins stay. 400: the extras, or a repository not listed.",
+        "operationId": "remove_repository_repositories_remove_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepositoryUrl"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plugins/keys/forget": {
+      "post": {
+        "summary": "Forget Plugin Keys",
+        "description": "Delete what a removed plugin left kept (Removed.kept), when the user says so.",
+        "operationId": "forget_plugin_keys_plugins_keys_forget_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeptKeys"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/repositories/plugins": {
+      "get": {
+        "summary": "Repository Plugins",
+        "description": "What every listed repository offers; one that can't be read has an error instead.",
+        "operationId": "repository_plugins_repositories_plugins_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RepositoryPlugins"
+                  },
+                  "type": "array",
+                  "title": "Response Repository Plugins Repositories Plugins Get"
                 }
               }
             }
@@ -5096,6 +5257,38 @@
         ],
         "title": "JobDecision"
       },
+      "KeptKeys": {
+        "properties": {
+          "plugin": {
+            "type": "string",
+            "title": "Plugin"
+          },
+          "keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Keys"
+          },
+          "repository": {
+            "type": "string",
+            "title": "Repository",
+            "default": ""
+          },
+          "repository_name": {
+            "type": "string",
+            "title": "Repository Name",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "plugin",
+          "keys"
+        ],
+        "title": "KeptKeys",
+        "description": "What a removed plugin left kept, for the user to keep or delete: its keys' names, and the\ntoken of the private repository it came from when nothing else needs that any more."
+      },
       "LanguageOption": {
         "properties": {
           "code": {
@@ -6054,6 +6247,68 @@
         ],
         "title": "ProviderField"
       },
+      "Removed": {
+        "properties": {
+          "kept": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KeptKeys"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "Removed"
+      },
+      "Repository": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "official": {
+            "type": "boolean",
+            "title": "Official"
+          },
+          "private": {
+            "type": "boolean",
+            "title": "Private",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "name",
+          "official"
+        ],
+        "title": "Repository"
+      },
+      "RepositoryAdd": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "RepositoryAdd"
+      },
       "RepositoryAddress": {
         "properties": {
           "url": {
@@ -6115,6 +6370,48 @@
         },
         "type": "object",
         "title": "RepositoryInstall"
+      },
+      "RepositoryPlugins": {
+        "properties": {
+          "repository": {
+            "$ref": "#/components/schemas/Repository"
+          },
+          "contents": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepositoryContents"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "repository",
+          "contents"
+        ],
+        "title": "RepositoryPlugins",
+        "description": "What one repository offers, or why it couldn't be read."
+      },
+      "RepositoryUrl": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "RepositoryUrl"
       },
       "RestartStatus": {
         "properties": {

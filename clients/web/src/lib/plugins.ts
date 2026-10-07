@@ -1,15 +1,43 @@
-import type { FoundServer, FoundSkill, RepositoryContents } from "./api/types";
+import type { FoundServer, FoundSkill, Repository, RepositoryContents, RepositoryPlugins } from "./api/types";
 
-/** A plugin the assistant's extras offer: an MCP server (maybe with its skill, a page or a chat channel), a chat channel, or a skill of its own. */
+/** The assistant's extras, official, when a listing's repository isn't named: an empty url installs from them. */
+const EXTRAS: Repository = { url: "", name: "the assistant's extras", official: true, private: false };
+
+/** A plugin a repository offers: an MCP server (maybe with its skill, a page or a chat channel), a chat channel, or a skill of its own. */
 export type Plugin =
-  | { kind: "server"; name: string; installed: boolean; server: FoundServer }
-  | { kind: "skill"; name: string; installed: boolean; skill: FoundSkill };
+  | { kind: "server"; name: string; installed: boolean; server: FoundServer; repository: Repository }
+  | { kind: "skill"; name: string; installed: boolean; skill: FoundSkill; repository: Repository };
 
-export function pluginsOf(contents: RepositoryContents): Plugin[] {
+export function pluginsOf(contents: RepositoryContents, repository: Repository = EXTRAS): Plugin[] {
   return [
-    ...contents.servers.map((server): Plugin => ({ kind: "server", name: server.name, installed: server.installed ?? false, server })),
-    ...contents.skills.map((skill): Plugin => ({ kind: "skill", name: skill.name, installed: skill.installed ?? false, skill })),
+    ...contents.servers.map((server): Plugin => ({
+      kind: "server",
+      name: server.name,
+      installed: server.installed ?? false,
+      server,
+      repository,
+    })),
+    ...contents.skills.map((skill): Plugin => ({
+      kind: "skill",
+      name: skill.name,
+      installed: skill.installed ?? false,
+      skill,
+      repository,
+    })),
   ];
+}
+
+/** Every repository's plugins, the official extras first, and what the ones that couldn't be read said. */
+export function fromRepositories(read: RepositoryPlugins[]): { plugins: Plugin[]; errors: string[] } {
+  return {
+    plugins: read.flatMap((r) => (r.contents ? pluginsOf(r.contents, r.repository) : [])),
+    errors: read.filter((r) => r.error).map((r) => `${r.repository.name}: ${r.error}`),
+  };
+}
+
+/** "Official" for the extras' plugins; the repository's name for the others. */
+export function sourceOf(p: Plugin): string {
+  return p.repository.official ? "Official" : p.repository.name;
 }
 
 /** "MCP server · channel · skill · page", "Channel" (a chat channel without tools), "Email provider", or "Skill". */
@@ -118,7 +146,7 @@ export function byCategory(plugins: Plugin[]): Array<{ category: string; plugins
   return groups.map((group) => ({ category: group, plugins: plugins.filter((p) => groupOf(categoryOf(p)) === group) }));
 }
 
-/** A plugin's key in the list: a server and a skill can share a name. */
+/** A plugin's key in the list: a server and a skill can share a name, and two repositories a plugin's name. */
 export function keyOf(p: Plugin): string {
-  return `${p.kind}:${p.name}`;
+  return `${p.repository.url}|${p.kind}:${p.name}`;
 }

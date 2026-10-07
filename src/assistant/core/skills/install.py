@@ -74,14 +74,15 @@ def install(candidate: Candidate, url: str, commit: str) -> store.Skill:
     return store.put(candidate.skill.name, candidate.folder, source)
 
 
-async def update(name: str) -> store.Skill:
-    """Install the skill again from its repository. Changes made to it here are replaced."""
+async def update(name: str, tokens: dict[str, str] | None = None) -> store.Skill:
+    """Install the skill again from its repository. Changes made to it here are replaced. `tokens`:
+    private repositories' tokens, by address."""
     source = await asyncio.to_thread(store.installed_from, name)
     if source is None:
         raise SkillError(f"{name} wasn't installed from a repository, so there's nothing to update it from.")
     if source.server:
         raise SkillError(f"{name} comes with the {source.server} MCP server: update the server to update it.")
-    async with checkout(source.url) as (root, commit):
+    async with checkout(source.url, (tokens or {}).get(source.url, "")) as (root, commit):
         candidate = await asyncio.to_thread(_find_at, root, source.path, name)
         return await asyncio.to_thread(install, candidate, source.url, commit)
 

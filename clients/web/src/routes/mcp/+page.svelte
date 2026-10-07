@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { keptKeys } from "$lib/keptKeys.svelte";
   import { untrack } from "svelte";
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
@@ -244,7 +245,7 @@
     action="Remove"
     onanswer={(yes) => {
       removing = false;
-      if (yes) change(() => client.mcp.remove(server.name));
+      if (yes) change(async () => keptKeys.ask(await client.mcp.remove(server.name)));
     }}
   />
 {/if}

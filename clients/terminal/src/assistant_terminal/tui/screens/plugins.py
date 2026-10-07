@@ -1,6 +1,7 @@
-"""Plugins: the MCP servers and skills the assistant's extras offer, each installed or not, to install,
-update or remove; as in the web app's Plugins page. The extras are downloaded to list them, so the
-list loads when the screen opens and after each action, not on every daemon event."""
+"""Plugins: the MCP servers and skills the repositories offer (the official extras and the ones the user
+added under Repositories), each installed or not, to install, update or remove; as in the web app's
+Plugins page. The repositories are downloaded to list them, so the list loads when the screen opens and
+after each action, not on every daemon event."""
 
 from collections.abc import Awaitable, Callable
 from typing import ClassVar
@@ -20,17 +21,19 @@ from assistant_terminal.plugins_text import (
     by_category,
     category_label,
     describe,
+    from_repositories,
     has_newer,
     label,
     matches,
-    plugins,
     updatable,
 )
 from assistant_terminal.tui.channel_setup import ChannelSetup
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen, ConfirmWithOptionScreen
 from assistant_terminal.tui.screens.email import EmailScreen
+from assistant_terminal.tui.screens.kept_keys import ask_about_keys
 from assistant_terminal.tui.screens.plugin_updates import PluginUpdatesScreen
+from assistant_terminal.tui.screens.repositories import RepositoriesScreen
 from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 
 _CATEGORY = "category:"
@@ -58,7 +61,8 @@ class PluginsScreen(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="plugins"):
             yield Static(
-                "Plugins: MCP servers, chat channels and skills from the assistant's extras", id="plugins-title"
+                "Plugins: MCP servers, chat channels and skills from the official extras and your repositories",
+                id="plugins-title",
             )
             yield Input(placeholder="Search plugins", id="plugins-search")
             with Horizontal(id="plugins-main"):
@@ -73,6 +77,7 @@ class PluginsScreen(ModalScreen[None]):
                 yield Button("Update", id="update")
                 yield Button("Remove", variant="error", id="remove")
                 yield Button("Accounts", id="email-accounts")
+                yield Button("Repositories", id="repositories")
                 yield Button("Refresh", id="refresh")
                 yield Button("Daily update checks", id="checks")
                 yield Button("Close", id="close")
@@ -95,12 +100,16 @@ class PluginsScreen(ModalScreen[None]):
 
     @reports_daemon_unavailable
     async def _load(self) -> None:
-        try:
-            self._all = plugins(await self._repositories.browse())
-        except RepositoryError as e:
-            self._all = []
-            await self.query_one("#plugin-body", Markdown).update(f"**{e}**")
+        self._all, unread = from_repositories(await self._repositories.plugins())
+        for error in unread:
+            self.notify(error, severity="error", timeout=10)
         await self._list()
+
+    @on(Button.Pressed, "#repositories")
+    @work
+    async def _manage_repositories(self) -> None:
+        await self.app.push_screen_wait(RepositoriesScreen(self._repositories))
+        await self._load()
 
     async def _list(self) -> None:
         newer = [p for p in self._all if has_newer(p)]
@@ -151,12 +160,14 @@ class PluginsScreen(ModalScreen[None]):
             return
         if plugin.server is not None and plugin.server.fields:
             # It asks for values: a screen for just this plugin's fields.
-            if await self.app.push_screen_wait(RepositoryInstallScreen(self._repositories, only=plugin.name)):
+            screen = RepositoryInstallScreen(self._repositories, only=plugin.name, url=plugin.repository.url)
+            if await self.app.push_screen_wait(screen):
                 self.notify(f"Installed {plugin.name}.")
             await self._load()
             return
         skills, servers = ([], [ServerValues(plugin.name)]) if plugin.server else ([plugin.name], [])
-        await self._run(lambda: self._repositories.install(skills, servers), f"Installed {plugin.name}.")
+        url = plugin.repository.url
+        await self._run(lambda: self._repositories.install(skills, servers, url), f"Installed {plugin.name}.")
 
     @on(Button.Pressed, "#update")
     @reports_daemon_unavailable
@@ -197,21 +208,26 @@ class PluginsScreen(ModalScreen[None]):
             return
         if plugin.server is None:
             if await self.app.push_screen_wait(ConfirmScreen(f"Remove {plugin.name}?", "Remove")):
-                await self._run(lambda: self._skills.delete(plugin.name), f"Removed {plugin.name}.")
+                kept = await self._run(lambda: self._skills.delete(plugin.name), f"Removed {plugin.name}.")
+                await ask_about_keys(self, self._repositories, kept)
             return
         question = f"Remove {plugin.name}? Its data stays, for installing it again, unless you delete it too."
         option = "Also delete its data (can't be undone)"
         delete_data = await self.app.push_screen_wait(ConfirmWithOptionScreen(question, "Remove", option))
         if delete_data is not None:
-            await self._run(lambda: self._mcp.remove(plugin.name, delete_data), f"Removed {plugin.name}.")
+            kept = await self._run(lambda: self._mcp.remove(plugin.name, delete_data), f"Removed {plugin.name}.")
+            await ask_about_keys(self, self._repositories, kept)
 
-    async def _run(self, action: Callable[[], Awaitable[object]], done: str) -> None:
+    async def _run[T](self, action: Callable[[], Awaitable[T]], done: str) -> T | None:
+        """The action's result; None when it failed, which is told."""
         try:
-            await action()
+            result = await action()
             self.notify(done)
         except (RepositoryError, McpServerError, SkillError) as e:
             self.notify(str(e), severity="error")
+            result = None
         await self._load()
+        return result
 
     @reports_daemon_unavailable
     async def reload(self) -> None:
@@ -246,7 +262,7 @@ class PluginsScreen(ModalScreen[None]):
         elif self._all:
             await self.query_one("#plugin-body", Markdown).update("No matches.")
         else:
-            await self.query_one("#plugin-body", Markdown).update("The extras offer no plugins yet.")
+            await self.query_one("#plugin-body", Markdown).update("The repositories offer no plugins yet.")
 
 
 def _grouped(shown: list[Plugin]) -> list[Option]:

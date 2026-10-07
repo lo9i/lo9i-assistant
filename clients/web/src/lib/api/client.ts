@@ -40,7 +40,11 @@ import type {
   PairingCode,
   PluginUpdate,
   PluginUpdateChecks,
+  KeptKeys,
+  Removed,
+  Repository,
   RepositoryContents,
+  RepositoryPlugins,
   RunEvent,
   ServerValues,
   Session,
@@ -343,14 +347,39 @@ export class OAuthGroup {
 export class RepositoriesGroup {
   constructor(private readonly transport: Transport) {}
 
-  /** The plugins (MCP servers and skills) the assistant's extras offer, each saying whether it's installed. */
-  browse(): Promise<RepositoryContents> {
-    return this.transport.request("POST", "/repositories/browse", {});
+  /** Delete what a removed plugin left kept: its keys, its private repository's token. */
+  async forgetKeys(kept: KeptKeys): Promise<void> {
+    await this.transport.request("POST", "/plugins/keys/forget", kept);
   }
 
-  /** Installs from the assistant's extras. Servers carry the values for their fields; secret ones go straight to the daemon. */
-  install(skills: string[], servers: ServerValues[]): Promise<InstalledFromRepository> {
-    return this.transport.request("POST", "/repositories/install", { skills, servers });
+  /** The repositories plugins are listed from: the official extras first, then the ones the user added. */
+  list(): Promise<Repository[]> {
+    return this.transport.request("GET", "/repositories");
+  }
+
+  /** Lists a repository's plugins too; `token` reads a private one. Fails when it's listed already, can't be read, or offers none. */
+  add(url: string, token = ""): Promise<Repository> {
+    return this.transport.request("POST", "/repositories", token ? { url, token } : { url });
+  }
+
+  /** Stops listing it; what was installed from it stays. The extras can't be removed. */
+  async remove(url: string): Promise<void> {
+    await this.transport.request("POST", "/repositories/remove", { url });
+  }
+
+  /** What every listed repository offers, each plugin saying whether it's installed; one that can't be read has an error. */
+  plugins(): Promise<RepositoryPlugins[]> {
+    return this.transport.request("GET", "/repositories/plugins");
+  }
+
+  /** The plugins (MCP servers and skills) a repository offers, the assistant's extras when no url is given. */
+  browse(url?: string): Promise<RepositoryContents> {
+    return this.transport.request("POST", "/repositories/browse", url ? { url } : {});
+  }
+
+  /** Installs from a repository, the assistant's extras when no url is given. Servers carry the values for their fields; secret ones go straight to the daemon. */
+  install(skills: string[], servers: ServerValues[], url?: string): Promise<InstalledFromRepository> {
+    return this.transport.request("POST", "/repositories/install", url ? { skills, servers, url } : { skills, servers });
   }
 
   /** Installed plugins the extras have a newer version of, as of the daemon's last check. Empty while checks are off. */
@@ -404,9 +433,11 @@ export class McpGroup {
   }
 
   /** Its data stays, for installing it again, unless `deleteData`. */
-  async remove(name: string, deleteData = false): Promise<void> {
+  /** Its data stays unless `deleteData`; what it left kept (its keys) comes back, to ask whether to keep it. */
+  async remove(name: string, deleteData = false): Promise<KeptKeys | null> {
     const query = deleteData ? "?delete_data=true" : "";
-    await this.transport.request("DELETE", `/mcp/servers/${encodeURIComponent(name)}${query}`);
+    const removed: Removed = await this.transport.request("DELETE", `/mcp/servers/${encodeURIComponent(name)}${query}`);
+    return removed.kept ?? null;
   }
 }
 
@@ -439,8 +470,10 @@ export class SkillsGroup {
     return this.transport.request("PUT", `/skills/${encodeURIComponent(name)}`, { description, instructions });
   }
 
-  async delete(name: string): Promise<void> {
-    await this.transport.request("DELETE", `/skills/${encodeURIComponent(name)}`);
+  /** What it left kept (its private repository's token) comes back, to ask whether to keep it. */
+  async delete(name: string): Promise<KeptKeys | null> {
+    const removed: Removed = await this.transport.request("DELETE", `/skills/${encodeURIComponent(name)}`);
+    return removed.kept ?? null;
   }
 
   /** Install the skill again from its repository, replacing changes made here. */

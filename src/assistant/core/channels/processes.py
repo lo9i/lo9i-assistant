@@ -10,10 +10,11 @@ from mcp.client.stdio import get_default_environment
 
 from assistant.core.channels.hub import ChannelHub
 from assistant.core.config import settings
-from assistant.core.mcp import folders, servers
+from assistant.core.mcp import folders, keys, servers
 from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.process import ProcessSpec, keep_running
 from assistant.core.mcp.servers import McpServer
+from assistant.core.secret_store import SecretBox
 
 
 @dataclass
@@ -26,8 +27,10 @@ class _Running:
 class ChannelProcesses:
     name = "channel-processes"
 
-    def __init__(self, store: BaseStore, hub: ChannelHub, environments: Environments) -> None:
+    def __init__(self, store: BaseStore, hub: ChannelHub, environments: Environments, secrets: SecretBox) -> None:
         self._store = store
+        # A channel's process gets its plugin's env, keys included (core/mcp/keys.py).
+        self._secrets = secrets
         self._hub = hub
         self._environments = environments
         self._running: dict[str, _Running] = {}
@@ -48,7 +51,8 @@ class ChannelProcesses:
         """Bring the processes in line with the saved plugins. Called after every change."""
         if not self._active:
             return
-        wanted = {s.name: s for s in await servers.load_all(self._store) if s.enabled and s.channel_command}
+        found = [s for s in await servers.load_all(self._store) if s.enabled and s.channel_command]
+        wanted = {s.name: s for s in await keys.fill_all(self._store, self._secrets, found)}
         for name, running in list(self._running.items()):
             if name not in wanted or not _same(running.server, wanted[name]):
                 await self._stop(name)

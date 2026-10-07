@@ -32,12 +32,14 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
         kind: str = "",
         only: str = "",
         offered: FoundServer | FoundSkill | None = None,
+        url: str | None = None,
     ) -> None:
         """`kind`: only "server"s (from /mcp) or only "skill"s (from /skills). `only`: just this plugin,
         to give the values it asks for (from /plugins). `offered`: a plugin the agent offers in the
-        chat, already read from the extras. What's installed already isn't offered."""
+        chat, already read from the extras. `url`: the repository, the extras when absent. What's
+        installed already isn't offered."""
         super().__init__()
-        self._repositories = repositories
+        self._repositories, self._url = repositories, url
         self._kind, self._only = kind, only
         self._offer = offered
         self._servers: dict[str, FoundServer] = {}
@@ -72,7 +74,7 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
     async def _browse(self) -> None:
         await self._say("Looking at the extras…")
         try:
-            contents = await self._repositories.browse()
+            contents = await self._repositories.browse(self._url)
         except RepositoryError as e:
             await self._say(f"**{e}**")
             return
@@ -104,7 +106,7 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
         skills, servers = self._chosen(_SKILL), self._chosen(_SERVER)
         wanted = [ServerValues(name, {k: i.value.strip() for k, i in self._inputs[name].items()}) for name in servers]
         try:
-            await self._repositories.install(skills, wanted)
+            await self._repositories.install(skills, wanted, self._url)
         except RepositoryError as e:
             await self._say(f"**{e}**")
             return

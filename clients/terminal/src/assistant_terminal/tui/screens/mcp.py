@@ -14,11 +14,12 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown, OptionList, SelectionList, Static
 from textual.widgets.option_list import Option
 
-from assistant.client.daemon_client import McpApi, OAuthApi
+from assistant.client.daemon_client import McpApi, OAuthApi, RepositoriesApi
 from assistant.core.agent import McpServerChanges, McpServerError, McpServerStatus
 from assistant_terminal.mcp_text import describe, selection, shown, summary, tool_label
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
+from assistant_terminal.tui.screens.kept_keys import ask_about_keys
 from assistant_terminal.tui.screens.mcp_add import McpAddScreen
 from assistant_terminal.tui.screens.mcp_secrets import McpSecretsScreen
 from assistant_terminal.tui.screens.mcp_sign_in import McpSignInScreen
@@ -27,10 +28,12 @@ from assistant_terminal.tui.screens.mcp_sign_in import McpSignInScreen
 class McpScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
 
-    def __init__(self, mcp: McpApi, oauth: OAuthApi) -> None:
+    def __init__(self, mcp: McpApi, oauth: OAuthApi, repositories: RepositoriesApi) -> None:
         super().__init__()
         self._mcp = mcp
         self._oauth = oauth
+        # For deleting what a removed plugin left kept.
+        self._repositories = repositories
         self._shown: dict[str, McpServerStatus] = {}
         self._selected: str | None = None
 
@@ -148,7 +151,14 @@ class McpScreen(ModalScreen[None]):
         server = self._current()
         if server is None or not await self.app.push_screen_wait(ConfirmScreen(f"Remove {server.name}?", "Remove")):
             return
-        await self._run(lambda: self._mcp.remove(server.name), f"Removed {server.name}.")
+        try:
+            kept = await self._mcp.remove(server.name)
+            self.notify(f"Removed {server.name}.")
+        except McpServerError as e:
+            self.notify(str(e), severity="error")
+            kept = None
+        await self.reload()
+        await ask_about_keys(self, self._repositories, kept)
 
     async def _change(self, name: str, changes: McpServerChanges, done: str = "") -> None:
         await self._run(lambda: self._mcp.change(name, changes), done)

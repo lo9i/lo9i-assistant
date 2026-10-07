@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { keptKeys } from "$lib/keptKeys.svelte";
   import { page } from "$app/state";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Pencil from "@lucide/svelte/icons/pencil";
@@ -148,7 +149,7 @@
     text="The assistant won't be able to use this skill any more."
     action="Delete"
     onanswer={(yes) => {
-      if (yes && confirming) client.skills.delete(confirming).catch(notices.report);
+      if (yes && confirming) client.skills.delete(confirming).then((kept) => keptKeys.ask(kept), notices.report);
       confirming = null;
     }}
   />

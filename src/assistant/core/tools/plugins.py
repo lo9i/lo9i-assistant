@@ -13,7 +13,7 @@ from langgraph.prebuilt import ToolRuntime
 from langgraph.store.base import BaseStore
 from langgraph.types import interrupt
 
-from assistant.core.context import Context, require_store
+from assistant.core.context import Context, require_secrets, require_store
 from assistant.core.events import PLUGIN_OFFER, PLUGIN_SETUP, QUESTION
 from assistant.core.integrations.email import accounts as email_accounts
 from assistant.core.mcp.install import FoundServer, ServerValues
@@ -98,7 +98,7 @@ async def set_up_email(runtime: ToolRuntime[Context]) -> str:
     if not plugin.installed:
         if not _runs_nothing(plugin):
             return f"{plugin.name} runs code on this computer: offer it with offer_plugin instead."
-        await contents.install(store, EXTRAS, [], [ServerValues(plugin.name)])
+        await contents.install(store, require_secrets(runtime.context), EXTRAS, [], [ServerValues(plugin.name)])
     server = asdict(plugin) | {"installed": True}
     interrupt({"kind": PLUGIN_SETUP, "name": plugin.name, "description": plugin.description, "server": server})
     return await _setup_state(store, plugin)

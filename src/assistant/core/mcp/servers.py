@@ -4,7 +4,8 @@ A server runs as a local command (stdio) or is reached at a URL (Streamable HTTP
 installed from a repository can instead, or also, be a chat channel (core/channels/): a process
 the daemon runs that talks to it over HTTP; or offer email providers (core/integrations/email/),
 running nothing. Its env values and headers are secrets: they are entered in a dialog, stay in the
-daemon and never reach a client or the model.
+daemon and never reach a client or the model. The user's ones (keys.py) are encrypted apart: a record
+here keeps their names with empty values, so it's saved with keys.save.
 """
 
 import fnmatch
@@ -58,6 +59,9 @@ class McpServer:
     agent_command: str = ""
     agent_name: str = ""
     agent_tool: str = ""
+    # Which env or header values are the user's keys (keys.py): its fields, for a plugin installed
+    # from a repository. One added by hand has all of them as keys.
+    keys: list[str] = field(default_factory=list)
 
     @property
     def transport(self) -> str:

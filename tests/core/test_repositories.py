@@ -15,7 +15,7 @@ from assistant.core.agent import (
     ServerValues,
     SkillError,
 )
-from assistant.core.mcp import servers
+from assistant.core.mcp import keys, servers
 from assistant.core.repositories import checkout
 from assistant.core.repositories.source import Source
 from assistant.core.skills import install as skill_install
@@ -66,12 +66,12 @@ def repo(tmp_path, monkeypatch) -> Path:
     _write(root / ".git", {"config": "[core]"})
     (root / "other" / "general" / "expenses" / "link.py").symlink_to("/etc/hosts")
 
-    async def fetch(url: str, dest: Path) -> str:
+    async def fetch(url: str, dest: Path, token: str = "") -> str:
         REMOTE["downloads"] += 1
         shutil.copytree(root, dest, symlinks=True)
         return REMOTE["head"] or "head1"
 
-    async def latest_commit(url: str) -> str:
+    async def latest_commit(url: str, token: str = "") -> str:
         if REMOTE["head"] is None:
             raise RepositoryError("Couldn't get the repository: no network")
         return REMOTE["head"]
@@ -126,7 +126,10 @@ async def test_an_installed_local_server_runs_from_its_folder_with_the_values_gi
     installed = await service.install_from_repository(URL, [], [HELLO])
     [status] = installed.servers
     assert (status.source, status.env_keys) == (URL, ["HELLO_GREETING", "HELLO_TOKEN", "HELLO_USER"])
-    server = await servers.load(service.store, "hello")
+    record = await servers.load(service.store, "hello")
+    # The values given are keys, encrypted apart from the record (core/mcp/keys.py).
+    assert record.env == {"HELLO_GREETING": "hi", "HELLO_USER": "", "HELLO_TOKEN": ""}
+    server = await keys.fill(service.store, service.secrets, record)
     folder = isolated_settings / "mcp" / "hello"
     assert server.args == [f"{folder}/server.py"] and server.env["HELLO_USER"] == "Ana"
     assert [t.name for t in (await service.probe_mcp_server(server)).tools] == ["whoami"]
@@ -134,7 +137,7 @@ async def test_an_installed_local_server_runs_from_its_folder_with_the_values_gi
 
 async def test_a_remote_server_gets_its_fields_as_headers(service, repo):
     await service.install_from_repository(URL, [], [ServerValues("tasks", {"Authorization": "Bearer t"})])
-    server = await servers.load(service.store, "tasks")
+    server = await keys.fill(service.store, service.secrets, await servers.load(service.store, "tasks"))
     assert (server.url, server.headers) == ("https://tasks.example.com/mcp", {"Authorization": "Bearer t"})
 
 
@@ -165,7 +168,7 @@ async def test_updating_a_server_keeps_the_values_and_choices_of_the_user(servic
         _MANIFEST.replace("HELLO_GREETING: hi", "HELLO_GREETING: hello")
     )
     status = await service.update_mcp_server_from_repository("hello")
-    server = await servers.load(service.store, "hello")
+    server = await keys.fill(service.store, service.secrets, await servers.load(service.store, "hello"))
     assert (server.env["HELLO_GREETING"], server.env["HELLO_USER"]) == ("hello", "Ana")
     assert (status.trusted, status.include) == (True, ["whoami"])
 
@@ -221,7 +224,7 @@ async def test_a_repository_that_is_one_skill_is_named_after_it(service, tmp_pat
     root = tmp_path / "single"
     _skill(root, None, "Single", {"run.sh": "echo hi"})
 
-    async def fetch(url: str, dest: Path) -> str:
+    async def fetch(url: str, dest: Path, token: str = "") -> str:
         shutil.copytree(root, dest)
         return "c1"
 

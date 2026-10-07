@@ -8,6 +8,7 @@
   import { failingNotice, signedOutNotice } from "$lib/health";
   import { sidebar } from "$lib/sidebar.svelte";
   import Sidebar from "./Sidebar.svelte";
+  import KeptKeysDialog from "./plugins/KeptKeysDialog.svelte";
   import Toasts from "./Toasts.svelte";
 
   let { daemon, children }: { daemon: Daemon; children: Snippet } = $props();
@@ -54,6 +55,7 @@
   <VoiceButton />
 </div>
 <Toasts {notices} />
+<KeptKeysDialog />
 
 <style>
   .app-layout {

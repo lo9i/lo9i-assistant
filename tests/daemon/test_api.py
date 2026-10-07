@@ -314,11 +314,11 @@ async def test_skills_and_servers_are_installed_from_a_repository_and_updated(cl
         "url: https://tasks.example.com/mcp\nfields: [{key: Authorization, label: Token, secret: true}]"
     )
 
-    async def fetch(url: str, dest: Path) -> str:
+    async def fetch(url: str, dest: Path, token: str = "") -> str:
         shutil.copytree(remote, dest)
         return "c1"
 
-    async def latest_commit(url: str) -> str:
+    async def latest_commit(url: str, token: str = "") -> str:
         return "c1"
 
     monkeypatch.setattr(checkout, "_fetch", fetch)
@@ -336,6 +336,32 @@ async def test_skills_and_servers_are_installed_from_a_repository_and_updated(cl
         await client.skills.update_installed("missing")
     with pytest.raises(McpServerError, match="No MCP server"):
         await client.mcp.update_from_repository("missing")
+
+
+async def test_repositories_are_added_listed_and_removed(client, monkeypatch):
+    from assistant.core.agent import RepositoryError
+    from assistant.core.repositories import contents
+
+    async def browse(store, url, token=""):
+        if "broken" in url:
+            raise RepositoryError("Couldn't get the repository: not found")
+        return contents.RepositoryContents([], [])
+
+    monkeypatch.setattr(contents, "browse", browse)
+    mine = "https://github.com/me/plugins"
+    assert [(r.name, r.official) for r in await client.repositories.list()] == [("lo9i/lo9i-assistant-extras", True)]
+    assert (await client.repositories.add(mine)).official is False
+    with pytest.raises(RepositoryError, match="not found"):
+        await client.repositories.add("https://github.com/me/broken")
+    read = await client.repositories.plugins()
+    assert [(r.repository.name, r.contents is not None, r.error) for r in read] == [
+        ("lo9i/lo9i-assistant-extras", True, ""),
+        ("me/plugins", True, ""),
+    ]
+    with pytest.raises(RepositoryError, match="built in"):
+        await client.repositories.remove(read[0].repository.url)
+    await client.repositories.remove(mine)
+    assert len(await client.repositories.list()) == 1
 
 
 async def test_plugin_update_routes(client):

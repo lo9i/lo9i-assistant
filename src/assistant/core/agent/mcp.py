@@ -7,10 +7,12 @@ from dataclasses import dataclass, fields, replace
 
 from assistant.core.agent.base import ServiceBase
 from assistant.core.integrations.email import accounts as email_accounts
-from assistant.core.mcp import install, servers
+from assistant.core.mcp import install, keys, servers
 from assistant.core.mcp.hub import McpHub, McpProbe, McpToolInfo
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.mcp.sign_in import McpSignIn
+from assistant.core.repositories import listed
+from assistant.core.repositories.listed import KeptKeys
 
 __all__ = [
     "McpMixin",
@@ -92,7 +94,7 @@ class McpMixin(ServiceBase):
 
     async def update_mcp_server(self, name: str, changes: McpServerChanges) -> McpServerStatus:
         """Raises McpServerError for an unknown server or invalid settings."""
-        server = await servers.load(self._storage.store, name)
+        server = await keys.fill(self._storage.store, self.secrets, await servers.load(self._storage.store, name))
         values = {f.name: v for f in fields(changes) if (v := getattr(changes, f.name)) is not None}
         if changes.url is not None and changes.url != server.url:
             # A sign-in belongs to the server at the old URL.
@@ -102,7 +104,7 @@ class McpMixin(ServiceBase):
     async def start_mcp_sign_in(self, name: str, redirect_uri: str) -> str:
         """The server's sign-in page. The browser comes back to `redirect_uri` (the web app's
         /app/oauth), which calls finish_sign_in. Raises McpServerError."""
-        server = await servers.load(self._storage.store, name)
+        server = await keys.fill(self._storage.store, self.secrets, await servers.load(self._storage.store, name))
         started = await self.mcp.start_sign_in(server, redirect_uri)
         self._sign_ins.add(started.state, started)
         return started.page
@@ -112,9 +114,11 @@ class McpMixin(ServiceBase):
         await self.mcp.finish_sign_in(started, code)
         return await self._mcp_status(await servers.load(self._storage.store, started.server))
 
-    async def remove_mcp_server(self, name: str, delete_data: bool = False) -> None:
-        """Its data stays, for installing it again, unless `delete_data`. Raises McpServerError for
-        an unknown server."""
+    async def remove_mcp_server(self, name: str, delete_data: bool = False) -> KeptKeys | None:
+        """Its data stays, for installing it again, unless `delete_data`. A plugin's keys stay too, and
+        what's kept is returned for the user to keep or delete (forget_keys); one added by hand has
+        nothing to install again, so its keys go. Raises McpServerError for an unknown server."""
+        removed = await servers.load(self._storage.store, name)
         await servers.remove(self._storage.store, name)
         await asyncio.to_thread(install.uninstall, name)
         await self.mcp.forget(name)
@@ -124,11 +128,16 @@ class McpMixin(ServiceBase):
         if delete_data:
             await asyncio.to_thread(install.delete_data, name)
             await email_accounts.remove_plugin_accounts(self._storage.store, name)
+        if not removed.source:
+            await keys.delete(self._storage.store, name)
+            return None
+        return await listed.after_removal(self._storage.store, name, removed.source)
 
     async def update_mcp_server_from_repository(self, name: str) -> McpServerStatus:
         """Install the server again from its repository, keeping what the user set.
         Raises McpServerError or RepositoryError."""
-        server = await install.update(self._storage.store, name)
+        tokens = await listed.tokens(self._storage.store, self.secrets)
+        server = await install.update(self._storage.store, self.secrets, name, tokens)
         # Same command and settings, new code: both run again.
         await self.mcp.restart(name)
         await self.pages.restart(name)
@@ -137,7 +146,7 @@ class McpMixin(ServiceBase):
         return await self._mcp_status(server)
 
     async def _save_mcp_server(self, server: McpServer) -> McpServerStatus:
-        await servers.save(self._storage.store, server)
+        await keys.save(self._storage.store, self.secrets, server)
         await self._servers_changed()
         return await self._mcp_status(server)
 

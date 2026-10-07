@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { keptKeys } from "$lib/keptKeys.svelte";
   import Download from "@lucide/svelte/icons/download";
+  import GitBranch from "@lucide/svelte/icons/git-branch";
   import Puzzle from "@lucide/svelte/icons/puzzle";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -11,11 +13,12 @@
     categoryLabel,
     categoryOf,
     describe,
+    fromRepositories,
     keyOf,
     kindOf,
-    pluginsOf,
     runsOf,
     hasNewer,
+    sourceOf,
     updatable,
     versionOf,
   } from "$lib/plugins";
@@ -28,28 +31,31 @@
   import InstallDialog from "$lib/ui/repositories/InstallDialog.svelte";
   import PluginSetup from "$lib/ui/plugins/PluginSetup.svelte";
   import PluginUpdates from "$lib/ui/plugins/PluginUpdates.svelte";
+  import RepositoriesDialog from "$lib/ui/repositories/RepositoriesDialog.svelte";
 
   const { client, notices } = useDaemon();
-  // The extras are downloaded to list them, so this reloads after an action here or on refresh,
-  // not on every server's status change.
-  const plugins = resource(async (c) => pluginsOf(await c.repositories.browse()), []);
+  // The repositories are downloaded to list them, so this reloads after an action here or on
+  // refresh, not on every server's status change. One that can't be read says why under the list.
+  const listing = resource(async (c) => fromRepositories(await c.repositories.plugins()), []);
+  const all = $derived(listing.data?.plugins);
+  let managing = $state(false);
 
   let picked = $state<string | null>(null);
   let query = $state("");
   // By name, description, kind or category; grouped by category.
   const shown = $derived(
     byCategory(
-      (plugins.data ?? []).filter((p) =>
+      (all ?? []).filter((p) =>
         `${p.name} ${describe(p)} ${kindOf(p)} ${categoryOf(p)}`.toLowerCase().includes(query.trim().toLowerCase()),
       ),
     ),
   );
   // A plugin that asks for values, while its dialog is open.
-  let asking = $state<FoundServer | null>(null);
+  let asking = $state<{ server: FoundServer; url: string } | null>(null);
   let removing = $state<Plugin | null>(null);
   let busy = $state(false);
   // Until one is picked: the first in the list.
-  const plugin = $derived(plugins.data?.find((p) => keyOf(p) === picked) ?? shown[0]?.plugins[0]);
+  const plugin = $derived(all?.find((p) => keyOf(p) === picked) ?? shown[0]?.plugins[0]);
 
   async function act(action: () => Promise<unknown>, done: string): Promise<void> {
     busy = true;
@@ -61,18 +67,21 @@
     } finally {
       busy = false;
     }
-    plugins.reload();
+    listing.reload();
   }
 
   /** At once when it asks for nothing; otherwise a dialog for its values. */
   function install(p: Plugin): void {
+    const url = p.repository.url || undefined;
     if (p.kind === "server" && p.server.fields.length) {
-      asking = p.server;
+      asking = { server: p.server, url: p.repository.url };
       return;
     }
     void act(
       () =>
-        p.kind === "server" ? client.repositories.install([], [{ name: p.name, values: {} }]) : client.repositories.install([p.name], []),
+        p.kind === "server"
+          ? client.repositories.install([], [{ name: p.name, values: {} }], url)
+          : client.repositories.install([p.name], [], url),
       `Installed ${p.name}. The assistant uses it from your next message.`,
     );
   }
@@ -80,7 +89,7 @@
   const updateOne = (p: Plugin) => (p.kind === "server" ? client.mcp.updateFromRepository(p.name) : client.skills.updateInstalled(p.name));
   const update = (p: Plugin) => act(() => updateOne(p), `Updated ${p.name}.`);
   // Installed plugins the extras have a newer version of, for the Updates table.
-  const newer = $derived((plugins.data ?? []).filter(hasNewer));
+  const newer = $derived((all ?? []).filter(hasNewer));
 
   /** One after the other: an update restarts the plugin. One that fails doesn't stop the rest. */
   async function updateMany(picked: Plugin[]): Promise<void> {
@@ -97,10 +106,13 @@
     busy = false;
     const updated = picked.filter((p) => !failed.includes(p.name)).map((p) => p.name);
     if (updated.length) notices.notify(`Updated ${updated.join(", ")}.`);
-    plugins.reload();
+    listing.reload();
   }
   const remove = (p: Plugin, deleteData: boolean) =>
-    act(() => (p.kind === "server" ? client.mcp.remove(p.name, deleteData) : client.skills.delete(p.name)), `Removed ${p.name}.`);
+    act(
+      async () => keptKeys.ask(await (p.kind === "server" ? client.mcp.remove(p.name, deleteData) : client.skills.delete(p.name))),
+      `Removed ${p.name}.`,
+    );
 </script>
 
 <!-- A settings tab of its own page: the list and details need the full height. -->
@@ -115,24 +127,30 @@
       <header class="toolbar">
         <div>
           <h2 class="text-heading">Plugins</h2>
-          <p class="text-meta">MCP servers, chat channels and skills from the assistant's extras. Click one to see it on the right.</p>
+          <p class="text-meta">
+            MCP servers, chat channels and skills from the official extras and your repositories. Click one to see it on the right.
+          </p>
         </div>
         <div class="tools">
           <SearchField bind:value={query} label="Search plugins" />
-          {#if plugins.data}<span class="pill">{plugins.data.length}</span>{/if}
-          <button class="btn btn--ghost btn--sm" title="Check the extras for a newer version" onclick={() => plugins.reload()}
+          {#if all}<span class="pill">{all.length}</span>{/if}
+          <button class="btn btn--ghost btn--sm" title="Repositories plugins are listed from" onclick={() => (managing = true)}
+            ><GitBranch size={14} />Repositories</button
+          >
+          <button class="btn btn--ghost btn--sm" title="Check the repositories for a newer version" onclick={() => listing.reload()}
             ><RefreshCw size={14} /></button
           >
         </div>
       </header>
       <div class="scroll">
-        {#if plugins.error}
-          <p class="error-text pad">{plugins.error}</p>
-        {:else if plugins.data === undefined}
-          <p class="text-meta pad">Looking at the extras…</p>
+        {#if listing.error}
+          <p class="error-text pad">{listing.error}</p>
+        {:else if all === undefined}
+          <p class="text-meta pad">Looking at the repositories…</p>
         {:else}
-          {#if plugins.data.length === 0}
-            <EmptyState icon={Puzzle} title="No plugins" text="The extras offer none yet." />
+          {#each listing.data?.errors ?? [] as error (error)}<p class="error-text pad">{error}</p>{/each}
+          {#if all.length === 0}
+            <EmptyState icon={Puzzle} title="No plugins" text="The repositories offer none yet." />
           {:else}
             <table class="data-table">
               <thead><tr><th>Plugin</th><th class="hide-narrow">Kind</th><th>Version</th><th>State</th></tr></thead>
@@ -143,6 +161,7 @@
                     <tr class:selected={plugin && keyOf(p) === keyOf(plugin)} onclick={() => (picked = keyOf(p))}>
                       <td>
                         <button class="row-button" onclick={() => (picked = keyOf(p))}>{p.name}</button>
+                        <span class="source" class:official={p.repository.official}>{sourceOf(p)}</span>
                         {#if describe(p)}<p class="text-caption row-description">{describe(p)}</p>{/if}
                       </td>
                       <td class="hide-narrow">{kindOf(p)}</td>
@@ -173,6 +192,8 @@
         <header><h2 class="text-heading">{plugin.name}</h2></header>
         {#if describe(plugin)}<p>{describe(plugin)}</p>{/if}
         <dl>
+          <dt class="micro-label">Source</dt>
+          <dd>{plugin.repository.official ? "Official: the assistant's extras" : `${plugin.repository.name}, not official`}</dd>
           <dt class="micro-label">Category</dt>
           <dd>{categoryLabel(categoryOf(plugin))}</dd>
           <dt class="micro-label">Kind</dt>
@@ -217,11 +238,21 @@
 
 {#if asking}
   <InstallDialog
-    server={asking}
+    server={asking.server}
+    url={asking.url || undefined}
     onclose={(installed) => {
       asking = null;
       if (installed) notices.notify(`Installed ${installed.join(", ")}. The assistant uses it from your next message.`);
-      plugins.reload();
+      listing.reload();
+    }}
+  />
+{/if}
+
+{#if managing}
+  <RepositoriesDialog
+    onclose={(changed) => {
+      managing = false;
+      if (changed) listing.reload();
     }}
   />
 {/if}
@@ -338,6 +369,18 @@
     padding: 0;
     font-weight: 500;
     cursor: pointer;
+  }
+  .source {
+    margin-left: 8px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+  }
+  .source.official {
+    color: var(--color-success);
+    border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
   }
   .state {
     display: inline-flex;

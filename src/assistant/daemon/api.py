@@ -40,6 +40,7 @@ from assistant.core.agent import (
     InvalidSearchKeyError,
     Job,
     JobError,
+    KeptKeys,
     McpProbe,
     McpServer,
     McpServerChanges,
@@ -53,8 +54,10 @@ from assistant.core.agent import (
     ModelSettingsError,
     ModelStatus,
     PluginUpdate,
+    Repository,
     RepositoryContents,
     RepositoryError,
+    RepositoryPlugins,
     ServerValues,
     Session,
     SetupItem,
@@ -274,6 +277,22 @@ class ServerValuesBody(BaseModel):
     name: str
     # Values for the server's fields (env values or headers); secrets, never shown again.
     values: dict[str, str] = {}
+
+
+class Removed(BaseModel):
+    # What the removed plugin left kept (its keys, its private repository's token), for the apps to
+    # ask whether to keep it; None when nothing is.
+    kept: KeptKeys | None = None
+
+
+class RepositoryUrl(BaseModel):
+    url: str
+
+
+class RepositoryAdd(BaseModel):
+    url: str
+    # For a private repository: a token that can read it, kept encrypted and never shown again.
+    token: str = ""
 
 
 class RepositoryInstall(BaseModel):
@@ -1050,17 +1069,16 @@ def _add_skill_routes(app: FastAPI, service: AssistantService) -> None:
             raise HTTPException(400, str(e)) from e
 
     @app.delete("/skills/{name}")
-    async def delete_skill(name: str) -> Ok:
+    async def delete_skill(name: str) -> Removed:
         """404: no such skill. 400: built in, or it comes with an MCP server."""
         try:
             await service.get_skill(name)
         except SkillError as e:
             raise HTTPException(404, str(e)) from e
         try:
-            await service.delete_skill(name)
+            return Removed(kept=await service.delete_skill(name))
         except SkillError as e:
             raise HTTPException(400, str(e)) from e
-        return Ok()
 
 
 def _add_repository_routes(app: FastAPI, service: AssistantService) -> None:
@@ -1077,6 +1095,39 @@ def _add_repository_routes(app: FastAPI, service: AssistantService) -> None:
     @app.put("/settings/plugin-updates")
     async def set_plugin_update_checks(body: PluginUpdateChecks) -> PluginUpdateChecks:
         return PluginUpdateChecks(enabled=await service.set_plugin_update_checks(body.enabled))
+
+    @app.get("/repositories")
+    async def repositories() -> list[Repository]:
+        """The repositories plugins are listed from: the official extras first, then the added ones."""
+        return await service.repositories()
+
+    @app.post("/repositories")
+    async def add_repository(body: RepositoryAdd) -> Repository:
+        """400: listed already, can't be read (with the token, for a private one), or offers no plugins."""
+        try:
+            return await service.add_repository(body.url, body.token)
+        except RepositoryError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.post("/repositories/remove")
+    async def remove_repository(body: RepositoryUrl) -> Ok:
+        """Its installed plugins stay. 400: the extras, or a repository not listed."""
+        try:
+            await service.remove_repository(body.url)
+        except RepositoryError as e:
+            raise HTTPException(400, str(e)) from e
+        return Ok()
+
+    @app.post("/plugins/keys/forget")
+    async def forget_plugin_keys(body: KeptKeys) -> Ok:
+        """Delete what a removed plugin left kept (Removed.kept), when the user says so."""
+        await service.forget_keys(body)
+        return Ok()
+
+    @app.get("/repositories/plugins")
+    async def repository_plugins() -> list[RepositoryPlugins]:
+        """What every listed repository offers; one that can't be read has an error instead."""
+        return await service.repository_plugins()
 
     @app.post("/repositories/browse")
     async def browse_repository(body: RepositoryAddress) -> RepositoryContents:
@@ -1148,13 +1199,13 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
             raise HTTPException(400, str(e)) from e
 
     @app.delete("/mcp/servers/{name}")
-    async def remove_mcp_server(name: str, delete_data: bool = False) -> Ok:
-        """With `delete_data`, the server's data folder goes too; otherwise it stays."""
+    async def remove_mcp_server(name: str, delete_data: bool = False) -> Removed:
+        """With `delete_data`, the server's data folder goes too; otherwise it stays. Its keys stay
+        until the user deletes them (`kept`, POST /plugins/keys/forget)."""
         try:
-            await service.remove_mcp_server(name, delete_data)
+            return Removed(kept=await service.remove_mcp_server(name, delete_data))
         except McpServerError as e:
             raise HTTPException(404, str(e)) from e
-        return Ok()
 
 
 def _add_alert_routes(app: FastAPI, service: AssistantService) -> None:

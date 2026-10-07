@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 
 from assistant.core.agent.base import ServiceBase
 from assistant.core.health import Health
+from assistant.core.repositories import listed
+from assistant.core.repositories.listed import KeptKeys
 from assistant.core.skills import install, store
 from assistant.core.skills.install import FoundSkill
 from assistant.core.skills.store import Skill, SkillError
@@ -48,14 +50,18 @@ class SkillsMixin(ServiceBase):
         self.bus.publish("skills")
         return skill
 
-    async def delete_skill(self, name: str) -> None:
+    async def delete_skill(self, name: str) -> KeptKeys | None:
+        """The token of the private repository it came from, when nothing else needs it any more, is
+        returned for the user to keep or delete (forget_keys)."""
+        source = await asyncio.to_thread(store.installed_from, name)
         await asyncio.to_thread(store.delete, name)
         await self._health.forget("skill", name)
         self.bus.publish("skills")
+        return await listed.after_removal(self._storage.store, name, source.url) if source and source.url else None
 
     async def update_installed_skill(self, name: str) -> Skill:
         """Install the skill again from its repository. Raises SkillError if it wasn't installed."""
-        skill = await install.update(name)
+        skill = await install.update(name, await listed.tokens(self._storage.store, self.secrets))
         self.bus.publish("skills")
         return skill
 

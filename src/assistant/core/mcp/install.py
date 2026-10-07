@@ -64,7 +64,7 @@ import yaml
 from langgraph.store.base import BaseStore
 
 from assistant.core.integrations.email import providers as email_providers
-from assistant.core.mcp import environment, folders, logins, servers
+from assistant.core.mcp import environment, folders, keys, logins, servers
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.repositories import categories, formats, platforms
 from assistant.core.repositories import source as folder_source
@@ -72,6 +72,7 @@ from assistant.core.repositories.checkout import checkout, default_name
 from assistant.core.repositories.errors import RepositoryError
 from assistant.core.repositories.folders import SERVER_FILE, SKILL_FILE, put, subfolders, valid_path
 from assistant.core.repositories.source import Source
+from assistant.core.secret_store import SecretBox
 from assistant.core.skills import store as skills
 from assistant.core.skills.errors import SkillError
 from assistant.core.uv import find as find_uv
@@ -161,6 +162,7 @@ class Candidate:
             channel_command=fill(t.channel_command),
             channel_args=[fill(a) for a in t.channel_args],
             source=url,
+            keys=sorted(given),
         )
         if any("{uv}" in text for text in _commands(filled)) or (self.needs_environment and find_uv() is None):
             raise McpServerError(f"{t.name} runs with uv, and the assistant can't find uv on this computer.")
@@ -229,14 +231,14 @@ async def install(candidate: Candidate, values: dict[str, str], url: str, commit
     return server
 
 
-async def update(store: BaseStore, name: str) -> McpServer:
-    """Install the server again from its repository, keeping the values the user gave and their
-    choices (on or off, trusted, tools)."""
-    current = await servers.load(store, name)
+async def update(store: BaseStore, box: SecretBox, name: str, tokens: dict[str, str] | None = None) -> McpServer:
+    """Install the server again from its repository, keeping the values the user gave (its keys) and
+    their choices (on or off, trusted, tools). `tokens`: private repositories' tokens, by address."""
+    current = await keys.fill(store, box, await servers.load(store, name))
     source = await asyncio.to_thread(folder_source.read, folders.code(name))
     if not current.source or source is None:
         raise McpServerError(f"{name} wasn't installed from a repository, so there's nothing to update it from.")
-    async with checkout(source.url) as (root, commit):
+    async with checkout(source.url, (tokens or {}).get(source.url, "")) as (root, commit):
         candidate = await asyncio.to_thread(_find_at, root, source.url, source.path, name)
         values = current.headers if current.url else current.env
         if (missing := _missing(candidate, values)) is not None:
@@ -245,7 +247,7 @@ async def update(store: BaseStore, name: str) -> McpServer:
     kept = replace(
         new, enabled=current.enabled, trusted=current.trusted, include=current.include, exclude=current.exclude
     )
-    await servers.save(store, kept)
+    await keys.save(store, box, kept)
     return kept
 
 

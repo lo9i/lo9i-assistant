@@ -34,5 +34,9 @@ async def save(store: BaseStore, url: str, listing: Listing) -> None:
     await store.aput(_NAMESPACE, url, {"commit": listing.commit, "skills": skills, "servers": servers})
 
 
+async def forget(store: BaseStore, url: str) -> None:
+    await store.adelete(_NAMESPACE, url)
+
+
 def _server(data: dict[str, Any]) -> FoundServer:
     return FoundServer(**{**data, "fields": [ServerField(**f) for f in data["fields"]]})

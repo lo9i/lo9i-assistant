@@ -1,6 +1,7 @@
+from assistant.client.daemon_client.kept import kept_keys
 from assistant.client.daemon_client.repositories import DOWNLOAD_TIMEOUT
 from assistant.client.daemon_client.transport import Transport
-from assistant.core.agent import Skill, SkillError
+from assistant.core.agent import KeptKeys, Skill, SkillError
 from assistant.core.agent.skills import SkillSummary
 
 _NOT_FOUND = {404: SkillError}
@@ -27,9 +28,11 @@ class SkillsApi:
         )
         return Skill(**data)
 
-    async def delete(self, name: str) -> None:
-        """Raises SkillError for an unknown skill, or one that comes with an MCP server."""
-        await self._transport.request("DELETE", f"/skills/{name}", errors={**_NOT_FOUND, 400: SkillError})
+    async def delete(self, name: str) -> KeptKeys | None:
+        """What it left kept (its private repository's token), for asking whether to keep it. Raises
+        SkillError for an unknown skill, or one that comes with an MCP server."""
+        data = await self._transport.request("DELETE", f"/skills/{name}", errors={**_NOT_FOUND, 400: SkillError})
+        return kept_keys(data)
 
     async def update_installed(self, name: str) -> Skill:
         """Install the skill again from its repository. Raises SkillError if it wasn't installed from one."""

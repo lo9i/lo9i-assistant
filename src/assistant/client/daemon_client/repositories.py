@@ -1,4 +1,5 @@
 import builtins
+from dataclasses import asdict
 from typing import Any
 
 import httpx
@@ -9,9 +10,12 @@ from assistant.core.agent import (
     FoundServer,
     FoundSkill,
     InstalledFromRepository,
+    KeptKeys,
     PluginUpdate,
+    Repository,
     RepositoryContents,
     RepositoryError,
+    RepositoryPlugins,
     ServerField,
     ServerValues,
     Skill,
@@ -24,17 +28,48 @@ DOWNLOAD_TIMEOUT = httpx.Timeout(150)
 
 class RepositoriesApi:
     """Plugins (MCP servers and skills) from a git repository, the assistant's extras unless one is
-    named: look at what it offers, install a choice."""
+    named: look at what it offers, install a choice. And the repositories plugins are listed from: the
+    official extras and the ones the user adds."""
 
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
+
+    async def forget_keys(self, kept: KeptKeys) -> None:
+        """Delete what a removed plugin left kept."""
+        await self._transport.request("POST", "/plugins/keys/forget", json=asdict(kept))
+
+    async def list(self) -> builtins.list[Repository]:
+        return [Repository(**r) for r in await self._transport.request("GET", "/repositories")]
+
+    async def add(self, url: str, token: str = "") -> Repository:
+        """`token` reads a private repository. Raises RepositoryError when it's listed already, can't be
+        read, or offers no plugins."""
+        body = {"url": url, "token": token} if token else {"url": url}
+        data = await self._transport.request(
+            "POST", "/repositories", json=body, errors=_ERRORS, timeout=DOWNLOAD_TIMEOUT
+        )
+        return Repository(**data)
+
+    async def remove(self, url: str) -> None:
+        """Its installed plugins stay. Raises RepositoryError for the extras or one not listed."""
+        await self._transport.request("POST", "/repositories/remove", json={"url": url}, errors=_ERRORS)
+
+    async def plugins(self) -> builtins.list[RepositoryPlugins]:
+        """What every listed repository offers; one that can't be read has an error instead."""
+        data = await self._transport.request("GET", "/repositories/plugins", timeout=DOWNLOAD_TIMEOUT)
+        return [
+            RepositoryPlugins(
+                Repository(**r["repository"]), _contents(r["contents"]) if r["contents"] else None, r["error"]
+            )
+            for r in data
+        ]
 
     async def browse(self, url: str | None = None) -> RepositoryContents:
         """Raises RepositoryError if it can't be read or has nothing to install."""
         data = await self._transport.request(
             "POST", "/repositories/browse", json=_with_url({}, url), errors=_ERRORS, timeout=DOWNLOAD_TIMEOUT
         )
-        return RepositoryContents([FoundSkill(**s) for s in data["skills"]], [_server(s) for s in data["servers"]])
+        return _contents(data)
 
     async def install(
         self, skills: builtins.list[str], servers: builtins.list[ServerValues], url: str | None = None
@@ -59,6 +94,10 @@ class RepositoriesApi:
     async def set_update_checks(self, enabled: bool) -> bool:
         data = await self._transport.request("PUT", "/settings/plugin-updates", json={"enabled": enabled})
         return data["enabled"]
+
+
+def _contents(data: dict[str, Any]) -> RepositoryContents:
+    return RepositoryContents([FoundSkill(**s) for s in data["skills"]], [_server(s) for s in data["servers"]])
 
 
 def _server(data: dict[str, Any]) -> FoundServer:

@@ -37,6 +37,7 @@ from assistant.core.health import HealthLog
 from assistant.core.llm import choice
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.mcp import folders, logins
+from assistant.core.mcp import keys as plugin_keys
 from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.hub import McpHub
 from assistant.core.mcp.media import ToolMedia
@@ -96,19 +97,20 @@ class AssistantService(
             self._health,
             media,
             auth,
+            secrets,
             shared=lambda: logins.of_model(self._model),
             environments=environments,
         )
-        self.pages = McpPages(storage.store, environments)
+        self.pages = McpPages(storage.store, environments, secrets)
         self.channels_hub = ChannelHub(self.outbox, self.approvals, bus, self.assistant_name)
-        self.channel_processes = ChannelProcesses(storage.store, self.channels_hub, environments)
+        self.channel_processes = ChannelProcesses(storage.store, self.channels_hub, environments, secrets)
         embedder = E5Embedder()
         self.memory_index = MemoryIndexer(storage.store, storage.vectors, embedder, bus)
         self._recall = MemoryRecall(storage.store, storage.vectors, embedder)
         self.memory_writer = MemoryWriter(
             storage.store, storage.checkpointer, bus, lambda: self._digester, self._recall
         )
-        self.update_checker = UpdateChecker(storage.store, bus)
+        self.update_checker = UpdateChecker(storage.store, bus, secrets)
         self._sign_ins = SignIns()
         self._use_model(model)
         self._background = set()
@@ -133,6 +135,7 @@ class AssistantService(
             secrets = await asyncio.to_thread(SecretBox.open, Path(settings.secrets_key_path).expanduser())
             async with open_storage(settings.database_path, bus) as storage:
                 await choice.migrate(storage.store, secrets)
+                await plugin_keys.migrate(storage.store, secrets)
                 await profile.migrate(storage.store)
                 yield cls(storage, await usable_choice(storage.store, secrets), bus, secrets)
         finally:

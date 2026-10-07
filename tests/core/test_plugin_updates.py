@@ -97,7 +97,7 @@ async def test_an_unreachable_extras_is_logged_and_waits(service, extras, caplog
     finally:
         stop.set()
         await running
-    assert any("Couldn't check the extras for plugin updates" in r.getMessage() for r in caplog.records)
+    assert any("Couldn't check lo9i/lo9i-assistant-extras for plugin updates" in r.getMessage() for r in caplog.records)
 
 
 async def _next_kind(events, kind: str) -> str:

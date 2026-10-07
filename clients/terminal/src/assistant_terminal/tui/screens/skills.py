@@ -11,20 +11,23 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
-from assistant.client.daemon_client import SkillsApi
+from assistant.client.daemon_client import RepositoriesApi, SkillsApi
 from assistant.core.agent import Skill, SkillError, SkillSummary
 from assistant_terminal.health_text import failures_line, label
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
+from assistant_terminal.tui.screens.kept_keys import ask_about_keys
 from assistant_terminal.tui.screens.skill_edit import SkillEditScreen
 
 
 class SkillsScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
 
-    def __init__(self, skills: SkillsApi) -> None:
+    def __init__(self, skills: SkillsApi, repositories: RepositoriesApi) -> None:
         super().__init__()
         self._skills = skills
+        # For deleting what a removed skill left kept (its private repository's token).
+        self._repositories = repositories
         self._names: list[str] = []
         self._summaries: dict[str, SkillSummary] = {}
         self._selected: str | None = None
@@ -115,11 +118,13 @@ class SkillsScreen(ModalScreen[None]):
         if not await self.app.push_screen_wait(ConfirmScreen(f"Delete the skill {name}?", "Delete")):
             return
         try:
-            await self._skills.delete(name)
+            kept = await self._skills.delete(name)
             self.notify(f"Deleted skill {name}.")
         except SkillError as e:
             self.notify(str(e), severity="error")
+            kept = None
         await self.reload()
+        await ask_about_keys(self, self._repositories, kept)
 
     async def _show(self, name: str) -> None:
         self._selected, self._skill = name, None

@@ -165,7 +165,78 @@ async def test_updates_lists_the_newer_plugins_and_updates_the_picked_ones(app, 
         updates.press()
         await wait_for(pilot, lambda: isinstance(app.screen, PluginUpdatesScreen))
         picks = app.screen.query_one("#plugin-updates-list", SelectionList)
-        assert set(picks.selected) == {"server:weather", "server:radar"}
-        picks.deselect("server:radar")
+        assert set(picks.selected) == {f"{EXTRAS}|server:weather", f"{EXTRAS}|server:radar"}
+        picks.deselect(f"{EXTRAS}|server:radar")
         app.screen.query_one("#update-selected", Button).press()
         await wait_for(pilot, lambda: updated == ["weather"])
+
+
+async def test_repositories_are_added_and_removed_and_their_plugins_listed(app, client):
+    from assistant_terminal.tui.screens.repositories import RepositoriesScreen
+
+    mine = "https://github.com/me/plugins"
+    client.repositories.mine = [FoundServer("journal", "My journal", "stdio", [], False, category="other/general")]
+    async with app.run_test(size=(120, 44)) as pilot:
+        screen = await _open(pilot, app)
+        await wait_for(pilot, lambda: "Source: Official" in _body(screen))
+        screen.query_one("#repositories", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, RepositoriesScreen))
+        repositories = app.screen
+        listed = repositories.query_one("#repositories-list", OptionList)
+        await wait_for(pilot, lambda: listed.option_count == 1)
+        assert not repositories.query_one("#remove").display  # the extras can't be removed
+        repositories.query_one("#repository-url", Input).value = mine
+        repositories.query_one("#add", Button).press()
+        await wait_for(pilot, lambda: listed.option_count == 2 and client.repositories.added == [mine])
+        repositories.query_one("#close", Button).press()
+        await wait_for(pilot, lambda: app.screen is screen)
+        screen.query_one("#plugins-search", Input).value = "journal"
+        await wait_for(pilot, lambda: "## journal" in _body(screen))
+        assert "Source: me/plugins (not official)" in _body(screen)
+        screen.query_one("#install", Button).press()
+        await wait_for(pilot, lambda: "journal" in client.mcp.items)
+        assert client.repositories.installed[-1][0] == mine
+
+
+async def test_a_repository_that_cant_be_read_is_told(app, client):
+    client.repositories.unreachable = True
+    async with app.run_test(size=(120, 44)) as pilot:
+        await _open(pilot, app)
+        await wait_for(pilot, lambda: any("no network" in str(n.message) for n in app._notifications))
+
+
+async def test_a_private_repository_is_added_with_its_token(app, client):
+    from assistant_terminal.tui.screens.repositories import RepositoriesScreen
+
+    private = "https://github.com/me/private"
+    async with app.run_test(size=(120, 44)) as pilot:
+        screen = await _open(pilot, app)
+        screen.query_one("#repositories", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, RepositoriesScreen))
+        repositories = app.screen
+        token = repositories.query_one("#repository-token", Input)
+        assert token.password
+        repositories.query_one("#repository-url", Input).value = private
+        token.value = "ghp_secret"
+        repositories.query_one("#add", Button).press()
+        await wait_for(pilot, lambda: client.repositories.tokens == {private: "ghp_secret"})
+        assert token.value == ""
+
+
+async def test_removing_a_plugin_asks_whether_to_keep_its_keys(app, client):
+    from assistant_terminal.tui.screens.kept_keys import KeptKeysScreen
+
+    client.mcp.keeps_keys = True
+    client.mcp.items["weather"] = client.mcp.items["notes"]
+    async with app.run_test(size=(120, 44)) as pilot:
+        screen = await _open(pilot, app)
+        screen.query_one("#plugins-search", Input).value = "weather"
+        await wait_for(pilot, lambda: "## weather" in _body(screen) and screen.query_one("#remove").display)
+        screen.query_one("#remove", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmWithOptionScreen))
+        app.screen.query_one("#confirm-yes", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, KeptKeysScreen))
+        assert "API_KEY is kept encrypted" in str(app.screen.query_one("#confirm-question").render())
+        app.screen.query_one("#delete", Button).press()
+        await wait_for(pilot, lambda: getattr(client.repositories, "forgotten", None) is not None)
+        assert client.repositories.forgotten.plugin == "weather"

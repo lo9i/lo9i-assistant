@@ -15,6 +15,7 @@ from assistant_terminal.jobs_text import summary as jobs_summary
 from assistant_terminal.logs_text import log_line
 from assistant_terminal.mcp_text import shown as shown_servers
 from assistant_terminal.mcp_text import summary as mcp_summary
+from assistant_terminal.plugins_text import from_repositories, source
 from assistant_terminal.render import render
 from assistant_terminal.sessions_text import describe as describe_sessions
 from assistant_terminal.style import GREEN, RESET, YELLOW, code, paint
@@ -148,11 +149,14 @@ class Repl:
     async def _plugins(self, _: str) -> None:
         """Lists them, the installed channels' setup and the email accounts; installing, pressing a
         channel's buttons and connecting an account need the full app (they ask for values)."""
-        contents = await self._service.repositories.browse()
-        listed = [*contents.servers, *contents.skills]
+        found, unread = from_repositories(await self._service.repositories.plugins())
         print(
-            "\n".join(f"{p.name}: {'installed' if p.installed else 'not installed'}. {p.description}" for p in listed)
+            "\n".join(
+                f"{p.name} ({source(p)}): {'installed' if p.installed else 'not installed'}. {p.description}"
+                for p in found
+            )
         )
+        print("\n".join(unread))
         channels = await self._service.channels.list()
         if channels:
             print("\n\n".join(describe_channel(c) for c in channels))

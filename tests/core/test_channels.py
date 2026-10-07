@@ -14,7 +14,7 @@ from assistant.core.channels import legacy
 from assistant.core.channels.hub import ChannelHub, ChannelNotConnectedError, SetupItem
 from assistant.core.channels.processes import ChannelProcesses
 from assistant.core.conversation.prompt import build_system_prompt
-from assistant.core.mcp import folders, servers
+from assistant.core.mcp import folders, keys, servers
 from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.install import ServerValues
 from assistant.core.mcp.servers import McpServer, McpServerError
@@ -138,7 +138,7 @@ async def test_the_channel_process_runs_with_the_daemons_address_and_its_token(s
     )
     server = McpServer("telegram", env={"BOT": "b"}, channel_command=sys.executable, channel_args=["-c", script])
     await servers.save(service.store, server)
-    processes = ChannelProcesses(service.store, service.channels_hub, Environments(folders.code))
+    processes = ChannelProcesses(service.store, service.channels_hub, Environments(folders.code), service.secrets)
     stop = asyncio.Event()
     running = asyncio.create_task(processes.run(stop))
     for _ in range(200):
@@ -215,11 +215,11 @@ async def test_a_channel_plugin_is_installed_with_its_library_and_the_old_settin
         "channel: {command: '{python}', args: ['{dir}/main.py'], style: A phone chat.}\n"
     )
 
-    async def fetch(url: str, dest: Path) -> str:
+    async def fetch(url: str, dest: Path, token: str = "") -> str:
         shutil.copytree(remote, dest)
         return "c1"
 
-    async def latest_commit(url: str) -> str:
+    async def latest_commit(url: str, token: str = "") -> str:
         return "c1"
 
     monkeypatch.setattr(checkout, "_fetch", fetch)
@@ -230,7 +230,7 @@ async def test_a_channel_plugin_is_installed_with_its_library_and_the_old_settin
     assert (found.channel, found.transport, found.known_fields) == (True, "none", ["TELEGRAM_TOKEN"])
     installed = await service.install_from_repository(url, [], [ServerValues("telegram", {"TELEGRAM_TOKEN": ""})])
     assert installed.servers[0].channel
-    server = await servers.load(service.store, "telegram")
+    server = await keys.fill(service.store, service.secrets, await servers.load(service.store, "telegram"))
     assert server.env == {"TELEGRAM_DATA": str(folders.data("telegram")), "TELEGRAM_TOKEN": "123:abc"}
     assert server.channel_args == [f"{folders.code('telegram')}/main.py"]
     assert (folders.library("lo9i-chat") / "pyproject.toml").is_file()

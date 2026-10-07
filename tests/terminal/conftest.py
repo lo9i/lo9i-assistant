@@ -29,6 +29,7 @@ from assistant.core.agent import (
     InvalidSearchKeyError,
     Job,
     JobError,
+    KeptKeys,
     McpProbe,
     McpServerError,
     McpServerStatus,
@@ -39,8 +40,10 @@ from assistant.core.agent import (
     ModelStatus,
     PairingCode,
     PluginUpdate,
+    Repository,
     RepositoryContents,
     RepositoryError,
+    RepositoryPlugins,
     RunRecord,
     ServerField,
     Session,
@@ -481,6 +484,8 @@ class FakeMcp:
     async def remove(self, name, delete_data=False):
         del self.items[name]
         self.data_deleted = delete_data
+        # What a removed plugin leaves kept, as the daemon reports it.
+        return KeptKeys(name, ["API_KEY"]) if getattr(self, "keeps_keys", False) else None
 
     async def update_from_repository(self, name):
         self.updated = name
@@ -499,6 +504,40 @@ class FakeRepositories:
         self.pending: list[PluginUpdate] = []
         # More servers the extras offer, for a test to add (a chat channel).
         self.more: list[FoundServer] = []
+        # Repositories the user added, each offering `mine`.
+        self.added: list[str] = []
+        self.mine: list[FoundServer] = []
+
+        # Tokens the private ones were added with, by address.
+        self.tokens: dict[str, str] = {}
+
+    async def forget_keys(self, kept):
+        self.forgotten = kept
+
+    async def list(self):
+        return [Repository(EXTRAS, "lo9i/lo9i-assistant-extras", True)] + [
+            Repository(url, url.removeprefix("https://github.com/"), False, url in self.tokens) for url in self.added
+        ]
+
+    async def add(self, url, token=""):
+        if not url.startswith("https://"):
+            raise RepositoryError("Give the repository's https:// address.")
+        self.added.append(url)
+        if token:
+            self.tokens[url] = token
+        return (await self.list())[-1]
+
+    async def remove(self, url):
+        self.added.remove(url)
+        self.tokens.pop(url, None)
+
+    async def plugins(self):
+        if self.unreachable:
+            extras = RepositoryPlugins((await self.list())[0], None, "Couldn't get the repository: no network")
+            return [extras]
+        listed = await self.list()
+        mine = [RepositoryPlugins(r, RepositoryContents([], list(self.mine))) for r in listed[1:]]
+        return [RepositoryPlugins(listed[0], await self.browse()), *mine]
 
     async def updates(self):
         return list(self.pending) if self.checks else []

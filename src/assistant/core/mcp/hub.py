@@ -23,7 +23,7 @@ from assistant.core.bus import EventBus
 from assistant.core.context import McpStarts
 from assistant.core.health import Health, HealthLog
 from assistant.core.hidden_text import strip_hidden
-from assistant.core.mcp import logins, servers, sign_in, tool_cache
+from assistant.core.mcp import keys, logins, servers, sign_in, tool_cache
 from assistant.core.mcp.connection import (
     ClientFactory,
     McpConnection,
@@ -41,6 +41,7 @@ from assistant.core.mcp.sanitize import MAX_TOOL_NAME, tool_name
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.mcp.sign_in import McpSignIn
 from assistant.core.mcp.tools import McpTool
+from assistant.core.secret_store import SecretBox
 
 logger = logging.getLogger(__name__)
 
@@ -81,14 +82,17 @@ class McpHub(McpStarts):
         health: HealthLog,
         media: ToolMedia,
         auth: McpAuth,
+        secrets: SecretBox,
         factory: ClientFactory | None = None,
         shared: SharedLogins | None = None,
         environments: Environments | None = None,
     ) -> None:
         """`shared` gives the logins servers can use instead of their own (core/mcp/logins.py);
-        `environments` rebuilds a server's lost environment before it starts."""
+        `environments` rebuilds a server's lost environment before it starts. `secrets` reads the
+        servers' keys (keys.py) to connect them."""
         self._environments = environments
         self._store = store
+        self._secrets = secrets
         self._shared = shared or dict
         self._bus = bus
         self._factory = factory or open_client
@@ -115,7 +119,8 @@ class McpHub(McpStarts):
         """Bring the connections in line with the saved servers. Called after every change."""
         if not self._active:
             return
-        saved = [s for s in await servers.load_all(self._store) if s.enabled and s.is_mcp]
+        enabled = [s for s in await servers.load_all(self._store) if s.enabled and s.is_mcp]
+        saved = await keys.fill_all(self._store, self._secrets, enabled)
         wanted = {s.name: logins.with_login(s, self._shared()) for s in saved}
         for name in [n for n in self._running if n not in wanted]:
             await self._stop(name)
