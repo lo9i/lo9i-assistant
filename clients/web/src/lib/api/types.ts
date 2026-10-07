@@ -49,6 +49,7 @@ export type UsageReport = Schemas["UsageReport"];
 export type ToolUsage = Schemas["ToolUsage"];
 export type TokenReport = Schemas["TokenReport"];
 export type TokenRow = Schemas["TokenRow"];
+export type HostStatus = Schemas["HostStatus"];
 export type StartupStatus = Schemas["StartupStatus"];
 export type ConnectedClient = Schemas["ConnectedClient"];
 export type McpServerStatus = Schemas["McpServerStatus"];

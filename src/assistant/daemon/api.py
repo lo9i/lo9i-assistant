@@ -77,6 +77,7 @@ from assistant.core.config import settings
 from assistant.core.health import Area
 from assistant.core.memory.profile import MAX_ITEMS, Section
 from assistant.core.repositories.known import EXTRAS
+from assistant.daemon import host
 from assistant.daemon.auth import (
     DeviceStreams,
     add_device_routes,
@@ -89,7 +90,15 @@ from assistant.daemon.clients import ClientRegistry
 from assistant.daemon.launchd import StartupError
 from assistant.daemon.runs import RunHub
 from assistant.daemon.web_ui import BUILD_DIR, add_web_ui, is_web_ui
-from assistant.protocol import CLIENT_HEADER, CLIENT_ID_HEADER, END, ConnectedClient, RestartStatus, StartupStatus
+from assistant.protocol import (
+    CLIENT_HEADER,
+    CLIENT_ID_HEADER,
+    END,
+    ConnectedClient,
+    HostStatus,
+    RestartStatus,
+    StartupStatus,
+)
 
 
 class Approvals(BaseModel):
@@ -383,6 +392,7 @@ def create_app(
     _add_speech_routes(app, service)
     _add_model_routes(app, service)
     _add_usage_routes(app, service)
+    _add_host_route(app)
     if startup is not None:
         _add_startup_routes(app, startup)
     if restart is not None:
@@ -1180,6 +1190,13 @@ def _add_usage_routes(app: FastAPI, service: AssistantService) -> None:
     async def token_usage(days: int = 7) -> TokenReport:
         """Tokens and cost of the model calls, by day, model, purpose, channel, conversation, job, skill and tool."""
         return await service.token_report(days)
+
+
+def _add_host_route(app: FastAPI) -> None:
+    @app.get("/system/host")
+    async def host_status() -> HostStatus:
+        """The computer the daemon runs on: system, versions, CPU, memory, disk, uptime and load."""
+        return await host.status()
 
 
 def _add_startup_routes(app: FastAPI, startup: Any) -> None:

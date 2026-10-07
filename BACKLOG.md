@@ -28,6 +28,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
   - Bearer tokens for non-browser clients on other hosts (the terminal app over the network). The daemon already accepts `Authorization: Bearer`; no client sends one yet.
 - A3. Scheduled jobs only run while the host is up. If the Linux host is a machine that suspends (a laptop), keep it awake on power or schedule wake-ups (`rtcwake`), so jobs run on time.
 - A4. Spending limits on the token ledger (`core/usage`): per job run, per job per day, per conversation and overall per day. Checked before every model call; going over ends the run cleanly (a job run is recorded as over budget, a chat gets a clear message), and a warning at a threshold (80%) goes to Telegram or Slack.
+- A29. Updating lo9i from the app: the Host card (Settings → General, `/host`) shows the version but can't check for or install a newer one. `scripts/deploy.sh` copies files without `.git` and the version stays 0.1.0, so a host has nothing to compare against. Needs a source of versions (the repository's commits or tags), a check, and an update that pulls, syncs and restarts the daemon (`/system/restart`).
 
 ## MCP
 

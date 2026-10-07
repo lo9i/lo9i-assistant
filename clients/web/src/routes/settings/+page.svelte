@@ -2,6 +2,7 @@
   import { page } from "$app/state";
   import AssistantCard from "$lib/ui/settings/AssistantCard.svelte";
   import EmailCard from "$lib/ui/settings/EmailCard.svelte";
+  import HostCard from "$lib/ui/settings/HostCard.svelte";
   import MicrophoneCard from "$lib/ui/settings/MicrophoneCard.svelte";
   import ModelCard from "$lib/ui/settings/ModelCard.svelte";
   import SpeechCard from "$lib/ui/settings/SpeechCard.svelte";
@@ -46,6 +47,7 @@
       <div class="stack">
         <AssistantCard />
         <ModelCard />
+        <HostCard />
       </div>
       <div class="stack">
         <StartupCard />

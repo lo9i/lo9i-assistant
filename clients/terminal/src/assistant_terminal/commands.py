@@ -38,6 +38,7 @@ COMMANDS = [
     Command("/email", "/email", "Who the assistant emails without asking, from any account"),
     Command("/mcp", "/mcp", "MCP servers and their tools"),
     Command("/startup", "/startup", "Start the assistant at boot"),
+    Command("/host", "/host", "The computer the assistant runs on"),
     Command("/name", "/name <name>", "Rename the assistant"),
     Command("/pin", "/pin [skill]", "Keep a skill's instructions on for this conversation; alone, list them"),
     Command("/unpin", "/unpin <skill>", "Turn a pinned skill off for this conversation"),

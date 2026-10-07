@@ -63,7 +63,7 @@ from assistant.core.integrations.email.providers import EmailProvider
 from assistant.core.llm.choice import PROVIDERS as PROVIDERS_FOR_MODEL
 from assistant.core.repositories.known import EXTRAS
 from assistant.core.usage.log import TokenRow, ToolUsage
-from assistant.protocol import ConnectedClient, StartupError, StartupStatus
+from assistant.protocol import ConnectedClient, HostStatus, StartupError, StartupStatus
 from assistant_terminal.history import History
 from assistant_terminal.preferences import Preferences
 
@@ -397,9 +397,28 @@ class FakeSystem:
         # macos, linux or unsupported; on linux, whether lingering is on.
         self.platform = "macos"
         self.lingering = True
+        self.host_reads = 0
 
     async def startup_status(self):
         return self.state
+
+    async def host(self):
+        self.host_reads += 1
+        return HostStatus(
+            "Linux 7.0.0",
+            "x86_64",
+            "board",
+            "CPython 3.12.9",
+            "0.1.0",
+            4,
+            5.0,
+            2 * 1024**3,
+            4 * 1024**3,
+            20 * 1024**3,
+            100 * 1024**3,
+            90_060,
+            [0.09, 0.09, 0.04],
+        )
 
     async def enable_startup(self):
         if self.cancel_password:

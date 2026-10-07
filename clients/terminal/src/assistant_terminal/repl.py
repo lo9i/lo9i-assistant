@@ -36,6 +36,7 @@ class Repl:
             "/attach": self._attach,
             "/mcp": self._mcp,
             "/startup": self._startup,
+            "/host": self._host,
             "/model": self._model,
             "/audio": self._audio,
             "/websearch": self._web_search,
@@ -220,6 +221,10 @@ class Repl:
     async def _startup(self, _: str) -> None:
         status = await self._service.system.startup_status()
         print(f"Start at boot is {'on' if status.enabled else 'off'}. Change it in the full-screen app with /startup.")
+
+    async def _host(self, _: str) -> None:
+        host = await self._service.system.host()
+        print(f"{host.hostname}: {host.os} {host.arch}, lo9i v{host.version}. More in the full-screen app with /host.")
 
     async def _email(self) -> None:
         accounts = await self._service.email.accounts()
