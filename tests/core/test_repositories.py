@@ -1,6 +1,7 @@
 """Installing skills and MCP servers from a git repository. The download is replaced by a copy of a
 local folder; installed local servers really run."""
 
+import asyncio
 import shutil
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from assistant.core.repositories import checkout
 from assistant.core.repositories.source import Source
 from assistant.core.skills import install as skill_install
 from assistant.core.skills import store
+from assistant.core.uv import find as find_uv
 
 URL = "https://example.com/me/lo9i-extras.git"
 
@@ -270,6 +272,47 @@ async def test_a_server_that_runs_with_uv_needs_uv(service, repo, monkeypatch):
 
     monkeypatch.setattr(server_install, "find_uv", lambda: None)
     _write(repo / "other" / "general" / "ledger", {"server.yaml": _WITH_PAGE})
+    with pytest.raises(McpServerError, match="can't find uv"):
+        await service.install_from_repository(URL, [], [ServerValues("ledger")])
+
+
+_IN_ENVIRONMENT = """
+name: ledger
+command: "{bin}/ledger-mcp"
+page:
+  command: "{bin}/ledger-web"
+  args: [--socket, "{socket}"]
+"""
+_PROJECT = """
+[project]
+name = "ledger"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv]
+package = false
+"""
+
+
+async def test_a_server_runs_from_its_own_environment_built_when_installed(service, repo, isolated_settings):
+    """One process per server: its scripts run directly, not under `uv run`."""
+    folder = repo / "other" / "general" / "ledger"
+    _write(folder, {"server.yaml": _IN_ENVIRONMENT, "pyproject.toml": _PROJECT})
+    lock = await asyncio.create_subprocess_exec(find_uv() or "uv", "lock", "--offline", "--quiet", cwd=folder)
+    assert await lock.wait() == 0
+    await service.install_from_repository(URL, [], [ServerValues("ledger")])
+    server = await servers.load(service.store, "ledger")
+    scripts = isolated_settings / "mcp" / "ledger" / ".venv" / "bin"
+    assert (server.command, server.page_command) == (f"{scripts}/ledger-mcp", f"{scripts}/ledger-web")
+    assert (scripts / "python").exists()
+
+
+async def test_a_server_with_an_environment_needs_uv(service, repo, monkeypatch):
+    from assistant.core.mcp import install as server_install
+
+    monkeypatch.setattr(server_install, "find_uv", lambda: None)
+    _write(repo / "other" / "general" / "ledger", {"server.yaml": _IN_ENVIRONMENT})
     with pytest.raises(McpServerError, match="can't find uv"):
         await service.install_from_repository(URL, [], [ServerValues("ledger")])
 

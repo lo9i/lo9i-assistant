@@ -11,7 +11,9 @@ code from it. In its commands, arguments and env values:
 - `{dir}`: that folder. Updates replace it.
 - `{data}`: a folder for its data, only the user's. Updates and removing the server keep it.
 - `{socket}`: where its page listens, in `{data}`.
-- `{uv}`: the uv the daemon found, to run the server in its own environment (`uv run --project {dir}`).
+- `{bin}`: the scripts of its own Python environment, built with uv from its uv.lock when it's installed
+  or updated (core/mcp/environment.py): `{bin}/my-server` runs as one process.
+- `{uv}`: the uv the daemon found.
 - `{python}`: the daemon's Python, for servers that need nothing beyond it.
 
     name: dav
@@ -27,11 +29,10 @@ code from it. In its commands, arguments and env values:
     include: []                    # tools the agent gets; empty means all but `exclude`
     exclude: []
     page:                          # optional: a web page, shown in the web app (core/mcp/pages.py)
-      command: "{uv}"
-      args: [run, --project, "{dir}", my-page, --socket, "{socket}"]
+      command: "{bin}/my-page"
+      args: [--socket, "{socket}"]
     channel:                       # optional: a chat channel (core/channels/), with or without `command`
-      command: "{uv}"
-      args: [run, --project, "{dir}", my-channel]
+      command: "{bin}/my-channel"
       style: A phone chat. Short messages.   # how to write there, for the system prompt
     libraries: [lo9i-chat]         # folders at ../../lib/ from its folder it uses (folders.library)
     model_login: copilot           # optional: a login of lo9i's its server gets instead of its own (logins.py)
@@ -62,7 +63,7 @@ import yaml
 from langgraph.store.base import BaseStore
 
 from assistant.core.integrations.email import providers as email_providers
-from assistant.core.mcp import folders, logins, servers
+from assistant.core.mcp import environment, folders, logins, servers
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.repositories import categories, platforms
 from assistant.core.repositories import source as folder_source
@@ -158,9 +159,14 @@ class Candidate:
             channel_args=[fill(a) for a in t.channel_args],
             source=url,
         )
-        if any("{uv}" in text for text in _commands(filled)):
+        if any("{uv}" in text for text in _commands(filled)) or (self.needs_environment and find_uv() is None):
             raise McpServerError(f"{t.name} runs with uv, and the assistant can't find uv on this computer.")
         return filled
+
+    @property
+    def needs_environment(self) -> bool:
+        """It runs scripts of its own environment, which installing builds."""
+        return any(environment.PLACEHOLDER in text for text in _commands(self.template))
 
 
 @dataclass(frozen=True)
@@ -207,6 +213,9 @@ async def install(candidate: Candidate, values: dict[str, str], url: str, commit
         await asyncio.to_thread(
             put, library, folders.library(library.name), replace(source, path=_library_path(candidate, library))
         )
+    if candidate.needs_environment:
+        # After the libraries: its environment installs them from their folders.
+        await environment.build(name, folders.code(name))
     await asyncio.to_thread(folders.data(name).mkdir, 0o700, True, True)
     await asyncio.to_thread(_put_skill, candidate, replace(source, server=name))
     return server
@@ -423,6 +432,7 @@ def _filler(name: str) -> Callable[[str], str]:
         "{data}": str(folders.data(name)),
         "{socket}": str(folders.page_socket(name)),
         "{python}": sys.executable,
+        environment.PLACEHOLDER: str(environment.scripts(folders.code(name))),
     }
     if (uv := find_uv()) is not None:
         places["{uv}"] = uv

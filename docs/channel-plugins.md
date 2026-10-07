@@ -20,15 +20,14 @@ category: communications/chat
 fields:
   - {key: TELEGRAM_TOKEN, label: Bot token, secret: true, help: https://t.me/BotFather}
 channel:
-  command: "{uv}"
-  args: [run, --quiet, --project, "{dir}", --frozen, lo9i-telegram]
+  command: "{bin}/lo9i-telegram"
   # How to write for this channel; it goes in the system prompt's Channels section.
   style: A phone chat. Short messages. Simple Markdown only (bold, italics, code); no tables or headings.
 ```
 
 A plugin may also have `command`/`args` (an MCP server, as before): the Slack plugin has both. The
-fields' values and `env` go to both processes. `{dir}`, `{data}`, `{uv}`, `{python}` work in
-`channel.args` as in the MCP command.
+fields' values and `env` go to both processes. `{dir}`, `{data}`, `{bin}`, `{uv}`, `{python}` work in
+`channel.command` and `channel.args` as in the MCP command.
 
 ## The process
 
