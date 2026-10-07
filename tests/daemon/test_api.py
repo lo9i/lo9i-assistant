@@ -71,6 +71,13 @@ async def test_a_restart_is_requested_and_says_how_many_runs_it_waits_for(servic
     assert restart.requests == 1
 
 
+async def test_host_describes_the_computer_the_daemon_runs_on(client):
+    host = await client.system.host()
+    assert host.hostname and host.cpu_cores > 0 and 0 <= host.cpu_percent <= 100
+    assert 0 < host.memory_used <= host.memory_total and 0 < host.disk_used <= host.disk_total
+    assert host.uptime_seconds > 0 and host.version
+
+
 async def test_every_json_response_has_a_typed_schema(service):
     """Web clients generate their types from /openapi.json, so no route may answer an untyped object."""
     openapi = create_app(service, RunHub(), _Startup(), _Restart()).openapi()

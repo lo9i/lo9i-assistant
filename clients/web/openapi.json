@@ -3612,6 +3612,25 @@
         }
       }
     },
+    "/system/host": {
+      "get": {
+        "summary": "Host Status",
+        "description": "The computer the daemon runs on: system, versions, CPU, memory, disk, uptime and load.",
+        "operationId": "host_status_system_host_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/system/startup": {
       "get": {
         "summary": "Startup Status",
@@ -4702,6 +4721,83 @@
         ],
         "title": "Handoff",
         "description": "The agent a conversation is with, and the folder it works in."
+      },
+      "HostStatus": {
+        "properties": {
+          "os": {
+            "type": "string",
+            "title": "Os"
+          },
+          "arch": {
+            "type": "string",
+            "title": "Arch"
+          },
+          "hostname": {
+            "type": "string",
+            "title": "Hostname"
+          },
+          "python": {
+            "type": "string",
+            "title": "Python"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "cpu_cores": {
+            "type": "integer",
+            "title": "Cpu Cores"
+          },
+          "cpu_percent": {
+            "type": "number",
+            "title": "Cpu Percent"
+          },
+          "memory_used": {
+            "type": "integer",
+            "title": "Memory Used"
+          },
+          "memory_total": {
+            "type": "integer",
+            "title": "Memory Total"
+          },
+          "disk_used": {
+            "type": "integer",
+            "title": "Disk Used"
+          },
+          "disk_total": {
+            "type": "integer",
+            "title": "Disk Total"
+          },
+          "uptime_seconds": {
+            "type": "integer",
+            "title": "Uptime Seconds"
+          },
+          "load_average": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Load Average"
+          }
+        },
+        "type": "object",
+        "required": [
+          "os",
+          "arch",
+          "hostname",
+          "python",
+          "version",
+          "cpu_cores",
+          "cpu_percent",
+          "memory_used",
+          "memory_total",
+          "disk_used",
+          "disk_total",
+          "uptime_seconds",
+          "load_average"
+        ],
+        "title": "HostStatus",
+        "description": "The computer the daemon runs on. Sizes in bytes, percentages 0-100, `load_average` over 1, 5 and\n15 minutes (empty where the system has none)."
       },
       "InstalledFromRepository": {
         "properties": {

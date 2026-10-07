@@ -45,6 +45,7 @@ import type {
   Skill,
   SkillSummary,
   SpeechStatus,
+  HostStatus,
   StartupStatus,
   TokenReport,
   UploadedFile,
@@ -499,6 +500,10 @@ export class UsageGroup {
 
 export class SystemGroup {
   constructor(private readonly transport: Transport) {}
+
+  host(): Promise<HostStatus> {
+    return this.transport.request("GET", "/system/host");
+  }
 
   startup(): Promise<StartupStatus> {
     return this.transport.request("GET", "/system/startup");

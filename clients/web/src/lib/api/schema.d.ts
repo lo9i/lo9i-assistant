@@ -1529,6 +1529,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/host": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Host Status
+         * @description The computer the daemon runs on: system, versions, CPU, memory, disk, uptime and load.
+         */
+        get: operations["host_status_system_host_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/startup": {
         parameters: {
             query?: never;
@@ -2097,6 +2117,39 @@ export interface components {
             name: string;
             /** Folder */
             folder: string;
+        };
+        /**
+         * HostStatus
+         * @description The computer the daemon runs on. Sizes in bytes, percentages 0-100, `load_average` over 1, 5 and
+         *     15 minutes (empty where the system has none).
+         */
+        HostStatus: {
+            /** Os */
+            os: string;
+            /** Arch */
+            arch: string;
+            /** Hostname */
+            hostname: string;
+            /** Python */
+            python: string;
+            /** Version */
+            version: string;
+            /** Cpu Cores */
+            cpu_cores: number;
+            /** Cpu Percent */
+            cpu_percent: number;
+            /** Memory Used */
+            memory_used: number;
+            /** Memory Total */
+            memory_total: number;
+            /** Disk Used */
+            disk_used: number;
+            /** Disk Total */
+            disk_total: number;
+            /** Uptime Seconds */
+            uptime_seconds: number;
+            /** Load Average */
+            load_average: number[];
         };
         /** InstalledFromRepository */
         InstalledFromRepository: {
@@ -5941,6 +5994,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    host_status_system_host_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostStatus"];
                 };
             };
         };

@@ -62,6 +62,26 @@ class StartupStatus:
     starts_without_login: bool = True
 
 
+@dataclass
+class HostStatus:
+    """The computer the daemon runs on. Sizes in bytes, percentages 0-100, `load_average` over 1, 5 and
+    15 minutes (empty where the system has none)."""
+
+    os: str
+    arch: str
+    hostname: str
+    python: str
+    version: str
+    cpu_cores: int
+    cpu_percent: float
+    memory_used: int
+    memory_total: int
+    disk_used: int
+    disk_total: int
+    uptime_seconds: int
+    load_average: list[float]
+
+
 class StartupError(Exception):
     """Enabling or disabling start at boot failed or was cancelled."""
 

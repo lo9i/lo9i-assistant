@@ -47,6 +47,7 @@ from assistant_terminal.tui.screens import (
     EmailRecipientsScreen,
     EmailScreen,
     FilesScreen,
+    HostScreen,
     JobsScreen,
     McpScreen,
     ModelScreen,
@@ -123,6 +124,7 @@ class AssistantApp(App):
             "/websearch": self._command_web_search,
             "/email": self._command_email,
             "/startup": self._command_startup,
+            "/host": self._command_host,
             "/skills": self._command_skills,
             "/plugins": self._command_plugins,
             "/jobs": self._command_jobs,
@@ -647,6 +649,9 @@ class AssistantApp(App):
 
     async def _command_startup(self, _: str) -> None:
         self.push_screen(StartupScreen(self._service.system))
+
+    async def _command_host(self, _: str) -> None:
+        self.push_screen(HostScreen(self._service.system))
 
     async def _command_audio(self, _: str) -> None:
         self.push_screen(AudioScreen(self._service.speech))
