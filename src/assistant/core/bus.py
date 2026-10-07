@@ -1,11 +1,14 @@
 """In-process event bus: components publish what changed, and every connected client hears it.
 
 Events carry an increasing id and a short history is kept, so a client that reconnects can replay
-what it missed. Slow subscribers drop events rather than slowing the daemon down.
+what it missed. Ids keep increasing across restarts: a client that reconnects to a restarted daemon
+sends an id from the previous run, and must still get the new run's events. Slow subscribers drop
+events rather than slowing the daemon down.
 """
 
 import asyncio
 import itertools
+import time
 from collections import deque
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
@@ -24,7 +27,8 @@ class BusEvent:
 
 class EventBus:
     def __init__(self) -> None:
-        self._ids = itertools.count(1)
+        # Microseconds since the epoch: later than any id of an earlier run, and within a JavaScript number.
+        self._ids = itertools.count(time.time_ns() // 1000)
         self.last_id = 0
         self._history: deque[BusEvent] = deque(maxlen=_HISTORY)
         self._subscribers: set[asyncio.Queue[BusEvent]] = set()
