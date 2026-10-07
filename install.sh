@@ -145,7 +145,7 @@ wait_until_ready() {
 next_steps() {
   say ""
   if has_systemd; then
-    say "The assistant is running. Log: journalctl --user -u $SERVICE -f"
+    say "The assistant is running. Log: ~/.lo9i/logs/daemon.log (Logs in the web app, /logs in the terminal app)"
     say "Chat in the terminal:  cd $PWD && uv run --package assistant-terminal assistant"
   else
     say "Installed. Start it (this opens the chat, and the daemon keeps running after it):"

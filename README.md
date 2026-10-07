@@ -27,7 +27,7 @@ It downloads the assistant into `~/lo9i-assistant`, installs uv and the dependen
 ./install.sh            # or: cp .env.example .env, fill it in, then scripts/run.sh
 ```
 
-`scripts/run.sh` builds the web app, then opens the terminal app, which starts the daemon. The daemon keeps running after the terminal app closes. Its log is `~/.lo9i/daemon.log`.
+`scripts/run.sh` builds the web app, then opens the terminal app, which starts the daemon. The daemon keeps running after the terminal app closes. Its log is `~/.lo9i/logs/daemon.log` (Logs in the web app, `/logs` in the terminal app); a crash before logging starts is in `~/.lo9i/logs/output.log`.
 
 The model provider is set in the app (`/model`, or Settings → General → Model), which tests the key before saving, or in `.env`. The app's setting wins:
 
@@ -66,7 +66,7 @@ scripts/deploy.sh user@host
 
 It builds the web app, copies the working tree to `~/lo9i-assistant` on the host and runs `install.sh` there. It never copies `.env`: the first time, `install.sh` writes one from `.env.example` on the host and stops, so you can fill it in and deploy again.
 
-On Linux the daemon runs as the systemd user service `lo9i-assistant`, the same service `/startup` turns on. It starts at boot without anyone logging in only while lingering is on for that user (`sudo loginctl enable-linger <user>`, once). Its log is `journalctl --user -u lo9i-assistant -f`.
+On Linux the daemon runs as the systemd user service `lo9i-assistant`, the same service `/startup` turns on. It starts at boot without anyone logging in only while lingering is on for that user (`sudo loginctl enable-linger <user>`, once). Its log is `~/.lo9i/logs/daemon.log`, as on macOS; a crash before logging starts is in `journalctl --user -u lo9i-assistant`.
 
 ## Data
 

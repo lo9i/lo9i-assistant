@@ -10,6 +10,7 @@ from assistant.client.daemon_client.events import EventsMixin
 from assistant.client.daemon_client.files import FilesApi
 from assistant.client.daemon_client.identity import IdentityApi
 from assistant.client.daemon_client.jobs import JobsApi
+from assistant.client.daemon_client.logs import LogsApi
 from assistant.client.daemon_client.mcp import McpApi
 from assistant.client.daemon_client.memory import MemoryApi
 from assistant.client.daemon_client.model import ModelApi
@@ -51,3 +52,4 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         self.system = SystemApi(transport)
         self.clients = ClientsApi(transport)
         self.devices = DevicesApi(transport)
+        self.logs = LogsApi(transport)

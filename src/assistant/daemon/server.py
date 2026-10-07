@@ -16,6 +16,7 @@ from sse_starlette.sse import AppStatus
 from assistant.core.agent import AssistantService
 from assistant.core.config import settings
 from assistant.core.internet import browser
+from assistant.core.logs import LogWriter, configure
 from assistant.daemon import https, pages
 from assistant.daemon.adapters import supervise
 from assistant.daemon.api import create_app
@@ -38,7 +39,7 @@ class _Server(uvicorn.Server):
         yield
 
 
-async def serve() -> bool:
+async def serve(logs: LogWriter) -> bool:
     """Returns whether the daemon stopped to restart."""
     stop = _stop_event()
     socket_path = Path(settings.daemon_socket).expanduser()
@@ -53,7 +54,7 @@ async def serve() -> bool:
         if moved := await service.channels_to_home(settings.owner_id):
             logger.info("Moved %s chat channels to the home conversation.", moved)
         restart = Restart(service, stop)
-        app = create_app(service, RunHub(service.bus), Startup(stop), restart)
+        app = create_app(service, RunHub(service.bus), Startup(stop), restart, logs=logs)
         servers = _listeners(app, socket_path)
         page_servers = [_server(create_pages_app(service), **bind) for bind in pages.ports()]
         tasks = [asyncio.create_task(s.serve()) for s in [*servers, *page_servers]]
@@ -144,7 +145,8 @@ async def _already_running(socket_path: Path) -> bool:
 
 
 def _server(app, **bind) -> _Server:
-    return _Server(uvicorn.Config(app, log_level="warning", lifespan="off", **bind))
+    # No logging config of uvicorn's own: its records go to the daemon's log files like any other.
+    return _Server(uvicorn.Config(app, log_level="warning", log_config=None, lifespan="off", **bind))
 
 
 def _stop_event() -> asyncio.Event:
@@ -158,8 +160,9 @@ def run() -> None:
     # Settings read .env themselves, but the model and tracing SDKs read their keys from the
     # environment, and the daemon may be started from a shell that doesn't have them.
     load_dotenv(".env", override=False)
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logs = LogWriter()
+    configure(logs)
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    if asyncio.run(serve()):
+    if asyncio.run(serve(logs)):
         logger.info("Restarting the daemon.")
         exec_again()

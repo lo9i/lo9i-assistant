@@ -1585,6 +1585,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Logs Options */
+        get: operations["logs_options_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/logs/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Log Page
+         * @description The latest `lines` entries at `level` or above from `component`, oldest first. 400: an unknown component.
+         */
+        get: operations["log_page_logs__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/logs/{name}/follow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Follow Log
+         * @description A `page` event like GET /logs/{name}, then an `entry` event for each new matching entry.
+         *     Every connection, a reconnection too, starts with its page.
+         */
+        get: operations["follow_log_logs__name__follow_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2211,6 +2269,54 @@ export interface components {
             code: string;
             /** Name */
             name: string;
+        };
+        /**
+         * LogEntry
+         * @description One record. `message` keeps every line of it. Text before the first record of a file (output
+         *     that isn't a record) has no time, level or logger.
+         */
+        LogEntry: {
+            /** Time */
+            time: string;
+            /** Level */
+            level: string;
+            /** Logger */
+            logger: string;
+            /** Component */
+            component: string;
+            /** Message */
+            message: string;
+        };
+        /** LogFileInfo */
+        LogFileInfo: {
+            /** Name */
+            name: string;
+            /** File Name */
+            file_name: string;
+            /** Description */
+            description: string;
+            /** Path */
+            path: string;
+            /** Size */
+            size: number;
+        };
+        /** LogOptions */
+        LogOptions: {
+            /** Files */
+            files: components["schemas"]["LogFileInfo"][];
+            /** Levels */
+            levels: string[];
+            /** Components */
+            components: string[];
+        };
+        /**
+         * LogPage
+         * @description The latest matching entries, oldest first.
+         */
+        LogPage: {
+            file: components["schemas"]["LogFileInfo"];
+            /** Entries */
+            entries: components["schemas"]["LogEntry"][];
         };
         /** McpProbe */
         McpProbe: {
@@ -6094,6 +6200,96 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RestartStatus"];
+                };
+            };
+        };
+    };
+    logs_options_logs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogOptions"];
+                };
+            };
+        };
+    };
+    log_page_logs__name__get: {
+        parameters: {
+            query?: {
+                level?: ("DEBUG" | "INFO" | "WARNING" | "ERROR") | null;
+                component?: string;
+                lines?: number;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    follow_log_logs__name__follow_get: {
+        parameters: {
+            query?: {
+                level?: ("DEBUG" | "INFO" | "WARNING" | "ERROR") | null;
+                component?: string;
+                lines?: number;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

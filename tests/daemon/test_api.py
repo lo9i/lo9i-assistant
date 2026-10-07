@@ -18,6 +18,7 @@ from assistant.core.agent import (
 from assistant.core.attachments import Attachment
 from assistant.core.events import ApprovalRequired, Cancelled, Done, ToolFinished
 from assistant.core.internet import brave_key
+from assistant.core.logs import LogWriter
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
 from assistant.daemon.runs import RunHub
@@ -80,7 +81,7 @@ async def test_host_describes_the_computer_the_daemon_runs_on(client):
 
 async def test_every_json_response_has_a_typed_schema(service):
     """Web clients generate their types from /openapi.json, so no route may answer an untyped object."""
-    openapi = create_app(service, RunHub(), _Startup(), _Restart()).openapi()
+    openapi = create_app(service, RunHub(), _Startup(), _Restart(), logs=LogWriter()).openapi()
     untyped = [
         f"{method.upper()} {path}"
         for path, operations in openapi["paths"].items()
@@ -96,7 +97,9 @@ _WEB_SCHEMA = Path(__file__).parents[2] / "clients" / "web" / "openapi.json"
 async def test_the_web_clients_schema_matches_the_routes(service):
     """The web client's types are generated from clients/web/openapi.json. Run with UPDATE_OPENAPI=1
     (`npm run api` in clients/web/) to rewrite it after changing a route."""
-    current = json.dumps(create_app(service, RunHub(), _Startup(), _Restart()).openapi(), indent=2) + "\n"
+    current = (
+        json.dumps(create_app(service, RunHub(), _Startup(), _Restart(), logs=LogWriter()).openapi(), indent=2) + "\n"
+    )
     if os.environ.get("UPDATE_OPENAPI"):
         _WEB_SCHEMA.write_text(current)
     assert _WEB_SCHEMA.read_text() == current, (

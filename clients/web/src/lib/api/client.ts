@@ -17,6 +17,10 @@ import type {
   EmailSettings,
   InstalledFromRepository,
   Job,
+  LogEvent,
+  LogOptions,
+  LogPage,
+  LogQuery,
   McpProbe,
   McpServerChange,
   McpServerSettings,
@@ -61,6 +65,8 @@ const END = "end";
 const RUN_RECONNECT: ReconnectPolicy = { delayMs: 1000, attempts: 5 };
 // The web UI keeps the bus stream for its whole session, so it waits out a daemon restart.
 const BUS_RECONNECT: ReconnectPolicy = { delayMs: 2000 };
+// A followed log waits out a daemon restart too; each reconnection starts with a new page.
+const LOG_RECONNECT: ReconnectPolicy = { delayMs: 2000 };
 
 export class ConversationsGroup {
   constructor(private readonly transport: Transport) {}
@@ -519,6 +525,40 @@ export class SystemGroup {
   }
 }
 
+export class LogsGroup {
+  constructor(private readonly transport: Transport) {}
+
+  /** The log files, levels and components to pick from. */
+  options(): Promise<LogOptions> {
+    return this.transport.request("GET", "/logs");
+  }
+
+  /** The latest matching entries, oldest first. Throws ApiError (400) for an unknown component, 404 for an unknown file. */
+  page(name: string, query: LogQuery): Promise<LogPage> {
+    return this.transport.request("GET", `${logPath(name)}?${logParams(query)}`);
+  }
+
+  /** A page, then each new matching entry, until `signal` aborts; after a reconnection, a new page. */
+  async *follow(name: string, query: LogQuery, signal: AbortSignal): AsyncGenerator<LogEvent> {
+    const path = `${logPath(name)}/follow?${logParams(query)}`;
+    for await (const event of resumableEvents(this.transport, path, LOG_RECONNECT, signal, "")) {
+      const data = JSON.parse(event.data);
+      yield event.event === "entry" ? { kind: "entry", entry: data } : { kind: "page", page: data };
+    }
+  }
+}
+
+function logPath(name: string): string {
+  return `/logs/${encodeURIComponent(name)}`;
+}
+
+function logParams(query: LogQuery): string {
+  const params = new URLSearchParams({ lines: String(query.lines) });
+  if (query.level) params.set("level", query.level);
+  if (query.component) params.set("component", query.component);
+  return params.toString();
+}
+
 export class AuthGroup {
   constructor(private readonly transport: Transport) {}
 
@@ -585,6 +625,7 @@ export class DaemonClient {
   readonly clients: ClientsGroup;
   readonly auth: AuthGroup;
   readonly devices: DevicesGroup;
+  readonly logs: LogsGroup;
 
   constructor(private readonly transport: Transport) {
     this.conversations = new ConversationsGroup(transport);
@@ -607,6 +648,7 @@ export class DaemonClient {
     this.clients = new ClientsGroup(transport);
     this.auth = new AuthGroup(transport);
     this.devices = new DevicesGroup(transport);
+    this.logs = new LogsGroup(transport);
   }
 
   /** How the daemon names this client in the runs it announces. */

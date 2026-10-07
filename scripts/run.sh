@@ -5,7 +5,7 @@
 # - Builds the web UI (clients/web/), which the daemon serves at http://127.0.0.1:8765/app/.
 # - Stops a running daemon, so code changes take effect.
 # - Opens the CLI, which starts the daemon if it isn't running. The daemon keeps running after
-#   the CLI exits (chat channels and scheduled work need it). Its log is ~/.lo9i/daemon.log.
+#   the CLI exits (chat channels and scheduled work need it). Its log is ~/.lo9i/logs/daemon.log.
 #
 # Usage: scripts/run.sh
 # Env:   OLLAMA_CONTEXT_LENGTH (default 32768)

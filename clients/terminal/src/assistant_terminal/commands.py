@@ -30,6 +30,7 @@ COMMANDS = [
     Command("/files", "/files", "Files you sent in your conversations"),
     Command("/jobs", "/jobs", "Scheduled jobs"),
     Command("/usage", "/usage", "Tool and skill usage"),
+    Command("/logs", "/logs", "The daemon's log, followed live if you like"),
     Command("/sessions", "/sessions", "Clients connected to the daemon"),
     Command("/devices", "/devices", "Browsers allowed in over the network"),
     Command("/model", "/model", "The model provider, key and models"),

@@ -1,0 +1,121 @@
+"""The daemon's log: the latest entries of a log file, picked by level, component and how many, or
+followed live while Follow is on (a stream from the daemon, not a timer)."""
+
+from contextlib import aclosing
+from typing import Any, ClassVar
+
+from rich.text import Text
+from textual import on, work
+from textual.app import ComposeResult
+from textual.binding import Binding, BindingType
+from textual.containers import Horizontal, Vertical
+from textual.screen import ModalScreen
+from textual.widgets import Button, Label, RichLog, Select, Static, Switch
+
+from assistant.client.daemon_client import LogsApi
+from assistant.core.logs import LogEntry, LogOptions, LogPage
+from assistant_terminal.logs_text import log_line
+from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+
+LINES = (50, 100, 200, 500)
+_DEFAULT_LINES = 100
+_ALL = ""
+_DAEMON = "daemon"
+_STYLES = {"WARNING": "yellow", "ERROR": "red", "CRITICAL": "bold red"}
+
+
+class LogsScreen(ModalScreen[None]):
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+
+    def __init__(self, logs: LogsApi) -> None:
+        super().__init__()
+        self._logs = logs
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="logs"):
+            with Horizontal(id="logs-filters"):
+                # Until the daemon lists its files: the one it always has.
+                yield Select[str]([(f"{_DAEMON}.log", _DAEMON)], value=_DAEMON, allow_blank=False, id="logs-file")
+                yield Select[str]([("All levels", _ALL)], value=_ALL, allow_blank=False, id="logs-level")
+                yield Select[str]([("All components", _ALL)], value=_ALL, allow_blank=False, id="logs-component")
+                yield Select[int](
+                    [(f"{n} lines", n) for n in LINES], value=_DEFAULT_LINES, allow_blank=False, id="logs-lines"
+                )
+            yield Static(id="logs-title")
+            yield RichLog(id="logs-body", wrap=True, markup=False, highlight=False)
+            with Horizontal(id="logs-buttons"):
+                yield Button("Refresh", id="refresh")
+                yield Label("Follow", id="logs-follow-label")
+                yield Switch(value=False, id="logs-follow")
+                yield Button("Close", id="close")
+
+    @reports_daemon_unavailable
+    async def on_mount(self) -> None:
+        self._offer(await self._logs.options())
+        await self._load()
+
+    @on(Button.Pressed, "#close")
+    def _close(self) -> None:
+        self.dismiss()
+
+    @on(Button.Pressed, "#refresh")
+    @reports_daemon_unavailable
+    async def _refresh(self) -> None:
+        await self._load()
+
+    @on(Select.Changed)
+    @on(Switch.Changed, "#logs-follow")
+    @reports_daemon_unavailable
+    async def _changed(self) -> None:
+        await self._load()
+
+    def _offer(self, options: LogOptions) -> None:
+        files = self.query_one("#logs-file", Select)
+        with self.prevent(Select.Changed):
+            files.set_options([(f.file_name, f.name) for f in options.files])
+            self.query_one("#logs-level", Select).set_options(
+                [("All levels", _ALL), *((level.title(), level) for level in options.levels)]
+            )
+            self.query_one("#logs-component", Select).set_options(
+                [("All components", _ALL), *((c, c) for c in options.components)]
+            )
+
+    async def _load(self) -> None:
+        """While following, the stream sends the page itself."""
+        self.workers.cancel_group(self, "follow")
+        if self.query_one("#logs-follow", Switch).value:
+            self._follow()
+        else:
+            self._show_page(await self._logs.page(**self._query()))
+
+    @work(exclusive=True, group="follow")
+    @reports_daemon_unavailable
+    async def _follow(self) -> None:
+        # Closed when the worker is cancelled, so the daemon stops sending at once.
+        async with aclosing(self._logs.follow(**self._query())) as stream:
+            async for item in stream:
+                if isinstance(item, LogEntry):
+                    self._write(item)
+                else:
+                    self._show_page(item)
+
+    def _show_page(self, page: LogPage) -> None:
+        self.query_one("#logs-title", Static).update(f"{page.file.file_name}  ({page.file.path})")
+        body = self.query_one("#logs-body", RichLog)
+        body.clear()
+        for entry in page.entries:
+            self._write(entry)
+        if not page.entries:
+            body.write(Text("Nothing logged that matches.", style="dim"))
+
+    def _write(self, entry: LogEntry) -> None:
+        self.query_one("#logs-body", RichLog).write(Text(log_line(entry), style=_STYLES.get(entry.level, "")))
+
+    def _query(self) -> dict[str, Any]:
+        """The picks, as `LogsApi.page` and `follow` take them. No select can be blank."""
+        return {
+            "name": self.query_one("#logs-file", Select).value,
+            "level": self.query_one("#logs-level", Select).value,
+            "component": self.query_one("#logs-component", Select).value,
+            "lines": self.query_one("#logs-lines", Select).value,
+        }

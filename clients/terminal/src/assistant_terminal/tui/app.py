@@ -49,6 +49,7 @@ from assistant_terminal.tui.screens import (
     FilesScreen,
     HostScreen,
     JobsScreen,
+    LogsScreen,
     McpScreen,
     ModelScreen,
     PluginsScreen,
@@ -131,6 +132,7 @@ class AssistantApp(App):
             "/devices": self._command_devices,
             "/files": self._command_files,
             "/usage": self._command_usage,
+            "/logs": self._command_logs,
             "/profile": self._command_profile,
             "/sessions": self._command_sessions,
             "/name": self._command_name,
@@ -640,6 +642,9 @@ class AssistantApp(App):
 
     async def _command_usage(self, _: str) -> None:
         self.push_screen(UsageScreen(self._service.usage))
+
+    async def _command_logs(self, _: str) -> None:
+        self.push_screen(LogsScreen(self._service.logs))
 
     async def _command_profile(self, _: str) -> None:
         self.push_screen(ProfileScreen(self._service.memory))

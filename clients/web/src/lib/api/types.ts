@@ -58,6 +58,14 @@ export type McpProbe = Schemas["McpProbe"];
 export type SignedIn = Schemas["SignedIn"];
 export type McpServerSettings = Schemas["McpServerSettings"];
 export type McpServerChange = Schemas["McpServerChange"];
+export type LogEntry = Schemas["LogEntry"];
+export type LogPage = Schemas["LogPage"];
+export type LogOptions = Schemas["LogOptions"];
+export type LogFileInfo = Schemas["LogFileInfo"];
+/** What a log shows: entries at `level` or above ("" for all) from `component` ("" for all), the latest `lines`. */
+export type LogQuery = { level: string; component: string; lines: number };
+/** A followed log's events: its page (at the start of every connection), then each new matching entry. */
+export type LogEvent = { kind: "page"; page: LogPage } | { kind: "entry"; entry: LogEntry };
 
 /** An approval, with `kind: "question"` a question with options, with `kind: "plugin"` a plugin the
  *  agent offers to install, with `kind: "plugin_setup"` an installed plugin's setup to open (the

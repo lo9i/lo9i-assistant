@@ -13,12 +13,12 @@ import httpx
 from assistant.client.daemon_client import DaemonClient
 from assistant.client.errors import DaemonUnavailableError
 from assistant.core.config import settings
+from assistant.core.logs import output_path
 from assistant.protocol import CLIENT_HEADER, CLIENT_ID_HEADER
 
 _BASE = "http://lo9i"
 # Replies can take minutes; only connecting should be quick.
 _TIMEOUT = httpx.Timeout(connect=5, read=None, write=60, pool=5)
-_LOG = "~/.lo9i/daemon.log"
 _START_TIMEOUT_SECONDS = 60
 _READY_CHECK_SECONDS = 0.25
 
@@ -42,7 +42,7 @@ async def _is_ready(http: httpx.AsyncClient) -> bool:
 
 
 def _start_daemon() -> None:
-    log = Path(_LOG).expanduser()
+    log = output_path()
     log.parent.mkdir(parents=True, exist_ok=True)
     with log.open("ab") as out:
         subprocess.Popen(
@@ -59,4 +59,4 @@ async def _wait_until_ready(http: httpx.AsyncClient) -> None:
         if await _is_ready(http):
             return
         await asyncio.sleep(_READY_CHECK_SECONDS)
-    raise DaemonUnavailableError(f"The daemon didn't start. See {_LOG}.")
+    raise DaemonUnavailableError(f"The daemon didn't start. See {output_path()}.")

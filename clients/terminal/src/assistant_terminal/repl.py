@@ -12,6 +12,7 @@ from assistant_terminal.channels_text import describe as describe_channel
 from assistant_terminal.commands import GET_TO_KNOW_ME, agent_commands, help_lines
 from assistant_terminal.conversations_text import when
 from assistant_terminal.jobs_text import summary as jobs_summary
+from assistant_terminal.logs_text import log_line
 from assistant_terminal.mcp_text import shown as shown_servers
 from assistant_terminal.mcp_text import summary as mcp_summary
 from assistant_terminal.render import render
@@ -48,6 +49,7 @@ class Repl:
             "/get-to-know-me": self._get_to_know_me,
             "/jobs": self._jobs,
             "/usage": self._usage,
+            "/logs": self._logs,
             "/profile": self._profile,
             "/sessions": self._sessions,
             "/": self._help,
@@ -196,6 +198,11 @@ class Repl:
     async def _usage(self, arg: str) -> None:
         days = int(arg) if arg.isdigit() else 7
         print(describe_usage(await self._service.usage.report(days), await self._service.usage.tokens(days)))
+
+    async def _logs(self, arg: str) -> None:
+        """The latest entries of the daemon's log; following it needs the full app or the web app."""
+        page = await self._service.logs.page("daemon", lines=int(arg) if arg.isdigit() else 50)
+        print("\n".join(log_line(e) for e in page.entries) or "Nothing logged yet.")
 
     async def _profile(self, _: str) -> None:
         """Shows it; editing needs the full app or the web app."""
