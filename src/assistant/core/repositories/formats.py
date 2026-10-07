@@ -1,0 +1,20 @@
+"""Which version of the plugin format a server.yaml is written in: `format:`, 1 when it declares none.
+A plugin written in a newer format than this daemon reads uses something it doesn't know (a placeholder,
+a section), so it's handled as one for another system (repositories/platforms.py): not found in the
+repository, so it isn't listed, offered, installed or updated here until lo9i is updated."""
+
+# 2: `{bin}`, the scripts of the plugin's own environment (core/mcp/environment.py).
+CURRENT = 2
+
+
+def parse(value: object) -> int:
+    """Raises ValueError for anything but a whole number from 1."""
+    if value is None:
+        return 1
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ValueError("its format must be a whole number from 1")
+    return value
+
+
+def readable(version: int) -> bool:
+    return version <= CURRENT

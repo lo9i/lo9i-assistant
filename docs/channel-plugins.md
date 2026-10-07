@@ -9,6 +9,8 @@ reaches its own channel routes.
 ```yaml
 name: telegram
 version: 1.0.0
+# The plugin format (core/repositories/formats.py): 2 for {bin}.
+format: 2
 description: Chat with the assistant on Telegram
 # Folders under lib/ in the repository that the plugin uses. They're installed next to the plugins'
 # folders, so a uv path dependency on ../../lib/<name> works both in the repository and once installed.

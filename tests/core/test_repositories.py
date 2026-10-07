@@ -278,6 +278,7 @@ async def test_a_server_that_runs_with_uv_needs_uv(service, repo, monkeypatch):
 
 _IN_ENVIRONMENT = """
 name: ledger
+format: 2
 command: "{bin}/ledger-mcp"
 page:
   command: "{bin}/ledger-web"
@@ -315,6 +316,17 @@ async def test_a_server_with_an_environment_needs_uv(service, repo, monkeypatch)
     _write(repo / "other" / "general" / "ledger", {"server.yaml": _IN_ENVIRONMENT})
     with pytest.raises(McpServerError, match="can't find uv"):
         await service.install_from_repository(URL, [], [ServerValues("ledger")])
+
+
+async def test_a_server_in_a_newer_format_than_the_daemon_reads_isnt_found(service, repo):
+    _write(repo / "other" / "general" / "ledger", {"server.yaml": _IN_ENVIRONMENT.replace("format: 2", "format: 3")})
+    assert "ledger" not in [s.name for s in (await service.browse_repository(URL)).servers]
+
+
+async def test_a_server_using_bin_must_say_its_format(service, repo):
+    _write(repo / "other" / "general" / "ledger", {"server.yaml": _IN_ENVIRONMENT.replace("format: 2\n", "")})
+    with pytest.raises(RepositoryError, match="needs format: 2"):
+        await service.browse_repository(URL)
 
 
 _HELLO_SKILL = "---\nname: hello\ndescription: Greeting people\n---\n\nCall whoami first."

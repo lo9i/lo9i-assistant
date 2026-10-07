@@ -41,6 +41,7 @@ code from it. In its commands, arguments and env values:
       name: Claude Code
       tool: converse               # takes {conversation, folder, message}, returns the reply
     platforms: [macos]             # optional: the systems it runs on (repositories/platforms.py); all if absent
+    format: 2                      # the plugin format it's written in (repositories/formats.py); 1 if absent
     category: communications       # outside a category's folder: what it's for (repositories/categories.py)
     steps:                         # optional: how to get what it asks for, shown when installing
       - In your provider's settings, create an app password.
@@ -65,7 +66,7 @@ from langgraph.store.base import BaseStore
 from assistant.core.integrations.email import providers as email_providers
 from assistant.core.mcp import environment, folders, logins, servers
 from assistant.core.mcp.servers import McpServer, McpServerError
-from assistant.core.repositories import categories, platforms
+from assistant.core.repositories import categories, formats, platforms
 from assistant.core.repositories import source as folder_source
 from assistant.core.repositories.checkout import checkout, default_name
 from assistant.core.repositories.errors import RepositoryError
@@ -140,6 +141,8 @@ class Candidate:
     libraries: list[Path] = field(default_factory=list)
     # The systems it runs on; empty for all (repositories/platforms.py).
     platforms: list[str] = field(default_factory=list)
+    # The plugin format it's written in (repositories/formats.py).
+    format: int = 1
 
     def server(self, values: dict[str, str], url: str) -> McpServer:
         """The server with its placeholders and fields filled in. Raises McpServerError if it needs
@@ -164,6 +167,11 @@ class Candidate:
         return filled
 
     @property
+    def usable_here(self) -> bool:
+        """It runs on this system, and this daemon reads its format."""
+        return platforms.runs_here(self.platforms) and formats.readable(self.format)
+
+    @property
     def needs_environment(self) -> bool:
         """It runs scripts of its own environment, which installing builds."""
         return any(environment.PLACEHOLDER in text for text in _commands(self.template))
@@ -182,7 +190,7 @@ def find(root: Path, url: str) -> dict[str, Candidate]:
     that can't work, on any system."""
     folders = [root, *subfolders(root), *categories.plugin_folders(root)]
     found = [_candidate(root, f, default_name(url) if f == root else f.name) for f in folders]
-    return {c.found.name: c for c in found if c is not None and platforms.runs_here(c.platforms)}
+    return {c.found.name: c for c in found if c is not None and c.usable_here}
 
 
 async def check(store: BaseStore, wanted: list[ServerValues], found: dict[str, Candidate], url: str) -> None:
@@ -291,6 +299,8 @@ def _find_at(root: Path, url: str, path: str, name: str) -> Candidate:
     if candidate is not None and candidate.found.name == name:
         if not platforms.runs_here(candidate.platforms):
             raise McpServerError(f"The new version of {name} doesn't run on {platforms.current()}.")
+        if not formats.readable(candidate.format):
+            raise McpServerError(f"The new version of {name} needs a newer lo9i: update the assistant first.")
         return candidate
     moved = find(root, url).get(name)
     if moved is None:
@@ -315,7 +325,10 @@ def _parse(data: dict[str, Any], name: str, root: Path, folder: Path) -> Candida
     found = _found(data, template, folder, categories.of_folder(root, folder))
     libraries = [_library(root, folder, str(n)) for n in data.get("libraries", [])]
     systems = platforms.parse(data.get("platforms"))
-    return Candidate(found, template, folder, folder.relative_to(root).as_posix(), libraries, systems)
+    version = formats.parse(data.get("format"))
+    if version < 2 and any(environment.PLACEHOLDER in text for text in _commands(template)):
+        raise ValueError(f"it uses {environment.PLACEHOLDER}, which needs format: 2")
+    return Candidate(found, template, folder, folder.relative_to(root).as_posix(), libraries, systems, version)
 
 
 def _template(data: dict[str, Any], name: str) -> McpServer:
