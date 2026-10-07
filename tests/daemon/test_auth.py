@@ -142,6 +142,30 @@ async def test_revoking_ends_the_devices_open_streams():
     assert received == [1]
 
 
+async def test_a_device_stream_its_reader_drops_closes_the_stream_it_guards():
+    """A browser that disconnects cancels the response; what the stream holds (a connected client) must go too."""
+    streams = DeviceStreams()
+    device = devices.Device("d1", "Laptop", "", "", "")
+    closed = asyncio.Event()
+
+    async def forever():
+        try:
+            yield 1
+            await asyncio.Event().wait()
+        finally:
+            closed.set()
+
+    async def read():
+        async for _ in streams.guard(forever(), device):
+            pass
+
+    reader = asyncio.create_task(read())
+    for _ in range(5):  # until it waits for the second item
+        await asyncio.sleep(0)
+    reader.cancel()
+    await asyncio.wait_for(closed.wait(), 1)
+
+
 async def test_a_sign_in_finishes_from_an_unpaired_browser_but_only_starts_from_a_paired_one(app):
     sign_in = {
         "provider": "google",
