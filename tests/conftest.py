@@ -30,6 +30,7 @@ def isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     for name, value in {
         "database_path": tmp_path / "lo9i.db",
         "uploads_dir": tmp_path / "uploads",
+        "logs_dir": tmp_path / "logs",
         "workspace_dir": tmp_path / "workspace",
         "agent_workspace_dir": tmp_path / "claude-workspace",
         "skills_dir": tmp_path / "skills",

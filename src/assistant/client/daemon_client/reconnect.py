@@ -2,7 +2,7 @@
 and resumes after the last event received, so nothing is missed or repeated."""
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 
 import httpx
@@ -21,7 +21,7 @@ class ReconnectPolicy:
 
 async def resumable_events(
     transport: Transport, path: str, policy: ReconnectPolicy, after: str = "0"
-) -> AsyncIterator[tuple[str, str]]:
+) -> AsyncGenerator[tuple[str, str]]:
     """(event type, data) for the stream at `path` after the event id `after` ("" for the stream's
     own start), until the caller stops reading. A connection that drops or ends is reopened.
     Raises DaemonUnavailableError when the policy gives up, and httpx.HTTPStatusError for a

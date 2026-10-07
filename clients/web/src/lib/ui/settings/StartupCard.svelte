@@ -16,7 +16,7 @@
       "With FileVault on, after a restart nothing runs until someone logs in once.",
     ],
     linux: [
-      "It runs as a systemd user service (lo9i-assistant), as your user. Log: journalctl --user -u lo9i-assistant -f",
+      "It runs as a systemd user service (lo9i-assistant), as your user. Its log is on the Logs page; output from before it starts logging is in journalctl --user -u lo9i-assistant.",
       "A powered-off or suspended computer runs nothing; missed jobs catch up within 6 hours.",
       "Ollama isn't included: its Linux installer runs it as a service of its own.",
     ],

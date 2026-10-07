@@ -23,7 +23,7 @@ without anyone logging in, so scheduled jobs and Telegram keep working. It runs 
     "linux": """Starting at boot runs the assistant as a systemd user service (`lo9i-assistant`) from the moment
 the computer starts, so scheduled jobs and Telegram keep working. It runs as your user.
 
-- Its log: `journalctl --user -u lo9i-assistant -f`
+- Its log: `/logs`; output from before it starts logging: `journalctl --user -u lo9i-assistant`
 - A powered-off or suspended computer runs nothing; missed jobs catch up within 6 hours.
 - Ollama isn't included: its Linux installer runs it as a service of its own.""",
     "unsupported": "Start at boot works on macOS and on Linux with systemd. This system has neither.",

@@ -11,6 +11,7 @@
   import MessagesSquare from "@lucide/svelte/icons/messages-square";
   import MonitorSmartphone from "@lucide/svelte/icons/monitor-smartphone";
   import Plus from "@lucide/svelte/icons/plus";
+  import ScrollText from "@lucide/svelte/icons/scroll-text";
   import Settings from "@lucide/svelte/icons/settings";
   import Sparkles from "@lucide/svelte/icons/sparkles";
   import PanelsTopLeft from "@lucide/svelte/icons/panels-top-left";
@@ -67,6 +68,7 @@
     { href: resolve("/sessions"), label: "Active sessions", Icon: MonitorSmartphone },
     { href: resolve("/jobs"), label: "Scheduled", Icon: CalendarClock },
     { href: resolve("/devices"), label: "Devices", Icon: Laptop, add: { label: "Pair a browser", run: pairBrowser } },
+    { href: resolve("/logs"), label: "Logs", Icon: ScrollText },
     // About you, Skills, Plugins and MCP servers are settings tabs with pages of their own; plugin updates show here.
     {
       href: resolve("/settings"),

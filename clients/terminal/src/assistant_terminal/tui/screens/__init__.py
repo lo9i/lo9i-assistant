@@ -1,6 +1,7 @@
 """Modal screens opened from the chat: setup (the model, audio, web search, chat channels, email, MCP
-servers, start at boot), browsing (plugins, skills, jobs, files, usage, connected clients), the profile,
-approvals, questions, the folder an agent works in and the suggestion to move a task to a side conversation."""
+servers, start at boot), browsing (plugins, skills, jobs, files, usage, the daemon's log, connected
+clients), the profile, approvals, questions, the folder an agent works in and the suggestion to move a
+task to a side conversation."""
 
 from assistant_terminal.tui.screens.agent_folder import AgentFolderScreen
 from assistant_terminal.tui.screens.approval import ApprovalScreen
@@ -13,6 +14,7 @@ from assistant_terminal.tui.screens.email import EmailScreen
 from assistant_terminal.tui.screens.email_recipients import EmailRecipientsScreen
 from assistant_terminal.tui.screens.files import FilesScreen
 from assistant_terminal.tui.screens.jobs import JobsScreen
+from assistant_terminal.tui.screens.logs import LogsScreen
 from assistant_terminal.tui.screens.mcp import McpScreen
 from assistant_terminal.tui.screens.model import ModelScreen
 from assistant_terminal.tui.screens.plugins import PluginsScreen
@@ -38,6 +40,7 @@ __all__ = [
     "EmailScreen",
     "FilesScreen",
     "JobsScreen",
+    "LogsScreen",
     "McpScreen",
     "ModelScreen",
     "PluginsScreen",

@@ -399,11 +399,11 @@ ModalScreen Input, ModalScreen OptionList, ModalScreen MarkdownHeader {
     border: round #2f343f;
 }
 
-SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, SessionsScreen, McpScreen {
+SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, SessionsScreen, McpScreen, LogsScreen {
     align: center middle;
 }
 
-#skills, #jobs, #conversations, #devices, #files, #usage, #sessions, #mcp, #plugins {
+#skills, #jobs, #conversations, #devices, #files, #usage, #sessions, #mcp, #plugins, #logs {
     width: 90%;
     max-width: 120;
     height: 80%;
@@ -575,4 +575,45 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     margin: 1 0;
     border: round ansi_bright_black;
     background: transparent;
+}
+
+/* /logs: filters on top, the log in the middle, its controls below. */
+#logs-filters, #logs-buttons {
+    height: auto;
+}
+
+#logs-filters Select {
+    width: 1fr;
+    margin-right: 1;
+}
+
+#logs SelectCurrent {
+    border: round ansi_bright_black;
+    background: transparent;
+}
+
+#logs-title {
+    height: auto;
+    text-style: bold;
+    margin: 1 0 0 0;
+}
+
+#logs-body {
+    height: 1fr;
+    background: transparent;
+    border: round ansi_bright_black;
+}
+
+#logs-buttons {
+    margin-top: 1;
+}
+
+#logs-buttons Button {
+    margin-right: 2;
+}
+
+#logs-follow-label {
+    height: 3;
+    content-align: center middle;
+    margin-right: 1;
 }

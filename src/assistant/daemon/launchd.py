@@ -15,6 +15,7 @@ import tempfile
 from pathlib import Path
 
 from assistant.core.config import settings
+from assistant.core.logs import output_path
 from assistant.protocol import StartupError, StartupStatus
 
 DAEMON_LABEL = "com.lo9i.assistant"
@@ -37,6 +38,8 @@ def status() -> StartupStatus:
 
 
 async def enable() -> StartupStatus:
+    # launchd opens the daemon's output file but doesn't create its folder.
+    output_path().parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         plists = {DAEMON_LABEL: daemon_plist()}
         if _uses_ollama() and (ollama := ollama_plist()):
@@ -62,8 +65,8 @@ def daemon_plist() -> bytes:
             "RunAtLoad": True,
             "KeepAlive": True,
             "ThrottleInterval": 10,
-            "StandardOutPath": str(Path("~/.lo9i/daemon.log").expanduser()),
-            "StandardErrorPath": str(Path("~/.lo9i/daemon.log").expanduser()),
+            "StandardOutPath": str(output_path()),
+            "StandardErrorPath": str(output_path()),
             "EnvironmentVariables": {"HOME": home, "PATH": os.environ.get("PATH", "/usr/bin:/bin"), MANAGED_ENV: "1"},
         }
     )

@@ -3679,6 +3679,188 @@
           }
         }
       }
+    },
+    "/logs": {
+      "get": {
+        "summary": "Logs Options",
+        "operationId": "logs_options_logs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogOptions"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/logs/{name}": {
+      "get": {
+        "summary": "Log Page",
+        "description": "The latest `lines` entries at `level` or above from `component`, oldest first. 400: an unknown component.",
+        "operationId": "log_page_logs__name__get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "DEBUG",
+                    "INFO",
+                    "WARNING",
+                    "ERROR"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Level"
+            }
+          },
+          {
+            "name": "component",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Component"
+            }
+          },
+          {
+            "name": "lines",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Lines"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/logs/{name}/follow": {
+      "get": {
+        "summary": "Follow Log",
+        "description": "A `page` event like GET /logs/{name}, then an `entry` event for each new matching entry.\nEvery connection, a reconnection too, starts with its page.",
+        "operationId": "follow_log_logs__name__follow_get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "DEBUG",
+                    "INFO",
+                    "WARNING",
+                    "ERROR"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Level"
+            }
+          },
+          {
+            "name": "component",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Component"
+            }
+          },
+          {
+            "name": "lines",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Lines"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/event-stream": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4835,6 +5017,126 @@
           "name"
         ],
         "title": "LanguageOption"
+      },
+      "LogEntry": {
+        "properties": {
+          "time": {
+            "type": "string",
+            "title": "Time"
+          },
+          "level": {
+            "type": "string",
+            "title": "Level"
+          },
+          "logger": {
+            "type": "string",
+            "title": "Logger"
+          },
+          "component": {
+            "type": "string",
+            "title": "Component"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "time",
+          "level",
+          "logger",
+          "component",
+          "message"
+        ],
+        "title": "LogEntry",
+        "description": "One record. `message` keeps every line of it. Text before the first record of a file (output\nthat isn't a record) has no time, level or logger."
+      },
+      "LogFileInfo": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "file_name": {
+            "type": "string",
+            "title": "File Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "file_name",
+          "description",
+          "path",
+          "size"
+        ],
+        "title": "LogFileInfo"
+      },
+      "LogOptions": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/LogFileInfo"
+            },
+            "type": "array",
+            "title": "Files"
+          },
+          "levels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Levels"
+          },
+          "components": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Components"
+          }
+        },
+        "type": "object",
+        "required": [
+          "files",
+          "levels",
+          "components"
+        ],
+        "title": "LogOptions"
+      },
+      "LogPage": {
+        "properties": {
+          "file": {
+            "$ref": "#/components/schemas/LogFileInfo"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/LogEntry"
+            },
+            "type": "array",
+            "title": "Entries"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file",
+          "entries"
+        ],
+        "title": "LogPage",
+        "description": "The latest matching entries, oldest first."
       },
       "McpProbe": {
         "properties": {

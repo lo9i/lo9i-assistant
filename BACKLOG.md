@@ -28,6 +28,9 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
   - Bearer tokens for non-browser clients on other hosts (the terminal app over the network). The daemon already accepts `Authorization: Bearer`; no client sends one yet.
 - A3. Scheduled jobs only run while the host is up. If the Linux host is a machine that suspends (a laptop), keep it awake on power or schedule wake-ups (`rtcwake`), so jobs run on time.
 - A4. Spending limits on the token ledger (`core/usage`): per job run, per job per day, per conversation and overall per day. Checked before every model call; going over ends the run cleanly (a job run is recorded as over budget, a chat gets a clear message), and a warning at a threshold (80%) goes to Telegram or Slack.
+- A29. Process output isn't on the Logs page. The daemon writes its records itself (`core/logs/`), but what isn't a record (a crash before logging starts, text a library prints) goes to `~/.lo9i/logs/output.log` when the terminal app or launchd started it, and to the journal under systemd. Reading the journal needs `journalctl` from the daemon, and following either live needs watching a file another writer appends to (kqueue, inotify), not a timer. LaunchDaemons installed before the logs moved keep sending it to `~/.lo9i/daemon.log` until `/startup` is turned off and on.
+- A30. The log level is fixed at INFO (`core/logs/writer.py::configure`), so the Logs page's Debug filter finds nothing. A setting in the app, applied without a restart.
+- A31. The Logs page has no channels component: channel plugins' output is logged by the process runner (`assistant.core.mcp.process`, as `[label] line`), so it shows under mcp. Log each plugin process under a logger of its kind (`assistant.core.channels.<name>`) so channels can be picked apart.
 
 ## MCP
 

@@ -1,13 +1,14 @@
 """The daemon's HTTP API. Commands are plain requests; a run's events stream as Server-Sent Events."""
 
 import json
-from collections.abc import Awaitable
+from collections.abc import AsyncIterator, Awaitable
+from dataclasses import asdict
 from functools import partial
 from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import quote
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
@@ -75,6 +76,20 @@ from assistant.core.agent import (
 from assistant.core.attachments import Attachment
 from assistant.core.config import settings
 from assistant.core.health import Area
+from assistant.core.logs import (
+    LOG_FILES,
+    MAX_LINES,
+    LogEntry,
+    LogFile,
+    LogLevel,
+    LogOptions,
+    LogPage,
+    LogQuery,
+    LogQueryError,
+    LogWriter,
+    log_options,
+    read_page,
+)
 from assistant.core.memory.profile import MAX_ITEMS, Section
 from assistant.core.repositories.known import EXTRAS
 from assistant.daemon.auth import (
@@ -349,7 +364,12 @@ _LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 
 def create_app(
-    service: AssistantService, hub: RunHub, startup: Any = None, restart: Any = None, web_ui: Path = BUILD_DIR
+    service: AssistantService,
+    hub: RunHub,
+    startup: Any = None,
+    restart: Any = None,
+    web_ui: Path = BUILD_DIR,
+    logs: LogWriter | None = None,
 ) -> FastAPI:
     app = FastAPI(title="lo9i daemon")
     # Checked outside in: the host name, the client header, then the device.
@@ -387,6 +407,8 @@ def create_app(
         _add_startup_routes(app, startup)
     if restart is not None:
         _add_restart_route(app, restart)
+    if logs is not None:
+        _add_log_routes(app, logs, streams)
     add_web_ui(app, web_ui)
     return app
 
@@ -1210,6 +1232,56 @@ def _add_restart_route(app: FastAPI, restart: Any) -> None:
     @app.post("/system/restart")
     async def restart_daemon() -> RestartStatus:
         return RestartStatus(waiting_for_runs=restart.request())
+
+
+def _add_log_routes(app: FastAPI, logs: LogWriter, streams: DeviceStreams) -> None:
+    """The daemon's log files (core/logs/): the latest entries, or following a file live."""
+
+    @app.get("/logs")
+    async def logs_options() -> LogOptions:
+        return await log_options()
+
+    @app.get("/logs/{name}")
+    async def log_page(
+        name: str,
+        level: LogLevel | None = None,
+        component: str = "",
+        lines: Annotated[int, Query(ge=1, le=MAX_LINES)] = 100,
+    ) -> LogPage:
+        """The latest `lines` entries at `level` or above from `component`, oldest first. 400: an unknown component."""
+        return await read_page(_log_file(name), _log_query(level, component, lines))
+
+    @app.get("/logs/{name}/follow", response_class=EventSourceResponse, responses=_EVENT_STREAM)
+    async def follow_log(
+        name: str,
+        request: Request,
+        level: LogLevel | None = None,
+        component: str = "",
+        lines: Annotated[int, Query(ge=1, le=MAX_LINES)] = 100,
+    ) -> EventSourceResponse:
+        """A `page` event like GET /logs/{name}, then an `entry` event for each new matching entry.
+        Every connection, a reconnection too, starts with its page."""
+        entries = logs.follow(_log_file(name), _log_query(level, component, lines))
+        return EventSourceResponse(streams.guard(_log_events(entries), device_of(request)), ping=15)
+
+
+def _log_file(name: str) -> LogFile:
+    if name not in LOG_FILES:
+        raise HTTPException(404, f"No log named {name}")
+    return LOG_FILES[name]
+
+
+def _log_query(level: LogLevel | None, component: str, lines: int) -> LogQuery:
+    try:
+        return LogQuery(level or "", component, lines)
+    except LogQueryError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+async def _log_events(entries: AsyncIterator[LogPage | LogEntry]):
+    async for item in entries:
+        kind = "entry" if isinstance(item, LogEntry) else "page"
+        yield {"event": kind, "data": json.dumps(asdict(item))}
 
 
 async def _attachment(upload: UploadFile) -> Attachment:

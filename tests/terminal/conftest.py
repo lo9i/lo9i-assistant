@@ -61,6 +61,7 @@ from assistant.core.agent.skills import FoundSkill, SkillSummary
 from assistant.core.events import ApprovalRequired, Done, TextDelta, ToolFinished, ToolStarted, Transcribed
 from assistant.core.integrations.email.providers import EmailProvider
 from assistant.core.llm.choice import PROVIDERS as PROVIDERS_FOR_MODEL
+from assistant.core.logs import COMPONENTS, LogEntry, LogFileInfo, LogOptions, LogPage, LogQuery
 from assistant.core.repositories.known import EXTRAS
 from assistant.core.usage.log import TokenRow, ToolUsage
 from assistant.protocol import ConnectedClient, StartupError, StartupStatus
@@ -680,6 +681,38 @@ class FakeClients:
         return list(self.connected)
 
 
+def _log(level: str, message: str, component: str = "mcp") -> LogEntry:
+    return LogEntry("2026-10-07 10:00:00,000", level, f"assistant.core.{component}.x", component, message)
+
+
+class FakeLogs:
+    """The daemon log: a page from `entries`, filtered like the daemon does, and a live follow that
+    sends a page, then whatever is put in `live`."""
+
+    def __init__(self):
+        self.entries = [_log("INFO", "connected"), _log("WARNING", "slow"), _log("ERROR", "crashed", "agent")]
+        self.live: asyncio.Queue[LogEntry] = asyncio.Queue()
+        self.following = 0
+
+    async def options(self):
+        files = [LogFileInfo(n, f"{n}.log", "", f"/logs/{n}.log", 10) for n in ("daemon", "errors")]
+        return LogOptions(files, ["DEBUG", "INFO", "WARNING", "ERROR"], list(COMPONENTS))
+
+    async def page(self, name, level="", component="", lines=100):
+        query = LogQuery(level, component, lines)
+        entries = [e for e in self.entries if query.matches(e)][-lines:]
+        return LogPage(LogFileInfo(name, f"{name}.log", "", f"/logs/{name}.log", 10), entries)
+
+    async def follow(self, name, level="", component="", lines=100):
+        self.following += 1
+        try:
+            yield await self.page(name, level, component, lines)
+            while True:
+                yield await self.live.get()
+        finally:
+            self.following -= 1
+
+
 class FakeOAuth:
     """The browser coming back with the code, for the email account or MCP server that asked last."""
 
@@ -719,6 +752,7 @@ class FakeClient:
         self.clients = FakeClients()
         self.conversations = FakeConversations()
         self.devices = FakeDevices()
+        self.logs = FakeLogs()
         self.files = FakeFiles()
         self.mcp = FakeMcp()
         self.repositories = FakeRepositories(self.skills, self.mcp)

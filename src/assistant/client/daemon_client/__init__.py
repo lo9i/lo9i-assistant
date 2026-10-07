@@ -15,6 +15,7 @@ from assistant.client.daemon_client.email import EmailApi
 from assistant.client.daemon_client.files import FilesApi
 from assistant.client.daemon_client.identity import IdentityApi
 from assistant.client.daemon_client.jobs import JobsApi
+from assistant.client.daemon_client.logs import LogsApi
 from assistant.client.daemon_client.mcp import McpApi
 from assistant.client.daemon_client.memory import MemoryApi
 from assistant.client.daemon_client.model import ModelApi
@@ -37,6 +38,7 @@ __all__ = [
     "FilesApi",
     "IdentityApi",
     "JobsApi",
+    "LogsApi",
     "McpApi",
     "MemoryApi",
     "ModelApi",
