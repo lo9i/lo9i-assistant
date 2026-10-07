@@ -253,14 +253,14 @@
     gap: 12px;
     max-width: 1600px;
     margin: 0 auto;
-    padding: 16px 16px 0;
+    padding: 0 16px;
   }
   .screen {
     display: flex;
     align-items: flex-start;
     gap: 16px;
     padding: 16px;
-    height: calc(100dvh - 76px - 50px);
+    height: calc(100dvh - 76px - 34px);
     max-width: 1600px;
     margin: 0 auto;
   }
