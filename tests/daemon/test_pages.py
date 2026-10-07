@@ -152,3 +152,13 @@ async def _until_answers(http) -> None:
     async with asyncio.timeout(15):
         while (await http.get("/notes/")).status_code != 200:
             await asyncio.sleep(0.05)
+
+
+async def test_a_client_paired_for_a_token_reaches_the_page_with_it_as_a_bearer(pages):
+    device, token = await pages.pair_device((await pages.open_device_pairing()).code, "Watchlist extension", "")
+    transport = httpx.ASGITransport(app=create_pages_app(pages), client=("127.0.0.1", 5000))
+    async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8766") as http:
+        seen = (await http.get("/notes/x", headers={"Authorization": f"Bearer {token}"})).json()
+        assert seen["path"] == "/x" and "authorization" not in seen["headers"]
+        assert (await http.get("/notes/x", headers={"Authorization": "Bearer wrong"})).status_code == 401
+    assert device.name == "Watchlist extension"

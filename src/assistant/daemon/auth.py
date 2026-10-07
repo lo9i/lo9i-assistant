@@ -36,12 +36,19 @@ COOKIE = "lo9i_device"
 _TRUSTED = "lo9i.trusted"
 # A sign-in's last step comes from the browser that signed in, maybe unpaired; its one-time state
 # proves it (core/oauth.py).
-_OPEN_PATHS = {"/health", "/auth/pair", "/oauth/finish"}
+_OPEN_PATHS = {"/health", "/auth/pair", "/auth/pair/token", "/oauth/finish"}
 
 
 class PairRequest(BaseModel):
     code: str
     name: str
+
+
+class PairedWithToken(BaseModel):
+    device: Device
+    # For a client that isn't a browser page (a browser extension): it sends it as Authorization:
+    # Bearer, since a browser keeps the cookie from it. Shown once; revoked with the device.
+    token: str
 
 
 class Revoked(BaseModel):
@@ -137,7 +144,7 @@ def require_device(app: FastAPI, service: AssistantService) -> None:
     async def check(request: Request, call_next):
         if is_trusted(request) or request.url.path in _OPEN_PATHS or is_web_ui(request.url.path):
             return await call_next(request)
-        token = _token(request)
+        token = token_of(request)
         if token and (channel := service.channels_hub.channel_for(token)) is not None:
             return await _as_channel(request, call_next, channel)
         device = await service.device_for_token(token, _ip(request)) if token else None
@@ -160,9 +167,7 @@ async def _as_channel(request: Request, call_next, channel: str):
 def add_device_routes(app: FastAPI, service: AssistantService, streams: DeviceStreams) -> None:
     limiter = PairingLimiter()
 
-    @app.post("/auth/pair")
-    async def pair(body: PairRequest, request: Request, response: Response) -> Device:
-        """Pairs this browser with a code from a trusted client, and sets its token cookie."""
+    async def paired(body: PairRequest, request: Request) -> tuple[Device, str]:
         ip = _ip(request)
         if limiter.blocked(ip):
             raise HTTPException(429, "Too many wrong codes. Wait a few minutes and try again.")
@@ -173,8 +178,21 @@ def add_device_routes(app: FastAPI, service: AssistantService, streams: DeviceSt
             logger.warning("Wrong pairing code from %s", ip)
             raise HTTPException(400, str(e)) from e
         logger.info("Paired device %s (%s) from %s", device.name, device.id, ip)
+        return device, token
+
+    @app.post("/auth/pair")
+    async def pair(body: PairRequest, request: Request, response: Response) -> Device:
+        """Pairs this browser with a code from a trusted client, and sets its token cookie."""
+        device, token = await paired(body, request)
         _set_cookie(response, token)
         return device
+
+    @app.post("/auth/pair/token")
+    async def pair_for_token(body: PairRequest, request: Request) -> PairedWithToken:
+        """Pairs a client that keeps its own token (a browser extension, whose requests carry no
+        cookie of the browser's) with a code from a trusted client, and gives it the token."""
+        device, token = await paired(body, request)
+        return PairedWithToken(device=device, token=token)
 
     @app.get("/auth/me")
     async def me(request: Request) -> Me:
@@ -248,7 +266,8 @@ async def _stop(following: asyncio.Future[Any] | None) -> None:
         await following
 
 
-def _token(request: Request) -> str:
+def token_of(request: Request) -> str:
+    """The device token a request carries: the browser's cookie, or a bearer token."""
     bearer = request.headers.get("authorization", "")
     return request.cookies.get(COOKIE) or bearer.removeprefix("Bearer ").strip()
 

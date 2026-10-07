@@ -178,3 +178,16 @@ async def test_a_sign_in_finishes_from_an_unpaired_browser_but_only_starts_from_
         # The one-time state is the proof: a wrong one is refused, not the browser.
         finish = await browser.post("/oauth/finish", json={"state": "guess", "code": "x"})
         assert finish.status_code == 400 and "expired" in finish.json()["detail"]
+
+
+async def test_a_client_that_keeps_its_own_token_pairs_for_it_and_sends_it_as_a_bearer(app):
+    async with _http(app) as extension:
+        response = await extension.post(
+            "/auth/pair/token", json={"code": await _code(app), "name": "Watchlist extension"}
+        )
+        assert response.status_code == 200 and "set-cookie" not in response.headers
+        paired = response.json()
+        assert paired["device"]["name"] == "Watchlist extension" and paired["token"]
+        bearer = {"Authorization": f"Bearer {paired['token']}"}
+        assert (await extension.get("/auth/me", headers=bearer)).json()["device"]["name"] == "Watchlist extension"
+        assert (await extension.post("/auth/pair/token", json={"code": "AAAA-AAAA", "name": "x"})).status_code == 400

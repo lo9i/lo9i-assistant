@@ -5,7 +5,9 @@ The pages get their own port so they're a different origin from the web app: a s
 (say, injected through data shown on it) can't call the daemon's API as the user. The web app shows
 a page in an iframe; only the web app may frame it.
 
-A request for /<name>/<path> must come from a paired device (its cookie). It goes to the server's
+A request for /<name>/<path> must come from a paired device: its cookie, or its token as Authorization:
+Bearer from a client that keeps its own (a browser extension, whose requests carry none of the
+browser's cookies; /auth/pair/token). It goes to the server's
 page on its Unix socket (core/mcp/pages.py) as /<path>, with X-Forwarded-Prefix: /<name> so the page
 can link back. The device cookie never reaches the page, and the page can't set cookies: those
 would be the web app's cookies too, since browsers don't separate cookies by port.
@@ -23,7 +25,7 @@ from starlette.routing import Route
 from assistant.core.agent import AssistantService, Device
 from assistant.core.config import settings
 from assistant.daemon import https
-from assistant.daemon.auth import COOKIE
+from assistant.daemon.auth import token_of
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +68,7 @@ def ports() -> list[dict]:
 
 
 async def _device(service: AssistantService, request: Request) -> Device | None:
-    token = request.cookies.get(COOKIE, "")
+    token = token_of(request)
     ip = request.client.host if request.client else ""
     return await service.device_for_token(token, ip) if token else None
 

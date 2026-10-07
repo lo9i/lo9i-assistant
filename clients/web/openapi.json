@@ -44,6 +44,45 @@
         }
       }
     },
+    "/auth/pair/token": {
+      "post": {
+        "summary": "Pair For Token",
+        "description": "Pairs a client that keeps its own token (a browser extension, whose requests carry no\ncookie of the browser's) with a code from a trusted client, and gives it the token.",
+        "operationId": "pair_for_token_auth_pair_token_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PairRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairedWithToken"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/me": {
       "get": {
         "summary": "Me",
@@ -6121,6 +6160,23 @@
           "name"
         ],
         "title": "PairRequest"
+      },
+      "PairedWithToken": {
+        "properties": {
+          "device": {
+            "$ref": "#/components/schemas/Device"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "device",
+          "token"
+        ],
+        "title": "PairedWithToken"
       },
       "PairingCode": {
         "properties": {
