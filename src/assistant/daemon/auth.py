@@ -13,6 +13,7 @@ instead. That token reaches only its own channel's routes, `/channels/<name>/...
 """
 
 import asyncio
+import contextlib
 import logging
 import time
 from collections import defaultdict, deque
@@ -220,12 +221,12 @@ async def _until[T](events: AsyncIterator[T], ended: asyncio.Event) -> AsyncIter
     """The events until `ended` is set."""
     iterator = aiter(events)
     stop = asyncio.ensure_future(ended.wait())
+    following: asyncio.Future[Any] | None = None
     try:
         while True:
-            following: asyncio.Future[Any] = asyncio.ensure_future(anext(iterator))
+            following = asyncio.ensure_future(anext(iterator))
             await asyncio.wait({following, stop}, return_when=asyncio.FIRST_COMPLETED)
             if not following.done():
-                following.cancel()
                 return
             try:
                 item = following.result()
@@ -234,6 +235,17 @@ async def _until[T](events: AsyncIterator[T], ended: asyncio.Event) -> AsyncIter
             yield item
     finally:
         stop.cancel()
+        await _stop(following)
+
+
+async def _stop(following: asyncio.Future[Any] | None) -> None:
+    """Ends a pending read of the guarded stream, so its cleanup runs. Left pending, the task would hold
+    the stream open after its reader left (a disconnected browser stayed listed as a connected client)."""
+    if following is None or following.done():
+        return
+    following.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await following
 
 
 def _token(request: Request) -> str:
