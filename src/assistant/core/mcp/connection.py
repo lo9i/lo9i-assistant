@@ -1,4 +1,5 @@
-"""One connection to an MCP server, kept open while the daemon runs and reopened when it drops.
+"""One connection to an MCP server, kept open while the daemon runs and reopened when it drops. A local
+server runs on demand instead (core/mcp/on_demand.py): started by a call, stopped when idle.
 
 The SDK's client must be opened and closed in the same task, so each connection lives in its own
 task (`run`); calls from tools use the open session.
@@ -22,6 +23,7 @@ from mcp.types import CallToolResult, Implementation, TextContent, Tool, ToolLis
 from assistant.core.config import settings
 from assistant.core.health import HealthLog
 from assistant.core.mcp.oauth import McpAuth, SignInNeededError, needs_sign_in
+from assistant.core.mcp.on_demand import OnDemand
 from assistant.core.mcp.servers import McpServer
 
 logger = logging.getLogger(__name__)
@@ -29,6 +31,8 @@ logger = logging.getLogger(__name__)
 _FIRST_RETRY_SECONDS = 30
 _MAX_RETRY_SECONDS = 600
 _CONNECT_SECONDS = 60
+# How long a call waits for a server it started: connecting, and maybe rebuilding its environment first.
+_START_SECONDS = 180
 _HTTP_TIMEOUT = httpx2.Timeout(30, read=300)
 
 
@@ -42,8 +46,9 @@ class ConnectionLostError(Exception):
 
 @dataclass
 class ConnectionState:
-    status: str = "connecting"  # connecting, connected, failed, needs_sign_in
+    status: str = "connecting"  # connecting, connected, failed, needs_sign_in, idle (on demand, stopped)
     error: str = ""
+    # The tools it offers now: those it listed when connected; on demand, those it had last time otherwise.
     tools: list[Tool] = field(default_factory=list)
 
 
@@ -85,10 +90,13 @@ class McpConnection:
         factory: ClientFactory = open_client,
         auth: McpAuth | None = None,
         prepare: Callable[[McpServer], Awaitable[None]] | None = None,
+        on_demand: OnDemand | None = None,
     ) -> None:
-        """`prepare` runs before every attempt to connect (core/mcp/environment.py rebuilds a lost environment)."""
+        """`prepare` runs before every attempt to connect (core/mcp/environment.py rebuilds a lost environment).
+        With `on_demand`, it runs only while calls use it."""
         self.server = server
         self._prepare = prepare
+        self._on_demand = on_demand
         self.state = ConnectionState()
         self._on_change = on_change
         self._health = health
@@ -98,12 +106,17 @@ class McpConnection:
         self._lost = asyncio.Event()
         self._connected = asyncio.Event()
         self._tools_changed = asyncio.Event()
+        # An attempt to connect failed: a call that started the server stops waiting for it.
+        self._attempt_failed = asyncio.Event()
 
     async def run(self, stop: asyncio.Event) -> None:
         """Stay connected until `stop` is set. A dropped connection is reopened right away; a
         failed attempt is retried after a pause that doubles each time."""
         delay = _FIRST_RETRY_SECONDS
         while not stop.is_set():
+            if self._on_demand is not None and not self._on_demand.wanted:
+                await self._rest(self._on_demand, stop)
+                continue
             try:
                 await self._session(stop)
                 delay = _FIRST_RETRY_SECONDS
@@ -111,11 +124,25 @@ class McpConnection:
                 if sign_in := needs_sign_in(e):
                     await self._wait_for_sign_in(sign_in, stop)
                     return
-                logger.warning("MCP server %s: %s", self.server.name, describe(e))
-                self._set(ConnectionState("failed", describe(e)))
-                await self._health.failed("mcp", self.server.name, f"Couldn't connect: {describe(e)}")
+                await self._failed(e)
+                if self._on_demand is not None:
+                    # The next call tries again; nothing retries in the background.
+                    self._on_demand.rest()
+                    continue
                 await _wait(stop, delay)
                 delay = min(delay * 2, _MAX_RETRY_SECONDS)
+
+    async def _rest(self, on_demand: OnDemand, stop: asyncio.Event) -> None:
+        """Stopped until a call wants it. A failure stays shown until then."""
+        if self.state.status != "failed":
+            self._set(ConnectionState("idle", tools=on_demand.tools))
+        await on_demand.until_wanted(stop)
+
+    async def _failed(self, error: Exception) -> None:
+        logger.warning("MCP server %s: %s", self.server.name, describe(error))
+        self._set(ConnectionState("failed", describe(error), self._known_tools()))
+        await self._health.failed("mcp", self.server.name, f"Couldn't connect: {describe(error)}")
+        self._attempt_failed.set()
 
     async def _wait_for_sign_in(self, error: SignInNeededError, stop: asyncio.Event) -> None:
         """Until stopped: a sign-in restarts the connection (McpHub.restart)."""
@@ -128,7 +155,9 @@ class McpConnection:
         """Raises MCPError for an error the server reported, NotConnectedError or ConnectionLostError.
         `progress` gets the progress notifications the server sends while the call runs."""
         try:
-            result = await self._call(tool, arguments, progress)
+            with self._on_demand.using() if self._on_demand else contextlib.nullcontext():
+                await self._wake()
+                result = await self._call(tool, arguments, progress)
         except Exception as e:
             await self._health.failed("mcp", self.server.name, f"{tool}: {describe(e)}")
             raise
@@ -137,6 +166,17 @@ class McpConnection:
         else:
             await self._health.succeeded("mcp", self.server.name)
         return result
+
+    async def _wake(self) -> None:
+        """On demand and not running: start it, and wait until it's connected."""
+        if self._on_demand is None or self._client is not None:
+            return
+        if self.state.status in ("idle", "failed", "connecting"):
+            self._attempt_failed.clear()
+            self._on_demand.want()
+            with contextlib.suppress(TimeoutError):
+                async with asyncio.timeout(_START_SECONDS):
+                    await _first(self._connected.wait(), self._attempt_failed.wait())
 
     async def _call(self, tool: str, arguments: dict, progress: ProgressFnT | None) -> CallToolResult:
         client = self._client
@@ -157,7 +197,7 @@ class McpConnection:
         return self._connected.is_set()
 
     async def _session(self, stop: asyncio.Event) -> None:
-        self._set(ConnectionState("connecting"))
+        self._set(ConnectionState("connecting", tools=self._known_tools()))
         if self._prepare is not None:
             # Outside the connect timeout: rebuilding an environment can take minutes.
             await self._prepare(self.server)
@@ -177,16 +217,28 @@ class McpConnection:
         self._client = client
         self._lost.clear()
         self._connected.set()
+        if self._on_demand is not None:
+            await self._on_demand.learned(tools)
         self._set(ConnectionState("connected", tools=tools))
 
     async def _serve(self, client: Client, stop: asyncio.Event) -> None:
         """Until stopped or the connection drops, refresh the tools whenever the server says they changed."""
         while True:
-            await _first(stop.wait(), self._lost.wait(), self._tools_changed.wait())
-            if stop.is_set() or self._lost.is_set():
+            await _first(stop.wait(), self._lost.wait(), self._tools_changed.wait(), self._idle())
+            if stop.is_set() or self._lost.is_set() or (self._on_demand and not self._on_demand.wanted):
                 return
             self._tools_changed.clear()
             await self._refresh(client)
+
+    async def _idle(self) -> None:
+        """Returns when an on-demand server has been idle long enough to stop; never otherwise."""
+        if self._on_demand is None:
+            await asyncio.Event().wait()
+        else:
+            await self._on_demand.idle()
+
+    def _known_tools(self) -> list[Tool]:
+        return self._on_demand.tools if self._on_demand else []
 
     def _close(self) -> None:
         self._client = None
@@ -204,6 +256,8 @@ class McpConnection:
         except Exception as e:
             logger.warning("MCP server %s: couldn't refresh its tools: %s", self.server.name, describe(e))
             return
+        if self._on_demand is not None:
+            await self._on_demand.learned(tools)
         self._set(ConnectionState("connected", tools=tools))
 
     def _set(self, state: ConnectionState) -> None:

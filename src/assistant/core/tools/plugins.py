@@ -142,7 +142,7 @@ async def _next_steps(plugin: Any, context: Context) -> str:
         return ""
     status = await context.mcp.started(plugin.name, _START_SECONDS) if context.mcp else "off"
     # Once it's connected, the graph gives this run its tools after this call (graph.py, _installed_node).
-    if status == "connected":
+    if status in ("connected", "idle"):
         return " Its tools are available now."
     if status in ("connecting", "failed"):
         return " It's still starting (the first start sets it up); its tools are there from the user's next message."

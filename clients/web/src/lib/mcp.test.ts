@@ -39,6 +39,7 @@ describe("selectionFor", () => {
 describe("statusLabel", () => {
   it("spells out a server waiting for a sign-in and keeps the other words", () => {
     expect(statusLabel("needs_sign_in")).toBe("needs you to sign in");
+    expect(statusLabel("idle")).toBe("starts when used");
     expect(statusLabel("connected")).toBe("connected");
   });
 });

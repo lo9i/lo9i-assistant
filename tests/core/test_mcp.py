@@ -21,9 +21,11 @@ from assistant.core.health import HealthLog
 from assistant.core.hidden_text import strip_hidden
 from assistant.core.mcp import hub as hub_module
 from assistant.core.mcp import servers
-from assistant.core.mcp.connection import ConnectionLostError, McpConnection
+from assistant.core.mcp.connection import ConnectionLostError, McpConnection, NotConnectedError, list_tools
 from assistant.core.mcp.install import FoundServer
 from assistant.core.mcp.media import ToolMedia
+from assistant.core.mcp.oauth import McpAuth
+from assistant.core.mcp.on_demand import OnDemand
 from assistant.core.mcp.tools import McpTool
 from assistant.core.repositories import cache, checkout
 from assistant.core.repositories.known import EXTRAS
@@ -344,3 +346,106 @@ async def test_a_connection_that_cant_be_got_ready_fails_without_connecting():
     stop.set()
     await running
     assert opened == [] and "Couldn't install" in connection.state.error
+
+
+class _Opens:
+    """A client factory for the notes server that counts the times the server is started."""
+
+    def __init__(self, notes: list[str]) -> None:
+        self.count = 0
+        self._server = _notes_server(notes)
+
+    def __call__(self, server, on_message, auth):
+        self.count += 1
+        return Client(self._server, message_handler=on_message)
+
+
+async def _until(condition) -> None:
+    for _ in range(200):
+        if condition():
+            return
+        await asyncio.sleep(0.01)
+    raise TimeoutError("never happened")
+
+
+def _on_demand_connection(opens, tools, saved: list) -> McpConnection:
+    async def save(new) -> None:
+        saved.append([t.name for t in new])
+
+    return McpConnection(
+        McpServer(name="notes", command="notes-server"),
+        lambda: None,
+        HealthLog(InMemoryStore(), EventBus()),
+        opens,
+        on_demand=OnDemand(tools, save, idle_seconds=0.2),
+    )
+
+
+async def test_a_server_on_demand_starts_on_a_call_and_stops_when_idle(notes):
+    opens, saved = _Opens(notes), []
+    probe = _Opens(notes)
+    async with probe(None, None, None) as client:
+        cached = await list_tools(client)
+    connection = _on_demand_connection(opens, cached, saved)
+    stop = asyncio.Event()
+    running = asyncio.create_task(connection.run(stop))
+    await _until(lambda: connection.state.status == "idle")
+    assert opens.count == 0 and [t.name for t in connection.state.tools] == ["read_notes", "add_note", "chart"]
+    result = await connection.call("read_notes", {})
+    assert result.content == [TextContent(text="no notes")] and opens.count == 1
+    await _until(lambda: connection.state.status == "idle")
+    await connection.call("add_note", {"text": "milk"})
+    assert opens.count == 2 and notes == ["milk"]
+    stop.set()
+    await running
+
+
+async def test_a_server_on_demand_with_unknown_tools_starts_at_once_and_keeps_them(notes):
+    opens, saved = _Opens(notes), []
+    connection = _on_demand_connection(opens, [], saved)
+    stop = asyncio.Event()
+    running = asyncio.create_task(connection.run(stop))
+    await _until(lambda: connection.state.status == "connected")
+    assert saved == [["read_notes", "add_note", "chart"]]
+    await _until(lambda: connection.state.status == "idle")
+    assert len(connection.state.tools) == 3
+    stop.set()
+    await running
+
+
+async def test_tools_learned_by_the_hub_are_offered_after_a_restart_without_starting_the_server(service):
+    await _add(service)
+    stop = asyncio.Event()
+    opens = _Opens([])
+    hub = hub_module.McpHub(
+        service.store,
+        EventBus(),
+        HealthLog(service.store, EventBus()),
+        ToolMedia(FakeTranscriber(), service.store),
+        McpAuth(service.store, service.secrets),
+        opens,
+    )
+    running = asyncio.create_task(hub.run(stop))
+    await _until(lambda: hub.state("notes")[0] == "idle")
+    assert opens.count == 0 and hub.tool(READ) is not None
+    stop.set()
+    await running
+
+
+async def test_a_call_to_a_server_on_demand_that_cant_start_fails_at_once(notes):
+    probe = _Opens(notes)
+    async with probe(None, None, None) as client:
+        cached = await list_tools(client)
+
+    def broken(server, on_message, auth):
+        raise OSError("No such file or directory: notes-server")
+
+    connection = _on_demand_connection(broken, cached, [])
+    stop = asyncio.Event()
+    running = asyncio.create_task(connection.run(stop))
+    await _until(lambda: connection.state.status == "idle")
+    with pytest.raises(NotConnectedError):
+        await asyncio.wait_for(connection.call("read_notes", {}), 5)
+    assert connection.state.status == "failed" and len(connection.state.tools) == 3
+    stop.set()
+    await running

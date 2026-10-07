@@ -37,7 +37,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 - A7. Requests from MCP servers: elicitation (a form for the user, through the approval surface on every channel) and sampling (the server asks the model for text; rate-limited, with a token cap). Both are refused today.
 - A8. MCP resources and prompts: per-server `list_resources`, `read_resource`, `list_prompts`, `get_prompt` tools, added only when the server supports them and the user turns them on.
-- A9. MCP startup: start a server on its first call from a cached tool list (for servers that use a lot of memory), and limit how many connect at once when the daemon starts.
+- A9. MCP startup: limit how many servers connect at once when the daemon starts. Local servers whose tools are known start on demand (`core/mcp/on_demand.py`); remote servers, and local ones whose tools aren't known yet, all connect at start.
 - A12. Signing in to a remote MCP server whose authorization server has no dynamic client registration: today the sign-in fails at registration (`core/mcp/oauth.py`). The Sign in dialog takes a client ID and secret of the user's own OAuth app, saved as the server's registered client so registration is skipped, and shows the redirect URI to register with it, as email does. A client metadata URL (the spec's other option) doesn't fit: the authorization server must fetch it, and the daemon is reachable only on the tailnet.
 
 ## Plugins

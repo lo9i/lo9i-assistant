@@ -39,7 +39,8 @@ class McpServerStatus:
     trusted: bool
     include: list[str]
     exclude: list[str]
-    # connecting, connected, failed, needs_sign_in (a remote server waiting for the user to sign in), off
+    # connecting, connected, failed, needs_sign_in (a remote server waiting for the user to sign in),
+    # idle (a local server stopped until a call starts it, core/mcp/on_demand.py), off
     status: str
     error: str
     tools: list[McpToolInfo]

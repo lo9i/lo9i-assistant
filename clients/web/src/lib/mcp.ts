@@ -40,9 +40,15 @@ export function withTools(servers: McpServerStatus[]): McpServerStatus[] {
   return servers.filter((s) => s.transport !== "none");
 }
 
-/** A server's status as the page shows it: the daemon's word, with needs_sign_in spelled out. */
+const LABELS: Record<string, string> = {
+  needs_sign_in: "needs you to sign in",
+  // A local server stopped until the agent uses it (core/mcp/on_demand.py).
+  idle: "starts when used",
+};
+
+/** A server's status as the page shows it: the daemon's word, or what it means when that's unclear. */
 export function statusLabel(status: string): string {
-  return status === "needs_sign_in" ? "needs you to sign in" : status;
+  return LABELS[status] ?? status;
 }
 
 export const STATUS_TONES: Record<string, string | undefined> = {
@@ -50,5 +56,6 @@ export const STATUS_TONES: Record<string, string | undefined> = {
   connecting: "var(--color-warn)",
   failed: "var(--color-danger)",
   needs_sign_in: "var(--color-warn)",
+  idle: "var(--color-success)",
   off: undefined,
 };

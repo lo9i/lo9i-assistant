@@ -209,7 +209,7 @@
         <div class="tools-scroll">
           {#if server.status === "needs_sign_in"}
             <EmptyState icon={LogIn} title="Sign in" text="It asks you to sign in. Its tools show up here once you have." />
-          {:else if server.status !== "connected"}
+          {:else if server.tools.length === 0}
             <EmptyState icon={Wrench} title="Not connected" text="Its tools show up here once it connects." />
           {:else}
             <ToolChecklist tools={server.tools} {chosen} onchange={(c) => (chosen = c)} />

@@ -3,6 +3,7 @@
 The daemon runs the hub as a supervised task. The graph reads two things from it: the tool
 definitions, which each epoch freezes into its state so the tool list stays byte-identical within
 the epoch, and the tool to run for a call, looked up live so a tool turned off stops working at once.
+Local servers run on demand (core/mcp/on_demand.py); remote ones stay connected.
 """
 
 import asyncio
@@ -10,6 +11,7 @@ import contextlib
 import json
 import logging
 from dataclasses import dataclass
+from functools import partial
 from typing import Any
 
 from langgraph.store.base import BaseStore
@@ -21,7 +23,7 @@ from assistant.core.bus import EventBus
 from assistant.core.context import McpStarts
 from assistant.core.health import Health, HealthLog
 from assistant.core.hidden_text import strip_hidden
-from assistant.core.mcp import logins, servers, sign_in
+from assistant.core.mcp import logins, servers, sign_in, tool_cache
 from assistant.core.mcp.connection import (
     ClientFactory,
     McpConnection,
@@ -34,6 +36,7 @@ from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.logins import SharedLogins
 from assistant.core.mcp.media import ToolMedia
 from assistant.core.mcp.oauth import McpAuth, needs_sign_in
+from assistant.core.mcp.on_demand import OnDemand
 from assistant.core.mcp.sanitize import MAX_TOOL_NAME, tool_name
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.mcp.sign_in import McpSignIn
@@ -121,7 +124,9 @@ class McpHub(McpStarts):
         self._changed()
 
     async def restart(self, name: str) -> None:
-        """Connect to the server again even if its settings didn't change: its code did (an update)."""
+        """Connect to the server again even if its settings didn't change: its code did (an update), so its
+        tools are learned again."""
+        await tool_cache.forget(self._store, name)
         if self._active and name in self._running:
             await self._stop(name)
         await self.reload()
@@ -154,7 +159,7 @@ class McpHub(McpStarts):
             connection = running.connection
             if not name.startswith(tool_name(connection.server.name, "")):
                 continue
-            if connection.state.status == "connected":
+            if connection.state.tools:
                 return f"{name} was turned off, or {connection.server.name} no longer has it."
             state = connection.state
             reason = f"{state.status}: {state.error}" if state.error else state.status
@@ -162,7 +167,7 @@ class McpHub(McpStarts):
         return f"{name} isn't available: its MCP server was removed or turned off."
 
     def state(self, name: str) -> tuple[str, str, list[McpToolInfo]]:
-        """A server's status (connecting, connected, failed, needs_sign_in, off), error and tools."""
+        """A server's status (connecting, connected, failed, needs_sign_in, idle, off), error and tools."""
         running = self._running.get(name)
         if running is None:
             return "off", "", []
@@ -171,8 +176,8 @@ class McpHub(McpStarts):
         return connection.state.status, connection.state.error, tools
 
     async def started(self, name: str, timeout: float) -> str:
-        """A server just installed or turned on: its first start can be slow (uv builds its environment)
-        and can time out once before a retry connects."""
+        """A server just installed or turned on: its first start can be slow (an environment to build) and
+        can time out once before a retry connects. One on demand that already stopped again is idle."""
         running = self._running.get(name)
         if running is not None and running.connection.state.status in ("connecting", "failed"):
             await running.connection.reconnected(timeout)
@@ -185,6 +190,7 @@ class McpHub(McpStarts):
         """Drop the failures and the sign-in of a removed server, so one added later under its name
         starts clean."""
         await self._health.forget("mcp", name)
+        await tool_cache.forget(self._store, name)
         await self.sign_out(name)
 
     async def sign_out(self, name: str) -> None:
@@ -230,12 +236,22 @@ class McpHub(McpStarts):
             return
         if running is not None:
             await self._stop(server.name)
-        self._start(server)
+        await self._start(server)
 
-    def _start(self, server: McpServer) -> None:
-        connection = McpConnection(server, self._changed, self._health, self._factory, self._auth, self._prepare)
+    async def _start(self, server: McpServer) -> None:
+        on_demand = await self._on_demand(server)
+        connection = McpConnection(
+            server, self._changed, self._health, self._factory, self._auth, self._prepare, on_demand
+        )
         stop = asyncio.Event()
         self._running[server.name] = _Running(connection, stop, asyncio.create_task(connection.run(stop)))
+
+    async def _on_demand(self, server: McpServer) -> OnDemand | None:
+        """Local servers run on demand: a remote one costs nothing here while connected."""
+        if not server.command:
+            return None
+        save = partial(tool_cache.save, self._store, server.name)
+        return OnDemand(await tool_cache.load(self._store, server.name), save)
 
     async def _prepare(self, server: McpServer) -> None:
         if self._environments is not None:
@@ -260,8 +276,6 @@ class McpHub(McpStarts):
         tools: dict[str, McpTool] = {}
         for running in self._running.values():
             connection = running.connection
-            if connection.state.status != "connected":
-                continue
             for tool in connection.state.tools:
                 if connection.server.selects(tool.name):
                     _add(tools, connection, tool, self._media)

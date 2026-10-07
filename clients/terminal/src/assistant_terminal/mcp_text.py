@@ -10,6 +10,7 @@ _STATUS = {
     "connecting": "connecting…",
     "failed": "can't connect",
     "needs_sign_in": "needs you to sign in",
+    "idle": "starts when used",
     "off": "off",
 }
 

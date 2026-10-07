@@ -30,7 +30,8 @@ class McpStarts(ABC):
     @abstractmethod
     async def started(self, name: str, timeout: float) -> str:
         """Waits up to `timeout` seconds while the server is connecting or retrying, and returns its status
-        then: connected, connecting, failed, needs_sign_in, or off when it isn't running."""
+        then: connected, connecting, failed, needs_sign_in, idle (on demand and stopped),
+        or off when it isn't running."""
 
 
 @dataclass
