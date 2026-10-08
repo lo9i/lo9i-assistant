@@ -44,3 +44,44 @@ def test_notes_and_plain_lines_go_in_one_call_named_after_the_agent_closed_at_th
     assert all(e.within == call.id for e in events[1:])
     assert steps.end("Done") == [ToolFinished("Copilot", "Done")] and not steps.spoke
     assert AgentSteps("Copilot").end("Done") == []
+
+
+def test_words_stream_and_their_whole_block_isnt_shown_again():
+    steps = AgentSteps("Claude Code")
+    events = _events(
+        steps,
+        {"kind": "thinking_delta", "text": "The test "},
+        {"kind": "thinking_delta", "text": "expects a list."},
+        {"kind": "thinking", "text": "The test expects a list."},
+        {"kind": "text_delta", "text": "Running "},
+        {"kind": "text_delta", "text": "it."},
+        {"kind": "text", "text": "Running it."},
+        {"kind": "text_delta", "text": "Done."},
+        {"kind": "text", "text": "Done."},
+        {"kind": "text", "text": "Whole."},  # a block whose words didn't stream
+        {"kind": "text_delta", "text": "sub", "within": "a1"},
+    )
+    assert events == [
+        Thinking("The test "),
+        Thinking("expects a list."),
+        TextDelta("Running "),
+        TextDelta("it."),
+        TextDelta("\n\nDone."),
+        TextDelta("\n\nWhole."),
+    ]
+    assert [json.loads(line)["kind"] for line in steps.lines] == ["thinking", "text", "text", "text"]
+
+
+def test_a_tasks_latest_steps_leave_out_the_streamed_words(tmp_path):
+    from assistant.core.agent_tasks.records import TaskStore
+
+    store = TaskStore(tmp_path)
+    task = store.create("/repo", "fix it")
+    lines = [
+        {"kind": "text_delta", "text": "Run"},
+        {"kind": "text", "text": "Running."},
+        {"kind": "tool", "tool": "Bash"},
+    ]
+    (store.folder(task.id) / "progress.log").write_text("".join(json.dumps(line) + "\n" for line in lines))
+    assert [json.loads(line)["kind"] for line in store.state(task.id).progress] == ["text", "tool"]
+    assert store.state(task.id, progress_lines=0).progress == []

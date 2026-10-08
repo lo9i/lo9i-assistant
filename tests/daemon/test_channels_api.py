@@ -81,7 +81,8 @@ async def test_a_channel_process_holds_its_stream_and_confirms_deliveries(app, s
         http = httpx.AsyncClient(base_url=base_url, headers=headers, timeout=10)
         async with http, http.stream("GET", "/channels/telegram/stream?message_limit=2000&voice=true") as stream:
             lines = aiter(stream.aiter_lines())
-            assert await _next_event(lines) == ("hello", {"assistant_name": await service.assistant_name()})
+            hello = {"assistant_name": await service.assistant_name(), "commands": await service.channel_commands()}
+            assert await _next_event(lines) == ("hello", hello)
             assert service.channels_hub.limits("telegram") == ChatLimits(message_limit=2000, voice=True)
             sending = asyncio.create_task(service.outbox.send("telegram", "stretch"))
             kind, data = await _next_event(lines)

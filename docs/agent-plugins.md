@@ -61,8 +61,13 @@ Each line of `progress.log` is a JSON object with a `kind`; fields that are empt
 | `thinking` | `text` | The agent's reasoning, when its model shows it. |
 | `tool` | `tool`, `detail`, `id` | A tool call starting: its name, what it's about (a command, a file), its id. |
 | `result` | `tool`, `text`, `id` | A tool call's result: the call it ends, its output, shortened. |
+| `text_delta` | `text` | Words of a text as they're written. The whole text follows as a `text` step. |
+| `thinking_delta` | `text` | Words of a thinking as they're written. The whole thinking follows as a `thinking` step. |
 
 `within` on any step is the id of the tool call whose subagent took it. In a conversation handed to the
 agent, the daemon shows text as the reply, thinking apart, and each tool call with its result
-(`core/agent_tasks/steps.py`); notes go inside a call named after the agent. The task tools show notes,
-text and tool calls as the task's latest steps.
+(`core/agent_tasks/steps.py`); notes go inside a call named after the agent. Words stream as they're
+written, and the whole text or thinking that follows them isn't shown again; a worker that writes no
+deltas shows each block whole. History and the task tools keep only the whole blocks. The daemon reads
+new lines at most a tenth of a second after they're written. The task tools show notes, text and tool
+calls as the task's latest steps.

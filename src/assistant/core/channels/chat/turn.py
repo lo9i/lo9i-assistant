@@ -7,6 +7,7 @@ import contextlib
 import json
 import time
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from typing import Any
 
 from assistant.core.channels.chat.approvals import approval_buttons, approval_text
@@ -60,12 +61,12 @@ class ChatTurn:
             case TextDelta(text):
                 self._final += text
                 await self._reply.append(text)
-            case ToolStarted(name, args):
+            case ToolStarted(name, args, call_id, within):
                 self._final = ""
                 await self._after_reply()
-                await self._status.started(name, args)
-            case ToolFinished(name, _):
-                await self._status.finished(name)
+                await self._status.started(name, args, call_id, within)
+            case ToolFinished(name, _, within):
+                await self._status.finished(name, within)
             case ApprovalRequired(interrupt_id, request):
                 await self._after_reply()
                 await self._ask(interrupt_id, request)
@@ -100,36 +101,59 @@ class ChatTurn:
                 await asyncio.sleep(_TYPING_SECONDS)
 
 
+@dataclass
+class _Line:
+    marker: str
+    name: str
+    description: str
+    call_id: str
+    # The call whose subagent made this one; "" for the agent's own.
+    within: str
+
+
 class _StatusMessage:
-    """One message listing this turn's tool calls, edited as they start and finish."""
+    """One message listing this turn's tool calls, edited as they start and finish. A subagent's calls
+    go indented under the call that started it."""
 
     def __init__(self, chat: ChatPort, limits: ChatLimits) -> None:
         self._chat = chat
         self._limits = limits
-        self._lines: list[list[str]] = []  # [marker, name, description]
+        self._lines: list[_Line] = []
         self._message: str | None = None
         self._last_edit = 0.0
 
-    async def started(self, name: str, args: dict[str, Any]) -> None:
-        self._lines.append(["⏺", name, _describe(args)])
+    async def started(self, name: str, args: dict[str, Any], call_id: str = "", within: str = "") -> None:
+        line = _Line("⏺", name, _describe(args), call_id, within)
+        self._lines.insert(self._place(within), line)
         await self.flush()
 
-    async def finished(self, name: str) -> None:
+    async def finished(self, name: str, within: str = "") -> None:
         for line in self._lines:
-            if line[0] == "⏺" and line[1] == name:
-                line[0] = "✓"
+            if line.marker == "⏺" and line.name == name and line.within == within:
+                line.marker = "✓"
                 break
         await self.flush()
 
     async def flush(self, force: bool = False) -> None:
         if not self._lines or (not force and time.monotonic() - self._last_edit < self._limits.edit_seconds):
             return
-        text = "\n".join(f"{marker} {name}({description})" for marker, name, description in self._lines)
+        text = "\n".join(self._text(line) for line in self._lines)
         if self._message is None:
             self._message = await self._chat.send(text)
         else:
             await self._chat.edit(self._message, text)
         self._last_edit = time.monotonic()
+
+    def _place(self, within: str) -> int:
+        """After the call that started it and the calls already under it; last when it has none."""
+        if not within:
+            return len(self._lines)
+        group = [i for i, line in enumerate(self._lines) if within in (line.call_id, line.within)]
+        return group[-1] + 1 if group else len(self._lines)
+
+    def _text(self, line: _Line) -> str:
+        indent = "    " if line.within else ""
+        return f"{indent}{line.marker} {line.name}({line.description})"
 
 
 class _ReplyMessage:

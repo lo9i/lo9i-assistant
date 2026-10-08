@@ -2,8 +2,8 @@
 
 - task.json: what was asked. The daemon writes it once, when the task starts.
 - pid: the worker's process id. The worker writes it when it starts.
-- progress.log: what the agent is doing, one JSON step per line (docs/agent-plugins.md). The worker
-  appends to it.
+- progress.log: what the agent is doing, one JSON step per line (docs/agent-plugins.md), with the words
+  of its text and thinking as they're written. The worker appends to it.
 - result.json: how it ended. The worker writes it last.
 - stopped: the user stopped it. The daemon writes it.
 - worker.log: the worker's output, for finding out why one failed.
@@ -21,6 +21,8 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
+
+from assistant.core.agent_tasks.steps import streamed
 
 Status = Literal["running", "done", "failed", "stopped"]
 
@@ -64,7 +66,7 @@ class TaskState:
     status: Status
     # Set once it's done or failed.
     outcome: Outcome | None
-    # The last lines of progress.log, as written.
+    # The last steps in progress.log, as written, without the words streamed before their whole block.
     progress: list[str]
 
 
@@ -106,7 +108,8 @@ class TaskStore:
         task = self.get(task_id)
         folder = self.folder(task_id)
         outcome = _read_outcome(folder / _RESULT)
-        progress = _tail(folder / _PROGRESS, progress_lines)
+        steps = [line for line in _tail(folder / _PROGRESS, None) if not streamed(line)]
+        progress = steps[-progress_lines:] if progress_lines else []
         return TaskState(task, self._status(task, outcome), outcome, progress)
 
     def pid(self, task_id: str) -> int | None:

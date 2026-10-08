@@ -4129,6 +4129,11 @@
           "command": {
             "type": "string",
             "title": "Command"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
           }
         },
         "type": "object",

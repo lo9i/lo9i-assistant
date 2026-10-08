@@ -11,7 +11,8 @@ class TextDelta:
 
 @dataclass
 class Thinking:
-    """A handed-off agent's reasoning (core/agent_tasks/steps.py), shown apart from its reply."""
+    """A handed-off agent's reasoning (core/agent_tasks/steps.py), shown apart from its reply. It streams:
+    Thinking events with nothing between them continue one another, like TextDelta."""
 
     text: str
 

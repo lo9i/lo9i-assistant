@@ -145,3 +145,18 @@ def test_buttons_are_told_apart_by_their_data():
 def test_split_text_respects_the_limit():
     parts = split_text("para one\n\n" + "x" * 5000 + "\n\nend", limit=3500)
     assert all(len(p) <= 3500 for p in parts) and "".join(parts).replace("\n", "").endswith("end")
+
+
+async def test_a_subagents_calls_go_indented_under_the_call_that_started_it():
+    chat, _ = await _render(
+        ToolStarted("delegate", {"task": "find the bug"}, id="d1"),
+        ToolStarted("web_search", {"query": "x"}, id="w1"),
+        ToolStarted("bash", {"command": "ls"}, id="b1", within="d1"),
+        ToolStarted("read_file", {"path": "a.py"}, id="r1", within="d1"),
+        ToolFinished("bash", "a.py", within="d1"),
+        ToolFinished("read_file", "...", within="d1"),
+        ToolFinished("delegate", "found it"),
+        ToolFinished("web_search", "results"),
+        Done(),
+    )
+    assert chat.messages["1"] == ("✓ delegate(find the bug)\n    ✓ bash(ls)\n    ✓ read_file(a.py)\n✓ web_search(x)")

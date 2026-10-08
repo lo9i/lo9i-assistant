@@ -11,6 +11,8 @@ from assistant.core.agent_tasks.records import TaskState, TaskStore
 
 # How often a wait looks again without a file change: it misses no change made just before it began.
 _RECHECK_MS = 2_000
+# Changes are read at most this long after they're written: a streamed reply's words flow, not in bursts.
+_DEBOUNCE_MS = 100
 
 # watchfiles logs every change it sees at INFO, which would fill the log while a task is followed.
 logging.getLogger("watchfiles").setLevel(logging.WARNING)
@@ -24,7 +26,8 @@ async def until_ended(store: TaskStore, task_id: str, report: Report | None = No
     look = _Look(store, task_id, report)
     if (state := await look()).status != "running":
         return state
-    async for _ in awatch(store.folder(task_id), yield_on_timeout=True, rust_timeout=_RECHECK_MS):
+    folder = store.folder(task_id)
+    async for _ in awatch(folder, yield_on_timeout=True, rust_timeout=_RECHECK_MS, debounce=_DEBOUNCE_MS, step=20):
         if (state := await look()).status != "running":
             return state
     return await look()

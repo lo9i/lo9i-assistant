@@ -21,6 +21,12 @@ from assistant.core.mcp.install import ServerValues
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.outbox import DeliveryError, Outbox
 
+_COMMANDS = [{"command": "new", "description": "Start a side conversation"}]
+
+
+async def _commands() -> list[dict[str, str]]:
+    return _COMMANDS
+
 
 def _hub(name: str = "lo9i") -> tuple[ChannelHub, Outbox, RemoteApprovals, EventBus]:
     outbox, approvals, bus = Outbox(), RemoteApprovals(), EventBus()
@@ -28,7 +34,7 @@ def _hub(name: str = "lo9i") -> tuple[ChannelHub, Outbox, RemoteApprovals, Event
     async def assistant_name() -> str:
         return name
 
-    return ChannelHub(outbox, approvals, bus, assistant_name), outbox, approvals, bus
+    return ChannelHub(outbox, approvals, bus, assistant_name, _commands), outbox, approvals, bus
 
 
 _LIMITS = ChatLimits()
@@ -38,7 +44,7 @@ async def _attached(hub: ChannelHub, channel: str, limits: ChatLimits = _LIMITS)
     """The channel's stream, past its hello."""
     stream = hub.attach(channel, limits)
     hello = await anext(stream)
-    assert hello.kind == "hello" and hello.data == {"assistant_name": "lo9i"}
+    assert hello.kind == "hello" and hello.data == {"assistant_name": "lo9i", "commands": _COMMANDS}
     return stream
 
 
@@ -122,14 +128,17 @@ async def test_a_second_stream_replaces_the_first():
     assert (await anext(second)).data == {"action": "new-pairing-code"}
 
 
-async def test_channels_hear_when_the_assistant_is_renamed():
-    names = ["lo9i"]
+async def test_channels_hear_when_the_assistant_is_renamed_and_when_their_commands_change():
+    names, offered = ["lo9i"], [list(_COMMANDS)]
     outbox, approvals, bus = Outbox(), RemoteApprovals(), EventBus()
 
     async def assistant_name() -> str:
         return names[-1]
 
-    hub = ChannelHub(outbox, approvals, bus, assistant_name)
+    async def commands() -> list[dict[str, str]]:
+        return offered[-1]
+
+    hub = ChannelHub(outbox, approvals, bus, assistant_name, commands)
     stop = asyncio.Event()
     running = asyncio.create_task(hub.run(stop))
     stream = aiter(hub.attach("telegram", ChatLimits()))
@@ -138,6 +147,10 @@ async def test_channels_hear_when_the_assistant_is_renamed():
     names.append("Ada")
     bus.publish("settings")
     assert (await anext(stream)).data == {"assistant_name": "Ada"}
+    offered.append([*_COMMANDS, {"command": "claude", "description": "Hand this conversation to Claude Code"}])
+    bus.publish("mcp")
+    changed = await anext(stream)
+    assert (changed.kind, changed.data) == ("commands", {"commands": offered[-1]})
     stop.set()
     await running
 

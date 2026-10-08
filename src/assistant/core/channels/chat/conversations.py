@@ -8,6 +8,7 @@ from collections.abc import AsyncIterator, Callable, Coroutine, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from assistant.core.agent.handoffs import Agent, AgentFolders, Handoff, HandoffError
 from assistant.core.agent.session import Session
 from assistant.core.agent.speech import AudioFormat
 from assistant.core.attachments import Attachment
@@ -48,6 +49,10 @@ class Conversations(Protocol):
     async def channel_home(self, user_id: str, channel: str) -> str: ...
     async def speaks_reply(self, after_voice_message: bool) -> bool: ...
     async def speak(self, text: str, audio_format: AudioFormat = "wav", voice: str = "") -> bytes: ...
+    async def agents(self) -> list[Agent]: ...
+    async def hand_conversation(self, user_id: str, thread_id: str, command: str, folder: str) -> Handoff: ...
+    async def take_back_conversation(self, user_id: str, thread_id: str) -> None: ...
+    async def agent_folders(self, user_id: str) -> AgentFolders: ...
 
 
 class Runs(Protocol):
@@ -90,8 +95,8 @@ class ChannelChats:
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
-    async def command(self, channel: str, command: str) -> str:
-        """/new, /home or /start, and what to answer."""
+    async def command(self, channel: str, command: str, text: str = "") -> str:
+        """/new, /home, /start or an agent's command with what follows it, and what to answer."""
         match command:
             case "new":
                 await self._conversations.new_channel_thread(settings.owner_id, channel)
@@ -101,8 +106,32 @@ class ChannelChats:
                 return "Back home."
             case "start":
                 return GREETING
-            case _:
-                return f"Unknown command /{command}."
+        agent = next((a for a in await self._conversations.agents() if a.command == command), None)
+        if agent is None:
+            return f"Unknown command /{command}."
+        return await self._agent_command(channel, agent, text.strip())
+
+    async def _agent_command(self, channel: str, agent: Agent, folder: str) -> str:
+        """`/claude <folder>` hands the channel's conversation to the agent, `/claude off` takes it back;
+        alone it says how, with the folders used before (a chat has no folder picker)."""
+        thread_id = (await self._conversations.session(settings.owner_id, channel)).thread_id
+        if folder == "off":
+            await self._conversations.take_back_conversation(settings.owner_id, thread_id)
+            return "The assistant answers again from your next message."
+        if not folder:
+            return await self._how_to_hand(agent)
+        try:
+            handoff = await self._conversations.hand_conversation(settings.owner_id, thread_id, agent.command, folder)
+        except HandoffError as e:
+            return str(e)
+        back = f"/{agent.command} off brings the assistant back."
+        return f"{handoff.name} answers from your next message, working in {handoff.folder}. {back}"
+
+    async def _how_to_hand(self, agent: Agent) -> str:
+        offered = await self._conversations.agent_folders(settings.owner_id)
+        folders = [offered.workspace, *offered.recent]
+        listed = "\n".join(f"/{agent.command} {folder}" for folder in folders)
+        return f"Give {agent.name} a folder to work in, its full path:\n{listed}"
 
     async def _press(self, chat: "_Chat", pressed: "_Pressed") -> None:
         place = chat.channel.capitalize()

@@ -48,11 +48,15 @@ async def render(events: AsyncIterator[Event]) -> list[ApprovalRequired]:
 
 class _Printer:
     def __init__(self) -> None:
-        self._in_text = False
+        # What's streaming: "text", "thinking" or "" for nothing.
+        self._streaming = ""
 
     def print(self, event: Event) -> None:
         if isinstance(event, TextDelta):
-            self._text(event.text)
+            self._stream("text", f"{code(GRAY)}{_BULLET}", code(GRAY), event.text)
+            return
+        if isinstance(event, Thinking):
+            self._stream("thinking", f"{code(DIM)}✻ ", code(DIM), event.text)
             return
         self.end_text()
         match event:
@@ -62,8 +66,6 @@ class _Printer:
                 _write(paint(DIM, _result(output, _INDENT * 2)) + "\n")
             case ToolStarted(name, args):
                 _write(f"\n{_BULLET}{paint(BOLD, name)}" + (f"({_describe(args)})" if args else "") + "\n")
-            case Thinking(text):
-                _write(paint(DIM, "\n✻ " + text.strip().replace("\n", "\n" + _INDENT)) + "\n")
             case ToolFinished(_, output):
                 _write(paint(DIM, _result(output)) + "\n")
             case Transcribed(text, language):
@@ -76,15 +78,17 @@ class _Printer:
                 pass
 
     def end_text(self) -> None:
-        if self._in_text:
+        if self._streaming:
             _write(code(RESET) + "\n")
-            self._in_text = False
+            self._streaming = ""
 
-    def _text(self, text: str) -> None:
-        if not self._in_text:
-            _write(f"\n{code(GRAY)}{_BULLET}")
-            self._in_text = True
-        _write(code(GRAY) + text.replace("\n", "\n" + _INDENT))
+    def _stream(self, kind: str, opening: str, color: str, text: str) -> None:
+        """Text and thinking stream: an event right after another of its kind continues it."""
+        if self._streaming != kind:
+            self.end_text()
+            _write(f"\n{opening}")
+            self._streaming = kind
+        _write(color + text.replace("\n", "\n" + _INDENT))
 
 
 def _describe(args: dict[str, Any]) -> str:

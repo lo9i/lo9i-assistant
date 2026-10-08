@@ -83,6 +83,19 @@ describe("transcript", () => {
     ]);
   });
 
+  it("joins thinking that streams into one item", () => {
+    const t = play([
+      { type: "Thinking", text: "The test " },
+      { type: "Thinking", text: "expects a list." },
+      { type: "TextDelta", text: "Fixing it." },
+      { type: "Thinking", text: "Done?" },
+    ]);
+    expect(t.items.filter((i) => i.kind === "thinking").map((i) => (i.kind === "thinking" ? i.text : ""))).toEqual([
+      "The test expects a list.",
+      "Done?",
+    ]);
+  });
+
   it("shows a call's one text argument next to its name", () => {
     expect(inlineArg({ detail: "pytest -q" })).toBe("pytest -q");
     expect(inlineArg({ command: "ls", timeout: 5 })).toBeUndefined();

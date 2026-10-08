@@ -166,3 +166,20 @@ async def test_a_channel_that_went_away_stops_the_turn_and_the_run_goes_on(chats
         await asyncio.sleep(0.01)
     session = await service.session("owner", "telegram")
     assert [m.text for m in await service.conversation_messages(session.thread_id)] == ["hi", "Still here."]
+
+
+async def test_an_agents_command_hands_the_channels_conversation_to_it_and_back(chats, service, tmp_path):
+    from tests.core.test_handoffs import agent_plugin
+
+    assert [c["command"] for c in await service.channel_commands()] == ["new", "home"]
+    await service.add_mcp_server(agent_plugin())
+    assert (await service.channel_commands())[-1]["command"] == "claude"
+    thread = (await service.session("owner", "telegram")).thread_id
+    asked = await chats.command("telegram", "claude", "")
+    assert asked.startswith("Give Claude Code a folder to work in") and "/claude " in asked
+    handed = await chats.command("telegram", "claude", f" {tmp_path} ")
+    assert handed.startswith(f"Claude Code answers from your next message, working in {tmp_path}.")
+    assert (await service.conversation_agent("owner", thread)).folder == str(tmp_path)
+    assert "isn't an existing folder" in await chats.command("telegram", "claude", str(tmp_path / "missing"))
+    assert await chats.command("telegram", "claude", "off") == "The assistant answers again from your next message."
+    assert await service.conversation_agent("owner", thread) is None

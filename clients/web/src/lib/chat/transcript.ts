@@ -59,7 +59,7 @@ export function apply(t: Transcript, event: RunEvent): Transcript {
       if (event.within) return stepFinished(ended, event.within, event.name, event.output);
       return toolFinished(ended, event.name, event.output);
     case "Thinking":
-      return add(ended, { kind: "thinking", text: event.text });
+      return addThinking(ended, event.text);
     case "Transcribed":
       return add(ended, { kind: "transcript", text: event.text, language: event.language });
     case "Error":
@@ -110,6 +110,13 @@ function addShown(t: Transcript, message: ShownMessage): Transcript {
 function shownTool(message: ShownMessage): Omit<ToolItem, "id"> {
   const args = message.detail ? { detail: message.detail } : undefined;
   return { kind: "tool", name: message.text, args, output: message.output || undefined, state: "done" };
+}
+
+/** Thinking streams: an event right after another continues it. */
+function addThinking(t: Transcript, text: string): Transcript {
+  const last = t.items.at(-1);
+  if (last?.kind !== "thinking") return add(t, { kind: "thinking", text });
+  return update(t, last.id, (item) => (item.kind === "thinking" ? { ...item, text: item.text + text } : item));
 }
 
 function addText(t: Transcript, text: string): Transcript {

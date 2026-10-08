@@ -61,7 +61,7 @@ token reaches only `/channels/<its name>/...`; anything else answers 403.
 | `POST /deliveries/{id}` | `{"error": "", "message": ""}`: an operation's result. `error` is empty when it was carried out, otherwise why not; `message` is the id of the message a `send` sent. Unanswered within 30 seconds counts as failed. |
 | `POST /messages` | Multipart form: `chat` (the chat's id in the service), `text`, `voice` (`true` for a voice note: Settings → Audio can speak only those replies) and `files` (repeated). Runs the message in the channel's conversation; what follows comes as operations for that chat. |
 | `POST /presses` | `{"chat": "...", "message": "...", "text": "...", "data": "..."}`: a button pressed. `message` is the id of the message it's on and `text` that message's text, which the daemon shows again without the buttons; `data` is the button's data, as the daemon gave it. |
-| `POST /commands` | `{"command": "new"}`, without the slash: `new` starts a side conversation, `home` goes back home, `start` greets. Returns `{"text": "..."}`, what to answer. A channel is on home until its `/new`. |
+| `POST /commands` | `{"command": "new", "text": ""}`: a command without its slash, and what follows it. `new` starts a side conversation, `home` goes back home, `start` greets, and an agent's command hands the channel's conversation to it (`claude` with a folder in `text`, or `off` to take it back). Returns `{"text": "..."}`, what to answer. A channel is on home until its `/new`. Send every command the user types: the daemon knows which exist. |
 
 `POST /messages` and `POST /presses` answer at once; the run goes on in the daemon, where the apps see
 it too.
@@ -70,7 +70,8 @@ it too.
 
 | Kind | Data | What the channel does |
 |---|---|---|
-| `hello` | `{"assistant_name": "..."}` | First event of every stream. |
+| `hello` | `{"assistant_name": "...", "commands": [{"command", "description"}, ...]}` | First event of every stream. `commands` are what the channel offers its user, without the slash: `new`, `home` and each installed agent's (Telegram's command menu, Slack's manifest). |
+| `commands` | `{"commands": [...]}` | The commands changed: an agent plugin was installed or removed. |
 | `renamed` | `{"assistant_name": "..."}` | The assistant was renamed (Telegram renames its bot). |
 | `action` | `{"action": "..."}` | The user pressed a setup button in an app (a SetupItem of kind `action`). |
 | `send` | `{"id", "chat", "text", "markdown", "buttons"}` | Send `text` (Markdown when `markdown` is true) with `buttons`, `[[label, data], ...]`, then `POST /deliveries/{id}` with the new message's id. |

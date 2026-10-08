@@ -74,7 +74,7 @@ class TurnView:
             case ToolFinished(name, output):
                 self._tool_finished(name, output)
             case Thinking(text):
-                await self._chat.mount(ThinkingNote(text))
+                await self._thinking(text)
             case Transcribed(text, language):
                 await self._chat.mount(TranscriptNote(text, language))
             case Error(message):
@@ -91,6 +91,14 @@ class TurnView:
             self._stream = Markdown.get_stream(message)
             self._status.clear()
         await self._stream.write(text)
+
+    async def _thinking(self, text: str) -> None:
+        """Thinking streams: an event right after another continues it."""
+        last = self._chat.children[-1] if self._chat.children else None
+        if isinstance(last, ThinkingNote):
+            last.add(text)
+        else:
+            await self._chat.mount(ThinkingNote(text))
 
     async def _end_text(self) -> None:
         if self._stream is not None:

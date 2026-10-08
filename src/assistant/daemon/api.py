@@ -152,8 +152,10 @@ class ChannelPress(BaseModel):
 
 
 class ChannelCommand(BaseModel):
-    # Without its slash: new, home, start.
+    # Without its slash: new, home, start, or an agent's (claude).
     command: str
+    # What follows it: an agent's folder, or off.
+    text: str = ""
 
 
 class CommandReply(BaseModel):
@@ -818,7 +820,7 @@ def _add_channel_chat_routes(app: FastAPI, service: AssistantService, hub: RunHu
     @app.post("/channels/{name}/commands")
     async def channel_command(name: str, body: ChannelCommand, request: Request) -> CommandReply:
         _require_channel(request, name)
-        return CommandReply(text=await chats.command(name, body.command))
+        return CommandReply(text=await chats.command(name, body.command, body.text))
 
 
 def _require_channel(request: Request, name: str) -> None:

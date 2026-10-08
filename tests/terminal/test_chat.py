@@ -371,7 +371,8 @@ async def test_a_handed_off_agents_steps_show_as_lines_inside_its_call(app, clie
 
 async def test_a_handed_off_agent_shows_its_thinking_text_and_tool_calls_in_order(app, client, monkeypatch):
     async def send(session, text, attachments=()):
-        yield Thinking("The test expects a list.\nLet me check.")
+        yield Thinking("The test expects a list.")
+        yield Thinking("\nLet me check.")  # it streams: one note
         yield TextDelta("Running the tests.")
         yield ToolStarted("Bash", {"detail": "pytest -q"}, id="t1")
         yield ToolFinished("Bash", "1 failed")

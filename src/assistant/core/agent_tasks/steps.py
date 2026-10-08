@@ -17,22 +17,32 @@ _LINE = 200
 STEPS = "agent_steps"
 
 
+# The words of a text or a thinking as they're written, before the whole of it comes as one step.
+_DELTAS = {"text_delta": "text", "thinking_delta": "thinking"}
+
+
 class AgentSteps:
     def __init__(self, name: str) -> None:
         self._name = name
         # The call that holds the notes, once the first one comes.
         self._notes = ""
-        self._in_text = False
+        # What was shown last ("text", "thinking", ...), to set a new block apart from the one before.
+        self._last = ""
+        # The text or thinking whose words are streaming now, "" when none is.
+        self._open = ""
         # It said something: its reply, its last text, has been shown with it.
         self.spoke = False
-        # Every step so far, as written, to keep with the reply.
+        # Every step so far but the streamed words, as written, to keep with the reply.
         self.lines: list[str] = []
 
     def events(self, message: str) -> list[Event]:
-        self.lines.append(message)
         step = parse(message)
+        kind = step.get("kind", "")
+        if kind not in _DELTAS:
+            self.lines.append(message)
         events = self._events(step)
-        self._in_text = step.get("kind") == "text" and bool(events)
+        if events:
+            self._last = _DELTAS.get(kind, kind)
         return events
 
     def end(self, output: str) -> list[Event]:
@@ -40,20 +50,32 @@ class AgentSteps:
         return [ToolFinished(self._name, output)] if self._notes else []
 
     def _events(self, step: dict[str, str]) -> list[Event]:
-        kind, text, within = step.get("kind"), step.get("text", ""), step.get("within", "")
+        kind, text, within = step.get("kind", ""), step.get("text", ""), step.get("within", "")
+        block = _DELTAS.get(kind, kind)
         # A subagent's own words aren't forwarded; its tool calls are shown inside the call that started it.
-        if kind in ("text", "thinking") and within:
+        if block in ("text", "thinking") and within:
             return []
-        if kind == "text":
+        if block == "text":
             self.spoke = True
-            return [TextDelta(("\n\n" if self._in_text else "") + text)]
-        if kind == "thinking":
-            return [Thinking(text)]
+            return [TextDelta(words) for words in self._words(kind, text)]
+        if block == "thinking":
+            return [Thinking(words) for words in self._words(kind, text)]
         if kind == "tool":
             return [ToolStarted(step.get("tool", ""), _args(step), id=step.get("id", ""), within=within)]
         if kind == "result":
             return [ToolFinished(step.get("tool", ""), text, within=within)]
         return self._note(text)
+
+    def _words(self, kind: str, text: str) -> list[str]:
+        """What to show of a text or a thinking: its words as they stream, or the whole of it when none
+        streamed. The whole block after its words shows nothing; a new block is a new paragraph."""
+        block = _DELTAS.get(kind, kind)
+        if kind == block and self._open == block:
+            self._open = ""
+            return []
+        starts = self._open != block
+        self._open = block if kind != block else ""
+        return [("\n\n" if starts and self._last == block else "") + text]
 
     def _note(self, text: str) -> list[Event]:
         opened: list[Event] = []
@@ -61,6 +83,11 @@ class AgentSteps:
             self._notes = f"agent-{uuid.uuid4().hex}"
             opened.append(ToolStarted(self._name, {}, id=self._notes))
         return [*opened, ToolStarted(text, {}, within=self._notes), ToolFinished(text, "", within=self._notes)]
+
+
+def streamed(message: str) -> bool:
+    """It's the words of a text or a thinking as they stream, which the whole block repeats."""
+    return parse(message).get("kind", "") in _DELTAS
 
 
 def line(message: str) -> str:

@@ -25,14 +25,23 @@ class TranscriptNote(Static):
 
 
 class ThinkingNote(Collapsible):
-    """A handed-off agent's thinking: its first line, the rest when expanded."""
+    """A handed-off agent's thinking: its first line, the rest when expanded. It streams (`add`)."""
 
     _TITLE = 100
 
     def __init__(self, text: str) -> None:
-        first = text.strip().splitlines()[0] if text.strip() else ""
-        title = first if len(first) <= self._TITLE else first[: self._TITLE] + "…"
-        super().__init__(Static(text, classes="thinking-text", markup=False), title=f"✻ {title}", collapsed=True)
+        self._text = text
+        self._body = Static(text, classes="thinking-text", markup=False)
+        super().__init__(self._body, title=self._heading(), collapsed=True)
+
+    def add(self, text: str) -> None:
+        self._text += text
+        self._body.update(self._text)
+        self.title = self._heading()
+
+    def _heading(self) -> str:
+        first = self._text.strip().splitlines()[0] if self._text.strip() else ""
+        return f"✻ {first if len(first) <= self._TITLE else first[: self._TITLE] + '…'}"
 
 
 class ToolNote(Static):

@@ -107,7 +107,7 @@ class AssistantService(
         self.agent_tasks = AgentTasks(storage.store, secrets, environments, lambda: logins.of_model(self._model))
         self._plugin_tools = PluginTools(self.mcp, AgentTools(self.agent_tasks))
         self.pages = McpPages(storage.store, environments, secrets)
-        self.channels_hub = ChannelHub(self.outbox, self.approvals, bus, self.assistant_name)
+        self.channels_hub = ChannelHub(self.outbox, self.approvals, bus, self.assistant_name, self.channel_commands)
         self.channel_processes = ChannelProcesses(storage.store, self.channels_hub, environments, secrets)
         embedder = E5Embedder()
         self.memory_index = MemoryIndexer(storage.store, storage.vectors, embedder, bus)

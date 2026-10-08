@@ -1800,6 +1800,11 @@ export interface components {
         ChannelCommand: {
             /** Command */
             command: string;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
         };
         /** ChannelItems */
         ChannelItems: {

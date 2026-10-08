@@ -31,6 +31,8 @@ DELIVERY_SECONDS = 30.0
 OWN_CHAT = ""
 
 SetupKind = Literal["text", "code", "copy", "action"]
+# A channel's commands: {"command": "new", "description": "..."} each.
+Commands = list[dict[str, str]]
 
 
 @dataclass
@@ -73,12 +75,19 @@ class ChannelHub:
     name = "channels"
 
     def __init__(
-        self, outbox: Outbox, approvals: RemoteApprovals, bus: EventBus, assistant_name: Callable[[], Awaitable[str]]
+        self,
+        outbox: Outbox,
+        approvals: RemoteApprovals,
+        bus: EventBus,
+        assistant_name: Callable[[], Awaitable[str]],
+        commands: Callable[[], Awaitable[Commands]],
     ) -> None:
+        """`commands`: what the channels offer (core/channels/chat/commands.py)."""
         self._outbox = outbox
         self._approvals = approvals
         self._bus = bus
         self._assistant_name = assistant_name
+        self._commands = commands
         self._tokens: dict[str, str] = {}
         self._streams: dict[str, _Stream] = {}
         self._items: dict[str, list[SetupItem]] = {}
@@ -114,7 +123,8 @@ class ChannelHub:
         """The channel's events for as long as it reads them. A second stream ends the first."""
         stream = self._open(channel, limits)
         try:
-            yield ChannelEvent("hello", {"assistant_name": await self._assistant_name()})
+            hello = {"assistant_name": await self._assistant_name(), "commands": await self._commands()}
+            yield ChannelEvent("hello", hello)
             while not stream.ended.is_set():
                 event = await _next(stream)
                 if event is not None:
@@ -140,12 +150,13 @@ class ChannelHub:
         self._push(channel, ChannelEvent("action", {"action": action}))
 
     async def run(self, stop: asyncio.Event) -> None:
-        """Tell the channels when the assistant is renamed (Telegram renames its bot)."""
-        renames = asyncio.create_task(self._follow_renames())
+        """Tell the channels when the assistant is renamed (Telegram renames its bot) and when their
+        commands change (an agent plugin installed or removed)."""
+        changes = asyncio.create_task(self._follow_changes())
         try:
             await stop.wait()
         finally:
-            renames.cancel()
+            changes.cancel()
 
     async def operate(self, channel: str, kind: str, data: dict[str, Any]) -> str:
         """Have the channel carry out a chat operation and wait until it says it did. Returns the id of
@@ -166,12 +177,15 @@ class ChannelHub:
             raise DeliveryError(error)
         return message
 
-    async def _follow_renames(self) -> None:
-        name = await self._assistant_name()
+    async def _follow_changes(self) -> None:
+        name, commands = await self._assistant_name(), await self._commands()
         async for event in self._bus.subscribe(self._bus.last_id):
             if event.kind == "settings" and (new := await self._assistant_name()) != name:
                 name = new
                 self._broadcast(ChannelEvent("renamed", {"assistant_name": name}))
+            if event.kind == "mcp" and (offered := await self._commands()) != commands:
+                commands = offered
+                self._broadcast(ChannelEvent("commands", {"commands": commands}))
 
     def _open(self, channel: str, limits: ChatLimits) -> _Stream:
         if (previous := self._streams.get(channel)) is not None:
