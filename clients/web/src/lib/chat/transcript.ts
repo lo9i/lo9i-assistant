@@ -101,8 +101,15 @@ function add(t: Transcript, item: NewItem): Transcript {
 
 function addShown(t: Transcript, message: ShownMessage): Transcript {
   if (message.role === "user") return add(t, { kind: "user", text: message.text, files: [] });
-  if (message.role === "tool") return add(t, { kind: "tool", name: message.text, state: "done" });
+  if (message.role === "thinking") return add(t, { kind: "thinking", text: message.text });
+  if (message.role === "tool") return add(t, shownTool(message));
   return add(t, { kind: "assistant", text: message.text });
+}
+
+/** A handed-off agent's tool call comes with what it was about and its output, as it was shown live. */
+function shownTool(message: ShownMessage): Omit<ToolItem, "id"> {
+  const args = message.detail ? { detail: message.detail } : undefined;
+  return { kind: "tool", name: message.text, args, output: message.output || undefined, state: "done" };
 }
 
 function addText(t: Transcript, text: string): Transcript {

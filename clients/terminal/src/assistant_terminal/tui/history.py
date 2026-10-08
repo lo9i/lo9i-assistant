@@ -3,7 +3,7 @@
 from textual.containers import VerticalScroll
 
 from assistant.core.agent import ShownMessage
-from assistant_terminal.tui.widgets import AssistantMessage, ToolNote, UserMessage
+from assistant_terminal.tui.widgets import AssistantMessage, ThinkingNote, ToolCall, ToolNote, UserMessage
 
 
 async def show_history(chat: VerticalScroll, messages: list[ShownMessage]) -> None:
@@ -16,4 +16,15 @@ def _widget(message: ShownMessage):
         return UserMessage(message.text, [])
     if message.role == "assistant":
         return AssistantMessage(message.text)
+    if message.role == "thinking":
+        return ThinkingNote(message.text)
+    if message.output:
+        return _finished_call(message)
     return ToolNote(message.text)
+
+
+def _finished_call(message: ShownMessage) -> ToolCall:
+    """A handed-off agent's tool call, with its output, as it was shown live."""
+    call = ToolCall(message.text, {"detail": message.detail} if message.detail else {})
+    call.finish(message.output)
+    return call

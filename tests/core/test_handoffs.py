@@ -74,8 +74,17 @@ async def test_the_agents_thinking_text_and_tool_calls_are_shown_as_it_works(ser
         TextDelta("\n\nAll green."),
         Done(),  # the reply, its last text, isn't shown twice
     ]
-    shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
-    assert shown[-1] == ("assistant", "All green.")
+    shown = await service.conversation_messages(session.thread_id)
+    assert [(m.role, m.text, m.detail, m.output) for m in shown[1:]] == [  # as shown live, after a reload
+        ("thinking", "The test expects a list.", "", ""),
+        ("assistant", "Running the tests.", "", ""),
+        ("tool", "Bash", "pytest -q", "1 failed"),
+        ("assistant", "Fixed it.\n\nAll green.", "", ""),
+    ]
+    _, *messages = (await service._graph.aget_state({"configurable": {"thread_id": session.thread_id}})).values[
+        "messages"
+    ]
+    assert messages[-1].content == "All green."  # what the assistant's model reads when it gets the conversation back
 
 
 async def test_plain_lines_from_an_agent_are_shown_inside_a_call_named_after_it(service, tmp_path):
@@ -89,6 +98,12 @@ async def test_plain_lines_from_an_agent_are_shown_inside_a_call_named_after_it(
         ToolFinished("Claude Code", "Done"),
         TextDelta(f"Done in {tmp_path}: show your steps"),
         Done(),
+    ]
+    shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
+    assert shown[1:] == [
+        ("tool", "Read: README.md"),
+        ("tool", "Ran: pytest"),
+        ("assistant", f"Done in {tmp_path}: show your steps"),
     ]
 
 

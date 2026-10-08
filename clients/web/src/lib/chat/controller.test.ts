@@ -11,7 +11,7 @@ class FakeDaemon implements ChatClient {
   runs: RunEvent[][] = [];
   decisions: Record<string, Decision>[] = [];
   keepOpen = false;
-  conversations = { messages: async () => [{ role: "user", text: "earlier" }] };
+  conversations = { messages: async () => [{ role: "user", text: "earlier", detail: "", output: "" }] };
 
   sent: string[] = [];
 

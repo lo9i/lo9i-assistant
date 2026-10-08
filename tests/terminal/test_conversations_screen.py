@@ -49,3 +49,24 @@ async def test_delete_asks_first_and_isnt_offered_for_the_current_one(app, clien
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
         await pilot.press("y")
         await wait_for(pilot, lambda: [c.thread_id for c in client.conversations.items] == [current])
+
+
+async def test_a_handed_off_agents_thinking_and_tool_calls_show_again_when_resumed(app, client):
+    from assistant_terminal.tui.widgets import AssistantMessage, ThinkingNote, ToolCall
+
+    client.conversations.items = [Conversation(f"owner:{n}", f"trip {n}", _AT, _AT) for n in ("abc", "b")]
+    client.conversations.said["owner:b"] = [
+        ShownMessage("user", "fix the tests"),
+        ShownMessage("thinking", "The test expects a list."),
+        ShownMessage("tool", "Bash", detail="pytest -q", output="1 failed"),
+        ShownMessage("assistant", "Fixed it."),
+    ]
+    async with app.run_test() as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/conversations", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
+        await pilot.press("down", "enter")
+        await wait_for(pilot, lambda: app.sub_title == "owner:b" and app.query(ToolCall))
+        chat = app.query_one("#chat")
+        assert [type(w) for w in chat.children][-3:] == [ThinkingNote, ToolCall, AssistantMessage]
+        assert app.query_one(ToolCall).title == "✓ Bash(pytest -q)"

@@ -11,7 +11,7 @@ from langchain_core.runnables import RunnableConfig
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
 from assistant.core.agent_tasks.service import AgentTaskError
-from assistant.core.agent_tasks.steps import AgentSteps
+from assistant.core.agent_tasks.steps import STEPS, AgentSteps
 from assistant.core.conversation import agent_folders, handoffs
 from assistant.core.conversation.agent_folders import AgentFolders, FolderError, FolderListing
 from assistant.core.conversation.handoffs import Agent, Handoff
@@ -91,7 +91,9 @@ class HandoffsMixin(RunsMixin):
             yield event
         config: RunnableConfig = {"configurable": {"thread_id": session.thread_id}}
         # Written as the agent node's output: the graph reads it as a finished turn, nothing left to run.
-        await self._graph.aupdate_state(config, {"messages": [message, AIMessage(reply)]}, as_node="agent")
+        # Its steps go with the reply, for history; no model call sends response_metadata.
+        answer = AIMessage(reply, response_metadata={STEPS: steps.lines})
+        await self._graph.aupdate_state(config, {"messages": [message, answer]}, as_node="agent")
         if not steps.spoke:
             yield TextDelta(reply)
         yield Done()

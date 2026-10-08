@@ -2,7 +2,9 @@
 thinking, what it says, a tool call or a tool call's result. For a conversation handed to the agent they
 become the run's events, shown as the assistant's own would be, so the agent's work reads like a reply.
 A note, or a plain line from a worker that reports nothing finer, goes inside a call named after the
-agent. For the task tools each reads as one line (`line`)."""
+agent. For the task tools each reads as one line (`line`). The steps of a handed-off reply are kept with
+it, in its message's `response_metadata` under STEPS, which no model call sends: history shows them again
+(core/conversation/display.py)."""
 
 import json
 import uuid
@@ -11,6 +13,8 @@ from typing import Any
 from assistant.core.events import Event, TextDelta, Thinking, ToolFinished, ToolStarted
 
 _LINE = 200
+# Where a handed-off reply keeps its steps, as the worker wrote them.
+STEPS = "agent_steps"
 
 
 class AgentSteps:
@@ -21,9 +25,12 @@ class AgentSteps:
         self._in_text = False
         # It said something: its reply, its last text, has been shown with it.
         self.spoke = False
+        # Every step so far, as written, to keep with the reply.
+        self.lines: list[str] = []
 
     def events(self, message: str) -> list[Event]:
-        step = _parse(message)
+        self.lines.append(message)
+        step = parse(message)
         events = self._events(step)
         self._in_text = step.get("kind") == "text" and bool(events)
         return events
@@ -58,7 +65,7 @@ class AgentSteps:
 
 def line(message: str) -> str:
     """One line for a task's latest steps; "" for steps that don't read as one (thinking, results)."""
-    step = _parse(message)
+    step = parse(message)
     kind, text = step.get("kind"), step.get("text", "").strip()
     if kind == "tool":
         tool, detail = step.get("tool", ""), step.get("detail", "")
@@ -69,7 +76,8 @@ def line(message: str) -> str:
     return ""
 
 
-def _parse(message: str) -> dict[str, str]:
+def parse(message: str) -> dict[str, str]:
+    """A step's fields; a line that isn't a JSON step is a note."""
     try:
         step: Any = json.loads(message)
     except json.JSONDecodeError:

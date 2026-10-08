@@ -2974,6 +2974,16 @@ export interface components {
             role: string;
             /** Text */
             text: string;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /**
+             * Output
+             * @default
+             */
+            output: string;
         };
         /** SignInCode */
         SignInCode: {

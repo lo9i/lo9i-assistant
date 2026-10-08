@@ -103,10 +103,21 @@ describe("transcript", () => {
       ]),
     ).toEqual(["user", "transcript", "error"]);
     const history = fromHistory([
-      { role: "user", text: "q" },
-      { role: "tool", text: "bash" },
-      { role: "assistant", text: "a" },
+      { role: "user", text: "q", detail: "", output: "" },
+      { role: "tool", text: "bash", detail: "", output: "" },
+      { role: "assistant", text: "a", detail: "", output: "" },
     ]);
     expect(history.items.map((i) => i.kind)).toEqual(["user", "tool", "assistant"]);
+  });
+
+  it("shows a handed-off agent's thinking and tool calls again in history", () => {
+    const history = fromHistory([
+      { role: "thinking", text: "The test expects a list.", detail: "", output: "" },
+      { role: "tool", text: "Bash", detail: "pytest -q", output: "1 failed" },
+    ]);
+    expect(history.items).toEqual([
+      { kind: "thinking", id: 1, text: "The test expects a list." },
+      { kind: "tool", id: 2, name: "Bash", args: { detail: "pytest -q" }, output: "1 failed", state: "done" },
+    ]);
   });
 });

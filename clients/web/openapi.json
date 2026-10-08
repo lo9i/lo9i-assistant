@@ -6455,6 +6455,16 @@
           "text": {
             "type": "string",
             "title": "Text"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "default": ""
+          },
+          "output": {
+            "type": "string",
+            "title": "Output",
+            "default": ""
           }
         },
         "type": "object",
