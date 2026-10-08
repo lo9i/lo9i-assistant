@@ -25,23 +25,30 @@ class TranscriptNote(Static):
 
 
 class ThinkingNote(Collapsible):
-    """A handed-off agent's thinking: its first line, the rest when expanded. It streams (`add`)."""
+    """A handed-off agent's thinking: collapsed, its first line; expanded, the whole of it under
+    "Thinking", so the first line isn't shown twice. It streams (`add`)."""
 
-    _TITLE = 100
+    _PREVIEW = 100
 
     def __init__(self, text: str) -> None:
         self._text = text
         self._body = Static(text, classes="thinking-text", markup=False)
-        super().__init__(self._body, title=self._heading(), collapsed=True)
+        super().__init__(self._body, title=self._heading(collapsed=True), collapsed=True)
 
     def add(self, text: str) -> None:
         self._text += text
         self._body.update(self._text)
-        self.title = self._heading()
+        self.title = self._heading(self.collapsed)
 
-    def _heading(self) -> str:
+    def watch_collapsed(self, collapsed: bool) -> None:
+        """Called after Collapsible's own watcher, which shows or hides the body."""
+        self.title = self._heading(collapsed)
+
+    def _heading(self, collapsed: bool) -> str:
+        if not collapsed:
+            return "✻ Thinking"
         first = self._text.strip().splitlines()[0] if self._text.strip() else ""
-        return f"✻ {first if len(first) <= self._TITLE else first[: self._TITLE] + '…'}"
+        return f"✻ {first if len(first) <= self._PREVIEW else first[: self._PREVIEW] + '…'}"
 
 
 class ToolNote(Static):

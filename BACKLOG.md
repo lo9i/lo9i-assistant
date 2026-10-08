@@ -31,6 +31,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - A30. Process output isn't on the Logs page. The daemon writes its records itself (`core/logs/`), but what isn't a record (a crash before logging starts, text a library prints) goes to `~/.lo9i/logs/output.log` when the terminal app or launchd started it, and to the journal under systemd. Reading the journal needs `journalctl` from the daemon, and following either live needs watching a file another writer appends to (kqueue, inotify), not a timer. LaunchDaemons installed before the logs moved keep sending it to `~/.lo9i/daemon.log` until `/startup` is turned off and on.
 - A31. The log level is fixed at INFO (`core/logs/writer.py::configure`), so the Logs page's Debug filter finds nothing. A setting in the app, applied without a restart.
 - A32. The Logs page has no channels component: channel plugins' output is logged by the process runner (`assistant.core.mcp.process`, as `[label] line`), so it shows under mcp. Log each plugin process under a logger of its kind (`assistant.core.channels.<name>`) so channels can be picked apart.
+- A36. A web app tab open across a daemon restart keeps running the page it loaded: after an update with a new web build it shows events the old way until reloaded (thinking streamed as one item per piece, before the reload). Give the build an id (in `/health` or the `/events` hello) and have the page offer a reload, or reload itself between runs, when it changes.
 
 ## MCP
 

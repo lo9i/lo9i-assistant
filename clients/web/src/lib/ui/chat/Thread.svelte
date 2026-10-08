@@ -94,7 +94,9 @@
       <details class="tool thought">
         <summary>
           <Brain size={12} />
-          <span class="detail">{item.text.split("\n")[0]}</span>
+          <span>Thinking</span>
+          <!-- Open, the whole text shows below, so the preview would repeat its first line. -->
+          <span class="detail preview">{item.text.split("\n")[0]}</span>
           <span class="chevron"><ChevronRight size={12} /></span>
         </summary>
         <p class="thought-text">{item.text}</p>
@@ -111,7 +113,7 @@
           {#if item.steps?.length}<span class="steps-count">{item.steps.length} {item.steps.length === 1 ? "step" : "steps"}</span>{/if}
           {#if item.args || item.output || item.steps?.length}<span class="chevron"><ChevronRight size={12} /></span>{/if}
         </summary>
-        {#if item.args && !arg}<pre>{JSON.stringify(item.args, null, 2)}</pre>{/if}
+        {#if item.args && Object.keys(item.args).length && !arg}<pre>{JSON.stringify(item.args, null, 2)}</pre>{/if}
         {#if item.steps?.length}
           <div class="steps">
             {#each item.steps as step, i (i)}
@@ -272,6 +274,9 @@
   .thought .detail {
     font-family: inherit;
     font-style: italic;
+  }
+  .thought[open] .preview {
+    display: none;
   }
   .thought-text {
     margin-top: 8px;

@@ -387,5 +387,9 @@ async def test_a_handed_off_agent_shows_its_thinking_text_and_tool_calls_in_orde
         chat = app.query_one("#chat")
         shown = [type(w) for w in chat.children]
         assert shown[-4:] == [ThinkingNote, AssistantMessage, ToolCall, AssistantMessage]
-        assert app.query_one(ThinkingNote).title == "✻ The test expects a list."
+        note = app.query_one(ThinkingNote)
+        assert note.title == "✻ The test expects a list."
+        note.collapsed = False
+        await pilot.pause()
+        assert note.title == "✻ Thinking"  # the whole text shows below, so the first line isn't repeated
         assert app.query_one(ToolCall).title == "✓ Bash(pytest -q)"
