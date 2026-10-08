@@ -49,16 +49,20 @@ class McpServer:
     channel_command: str = ""
     channel_args: list[str] = field(default_factory=list)
     channel_style: str = ""
+    # The version of the channel protocol its process speaks (core/channels/hub.py, PROTOCOL); 1 for
+    # plugins installed before it was declared.
+    channel_protocol: int = 1
     # The email providers it offers (core/integrations/email/providers.py), as written in its
     # server.yaml's `email:` section. Only plugins installed from a repository have them.
     email_providers: list[dict[str, Any]] = field(default_factory=list)
     # A login of lo9i's its MCP server gets instead of one of its own (core/mcp/logins.py); "" for none.
     model_login: str = ""
-    # An agent a conversation can be handed to (core/conversation/handoffs.py): the apps' command that
-    # switches to it (/claude), its name, and the tool that takes a message and returns the reply.
+    # A coding agent it brings (docs/agent-plugins.md): the apps' command that hands a conversation to it
+    # (/claude), its name, and the worker the daemon runs for each of its tasks (core/agent_tasks/).
     agent_command: str = ""
     agent_name: str = ""
-    agent_tool: str = ""
+    agent_worker: str = ""
+    agent_args: list[str] = field(default_factory=list)
     # Which env or header values are the user's keys (keys.py): its fields, for a plugin installed
     # from a repository. One added by hand has all of them as keys.
     keys: list[str] = field(default_factory=list)
@@ -91,15 +95,20 @@ def validate(server: McpServer) -> None:
         )
     if server.command.strip() and server.url.strip():
         raise McpServerError("Give either a command (local server) or a URL (remote server), not both.")
-    if not (server.command.strip() or server.url.strip() or server.channel_command.strip() or server.email_providers):
+    if not (server.command.strip() or server.url.strip() or server.channel_command.strip() or _runs_nothing(server)):
         raise McpServerError("Give either a command (local server) or a URL (remote server).")
     if server.url and not server.url.startswith(("https://", "http://")):
         raise McpServerError("The URL must start with https:// or http://.")
 
 
+def _runs_nothing(server: McpServer) -> bool:
+    """A plugin with no process of its own: email presets, or an agent whose worker runs per task."""
+    return bool(server.email_providers or server.agent_worker.strip())
+
+
 async def load_all(store: BaseStore) -> list[McpServer]:
     items = await store.asearch(_NAMESPACE, limit=1000)
-    return sorted((McpServer(**item.value) for item in items), key=lambda s: s.name)
+    return sorted((_from_record(item.value) for item in items), key=lambda s: s.name)
 
 
 async def load(store: BaseStore, name: str) -> McpServer:
@@ -107,7 +116,14 @@ async def load(store: BaseStore, name: str) -> McpServer:
     item = await store.aget(_NAMESPACE, name)
     if item is None:
         raise McpServerError(f"No MCP server named {name}.")
-    return McpServer(**item.value)
+    return _from_record(item.value)
+
+
+def _from_record(value: dict[str, Any]) -> McpServer:
+    """Settings a record kept from an older version (an agent's `agent_tool`) are left out: the plugin
+    is updated to the current format to use them."""
+    known = McpServer.__dataclass_fields__
+    return McpServer(**{k: v for k, v in value.items() if k in known})
 
 
 async def save(store: BaseStore, server: McpServer) -> None:

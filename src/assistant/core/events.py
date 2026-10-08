@@ -10,6 +10,13 @@ class TextDelta:
 
 
 @dataclass
+class Thinking:
+    """A handed-off agent's reasoning (core/agent_tasks/steps.py), shown apart from its reply."""
+
+    text: str
+
+
+@dataclass
 class ToolStarted:
     name: str
     args: dict[str, Any]
@@ -96,4 +103,4 @@ class Cancelled:
     """The user stopped the run before it finished."""
 
 
-Event = TextDelta | ToolStarted | ToolFinished | ApprovalRequired | Transcribed | Done | Error | Cancelled
+Event = TextDelta | Thinking | ToolStarted | ToolFinished | ApprovalRequired | Transcribed | Done | Error | Cancelled

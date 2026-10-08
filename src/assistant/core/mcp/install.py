@@ -34,12 +34,13 @@ code from it. In its commands, arguments and env values:
     channel:                       # optional: a chat channel (core/channels/), with or without `command`
       command: "{bin}/my-channel"
       style: A phone chat. Short messages.   # how to write there, for the system prompt
-    libraries: [lo9i-chat]         # folders at ../../lib/ from its folder it uses (folders.library)
+      protocol: 2                  # the channel protocol it speaks (docs/channel-plugins.md); 1 if absent
     model_login: copilot           # optional: a login of lo9i's its server gets instead of its own (logins.py)
-    agent:                         # optional: an agent the apps can hand a conversation to (handoffs.py)
-      command: claude              # /claude <folder> switches to it, /claude off back
+    agent:                         # optional: a coding agent (docs/agent-plugins.md, core/agent_tasks/)
+      command: claude              # /claude <folder> hands a conversation to it, /claude off back
       name: Claude Code
-      tool: converse               # takes {conversation, folder, message}, returns the reply
+      worker: "{bin}/my-worker"    # run for each task, with the task's folder as its last argument
+      args: []
     platforms: [macos]             # optional: the systems it runs on (repositories/platforms.py); all if absent
     format: 2                      # the plugin format it's written in (repositories/formats.py); 1 if absent
     category: communications       # outside a category's folder: what it's for (repositories/categories.py)
@@ -57,7 +58,7 @@ import shutil
 import sys
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, replace
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -70,7 +71,7 @@ from assistant.core.repositories import categories, formats, platforms
 from assistant.core.repositories import source as folder_source
 from assistant.core.repositories.checkout import checkout, default_name
 from assistant.core.repositories.errors import RepositoryError
-from assistant.core.repositories.folders import SERVER_FILE, SKILL_FILE, put, subfolders, valid_path
+from assistant.core.repositories.folders import SERVER_FILE, SKILL_FILE, put, subfolders
 from assistant.core.repositories.source import Source
 from assistant.core.secret_store import SecretBox
 from assistant.core.skills import store as skills
@@ -138,8 +139,6 @@ class Candidate:
     folder: Path
     # Relative to the repository root.
     path: str
-    # The repository's folders of the libraries it uses (folders.library).
-    libraries: list[Path] = field(default_factory=list)
     # The systems it runs on; empty for all (repositories/platforms.py).
     platforms: list[str] = field(default_factory=list)
     # The plugin format it's written in (repositories/formats.py).
@@ -161,6 +160,8 @@ class Candidate:
             page_args=[fill(a) for a in t.page_args],
             channel_command=fill(t.channel_command),
             channel_args=[fill(a) for a in t.channel_args],
+            agent_worker=fill(t.agent_worker),
+            agent_args=[fill(a) for a in t.agent_args],
             source=url,
             keys=sorted(given),
         )
@@ -219,12 +220,7 @@ async def install(candidate: Candidate, values: dict[str, str], url: str, commit
     server = candidate.server(values, url)
     source = Source(url, candidate.path, commit, version=candidate.found.version)
     await asyncio.to_thread(put, candidate.folder, folders.code(name), source)
-    for library in candidate.libraries:
-        await asyncio.to_thread(
-            put, library, folders.library(library.name), replace(source, path=_library_path(candidate, library))
-        )
     if candidate.needs_environment:
-        # After the libraries: its environment installs them from their folders.
         await environment.build(name, folders.code(name))
     await asyncio.to_thread(folders.data(name).mkdir, 0o700, True, True)
     await asyncio.to_thread(_put_skill, candidate, replace(source, server=name))
@@ -325,12 +321,15 @@ def _parse(data: dict[str, Any], name: str, root: Path, folder: Path) -> Candida
     template = _template(data, name)
     servers.validate(template)
     found = _found(data, template, folder, categories.of_folder(root, folder))
-    libraries = [_library(root, folder, str(n)) for n in data.get("libraries", [])]
+    if "libraries" in data:
+        raise ValueError("it uses libraries:, which lo9i doesn't install: a plugin has all its code in its folder")
     systems = platforms.parse(data.get("platforms"))
     version = formats.parse(data.get("format"))
     if version < 2 and any(environment.PLACEHOLDER in text for text in _commands(template)):
         raise ValueError(f"it uses {environment.PLACEHOLDER}, which needs format: 2")
-    return Candidate(found, template, folder, folder.relative_to(root).as_posix(), libraries, systems, version)
+    if version < 3 and template.agent_worker:
+        raise ValueError("its agent section has a worker, which needs format: 3")
+    return Candidate(found, template, folder, folder.relative_to(root).as_posix(), systems, version)
 
 
 def _template(data: dict[str, Any], name: str) -> McpServer:
@@ -349,9 +348,10 @@ def _template(data: dict[str, Any], name: str) -> McpServer:
         channel_command=str(data.get("channel", {}).get("command", "")),
         channel_args=[str(a) for a in data.get("channel", {}).get("args", [])],
         channel_style=str(data.get("channel", {}).get("style", "")).strip(),
+        channel_protocol=_channel_protocol(data.get("channel", {}).get("protocol")),
         email_providers=[asdict(p) for p in email_providers.parse(data.get("email"), name)],
         model_login=logins.parse(data.get("model_login")),
-        **dict(zip(("agent_command", "agent_name", "agent_tool"), _agent(data.get("agent")), strict=True)),
+        **_agent(data.get("agent")),
     )
 
 
@@ -377,20 +377,13 @@ def _found(data: dict[str, Any], template: McpServer, folder: Path, category_fol
     )
 
 
-def _library_path(candidate: Candidate, library: Path) -> str:
-    """The library's folder in the repository: `../../lib/<name>` from the plugin's."""
-    return (PurePosixPath(candidate.path).parent.parent / "lib" / library.name).as_posix()
-
-
-def _library(root: Path, plugin: Path, name: str) -> Path:
-    """The library at `../../lib/<name>` from the plugin's folder, where a uv path dependency finds it
-    both in the repository and once installed (folders.library). Raises ValueError when the repository
-    has no such folder."""
-    folder = plugin.parent.parent / "lib" / name
-    inside = folder.resolve().is_relative_to(root.resolve())
-    if "/" in name or not valid_path(name) or not inside or folder.is_symlink() or not folder.is_dir():
-        raise ValueError(f"it uses the library {name!r}, which isn't a folder at ../../lib/{name}")
-    return folder
+def _channel_protocol(value: object) -> int:
+    """Raises ValueError for anything but a whole number from 1."""
+    if value is None:
+        return 1
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ValueError("its channel protocol must be a whole number from 1")
+    return value
 
 
 def _commands(server: McpServer) -> list[str]:
@@ -402,6 +395,8 @@ def _commands(server: McpServer) -> list[str]:
         *server.page_args,
         server.channel_command,
         *server.channel_args,
+        server.agent_worker,
+        *server.agent_args,
     ]
 
 
@@ -418,19 +413,28 @@ def _check_skill(folder: Path, name: str) -> bool:
     return True
 
 
-def _agent(section: object) -> tuple[str, str, str]:
-    """The `agent:` section's command, name and tool; empty ones without it. Raises ValueError for one
-    missing a part or with a command the apps can't offer."""
+def _agent(section: object) -> dict[str, Any]:
+    """The `agent:` section as the server's fields; none without it. Raises ValueError for one missing a
+    part or with a command the apps can't offer."""
     if not section:
-        return "", "", ""
+        return {}
     if not isinstance(section, dict):
-        raise ValueError("its agent section must have command, name and tool")
-    parts = {key: str(section.get(key) or "").strip() for key in ("command", "name", "tool")}
+        raise ValueError(_AGENT_PARTS)
+    parts = {key: str(section.get(key) or "").strip() for key in ("command", "name", "worker")}
     if not all(parts.values()):
-        raise ValueError("its agent section must have command, name and tool")
+        raise ValueError(_AGENT_PARTS)
     if not _COMMAND.match(parts["command"]):
         raise ValueError(f"its agent command {parts['command']!r} must be a lowercase word, like claude")
-    return parts["command"], parts["name"], parts["tool"]
+    args = [str(a) for a in section.get("args", [])]
+    return {
+        "agent_command": parts["command"],
+        "agent_name": parts["name"],
+        "agent_worker": parts["worker"],
+        "agent_args": args,
+    }
+
+
+_AGENT_PARTS = "its agent section must have command, name and worker"
 
 
 def _field(data: dict[str, Any]) -> ServerField:

@@ -1,72 +1,48 @@
-"""Conversations handed to a plugin's agent: its tool answers instead of the assistant's model, both
-messages are kept, and the assistant hears about it when the user hands the conversation back."""
+"""Conversations handed to a plugin's agent: each message runs as one of its tasks instead of the
+assistant's model answering, both messages are kept, and the assistant hears about it when the user hands
+the conversation back. The agent's worker is tests/core/fake_agent_worker.py."""
 
 import asyncio
+import json
+import sys
 from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
-from mcp import Client
-from mcp.server.mcpserver import Context, MCPServer
-from mcp.server.mcpserver.exceptions import ToolError
 
 from assistant.core.agent import AssistantService, FolderError, HandoffError
 from assistant.core.attachments import Attachment
-from assistant.core.events import Done, Error, TextDelta, ToolFinished, ToolStarted
-from assistant.core.mcp import hub as hub_module
+from assistant.core.events import Done, Error, TextDelta, Thinking, ToolFinished, ToolStarted
+from assistant.core.mcp import folders, servers
 from assistant.core.mcp.servers import McpServer
 from assistant.daemon.restart import Restart
 from tests.conftest import collect
 
-
-def _agent_server(asked: list[dict], release: asyncio.Event) -> MCPServer:
-    server = MCPServer("claude-code")
-
-    @server.tool()
-    async def converse(conversation: str, folder: str, message: str, ctx: Context) -> str:
-        asked.append({"conversation": conversation, "folder": folder, "message": message})
-        if message == "show your steps":
-            await ctx.report_progress(1, message="Read: README.md")
-            await ctx.report_progress(2, message="Ran: pytest")
-        if message == "break":
-            raise ToolError("the agent gave up")
-        if message == "work a while":
-            await release.wait()
-        return f"Done in {folder}: {message}"
-
-    return server
+WORKER = str(Path(__file__).with_name("fake_agent_worker.py"))
 
 
-@pytest.fixture
-def asked() -> list[dict]:
-    return []
+def agent_plugin(name: str = "claude-code", command: str = "claude", **fields) -> McpServer:
+    return McpServer(
+        name,
+        agent_command=command,
+        agent_name="Claude Code",
+        agent_worker=sys.executable,
+        agent_args=[WORKER],
+        **fields,
+    )
+
+
+def asked(name: str = "claude-code") -> list[dict]:
+    """The tasks the agent was given, oldest first."""
+    records = sorted((folders.data(name) / "tasks").glob("*/task.json"), key=lambda p: p.stat().st_mtime_ns)
+    return [json.loads(record.read_text()) for record in records]
 
 
 @pytest.fixture
-def release() -> asyncio.Event:
-    """Lets the agent answer \"work a while\"."""
-    return asyncio.Event()
-
-
-@pytest.fixture
-async def service(script, digests, summaries, titles, asked, release, monkeypatch) -> AsyncIterator[AssistantService]:
-    fake = _agent_server(asked, release)
-    monkeypatch.setattr(hub_module, "open_client", lambda server, handler, auth: Client(fake, message_handler=handler))
+async def service(script, digests, summaries, titles) -> AsyncIterator[AssistantService]:
     async with AssistantService.open() as svc:
-        stop = asyncio.Event()
-        task = asyncio.create_task(svc.mcp.run(stop))
-        await svc.add_mcp_server(
-            McpServer(
-                "claude-code", command="x", agent_command="claude", agent_name="Claude Code", agent_tool="converse"
-            )
-        )
-        for _ in range(100):
-            if (await svc.mcp_servers())[0].status == "connected":
-                break
-            await asyncio.sleep(0.02)
+        await svc.add_mcp_server(agent_plugin())
         yield svc
-        stop.set()
-        await task
 
 
 async def _handed(service, tmp_path):
@@ -75,26 +51,45 @@ async def _handed(service, tmp_path):
     return session
 
 
-async def test_the_agent_answers_instead_of_the_assistant_and_both_messages_are_kept(service, script, asked, tmp_path):
+async def test_the_agent_answers_instead_of_the_assistant_and_both_messages_are_kept(service, script, tmp_path):
     assert [(a.command, a.name) for a in await service.agents()] == [("claude", "Claude Code")]
     session = await _handed(service, tmp_path)
     events = await collect(service.send(session, "fix the tests"))
-    assert isinstance(events[0], ToolStarted) and events[0].name == "Claude Code"
-    assert TextDelta(f"Done in {tmp_path}: fix the tests") in events and isinstance(events[-1], Done)
-    assert asked == [{"conversation": session.thread_id, "folder": str(tmp_path), "message": "fix the tests"}]
+    assert events == [TextDelta(f"Done in {tmp_path}: fix the tests"), Done()]
+    assert [(t["repository"], t["prompt"]) for t in asked()] == [(str(tmp_path), "fix the tests")]
     assert script.requests == []  # the assistant's model wasn't asked
     shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
     assert shown[-2:] == [("user", "fix the tests"), ("assistant", f"Done in {tmp_path}: fix the tests")]
 
 
-async def test_the_agents_steps_are_shown_inside_its_call_as_it_works(service, tmp_path):
+async def test_the_agents_thinking_text_and_tool_calls_are_shown_as_it_works(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    events = await collect(service.send(session, "work out loud"))
+    assert events == [
+        Thinking("The test expects a list."),
+        TextDelta("Running the tests."),
+        ToolStarted("Bash", {"detail": "pytest -q"}, id="t1"),
+        ToolFinished("Bash", "1 failed"),
+        TextDelta("Fixed it."),
+        TextDelta("\n\nAll green."),
+        Done(),  # the reply, its last text, isn't shown twice
+    ]
+    shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
+    assert shown[-1] == ("assistant", "All green.")
+
+
+async def test_plain_lines_from_an_agent_are_shown_inside_a_call_named_after_it(service, tmp_path):
     session = await _handed(service, tmp_path)
     events = await collect(service.send(session, "show your steps"))
     call = events[0]
-    assert isinstance(call, ToolStarted) and call.id
+    assert isinstance(call, ToolStarted) and call.name == "Claude Code" and call.id
     steps = [(e.name, e.within) for e in events if isinstance(e, ToolStarted | ToolFinished) and e.within]
     assert steps == [(s, call.id) for s in ("Read: README.md", "Read: README.md", "Ran: pytest", "Ran: pytest")]
-    assert isinstance(events[-1], Done)
+    assert events[-3:] == [
+        ToolFinished("Claude Code", "Done"),
+        TextDelta(f"Done in {tmp_path}: show your steps"),
+        Done(),
+    ]
 
 
 async def test_handed_back_the_assistant_answers_and_hears_who_did_meanwhile(service, script, tmp_path):
@@ -112,19 +107,16 @@ async def test_handed_back_the_assistant_answers_and_hears_who_did_meanwhile(ser
 async def test_an_agent_error_is_shown_and_nothing_is_added(service, tmp_path):
     session = await _handed(service, tmp_path)
     events = await collect(service.send(session, "break"))
-    assert isinstance(events[-1], Error) and "the agent gave up" in events[-1].message
-    assert events[-2] == ToolFinished("Claude Code", "Failed")  # the call stops showing as running
+    assert len(events) == 1 and isinstance(events[0], Error) and "the agent gave up" in events[0].message
     assert await service.conversation_messages(session.thread_id) == []
 
 
-async def test_the_agent_gets_the_full_paths_of_the_files_sent_and_the_conversation_keeps_them(
-    service, asked, tmp_path
-):
+async def test_the_agent_gets_the_full_paths_of_the_files_sent_and_the_conversation_keeps_them(service, tmp_path):
     session = await _handed(service, tmp_path)
     photo = Attachment("photo.png", "image/png", b"\x89PNG")
     events = await collect(service.send(session, "look", [photo]))
     assert isinstance(events[-1], Done)
-    message = asked[0]["message"]
+    message = asked()[0]["prompt"]
     assert message.startswith("look\n\nFiles sent with this message, saved on this computer:\n- ")
     saved = Path(message.splitlines()[-1].removeprefix("- ").removesuffix(" (photo.png)"))
     assert saved.read_bytes() == b"\x89PNG"
@@ -140,12 +132,12 @@ async def test_only_an_installed_agent_and_an_existing_folder_can_be_handed_to(s
         await service.hand_conversation("owner", session.thread_id, "claude", str(tmp_path / "missing"))
 
 
-async def test_a_restart_waits_until_the_agent_has_replied(service, asked, release, tmp_path):
+async def test_a_restart_waits_until_the_agent_has_replied(service, tmp_path):
     """The agent may restart the daemon it answers through; stopping it at once would stop the agent."""
     session = await _handed(service, tmp_path)
     run = asyncio.create_task(collect(service.send(session, "work a while")))
     for _ in range(100):
-        if asked:
+        if asked():
             break
         await asyncio.sleep(0.02)
     stop = asyncio.Event()
@@ -153,7 +145,7 @@ async def test_a_restart_waits_until_the_agent_has_replied(service, asked, relea
     assert restart.request() == 1
     await asyncio.sleep(0.05)
     assert not stop.is_set()
-    release.set()
+    (tmp_path / "release").write_text("")
     assert isinstance((await run)[-1], Done)
     await asyncio.wait_for(stop.wait(), 1)
     assert restart.requested
@@ -200,3 +192,38 @@ async def test_browsing_lists_the_folders_inside_without_hidden_ones_or_files(se
     for wrong in ("relative", str(root / "missing"), str(root / "notes.txt")):
         with pytest.raises(FolderError):
             await service.child_folders(wrong)
+
+
+async def test_each_message_continues_the_agents_session_in_that_folder(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    first = await collect(service.send(session, "session"))
+    second = await collect(service.send(session, "session"))
+    assert first[0] == second[0] and first[0].text.startswith("Session ")
+    assert asked()[1]["follow_up_of"] == asked()[0]["id"]
+
+
+async def test_stopping_the_run_stops_the_agents_task(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    run = asyncio.create_task(collect(service.send(session, "sleep")))
+    for _ in range(200):
+        task = asked()[0] if asked() else None
+        if task and (folders.data("claude-code") / "tasks" / task["id"] / "pid").exists():
+            break
+        await asyncio.sleep(0.02)
+    run.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await run
+    found = await service.agent_tasks.state(asked()[0]["id"])
+    assert found.state.status == "stopped"
+
+
+async def test_a_plugin_written_for_the_old_agent_format_asks_to_be_updated(service, tmp_path):
+    await service.store.aput(
+        ("mcp_servers",),
+        "old",
+        {"name": "old", "command": "x", "agent_command": "codex", "agent_name": "Codex", "agent_tool": "converse"},
+    )
+    assert (await servers.load(service.store, "old")).agent_worker == ""
+    session = await service.session("owner", "cli")
+    with pytest.raises(HandoffError, match="Codex was written for an older version of lo9i"):
+        await service.hand_conversation("owner", session.thread_id, "codex", str(tmp_path))

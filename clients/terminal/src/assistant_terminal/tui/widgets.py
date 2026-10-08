@@ -24,6 +24,17 @@ class TranscriptNote(Static):
         super().__init__(f"🎤 heard ({language}): {escape(text or '(no speech)')}")
 
 
+class ThinkingNote(Collapsible):
+    """A handed-off agent's thinking: its first line, the rest when expanded."""
+
+    _TITLE = 100
+
+    def __init__(self, text: str) -> None:
+        first = text.strip().splitlines()[0] if text.strip() else ""
+        title = first if len(first) <= self._TITLE else first[: self._TITLE] + "…"
+        super().__init__(Static(text, classes="thinking-text", markup=False), title=f"✻ {title}", collapsed=True)
+
+
 class ToolNote(Static):
     """A tool the assistant used, in a conversation shown again after resuming it."""
 

@@ -1,9 +1,9 @@
 """Conversations handed to another agent. A plugin can bring one (`agent:` in its server.yaml, like Claude
-Code): the apps offer its command (/claude, with a folder or picking one), and from then on the user's messages in that
-conversation go to the plugin's tool in that folder and its replies come back, instead of the
-assistant's model answering. Both are added to the conversation, so when the user hands it back
-(/claude off) the assistant sees what was said, and that message's turn header says it was another
-agent, once. Kept in the Store per conversation.
+Code): the apps offer its command (/claude, with a folder or picking one), and from then on each of the
+user's messages in that conversation runs as one of the agent's tasks in that folder
+(core/agent_tasks/) and its reply comes back, instead of the assistant's model answering. Both are added
+to the conversation, so when the user hands it back (/claude off) the assistant sees what was said, and
+that message's turn header says it was another agent, once. Kept in the Store per conversation.
 """
 
 from dataclasses import asdict, dataclass
@@ -19,13 +19,11 @@ from assistant.core.mcp import servers
 class Agent:
     """An agent a plugin brings."""
 
-    # The plugin (MCP server) it comes with.
+    # The plugin it comes with.
     server: str
     # The apps' command for it, without the slash: "claude".
     command: str
     name: str
-    # The plugin's tool that takes {conversation, folder, message} and returns the reply.
-    tool: str
 
 
 @dataclass(frozen=True)
@@ -43,9 +41,16 @@ def _namespace(user_id: str) -> tuple[str, ...]:
 
 
 async def agents(store: BaseStore) -> list[Agent]:
-    """The agents the turned-on plugins bring, by command."""
-    found = [s for s in await servers.load_all(store) if s.enabled and s.agent_command]
-    return sorted((Agent(s.name, s.agent_command, s.agent_name, s.agent_tool) for s in found), key=lambda a: a.command)
+    """The agents the turned-on plugins bring, by command. A plugin written for an older version of lo9i
+    (no worker) isn't one until it's updated (`outdated`)."""
+    found = [s for s in await servers.load_all(store) if s.enabled and s.agent_command and s.agent_worker]
+    return sorted((Agent(s.name, s.agent_command, s.agent_name) for s in found), key=lambda a: a.command)
+
+
+async def outdated(store: BaseStore, command: str) -> str:
+    """The name of the plugin that brings `command` in a format this lo9i no longer runs; "" for none."""
+    found = [s for s in await servers.load_all(store) if s.agent_command == command and not s.agent_worker]
+    return found[0].agent_name if found else ""
 
 
 async def current(store: BaseStore, user_id: str, thread_id: str) -> Handoff | None:

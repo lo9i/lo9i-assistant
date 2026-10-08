@@ -77,6 +77,8 @@ from assistant.core.agent import (
     WebSearchStatus,
 )
 from assistant.core.attachments import Attachment
+from assistant.core.channels.chat.conversations import ChannelChats
+from assistant.core.channels.chat.port import ChatLimits
 from assistant.core.config import settings
 from assistant.core.health import Area
 from assistant.core.logs import (
@@ -104,6 +106,7 @@ from assistant.daemon.auth import (
     is_trusted,
     require_device,
 )
+from assistant.daemon.channel_runs import ChannelRuns
 from assistant.daemon.clients import ClientRegistry
 from assistant.daemon.launchd import StartupError
 from assistant.daemon.runs import RunHub
@@ -133,33 +136,28 @@ class ChannelItems(BaseModel):
 
 
 class DeliveryResult(BaseModel):
-    # Empty when the channel delivered it; otherwise why it couldn't.
+    # Empty when the channel carried out the operation; otherwise why it couldn't.
     error: str = ""
+    # The id of the message it sent, for a `send`.
+    message: str = ""
 
 
-class ChannelDecisions(BaseModel):
-    decisions: dict[str, dict[str, Any]]
+class ChannelPress(BaseModel):
+    """A button pressed in a chat: the button's data, on `message` whose text is `text`."""
+
+    chat: str
+    message: str
+    text: str = ""
+    data: str
 
 
-class JobDecision(BaseModel):
-    approved: bool
-    reason: str = ""
+class ChannelCommand(BaseModel):
+    # Without its slash: new, home, start.
+    command: str
 
 
-class StillWaiting(BaseModel):
-    # False when the job's run already went on without the answer.
-    waiting: bool
-
-
-class WaitingApproval(BaseModel):
-    interrupt_id: str
-    request: dict[str, Any]
-
-
-class ChannelSpeech(BaseModel):
+class CommandReply(BaseModel):
     text: str
-    # The user's message was a voice note (Settings → Audio can speak only those replies).
-    after_voice_message: bool = False
 
 
 class EmailSettings(BaseModel):
@@ -377,7 +375,6 @@ class CancelResult(BaseModel):
 
 # How the OpenAPI schema describes a route that answers with audio.
 _WAV: dict[int | str, dict[str, Any]] = {200: {"content": {"audio/wav": {}}}}
-_OGG: dict[int | str, dict[str, Any]] = {200: {"content": {"audio/ogg": {}}}, 204: {"description": "Not spoken"}}
 
 # How the OpenAPI schema describes a route that answers with a file.
 _FILE: dict[int | str, dict[str, Any]] = {200: {"content": {"application/octet-stream": {}}}}
@@ -418,7 +415,7 @@ def create_app(
     _add_file_routes(app, service)
     _add_channel_routes(app, service)
     _add_channel_plugin_routes(app, service)
-    _add_channel_run_routes(app, service, hub)
+    _add_channel_chat_routes(app, service, hub)
     _add_web_search_routes(app, service)
     _add_email_routes(app, service)
     _add_sign_in_routes(app, service)
@@ -764,9 +761,19 @@ def _add_channel_plugin_routes(app: FastAPI, service: AssistantService) -> None:
     """For a channel plugin's process, with its token (docs/channel-plugins.md)."""
 
     @app.get("/channels/{name}/stream", response_class=EventSourceResponse, responses=_EVENT_STREAM)
-    async def channel_stream(name: str, request: Request) -> EventSourceResponse:
+    async def channel_stream(
+        name: str,
+        request: Request,
+        edit_seconds: float = 1.0,
+        draft_limit: int = 3500,
+        message_limit: int = 3500,
+        voice: bool = False,
+    ) -> EventSourceResponse:
+        """The channel's limits come with the request: how often it may edit a message, how long a
+        draft and a message may be, and whether it sends voice notes."""
         _require_channel(request, name)
-        events = service.channels_hub.attach(name)
+        limits = ChatLimits(edit_seconds, draft_limit, message_limit, voice)
+        events = service.channels_hub.attach(name, limits)
         return EventSourceResponse(({"event": e.kind, "data": json.dumps(e.data)} async for e in events), ping=15)
 
     @app.put("/channels/{name}/status")
@@ -778,78 +785,40 @@ def _add_channel_plugin_routes(app: FastAPI, service: AssistantService) -> None:
     @app.post("/channels/{name}/deliveries/{delivery_id}")
     async def channel_delivered(name: str, delivery_id: str, body: DeliveryResult, request: Request) -> Ok:
         _require_channel(request, name)
-        service.channels_hub.confirm(delivery_id, body.error)
+        service.channels_hub.confirm(delivery_id, body.error, body.message)
         return Ok()
 
-    @app.post("/channels/{name}/job-approvals/{interrupt_id}")
-    async def answer_job_approval(name: str, interrupt_id: str, body: JobDecision, request: Request) -> StillWaiting:
-        _require_channel(request, name)
-        decision = {"approved": body.approved, "reason": body.reason}
-        return StillWaiting(waiting=service.approvals.answer(interrupt_id, decision))
 
-    @app.post("/channels/{name}/speech", response_class=Response, responses=_OGG)
-    async def channel_speech(name: str, body: ChannelSpeech, request: Request) -> Response:
-        """The reply as an OGG Opus voice note when Settings → Audio speaks it, else 204."""
-        _require_channel(request, name)
-        if not await service.speaks_reply(body.after_voice_message):
-            return Response(status_code=204)
-        try:
-            return Response(await service.speak(body.text, "ogg"), media_type="audio/ogg")
-        except SynthesisError as e:
-            raise HTTPException(400, str(e)) from e
-
-
-def _add_channel_run_routes(app: FastAPI, service: AssistantService, hub: RunHub) -> None:
-    """A channel plugin's conversation: home, or a side conversation from its /new until its /home
-    (ThreadsMixin.session)."""
-
-    @app.post("/channels/{name}/conversation")
-    async def new_channel_conversation(name: str, request: Request) -> ThreadCreated:
-        """Starts a side conversation for the channel (its /new)."""
-        _require_channel(request, name)
-        return ThreadCreated(thread_id=await service.new_channel_thread(settings.owner_id, name))
-
-    @app.delete("/channels/{name}/conversation")
-    async def channel_home(name: str, request: Request) -> ThreadCreated:
-        """Moves the channel back to the home conversation (its /home)."""
-        _require_channel(request, name)
-        return ThreadCreated(thread_id=await service.channel_home(settings.owner_id, name))
+def _add_channel_chat_routes(app: FastAPI, service: AssistantService, hub: RunHub) -> None:
+    """What the user does in a channel's chat (core/channels/chat/conversations.py). Each answers at once;
+    what follows reaches the chat as operations on the channel's stream."""
+    chats = ChannelChats(service, ChannelRuns(hub), service.channels_hub, service.approvals)
 
     @app.post("/channels/{name}/messages")
     async def channel_message(
         name: str,
         request: Request,
+        chat: Annotated[str, Form()],
         text: Annotated[str, Form()] = "",
+        voice: Annotated[bool, Form()] = False,
         files: Annotated[list[UploadFile] | None, File()] = None,
-    ) -> RunStarted:
+    ) -> Ok:
+        """`voice`: the message was a voice note (Settings → Audio can speak only those replies)."""
         _require_channel(request, name)
         attachments = [await _attachment(f) for f in files or []]
-        session = await service.session(settings.owner_id, name)
-        run = hub.start(session.thread_id, service.send(session, text, attachments), name, text=text)
-        return RunStarted(run_id=run.id)
+        chats.spawn(chats.message(name, chat, text, attachments, voice))
+        return Ok()
 
-    @app.post("/channels/{name}/approvals")
-    async def channel_approvals(name: str, body: ChannelDecisions, request: Request) -> RunStarted:
+    @app.post("/channels/{name}/presses")
+    async def channel_press(name: str, body: ChannelPress, request: Request) -> Ok:
         _require_channel(request, name)
-        session = await service.session(settings.owner_id, name)
-        run = hub.start(session.thread_id, service.resume(session, body.decisions), name)
-        return RunStarted(run_id=run.id)
+        chats.spawn(chats.press(name, body.chat, body.message, body.text, body.data))
+        return Ok()
 
-    @app.get("/channels/{name}/approvals")
-    async def channel_waiting(name: str, request: Request) -> list[WaitingApproval]:
+    @app.post("/channels/{name}/commands")
+    async def channel_command(name: str, body: ChannelCommand, request: Request) -> CommandReply:
         _require_channel(request, name)
-        session = await service.session(settings.owner_id, name)
-        waiting = await service.pending_approvals(session.thread_id)
-        return [WaitingApproval(interrupt_id=a.interrupt_id, request=a.request) for a in waiting]
-
-    @app.get("/channels/{name}/runs/{run_id}/events", response_class=EventSourceResponse, responses=_EVENT_STREAM)
-    async def channel_run_events(name: str, run_id: str, request: Request, after: int = 0) -> EventSourceResponse:
-        _require_channel(request, name)
-        run = hub.get(run_id)
-        if run is None or run.channel != name:
-            raise HTTPException(404, "Unknown or expired run")
-        start = int(request.headers.get("last-event-id") or after)
-        return EventSourceResponse(_sse(hub.follow(run, start)))
+        return CommandReply(text=await chats.command(name, body.command))
 
 
 def _require_channel(request: Request, name: str) -> None:

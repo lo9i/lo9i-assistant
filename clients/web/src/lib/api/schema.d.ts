@@ -687,7 +687,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Channel Stream */
+        /**
+         * Channel Stream
+         * @description The channel's limits come with the request: how often it may edit a message, how long a
+         *     draft and a message may be, and whether it sends voice notes.
+         */
         get: operations["channel_stream_channels__name__stream_get"];
         put?: never;
         post?: never;
@@ -731,67 +735,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/channels/{name}/job-approvals/{interrupt_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Answer Job Approval */
-        post: operations["answer_job_approval_channels__name__job_approvals__interrupt_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/channels/{name}/speech": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Channel Speech
-         * @description The reply as an OGG Opus voice note when Settings → Audio speaks it, else 204.
-         */
-        post: operations["channel_speech_channels__name__speech_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/channels/{name}/conversation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * New Channel Conversation
-         * @description Starts a side conversation for the channel (its /new).
-         */
-        post: operations["new_channel_conversation_channels__name__conversation_post"];
-        /**
-         * Channel Home
-         * @description Moves the channel back to the home conversation (its /home).
-         */
-        delete: operations["channel_home_channels__name__conversation_delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/channels/{name}/messages": {
         parameters: {
             query?: never;
@@ -801,7 +744,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Channel Message */
+        /**
+         * Channel Message
+         * @description `voice`: the message was a voice note (Settings → Audio can speak only those replies).
+         */
         post: operations["channel_message_channels__name__messages_post"];
         delete?: never;
         options?: never;
@@ -809,35 +755,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/channels/{name}/approvals": {
+    "/channels/{name}/presses": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Channel Waiting */
-        get: operations["channel_waiting_channels__name__approvals_get"];
+        get?: never;
         put?: never;
-        /** Channel Approvals */
-        post: operations["channel_approvals_channels__name__approvals_post"];
+        /** Channel Press */
+        post: operations["channel_press_channels__name__presses_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/channels/{name}/runs/{run_id}/events": {
+    "/channels/{name}/commands": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Channel Run Events */
-        get: operations["channel_run_events_channels__name__runs__run_id__events_get"];
+        get?: never;
         put?: never;
-        post?: never;
+        /** Channel Command */
+        post: operations["channel_command_channels__name__commands_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1764,8 +1709,6 @@ export interface components {
             command: string;
             /** Name */
             name: string;
-            /** Tool */
-            tool: string;
         };
         /** AgentFolders */
         AgentFolders: {
@@ -1816,11 +1759,18 @@ export interface components {
         };
         /** Body_channel_message_channels__name__messages_post */
         Body_channel_message_channels__name__messages_post: {
+            /** Chat */
+            chat: string;
             /**
              * Text
              * @default
              */
             text: string;
+            /**
+             * Voice
+             * @default false
+             */
+            voice: boolean;
             /** Files */
             files?: string[] | null;
         };
@@ -1846,29 +1796,32 @@ export interface components {
             /** Cancelled */
             cancelled: boolean;
         };
-        /** ChannelDecisions */
-        ChannelDecisions: {
-            /** Decisions */
-            decisions: {
-                [key: string]: {
-                    [key: string]: unknown;
-                };
-            };
+        /** ChannelCommand */
+        ChannelCommand: {
+            /** Command */
+            command: string;
         };
         /** ChannelItems */
         ChannelItems: {
             /** Items */
             items: components["schemas"]["SetupItem"][];
         };
-        /** ChannelSpeech */
-        ChannelSpeech: {
-            /** Text */
-            text: string;
+        /**
+         * ChannelPress
+         * @description A button pressed in a chat: the button's data, on `message` whose text is `text`.
+         */
+        ChannelPress: {
+            /** Chat */
+            chat: string;
+            /** Message */
+            message: string;
             /**
-             * After Voice Message
-             * @default false
+             * Text
+             * @default
              */
-            after_voice_message: boolean;
+            text: string;
+            /** Data */
+            data: string;
         };
         /** ChannelStatus */
         ChannelStatus: {
@@ -1880,6 +1833,11 @@ export interface components {
             connected: boolean;
             /** Items */
             items: components["schemas"]["SetupItem"][];
+        };
+        /** CommandReply */
+        CommandReply: {
+            /** Text */
+            text: string;
         };
         /**
          * ConnectedClient
@@ -1946,6 +1904,11 @@ export interface components {
              * @default
              */
             error: string;
+            /**
+             * Message
+             * @default
+             */
+            message: string;
         };
         /** Device */
         Device: {
@@ -2358,16 +2321,6 @@ export interface components {
         JobChange: {
             /** Enabled */
             enabled: boolean;
-        };
-        /** JobDecision */
-        JobDecision: {
-            /** Approved */
-            approved: boolean;
-            /**
-             * Reason
-             * @default
-             */
-            reason: string;
         };
         /**
          * KeptKeys
@@ -3205,11 +3158,6 @@ export interface components {
              */
             starts_without_login: boolean;
         };
-        /** StillWaiting */
-        StillWaiting: {
-            /** Waiting */
-            waiting: boolean;
-        };
         /** ThreadCreated */
         ThreadCreated: {
             /** Thread Id */
@@ -3347,15 +3295,6 @@ export interface components {
             name: string;
             /** Language */
             language: string;
-        };
-        /** WaitingApproval */
-        WaitingApproval: {
-            /** Interrupt Id */
-            interrupt_id: string;
-            /** Request */
-            request: {
-                [key: string]: unknown;
-            };
         };
         /**
          * WebSearchStatus
@@ -4504,7 +4443,12 @@ export interface operations {
     };
     channel_stream_channels__name__stream_get: {
         parameters: {
-            query?: never;
+            query?: {
+                edit_seconds?: number;
+                draft_limit?: number;
+                message_limit?: number;
+                voice?: boolean;
+            };
             header?: never;
             path: {
                 name: string;
@@ -4604,146 +4548,6 @@ export interface operations {
             };
         };
     };
-    answer_job_approval_channels__name__job_approvals__interrupt_id__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-                interrupt_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["JobDecision"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StillWaiting"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    channel_speech_channels__name__speech_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ChannelSpeech"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "audio/ogg": unknown;
-                };
-            };
-            /** @description Not spoken */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    new_channel_conversation_channels__name__conversation_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ThreadCreated"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    channel_home_channels__name__conversation_delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ThreadCreated"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     channel_message_channels__name__messages_post: {
         parameters: {
             query?: never;
@@ -4753,7 +4557,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
                 "multipart/form-data": components["schemas"]["Body_channel_message_channels__name__messages_post"];
             };
@@ -4765,7 +4569,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RunStarted"];
+                    "application/json": components["schemas"]["Ok"];
                 };
             };
             /** @description Validation Error */
@@ -4779,38 +4583,7 @@ export interface operations {
             };
         };
     };
-    channel_waiting_channels__name__approvals_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WaitingApproval"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    channel_approvals_channels__name__approvals_post: {
+    channel_press_channels__name__presses_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -4821,7 +4594,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ChannelDecisions"];
+                "application/json": components["schemas"]["ChannelPress"];
             };
         };
         responses: {
@@ -4831,7 +4604,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RunStarted"];
+                    "application/json": components["schemas"]["Ok"];
                 };
             };
             /** @description Validation Error */
@@ -4845,19 +4618,20 @@ export interface operations {
             };
         };
     };
-    channel_run_events_channels__name__runs__run_id__events_get: {
+    channel_command_channels__name__commands_post: {
         parameters: {
-            query?: {
-                after?: number;
-            };
+            query?: never;
             header?: never;
             path: {
                 name: string;
-                run_id: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelCommand"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -4865,7 +4639,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/event-stream": unknown;
+                    "application/json": components["schemas"]["CommandReply"];
                 };
             };
             /** @description Validation Error */

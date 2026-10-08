@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RunEvent } from "../api/types";
-import { addUser, apply, empty, endRun, fromHistory, toolRunning } from "./transcript";
+import { addUser, apply, empty, endRun, fromHistory, inlineArg, toolRunning } from "./transcript";
 
 const play = (events: RunEvent[]) => events.reduce(apply, addUser(empty, "hi", []));
 const kinds = (events: RunEvent[]) => play(events).items.map((item) => item.kind);
@@ -65,6 +65,29 @@ describe("transcript", () => {
     ]);
     const stopped = apply(t, { type: "Cancelled" }).items.find((i) => i.kind === "tool" && i.callId === "d2");
     expect(stopped?.kind === "tool" && stopped.steps?.map((s) => s.state)).toEqual(["done", "cancelled"]);
+  });
+
+  it("shows a handed-off agent's thinking apart from its text", () => {
+    const t = play([
+      { type: "Thinking", text: "The test expects a list." },
+      { type: "TextDelta", text: "Running the tests." },
+      { type: "Thinking", text: "It failed." },
+      { type: "TextDelta", text: "Fixed it." },
+    ]);
+    expect(t.items.map((i) => (i.kind === "thinking" || i.kind === "assistant" ? `${i.kind}: ${i.text}` : i.kind))).toEqual([
+      "user",
+      "thinking: The test expects a list.",
+      "assistant: Running the tests.",
+      "thinking: It failed.",
+      "assistant: Fixed it.",
+    ]);
+  });
+
+  it("shows a call's one text argument next to its name", () => {
+    expect(inlineArg({ detail: "pytest -q" })).toBe("pytest -q");
+    expect(inlineArg({ command: "ls", timeout: 5 })).toBeUndefined();
+    expect(inlineArg({ todos: [] })).toBeUndefined();
+    expect(inlineArg({})).toBeUndefined();
   });
 
   it("starts a new message after the run ends", () => {

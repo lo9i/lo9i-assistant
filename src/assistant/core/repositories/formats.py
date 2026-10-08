@@ -4,7 +4,8 @@ a section), so it's handled as one for another system (repositories/platforms.py
 repository, so it isn't listed, offered, installed or updated here until lo9i is updated."""
 
 # 2: `{bin}`, the scripts of the plugin's own environment (core/mcp/environment.py).
-CURRENT = 2
+# 3: an agent's `worker`, run by the daemon for each task (docs/agent-plugins.md).
+CURRENT = 3
 
 
 def parse(value: object) -> int:

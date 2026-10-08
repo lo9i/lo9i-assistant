@@ -5,6 +5,7 @@ import type { RunEvent, ShownMessage } from "../api/types";
 export type ChatItem =
   | { kind: "user"; id: number; text: string; files: string[]; channel?: string }
   | { kind: "assistant"; id: number; text: string }
+  | { kind: "thinking"; id: number; text: string }
   | ToolItem
   | { kind: "transcript"; id: number; text: string; language: string }
   | { kind: "error"; id: number; message: string }
@@ -57,6 +58,8 @@ export function apply(t: Transcript, event: RunEvent): Transcript {
     case "ToolFinished":
       if (event.within) return stepFinished(ended, event.within, event.name, event.output);
       return toolFinished(ended, event.name, event.output);
+    case "Thinking":
+      return add(ended, { kind: "thinking", text: event.text });
     case "Transcribed":
       return add(ended, { kind: "transcript", text: event.text, language: event.language });
     case "Error":
@@ -66,6 +69,13 @@ export function apply(t: Transcript, event: RunEvent): Transcript {
     default:
       return ended;
   }
+}
+
+/** A call's one argument when it's text or a number (a command, a file), shown next to its name. */
+export function inlineArg(args?: Record<string, unknown>): string | undefined {
+  const values = Object.values(args ?? {});
+  const [value] = values;
+  return values.length === 1 && (typeof value === "string" || typeof value === "number") ? String(value) : undefined;
 }
 
 /** A run's events ended. Its tool calls stay pending: after approvals, the resumed run reports them. */

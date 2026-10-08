@@ -15,6 +15,7 @@ from assistant.core.events import (
     Error,
     Event,
     TextDelta,
+    Thinking,
     ToolFinished,
     ToolStarted,
     Transcribed,
@@ -24,6 +25,7 @@ from assistant_terminal.tui.widgets import (
     ErrorMessage,
     StatusLine,
     StoppedNote,
+    ThinkingNote,
     ToolCall,
     TranscriptNote,
 )
@@ -71,6 +73,8 @@ class TurnView:
                 await self._tool_started(name, args, call_id)
             case ToolFinished(name, output):
                 self._tool_finished(name, output)
+            case Thinking(text):
+                await self._chat.mount(ThinkingNote(text))
             case Transcribed(text, language):
                 await self._chat.mount(TranscriptNote(text, language))
             case Error(message):

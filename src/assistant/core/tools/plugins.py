@@ -140,6 +140,9 @@ async def _next_steps(plugin: Any, context: Context) -> str:
         return " If it isn't set up yet (email accounts, a channel's pairing), open_plugin_setup opens it here."
     if not isinstance(plugin, FoundServer):
         return ""
+    if plugin.agent and plugin.transport == "none":
+        # Its task tools come right after this call, like a server's (graph.py, _installed_node).
+        return f" Its coding agent is ready: start_task hands it tasks, and /{plugin.agent} hands it a conversation."
     status = await context.mcp.started(plugin.name, _START_SECONDS) if context.mcp else "off"
     # Once it's connected, the graph gives this run its tools after this call (graph.py, _installed_node).
     if status in ("connected", "idle"):

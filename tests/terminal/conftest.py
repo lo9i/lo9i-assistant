@@ -641,7 +641,7 @@ class FakeConversations:
         self.items = [c for c in self.items if c.thread_id != thread_id]
 
     async def agents(self):
-        return [Agent("claude-code", "claude", "Claude Code", "converse")]
+        return [Agent("claude-code", "claude", "Claude Code")]
 
     async def agent(self, thread_id):
         return self.handoffs.get(thread_id)

@@ -231,10 +231,9 @@ async def test_a_conversation_is_handed_to_an_agent_and_back(client, service, tm
     await service.add_mcp_server(
         McpServer(
             "coder",
-            url="https://coder.example.com/mcp",
             agent_command="claude",
             agent_name="Claude Code",
-            agent_tool="t",
+            agent_worker="/usr/bin/true",
         )
     )
     assert [a.command for a in await client.conversations.agents()] == ["claude"]

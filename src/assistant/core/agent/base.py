@@ -1,5 +1,6 @@
 import asyncio
 
+from assistant.core.agent_tasks.service import AgentTasks
 from assistant.core.approvals import RemoteApprovals
 from assistant.core.bus import EventBus
 from assistant.core.channels.hub import ChannelHub
@@ -15,6 +16,7 @@ from assistant.core.memory.indexer import MemoryIndexer
 from assistant.core.memory.recall import MemoryRecall
 from assistant.core.oauth import SignIns
 from assistant.core.outbox import Outbox
+from assistant.core.plugin_tools import PluginTools
 from assistant.core.repositories.checker import UpdateChecker
 from assistant.core.secret_store import SecretBox
 from assistant.core.speech.synthesizer import Synthesizer
@@ -38,6 +40,10 @@ class ServiceBase:
     channel_processes: ChannelProcesses
     # MCP server connections. The daemon runs it as a supervised task.
     mcp: McpHub
+    # The coding agents plugins bring and their tasks (core/agent_tasks/).
+    agent_tasks: AgentTasks
+    # The tools plugins bring, MCP servers' and the agents' task tools, for the graph and subagents.
+    _plugin_tools: PluginTools
     # The web pages MCP servers come with, run like `mcp`.
     pages: McpPages
     # Embeds new facts and episodes for memory search. The daemon runs it as a supervised task.
@@ -71,9 +77,10 @@ class ServiceBase:
     _no_runs: asyncio.Event
 
     async def _servers_changed(self) -> None:
-        """Bring MCP connections, pages and channels in line with the saved servers. A server's skill
+        """Bring MCP connections, coding agents, pages and channels in line with the saved servers. A server's skill
         comes and goes with it, so clients refresh their skills too."""
         await self.mcp.reload()
+        await self.agent_tasks.reload()
         await self.pages.reload()
         await self.channel_processes.reload()
         self.bus.publish("skills")

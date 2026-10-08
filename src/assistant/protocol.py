@@ -11,6 +11,7 @@ _EVENT_TYPES = {
     cls.__name__: cls
     for cls in (
         events.TextDelta,
+        events.Thinking,
         events.ToolStarted,
         events.ToolFinished,
         events.ApprovalRequired,

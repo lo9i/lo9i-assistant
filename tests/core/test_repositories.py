@@ -322,7 +322,7 @@ async def test_a_server_with_an_environment_needs_uv(service, repo, monkeypatch)
 
 
 async def test_a_server_in_a_newer_format_than_the_daemon_reads_isnt_found(service, repo):
-    _write(repo / "other" / "general" / "ledger", {"server.yaml": _IN_ENVIRONMENT.replace("format: 2", "format: 3")})
+    _write(repo / "other" / "general" / "ledger", {"server.yaml": _IN_ENVIRONMENT.replace("format: 2", "format: 4")})
     assert "ledger" not in [s.name for s in (await service.browse_repository(URL)).servers]
 
 
@@ -476,22 +476,21 @@ async def test_a_server_can_ask_for_the_copilot_login_and_leave_a_field_optional
     assert (await servers.load(service.store, "coder")).model_login == "copilot"
 
 
-async def test_a_server_can_bring_an_agent_with_its_command(service, repo):
-    manifest = (
-        'command: "{python}"\nargs: ["{dir}/server.py"]\nagent: {command: claude, name: Claude Code, tool: converse}\n'
-    )
-    _write(repo / "coder", {"server.yaml": manifest, "server.py": _SERVER})
+async def test_a_plugin_can_bring_an_agent_with_its_command_and_worker(service, repo):
+    manifest = "format: 3\nagent: {command: claude, name: Claude Code, worker: '{python}', args: ['{dir}/worker.py']}\n"
+    _write(repo / "coder", {"server.yaml": manifest, "worker.py": ""})
     found = next(s for s in (await service.browse_repository(URL)).servers if s.name == "coder")
-    assert found.agent == "claude"
+    assert (found.agent, found.transport) == ("claude", "none")
     await service.install_from_repository(URL, [], [ServerValues("coder", {})])
-    assert [(a.command, a.name, a.tool) for a in await service.agents()] == [("claude", "Claude Code", "converse")]
+    assert [(a.command, a.name) for a in await service.agents()] == [("claude", "Claude Code")]
+    assert [a.name for a in service.agent_tasks.agents()] == ["Claude Code"]
 
 
 @pytest.mark.parametrize(
     ("agent", "problem"),
     [
-        ("{command: claude, name: Claude Code}", "must have command, name and tool"),
-        ("{command: Claude!, name: X, tool: t}", "must be a lowercase word"),
+        ("{command: claude, name: Claude Code}", "must have command, name and worker"),
+        ("{command: Claude!, name: X, worker: w}", "must be a lowercase word"),
     ],
 )
 async def test_an_agent_section_that_cant_work_is_refused(service, repo, agent, problem):

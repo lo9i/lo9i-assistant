@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Brain from "@lucide/svelte/icons/brain";
   import Check from "@lucide/svelte/icons/check";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Copy from "@lucide/svelte/icons/copy";
@@ -8,7 +9,7 @@
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import Wrench from "@lucide/svelte/icons/wrench";
   import type { Snippet } from "svelte";
-  import type { ChatItem } from "$lib/chat/transcript";
+  import { inlineArg, type ChatItem } from "$lib/chat/transcript";
   import { markdown } from "$lib/markdown";
 
   type Props = {
@@ -89,30 +90,43 @@
           </button>
         </div>
       </div>
+    {:else if item.kind === "thinking"}
+      <details class="tool thought">
+        <summary>
+          <Brain size={12} />
+          <span class="detail">{item.text.split("\n")[0]}</span>
+          <span class="chevron"><ChevronRight size={12} /></span>
+        </summary>
+        <p class="thought-text">{item.text}</p>
+      </details>
     {:else if item.kind === "tool"}
+      {@const arg = inlineArg(item.args)}
       <details class="tool {item.state}">
         <summary>
           <Wrench size={12} />
           <span>{item.name}</span>
+          {#if arg}<span class="detail" title={arg}>{arg}</span>{/if}
           {#if item.state === "running"}<span class="dots"><i></i><i></i><i></i></span>{/if}
           {#if item.state === "cancelled"}<span class="stopped">stopped</span>{/if}
           {#if item.steps?.length}<span class="steps-count">{item.steps.length} {item.steps.length === 1 ? "step" : "steps"}</span>{/if}
           {#if item.args || item.output || item.steps?.length}<span class="chevron"><ChevronRight size={12} /></span>{/if}
         </summary>
-        {#if item.args}<pre>{JSON.stringify(item.args, null, 2)}</pre>{/if}
+        {#if item.args && !arg}<pre>{JSON.stringify(item.args, null, 2)}</pre>{/if}
         {#if item.steps?.length}
           <div class="steps">
             {#each item.steps as step, i (i)}
+              {@const stepArg = inlineArg(step.args)}
               <details class="tool step {step.state}">
                 <summary>
                   <Wrench size={12} />
                   <span>{step.name}</span>
+                  {#if stepArg}<span class="detail" title={stepArg}>{stepArg}</span>{/if}
                   {#if step.state === "running"}<span class="dots"><i></i><i></i><i></i></span>{/if}
                   {#if step.state === "cancelled"}<span class="stopped">stopped</span>{/if}
                   <span class="chevron"><ChevronRight size={12} /></span>
                 </summary>
-                <!-- A step a handed-off agent reports is a line of text, with no arguments. -->
-                {#if step.args && Object.keys(step.args).length}<pre>{JSON.stringify(step.args, null, 2)}</pre>{/if}
+                <!-- A note a handed-off agent reports is a line of text, with no arguments. -->
+                {#if step.args && Object.keys(step.args).length && !stepArg}<pre>{JSON.stringify(step.args, null, 2)}</pre>{/if}
                 {#if step.output}<pre>{step.output}</pre>{/if}
               </details>
             {/each}
@@ -246,6 +260,24 @@
   .tool pre {
     margin-top: 8px;
     max-width: min(800px, 80vw);
+  }
+  .detail {
+    max-width: min(480px, 60vw);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    opacity: 0.8;
+  }
+  .thought .detail {
+    font-family: inherit;
+    font-style: italic;
+  }
+  .thought-text {
+    margin-top: 8px;
+    max-width: min(800px, 80vw);
+    white-space: pre-wrap;
+    font-style: italic;
   }
   .stopped {
     color: var(--color-danger);

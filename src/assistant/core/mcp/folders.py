@@ -17,12 +17,5 @@ def data(name: str) -> Path:
     return Path(settings.mcp_data_dir).expanduser() / name
 
 
-def library(name: str) -> Path:
-    """A shared library plugins use (`libraries:` in server.yaml). It sits two levels above a plugin's
-    folder, as `lib/` does above `mcp/<name>` in the repository, so a plugin's uv path dependency on
-    `../../lib/<name>` works in both places."""
-    return Path(settings.mcp_dir).expanduser().parent / "lib" / name
-
-
 def page_socket(name: str) -> Path:
     return data(name) / PAGE_SOCKET

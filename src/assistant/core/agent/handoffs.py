@@ -2,23 +2,20 @@
 from the apps, and a message's run when the agent answers it instead of the assistant's model."""
 
 import asyncio
-import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
-from mcp.shared.dispatcher import ProgressFnT
-from mcp.shared.exceptions import MCPError
 
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
+from assistant.core.agent_tasks.service import AgentTaskError
+from assistant.core.agent_tasks.steps import AgentSteps
 from assistant.core.conversation import agent_folders, handoffs
 from assistant.core.conversation.agent_folders import AgentFolders, FolderError, FolderListing
 from assistant.core.conversation.handoffs import Agent, Handoff
-from assistant.core.events import Done, Error, Event, TextDelta, ToolFinished, ToolStarted
-from assistant.core.mcp.connection import ConnectionLostError, NotConnectedError
-from assistant.core.mcp.tools import render
+from assistant.core.events import Done, Error, Event, TextDelta
 
 __all__ = ["Agent", "AgentFolders", "FolderError", "FolderListing", "Handoff", "HandoffError", "HandoffsMixin"]
 
@@ -40,7 +37,7 @@ class HandoffsMixin(RunsMixin):
         a folder that doesn't exist."""
         agent = next((a for a in await self.agents() if a.command == command), None)
         if agent is None:
-            raise HandoffError(f"No plugin brings /{command}. Install it from Plugins.")
+            raise HandoffError(await self._no_agent(command))
         where = Path(folder).expanduser()
         if where == agent_folders.workspace():
             await agent_folders.ensure_workspace()
@@ -50,6 +47,11 @@ class HandoffsMixin(RunsMixin):
         await handoffs.hand(self._storage.store, user_id, thread_id, handoff)
         await agent_folders.remember(self._storage.store, user_id, where)
         return handoff
+
+    async def _no_agent(self, command: str) -> str:
+        if name := await handoffs.outdated(self._storage.store, command):
+            return f"{name} was written for an older version of lo9i. Update it in Plugins to use /{command}."
+        return f"No plugin brings /{command}. Install it from Plugins."
 
     async def agent_folders(self, user_id: str) -> AgentFolders:
         """The folders the apps offer to hand a conversation to: the workspace and the ones used before."""
@@ -71,56 +73,52 @@ class HandoffsMixin(RunsMixin):
     async def _agent_turn(
         self, session: Session, handoff: Handoff, message: HumanMessage, said: str
     ) -> AsyncIterator[Event]:
-        """The agent answers, its steps shown inside its call as it works; the message and its reply
-        are added to the conversation."""
-        call_id = f"handoff-{uuid.uuid4().hex}"
-        yield ToolStarted(handoff.name, {"folder": handoff.folder}, id=call_id)
-        steps: asyncio.Queue[str] = asyncio.Queue()
-        asking = asyncio.create_task(self._ask_agent(session, handoff, said, _ProgressSteps(steps)))
-        async for step in _steps_while(asking, steps):
-            yield ToolStarted(step, {}, within=call_id)
-            yield ToolFinished(step, "", within=call_id)
+        """The agent answers, its thinking, text and tool calls shown as it works; the message and its
+        reply are added to the conversation."""
+        steps = AgentSteps(handoff.name)
+        reported: asyncio.Queue[str] = asyncio.Queue()
+        asking = asyncio.create_task(self._ask_agent(session, handoff, said, reported))
+        async for step in _steps_while(asking, reported):
+            for event in steps.events(step):
+                yield event
         try:
             reply = await asking
         except HandoffError as e:
-            yield ToolFinished(handoff.name, "Failed")
-            yield Error(str(e))
+            for event in [*steps.end("Failed"), Error(str(e))]:
+                yield event
             return
-        yield ToolFinished(handoff.name, f"Replied, working in {handoff.folder}")
+        for event in steps.end("Done"):
+            yield event
         config: RunnableConfig = {"configurable": {"thread_id": session.thread_id}}
         # Written as the agent node's output: the graph reads it as a finished turn, nothing left to run.
         await self._graph.aupdate_state(config, {"messages": [message, AIMessage(reply)]}, as_node="agent")
-        yield TextDelta(reply)
+        if not steps.spoke:
+            yield TextDelta(reply)
         yield Done()
 
-    async def _ask_agent(self, session: Session, handoff: Handoff, said: str, progress: ProgressFnT) -> str:
+    async def _ask_agent(self, session: Session, handoff: Handoff, said: str, steps: asyncio.Queue[str]) -> str:
         """Raises HandoffError with what went wrong, for the user."""
         agent = next((a for a in await self.agents() if a.server == handoff.server), None)
         if agent is None:
             raise HandoffError(f"{handoff.name} isn't installed or is turned off. /{handoff.command} off goes back.")
-        arguments = {"conversation": session.thread_id, "folder": handoff.folder, "message": said}
         try:
-            result = await self.mcp.call(agent.server, agent.tool, arguments, progress)
-        except (NotConnectedError, ConnectionLostError, MCPError) as e:
-            raise HandoffError(f"{handoff.name} couldn't answer: {e}") from e
-        if result.is_error:
-            raise HandoffError(f"{handoff.name}: {render(result)}")
-        return render(result)
+            return await self.agent_tasks.converse(agent.server, session.thread_id, handoff.folder, said, _Steps(steps))
+        except AgentTaskError as e:
+            raise HandoffError(f"{handoff.name}: {e}") from e
 
 
-class _ProgressSteps:
-    """Each progress notification's message is a step the agent took (a file read, a command run)."""
+class _Steps:
+    """Each line the agent's worker writes is a step it took (core/agent_tasks/steps.py)."""
 
     def __init__(self, steps: asyncio.Queue[str]) -> None:
         self._steps = steps
 
-    async def __call__(self, progress: float, total: float | None, message: str | None) -> None:
-        if message:
-            self._steps.put_nowait(message)
+    async def __call__(self, step: str) -> None:
+        self._steps.put_nowait(step)
 
 
 async def _steps_while(asking: asyncio.Task[str], steps: asyncio.Queue[str]) -> AsyncIterator[str]:
-    """The steps as they come, until the agent has replied. Stopping the run stops the call too."""
+    """The steps as they come, until the agent has replied. Stopping the run stops the task too."""
     try:
         while not (asking.done() and steps.empty()):
             step = asyncio.ensure_future(steps.get())

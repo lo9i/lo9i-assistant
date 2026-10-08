@@ -11,6 +11,7 @@ from assistant.core.approvals import RemoteApprovals
 from assistant.core.bus import EventBus
 from assistant.core.channels import hub as hub_module
 from assistant.core.channels import legacy
+from assistant.core.channels.chat.port import ChatLimits
 from assistant.core.channels.hub import ChannelHub, ChannelNotConnectedError, SetupItem
 from assistant.core.channels.processes import ChannelProcesses
 from assistant.core.conversation.prompt import build_system_prompt
@@ -19,7 +20,6 @@ from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.install import ServerValues
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.outbox import DeliveryError, Outbox
-from assistant.core.repositories import source as folder_source
 
 
 def _hub(name: str = "lo9i") -> tuple[ChannelHub, Outbox, RemoteApprovals, EventBus]:
@@ -31,24 +31,43 @@ def _hub(name: str = "lo9i") -> tuple[ChannelHub, Outbox, RemoteApprovals, Event
     return ChannelHub(outbox, approvals, bus, assistant_name), outbox, approvals, bus
 
 
-async def _attached(hub: ChannelHub, channel: str):
+_LIMITS = ChatLimits()
+
+
+async def _attached(hub: ChannelHub, channel: str, limits: ChatLimits = _LIMITS):
     """The channel's stream, past its hello."""
-    stream = hub.attach(channel)
+    stream = hub.attach(channel, limits)
     hello = await anext(stream)
     assert hello.kind == "hello" and hello.data == {"assistant_name": "lo9i"}
     return stream
 
 
-async def test_a_connected_channel_delivers_messages_it_confirms():
+async def test_a_connected_channel_sends_messages_to_the_users_chat_and_confirms_them():
     hub, outbox, approvals, _ = _hub()
-    stream = await _attached(hub, "telegram")
+    stream = await _attached(hub, "telegram", ChatLimits(message_limit=10))
     assert outbox.channels == ["telegram"] and approvals.available
-    sending = asyncio.create_task(outbox.send("telegram", "stretch"))
-    event = await anext(stream)
-    assert (event.kind, event.data["text"]) == ("deliver", "stretch")
-    assert hub.confirm(event.data["id"], "")
+    assert hub.limits("telegram").message_limit == 10 and hub.limits("slack") == ChatLimits()
+    sending = asyncio.create_task(outbox.send("telegram", "stretch\nnow"))
+    for part in ("stretch", "now"):  # split to fit the channel
+        event = await anext(stream)
+        assert event.kind == "send"
+        assert {k: v for k, v in event.data.items() if k != "id"} == {
+            "chat": "",
+            "text": part,
+            "markdown": True,
+            "buttons": [],
+        }
+        assert hub.confirm(event.data["id"], "", "m1")
     await sending
     assert not hub.confirm(event.data["id"], "")  # nothing waits any more
+
+
+async def test_an_operation_returns_the_id_of_the_message_it_sent():
+    hub, *_ = _hub()
+    stream = await _attached(hub, "telegram")
+    sending = asyncio.create_task(hub.operate("telegram", "send", {"chat": "42", "text": "hi"}))
+    hub.confirm((await anext(stream)).data["id"], "", "1001")
+    assert await sending == "1001"
 
 
 async def test_a_delivery_the_channel_refuses_or_doesnt_confirm_fails(monkeypatch):
@@ -68,7 +87,9 @@ async def test_a_job_approval_goes_to_the_channel_and_its_answer_back():
     stream = await _attached(hub, "telegram")
     asking = asyncio.create_task(approvals.ask("i1", "The job news", {"command": "rm x"}, timeout=5))
     event = await anext(stream)
-    assert (event.kind, event.data["interrupt_id"], event.data["title"]) == ("approval", "i1", "The job news")
+    assert (event.kind, event.data["chat"]) == ("send", "")
+    assert event.data["text"].startswith("The job news is waiting for you.")
+    assert event.data["buttons"] == [["✅ Approve", "ja:i1"], ["❌ Reject", "jr:i1"]]
     hub.confirm(event.data["id"], "")
     await asyncio.sleep(0)
     assert approvals.answer("i1", {"approved": True, "reason": ""})
@@ -111,7 +132,7 @@ async def test_channels_hear_when_the_assistant_is_renamed():
     hub = ChannelHub(outbox, approvals, bus, assistant_name)
     stop = asyncio.Event()
     running = asyncio.create_task(hub.run(stop))
-    stream = aiter(hub.attach("telegram"))
+    stream = aiter(hub.attach("telegram", ChatLimits()))
     await anext(stream)
     await asyncio.sleep(0.01)
     names.append("Ada")
@@ -136,7 +157,9 @@ async def test_the_channel_process_runs_with_the_daemons_address_and_its_token(s
         "import json, os; "
         f"json.dump({{k: v for k, v in os.environ.items() if k.startswith(('LO9I', 'BOT'))}}, open({str(out)!r}, 'w'))"
     )
-    server = McpServer("telegram", env={"BOT": "b"}, channel_command=sys.executable, channel_args=["-c", script])
+    server = McpServer(
+        "telegram", env={"BOT": "b"}, channel_command=sys.executable, channel_args=["-c", script], channel_protocol=2
+    )
     await servers.save(service.store, server)
     processes = ChannelProcesses(service.store, service.channels_hub, Environments(folders.code), service.secrets)
     stop = asyncio.Event()
@@ -196,23 +219,18 @@ async def test_the_old_slack_tokens_fill_the_plugins_fields(service):
     assert await legacy.known_fields(service.store, "other") == []
 
 
-async def test_a_channel_plugin_is_installed_with_its_library_and_the_old_settings(
-    service, isolated_settings, monkeypatch
-):
+async def test_a_channel_plugin_is_installed_with_the_old_settings(service, isolated_settings, monkeypatch):
     import shutil
     from pathlib import Path
 
     from assistant.core.repositories import checkout
 
     remote = isolated_settings / "remote"
-    (remote / "communications" / "lib" / "lo9i-chat").mkdir(parents=True)
-    (remote / "communications" / "lib" / "lo9i-chat" / "pyproject.toml").write_text("[project]\nname = 'lo9i-chat'\n")
     (remote / "communications" / "chat" / "telegram").mkdir(parents=True)
     (remote / "communications" / "chat" / "telegram" / "server.yaml").write_text(
-        "libraries: [lo9i-chat]\n"
         "env: {TELEGRAM_DATA: '{data}'}\n"
         "fields: [{key: TELEGRAM_TOKEN, label: Bot token, secret: true}]\n"
-        "channel: {command: '{python}', args: ['{dir}/main.py'], style: A phone chat.}\n"
+        "channel: {command: '{python}', args: ['{dir}/main.py'], style: A phone chat., protocol: 2}\n"
     )
 
     async def fetch(url: str, dest: Path, token: str = "") -> str:
@@ -232,10 +250,15 @@ async def test_a_channel_plugin_is_installed_with_its_library_and_the_old_settin
     assert installed.servers[0].channel
     server = await keys.fill(service.store, service.secrets, await servers.load(service.store, "telegram"))
     assert server.env == {"TELEGRAM_DATA": str(folders.data("telegram")), "TELEGRAM_TOKEN": "123:abc"}
-    assert server.channel_args == [f"{folders.code('telegram')}/main.py"]
-    assert (folders.library("lo9i-chat") / "pyproject.toml").is_file()
-    assert folders.library("lo9i-chat") == folders.code("telegram").parent.parent / "lib" / "lo9i-chat"
-    library_source = folder_source.read(folders.library("lo9i-chat"))
-    assert library_source is not None and library_source.path == "communications/lib/lo9i-chat"
+    assert server.channel_args == [f"{folders.code('telegram')}/main.py"] and server.channel_protocol == 2
     assert (folders.data("telegram") / legacy.IMPORT_FILE).is_file()
     assert [c.name for c in await service.channels()] == ["telegram"]
+
+
+async def test_a_channel_for_another_protocol_isnt_run_and_the_apps_say_why(service):
+    await servers.save(service.store, McpServer("telegram", channel_command="uv"))
+    await servers.save(service.store, McpServer("slack", channel_command="uv", channel_protocol=2))
+    found = {c.name: c.items for c in await service.channels()}
+    assert found["telegram"] == [SetupItem("text", "", hub_module.protocol_problem(1))]
+    assert "Update it in Plugins" in hub_module.protocol_problem(1) and found["slack"] == []
+    assert "newer version of lo9i" in hub_module.protocol_problem(3)

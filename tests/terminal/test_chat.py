@@ -6,10 +6,10 @@ from textual.widgets import Input, Markdown
 
 from assistant.client import DaemonUnavailableError, clipboard
 from assistant.core.attachments import Attachment
-from assistant.core.events import ApprovalRequired, Cancelled, Done, TextDelta, ToolFinished, ToolStarted
+from assistant.core.events import ApprovalRequired, Cancelled, Done, TextDelta, Thinking, ToolFinished, ToolStarted
 from assistant_terminal.tui.attachments import AttachmentBar
 from assistant_terminal.tui.screens import ApprovalScreen, QuestionScreen, SideConversationScreen
-from assistant_terminal.tui.widgets import AssistantMessage, StoppedNote, ToolCall, UserMessage
+from assistant_terminal.tui.widgets import AssistantMessage, StoppedNote, ThinkingNote, ToolCall, UserMessage
 from tests.terminal.conftest import wait_for
 
 
@@ -367,3 +367,24 @@ async def test_a_handed_off_agents_steps_show_as_lines_inside_its_call(app, clie
         await wait_for(pilot, lambda: not app._busy and app.query(ToolCall))
         call, step = app.query(ToolCall)
         assert call.title == "✓ Claude Code(/repo) · 1 step" and step.title == "✓ Bash: pytest"
+
+
+async def test_a_handed_off_agent_shows_its_thinking_text_and_tool_calls_in_order(app, client, monkeypatch):
+    async def send(session, text, attachments=()):
+        yield Thinking("The test expects a list.\nLet me check.")
+        yield TextDelta("Running the tests.")
+        yield ToolStarted("Bash", {"detail": "pytest -q"}, id="t1")
+        yield ToolFinished("Bash", "1 failed")
+        yield TextDelta("Fixed it.")
+        yield Done()
+
+    monkeypatch.setattr(client, "send", send)
+    async with app.run_test() as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"run the tests", "enter")
+        await wait_for(pilot, lambda: not app._busy and app.query(ToolCall))
+        chat = app.query_one("#chat")
+        shown = [type(w) for w in chat.children]
+        assert shown[-4:] == [ThinkingNote, AssistantMessage, ToolCall, AssistantMessage]
+        assert app.query_one(ThinkingNote).title == "✻ The test expects a list."
+        assert app.query_one(ToolCall).title == "✓ Bash(pytest -q)"

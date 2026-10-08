@@ -121,8 +121,10 @@ class ModelMixin(ServiceBase):
         self._model = model
         self._digester = build_digester(model, self._storage.usage)
         self._titler = build_titler(model, self._storage.usage)
-        self._graph = build_graph(self._storage, model, build_summarizer(model, self._storage.usage), self.mcp)
-        self._subagents = build_subagents(self._storage, model, self.mcp)
+        self._graph = build_graph(
+            self._storage, model, build_summarizer(model, self._storage.usage), self._plugin_tools
+        )
+        self._subagents = build_subagents(self._storage, model, self._plugin_tools)
 
 
 async def usable_choice(store: BaseStore, secrets: SecretBox) -> ModelChoice:

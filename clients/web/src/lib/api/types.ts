@@ -102,6 +102,8 @@ export type Decision =
 
 export type RunEvent =
   | { type: "TextDelta"; text: string }
+  // A handed-off agent's reasoning, shown apart from its reply.
+  | { type: "Thinking"; text: string }
   // `within`: the id of the delegate call whose subagent made this call; empty for the agent's own.
   | { type: "ToolStarted"; name: string; args: Record<string, unknown>; id?: string; within?: string }
   | { type: "ToolFinished"; name: string; output: string; within?: string }

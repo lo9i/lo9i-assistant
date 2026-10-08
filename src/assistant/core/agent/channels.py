@@ -4,8 +4,9 @@ connected, what it shows for setting it up, and its buttons."""
 from dataclasses import dataclass
 
 from assistant.core.agent.base import ServiceBase
-from assistant.core.channels.hub import ChannelNotConnectedError, SetupItem
+from assistant.core.channels.hub import ChannelNotConnectedError, SetupItem, protocol_problem
 from assistant.core.mcp import servers
+from assistant.core.mcp.servers import McpServer
 
 __all__ = ["ChannelNotConnectedError", "ChannelStatus", "ChannelsMixin", "SetupItem"]
 
@@ -22,7 +23,7 @@ class ChannelStatus:
 class ChannelsMixin(ServiceBase):
     async def channels(self) -> list[ChannelStatus]:
         return [
-            ChannelStatus(s.name, s.enabled, self.channels_hub.connected(s.name), self.channels_hub.items(s.name))
+            ChannelStatus(s.name, s.enabled, self.channels_hub.connected(s.name), self._items(s))
             for s in await servers.load_all(self._storage.store)
             if s.channel_command
         ]
@@ -30,6 +31,12 @@ class ChannelsMixin(ServiceBase):
     async def channel_names(self) -> list[str]:
         """The installed channels, connected or not."""
         return [c.name for c in await self.channels()]
+
+    def _items(self, server: McpServer) -> list[SetupItem]:
+        """What its process shows, or why it isn't running: a plugin for another channel protocol."""
+        if problem := protocol_problem(server.channel_protocol):
+            return [SetupItem("text", "", problem)]
+        return self.channels_hub.items(server.name)
 
     def press_channel_action(self, name: str, action: str) -> None:
         """A setup button pressed in an app. Raises ChannelNotConnectedError."""

@@ -9,6 +9,7 @@ import httpx
 import pytest
 import uvicorn
 
+from assistant.core.channels.chat.port import ChatLimits
 from assistant.core.mcp import servers
 from assistant.core.mcp.servers import McpServer
 from assistant.daemon.api import create_app
@@ -18,8 +19,8 @@ from assistant.protocol import CLIENT_HEADER
 
 @pytest.fixture
 async def app(service):
-    await servers.save(service.store, McpServer("telegram", channel_command="uv"))
-    await servers.save(service.store, McpServer("slack", command="uv", channel_command="uv"))
+    await servers.save(service.store, McpServer("telegram", channel_command="uv", channel_protocol=2))
+    await servers.save(service.store, McpServer("slack", command="uv", channel_command="uv", channel_protocol=2))
     return create_app(service, RunHub())
 
 
@@ -31,12 +32,12 @@ def _client(app, token: str = "") -> httpx.AsyncClient:
 async def test_a_channels_token_reaches_only_its_own_routes(app, service):
     token = service.channels_hub.issue_token("telegram")
     async with _client(app, token) as http:
-        assert (await http.get("/channels/telegram/approvals")).status_code == 200
-        assert (await http.get("/channels/slack/approvals")).status_code == 403
+        assert (await http.post("/channels/telegram/commands", json={"command": "start"})).status_code == 200
+        assert (await http.post("/channels/slack/commands", json={"command": "start"})).status_code == 403
         assert (await http.get("/memory")).status_code == 403
         assert (await http.post("/channels/telegram/actions/x")).status_code == 403
     async with _client(app, "not-a-token") as http:
-        assert (await http.get("/channels/telegram/approvals")).status_code == 401
+        assert (await http.post("/channels/telegram/commands", json={"command": "start"})).status_code == 401
 
 
 async def test_a_device_cant_use_a_channels_routes(app, service):
@@ -45,7 +46,7 @@ async def test_a_device_cant_use_a_channels_routes(app, service):
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=trusted(app)), base_url="http://127.0.0.1", headers={CLIENT_HEADER: "test"}
     ) as http:
-        assert (await http.get("/channels/telegram/approvals")).status_code == 403
+        assert (await http.post("/channels/telegram/commands", json={"command": "start"})).status_code == 403
         listed = (await http.get("/channels")).json()
         assert [(c["name"], c["connected"]) for c in listed] == [("slack", False), ("telegram", False)]
         assert (await http.post("/channels/telegram/actions/new-pairing-code")).status_code == 409
@@ -61,34 +62,15 @@ async def test_a_channel_tells_the_apps_what_to_show(app, service):
     assert [(i.kind, i.label) for i in telegram.items] == [("text", "Bot: @lo9i_bot"), ("action", "New")]
 
 
-async def test_a_channel_chats_in_its_own_conversation(app, service, script):
-    script.reply("Hello")
+async def test_commands_move_the_channel_between_home_and_a_side_conversation(app, service):
     token = service.channels_hub.issue_token("telegram")
     async with _client(app, token) as http:
-        files = [("files", ("note.txt", b"hi", "text/plain"))]
-        run = (await http.post("/channels/telegram/messages", data={"text": "hi"}, files=files)).json()
-        events = await _run_events(http, f"/channels/telegram/runs/{run['run_id']}/events")
-        assert events[-1]["type"] == "Done"
-        assert (await http.get("/channels/telegram/approvals")).json() == []
-        session = await service.session("owner", "telegram")
-        created = (await http.post("/channels/telegram/conversation")).json()
-        assert created["thread_id"] != session.thread_id
-        assert (await service.session("owner", "telegram")).thread_id == created["thread_id"]
-        home = (await http.delete("/channels/telegram/conversation")).json()["thread_id"]
-        assert home == session.thread_id == await service.home_thread("owner")
-        assert (await service.session("owner", "telegram")).thread_id == home
-    async with _client(app, service.channels_hub.issue_token("slack")) as http:
-        response = await http.get(f"/channels/slack/runs/{run['run_id']}/events")
-        assert response.status_code == 404  # another channel's run
-
-
-async def test_job_approvals_and_speech(app, service):
-    token = service.channels_hub.issue_token("telegram")
-    async with _client(app, token) as http:
-        answer = await http.post("/channels/telegram/job-approvals/i1", json={"approved": True})
-        assert answer.json() == {"waiting": False}
-        spoken = await http.post("/channels/telegram/speech", json={"text": "hi", "after_voice_message": False})
-        assert spoken.status_code == 204  # replies aren't spoken by default
+        home = (await service.session("owner", "telegram")).thread_id
+        reply = await http.post("/channels/telegram/commands", json={"command": "new"})
+        assert reply.json() == {"text": "Started a side conversation. /home goes back."}
+        assert (await service.session("owner", "telegram")).thread_id != home
+        await http.post("/channels/telegram/commands", json={"command": "home"})
+        assert (await service.session("owner", "telegram")).thread_id == home == await service.home_thread("owner")
 
 
 async def test_a_channel_process_holds_its_stream_and_confirms_deliveries(app, service):
@@ -97,21 +79,38 @@ async def test_a_channel_process_holds_its_stream_and_confirms_deliveries(app, s
     async with _serving(app) as base_url:
         headers = {CLIENT_HEADER: "channel", "Authorization": f"Bearer {token}"}
         http = httpx.AsyncClient(base_url=base_url, headers=headers, timeout=10)
-        async with http, http.stream("GET", "/channels/telegram/stream") as stream:
+        async with http, http.stream("GET", "/channels/telegram/stream?message_limit=2000&voice=true") as stream:
             lines = aiter(stream.aiter_lines())
             assert await _next_event(lines) == ("hello", {"assistant_name": await service.assistant_name()})
+            assert service.channels_hub.limits("telegram") == ChatLimits(message_limit=2000, voice=True)
             sending = asyncio.create_task(service.outbox.send("telegram", "stretch"))
             kind, data = await _next_event(lines)
-            assert (kind, data["text"]) == ("deliver", "stretch")
-            await http.post(f"/channels/telegram/deliveries/{data['id']}", json={"error": ""})
+            assert (kind, data["chat"], data["text"]) == ("send", "", "stretch")
+            await http.post(f"/channels/telegram/deliveries/{data['id']}", json={"error": "", "message": "7"})
             await sending
             assert service.channels_hub.connected("telegram")
 
 
-async def _run_events(http: httpx.AsyncClient, path: str) -> list[dict]:
-    response = await http.get(path)
-    data = [line.removeprefix("data: ") for line in response.text.splitlines() if line.startswith("data: ")]
-    return [json.loads(d) for d in data if d != "{}"]
+async def test_a_message_answers_at_once_and_its_turn_reaches_the_chat_on_the_stream(app, service, script):
+    token = service.channels_hub.issue_token("telegram")
+    async with _serving(app) as base_url:
+        headers = {CLIENT_HEADER: "channel", "Authorization": f"Bearer {token}"}
+        http = httpx.AsyncClient(base_url=base_url, headers=headers, timeout=10)
+        async with http, http.stream("GET", "/channels/telegram/stream?edit_seconds=0") as stream:
+            lines = aiter(stream.aiter_lines())
+            await _next_event(lines)
+            files = [("files", ("note.txt", b"hi", "text/plain"))]
+            sent = await http.post("/channels/telegram/messages", data={"chat": "42", "text": "hi"}, files=files)
+            assert sent.status_code == 200
+            kind, data = await _next_event(lines)
+            assert (kind, data["chat"]) == ("typing", "42")
+            await http.post(f"/channels/telegram/deliveries/{data['id']}", json={})
+            session = await service.session("owner", "telegram")
+            for _ in range(200):
+                if len(await service.conversation_messages(session.thread_id)) == 2:
+                    break
+                await asyncio.sleep(0.02)
+            assert (await service.conversation_messages(session.thread_id))[0].text.endswith("hi")
 
 
 async def _next_event(lines: AsyncIterator[str]) -> tuple[str, dict]:

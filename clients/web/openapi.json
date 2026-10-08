@@ -1415,6 +1415,7 @@
     "/channels/{name}/stream": {
       "get": {
         "summary": "Channel Stream",
+        "description": "The channel's limits come with the request: how often it may edit a message, how long a\ndraft and a message may be, and whether it sends voice notes.",
         "operationId": "channel_stream_channels__name__stream_get",
         "parameters": [
           {
@@ -1424,6 +1425,46 @@
             "schema": {
               "type": "string",
               "title": "Name"
+            }
+          },
+          {
+            "name": "edit_seconds",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "default": 1.0,
+              "title": "Edit Seconds"
+            }
+          },
+          {
+            "name": "draft_limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 3500,
+              "title": "Draft Limit"
+            }
+          },
+          {
+            "name": "message_limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 3500,
+              "title": "Message Limit"
+            }
+          },
+          {
+            "name": "voice",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Voice"
             }
           }
         ],
@@ -1554,194 +1595,10 @@
         }
       }
     },
-    "/channels/{name}/job-approvals/{interrupt_id}": {
-      "post": {
-        "summary": "Answer Job Approval",
-        "operationId": "answer_job_approval_channels__name__job_approvals__interrupt_id__post",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Name"
-            }
-          },
-          {
-            "name": "interrupt_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Interrupt Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/JobDecision"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StillWaiting"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/channels/{name}/speech": {
-      "post": {
-        "summary": "Channel Speech",
-        "description": "The reply as an OGG Opus voice note when Settings \u2192 Audio speaks it, else 204.",
-        "operationId": "channel_speech_channels__name__speech_post",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Name"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChannelSpeech"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "audio/ogg": {}
-            }
-          },
-          "204": {
-            "description": "Not spoken"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/channels/{name}/conversation": {
-      "post": {
-        "summary": "New Channel Conversation",
-        "description": "Starts a side conversation for the channel (its /new).",
-        "operationId": "new_channel_conversation_channels__name__conversation_post",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Name"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ThreadCreated"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "summary": "Channel Home",
-        "description": "Moves the channel back to the home conversation (its /home).",
-        "operationId": "channel_home_channels__name__conversation_delete",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Name"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ThreadCreated"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/channels/{name}/messages": {
       "post": {
         "summary": "Channel Message",
+        "description": "`voice`: the message was a voice note (Settings \u2192 Audio can speak only those replies).",
         "operationId": "channel_message_channels__name__messages_post",
         "parameters": [
           {
@@ -1755,6 +1612,7 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "multipart/form-data": {
               "schema": {
@@ -1769,7 +1627,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RunStarted"
+                  "$ref": "#/components/schemas/Ok"
                 }
               }
             }
@@ -1787,10 +1645,10 @@
         }
       }
     },
-    "/channels/{name}/approvals": {
+    "/channels/{name}/presses": {
       "post": {
-        "summary": "Channel Approvals",
-        "operationId": "channel_approvals_channels__name__approvals_post",
+        "summary": "Channel Press",
+        "operationId": "channel_press_channels__name__presses_post",
         "parameters": [
           {
             "name": "name",
@@ -1807,7 +1665,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ChannelDecisions"
+                "$ref": "#/components/schemas/ChannelPress"
               }
             }
           }
@@ -1818,48 +1676,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RunStarted"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "summary": "Channel Waiting",
-        "operationId": "channel_waiting_channels__name__approvals_get",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Name"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/WaitingApproval"
-                  },
-                  "title": "Response Channel Waiting Channels  Name  Approvals Get"
+                  "$ref": "#/components/schemas/Ok"
                 }
               }
             }
@@ -1877,10 +1694,10 @@
         }
       }
     },
-    "/channels/{name}/runs/{run_id}/events": {
-      "get": {
-        "summary": "Channel Run Events",
-        "operationId": "channel_run_events_channels__name__runs__run_id__events_get",
+    "/channels/{name}/commands": {
+      "post": {
+        "summary": "Channel Command",
+        "operationId": "channel_command_channels__name__commands_post",
         "parameters": [
           {
             "name": "name",
@@ -1890,32 +1707,27 @@
               "type": "string",
               "title": "Name"
             }
-          },
-          {
-            "name": "run_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Run Id"
-            }
-          },
-          {
-            "name": "after",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 0,
-              "title": "After"
-            }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelCommand"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
-              "text/event-stream": {}
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandReply"
+                }
+              }
             }
           },
           "422": {
@@ -4097,18 +3909,13 @@
           "name": {
             "type": "string",
             "title": "Name"
-          },
-          "tool": {
-            "type": "string",
-            "title": "Tool"
           }
         },
         "type": "object",
         "required": [
           "server",
           "command",
-          "name",
-          "tool"
+          "name"
         ],
         "title": "Agent",
         "description": "An agent a plugin brings."
@@ -4222,10 +4029,19 @@
       },
       "Body_channel_message_channels__name__messages_post": {
         "properties": {
+          "chat": {
+            "type": "string",
+            "title": "Chat"
+          },
           "text": {
             "type": "string",
             "title": "Text",
             "default": ""
+          },
+          "voice": {
+            "type": "boolean",
+            "title": "Voice",
+            "default": false
           },
           "files": {
             "anyOf": [
@@ -4244,6 +4060,9 @@
           }
         },
         "type": "object",
+        "required": [
+          "chat"
+        ],
         "title": "Body_channel_message_channels__name__messages_post"
       },
       "Body_send_threads__thread_id__messages_post": {
@@ -4305,22 +4124,18 @@
         ],
         "title": "CancelResult"
       },
-      "ChannelDecisions": {
+      "ChannelCommand": {
         "properties": {
-          "decisions": {
-            "additionalProperties": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "object",
-            "title": "Decisions"
+          "command": {
+            "type": "string",
+            "title": "Command"
           }
         },
         "type": "object",
         "required": [
-          "decisions"
+          "command"
         ],
-        "title": "ChannelDecisions"
+        "title": "ChannelCommand"
       },
       "ChannelItems": {
         "properties": {
@@ -4338,23 +4153,34 @@
         ],
         "title": "ChannelItems"
       },
-      "ChannelSpeech": {
+      "ChannelPress": {
         "properties": {
+          "chat": {
+            "type": "string",
+            "title": "Chat"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
           "text": {
             "type": "string",
-            "title": "Text"
+            "title": "Text",
+            "default": ""
           },
-          "after_voice_message": {
-            "type": "boolean",
-            "title": "After Voice Message",
-            "default": false
+          "data": {
+            "type": "string",
+            "title": "Data"
           }
         },
         "type": "object",
         "required": [
-          "text"
+          "chat",
+          "message",
+          "data"
         ],
-        "title": "ChannelSpeech"
+        "title": "ChannelPress",
+        "description": "A button pressed in a chat: the button's data, on `message` whose text is `text`."
       },
       "ChannelStatus": {
         "properties": {
@@ -4386,6 +4212,19 @@
           "items"
         ],
         "title": "ChannelStatus"
+      },
+      "CommandReply": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "CommandReply"
       },
       "ConnectedClient": {
         "properties": {
@@ -4497,6 +4336,11 @@
           "error": {
             "type": "string",
             "title": "Error",
+            "default": ""
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
             "default": ""
           }
         },
@@ -5277,24 +5121,6 @@
           "enabled"
         ],
         "title": "JobChange"
-      },
-      "JobDecision": {
-        "properties": {
-          "approved": {
-            "type": "boolean",
-            "title": "Approved"
-          },
-          "reason": {
-            "type": "string",
-            "title": "Reason",
-            "default": ""
-          }
-        },
-        "type": "object",
-        "required": [
-          "approved"
-        ],
-        "title": "JobDecision"
       },
       "KeptKeys": {
         "properties": {
@@ -7031,19 +6857,6 @@
         "title": "StartupStatus",
         "description": "Whether the daemon starts at boot, and whether this daemon was started that way."
       },
-      "StillWaiting": {
-        "properties": {
-          "waiting": {
-            "type": "boolean",
-            "title": "Waiting"
-          }
-        },
-        "type": "object",
-        "required": [
-          "waiting"
-        ],
-        "title": "StillWaiting"
-      },
       "ThreadCreated": {
         "properties": {
           "thread_id": {
@@ -7367,25 +7180,6 @@
           "language"
         ],
         "title": "VoiceOption"
-      },
-      "WaitingApproval": {
-        "properties": {
-          "interrupt_id": {
-            "type": "string",
-            "title": "Interrupt Id"
-          },
-          "request": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Request"
-          }
-        },
-        "type": "object",
-        "required": [
-          "interrupt_id",
-          "request"
-        ],
-        "title": "WaitingApproval"
       },
       "WebSearchStatus": {
         "properties": {

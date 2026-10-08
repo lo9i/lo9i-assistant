@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from langgraph.store.base import BaseStore
 from mcp.client.stdio import get_default_environment
 
-from assistant.core.channels.hub import ChannelHub
+from assistant.core.channels.hub import ChannelHub, protocol_problem
 from assistant.core.config import settings
 from assistant.core.mcp import folders, keys, servers
 from assistant.core.mcp.environment import Environments
@@ -51,7 +51,7 @@ class ChannelProcesses:
         """Bring the processes in line with the saved plugins. Called after every change."""
         if not self._active:
             return
-        found = [s for s in await servers.load_all(self._store) if s.enabled and s.channel_command]
+        found = [s for s in await servers.load_all(self._store) if _runnable(s)]
         wanted = {s.name: s for s in await keys.fill_all(self._store, self._secrets, found)}
         for name, running in list(self._running.items()):
             if name not in wanted or not _same(running.server, wanted[name]):
@@ -94,6 +94,11 @@ class ChannelProcesses:
             "LO9I_CHANNEL": name,
             "LO9I_CHANNEL_TOKEN": self._hub.issue_token(name),
         }
+
+
+def _runnable(server: McpServer) -> bool:
+    """Enabled, and speaking this daemon's channel protocol: the apps say why one that doesn't isn't running."""
+    return server.enabled and bool(server.channel_command) and not protocol_problem(server.channel_protocol)
 
 
 def _same(old: McpServer, new: McpServer) -> bool:

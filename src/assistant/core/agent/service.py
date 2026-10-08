@@ -27,6 +27,8 @@ from assistant.core.agent.speech import SpeechMixin
 from assistant.core.agent.threads import ThreadsMixin
 from assistant.core.agent.usage import UsageMixin
 from assistant.core.agent.web_search import WebSearchMixin
+from assistant.core.agent_tasks.service import AgentTasks
+from assistant.core.agent_tasks.tools import AgentTools
 from assistant.core.approvals import RemoteApprovals
 from assistant.core.bus import EventBus
 from assistant.core.channels.hub import ChannelHub
@@ -49,6 +51,7 @@ from assistant.core.memory.indexer import MemoryIndexer
 from assistant.core.memory.recall import MemoryRecall
 from assistant.core.oauth import SignIns
 from assistant.core.outbox import Outbox
+from assistant.core.plugin_tools import PluginTools
 from assistant.core.repositories.checker import UpdateChecker
 from assistant.core.secret_store import SecretBox
 from assistant.core.speech.kokoro import KokoroSynthesizer
@@ -101,6 +104,8 @@ class AssistantService(
             shared=lambda: logins.of_model(self._model),
             environments=environments,
         )
+        self.agent_tasks = AgentTasks(storage.store, secrets, environments, lambda: logins.of_model(self._model))
+        self._plugin_tools = PluginTools(self.mcp, AgentTools(self.agent_tasks))
         self.pages = McpPages(storage.store, environments, secrets)
         self.channels_hub = ChannelHub(self.outbox, self.approvals, bus, self.assistant_name)
         self.channel_processes = ChannelProcesses(storage.store, self.channels_hub, environments, secrets)
@@ -137,6 +142,8 @@ class AssistantService(
                 await choice.migrate(storage.store, secrets)
                 await plugin_keys.migrate(storage.store, secrets)
                 await profile.migrate(storage.store)
-                yield cls(storage, await usable_choice(storage.store, secrets), bus, secrets)
+                service = cls(storage, await usable_choice(storage.store, secrets), bus, secrets)
+                await service.agent_tasks.reload()
+                yield service
         finally:
             observability.flush()

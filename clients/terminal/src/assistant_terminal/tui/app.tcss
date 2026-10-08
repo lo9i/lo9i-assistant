@@ -70,6 +70,19 @@ ToolCall {
     background: transparent;
 }
 
+ThinkingNote {
+    margin: 1 0 0 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: ansi_bright_black;
+    text-style: italic;
+}
+
+ThinkingNote .thinking-text {
+    padding: 0 0 0 2;
+}
+
 ToolCall .tool-result {
     color: ansi_bright_black;
     padding: 0 0 0 2;

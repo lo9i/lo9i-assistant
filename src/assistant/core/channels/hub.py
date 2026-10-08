@@ -1,10 +1,11 @@
 """The chat channels' processes as the daemon sees them while they run (docs/channel-plugins.md).
 
-A channel process holds one event stream open (`attach`). While it's open, the channel is
-registered in the outbox and in remote approvals, so `send_message` and scheduled jobs reach it:
-each delivery goes down the stream and waits for the channel to confirm it, so the sender learns
-whether it really arrived. The channel also tells what the apps show for it (`set_status`), and
-gets the buttons pressed there (`act`).
+A channel process holds one event stream open (`attach`), giving its chat limits. Every chat operation
+(send, edit, typing, voice; core/channels/chat/port.py) goes down the stream and waits for the channel
+to confirm it (`operate`), so the sender learns whether it really happened and the id of the message it
+sent. While the stream is open, the channel is registered in the outbox and in remote approvals, so
+`send_message` and scheduled jobs reach it. The channel also tells what the apps show for it
+(`set_status`), and gets the buttons pressed there (`act`).
 """
 
 import asyncio
@@ -16,10 +17,18 @@ from uuid import uuid4
 
 from assistant.core.approvals import RemoteApprovals
 from assistant.core.bus import EventBus
+from assistant.core.channels.chat.approvals import job_approval_buttons, job_approval_text
+from assistant.core.channels.chat.port import ChatLimits, RemoteChat
+from assistant.core.channels.chat.split import split_text
 from assistant.core.outbox import DeliveryError, Outbox
 
-# How long a delivery waits for the channel to confirm it.
+# The channel protocol this daemon speaks (docs/channel-plugins.md). A plugin declares the one its process
+# speaks (`protocol:` in its channel section); one that speaks another isn't run (processes.py).
+PROTOCOL = 2
+# How long an operation waits for the channel to confirm it.
 DELIVERY_SECONDS = 30.0
+# The chat the user has on a channel, for messages the assistant starts (RemoteChat).
+OWN_CHAT = ""
 
 SetupKind = Literal["text", "code", "copy", "action"]
 
@@ -40,12 +49,22 @@ class ChannelEvent:
     data: dict[str, Any]
 
 
+def protocol_problem(protocol: int) -> str:
+    """Why a channel whose plugin speaks `protocol` can't run here; "" when it can."""
+    if protocol < PROTOCOL:
+        return "This plugin was written for an older version of lo9i. Update it in Plugins to use it."
+    if protocol > PROTOCOL:
+        return "This plugin needs a newer version of lo9i. Update lo9i to use it."
+    return ""
+
+
 class ChannelNotConnectedError(Exception):
     """The channel's process isn't connected."""
 
 
 @dataclass
 class _Stream:
+    limits: ChatLimits
     events: asyncio.Queue[ChannelEvent] = field(default_factory=asyncio.Queue)
     ended: asyncio.Event = field(default_factory=asyncio.Event)
 
@@ -63,8 +82,8 @@ class ChannelHub:
         self._tokens: dict[str, str] = {}
         self._streams: dict[str, _Stream] = {}
         self._items: dict[str, list[SetupItem]] = {}
-        # Deliveries waiting for their channel to confirm them: id -> (channel, the channel's error).
-        self._deliveries: dict[str, tuple[str, asyncio.Future[str]]] = {}
+        # Operations waiting for their channel to confirm them: id -> (channel, (error, message id)).
+        self._deliveries: dict[str, tuple[str, asyncio.Future[tuple[str, str]]]] = {}
 
     def issue_token(self, channel: str) -> str:
         """A new token for the channel's process, replacing the one it had."""
@@ -86,9 +105,14 @@ class ChannelHub:
     def items(self, channel: str) -> list[SetupItem]:
         return self._items.get(channel, [])
 
-    async def attach(self, channel: str) -> AsyncGenerator[ChannelEvent]:
+    def limits(self, channel: str) -> ChatLimits:
+        """What the channel's process gave when it opened its stream; the defaults while it's away."""
+        stream = self._streams.get(channel)
+        return stream.limits if stream is not None else ChatLimits()
+
+    async def attach(self, channel: str, limits: ChatLimits) -> AsyncGenerator[ChannelEvent]:
         """The channel's events for as long as it reads them. A second stream ends the first."""
-        stream = self._open(channel)
+        stream = self._open(channel, limits)
         try:
             yield ChannelEvent("hello", {"assistant_name": await self._assistant_name()})
             while not stream.ended.is_set():
@@ -102,12 +126,13 @@ class ChannelHub:
         self._items[channel] = items
         self._bus.publish("channels")
 
-    def confirm(self, delivery_id: str, error: str) -> bool:
-        """The channel's answer to a delivery. False when nothing waits for it any more."""
+    def confirm(self, delivery_id: str, error: str, message: str = "") -> bool:
+        """The channel's answer to an operation: what went wrong, or the id of the message it sent. False
+        when nothing waits for it any more."""
         _, waiting = self._deliveries.get(delivery_id, ("", None))
         if waiting is None or waiting.done():
             return False
-        waiting.set_result(error)
+        waiting.set_result((error, message))
         return True
 
     def act(self, channel: str, action: str) -> None:
@@ -122,14 +147,15 @@ class ChannelHub:
         finally:
             renames.cancel()
 
-    async def deliver(self, channel: str, kind: str, data: dict[str, Any]) -> None:
-        """Send the channel something to deliver and wait until it says it did. Raises DeliveryError."""
+    async def operate(self, channel: str, kind: str, data: dict[str, Any]) -> str:
+        """Have the channel carry out a chat operation and wait until it says it did. Returns the id of
+        the message it sent ("" for other operations). Raises DeliveryError."""
         delivery_id = uuid4().hex
-        waiting: asyncio.Future[str] = asyncio.get_running_loop().create_future()
+        waiting: asyncio.Future[tuple[str, str]] = asyncio.get_running_loop().create_future()
         self._deliveries[delivery_id] = (channel, waiting)
         try:
             self._push(channel, ChannelEvent(kind, {"id": delivery_id, **data}))
-            error = await asyncio.wait_for(waiting, DELIVERY_SECONDS)
+            error, message = await asyncio.wait_for(waiting, DELIVERY_SECONDS)
         except ChannelNotConnectedError as e:
             raise DeliveryError(f"{channel} isn't connected.") from e
         except TimeoutError as e:
@@ -138,6 +164,7 @@ class ChannelHub:
             self._deliveries.pop(delivery_id, None)
         if error:
             raise DeliveryError(error)
+        return message
 
     async def _follow_renames(self) -> None:
         name = await self._assistant_name()
@@ -146,10 +173,10 @@ class ChannelHub:
                 name = new
                 self._broadcast(ChannelEvent("renamed", {"assistant_name": name}))
 
-    def _open(self, channel: str) -> _Stream:
+    def _open(self, channel: str, limits: ChatLimits) -> _Stream:
         if (previous := self._streams.get(channel)) is not None:
             previous.ended.set()
-        stream = self._streams[channel] = _Stream()
+        stream = self._streams[channel] = _Stream(limits)
         self._outbox.register(channel, _Sender(self, channel))
         self._approvals.register(channel, _Forwarder(self, channel))
         self._bus.publish("channels")
@@ -164,7 +191,7 @@ class ChannelHub:
         self._approvals.unregister(channel)
         for name, waiting in self._deliveries.values():
             if name == channel and not waiting.done():
-                waiting.set_result(f"{channel} disconnected before confirming the delivery.")
+                waiting.set_result((f"{channel} disconnected before confirming the delivery.", ""))
         self._bus.publish("channels")
 
     def _push(self, channel: str, event: ChannelEvent) -> None:
@@ -192,21 +219,25 @@ async def _next(stream: _Stream) -> ChannelEvent | None:
 
 
 class _Sender:
-    """The outbox's sender for a connected channel (core/outbox.py)."""
+    """The outbox's sender for a connected channel (core/outbox.py): the message goes to the user's own
+    chat there, split to fit."""
 
     def __init__(self, hub: ChannelHub, channel: str) -> None:
         self._hub, self._channel = hub, channel
 
     async def send(self, text: str) -> None:
-        await self._hub.deliver(self._channel, "deliver", {"text": text})
+        chat = RemoteChat(self._hub, self._channel, OWN_CHAT)
+        for part in split_text(text, self._hub.limits(self._channel).message_limit):
+            await chat.send(part, markdown=True)
 
 
 class _Forwarder:
-    """Remote approvals' forwarder for a connected channel (core/approvals.py)."""
+    """Remote approvals' forwarder for a connected channel (core/approvals.py): the request goes to the
+    user's own chat there, with `ja:`/`jr:` buttons (core/channels/chat/conversations.py answers them)."""
 
     def __init__(self, hub: ChannelHub, channel: str) -> None:
         self._hub, self._channel = hub, channel
 
     async def forward(self, interrupt_id: str, title: str, request: dict[str, Any]) -> None:
-        data = {"interrupt_id": interrupt_id, "title": title, "request": request}
-        await self._hub.deliver(self._channel, "approval", data)
+        chat = RemoteChat(self._hub, self._channel, OWN_CHAT)
+        await chat.send(job_approval_text(title, request), buttons=job_approval_buttons(interrupt_id))

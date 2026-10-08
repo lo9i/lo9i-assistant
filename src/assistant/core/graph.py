@@ -33,7 +33,6 @@ from assistant.core.conversation.trim import trim_update, trimmed
 from assistant.core.llm import build_llm, metered
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.providers import IMAGES_IN_TOOL_RESULTS
-from assistant.core.mcp.sanitize import MCP_PREFIX
 from assistant.core.storage import Storage
 from assistant.core.tools import tools_for
 from assistant.core.usage.meter import TokenMeter
@@ -70,13 +69,15 @@ Graph = CompiledStateGraph[AgentState, Context, AgentState, AgentState]
 
 
 class McpTools(Protocol):
-    """Tools from MCP servers, which come and go while the daemon runs (`core/mcp/hub.py`)."""
+    """Tools from plugins, which come and go while the daemon runs (`core/plugin_tools.py`)."""
 
     def definitions(self) -> list[dict[str, Any]]: ...
 
     def read_only_definitions(self) -> list[dict[str, Any]]: ...
 
     def tool(self, name: str) -> BaseTool | None: ...
+
+    def offered(self, name: str) -> bool: ...
 
     def unavailable(self, name: str) -> str: ...
 
@@ -170,8 +171,8 @@ def each_tool_call(node: str) -> Callable[[MessagesState], str | list[Send]]:
 
 
 def mcp_calls(mcp: McpTools) -> AsyncToolCallWrapper:
-    """Runs calls to MCP tools, which the tool node doesn't know: they're looked up when called,
-    so a tool that was turned off or whose server went away stops working at once."""
+    """Runs calls to plugins' tools, which the tool node doesn't know: they're looked up when called,
+    so a tool that was turned off or whose plugin went away stops working at once."""
 
     async def _wrap(request: ToolCallRequest, execute: Callable[[ToolCallRequest], Awaitable[Any]]) -> Any:
         if request.tool is not None:
@@ -179,7 +180,7 @@ def mcp_calls(mcp: McpTools) -> AsyncToolCallWrapper:
         name = request.tool_call["name"]
         if (tool := mcp.tool(name)) is not None:
             return await execute(request.override(tool=tool))
-        if name.startswith(MCP_PREFIX):
+        if mcp.offered(name):
             return ToolMessage(mcp.unavailable(name), tool_call_id=request.tool_call["id"], name=name, status="error")
         return await execute(request)
 

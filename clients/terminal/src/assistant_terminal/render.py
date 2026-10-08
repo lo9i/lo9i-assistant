@@ -13,6 +13,7 @@ from assistant.core.events import (
     Error,
     Event,
     TextDelta,
+    Thinking,
     ToolFinished,
     ToolStarted,
     Transcribed,
@@ -60,7 +61,9 @@ class _Printer:
             case ToolFinished(_, output, within) if within:
                 _write(paint(DIM, _result(output, _INDENT * 2)) + "\n")
             case ToolStarted(name, args):
-                _write(f"\n{_BULLET}{paint(BOLD, name)}({_describe(args)})\n")
+                _write(f"\n{_BULLET}{paint(BOLD, name)}" + (f"({_describe(args)})" if args else "") + "\n")
+            case Thinking(text):
+                _write(paint(DIM, "\n✻ " + text.strip().replace("\n", "\n" + _INDENT)) + "\n")
             case ToolFinished(_, output):
                 _write(paint(DIM, _result(output)) + "\n")
             case Transcribed(text, language):
