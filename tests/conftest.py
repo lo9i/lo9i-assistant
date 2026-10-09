@@ -22,6 +22,7 @@ import assistant.core.subagent as subagent_module
 from assistant.core.agent import AssistantService
 from assistant.core.config import settings
 from assistant.core.conversation.digest import DigestInput, MemoryDigest
+from assistant.core.conversation.titles import Titled
 from assistant.core.memory.embedder import EmbeddingError
 
 
@@ -185,18 +186,19 @@ def summaries(monkeypatch: pytest.MonkeyPatch) -> Summaries:
 
 
 class Titles:
-    """A fake titler: records what it was given and returns `title`, or raises `error`."""
+    """A fake titler: records what it was given and returns `title` and `tags`, or raises `error`."""
 
     def __init__(self) -> None:
         self.inputs: list[str] = []
         self.title = "Trip to Rome"
+        self.tags = ["rome"]
         self.error: Exception | None = None
 
-    async def __call__(self, conversation: str) -> str:
+    async def __call__(self, conversation: str) -> Titled:
         self.inputs.append(conversation)
         if self.error is not None:
             raise self.error
-        return self.title
+        return Titled(self.title, self.tags)
 
 
 @pytest.fixture

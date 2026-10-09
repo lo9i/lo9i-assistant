@@ -11,7 +11,7 @@ References: `src/routes/jobs/+page.svelte`, `src/routes/devices/+page.svelte`,
 - `TopBar` with the page title. The page's main action (New conversation, Pair a browser) goes in
   its `actions` snippet as a `btn--primary` with an icon, its label wrapped in `hide-narrow`.
 - `.screen`: a row as tall as the viewport below the top bar (`height: calc(100dvh - 76px)`,
-  `max-width: 1600px`, centered, 16px padding and gap) with `align-items: flex-start`, so cards take
+  `max-width: 1600px`, centered, `padding: 0 16px 16px` so content starts right under the title, 16px gap) with `align-items: flex-start`, so cards take
   the height of their content. The table card has `max-height: 100%`, so a long list scrolls inside
   it. A details column that needs room (messages, run history) gets `align-self: stretch`.
 - Left, three quarters of the width (`flex: 3 1 0`): a `table-card surface--glass` with a `toolbar`

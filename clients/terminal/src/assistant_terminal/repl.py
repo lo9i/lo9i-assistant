@@ -104,15 +104,24 @@ class Repl:
             print(e)
 
     async def _run_turn(self, text: str, attachments: list[Attachment]) -> None:
-        carried: str | None = None
+        carried: dict | None = None
         approvals = await render(self._service.send(self._session, text, attachments))
         while approvals:
             decisions = await _collect_decisions(approvals)
             carried = _moved(approvals, decisions) or carried
             approvals = await render(self._service.resume(self._session, decisions))
         if carried is not None:
+            await self._move_to_side(carried)
+
+    async def _move_to_side(self, request: dict) -> None:
+        """To the side conversation the suggestion names, or a new one, where its brief is sent."""
+        if thread_id := request.get("thread_id"):
+            await self._service.resume_thread(self._session.user_id, str(thread_id))
+            self._session.thread_id = str(thread_id)
+            print(f"Back in {request.get('title')}. /home goes back.")
+        else:
             await self._new("")
-            await self._run_turn(carried, [])
+        await self._run_turn(str(request.get("first_message", "")), [])
 
     async def _get_to_know_me(self, _: str) -> None:
         """In a conversation of its own."""
@@ -291,7 +300,10 @@ async def _collect_decisions(approvals: list[ApprovalRequired]) -> dict[str, dic
             decisions[approval.interrupt_id] = await _answer_question(request)
             continue
         if is_side_conversation(request):
-            print(paint(YELLOW, f"\nMove to a side conversation? {request.get('title')}\n{request.get('brief')}"))
+            question = (
+                "Continue in your side conversation?" if request.get("thread_id") else "Move to a side conversation?"
+            )
+            print(paint(YELLOW, f"\n{question} {request.get('title')}\n{request.get('brief')}"))
             answer = await _read_line("[y/N] ") or ""
             decisions[approval.interrupt_id] = {"moved": answer.lower() in ("y", "yes")}
             continue
@@ -315,11 +327,11 @@ async def _collect_decisions(approvals: list[ApprovalRequired]) -> dict[str, dic
     return decisions
 
 
-def _moved(approvals: list[ApprovalRequired], decisions: dict[str, dict]) -> str | None:
-    """The first message of the side conversation the user moved the task to, if they did."""
+def _moved(approvals: list[ApprovalRequired], decisions: dict[str, dict]) -> dict | None:
+    """The side conversation suggestion the user took, if they did."""
     for approval in approvals:
         if is_side_conversation(approval.request) and decisions[approval.interrupt_id].get("moved"):
-            return str(approval.request.get("first_message", ""))
+            return approval.request
     return None
 
 

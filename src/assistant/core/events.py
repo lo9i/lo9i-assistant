@@ -44,10 +44,12 @@ class ApprovalRequired:
     `description` and the plugin as the repository lists it (`server` or `skill`): the app installs
     it through its usual route and answers {"installed": bool}. One whose `kind` is SIDE_CONVERSATION
     suggests moving a task out of home (core/tools/side.py), with `title`, `brief` and
-    `first_message`: it's answered {"moved": bool}, and on yes the client starts a side conversation
-    once this run ends and sends `first_message` there. One whose `kind` is PLUGIN_SETUP opens
-    an installed plugin's setup (its email accounts, a channel's pairing), with `name`, `description`
-    and `server`, answered with {"done": true} once the user closes it."""
+    `first_message`, and `thread_id` when it's to continue a side conversation that exists (`title`
+    is then that one's): it's answered {"moved": bool}, and on yes the client goes to that
+    conversation, or starts a new one, once this run ends and sends `first_message` there. One whose
+    `kind` is PLUGIN_SETUP opens an installed plugin's setup (its email accounts, a channel's
+    pairing), with `name`, `description` and `server`, answered with {"done": true} once the user
+    closes it."""
 
     interrupt_id: str
     request: dict[str, Any]

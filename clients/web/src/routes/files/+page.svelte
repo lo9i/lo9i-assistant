@@ -123,7 +123,7 @@
     /* Cards take the height of their content, up to the screen; long lists scroll inside. */
     align-items: flex-start;
     gap: 16px;
-    padding: 16px;
+    padding: 0 16px 16px;
     height: calc(100dvh - 76px);
     max-width: 1600px;
     margin: 0 auto;

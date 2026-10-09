@@ -69,11 +69,16 @@ class ThreadsMixin(ArchiveMixin):
     async def new_channel_thread(self, user_id: str, channel: str) -> str:
         """Start a side conversation for the channel (its /new). What's new in the conversation it
         leaves, home or another side one, is archived in the background."""
-        left = (await self.session(user_id, channel)).thread_id
         thread_id = await self.new_thread(user_id)
+        await self.channel_side(user_id, channel, thread_id)
+        return thread_id
+
+    async def channel_side(self, user_id: str, channel: str, thread_id: str) -> None:
+        """Moves the channel to a side conversation, new or one it had before. What's new in the
+        conversation it leaves is archived in the background."""
+        left = (await self.session(user_id, channel)).thread_id
         await self._storage.store.aput(home.channels_namespace(user_id), channel, {"thread_id": thread_id})
         self.leave_thread(user_id, left)
-        return thread_id
 
     async def require_conversation(self, user_id: str, thread_id: str) -> None:
         """Raises ConversationError unless the conversation exists, before a client resumes it."""

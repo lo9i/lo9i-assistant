@@ -73,6 +73,14 @@ describe("ChatController", () => {
     expect(texts(chat)).toEqual(["earlier"]);
   });
 
+  it("knows home, so the page can tell a side conversation from it", async () => {
+    const daemon = new FakeDaemon();
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    expect(chat.getSnapshot()).toMatchObject({ threadId: "t1", homeId: "home" });
+    await chat.goHome();
+    expect(chat.getSnapshot()).toMatchObject({ threadId: "home", homeId: "home" });
+  });
+
   it("moves to a side conversation with the brief when the user takes the suggestion", async () => {
     const daemon = new FakeDaemon();
     const request = { kind: "side_conversation", title: "Taxes", brief: "Do them.", first_message: "Carried over from home: Taxes" };
@@ -89,6 +97,24 @@ describe("ChatController", () => {
     expect(daemon.sent).toEqual(["home: let's do my taxes", "t2: Carried over from home: Taxes"]);
     expect(chat.getSnapshot().threadId).toBe("t2");
     expect(texts(chat)).toEqual(["Carried over from home: Taxes", "On it."]);
+  });
+
+  it("goes back to the side conversation the suggestion names", async () => {
+    const daemon = new FakeDaemon();
+    const request = { kind: "side_conversation", title: "Taxes", brief: "Go on.", first_message: "Carried over", thread_id: "t1" };
+    daemon.runs = [
+      [{ type: "ApprovalRequired", interrupt_id: "i1", request }],
+      [{ type: "TextDelta", text: "Moved." }, { type: "Done" }],
+      [{ type: "TextDelta", text: "Back at it." }, { type: "Done" }],
+    ];
+    const chat = await ChatController.open(daemon, "web", null, board);
+    const sent = chat.send("back to my taxes", []);
+    await until(() => chat.getSnapshot().approval !== null);
+    chat.answer({ moved: true });
+    await sent;
+    expect(daemon.sent).toEqual(["home: back to my taxes", "t1: Carried over"]);
+    expect(chat.getSnapshot().threadId).toBe("t1");
+    expect(texts(chat)).toEqual(["earlier", "Carried over", "Back at it."]);
   });
 
   it("asks for approvals and resumes the run with the decisions", async () => {

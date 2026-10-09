@@ -90,10 +90,10 @@ async def test_titles_are_recorded_as_titles_outside_any_conversation(service, m
     from assistant.core.llm.choice import ModelChoice
 
     script = Script()
-    script.reply("Trip to Rome", usage_metadata=_usage(300, 5))
+    script.reply("Trip to Rome\nTags: rome", usage_metadata=_usage(300, 5))
     monkeypatch.setattr(titles_module, "build_llm", lambda choice, model: script.model())
     titler = titles_module.build_titler(ModelChoice("anthropic", "m", "m"), service._storage.usage)
-    assert await titler("User: plan my trip to Rome") == "Trip to Rome"
+    assert (await titler("User: plan my trip to Rome")).title == "Trip to Rome"
     report = await service.token_report(7)
     assert [(r.name, r.input_tokens) for r in report.by_purpose] == [("title", 300)]
     assert report.by_conversation == []

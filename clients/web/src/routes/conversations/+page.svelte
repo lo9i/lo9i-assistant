@@ -11,6 +11,8 @@
   const { chat, client, notices } = useDaemon();
   const current = external(chat.subscribe, () => chat.getSnapshot().threadId);
   const conversations = resource((c) => c.conversations.list(), ["conversations"]);
+  // Home is the Chat page; this one lists the side conversations that branched off it.
+  const sides = $derived(conversations.data?.filter((c) => !c.home));
   const clients = resource((c) => c.clients.list(), ["clients"]);
   const devices = resource((c) => c.devices.list(), ["devices"]);
   // Links from other pages (Active sessions) pick a conversation with ?c=<thread id>.
@@ -18,13 +20,13 @@
 
   // Until one is picked: this tab's conversation, or the most recent one.
   const selected = $derived.by(() => {
-    const list = conversations.data ?? [];
+    const list = sides ?? [];
     const known = (id: string | null) => id !== null && list.some((c) => c.thread_id === id);
     if (known(picked)) return picked;
     if (known(current.current)) return current.current;
     return [...list].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]?.thread_id ?? null;
   });
-  const conversation = $derived(conversations.data?.find((c) => c.thread_id === selected) ?? null);
+  const conversation = $derived(sides?.find((c) => c.thread_id === selected) ?? null);
   const sessions = $derived((clients.data ?? []).filter((c) => c.thread_id && c.thread_id === selected));
 
   async function continueWith(threadId: string): Promise<void> {
@@ -32,12 +34,12 @@
     await goto(resolve("/conversations/open"));
   }
 
-  // The one this tab is on can't be deleted while it's on it: the tab moves to a new one first.
+  // The one this tab is on can't be deleted while it's on it: the tab goes back home first.
   async function remove(threadId: string): Promise<void> {
-    const list = conversations.data ?? [];
+    const list = sides ?? [];
     const next = list[list.findIndex((c) => c.thread_id === threadId) + 1] ?? list.find((c) => c.thread_id !== threadId);
     try {
-      if (threadId === current.current) await chat.startNew();
+      if (threadId === current.current) await chat.goHome();
       await client.conversations.delete(threadId);
       picked = next?.thread_id ?? null;
     } catch (e) {
@@ -51,15 +53,15 @@
   }
 </script>
 
-<TopBar title="Conversations">
+<TopBar title="Side conversations">
   {#snippet actions()}
-    <button class="btn btn--primary" onclick={startNew}><Plus size={16} /><span class="hide-narrow">New conversation</span></button>
+    <button class="btn btn--primary" onclick={startNew}><Plus size={16} /><span class="hide-narrow">New side conversation</span></button>
   {/snippet}
 </TopBar>
 
 <div class="screen">
   <ConversationsTable
-    conversations={conversations.data}
+    conversations={sides}
     error={conversations.error}
     {selected}
     current={current.current}
@@ -82,7 +84,7 @@
     /* The table takes the height of its rows, up to the screen; the preview keeps the full height. */
     align-items: flex-start;
     gap: 16px;
-    padding: 16px;
+    padding: 0 16px 16px;
     height: calc(100dvh - 76px);
     max-width: 1600px;
     margin: 0 auto;
@@ -107,7 +109,7 @@
   @media (max-width: 680px) {
     .screen {
       height: calc(100dvh - 60px);
-      padding: 8px;
+      padding: 0 8px 8px;
       gap: 8px;
     }
   }

@@ -1892,6 +1892,8 @@ export interface components {
             titled: boolean;
             /** Channels */
             channels?: string[];
+            /** Tags */
+            tags?: string[];
             /**
              * Home
              * @default false

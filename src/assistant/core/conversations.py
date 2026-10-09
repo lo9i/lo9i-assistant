@@ -22,6 +22,9 @@ class Conversation:
     titled: bool = False
     # The channels its messages came from (cli, web, telegram), in the order they were first used.
     channels: list[str] = field(default_factory=list)
+    # What it's about (names, topics), written by the model with the title; a message in home is
+    # matched against them (core/conversation/related.py).
+    tags: list[str] = field(default_factory=list)
     # Whether it's the home conversation (core/home.py). Set when listed, not stored.
     home: bool = False
 
@@ -51,12 +54,12 @@ async def recent(store: BaseStore, user_id: str) -> list[Conversation]:
     return sorted((Conversation(**i.value) for i in items), key=lambda c: c.updated_at, reverse=True)
 
 
-async def set_title(store: BaseStore, user_id: str, thread_id: str, title: str) -> bool:
+async def set_title(store: BaseStore, user_id: str, thread_id: str, title: str, tags: list[str]) -> bool:
     """False for an empty title or an unknown conversation."""
     conversation = await load(store, user_id, thread_id)
     if conversation is None or not title:
         return False
-    conversation.title, conversation.titled = title_from(title), True
+    conversation.title, conversation.titled, conversation.tags = title_from(title), True, tags
     await save(store, user_id, conversation)
     return True
 

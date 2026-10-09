@@ -101,6 +101,18 @@ class MessageIndex:
         async with self._conn.execute(sql, (match, user_id, limit)) as cursor:
             return [Found(*row) for row in await cursor.fetchall()]
 
+    async def first_user_messages(self, user_id: str, thread_ids: Sequence[str]) -> dict[str, str]:
+        """Each conversation's first user message, as indexed; one not indexed yet is left out."""
+        if not thread_ids:
+            return {}
+        marks = ", ".join("?" for _ in thread_ids)
+        sql = (
+            "SELECT thread_id, text FROM message_search WHERE rowid IN (SELECT min(rowid) FROM message_search "
+            f"WHERE user_id = ? AND role = 'user' AND thread_id IN ({marks}) GROUP BY thread_id)"
+        )
+        async with self._conn.execute(sql, (user_id, *thread_ids)) as cursor:
+            return {thread_id: text for thread_id, text in await cursor.fetchall()}
+
     async def remove(self, thread_id: str) -> None:
         async with self._lock:
             await self._conn.execute("DELETE FROM message_search WHERE thread_id = ?", (thread_id,))

@@ -10,6 +10,7 @@
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Toggle from "$lib/ui/Toggle.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
+  import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
 
   const { client } = useDaemon();
   // The files, levels and components to pick from don't change while the daemon runs.
@@ -97,20 +98,11 @@
   </div>
 {/snippet}
 
-<TopBar title="Logs">
-  {#snippet actions()}
-    <label class="follow">
-      <span class="micro-label">Auto-refresh</span>
-      <Toggle checked={follow} label="Auto-refresh: follow the log live" onchange={(on) => (follow = on)} />
-    </label>
-    <button class="btn btn--outline" onclick={() => refreshes++} disabled={loading} title="Load the log again">
-      <RefreshCw size={16} />
-      <span class="hide-narrow">Refresh</span>
-    </button>
-  {/snippet}
-</TopBar>
+<!-- A settings tab of its own page. -->
+<TopBar title="Settings" />
 
 <div class="shell">
+  <SettingsTabs active="logs" />
   <section class="filters surface--glass" aria-label="Filters">
     {#if options.error}
       <p class="error-text">{options.error}</p>
@@ -153,7 +145,17 @@
           {#if follow}Following live.{/if}
         </p>
       </div>
-      {#if shown}<span class="pill" title={shown.path}>{fileSize(shown.size)}</span>{/if}
+      <div class="actions">
+        {#if shown}<span class="pill" title={shown.path}>{fileSize(shown.size)}</span>{/if}
+        <label class="follow">
+          <span class="micro-label">Auto-refresh</span>
+          <Toggle checked={follow} label="Auto-refresh: follow the log live" onchange={(on) => (follow = on)} />
+        </label>
+        <button class="btn btn--outline btn--sm" onclick={() => refreshes++} disabled={loading} title="Load the log again">
+          <RefreshCw size={16} />
+          <span class="hide-narrow">Refresh</span>
+        </button>
+      </div>
     </header>
     {#if error}
       <p class="error-text pad">{error}</p>
@@ -174,9 +176,15 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-    padding: 16px 16px 40px;
+    padding: 0 16px 40px;
     max-width: 1600px;
     margin: 0 auto;
+  }
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
   }
   .follow {
     display: flex;
@@ -230,7 +238,7 @@
     padding: 24px;
   }
   .lines {
-    max-height: calc(100dvh - 420px);
+    max-height: calc(100dvh - 470px);
     min-height: 240px;
     overflow-y: auto;
     padding: 12px 0;

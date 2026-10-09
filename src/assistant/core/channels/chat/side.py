@@ -1,7 +1,7 @@
 """The agent's suggestion to move a focused task out of the home conversation (the
 suggest_side_conversation tool) as Move / Keep buttons, `sm:<interrupt id>` or `sk:<interrupt id>`.
-On Move, the run is answered, then the channel goes to a side conversation and the brief is sent there
-(conversations.py)."""
+On Move, the run is answered, then the channel goes to the side conversation (the one that exists, or a
+new one) and the brief is sent there (conversations.py)."""
 
 from typing import Any
 
@@ -11,7 +11,12 @@ _MOVE, _KEEP = "sm", "sk"
 
 
 def side_text(request: dict[str, Any]) -> str:
-    return f"Move to a side conversation? {request.get('title', '')}\n\n{request.get('brief', '')}"
+    return f"{side_question(request)} {request.get('title', '')}\n\n{request.get('brief', '')}"
+
+
+def side_question(request: dict[str, Any]) -> str:
+    """Continuing a side conversation that exists, or starting one."""
+    return "Continue in your side conversation?" if request.get("thread_id") else "Move to a side conversation?"
 
 
 def side_buttons(interrupt_id: str) -> Buttons:

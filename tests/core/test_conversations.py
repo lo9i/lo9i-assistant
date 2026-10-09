@@ -30,7 +30,7 @@ async def test_messages_are_listed_titled_by_the_first_one_until_the_model_title
     assert listed.updated_at > listed.started_at
     titles.error = None
     assert await service.title_untitled("owner") == 1
-    assert [c.title for c in await service.list_conversations("owner")] == ["Trip to Rome"]
+    assert [(c.title, c.tags) for c in await service.list_conversations("owner")] == [("Trip to Rome", ["rome"])]
     assert await service.title_untitled("owner") == 0
 
 
@@ -109,11 +109,13 @@ async def test_conversations_saved_before_the_list_are_indexed(service, script):
     assert await service.index_conversations("owner") == 0
 
 
-def test_a_model_reply_becomes_a_clean_title():
-    from assistant.core.conversation.titles import _clean
+def test_a_model_reply_becomes_a_clean_title_and_tags():
+    from assistant.core.conversation.titles import Titled, _parse
 
-    assert _clean('\n"Trip to Rome."\nBecause the user…') == "Trip to Rome"
-    assert _clean("**Hotel  booking**") == "Hotel booking"
+    assert _parse('\n"Trip to Rome."\nTags: Rome,  hotel booking , viaje,') == Titled(
+        "Trip to Rome", ["rome", "hotel booking", "viaje"]
+    )
+    assert _parse("**Hotel  booking**") == Titled("Hotel booking", [])
 
 
 async def test_deleting_removes_the_messages_the_listing_and_the_files(service, script, isolated_settings):

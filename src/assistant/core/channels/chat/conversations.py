@@ -47,6 +47,7 @@ class Conversations(Protocol):
     async def pending_approvals(self, thread_id: str) -> list[ApprovalRequired]: ...
     async def new_channel_thread(self, user_id: str, channel: str) -> str: ...
     async def channel_home(self, user_id: str, channel: str) -> str: ...
+    async def channel_side(self, user_id: str, channel: str, thread_id: str) -> None: ...
     async def speaks_reply(self, after_voice_message: bool) -> bool: ...
     async def speak(self, text: str, audio_format: AudioFormat = "wav", voice: str = "") -> bytes: ...
     async def agents(self) -> list[Agent]: ...
@@ -176,7 +177,7 @@ class ChannelChats:
         await chat.port.edit(pressed.message, side_text(request))
         await self._resume(chat, {interrupt_id: {"moved": moved}})
         if moved:
-            await self._move_to_side(chat, str(request.get("first_message", "")))
+            await self._move_to_side(chat, request)
 
     async def _answer_job(self, chat: "_Chat", pressed: "_Pressed", interrupt_id: str, answer: dict) -> None:
         """A scheduled job's request: the job's run continues on its own, nothing to show here."""
@@ -188,9 +189,15 @@ class ChannelChats:
         else:
             await chat.port.send("Rejected. The job goes on without it.")
 
-    async def _move_to_side(self, chat: "_Chat", first_message: str) -> None:
-        await self._conversations.new_channel_thread(settings.owner_id, chat.channel)
-        await chat.port.send(_MOVED)
+    async def _move_to_side(self, chat: "_Chat", request: dict[str, Any]) -> None:
+        """To the side conversation the request names, or a new one, where its first message is sent."""
+        if thread_id := request.get("thread_id"):
+            await self._conversations.channel_side(settings.owner_id, chat.channel, str(thread_id))
+            await chat.port.send(f"Back in {request.get('title', 'your side conversation')}. /home goes back.")
+        else:
+            await self._conversations.new_channel_thread(settings.owner_id, chat.channel)
+            await chat.port.send(_MOVED)
+        first_message = str(request.get("first_message", ""))
         await self._show(chat, lambda s: self._conversations.send(s, first_message), first_message)
 
     async def _resume(self, chat: "_Chat", decisions: dict[str, dict[str, Any]]) -> None:

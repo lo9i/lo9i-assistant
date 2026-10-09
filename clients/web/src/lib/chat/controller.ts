@@ -3,7 +3,7 @@
 // (another client, or a channel like Telegram). React reads it through subscribe/getSnapshot (useSyncExternalStore).
 import { ApiError } from "../api/errors";
 import { LiveConversation, type Conversations } from "../api/live";
-import type { ApprovalRequired, Decision, RunAnnounced, RunEvent, RunFinished, Session, ShownMessage } from "../api/types";
+import type { ApprovalRequest, ApprovalRequired, Decision, RunAnnounced, RunEvent, RunFinished, Session, ShownMessage } from "../api/types";
 import type { NoticeBoard } from "../notices";
 import { addUser, apply, empty, endRun, endText, fromHistory, type Transcript } from "./transcript";
 
@@ -18,6 +18,8 @@ export interface ChatClient extends Conversations {
 
 export type ChatSnapshot = {
   threadId: string;
+  // The home conversation's id: the tab is on a side conversation while `threadId` is another.
+  homeId: string;
   transcript: Transcript;
   // This page's own reply is running.
   busy: boolean;
@@ -41,16 +43,18 @@ export class ChatController {
     private readonly live: LiveConversation,
     private readonly notices: NoticeBoard,
     transcript: Transcript,
+    homeId: string,
   ) {
-    this.state = { threadId: live.session.thread_id, transcript, busy: false, mirroring: false, approval: null };
+    this.state = { threadId: live.session.thread_id, homeId, transcript, busy: false, mirroring: false, approval: null };
   }
 
   /** Opens on `earlier`, the conversation this tab was on before a reload, or home. */
   static async open(client: ChatClient, channel: string, earlier: string | null, notices: NoticeBoard): Promise<ChatController> {
-    const threadId = await rejoin(client, earlier);
+    const homeId = await client.homeThread();
+    const threadId = await rejoin(client, earlier, homeId);
     const history = await client.conversations.messages(threadId);
     const live = new LiveConversation(client, { channel, thread_id: threadId });
-    return new ChatController(client, live, notices, fromHistory(history));
+    return new ChatController(client, live, notices, fromHistory(history), homeId);
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -71,7 +75,7 @@ export class ChatController {
     });
     const run = new AbortController();
     this.ownRun = run;
-    let carried: string | null = null;
+    let carried: ApprovalRequest | null = null;
     await this.show(run, async () => (carried = await this.turn(text, files, run.signal)));
     if (this.ownRun === run) this.ownRun = null;
     this.showing();
@@ -91,6 +95,7 @@ export class ChatController {
     await this.guarded(async () => {
       const stillRunning = this.stopShowing();
       await this.live.goHome(stillRunning);
+      this.set({ homeId: this.live.session.thread_id });
       await this.showHistory();
       this.notify("Back home." + (stillRunning ? " The previous reply keeps running." : ""));
     });
@@ -142,15 +147,15 @@ export class ChatController {
     this.stopShowing();
   }
 
-  /** Runs the turn and returns the first message of the side conversation the user moved it to, if any. */
-  private async turn(text: string, files: File[], signal: AbortSignal): Promise<string | null> {
-    let carried: string | null = null;
+  /** Runs the turn and returns the side conversation suggestion the user took, if any. */
+  private async turn(text: string, files: File[], signal: AbortSignal): Promise<ApprovalRequest | null> {
+    let carried: ApprovalRequest | null = null;
     let approvals = await this.render(this.client.send(this.live.session, text, files, signal));
     while (approvals.length) {
       const decisions: Record<string, Decision> = {};
       for (const approval of approvals) {
         const decision = await this.ask(approval, signal);
-        if ("moved" in decision && decision.moved) carried = approval.request.first_message ?? null;
+        if ("moved" in decision && decision.moved) carried = approval.request;
         decisions[approval.interrupt_id] = decision;
       }
       approvals = await this.render(this.client.resume(this.live.session, decisions, signal));
@@ -158,14 +163,21 @@ export class ChatController {
     return carried;
   }
 
-  /** The agent's suggestion was taken: the task goes on in a side conversation, starting with its brief. */
-  private async moveToSide(firstMessage: string): Promise<void> {
+  /** The agent's suggestion was taken: the task goes on in the side conversation it names, or a new
+   *  one, starting with its brief. */
+  private async moveToSide(request: ApprovalRequest): Promise<void> {
     await this.guarded(async () => {
-      await this.live.startNew();
-      this.set({ threadId: this.live.session.thread_id, transcript: empty });
-      this.notify("Moved to a side conversation. /home goes back.");
+      if (request.thread_id) {
+        await this.live.resume(request.thread_id);
+        await this.showHistory();
+        this.notify(`Back in ${request.title}. /home goes back.`);
+      } else {
+        await this.live.startNew();
+        this.set({ threadId: this.live.session.thread_id, transcript: empty });
+        this.notify("Moved to a side conversation. /home goes back.");
+      }
     });
-    await this.send(firstMessage, []);
+    await this.send(request.first_message ?? "", []);
   }
 
   /** Show the events and return the approvals the run is waiting on. */
@@ -258,13 +270,13 @@ export class ChatController {
 
 /** The conversation to open on: `earlier` if the daemon still has it, else home. A conversation
  * without messages isn't saved, so the daemon doesn't know it. */
-async function rejoin(client: ChatClient, earlier: string | null): Promise<string> {
-  if (earlier === null) return client.homeThread();
+async function rejoin(client: ChatClient, earlier: string | null, homeId: string): Promise<string> {
+  if (earlier === null) return homeId;
   try {
     await client.resumeThread(earlier);
     return earlier;
   } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return client.homeThread();
+    if (error instanceof ApiError && error.status === 404) return homeId;
     throw error;
   }
 }

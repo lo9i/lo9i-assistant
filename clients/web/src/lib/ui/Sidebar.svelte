@@ -8,15 +8,16 @@
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
   import Files from "@lucide/svelte/icons/files";
   import Laptop from "@lucide/svelte/icons/laptop";
-  import MessagesSquare from "@lucide/svelte/icons/messages-square";
+  import CornerDownRight from "@lucide/svelte/icons/corner-down-right";
+  import GitBranch from "@lucide/svelte/icons/git-branch";
+  import House from "@lucide/svelte/icons/house";
+  import MessageCircle from "@lucide/svelte/icons/message-circle";
   import MonitorSmartphone from "@lucide/svelte/icons/monitor-smartphone";
   import Plus from "@lucide/svelte/icons/plus";
-  import ScrollText from "@lucide/svelte/icons/scroll-text";
   import Settings from "@lucide/svelte/icons/settings";
   import Sparkles from "@lucide/svelte/icons/sparkles";
   import PanelsTopLeft from "@lucide/svelte/icons/panels-top-left";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
-  import { homeFirst } from "$lib/chat/order";
   import { pageLabel } from "$lib/pages";
   import { sidebar } from "$lib/sidebar.svelte";
 
@@ -31,50 +32,52 @@
   // A new listing of the extras, an install or update, or the setting changes what's newer.
   const updates = resource((c) => c.repositories.updates(), ["plugins", "mcp", "skills", "settings"]);
 
-  // The latest conversations, under Conversations, to continue one in a click.
-  const RECENT = 10;
+  // There is one conversation, Chat. While this tab is on a side conversation, it shows under Chat as a
+  // branch, with the way back home; the others are on the Side conversations page.
+  const CHAT = resolve("/conversations/open");
+  const SIDES = resolve("/conversations");
   const conversations = resource((c) => c.conversations.list(), ["conversations"]);
-  const recent = $derived([...(conversations.data ?? [])].sort(homeFirst).slice(0, RECENT));
-  const current = external(chat.subscribe, () => chat.getSnapshot().threadId);
+  const snapshot = external(chat.subscribe, () => chat.getSnapshot());
+  const side = $derived(snapshot.current.threadId !== snapshot.current.homeId ? snapshot.current.threadId : null);
+  const sideTitle = $derived(conversations.data?.find((c) => c.thread_id === side)?.title || "New side conversation");
 
-  async function continueWith(threadId: string): Promise<void> {
-    await chat.resume(threadId);
-    await goto(resolve("/conversations/open"));
+  async function goHome(): Promise<void> {
+    await chat.goHome();
+    await goto(CHAT);
   }
 
   type Add = { label: string; run: () => Promise<void> };
-
-  async function newConversation(): Promise<void> {
-    await chat.startNew();
-    await goto(resolve("/conversations/open"));
-  }
 
   // The devices page opens a pairing code when it sees ?pair.
   async function pairBrowser(): Promise<void> {
     await goto(`${resolve("/devices")}?pair`);
   }
 
-  type Item = { href: string; label: string; Icon: typeof Plus; add?: Add; count?: () => number; also?: string[] };
+  type Item = {
+    href: string;
+    label: string;
+    Icon: typeof Plus;
+    add?: Add;
+    count?: () => number;
+    also?: string[];
+    // Active only on this exact path, for a page with pages under it that have their own item.
+    exact?: boolean;
+  };
   const ALERTS = resolve("/alerts");
   const NAV: Item[] = [
-    {
-      href: resolve("/conversations"),
-      label: "Conversations",
-      Icon: MessagesSquare,
-      add: { label: "New conversation", run: newConversation },
-    },
+    { href: CHAT, label: "Chat", Icon: MessageCircle },
+    { href: SIDES, label: "Side conversations", Icon: GitBranch, exact: true },
     { href: resolve("/files"), label: "Files", Icon: Files },
     { href: resolve("/usage"), label: "Usage", Icon: ChartColumn },
     { href: resolve("/sessions"), label: "Active sessions", Icon: MonitorSmartphone },
     { href: resolve("/jobs"), label: "Scheduled", Icon: CalendarClock },
     { href: resolve("/devices"), label: "Devices", Icon: Laptop, add: { label: "Pair a browser", run: pairBrowser } },
-    { href: resolve("/logs"), label: "Logs", Icon: ScrollText },
-    // About you, Skills, Plugins and MCP servers are settings tabs with pages of their own; plugin updates show here.
+    // About you, Skills, Plugins, MCP servers and Logs are settings tabs with pages of their own; plugin updates show here.
     {
       href: resolve("/settings"),
       label: "Settings",
       Icon: Settings,
-      also: [resolve("/memory"), resolve("/skills"), resolve("/plugins"), resolve("/mcp")],
+      also: [resolve("/memory"), resolve("/skills"), resolve("/plugins"), resolve("/mcp"), resolve("/logs")],
       count: () => updates.data?.length ?? 0,
     },
   ];
@@ -95,7 +98,9 @@
   </div>
   <nav aria-label="Pages">
     {#each NAV as item (item.href)}
-      {@const active = [item.href, ...(item.also ?? [])].some((href) => page.url.pathname.startsWith(href))}
+      {@const active = item.exact
+        ? page.url.pathname === item.href
+        : [item.href, ...(item.also ?? [])].some((href) => page.url.pathname.startsWith(href))}
       <div class="nav-row">
         <a href={item.href} class="nav-item" aria-current={active ? "page" : undefined} title={item.label}>
           <item.Icon size={20} />
@@ -109,16 +114,19 @@
           </button>
         {/if}
       </div>
-      {#if item.href === resolve("/conversations") && recent.length}
-        <ul class="recent" aria-label="Recent conversations">
-          {#each recent as c (c.thread_id)}
-            <li>
-              <button class:current={c.thread_id === current.current} title={c.title} onclick={() => continueWith(c.thread_id)}>
-                {c.home ? "Home" : c.title || "Untitled"}
-              </button>
-            </li>
-          {/each}
-        </ul>
+      {#if item.href === CHAT && side}
+        <div class="branch">
+          <button
+            class="branch-item"
+            class:current={page.url.pathname === CHAT}
+            title="This tab is on a side conversation: {sideTitle}"
+            onclick={() => goto(CHAT)}
+          >
+            <CornerDownRight size={14} />
+            <span>{sideTitle}</span>
+          </button>
+          <button class="home" aria-label="Back home" title="Back home" onclick={goHome}><House size={14} /></button>
+        </div>
       {/if}
     {/each}
     {#each pages as p (p.name)}
@@ -293,15 +301,20 @@
     border-radius: 0 2px 2px 0;
     background: var(--color-accent);
   }
-  .recent {
-    list-style: none;
-    margin: 0 0 4px;
-    padding: 0 0 0 30px;
+  /* The side conversation this tab is on, as a branch off Chat. */
+  .branch {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    margin: 0 0 4px;
+    padding-left: 22px;
   }
-  .recent button {
-    width: 100%;
+  .branch-item {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
     padding: 5px 8px;
     border: 0;
     border-radius: var(--radius-sm);
@@ -309,17 +322,36 @@
     color: var(--color-text-muted);
     font-size: var(--font-size-xs);
     text-align: left;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     cursor: pointer;
   }
-  .recent button:hover,
-  .recent button.current {
+  .branch-item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .branch-item :global(svg) {
+    flex: none;
+    color: var(--color-accent);
+  }
+  .home {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+  }
+  .branch-item:hover,
+  .branch-item.current,
+  .home:hover {
     background: var(--color-bg-hover-ghost);
     color: var(--color-text-primary);
   }
-  :global(.collapsed) .recent {
+  :global(.collapsed) .branch {
     display: none;
   }
   :global(.collapsed) .label,
@@ -345,7 +377,7 @@
     .mark,
     .collapse,
     .add,
-    .recent {
+    .branch {
       display: none;
     }
     .nav-item {

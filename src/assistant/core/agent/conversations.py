@@ -47,11 +47,11 @@ class ConversationsMixin(TitlesMixin):
         return added
 
     async def title_untitled(self, user_id: str) -> int:
-        """Titles conversations that only have their first message as a title (saved before
-        titles were written, or the model failed). Returns how many were titled."""
+        """Titles conversations that only have their first message as a title, or no tags (saved
+        before titles or tags were written, or the model failed). Returns how many were titled."""
         titled = 0
         for conversation in await conversations.recent(self._storage.store, user_id):
-            if not conversation.titled:
+            if not (conversation.titled and conversation.tags):
                 state = await self._graph.aget_state({"configurable": {"thread_id": conversation.thread_id}})
                 titled += await self._retitle(user_id, conversation.thread_id, state.values.get("messages", []))
         return titled

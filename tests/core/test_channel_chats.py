@@ -11,6 +11,7 @@ from assistant.core.channels.chat.conversations import GREETING, ChannelChats
 from assistant.core.channels.chat.port import ChatLimits
 from assistant.core.events import Event, TextDelta
 from assistant.core.outbox import DeliveryError
+from tests.conftest import collect
 
 _INSTANT = ChatLimits(edit_seconds=0)
 _SOURCES = ["Google", "GitHub", "X"]
@@ -118,6 +119,19 @@ async def test_moving_to_a_side_conversation_sends_the_brief_there(chats, runs, 
     assert channel.sent()[-1] == "Moved to a side conversation. /home goes back."
     assert runs.texts[-1] == "Carried over from home: Taxes\n\nDo the 2026 return."
     assert (await service.session("owner", "telegram")).thread_id != home
+
+
+async def test_continuing_a_side_conversation_moves_the_channel_back_to_it(chats, runs, channel, script, service):
+    script.reply("Started.")
+    side = await service.new_channel_thread("owner", "telegram")
+    await collect(service.send(await service.session("owner", "telegram"), "my taxes"))
+    await service.channel_home("owner", "telegram")
+    script.call("suggest_side_conversation", title="Taxes", brief="Go on.", continue_in=side).reply("Moved.")
+    await chats.message("telegram", "42", "back to my taxes", [], voice=False)
+    assert channel.sent()[-1].startswith("Continue in your side conversation?")
+    await chats.press("telegram", "42", "5", "Continue?", channel.buttons()[-1][0][1])
+    assert (await service.session("owner", "telegram")).thread_id == side
+    assert runs.texts[-1] == "Carried over from home: Taxes\n\nGo on."
 
 
 async def test_a_job_request_is_answered_from_its_buttons(chats, channel, jobs):

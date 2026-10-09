@@ -345,27 +345,35 @@ class AssistantApp(App):
         finally:
             self._busy = False
 
-    async def _turn(self, text: str, attachments: list[Attachment]) -> str | None:
-        """Runs the turn and returns the first message of the side conversation the user moved it to, if any."""
+    async def _turn(self, text: str, attachments: list[Attachment]) -> dict[str, Any] | None:
+        """Runs the turn and returns the side conversation suggestion the user took, if any."""
         view = TurnView(self._chat, self._status)
-        carried: str | None = None
+        carried: dict[str, Any] | None = None
         approvals = await view.render(self._service.send(self._live.session, text, attachments))
         while approvals:
             decisions: dict[str, dict[str, Any]] = {}
             for approval in approvals:
                 decisions[approval.interrupt_id] = decision = await self._decide(approval.request)
                 if is_side_conversation(approval.request) and decision.get("moved"):
-                    carried = str(approval.request.get("first_message", ""))
+                    carried = approval.request
             approvals = await view.render(self._service.resume(self._live.session, decisions))
         await self.refresh_memory()
         return carried
 
-    async def _move_to_side(self, first_message: str) -> None:
-        """The agent's suggestion was taken: the task goes on in a side conversation, starting with its brief."""
-        await self._live.start_new()
-        await self.refresh_thread()
-        await self._chat.remove_children()
-        self.notify("Moved to a side conversation. /home goes back.")
+    async def _move_to_side(self, request: dict[str, Any]) -> None:
+        """The agent's suggestion was taken: the task goes on in the side conversation it names, or a
+        new one, starting with its brief."""
+        if thread_id := request.get("thread_id"):
+            await self._live.resume(str(thread_id))
+            await self.refresh_thread()
+            await show_history(self._chat, await self._service.conversations.messages(str(thread_id)))
+            self.notify(f"Back in {request.get('title')}. /home goes back.")
+        else:
+            await self._live.start_new()
+            await self.refresh_thread()
+            await self._chat.remove_children()
+            self.notify("Moved to a side conversation. /home goes back.")
+        first_message = str(request.get("first_message", ""))
         await self._chat.mount(UserMessage(first_message, []))
         await self._turn(first_message, [])
 

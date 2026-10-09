@@ -38,9 +38,9 @@ class TitlesMixin(ServiceBase):
         """Keeps the current title when the model fails; a title is never worth failing a turn.
         Returns whether it was titled."""
         try:
-            title = await self._titler(conversation_text(messages))
+            titled = await self._titler(conversation_text(messages))
         except Exception:
             logger.exception("Couldn't title conversation %s", thread_id)
             return False
         async with self._conversations_lock:
-            return await conversations.set_title(self._storage.store, user_id, thread_id, title)
+            return await conversations.set_title(self._storage.store, user_id, thread_id, titled.title, titled.tags)

@@ -13,7 +13,7 @@
   import TopBar from "$lib/ui/TopBar.svelte";
   import { theme, type ThemePreference } from "$lib/theme.svelte";
 
-  const TABS = ["general", "audio"];
+  const TABS = ["general", "model", "audio", "system"];
   const THEMES: Array<[ThemePreference, string]> = [
     ["dark", "Dark"],
     ["light", "Light"],
@@ -42,17 +42,27 @@
     </div>
   </div>
   {#if tab === "general"}
-    <!-- The assistant and the model on one side; the small settings stacked on the other. -->
+    <!-- The assistant on one side; the small settings stacked on the other. -->
     <div class="grid">
       <div class="stack">
         <AssistantCard />
-        <ModelCard />
-        <HostCard />
       </div>
       <div class="stack">
         <StartupCard />
         <WebSearchCard />
         <EmailCard />
+      </div>
+    </div>
+  {:else if tab === "model"}
+    <div class="grid">
+      <div class="stack">
+        <ModelCard />
+      </div>
+    </div>
+  {:else if tab === "system"}
+    <div class="grid">
+      <div class="stack">
+        <HostCard />
       </div>
     </div>
   {:else}

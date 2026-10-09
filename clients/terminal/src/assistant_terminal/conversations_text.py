@@ -16,7 +16,8 @@ def when(conversation: Conversation) -> str:
 
 
 def preview(conversation: Conversation, messages: list[ShownMessage]) -> str:
-    """Markdown: the title, and the last few things said."""
+    """Markdown: the title, its tags, and the last few things said."""
     said = [m for m in messages if m.role in ("user", "assistant")][-_PREVIEW:]
     lines = [f"**{'You' if m.role == 'user' else 'Assistant'}:** {m.text}" for m in said]
-    return f"### {conversation.title}\n\nLast active {when(conversation)}\n\n" + "\n\n".join(lines)
+    tags = f"Tags: {', '.join(conversation.tags)}\n\n" if conversation.tags else ""
+    return f"### {conversation.title}\n\nLast active {when(conversation)}\n\n{tags}" + "\n\n".join(lines)

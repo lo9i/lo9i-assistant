@@ -4305,6 +4305,13 @@
             "type": "array",
             "title": "Channels"
           },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
           "home": {
             "type": "boolean",
             "title": "Home",

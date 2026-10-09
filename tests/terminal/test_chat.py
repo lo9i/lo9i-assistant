@@ -6,6 +6,7 @@ from textual.widgets import Input, Markdown
 
 from assistant.client import DaemonUnavailableError, clipboard
 from assistant.core.attachments import Attachment
+from assistant.core.conversations import Conversation
 from assistant.core.events import ApprovalRequired, Cancelled, Done, TextDelta, Thinking, ToolFinished, ToolStarted
 from assistant_terminal.tui.attachments import AttachmentBar
 from assistant_terminal.tui.screens import ApprovalScreen, QuestionScreen, SideConversationScreen
@@ -111,6 +112,37 @@ async def test_taking_the_suggestion_moves_the_task_to_a_side_conversation(app, 
         assert client.decisions == {"i1": {"moved": True}}
         assert sent == [("owner:abc", "taxes"), ("owner:new", "Carried over")]
         assert [str(m.render()) for m in app.query(UserMessage)] == ["> Carried over"]
+
+
+async def test_continuing_a_side_conversation_goes_back_to_it(app, client, monkeypatch):
+    client.conversations.items.append(Conversation("owner:taxes", "Taxes", "2026-10-01T09:00:00+00:00", ""))
+    request = {"kind": "side_conversation", "title": "Taxes", "brief": "Go on.", "first_message": "Carried over"}
+    request["thread_id"] = "owner:taxes"
+    sent = []
+
+    async def send(session, text, attachments=()):
+        sent.append((session.thread_id, text))
+        if len(sent) == 1:
+            yield ApprovalRequired("i1", request)
+        else:
+            yield Done()
+
+    async def resume(session, decisions):
+        yield Done()
+
+    monkeypatch.setattr(client, "send", send)
+    monkeypatch.setattr(client, "resume", resume)
+    async with app.run_test() as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"taxes", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, SideConversationScreen))
+        assert "Continue in your side conversation? Taxes" in str(
+            app.screen.query_one("#side-conversation-title").render()
+        )
+        await pilot.click("#move")
+        await wait_for(pilot, lambda: len(sent) == 2 and not app._busy)
+        assert sent == [("owner:abc", "taxes"), ("owner:taxes", "Carried over")]
+        assert app.sub_title == "owner:taxes"
 
 
 async def test_attachment_can_be_sent_without_text(app, client, tmp_path):
