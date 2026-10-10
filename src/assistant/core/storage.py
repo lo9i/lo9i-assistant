@@ -37,6 +37,8 @@ _CHANGE_EVENTS = {
     "pinned_skills": "pinned_skills",
     # Conversations handed to a plugin's agent (core/conversation/handoffs.py).
     "handoffs": "handoffs",
+    # Tasks whose end is still to be told (core/agent_tasks/reports.py), for the daemon to follow.
+    "agent_task_reports": "agent_task_reports",
     "devices": "devices",
     "mcp_servers": "mcp",
     # Failures of MCP servers and skills (core/health.py), shown with them.

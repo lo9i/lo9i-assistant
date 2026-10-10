@@ -1,7 +1,7 @@
 <script lang="ts">
   import VoiceButton from "./voice/VoiceButton.svelte";
   import type { Snippet } from "svelte";
-  import type { Failing, JobFinished, SignedOut } from "$lib/api/types";
+  import type { BackgroundEnded, Failing, JobFinished, SignedOut } from "$lib/api/types";
   import { followRuns } from "$lib/chat/events";
   import { saveThread } from "$lib/chat/tabThread";
   import { external, provideDaemon, resource, type Daemon } from "$lib/daemon.svelte";
@@ -34,6 +34,12 @@
     hub.on(["job"], (data) => {
       const job = data as JobFinished;
       notices.notify(`Job ${job.name}: ${job.status}`, job.status === "ok" ? "info" : "warning");
+    }),
+  );
+  $effect(() =>
+    hub.on(["background_ended"], (data) => {
+      const ended = data as BackgroundEnded;
+      notices.notify(ended.text, ended.ok ? "info" : "warning");
     }),
   );
   $effect(() => hub.on(["failing"], (data) => notices.notify(failingNotice(data as Failing), "warning")));

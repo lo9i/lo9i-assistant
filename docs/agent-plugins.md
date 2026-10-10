@@ -50,6 +50,9 @@ the worker's process group with SIGTERM, so the worker makes itself the leader o
 everything it starts stops with it. A worker that finds `stopped` when it starts ends at once. A task
 whose worker is gone without a `result.json` counts as failed.
 
+When a task started with `start_task` ends, the daemon tells the conversation that started it and the
+user, unless the assistant read its end first (docs/background-work.md).
+
 ## Steps
 
 Each line of `progress.log` is a JSON object with a `kind`; fields that are empty may be left out.

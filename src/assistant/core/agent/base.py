@@ -1,5 +1,7 @@
 import asyncio
 
+from assistant.core.agent_tasks.ends import TaskEnds
+from assistant.core.agent_tasks.reports import TaskReports
 from assistant.core.agent_tasks.service import AgentTasks
 from assistant.core.approvals import RemoteApprovals
 from assistant.core.bus import EventBus
@@ -42,6 +44,10 @@ class ServiceBase:
     mcp: McpHub
     # The coding agents plugins bring and their tasks (core/agent_tasks/).
     agent_tasks: AgentTasks
+    # The conversation that started each task whose end is still to be told.
+    _task_reports: TaskReports
+    # Tells a conversation that a task it started ended. The daemon runs it as a supervised task.
+    task_ends: TaskEnds
     # The tools plugins bring, MCP servers' and the agents' task tools, for the graph and subagents.
     _plugin_tools: PluginTools
     # The web pages MCP servers come with, run like `mcp`.

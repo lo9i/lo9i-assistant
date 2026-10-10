@@ -385,11 +385,13 @@ async def test_a_top_level_server_folder_is_not_also_a_skill(service, repo):
 
 async def test_a_plugins_folder_gives_its_category(service, repo):
     _write(repo / "apps" / "finance" / "ledger", {"server.yaml": "url: https://ledger.example.com/mcp"})
+    _write(repo / "communications" / "contacts" / "people", {"server.yaml": "url: https://people.example.com/mcp"})
     _skill(repo / "communications" / "chat" / "digest", "digest", "Daily digest", {})
     contents = await service.browse_repository(URL)
     assert {s.name: s.category for s in contents.servers} == {
         "hello": "other/general",
         "ledger": "apps/finance",
+        "people": "communications/contacts",
         "tasks": "other/general",
     }
     assert {s.name: s.category for s in contents.skills}["digest"] == "communications/chat"

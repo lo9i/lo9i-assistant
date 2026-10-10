@@ -1,6 +1,7 @@
 """A task's steps: each line of its progress.log is one step as JSON (docs/agent-plugins.md), the agent's
 thinking, what it says, a tool call or a tool call's result. For a conversation handed to the agent they
-become the run's events, shown as the assistant's own would be, so the agent's work reads like a reply.
+become the run's events, shown as the assistant's own would be, so the agent's work reads like a reply;
+while task_status waits for a task they show inside that call (`within_call`).
 A note, or a plain line from a worker that reports nothing finer, goes inside a call named after the
 agent. For the task tools each reads as one line (`line`). The steps of a handed-off reply are kept with
 it, in its message's `response_metadata` under STEPS, which no model call sends: history shows them again
@@ -83,6 +84,23 @@ class AgentSteps:
             self._notes = f"agent-{uuid.uuid4().hex}"
             opened.append(ToolStarted(self._name, {}, id=self._notes))
         return [*opened, ToolStarted(text, {}, within=self._notes), ToolFinished(text, "", within=self._notes)]
+
+
+def within_call(message: str, call_id: str) -> list[Event]:
+    """A step of a task the assistant follows (task_status waiting for it), shown inside that call: its
+    tool calls, results and notes, and what it says as one line. Its thinking and its words as they
+    stream aren't; nor are its own subagents' steps."""
+    step = parse(message)
+    kind = step.get("kind", "")
+    if step.get("within"):
+        return []
+    if kind == "tool":
+        return [ToolStarted(step.get("tool", ""), _args(step), id=step.get("id", ""), within=call_id)]
+    if kind == "result":
+        return [ToolFinished(step.get("tool", ""), step.get("text", ""), within=call_id)]
+    if kind in ("note", "text") and (text := line(message)):
+        return [ToolStarted(text, {}, within=call_id), ToolFinished(text, "", within=call_id)]
+    return []
 
 
 def streamed(message: str) -> bool:

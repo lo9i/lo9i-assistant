@@ -39,3 +39,15 @@ async def test_following_adds_new_entries_until_turned_off(app, client):
         await wait_for(pilot, lambda: "fresh" in _text(screen))
         screen.query_one("#logs-follow", Switch).value = False
         await wait_for(pilot, lambda: client.logs.following == 0)
+
+
+async def test_record_sets_the_level_the_daemon_writes(app, client):
+    async with app.run_test(size=(140, 40)) as pilot:
+        screen = await _open(pilot, app)
+        await wait_for(pilot, lambda: "crashed" in _text(screen))
+        record = screen.query_one("#logs-record", Select)
+        assert record.value == "INFO"
+        record.value = "DEBUG"
+        await wait_for(pilot, lambda: client.logs.recorded == "DEBUG")
+        # Only the filters load the log again.
+        assert screen.query_one("#logs-level", Select).value == ""

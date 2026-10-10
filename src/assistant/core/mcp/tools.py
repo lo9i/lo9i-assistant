@@ -21,6 +21,7 @@ from mcp.types import (
 from pydantic import ConfigDict, Field
 
 from assistant.core.attachments import Block, is_reference
+from assistant.core.background import current_origin
 from assistant.core.config import settings
 from assistant.core.context import Context
 from assistant.core.hidden_text import strip_hidden
@@ -97,7 +98,8 @@ class McpTool(BaseTool):
             return f"Error from {server}: {e}", []
 
     async def _call_once(self, arguments: dict[str, Any]) -> CallToolResult:
-        return await self.connection.call(self.remote_name, arguments)
+        """The call names its conversation, for background work it starts (core/mcp/background.py)."""
+        return await self.connection.call(self.remote_name, arguments, origin=current_origin())
 
     async def _output(self, result: CallToolResult) -> Output:
         media = [block for block in result.content if isinstance(block, ImageContent | AudioContent)]

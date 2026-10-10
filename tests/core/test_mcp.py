@@ -72,7 +72,11 @@ def notes() -> list[str]:
 async def service(script, digests, summaries, titles, notes, monkeypatch) -> AsyncIterator[AssistantService]:
     """The service with its MCP hub running, every server connecting to the in-process notes server."""
     fake = _notes_server(notes)
-    monkeypatch.setattr(hub_module, "open_client", lambda server, handler, auth: Client(fake, message_handler=handler))
+    monkeypatch.setattr(
+        hub_module,
+        "open_client",
+        lambda server, handler, auth, extensions: Client(fake, message_handler=handler, extensions=extensions),
+    )
     async with AssistantService.open() as svc:
         stop = asyncio.Event()
         task = asyncio.create_task(svc.mcp.run(stop))
@@ -233,7 +237,7 @@ class _DroppingConnection(McpConnection):
         self.calls = 0
         self.content = content or [TextContent(text="fine")]
 
-    async def call(self, tool: str, arguments: dict, progress=None) -> CallToolResult:
+    async def call(self, tool: str, arguments: dict, progress=None, origin=None) -> CallToolResult:
         self.calls += 1
         if self.calls == 1:
             raise ConnectionLostError("connection reset")
@@ -327,7 +331,7 @@ async def test_a_connection_that_cant_be_got_ready_fails_without_connecting():
     async def prepare(server: McpServer) -> None:
         raise McpServerError(f"Couldn't install what {server.name} needs")
 
-    def factory(server, on_message, auth):
+    def factory(server, on_message, auth, extensions):
         opened.append(server.name)
         raise AssertionError("not reached")
 
@@ -355,9 +359,9 @@ class _Opens:
         self.count = 0
         self._server = _notes_server(notes)
 
-    def __call__(self, server, on_message, auth):
+    def __call__(self, server, on_message, auth, extensions=()):
         self.count += 1
-        return Client(self._server, message_handler=on_message)
+        return Client(self._server, message_handler=on_message, extensions=extensions)
 
 
 async def _until(condition) -> None:
@@ -438,7 +442,7 @@ async def test_a_call_to_a_server_on_demand_that_cant_start_fails_at_once(notes)
     async with probe(None, None, None) as client:
         cached = await list_tools(client)
 
-    def broken(server, on_message, auth):
+    def broken(server, on_message, auth, extensions):
         raise OSError("No such file or directory: notes-server")
 
     connection = _on_demand_connection(broken, cached, [])

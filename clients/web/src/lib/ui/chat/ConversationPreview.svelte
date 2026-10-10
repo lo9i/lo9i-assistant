@@ -47,6 +47,8 @@
         {#if current}<span class="pill pill--accent">This tab</span>{/if}
       </header>
       <dl>
+        <dt class="micro-label">ID</dt>
+        <dd class="id">{conversation.thread_id}</dd>
         <dt class="micro-label">Started</dt>
         <dd>{when(conversation.started_at)}</dd>
         <dt class="micro-label">Last message</dt>
@@ -121,6 +123,11 @@
 </div>
 
 <style>
+  .id {
+    font-family: var(--font-mono);
+    overflow-wrap: anywhere;
+    user-select: all;
+  }
   .session {
     display: block;
   }

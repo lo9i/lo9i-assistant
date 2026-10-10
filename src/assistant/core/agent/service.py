@@ -14,6 +14,7 @@ from assistant.core.agent.files import FilesMixin
 from assistant.core.agent.identity import IdentityMixin
 from assistant.core.agent.jobs import JobsMixin
 from assistant.core.agent.locking import LockingMixin
+from assistant.core.agent.log_level import LogLevelMixin
 from assistant.core.agent.mcp import McpMixin
 from assistant.core.agent.memory import MemoryMixin
 from assistant.core.agent.messaging import MessagingMixin
@@ -24,12 +25,16 @@ from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.sign_ins import SignInsMixin
 from assistant.core.agent.skills import SkillsMixin
 from assistant.core.agent.speech import SpeechMixin
+from assistant.core.agent.tasks import TasksMixin
 from assistant.core.agent.threads import ThreadsMixin
 from assistant.core.agent.usage import UsageMixin
 from assistant.core.agent.web_search import WebSearchMixin
+from assistant.core.agent_tasks.ends import TaskEnds
+from assistant.core.agent_tasks.reports import TaskReports
 from assistant.core.agent_tasks.service import AgentTasks
 from assistant.core.agent_tasks.tools import AgentTools
 from assistant.core.approvals import RemoteApprovals
+from assistant.core.background import BackgroundEnds
 from assistant.core.bus import EventBus
 from assistant.core.channels.hub import ChannelHub
 from assistant.core.channels.processes import ChannelProcesses
@@ -69,11 +74,13 @@ class AssistantService(
     ChannelsMixin,
     McpMixin,
     AlertsMixin,
+    TasksMixin,
     RepositoriesMixin,
     ModelMixin,
     DevicesMixin,
     IdentityMixin,
     SpeechMixin,
+    LogLevelMixin,
     WebSearchMixin,
     SkillsMixin,
     PinnedSkillsMixin,
@@ -94,6 +101,7 @@ class AssistantService(
         media = ToolMedia(self._transcriber, storage.store)
         auth = McpAuth(storage.store, secrets)
         environments = Environments(folders.code)
+        background = BackgroundEnds(storage.store, self.outbox, bus)
         self.mcp = McpHub(
             storage.store,
             bus,
@@ -103,9 +111,12 @@ class AssistantService(
             secrets,
             shared=lambda: logins.of_model(self._model),
             environments=environments,
+            background=background,
         )
         self.agent_tasks = AgentTasks(storage.store, secrets, environments, lambda: logins.of_model(self._model))
-        self._plugin_tools = PluginTools(self.mcp, AgentTools(self.agent_tasks))
+        self._task_reports = TaskReports(storage.store)
+        self.task_ends = TaskEnds(self.agent_tasks, self._task_reports, bus, background)
+        self._plugin_tools = PluginTools(self.mcp, AgentTools(self.agent_tasks, self._task_reports))
         self.pages = McpPages(storage.store, environments, secrets)
         self.channels_hub = ChannelHub(self.outbox, self.approvals, bus, self.assistant_name, self.channel_commands)
         self.channel_processes = ChannelProcesses(storage.store, self.channels_hub, environments, secrets)
@@ -142,6 +153,7 @@ class AssistantService(
                 await choice.migrate(storage.store, secrets)
                 await plugin_keys.migrate(storage.store, secrets)
                 await profile.migrate(storage.store)
+                await asyncio.to_thread(folders.remove_old_libraries)
                 service = cls(storage, await usable_choice(storage.store, secrets), bus, secrets)
                 await service.agent_tasks.reload()
                 yield service

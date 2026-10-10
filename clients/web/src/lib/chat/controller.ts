@@ -3,7 +3,18 @@
 // (another client, or a channel like Telegram). React reads it through subscribe/getSnapshot (useSyncExternalStore).
 import { ApiError } from "../api/errors";
 import { LiveConversation, type Conversations } from "../api/live";
-import type { ApprovalRequest, ApprovalRequired, Decision, RunAnnounced, RunEvent, RunFinished, Session, ShownMessage } from "../api/types";
+import type {
+  ApprovalRequest,
+  ApprovalRequired,
+  Decision,
+  Handoff,
+  RunAnnounced,
+  RunEvent,
+  RunFinished,
+  Session,
+  ShownMessage,
+  TaskHandoff,
+} from "../api/types";
 import type { NoticeBoard } from "../notices";
 import { addUser, apply, empty, endRun, endText, fromHistory, type Transcript } from "./transcript";
 
@@ -13,7 +24,10 @@ export interface ChatClient extends Conversations {
   resume(session: Session, decisions: Record<string, Decision>, signal: AbortSignal): AsyncIterable<RunEvent>;
   cancel(session: Session): Promise<boolean>;
   followRun(runId: string, signal: AbortSignal): AsyncIterable<RunEvent>;
-  conversations: { messages(threadId: string): Promise<ShownMessage[]> };
+  conversations: {
+    messages(threadId: string): Promise<ShownMessage[]>;
+    handTo(threadId: string, command: string, folder: string): Promise<Handoff>;
+  };
 }
 
 export type ChatSnapshot = {
@@ -174,7 +188,8 @@ export class ChatController {
       } else {
         await this.live.startNew();
         this.set({ threadId: this.live.session.thread_id, transcript: empty });
-        this.notify("Moved to a side conversation. /home goes back.");
+        if (request.handoff) await this.handNew(request.handoff);
+        else this.notify("Moved to a side conversation. /home goes back.");
       }
     });
     await this.send(request.first_message ?? "", []);
@@ -244,6 +259,16 @@ export class ChatController {
   private async showHistory(): Promise<void> {
     const threadId = this.live.session.thread_id;
     this.set({ threadId, transcript: fromHistory(await this.client.conversations.messages(threadId)) });
+  }
+
+  /** A coding task's side conversation is handed to its agent; when it can't be, the assistant gets the task. */
+  private async handNew(handoff: TaskHandoff): Promise<void> {
+    try {
+      await this.client.conversations.handTo(this.live.session.thread_id, handoff.command, handoff.folder);
+      this.notify(`Moved to a side conversation with ${handoff.name}, working in ${handoff.folder}. /home goes back.`);
+    } catch (error) {
+      this.report(error);
+    }
   }
 
   private async guarded(action: () => Promise<unknown>): Promise<void> {

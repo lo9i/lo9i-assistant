@@ -16,6 +16,7 @@
   import Composer from "./Composer.svelte";
   import HelpModal from "./HelpModal.svelte";
   import PinnedSkills from "./PinnedSkills.svelte";
+  import TasksBar from "./TasksBar.svelte";
   import Thread from "./Thread.svelte";
 
   // Commands that open a tab of the settings page.
@@ -215,6 +216,7 @@
     onsuggest={(text) => (draft.text = text)}
   />
   <PinnedSkills skills={pinned.data ?? []} onunpin={unpin} />
+  <TasksBar threadId={snapshot.current.threadId} onopen={(threadId) => chat.resume(threadId)} />
   {#if handoff.data}
     <AgentBar handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")} />
   {/if}

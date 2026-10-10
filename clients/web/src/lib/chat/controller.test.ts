@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { ApiError } from "../api/errors";
-import type { Decision, RunEvent, Session } from "../api/types";
+import type { Decision, Handoff, RunEvent, Session } from "../api/types";
 import { NoticeBoard } from "../notices";
 import { ChatController, type ChatClient } from "./controller";
 
@@ -11,7 +11,14 @@ class FakeDaemon implements ChatClient {
   runs: RunEvent[][] = [];
   decisions: Record<string, Decision>[] = [];
   keepOpen = false;
-  conversations = { messages: async () => [{ role: "user", text: "earlier", detail: "", output: "" }] };
+  handedTo: string[] = [];
+  conversations = {
+    messages: async () => [{ role: "user", text: "earlier", detail: "", output: "" }],
+    handTo: async (threadId: string, command: string, folder: string) => {
+      this.handedTo.push(`${threadId}: /${command} ${folder}`);
+      return { server: "claude-code", command, name: "Claude Code", folder } as Handoff;
+    },
+  };
 
   sent: string[] = [];
 
@@ -97,6 +104,24 @@ describe("ChatController", () => {
     expect(daemon.sent).toEqual(["home: let's do my taxes", "t2: Carried over from home: Taxes"]);
     expect(chat.getSnapshot().threadId).toBe("t2");
     expect(texts(chat)).toEqual(["Carried over from home: Taxes", "On it."]);
+  });
+
+  it("hands a coding task's side conversation to its agent before sending it the task", async () => {
+    const daemon = new FakeDaemon();
+    const handoff = { command: "claude", folder: "/repo", name: "Claude Code" };
+    const request = { kind: "side_conversation", title: "Fix tests", brief: "fix them", first_message: "fix them", handoff };
+    daemon.runs = [
+      [{ type: "ApprovalRequired", interrupt_id: "i1", request }],
+      [{ type: "TextDelta", text: "Moved." }, { type: "Done" }],
+      [{ type: "TextDelta", text: "Fixed." }, { type: "Done" }],
+    ];
+    const chat = await ChatController.open(daemon, "web", null, board);
+    const sent = chat.send("fix the tests with claude", []);
+    await until(() => chat.getSnapshot().approval !== null);
+    chat.answer({ moved: true });
+    await sent;
+    expect(daemon.handedTo).toEqual(["t2: /claude /repo"]);
+    expect(daemon.sent).toEqual(["home: fix the tests with claude", "t2: fix them"]);
   });
 
   it("goes back to the side conversation the suggestion names", async () => {

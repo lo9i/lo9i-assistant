@@ -2909,6 +2909,29 @@
         }
       }
     },
+    "/agent-tasks/running": {
+      "get": {
+        "summary": "Running Tasks",
+        "description": "Coding agents' tasks still running, the newest first, with their latest steps.",
+        "operationId": "running_tasks_agent_tasks_running_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RunningTask"
+                  },
+                  "type": "array",
+                  "title": "Response Running Tasks Agent Tasks Running Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/repositories/updates": {
       "get": {
         "summary": "Plugin Updates",
@@ -3391,6 +3414,61 @@
             "description": "Successful Response",
             "content": {
               "audio/wav": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/log-level": {
+      "get": {
+        "summary": "Log Level",
+        "operationId": "log_level_settings_log_level_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogLevelSetting"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Log Level",
+        "description": "400: an unknown level.",
+        "operationId": "set_log_level_settings_log_level_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogLevelChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogLevelSetting"
+                }
+              }
             }
           },
           "422": {
@@ -5237,7 +5315,14 @@
             "title": "Path"
           },
           "size": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Size"
           }
         },
@@ -5250,6 +5335,38 @@
           "size"
         ],
         "title": "LogFileInfo"
+      },
+      "LogLevelChange": {
+        "properties": {
+          "level": {
+            "type": "string",
+            "title": "Level"
+          }
+        },
+        "type": "object",
+        "required": [
+          "level"
+        ],
+        "title": "LogLevelChange"
+      },
+      "LogLevelSetting": {
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "DEBUG",
+              "INFO",
+              "WARNING",
+              "ERROR"
+            ],
+            "title": "Level"
+          }
+        },
+        "type": "object",
+        "required": [
+          "level"
+        ],
+        "title": "LogLevelSetting"
       },
       "LogOptions": {
         "properties": {
@@ -6372,6 +6489,47 @@
           "run_id"
         ],
         "title": "RunStarted"
+      },
+      "RunningTask": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "agent": {
+            "type": "string",
+            "title": "Agent"
+          },
+          "thread_id": {
+            "type": "string",
+            "title": "Thread Id"
+          },
+          "asked": {
+            "type": "string",
+            "title": "Asked"
+          },
+          "started_at": {
+            "type": "string",
+            "title": "Started At"
+          },
+          "steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Steps"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "agent",
+          "thread_id",
+          "asked",
+          "started_at",
+          "steps"
+        ],
+        "title": "RunningTask"
       },
       "ServerField": {
         "properties": {

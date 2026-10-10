@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import logging
 import signal
+from collections.abc import Mapping
 from pathlib import Path
 
 import httpx
@@ -16,8 +17,8 @@ from sse_starlette.sse import AppStatus
 from assistant.core.agent import AssistantService
 from assistant.core.config import settings
 from assistant.core.internet import browser
-from assistant.core.logs import LogWriter, configure
-from assistant.daemon import https, pages
+from assistant.core.logs import LogSource, LogWriter, configure, log_sources, output_path, process_output
+from assistant.daemon import https, launchd, pages, systemd
 from assistant.daemon.adapters import supervise
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
@@ -39,7 +40,7 @@ class _Server(uvicorn.Server):
         yield
 
 
-async def serve(logs: LogWriter) -> bool:
+async def serve(logs: Mapping[str, LogSource]) -> bool:
     """Returns whether the daemon stopped to restart."""
     stop = _stop_event()
     socket_path = Path(settings.daemon_socket).expanduser()
@@ -50,6 +51,7 @@ async def serve(logs: LogWriter) -> bool:
         return False
     socket_path.unlink(missing_ok=True)
     async with AssistantService.open() as service:
+        await service.apply_log_level()
         # Before any request, so no channel message lands in a conversation it's leaving.
         if moved := await service.channels_to_home(settings.owner_id):
             logger.info("Moved %s chat channels to the home conversation.", moved)
@@ -70,6 +72,7 @@ async def serve(logs: LogWriter) -> bool:
         tasks.append(asyncio.create_task(supervise(service.channel_processes, stop)))
         tasks.append(asyncio.create_task(supervise(service.memory_index, stop)))
         tasks.append(asyncio.create_task(supervise(service.memory_writer, stop)))
+        tasks.append(asyncio.create_task(supervise(service.task_ends, stop)))
         tasks.append(asyncio.create_task(supervise(service.update_checker, stop)))
         # Downloads once in the background; until then pages are read without rendering.
         install = asyncio.create_task(browser.install_browser()) if settings.web_render else None
@@ -157,12 +160,20 @@ def _stop_event() -> asyncio.Event:
 
 
 def run() -> None:
+    moved = launchd.move_legacy_output()
     # Settings read .env themselves, but the model and tracing SDKs read their keys from the
     # environment, and the daemon may be started from a shell that doesn't have them.
     load_dotenv(".env", override=False)
-    logs = LogWriter()
-    configure(logs)
+    writer = LogWriter()
+    configure(writer)
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    if moved:
+        logger.info(
+            "Sending output to %s: the LaunchDaemon sends it to %s until start at boot is turned off and on.",
+            output_path(),
+            launchd.LEGACY_OUTPUT,
+        )
+    logs = log_sources(writer, process_output(systemd.SERVICE))
     if asyncio.run(serve(logs)):
         logger.info("Restarting the daemon.")
         exec_again()

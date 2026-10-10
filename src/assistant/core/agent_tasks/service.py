@@ -33,6 +33,8 @@ class CodingAgent:
     # The plugin it comes with.
     server: str
     name: str
+    # Its command in the apps (/claude), which hands a conversation to it.
+    command: str = ""
 
 
 @dataclass(frozen=True)
@@ -56,7 +58,7 @@ class AgentTasks:
 
     def agents(self) -> list[CodingAgent]:
         """The installed agents, by plugin name: what the task tools offer."""
-        return [CodingAgent(s.name, s.agent_name) for _, s in sorted(self._agents.items())]
+        return [_coding_agent(s) for _, s in sorted(self._agents.items())]
 
     def trusted(self, agent: str) -> bool:
         """The user trusts the plugin: its tasks start and stop without asking."""
@@ -79,10 +81,18 @@ class AgentTasks:
         server = await self._owner(task_id)
         return FoundTask(_coding_agent(server), await asyncio.to_thread(_tasks(server).state, task_id))
 
-    async def wait(self, task_id: str, seconds: int) -> FoundTask:
-        """The task's state once it ends or `seconds` pass. Raises AgentTaskError for an unknown task."""
+    async def wait(self, task_id: str, seconds: int, report: Report | None = None) -> FoundTask:
+        """The task's state once it ends or `seconds` pass. `report` gets each step it has written and
+        writes meanwhile. Raises AgentTaskError for an unknown task."""
         server = await self._owner(task_id)
-        await at_most(_tasks(server), task_id, min(seconds, MAX_WAIT_SECONDS))
+        await at_most(_tasks(server), task_id, min(seconds, MAX_WAIT_SECONDS), report)
+        return await self.state(task_id)
+
+    async def ended(self, task_id: str, report: Report | None = None) -> FoundTask:
+        """The task's state once it ends, however long that takes. `report` gets each step it has written
+        and writes meanwhile. Raises AgentTaskError for an unknown task, or one whose agent isn't installed now."""
+        server = await self._owner(task_id)
+        await until_ended(_tasks(server), task_id, report)
         return await self.state(task_id)
 
     async def recent(self) -> list[FoundTask]:
@@ -162,7 +172,7 @@ class AgentTasks:
 
 
 def _coding_agent(server: McpServer) -> CodingAgent:
-    return CodingAgent(server.name, server.agent_name)
+    return CodingAgent(server.name, server.agent_name, server.agent_command)
 
 
 def _tasks(server: McpServer) -> TaskStore:

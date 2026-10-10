@@ -21,6 +21,7 @@ from assistant.client.daemon_client.sessions import SessionsMixin
 from assistant.client.daemon_client.skills import SkillsApi
 from assistant.client.daemon_client.speech import SpeechApi
 from assistant.client.daemon_client.system import SystemApi
+from assistant.client.daemon_client.tasks import TasksApi
 from assistant.client.daemon_client.transport import Transport
 from assistant.client.daemon_client.usage import UsageApi
 from assistant.client.daemon_client.web_search import WebSearchApi
@@ -48,6 +49,7 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         self.oauth = OAuthApi(transport)
         self.mcp = McpApi(transport)
         self.alerts = AlertsApi(transport)
+        self.tasks = TasksApi(transport)
         self.repositories = RepositoriesApi(transport)
         self.system = SystemApi(transport)
         self.clients = ClientsApi(transport)

@@ -29,6 +29,7 @@ from assistant.core.events import is_plugin_offer, is_plugin_setup, is_question,
 from assistant_terminal.commands import GET_TO_KNOW_ME, Command, agent_commands, help_lines
 from assistant_terminal.history import History
 from assistant_terminal.preferences import Preferences
+from assistant_terminal.tasks_text import task_line
 from assistant_terminal.tui.attachments import AttachmentBar
 from assistant_terminal.tui.command_menu import CommandMenu
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
@@ -203,6 +204,9 @@ class AssistantApp(App):
         severity = "information" if job["status"] == "ok" else "warning"
         self.notify(f"Job {job['name']}: {job['status']}", severity=severity)
 
+    def show_background_ended(self, ended: dict[str, Any]) -> None:
+        self.notify(ended["text"], severity="information" if ended["ok"] else "warning", timeout=10)
+
     def show_failing(self, failing: dict[str, Any]) -> None:
         what, where = ("MCP server", "/mcp") if failing["area"] == "mcp" else ("skill", "/skills")
         self.notify(f"The {what} {failing['name']} keeps failing: {failing['error']}. See {where}.", severity="warning")
@@ -370,12 +374,23 @@ class AssistantApp(App):
             self.notify(f"Back in {request.get('title')}. /home goes back.")
         else:
             await self._live.start_new()
-            await self.refresh_thread()
             await self._chat.remove_children()
-            self.notify("Moved to a side conversation. /home goes back.")
+            self.notify(await self._hand_new(request.get("handoff")))
+            await self.refresh_thread()
         first_message = str(request.get("first_message", ""))
         await self._chat.mount(UserMessage(first_message, []))
         await self._turn(first_message, [])
+
+    async def _hand_new(self, handoff: dict[str, str] | None) -> str:
+        """A coding task's side conversation is handed to its agent; what to tell the user."""
+        if not handoff:
+            return "Moved to a side conversation. /home goes back."
+        thread_id = self._live.session.thread_id
+        try:
+            await self._service.conversations.hand_to(thread_id, handoff["command"], handoff["folder"])
+        except HandoffError as e:
+            return f"Moved to a side conversation. {e}"
+        return f"Moved to a side conversation with {handoff['name']}. /home goes back."
 
     async def _decide(self, request: dict[str, Any]) -> dict[str, Any]:
         """The user's answer to what the run waits for. A plugin the agent offers is installed here,
@@ -406,14 +421,17 @@ class AssistantApp(App):
 
     @reports_daemon_unavailable
     async def refresh_thread(self) -> None:
-        """The conversation's id under the title, then the agent it's handed to and the skills pinned to it."""
+        """The conversation's id under the title, then the agent it's handed to, the skills pinned to it and
+        the coding tasks running in the background."""
         thread_id = self._live.session.thread_id
         handoff = await self._service.conversations.agent(thread_id)
         pinned = await self._service.conversations.pinned(thread_id)
+        running = await self._service.tasks.running()
         parts = [
             thread_id,
             *([f"talking to {handoff.name} in {handoff.folder}"] if handoff else []),
             *([f"pinned: {', '.join(pinned)}"] if pinned else []),
+            *(task_line(task, thread_id) for task in running),
         ]
         self.sub_title = " · ".join(parts)
 

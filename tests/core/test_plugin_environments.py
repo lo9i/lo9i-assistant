@@ -1,6 +1,7 @@
 """A plugin's own environment: built again before a process starts from it when it's lost or broken."""
 
 import asyncio
+import logging
 import shutil
 
 import pytest
@@ -66,5 +67,5 @@ async def test_a_process_that_cant_be_got_ready_is_tried_again_and_not_started(t
         raise McpServerError("no uv")
 
     spec = ProcessSpec("/nonexistent", [], {}, None)
-    await asyncio.wait_for(keep_running("test", lambda: spec, stop, prepare=prepare), 5)
+    await asyncio.wait_for(keep_running("test", lambda: spec, stop, logging.getLogger("test"), prepare=prepare), 5)
     assert attempts == [1]

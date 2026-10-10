@@ -13,7 +13,7 @@ from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
 from assistant.core.agent.titles import TitlesMixin
 from assistant.core.attachments import Attachment, Block, is_reference, to_content
-from assistant.core.conversation import handoffs, introduction, pinned, related, sent
+from assistant.core.conversation import ended, handoffs, introduction, pinned, related, sent
 from assistant.core.conversation.handoffs import Handoff
 from assistant.core.conversation.turn_header import header_block
 from assistant.core.events import Error, Event, Transcribed
@@ -62,15 +62,16 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
 
     async def _header_notes(self, session: Session, said: str) -> list[Block]:
         """What goes in the turn header after the date: messages sent here from elsewhere, a change in
-        the pinned skills, side conversations a message in home may continue, and the one-time offer
-        to get to know the user."""
+        the pinned skills, background work started here that ended, side conversations a message in
+        home may continue, and the one-time offer to get to know the user."""
         store = self._storage.store
         sent_here = await sent.take(store, session.user_id, session.channel)
         repinned = await pinned.take_notice(store, session.user_id, session.thread_id)
         handed_back = await handoffs.take_notice(store, session.user_id, session.thread_id)
+        work_ended = await ended.take(store, session.user_id, session.thread_id)
         related_sides = await related.notes(store, self._storage.search, session.user_id, session.thread_id, said)
         offer = await introduction.offer(store, session.user_id, session.channel)
-        return [*sent_here, *repinned, *handed_back, *related_sides, *offer]
+        return [*sent_here, *repinned, *handed_back, *work_ended, *related_sides, *offer]
 
     async def resume(self, session: Session, decisions: dict[str, dict[str, Any]]) -> AsyncIterator[Event]:
         """Answer pending approvals. `decisions` maps interrupt id to {"approved": bool, "reason": str}."""

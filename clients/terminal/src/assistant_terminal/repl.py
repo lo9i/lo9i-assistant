@@ -121,7 +121,18 @@ class Repl:
             print(f"Back in {request.get('title')}. /home goes back.")
         else:
             await self._new("")
+            if handoff := request.get("handoff"):
+                await self._hand_new(handoff)
         await self._run_turn(str(request.get("first_message", "")), [])
+
+    async def _hand_new(self, handoff: dict) -> None:
+        """A coding task's side conversation is handed to its agent."""
+        try:
+            await self._service.conversations.hand_to(self._session.thread_id, handoff["command"], handoff["folder"])
+        except HandoffError as e:
+            print(e)
+            return
+        print(f"Handed to {handoff['name']} in {handoff['folder']}.")
 
     async def _get_to_know_me(self, _: str) -> None:
         """In a conversation of its own."""

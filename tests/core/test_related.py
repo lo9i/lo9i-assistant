@@ -12,9 +12,20 @@ _TAGS = {
 }
 
 
-def test_a_rare_tag_word_matches_without_accents():
+def test_a_tag_matches_without_accents():
     assert matches("cuando juega Ferro?", _TAGS) == ["ferro"]
-    assert matches("que tal la primera division?", _TAGS) == ["boca", "ferro"]
+    assert matches("que tal la primera division?", _TAGS) == ["boca"]
+
+
+def test_a_tag_matches_only_with_all_its_words():
+    tags = {"settings": ["about you", "settings"], "youtube": ["youtube"]}
+    assert matches("what would you use?", tags) == []
+    assert matches("what about it?", tags) == []
+
+
+def test_a_word_many_conversations_tag_still_matches_them_all_up_to_three():
+    tags = {f"yt{i}": ["youtube", f"video {i}"] for i in range(5)} | {"other": ["ferro"]}
+    assert matches("which one if I say youtube", tags) == ["yt0", "yt1", "yt2"]
 
 
 def test_more_shared_rare_words_rank_first():

@@ -33,11 +33,11 @@ async def until_ended(store: TaskStore, task_id: str, report: Report | None = No
     return await look()
 
 
-async def at_most(store: TaskStore, task_id: str, seconds: int) -> None:
-    """Until the task ends or `seconds` pass."""
+async def at_most(store: TaskStore, task_id: str, seconds: int, report: Report | None = None) -> None:
+    """Until the task ends or `seconds` pass. `report`, when given, gets every progress line."""
     try:
         async with asyncio.timeout(seconds):
-            await until_ended(store, task_id)
+            await until_ended(store, task_id, report)
     except TimeoutError:
         return
 

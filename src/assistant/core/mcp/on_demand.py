@@ -1,4 +1,5 @@
-"""When a local MCP server runs: from its first call, until no call has used it for a while. Its tools
+"""When a local MCP server runs: from its first call, until no call has used it, and it has no background
+work in progress (core/mcp/background.py), for a while. Its tools
 are known from when it last connected (core/mcp/tool_cache.py), so the agent has them while it's
 stopped. A server whose tools aren't known yet (just installed or updated) starts at once to learn them.
 Remote servers stay connected (core/mcp/hub.py): stopping them saves nothing on this computer."""
@@ -22,6 +23,8 @@ class OnDemand:
         self._idle_seconds = idle_seconds
         self._wanted = asyncio.Event()
         self._in_use = 0
+        # Background work the server said it started and hasn't finished yet.
+        self._working: set[str] = set()
         self._last_used = 0.0
         if not tools:
             self._wanted.set()
@@ -55,6 +58,18 @@ class OnDemand:
             self._in_use -= 1
             self._used()
 
+    def started_work(self, work: str) -> None:
+        self._working.add(work)
+
+    def finished_work(self, work: str) -> None:
+        """The idle time counts from now."""
+        self._working.discard(work)
+        self._used()
+
+    def stopped(self) -> None:
+        """The server stopped: the work it had in progress stopped with it."""
+        self._working.clear()
+
     async def learned(self, tools: list[Tool]) -> None:
         """It connected or its tools changed."""
         self.tools = tools
@@ -62,11 +77,11 @@ class OnDemand:
         await self._save(tools)
 
     async def idle(self) -> None:
-        """Returns once no call has used it for the idle time, and lets it rest."""
+        """Returns once no call has used it for the idle time, and no work is in progress, and lets it rest."""
         loop = asyncio.get_running_loop()
         while True:
             left = self._last_used + self._idle_seconds - loop.time()
-            if left <= 0 and not self._in_use:
+            if left <= 0 and not self._in_use and not self._working:
                 self.rest()
                 return
             await asyncio.sleep(left if left > 0 else self._idle_seconds)

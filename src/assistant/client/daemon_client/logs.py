@@ -6,14 +6,15 @@ from urllib.parse import quote, urlencode
 
 from assistant.client.daemon_client.reconnect import ReconnectPolicy, resumable_events
 from assistant.client.daemon_client.transport import Transport
-from assistant.core.logs import LogEntry, LogFileInfo, LogOptions, LogPage, LogQueryError
+from assistant.core.logs import LogEntry, LogFileInfo, LogLevel, LogLevelError, LogOptions, LogPage, LogQueryError
 
 # Followed while a screen is open, so it waits out a daemon restart; each reconnection starts with a page.
 _RECONNECT = ReconnectPolicy(delay_seconds=2)
 
 
 class LogsApi:
-    """The daemon's log files: the latest entries, or following one live."""
+    """The daemon's log files and process output: the latest entries, or following one live; and the
+    level the daemon records at."""
 
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
@@ -37,6 +38,15 @@ class LogsApi:
         async with aclosing(resumable_events(self._transport, path, _RECONNECT, after="")) as events:
             async for kind, data in events:
                 yield LogEntry(**json.loads(data)) if kind == "entry" else _page(json.loads(data))
+
+    async def level(self) -> LogLevel:
+        return (await self._transport.request("GET", "/settings/log-level"))["level"]
+
+    async def set_level(self, level: str) -> LogLevel:
+        """Applied at once. Raises LogLevelError for an unknown level."""
+        body = {"level": level}
+        data = await self._transport.request("PUT", "/settings/log-level", json=body, errors={400: LogLevelError})
+        return data["level"]
 
 
 def _file(name: str) -> str:

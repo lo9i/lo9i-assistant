@@ -10,6 +10,7 @@
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Toggle from "$lib/ui/Toggle.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
+  import LogLevelSelect from "$lib/ui/settings/LogLevelSelect.svelte";
   import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
 
   const { client } = useDaemon();
@@ -146,7 +147,8 @@
         </p>
       </div>
       <div class="actions">
-        {#if shown}<span class="pill" title={shown.path}>{fileSize(shown.size)}</span>{/if}
+        {#if shown}<span class="pill" title={shown.path}>{shown.size === null ? "journal" : fileSize(shown.size)}</span>{/if}
+        {#if options.data}<LogLevelSelect levels={options.data.levels} />{/if}
         <label class="follow">
           <span class="micro-label">Auto-refresh</span>
           <Toggle checked={follow} label="Auto-refresh: follow the log live" onchange={(on) => (follow = on)} />

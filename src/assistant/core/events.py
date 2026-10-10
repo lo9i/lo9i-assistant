@@ -45,8 +45,9 @@ class ApprovalRequired:
     it through its usual route and answers {"installed": bool}. One whose `kind` is SIDE_CONVERSATION
     suggests moving a task out of home (core/tools/side.py), with `title`, `brief` and
     `first_message`, and `thread_id` when it's to continue a side conversation that exists (`title`
-    is then that one's): it's answered {"moved": bool}, and on yes the client goes to that
-    conversation, or starts a new one, once this run ends and sends `first_message` there. One whose
+    is then that one's), or `handoff` ({command, folder, name}) when it's a coding task for an agent: it's
+    answered {"moved": bool}, and on yes the client goes to that conversation, or starts a new one
+    (handed to the agent in `folder` with `handoff`), once this run ends and sends `first_message` there. One whose
     `kind` is PLUGIN_SETUP opens an installed plugin's setup (its email accounts, a channel's
     pairing), with `name`, `description` and `server`, answered with {"done": true} once the user
     closes it."""
@@ -81,6 +82,15 @@ SIDE_CONVERSATION = "side_conversation"
 
 def is_side_conversation(request: dict[str, Any]) -> bool:
     return request.get("kind") == SIDE_CONVERSATION
+
+
+def side_question(request: dict[str, Any]) -> str:
+    """Continuing a side conversation that exists, or starting one, handed to a coding agent for its task."""
+    if request.get("thread_id"):
+        return "Continue in your side conversation?"
+    if handoff := request.get("handoff"):
+        return f"Move to a side conversation with {handoff.get('name', 'the agent')}?"
+    return "Move to a side conversation?"
 
 
 @dataclass

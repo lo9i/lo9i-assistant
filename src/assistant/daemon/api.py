@@ -1,7 +1,8 @@
 """The daemon's HTTP API. Commands are plain requests; a run's events stream as Server-Sent Events."""
 
+import contextlib
 import json
-from collections.abc import AsyncIterator, Awaitable
+from collections.abc import AsyncGenerator, Awaitable, Mapping
 from dataclasses import asdict
 from functools import partial
 from pathlib import Path
@@ -58,6 +59,7 @@ from assistant.core.agent import (
     RepositoryContents,
     RepositoryError,
     RepositoryPlugins,
+    RunningTask,
     ServerValues,
     Session,
     SetupItem,
@@ -82,18 +84,16 @@ from assistant.core.channels.chat.port import ChatLimits
 from assistant.core.config import settings
 from assistant.core.health import Area
 from assistant.core.logs import (
-    LOG_FILES,
     MAX_LINES,
     LogEntry,
-    LogFile,
     LogLevel,
+    LogLevelError,
     LogOptions,
     LogPage,
     LogQuery,
     LogQueryError,
-    LogWriter,
+    LogSource,
     log_options,
-    read_page,
 )
 from assistant.core.memory.profile import MAX_ITEMS, Section
 from assistant.core.repositories.known import EXTRAS
@@ -255,6 +255,16 @@ class SpeakRequest(BaseModel):
     voice: str = ""
 
 
+class LogLevelSetting(BaseModel):
+    # The lowest level the daemon records.
+    level: LogLevel
+
+
+class LogLevelChange(BaseModel):
+    # Checked by the service, which says what the choices are.
+    level: str
+
+
 class SkillChange(BaseModel):
     description: str
     instructions: str
@@ -396,7 +406,7 @@ def create_app(
     startup: Any = None,
     restart: Any = None,
     web_ui: Path = BUILD_DIR,
-    logs: LogWriter | None = None,
+    logs: Mapping[str, LogSource] | None = None,
 ) -> FastAPI:
     app = FastAPI(title="lo9i daemon")
     # Checked outside in: the host name, the client header, then the device.
@@ -425,9 +435,11 @@ def create_app(
     _add_job_routes(app, service)
     _add_mcp_routes(app, service)
     _add_alert_routes(app, service)
+    _add_task_routes(app, service)
     _add_repository_routes(app, service)
     _add_identity_routes(app, service)
     _add_speech_routes(app, service)
+    _add_log_level_routes(app, service)
     _add_model_routes(app, service)
     _add_usage_routes(app, service)
     _add_host_route(app)
@@ -1191,6 +1203,13 @@ def _add_alert_routes(app: FastAPI, service: AssistantService) -> None:
         return Ok()
 
 
+def _add_task_routes(app: FastAPI, service: AssistantService) -> None:
+    @app.get("/agent-tasks/running")
+    async def running_tasks() -> list[RunningTask]:
+        """Coding agents' tasks still running, the newest first, with their latest steps."""
+        return await service.running_tasks()
+
+
 def _add_job_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/jobs")
     async def jobs() -> list[Job]:
@@ -1273,12 +1292,12 @@ def _add_restart_route(app: FastAPI, restart: Any) -> None:
         return RestartStatus(waiting_for_runs=restart.request())
 
 
-def _add_log_routes(app: FastAPI, logs: LogWriter, streams: DeviceStreams) -> None:
-    """The daemon's log files (core/logs/): the latest entries, or following a file live."""
+def _add_log_routes(app: FastAPI, logs: Mapping[str, LogSource], streams: DeviceStreams) -> None:
+    """The daemon's log (core/logs/): its files and its process output, the latest entries or followed live."""
 
     @app.get("/logs")
     async def logs_options() -> LogOptions:
-        return await log_options()
+        return await log_options(logs.values())
 
     @app.get("/logs/{name}")
     async def log_page(
@@ -1288,7 +1307,7 @@ def _add_log_routes(app: FastAPI, logs: LogWriter, streams: DeviceStreams) -> No
         lines: Annotated[int, Query(ge=1, le=MAX_LINES)] = 100,
     ) -> LogPage:
         """The latest `lines` entries at `level` or above from `component`, oldest first. 400: an unknown component."""
-        return await read_page(_log_file(name), _log_query(level, component, lines))
+        return await _log_source(logs, name).page(_log_query(level, component, lines))
 
     @app.get("/logs/{name}/follow", response_class=EventSourceResponse, responses=_EVENT_STREAM)
     async def follow_log(
@@ -1300,14 +1319,30 @@ def _add_log_routes(app: FastAPI, logs: LogWriter, streams: DeviceStreams) -> No
     ) -> EventSourceResponse:
         """A `page` event like GET /logs/{name}, then an `entry` event for each new matching entry.
         Every connection, a reconnection too, starts with its page."""
-        entries = logs.follow(_log_file(name), _log_query(level, component, lines))
+        entries = _log_source(logs, name).follow(_log_query(level, component, lines))
         return EventSourceResponse(streams.guard(_log_events(entries), device_of(request)), ping=15)
 
 
-def _log_file(name: str) -> LogFile:
-    if name not in LOG_FILES:
+def _add_log_level_routes(app: FastAPI, service: AssistantService) -> None:
+    """The level the daemon records at (core/logs/level.py), applied without a restart."""
+
+    @app.get("/settings/log-level")
+    async def log_level() -> LogLevelSetting:
+        return LogLevelSetting(level=await service.log_level())
+
+    @app.put("/settings/log-level")
+    async def set_log_level(body: LogLevelChange) -> LogLevelSetting:
+        """400: an unknown level."""
+        try:
+            return LogLevelSetting(level=await service.set_log_level(body.level))
+        except LogLevelError as e:
+            raise HTTPException(400, str(e)) from e
+
+
+def _log_source(logs: Mapping[str, LogSource], name: str) -> LogSource:
+    if name not in logs:
         raise HTTPException(404, f"No log named {name}")
-    return LOG_FILES[name]
+    return logs[name]
 
 
 def _log_query(level: LogLevel | None, component: str, lines: int) -> LogQuery:
@@ -1317,10 +1352,12 @@ def _log_query(level: LogLevel | None, component: str, lines: int) -> LogQuery:
         raise HTTPException(400, str(e)) from e
 
 
-async def _log_events(entries: AsyncIterator[LogPage | LogEntry]):
-    async for item in entries:
-        kind = "entry" if isinstance(item, LogEntry) else "page"
-        yield {"event": kind, "data": json.dumps(asdict(item))}
+async def _log_events(entries: AsyncGenerator[LogPage | LogEntry]):
+    # Closed with the stream, so a followed journal's journalctl stops at once.
+    async with contextlib.aclosing(entries):
+        async for item in entries:
+            kind = "entry" if isinstance(item, LogEntry) else "page"
+            yield {"event": kind, "data": json.dumps(asdict(item))}
 
 
 async def _attachment(upload: UploadFile) -> Attachment:

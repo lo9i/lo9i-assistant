@@ -19,11 +19,13 @@ from mcp.client.session import IncomingMessage
 from mcp.shared.dispatcher import ProgressFnT
 from mcp.types import CallToolResult, Tool
 
+from assistant.core.background import BackgroundEnds
 from assistant.core.bus import EventBus
 from assistant.core.context import McpStarts
 from assistant.core.health import Health, HealthLog
 from assistant.core.hidden_text import strip_hidden
-from assistant.core.mcp import keys, logins, servers, sign_in, tool_cache
+from assistant.core.mcp import background, keys, logins, servers, sign_in, tool_cache
+from assistant.core.mcp.background import WorkFinished
 from assistant.core.mcp.connection import (
     ClientFactory,
     McpConnection,
@@ -86,11 +88,14 @@ class McpHub(McpStarts):
         factory: ClientFactory | None = None,
         shared: SharedLogins | None = None,
         environments: Environments | None = None,
+        background: BackgroundEnds | None = None,
     ) -> None:
         """`shared` gives the logins servers can use instead of their own (core/mcp/logins.py);
         `environments` rebuilds a server's lost environment before it starts. `secrets` reads the
-        servers' keys (keys.py) to connect them."""
+        servers' keys (keys.py) to connect them. `background` tells the servers' background work that
+        finished to the conversation that started it."""
         self._environments = environments
+        self._background = background
         self._store = store
         self._secrets = secrets
         self._shared = shared or dict
@@ -207,7 +212,7 @@ class McpHub(McpStarts):
         try:
             async with (
                 asyncio.timeout(_PROBE_SECONDS),
-                self._factory(server, _ignore, self._auth.for_connection(server)) as client,
+                self._factory(server, _ignore, self._auth.for_connection(server), ()) as client,
             ):
                 tools = await list_tools(client)
         except Exception as e:
@@ -246,7 +251,14 @@ class McpHub(McpStarts):
     async def _start(self, server: McpServer) -> None:
         on_demand = await self._on_demand(server)
         connection = McpConnection(
-            server, self._changed, self._health, self._factory, self._auth, self._prepare, on_demand
+            server,
+            self._changed,
+            self._health,
+            self._factory,
+            self._auth,
+            self._prepare,
+            on_demand,
+            self._work_finished,
         )
         stop = asyncio.Event()
         self._running[server.name] = _Running(connection, stop, asyncio.create_task(connection.run(stop)))
@@ -257,6 +269,10 @@ class McpHub(McpStarts):
             return None
         save = partial(tool_cache.save, self._store, server.name)
         return OnDemand(await tool_cache.load(self._store, server.name), save)
+
+    async def _work_finished(self, server: McpServer, finished: WorkFinished) -> None:
+        if self._background is not None:
+            await self._background.deliver(finished.origin, background.ended(server.name, finished))
 
     async def _prepare(self, server: McpServer) -> None:
         if self._environments is not None:

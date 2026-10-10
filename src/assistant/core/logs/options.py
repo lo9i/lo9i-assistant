@@ -1,12 +1,13 @@
 """What the apps can pick from when reading the log."""
 
-import asyncio
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import get_args
 
 from assistant.core.logs.components import COMPONENTS
 from assistant.core.logs.entries import LogLevel
-from assistant.core.logs.files import LOG_FILES, LogFileInfo, info
+from assistant.core.logs.files import LogFileInfo
+from assistant.core.logs.sources import LogSource, infos
 
 
 @dataclass
@@ -17,6 +18,5 @@ class LogOptions:
     components: list[str]
 
 
-async def log_options() -> LogOptions:
-    files = await asyncio.to_thread(lambda: [info(f) for f in LOG_FILES.values()])
-    return LogOptions(files, list(get_args(LogLevel)), list(COMPONENTS))
+async def log_options(sources: Iterable[LogSource]) -> LogOptions:
+    return LogOptions(await infos(sources), list(get_args(LogLevel)), list(COMPONENTS))

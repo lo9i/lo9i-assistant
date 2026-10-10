@@ -10,7 +10,16 @@ import pytest
 import uvicorn
 
 from assistant.client.daemon_client import DaemonClient
-from assistant.core.logs import LogEntry, LogPage, LogQueryError, LogWriter
+from assistant.core.logs import (
+    LogEntry,
+    LogLevelError,
+    LogPage,
+    LogQueryError,
+    LogWriter,
+    OutputFile,
+    log_sources,
+    output_path,
+)
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
 from assistant.daemon.runs import RunHub
@@ -36,7 +45,7 @@ def logger(writer) -> Iterator[logging.Logger]:
 
 @pytest.fixture
 async def app(service, writer):
-    return create_app(service, RunHub(), logs=writer)
+    return create_app(service, RunHub(), logs=log_sources(writer, OutputFile(output_path())))
 
 
 @pytest.fixture
@@ -48,9 +57,9 @@ async def client(app) -> AsyncIterator[DaemonClient]:
 
 async def test_the_options_list_the_files_levels_and_components(client):
     options = await client.logs.options()
-    assert [f.file_name for f in options.files] == ["daemon.log", "errors.log"]
+    assert [f.file_name for f in options.files] == ["daemon.log", "errors.log", "output.log"]
     assert options.levels == ["DEBUG", "INFO", "WARNING", "ERROR"]
-    assert {"agent", "mcp", "scheduler", "daemon", "other"} <= set(options.components)
+    assert {"agent", "mcp", "channels", "scheduler", "daemon", "other"} <= set(options.components)
 
 
 async def test_a_page_has_the_latest_matching_entries(client, logger):
@@ -61,6 +70,27 @@ async def test_a_page_has_the_latest_matching_entries(client, logger):
     assert [(e.level, e.message) for e in page.entries] == [("WARNING", "slow"), ("ERROR", "crashed")]
     assert [e.message for e in (await client.logs.page("errors")).entries] == ["crashed"]
     assert (await client.logs.page("daemon", component="agent")).entries == []
+
+
+async def test_the_output_reads_like_a_log(client):
+    output_path().write_text("Traceback (most recent call last):\n  ImportError: no\n")
+    page = await client.logs.page("output")
+    assert [e.message for e in page.entries] == ["Traceback (most recent call last):", "  ImportError: no"]
+    assert page.file.name == "output"
+
+
+async def test_the_level_the_daemon_records_at_changes_at_once(client):
+    own = logging.getLogger("assistant")
+    saved = own.level, logging.getLogger().level
+    try:
+        assert await client.logs.level() == "INFO"
+        assert await client.logs.set_level("DEBUG") == "DEBUG"
+        assert own.isEnabledFor(logging.DEBUG) and await client.logs.level() == "DEBUG"
+        with pytest.raises(LogLevelError, match="Unknown level"):
+            await client.logs.set_level("LOUD")
+    finally:
+        own.setLevel(saved[0])
+        logging.getLogger().setLevel(saved[1])
 
 
 async def test_unknown_files_and_components_are_refused(client):

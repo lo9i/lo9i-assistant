@@ -18,7 +18,7 @@ from assistant.core.agent import (
 from assistant.core.attachments import Attachment
 from assistant.core.events import ApprovalRequired, Cancelled, Done, ToolFinished
 from assistant.core.internet import brave_key
-from assistant.core.logs import LogWriter
+from assistant.core.logs import LogWriter, log_sources
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
 from assistant.daemon.runs import RunHub
@@ -81,7 +81,7 @@ async def test_host_describes_the_computer_the_daemon_runs_on(client):
 
 async def test_every_json_response_has_a_typed_schema(service):
     """Web clients generate their types from /openapi.json, so no route may answer an untyped object."""
-    openapi = create_app(service, RunHub(), _Startup(), _Restart(), logs=LogWriter()).openapi()
+    openapi = create_app(service, RunHub(), _Startup(), _Restart(), logs=log_sources(LogWriter())).openapi()
     untyped = [
         f"{method.upper()} {path}"
         for path, operations in openapi["paths"].items()
@@ -98,7 +98,10 @@ async def test_the_web_clients_schema_matches_the_routes(service):
     """The web client's types are generated from clients/web/openapi.json. Run with UPDATE_OPENAPI=1
     (`npm run api` in clients/web/) to rewrite it after changing a route."""
     current = (
-        json.dumps(create_app(service, RunHub(), _Startup(), _Restart(), logs=LogWriter()).openapi(), indent=2) + "\n"
+        json.dumps(
+            create_app(service, RunHub(), _Startup(), _Restart(), logs=log_sources(LogWriter())).openapi(), indent=2
+        )
+        + "\n"
     )
     if os.environ.get("UPDATE_OPENAPI"):
         _WEB_SCHEMA.write_text(current)
@@ -401,7 +404,9 @@ async def test_mcp_servers_through_the_client(client, service, monkeypatch, isol
         """Add a note."""
         return text
 
-    monkeypatch.setattr(service.mcp, "_factory", lambda server, handler, auth: Client(fake, message_handler=handler))
+    monkeypatch.setattr(
+        service.mcp, "_factory", lambda server, handler, auth, extensions: Client(fake, message_handler=handler)
+    )
     server = McpServer(name="notes", command="notes-server", env={"TOKEN": "secret"})
     assert [t.name for t in (await client.mcp.probe(server)).tools] == ["add_note"]
     added = await client.mcp.add(server)

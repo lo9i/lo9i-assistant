@@ -4,6 +4,7 @@ Unix socket in its data folder (core/mcp/folders.py). The daemon shows them to p
 """
 
 import asyncio
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -16,6 +17,9 @@ from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.process import ProcessSpec, keep_running
 from assistant.core.mcp.servers import McpServer
 from assistant.core.secret_store import SecretBox
+
+# A page's output and exits go under a child named after its server.
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -77,6 +81,7 @@ class McpPages:
             f"page of {server.name}",
             lambda: _spec(server),
             stop,
+            logger.getChild(server.name),
             lambda: socket.unlink(True),
             lambda: self._environments.ensure(server.name, server.page_command),
         )

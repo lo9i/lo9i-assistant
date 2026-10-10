@@ -625,8 +625,17 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     margin-right: 2;
 }
 
-#logs-follow-label {
+#logs-follow-label, #logs-record-label {
     height: 3;
     content-align: center middle;
     margin-right: 1;
+}
+
+#logs-follow {
+    margin-right: 2;
+}
+
+#logs-record {
+    width: 26;
+    margin-right: 2;
 }

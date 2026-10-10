@@ -1244,6 +1244,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/agent-tasks/running": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Running Tasks
+         * @description Coding agents' tasks still running, the newest first, with their latest steps.
+         */
+        get: operations["running_tasks_agent_tasks_running_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/repositories/updates": {
         parameters: {
             query?: never;
@@ -1474,6 +1494,27 @@ export interface paths {
          * @description The text read aloud on this host (Kokoro), as WAV.
          */
         post: operations["speak_speech_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/log-level": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Log Level */
+        get: operations["log_level_settings_log_level_get"];
+        /**
+         * Set Log Level
+         * @description 400: an unknown level.
+         */
+        put: operations["set_log_level_settings_log_level_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2385,7 +2426,20 @@ export interface components {
             /** Path */
             path: string;
             /** Size */
-            size: number;
+            size: number | null;
+        };
+        /** LogLevelChange */
+        LogLevelChange: {
+            /** Level */
+            level: string;
+        };
+        /** LogLevelSetting */
+        LogLevelSetting: {
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "DEBUG" | "INFO" | "WARNING" | "ERROR";
         };
         /** LogOptions */
         LogOptions: {
@@ -2918,6 +2972,21 @@ export interface components {
         RunStarted: {
             /** Run Id */
             run_id: string;
+        };
+        /** RunningTask */
+        RunningTask: {
+            /** Id */
+            id: string;
+            /** Agent */
+            agent: string;
+            /** Thread Id */
+            thread_id: string;
+            /** Asked */
+            asked: string;
+            /** Started At */
+            started_at: string;
+            /** Steps */
+            steps: string[];
         };
         /**
          * ServerField
@@ -5608,6 +5677,26 @@ export interface operations {
             };
         };
     };
+    running_tasks_agent_tasks_running_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunningTask"][];
+                };
+            };
+        };
+    };
     plugin_updates_repositories_updates_get: {
         parameters: {
             query?: never;
@@ -6045,6 +6134,59 @@ export interface operations {
                 };
                 content: {
                     "audio/wav": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    log_level_settings_log_level_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogLevelSetting"];
+                };
+            };
+        };
+    };
+    set_log_level_settings_log_level_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LogLevelChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogLevelSetting"];
                 };
             };
             /** @description Validation Error */

@@ -36,9 +36,10 @@ class LogFileInfo:
     name: str
     file_name: str
     description: str
+    # Where it is: a file's path, or the command that reads it (the journal).
     path: str
-    # Of the current file; 0 when nothing was written yet.
-    size: int
+    # Of the current file; 0 when nothing was written yet, None when it isn't a file (the journal).
+    size: int | None
 
 
 _MB = 1024 * 1024

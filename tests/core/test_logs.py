@@ -10,14 +10,26 @@ from assistant.core.logs import (
     LOG_FILES,
     LogEntry,
     LogFile,
+    LogLevelError,
     LogPage,
     LogQuery,
     LogQueryError,
     LogWriter,
     component_of,
+    level,
     parse,
     read_page,
 )
+
+
+@pytest.fixture
+def levels() -> Iterator[None]:
+    """The levels the test changes, put back after it."""
+    own, root = logging.getLogger("assistant"), logging.getLogger()
+    saved = own.level, root.level
+    yield
+    own.setLevel(saved[0])
+    root.setLevel(saved[1])
 
 
 @pytest.fixture
@@ -41,6 +53,8 @@ def test_components_come_from_the_logger_names():
     assert component_of("assistant.core.conversation.memory_writer") == "memory"
     assert component_of("assistant.daemon.scheduler") == "scheduler"
     assert component_of("assistant.daemon.server") == "daemon"
+    assert component_of("assistant.core.channels.telegram") == "channels"
+    assert component_of("assistant.core.channels.hub") == "channels"
     assert component_of("uvicorn.error") == "other"
     assert component_of("assistant.core.mcpx") == "other"
 
@@ -76,7 +90,7 @@ async def test_records_go_to_every_file_that_keeps_their_level(writer):
     errors = await read_page(LOG_FILES["errors"], LogQuery())
     assert [e.message.splitlines()[0] for e in daemon.entries] == ["started notes", "notes crashed"]
     assert [e.level for e in errors.entries] == ["ERROR"] and "ValueError: boom" in errors.entries[0].message
-    assert daemon.file.file_name == "daemon.log" and daemon.file.size > 0
+    assert daemon.file.file_name == "daemon.log" and (daemon.file.size or 0) > 0
 
 
 async def test_a_query_picks_the_level_the_component_and_the_latest_lines(writer):
@@ -145,3 +159,24 @@ async def test_records_from_other_threads_reach_a_follower(writer):
     entry = await asyncio.wait_for(anext(stream), 1)
     assert isinstance(entry, LogEntry) and entry.message == "from a thread"
     await stream.aclose()
+
+
+async def test_the_level_is_info_until_the_user_picks_one(service, levels):
+    assert await level.load(service.store) == "INFO"
+    assert await level.save(service.store, "DEBUG") == "DEBUG"
+    assert await level.load(service.store) == "DEBUG"
+    assert logging.getLogger("assistant.core.mcp.hub").isEnabledFor(logging.DEBUG)
+    # Libraries stay at INFO: at DEBUG some log every step.
+    assert not logging.getLogger("watchfiles.main").isEnabledFor(logging.DEBUG)
+    await level.save(service.store, "ERROR")
+    assert not logging.getLogger("assistant.core.mcp.hub").isEnabledFor(logging.WARNING)
+    assert not logging.getLogger("uvicorn.x").isEnabledFor(logging.WARNING)
+    with pytest.raises(LogLevelError, match="Choose one of"):
+        await level.save(service.store, "LOUD")
+    assert await level.load(service.store) == "ERROR"
+
+
+async def test_the_saved_level_applies_when_the_daemon_starts(service, levels):
+    await service.store.aput(("settings",), "logging", {"level": "WARNING"})
+    await service.apply_log_level()
+    assert logging.getLogger("assistant").level == logging.WARNING

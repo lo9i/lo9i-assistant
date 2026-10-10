@@ -4,6 +4,8 @@ import type { components } from "./schema";
 import { resumableEvents, type ReconnectPolicy } from "./reconnect";
 import type { Transport } from "./transport";
 import type {
+  Agent,
+  AgentFolders,
   Alert,
   BusEvent,
   ChannelStatus,
@@ -12,12 +14,19 @@ import type {
   Decision,
   Device,
   EmailAccount,
-  EmailSignIn,
   EmailProvider,
   EmailSettings,
+  EmailSignIn,
+  Episode,
+  Fact,
+  FolderListing,
+  Handoff,
+  HostStatus,
   InstalledFromRepository,
   Job,
+  KeptKeys,
   LogEvent,
+  LogLevelSetting,
   LogOptions,
   LogPage,
   LogQuery,
@@ -27,12 +36,6 @@ import type {
   McpServerStatus,
   Me,
   MemorySnapshot,
-  Fact,
-  Episode,
-  Agent,
-  AgentFolders,
-  FolderListing,
-  Handoff,
   ModelChange,
   ModelOption,
   ModelProvider,
@@ -40,12 +43,12 @@ import type {
   PairingCode,
   PluginUpdate,
   PluginUpdateChecks,
-  KeptKeys,
   Removed,
   Repository,
   RepositoryContents,
   RepositoryPlugins,
   RunEvent,
+  RunningTask,
   ServerValues,
   Session,
   ShownMessage,
@@ -53,7 +56,6 @@ import type {
   Skill,
   SkillSummary,
   SpeechStatus,
-  HostStatus,
   StartupStatus,
   TokenReport,
   UploadedFile,
@@ -454,6 +456,15 @@ export class AlertsGroup {
   }
 }
 
+/** Coding agents' tasks running in the background, with their latest steps. */
+export class TasksGroup {
+  constructor(private readonly transport: Transport) {}
+
+  running(): Promise<RunningTask[]> {
+    return this.transport.request("GET", "/agent-tasks/running");
+  }
+}
+
 export class SkillsGroup {
   constructor(private readonly transport: Transport) {}
 
@@ -561,9 +572,19 @@ export class SystemGroup {
 export class LogsGroup {
   constructor(private readonly transport: Transport) {}
 
-  /** The log files, levels and components to pick from. */
+  /** The log files (the process output too), levels and components to pick from. */
   options(): Promise<LogOptions> {
     return this.transport.request("GET", "/logs");
+  }
+
+  /** The lowest level the daemon records. */
+  level(): Promise<LogLevelSetting> {
+    return this.transport.request("GET", "/settings/log-level");
+  }
+
+  /** Applied at once. Throws ApiError (400) for an unknown level. */
+  setLevel(level: string): Promise<LogLevelSetting> {
+    return this.transport.request("PUT", "/settings/log-level", { level });
   }
 
   /** The latest matching entries, oldest first. Throws ApiError (400) for an unknown component, 404 for an unknown file. */
@@ -650,6 +671,7 @@ export class DaemonClient {
   readonly model: ModelGroup;
   readonly mcp: McpGroup;
   readonly alerts: AlertsGroup;
+  readonly tasks: TasksGroup;
   readonly repositories: RepositoriesGroup;
   readonly skills: SkillsGroup;
   readonly memory: MemoryGroup;
@@ -673,6 +695,7 @@ export class DaemonClient {
     this.model = new ModelGroup(transport);
     this.mcp = new McpGroup(transport);
     this.alerts = new AlertsGroup(transport);
+    this.tasks = new TasksGroup(transport);
     this.repositories = new RepositoriesGroup(transport);
     this.skills = new SkillsGroup(transport);
     this.memory = new MemoryGroup(transport);

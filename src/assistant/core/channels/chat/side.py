@@ -6,17 +6,13 @@ new one) and the brief is sent there (conversations.py)."""
 from typing import Any
 
 from assistant.core.channels.chat.port import Buttons
+from assistant.core.events import side_question
 
 _MOVE, _KEEP = "sm", "sk"
 
 
 def side_text(request: dict[str, Any]) -> str:
     return f"{side_question(request)} {request.get('title', '')}\n\n{request.get('brief', '')}"
-
-
-def side_question(request: dict[str, Any]) -> str:
-    """Continuing a side conversation that exists, or starting one."""
-    return "Continue in your side conversation?" if request.get("thread_id") else "Move to a side conversation?"
 
 
 def side_buttons(interrupt_id: str) -> Buttons:

@@ -12,6 +12,7 @@ from assistant.core.channels.chat.port import ChatLimits
 from assistant.core.events import Event, TextDelta
 from assistant.core.outbox import DeliveryError
 from tests.conftest import collect
+from tests.core.test_handoffs import agent_plugin
 
 _INSTANT = ChatLimits(edit_seconds=0)
 _SOURCES = ["Google", "GitHub", "X"]
@@ -119,6 +120,21 @@ async def test_moving_to_a_side_conversation_sends_the_brief_there(chats, runs, 
     assert channel.sent()[-1] == "Moved to a side conversation. /home goes back."
     assert runs.texts[-1] == "Carried over from home: Taxes\n\nDo the 2026 return."
     assert (await service.session("owner", "telegram")).thread_id != home
+
+
+async def test_a_coding_task_moves_to_a_side_conversation_handed_to_its_agent(
+    chats, runs, channel, script, service, tmp_path
+):
+    await service.add_mcp_server(agent_plugin(trusted=True))
+    script.call("start_task", agent="claude-code", repository=str(tmp_path), task="finish").reply("Moved.")
+    await chats.message("telegram", "42", "fix the tests with claude", [], voice=False)
+    assert channel.sent()[-1].startswith("Move to a side conversation with Claude Code?")
+    await chats.press("telegram", "42", "5", "Move?", channel.buttons()[-1][0][1])
+    side = (await service.session("owner", "telegram")).thread_id
+    handoff = await service.conversation_agent("owner", side)
+    assert handoff is not None and handoff.folder == str(tmp_path)
+    assert "Moved to a side conversation with Claude Code. /home goes back." in channel.sent()
+    assert runs.texts[-1] == "finish"
 
 
 async def test_continuing_a_side_conversation_moves_the_channel_back_to_it(chats, runs, channel, script, service):

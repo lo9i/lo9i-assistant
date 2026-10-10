@@ -23,9 +23,11 @@ OLLAMA_LABEL = "com.lo9i.ollama"
 _PLIST_DIR = Path("/Library/LaunchDaemons")
 # Set in the plist, so a daemon knows launchd started it.
 MANAGED_ENV = "LO9I_LAUNCHD"
+# Where LaunchDaemons installed before the logs moved to their own folder send the daemon's output.
+LEGACY_OUTPUT = Path("~/.lo9i/daemon.log")
 
 
-__all__ = ["StartupError", "disable", "enable", "status"]
+__all__ = ["StartupError", "disable", "enable", "move_legacy_output", "status"]
 
 
 def status() -> StartupStatus:
@@ -70,6 +72,31 @@ def daemon_plist() -> bytes:
             "EnvironmentVariables": {"HOME": home, "PATH": os.environ.get("PATH", "/usr/bin:/bin"), MANAGED_ENV: "1"},
         }
     )
+
+
+def move_legacy_output() -> bool:
+    """A LaunchDaemon installed before the logs moved sends the daemon's output to LEGACY_OUTPUT until
+    start at boot is turned off and on, which needs the administrator's password, so the daemon sends
+    its output to output_path() itself, where the Logs page reads it. Only what's printed before this
+    runs at start stays behind. Returns whether it moved."""
+    if not _is_stderr(LEGACY_OUTPUT.expanduser()):
+        return False
+    output_path().parent.mkdir(parents=True, exist_ok=True)
+    sys.stdout.flush()
+    sys.stderr.flush()
+    output = os.open(output_path(), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
+    os.dup2(output, sys.stdout.fileno())
+    os.dup2(output, sys.stderr.fileno())
+    os.close(output)
+    return True
+
+
+def _is_stderr(path: Path) -> bool:
+    try:
+        stream, file = os.fstat(sys.stderr.fileno()), path.stat()
+    except (OSError, ValueError):
+        return False
+    return (stream.st_dev, stream.st_ino) == (file.st_dev, file.st_ino)
 
 
 def ollama_plist() -> bytes | None:

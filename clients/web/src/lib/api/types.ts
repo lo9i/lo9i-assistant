@@ -36,6 +36,7 @@ export type FolderListing = Schemas["FolderListing"];
 export type Episode = Schemas["Episode"];
 export type SkillSummary = Schemas["SkillSummary"];
 export type Alert = Schemas["Alert"];
+export type RunningTask = Schemas["RunningTask"];
 export type Skill = Schemas["Skill"];
 export type FoundSkill = Schemas["FoundSkill"];
 export type FoundServer = Schemas["FoundServer"];
@@ -66,6 +67,7 @@ export type LogEntry = Schemas["LogEntry"];
 export type LogPage = Schemas["LogPage"];
 export type LogOptions = Schemas["LogOptions"];
 export type LogFileInfo = Schemas["LogFileInfo"];
+export type LogLevelSetting = Schemas["LogLevelSetting"];
 /** What a log shows: entries at `level` or above ("" for all) from `component` ("" for all), the latest `lines`. */
 export type LogQuery = { level: string; component: string; lines: number };
 /** A followed log's events: its page (at the start of every connection), then each new matching entry. */
@@ -74,8 +76,8 @@ export type LogEvent = { kind: "page"; page: LogPage } | { kind: "entry"; entry:
 /** An approval, with `kind: "question"` a question with options, with `kind: "plugin"` a plugin the
  *  agent offers to install, with `kind: "plugin_setup"` an installed plugin's setup to open (the
  *  plugin comes as the extras list it, `server` or `skill`), or with `kind: "side_conversation"` a
- *  task to move out of home, with its `title`, `brief` and `first_message`, and `thread_id` when it's to
- *  continue a side conversation that exists (core/events.py). */
+ *  task to move out of home, with its `title`, `brief` and `first_message`, `thread_id` when it's to
+ *  continue a side conversation that exists, or `handoff` for a coding task (core/events.py). */
 export type ApprovalRequest = {
   kind?: string;
   tool?: string;
@@ -91,7 +93,10 @@ export type ApprovalRequest = {
   brief?: string;
   first_message?: string;
   thread_id?: string;
+  handoff?: TaskHandoff;
 } & Record<string, unknown>;
+/** A coding task's side conversation is handed to its agent, working in `folder` (core/events.py). */
+export type TaskHandoff = { command: string; folder: string; name: string };
 export type ApprovalRequired = { type: "ApprovalRequired"; interrupt_id: string; request: ApprovalRequest };
 /** An approval's answer, a question's (the options picked, null when skipped), whether the user
  *  installed the plugin offered, or moved the task to a side conversation. */
@@ -126,6 +131,9 @@ export type BusEvent = { kind: string; data: Record<string, unknown> };
 
 /** A `job` bus event: a scheduled job finished a run. */
 export type JobFinished = { name: string; status: string; summary: string };
+
+/** A `background_ended` bus event: background work started in a conversation ended (core/background.py). */
+export type BackgroundEnded = { thread_id: string; channel: string; ok: boolean; text: string };
 
 /** A `failing` bus event: an MCP server or a skill failed FAILING_AFTER times in a row (core/health.py). */
 export type Failing = { area: "mcp" | "skill"; name: string; error: string };

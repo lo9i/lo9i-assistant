@@ -1,9 +1,9 @@
 """Side conversations a message in home may continue. Each conversation has tags the model wrote
 with its title (core/conversation/titles.py): the names and topics it's about. A message in home is
-matched against the side conversations' tags by the words they share, counting only words few
-conversations' tags use, and the best are ranked first. The matches go in the message's turn header
-for the assistant, which judges whether the message is about one of them and suggests continuing
-there (core/tools/side.py)."""
+matched against the side conversations' tags: a tag counts when all its words are in the message,
+so "about you" needs both, and a word few conversations' tags use counts more. The matches go in
+the message's turn header for the assistant, which judges whether the message is about one of them
+and suggests continuing there (core/tools/side.py)."""
 
 import math
 import re
@@ -19,9 +19,6 @@ from assistant.core.conversation.search import MessageIndex
 from assistant.core.conversation.turn_header import note_block
 from assistant.core.conversations import Conversation
 
-# A word counts when the tags of at most this share of the side conversations use it (or _MIN_SHARED).
-_RARE_SHARE = 0.2
-_MIN_SHARED = 3
 _MIN_WORD_CHARS = 3
 _MATCHES = 3
 _OPENING_CHARS = 200
@@ -42,12 +39,13 @@ async def notes(store: BaseStore, search: MessageIndex, user_id: str, thread_id:
 
 
 def matches(text: str, tags: Mapping[str, Sequence[str]]) -> list[str]:
-    """The ids of the conversations whose tags share the most rare words with `text`, best first."""
-    tagged = {t: set().union(*map(_words, found)) for t, found in tags.items()}
-    used = Counter(w for words in tagged.values() for w in words)
-    limit = max(_MIN_SHARED, len(tags) * _RARE_SHARE)
-    rare = {w for w in _words(text) if 0 < used[w] <= limit}
-    scores = {t: sum(math.log(len(tags) / used[w]) + 1 for w in rare & words) for t, words in tagged.items()}
+    """The ids of the conversations with tags whose words are all in `text`, best first: each word
+    those tags cover weighs more the fewer conversations' tags use it. Ties keep `tags`' order."""
+    said = _words(text)
+    tagged = {t: [words for words in map(_words, found) if words] for t, found in tags.items()}
+    used = Counter(w for found in tagged.values() for w in set().union(*found))
+    covered = {t: set().union(*(words for words in found if words <= said)) for t, found in tagged.items()}
+    scores = {t: sum(math.log(len(tags) / used[w]) + 1 for w in words) for t, words in covered.items()}
     ranked = sorted((t for t, score in scores.items() if score > 0), key=lambda t: scores[t], reverse=True)
     return ranked[:_MATCHES]
 

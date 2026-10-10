@@ -15,6 +15,7 @@ CATEGORIES = (
     "assistant/agents",
     "assistant/modes",
     "communications/chat",
+    "communications/contacts",
     "communications/email",
     "communications/phone",
     "media/video",

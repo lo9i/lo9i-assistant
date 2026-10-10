@@ -77,7 +77,7 @@ async def start(server: McpServer, auth: McpAuth, redirect_uri: str, factory: Cl
 
 
 async def _connect(server: McpServer, provider: OAuthClientProvider, auth: McpAuth, factory: ClientFactory) -> None:
-    async with factory(server, _ignore, provider) as client:
+    async with factory(server, _ignore, provider, ()) as client:
         await list_tools(client)
     await auth.remember(server.name, provider)
 

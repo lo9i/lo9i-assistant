@@ -7,16 +7,27 @@
   let { suggestion, onanswer }: { suggestion: ApprovalRequired; onanswer: (d: Decision) => void } = $props();
   const request = $derived(suggestion.request);
   const continues = $derived(Boolean(request.thread_id));
+  const handoff = $derived(request.handoff);
+  const question = $derived(
+    continues
+      ? "Continue in your side conversation?"
+      : handoff
+        ? `Move to a side conversation with ${handoff.name}?`
+        : "Move to a side conversation?",
+  );
+  const where = $derived(
+    continues
+      ? "This goes on there"
+      : handoff
+        ? `${handoff.name} works on it in ${handoff.folder}, in a conversation of its own`
+        : "This goes on in a conversation of its own",
+  );
   const stay = () => onanswer({ moved: false });
 </script>
 
-<Modal
-  title={continues ? "Continue in your side conversation?" : "Move to a side conversation?"}
-  description={String(request.title ?? "")}
-  onclose={stay}
->
+<Modal title={question} description={String(request.title ?? "")} onclose={stay}>
   <p class="text-meta">
-    {continues ? "This goes on there" : "This goes on in a conversation of its own"}, starting with this brief, so home stays light.
+    {where}, starting with this brief, so home stays light.
   </p>
   <pre>{request.brief}</pre>
   {#snippet footer()}

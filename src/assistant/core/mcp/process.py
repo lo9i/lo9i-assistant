@@ -1,6 +1,7 @@
 """Keeps a plugin's process running: a page (core/mcp/pages.py) or a chat channel
 (core/channels/processes.py). A process that exits is started again, waiting longer each time; its
-output goes to the daemon's log."""
+output and its exits go to the daemon's log under the logger its runner names after the plugin, so the
+Logs page shows them with the plugin's component (core/logs/components.py)."""
 
 import asyncio
 import contextlib
@@ -10,8 +11,6 @@ import signal
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
-
-logger = logging.getLogger(__name__)
 
 _FIRST_RETRY_SECONDS = 5
 _MAX_RETRY_SECONDS = 300
@@ -32,41 +31,51 @@ async def keep_running(
     label: str,
     spec: Callable[[], ProcessSpec],
     stop: asyncio.Event,
+    log: logging.Logger,
     after: Callable[[], None] | None = None,
     prepare: Callable[[], Awaitable[None]] | None = None,
 ) -> None:
-    """Run the process until `stop` is set. `prepare` runs and `spec` is asked again before every start
-    (core/mcp/environment.py rebuilds a lost environment); `after` runs after every exit."""
+    """Run the process until `stop` is set, logging its output and exits to `log`. `prepare` runs and
+    `spec` is asked again before every start (core/mcp/environment.py rebuilds a lost environment);
+    `after` runs after every exit."""
     wait = _FIRST_RETRY_SECONDS
     while not stop.is_set():
         started = asyncio.get_running_loop().time()
-        code = await _start(label, spec, prepare, stop)
+        code = await _start(_Run(label, log), spec, prepare, stop)
         if after is not None:
             after()
         if stop.is_set():
             return
         if asyncio.get_running_loop().time() - started > _HEALTHY_SECONDS:
             wait = _FIRST_RETRY_SECONDS
-        logger.warning("The %s exited (%s); starting it again in %ss", label, code, wait)
+        log.warning("The %s exited (%s); starting it again in %ss", label, code, wait)
         with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(stop.wait(), wait)
         wait = min(wait * 2, _MAX_RETRY_SECONDS)
 
 
+@dataclass(frozen=True)
+class _Run:
+    """Which process it is, for the log."""
+
+    label: str
+    log: logging.Logger
+
+
 async def _start(
-    label: str, spec: Callable[[], ProcessSpec], prepare: Callable[[], Awaitable[None]] | None, stop: asyncio.Event
+    run: _Run, spec: Callable[[], ProcessSpec], prepare: Callable[[], Awaitable[None]] | None, stop: asyncio.Event
 ) -> int | None:
     """The exit code of one run, None when it couldn't start."""
     try:
         if prepare is not None:
             await prepare()
     except Exception as e:
-        logger.warning("Couldn't get the %s ready: %s", label, e)
+        run.log.warning("Couldn't get the %s ready: %s", run.label, e)
         return None
-    return await _run_once(label, spec(), stop)
+    return await _run_once(run, spec(), stop)
 
 
-async def _run_once(label: str, spec: ProcessSpec, stop: asyncio.Event) -> int | None:
+async def _run_once(run: _Run, spec: ProcessSpec, stop: asyncio.Event) -> int | None:
     """Run the process until it exits or `stop` is set."""
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -81,15 +90,15 @@ async def _run_once(label: str, spec: ProcessSpec, stop: asyncio.Event) -> int |
             start_new_session=True,
         )
     except OSError as e:
-        logger.warning("Couldn't start the %s: %s", label, e)
+        run.log.warning("Couldn't start the %s: %s", run.label, e)
         return None
-    log = asyncio.create_task(_log_output(label, proc))
+    output = asyncio.create_task(_log_output(run.log, proc))
     ended = asyncio.create_task(stop.wait())
     await asyncio.wait({ended, asyncio.ensure_future(proc.wait())}, return_when=asyncio.FIRST_COMPLETED)
     ended.cancel()
     if proc.returncode is None:
         await _terminate(proc)
-    await log
+    await output
     return proc.returncode
 
 
@@ -104,7 +113,7 @@ async def _terminate(proc: asyncio.subprocess.Process) -> None:
         await proc.wait()
 
 
-async def _log_output(label: str, proc: asyncio.subprocess.Process) -> None:
+async def _log_output(log: logging.Logger, proc: asyncio.subprocess.Process) -> None:
     assert proc.stdout is not None
     async for line in proc.stdout:
-        logger.info("[%s] %s", label, line.decode(errors="replace").rstrip())
+        log.info("%s", line.decode(errors="replace").rstrip())

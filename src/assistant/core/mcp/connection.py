@@ -8,20 +8,23 @@ task (`run`); calls from tools use the open session.
 import asyncio
 import contextlib
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 
 import httpx2
 from mcp import Client, StdioServerParameters
+from mcp.client.extension import ClientExtension
 from mcp.client.session import IncomingMessage, MessageHandlerFnT
 from mcp.client.streamable_http import streamable_http_client
 from mcp.shared.dispatcher import ProgressFnT
 from mcp.shared.exceptions import MCPError
 from mcp.types import CallToolResult, Implementation, TextContent, Tool, ToolListChangedNotification
 
+from assistant.core.background import Origin
 from assistant.core.config import settings
 from assistant.core.health import HealthLog
+from assistant.core.mcp.background import BackgroundWork, WorkFinished, WorkStarted, origin_meta
 from assistant.core.mcp.oauth import McpAuth, SignInNeededError, needs_sign_in
 from assistant.core.mcp.on_demand import OnDemand
 from assistant.core.mcp.servers import McpServer
@@ -52,10 +55,17 @@ class ConnectionState:
     tools: list[Tool] = field(default_factory=list)
 
 
-ClientFactory = Callable[[McpServer, MessageHandlerFnT, httpx2.Auth | None], Client]
+ClientFactory = Callable[[McpServer, MessageHandlerFnT, httpx2.Auth | None, Sequence[ClientExtension]], Client]
+# Gets the server's report that background work it did finished (core/mcp/background.py).
+WorkFinishedFn = Callable[[McpServer, WorkFinished], Awaitable[None]]
 
 
-def open_client(server: McpServer, on_message: MessageHandlerFnT, auth: httpx2.Auth | None = None) -> Client:
+def open_client(
+    server: McpServer,
+    on_message: MessageHandlerFnT,
+    auth: httpx2.Auth | None = None,
+    extensions: Sequence[ClientExtension] = (),
+) -> Client:
     """A client for the server's transport; `auth` signs a remote server's requests. Stdio servers
     get only a safe baseline of the daemon's environment (the SDK's `get_default_environment`), the
     assistant's time zone, and their own env."""
@@ -64,7 +74,8 @@ def open_client(server: McpServer, on_message: MessageHandlerFnT, auth: httpx2.A
         if server.command
         else _http_transport(server, auth)
     )
-    return Client(target, message_handler=on_message, client_info=Implementation(name="lo9i", version="1"))
+    info = Implementation(name="lo9i", version="1")
+    return Client(target, message_handler=on_message, client_info=info, extensions=list(extensions))
 
 
 @asynccontextmanager
@@ -91,10 +102,13 @@ class McpConnection:
         auth: McpAuth | None = None,
         prepare: Callable[[McpServer], Awaitable[None]] | None = None,
         on_demand: OnDemand | None = None,
+        work_finished: WorkFinishedFn | None = None,
     ) -> None:
         """`prepare` runs before every attempt to connect (core/mcp/environment.py rebuilds a lost environment).
-        With `on_demand`, it runs only while calls use it."""
+        With `on_demand`, it runs only while calls use it or it has background work in progress.
+        `work_finished` gets the server's reports that background work finished."""
         self.server = server
+        self._work_finished = work_finished
         self._prepare = prepare
         self._on_demand = on_demand
         self.state = ConnectionState()
@@ -151,13 +165,16 @@ class McpConnection:
             await self._health.signed_out(self.server.name, str(error))
         await stop.wait()
 
-    async def call(self, tool: str, arguments: dict, progress: ProgressFnT | None = None) -> CallToolResult:
+    async def call(
+        self, tool: str, arguments: dict, progress: ProgressFnT | None = None, origin: Origin | None = None
+    ) -> CallToolResult:
         """Raises MCPError for an error the server reported, NotConnectedError or ConnectionLostError.
-        `progress` gets the progress notifications the server sends while the call runs."""
+        `progress` gets the progress notifications the server sends while the call runs. `origin`: the
+        conversation the call is made in, which background work it starts is told to."""
         try:
             with self._on_demand.using() if self._on_demand else contextlib.nullcontext():
                 await self._wake()
-                result = await self._call(tool, arguments, progress)
+                result = await self._call(tool, arguments, progress, origin)
         except Exception as e:
             await self._health.failed("mcp", self.server.name, f"{tool}: {describe(e)}")
             raise
@@ -178,12 +195,14 @@ class McpConnection:
                 async with asyncio.timeout(_START_SECONDS):
                     await _first(self._connected.wait(), self._attempt_failed.wait())
 
-    async def _call(self, tool: str, arguments: dict, progress: ProgressFnT | None) -> CallToolResult:
+    async def _call(
+        self, tool: str, arguments: dict, progress: ProgressFnT | None, origin: Origin | None
+    ) -> CallToolResult:
         client = self._client
         if client is None:
             raise NotConnectedError(self.state.error or self.state.status)
         try:
-            return await client.call_tool(tool, arguments, progress_callback=progress)
+            return await client.call_tool(tool, arguments, progress_callback=progress, meta=origin_meta(origin))
         except MCPError:
             raise
         except Exception as e:
@@ -204,7 +223,8 @@ class McpConnection:
         async with contextlib.AsyncExitStack() as stack:
             async with asyncio.timeout(_CONNECT_SECONDS):
                 auth = self._auth.for_connection(self.server) if self._auth else None
-                client = await stack.enter_async_context(self._factory(self.server, self._message, auth))
+                background = BackgroundWork(self._started_work, self._finished_work)
+                client = await stack.enter_async_context(self._factory(self.server, self._message, auth, [background]))
                 await self._open(client)
             try:
                 await self._serve(client, stop)
@@ -243,6 +263,18 @@ class McpConnection:
     def _close(self) -> None:
         self._client = None
         self._connected.clear()
+        if self._on_demand is not None:
+            self._on_demand.stopped()
+
+    async def _started_work(self, started: WorkStarted) -> None:
+        if self._on_demand is not None:
+            self._on_demand.started_work(started.work)
+
+    async def _finished_work(self, finished: WorkFinished) -> None:
+        if self._on_demand is not None:
+            self._on_demand.finished_work(finished.work)
+        if self._work_finished is not None:
+            await self._work_finished(self.server, finished)
 
     async def _message(self, message: IncomingMessage) -> None:
         # Handled in the connection's own task: a request sent from here would wait on the

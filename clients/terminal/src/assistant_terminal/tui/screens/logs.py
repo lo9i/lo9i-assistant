@@ -1,5 +1,6 @@
-"""The daemon's log: the latest entries of a log file, picked by level, component and how many, or
-followed live while Follow is on (a stream from the daemon, not a timer)."""
+"""The daemon's log: the latest entries of a log file or its process output, picked by level, component
+and how many, or followed live while Follow is on (a stream from the daemon, not a timer). Record sets
+the lowest level the daemon writes, at once."""
 
 from contextlib import aclosing
 from typing import Any, ClassVar
@@ -21,6 +22,7 @@ LINES = (50, 100, 200, 500)
 _DEFAULT_LINES = 100
 _ALL = ""
 _DAEMON = "daemon"
+_RECORDED = "INFO"
 _STYLES = {"WARNING": "yellow", "ERROR": "red", "CRITICAL": "bold red"}
 
 
@@ -35,11 +37,21 @@ class LogsScreen(ModalScreen[None]):
         with Vertical(id="logs"):
             with Horizontal(id="logs-filters"):
                 # Until the daemon lists its files: the one it always has.
-                yield Select[str]([(f"{_DAEMON}.log", _DAEMON)], value=_DAEMON, allow_blank=False, id="logs-file")
-                yield Select[str]([("All levels", _ALL)], value=_ALL, allow_blank=False, id="logs-level")
-                yield Select[str]([("All components", _ALL)], value=_ALL, allow_blank=False, id="logs-component")
+                yield Select[str](
+                    [(f"{_DAEMON}.log", _DAEMON)], value=_DAEMON, allow_blank=False, id="logs-file", classes="filter"
+                )
+                yield Select[str](
+                    [("All levels", _ALL)], value=_ALL, allow_blank=False, id="logs-level", classes="filter"
+                )
+                yield Select[str](
+                    [("All components", _ALL)], value=_ALL, allow_blank=False, id="logs-component", classes="filter"
+                )
                 yield Select[int](
-                    [(f"{n} lines", n) for n in LINES], value=_DEFAULT_LINES, allow_blank=False, id="logs-lines"
+                    [(f"{n} lines", n) for n in LINES],
+                    value=_DEFAULT_LINES,
+                    allow_blank=False,
+                    id="logs-lines",
+                    classes="filter",
                 )
             yield Static(id="logs-title")
             yield RichLog(id="logs-body", wrap=True, markup=False, highlight=False)
@@ -47,11 +59,16 @@ class LogsScreen(ModalScreen[None]):
                 yield Button("Refresh", id="refresh")
                 yield Label("Follow", id="logs-follow-label")
                 yield Switch(value=False, id="logs-follow")
+                yield Label("Record", id="logs-record-label")
+                # Until the daemon says which: the level it records at unless changed.
+                yield Select[str]([("Info and above", _RECORDED)], value=_RECORDED, allow_blank=False, id="logs-record")
                 yield Button("Close", id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
-        self._offer(await self._logs.options())
+        options = await self._logs.options()
+        self._offer(options)
+        self._offer_record(options.levels, await self._logs.level())
         await self._load()
 
     @on(Button.Pressed, "#close")
@@ -63,11 +80,17 @@ class LogsScreen(ModalScreen[None]):
     async def _refresh(self) -> None:
         await self._load()
 
-    @on(Select.Changed)
+    @on(Select.Changed, ".filter")
     @on(Switch.Changed, "#logs-follow")
     @reports_daemon_unavailable
     async def _changed(self) -> None:
         await self._load()
+
+    @on(Select.Changed, "#logs-record")
+    @reports_daemon_unavailable
+    async def _record(self, event: Select.Changed) -> None:
+        level = await self._logs.set_level(str(event.value))
+        self.notify(f"The daemon now records {level.lower()} and above.")
 
     def _offer(self, options: LogOptions) -> None:
         files = self.query_one("#logs-file", Select)
@@ -79,6 +102,12 @@ class LogsScreen(ModalScreen[None]):
             self.query_one("#logs-component", Select).set_options(
                 [("All components", _ALL), *((c, c) for c in options.components)]
             )
+
+    def _offer_record(self, levels: list[str], current: str) -> None:
+        record = self.query_one("#logs-record", Select)
+        with self.prevent(Select.Changed):
+            record.set_options([(f"{level.title()} and above", level) for level in levels])
+            record.value = current
 
     async def _load(self) -> None:
         """While following, the stream sends the page itself."""

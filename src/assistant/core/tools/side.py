@@ -7,7 +7,9 @@ goes to that conversation once the run ends and sends the brief there."""
 from typing import Any
 
 from langchain_core.tools import tool
+from langgraph.config import get_config, get_store
 from langgraph.prebuilt import ToolRuntime
+from langgraph.runtime import get_runtime
 from langgraph.types import interrupt
 
 from assistant.core import conversations, home
@@ -39,6 +41,19 @@ async def suggest_side_conversation(
     if continue_in and (target is None or target.thread_id == home_id):
         return f"No side conversation {continue_in}."
     return _result(title, target, interrupt(_request(title, brief, target)))
+
+
+async def moved_out_of_home(title: str, brief: str, handoff: dict[str, str]) -> bool:
+    """For a coding task the assistant would start in home while the user watches: asks to move it to a
+    new side conversation handed to the agent (`handoff`: its command, folder and name), whose first
+    message is `brief`, and says whether the user did. Elsewhere it doesn't ask and the task starts
+    where it is."""
+    context = get_runtime(Context).context
+    store = require_store(get_store())
+    if context.unattended or thread_of(get_config()) != await home.current(store, context.user_id):
+        return False
+    answer = interrupt(_request(title, brief, None) | {"first_message": brief, "handoff": handoff})
+    return isinstance(answer, dict) and bool(answer.get("moved"))
 
 
 def _request(title: str, brief: str, target: Conversation | None) -> dict[str, Any]:

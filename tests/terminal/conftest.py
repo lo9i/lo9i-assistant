@@ -624,6 +624,14 @@ class FakeIdentity:
         return self.current
 
 
+class FakeTasks:
+    def __init__(self):
+        self.tasks = []
+
+    async def running(self):
+        return list(self.tasks)
+
+
 class FakeConversations:
     def __init__(self):
         self.items = [Conversation("owner:abc", "plan my trip", _NEXT, _NEXT)]
@@ -751,6 +759,7 @@ class FakeLogs:
         self.entries = [_log("INFO", "connected"), _log("WARNING", "slow"), _log("ERROR", "crashed", "agent")]
         self.live: asyncio.Queue[LogEntry] = asyncio.Queue()
         self.following = 0
+        self.recorded = "INFO"
 
     async def options(self):
         files = [LogFileInfo(n, f"{n}.log", "", f"/logs/{n}.log", 10) for n in ("daemon", "errors")]
@@ -760,6 +769,13 @@ class FakeLogs:
         query = LogQuery(level, component, lines)
         entries = [e for e in self.entries if query.matches(e)][-lines:]
         return LogPage(LogFileInfo(name, f"{name}.log", "", f"/logs/{name}.log", 10), entries)
+
+    async def level(self):
+        return self.recorded
+
+    async def set_level(self, level):
+        self.recorded = level
+        return level
 
     async def follow(self, name, level="", component="", lines=100):
         self.following += 1
@@ -809,6 +825,7 @@ class FakeClient:
         self.system = FakeSystem()
         self.clients = FakeClients()
         self.conversations = FakeConversations()
+        self.tasks = FakeTasks()
         self.devices = FakeDevices()
         self.logs = FakeLogs()
         self.files = FakeFiles()

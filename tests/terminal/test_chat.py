@@ -1,6 +1,7 @@
 """The terminal app: a turn with tool calls, the approval dialog, memory panel and new conversation."""
 
 import asyncio
+from typing import Any
 
 from textual.widgets import Input, Markdown
 
@@ -112,6 +113,36 @@ async def test_taking_the_suggestion_moves_the_task_to_a_side_conversation(app, 
         assert client.decisions == {"i1": {"moved": True}}
         assert sent == [("owner:abc", "taxes"), ("owner:new", "Carried over")]
         assert [str(m.render()) for m in app.query(UserMessage)] == ["> Carried over"]
+
+
+async def test_a_coding_tasks_side_conversation_is_handed_to_its_agent(app, client, monkeypatch):
+    handoff = {"command": "claude", "folder": "/tmp/repo", "name": "Claude Code"}
+    request: dict[str, Any] = {"kind": "side_conversation", "title": "Fix tests", "first_message": "fix them"}
+    request["handoff"] = handoff
+    sent = []
+
+    async def send(session, text, attachments=()):
+        sent.append((session.thread_id, text))
+        if len(sent) == 1:
+            yield ApprovalRequired("i1", request)
+        else:
+            yield Done()
+
+    async def resume(session, decisions):
+        yield Done()
+
+    monkeypatch.setattr(client, "send", send)
+    monkeypatch.setattr(client, "resume", resume)
+    async with app.run_test() as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"fix the tests", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, SideConversationScreen))
+        title = str(app.screen.query_one("#side-conversation-title").render())
+        assert "Move to a side conversation with Claude Code? Fix tests" in title
+        await pilot.click("#move")
+        await wait_for(pilot, lambda: len(sent) == 2 and not app._busy)
+        assert client.conversations.handoffs["owner:new"].folder == "/tmp/repo"
+        assert sent[1] == ("owner:new", "fix them")
 
 
 async def test_continuing_a_side_conversation_goes_back_to_it(app, client, monkeypatch):

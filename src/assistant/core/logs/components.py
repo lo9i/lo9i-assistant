@@ -10,6 +10,8 @@ _AREAS: dict[str, tuple[str, ...]] = {
     "memory": ("assistant.core.memory", "assistant.core.conversation"),
     "model": ("assistant.core.llm",),
     "mcp": ("assistant.core.mcp",),
+    # The channels' hub and chats, and each channel plugin's own process output (core/channels/processes.py).
+    "channels": ("assistant.core.channels",),
     "plugins": ("assistant.core.repositories",),
     "web": ("assistant.core.internet",),
     # Unattended runs: jobs, the mail that starts them, and their approvals forwarded to the channels.

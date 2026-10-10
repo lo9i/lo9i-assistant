@@ -3,6 +3,7 @@ command (core/mcp/install.py), started again when it exits (core/mcp/process.py)
 new token that reaches only its own channel's routes (core/channels/hub.py, daemon/auth.py)."""
 
 import asyncio
+import logging
 from dataclasses import dataclass
 
 from langgraph.store.base import BaseStore
@@ -72,6 +73,7 @@ class ChannelProcesses:
             f"channel {server.name}",
             lambda: self._spec(server),
             stop,
+            _output_logger(server.name),
             prepare=lambda: self._environments.ensure(server.name, server.channel_command),
         )
         self._running[server.name] = _Running(server, stop, asyncio.create_task(running))
@@ -94,6 +96,12 @@ class ChannelProcesses:
             "LO9I_CHANNEL": name,
             "LO9I_CHANNEL_TOKEN": self._hub.issue_token(name),
         }
+
+
+def _output_logger(name: str) -> logging.Logger:
+    """Where a channel's process output goes: its own logger under the channels' package, so the Logs
+    page shows it as channels and names the channel."""
+    return logging.getLogger(f"{__package__}.{name}")
 
 
 def _runnable(server: McpServer) -> bool:

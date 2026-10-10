@@ -3,6 +3,7 @@ prompt's Channels section, and the old Telegram and Slack settings handed to the
 
 import asyncio
 import json
+import logging
 import sys
 
 import pytest
@@ -15,6 +16,7 @@ from assistant.core.channels.chat.port import ChatLimits
 from assistant.core.channels.hub import ChannelHub, ChannelNotConnectedError, SetupItem
 from assistant.core.channels.processes import ChannelProcesses
 from assistant.core.conversation.prompt import build_system_prompt
+from assistant.core.logs import component_of
 from assistant.core.mcp import folders, keys, servers
 from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.install import ServerValues
@@ -187,6 +189,25 @@ async def test_the_channel_process_runs_with_the_daemons_address_and_its_token(s
     assert (env["LO9I_CHANNEL"], env["BOT"]) == ("telegram", "b")
     assert env["LO9I_URL"].startswith("http://127.0.0.1:")
     assert service.channels_hub.channel_for(env["LO9I_CHANNEL_TOKEN"]) is None  # revoked once stopped
+
+
+async def test_a_channel_processs_output_is_logged_as_the_channels(service, caplog):
+    caplog.set_level(logging.INFO, logger="assistant.core.channels")
+    server = McpServer(
+        "telegram", channel_command=sys.executable, channel_args=["-c", "print('polling')"], channel_protocol=2
+    )
+    await servers.save(service.store, server)
+    processes = ChannelProcesses(service.store, service.channels_hub, Environments(folders.code), service.secrets)
+    stop = asyncio.Event()
+    running = asyncio.create_task(processes.run(stop))
+    for _ in range(200):
+        if any(r.getMessage() == "polling" for r in caplog.records):
+            break
+        await asyncio.sleep(0.02)
+    stop.set()
+    await running
+    record = next(r for r in caplog.records if r.getMessage() == "polling")
+    assert record.name == "assistant.core.channels.telegram" and component_of(record.name) == "channels"
 
 
 def test_a_plugin_is_an_mcp_server_a_channel_or_both():

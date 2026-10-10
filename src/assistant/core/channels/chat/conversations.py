@@ -194,11 +194,26 @@ class ChannelChats:
         if thread_id := request.get("thread_id"):
             await self._conversations.channel_side(settings.owner_id, chat.channel, str(thread_id))
             await chat.port.send(f"Back in {request.get('title', 'your side conversation')}. /home goes back.")
+        elif handoff := request.get("handoff"):
+            await self._to_agent(chat, handoff)
         else:
             await self._conversations.new_channel_thread(settings.owner_id, chat.channel)
             await chat.port.send(_MOVED)
         first_message = str(request.get("first_message", ""))
         await self._show(chat, lambda s: self._conversations.send(s, first_message), first_message)
+
+    async def _to_agent(self, chat: "_Chat", handoff: dict[str, str]) -> None:
+        """A new side conversation handed to the coding agent, for the task the request carries. When it can't
+        be handed (the folder went away), the assistant gets the task there instead."""
+        thread_id = await self._conversations.new_channel_thread(settings.owner_id, chat.channel)
+        try:
+            await self._conversations.hand_conversation(
+                settings.owner_id, thread_id, handoff["command"], handoff["folder"]
+            )
+        except HandoffError as e:
+            await chat.port.send(f"{_MOVED} {e}")
+            return
+        await chat.port.send(f"Moved to a side conversation with {handoff['name']}. /home goes back.")
 
     async def _resume(self, chat: "_Chat", decisions: dict[str, dict[str, Any]]) -> None:
         await self._show(chat, lambda s: self._conversations.resume(s, decisions), "")

@@ -9,6 +9,8 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Static
 
+from assistant.core.events import side_question
+
 
 class SideConversationScreen(ModalScreen[dict[str, Any]]):
     """Returns {"moved": bool}. On yes, the app goes to the side conversation (or starts one) once the
@@ -18,16 +20,15 @@ class SideConversationScreen(ModalScreen[dict[str, Any]]):
 
     def __init__(self, request: dict[str, Any]) -> None:
         super().__init__()
+        self._request = request
         self._title = str(request.get("title", ""))
         self._brief = str(request.get("brief", ""))
-        self._continues = bool(request.get("thread_id"))
-        self._question = "Continue in your side conversation?" if self._continues else "Move to a side conversation?"
+        self._question = side_question(request)
 
     def compose(self) -> ComposeResult:
         with Vertical(id="side-conversation"):
             yield Static(f"{self._question} {self._title}", id="side-conversation-title", markup=False)
-            hint = "It goes on there" if self._continues else "It goes on in a conversation of its own"
-            yield Static(f"{hint}, starting with this brief.", classes="hint")
+            yield Static(f"{_hint(self._request)}, starting with this brief.", classes="hint")
             yield Static(self._brief, id="side-conversation-brief", markup=False)
             with Horizontal(id="side-conversation-buttons"):
                 yield Button("Move", variant="success", id="move")
@@ -41,3 +42,12 @@ class SideConversationScreen(ModalScreen[dict[str, Any]]):
 
     def action_stay(self) -> None:
         self.dismiss({"moved": False})
+
+
+def _hint(request: dict[str, Any]) -> str:
+    if request.get("thread_id"):
+        return "It goes on there"
+    if handoff := request.get("handoff"):
+        name, folder = handoff.get("name", "The agent"), handoff.get("folder", "")
+        return f"{name} works on it in {folder}, in a conversation of its own"
+    return "It goes on in a conversation of its own"

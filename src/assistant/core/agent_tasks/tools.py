@@ -1,21 +1,29 @@
 """The tools that hand coding tasks to the installed agents and follow them. They're offered only while an
 agent plugin is installed, with the agents named in their descriptions, so they come with the MCP tools:
 frozen per epoch, and a new epoch when the agents change (core/graph.py). Starting and stopping a task
-change the user's code and spend their plan, so the user approves them unless the plugin is trusted."""
+change the user's code and spend their plan, so the user approves them unless the plugin is trusted. A
+task's end is told to the conversation that started it (ends.py), unless these tools showed it first."""
 
 from typing import Annotated, Any
 
-from langchain_core.tools import BaseTool, StructuredTool
+from langchain_core.tools import BaseTool, InjectedToolCallId, StructuredTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
+from langgraph.config import get_stream_writer
 from langgraph.runtime import get_runtime
 from pydantic import BaseModel, Field
 
 from assistant.core.agent_tasks.records import TaskState, lost
+from assistant.core.agent_tasks.reports import TaskReports
 from assistant.core.agent_tasks.service import MAX_WAIT_SECONDS, AgentTaskError, AgentTasks, FoundTask
-from assistant.core.agent_tasks.steps import line
+from assistant.core.agent_tasks.steps import line, within_call
+from assistant.core.agent_tasks.waiting import Report
+from assistant.core.background import current_origin, short
 from assistant.core.context import Context
 from assistant.core.tools.approval import ask
+from assistant.core.tools.side import moved_out_of_home
 
+# A task's side conversation is titled with the start of the task when the call names none.
+_TITLE = 60
 # Results longer than this are cut in tool output; the whole text stays in the task's result.json.
 _MAX_RESULT = 20_000
 
@@ -23,13 +31,16 @@ _START = (
     "Hand a coding task to a coding agent, which works on it on its own in that repository: it reads code, "
     "edits files and runs commands without asking. It runs in the background and survives restarts; this "
     "returns its id at once. It starts with nothing of this conversation, so the task must say everything: "
-    "the goal, the files or area, constraints, how to check the work, and what to report. Follow it with "
-    "task_status (wait_seconds to wait for it), and continue its work with follow_up_of."
+    "the goal, the files or area, constraints, how to check the work, and what to report. When it ends, the "
+    "user is notified and the next message here says so; task_status follows it sooner (wait_seconds to wait "
+    "for it). Continue its work with follow_up_of. In the home conversation the user is first asked to move "
+    "the task to a side conversation handed to the agent, where the task is its first message."
 )
 
 
 class _Start(BaseModel):
     agent: Annotated[str, Field(description="The coding agent, by the name this tool's description lists")]
+    title: Annotated[str, Field(description="A few words naming the task, for its side conversation")] = ""
     repository: Annotated[str, Field(description="Absolute path of the repository or folder to work in")]
     task: Annotated[str, Field(description="The whole brief: goal, constraints, how to check it, what to report")]
     follow_up_of: Annotated[
@@ -39,6 +50,7 @@ class _Start(BaseModel):
 
 class _Status(BaseModel):
     task_id: str
+    tool_call_id: Annotated[str, InjectedToolCallId]
     wait_seconds: Annotated[
         int, Field(ge=0, le=MAX_WAIT_SECONDS, description="Wait up to this long for it to finish; 0 answers now")
     ] = 0
@@ -55,9 +67,9 @@ class _Nothing(BaseModel):
 class AgentTools:
     """The task tools while an agent is installed; none otherwise."""
 
-    def __init__(self, tasks: AgentTasks) -> None:
+    def __init__(self, tasks: AgentTasks, reports: TaskReports) -> None:
         self._tasks = tasks
-        self._tools: dict[str, BaseTool] = {tool.name: tool for tool in _build(tasks)}
+        self._tools: dict[str, BaseTool] = {tool.name: tool for tool in _build(tasks, reports)}
 
     def definitions(self) -> list[dict[str, Any]]:
         if not self._tasks.agents():
@@ -79,20 +91,36 @@ class AgentTools:
         return definition
 
 
-def _build(tasks: AgentTasks) -> list[BaseTool]:
-    async def start_task(agent: str, repository: str, task: str, follow_up_of: str = "") -> str:
+def _build(tasks: AgentTasks, reports: TaskReports) -> list[BaseTool]:
+    async def start_task(agent: str, repository: str, task: str, title: str = "", follow_up_of: str = "") -> str:
+        found = next((a for a in tasks.agents() if a.server == agent), None)
+        handoff = {"command": found.command, "folder": repository, "name": found.name} if found else None
+        if handoff and await moved_out_of_home(title or short(task, _TITLE), task, handoff):
+            return (
+                f"The user moved this task to a side conversation handed to {handoff['name']} in {repository}, "
+                "which gets the task as its first message. Say so in one short line; don't start it here."
+            )
         if rejection := _approve(tasks, agent, f"Start a task in {repository}", task):
             return rejection
         try:
             started = await tasks.start(agent, repository, task, follow_up_of)
         except AgentTaskError as e:
             return str(e)
-        return f"Started task {started.id} in {repository}. Follow it with task_status (wait_seconds to wait for it)."
+        if (origin := current_origin()) is not None:
+            await reports.expect(started.id, origin)
+        return f"Started task {started.id} in {repository}. The user is notified when it ends."
 
-    async def task_status(task_id: str, wait_seconds: int = 0) -> str:
+    async def task_status(task_id: str, tool_call_id: str, wait_seconds: int = 0) -> str:
         """A task's state: running, done, failed or stopped, its latest steps, and its result once it ends."""
         try:
-            found = await (tasks.wait(task_id, wait_seconds) if wait_seconds else tasks.state(task_id))
+            async with reports.reading(task_id):
+                found = await (
+                    tasks.wait(task_id, wait_seconds, _shown_within(tool_call_id))
+                    if wait_seconds
+                    else tasks.state(task_id)
+                )
+                if found.state.status != "running":
+                    await reports.seen(task_id, current_origin())
         except AgentTaskError as e:
             return str(e)
         return render(found)
@@ -111,7 +139,9 @@ def _build(tasks: AgentTasks) -> list[BaseTool]:
             return f"Task {task_id} isn't running: it's {found.state.status}."
         if rejection := _approve(tasks, found.agent.server, f"Stop task {task_id}", found.state.task.prompt):
             return rejection
-        await tasks.stop(task_id)
+        async with reports.reading(task_id):
+            await tasks.stop(task_id)
+            await reports.seen(task_id, current_origin())
         return f"Stopped task {task_id}. Check the repository for what it changed before it stopped."
 
     return [
@@ -120,6 +150,17 @@ def _build(tasks: AgentTasks) -> list[BaseTool]:
         StructuredTool.from_function(coroutine=list_tasks, args_schema=_Nothing),
         StructuredTool.from_function(coroutine=stop_task, args_schema=_Stop),
     ]
+
+
+def _shown_within(call_id: str) -> Report:
+    """While task_status waits, the apps show the task's steps inside its call."""
+    write = get_stream_writer()
+
+    async def _report(message: str) -> None:
+        for event in within_call(message, call_id):
+            write(event)
+
+    return _report
 
 
 def _approve(tasks: AgentTasks, agent: str, action: str, brief: str) -> str | None:
