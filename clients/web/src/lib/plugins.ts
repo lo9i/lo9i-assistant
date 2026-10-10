@@ -27,11 +27,15 @@ export function pluginsOf(contents: RepositoryContents, repository: Repository =
   ];
 }
 
-/** Every repository's plugins, the official extras first, and what the ones that couldn't be read said. */
+/** Every repository's plugins, the official extras first, and what the ones that couldn't be read said, or the
+ *  plugins in them that couldn't be. */
 export function fromRepositories(read: RepositoryPlugins[]): { plugins: Plugin[]; errors: string[] } {
   return {
     plugins: read.flatMap((r) => (r.contents ? pluginsOf(r.contents, r.repository) : [])),
-    errors: read.filter((r) => r.error).map((r) => `${r.repository.name}: ${r.error}`),
+    errors: [
+      ...read.filter((r) => r.error).map((r) => `${r.repository.name}: ${r.error}`),
+      ...read.flatMap((r) => (r.contents?.problems ?? []).map((p) => `${r.repository.name}: ${p}`)),
+    ],
   };
 }
 

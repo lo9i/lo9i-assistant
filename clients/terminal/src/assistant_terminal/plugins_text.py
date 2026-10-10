@@ -97,9 +97,11 @@ def plugins(contents: RepositoryContents, repository: Repository = _EXTRAS) -> l
 
 def from_repositories(read: list[RepositoryPlugins]) -> tuple[list[Plugin], list[str]]:
     """Every repository's plugins, the official extras first, and what the ones that couldn't be read
-    said."""
+    said, or the plugins in them that couldn't be."""
     found = [p for r in read if r.contents for p in plugins(r.contents, r.repository)]
-    return found, [f"{r.repository.name}: {r.error}" for r in read if r.error]
+    errors = [f"{r.repository.name}: {r.error}" for r in read if r.error]
+    problems = [f"{r.repository.name}: {p}" for r in read if r.contents for p in r.contents.problems]
+    return found, [*errors, *problems]
 
 
 def source(plugin: Plugin) -> str:

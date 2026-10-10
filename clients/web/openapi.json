@@ -6346,6 +6346,13 @@
             },
             "type": "array",
             "title": "Servers"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Problems"
           }
         },
         "type": "object",

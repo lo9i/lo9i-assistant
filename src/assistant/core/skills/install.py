@@ -100,6 +100,12 @@ def _find_at(root: Path, path: str, name: str) -> Candidate:
     return candidate
 
 
+def read(root: Path, folder: Path) -> Candidate | None:
+    """The skill of its own in a repository's folder, named after it: None when the folder has no SKILL.md,
+    a server.yaml (the skill is the server's), or a name a skill can't have."""
+    return _candidate(root, folder, folder.name)
+
+
 def _candidate(root: Path, folder: Path, name: str) -> Candidate | None:
     if folder.is_symlink() or (folder / SERVER_FILE).is_file():
         return None

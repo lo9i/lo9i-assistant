@@ -4,6 +4,7 @@ import {
   byCategory,
   categoryLabel,
   emptyHint,
+  fromRepositories,
   kindOf,
   missingField,
   optional,
@@ -208,5 +209,26 @@ group("emptyHint and sharedLogin", () => {
   it("says when the plugin uses the Copilot login", () => {
     expect(sharedLogin(coder)).toContain("GitHub Copilot login");
     expect(sharedLogin(found({}))).toBe("");
+  });
+});
+
+group("fromRepositories", () => {
+  it("lists the plugins it could read and says which it couldn't, and which repositories", () => {
+    const extras = {
+      url: "https://github.com/lo9i/lo9i-assistant-extras",
+      name: "lo9i/lo9i-assistant-extras",
+      official: true,
+      private: false,
+    };
+    const mine = { url: "https://github.com/me/plugins", name: "me/plugins", official: false, private: false };
+    const read = fromRepositories([
+      { repository: extras, contents: { ...contents, problems: ["apps/finance/ledger/server.yaml can't be used: bad"] }, error: "" },
+      { repository: mine, contents: null, error: "Couldn't get the repository" },
+    ]);
+    expect(read.plugins.map((p) => p.name)).toEqual(["expenses", "notes"]);
+    expect(read.errors).toEqual([
+      "me/plugins: Couldn't get the repository",
+      "lo9i/lo9i-assistant-extras: apps/finance/ledger/server.yaml can't be used: bad",
+    ]);
   });
 });

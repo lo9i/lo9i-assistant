@@ -2,6 +2,7 @@
 local folder; installed local servers really run."""
 
 import asyncio
+import re
 import shutil
 from pathlib import Path
 
@@ -98,6 +99,11 @@ def _write(folder: Path, files: dict[str, str]) -> None:
 
 
 HELLO = ServerValues("hello", {"HELLO_USER": "Ana", "HELLO_TOKEN": "s3cret"})
+
+
+async def _problems(service) -> str:
+    """What the listing says about the plugins it left out."""
+    return " ".join((await service.browse_repository(URL)).problems)
 
 
 async def test_browse_lists_skills_and_servers(service, repo, isolated_settings):
@@ -202,10 +208,18 @@ async def test_removing_a_server_can_delete_its_data_too(service, repo, isolated
     assert not data.exists()
 
 
+async def test_a_plugin_that_cant_be_read_is_left_out_and_the_rest_listed(service, repo):
+    _write(repo / "apps" / "finance" / "ledger", {"server.yaml": "description: Money: in and out\ncommand: x"})
+    contents = await service.browse_repository(URL)
+    assert "hello" in [s.name for s in contents.servers] and "ledger" not in [s.name for s in contents.servers]
+    [problem] = contents.problems
+    assert problem.startswith("apps/finance/ledger/server.yaml can't be used: mapping values are not allowed")
+    await service.install_from_repository(URL, [], [HELLO])
+
+
 async def test_a_server_yaml_that_cant_work_is_reported(service, repo):
     (repo / "other" / "general" / "tasks" / "server.yaml").write_text("command: run\nurl: https://x")
-    with pytest.raises(RepositoryError, match=r"other/general/tasks/server\.yaml can.t be used: Give either a command"):
-        await service.browse_repository(URL)
+    assert re.search(r"other/general/tasks/server\.yaml can.t be used: Give either a command", await _problems(service))
 
 
 async def test_updating_a_skill_replaces_local_changes(service, repo, isolated_settings):
@@ -328,8 +342,7 @@ async def test_a_server_in_a_newer_format_than_the_daemon_reads_isnt_found(servi
 
 async def test_a_server_using_bin_must_say_its_format(service, repo):
     _write(repo / "other" / "general" / "ledger", {"server.yaml": _IN_ENVIRONMENT.replace("format: 2\n", "")})
-    with pytest.raises(RepositoryError, match="needs format: 2"):
-        await service.browse_repository(URL)
+    assert re.search("needs format: 2", await _problems(service))
 
 
 _HELLO_SKILL = "---\nname: hello\ndescription: Greeting people\n---\n\nCall whoami first."
@@ -372,8 +385,7 @@ async def test_a_servers_skill_needs_its_name_free_and_matching(service, repo):
         await service.install_from_repository(URL, [], [HELLO])
     assert store.load("hello").description == "Mine"
     _write(repo / "other" / "general" / "hello", {"SKILL.md": _HELLO_SKILL.replace("name: hello", "name: greeter")})
-    with pytest.raises(RepositoryError, match=r"SKILL\.md must be named hello"):
-        await service.browse_repository(URL)
+    assert re.search(r"SKILL\.md must be named hello", await _problems(service))
 
 
 async def test_a_top_level_server_folder_is_not_also_a_skill(service, repo):
@@ -386,12 +398,14 @@ async def test_a_top_level_server_folder_is_not_also_a_skill(service, repo):
 async def test_a_plugins_folder_gives_its_category(service, repo):
     _write(repo / "apps" / "finance" / "ledger", {"server.yaml": "url: https://ledger.example.com/mcp"})
     _write(repo / "communications" / "contacts" / "people", {"server.yaml": "url: https://people.example.com/mcp"})
+    _write(repo / "productivity" / "calendar" / "agenda", {"server.yaml": "url: https://agenda.example.com/mcp"})
     _skill(repo / "communications" / "chat" / "digest", "digest", "Daily digest", {})
     contents = await service.browse_repository(URL)
     assert {s.name: s.category for s in contents.servers} == {
         "hello": "other/general",
         "ledger": "apps/finance",
         "people": "communications/contacts",
+        "agenda": "productivity/calendar",
         "tasks": "other/general",
     }
     assert {s.name: s.category for s in contents.skills}["digest"] == "communications/chat"
@@ -412,16 +426,14 @@ async def test_a_category_that_disagrees_with_its_folder_is_refused(service, rep
         repo / "apps" / "finance" / "ledger",
         {"server.yaml": "url: https://ledger.example.com/mcp\ncategory: other/general"},
     )
-    with pytest.raises(RepositoryError, match="it's in the apps/finance folder, but its category says other/general"):
-        await service.browse_repository(URL)
+    assert re.search("it's in the apps/finance folder, but its category says other/general", await _problems(service))
 
 
 async def test_a_category_not_in_the_list_is_refused(service, repo):
     _write(repo / "tasks2", {"server.yaml": "url: https://tasks.example.com/mcp\ncategory: chat"})
-    with pytest.raises(
-        RepositoryError, match="its category 'chat' isn't one of apps/finance, apps/media, assistant/agents"
-    ):
-        await service.browse_repository(URL)
+    assert re.search(
+        "its category 'chat' isn't one of apps/finance, apps/media, assistant/agents", await _problems(service)
+    )
 
 
 @pytest.mark.parametrize("system", ["darwin", "linux"])
@@ -445,8 +457,7 @@ async def test_plugins_for_another_system_arent_listed_or_installed(service, rep
 
 async def test_a_platform_not_in_the_list_is_refused(service, repo):
     _write(repo / "phone", {"server.yaml": "url: https://phone.example.com/mcp\nplatforms: [windows]"})
-    with pytest.raises(RepositoryError, match="its platforms windows aren't any of linux, macos"):
-        await service.browse_repository(URL)
+    assert re.search("its platforms windows aren't any of linux, macos", await _problems(service))
 
 
 def test_a_skill_with_a_platform_not_in_the_list_has_a_problem(tmp_path):
@@ -497,14 +508,12 @@ async def test_a_plugin_can_bring_an_agent_with_its_command_and_worker(service, 
 )
 async def test_an_agent_section_that_cant_work_is_refused(service, repo, agent, problem):
     _write(repo / "coder", {"server.yaml": f"url: https://coder.example.com/mcp\nagent: {agent}"})
-    with pytest.raises(RepositoryError, match=problem):
-        await service.browse_repository(URL)
+    assert re.search(problem, await _problems(service))
 
 
 async def test_an_unknown_model_login_is_refused(service, repo):
     _write(repo / "coder", {"server.yaml": "url: https://coder.example.com/mcp\nmodel_login: claude"})
-    with pytest.raises(RepositoryError, match="its model_login 'claude' isn't one of copilot"):
-        await service.browse_repository(URL)
+    assert re.search("its model_login 'claude' isn't one of copilot", await _problems(service))
 
 
 async def test_a_channel_is_in_communications(service, repo):
@@ -513,8 +522,7 @@ async def test_a_channel_is_in_communications(service, repo):
     assert next(s for s in contents.servers if s.name == "bot").category == "communications/chat"
     _write(repo / "apps" / "finance" / "bot2", {"server.yaml": "channel: {command: run-bot}"})
     REMOTE["head"] = "head2"
-    with pytest.raises(RepositoryError, match="it's a channel plugin, so its category must be communications/chat"):
-        await service.browse_repository(URL)
+    assert re.search("it's a channel plugin, so its category must be communications/chat", await _problems(service))
 
 
 _GMAIL = """
@@ -581,8 +589,7 @@ async def test_a_plugin_the_repository_moved_still_updates(service, repo):
 )
 async def test_an_email_section_that_cant_work_is_reported(service, repo, section, problem):
     _write(repo / "communications" / "email" / "gmail", {"server.yaml": section})
-    with pytest.raises(RepositoryError, match=problem):
-        await service.browse_repository(URL)
+    assert re.search(problem, await _problems(service))
 
 
 async def test_a_skill_with_an_unknown_category_has_a_problem_and_isnt_installed(service, repo):

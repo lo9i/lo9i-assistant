@@ -188,12 +188,21 @@ class ServerValues:
     values: dict[str, str] = field(default_factory=dict)
 
 
-def find(root: Path, url: str) -> dict[str, Candidate]:
-    """The repository's servers that run on this system, by name. Raises RepositoryError for a server.yaml
-    that can't work, on any system."""
+def find(root: Path, url: str) -> tuple[dict[str, Candidate], list[str]]:
+    """The repository's servers that run on this system, by name, and what's wrong with each server.yaml
+    that can't work, on any system: that one is left out, never the rest of the repository."""
     folders = [root, *subfolders(root), *categories.plugin_folders(root)]
-    found = [_candidate(root, f, default_name(url) if f == root else f.name) for f in folders]
-    return {c.found.name: c for c in found if c is not None and c.usable_here}
+    found: list[Candidate] = []
+    problems: list[str] = []
+    for folder in folders:
+        try:
+            candidate = _candidate(root, folder, default_name(url) if folder == root else folder.name)
+        except RepositoryError as e:
+            problems.append(str(e))
+            continue
+        if candidate is not None and candidate.usable_here:
+            found.append(candidate)
+    return {c.found.name: c for c in found}, problems
 
 
 async def check(store: BaseStore, wanted: list[ServerValues], found: dict[str, Candidate], url: str) -> None:
@@ -300,10 +309,16 @@ def _find_at(root: Path, url: str, path: str, name: str) -> Candidate:
         if not formats.readable(candidate.format):
             raise McpServerError(f"The new version of {name} needs a newer lo9i: update the assistant first.")
         return candidate
-    moved = find(root, url).get(name)
+    moved = find(root, url)[0].get(name)
     if moved is None:
         raise McpServerError(f"The repository doesn't have {name} any more.")
     return moved
+
+
+def read(root: Path, folder: Path) -> Candidate | None:
+    """The server in a repository's folder, named after it, or None when it has no server.yaml. Raises
+    RepositoryError for one that can't work, on any system."""
+    return _candidate(root, folder, folder.name)
 
 
 def _candidate(root: Path, folder: Path, name: str) -> Candidate | None:

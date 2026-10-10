@@ -3,7 +3,7 @@ one download. Everything is checked before anything is written. What it offers i
 downloaded again when the repository has a newer commit (cache.py)."""
 
 import asyncio
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from langgraph.store.base import BaseStore
@@ -28,6 +28,8 @@ from assistant.core.skills.store import Skill
 class RepositoryContents:
     skills: list[FoundSkill]
     servers: list[FoundServer]
+    # A plugin that can't be read, one line each (its file and why): only it is left out.
+    problems: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -52,7 +54,7 @@ async def _with_state(store: BaseStore, url: str, listing: Listing) -> Repositor
     installed = {s.name for s in await servers.load_all(store) if s.source == url}
     found = [await _with_server_state(store, s, s.name in installed) for s in listing.servers]
     skills = [await _with_skill_state(s, url) for s in listing.skills]
-    return RepositoryContents(skills, found)
+    return RepositoryContents(skills, found, listing.problems)
 
 
 async def _with_server_state(store: BaseStore, server: FoundServer, installed: bool) -> FoundServer:
@@ -88,12 +90,12 @@ async def _listing(store: BaseStore, url: str, token: str) -> Listing:
 
 async def _download(url: str, token: str) -> Listing:
     async with git.checkout(url, token) as (root, commit):
-        skills, found_servers = await asyncio.to_thread(_find, root, url)
-    if not skills and not found_servers:
+        skills, (found_servers, problems) = await asyncio.to_thread(_find, root, url)
+    if not skills and not found_servers and not problems:
         raise RepositoryError(
             "No skills or MCP servers there: a skill is a folder with a SKILL.md, a server a folder with a server.yaml."
         )
-    return Listing(commit, [c.found() for c in skills.values()], [c.found for c in found_servers.values()])
+    return Listing(commit, [c.found() for c in skills.values()], [c.found for c in found_servers.values()], problems)
 
 
 async def install(
@@ -111,7 +113,7 @@ async def install(
     wanted = [await legacy.fill(store, w) for w in wanted]
     wanted = [ServerValues(w.name, await keys.given(store, box, w.name, w.values)) for w in wanted]
     async with git.checkout(url, token) as (root, commit):
-        found_skills, found_servers = await asyncio.to_thread(_find, root, url)
+        found_skills, (found_servers, _) = await asyncio.to_thread(_find, root, url)
         await asyncio.to_thread(skill_install.check, skills, found_skills, url)
         await server_install.check(store, wanted, found_servers, url)
         installed = [await asyncio.to_thread(skill_install.install, found_skills[n], url, commit) for n in skills]
@@ -124,5 +126,7 @@ async def install(
     return Installed(installed, new)
 
 
-def _find(root: Path, url: str) -> tuple[dict[str, skill_install.Candidate], dict[str, server_install.Candidate]]:
+def _find(
+    root: Path, url: str
+) -> tuple[dict[str, skill_install.Candidate], tuple[dict[str, server_install.Candidate], list[str]]]:
     return skill_install.find(root, url), server_install.find(root, url)

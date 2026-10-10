@@ -2898,6 +2898,8 @@ export interface components {
             skills: components["schemas"]["FoundSkill"][];
             /** Servers */
             servers: components["schemas"]["FoundServer"][];
+            /** Problems */
+            problems?: string[];
         };
         /** RepositoryInstall */
         RepositoryInstall: {

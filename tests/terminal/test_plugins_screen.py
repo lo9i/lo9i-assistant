@@ -2,9 +2,16 @@ from dataclasses import replace
 
 from textual.widgets import Button, Input, Markdown, OptionList
 
-from assistant.core.agent import FoundServer, PluginUpdate, ServerField
+from assistant.core.agent import (
+    FoundServer,
+    PluginUpdate,
+    Repository,
+    RepositoryContents,
+    RepositoryPlugins,
+    ServerField,
+)
 from assistant.core.repositories.known import EXTRAS
-from assistant_terminal.plugins_text import Plugin, by_category, describe
+from assistant_terminal.plugins_text import Plugin, by_category, describe, from_repositories
 from assistant_terminal.tui.screens import PluginsScreen
 from assistant_terminal.tui.screens.confirm import ConfirmWithOptionScreen
 from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen, _field_input
@@ -240,3 +247,16 @@ async def test_removing_a_plugin_asks_whether_to_keep_its_keys(app, client):
         app.screen.query_one("#delete", Button).press()
         await wait_for(pilot, lambda: getattr(client.repositories, "forgotten", None) is not None)
         assert client.repositories.forgotten.plugin == "weather"
+
+
+def test_a_plugin_a_repository_couldnt_read_is_named_with_the_repository():
+    extras = Repository(EXTRAS, "lo9i/lo9i-assistant-extras", True)
+    mine = Repository("https://github.com/me/plugins", "me/plugins", False)
+    read = [
+        RepositoryPlugins(extras, RepositoryContents([], [], ["apps/finance/ledger/server.yaml can't be used: bad"])),
+        RepositoryPlugins(mine, None, "Couldn't get the repository"),
+    ]
+    assert from_repositories(read)[1] == [
+        "me/plugins: Couldn't get the repository",
+        "lo9i/lo9i-assistant-extras: apps/finance/ledger/server.yaml can't be used: bad",
+    ]
