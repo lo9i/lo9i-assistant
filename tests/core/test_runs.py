@@ -34,7 +34,7 @@ async def test_new_message_while_approval_pending_repeats_the_approval(service, 
 
 async def test_bash_runs_in_the_workspace_without_app_secrets(service, script, monkeypatch, isolated_settings):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "secret")
-    script.call("bash", command="pwd; env | grep -c KEY || true").reply("ok")
+    script.call("bash", command="pwd; env | grep -c ANTHROPIC_API_KEY || true").reply("ok")
     events = await collect(service.send(await service.session("u", "cli"), "where am I"))
     output = events[1].output
     assert str(isolated_settings / "workspace") in output and output.strip().endswith("0")

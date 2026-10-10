@@ -1,6 +1,9 @@
 import asyncio
 import contextlib
 import os
+import pwd
+import shlex
+import shutil
 import signal
 from pathlib import Path
 
@@ -16,6 +19,7 @@ from assistant.core.tools.registry import register
 # Commands run with a minimal environment so they can't read the app's secrets
 # (Anthropic key, database URL, Langfuse keys) from env vars.
 _SAFE_PATH = "/opt/homebrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+_GITHUB_HELPER = "credential.https://github.com.helper"
 
 
 # The artifact of a call that ran: {"exit_code": n}, with None when it timed out. Callbacks read it
@@ -59,7 +63,7 @@ async def _run(command: str) -> tuple[str, Artifact]:
         "-c",
         command,
         cwd=workspace,
-        env={"PATH": _SAFE_PATH, "HOME": str(workspace), "LANG": "C.UTF-8"},
+        env=_environment(),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
         # Its own process group, so stopping it also stops the commands it started.
@@ -75,6 +79,26 @@ async def _run(command: str) -> tuple[str, Artifact]:
         raise
     output = f"exit code: {proc.returncode}\n{_truncate(stdout.decode(errors='replace'))}"
     return output, {"exit_code": proc.returncode}
+
+
+def _environment() -> dict[str, str]:
+    return {"PATH": _SAFE_PATH, "HOME": _home(), "LANG": "C.UTF-8", **_github_credentials()}
+
+
+def _home() -> str:
+    """The user's home from the password database, not the daemon's HOME, which a service manager
+    may set or leave out: git, gh and ssh find the user's config and logins there."""
+    return pwd.getpwuid(os.getuid()).pw_dir
+
+
+def _github_credentials() -> dict[str, str]:
+    """git over HTTPS to GitHub signs in through gh when it's installed, even without
+    `gh auth setup-git`. Added after the user's own helpers, so one they set is asked first."""
+    gh = shutil.which("gh", path=_SAFE_PATH)
+    if gh is None:
+        return {}
+    helper = f"!{shlex.quote(gh)} auth git-credential"
+    return {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": _GITHUB_HELPER, "GIT_CONFIG_VALUE_0": helper}
 
 
 async def _kill(proc: asyncio.subprocess.Process) -> None:
