@@ -7,6 +7,8 @@ from assistant.core.agent.base import ServiceBase
 from assistant.core.agent_tasks.service import AgentTaskError, FoundTask
 from assistant.core.agent_tasks.steps import line
 from assistant.core.background import short
+from assistant.core.conversation import queued
+from assistant.core.conversation.queued import Queued
 
 __all__ = ["RunningTask", "TasksMixin"]
 
@@ -33,6 +35,13 @@ class TasksMixin(ServiceBase):
         found = [f for f in await self.agent_tasks.recent() if f.state.status == "running"]
         running = [await self._running(f) for f in found]
         return [task for task in running if task is not None]
+
+    async def next_queued(self, user_id: str, thread_id: str) -> Queued | None:
+        """The next message to send in the conversation now that its run ended (core/conversation/queued.py)."""
+        return await queued.take(self._storage.store, user_id, thread_id)
+
+    async def queued_threads(self, user_id: str) -> list[str]:
+        return await queued.threads(self._storage.store, user_id)
 
     async def _running(self, found: FoundTask) -> RunningTask | None:
         task = found.state.task

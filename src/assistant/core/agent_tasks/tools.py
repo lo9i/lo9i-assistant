@@ -4,21 +4,26 @@ frozen per epoch, and a new epoch when the agents change (core/graph.py). Starti
 change the user's code and spend their plan, so the user approves them unless the plugin is trusted. A
 task's end is told to the conversation that started it (ends.py), unless these tools showed it first."""
 
+from pathlib import Path
 from typing import Annotated, Any
 
 from langchain_core.tools import BaseTool, InjectedToolCallId, StructuredTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
-from langgraph.config import get_stream_writer
+from langgraph.config import get_store, get_stream_writer
 from langgraph.runtime import get_runtime
 from pydantic import BaseModel, Field
 
+from assistant.core import home
 from assistant.core.agent_tasks.records import TaskState, lost
 from assistant.core.agent_tasks.reports import TaskReports
-from assistant.core.agent_tasks.service import MAX_WAIT_SECONDS, AgentTaskError, AgentTasks, FoundTask
+from assistant.core.agent_tasks.service import MAX_WAIT_SECONDS, AgentTaskError, AgentTasks, CodingAgent, FoundTask
 from assistant.core.agent_tasks.steps import line, within_call
 from assistant.core.agent_tasks.waiting import Report
-from assistant.core.background import current_origin, short
-from assistant.core.context import Context
+from assistant.core.background import Origin, current_origin, short
+from assistant.core.context import Context, require_store
+from assistant.core.conversation import handoffs, queued
+from assistant.core.conversation.handoffs import Handoff
+from assistant.core.conversation.queued import Queued
 from assistant.core.tools.approval import ask
 from assistant.core.tools.side import moved_out_of_home
 
@@ -33,8 +38,10 @@ _START = (
     "returns its id at once. It starts with nothing of this conversation, so the task must say everything: "
     "the goal, the files or area, constraints, how to check the work, and what to report. When it ends, the "
     "user is notified and the next message here says so; task_status follows it sooner (wait_seconds to wait "
-    "for it). Continue its work with follow_up_of. In the home conversation the user is first asked to move "
-    "the task to a side conversation handed to the agent, where the task is its first message."
+    "for it). Continue its work with follow_up_of. Where the user is watching, the task goes to the agent as a "
+    "conversation instead, so they see its work: in a side conversation, that conversation is handed to the agent "
+    "and the task is its next message; in home, the user is first asked to move it to a new side conversation "
+    "handed to the agent."
 )
 
 
@@ -100,6 +107,14 @@ def _build(tasks: AgentTasks, reports: TaskReports) -> list[BaseTool]:
                 f"The user moved this task to a side conversation handed to {handoff['name']} in {repository}, "
                 "which gets the task as its first message. Say so in one short line; don't start it here."
             )
+        if found and (where := await _side_conversation(repository)):
+            if rejection := _approve(tasks, agent, f"Hand this conversation to {found.name} in {repository}", task):
+                return rejection
+            await _hand_with_task(where, found, repository, task)
+            return (
+                f"This conversation is now handed to {found.name} in {repository}, which gets the task as soon as "
+                "this reply ends; the user sees its work here. Say so in one short line; don't call start_task again."
+            )
         if rejection := _approve(tasks, agent, f"Start a task in {repository}", task):
             return rejection
         try:
@@ -150,6 +165,27 @@ def _build(tasks: AgentTasks, reports: TaskReports) -> list[BaseTool]:
         StructuredTool.from_function(coroutine=list_tasks, args_schema=_Nothing),
         StructuredTool.from_function(coroutine=stop_task, args_schema=_Stop),
     ]
+
+
+async def _side_conversation(repository: str) -> Origin | None:
+    """The side conversation the user is watching this run in, when the task's folder exists: a task
+    started there is handed to its agent with the conversation. None in home (the user kept it there),
+    in a scheduled run, or for a folder start_task will refuse."""
+    origin = current_origin()
+    if origin is None or get_runtime(Context).context.unattended or not Path(repository).expanduser().is_dir():
+        return None
+    store = require_store(get_store())
+    return None if origin.thread_id == await home.current(store, origin.user_id) else origin
+
+
+async def _hand_with_task(where: Origin, agent: CodingAgent, repository: str, task: str) -> None:
+    """From now on the agent answers in this conversation, and its first message there is the task, sent
+    once this run ends (core/conversation/queued.py)."""
+    store = require_store(get_store())
+    folder = str(Path(repository).expanduser())
+    handoff = Handoff(agent.server, agent.command, agent.name, folder)
+    await handoffs.hand(store, where.user_id, where.thread_id, handoff)
+    await queued.add(store, where.user_id, where.thread_id, Queued(where.channel, task))
 
 
 def _shown_within(call_id: str) -> Report:

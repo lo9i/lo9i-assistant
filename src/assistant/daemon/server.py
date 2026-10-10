@@ -24,6 +24,7 @@ from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
 from assistant.daemon.mail_watcher import MailWatcher
 from assistant.daemon.pages import create_pages_app
+from assistant.daemon.queued import QueuedMessages
 from assistant.daemon.restart import Restart, exec_again
 from assistant.daemon.runs import RunHub
 from assistant.daemon.scheduler import Scheduler
@@ -56,7 +57,8 @@ async def serve(logs: Mapping[str, LogSource]) -> bool:
         if moved := await service.channels_to_home(settings.owner_id):
             logger.info("Moved %s chat channels to the home conversation.", moved)
         restart = Restart(service, stop)
-        app = create_app(service, RunHub(service.bus), Startup(stop), restart, logs=logs)
+        hub = RunHub(service.bus)
+        app = create_app(service, hub, Startup(stop), restart, logs=logs)
         servers = _listeners(app, socket_path)
         page_servers = [_server(create_pages_app(service), **bind) for bind in pages.ports()]
         tasks = [asyncio.create_task(s.serve()) for s in [*servers, *page_servers]]
@@ -73,6 +75,7 @@ async def serve(logs: Mapping[str, LogSource]) -> bool:
         tasks.append(asyncio.create_task(supervise(service.memory_index, stop)))
         tasks.append(asyncio.create_task(supervise(service.memory_writer, stop)))
         tasks.append(asyncio.create_task(supervise(service.task_ends, stop)))
+        tasks.append(asyncio.create_task(supervise(QueuedMessages(service, hub), stop)))
         tasks.append(asyncio.create_task(supervise(service.update_checker, stop)))
         # Downloads once in the background; until then pages are read without rendering.
         install = asyncio.create_task(browser.install_browser()) if settings.web_render else None

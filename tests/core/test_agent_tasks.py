@@ -8,6 +8,7 @@ import pytest
 
 from assistant.core.agent import AssistantService, Session
 from assistant.core.agent_tasks.service import AgentTaskError
+from assistant.core.conversation.queued import Queued
 from assistant.core.events import ApprovalRequired, ToolFinished, ToolStarted, is_side_conversation
 from assistant.core.mcp import folders
 from tests.conftest import collect
@@ -49,11 +50,18 @@ async def test_the_task_tools_come_with_an_agent_plugin_and_name_its_agents(serv
     assert _offered(service) == [] and "no coding agent plugin" in service._plugin_tools.unavailable("start_task")
 
 
+async def kept_in_home(service: AssistantService, events: list) -> list:
+    """Answers the question to move a task out of home with Keep: it starts in the background there."""
+    asked = next(e for e in events if isinstance(e, ApprovalRequired))
+    assert is_side_conversation(asked.request)
+    return await collect(service.resume(await service.session("owner", "cli"), {asked.interrupt_id: {"moved": False}}))
+
+
 async def test_starting_a_task_asks_first_and_the_task_is_followed_to_its_result(service, script, tmp_path):
     await service.add_mcp_server(agent_plugin())
     script.call("start_task", agent="claude-code", repository=str(tmp_path), task="finish").reply("Started it.")
-    session = await side(service)
-    events = await collect(service.send(session, "fix the tests with claude"))
+    session = await service.session("owner", "cli")
+    events = await kept_in_home(service, await collect(service.send(session, "fix the tests with claude")))
     asked = next(e for e in events if isinstance(e, ApprovalRequired))
     assert asked.request["tool"] == "claude-code" and "finish" in asked.request["command"]
     events = await collect(service.resume(session, {asked.interrupt_id: {"approved": True, "reason": ""}}))
@@ -65,12 +73,29 @@ async def test_starting_a_task_asks_first_and_the_task_is_followed_to_its_result
     assert [f.state.task.id for f in await service.agent_tasks.recent()] == [task_id]
 
 
-async def test_a_trusted_agent_starts_tasks_without_asking(service, script, tmp_path):
+async def test_in_a_side_conversation_the_conversation_is_handed_to_the_agent_with_the_task(service, script, tmp_path):
     await service.add_mcp_server(agent_plugin(trusted=True))
-    script.call("start_task", agent="claude-code", repository=str(tmp_path), task="finish").reply("ok")
-    events = await collect(service.send(await side(service), "go"))
+    script.call("start_task", agent="claude-code", repository=str(tmp_path), task="finish").reply("Handed.")
+    session = await side(service, "web")
+    events = await collect(service.send(session, "fix the tests with claude"))
     assert not any(isinstance(e, ApprovalRequired) for e in events)
-    assert next(e for e in events if isinstance(e, ToolFinished)).output.startswith("Started task ")
+    assert next(e for e in events if isinstance(e, ToolFinished)).output.startswith("This conversation is now handed")
+    handoff = await service.conversation_agent("owner", session.thread_id)
+    assert handoff is not None and handoff.folder == str(tmp_path)
+    assert await service.next_queued("owner", session.thread_id) == Queued("web", "finish")
+    assert await service.next_queued("owner", session.thread_id) is None
+    assert await service.agent_tasks.recent() == []
+
+
+async def test_handing_a_side_conversation_to_an_untrusted_agent_asks_first(service, script, tmp_path):
+    await service.add_mcp_server(agent_plugin())
+    script.call("start_task", agent="claude-code", repository=str(tmp_path), task="finish").reply("ok")
+    session = await side(service)
+    asked = next(e for e in await collect(service.send(session, "go")) if isinstance(e, ApprovalRequired))
+    assert asked.request["command"].startswith(f"Hand this conversation to Claude Code in {tmp_path}")
+    await collect(service.resume(session, {asked.interrupt_id: {"approved": False, "reason": ""}}))
+    assert await service.conversation_agent("owner", session.thread_id) is None
+    assert await service.next_queued("owner", session.thread_id) is None
 
 
 async def test_status_shows_steps_and_stop_stops_a_running_task(service, tmp_path):

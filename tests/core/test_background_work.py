@@ -17,11 +17,10 @@ from assistant.core.agent import AssistantService, McpServer
 from assistant.core.agent_tasks.reports import TaskReports
 from assistant.core.background import Origin
 from assistant.core.conversation import ended
-from assistant.core.events import ToolFinished
+from assistant.core.events import ApprovalRequired, ToolFinished
 from assistant.core.mcp import folders
 from assistant.core.mcp.on_demand import OnDemand
 from tests.conftest import collect
-from tests.core.test_agent_tasks import side
 from tests.core.test_handoffs import agent_plugin
 
 _NOTE = "[Note for you, not from the user:]"
@@ -72,8 +71,11 @@ async def _until(condition) -> None:
 
 
 async def _start_task(service: AssistantService, script, session, folder: Path, task: str) -> str:
+    """Started in the background: in home, kept there."""
     script.call("start_task", agent="claude-code", repository=str(folder), task=task).reply("Started it.")
     events = await collect(service.send(session, "hand it to claude"))
+    asked = next(e for e in events if isinstance(e, ApprovalRequired))
+    events = await collect(service.resume(session, {asked.interrupt_id: {"moved": False}}))
     return next(e for e in events if isinstance(e, ToolFinished)).output.split()[2]
 
 
@@ -81,8 +83,7 @@ async def test_a_tasks_end_is_told_on_its_channel_and_once_in_the_next_turn_head
     await service.add_mcp_server(agent_plugin(trusted=True))
     sender = _Sender()
     service.outbox.register("telegram", sender)
-    session = await side(service, "telegram")
-    await service.channel_side("owner", "telegram", session.thread_id)
+    session = await service.session("owner", "telegram")
     after = service.bus.last_id
     task_id = await _start_task(service, script, session, tmp_path, "finish")
     told = await _told(service, after)
@@ -100,7 +101,7 @@ async def test_a_tasks_end_is_told_on_its_channel_and_once_in_the_next_turn_head
 async def test_a_failed_task_is_told_as_a_warning(service, script, tmp_path):
     await service.add_mcp_server(agent_plugin(trusted=True))
     after = service.bus.last_id
-    task_id = await _start_task(service, script, await side(service, "web"), tmp_path, "break")
+    task_id = await _start_task(service, script, await service.session("owner", "web"), tmp_path, "break")
     told = await _told(service, after)
     assert not told["ok"] and told["text"] == f"⚠️ Claude Code's task {task_id} (break) failed: the agent gave up"
 
@@ -108,7 +109,7 @@ async def test_a_failed_task_is_told_as_a_warning(service, script, tmp_path):
 async def test_a_task_whose_end_the_assistant_read_isnt_told(script, digests, summaries, titles, tmp_path):
     async with AssistantService.open() as service:
         await service.add_mcp_server(agent_plugin(trusted=True))
-        session = await side(service, "web")
+        session = await service.session("owner", "web")
         task_id = await _start_task(service, script, session, tmp_path, "finish")
         reports = TaskReports(service.store)
         assert await reports.expected() == [task_id]
@@ -178,7 +179,7 @@ async def test_a_server_on_demand_isnt_idle_while_its_background_work_is_in_prog
 
 async def test_a_running_task_is_listed_with_its_conversation_and_each_step_is_an_event(service, script, tmp_path):
     await service.add_mcp_server(agent_plugin(trusted=True))
-    session = await side(service, "web")
+    session = await service.session("owner", "web")
     task_id = await _start_task(service, script, session, tmp_path, "work a while")
     [running] = await service.running_tasks()
     assert (running.id, running.agent, running.thread_id) == (task_id, "Claude Code", session.thread_id)

@@ -35,6 +35,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - A36. The daemon's output file (`~/.lo9i/logs/output.log`) never rotates: launchd, or the terminal app that started the daemon, opened it for the daemon's stdout and stderr, so it grows for as long as it's used. Rotate it at start (the daemon can point its own stdout and stderr at a new file, as `daemon/launchd.py::move_legacy_output` does) or cap it.
 - A37. A LaunchDaemon installed before the logs moved still sends the daemon's output to `~/.lo9i/daemon.log`; the daemon moves it to `output.log` at start (`daemon/launchd.py::move_legacy_output`), but whatever it printed before that (an import error) stays in the old file, which the Logs page doesn't show. The Startup card (both apps) could say the LaunchDaemon is out of date and offer to install it again (one password dialog).
 - A38. The journal reader (`core/logs/journal.py`) is tested only against a fake `journalctl`. Check on the Linux host that `journalctl --user-unit lo9i-assistant` run as the daemon's user reads the service's output and systemd's notes about it, whatever the journal's storage there.
+- A40. Telegram and Slack show only the runs their chat starts: a run the daemon starts in their conversation, like a coding task handed to its agent from a side conversation (`daemon/queued.py`), shows in the apps but not in the chat, which hears only the end notice. Show runs started elsewhere in a channel's conversation the way the apps mirror them.
 
 ## MCP
 
