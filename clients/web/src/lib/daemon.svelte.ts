@@ -3,10 +3,11 @@ import { getContext, setContext } from "svelte";
 import type { DaemonClient } from "./api/client";
 import type { EventHub } from "./api/eventHub";
 import type { ChatController } from "./chat/controller";
+import type { OpenChats } from "./chat/openChats";
 import { describe, type NoticeBoard } from "./notices";
 
-// `voice` is the voice button's conversation, kept apart from the chat's.
-export type Daemon = { client: DaemonClient; hub: EventHub; notices: NoticeBoard; chat: ChatController; voice: ChatController };
+// `chats` are the conversations open in the chat; `voice` is the voice button's, kept apart from them.
+export type Daemon = { client: DaemonClient; hub: EventHub; notices: NoticeBoard; chats: OpenChats; voice: ChatController };
 
 const KEY = Symbol("daemon");
 

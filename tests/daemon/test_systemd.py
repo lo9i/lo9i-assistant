@@ -84,3 +84,11 @@ async def test_other_systems_say_start_at_boot_isnt_available(monkeypatch):
     assert controls.status().platform == "unsupported"
     with pytest.raises(StartupError, match="macOS and on Linux"):
         await controls.enable()
+
+
+async def test_stopping_asks_systemd_to_stop_the_service_without_waiting(commands):
+    stop = asyncio.Event()
+    await systemd.Service().stop(stop)
+    assert commands == [("systemctl", "--user", "stop", "--no-block", "lo9i-assistant")]
+    # systemd stops it with SIGTERM; exiting on its own, it would be started again.
+    assert not stop.is_set()

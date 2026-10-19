@@ -2,6 +2,7 @@ import httpx
 
 from assistant.client.daemon_client.transport import Transport
 from assistant.core.agent import ModelOption, ModelProvider, ModelSettingsError, ModelStatus, ProviderField
+from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
 
 _PATH = "/settings/model"
 # Saving may install the provider's package (up to 10 minutes) and asks each model to answer once.
@@ -41,3 +42,13 @@ class ModelApi:
     async def reset(self) -> ModelStatus:
         """Back to the model in .env."""
         return ModelStatus(**await self._transport.request("DELETE", _PATH))
+
+    async def dispatch(self) -> DispatchSetting:
+        """How sure routing a message from the inbox has to be to continue a conversation."""
+        return DispatchSetting(**await self._transport.request("GET", "/settings/dispatch"))
+
+    async def set_dispatch(self, setting: DispatchSetting) -> DispatchSetting:
+        """Raises DispatchSettingError."""
+        body = {"confidence": setting.confidence}
+        data = await self._transport.request("PUT", "/settings/dispatch", json=body, errors={400: DispatchSettingError})
+        return DispatchSetting(**data)

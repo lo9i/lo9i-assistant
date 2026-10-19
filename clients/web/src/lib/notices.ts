@@ -1,7 +1,10 @@
 // Short messages shown in the corner: what just happened, and errors from any page.
 import { ApiError, DaemonUnavailableError } from "./api/errors";
 
-export type Notice = { id: number; text: string; level: "info" | "warning" | "error" };
+/** What a notice offers to do about it, such as opening the conversation it's about. */
+export type NoticeAction = { label: string; run: () => void };
+
+export type Notice = { id: number; text: string; level: "info" | "warning" | "error"; action?: NoticeAction };
 
 export class NoticeBoard {
   private notices: Notice[] = [];
@@ -15,8 +18,8 @@ export class NoticeBoard {
 
   getSnapshot = (): Notice[] => this.notices;
 
-  notify = (text: string, level: Notice["level"] = "info"): void => {
-    this.set([...this.notices, { id: this.nextId++, text, level }]);
+  notify = (text: string, level: Notice["level"] = "info", action?: NoticeAction): void => {
+    this.set([...this.notices, { id: this.nextId++, text, level, action }]);
   };
 
   /** Shows an error from a daemon call. */

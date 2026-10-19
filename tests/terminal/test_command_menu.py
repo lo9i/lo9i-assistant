@@ -28,7 +28,7 @@ async def test_enter_runs_the_highlighted_command(app):
         await pilot.click("#prompt")
         await pilot.press("/", "h", "e", "enter")  # /help
         await pilot.pause(0.2)
-        assert len(app.query(SystemNote)) == 1
+        assert len(app.query(SystemNote)) == 2  # the conversations the app opened to, then the help
 
 
 def test_help_lists_every_command():

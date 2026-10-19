@@ -12,7 +12,8 @@ export type ReconnectPolicy = {
 };
 
 /** Events from the stream at `path` after the event id `after` ("" for the stream's own start),
- * until `signal` aborts. Throws DaemonUnavailableError when the policy gives up, and ApiError for a
+ * until `signal` aborts. `onOpen` is called each time the stream opens, the first time and after
+ * every reconnection. Throws DaemonUnavailableError when the policy gives up, and ApiError for a
  * client error (4xx), which reconnecting can't fix. */
 export async function* resumableEvents(
   transport: Transport,
@@ -20,12 +21,13 @@ export async function* resumableEvents(
   policy: ReconnectPolicy,
   signal: AbortSignal,
   after = "0",
+  onOpen: () => void = () => {},
 ): AsyncGenerator<ServerEvent> {
   let lastId = after;
   let failures = 0;
   for (;;) {
     try {
-      for await (const event of open(transport, path, lastId, signal)) {
+      for await (const event of open(transport, path, lastId, signal, onOpen)) {
         lastId = event.id || lastId;
         failures = 0;
         yield event;
@@ -38,12 +40,13 @@ export async function* resumableEvents(
   }
 }
 
-async function* open(transport: Transport, path: string, lastId: string, signal: AbortSignal) {
+async function* open(transport: Transport, path: string, lastId: string, signal: AbortSignal, onOpen: () => void) {
   const response = await transport.stream(path, lastId, signal);
   if (response.status >= 400 && response.status < 500) {
     throw new ApiError(response.status, response.statusText);
   }
   if (!response.ok || response.body === null) return;
+  onOpen();
   yield* readEvents(response.body);
 }
 

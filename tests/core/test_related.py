@@ -1,4 +1,4 @@
-"""Matching a message in home to the side conversations it may continue (core/conversation/related.py)."""
+"""Matching a message in the inbox to the conversations it may continue (core/conversation/related.py)."""
 
 from assistant.core.conversation.related import matches
 

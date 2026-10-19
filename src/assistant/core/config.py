@@ -63,6 +63,9 @@ class Settings(BaseSettings):
 
     # The assistant's persona. Used instead of the built-in one when the file exists.
     persona_path: str = "~/.lo9i/SOUL.md"
+    # The user's edits of the other prompt texts they can change (core/conversation/prompt_edits.py),
+    # one <name>.md each, used instead of the built-in ones.
+    prompts_dir: str = "~/.lo9i/prompts"
 
     # Time zone for the date and time in each message's turn header.
     timezone: str = "UTC"

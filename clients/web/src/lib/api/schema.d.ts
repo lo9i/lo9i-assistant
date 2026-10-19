@@ -193,7 +193,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/threads/home": {
+    "/threads/inbox": {
         parameters: {
             query?: never;
             header?: never;
@@ -203,10 +203,11 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Home Thread
-         * @description Moves the calling client to the home conversation, leaving the one it was on.
+         * Inbox Thread
+         * @description Moves the calling client to the inbox, which routes each message to its conversation, leaving the
+         *     one it was on.
          */
-        post: operations["home_thread_threads_home_post"];
+        post: operations["inbox_thread_threads_inbox_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -224,9 +225,29 @@ export interface paths {
         put?: never;
         /**
          * New Thread
-         * @description A new side conversation for the calling client, which leaves the one it was on.
+         * @description A new conversation for the calling client, which leaves the one it was on.
          */
         post: operations["new_thread_threads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/threads/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave Thread
+         * @description The calling client closes its conversation without moving to another, as a closed chat tab.
+         */
+        post: operations["leave_thread_threads_leave_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -287,6 +308,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/threads/{thread_id}/dispatched/{dispatch_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Dispatched
+         * @description Sends a message the inbox sent on (a Dispatched event) here, as it was written.
+         */
+        post: operations["send_dispatched_threads__thread_id__dispatched__dispatch_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/threads/{thread_id}/moves": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move Dispatched
+         * @description Asks in the inbox where a message it sent on goes instead, and sends it on again (a Dispatched
+         *     event).
+         */
+        post: operations["move_dispatched_threads__thread_id__moves_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/threads/{thread_id}/approvals": {
         parameters: {
             query?: never;
@@ -315,6 +377,27 @@ export interface paths {
         put?: never;
         /** Cancel */
         post: operations["cancel_threads__thread_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Runs In Progress
+         * @description Replies in progress in any conversation, oldest first. `run` and `run_finished` events tell
+         *     when this changes.
+         */
+        get: operations["runs_in_progress_runs_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -746,7 +829,8 @@ export interface paths {
         put?: never;
         /**
          * Channel Message
-         * @description `voice`: the message was a voice note (Settings → Audio can speak only those replies).
+         * @description `voice`: the message was a voice note (Settings → Audio can speak only those replies). `reply_to`:
+         *     the id of the message it replies to, whose conversation it goes on in; `message`: its own id.
          */
         post: operations["channel_message_channels__name__messages_post"];
         delete?: never;
@@ -1244,6 +1328,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Notification List
+         * @description The newest first.
+         */
+        get: operations["notification_list_notifications_get"];
+        put?: never;
+        post?: never;
+        /** Clear Notifications */
+        delete: operations["clear_notifications_notifications_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read Notifications */
+        post: operations["read_notifications_notifications_read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/{notification_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Dismiss Notification
+         * @description 404: no such notification.
+         */
+        delete: operations["dismiss_notification_notifications__notification_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/agent-tasks/running": {
         parameters: {
             query?: never;
@@ -1445,6 +1587,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings/prompts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Prompt Sections */
+        get: operations["prompt_sections_settings_prompts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/prompts/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Prompt
+         * @description 404: not a prompt the user can edit. 400: an empty text, or the edit can't be written.
+         */
+        put: operations["save_prompt_settings_prompts__name__put"];
+        post?: never;
+        /**
+         * Reset Prompt
+         * @description Back to the built-in text. 404: not a prompt the user can edit. 400: the edit can't be deleted.
+         */
+        delete: operations["reset_prompt_settings_prompts__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/settings/speech": {
         parameters: {
             query?: never;
@@ -1514,6 +1697,27 @@ export interface paths {
          * @description 400: an unknown level.
          */
         put: operations["set_log_level_settings_log_level_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/dispatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dispatch Setting */
+        get: operations["dispatch_setting_settings_dispatch_get"];
+        /**
+         * Set Dispatch Setting
+         * @description 400: a confidence outside 0 to 1.
+         */
+        put: operations["set_dispatch_setting_settings_dispatch_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1677,6 +1881,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop Daemon */
+        post: operations["stop_daemon_system_stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/logs": {
         parameters: {
             query?: never;
@@ -1814,6 +2035,16 @@ export interface components {
             voice: boolean;
             /** Files */
             files?: string[] | null;
+            /**
+             * Reply To
+             * @default
+             */
+            reply_to: string;
+            /**
+             * Message
+             * @default
+             */
+            message: string;
         };
         /** Body_send_threads__thread_id__messages_post */
         Body_send_threads__thread_id__messages_post: {
@@ -1936,10 +2167,15 @@ export interface components {
             /** Tags */
             tags?: string[];
             /**
-             * Home
+             * Archived
              * @default false
              */
-            home: boolean;
+            archived: boolean;
+            /**
+             * Inbox
+             * @default false
+             */
+            inbox: boolean;
         };
         /** ConversationAgent */
         ConversationAgent: {
@@ -1970,6 +2206,24 @@ export interface components {
             last_used_at: string;
             /** Last Ip */
             last_ip: string;
+        };
+        /** DispatchSetting */
+        DispatchSetting: {
+            /**
+             * Confidence
+             * @default 0.7
+             */
+            confidence: number;
+        };
+        /** Dispatching */
+        Dispatching: {
+            /** Channel */
+            channel: string;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
         };
         /** EmailAccount */
         EmailAccount: {
@@ -2775,10 +3029,48 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /** Moving */
+        Moving: {
+            /** Channel */
+            channel: string;
+            /**
+             * Id
+             * @default
+             */
+            id: string;
+        };
         /** NewMailAlerts */
         NewMailAlerts: {
             /** Channel */
             channel: string;
+        };
+        /** Notification */
+        Notification: {
+            /** Id */
+            id: string;
+            /** At */
+            at: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "job" | "background";
+            /** Title */
+            title: string;
+            /** Text */
+            text: string;
+            /** Ok */
+            ok: boolean;
+            /**
+             * Thread Id
+             * @default
+             */
+            thread_id: string;
+            /**
+             * Read
+             * @default false
+             */
+            read: boolean;
         };
         /** Ok */
         Ok: {
@@ -2833,6 +3125,31 @@ export interface components {
         ProfileItems: {
             /** Items */
             items: string[];
+        };
+        /** PromptSection */
+        PromptSection: {
+            /** Name */
+            name: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Text */
+            text: string;
+            /** Default */
+            default: string;
+            /** Edited */
+            edited: boolean;
+            /**
+             * Problem
+             * @default
+             */
+            problem: string;
+        };
+        /** PromptText */
+        PromptText: {
+            /** Text */
+            text: string;
         };
         /** ProviderField */
         ProviderField: {
@@ -2937,14 +3254,6 @@ export interface components {
             /** Url */
             url: string;
         };
-        /**
-         * RestartStatus
-         * @description A requested restart: the daemon restarts once these runs end, at once when none.
-         */
-        RestartStatus: {
-            /** Waiting For Runs */
-            waiting_for_runs: number;
-        };
         /** Revoked */
         Revoked: {
             /**
@@ -2952,6 +3261,15 @@ export interface components {
              * @default true
              */
             ok: boolean;
+        };
+        /** RunInProgress */
+        RunInProgress: {
+            /** Run Id */
+            run_id: string;
+            /** Thread Id */
+            thread_id: string;
+            /** Channel */
+            channel: string;
         };
         /** RunRecord */
         RunRecord: {
@@ -3062,6 +3380,19 @@ export interface components {
              * @default
              */
             output: string;
+            /**
+             * Dispatch Id
+             * @default
+             */
+            dispatch_id: string;
+        };
+        /**
+         * ShutdownStatus
+         * @description A requested restart or stop: the daemon restarts or stops once these runs end, at once when none.
+         */
+        ShutdownStatus: {
+            /** Waiting For Runs */
+            waiting_for_runs: number;
         };
         /** SignInCode */
         SignInCode: {
@@ -3649,7 +3980,7 @@ export interface operations {
             };
         };
     };
-    home_thread_threads_home_post: {
+    inbox_thread_threads_inbox_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -3685,6 +4016,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ThreadCreated"];
+                };
+            };
+        };
+    };
+    leave_thread_threads_leave_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
                 };
             };
         };
@@ -3779,6 +4130,77 @@ export interface operations {
             };
         };
     };
+    send_dispatched_threads__thread_id__dispatched__dispatch_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+                dispatch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Dispatching"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_dispatched_threads__thread_id__moves_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Moving"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     approve_threads__thread_id__approvals_post: {
         parameters: {
             query?: never;
@@ -3841,6 +4263,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    runs_in_progress_runs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunInProgress"][];
                 };
             };
         };
@@ -5679,6 +6121,97 @@ export interface operations {
             };
         };
     };
+    notification_list_notifications_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"][];
+                };
+            };
+        };
+    };
+    clear_notifications_notifications_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+        };
+    };
+    read_notifications_notifications_read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+        };
+    };
+    dismiss_notification_notifications__notification_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notification_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     running_tasks_agent_tasks_running_get: {
         parameters: {
             query?: never;
@@ -6030,6 +6563,92 @@ export interface operations {
             };
         };
     };
+    prompt_sections_settings_prompts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptSection"][];
+                };
+            };
+        };
+    };
+    save_prompt_settings_prompts__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromptText"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptSection"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_prompt_settings_prompts__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptSection"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     speech_settings_settings_speech_get: {
         parameters: {
             query?: never;
@@ -6189,6 +6808,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LogLevelSetting"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dispatch_setting_settings_dispatch_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DispatchSetting"];
+                };
+            };
+        };
+    };
+    set_dispatch_setting_settings_dispatch_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DispatchSetting"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DispatchSetting"];
                 };
             };
             /** @description Validation Error */
@@ -6485,7 +7157,27 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RestartStatus"];
+                    "application/json": components["schemas"]["ShutdownStatus"];
+                };
+            };
+        };
+    };
+    stop_daemon_system_stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShutdownStatus"];
                 };
             };
         };

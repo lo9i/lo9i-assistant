@@ -38,6 +38,7 @@ from assistant.core.agent import (
     MemorySnapshot,
     ModelSettingsError,
     ModelStatus,
+    Notification,
     PairingCode,
     PluginUpdate,
     Repository,
@@ -61,13 +62,21 @@ from assistant.core.agent import (
     WebSearchStatus,
 )
 from assistant.core.agent.skills import FoundSkill, SkillSummary
-from assistant.core.events import ApprovalRequired, Done, TextDelta, ToolFinished, ToolStarted, Transcribed
+from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
+from assistant.core.events import ApprovalRequired, Dispatched, Done, TextDelta, ToolFinished, ToolStarted, Transcribed
 from assistant.core.integrations.email.providers import EmailProvider
 from assistant.core.llm.choice import PROVIDERS as PROVIDERS_FOR_MODEL
 from assistant.core.logs import COMPONENTS, LogEntry, LogFileInfo, LogOptions, LogPage, LogQuery
 from assistant.core.repositories.known import EXTRAS
 from assistant.core.usage.log import TokenRow, ToolUsage
-from assistant.protocol import ConnectedClient, HostStatus, StartupError, StartupStatus
+from assistant.protocol import (
+    ConnectedClient,
+    HostStatus,
+    ShutdownStatus,
+    StartupError,
+    StartupStatus,
+    StopRefusedError,
+)
 from assistant_terminal.history import History
 from assistant_terminal.preferences import Preferences
 
@@ -371,6 +380,7 @@ class FakeModel:
     def __init__(self):
         self.state = _env_model()
         self.saved = None
+        self.dispatching = DispatchSetting()
         # Groq's package isn't installed yet, to show what saving will do.
         self.list = [replace(p, installed=p.id != "groq") for p in PROVIDERS_FOR_MODEL]
 
@@ -393,6 +403,15 @@ class FakeModel:
         self.state = _env_model()
         return self.state
 
+    async def dispatch(self):
+        return self.dispatching
+
+    async def set_dispatch(self, setting):
+        if not 0 <= setting.confidence <= 1:
+            raise DispatchSettingError("The confidence goes from 0 to 1.")
+        self.dispatching = setting
+        return setting
+
 
 class FakeSystem:
     def __init__(self):
@@ -402,6 +421,9 @@ class FakeSystem:
         self.platform = "macos"
         self.lingering = True
         self.host_reads = 0
+        # "restart" and "stop", as asked; a stop is refused with this reason when it's set.
+        self.endings: list[str] = []
+        self.stop_refusal = ""
 
     async def startup_status(self):
         return self.state
@@ -434,6 +456,16 @@ class FakeSystem:
     async def disable_startup(self):
         self.state = StartupStatus(False, False, False, self.platform, self.lingering)
         return self.state
+
+    async def restart(self):
+        self.endings.append("restart")
+        return ShutdownStatus(waiting_for_runs=0)
+
+    async def stop(self):
+        if self.stop_refusal:
+            raise StopRefusedError(self.stop_refusal)
+        self.endings.append("stop")
+        return ShutdownStatus(waiting_for_runs=1)
 
 
 def _mcp_status(name: str, trusted: bool = False, source: str = "") -> McpServerStatus:
@@ -805,6 +837,26 @@ class FakeOAuth:
         raise SignInError("This sign-in has expired or was already used.")
 
 
+class FakeNotifications:
+    def __init__(self):
+        self.items = [
+            Notification("n1", _NEXT, "background", "plan my trip", "✅ Claude Code finished.", True, "owner:abc"),
+            Notification("n2", _NEXT, "job", "Job news", "Failed: no network", False),
+        ]
+
+    async def list(self):
+        return list(self.items)
+
+    async def mark_read(self):
+        self.items = [replace(n, read=True) for n in self.items]
+
+    async def dismiss(self, notification_id):
+        self.items = [n for n in self.items if n.id != notification_id]
+
+    async def clear(self):
+        self.items = []
+
+
 class FakeClient:
     """DaemonClient's shape: the conversation on the client, everything else in groups."""
 
@@ -835,9 +887,17 @@ class FakeClient:
         self.model = FakeModel()
         self.speech = FakeSpeech()
         self.web_search = FakeWebSearch()
+        self.notifications = FakeNotifications()
+        # When set, the inbox sends the next message on there instead of running it.
+        self.dispatch_to: Dispatched | None = None
 
     async def send(self, session, text, attachments=()):
         self.sent.append((text, [(a.name, a.media_type) for a in attachments]))
+        if self.dispatch_to is not None:
+            dispatched, self.dispatch_to = self.dispatch_to, None
+            yield dispatched
+            yield Done()
+            return
         if any(a.media_type.startswith("audio/") for a in attachments):
             yield Transcribed("hola", "es")
         yield ToolStarted("bash", {"command": "ls -la"})
@@ -854,7 +914,19 @@ class FakeClient:
         self.memory.profile = {"work": ["backend engineer"]}
         yield Done()
 
-    async def home_thread(self, user_id):
+    async def move_dispatched(self, session, dispatch_id=""):
+        self.sent.append((f"{session.thread_id} moves {dispatch_id}", []))
+        if self.dispatch_to is not None:
+            dispatched, self.dispatch_to = self.dispatch_to, None
+            yield dispatched
+        yield Done()
+
+    async def send_dispatched(self, session, dispatch_id, text):
+        self.sent.append((f"{session.thread_id} ← {dispatch_id}", []))
+        yield TextDelta("On it.")
+        yield Done()
+
+    async def inbox_thread(self, user_id):
         return "owner:abc"
 
     async def new_thread(self, user_id):

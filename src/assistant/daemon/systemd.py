@@ -21,7 +21,19 @@ SERVICE = "lo9i-assistant"
 MANAGED_ENV = "LO9I_SYSTEMD"
 _LINGER_DIR = Path("/var/lib/systemd/linger")
 
-__all__ = ["disable", "enable", "status"]
+__all__ = ["Service", "disable", "enable", "status"]
+
+
+class Service:
+    """A daemon systemd started stops through systemd: one that exited on its own would be started again
+    (Restart=always). systemd stops it with SIGTERM, which stops the daemon cleanly."""
+
+    def stop_refusal(self) -> str | None:
+        return None
+
+    async def stop(self, stop: asyncio.Event) -> None:
+        # Without waiting: systemd waits for the daemon to exit, which waits for this call.
+        await _systemctl("stop", "--no-block", SERVICE)
 
 
 def status() -> StartupStatus:

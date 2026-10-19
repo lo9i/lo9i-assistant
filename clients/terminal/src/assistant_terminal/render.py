@@ -4,11 +4,13 @@ tool calls with their result indented under ⎿."""
 import json
 import sys
 from collections.abc import AsyncIterator
+from dataclasses import dataclass, field
 from typing import Any
 
 from assistant.core.events import (
     ApprovalRequired,
     Cancelled,
+    Dispatched,
     Done,
     Error,
     Event,
@@ -26,24 +28,34 @@ _INDENT = "  "
 _RESULT_LINES = 3
 
 
-async def render(events: AsyncIterator[Event]) -> list[ApprovalRequired]:
-    """Print events and return the approvals the run is waiting on."""
+@dataclass
+class Shown:
+    # What the run waits on.
+    approvals: list[ApprovalRequired] = field(default_factory=list)
+    # Where home sent the message on, to go there after the run.
+    dispatched: Dispatched | None = None
+
+
+async def render(events: AsyncIterator[Event]) -> Shown:
+    """Print events and return what the run waits on and where home sent its message on."""
     printer = _Printer()
-    approvals: list[ApprovalRequired] = []
+    shown = Shown()
     spinner = Spinner()
     spinner.start("Thinking")
     async for event in events:
         spinner.stop()
         if isinstance(event, ApprovalRequired):
-            approvals.append(event)
+            shown.approvals.append(event)
         else:
             printer.print(event)
+        if isinstance(event, Dispatched):
+            shown.dispatched = event
         # While text streams, the text itself shows progress. Otherwise the agent is thinking or running a tool.
         if not isinstance(event, TextDelta):
             spinner.start(f"Running {event.name}" if isinstance(event, ToolStarted) else "Thinking")
     spinner.stop()
     printer.end_text()
-    return approvals
+    return shown
 
 
 class _Printer:
@@ -70,6 +82,8 @@ class _Printer:
                 _write(paint(DIM, _result(output)) + "\n")
             case Transcribed(text, language):
                 _write(paint(DIM, f"{_INDENT}🎤 heard ({language}): {text}") + "\n")
+            case Dispatched(line=line):
+                _write(f"{_BULLET}{line}\n")
             case Error(message):
                 _write(paint(RED, f"\n{_BULLET}Error: {message}") + "\n")
             case Cancelled():

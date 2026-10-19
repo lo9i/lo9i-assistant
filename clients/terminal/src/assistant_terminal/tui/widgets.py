@@ -51,6 +51,21 @@ class ThinkingNote(Collapsible):
         return f"✻ {first if len(first) <= self._PREVIEW else first[: self._PREVIEW] + '…'}"
 
 
+class CarriedNote(Collapsible):
+    """A quick exchange the inbox carried to this conversation, before the message that followed it up:
+    collapsed under "From the inbox"."""
+
+    def __init__(self, text: str) -> None:
+        super().__init__(Markdown(text, classes="carried-text"), title="↳ From the inbox", collapsed=True)
+
+
+class FollowUpNote(Static):
+    """Background work that ended, which the assistant followed up on without a message from the user."""
+
+    def __init__(self, notice: str) -> None:
+        super().__init__(f"↳ {escape(notice)}", classes="follow-up-note")
+
+
 class ToolNote(Static):
     """A tool the assistant used, in a conversation shown again after resuming it."""
 

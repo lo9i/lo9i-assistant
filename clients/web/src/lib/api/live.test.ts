@@ -3,9 +3,10 @@ import { LiveConversation, type Conversations } from "./live";
 
 const daemon: Conversations = {
   clientId: "me",
-  homeThread: async () => "home",
+  inboxThread: async () => "inbox",
   newThread: async () => "t2",
   resumeThread: async () => {},
+  leaveThread: async () => {},
 };
 
 const live = () => new LiveConversation(daemon, { channel: "web", thread_id: "t1" });

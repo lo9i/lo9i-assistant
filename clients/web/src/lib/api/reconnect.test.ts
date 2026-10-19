@@ -49,6 +49,18 @@ describe("resumableEvents", () => {
     expect(t.lastIds).toEqual(["", "9"]);
   });
 
+  it("says each time the stream opens, after a reconnection too", async () => {
+    const t = transport([
+      new Response(body("id: 1\ndata: a\n\n")),
+      new DaemonUnavailableError("restarting"),
+      new Response(body("id: 2\ndata: b\n\n")),
+    ]);
+    let opens = 0;
+    const events = resumableEvents(t, "/events", { delayMs: 0 }, new AbortController().signal, "", () => opens++);
+    expect(await take(events, 2)).toEqual(["a", "b"]);
+    expect(opens).toBe(2);
+  });
+
   it("gives up after the policy's attempts", async () => {
     const t = transport([]);
     const events = resumableEvents(t, "/runs/x/events", { delayMs: 0, attempts: 3 }, new AbortController().signal);

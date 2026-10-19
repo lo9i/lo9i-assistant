@@ -93,8 +93,9 @@ class _Sender:
     def __init__(self) -> None:
         self.sent: list[str] = []
 
-    async def send(self, text: str) -> None:
+    async def send(self, text: str) -> list[str]:
         self.sent.append(text)
+        return [f"m{len(self.sent)}"]
 
 
 async def test_a_message_sent_from_elsewhere_reaches_the_channels_next_turn(service, script):

@@ -40,22 +40,22 @@ async def test_bash_runs_in_the_workspace_without_app_secrets(service, script, m
     assert str(isolated_settings / "workspace") in output and output.strip().endswith("0")
 
 
-async def test_channels_share_home_until_their_new_and_go_back_with_home(service):
-    home = await service.home_thread("u")
-    assert (await service.session("u", "telegram")).thread_id == home
-    assert (await service.session("u", "slack")).thread_id == home
-    side = await service.new_channel_thread("u", "telegram")
-    assert side != home and (await service.session("u", "telegram")).thread_id == side
-    assert (await service.session("u", "slack")).thread_id == home
-    assert await service.channel_home("u", "telegram") == home
-    assert (await service.session("u", "telegram")).thread_id == home
+async def test_channels_write_to_the_inbox_and_keep_where_their_last_message_went(service):
+    inbox = await service.inbox_thread("u")
+    assert (await service.session("u", "telegram")).thread_id == inbox
+    assert await service.channel_thread("u", "telegram") == inbox
+    side = await service.new_thread("u")
+    await service.channel_wrote("u", "telegram", side)
+    assert await service.channel_thread("u", "telegram") == side
+    assert await service.channel_thread("u", "slack") == inbox
+    assert (await service.session("u", "telegram")).thread_id == inbox
 
 
-async def test_deleting_home_starts_a_new_one(service, script):
-    home = await service.home_thread("u")
+async def test_deleting_the_inbox_starts_a_new_one(service, script):
+    inbox = await service.inbox_thread("u")
     await collect(service.send(await service.session("u", "telegram"), "hi"))
-    await service.delete_conversation("u", home)
-    assert await service.home_thread("u") not in {home, ""}
+    await service.delete_conversation("u", inbox)
+    assert await service.inbox_thread("u") not in {inbox, ""}
 
 
 async def test_every_user_message_starts_with_a_turn_header(service, script):
@@ -72,14 +72,3 @@ async def test_unattended_runs_deny_instead_of_asking(service, script):
     events = await collect(service.send(await service.session("u", "worker"), "clean up"))
     assert not any(isinstance(e, ApprovalRequired) for e in events)
     assert events[1].output.startswith(UNATTENDED_DENIAL)
-
-
-async def test_channels_on_a_conversation_from_before_home_move_there_once(service):
-    namespace = ("threads", "u")
-    await service._storage.store.aput(namespace, "telegram", {"thread_id": "u:old"})
-    assert await service.channels_to_home("u") == 1
-    home = (await service.session("u", "telegram")).thread_id
-    assert home != "u:old" and home == await service.home_thread("u")
-    side = await service.new_channel_thread("u", "telegram")
-    assert await service.channels_to_home("u") == 0
-    assert (await service.session("u", "telegram")).thread_id == side

@@ -45,7 +45,9 @@ check_model() {
 
 # Stops a running daemon so the next start picks up code changes: SIGTERM first (clean shutdown),
 # SIGKILL if it hasn't exited after 10 seconds. A daemon started at boot (/startup) is restarted by
-# macOS; the CLI then uses whichever daemon answers first.
+# systemd, and by launchd when its LaunchDaemon dates from before the daemon could be stopped from the
+# app; the CLI then uses whichever daemon answers first. A newer LaunchDaemon leaves it stopped after a
+# clean exit, so the CLI starts its own.
 stop_daemon() {
   local pids
   pids="$(pgrep -f -- "-m assistant.daemon" || true)"

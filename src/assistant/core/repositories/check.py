@@ -1,7 +1,7 @@
 """Checks a plugin repository the way lo9i reads it, so a plugin that can't be read is caught before it's
 pushed: every server.yaml and SKILL.md in it, wherever it is. A server.yaml that can't be read would hide
-the whole repository from Plugins and the update checker (BACKLOG A41), and a plugin outside the category
-folders lo9i looks in is never listed. The extras run it before each commit:
+the whole repository from Plugins and the update checker, and a plugin outside the category folders lo9i
+looks in is never listed. The extras run it before each commit:
 
     uv run --project <lo9i> python -m assistant.core.repositories.check <repository folder>
 """

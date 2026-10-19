@@ -3,37 +3,27 @@
 // (another client, or a channel like Telegram). React reads it through subscribe/getSnapshot (useSyncExternalStore).
 import { ApiError } from "../api/errors";
 import { LiveConversation, type Conversations } from "../api/live";
-import type {
-  ApprovalRequest,
-  ApprovalRequired,
-  Decision,
-  Handoff,
-  RunAnnounced,
-  RunEvent,
-  RunFinished,
-  Session,
-  ShownMessage,
-  TaskHandoff,
-} from "../api/types";
+import type { ApprovalRequired, Decision, Dispatched, RunAnnounced, RunEvent, RunFinished, Session, ShownMessage } from "../api/types";
 import type { NoticeBoard } from "../notices";
-import { addUser, apply, empty, endRun, endText, fromHistory, type Transcript } from "./transcript";
+import { addCarried, addUser, apply, empty, endRun, endText, fromHistory, type Transcript } from "./transcript";
 
 /** The DaemonClient calls the chat needs. */
 export interface ChatClient extends Conversations {
   send(session: Session, text: string, files: File[], signal: AbortSignal): AsyncIterable<RunEvent>;
+  sendDispatched(session: Session, dispatchId: string, text: string, signal: AbortSignal): AsyncIterable<RunEvent>;
+  moveDispatched(session: Session, dispatchId: string, signal: AbortSignal): AsyncIterable<RunEvent>;
   resume(session: Session, decisions: Record<string, Decision>, signal: AbortSignal): AsyncIterable<RunEvent>;
   cancel(session: Session): Promise<boolean>;
   followRun(runId: string, signal: AbortSignal): AsyncIterable<RunEvent>;
   conversations: {
     messages(threadId: string): Promise<ShownMessage[]>;
-    handTo(threadId: string, command: string, folder: string): Promise<Handoff>;
   };
 }
 
 export type ChatSnapshot = {
   threadId: string;
-  // The home conversation's id: the tab is on a side conversation while `threadId` is another.
-  homeId: string;
+  // The inbox's id: a message written there is routed to its conversation (core/inbox.py).
+  inboxId: string;
   transcript: Transcript;
   // This page's own reply is running.
   busy: boolean;
@@ -57,18 +47,25 @@ export class ChatController {
     private readonly live: LiveConversation,
     private readonly notices: NoticeBoard,
     transcript: Transcript,
-    homeId: string,
+    inboxId: string,
   ) {
-    this.state = { threadId: live.session.thread_id, homeId, transcript, busy: false, mirroring: false, approval: null };
+    this.state = { threadId: live.session.thread_id, inboxId, transcript, busy: false, mirroring: false, approval: null };
   }
 
-  /** Opens on `earlier`, the conversation this tab was on before a reload, or home. */
+  /** Opens on `earlier`, the conversation this tab was on before a reload, or the inbox. */
   static async open(client: ChatClient, channel: string, earlier: string | null, notices: NoticeBoard): Promise<ChatController> {
-    const homeId = await client.homeThread();
-    const threadId = await rejoin(client, earlier, homeId);
+    const inboxId = await client.inboxThread();
+    const threadId = await rejoin(client, earlier, inboxId);
     const history = await client.conversations.messages(threadId);
     const live = new LiveConversation(client, { channel, thread_id: threadId });
-    return new ChatController(client, live, notices, fromHistory(history), homeId);
+    return new ChatController(client, live, notices, fromHistory(history), inboxId);
+  }
+
+  /** Opens on a new conversation, beside the ones open already. */
+  static async openNew(client: ChatClient, channel: string, notices: NoticeBoard): Promise<ChatController> {
+    const inboxId = await client.inboxThread();
+    const live = new LiveConversation(client, { channel, thread_id: await client.newThread() });
+    return new ChatController(client, live, notices, empty, inboxId);
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -79,21 +76,42 @@ export class ChatController {
   getSnapshot = (): ChatSnapshot => this.state;
 
   async send(text: string, files: File[]): Promise<void> {
+    const names = files.map((f) => f.name);
+    await this.own(text, names, (signal) => this.client.send(this.live.session, text, files, signal));
+  }
+
+  /** Sends here a message the inbox sent on, as it was written, after the quick exchange it followed up. */
+  async sendDispatched(dispatched: Dispatched): Promise<void> {
+    const { id, text, carried } = dispatched;
+    if (carried && this.ownRun === null) this.set({ transcript: addCarried(this.state.transcript, carried) });
+    await this.own(text, [], (signal) => this.client.sendDispatched(this.live.session, id, text, signal));
+  }
+
+  /** Asks in the inbox where a message it sent on goes instead (the last one for ""), and sends it there. */
+  async move(dispatchId: string): Promise<void> {
+    await this.ownTurn((signal) => this.client.moveDispatched(this.live.session, dispatchId, signal));
+  }
+
+  /** Where a message the inbox sent on goes on; without one, this conversation goes there. */
+  onDispatched: ((dispatched: Dispatched) => Promise<void>) | null = null;
+
+  /** This page's own run of a message, from `start`. */
+  private async own(text: string, files: string[], start: (signal: AbortSignal) => AsyncIterable<RunEvent>): Promise<void> {
     if (this.ownRun !== null) return;
-    this.set({
-      transcript: addUser(
-        this.state.transcript,
-        text,
-        files.map((f) => f.name),
-      ),
-    });
+    this.set({ transcript: addUser(this.state.transcript, text, files) });
+    await this.ownTurn(start);
+  }
+
+  /** This page's own run, from `start`; after it, the conversation goes where the inbox sent its message on. */
+  private async ownTurn(start: (signal: AbortSignal) => AsyncIterable<RunEvent>): Promise<void> {
+    if (this.ownRun !== null) return;
     const run = new AbortController();
     this.ownRun = run;
-    let carried: ApprovalRequest | null = null;
-    await this.show(run, async () => (carried = await this.turn(text, files, run.signal)));
+    let dispatched: Dispatched | null = null;
+    await this.show(run, async () => (dispatched = await this.turn(start, run.signal)));
     if (this.ownRun === run) this.ownRun = null;
     this.showing();
-    if (carried !== null) await this.moveToSide(carried);
+    if (dispatched !== null) await (this.onDispatched ?? ((d) => this.goOn(d)))(dispatched);
   }
 
   /** Stop the reply in progress, whichever channel started it. */
@@ -105,13 +123,13 @@ export class ChatController {
     this.decide?.(decision);
   }
 
-  async goHome(): Promise<void> {
+  async goInbox(): Promise<void> {
     await this.guarded(async () => {
       const stillRunning = this.stopShowing();
-      await this.live.goHome(stillRunning);
-      this.set({ homeId: this.live.session.thread_id });
+      await this.live.goInbox(stillRunning);
+      this.set({ inboxId: this.live.session.thread_id });
       await this.showHistory();
-      this.notify("Back home." + (stillRunning ? " The previous reply keeps running." : ""));
+      if (stillRunning) this.notify("In the inbox. The previous reply keeps running.");
     });
   }
 
@@ -161,52 +179,55 @@ export class ChatController {
     this.stopShowing();
   }
 
-  /** Runs the turn and returns the side conversation suggestion the user took, if any. */
-  private async turn(text: string, files: File[], signal: AbortSignal): Promise<ApprovalRequest | null> {
-    let carried: ApprovalRequest | null = null;
-    let approvals = await this.render(this.client.send(this.live.session, text, files, signal));
-    while (approvals.length) {
-      const decisions: Record<string, Decision> = {};
-      for (const approval of approvals) {
-        const decision = await this.ask(approval, signal);
-        if ("moved" in decision && decision.moved) carried = approval.request;
-        decisions[approval.interrupt_id] = decision;
-      }
-      approvals = await this.render(this.client.resume(this.live.session, decisions, signal));
-    }
-    return carried;
+  /** Closes the conversation for good: the daemon leaves it unless another client is on it. Returns whether
+   * its reply was still running, which the daemon finishes. */
+  async leave(): Promise<boolean> {
+    const stillRunning = this.stopShowing();
+    await this.guarded(() => this.client.leaveThread());
+    return stillRunning;
   }
 
-  /** The agent's suggestion was taken: the task goes on in the side conversation it names, or a new
-   *  one, starting with its brief. */
-  private async moveToSide(request: ApprovalRequest): Promise<void> {
+  /** Runs the turn and returns where the inbox sent its message on, if it did. */
+  private async turn(start: (signal: AbortSignal) => AsyncIterable<RunEvent>, signal: AbortSignal): Promise<Dispatched | null> {
+    let shown = await this.render(start(signal));
+    let dispatched = shown.dispatched;
+    while (shown.approvals.length) {
+      const decisions: Record<string, Decision> = {};
+      for (const approval of shown.approvals) decisions[approval.interrupt_id] = await this.ask(approval, signal);
+      shown = await this.render(this.client.resume(this.live.session, decisions, signal));
+      dispatched ??= shown.dispatched;
+    }
+    return dispatched;
+  }
+
+  /** The inbox sent the message on: this conversation goes to where it went, or a new one, and sends it there. */
+  private async goOn(dispatched: Dispatched): Promise<void> {
     await this.guarded(async () => {
-      if (request.thread_id) {
-        await this.live.resume(request.thread_id);
+      if (dispatched.thread_id) {
+        await this.live.resume(dispatched.thread_id);
         await this.showHistory();
-        this.notify(`Back in ${request.title}. /home goes back.`);
       } else {
         await this.live.startNew();
         this.set({ threadId: this.live.session.thread_id, transcript: empty });
-        if (request.handoff) await this.handNew(request.handoff);
-        else this.notify("Moved to a side conversation. /home goes back.");
       }
     });
-    await this.send(request.first_message ?? "", []);
+    await this.sendDispatched(dispatched);
   }
 
-  /** Show the events and return the approvals the run is waiting on. */
-  private async render(events: AsyncIterable<RunEvent>): Promise<ApprovalRequired[]> {
+  /** Show the events and return the approvals the run is waiting on, and where the inbox sent its message on. */
+  private async render(events: AsyncIterable<RunEvent>): Promise<{ approvals: ApprovalRequired[]; dispatched: Dispatched | null }> {
     const approvals: ApprovalRequired[] = [];
+    let dispatched: Dispatched | null = null;
     try {
       for await (const event of events) {
         if (event.type === "ApprovalRequired") approvals.push(event);
-        else this.set({ transcript: apply(this.state.transcript, event) });
+        else if (event.type === "Dispatched") dispatched = event;
+        if (event.type !== "ApprovalRequired") this.set({ transcript: apply(this.state.transcript, event) });
       }
     } finally {
       this.set({ transcript: endText(this.state.transcript) });
     }
-    return approvals;
+    return { approvals, dispatched };
   }
 
   private ask(approval: ApprovalRequired, signal: AbortSignal): Promise<Decision> {
@@ -261,16 +282,6 @@ export class ChatController {
     this.set({ threadId, transcript: fromHistory(await this.client.conversations.messages(threadId)) });
   }
 
-  /** A coding task's side conversation is handed to its agent; when it can't be, the assistant gets the task. */
-  private async handNew(handoff: TaskHandoff): Promise<void> {
-    try {
-      await this.client.conversations.handTo(this.live.session.thread_id, handoff.command, handoff.folder);
-      this.notify(`Moved to a side conversation with ${handoff.name}, working in ${handoff.folder}. /home goes back.`);
-    } catch (error) {
-      this.report(error);
-    }
-  }
-
   private async guarded(action: () => Promise<unknown>): Promise<void> {
     try {
       await action();
@@ -293,15 +304,15 @@ export class ChatController {
   }
 }
 
-/** The conversation to open on: `earlier` if the daemon still has it, else home. A conversation
+/** The conversation to open on: `earlier` if the daemon still has it, else the inbox. A conversation
  * without messages isn't saved, so the daemon doesn't know it. */
-async function rejoin(client: ChatClient, earlier: string | null, homeId: string): Promise<string> {
-  if (earlier === null) return homeId;
+async function rejoin(client: ChatClient, earlier: string | null, inboxId: string): Promise<string> {
+  if (earlier === null) return inboxId;
   try {
     await client.resumeThread(earlier);
     return earlier;
   } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return homeId;
+    if (error instanceof ApiError && error.status === 404) return inboxId;
     throw error;
   }
 }

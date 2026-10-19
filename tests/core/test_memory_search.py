@@ -150,7 +150,7 @@ async def _archive_saying(service, texts):
     session = await service.session("owner", "telegram")
     for text in texts:
         await collect(service.send(session, text))
-    await service.new_channel_thread("owner", "telegram")
+    service.leave_thread("owner", session.thread_id)
     await asyncio.gather(*service._background)
     await service.memory_writer.write_all()
 

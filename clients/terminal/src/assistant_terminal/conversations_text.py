@@ -10,6 +10,13 @@ from assistant.core.config import settings
 _PREVIEW = 6
 
 
+def listed_title(conversation: Conversation) -> str:
+    """The inbox by its name, an archived conversation marked."""
+    if conversation.inbox:
+        return "Inbox (quick questions)"
+    return f"{conversation.title} (archived)" if conversation.archived else conversation.title
+
+
 def when(conversation: Conversation) -> str:
     local = datetime.fromisoformat(conversation.updated_at).astimezone(ZoneInfo(settings.timezone))
     return local.strftime("%a %d %b %H:%M")
@@ -20,4 +27,4 @@ def preview(conversation: Conversation, messages: list[ShownMessage]) -> str:
     said = [m for m in messages if m.role in ("user", "assistant")][-_PREVIEW:]
     lines = [f"**{'You' if m.role == 'user' else 'Assistant'}:** {m.text}" for m in said]
     tags = f"Tags: {', '.join(conversation.tags)}\n\n" if conversation.tags else ""
-    return f"### {conversation.title}\n\nLast active {when(conversation)}\n\n{tags}" + "\n\n".join(lines)
+    return f"### {listed_title(conversation)}\n\nLast active {when(conversation)}\n\n{tags}" + "\n\n".join(lines)

@@ -6,6 +6,8 @@
   of its text and thinking as they're written. The worker appends to it.
 - result.json: how it ended. The worker writes it last.
 - stopped: the user stopped it. The daemon writes it.
+- conversation: the conversation handed to the agent that the task answers in (AgentTasks.converse). The
+  daemon writes it before the worker starts.
 - worker.log: the worker's output, for finding out why one failed.
 
 Every file has one writer, so the daemon and the worker never race on one. A task's state comes from
@@ -31,6 +33,7 @@ _PID = "pid"
 _PROGRESS = "progress.log"
 _RESULT = "result.json"
 _STOPPED = "stopped"
+_CONVERSATION = "conversation"
 # How long a task may go without its worker's pid before it counts as a worker that never started.
 _START_SECONDS = 60
 
@@ -118,6 +121,14 @@ class TaskStore:
 
     def mark_stopped(self, task_id: str) -> None:
         (self.folder(task_id) / _STOPPED).write_text(_now())
+
+    def mark_conversation(self, task_id: str, thread_id: str) -> None:
+        (self.folder(task_id) / _CONVERSATION).write_text(thread_id)
+
+    def conversation(self, task_id: str) -> str:
+        """The conversation the task answers in; "" for one it doesn't (start_task)."""
+        path = self.folder(task_id) / _CONVERSATION
+        return path.read_text() if path.is_file() else ""
 
     def progress_after(self, task_id: str, seen: int) -> list[str]:
         """The task's progress lines after the first `seen`, for following it as it goes."""

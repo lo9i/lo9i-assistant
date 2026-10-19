@@ -14,7 +14,7 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from langgraph.store.base import BaseStore
 
 from assistant.core.config import settings
-from assistant.core.conversation import pending, pinned
+from assistant.core.conversation import pending, pinned, prompt_edits
 from assistant.core.conversation.pending import PendingPart
 from assistant.core.conversation.prompt import build_system_prompt
 from assistant.core.conversation.summary import Summarizer
@@ -30,9 +30,11 @@ async def open_epoch(
     """State update that starts an epoch with a freshly built system prompt."""
     name = await load_name(store)
     pinned_skills = await pinned.load(store, user_id, thread_id)
+    texts = await prompt_edits.current()
     return {
-        "system_prompt": await build_system_prompt(store, user_id, name, summary, pinned_skills),
+        "system_prompt": await build_system_prompt(store, user_id, name, summary, pinned_skills, texts),
         "assistant_name": name,
+        "prompt_texts": prompt_edits.digest(texts),
         "pinned_skills": pinned_skills,
         "epoch_summary": summary,
         "epoch_started_at": now.isoformat(),
@@ -50,10 +52,17 @@ async def is_repinned(state: Mapping[str, Any], store: BaseStore, user_id: str, 
     return state.get("pinned_skills", []) != await pinned.load(store, user_id, thread_id)
 
 
+async def is_reworded(state: Mapping[str, Any]) -> bool:
+    """The user edited a prompt text (prompt_edits.py) since this epoch's prompt was built, or an update
+    changed a built-in one."""
+    return state.get("prompt_texts", "") != prompt_edits.digest(await prompt_edits.current())
+
+
 async def reopen(
     state: Mapping[str, Any], store: BaseStore, user_id: str, thread_id: str, now: datetime
 ) -> dict[str, Any]:
-    """A new epoch at the same point, after a rename, a pinned skill or a change in the MCP tools.
+    """A new epoch at the same point, after a rename, a pinned skill, an edited prompt text or a change in
+    the MCP tools.
     Nothing is summarized: the messages stay, only the prompt and tools change (one cache miss)."""
     return await open_epoch(store, user_id, thread_id, now, state.get("epoch_summary", ""))
 

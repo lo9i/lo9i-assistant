@@ -6,9 +6,11 @@ import type { Agent } from "$lib/api/types";
 export type Command = { name: string; usage: string; description: string };
 
 export const COMMANDS: Command[] = [
-  { name: "/new", usage: "/new", description: "Start a side conversation" },
-  { name: "/conversations", usage: "/conversations", description: "Earlier conversations, to resume one" },
-  { name: "/home", usage: "/home", description: "Go back to the home conversation" },
+  { name: "/new", usage: "/new", description: "Start a new conversation" },
+  { name: "/conversations", usage: "/conversations", description: "Your conversations, newest first, to open one" },
+  { name: "/inbox", usage: "/inbox", description: "Back to the inbox: the next message goes where it belongs" },
+  { name: "/move", usage: "/move", description: "Move the last message the inbox sent on to another conversation" },
+  { name: "/notifications", usage: "/notifications", description: "Job results and background work that ended" },
   { name: "/attach", usage: "/attach", description: "Attach files to the next message" },
   { name: "/sessions", usage: "/sessions", description: "Clients connected to the daemon" },
   { name: "/jobs", usage: "/jobs", description: "Scheduled jobs" },

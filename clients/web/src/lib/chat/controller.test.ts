@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { ApiError } from "../api/errors";
-import type { Decision, Handoff, RunEvent, Session } from "../api/types";
+import type { Decision, RunEvent, Session } from "../api/types";
 import { NoticeBoard } from "../notices";
 import { ChatController, type ChatClient } from "./controller";
 
@@ -11,25 +11,32 @@ class FakeDaemon implements ChatClient {
   runs: RunEvent[][] = [];
   decisions: Record<string, Decision>[] = [];
   keepOpen = false;
-  handedTo: string[] = [];
   conversations = {
-    messages: async () => [{ role: "user", text: "earlier", detail: "", output: "" }],
-    handTo: async (threadId: string, command: string, folder: string) => {
-      this.handedTo.push(`${threadId}: /${command} ${folder}`);
-      return { server: "claude-code", command, name: "Claude Code", folder } as Handoff;
-    },
+    messages: async () => [{ role: "user", text: "earlier", detail: "", output: "", dispatch_id: "" }],
   };
 
   sent: string[] = [];
 
-  homeThread = async () => "home";
+  inboxThread = async () => "inbox";
   newThread = async () => "t2";
   resumeThread = async (threadId: string) => {
     if (!this.saved.has(threadId)) throw new ApiError(404, `No conversation ${threadId}.`);
   };
+  left = 0;
+  leaveThread = async () => {
+    this.left += 1;
+  };
   cancel = async () => true;
   send = (session: Session, text: string, _f: File[], signal: AbortSignal) => {
     this.sent.push(`${session.thread_id}: ${text}`);
+    return this.play(signal);
+  };
+  sendDispatched = (session: Session, id: string, text: string, signal: AbortSignal) => {
+    this.sent.push(`${session.thread_id}: ${text} (${id})`);
+    return this.play(signal);
+  };
+  moveDispatched = (session: Session, id: string, signal: AbortSignal) => {
+    this.sent.push(`${session.thread_id}: move ${id}`);
     return this.play(signal);
   };
   resume = (_s: Session, decisions: Record<string, Decision>, signal: AbortSignal) => {
@@ -64,82 +71,28 @@ describe("ChatController", () => {
     expect(texts(chat)).toEqual(["earlier"]);
   });
 
-  it("opens home in a new tab, or when the earlier one was never saved", async () => {
+  it("opens the inbox in a new tab, or when the earlier one was never saved", async () => {
     for (const earlier of [null, "never-written"]) {
       const chat = await ChatController.open(new FakeDaemon(), "web", earlier, new NoticeBoard());
-      expect(chat.getSnapshot().threadId).toBe("home");
+      expect(chat.getSnapshot().threadId).toBe("inbox");
       expect(texts(chat)).toEqual(["earlier"]);
     }
   });
 
-  it("goes back home with its history", async () => {
+  it("goes back to the inbox with its history", async () => {
     const chat = await ChatController.open(new FakeDaemon(), "web", "t1", board);
     await chat.startNew();
-    await chat.goHome();
-    expect(chat.getSnapshot().threadId).toBe("home");
+    await chat.goInbox();
+    expect(chat.getSnapshot().threadId).toBe("inbox");
     expect(texts(chat)).toEqual(["earlier"]);
   });
 
-  it("knows home, so the page can tell a side conversation from it", async () => {
+  it("knows the inbox, so the page can tell a conversation from it", async () => {
     const daemon = new FakeDaemon();
     const chat = await ChatController.open(daemon, "web", "t1", board);
-    expect(chat.getSnapshot()).toMatchObject({ threadId: "t1", homeId: "home" });
-    await chat.goHome();
-    expect(chat.getSnapshot()).toMatchObject({ threadId: "home", homeId: "home" });
-  });
-
-  it("moves to a side conversation with the brief when the user takes the suggestion", async () => {
-    const daemon = new FakeDaemon();
-    const request = { kind: "side_conversation", title: "Taxes", brief: "Do them.", first_message: "Carried over from home: Taxes" };
-    daemon.runs = [
-      [{ type: "ApprovalRequired", interrupt_id: "i1", request }],
-      [{ type: "TextDelta", text: "Moved." }, { type: "Done" }],
-      [{ type: "TextDelta", text: "On it." }, { type: "Done" }],
-    ];
-    const chat = await ChatController.open(daemon, "web", null, board);
-    const sent = chat.send("let's do my taxes", []);
-    await until(() => chat.getSnapshot().approval !== null);
-    chat.answer({ moved: true });
-    await sent;
-    expect(daemon.sent).toEqual(["home: let's do my taxes", "t2: Carried over from home: Taxes"]);
-    expect(chat.getSnapshot().threadId).toBe("t2");
-    expect(texts(chat)).toEqual(["Carried over from home: Taxes", "On it."]);
-  });
-
-  it("hands a coding task's side conversation to its agent before sending it the task", async () => {
-    const daemon = new FakeDaemon();
-    const handoff = { command: "claude", folder: "/repo", name: "Claude Code" };
-    const request = { kind: "side_conversation", title: "Fix tests", brief: "fix them", first_message: "fix them", handoff };
-    daemon.runs = [
-      [{ type: "ApprovalRequired", interrupt_id: "i1", request }],
-      [{ type: "TextDelta", text: "Moved." }, { type: "Done" }],
-      [{ type: "TextDelta", text: "Fixed." }, { type: "Done" }],
-    ];
-    const chat = await ChatController.open(daemon, "web", null, board);
-    const sent = chat.send("fix the tests with claude", []);
-    await until(() => chat.getSnapshot().approval !== null);
-    chat.answer({ moved: true });
-    await sent;
-    expect(daemon.handedTo).toEqual(["t2: /claude /repo"]);
-    expect(daemon.sent).toEqual(["home: fix the tests with claude", "t2: fix them"]);
-  });
-
-  it("goes back to the side conversation the suggestion names", async () => {
-    const daemon = new FakeDaemon();
-    const request = { kind: "side_conversation", title: "Taxes", brief: "Go on.", first_message: "Carried over", thread_id: "t1" };
-    daemon.runs = [
-      [{ type: "ApprovalRequired", interrupt_id: "i1", request }],
-      [{ type: "TextDelta", text: "Moved." }, { type: "Done" }],
-      [{ type: "TextDelta", text: "Back at it." }, { type: "Done" }],
-    ];
-    const chat = await ChatController.open(daemon, "web", null, board);
-    const sent = chat.send("back to my taxes", []);
-    await until(() => chat.getSnapshot().approval !== null);
-    chat.answer({ moved: true });
-    await sent;
-    expect(daemon.sent).toEqual(["home: back to my taxes", "t1: Carried over"]);
-    expect(chat.getSnapshot().threadId).toBe("t1");
-    expect(texts(chat)).toEqual(["earlier", "Carried over", "Back at it."]);
+    expect(chat.getSnapshot()).toMatchObject({ threadId: "t1", inboxId: "inbox" });
+    await chat.goInbox();
+    expect(chat.getSnapshot()).toMatchObject({ threadId: "inbox", inboxId: "inbox" });
   });
 
   it("asks for approvals and resumes the run with the decisions", async () => {
@@ -179,6 +132,61 @@ describe("ChatController", () => {
     expect(texts(chat)).toEqual([]);
     chat.runFinished({ run_id: "r", thread_id: "t1", channel: "web", status: "ok", reply: "all done" });
     expect(board.getSnapshot().at(-1)?.text).toBe("Previous conversation finished: all done");
+  });
+
+  it("goes where the inbox sent a message on and sends it there", async () => {
+    const daemon = new FakeDaemon();
+    const dispatched = {
+      type: "Dispatched",
+      id: "d1",
+      thread_id: "",
+      title: "New conversation",
+      text: "plan my week",
+      line: "→ Started a new conversation.",
+    } as const;
+    daemon.runs = [
+      [dispatched, { type: "Done" }],
+      [{ type: "TextDelta", text: "A plan." }, { type: "Done" }],
+    ];
+    const chat = await ChatController.open(daemon, "web", null, board);
+    await chat.send("plan my week", []);
+    expect(daemon.sent).toEqual(["inbox: plan my week", "t2: plan my week (d1)"]);
+    expect(chat.getSnapshot().threadId).toBe("t2");
+    expect(texts(chat)).toEqual(["plan my week", "A plan."]);
+  });
+
+  it("hands where the inbox sent a message on to whoever shows it, when someone does", async () => {
+    const daemon = new FakeDaemon();
+    daemon.runs = [
+      [
+        { type: "Dispatched", id: "d1", thread_id: "t1", title: "Trip", text: "flights?", line: "→ Continued in “Trip”." },
+        { type: "Done" },
+      ],
+    ];
+    const chat = await ChatController.open(daemon, "web", null, board);
+    const handed: string[] = [];
+    chat.onDispatched = async (d) => void handed.push(d.thread_id);
+    await chat.send("flights?", []);
+    expect(handed).toEqual(["t1"]);
+    expect(chat.getSnapshot().threadId).toBe("inbox");
+    expect(texts(chat)).toEqual(["earlier", "flights?", "→ Continued in “Trip”."]);
+  });
+
+  it("moves a message the inbox sent on and sends it where it goes now", async () => {
+    const daemon = new FakeDaemon();
+    const moved = {
+      type: "Dispatched",
+      id: "d1",
+      thread_id: "t1",
+      title: "Trip",
+      text: "flights?",
+      line: "→ Moved “flights?” to “Trip”.",
+    } as const;
+    daemon.runs = [[moved, { type: "Done" }], [{ type: "Done" }]];
+    const chat = await ChatController.open(daemon, "web", null, board);
+    await chat.move("d1");
+    expect(daemon.sent).toEqual(["inbox: move d1", "t1: flights? (d1)"]);
+    expect(chat.getSnapshot().threadId).toBe("t1");
   });
 
   it("shows a run started elsewhere, not its own", async () => {

@@ -97,6 +97,17 @@ async def test_images_from_tools_go_after_the_results_and_dont_count_as_the_user
     assert fake.requests[0].headers["X-Initiator"] == "agent"
 
 
+async def test_the_assistants_earlier_replies_go_as_text_which_copilot_reads():
+    fake = _Copilot()
+    earlier = AIMessage([{"type": "text", "text": "Pick ", "index": 0}, {"type": "text", "text": "(a) or (b)."}])
+    call = AIMessage([], tool_calls=[{"id": "t1", "name": "bash", "args": {}}])
+    history = [HumanMessage("options?"), earlier, HumanMessage("a"), call, ToolMessage("ok", tool_call_id="t1")]
+    await _model(fake).ainvoke(history)
+    sent = [m for m in json.loads(fake.requests[0].content)["messages"] if m["role"] == "assistant"]
+    assert [m["content"] for m in sent] == ["Pick (a) or (b).", None]
+    assert sent[1]["tool_calls"][0]["id"] == "t1"
+
+
 async def test_a_rejected_token_is_exchanged_again_and_the_request_retried():
     fake = _Copilot()
     fake.reject_next = True

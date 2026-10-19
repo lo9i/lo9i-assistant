@@ -20,7 +20,7 @@ class RunningTask:
     id: str
     # The coding agent's name (Claude Code).
     agent: str
-    # The conversation that started it; "" when it wasn't started with start_task.
+    # The conversation that started it, or the one handed to the agent that it answers in.
     thread_id: str
     # The start of what it was asked.
     asked: str
@@ -47,9 +47,9 @@ class TasksMixin(ServiceBase):
         task = found.state.task
         try:
             state = (await self.agent_tasks.state(task.id)).state
+            origin = await self._task_reports.origin(task.id)
+            thread_id = origin.thread_id if origin else await self.agent_tasks.conversation(task.id)
         except AgentTaskError:
             return None
-        origin = await self._task_reports.origin(task.id)
         steps = [text for step in state.progress if (text := line(step))]
-        thread_id = origin.thread_id if origin else ""
         return RunningTask(task.id, found.agent.name, thread_id, short(task.prompt, _ASKED), task.started_at, steps)

@@ -1,6 +1,6 @@
-"""Earlier conversations: pick one to see how it ended, then resume or delete it. Returns the chosen
-conversation's thread id, or None. The conversation this app is on can't be deleted from here:
-/new moves off it first."""
+"""The conversations, newest activity first, the inbox among them: pick one to see how it ended, then open
+or delete it. Returns the chosen conversation's thread id, or None. The conversation this app is on can't
+be deleted from here: /new moves off it first."""
 
 from typing import ClassVar
 
@@ -14,7 +14,7 @@ from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import ConversationsApi
 from assistant.core.agent import Conversation, ConversationError
-from assistant_terminal.conversations_text import preview, when
+from assistant_terminal.conversations_text import listed_title, preview, when
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
@@ -37,14 +37,14 @@ class ConversationsScreen(ModalScreen[str | None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="conversations"):
             yield Static("Conversations", id="conversations-title")
-            yield Static("No earlier conversations yet.", id="conversations-empty")
+            yield Static("No conversations yet.", id="conversations-empty")
             with Horizontal(id="conversations-main"):
                 yield OptionList(id="conversations-list")
                 yield Static(classes="divider")
                 with VerticalScroll(id="conversations-detail"):
                     yield Markdown(id="conversation-body")
             with Horizontal(id="conversations-buttons"):
-                yield Button("Resume", variant="success", id="resume")
+                yield Button("Open", variant="success", id="resume")
                 yield Button("Delete", variant="error", id="delete")
                 yield Button("Close", id="close")
 
@@ -59,8 +59,7 @@ class ConversationsScreen(ModalScreen[str | None]):
         self._shown = {c.thread_id: c for c in items}
         options = self.query_one("#conversations-list", OptionList)
         options.clear_options()
-        # Only when; the title is in the preview next to the list.
-        options.add_options([Option(f"Home · {when(c)}" if c.home else when(c), id=c.thread_id) for c in items])
+        options.add_options([Option(f"{listed_title(c)}\n{when(c)}", id=c.thread_id) for c in items])
         self.query_one("#conversations").set_class(not items, "empty")
         self.query_one("#resume").display = self.query_one("#delete").display = bool(items)
         if not items:

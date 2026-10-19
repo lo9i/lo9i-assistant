@@ -1,7 +1,8 @@
 """Start at boot: macOS LaunchDaemons for the daemon (and Ollama when it's used), running as the
 user, from boot, without anyone logging in.
 
-Installing needs administrator rights once; macOS shows its standard password dialog.
+Installing needs administrator rights once; macOS shows its standard password dialog. launchd starts the
+daemon again when it crashes, but not when it stops cleanly, so it can be stopped from the app.
 """
 
 import asyncio
@@ -23,11 +24,33 @@ OLLAMA_LABEL = "com.lo9i.ollama"
 _PLIST_DIR = Path("/Library/LaunchDaemons")
 # Set in the plist, so a daemon knows launchd started it.
 MANAGED_ENV = "LO9I_LAUNCHD"
+# Set in plists whose KeepAlive leaves the daemon stopped after it exits cleanly, so stopping it from the
+# app lasts. Plists installed before restart it whatever its exit.
+STAYS_STOPPED_ENV = "LO9I_STAYS_STOPPED"
+# Started again after a crash, or after exiting because another daemon had the socket (EX_TEMPFAIL,
+# daemon/server.py), but not after a clean stop.
+_KEEP_ALIVE = {"SuccessfulExit": False}
 # Where LaunchDaemons installed before the logs moved to their own folder send the daemon's output.
 LEGACY_OUTPUT = Path("~/.lo9i/daemon.log")
 
 
-__all__ = ["StartupError", "disable", "enable", "move_legacy_output", "status"]
+__all__ = ["Service", "StartupError", "disable", "enable", "move_legacy_output", "status"]
+
+
+class Service:
+    """A daemon launchd started stops by exiting cleanly. Stopping it through launchd would need an
+    administrator: a LaunchDaemon belongs to the system."""
+
+    def stop_refusal(self) -> str | None:
+        if os.environ.get(STAYS_STOPPED_ENV) == "1":
+            return None
+        return (
+            "macOS would start the assistant again at once: start at boot was turned on before it could be "
+            "stopped from the app. Turn start at boot off and on again to allow it."
+        )
+
+    async def stop(self, stop: asyncio.Event) -> None:
+        stop.set()
 
 
 def status() -> StartupStatus:
@@ -65,11 +88,16 @@ def daemon_plist() -> bytes:
             "WorkingDirectory": os.getcwd(),
             "UserName": getpass.getuser(),
             "RunAtLoad": True,
-            "KeepAlive": True,
+            "KeepAlive": _KEEP_ALIVE,
             "ThrottleInterval": 10,
             "StandardOutPath": str(output_path()),
             "StandardErrorPath": str(output_path()),
-            "EnvironmentVariables": {"HOME": home, "PATH": os.environ.get("PATH", "/usr/bin:/bin"), MANAGED_ENV: "1"},
+            "EnvironmentVariables": {
+                "HOME": home,
+                "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+                MANAGED_ENV: "1",
+                STAYS_STOPPED_ENV: "1",
+            },
         }
     )
 

@@ -57,6 +57,10 @@ class RunHub:
     def get(self, run_id: str) -> Run | None:
         return self._runs.get(run_id)
 
+    def running(self) -> list[Run]:
+        """The runs still in progress, oldest first."""
+        return [run for run in self._runs.values() if not run.finished]
+
     async def follow(self, run: Run, after: int) -> AsyncIterator[tuple[int, dict[str, Any] | None]]:
         """(event id, event) for events after `after`, then (id, None) once the run is finished."""
         index = after

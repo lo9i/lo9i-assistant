@@ -41,7 +41,7 @@ class ChannelsMixin(ServiceBase):
         return self.channels_hub.items(server.name)
 
     async def channel_commands(self) -> list[dict[str, str]]:
-        """What the channels offer: /new, /home and each agent's command (core/channels/chat/commands.py)."""
+        """What the channels offer: /new and each agent's command (core/channels/chat/commands.py)."""
         return commands.listed(await handoffs.agents(self._storage.store))
 
     def press_channel_action(self, name: str, action: str) -> None:

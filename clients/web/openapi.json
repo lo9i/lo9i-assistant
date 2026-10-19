@@ -283,11 +283,11 @@
         }
       }
     },
-    "/threads/home": {
+    "/threads/inbox": {
       "post": {
-        "summary": "Home Thread",
-        "description": "Moves the calling client to the home conversation, leaving the one it was on.",
-        "operationId": "home_thread_threads_home_post",
+        "summary": "Inbox Thread",
+        "description": "Moves the calling client to the inbox, which routes each message to its conversation, leaving the\none it was on.",
+        "operationId": "inbox_thread_threads_inbox_post",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -305,7 +305,7 @@
     "/threads": {
       "post": {
         "summary": "New Thread",
-        "description": "A new side conversation for the calling client, which leaves the one it was on.",
+        "description": "A new conversation for the calling client, which leaves the one it was on.",
         "operationId": "new_thread_threads_post",
         "responses": {
           "200": {
@@ -314,6 +314,25 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ThreadCreated"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/threads/leave": {
+      "post": {
+        "summary": "Leave Thread",
+        "description": "The calling client closes its conversation without moving to another, as a closed chat tab.",
+        "operationId": "leave_thread_threads_leave_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
                 }
               }
             }
@@ -448,6 +467,115 @@
         }
       }
     },
+    "/threads/{thread_id}/dispatched/{dispatch_id}": {
+      "post": {
+        "summary": "Send Dispatched",
+        "description": "Sends a message the inbox sent on (a Dispatched event) here, as it was written.",
+        "operationId": "send_dispatched_threads__thread_id__dispatched__dispatch_id__post",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          },
+          {
+            "name": "dispatch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dispatch Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Dispatching"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunStarted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/threads/{thread_id}/moves": {
+      "post": {
+        "summary": "Move Dispatched",
+        "description": "Asks in the inbox where a message it sent on goes instead, and sends it on again (a Dispatched\nevent).",
+        "operationId": "move_dispatched_threads__thread_id__moves_post",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Moving"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunStarted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/threads/{thread_id}/approvals": {
       "post": {
         "summary": "Approve",
@@ -529,6 +657,29 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runs": {
+      "get": {
+        "summary": "Runs In Progress",
+        "description": "Replies in progress in any conversation, oldest first. `run` and `run_finished` events tell\nwhen this changes.",
+        "operationId": "runs_in_progress_runs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RunInProgress"
+                  },
+                  "type": "array",
+                  "title": "Response Runs In Progress Runs Get"
                 }
               }
             }
@@ -1598,7 +1749,7 @@
     "/channels/{name}/messages": {
       "post": {
         "summary": "Channel Message",
-        "description": "`voice`: the message was a voice note (Settings \u2192 Audio can speak only those replies).",
+        "description": "`voice`: the message was a voice note (Settings \u2192 Audio can speak only those replies). `reply_to`:\nthe id of the message it replies to, whose conversation it goes on in; `message`: its own id.",
         "operationId": "channel_message_channels__name__messages_post",
         "parameters": [
           {
@@ -2909,6 +3060,103 @@
         }
       }
     },
+    "/notifications": {
+      "get": {
+        "summary": "Notification List",
+        "description": "The newest first.",
+        "operationId": "notification_list_notifications_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Notification"
+                  },
+                  "type": "array",
+                  "title": "Response Notification List Notifications Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Clear Notifications",
+        "operationId": "clear_notifications_notifications_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notifications/read": {
+      "post": {
+        "summary": "Read Notifications",
+        "operationId": "read_notifications_notifications_read_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notifications/{notification_id}": {
+      "delete": {
+        "summary": "Dismiss Notification",
+        "description": "404: no such notification.",
+        "operationId": "dismiss_notification_notifications__notification_id__delete",
+        "parameters": [
+          {
+            "name": "notification_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Notification Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/agent-tasks/running": {
       "get": {
         "summary": "Running Tasks",
@@ -3302,6 +3550,116 @@
         }
       }
     },
+    "/settings/prompts": {
+      "get": {
+        "summary": "Prompt Sections",
+        "operationId": "prompt_sections_settings_prompts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PromptSection"
+                  },
+                  "type": "array",
+                  "title": "Response Prompt Sections Settings Prompts Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/prompts/{name}": {
+      "put": {
+        "summary": "Save Prompt",
+        "description": "404: not a prompt the user can edit. 400: an empty text, or the edit can't be written.",
+        "operationId": "save_prompt_settings_prompts__name__put",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptText"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptSection"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Reset Prompt",
+        "description": "Back to the built-in text. 404: not a prompt the user can edit. 400: the edit can't be deleted.",
+        "operationId": "reset_prompt_settings_prompts__name__delete",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptSection"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/settings/speech": {
       "get": {
         "summary": "Speech Settings",
@@ -3467,6 +3825,61 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/LogLevelSetting"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/dispatch": {
+      "get": {
+        "summary": "Dispatch Setting",
+        "operationId": "dispatch_setting_settings_dispatch_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchSetting"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Dispatch Setting",
+        "description": "400: a confidence outside 0 to 1.",
+        "operationId": "set_dispatch_setting_settings_dispatch_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DispatchSetting"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchSetting"
                 }
               }
             }
@@ -3781,7 +4194,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RestartStatus"
+                  "$ref": "#/components/schemas/ShutdownStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/stop": {
+      "post": {
+        "summary": "Stop Daemon",
+        "operationId": "stop_daemon_system_stop_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShutdownStatus"
                 }
               }
             }
@@ -4135,6 +4566,16 @@
               }
             ],
             "title": "Files"
+          },
+          "reply_to": {
+            "type": "string",
+            "title": "Reply To",
+            "default": ""
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": ""
           }
         },
         "type": "object",
@@ -4390,9 +4831,14 @@
             "type": "array",
             "title": "Tags"
           },
-          "home": {
+          "archived": {
             "type": "boolean",
-            "title": "Home",
+            "title": "Archived",
+            "default": false
+          },
+          "inbox": {
+            "type": "boolean",
+            "title": "Inbox",
             "default": false
           }
         },
@@ -4469,6 +4915,35 @@
           "last_ip"
         ],
         "title": "Device"
+      },
+      "DispatchSetting": {
+        "properties": {
+          "confidence": {
+            "type": "number",
+            "title": "Confidence",
+            "default": 0.7
+          }
+        },
+        "type": "object",
+        "title": "DispatchSetting"
+      },
+      "Dispatching": {
+        "properties": {
+          "channel": {
+            "type": "string",
+            "title": "Channel"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "channel"
+        ],
+        "title": "Dispatching"
       },
       "EmailAccount": {
         "properties": {
@@ -6074,6 +6549,24 @@
         ],
         "title": "ModelValues"
       },
+      "Moving": {
+        "properties": {
+          "channel": {
+            "type": "string",
+            "title": "Channel"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "channel"
+        ],
+        "title": "Moving"
+      },
       "NewMailAlerts": {
         "properties": {
           "channel": {
@@ -6086,6 +6579,58 @@
           "channel"
         ],
         "title": "NewMailAlerts"
+      },
+      "Notification": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "job",
+              "background"
+            ],
+            "title": "Kind"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "thread_id": {
+            "type": "string",
+            "title": "Thread Id",
+            "default": ""
+          },
+          "read": {
+            "type": "boolean",
+            "title": "Read",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "at",
+          "kind",
+          "title",
+          "text",
+          "ok"
+        ],
+        "title": "Notification"
       },
       "Ok": {
         "properties": {
@@ -6224,6 +6769,62 @@
           "items"
         ],
         "title": "ProfileItems"
+      },
+      "PromptSection": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "default": {
+            "type": "string",
+            "title": "Default"
+          },
+          "edited": {
+            "type": "boolean",
+            "title": "Edited"
+          },
+          "problem": {
+            "type": "string",
+            "title": "Problem",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "title",
+          "description",
+          "text",
+          "default",
+          "edited"
+        ],
+        "title": "PromptSection"
+      },
+      "PromptText": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "PromptText"
       },
       "ProviderField": {
         "properties": {
@@ -6431,20 +7032,6 @@
         ],
         "title": "RepositoryUrl"
       },
-      "RestartStatus": {
-        "properties": {
-          "waiting_for_runs": {
-            "type": "integer",
-            "title": "Waiting For Runs"
-          }
-        },
-        "type": "object",
-        "required": [
-          "waiting_for_runs"
-        ],
-        "title": "RestartStatus",
-        "description": "A requested restart: the daemon restarts once these runs end, at once when none."
-      },
       "Revoked": {
         "properties": {
           "ok": {
@@ -6455,6 +7042,29 @@
         },
         "type": "object",
         "title": "Revoked"
+      },
+      "RunInProgress": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "thread_id": {
+            "type": "string",
+            "title": "Thread Id"
+          },
+          "channel": {
+            "type": "string",
+            "title": "Channel"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "thread_id",
+          "channel"
+        ],
+        "title": "RunInProgress"
       },
       "RunRecord": {
         "properties": {
@@ -6642,6 +7252,11 @@
             "type": "string",
             "title": "Output",
             "default": ""
+          },
+          "dispatch_id": {
+            "type": "string",
+            "title": "Dispatch Id",
+            "default": ""
           }
         },
         "type": "object",
@@ -6650,6 +7265,20 @@
           "text"
         ],
         "title": "ShownMessage"
+      },
+      "ShutdownStatus": {
+        "properties": {
+          "waiting_for_runs": {
+            "type": "integer",
+            "title": "Waiting For Runs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "waiting_for_runs"
+        ],
+        "title": "ShutdownStatus",
+        "description": "A requested restart or stop: the daemon restarts or stops once these runs end, at once when none."
       },
       "SignInCode": {
         "properties": {

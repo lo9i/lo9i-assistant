@@ -1,0 +1,1 @@
+The user didn't write this message: it's here because the background work above ended and needs a word now, without waiting for them. Tell them in a few lines what came of it; if it failed, say what went wrong and what you'd do next. Don't start new work unless it was already asked for.

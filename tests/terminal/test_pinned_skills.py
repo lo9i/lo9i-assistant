@@ -3,7 +3,9 @@ from tests.terminal.conftest import wait_for
 
 async def test_pin_and_unpin_show_the_pinned_skills_under_the_title(app, client):
     async with app.run_test() as pilot:
-        thread_id = app.sub_title
+        await pilot.press("ctrl+n")
+        thread_id = "owner:new"
+        await wait_for(pilot, lambda: app.sub_title == thread_id)
         await pilot.click("#prompt")
         await pilot.press(*"/pin coding", "enter")
         await wait_for(pilot, lambda: client.conversations.pins.get(thread_id) == ["coding"])

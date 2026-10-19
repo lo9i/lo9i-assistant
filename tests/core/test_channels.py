@@ -23,7 +23,7 @@ from assistant.core.mcp.install import ServerValues
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.outbox import DeliveryError, Outbox
 
-_COMMANDS = [{"command": "new", "description": "Start a side conversation"}]
+_COMMANDS = [{"command": "new", "description": "Start a new conversation with your next message"}]
 
 
 async def _commands() -> list[dict[str, str]]:
@@ -221,9 +221,11 @@ def test_a_plugin_is_an_mcp_server_a_channel_or_both():
 async def test_the_prompt_says_how_to_write_on_each_installed_channel(service):
     style = "A phone chat. Short messages."
     await servers.save(service.store, McpServer("telegram", channel_command="uv", channel_style=style))
-    await servers.save(service.store, McpServer("off", channel_command="uv", channel_style="Never", enabled=False))
+    await servers.save(
+        service.store, McpServer("off", channel_command="uv", channel_style="Turned off.", enabled=False)
+    )
     prompt = await build_system_prompt(service.store, "owner", "", "")
-    assert f"- telegram: {style}" in prompt and "Never" not in prompt
+    assert f"- telegram: {style}" in prompt and "Turned off." not in prompt
     assert "- web: " in prompt
 
 

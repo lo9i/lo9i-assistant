@@ -3,6 +3,7 @@ nothing summarized away, and a note in that message's turn header."""
 
 import pytest
 
+from assistant.core.agent import Session
 from assistant.core.skills import store
 from assistant.core.skills.store import SkillError
 from tests.conftest import collect
@@ -24,7 +25,7 @@ def _texts(message):
 
 async def test_a_pinned_skill_enters_the_prompt_at_the_next_message(service, script, summaries, coding):
     script.reply("hello").reply("pinned").reply("still")
-    session = await service.session("owner", "cli")
+    session = Session("owner", "cli", await service.new_thread("owner"))
     await _say(service, session, "hi")
     assert await service.pin_skill("owner", session.thread_id, "coding") == ["coding"]
     await _say(service, session, "fix this")
@@ -40,7 +41,7 @@ async def test_a_pinned_skill_enters_the_prompt_at_the_next_message(service, scr
 
 async def test_unpinning_takes_the_skill_out_of_the_prompt(service, script, coding):
     script.reply("one").reply("two")
-    session = await service.session("owner", "cli")
+    session = Session("owner", "cli", await service.new_thread("owner"))
     await service.pin_skill("owner", session.thread_id, "coding")
     await _say(service, session, "hi")
     assert await service.unpin_skill("owner", session.thread_id, "coding") == []
@@ -51,21 +52,21 @@ async def test_unpinning_takes_the_skill_out_of_the_prompt(service, script, codi
 
 
 async def test_pins_belong_to_one_conversation(service, script, coding):
-    first = await service.session("owner", "cli")
+    first = Session("owner", "cli", await service.new_thread("owner"))
     await service.pin_skill("owner", first.thread_id, "coding")
     other = await service.new_thread("owner")
     assert await service.pinned_skills("owner", other) == []
 
 
 async def test_unknown_skills_cant_be_pinned(service, coding):
-    session = await service.session("owner", "cli")
+    session = Session("owner", "cli", await service.new_thread("owner"))
     with pytest.raises(SkillError):
         await service.pin_skill("owner", session.thread_id, "nope")
 
 
 async def test_a_deleted_skill_is_left_out_and_can_still_be_unpinned(service, script, coding):
     script.reply("ok")
-    session = await service.session("owner", "cli")
+    session = Session("owner", "cli", await service.new_thread("owner"))
     await service.pin_skill("owner", session.thread_id, "coding")
     store.delete("coding")
     await _say(service, session, "hi")
@@ -75,7 +76,7 @@ async def test_a_deleted_skill_is_left_out_and_can_still_be_unpinned(service, sc
 
 async def test_deleting_the_conversation_forgets_its_pins(service, script, coding):
     script.reply("ok")
-    session = await service.session("owner", "cli")
+    session = Session("owner", "cli", await service.new_thread("owner"))
     await _say(service, session, "hi")
     await service.pin_skill("owner", session.thread_id, "coding")
     await service.new_thread("owner")

@@ -4,6 +4,8 @@ and facts (digest.py). Off the reply's path, so a new epoch waits only for its s
 The daemon runs it as a supervised task: it writes at start, which catches parts the daemon stopped
 before digesting, and again after every new part. One part at a time, so two digests never save
 over each other's profile. A part that fails stays, and is tried again at the next change or start.
+Stopping cuts a digest short, so a model call that never answers can't hold the daemon's restart:
+the part stays and is written at the next start.
 """
 
 import asyncio
@@ -61,7 +63,7 @@ class MemoryWriter:
         while not stop.is_set():
             # Taken before writing, so a part added during the write starts another one.
             after = self._bus.last_id
-            await self.write_all()
+            await first(stop.wait(), self.write_all())
             await first(stop.wait(), self._next_part(after))
 
     async def write_all(self) -> None:

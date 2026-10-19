@@ -3,12 +3,14 @@
 import asyncio
 import json
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
 import pytest
 
 from assistant.client.daemon_client import DaemonClient
+from assistant.core import notifications
 from assistant.core.agent import (
     InvalidNameError,
     InvalidSearchKeyError,
@@ -16,13 +18,15 @@ from assistant.core.agent import (
     SpeechSettingsError,
 )
 from assistant.core.attachments import Attachment
-from assistant.core.events import ApprovalRequired, Cancelled, Done, ToolFinished
+from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
+from assistant.core.events import ApprovalRequired, Cancelled, Dispatched, Done, ToolFinished
 from assistant.core.internet import brave_key
 from assistant.core.logs import LogWriter, log_sources
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
 from assistant.daemon.runs import RunHub
-from assistant.protocol import CLIENT_HEADER, CLIENT_ID_HEADER, StartupStatus
+from assistant.daemon.shutdown import Ending
+from assistant.protocol import CLIENT_HEADER, CLIENT_ID_HEADER, StartupStatus, StopRefusedError
 from tests.conftest import collect, written
 
 
@@ -53,23 +57,46 @@ class _Startup:
         return StartupStatus(enabled=False, managed=False, includes_ollama=False)
 
 
-class _Restart:
-    def __init__(self) -> None:
-        self.requests = 0
+class _Shutdown:
+    def __init__(self, refusal: str | None = None) -> None:
+        self.requests: list[Ending] = []
+        self._refusal = refusal
 
-    def request(self) -> int:
-        self.requests += 1
+    def request(self, ending: Ending) -> int:
+        if ending is Ending.STOP and self._refusal:
+            raise StopRefusedError(self._refusal)
+        self.requests.append(ending)
         return 2
 
 
-async def test_a_restart_is_requested_and_says_how_many_runs_it_waits_for(service):
-    restart = _Restart()
-    transport = httpx.ASGITransport(app=trusted(create_app(service, RunHub(), restart=restart)))
+@asynccontextmanager
+async def _system(service, shutdown: _Shutdown):
+    transport = httpx.ASGITransport(app=trusted(create_app(service, RunHub(), shutdown=shutdown)))
     async with httpx.AsyncClient(
         transport=transport, base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}
     ) as http:
-        assert (await DaemonClient(http).system.restart()).waiting_for_runs == 2
-    assert restart.requests == 1
+        yield DaemonClient(http).system
+
+
+async def test_a_restart_or_stop_is_requested_and_says_how_many_runs_it_waits_for(service):
+    shutdown = _Shutdown()
+    async with _system(service, shutdown) as system:
+        assert (await system.restart()).waiting_for_runs == 2
+        assert (await system.stop()).waiting_for_runs == 2
+    assert shutdown.requests == [Ending.RESTART, Ending.STOP]
+
+
+async def test_a_stop_the_service_manager_would_undo_is_refused_with_its_reason(service):
+    async with _system(service, _Shutdown(refusal="macOS would start it again")) as system:
+        with pytest.raises(StopRefusedError, match="macOS would start it again"):
+            await system.stop()
+
+
+async def test_stopping_needs_a_paired_device_on_the_network(app):
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}
+    ) as http:
+        assert (await http.post("/system/stop")).status_code == 401
 
 
 async def test_host_describes_the_computer_the_daemon_runs_on(client):
@@ -81,7 +108,7 @@ async def test_host_describes_the_computer_the_daemon_runs_on(client):
 
 async def test_every_json_response_has_a_typed_schema(service):
     """Web clients generate their types from /openapi.json, so no route may answer an untyped object."""
-    openapi = create_app(service, RunHub(), _Startup(), _Restart(), logs=log_sources(LogWriter())).openapi()
+    openapi = create_app(service, RunHub(), _Startup(), _Shutdown(), logs=log_sources(LogWriter())).openapi()
     untyped = [
         f"{method.upper()} {path}"
         for path, operations in openapi["paths"].items()
@@ -99,7 +126,7 @@ async def test_the_web_clients_schema_matches_the_routes(service):
     (`npm run api` in clients/web/) to rewrite it after changing a route."""
     current = (
         json.dumps(
-            create_app(service, RunHub(), _Startup(), _Restart(), logs=log_sources(LogWriter())).openapi(), indent=2
+            create_app(service, RunHub(), _Startup(), _Shutdown(), logs=log_sources(LogWriter())).openapi(), indent=2
         )
         + "\n"
     )
@@ -122,10 +149,10 @@ def _typed(schema: dict) -> bool:
     return "$ref" in schema or bool(schema.get("properties"))
 
 
-async def test_clients_open_on_home_and_new_starts_a_side_conversation(client, service):
-    home = await client.home_thread("owner")
-    assert home == await service.home_thread("owner") == await client.home_thread("owner")
-    assert await client.new_thread("owner") != home
+async def test_clients_go_to_the_inbox_and_new_starts_a_conversation(client, service):
+    inbox = await client.inbox_thread("owner")
+    assert inbox == await service.inbox_thread("owner") == await client.inbox_thread("owner")
+    assert await client.new_thread("owner") != inbox
 
 
 async def test_send_with_attachment_approve_and_resume(client, script):
@@ -139,6 +166,36 @@ async def test_send_with_attachment_approve_and_resume(client, script):
     approval = next(e for e in events if isinstance(e, ApprovalRequired))
     events = await collect(client.resume(session, {approval.interrupt_id: {"approved": False, "reason": "no"}}))
     assert events[0] == ToolFinished("bash", "The user rejected this (no).")
+
+
+async def test_the_inbox_sends_a_message_on_and_the_client_sends_it_where_it_went(dispatch, client, script):
+    inbox = Session("owner", "web", await client.inbox_thread("owner"))
+    [sent] = [e for e in await collect(client.send(inbox, "plan my week")) if isinstance(e, Dispatched)]
+    assert sent.thread_id == "" and sent.text == "plan my week"
+    side = await _new_session(client)
+    script.reply("A plan.")
+    events = await collect(client.send_dispatched(side, sent.id, sent.text))
+    assert isinstance(events[-1], Done)
+    events = await collect(client.move_dispatched(inbox))
+    [asked] = [e for e in events if isinstance(e, ApprovalRequired)]
+    assert asked.request["options"] == ["A new conversation"]
+    assert await client.model.dispatch() == DispatchSetting()
+    assert await client.model.set_dispatch(DispatchSetting(0.5)) == DispatchSetting(0.5)
+    with pytest.raises(DispatchSettingError):
+        await client.model.set_dispatch(DispatchSetting(2))
+
+
+async def test_notifications_are_listed_read_and_dismissed(client, service):
+    first = await notifications.add(service.store, "owner", "job", "Job news", "Read the news.", True)
+    await notifications.add(service.store, "owner", "background", "Trip", "⚠️ It failed.", False, "owner:t1")
+    listed = await client.notifications.list()
+    assert [(n.title, n.thread_id, n.read) for n in listed] == [("Trip", "owner:t1", False), ("Job news", "", False)]
+    await client.notifications.mark_read()
+    assert all(n.read for n in await client.notifications.list())
+    await client.notifications.dismiss(first.id)
+    assert [n.title for n in await client.notifications.list()] == ["Trip"]
+    await client.notifications.clear()
+    assert await client.notifications.list() == []
 
 
 async def test_threads_memory_and_channels(client):
@@ -371,6 +428,22 @@ async def test_plugin_update_routes(client):
     assert await client.repositories.update_checks()
     assert not await client.repositories.set_update_checks(False)
     assert not await client.repositories.update_checks()
+
+
+async def test_prompt_texts_are_listed_edited_and_reset(app):
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=trusted(app)), base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}
+    ) as http:
+        listed = (await http.get("/settings/prompts")).json()
+        assert [s["name"] for s in listed] == ["persona", "operating", "channels"]
+        assert not any(s["edited"] for s in listed)
+        saved = (await http.put("/settings/prompts/persona", json={"text": "You are Lo9i."})).json()
+        assert saved["text"] == "You are Lo9i." and saved["edited"] and saved["default"] != saved["text"]
+        reset = (await http.delete("/settings/prompts/persona")).json()
+        assert reset["text"] == reset["default"] and not reset["edited"]
+        assert (await http.put("/settings/prompts/persona", json={"text": " "})).status_code == 400
+        assert (await http.put("/settings/prompts/title", json={"text": "x"})).status_code == 404
+        assert (await http.delete("/settings/prompts/title")).status_code == 404
 
 
 async def test_rename_the_assistant(client):

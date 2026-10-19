@@ -3,7 +3,7 @@
 from dataclasses import replace
 from datetime import UTC, datetime
 
-from assistant.core import conversations, home
+from assistant.core import conversations, inbox
 from assistant.core.agent.session import Session
 from assistant.core.agent.titles import TitlesMixin
 from assistant.core.context import UNATTENDED_CHANNEL
@@ -16,12 +16,11 @@ __all__ = ["Conversation", "ConversationsMixin", "ShownMessage"]
 
 class ConversationsMixin(TitlesMixin):
     async def list_conversations(self, user_id: str) -> list[Conversation]:
-        """Home first, then newest activity first."""
-        home_id = await home.current(self._storage.store, user_id)
-        listed = [
-            replace(c, home=c.thread_id == home_id) for c in await conversations.recent(self._storage.store, user_id)
+        """Newest activity first, the inbox marked."""
+        inbox_id = await inbox.current(self._storage.store, user_id)
+        return [
+            replace(c, inbox=c.thread_id == inbox_id) for c in await conversations.recent(self._storage.store, user_id)
         ]
-        return sorted(listed, key=lambda c: not c.home)
 
     async def conversation_messages(self, thread_id: str) -> list[ShownMessage]:
         state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
@@ -48,13 +47,14 @@ class ConversationsMixin(TitlesMixin):
 
     async def title_untitled(self, user_id: str) -> int:
         """Titles conversations that only have their first message as a title, or no tags (saved
-        before titles or tags were written, or the model failed). Returns how many were titled."""
-        titled = 0
+        before titles or tags were written, or the model failed while the daemon was down). An archived
+        one keeps its title. They wait to be titled like any whose titling failed, so when the model
+        can't be reached the pass stops at the first, and the next title that succeeds goes on (titles.py).
+        Returns how many were titled."""
         for conversation in await conversations.recent(self._storage.store, user_id):
-            if not (conversation.titled and conversation.tags):
-                state = await self._graph.aget_state({"configurable": {"thread_id": conversation.thread_id}})
-                titled += await self._retitle(user_id, conversation.thread_id, state.values.get("messages", []))
-        return titled
+            if not (conversation.titled and conversation.tags) and not conversation.archived:
+                self._untitled.add((user_id, conversation.thread_id))
+        return await self._title_waiting()
 
     async def fill_channels(self, user_id: str) -> int:
         """Records the channels of conversations listed before channels were recorded, read from

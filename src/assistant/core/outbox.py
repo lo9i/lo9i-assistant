@@ -13,8 +13,9 @@ class DeliveryError(Exception):
 
 
 class Sender(Protocol):
-    async def send(self, text: str) -> None:
-        """Deliver `text` to the user. Raises DeliveryError."""
+    async def send(self, text: str) -> list[str]:
+        """Deliver `text` to the user and return the ids of the messages it took, in the user's own chat on
+        the channel (core/channels/chat/threads.py keeps them with a conversation). Raises DeliveryError."""
         ...
 
 
@@ -32,10 +33,11 @@ class Outbox:
     def channels(self) -> list[str]:
         return sorted(self._senders)
 
-    async def send(self, channel: str, text: str) -> None:
-        """Raises DeliveryError when nothing can deliver on `channel` right now, or delivery fails."""
+    async def send(self, channel: str, text: str) -> list[str]:
+        """The ids of the messages it took. Raises DeliveryError when nothing can deliver on `channel` right
+        now, or delivery fails."""
         sender = self._senders.get(channel)
         if sender is None:
             available = ", ".join(self.channels) or "none"
             raise DeliveryError(f"Can't send on {channel} right now (available: {available}).")
-        await sender.send(text)
+        return await sender.send(text)

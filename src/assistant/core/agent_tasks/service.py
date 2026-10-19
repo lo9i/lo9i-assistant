@@ -81,6 +81,12 @@ class AgentTasks:
         server = await self._owner(task_id)
         return FoundTask(_coding_agent(server), await asyncio.to_thread(_tasks(server).state, task_id))
 
+    async def conversation(self, task_id: str) -> str:
+        """The conversation handed to the agent that the task answers in; "" for a task started with
+        start_task. Raises AgentTaskError for an unknown task."""
+        server = await self._owner(task_id)
+        return await asyncio.to_thread(_tasks(server).conversation, task_id)
+
     async def wait(self, task_id: str, seconds: int, report: Report | None = None) -> FoundTask:
         """The task's state once it ends or `seconds` pass. `report` gets each step it has written and
         writes meanwhile. Raises AgentTaskError for an unknown task."""
@@ -126,6 +132,7 @@ class AgentTasks:
             raise AgentTaskError("Still working on the previous message. Wait for it, or stop it first.")
         session, follows = (previous.session, previous.id) if previous else ("", "")
         task = await asyncio.to_thread(tasks.create, folder, message, session, follows)
+        await asyncio.to_thread(tasks.mark_conversation, task.id, conversation)
         await self._launch(server, tasks, task)
         await asyncio.to_thread(sessions.record, conversation, folder, task)
         return task

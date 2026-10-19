@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 
+from assistant.core import notifications
 from assistant.core.jobs import store
 from assistant.core.jobs.schedule import next_runs
 from assistant.core.jobs.store import Job, RunRecord
@@ -55,6 +56,9 @@ async def test_due_job_runs_unattended_and_records_the_result(service, script):
     assert job.runs[-1].status == "ok" and "today's summary" in job.runs[-1].summary
     assert job.runs[-1].thread_id.startswith("job:daily-news:")
     assert datetime.fromisoformat(job.next_run_at) > now
+    [told] = await notifications.recent(service.store, "owner")
+    assert (told.kind, told.title, told.ok, told.thread_id) == ("job", "Job daily-news", True, "")
+    assert "today's summary" in told.text
 
 
 async def test_denied_action_marks_the_run_as_needing_attention(service, script):
@@ -62,6 +66,8 @@ async def test_denied_action_marks_the_run_as_needing_attention(service, script)
     script.call("bash", command="rm -rf build").reply("couldn't clean up")
     job = await _run_tick(service, now)
     assert job.runs[-1].status == "needs attention"
+    [told] = await notifications.recent(service.store, "owner")
+    assert not told.ok and told.text.startswith("Needs attention: ")
 
 
 async def test_run_missed_beyond_the_grace_window_is_recorded_not_run(service, script):

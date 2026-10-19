@@ -8,6 +8,7 @@ from pathlib import Path
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 
+from assistant.core import inbox
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
 from assistant.core.agent_tasks.service import AgentTaskError
@@ -15,7 +16,7 @@ from assistant.core.agent_tasks.steps import STEPS, AgentSteps
 from assistant.core.conversation import agent_folders, handoffs
 from assistant.core.conversation.agent_folders import AgentFolders, FolderError, FolderListing
 from assistant.core.conversation.handoffs import Agent, Handoff
-from assistant.core.events import Done, Error, Event, TextDelta
+from assistant.core.events import Done, Error, Event
 
 __all__ = ["Agent", "AgentFolders", "FolderError", "FolderListing", "Handoff", "HandoffError", "HandoffsMixin"]
 
@@ -33,8 +34,10 @@ class HandoffsMixin(RunsMixin):
         return await handoffs.current(self._storage.store, user_id, thread_id)
 
     async def hand_conversation(self, user_id: str, thread_id: str, command: str, folder: str) -> Handoff:
-        """From the next message, the agent answers in `folder`. Raises HandoffError for an unknown agent or
-        a folder that doesn't exist."""
+        """From the next message, the agent answers in `folder`. Raises HandoffError for the inbox, which
+        routes every message, an unknown agent or a folder that doesn't exist."""
+        if thread_id == await inbox.current(self._storage.store, user_id):
+            raise HandoffError("The inbox sends each message on, so it can't be handed over: start a conversation.")
         agent = next((a for a in await self.agents() if a.command == command), None)
         if agent is None:
             raise HandoffError(await self._no_agent(command))
@@ -94,9 +97,8 @@ class HandoffsMixin(RunsMixin):
         # Its steps go with the reply, for history; no model call sends response_metadata.
         answer = AIMessage(reply, response_metadata={STEPS: steps.lines})
         await self._graph.aupdate_state(config, {"messages": [message, answer]}, as_node="agent")
-        if not steps.spoke:
-            yield TextDelta(reply)
-        yield Done()
+        for event in [*steps.reply(reply), Done()]:
+            yield event
 
     async def _ask_agent(self, session: Session, handoff: Handoff, said: str, steps: asyncio.Queue[str]) -> str:
         """Raises HandoffError with what went wrong, for the user."""

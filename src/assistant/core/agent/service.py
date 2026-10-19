@@ -7,10 +7,13 @@ from pathlib import Path
 from assistant.core import observability
 from assistant.core.agent.alerts import AlertsMixin
 from assistant.core.agent.archive import ArchiveMixin
+from assistant.core.agent.channel_threads import ChannelThreadsMixin
 from assistant.core.agent.channels import ChannelsMixin
 from assistant.core.agent.devices import DevicesMixin
+from assistant.core.agent.dispatch import DispatchMixin
 from assistant.core.agent.email import EmailMixin
 from assistant.core.agent.files import FilesMixin
+from assistant.core.agent.follow_ups import FollowUpsMixin
 from assistant.core.agent.identity import IdentityMixin
 from assistant.core.agent.jobs import JobsMixin
 from assistant.core.agent.locking import LockingMixin
@@ -19,7 +22,9 @@ from assistant.core.agent.mcp import McpMixin
 from assistant.core.agent.memory import MemoryMixin
 from assistant.core.agent.messaging import MessagingMixin
 from assistant.core.agent.model import ModelMixin, usable_choice
+from assistant.core.agent.notifications import NotificationsMixin
 from assistant.core.agent.pinned import PinnedSkillsMixin
+from assistant.core.agent.prompts import PromptsMixin
 from assistant.core.agent.repositories import RepositoriesMixin
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.sign_ins import SignInsMixin
@@ -65,6 +70,7 @@ from assistant.core.storage import Storage, open_storage
 
 
 class AssistantService(
+    ChannelThreadsMixin,
     ThreadsMixin,
     ArchiveMixin,
     FilesMixin,
@@ -74,13 +80,17 @@ class AssistantService(
     ChannelsMixin,
     McpMixin,
     AlertsMixin,
+    NotificationsMixin,
+    FollowUpsMixin,
     TasksMixin,
     RepositoriesMixin,
     ModelMixin,
     DevicesMixin,
     IdentityMixin,
+    PromptsMixin,
     SpeechMixin,
     LogLevelMixin,
+    DispatchMixin,
     WebSearchMixin,
     SkillsMixin,
     PinnedSkillsMixin,
@@ -130,6 +140,8 @@ class AssistantService(
         self._sign_ins = SignIns()
         self._use_model(model)
         self._background = set()
+        self._untitled = set()
+        self._titling = asyncio.Lock()
         self._conversations_lock = asyncio.Lock()
         self._synthesizer = KokoroSynthesizer()
         self._thread_locks = defaultdict(asyncio.Lock)

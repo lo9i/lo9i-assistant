@@ -18,11 +18,14 @@ from langgraph.types import Send
 from assistant.core.attachments import hydrate
 from assistant.core.config import settings
 from assistant.core.context import Context, require_store
+from assistant.core.conversation.dispatch import build_classifier
+from assistant.core.conversation.dispatch_nodes import ASK, DISPATCH, SEND, dispatch_nodes
 from assistant.core.conversation.epochs import (
     compact,
     is_idle,
     is_renamed,
     is_repinned,
+    is_reworded,
     is_too_large,
     open_epoch,
     reopen,
@@ -56,9 +59,16 @@ class AgentState(MessagesState):
     trimmed_before: int
     # The name in this epoch's system prompt; a rename starts a new epoch.
     assistant_name: str
+    # Where a message in the inbox is going on while it's being routed (conversation/dispatch_nodes.py).
+    dispatching: dict | None
+    # The inbox's quick exchange in progress: the index of its first message and the user's turns in it.
+    inbox_exchange: dict | None
     # The skills pinned to this conversation when the epoch started (conversation/pinned.py), in full in
     # its system prompt; pinning or unpinning one starts a new epoch.
     pinned_skills: list[str]
+    # A digest of the prompt texts the user can edit (conversation/prompt_edits.py) this epoch's system
+    # prompt was built with; an edit starts a new epoch.
+    prompt_texts: str
     # Definitions of the MCP tools this epoch offers, frozen when it starts like the system
     # prompt. When the servers' tools change, the next user message starts a new epoch, or right
     # after offer_plugin when the user installed a server (_installed_node).
@@ -90,7 +100,11 @@ def build_graph(storage: Storage, choice: ModelChoice, summarizer: Summarizer, m
     builder.add_node("agent", _agent_node(llm, tools, choice.provider in IMAGES_IN_TOOL_RESULTS))
     builder.add_node("tools", ToolNode(tools, awrap_tool_call=mcp_calls(mcp)))
     builder.add_node("installed", _installed_node(mcp))
-    builder.add_edge(START, "epoch")
+    dispatch = dispatch_nodes(build_classifier(choice, storage.usage), then="epoch")
+    builder.add_node(DISPATCH, dispatch[DISPATCH], destinations=("epoch", ASK, SEND))
+    builder.add_node(ASK, dispatch[ASK], destinations=(SEND,))
+    builder.add_node(SEND, dispatch[SEND], destinations=(END,))
+    builder.add_edge(START, DISPATCH)
     builder.add_edge("epoch", "agent")
     builder.add_conditional_edges("agent", each_tool_call("tools"), ["tools", END])
     builder.add_edge("tools", "installed")
@@ -129,9 +143,11 @@ async def _epoch_update(
 
 
 async def _prompt_changed(state: AgentState, store: BaseStore, user_id: str, thread_id: str, mcp: McpTools) -> bool:
-    """What the epoch's system prompt or tools were built from changed: the name, the pinned skills
-    or the MCP tools."""
+    """What the epoch's system prompt or tools were built from changed: the name, the pinned skills,
+    the prompt texts the user edits or the MCP tools."""
     if await is_renamed(state, store) or await is_repinned(state, store, user_id, thread_id):
+        return True
+    if await is_reworded(state):
         return True
     return state.get("mcp_tools", []) != mcp.definitions()
 

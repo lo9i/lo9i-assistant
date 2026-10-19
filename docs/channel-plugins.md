@@ -4,10 +4,10 @@ A channel (Telegram, Slack) is a plugin installed from the extras repository. Th
 process and the process talks to the daemon over HTTP, like the apps do, but with a token that only
 reaches its own channel routes.
 
-The daemon does everything that is the assistant's: it runs the conversation, shows each run as chat
-messages (a status message for tool calls, the reply streamed by edits and split to fit), writes the
-approval, question and side-conversation messages and their buttons, and decides what a pressed button
-does (`core/channels/chat/`). The process only connects to its chat service: it sends the daemon what
+The daemon does everything that is the assistant's: it decides which conversation each message goes to,
+runs it, shows each run as chat messages (a status message for tool calls, the reply streamed by edits and
+split to fit, its first message tagged with the conversation, `[watchlist] …`), writes the approval and
+question messages and their buttons, and decides what a pressed button does (`core/channels/chat/`). The process only connects to its chat service: it sends the daemon what
 the user does there (a message, a button pressed, a command) and carries out the chat operations the
 daemon sends back (send, edit, typing, voice). It needs no code from lo9i.
 
@@ -59,9 +59,9 @@ token reaches only `/channels/<its name>/...`; anything else answers 403.
 | `GET /stream` | Server-Sent Events, kept open while the process runs. Each event has an `event:` kind and JSON `data:`. The query gives the channel's limits: `edit_seconds` (the least time between two edits of a message, 1.0 by default), `draft_limit` (a reply is shown as drafts while it's at most this long, 3500), `message_limit` (the longest message; longer replies are split, 3500) and `voice` (it sends voice notes, `false`). While it's open the channel takes chat operations, `send_message` messages and job approvals. A second stream replaces the first. |
 | `PUT /status` | `{"items": [SetupItem, ...]}`: what the apps show for this channel (see below). Send it after connecting and whenever it changes. |
 | `POST /deliveries/{id}` | `{"error": "", "message": ""}`: an operation's result. `error` is empty when it was carried out, otherwise why not; `message` is the id of the message a `send` sent. Unanswered within 30 seconds counts as failed. |
-| `POST /messages` | Multipart form: `chat` (the chat's id in the service), `text`, `voice` (`true` for a voice note: Settings → Audio can speak only those replies) and `files` (repeated). Runs the message in the channel's conversation; what follows comes as operations for that chat. |
+| `POST /messages` | Multipart form: `chat` (the chat's id in the service), `text`, `voice` (`true` for a voice note: Settings → Audio can speak only those replies), `files` (repeated), and optionally `reply_to` (the id of the message it replies to) and `message` (its own id). A reply goes on in the conversation of the message it replies to; any other message goes to the inbox, which routes it to the conversation it's about or a new one (after `/new`: a new one). Send `message` so replying to the user's own message works too. What follows comes as operations for that chat. |
 | `POST /presses` | `{"chat": "...", "message": "...", "text": "...", "data": "..."}`: a button pressed. `message` is the id of the message it's on and `text` that message's text, which the daemon shows again without the buttons; `data` is the button's data, as the daemon gave it. |
-| `POST /commands` | `{"command": "new", "text": ""}`: a command without its slash, and what follows it. `new` starts a side conversation, `home` goes back home, `start` greets, and an agent's command hands the channel's conversation to it (`claude` with a folder in `text`, or `off` to take it back). Returns `{"text": "..."}`, what to answer. A channel is on home until its `/new`. Send every command the user types: the daemon knows which exist. |
+| `POST /commands` | `{"command": "new", "text": ""}`: a command without its slash, and what follows it. `new` sends the next message to a new conversation, `start` greets, and an agent's command hands the conversation the channel last wrote in to it (a new one when that was the inbox; `claude` with a folder in `text`, or `off` to take it back), and the channel's messages go on there until it's taken back. Returns `{"text": "..."}`, what to answer. Send every command the user types: the daemon knows which exist. |
 
 `POST /messages` and `POST /presses` answer at once; the run goes on in the daemon, where the apps see
 it too.
@@ -70,7 +70,7 @@ it too.
 
 | Kind | Data | What the channel does |
 |---|---|---|
-| `hello` | `{"assistant_name": "...", "commands": [{"command", "description"}, ...]}` | First event of every stream. `commands` are what the channel offers its user, without the slash: `new`, `home` and each installed agent's (Telegram's command menu, Slack's manifest). |
+| `hello` | `{"assistant_name": "...", "commands": [{"command", "description"}, ...]}` | First event of every stream. `commands` are what the channel offers its user, without the slash: `new` and each installed agent's (Telegram's command menu, Slack's manifest). |
 | `commands` | `{"commands": [...]}` | The commands changed: an agent plugin was installed or removed. |
 | `renamed` | `{"assistant_name": "..."}` | The assistant was renamed (Telegram renames its bot). |
 | `action` | `{"action": "..."}` | The user pressed a setup button in an app (a SetupItem of kind `action`). |
@@ -80,8 +80,10 @@ it too.
 | `voice` | `{"id", "chat", "audio"}` | Send `audio`, OGG Opus in base64, as a voice note. Only sent when the stream said `voice=true`. |
 
 An operation's `chat` is the id the channel gave in `POST /messages` or `POST /presses`. An empty
-`chat` is the user's own chat on the channel, for what the assistant starts (`send_message`, a
-scheduled job's approval): every paired Telegram account, the owner's Slack DM. Run each operation as
+`chat` is the user's own chat on the channel, for what the assistant starts (`send_message`, the end of
+background work, a scheduled job's approval): every paired Telegram account, the owner's Slack DM. The id a
+`send` there confirms is kept with the conversation that sent it, and a reply naming it in any chat
+(`reply_to`) goes on there; when it went to several paired Telegram accounts, return the last one's. Run each operation as
 it comes and confirm it with its result; the daemon waits for one before sending the next of a turn.
 
 ### SetupItem

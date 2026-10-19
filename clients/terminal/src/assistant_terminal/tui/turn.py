@@ -11,6 +11,7 @@ from textual.widgets.markdown import MarkdownStream
 from assistant.core.events import (
     ApprovalRequired,
     Cancelled,
+    Dispatched,
     Done,
     Error,
     Event,
@@ -43,6 +44,8 @@ class TurnView:
         self._pending: dict[str, list[ToolCall]] = defaultdict(list)
         self._calls: dict[str, ToolCall] = {}
         self._steps: dict[tuple[str, str], list[ToolCall]] = defaultdict(list)
+        # Where home sent the message on, once the run says so; the app goes there after it.
+        self.dispatched: Dispatched | None = None
 
     async def render(self, events: AsyncIterator[Event]) -> list[ApprovalRequired]:
         """Show the events and return the approvals the run is waiting on."""
@@ -77,6 +80,9 @@ class TurnView:
                 await self._thinking(text)
             case Transcribed(text, language):
                 await self._chat.mount(TranscriptNote(text, language))
+            case Dispatched():
+                self.dispatched = event
+                await self._chat.mount(AssistantMessage(event.line))
             case Error(message):
                 await self._chat.mount(ErrorMessage(message))
             case Cancelled():

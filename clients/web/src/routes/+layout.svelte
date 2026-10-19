@@ -8,7 +8,8 @@
   import { EventHub } from "$lib/api/eventHub";
   import { HttpTransport, partClientId } from "$lib/api/transport";
   import { ChatController } from "$lib/chat/controller";
-  import { savedThread } from "$lib/chat/tabThread";
+  import { OpenChats } from "$lib/chat/openChats";
+  import { savedOpen, savedThread } from "$lib/chat/tabThread";
   import type { Daemon } from "$lib/daemon.svelte";
   import { describe, NoticeBoard } from "$lib/notices";
   import { theme } from "$lib/theme.svelte";
@@ -24,8 +25,9 @@
   const standalone = page.url.pathname === resolve("/oauth");
 
   const client = new DaemonClient(new HttpTransport());
-  // The voice button talks in a conversation of its own, under an id the daemon ties to this client.
-  const voiceClient = new DaemonClient(new HttpTransport(partClientId(client.clientId, "voice")));
+  // The voice button and each conversation open beside the first talk under ids the daemon ties to this client.
+  const partClient = (part: string) => new DaemonClient(new HttpTransport(partClientId(client.clientId, part)));
+  const voiceClient = partClient("voice");
   const hub = new EventHub();
   const notices = new NoticeBoard();
   let daemon = $state<Daemon | null>(null);
@@ -82,19 +84,23 @@
 
   async function open(): Promise<void> {
     try {
-      const [chat, voice] = await Promise.all([
-        ChatController.open(client, CHANNEL, savedThread(), notices),
+      const { threads, active } = savedOpen();
+      const [chats, voice] = await Promise.all([
+        OpenChats.open((part) => (part === null ? client : partClient(part)), CHANNEL, threads, active, notices),
         ChatController.open(voiceClient, CHANNEL, savedThread("voice"), notices),
       ]);
-      if (closed) return [chat, voice].forEach((c) => c.close());
-      daemon = { client, hub, notices, chat, voice };
+      if (closed) {
+        chats.closeAll();
+        return voice.close();
+      }
+      daemon = { client, hub, notices, chats, voice };
     } catch (e) {
       lostPairing(e);
     }
   }
 
   function close(): void {
-    daemon?.chat.close();
+    daemon?.chats.closeAll();
     daemon?.voice.close();
   }
 </script>

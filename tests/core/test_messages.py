@@ -9,10 +9,11 @@ class _Sender:
         self.sent: list[str] = []
         self._error = error
 
-    async def send(self, text: str) -> None:
+    async def send(self, text: str) -> list[str]:
         if self._error:
             raise DeliveryError(self._error)
         self.sent.append(text)
+        return [f"m{len(self.sent)}"]
 
 
 async def _send(service, script, **args) -> str:
@@ -26,6 +27,13 @@ async def test_sends_through_the_registered_channel(service, script):
     service.outbox.register("telegram", sender)
     assert await _send(service, script, text="Stretch!", channel="telegram") == "Sent on telegram."
     assert sender.sent == ["Stretch!"]
+
+
+async def test_replying_to_a_message_sent_from_a_conversation_goes_on_there(service, script):
+    service.outbox.register("telegram", _Sender())
+    await _send(service, script, text="Stretch!", channel="telegram")
+    inbox = (await service.session("owner", "cli")).thread_id
+    assert await service.chat_message_thread("owner", "telegram", "42", "m1") == inbox  # in the user's chat 42
 
 
 async def test_reports_channels_that_cant_deliver(service, script):

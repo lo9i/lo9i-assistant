@@ -119,3 +119,14 @@ def test_a_new_event_stream_starts_from_now_and_a_reconnection_resumes():
     assert resume_point(last_id=57, last_event_id=None, after=None) == 57
     assert resume_point(last_id=57, last_event_id="40", after=None) == 40
     assert resume_point(last_id=57, last_event_id=None, after=0) == 0
+
+
+async def test_closing_a_conversation_leaves_it_unless_another_client_is_on_it():
+    clients, left = _registry()
+    clients.on_thread("a", "t1")
+    clients.on_thread("b", "t1")
+    clients.off_thread("a")
+    assert left == [] and clients.on("t1") == ["b"]
+    clients.off_thread("b")
+    clients.off_thread("b")
+    assert left == ["t1"]

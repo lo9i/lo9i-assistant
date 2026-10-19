@@ -74,6 +74,10 @@ class ServiceBase:
     _titler: Titler
     # Background work (archiving) kept referenced until it finishes.
     _background: set[asyncio.Task]
+    # Conversations (user id, thread id) whose titling failed, titled again once the worker model answers
+    # (core/agent/titles.py), and held while a pass titles them.
+    _untitled: set[tuple[str, str]]
+    _titling: asyncio.Lock
     # Conversation records are read, changed and saved by turns, titling and archiving, which
     # run concurrently; each change holds this, so none saves over another's.
     _conversations_lock: asyncio.Lock

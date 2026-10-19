@@ -1,7 +1,6 @@
 """Modal screens opened from the chat: setup (the model, audio, web search, chat channels, email, MCP
 servers, start at boot), browsing (plugins, skills, jobs, files, usage, the daemon's log, connected
-clients), the profile, approvals, questions, the folder an agent works in and the suggestion to move a
-task to a side conversation."""
+clients, notifications), the profile, approvals, questions and the folder an agent works in."""
 
 from assistant_terminal.tui.screens.agent_folder import AgentFolderScreen
 from assistant_terminal.tui.screens.approval import ApprovalScreen
@@ -18,12 +17,12 @@ from assistant_terminal.tui.screens.jobs import JobsScreen
 from assistant_terminal.tui.screens.logs import LogsScreen
 from assistant_terminal.tui.screens.mcp import McpScreen
 from assistant_terminal.tui.screens.model import ModelScreen
+from assistant_terminal.tui.screens.notifications import NotificationsScreen
 from assistant_terminal.tui.screens.plugins import PluginsScreen
 from assistant_terminal.tui.screens.profile import ProfileScreen
 from assistant_terminal.tui.screens.question import QuestionScreen
 from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 from assistant_terminal.tui.screens.sessions import SessionsScreen
-from assistant_terminal.tui.screens.side_conversation import SideConversationScreen
 from assistant_terminal.tui.screens.skills import SkillsScreen
 from assistant_terminal.tui.screens.startup import StartupScreen
 from assistant_terminal.tui.screens.usage import UsageScreen
@@ -45,12 +44,12 @@ __all__ = [
     "LogsScreen",
     "McpScreen",
     "ModelScreen",
+    "NotificationsScreen",
     "PluginsScreen",
     "ProfileScreen",
     "QuestionScreen",
     "RepositoryInstallScreen",
     "SessionsScreen",
-    "SideConversationScreen",
     "SkillsScreen",
     "StartupScreen",
     "UsageScreen",

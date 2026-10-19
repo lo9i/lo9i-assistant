@@ -1,8 +1,9 @@
 """AssistantService: the only core API that gateways use.
 
 The service is a facade (`service.py`) composed of mixins, one per concern:
-threads, files, memory, channels, email, mcp, sign-ins, alerts, tasks, repositories, model, identity, speech,
-log level, web search, skills, pinned skills, jobs, usage, messaging, runs and locking.
+threads, channel threads, files, memory, channels, email, mcp, sign-ins, alerts, notifications, follow-ups, tasks,
+repositories, model, identity, prompts, speech, log level, web search, skills, pinned skills, jobs, usage,
+messaging, runs and locking.
 """
 
 from assistant.core.agent.alerts import Alert
@@ -24,6 +25,8 @@ from assistant.core.agent.mcp import (
 )
 from assistant.core.agent.memory import Episode, Fact, MemoryEditError, MemoryNotFoundError
 from assistant.core.agent.model import ModelOption, ModelProvider, ModelSettingsError, ModelStatus, ProviderField
+from assistant.core.agent.notifications import Notification
+from assistant.core.agent.prompts import PromptEditError, PromptSection, UnknownPromptError
 from assistant.core.agent.repositories import (
     FoundServer,
     InstalledFromRepository,
@@ -92,8 +95,11 @@ __all__ = [
     "ModelProvider",
     "ModelSettingsError",
     "ModelStatus",
+    "Notification",
     "PairingCode",
     "PluginUpdate",
+    "PromptEditError",
+    "PromptSection",
     "ProviderField",
     "Repository",
     "RepositoryContents",
@@ -116,6 +122,7 @@ __all__ = [
     "SpokenReplies",
     "SynthesisError",
     "TokenReport",
+    "UnknownPromptError",
     "UploadedFile",
     "UsageReport",
     "WebSearchStatus",

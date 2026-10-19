@@ -1,6 +1,7 @@
 """Shows one run's events in a chat: a typing indicator, a status message listing tool calls, the reply
-streamed by editing its message, and approval, question or side-conversation buttons. A handed-off
-agent's thinking isn't shown: a chat has room only for what's said and done."""
+streamed by editing its message, its first message tagged with a short name of the conversation
+(`[watchlist] …`), and approval or question buttons. A handed-off agent's thinking isn't shown: a chat has
+room only for what's said and done."""
 
 import asyncio
 import contextlib
@@ -13,11 +14,11 @@ from typing import Any
 from assistant.core.channels.chat.approvals import approval_buttons, approval_text
 from assistant.core.channels.chat.port import ChatLimits, ChatPort
 from assistant.core.channels.chat.questions import question_buttons, question_text
-from assistant.core.channels.chat.side import side_buttons, side_text
 from assistant.core.channels.chat.split import split_text
 from assistant.core.events import (
     ApprovalRequired,
     Cancelled,
+    Dispatched,
     Error,
     Event,
     TextDelta,
@@ -25,7 +26,6 @@ from assistant.core.events import (
     ToolStarted,
     Transcribed,
     is_question,
-    is_side_conversation,
 )
 from assistant.core.outbox import DeliveryError
 
@@ -34,12 +34,16 @@ _DESCRIPTION = 80
 
 
 class ChatTurn:
-    def __init__(self, chat: ChatPort, limits: ChatLimits) -> None:
+    def __init__(self, chat: ChatPort, limits: ChatLimits, thread_id: str = "", tag: str = "") -> None:
         self._chat = chat
         self._limits = limits
         self._status = _StatusMessage(chat, limits)
-        self._reply = _ReplyMessage(chat, limits)
+        self._reply = _ReplyMessage(chat, limits, f"[{tag}] " if tag else "")
         self._final = ""
+        # The conversation the turn runs in.
+        self.thread_id = thread_id
+        # Where the inbox sent the message on, once the turn says so; the chat goes there after it.
+        self.dispatched: Dispatched | None = None
 
     @property
     def final_text(self) -> str:
@@ -72,6 +76,8 @@ class ChatTurn:
                 await self._ask(interrupt_id, request)
             case Transcribed(text, language):
                 await self._chat.send(f"🎤 I heard ({language}): {text or '(no speech)'}")
+            case Dispatched():
+                self.dispatched = event
             case Error(message):
                 await self._chat.send(f"⚠️ {message}")
             case Cancelled():
@@ -80,9 +86,7 @@ class ChatTurn:
                 pass
 
     async def _ask(self, interrupt_id: str, request: dict[str, Any]) -> None:
-        if is_side_conversation(request):
-            await self._chat.send(side_text(request), buttons=side_buttons(interrupt_id))
-        elif is_question(request):
+        if is_question(request):
             await self._chat.send(question_text(request), buttons=question_buttons(interrupt_id, request))
         else:
             await self._chat.send(approval_text(request), buttons=approval_buttons(interrupt_id))
@@ -157,16 +161,20 @@ class _StatusMessage:
 
 
 class _ReplyMessage:
-    """Streams text by editing one message; the final version is sent as Markdown and split if long."""
+    """Streams text by editing one message; the final version is sent as Markdown and split if long. The
+    turn's first reply starts with `tag`."""
 
-    def __init__(self, chat: ChatPort, limits: ChatLimits) -> None:
+    def __init__(self, chat: ChatPort, limits: ChatLimits, tag: str = "") -> None:
         self._chat = chat
         self._limits = limits
+        self._tag = tag
         self._text = ""
         self._message: str | None = None
         self._last_edit = 0.0
 
     async def append(self, text: str) -> None:
+        if not self._text and self._tag:
+            text, self._tag = self._tag + text.lstrip(), ""
         self._text += text
         if (
             len(self._text) <= self._limits.draft_limit

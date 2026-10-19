@@ -1,11 +1,13 @@
 """Starts the daemon: opens the service, serves the API on a Unix socket, on localhost and, when
 configured, over HTTPS for other hosts, and supervises its background tasks, including the chat
-channels' processes. Stops cleanly on SIGINT or SIGTERM, and starts again when asked to restart."""
+channels' processes. Stops cleanly on SIGINT or SIGTERM, and restarts or stops when asked (daemon/shutdown.py)."""
 
 import asyncio
 import contextlib
 import logging
+import os
 import signal
+import sys
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -18,16 +20,16 @@ from assistant.core.agent import AssistantService
 from assistant.core.config import settings
 from assistant.core.internet import browser
 from assistant.core.logs import LogSource, LogWriter, configure, log_sources, output_path, process_output
-from assistant.daemon import https, launchd, pages, systemd
+from assistant.daemon import https, launchd, managers, pages, systemd
 from assistant.daemon.adapters import supervise
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
 from assistant.daemon.mail_watcher import MailWatcher
 from assistant.daemon.pages import create_pages_app
 from assistant.daemon.queued import QueuedMessages
-from assistant.daemon.restart import Restart, exec_again
 from assistant.daemon.runs import RunHub
 from assistant.daemon.scheduler import Scheduler
+from assistant.daemon.shutdown import Ending, Shutdown, exec_again
 from assistant.daemon.startup import Startup
 
 logger = logging.getLogger(__name__)
@@ -41,28 +43,28 @@ class _Server(uvicorn.Server):
         yield
 
 
-async def serve(logs: Mapping[str, LogSource]) -> bool:
-    """Returns whether the daemon stopped to restart."""
+async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
+    """Returns how the daemon ended: None when another daemon was running, STOP when stopped by a signal."""
     stop = _stop_event()
     socket_path = Path(settings.daemon_socket).expanduser()
     if await _already_running(socket_path):
         # One daemon at a time. Started at boot (launchd, systemd), this one is retried and takes over
         # once the other exits.
         logger.info("Another daemon is already running on %s; exiting.", socket_path)
-        return False
+        return None
     socket_path.unlink(missing_ok=True)
     async with AssistantService.open() as service:
         await service.apply_log_level()
-        # Before any request, so no channel message lands in a conversation it's leaving.
-        if moved := await service.channels_to_home(settings.owner_id):
-            logger.info("Moved %s chat channels to the home conversation.", moved)
-        restart = Restart(service, stop)
+        # Before any request, so no message lands in the home conversation it retires.
+        if retired := await service.retire_home(settings.owner_id):
+            logger.info("Kept the home conversation %s as an archived conversation; the inbox replaces it.", retired)
+        shutdown = Shutdown(service, stop, managers.current())
         hub = RunHub(service.bus)
-        app = create_app(service, hub, Startup(stop), restart, logs=logs)
+        app = create_app(service, hub, Startup(stop), shutdown, logs=logs)
         servers = _listeners(app, socket_path)
         page_servers = [_server(create_pages_app(service), **bind) for bind in pages.ports()]
         tasks = [asyncio.create_task(s.serve()) for s in [*servers, *page_servers]]
-        background = [asyncio.create_task(_index_conversations(service)), asyncio.create_task(_prune(service))]
+        background = [asyncio.create_task(_catch_up_conversations(service)), asyncio.create_task(_prune(service))]
         if https.enabled():
             background.append(asyncio.create_task(https.reload_on_renewal(servers[-1], page_servers[-1])))
         scheduler = Scheduler(service)
@@ -94,7 +96,7 @@ async def serve(logs: Mapping[str, LogSource]) -> bool:
             server.should_exit = True
         await asyncio.gather(*tasks, return_exceptions=True)
     socket_path.unlink(missing_ok=True)
-    return restart.requested
+    return shutdown.ending or Ending.STOP
 
 
 def _listeners(app, socket_path: Path) -> list["_Server"]:
@@ -117,26 +119,37 @@ async def _prune(service: AssistantService) -> None:
 
 async def _index_conversations(service: AssistantService) -> None:
     """Lists conversations saved before the conversation list existed, records the channels of
-    those listed before channels were, titles those without a title from the model, and adds
-    messages not yet searchable to the search index (a catch-up; after it, all of this happens as
-    conversations go)."""
+    those listed before channels were, and adds messages not yet searchable to the search index (a
+    catch-up; after it, all of this happens as conversations go)."""
     try:
         added = await service.index_conversations(settings.owner_id)
         filled = await service.fill_channels(settings.owner_id)
-        titled = await service.title_untitled(settings.owner_id)
         searchable = await service.index_messages(settings.owner_id)
     except Exception:
         logger.exception("Couldn't catch up on earlier conversations")
         return
-    if added or filled or titled or searchable:
+    if added or filled or searchable:
         logger.info(
-            "Added %s earlier conversations to the list, recorded channels for %s, titled %s and made %s "
-            "messages searchable.",
+            "Added %s earlier conversations to the list, recorded channels for %s and made %s messages searchable.",
             added,
             filled,
-            titled,
             searchable,
         )
+
+
+async def _catch_up_conversations(service: AssistantService) -> None:
+    """The conversations' catch-up, titling last: it waits on the worker model, which may not answer."""
+    await _index_conversations(service)
+    await _title_untitled(service)
+
+
+async def _title_untitled(service: AssistantService) -> None:
+    """Titles the conversations without a title or tags (core/agent/titles.py)."""
+    try:
+        if titled := await service.title_untitled(settings.owner_id):
+            logger.info("Titled %s earlier conversations.", titled)
+    except Exception:
+        logger.exception("Couldn't title earlier conversations")
 
 
 async def _already_running(socket_path: Path) -> bool:
@@ -177,6 +190,15 @@ def run() -> None:
             launchd.LEGACY_OUTPUT,
         )
     logs = log_sources(writer, process_output(systemd.SERVICE))
-    if asyncio.run(serve(logs)):
+    end(asyncio.run(serve(logs)))
+
+
+def end(ending: Ending | None) -> None:
+    """Restarts in place, or exits: cleanly when stopped, so launchd leaves it stopped (launchd.py)."""
+    if ending is Ending.RESTART:
         logger.info("Restarting the daemon.")
         exec_again()
+    if ending is None:
+        # Not a clean stop, so launchd and systemd try again and this one takes over once the other exits.
+        sys.exit(os.EX_TEMPFAIL)
+    logger.info("The daemon stopped.")

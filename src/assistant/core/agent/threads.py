@@ -4,13 +4,17 @@ from uuid import uuid4
 
 from langchain_core.messages import AIMessage, BaseMessage
 
-from assistant.core import conversations, home, uploads
+from assistant.core import conversations, inbox, notifications, uploads
 from assistant.core.agent.archive import ArchiveMixin
 from assistant.core.agent.session import Session
 from assistant.core.attachments import upload_paths
+from assistant.core.channels.chat import threads as chat_threads
 from assistant.core.config import settings
-from assistant.core.conversation import ended, handoffs, pinned
+from assistant.core.conversation import ended, handoffs, moved, pinned
 from assistant.core.speech.voice import audio_paths
+
+# What the home conversation from before the inbox is listed as.
+_HOME_TITLE = "Home (before the inbox)"
 
 
 class ConversationError(Exception):
@@ -22,63 +26,56 @@ class ConversationBusyError(ConversationError):
 
 
 class ThreadsMixin(ArchiveMixin):
-    """Conversations. A client (terminal, web page) holds its own and says when it leaves one; a
-    channel without a client (Telegram) is on home (core/home.py) unless it started a side
-    conversation with /new, which it keeps here until its /home."""
+    """Conversations. A client (terminal, web page) holds its own and says when it leaves one. A message
+    written outside a conversation goes to the inbox (core/inbox.py), which routes it; a chat channel
+    (Telegram) writes every new message there and keeps the conversation its last one went to."""
 
     async def session(self, user_id: str, channel: str) -> Session:
-        """The channel's current conversation: its side conversation, or home."""
-        thread_id = await home.channel_thread(self._storage.store, user_id, channel)
-        thread_id = thread_id or await self.home_thread(user_id)
-        return Session(user_id=user_id, channel=channel, thread_id=thread_id)
+        """Where the channel writes a new message: the inbox."""
+        return Session(user_id=user_id, channel=channel, thread_id=await self.inbox_thread(user_id))
 
-    async def home_thread(self, user_id: str) -> str:
-        """The home conversation's id, started on first use."""
+    async def inbox_thread(self, user_id: str) -> str:
+        """The inbox's id, started on first use."""
         store = self._storage.store
-        if (thread_id := await home.current(store, user_id)) is None:
+        if (thread_id := await inbox.current(store, user_id)) is None:
             thread_id = await self.new_thread(user_id)
-            await home.start(store, user_id, thread_id)
+            await inbox.start(store, user_id, thread_id)
         return thread_id
 
-    async def channels_to_home(self, user_id: str) -> int:
-        """Moves channels still on a conversation from before home existed to home, once: without a
-        home, every channel's saved conversation predates it (a /new now starts home first). Those
-        conversations are archived in the background. Returns how many channels moved."""
+    async def retire_home(self, user_id: str) -> str | None:
+        """Keeps the home conversation from before the inbox as an archived conversation, once: readable
+        and listed, never routed to, and what's new in it archived into memory in the background. Chat
+        channels were on home or a side conversation; their next message goes to the inbox. Returns the
+        retired conversation's id."""
         store = self._storage.store
-        if await home.current(store, user_id) is not None:
-            return 0
-        saved = await store.asearch(home.channels_namespace(user_id), limit=100)
-        for item in saved:
-            await store.adelete(home.channels_namespace(user_id), item.key)
-            self.leave_thread(user_id, item.value["thread_id"])
-        return len(saved)
+        if (home_id := await inbox.legacy_home(store, user_id)) is None:
+            return None
+        async with self._conversations_lock:
+            await conversations.archive(store, user_id, home_id, _HOME_TITLE)
+        for item in await store.asearch(inbox.channels_namespace(user_id), limit=100):
+            await store.adelete(inbox.channels_namespace(user_id), item.key)
+        await inbox.drop_legacy_home(store, user_id)
+        self.leave_thread(user_id, home_id)
+        self.bus.publish("conversations")
+        return home_id
 
-    async def channel_home(self, user_id: str, channel: str) -> str:
-        """Moves the channel back to home (its /home) and returns home's id. The side conversation
-        it leaves is archived in the background."""
-        previous = await self._storage.store.aget(home.channels_namespace(user_id), channel)
-        if previous is not None:
-            await self._storage.store.adelete(home.channels_namespace(user_id), channel)
-            self.leave_thread(user_id, previous.value["thread_id"])
-        return await self.home_thread(user_id)
+    async def channel_thread(self, user_id: str, channel: str) -> str:
+        """The conversation the channel's last message went to, or the inbox."""
+        return await inbox.channel_thread(self._storage.store, user_id, channel) or await self.inbox_thread(user_id)
+
+    async def channel_wrote(self, user_id: str, channel: str, thread_id: str) -> None:
+        """The channel's message went to `thread_id`. What's new in the conversation its last one went to,
+        when that's another, is archived in the background."""
+        left = await inbox.channel_thread(self._storage.store, user_id, channel)
+        if left == thread_id:
+            return
+        await self._storage.store.aput(inbox.channels_namespace(user_id), channel, {"thread_id": thread_id})
+        if left is not None:
+            self.leave_thread(user_id, left)
 
     async def new_thread(self, user_id: str) -> str:
         """A new conversation's id. It's saved, and listed, once it has a message."""
         return f"{user_id}:{uuid4().hex[:12]}"
-
-    async def new_channel_thread(self, user_id: str, channel: str) -> str:
-        """Start a side conversation for the channel (its /new). What's new in the conversation it
-        leaves, home or another side one, is archived in the background."""
-        thread_id = await self.new_thread(user_id)
-        await self.channel_side(user_id, channel, thread_id)
-        return thread_id
-
-    async def channel_side(self, user_id: str, channel: str, thread_id: str) -> None:
-        """Moves the channel to a side conversation, new or one it had before. What's new in the
-        conversation it leaves is archived in the background."""
-        left = (await self.session(user_id, channel)).thread_id
-        await self._storage.store.aput(home.channels_namespace(user_id), channel, {"thread_id": thread_id})
-        self.leave_thread(user_id, left)
 
     async def require_conversation(self, user_id: str, thread_id: str) -> None:
         """Raises ConversationError unless the conversation exists, before a client resumes it."""
@@ -90,7 +87,9 @@ class ThreadsMixin(ArchiveMixin):
         and voice recordings sent in it. What memory learned from it stays. A channel on it (Telegram) starts
         a new one with its next message. Raises ConversationError for an unknown one,
         ConversationBusyError while a reply is running."""
-        await self.require_conversation(user_id, thread_id)
+        listed = await conversations.load(self._storage.store, user_id, thread_id)
+        if listed is None:
+            raise ConversationError(f"No conversation {thread_id}.")
         if thread_id in self._active_runs:
             raise ConversationBusyError("A reply is still running in this conversation. Stop it first.")
         async with self._thread_lock(thread_id):
@@ -100,17 +99,20 @@ class ThreadsMixin(ArchiveMixin):
             async with self._conversations_lock:
                 await conversations.remove(self._storage.store, user_id, thread_id)
             await self._forget_channel_pointers(user_id, thread_id)
-            await home.forget(self._storage.store, user_id, thread_id)
+            await inbox.forget(self._storage.store, user_id, thread_id)
             await pinned.forget(self._storage.store, user_id, thread_id)
             await handoffs.forget(self._storage.store, user_id, thread_id)
             await ended.forget(self._storage.store, user_id, thread_id)
+            await moved.forget(self._storage.store, user_id, thread_id)
+            await notifications.forget_conversation(self._storage.store, user_id, thread_id)
+            await chat_threads.forget(self._storage.store, user_id, listed.channels, thread_id)
         await asyncio.to_thread(_delete_files, state.values.get("messages", []))
         self.bus.publish("conversations")
 
     async def _forget_channel_pointers(self, user_id: str, thread_id: str) -> None:
-        for item in await self._storage.store.asearch(home.channels_namespace(user_id), limit=100):
+        for item in await self._storage.store.asearch(inbox.channels_namespace(user_id), limit=100):
             if item.value.get("thread_id") == thread_id:
-                await self._storage.store.adelete(home.channels_namespace(user_id), item.key)
+                await self._storage.store.adelete(inbox.channels_namespace(user_id), item.key)
 
     def leave_thread(self, user_id: str, thread_id: str) -> None:
         """Nobody is on the conversation any more: archive what's new in it, in the background."""

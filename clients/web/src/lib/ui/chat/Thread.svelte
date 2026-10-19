@@ -3,6 +3,8 @@
   import Check from "@lucide/svelte/icons/check";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Copy from "@lucide/svelte/icons/copy";
+  import Forward from "@lucide/svelte/icons/forward";
+  import Inbox from "@lucide/svelte/icons/inbox";
   import Paperclip from "@lucide/svelte/icons/paperclip";
   import Sparkle from "@lucide/svelte/icons/sparkle";
   import Sparkles from "@lucide/svelte/icons/sparkles";
@@ -17,12 +19,14 @@
     thinking: boolean;
     name: string;
     onsuggest: (text: string) => void;
+    /** Moves a message the inbox sent on (its record's `dispatchId`) to another conversation; only in the inbox. */
+    onmove?: (dispatchId: string) => void;
     /** Shown after the last message. */
     end?: Snippet;
     /** Keep the newest message in view as content arrives (the live chat). A preview reads from the top. */
     follow?: boolean;
   };
-  let { items, thinking, name, onsuggest, end, follow = true }: Props = $props();
+  let { items, thinking, name, onsuggest, onmove, end, follow = true }: Props = $props();
 
   const SUGGESTIONS = [
     "What do you remember about me?",
@@ -88,6 +92,12 @@
           <button class="round" aria-label="Copy" title="Copy" onclick={() => copy(item.id, item.text)}>
             {#if copied === item.id}<Check size={14} />{:else}<Copy size={14} />{/if}
           </button>
+          {#if item.dispatchId && onmove}
+            {@const dispatchId = item.dispatchId}
+            <button class="round" aria-label="Move" title="Move to another conversation" onclick={() => onmove(dispatchId)}>
+              <Forward size={14} />
+            </button>
+          {/if}
         </div>
       </div>
     {:else if item.kind === "thinking"}
@@ -100,6 +110,15 @@
           <span class="chevron"><ChevronRight size={12} /></span>
         </summary>
         <p class="thought-text">{item.text}</p>
+      </details>
+    {:else if item.kind === "carried"}
+      <details class="tool thought">
+        <summary>
+          <Inbox size={12} />
+          <span>From the inbox</span>
+          <span class="chevron"><ChevronRight size={12} /></span>
+        </summary>
+        <div class="prose carried">{@html markdown(item.text)}</div>
       </details>
     {:else if item.kind === "tool"}
       {@const arg = inlineArg(item.args)}
@@ -136,6 +155,8 @@
         {/if}
         {#if item.output}<pre>{item.output}</pre>{/if}
       </details>
+    {:else if item.kind === "notice"}
+      <p class="text-caption notice"><Inbox size={12} />{item.text}</p>
     {:else if item.kind === "transcript"}
       <p class="text-caption">Heard ({item.language}): {item.text}</p>
     {:else if item.kind === "error"}
@@ -277,6 +298,15 @@
   }
   .thought[open] .preview {
     display: none;
+  }
+  .notice {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .carried {
+    margin-top: 8px;
+    max-width: min(800px, 80vw);
   }
   .thought-text {
     margin-top: 8px;

@@ -1,5 +1,6 @@
 """The LaunchDaemon plist and install commands. Nothing is installed: that needs a password."""
 
+import asyncio
 import plistlib
 import subprocess
 import sys
@@ -11,8 +12,28 @@ from assistant.daemon import launchd
 def test_daemon_plist_runs_this_python_as_this_user_from_boot():
     plist = plistlib.loads(launchd.daemon_plist())
     assert plist["ProgramArguments"] == [sys.executable, "-m", "assistant.daemon"]
-    assert plist["RunAtLoad"] and plist["KeepAlive"] and plist["UserName"]
+    assert plist["RunAtLoad"] and plist["UserName"]
     assert plist["EnvironmentVariables"][launchd.MANAGED_ENV] == "1"
+
+
+def test_launchd_starts_the_daemon_again_unless_it_stopped_cleanly():
+    plist = plistlib.loads(launchd.daemon_plist())
+    assert plist["KeepAlive"] == {"SuccessfulExit": False}
+    assert plist["EnvironmentVariables"][launchd.STAYS_STOPPED_ENV] == "1"
+
+
+async def test_a_daemon_from_a_plist_that_keeps_it_stopped_stops_by_exiting(monkeypatch):
+    monkeypatch.setenv(launchd.STAYS_STOPPED_ENV, "1")
+    stop = asyncio.Event()
+    assert launchd.Service().stop_refusal() is None
+    await launchd.Service().stop(stop)
+    assert stop.is_set()
+
+
+def test_a_daemon_from_an_older_plist_cant_be_stopped(monkeypatch):
+    """Its plist restarts it whatever its exit, so stopping would be a restart."""
+    monkeypatch.delenv(launchd.STAYS_STOPPED_ENV, raising=False)
+    assert "Turn start at boot off and on" in (launchd.Service().stop_refusal() or "")
 
 
 def test_install_commands_quote_paths_and_reload():

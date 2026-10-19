@@ -13,7 +13,7 @@ from langgraph.config import get_store, get_stream_writer
 from langgraph.runtime import get_runtime
 from pydantic import BaseModel, Field
 
-from assistant.core import home
+from assistant.core import inbox
 from assistant.core.agent_tasks.records import TaskState, lost
 from assistant.core.agent_tasks.reports import TaskReports
 from assistant.core.agent_tasks.service import MAX_WAIT_SECONDS, AgentTaskError, AgentTasks, CodingAgent, FoundTask
@@ -25,9 +25,9 @@ from assistant.core.conversation import handoffs, queued
 from assistant.core.conversation.handoffs import Handoff
 from assistant.core.conversation.queued import Queued
 from assistant.core.tools.approval import ask
-from assistant.core.tools.side import moved_out_of_home
+from assistant.core.tools.side import moved_out_of_inbox
 
-# A task's side conversation is titled with the start of the task when the call names none.
+# A task's conversation is titled with the start of the task when the call names none.
 _TITLE = 60
 # Results longer than this are cut in tool output; the whole text stays in the task's result.json.
 _MAX_RESULT = 20_000
@@ -39,15 +39,14 @@ _START = (
     "the goal, the files or area, constraints, how to check the work, and what to report. When it ends, the "
     "user is notified and the next message here says so; task_status follows it sooner (wait_seconds to wait "
     "for it). Continue its work with follow_up_of. Where the user is watching, the task goes to the agent as a "
-    "conversation instead, so they see its work: in a side conversation, that conversation is handed to the agent "
-    "and the task is its next message; in home, the user is first asked to move it to a new side conversation "
-    "handed to the agent."
+    "conversation instead, so they see its work: in a conversation, it's handed to the agent and the task is its "
+    "next message; in the inbox, the task moves to a new conversation handed to the agent."
 )
 
 
 class _Start(BaseModel):
     agent: Annotated[str, Field(description="The coding agent, by the name this tool's description lists")]
-    title: Annotated[str, Field(description="A few words naming the task, for its side conversation")] = ""
+    title: Annotated[str, Field(description="A few words naming the task, for its conversation")] = ""
     repository: Annotated[str, Field(description="Absolute path of the repository or folder to work in")]
     task: Annotated[str, Field(description="The whole brief: goal, constraints, how to check it, what to report")]
     follow_up_of: Annotated[
@@ -102,12 +101,12 @@ def _build(tasks: AgentTasks, reports: TaskReports) -> list[BaseTool]:
     async def start_task(agent: str, repository: str, task: str, title: str = "", follow_up_of: str = "") -> str:
         found = next((a for a in tasks.agents() if a.server == agent), None)
         handoff = {"command": found.command, "folder": repository, "name": found.name} if found else None
-        if handoff and await moved_out_of_home(title or short(task, _TITLE), task, handoff):
+        if handoff and await moved_out_of_inbox(title or short(task, _TITLE), task, handoff):
             return (
-                f"The user moved this task to a side conversation handed to {handoff['name']} in {repository}, "
-                "which gets the task as its first message. Say so in one short line; don't start it here."
+                f"Moved this task to a new conversation handed to {handoff['name']} in {repository}, which gets "
+                "the task as its first message; the user is taken there. Say so in one short line; don't start it here."
             )
-        if found and (where := await _side_conversation(repository)):
+        if found and (where := await _watched_conversation(repository)):
             if rejection := _approve(tasks, agent, f"Hand this conversation to {found.name} in {repository}", task):
                 return rejection
             await _hand_with_task(where, found, repository, task)
@@ -167,15 +166,15 @@ def _build(tasks: AgentTasks, reports: TaskReports) -> list[BaseTool]:
     ]
 
 
-async def _side_conversation(repository: str) -> Origin | None:
-    """The side conversation the user is watching this run in, when the task's folder exists: a task
-    started there is handed to its agent with the conversation. None in home (the user kept it there),
-    in a scheduled run, or for a folder start_task will refuse."""
+async def _watched_conversation(repository: str) -> Origin | None:
+    """The conversation the user is watching this run in, when the task's folder exists: a task started
+    there is handed to its agent with the conversation. None in the inbox (the task moved out of it only
+    when it couldn't, which can't happen here), in a scheduled run, or for a folder start_task will refuse."""
     origin = current_origin()
     if origin is None or get_runtime(Context).context.unattended or not Path(repository).expanduser().is_dir():
         return None
     store = require_store(get_store())
-    return None if origin.thread_id == await home.current(store, origin.user_id) else origin
+    return None if origin.thread_id == await inbox.current(store, origin.user_id) else origin
 
 
 async def _hand_with_task(where: Origin, agent: CodingAgent, repository: str, task: str) -> None:

@@ -35,6 +35,9 @@ CREATE TABLE IF NOT EXISTS message_search_progress (
 
 # Words around each match shown in a result.
 _SNIPPET_WORDS = 32
+# What's indexed of a message as shown: not tool calls, nor a quick exchange carried from the inbox, which
+# the inbox's own messages already are.
+_SAID = {"user", "assistant", "thinking"}
 
 
 @dataclass(frozen=True)
@@ -134,7 +137,7 @@ def _rows(messages: Sequence[BaseMessage], start: int) -> list[_Row]:
         if isinstance(message, HumanMessage):
             at = sent_at(message) or at
         if position >= start:
-            rows += [_Row(m.role, at, m.text) for m in shown([message]) if m.role != "tool" and m.text]
+            rows += [_Row(m.role, at, m.text) for m in shown([message]) if m.role in _SAID and m.text]
     return rows
 
 

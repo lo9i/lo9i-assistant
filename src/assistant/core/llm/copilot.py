@@ -5,6 +5,10 @@ lasts about 30 minutes and names the account's API host. `CopilotAuth` puts the 
 every request, exchanges a new one shortly before it expires, and retries once with a new one when
 the API rejects it. Requests go to Copilot's OpenAI-compatible chat endpoint, including for Claude.
 
+Copilot ignores an assistant message whose content is a list of parts (as LangChain sends the replies
+it keeps, `output_version="v1"`): the model then reads the conversation without its own replies. Its
+text goes as a string instead (`_CopilotChat`).
+
 Copilot counts a premium request for each request the user started. The `X-Initiator` header says
 which these are: `user` when the request answers a user message, `agent` when it continues after
 tool results.
@@ -15,12 +19,14 @@ import json
 import time
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
 from assistant.core.attachments import TOOL_MEDIA_SENDER
+from assistant.core.llm import connections
 
 _EXCHANGE_URL = "https://api.github.com/copilot_internal/v2/token"
 DEFAULT_API = "https://api.githubcopilot.com"
@@ -32,8 +38,6 @@ HEADERS = {
     "Copilot-Integration-Id": "vscode-chat",
     "Openai-Intent": "conversation-edits",
 }
-# Model calls can stream for minutes; connecting shouldn't take long.
-_MODEL_TIMEOUT = httpx.Timeout(600, connect=30)
 # A token this close to expiring is replaced before use.
 _REFRESH_MARGIN_SECONDS = 120
 _TIMEOUT = 20
@@ -42,10 +46,16 @@ _TIMEOUT = 20
 def chat_model(
     model: str, github_token: str, max_tokens: int, transport: httpx.AsyncBaseTransport | None = None
 ) -> ChatOpenAI:
-    """A chat model on Copilot's OpenAI-compatible endpoint. `transport` replaces the network in tests."""
-    tokens = CopilotTokens(github_token, httpx.AsyncClient(transport=transport))
-    http = httpx.AsyncClient(transport=transport, auth=CopilotAuth(tokens), headers=HEADERS, timeout=_MODEL_TIMEOUT)
-    return ChatOpenAI(
+    """A chat model on Copilot's OpenAI-compatible endpoint, on connections that notice when they died
+    (core/llm/connections.py). `transport` replaces the network in tests."""
+    tokens = CopilotTokens(github_token, httpx.AsyncClient(transport=transport or connections.transport()))
+    http = httpx.AsyncClient(
+        transport=transport or connections.transport(),
+        auth=CopilotAuth(tokens),
+        headers=HEADERS,
+        timeout=connections.MODEL_TIMEOUT,
+    )
+    return _CopilotChat(
         model=model,
         base_url=DEFAULT_API,
         # Never sent: CopilotAuth sets the Authorization header on each request.
@@ -76,6 +86,20 @@ def _pickable(model: dict) -> bool:
     """A chat model the account may pick, as Copilot's own model picker shows it."""
     capabilities = model.get("capabilities") or {}
     return bool(model.get("id")) and capabilities.get("type") == "chat" and model.get("model_picker_enabled", True)
+
+
+class _CopilotChat(ChatOpenAI):
+    def _get_request_payload(self, input_: Any, *, stop: list[str] | None = None, **kwargs: Any) -> dict:
+        payload = super()._get_request_payload(input_, stop=stop, **kwargs)
+        for message in payload.get("messages", []):
+            if message.get("role") == "assistant" and isinstance(message.get("content"), list):
+                message["content"] = _text(message["content"])
+        return payload
+
+
+def _text(parts: list[Any]) -> str:
+    """The text of an assistant message's parts, as one string."""
+    return "".join(p["text"] for p in parts if isinstance(p, dict) and p.get("type") == "text")
 
 
 class CopilotAuthError(Exception):

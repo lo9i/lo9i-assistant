@@ -1,12 +1,33 @@
 <script lang="ts">
-  import { RefreshCw } from "@lucide/svelte";
+  import { LoaderCircle, Power, RefreshCw, RotateCcw } from "@lucide/svelte";
   import type { HostStatus } from "$lib/api/types";
-  import { resource } from "$lib/daemon.svelte";
+  import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { CONFIRM, endingText, type Ending } from "$lib/shutdown";
+  import Confirm from "../Confirm.svelte";
+  import Modal from "../Modal.svelte";
   import SettingsCard from "../Card.svelte";
 
+  const { client, hub, notices } = useDaemon();
   // Read when the page opens and when the user refreshes: use changes all the time, so no event announces it.
   const loaded = resource((c) => c.system.host(), []);
   const h = $derived(loaded.data);
+  let confirming = $state<Ending | null>(null);
+  // Set once the daemon accepted a restart or stop; the page waits for it to come back.
+  let ending = $state<{ ending: Ending; text: string } | null>(null);
+
+  // The events stream reconnects on its own; once it does, the daemon is back, maybe with a new web build.
+  $effect(() => {
+    if (ending) return hub.onReconnect(() => location.reload());
+  });
+
+  async function end(kind: Ending): Promise<void> {
+    try {
+      const status = await (kind === "restart" ? client.system.restart() : client.system.stop());
+      ending = { ending: kind, text: endingText(kind, status.waiting_for_runs) };
+    } catch (e) {
+      notices.report(e);
+    }
+  }
 
   function size(bytes: number): string {
     return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
@@ -55,8 +76,31 @@
         </div>
       {/each}
     </dl>
+    <div class="actions">
+      <button class="btn btn--sm" onclick={() => (confirming = "restart")}><RotateCcw size={14} /> Restart</button>
+      <button class="btn btn--sm btn--danger" onclick={() => (confirming = "stop")}><Power size={14} /> Stop</button>
+    </div>
   {/if}
 </SettingsCard>
+
+{#if confirming}
+  {@const kind = confirming}
+  <Confirm
+    {...CONFIRM[kind]}
+    onanswer={(yes) => {
+      confirming = null;
+      if (yes) void end(kind);
+    }}
+  />
+{/if}
+
+{#if ending}
+  <!-- No way to close it: the page has nothing to show until the daemon is back, and then it reloads. -->
+  <Modal title={ending.ending === "restart" ? "Restarting" : "Stopping"} width={440}>
+    <p class="text-label">{ending.text}</p>
+    <p class="text-meta waiting"><LoaderCircle size={14} class="spin" aria-hidden="true" /> Waiting for the assistant…</p>
+  </Modal>
+{/if}
 
 <style>
   dl {
@@ -68,5 +112,31 @@
   dd {
     margin: 4px 0 0;
     overflow-wrap: anywhere;
+  }
+  .actions {
+    display: flex;
+    gap: 8px;
+  }
+  p {
+    margin: 0;
+  }
+  .waiting {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .waiting :global(.spin) {
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .waiting :global(.spin) {
+      animation: none;
+    }
   }
 </style>

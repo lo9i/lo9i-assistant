@@ -1,17 +1,32 @@
 """The terminal app: a turn with tool calls, the approval dialog, memory panel and new conversation."""
 
 import asyncio
-from typing import Any
+from dataclasses import replace
 
 from textual.widgets import Input, Markdown
 
 from assistant.client import DaemonUnavailableError, clipboard
 from assistant.core.attachments import Attachment
 from assistant.core.conversations import Conversation
-from assistant.core.events import ApprovalRequired, Cancelled, Done, TextDelta, Thinking, ToolFinished, ToolStarted
+from assistant.core.events import (
+    Cancelled,
+    Dispatched,
+    Done,
+    TextDelta,
+    Thinking,
+    ToolFinished,
+    ToolStarted,
+)
 from assistant_terminal.tui.attachments import AttachmentBar
-from assistant_terminal.tui.screens import ApprovalScreen, QuestionScreen, SideConversationScreen
-from assistant_terminal.tui.widgets import AssistantMessage, StoppedNote, ThinkingNote, ToolCall, UserMessage
+from assistant_terminal.tui.screens import ApprovalScreen, ConversationsScreen, NotificationsScreen, QuestionScreen
+from assistant_terminal.tui.widgets import (
+    AssistantMessage,
+    StoppedNote,
+    SystemNote,
+    ThinkingNote,
+    ToolCall,
+    UserMessage,
+)
 from tests.terminal.conftest import wait_for
 
 
@@ -75,104 +90,87 @@ async def test_new_conversation_clears_the_chat(app):
         assert len(app.query_one("#chat").children) == 0
 
 
-async def test_home_goes_back_with_its_history(app):
+async def test_the_app_opens_to_the_conversations_and_inbox_shows_them_again(app, client):
     async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: bool(app.query(SystemNote)))
+        assert app.sub_title == "inbox"
+        listed = app.query_one(SystemNote).source
+        assert "**plan my trip**" in listed and "/conversations opens one" in listed
         await pilot.press("ctrl+n")
         await wait_for(pilot, lambda: app.sub_title == "owner:new")
         await pilot.click("#prompt")
-        await pilot.press(*"/home", "enter")
-        await wait_for(pilot, lambda: app.sub_title == "owner:abc" and app.query(UserMessage))
-        assert "plan my trip" in str(app.query_one(UserMessage).render())
+        await pilot.press(*"/inbox", "enter")
+        await wait_for(pilot, lambda: app.sub_title == "inbox" and app.query(SystemNote))
+        assert not app.query(UserMessage)  # the list, not the inbox's own messages
 
 
-async def test_taking_the_suggestion_moves_the_task_to_a_side_conversation(app, client, monkeypatch):
-    request = {"kind": "side_conversation", "title": "Taxes", "brief": "Do them.", "first_message": "Carried over"}
-    sent = []
+async def test_sending_a_message_takes_the_list_away(app, client):
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: bool(app.query(SystemNote)))
+        await pilot.click("#prompt")
+        await pilot.press(*"hi", "enter")
+        await wait_for(pilot, lambda: bool(app.query(UserMessage)))
+        assert not app.query(SystemNote)
 
-    async def send(session, text, attachments=()):
-        sent.append((session.thread_id, text))
-        if len(sent) == 1:
-            yield ApprovalRequired("i1", request)
-        else:
-            yield TextDelta("On it.")
-            yield Done()
 
-    async def resume(session, decisions):
-        client.decisions = decisions
-        yield TextDelta("Moved.")
-        yield Done()
+async def test_conversations_list_titles_and_open_one(app, client):
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/conversations", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
+        options = app.screen.query_one("#conversations-list")
+        assert "plan my trip" in str(options.get_option_at_index(0).prompt)
 
-    monkeypatch.setattr(client, "send", send)
-    monkeypatch.setattr(client, "resume", resume)
+
+async def test_a_notification_opens_the_conversation_its_work_started_in(app, client):
+    at = "2026-10-01T09:00:00+00:00"
+    client.conversations.items.append(Conversation("owner:trip", "Trip", at, at))
+    client.notifications.items[0] = replace(client.notifications.items[0], thread_id="owner:trip")
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/notifications", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, NotificationsScreen))
+        await wait_for(pilot, lambda: all(n.read for n in client.notifications.items))
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: app.sub_title == "owner:trip")
+
+
+async def test_a_job_notification_has_no_conversation_to_open_and_can_be_dismissed(app, client):
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/notifications", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, NotificationsScreen))
+        await pilot.press("down")
+        await wait_for(pilot, lambda: app.screen.query_one("#open").disabled)
+        await pilot.click("#dismiss")
+        await wait_for(pilot, lambda: [n.id for n in client.notifications.items] == ["n1"])
+
+
+async def test_a_message_the_inbox_sends_on_is_sent_where_it_went(app, client):
+    client.conversations.items.append(
+        Conversation("owner:taxes", "Taxes", "2026-10-01T09:00:00+00:00", "2026-10-01T09:00:00+00:00")
+    )
+    client.dispatch_to = Dispatched("d1", "owner:taxes", "Taxes", "what about my taxes?", "→ Continued in “Taxes”.")
     async with app.run_test() as pilot:
         await pilot.click("#prompt")
-        await pilot.press(*"taxes", "enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, SideConversationScreen))
-        await pilot.click("#move")
-        await wait_for(pilot, lambda: len(sent) == 2 and not app._busy)
-        assert client.decisions == {"i1": {"moved": True}}
-        assert sent == [("owner:abc", "taxes"), ("owner:new", "Carried over")]
-        assert [str(m.render()) for m in app.query(UserMessage)] == ["> Carried over"]
+        await pilot.press(*"what about my taxes?", "enter")
+        await wait_for(pilot, lambda: len(client.sent) == 2 and not app._busy)
+        assert client.sent[1] == ("owner:taxes ← d1", [])
+        assert app.sub_title == "owner:taxes"
+        replies = [m.source for m in app.query(AssistantMessage)]
+        assert replies[-1] == "On it."
 
 
-async def test_a_coding_tasks_side_conversation_is_handed_to_its_agent(app, client, monkeypatch):
-    handoff = {"command": "claude", "folder": "/tmp/repo", "name": "Claude Code"}
-    request: dict[str, Any] = {"kind": "side_conversation", "title": "Fix tests", "first_message": "fix them"}
-    request["handoff"] = handoff
-    sent = []
-
-    async def send(session, text, attachments=()):
-        sent.append((session.thread_id, text))
-        if len(sent) == 1:
-            yield ApprovalRequired("i1", request)
-        else:
-            yield Done()
-
-    async def resume(session, decisions):
-        yield Done()
-
-    monkeypatch.setattr(client, "send", send)
-    monkeypatch.setattr(client, "resume", resume)
+async def test_move_asks_in_the_inbox_and_sends_the_message_where_it_goes_now(app, client):
+    client.conversations.items.append(
+        Conversation("owner:taxes", "Taxes", "2026-10-01T09:00:00+00:00", "2026-10-01T09:00:00+00:00")
+    )
+    client.dispatch_to = Dispatched("d1", "owner:taxes", "Taxes", "what about my taxes?", "→ Moved it to “Taxes”.")
     async with app.run_test() as pilot:
         await pilot.click("#prompt")
-        await pilot.press(*"fix the tests", "enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, SideConversationScreen))
-        title = str(app.screen.query_one("#side-conversation-title").render())
-        assert "Move to a side conversation with Claude Code? Fix tests" in title
-        await pilot.click("#move")
-        await wait_for(pilot, lambda: len(sent) == 2 and not app._busy)
-        assert client.conversations.handoffs["owner:new"].folder == "/tmp/repo"
-        assert sent[1] == ("owner:new", "fix them")
-
-
-async def test_continuing_a_side_conversation_goes_back_to_it(app, client, monkeypatch):
-    client.conversations.items.append(Conversation("owner:taxes", "Taxes", "2026-10-01T09:00:00+00:00", ""))
-    request = {"kind": "side_conversation", "title": "Taxes", "brief": "Go on.", "first_message": "Carried over"}
-    request["thread_id"] = "owner:taxes"
-    sent = []
-
-    async def send(session, text, attachments=()):
-        sent.append((session.thread_id, text))
-        if len(sent) == 1:
-            yield ApprovalRequired("i1", request)
-        else:
-            yield Done()
-
-    async def resume(session, decisions):
-        yield Done()
-
-    monkeypatch.setattr(client, "send", send)
-    monkeypatch.setattr(client, "resume", resume)
-    async with app.run_test() as pilot:
-        await pilot.click("#prompt")
-        await pilot.press(*"taxes", "enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, SideConversationScreen))
-        assert "Continue in your side conversation? Taxes" in str(
-            app.screen.query_one("#side-conversation-title").render()
-        )
-        await pilot.click("#move")
-        await wait_for(pilot, lambda: len(sent) == 2 and not app._busy)
-        assert sent == [("owner:abc", "taxes"), ("owner:taxes", "Carried over")]
+        await pilot.press(*"/move", "enter")
+        await wait_for(pilot, lambda: len(client.sent) == 2 and not app._busy)
+        assert client.sent == [("owner:abc moves ", []), ("owner:taxes ← d1", [])]
         assert app.sub_title == "owner:taxes"
 
 

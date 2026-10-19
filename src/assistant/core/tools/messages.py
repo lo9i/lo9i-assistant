@@ -6,7 +6,8 @@ from langchain_core.tools import tool
 from langgraph.prebuilt import ToolRuntime
 from langgraph.store.base import BaseStore
 
-from assistant.core import home
+from assistant.core import inbox
+from assistant.core.channels.chat import threads as chat_threads
 from assistant.core.context import Context, require_store, thread_of
 from assistant.core.conversation import sent
 from assistant.core.outbox import DeliveryError
@@ -24,12 +25,15 @@ async def send_message(text: str, channel: str, runtime: ToolRuntime[Context]) -
     if outbox is None:
         return "Messages can't be sent from here."
     try:
-        await outbox.send(channel, text)
+        sent_ids = await outbox.send(channel, text)
     except DeliveryError as e:
         return await _not_installed(require_store(runtime.store), channel) or str(e)
-    # Sent from the conversation the channel is on (home, often), it's already in its history.
     store, user_id = require_store(runtime.store), runtime.context.user_id
-    if await home.channel_thread(store, user_id, channel) != thread_of(runtime.config):
+    # Replying to it goes on in this conversation; a scheduled job's isn't written in again.
+    if not runtime.context.unattended:
+        await chat_threads.record_own(store, user_id, channel, sent_ids, thread_of(runtime.config))
+    # Sent from the conversation the channel last wrote in, it's already in its history.
+    if await inbox.channel_thread(store, user_id, channel) != thread_of(runtime.config):
         await sent.record(store, user_id, channel, text, datetime.now(UTC))
     return f"Sent on {channel}."
 

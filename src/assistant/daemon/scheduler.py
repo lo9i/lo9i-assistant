@@ -19,6 +19,9 @@ from collections.abc import AsyncIterator, Coroutine, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+from langgraph.store.base import BaseStore
+
+from assistant.core import notifications
 from assistant.core.agent import AssistantService, Session
 from assistant.core.config import settings
 from assistant.core.context import UNATTENDED_CHANNEL
@@ -176,8 +179,18 @@ class Scheduler:
             return
         current.record(run)
         await store.save(self._store, current)
+        if run.status != "skipped":
+            await _notify(self._store, job, run)
         self._service.bus.publish("job", name=job.name, status=run.status, summary=run.summary)
         logger.info("Job %s: %s", job.name, run.status)
+
+
+async def _notify(saved: BaseStore, job: Job, run: RunRecord) -> None:
+    """Into the notifications feed: a run's result, or why it failed or didn't run. A job's run isn't a
+    conversation the user opens, so there's none to link."""
+    ok = run.status == "ok"
+    text = run.summary if ok else f"{run.status.capitalize()}: {run.summary}"
+    await notifications.add(saved, job.user_id, "job", f"Job {job.name}", text, ok)
 
 
 async def _follow(events: AsyncIterator[Event], outcome: _Outcome) -> list[ApprovalRequired]:

@@ -1,20 +1,28 @@
 """Plain line-by-line REPL, used when input or output isn't a terminal (pipes, scripts)."""
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 from assistant.client import DaemonClient, DaemonUnavailableError
 from assistant.client.files import load_attachment
 from assistant.core.agent import Agent, AgentFolders, HandoffError, InvalidNameError, Session, SkillError
 from assistant.core.attachments import Attachment
-from assistant.core.events import ApprovalRequired, is_plugin_offer, is_plugin_setup, is_question, is_side_conversation
+from assistant.core.events import (
+    ApprovalRequired,
+    Dispatched,
+    Event,
+    is_plugin_offer,
+    is_plugin_setup,
+    is_question,
+)
 from assistant_terminal.channels_text import describe as describe_channel
 from assistant_terminal.commands import GET_TO_KNOW_ME, agent_commands, help_lines
-from assistant_terminal.conversations_text import when
+from assistant_terminal.conversations_text import listed_title, when
 from assistant_terminal.jobs_text import summary as jobs_summary
 from assistant_terminal.logs_text import log_line
 from assistant_terminal.mcp_text import shown as shown_servers
 from assistant_terminal.mcp_text import summary as mcp_summary
+from assistant_terminal.notifications_text import notification_line
 from assistant_terminal.plugins_text import from_repositories, source
 from assistant_terminal.render import render
 from assistant_terminal.sessions_text import describe as describe_sessions
@@ -29,12 +37,16 @@ class Repl:
     def __init__(self, service: DaemonClient, session: Session):
         self._service = service
         self._session = session
+        # The REPL starts on the inbox (main.py); a message there goes where it belongs.
+        self._inbox_id = session.thread_id
         self._attachments: list[Attachment] = []
         self._commands: dict[str, Callable[[str], Awaitable[None]]] = {
             "/help": self._help,
             "/new": self._new,
-            "/home": self._home,
+            "/inbox": self._inbox,
+            "/move": self._move,
             "/conversations": self._conversations,
+            "/notifications": self._notifications,
             "/attach": self._attach,
             "/mcp": self._mcp,
             "/startup": self._startup,
@@ -57,7 +69,8 @@ class Repl:
         }
 
     async def loop(self) -> None:
-        print(f"Thread {self._session.thread_id}. /help for commands.")
+        await self._conversations("")
+        print("A message goes on in the conversation it's about, or starts one. /help for commands.")
         while (line := await _read_line(_USER_PROMPT)) is not None and line != "/quit":
             if line or self._attachments:
                 await self._handle(line)
@@ -89,6 +102,8 @@ class Repl:
         folder = arg or await _pick_folder(await self._service.conversations.agent_folders(), agent.name)
         if not folder:
             return
+        if self._session.thread_id == self._inbox_id:
+            await self._new("")  # the inbox sends every message on, so the agent gets a new conversation
         try:
             handoff = await self._service.conversations.hand_to(self._session.thread_id, agent.command, folder)
         except HandoffError as e:
@@ -104,35 +119,31 @@ class Repl:
             print(e)
 
     async def _run_turn(self, text: str, attachments: list[Attachment]) -> None:
-        carried: dict | None = None
-        approvals = await render(self._service.send(self._session, text, attachments))
-        while approvals:
-            decisions = await _collect_decisions(approvals)
-            carried = _moved(approvals, decisions) or carried
-            approvals = await render(self._service.resume(self._session, decisions))
-        if carried is not None:
-            await self._move_to_side(carried)
+        await self._turn(self._service.send(self._session, text, attachments))
 
-    async def _move_to_side(self, request: dict) -> None:
-        """To the side conversation the suggestion names, or a new one, where its brief is sent."""
-        if thread_id := request.get("thread_id"):
-            await self._service.resume_thread(self._session.user_id, str(thread_id))
-            self._session.thread_id = str(thread_id)
-            print(f"Back in {request.get('title')}. /home goes back.")
+    async def _turn(self, events: AsyncIterator[Event]) -> None:
+        """Shows the run, then goes where the inbox sent its message on."""
+        shown = await render(events)
+        dispatched = shown.dispatched
+        while shown.approvals:
+            decisions = await _collect_decisions(shown.approvals)
+            shown = await render(self._service.resume(self._session, decisions))
+            dispatched = dispatched or shown.dispatched
+        if dispatched is not None:
+            await self._go_on(dispatched)
+
+    async def _go_on(self, dispatched: Dispatched) -> None:
+        """The inbox sent the message on: to the conversation it went to, or a new one, where it's sent. The
+        next message goes there too; /inbox goes back."""
+        if dispatched.thread_id:
+            await self._service.resume_thread(self._session.user_id, dispatched.thread_id)
+            self._session.thread_id = dispatched.thread_id
         else:
-            await self._new("")
-            if handoff := request.get("handoff"):
-                await self._hand_new(handoff)
-        await self._run_turn(str(request.get("first_message", "")), [])
-
-    async def _hand_new(self, handoff: dict) -> None:
-        """A coding task's side conversation is handed to its agent."""
-        try:
-            await self._service.conversations.hand_to(self._session.thread_id, handoff["command"], handoff["folder"])
-        except HandoffError as e:
-            print(e)
-            return
-        print(f"Handed to {handoff['name']} in {handoff['folder']}.")
+            self._session.thread_id = await self._service.new_thread(self._session.user_id)
+        print(f"In {dispatched.title}. /inbox goes back.")
+        if dispatched.carried:
+            print(f"From the inbox:\n{dispatched.carried}")
+        await self._turn(self._service.send_dispatched(self._session, dispatched.id, dispatched.text))
 
     async def _get_to_know_me(self, _: str) -> None:
         """In a conversation of its own."""
@@ -145,26 +156,47 @@ class Repl:
 
     async def _new(self, _: str) -> None:
         self._session.thread_id = await self._service.new_thread(self._session.user_id)
-        print(f"Side conversation {self._session.thread_id}. /home goes back.")
+        print(f"New conversation {self._session.thread_id}. /inbox goes back.")
 
-    async def _home(self, _: str) -> None:
-        self._session.thread_id = await self._service.home_thread(self._session.user_id)
-        print(f"Home {self._session.thread_id}.")
+    async def _inbox(self, _: str) -> None:
+        self._session.thread_id = self._inbox_id = await self._service.inbox_thread(self._session.user_id)
+        print("In the inbox: the next message goes on where it belongs.")
+
+    async def _move(self, _: str) -> None:
+        """Asks in the inbox where the last message it sent on goes instead, and goes there."""
+        await self._inbox("")
+        await self._turn(self._service.move_dispatched(self._session))
+
+    async def _notifications(self, arg: str) -> None:
+        """/notifications lists them, numbered, newest first; /notifications <number> opens its conversation."""
+        items = await self._service.notifications.list()
+        if not arg.isdigit():
+            print("\n".join(f"{i}. {notification_line(n)}" for i, n in enumerate(items, 1)) or "No notifications.")
+            await self._service.notifications.mark_read()
+            return
+        index = int(arg) - 1
+        if not 0 <= index < len(items) or not items[index].thread_id:
+            print("No conversation to open for that number.")
+            return
+        await self._open(items[index].thread_id, items[index].title)
+
+    async def _open(self, thread_id: str, title: str) -> None:
+        await self._service.resume_thread(self._session.user_id, thread_id)
+        self._session.thread_id = thread_id
+        print(f"Opened: {title}")
 
     async def _conversations(self, arg: str) -> None:
-        """/conversations lists them, numbered; /conversations <number> resumes one."""
+        """/conversations lists them, numbered, newest first; /conversations <number> opens one."""
         items = await self._service.conversations.recent()
         if not arg.isdigit():
-            lines = [f"{i}. {c.title} ({when(c)})" for i, c in enumerate(items, 1)]
-            print("\n".join(lines) or "No earlier conversations yet.")
+            lines = [f"{i}. {listed_title(c)} ({when(c)})" for i, c in enumerate(items, 1)]
+            print("\n".join(lines) or "No conversations yet.")
             return
         index = int(arg) - 1
         if not 0 <= index < len(items):
             print("No conversation with that number.")
             return
-        await self._service.resume_thread(self._session.user_id, items[index].thread_id)
-        self._session.thread_id = items[index].thread_id
-        print(f"Resumed: {items[index].title}")
+        await self._open(items[index].thread_id, listed_title(items[index]))
 
     async def _plugins(self, _: str) -> None:
         """Lists them, the installed channels' setup and the email accounts; installing, pressing a
@@ -310,14 +342,6 @@ async def _collect_decisions(approvals: list[ApprovalRequired]) -> dict[str, dic
         if is_question(request):
             decisions[approval.interrupt_id] = await _answer_question(request)
             continue
-        if is_side_conversation(request):
-            question = (
-                "Continue in your side conversation?" if request.get("thread_id") else "Move to a side conversation?"
-            )
-            print(paint(YELLOW, f"\n{question} {request.get('title')}\n{request.get('brief')}"))
-            answer = await _read_line("[y/N] ") or ""
-            decisions[approval.interrupt_id] = {"moved": answer.lower() in ("y", "yes")}
-            continue
         if is_plugin_setup(request):
             print(paint(YELLOW, f"\nSet up {request.get('name')} in /plugins in the full app."))
             decisions[approval.interrupt_id] = {"done": True}
@@ -336,14 +360,6 @@ async def _collect_decisions(approvals: list[ApprovalRequired]) -> dict[str, dic
         approved = answer.lower() in ("y", "yes")
         decisions[approval.interrupt_id] = {"approved": approved, "reason": None if approved else answer}
     return decisions
-
-
-def _moved(approvals: list[ApprovalRequired], decisions: dict[str, dict]) -> dict | None:
-    """The side conversation suggestion the user took, if they did."""
-    for approval in approvals:
-        if is_side_conversation(approval.request) and decisions[approval.interrupt_id].get("moved"):
-            return approval.request
-    return None
 
 
 async def _pick_folder(folders: AgentFolders, agent_name: str) -> str | None:

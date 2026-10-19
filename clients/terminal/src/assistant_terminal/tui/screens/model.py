@@ -1,7 +1,10 @@
 """The model the assistant uses: the provider, the values it asks for (keys, URLs, regions) and the
 models. Set here, it overrides .env and applies at once. Saving installs the provider's package the
 first time, then asks each model to answer once, so a wrong key or model id shows right away. Secret
-values are typed here and go straight to the daemon; they're never shown again."""
+values are typed here and go straight to the daemon; they're never shown again.
+
+Below them, how sure the worker model has to be that a message in the inbox continues a conversation for it
+to go there; below that, it starts a new one (core/conversation/dispatch_setting.py)."""
 
 from typing import ClassVar
 
@@ -10,10 +13,11 @@ from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, Input, Markdown, Select
+from textual.widgets import Button, Input, Label, Markdown, Select
 
 from assistant.client.daemon_client import ModelApi
 from assistant.core.agent import ModelProvider, ModelSettingsError, ModelStatus, ProviderField
+from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 
@@ -41,6 +45,11 @@ class ModelScreen(ModalScreen[None]):
                 yield Button("Save and test", variant="success", id="save")
                 yield Button("Use .env instead", id="reset")
                 yield Button("Close", id="close")
+            with Horizontal(id="model-dispatch"):
+                yield Label("Continue a conversation from")
+                yield Input(placeholder="Confidence (0 to 1)", id="dispatch-confidence")
+                yield Button("Save", id="dispatch-save")
+            yield Label("", id="dispatch-message")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
@@ -51,12 +60,31 @@ class ModelScreen(ModalScreen[None]):
         select.set_options([(p.name, p.id) for p in providers])
         select.value = self._status.provider
         await self._show_provider(self._status.provider)
+        self._show_dispatch(await self._model.dispatch())
 
     @reports_daemon_unavailable
     async def reload(self) -> None:
         """Called when the daemon reports a settings change."""
         self._status = await self._model.status()
         await self._show()
+        self._show_dispatch(await self._model.dispatch())
+
+    @on(Button.Pressed, "#dispatch-save")
+    @reports_daemon_unavailable
+    async def _save_dispatch(self) -> None:
+        message = self.query_one("#dispatch-message", Label)
+        typed = self.query_one("#dispatch-confidence", Input).value.strip()
+        try:
+            setting = DispatchSetting(float(typed))
+            self._show_dispatch(await self._model.set_dispatch(setting))
+            message.update("Saved. It applies from your next message.")
+        except DispatchSettingError as e:
+            message.update(str(e))
+        except ValueError:
+            message.update("The confidence is a number from 0 to 1, like 0.7.")
+
+    def _show_dispatch(self, setting: DispatchSetting) -> None:
+        self.query_one("#dispatch-confidence", Input).value = f"{setting.confidence:g}"
 
     @on(Select.Changed, "#model-provider")
     async def _provider_changed(self, event: Select.Changed) -> None:

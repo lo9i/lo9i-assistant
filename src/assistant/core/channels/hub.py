@@ -18,7 +18,7 @@ from uuid import uuid4
 from assistant.core.approvals import RemoteApprovals
 from assistant.core.bus import EventBus
 from assistant.core.channels.chat.approvals import job_approval_buttons, job_approval_text
-from assistant.core.channels.chat.port import ChatLimits, RemoteChat
+from assistant.core.channels.chat.port import OWN_CHAT, ChatLimits, RemoteChat
 from assistant.core.channels.chat.split import split_text
 from assistant.core.outbox import DeliveryError, Outbox
 
@@ -27,8 +27,6 @@ from assistant.core.outbox import DeliveryError, Outbox
 PROTOCOL = 2
 # How long an operation waits for the channel to confirm it.
 DELIVERY_SECONDS = 30.0
-# The chat the user has on a channel, for messages the assistant starts (RemoteChat).
-OWN_CHAT = ""
 
 SetupKind = Literal["text", "code", "copy", "action"]
 # A channel's commands: {"command": "new", "description": "..."} each.
@@ -239,10 +237,10 @@ class _Sender:
     def __init__(self, hub: ChannelHub, channel: str) -> None:
         self._hub, self._channel = hub, channel
 
-    async def send(self, text: str) -> None:
+    async def send(self, text: str) -> list[str]:
         chat = RemoteChat(self._hub, self._channel, OWN_CHAT)
-        for part in split_text(text, self._hub.limits(self._channel).message_limit):
-            await chat.send(part, markdown=True)
+        parts = split_text(text, self._hub.limits(self._channel).message_limit)
+        return [await chat.send(part, markdown=True) for part in parts]
 
 
 class _Forwarder:

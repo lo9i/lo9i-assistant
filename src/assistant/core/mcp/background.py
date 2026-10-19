@@ -36,6 +36,8 @@ class WorkFinished(BaseModel):
     ok: bool = True
     # What came of it, or what went wrong.
     text: str
+    # The assistant tells the user about it at once, unasked, as it does when the work failed.
+    follow_up: bool = False
 
 
 class BackgroundWork(ClientExtension):
@@ -69,4 +71,4 @@ def ended(server: str, finished: WorkFinished) -> Ended:
     notice = f"{'✅' if finished.ok else '⚠️'} {server}: {short(text, _NOTICE)}"
     outcome = "finished" if finished.ok else "failed"
     note = f"The MCP server {server} says its background work {finished.work} {outcome}: {short(text, _NOTE)}"
-    return Ended(f"mcp:{server}:{finished.work}", finished.ok, notice, note)
+    return Ended(f"mcp:{server}:{finished.work}", finished.ok, notice, note, finished.follow_up)

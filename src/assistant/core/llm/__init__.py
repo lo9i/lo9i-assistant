@@ -23,7 +23,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, SecretStr
 
 from assistant.core.config import settings
-from assistant.core.llm import copilot
+from assistant.core.llm import connections, copilot
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.providers import provider
 
@@ -94,6 +94,8 @@ def _openai(choice: ModelChoice, model: str) -> BaseChatModel:
         model=model,
         api_key=SecretStr(key) if key else None,
         base_url=choice.values.get("base_url") or None,
+        # On connections that notice when they died (core/llm/connections.py).
+        http_async_client=connections.client(),
         max_completion_tokens=settings.max_tokens,
         output_version="v1",
         # Ask for token usage on streamed replies too; servers other than OpenAI don't send it unasked.

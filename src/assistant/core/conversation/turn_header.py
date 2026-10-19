@@ -39,6 +39,18 @@ def is_header(block: object) -> bool:
     return isinstance(block, dict) and str(block.get("text", "")).startswith((_SENT, _NOTE))
 
 
+def said(message: BaseMessage) -> str:
+    """The message's text, without its turn header and notes."""
+    blocks = message.content if isinstance(message.content, list) else [{"type": "text", "text": message.content}]
+    texts = [b.get("text", "") for b in blocks if isinstance(b, dict) and b.get("type") == "text" and not is_header(b)]
+    return "\n".join(t for t in texts if t.strip())
+
+
+def is_date_header(block: object) -> bool:
+    """True for the block `header_block` made: the date, time and channel, without the notes after it."""
+    return _channel(block) is not None
+
+
 def channels(messages: Sequence[BaseMessage]) -> list[str]:
     """The channels the user's messages came from, in the order they were first used."""
     found: dict[str, None] = {}

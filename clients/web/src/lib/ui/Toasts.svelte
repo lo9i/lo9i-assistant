@@ -29,8 +29,14 @@
     {@const Icon = ICONS[notice.level]}
     <div class="toast {notice.level}" use:autoDismiss={notice}>
       <span class="icon"><Icon size={18} /></span>
-      <p>{notice.text}</p>
-      <button aria-label="Dismiss" onclick={() => notices.dismiss(notice.id)}><X size={16} /></button>
+      <div class="body">
+        <p>{notice.text}</p>
+        {#if notice.action}
+          {@const action = notice.action}
+          <button class="btn btn--ghost btn--sm action" onclick={() => (notices.dismiss(notice.id), action.run())}>{action.label}</button>
+        {/if}
+      </div>
+      <button class="dismiss" aria-label="Dismiss" onclick={() => notices.dismiss(notice.id)}><X size={16} /></button>
     </div>
   {/each}
 </div>
@@ -87,11 +93,14 @@
     margin: 0;
     line-height: 1.45;
   }
-  button {
+  .dismiss {
     border: 0;
     background: none;
     color: var(--color-text-faint);
     cursor: pointer;
     padding: 0;
+  }
+  .action {
+    margin-top: 8px;
   }
 </style>

@@ -62,15 +62,14 @@ async def test_a_channel_tells_the_apps_what_to_show(app, service):
     assert [(i.kind, i.label) for i in telegram.items] == [("text", "Bot: @lo9i_bot"), ("action", "New")]
 
 
-async def test_commands_move_the_channel_between_home_and_a_side_conversation(app, service):
+async def test_new_sends_the_channels_next_message_to_a_new_conversation(app, service):
     token = service.channels_hub.issue_token("telegram")
     async with _client(app, token) as http:
-        home = (await service.session("owner", "telegram")).thread_id
         reply = await http.post("/channels/telegram/commands", json={"command": "new"})
-        assert reply.json() == {"text": "Started a side conversation. /home goes back."}
-        assert (await service.session("owner", "telegram")).thread_id != home
-        await http.post("/channels/telegram/commands", json={"command": "home"})
-        assert (await service.session("owner", "telegram")).thread_id == home == await service.home_thread("owner")
+        assert reply.json() == {"text": "Your next message starts a new conversation."}
+        assert await service.channel_takes_new("owner", "telegram")
+        reply = await http.post("/channels/telegram/commands", json={"command": "home"})
+        assert reply.json() == {"text": "Unknown command /home."}
 
 
 async def test_a_channel_process_holds_its_stream_and_confirms_deliveries(app, service):

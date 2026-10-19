@@ -31,6 +31,9 @@ def _work(folder: Path, task: dict) -> tuple[bool, str]:
     if prompt == "work out loud":
         _steps(folder, [json.dumps(step) for step in _WORKING])
         return True, "All green."
+    if prompt == "think, then answer":
+        _steps(folder, [json.dumps({"kind": "thinking", "text": "Easy one."})])
+        return True, "Four."
     if prompt == "show your steps":
         _steps(folder, ["Read: README.md", "Ran: pytest"])
     if prompt == "break":

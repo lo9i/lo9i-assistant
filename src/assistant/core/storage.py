@@ -33,6 +33,10 @@ _CHANGE_EVENTS = {
     "threads": "threads",
     "settings": "settings",
     "conversations": "conversations",
+    # Job results and background work that ended (core/notifications.py).
+    "notifications": "notifications",
+    # Messages waiting to be sent in a conversation (core/conversation/queued.py), for the daemon to send.
+    "queued_messages": "queued_messages",
     # Skills pinned to a conversation (core/conversation/pinned.py).
     "pinned_skills": "pinned_skills",
     # Conversations handed to a plugin's agent (core/conversation/handoffs.py).

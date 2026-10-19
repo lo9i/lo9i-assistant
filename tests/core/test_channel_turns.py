@@ -1,5 +1,5 @@
-"""How a run looks in a channel's chat: status messages for tools, the streamed reply, approval,
-question and side-conversation buttons, and long replies split."""
+"""How a run looks in a channel's chat: status messages for tools, the streamed reply tagged with its
+conversation, approval and question buttons, and long replies split."""
 
 import asyncio
 
@@ -12,7 +12,6 @@ from assistant.core.channels.chat.questions import (
     question_buttons,
     question_text,
 )
-from assistant.core.channels.chat.side import parse_side
 from assistant.core.channels.chat.split import split_text
 from assistant.core.channels.chat.turn import ChatTurn
 from assistant.core.events import (
@@ -28,7 +27,6 @@ from assistant.core.events import (
 
 LIMITS = ChatLimits(edit_seconds=0, draft_limit=3500, message_limit=3500)
 _QUESTION = {"kind": "question", "question": "Which sources?", "options": ["Google", "GitHub", "X"], "multiple": True}
-_SIDE = {"kind": "side_conversation", "title": "Taxes", "brief": "Do the 2026 return.", "first_message": "x"}
 
 
 class FakeChat:
@@ -56,14 +54,14 @@ class FakeChat:
         self.voices.append(ogg_opus)
 
 
-async def _render(*events) -> tuple[FakeChat, ChatTurn]:
+async def _render(*events, tag: str = "") -> tuple[FakeChat, ChatTurn]:
     async def stream():
         for event in events:
             await asyncio.sleep(0)
             yield event
 
     chat = FakeChat()
-    turn = ChatTurn(chat, LIMITS)
+    turn = ChatTurn(chat, LIMITS, "t1", tag)
     await turn.render(stream())
     return chat, turn
 
@@ -109,12 +107,18 @@ async def test_a_long_reply_is_split_to_fit_the_channel():
     assert len(chat.messages) > 1 and all(len(m) <= 3500 for m in chat.messages.values())
 
 
-async def test_questions_and_suggestions_show_their_buttons():
-    chat, _ = await _render(ApprovalRequired("q1", _QUESTION), ApprovalRequired("i1", _SIDE), Done())
-    question, side = [entry for entry in chat.log if entry[0] == "send"]
+async def test_a_question_shows_its_buttons():
+    chat, _ = await _render(ApprovalRequired("q1", _QUESTION), Done())
+    [question] = [entry for entry in chat.log if entry[0] == "send"]
     assert (question[2], question[4]) == (question_text(_QUESTION), question_buttons("q1", _QUESTION))
-    assert side[2] == "Move to a side conversation? Taxes\n\nDo the 2026 return."
-    assert side[4] == [("➡️ Move", "sm:i1"), ("Keep it here", "sk:i1")]
+
+
+async def test_the_first_reply_is_tagged_with_its_conversation():
+    chat, turn = await _render(
+        TextDelta("Booked."), ToolStarted("bash", {"command": "ls"}), TextDelta("Done."), Done(), tag="watchlist"
+    )
+    assert list(chat.messages.values()) == ["[watchlist] Booked.", "⏺ bash(ls)", "Done."]
+    assert turn.final_text == "Done." and turn.thread_id == "t1"
 
 
 def test_toggles_carry_the_picks_and_done_answers_with_them():
@@ -138,8 +142,6 @@ def test_buttons_are_told_apart_by_their_data():
     assert [data for _, data in job_approval_buttons("i1")] == ["ja:i1", "jr:i1"]
     assert parse_job_decision("jr:i1", "Slack") == ("i1", {"approved": False, "reason": "rejected in Slack"})
     assert parse_job_decision("a:i1", "Telegram") is None and parse_decision("ja:i1", "Telegram") is None
-    assert parse_side("sm:i1") == ("i1", True) and parse_side("sk:i1") == ("i1", False)
-    assert parse_side("a:i1") is None and parse_side("sm:") is None
 
 
 def test_split_text_respects_the_limit():

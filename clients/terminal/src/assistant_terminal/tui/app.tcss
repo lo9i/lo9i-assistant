@@ -83,6 +83,24 @@ ThinkingNote .thinking-text {
     padding: 0 0 0 2;
 }
 
+.follow-up-note {
+    margin: 1 0 0 0;
+    color: ansi_bright_black;
+}
+
+CarriedNote {
+    margin: 1 0 0 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: ansi_bright_black;
+}
+
+CarriedNote .carried-text {
+    padding: 0 0 0 2;
+    background: transparent;
+}
+
 ToolCall .tool-result {
     color: ansi_bright_black;
     padding: 0 0 0 2;
@@ -198,6 +216,20 @@ ModalScreen Markdown > MarkdownHeader:first-child {
 
 #profile-buttons Button, #web-search-buttons Button, #email-buttons Button, #email-recipients-buttons Button, #channel-setup-buttons Button, #startup-buttons Button, #host-buttons Button, #mcp-add-buttons Button, #mcp-secrets-buttons Button, #mcp-sign-in-buttons Button, #model-buttons Button, #audio-buttons Button, #skill-edit-buttons Button, #repository-buttons Button {
     margin-right: 2;
+}
+
+/* Sending messages on from Chat, under the model in /model. */
+#model-dispatch {
+    height: auto;
+    margin-top: 1;
+}
+
+#model-dispatch Label {
+    padding: 1 1 0 0;
+}
+
+#model-dispatch Input {
+    width: 24;
 }
 
 /* A channel's setup in /plugins, drawn from the items it sends. */
@@ -412,11 +444,11 @@ ModalScreen Input, ModalScreen OptionList, ModalScreen MarkdownHeader {
     border: round #2f343f;
 }
 
-SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, SessionsScreen, McpScreen, LogsScreen {
+SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, SessionsScreen, McpScreen, LogsScreen, NotificationsScreen {
     align: center middle;
 }
 
-#skills, #jobs, #conversations, #devices, #files, #usage, #sessions, #mcp, #plugins, #logs {
+#skills, #jobs, #conversations, #devices, #files, #usage, #sessions, #mcp, #plugins, #logs, #notifications {
     width: 90%;
     max-width: 120;
     height: 80%;
@@ -430,26 +462,26 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     margin: 0;
 }
 
-#skills-title, #jobs-title, #conversations-title, #devices-title, #files-title, #mcp-title, #plugins-title {
+#skills-title, #jobs-title, #conversations-title, #devices-title, #files-title, #mcp-title, #plugins-title, #notifications-title {
     height: auto;
     text-style: bold;
     margin-bottom: 1;
 }
 
-#skills-empty, #jobs-empty, #conversations-empty, #mcp-empty, #plugins-empty {
+#skills-empty, #jobs-empty, #conversations-empty, #mcp-empty, #plugins-empty, #notifications-empty {
     display: none;
     height: auto;
 }
 
-#skills.empty, #jobs.empty, #conversations.empty, #mcp.empty, #plugins.empty {
+#skills.empty, #jobs.empty, #conversations.empty, #mcp.empty, #plugins.empty, #notifications.empty {
     height: auto;
 }
 
-#skills.empty #skills-main, #jobs.empty #jobs-main, #conversations.empty #conversations-main, #mcp.empty #mcp-main, #plugins.empty #plugins-main {
+#skills.empty #skills-main, #jobs.empty #jobs-main, #conversations.empty #conversations-main, #mcp.empty #mcp-main, #plugins.empty #plugins-main, #notifications.empty #notifications-list {
     display: none;
 }
 
-#skills.empty #skills-empty, #jobs.empty #jobs-empty, #conversations.empty #conversations-empty, #mcp.empty #mcp-empty, #plugins.empty #plugins-empty {
+#skills.empty #skills-empty, #jobs.empty #jobs-empty, #conversations.empty #conversations-empty, #mcp.empty #mcp-empty, #plugins.empty #plugins-empty, #notifications.empty #notifications-empty {
     display: block;
 }
 
@@ -479,8 +511,15 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     border: none;
 }
 
+/* Each conversation's title over when it was last written in. */
 #conversations-list {
-    width: 22;
+    width: 36;
+}
+
+#notifications-list {
+    height: 1fr;
+    border: none;
+    background: transparent;
 }
 
 #jobs-list, #devices-list, #files-list, #skills-list, #mcp-list, #plugins-list {
@@ -504,12 +543,12 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     padding: 0 1;
 }
 
-#skills-buttons, #jobs-buttons, #conversations-buttons, #devices-buttons, #files-buttons, #usage-buttons, #sessions-buttons, #mcp-buttons, #plugins-buttons {
+#skills-buttons, #jobs-buttons, #conversations-buttons, #devices-buttons, #files-buttons, #usage-buttons, #sessions-buttons, #mcp-buttons, #plugins-buttons, #notifications-buttons {
     height: auto;
     margin-top: 1;
 }
 
-#skills-buttons Button, #jobs-buttons Button, #conversations-buttons Button, #devices-buttons Button, #usage-buttons Button, #mcp-buttons Button, #plugins-buttons Button {
+#skills-buttons Button, #jobs-buttons Button, #conversations-buttons Button, #devices-buttons Button, #usage-buttons Button, #mcp-buttons Button, #plugins-buttons Button, #notifications-buttons Button {
     margin-right: 2;
 }
 

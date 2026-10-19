@@ -2,17 +2,17 @@
 
 Order runs from stable to volatile: persona, the assistant's name, operating instructions, channel hints,
 skills, the skills pinned to the conversation, connected accounts, plugins it can offer, then profile,
-facts, recent episodes and the running summary. Prompt texts live in `prompts/`.
+facts, recent episodes and the running summary. Prompt texts live in `prompts/`; the persona, operating
+instructions and channel hints are the user's edits when there are some (prompt_edits.py).
 """
 
 import asyncio
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 from langgraph.store.base import BaseStore
 
 from assistant.core.config import settings
-from assistant.core.conversation import prompts
-from assistant.core.conversation.persona import load_persona
+from assistant.core.conversation import prompt_edits, prompts
 from assistant.core.integrations.email import accounts
 from assistant.core.mcp import servers
 from assistant.core.memory import episodes, facts, profile
@@ -21,8 +21,6 @@ from assistant.core.skills import store as skills
 from assistant.core.skills.instructions import render as render_skill
 from assistant.core.skills.store import SkillError
 
-_OPERATING = prompts.load("operating")
-_CHANNELS = prompts.load("channels")
 _NAME = prompts.load("name")
 _ACCOUNTS = prompts.load("accounts")
 _PLUGINS = prompts.load("plugins")
@@ -30,14 +28,21 @@ _PINNED = prompts.load("pinned")
 
 
 async def build_system_prompt(
-    store: BaseStore, user_id: str, name: str, conversation_summary: str, pinned: Sequence[str] = ()
+    store: BaseStore,
+    user_id: str,
+    name: str,
+    conversation_summary: str,
+    pinned: Sequence[str] = (),
+    texts: Mapping[str, str] | None = None,
 ) -> str:
+    """`texts`: the texts the user can edit, by name (prompt_edits.current()); read now when left out."""
+    texts = await prompt_edits.current() if texts is None else texts
     recent = await episodes.recent(store, user_id, settings.memory_max_episodes)
     sections = [
-        await load_persona(),
+        texts["persona"],
         *([_NAME.format(name=name)] if name else []),
-        _OPERATING,
-        f"# Channels\n\n{await _channels_index(store)}",
+        texts["operating"],
+        f"# Channels\n\n{await _channels_index(store, texts['channels'])}",
         f"# Skills\n\n{await _skills_index()}",
         *await _pinned_section(pinned),
         f"# Accounts\n\n{await _accounts_index(store)}",
@@ -51,10 +56,10 @@ async def build_system_prompt(
     return "\n\n".join(sections)
 
 
-async def _channels_index(store: BaseStore) -> str:
+async def _channels_index(store: BaseStore, hints: str) -> str:
     """The apps' channels, then the chat channels installed as plugins, each saying how to write there."""
     installed = [s for s in await servers.load_all(store) if s.channel_command and s.enabled]
-    return "\n".join([_CHANNELS, *(f"- {s.name}: {s.channel_style}" for s in installed if s.channel_style)])
+    return "\n".join([hints, *(f"- {s.name}: {s.channel_style}" for s in installed if s.channel_style)])
 
 
 async def _skills_index() -> str:

@@ -10,12 +10,13 @@ from pathlib import Path
 
 import pytest
 
-from assistant.core.agent import AssistantService, FolderError, HandoffError
+from assistant.core.agent import AssistantService, FolderError, HandoffError, Session
 from assistant.core.attachments import Attachment
-from assistant.core.events import Done, Error, TextDelta, Thinking, ToolFinished, ToolStarted
+from assistant.core.events import Done, Error, TextDelta, ToolFinished, ToolStarted
 from assistant.core.mcp import folders, servers
 from assistant.core.mcp.servers import McpServer
-from assistant.daemon.restart import Restart
+from assistant.daemon.managers import ByHand
+from assistant.daemon.shutdown import Ending, Shutdown
 from tests.conftest import collect
 
 WORKER = str(Path(__file__).with_name("fake_agent_worker.py"))
@@ -46,7 +47,7 @@ async def service(script, digests, summaries, titles) -> AsyncIterator[Assistant
 
 
 async def _handed(service, tmp_path):
-    session = await service.session("owner", "cli")
+    session = Session("owner", "cli", await service.new_thread("owner"))
     await service.hand_conversation("owner", session.thread_id, "claude", str(tmp_path))
     return session
 
@@ -66,8 +67,8 @@ async def test_the_agents_thinking_text_and_tool_calls_are_shown_as_it_works(ser
     session = await _handed(service, tmp_path)
     events = await collect(service.send(session, "work out loud"))
     assert events == [
-        Thinking("The test expects a list."),
-        TextDelta("Running the tests."),
+        TextDelta("The test expects a list."),  # its thinking reads as what it says
+        TextDelta("\n\nRunning the tests."),
         ToolStarted("Bash", {"detail": "pytest -q"}, id="t1"),
         ToolFinished("Bash", "1 failed"),
         TextDelta("Fixed it."),
@@ -76,8 +77,7 @@ async def test_the_agents_thinking_text_and_tool_calls_are_shown_as_it_works(ser
     ]
     shown = await service.conversation_messages(session.thread_id)
     assert [(m.role, m.text, m.detail, m.output) for m in shown[1:]] == [  # as shown live, after a reload
-        ("thinking", "The test expects a list.", "", ""),
-        ("assistant", "Running the tests.", "", ""),
+        ("assistant", "The test expects a list.\n\nRunning the tests.", "", ""),
         ("tool", "Bash", "pytest -q", "1 failed"),
         ("assistant", "Fixed it.\n\nAll green.", "", ""),
     ]
@@ -85,6 +85,14 @@ async def test_the_agents_thinking_text_and_tool_calls_are_shown_as_it_works(ser
         "messages"
     ]
     assert messages[-1].content == "All green."  # what the assistant's model reads when it gets the conversation back
+
+
+async def test_a_reply_after_only_thinking_is_a_paragraph_of_the_same_message(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    events = await collect(service.send(session, "think, then answer"))
+    assert events == [TextDelta("Easy one."), TextDelta("\n\nFour."), Done()]
+    shown = await service.conversation_messages(session.thread_id)
+    assert [(m.role, m.text) for m in shown[1:]] == [("assistant", "Easy one.\n\nFour.")]
 
 
 async def test_plain_lines_from_an_agent_are_shown_inside_a_call_named_after_it(service, tmp_path):
@@ -140,7 +148,7 @@ async def test_the_agent_gets_the_full_paths_of_the_files_sent_and_the_conversat
 
 
 async def test_only_an_installed_agent_and_an_existing_folder_can_be_handed_to(service, tmp_path):
-    session = await service.session("owner", "cli")
+    session = Session("owner", "cli", await service.new_thread("owner"))
     with pytest.raises(HandoffError, match="No plugin brings /codex"):
         await service.hand_conversation("owner", session.thread_id, "codex", str(tmp_path))
     with pytest.raises(HandoffError, match="isn't an existing folder"):
@@ -156,28 +164,28 @@ async def test_a_restart_waits_until_the_agent_has_replied(service, tmp_path):
             break
         await asyncio.sleep(0.02)
     stop = asyncio.Event()
-    restart = Restart(service, stop)
-    assert restart.request() == 1
+    shutdown = Shutdown(service, stop, ByHand())
+    assert shutdown.request(Ending.RESTART) == 1
     await asyncio.sleep(0.05)
     assert not stop.is_set()
     (tmp_path / "release").write_text("")
     assert isinstance((await run)[-1], Done)
     await asyncio.wait_for(stop.wait(), 1)
-    assert restart.requested
+    assert shutdown.ending is Ending.RESTART
 
 
 async def test_with_no_run_in_progress_a_restart_is_at_once(service):
     stop = asyncio.Event()
-    restart = Restart(service, stop)
-    assert restart.request() == 0
+    shutdown = Shutdown(service, stop, ByHand())
+    assert shutdown.request(Ending.RESTART) == 0
     await asyncio.wait_for(stop.wait(), 1)
-    assert restart.requested
+    assert shutdown.ending is Ending.RESTART
 
 
 async def test_the_workspace_is_created_when_handed_to_and_not_listed_as_recent(service):
     from assistant.core.config import settings
 
-    session = await service.session("owner", "cli")
+    session = Session("owner", "cli", await service.new_thread("owner"))
     workspace = str(Path(settings.agent_workspace_dir))
     handoff = await service.hand_conversation("owner", session.thread_id, "claude", workspace)
     assert handoff.folder == workspace and Path(workspace).is_dir()
@@ -188,7 +196,7 @@ async def test_folders_used_before_are_offered_newest_first_while_they_exist(ser
     first, second, gone = tmp_path / "first", tmp_path / "second", tmp_path / "gone"
     for folder in (first, second, gone):
         folder.mkdir()
-    session = await service.session("owner", "cli")
+    session = Session("owner", "cli", await service.new_thread("owner"))
     for folder in (first, gone, second, first):
         await service.hand_conversation("owner", session.thread_id, "claude", str(folder))
     gone.rmdir()
@@ -239,6 +247,18 @@ async def test_a_plugin_written_for_the_old_agent_format_asks_to_be_updated(serv
         {"name": "old", "command": "x", "agent_command": "codex", "agent_name": "Codex", "agent_tool": "converse"},
     )
     assert (await servers.load(service.store, "old")).agent_worker == ""
-    session = await service.session("owner", "cli")
+    session = Session("owner", "cli", await service.new_thread("owner"))
     with pytest.raises(HandoffError, match="Codex was written for an older version of lo9i"):
         await service.hand_conversation("owner", session.thread_id, "codex", str(tmp_path))
+
+
+async def test_a_running_task_names_the_conversation_handed_to_the_agent(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    run = asyncio.create_task(collect(service.send(session, "sleep")))
+    async with asyncio.timeout(10):
+        while not (running := await service.running_tasks()):
+            await asyncio.sleep(0.02)
+    assert [t.thread_id for t in running] == [session.thread_id]
+    run.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await run

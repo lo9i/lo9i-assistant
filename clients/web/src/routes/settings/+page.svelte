@@ -4,7 +4,9 @@
   import EmailCard from "$lib/ui/settings/EmailCard.svelte";
   import HostCard from "$lib/ui/settings/HostCard.svelte";
   import MicrophoneCard from "$lib/ui/settings/MicrophoneCard.svelte";
+  import DispatchCard from "$lib/ui/settings/DispatchCard.svelte";
   import ModelCard from "$lib/ui/settings/ModelCard.svelte";
+  import PromptCard from "$lib/ui/settings/PromptCard.svelte";
   import SpeechCard from "$lib/ui/settings/SpeechCard.svelte";
   import SpokenRepliesCard from "$lib/ui/settings/SpokenRepliesCard.svelte";
   import StartupCard from "$lib/ui/settings/StartupCard.svelte";
@@ -13,7 +15,7 @@
   import TopBar from "$lib/ui/TopBar.svelte";
   import { theme, type ThemePreference } from "$lib/theme.svelte";
 
-  const TABS = ["general", "model", "audio", "system"];
+  const TABS = ["general", "model", "prompt", "audio", "system"];
   const THEMES: Array<[ThemePreference, string]> = [
     ["dark", "Dark"],
     ["light", "Light"],
@@ -57,8 +59,12 @@
     <div class="grid">
       <div class="stack">
         <ModelCard />
+        <DispatchCard />
       </div>
     </div>
+  {:else if tab === "prompt"}
+    <!-- The whole width: the editor needs room. -->
+    <PromptCard />
   {:else if tab === "system"}
     <div class="grid">
       <div class="stack">

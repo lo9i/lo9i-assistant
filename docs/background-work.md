@@ -7,10 +7,21 @@ build). When it ends, the daemon tells the conversation that started it (`core/b
 - The assistant: a note in the turn header of the user's next message in that conversation
   (`core/conversation/ended.py`), once. A scheduled job's conversation gets none: nothing is written there
   again.
-- The user: every app shows a notification (the `background_ended` event: `thread_id`, `channel`, `ok`,
-  `text`), and when the work was started from a chat channel (Telegram, Slack), the channel gets the same
-  text as a message. A channel now on another conversation also hears of it in the turn header of the
-  user's next message on it, as with `send_message`.
+- When the work failed, or its end asks for it (`follow_up`, below), the assistant doesn't wait for the
+  user: a follow-up is queued in that conversation (`core/conversation/queued.py`), and the daemon runs it
+  once nothing else runs there (`daemon/queued.py`). Its message has no text of the user's, only the note
+  and a line saying why it's there (`prompts/background_follow_up.md`); the apps show it as the notice
+  the user got, not as their message (`core/agent/follow_ups.py`). Nothing runs in a conversation handed
+  to an agent, or waiting for the user's answer, or once the assistant read the end itself: the note then
+  waits for the user's next message.
+- The user: it's added to the notifications feed (`core/notifications.py`; the web app's Notifications
+  page, `/notifications` in the terminal app), named after the conversation it was started in and with a
+  way to open it; every app shows a toast (the `background_ended` event: `thread_id`, `channel`, `ok`,
+  `text`), which in the web app opens that conversation; and when the work was started from a chat channel
+  (Telegram, Slack), the channel gets the same text as a message, kept with that conversation, so replying
+  to it goes on there (`core/channels/chat/threads.py`). Scheduled jobs' results go to the same feed. A
+  channel now on another conversation also hears of it in the turn header of the user's next message on
+  it, as with `send_message`.
 
 ## Coding agents' tasks
 
@@ -20,6 +31,10 @@ A task started with `start_task` is recorded with the conversation it was starte
 of its result. When the assistant reads the end itself first (`task_status` on an ended task, or
 `stop_task`), nothing is told, and a note already waiting in that conversation is dropped. The end isn't
 told while `task_status` is reading the task, so a `task_status` that waits for the end gets it alone.
+
+Where the user watches, `start_task` doesn't run in the background: in a conversation it hands that
+conversation to the agent, and in the inbox it moves the task to a new conversation handed to the agent.
+Tasks run in the background from scheduled jobs.
 
 A conversation handed to an agent (`/claude`) runs its messages as tasks too; their replies come back in
 the conversation, so their ends aren't told.
@@ -40,7 +55,7 @@ then):
 | Method | Params | What |
 |---|---|---|
 | `notifications/lo9i/work_started` | `work` | Optional. Work named `work` (unique among the server's work in progress, at most 200 characters) is in progress. |
-| `notifications/lo9i/work_finished` | `work`, `origin`, `ok`, `text` | It ended. `origin` is the call's `lo9i/origin`; `ok` is `false` when it failed (default `true`); `text` says what came of it, or what went wrong. |
+| `notifications/lo9i/work_finished` | `work`, `origin`, `ok`, `text`, `follow_up` | It ended. `origin` is the call's `lo9i/origin`; `ok` is `false` when it failed (default `true`); `text` says what came of it, or what went wrong; `follow_up` (default `false`) asks the assistant to tell the user about it at once, as it does when the work failed: for a result that needs explaining or a decision. |
 
 ```json
 {"jsonrpc": "2.0", "method": "notifications/lo9i/work_finished",

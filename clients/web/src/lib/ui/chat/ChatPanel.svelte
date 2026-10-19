@@ -1,9 +1,10 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { draft } from "$lib/chat/draft.svelte";
   import { carriesFiles, droppedFiles } from "$lib/chat/dropped";
-  import { agentCommands } from "$lib/chat/commands";
+  import { agentCommands, parse } from "$lib/chat/commands";
   import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
   import { sentTexts } from "$lib/chat/history";
   import { finalReply, toolRunning } from "$lib/chat/transcript";
@@ -27,8 +28,9 @@
     "/audio": "audio",
   };
 
-  const { client, notices, chat } = useDaemon();
-  const snapshot = external(chat.subscribe, chat.getSnapshot);
+  const { client, notices, chats } = useDaemon();
+  // The open conversation shown; the sidebar picks it.
+  const snapshot = external(chats.subscribe, () => chats.current.getSnapshot());
   const name = resource((c) => c.identity.name(), ["settings"]);
   const speech = resource((c) => c.speech.settings(), ["settings"]);
   const pinned = resource((c) => c.conversations.pinned(snapshot.current.threadId), ["pinned_skills"]);
@@ -43,10 +45,21 @@
   // Drags enter and leave every element they pass over; the chat is under a drag while this is above 0.
   let dragging = $state(0);
   const streaming = $derived(snapshot.current.transcript.streaming !== null);
+  const inInbox = $derived(snapshot.current.threadId === snapshot.current.inboxId);
+
+  // A message written on the Chat list: sent from here, so it's shown and spoken like any other.
+  onMount(() => {
+    const queued = draft.takeQueued();
+    if (queued === null) return;
+    const typed = parse(queued.text);
+    if (typed) command(typed.name, typed.arg);
+    else void send(queued.text, queued.files);
+  });
 
   /** Sends, then reads the answer aloud when Settings → Audio says so. */
   async function send(text: string, files: File[]): Promise<void> {
     player.stop();
+    const chat = chats.current;
     await chat.send(text, files);
     const reply = finalReply(chat.getSnapshot().transcript);
     if (
@@ -132,9 +145,11 @@
     }
   }
 
+  /** The inbox sends every message on, so in it the agent gets a new conversation. */
   async function handTo(agent: Agent, folder: string): Promise<void> {
     try {
-      const to = await client.conversations.handTo(snapshot.current.threadId, agent.command, folder);
+      if (inInbox) await chats.startNew();
+      const to = await client.conversations.handTo(chats.current.getSnapshot().threadId, agent.command, folder);
       notices.notify(`${to.name} answers from your next message, working in ${to.folder}. /${agent.command} off goes back.`);
     } catch (e) {
       notices.report(e);
@@ -158,9 +173,13 @@
     }
     switch (name) {
       case "/new":
-        return void chat.startNew();
-      case "/home":
-        return void chat.goHome();
+        return void chats.startNew();
+      case "/inbox":
+        return void chats.goInbox();
+      case "/notifications":
+        return void goto(resolve("/notifications"));
+      case "/move":
+        return void chats.move("");
       case "/conversations":
         return void goto(resolve("/conversations"));
       case "/sessions":
@@ -184,7 +203,7 @@
       case "/unpin":
         return void unpin(arg);
       case "/get-to-know-me":
-        return void startGetToKnowYou(chat);
+        return void startGetToKnowYou(chats);
       case "/help":
         help = true;
         return;
@@ -214,9 +233,10 @@
     thinking={(snapshot.current.busy || snapshot.current.mirroring) && !streaming && !toolRunning(snapshot.current.transcript)}
     name={name.data || "the assistant"}
     onsuggest={(text) => (draft.text = text)}
+    onmove={inInbox ? (dispatchId) => chats.move(dispatchId) : undefined}
   />
   <PinnedSkills skills={pinned.data ?? []} onunpin={unpin} />
-  <TasksBar threadId={snapshot.current.threadId} onopen={(threadId) => chat.resume(threadId)} />
+  <TasksBar threadId={snapshot.current.threadId} onopen={(threadId) => chats.show(threadId)} />
   {#if handoff.data}
     <AgentBar handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")} />
   {/if}
@@ -227,7 +247,7 @@
     busy={snapshot.current.busy}
     running={snapshot.current.busy || snapshot.current.mirroring}
     onsend={send}
-    onstop={() => chat.stop()}
+    onstop={() => chats.current.stop()}
     oncommand={command}
     {extra}
   />
@@ -235,7 +255,7 @@
 </section>
 
 {#if snapshot.current.approval}
-  <ApprovalModal approval={snapshot.current.approval} onanswer={(d) => chat.answer(d)} />
+  <ApprovalModal approval={snapshot.current.approval} onanswer={(d) => chats.current.answer(d)} />
 {/if}
 {#if help}<HelpModal onclose={() => (help = false)} {extra} />{/if}
 {#if picking}<AgentFolderModal agentName={picking.name} onpick={picked} />{/if}

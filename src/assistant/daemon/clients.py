@@ -67,6 +67,14 @@ class ClientRegistry:
         if previous is not None:
             self._leave_if_unused(previous)
 
+    def off_thread(self, client_id: str) -> None:
+        """The client closed its conversation (a closed chat tab) without moving to another."""
+        thread_id = self._threads.pop(client_id, None)
+        if thread_id is None:
+            return
+        self._bus.publish("clients")
+        self._leave_if_unused(thread_id)
+
     def _left_later(self, thread_id: str | None) -> None:
         if thread_id is not None:
             asyncio.get_running_loop().call_later(self._grace_seconds, self._leave_if_unused, thread_id)

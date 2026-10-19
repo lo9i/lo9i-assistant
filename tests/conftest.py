@@ -22,6 +22,7 @@ import assistant.core.subagent as subagent_module
 from assistant.core.agent import AssistantService
 from assistant.core.config import settings
 from assistant.core.conversation.digest import DigestInput, MemoryDigest
+from assistant.core.conversation.dispatch import QUICK, Candidate, Pick
 from assistant.core.conversation.titles import Titled
 from assistant.core.memory.embedder import EmbeddingError
 
@@ -38,6 +39,7 @@ def isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         "mcp_dir": tmp_path / "mcp",
         "mcp_data_dir": tmp_path / "data",
         "persona_path": tmp_path / "SOUL.md",
+        "prompts_dir": tmp_path / "prompts",
         "daemon_socket": tmp_path / "daemon.sock",
         "secrets_key_path": tmp_path / "keys" / "secrets.key",
     }.items():
@@ -55,6 +57,39 @@ def isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     for key in ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"):
         monkeypatch.delenv(key, raising=False)
     return tmp_path
+
+
+class Dispatcher:
+    """A fake dispatch classifier: returns the queued picks in order, `default` when none is left, and
+    records each message with the candidates it chose among and the inbox's exchange in progress."""
+
+    def __init__(self, default: Pick) -> None:
+        self.default = default
+        self.picks: deque[Pick] = deque()
+        self.inputs: list[tuple[str, list[Candidate]]] = []
+        self.exchanges: list[str] = []
+
+    async def __call__(self, message: str, candidates: Any, exchange: str) -> Pick:
+        self.inputs.append((message, list(candidates)))
+        self.exchanges.append(exchange)
+        return self.picks.popleft() if self.picks else self.default
+
+
+@pytest.fixture(autouse=True)
+def inbox_answers(monkeypatch: pytest.MonkeyPatch) -> Dispatcher:
+    """Every message in the inbox is a quick question the inbox answers, so tests of the agent can talk
+    there (`service.session`); the `dispatch` fixture routes them instead."""
+    dispatcher = Dispatcher(Pick(QUICK, 1.0, ""))
+    monkeypatch.setattr(graph_module, "build_classifier", lambda choice, usage: dispatcher)
+    return dispatcher
+
+
+@pytest.fixture
+def dispatch(inbox_answers: Dispatcher) -> Dispatcher:
+    """The inbox routes messages with a fake classifier: to a new conversation, sure, unless picks are
+    queued."""
+    inbox_answers.default = Pick("", 1.0, "")
+    return inbox_answers
 
 
 class FakeEmbedder:
@@ -148,6 +183,8 @@ class Digests:
 
     def __init__(self) -> None:
         self.inputs: list[DigestInput] = []
+        # When set, each digest waits for it: a model call that doesn't answer.
+        self.answer: asyncio.Event | None = None
         self.result: Callable[[DigestInput], MemoryDigest] = lambda data: MemoryDigest(
             episode_summary=f"episode {len(self.inputs)}",
             profile=data.profile,
@@ -157,6 +194,8 @@ class Digests:
 
     async def __call__(self, data: DigestInput) -> MemoryDigest:
         self.inputs.append(data)
+        if self.answer is not None:
+            await self.answer.wait()
         return self.result(data)
 
 

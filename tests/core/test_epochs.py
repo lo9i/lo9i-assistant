@@ -133,6 +133,22 @@ def test_estimate_prefers_reported_tokens():
     assert usage_anchor(AIMessage("x"), 3) is None
 
 
+async def test_stopping_cuts_a_digest_short_and_its_part_stays(service, script, digests, small_epochs):
+    digests.answer = asyncio.Event()
+    session = await service.session("u", "cli")
+    await collect(service.send(session, "one"))
+    await collect(service.send(session, "two"))
+    stop = asyncio.Event()
+    writer = asyncio.create_task(service.memory_writer.run(stop))
+    async with asyncio.timeout(5):
+        while not digests.inputs:
+            await asyncio.sleep(0.01)
+    stop.set()
+    async with asyncio.timeout(5):
+        await writer
+    assert len(await pending.load_all(service.store, "u")) == 1
+
+
 async def test_the_running_writer_digests_a_new_part_on_its_own(service, script, digests, small_epochs):
     stop = asyncio.Event()
     writer = asyncio.create_task(service.memory_writer.run(stop))

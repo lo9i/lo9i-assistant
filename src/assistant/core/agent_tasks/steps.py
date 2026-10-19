@@ -1,6 +1,7 @@
 """A task's steps: each line of its progress.log is one step as JSON (docs/agent-plugins.md), the agent's
 thinking, what it says, a tool call or a tool call's result. For a conversation handed to the agent they
-become the run's events, shown as the assistant's own would be, so the agent's work reads like a reply;
+become the run's events, shown as the assistant's own would be, so the agent's work reads like a reply,
+and its thinking reads as what it says: the user hands the conversation over to talk to it;
 while task_status waits for a task they show inside that call (`within_call`).
 A note, or a plain line from a worker that reports nothing finer, goes inside a call named after the
 agent. For the task tools each reads as one line (`line`). The steps of a handed-off reply are kept with
@@ -11,7 +12,7 @@ import json
 import uuid
 from typing import Any
 
-from assistant.core.events import Event, TextDelta, Thinking, ToolFinished, ToolStarted
+from assistant.core.events import Event, TextDelta, ToolFinished, ToolStarted
 
 _LINE = 200
 # Where a handed-off reply keeps its steps, as the worker wrote them.
@@ -20,6 +21,8 @@ STEPS = "agent_steps"
 
 # The words of a text or a thinking as they're written, before the whole of it comes as one step.
 _DELTAS = {"text_delta": "text", "thinking_delta": "thinking"}
+# A handed-off agent's thinking is shown as what it says.
+_SHOWN_AS = {"thinking": "text"}
 
 
 class AgentSteps:
@@ -27,7 +30,7 @@ class AgentSteps:
         self._name = name
         # The call that holds the notes, once the first one comes.
         self._notes = ""
-        # What was shown last ("text", "thinking", ...), to set a new block apart from the one before.
+        # What was shown last ("text", "tool", ...), to set a new block apart from the one before.
         self._last = ""
         # The text or thinking whose words are streaming now, "" when none is.
         self._open = ""
@@ -43,8 +46,15 @@ class AgentSteps:
             self.lines.append(message)
         events = self._events(step)
         if events:
-            self._last = _DELTAS.get(kind, kind)
+            block = _DELTAS.get(kind, kind)
+            self._last = _SHOWN_AS.get(block, block)
         return events
+
+    def reply(self, text: str) -> list[Event]:
+        """The reply, when it said nothing else, set apart from the thinking shown before it."""
+        if self.spoke:
+            return []
+        return [TextDelta(("\n\n" if self._last == "text" else "") + text)]
 
     def end(self, output: str) -> list[Event]:
         """Closes the call that holds the notes, when there is one."""
@@ -56,11 +66,9 @@ class AgentSteps:
         # A subagent's own words aren't forwarded; its tool calls are shown inside the call that started it.
         if block in ("text", "thinking") and within:
             return []
-        if block == "text":
-            self.spoke = True
+        if block in ("text", "thinking"):
+            self.spoke = self.spoke or block == "text"
             return [TextDelta(words) for words in self._words(kind, text)]
-        if block == "thinking":
-            return [Thinking(words) for words in self._words(kind, text)]
         if kind == "tool":
             return [ToolStarted(step.get("tool", ""), _args(step), id=step.get("id", ""), within=within)]
         if kind == "result":
@@ -76,7 +84,7 @@ class AgentSteps:
             return []
         starts = self._open != block
         self._open = block if kind != block else ""
-        return [("\n\n" if starts and self._last == block else "") + text]
+        return [("\n\n" if starts and self._last == "text" else "") + text]
 
     def _note(self, text: str) -> list[Event]:
         opened: list[Event] = []

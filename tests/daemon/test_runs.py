@@ -70,3 +70,19 @@ async def test_a_cancelled_run_is_announced_as_cancelled():
     events = bus.subscribe()
     finished = [await anext(events), await anext(events)][1]
     assert finished.kind == "run_finished" and finished.data["status"] == "cancelled"
+
+
+async def test_only_runs_in_progress_are_listed_as_running():
+    hub = RunHub()
+    release = asyncio.Event()
+
+    async def waiting():
+        await release.wait()
+        yield Done()
+
+    done, waits = hub.start("t1", _events()), hub.start("t2", waiting())
+    [_ async for _ in hub.follow(done, 0)]
+    assert hub.running() == [waits]
+    release.set()
+    [_ async for _ in hub.follow(waits, 0)]
+    assert hub.running() == []

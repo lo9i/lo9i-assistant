@@ -7,6 +7,7 @@ import type {
   Agent,
   AgentFolders,
   Alert,
+  Notification,
   BusEvent,
   ChannelStatus,
   ConnectedClient,
@@ -43,15 +44,19 @@ import type {
   PairingCode,
   PluginUpdate,
   PluginUpdateChecks,
+  PromptSection,
   Removed,
   Repository,
   RepositoryContents,
   RepositoryPlugins,
   RunEvent,
+  DispatchSetting,
+  RunInProgress,
   RunningTask,
   ServerValues,
   Session,
   ShownMessage,
+  ShutdownStatus,
   SignedIn,
   Skill,
   SkillSummary,
@@ -248,6 +253,16 @@ export class SpeechGroup {
 export class ModelGroup {
   constructor(private readonly transport: Transport) {}
 
+  /** How sure routing a message from the inbox has to be to continue a conversation; below it, a new one starts. */
+  dispatch(): Promise<DispatchSetting> {
+    return this.transport.request("GET", "/settings/dispatch");
+  }
+
+  /** 400 (ApiError): a confidence outside 0 to 1. */
+  setDispatch(setting: DispatchSetting): Promise<DispatchSetting> {
+    return this.transport.request("PUT", "/settings/dispatch", setting);
+  }
+
   /** Providers to pick from, with the models to suggest. */
   providers(): Promise<ModelProvider[]> {
     return this.transport.request("GET", "/settings/model/providers");
@@ -272,6 +287,26 @@ export class ModelGroup {
   /** Back to the model in .env. */
   reset(): Promise<ModelStatus> {
     return this.transport.request("DELETE", "/settings/model");
+  }
+}
+
+/** The system prompt texts the user edits: the persona, the operating instructions and the channel hints. An
+ * edit is used from the next message in each conversation; a `prompts` event tells when one changes. */
+export class PromptsGroup {
+  constructor(private readonly transport: Transport) {}
+
+  list(): Promise<PromptSection[]> {
+    return this.transport.request("GET", "/settings/prompts");
+  }
+
+  /** Saving the built-in text drops the edit. Throws ApiError (400) for an empty text. */
+  save(name: string, text: string): Promise<PromptSection> {
+    return this.transport.request("PUT", `/settings/prompts/${encodeURIComponent(name)}`, { text });
+  }
+
+  /** Back to the built-in text. */
+  reset(name: string): Promise<PromptSection> {
+    return this.transport.request("DELETE", `/settings/prompts/${encodeURIComponent(name)}`);
   }
 }
 
@@ -456,12 +491,42 @@ export class AlertsGroup {
   }
 }
 
+/** The notifications feed: job results and background work that ended, newest first (core/notifications.py). */
+export class NotificationsGroup {
+  constructor(private readonly transport: Transport) {}
+
+  list(): Promise<Notification[]> {
+    return this.transport.request("GET", "/notifications");
+  }
+
+  async markRead(): Promise<void> {
+    await this.transport.request("POST", "/notifications/read");
+  }
+
+  async dismiss(id: string): Promise<void> {
+    await this.transport.request("DELETE", `/notifications/${encodeURIComponent(id)}`);
+  }
+
+  async clear(): Promise<void> {
+    await this.transport.request("DELETE", "/notifications");
+  }
+}
+
 /** Coding agents' tasks running in the background, with their latest steps. */
 export class TasksGroup {
   constructor(private readonly transport: Transport) {}
 
   running(): Promise<RunningTask[]> {
     return this.transport.request("GET", "/agent-tasks/running");
+  }
+}
+
+export class RunsGroup {
+  constructor(private readonly transport: Transport) {}
+
+  /** Replies in progress in any conversation; `run` and `run_finished` events tell when this changes. */
+  inProgress(): Promise<RunInProgress[]> {
+    return this.transport.request("GET", "/runs");
   }
 }
 
@@ -567,6 +632,17 @@ export class SystemGroup {
   disableStartup(): Promise<StartupStatus> {
     return this.transport.request("DELETE", "/system/startup");
   }
+
+  /** The daemon restarts once no run is in progress. */
+  restart(): Promise<ShutdownStatus> {
+    return this.transport.request("POST", "/system/restart");
+  }
+
+  /** The daemon stops once no run is in progress. Throws ApiError (409) when its service manager would
+   * start it again. */
+  stop(): Promise<ShutdownStatus> {
+    return this.transport.request("POST", "/system/stop");
+  }
 }
 
 export class LogsGroup {
@@ -669,9 +745,12 @@ export class DaemonClient {
   readonly email: EmailGroup;
   readonly oauth: OAuthGroup;
   readonly model: ModelGroup;
+  readonly prompts: PromptsGroup;
   readonly mcp: McpGroup;
   readonly alerts: AlertsGroup;
+  readonly notifications: NotificationsGroup;
   readonly tasks: TasksGroup;
+  readonly runs: RunsGroup;
   readonly repositories: RepositoriesGroup;
   readonly skills: SkillsGroup;
   readonly memory: MemoryGroup;
@@ -693,9 +772,12 @@ export class DaemonClient {
     this.email = new EmailGroup(transport);
     this.oauth = new OAuthGroup(transport);
     this.model = new ModelGroup(transport);
+    this.prompts = new PromptsGroup(transport);
     this.mcp = new McpGroup(transport);
     this.alerts = new AlertsGroup(transport);
+    this.notifications = new NotificationsGroup(transport);
     this.tasks = new TasksGroup(transport);
+    this.runs = new RunsGroup(transport);
     this.repositories = new RepositoriesGroup(transport);
     this.skills = new SkillsGroup(transport);
     this.memory = new MemoryGroup(transport);
@@ -712,12 +794,12 @@ export class DaemonClient {
     return this.transport.clientId;
   }
 
-  /** Move this client to the home conversation and return its id. */
-  async homeThread(): Promise<string> {
-    return (await this.transport.request<Schemas["ThreadCreated"]>("POST", "/threads/home")).thread_id;
+  /** Move this client to the inbox, which routes each message to its conversation, and return its id. */
+  async inboxThread(): Promise<string> {
+    return (await this.transport.request<Schemas["ThreadCreated"]>("POST", "/threads/inbox")).thread_id;
   }
 
-  /** Move this client to a new side conversation. */
+  /** Move this client to a new conversation. */
   async newThread(): Promise<string> {
     return (await this.transport.request<Schemas["ThreadCreated"]>("POST", "/threads")).thread_id;
   }
@@ -727,12 +809,36 @@ export class DaemonClient {
     await this.transport.request("POST", `/conversations/${encodeURIComponent(threadId)}/resume`);
   }
 
+  /** Close this client's conversation without moving to another, as when it's closed in the sidebar. */
+  async leaveThread(): Promise<void> {
+    await this.transport.request("POST", "/threads/leave");
+  }
+
   async *send(session: Session, text: string, files: File[], signal: AbortSignal): AsyncGenerator<RunEvent> {
     const form = new FormData();
     form.append("channel", session.channel);
     form.append("text", text);
     files.forEach((file) => form.append("files", file, file.name));
     const run = await this.transport.request<Schemas["RunStarted"]>("POST", `${thread(session)}/messages`, form);
+    yield* this.followRun(run.run_id, signal);
+  }
+
+  /** Sends a message the inbox sent on (a Dispatched event) in `session`'s conversation, as it was written. */
+  async *sendDispatched(session: Session, dispatchId: string, text: string, signal: AbortSignal): AsyncGenerator<RunEvent> {
+    const body = { channel: session.channel, text };
+    const run = await this.transport.request<Schemas["RunStarted"]>(
+      "POST",
+      `${thread(session)}/dispatched/${encodeURIComponent(dispatchId)}`,
+      body,
+    );
+    yield* this.followRun(run.run_id, signal);
+  }
+
+  /** Asks in the inbox (`session`) where a message it sent on goes instead, the last one when `dispatchId` is empty;
+   * a Dispatched event says where it went. */
+  async *moveDispatched(session: Session, dispatchId: string, signal: AbortSignal): AsyncGenerator<RunEvent> {
+    const body = { channel: session.channel, id: dispatchId };
+    const run = await this.transport.request<Schemas["RunStarted"]>("POST", `${thread(session)}/moves`, body);
     yield* this.followRun(run.run_id, signal);
   }
 
@@ -755,9 +861,10 @@ export class DaemonClient {
     }
   }
 
-  /** Daemon events from now on, for as long as `signal` isn't aborted, resuming after a daemon restart. */
-  async *events(signal: AbortSignal): AsyncGenerator<BusEvent> {
-    for await (const event of resumableEvents(this.transport, "/events", BUS_RECONNECT, signal, "")) {
+  /** Daemon events from now on, for as long as `signal` isn't aborted, resuming after a daemon restart.
+   * `onOpen` is called each time the stream opens, after a restart too. */
+  async *events(signal: AbortSignal, onOpen?: () => void): AsyncGenerator<BusEvent> {
+    for await (const event of resumableEvents(this.transport, "/events", BUS_RECONNECT, signal, "", onOpen)) {
       yield { kind: event.event, data: JSON.parse(event.data) };
     }
   }

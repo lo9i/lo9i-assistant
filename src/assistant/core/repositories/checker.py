@@ -31,7 +31,8 @@ class UpdateChecker:
         while not stop.is_set():
             after = self._bus.last_id
             if await updates.checks_enabled(self._store):
-                await self._check()
+                # A repository that never answers can't hold the daemon's restart.
+                await first(stop.wait(), self._check())
                 await first(stop.wait(), asyncio.sleep(CHECK_SECONDS))
             else:
                 await first(stop.wait(), self._turned_on(after))

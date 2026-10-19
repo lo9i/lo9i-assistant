@@ -5,8 +5,8 @@ from assistant.core.agent import Session
 
 
 class _Daemon:
-    async def home_thread(self, user_id: str) -> str:
-        return "owner:home"
+    async def inbox_thread(self, user_id: str) -> str:
+        return "owner:inbox"
 
     async def new_thread(self, user_id: str) -> str:
         return "owner:new"

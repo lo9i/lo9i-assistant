@@ -8,8 +8,9 @@ import pytest
 
 from assistant.core.agent import AssistantService, Session
 from assistant.core.agent_tasks.service import AgentTaskError
+from assistant.core.context import UNATTENDED_CHANNEL
 from assistant.core.conversation.queued import Queued
-from assistant.core.events import ApprovalRequired, ToolFinished, ToolStarted, is_side_conversation
+from assistant.core.events import ApprovalRequired, Dispatched, ToolFinished, ToolStarted
 from assistant.core.mcp import folders
 from tests.conftest import collect
 from tests.core.test_handoffs import agent_plugin
@@ -24,7 +25,7 @@ async def service(script, digests, summaries, titles) -> AsyncIterator[Assistant
 
 
 async def side(service: AssistantService, channel: str = "cli") -> Session:
-    """A side conversation: in home, start_task first asks to move the task to one."""
+    """A conversation of its own: in the inbox, start_task moves the task to a new one."""
     return Session("owner", channel, await service.new_thread("owner"))
 
 
@@ -50,21 +51,12 @@ async def test_the_task_tools_come_with_an_agent_plugin_and_name_its_agents(serv
     assert _offered(service) == [] and "no coding agent plugin" in service._plugin_tools.unavailable("start_task")
 
 
-async def kept_in_home(service: AssistantService, events: list) -> list:
-    """Answers the question to move a task out of home with Keep: it starts in the background there."""
-    asked = next(e for e in events if isinstance(e, ApprovalRequired))
-    assert is_side_conversation(asked.request)
-    return await collect(service.resume(await service.session("owner", "cli"), {asked.interrupt_id: {"moved": False}}))
-
-
-async def test_starting_a_task_asks_first_and_the_task_is_followed_to_its_result(service, script, tmp_path):
-    await service.add_mcp_server(agent_plugin())
+async def test_in_a_scheduled_run_a_task_starts_in_the_background_and_is_followed_to_its_result(
+    service, script, tmp_path
+):
+    await service.add_mcp_server(agent_plugin(trusted=True))
     script.call("start_task", agent="claude-code", repository=str(tmp_path), task="finish").reply("Started it.")
-    session = await service.session("owner", "cli")
-    events = await kept_in_home(service, await collect(service.send(session, "fix the tests with claude")))
-    asked = next(e for e in events if isinstance(e, ApprovalRequired))
-    assert asked.request["tool"] == "claude-code" and "finish" in asked.request["command"]
-    events = await collect(service.resume(session, {asked.interrupt_id: {"approved": True, "reason": ""}}))
+    events = await collect(service.send(Session("owner", UNATTENDED_CHANNEL, "job:fix:1"), "fix the tests"))
     started = next(e for e in events if isinstance(e, ToolFinished))
     assert started.output.startswith("Started task ")
     task_id = started.output.split()[2]
@@ -126,28 +118,38 @@ async def test_unknown_agents_folders_and_tasks_are_said_so(service, tmp_path):
     assert "No task nope" in await _call(service, "task_status", task_id="nope")
 
 
-async def test_in_home_a_task_is_moved_to_a_side_conversation_handed_to_its_agent(service, script, tmp_path):
+async def test_in_the_inbox_a_task_moves_to_a_new_conversation_handed_to_its_agent(service, script, tmp_path):
     await service.add_mcp_server(agent_plugin(trusted=True))
     script.call("start_task", agent="claude-code", repository=str(tmp_path), task="finish", title="Fix the tests")
     script.reply("Moved it.")
     session = await service.session("owner", "web")
-    asked = next(e for e in await collect(service.send(session, "fix the tests")) if isinstance(e, ApprovalRequired))
-    assert is_side_conversation(asked.request) and asked.request["title"] == "Fix the tests"
-    assert asked.request["first_message"] == "finish"
-    assert asked.request["handoff"] == {"command": "claude", "folder": str(tmp_path), "name": "Claude Code"}
-    events = await collect(service.resume(session, {asked.interrupt_id: {"moved": True}}))
-    assert next(e for e in events if isinstance(e, ToolFinished)).output.startswith("The user moved this task")
+    events = await collect(service.send(session, "fix the tests"))
+    assert not any(isinstance(e, ApprovalRequired) for e in events)
+    assert next(e for e in events if isinstance(e, ToolFinished)).output.startswith("Moved this task")
+    moved = next(e for e in events if isinstance(e, Dispatched))
+    assert (moved.thread_id, moved.title, moved.text) == ("", "Fix the tests", "finish")
     assert await service.agent_tasks.recent() == []
+    new = Session("owner", "web", await service.new_thread("owner"))
+    await collect(service.send_dispatched(new, moved.id))
+    handoff = await service.conversation_agent("owner", new.thread_id)
+    assert handoff is not None and handoff.folder == str(tmp_path)
+    shown = [m.text for m in await service.conversation_messages(new.thread_id)]
+    assert shown[0] == "finish"
 
 
-async def test_in_home_a_task_the_user_keeps_there_starts_there(service, script, tmp_path):
+async def test_a_task_whose_folder_went_away_goes_to_the_assistant_instead(service, script, tmp_path):
     await service.add_mcp_server(agent_plugin(trusted=True))
-    script.call("start_task", agent="claude-code", repository=str(tmp_path), task="finish").reply("Started it.")
-    session = await service.session("owner", "web")
-    asked = next(e for e in await collect(service.send(session, "fix it")) if isinstance(e, ApprovalRequired))
-    assert asked.request["title"] == "finish"  # no title: the task's start
-    events = await collect(service.resume(session, {asked.interrupt_id: {"moved": False}}))
-    assert next(e for e in events if isinstance(e, ToolFinished)).output.startswith("Started task ")
+    folder = tmp_path / "project"
+    folder.mkdir()
+    script.call("start_task", agent="claude-code", repository=str(folder), task="finish").reply("Moved it.")
+    events = await collect(service.send(await service.session("owner", "web"), "fix the tests"))
+    moved = next(e for e in events if isinstance(e, Dispatched))
+    folder.rmdir()
+    script.reply("I'll look at it myself.")
+    new = Session("owner", "web", await service.new_thread("owner"))
+    events = await collect(service.send_dispatched(new, moved.id))
+    assert "The assistant takes the task instead." in events[0].message
+    assert await service.conversation_agent("owner", new.thread_id) is None
 
 
 async def test_waiting_for_a_task_shows_its_steps_inside_the_call(service, script, tmp_path):

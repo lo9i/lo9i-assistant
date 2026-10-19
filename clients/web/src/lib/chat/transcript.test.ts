@@ -1,11 +1,22 @@
 import { describe, expect, it } from "vitest";
 import type { RunEvent } from "../api/types";
-import { addUser, apply, empty, endRun, fromHistory, inlineArg, toolRunning } from "./transcript";
+import { addCarried, addUser, apply, empty, endRun, fromHistory, inlineArg, toolRunning } from "./transcript";
 
 const play = (events: RunEvent[]) => events.reduce(apply, addUser(empty, "hi", []));
 const kinds = (events: RunEvent[]) => play(events).items.map((item) => item.kind);
 
 describe("transcript", () => {
+  it("shows a quick exchange carried from the inbox before the message that followed it up", () => {
+    const t = fromHistory([
+      { role: "carried", text: "**You:** how far?", detail: "", output: "", dispatch_id: "" },
+      { role: "user", text: "plan the drive", detail: "", output: "", dispatch_id: "" },
+    ]);
+    expect(t.items.map((i) => i.kind)).toEqual(["carried", "user"]);
+    const followed = fromHistory([{ role: "notice", text: "⚠️ convert: it failed", detail: "", output: "", dispatch_id: "" }]);
+    expect(followed.items[0]).toMatchObject({ kind: "notice", text: "⚠️ convert: it failed" });
+    expect(addCarried(empty, "**You:** how far?").items[0]).toMatchObject({ kind: "carried", text: "**You:** how far?" });
+  });
+
   it("streams text into one message until another event arrives", () => {
     const t = play([
       { type: "TextDelta", text: "Hel" },
@@ -116,17 +127,17 @@ describe("transcript", () => {
       ]),
     ).toEqual(["user", "transcript", "error"]);
     const history = fromHistory([
-      { role: "user", text: "q", detail: "", output: "" },
-      { role: "tool", text: "bash", detail: "", output: "" },
-      { role: "assistant", text: "a", detail: "", output: "" },
+      { role: "user", text: "q", detail: "", output: "", dispatch_id: "" },
+      { role: "tool", text: "bash", detail: "", output: "", dispatch_id: "" },
+      { role: "assistant", text: "a", detail: "", output: "", dispatch_id: "" },
     ]);
     expect(history.items.map((i) => i.kind)).toEqual(["user", "tool", "assistant"]);
   });
 
   it("shows a handed-off agent's thinking and tool calls again in history", () => {
     const history = fromHistory([
-      { role: "thinking", text: "The test expects a list.", detail: "", output: "" },
-      { role: "tool", text: "Bash", detail: "pytest -q", output: "1 failed" },
+      { role: "thinking", text: "The test expects a list.", detail: "", output: "", dispatch_id: "" },
+      { role: "tool", text: "Bash", detail: "pytest -q", output: "1 failed", dispatch_id: "" },
     ]);
     expect(history.items).toEqual([
       { kind: "thinking", id: 1, text: "The test expects a list." },

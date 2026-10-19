@@ -30,4 +30,7 @@ References: `src/routes/jobs/+page.svelte`, `src/routes/devices/+page.svelte`,
 height: auto`) and both parts get `flex: none`, so each takes its own height and the page scrolls. Columns that the
   details card also shows get `hide-narrow`.
 
+Chat (`src/routes/conversations/+page.svelte`) is this layout with a message box above it: the screen is
+a column, the box first, then the list and details in a row (`.lists`) that takes the rest.
+
 Settings-style forms (connecting a service, preferences) stay as cards in the settings page grid.

@@ -58,8 +58,9 @@ async def test_deleting_a_conversation_removes_it_from_search(service):
 
 async def test_the_agent_finds_earlier_conversations_and_job_runs(service, script, titles):
     await collect(service.send(Session("owner", UNATTENDED_CHANNEL, "job:news:1"), "check the weather in Madrid"))
-    await _say(service, "I flew to Madrid last spring")
-    await service.new_channel_thread("owner", "cli")
+    madrid = Session("owner", "cli", await service.new_thread("owner"))
+    await _say(service, "I flew to Madrid last spring", madrid)
+    service.leave_thread("owner", madrid.thread_id)
     script.call("search_memory", query="Madrid trip").reply("found it")
     await _say(service, "when was I in Madrid?")
     [result] = [m for m in script.requests[-1] if isinstance(m, ToolMessage)]

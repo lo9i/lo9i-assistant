@@ -10,6 +10,7 @@
     { id: "general", label: "General", href: `${resolve("/settings")}?tab=general` },
     { id: "memory", label: "About you", href: resolve("/memory") },
     { id: "model", label: "Model", href: `${resolve("/settings")}?tab=model` },
+    { id: "prompt", label: "System prompt", href: `${resolve("/settings")}?tab=prompt` },
     { id: "audio", label: "Audio", href: `${resolve("/settings")}?tab=audio` },
     { id: "plugins", label: "Plugins", href: resolve("/plugins") },
     { id: "mcp", label: "MCP servers", href: resolve("/mcp") },

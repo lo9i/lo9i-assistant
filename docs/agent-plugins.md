@@ -43,6 +43,7 @@ Each task is a folder under the plugin's data folder, `tasks/<id>/`. Every file 
 | `progress.log` | worker | One step per line, as JSON (below), appended as the agent works. |
 | `result.json` | worker | `{"ok", "text", "finished_at", "cost_usd"}`, written last, whole (write it to another name, then rename). `text` is the agent's final answer, or what went wrong. |
 | `stopped` | daemon | The user stopped the task. |
+| `conversation` | daemon | The conversation handed to the agent that the task answers in. The worker doesn't read it. |
 | `worker.log` | the worker's output | For finding out why a worker failed. |
 
 The daemon starts the worker detached, so it outlives a restart of the daemon. Stopping a task signals

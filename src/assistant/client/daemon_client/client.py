@@ -14,6 +14,7 @@ from assistant.client.daemon_client.logs import LogsApi
 from assistant.client.daemon_client.mcp import McpApi
 from assistant.client.daemon_client.memory import MemoryApi
 from assistant.client.daemon_client.model import ModelApi
+from assistant.client.daemon_client.notifications import NotificationsApi
 from assistant.client.daemon_client.oauth import OAuthApi
 from assistant.client.daemon_client.repositories import RepositoriesApi
 from assistant.client.daemon_client.runs import RunsMixin
@@ -49,6 +50,7 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         self.oauth = OAuthApi(transport)
         self.mcp = McpApi(transport)
         self.alerts = AlertsApi(transport)
+        self.notifications = NotificationsApi(transport)
         self.tasks = TasksApi(transport)
         self.repositories = RepositoriesApi(transport)
         self.system = SystemApi(transport)

@@ -9,21 +9,24 @@
   import Files from "@lucide/svelte/icons/files";
   import Laptop from "@lucide/svelte/icons/laptop";
   import CornerDownRight from "@lucide/svelte/icons/corner-down-right";
-  import GitBranch from "@lucide/svelte/icons/git-branch";
-  import House from "@lucide/svelte/icons/house";
+  import Inbox from "@lucide/svelte/icons/inbox";
+  import ListChecks from "@lucide/svelte/icons/list-checks";
+  import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import MessageCircle from "@lucide/svelte/icons/message-circle";
   import MonitorSmartphone from "@lucide/svelte/icons/monitor-smartphone";
   import Plus from "@lucide/svelte/icons/plus";
   import Settings from "@lucide/svelte/icons/settings";
   import Sparkles from "@lucide/svelte/icons/sparkles";
+  import X from "@lucide/svelte/icons/x";
   import PanelsTopLeft from "@lucide/svelte/icons/panels-top-left";
+  import { openList } from "$lib/chat/openList";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { pageLabel } from "$lib/pages";
   import { sidebar } from "$lib/sidebar.svelte";
 
   let { name }: { name: string } = $props();
 
-  const { chat } = useDaemon();
+  const { chats, voice } = useDaemon();
   // MCP servers that come with a web page, shown in an iframe (routes/pages/[name]).
   const servers = resource((c) => c.mcp.servers(), ["mcp"]);
   const pages = $derived((servers.data ?? []).filter((s) => s.page && s.enabled));
@@ -31,19 +34,34 @@
   const alerts = resource((c) => c.alerts.list(), ["mcp", "skills"]);
   // A new listing of the extras, an install or update, or the setting changes what's newer.
   const updates = resource((c) => c.repositories.updates(), ["plugins", "mcp", "skills", "settings"]);
+  // Job results and background work that ended, counted until the Notifications page is seen.
+  const notifications = resource((c) => c.notifications.list(), ["notifications"]);
+  const unread = $derived((notifications.data ?? []).filter((n) => !n.read).length);
 
-  // There is one conversation, Chat. While this tab is on a side conversation, it shows under Chat as a
-  // branch, with the way back home; the others are on the Side conversations page.
-  const CHAT = resolve("/conversations/open");
-  const SIDES = resolve("/conversations");
+  // Chat is the list of conversations. Under it: the ones open in this tab, side by side, and any other with
+  // a reply or a coding task running, whoever started it. Open one to show it; the others keep going.
+  const CHAT = resolve("/conversations");
+  const OPEN = resolve("/conversations/open");
   const conversations = resource((c) => c.conversations.list(), ["conversations"]);
-  const snapshot = external(chat.subscribe, () => chat.getSnapshot());
-  const side = $derived(snapshot.current.threadId !== snapshot.current.homeId ? snapshot.current.threadId : null);
-  const sideTitle = $derived(conversations.data?.find((c) => c.thread_id === side)?.title || "New side conversation");
+  const runs = resource((c) => c.runs.inProgress(), ["run", "run_finished"]);
+  const tasks = resource((c) => c.tasks.running(), ["agent_task_progress", "agent_task_reports", "background_ended"]);
+  const open = external(chats.subscribe, chats.getSnapshot);
+  const voiceThread = external(voice.subscribe, () => voice.getSnapshot().threadId);
+  const everything = $derived(
+    openList(open.current, conversations.data ?? [], [
+      ...(runs.data ?? []).map((r) => r.thread_id),
+      ...(tasks.data ?? []).map((t) => t.thread_id),
+    ]).filter((item) => item.threadId !== voiceThread.current),
+  );
+  async function show(item: { key: string | null; threadId: string }): Promise<void> {
+    if (item.key === null) await chats.show(item.threadId);
+    else chats.activate(item.key);
+    await goto(OPEN);
+  }
 
-  async function goHome(): Promise<void> {
-    await chat.goHome();
-    await goto(CHAT);
+  async function startNew(): Promise<void> {
+    await chats.startNew();
+    await goto(OPEN);
   }
 
   type Add = { label: string; run: () => Promise<void> };
@@ -64,9 +82,10 @@
     exact?: boolean;
   };
   const ALERTS = resolve("/alerts");
+  const NOTIFICATIONS = resolve("/notifications");
   const NAV: Item[] = [
-    { href: CHAT, label: "Chat", Icon: MessageCircle },
-    { href: SIDES, label: "Side conversations", Icon: GitBranch, exact: true },
+    // The open conversations show under Chat.
+    { href: CHAT, label: "Chat", Icon: MessageCircle, add: { label: "New conversation", run: startNew }, exact: true },
     { href: resolve("/files"), label: "Files", Icon: Files },
     { href: resolve("/usage"), label: "Usage", Icon: ChartColumn },
     { href: resolve("/sessions"), label: "Active sessions", Icon: MonitorSmartphone },
@@ -114,19 +133,32 @@
           </button>
         {/if}
       </div>
-      {#if item.href === CHAT && side}
-        <div class="branch">
-          <button
-            class="branch-item"
-            class:current={page.url.pathname === CHAT}
-            title="This tab is on a side conversation: {sideTitle}"
-            onclick={() => goto(CHAT)}
-          >
-            <CornerDownRight size={14} />
-            <span>{sideTitle}</span>
-          </button>
-          <button class="home" aria-label="Back home" title="Back home" onclick={goHome}><House size={14} /></button>
-        </div>
+      {#if item.href === CHAT && everything.length}
+        <ul class="open" aria-label="Open conversations">
+          {#each everything as entry (entry.key ?? entry.threadId)}
+            <li class="branch">
+              <button
+                class="branch-item"
+                class:current={entry.active && page.url.pathname === OPEN}
+                aria-current={entry.active && page.url.pathname === OPEN ? "true" : undefined}
+                title={entry.title + (entry.waiting ? " · waiting for your answer" : entry.running ? " · working" : "")}
+                onclick={() => show(entry)}
+              >
+                {#if entry.running}<LoaderCircle size={14} class="spin" aria-label="working" />
+                {:else if entry.inbox}<Inbox size={14} />
+                {:else}<CornerDownRight size={14} />{/if}
+                <span>{entry.title}</span>
+                {#if entry.waiting}<i class="waiting" aria-label="waiting for your answer"></i>{/if}
+              </button>
+              {#if entry.key !== null && open.current.chats.length > 1}
+                {@const key = entry.key}
+                <button class="close" aria-label="Close {entry.title}" title="Close" onclick={() => chats.close(key)}
+                  ><X size={14} /></button
+                >
+              {/if}
+            </li>
+          {/each}
+        </ul>
       {/if}
     {/each}
     {#each pages as p (p.name)}
@@ -141,6 +173,18 @@
   </nav>
   <!-- At the bottom, on its own: what needs attention. -->
   <div class="footer-slot">
+    <div class="nav-row">
+      <a
+        href={NOTIFICATIONS}
+        class="nav-item"
+        aria-current={page.url.pathname.startsWith(NOTIFICATIONS) ? "page" : undefined}
+        title="Notifications"
+      >
+        <ListChecks size={20} />
+        <span class="label">Notifications</span>
+        {#if unread}<span class="count" aria-label="{unread} new">{unread}</span>{/if}
+      </a>
+    </div>
     <div class="nav-row">
       <a href={ALERTS} class="nav-item" aria-current={page.url.pathname.startsWith(ALERTS) ? "page" : undefined} title="Alerts">
         <Bell size={20} />
@@ -301,12 +345,16 @@
     border-radius: 0 2px 2px 0;
     background: var(--color-accent);
   }
-  /* The side conversation this tab is on, as a branch off Chat. */
+  /* The conversations open in this tab, and others working, under Chat. */
+  .open {
+    margin: 0 0 4px;
+    padding: 0;
+    list-style: none;
+  }
   .branch {
     display: flex;
     align-items: center;
     gap: 2px;
-    margin: 0 0 4px;
     padding-left: 22px;
   }
   .branch-item {
@@ -333,7 +381,28 @@
     flex: none;
     color: var(--color-accent);
   }
-  .home {
+  .waiting {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    margin-left: auto;
+    border-radius: var(--radius-full);
+    background: var(--color-accent);
+  }
+  .branch-item :global(.spin) {
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .branch-item :global(.spin) {
+      animation: none;
+    }
+  }
+  .close {
     display: grid;
     place-items: center;
     flex: none;
@@ -347,11 +416,11 @@
   }
   .branch-item:hover,
   .branch-item.current,
-  .home:hover {
+  .close:hover {
     background: var(--color-bg-hover-ghost);
     color: var(--color-text-primary);
   }
-  :global(.collapsed) .branch {
+  :global(.collapsed) .open {
     display: none;
   }
   :global(.collapsed) .label,
@@ -377,7 +446,7 @@
     .mark,
     .collapse,
     .add,
-    .branch {
+    .open {
       display: none;
     }
     .nav-item {

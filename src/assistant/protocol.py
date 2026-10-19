@@ -16,6 +16,7 @@ _EVENT_TYPES = {
         events.ToolFinished,
         events.ApprovalRequired,
         events.Transcribed,
+        events.Dispatched,
         events.Done,
         events.Error,
         events.Cancelled,
@@ -44,8 +45,8 @@ def event_from_dict(data: dict[str, Any]) -> Event:
 
 
 @dataclass
-class RestartStatus:
-    """A requested restart: the daemon restarts once these runs end, at once when none."""
+class ShutdownStatus:
+    """A requested restart or stop: the daemon restarts or stops once these runs end, at once when none."""
 
     waiting_for_runs: int
 
@@ -85,6 +86,10 @@ class HostStatus:
 
 class StartupError(Exception):
     """Enabling or disabling start at boot failed or was cancelled."""
+
+
+class StopRefusedError(Exception):
+    """The daemon can't be stopped from the app; the message says why."""
 
 
 @dataclass

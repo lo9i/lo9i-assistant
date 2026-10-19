@@ -54,7 +54,10 @@ from assistant.core.agent import (
     ModelProvider,
     ModelSettingsError,
     ModelStatus,
+    Notification,
     PluginUpdate,
+    PromptEditError,
+    PromptSection,
     Repository,
     RepositoryContents,
     RepositoryError,
@@ -74,6 +77,7 @@ from assistant.core.agent import (
     SpokenReplies,
     SynthesisError,
     TokenReport,
+    UnknownPromptError,
     UploadedFile,
     UsageReport,
     WebSearchStatus,
@@ -82,6 +86,7 @@ from assistant.core.attachments import Attachment
 from assistant.core.channels.chat.conversations import ChannelChats
 from assistant.core.channels.chat.port import ChatLimits
 from assistant.core.config import settings
+from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
 from assistant.core.health import Area
 from assistant.core.logs import (
     MAX_LINES,
@@ -110,6 +115,7 @@ from assistant.daemon.channel_runs import ChannelRuns
 from assistant.daemon.clients import ClientRegistry
 from assistant.daemon.launchd import StartupError
 from assistant.daemon.runs import RunHub
+from assistant.daemon.shutdown import Ending
 from assistant.daemon.web_ui import BUILD_DIR, add_web_ui, is_web_ui
 from assistant.protocol import (
     CLIENT_HEADER,
@@ -117,8 +123,9 @@ from assistant.protocol import (
     END,
     ConnectedClient,
     HostStatus,
-    RestartStatus,
+    ShutdownStatus,
     StartupStatus,
+    StopRefusedError,
 )
 
 
@@ -152,7 +159,7 @@ class ChannelPress(BaseModel):
 
 
 class ChannelCommand(BaseModel):
-    # Without its slash: new, home, start, or an agent's (claude).
+    # Without its slash: new, start, or an agent's (claude).
     command: str
     # What follows it: an agent's folder, or off.
     text: str = ""
@@ -263,6 +270,10 @@ class LogLevelSetting(BaseModel):
 class LogLevelChange(BaseModel):
     # Checked by the service, which says what the choices are.
     level: str
+
+
+class PromptText(BaseModel):
+    text: str
 
 
 class SkillChange(BaseModel):
@@ -381,6 +392,24 @@ class RunStarted(BaseModel):
     run_id: str
 
 
+class Dispatching(BaseModel):
+    channel: str
+    # What the message said, announced with the run so other clients show it.
+    text: str = ""
+
+
+class Moving(BaseModel):
+    channel: str
+    # The message to move, from the inbox's record of it; empty for the last one the inbox sent on.
+    id: str = ""
+
+
+class RunInProgress(BaseModel):
+    run_id: str
+    thread_id: str
+    channel: str
+
+
 class CancelResult(BaseModel):
     cancelled: bool
 
@@ -404,7 +433,7 @@ def create_app(
     service: AssistantService,
     hub: RunHub,
     startup: Any = None,
-    restart: Any = None,
+    shutdown: Any = None,
     web_ui: Path = BUILD_DIR,
     logs: Mapping[str, LogSource] | None = None,
 ) -> FastAPI:
@@ -435,18 +464,21 @@ def create_app(
     _add_job_routes(app, service)
     _add_mcp_routes(app, service)
     _add_alert_routes(app, service)
+    _add_notification_routes(app, service)
     _add_task_routes(app, service)
     _add_repository_routes(app, service)
     _add_identity_routes(app, service)
+    _add_prompt_routes(app, service)
     _add_speech_routes(app, service)
     _add_log_level_routes(app, service)
+    _add_dispatch_routes(app, service)
     _add_model_routes(app, service)
     _add_usage_routes(app, service)
     _add_host_route(app)
     if startup is not None:
         _add_startup_routes(app, startup)
-    if restart is not None:
-        _add_restart_route(app, restart)
+    if shutdown is not None:
+        _add_shutdown_routes(app, shutdown)
     if logs is not None:
         _add_log_routes(app, logs, streams)
     add_web_ui(app, web_ui)
@@ -516,19 +548,26 @@ def _add_session_routes(app: FastAPI, service: AssistantService, clients: Client
     async def health() -> Ok:
         return Ok()
 
-    @app.post("/threads/home")
-    async def home_thread(request: Request) -> ThreadCreated:
-        """Moves the calling client to the home conversation, leaving the one it was on."""
-        thread_id = await service.home_thread(settings.owner_id)
+    @app.post("/threads/inbox")
+    async def inbox_thread(request: Request) -> ThreadCreated:
+        """Moves the calling client to the inbox, which routes each message to its conversation, leaving the
+        one it was on."""
+        thread_id = await service.inbox_thread(settings.owner_id)
         clients.on_thread(_client_id(request), thread_id)
         return ThreadCreated(thread_id=thread_id)
 
     @app.post("/threads")
     async def new_thread(request: Request) -> ThreadCreated:
-        """A new side conversation for the calling client, which leaves the one it was on."""
+        """A new conversation for the calling client, which leaves the one it was on."""
         thread_id = await service.new_thread(settings.owner_id)
         clients.on_thread(_client_id(request), thread_id)
         return ThreadCreated(thread_id=thread_id)
+
+    @app.post("/threads/leave")
+    async def leave_thread(request: Request) -> Ok:
+        """The calling client closes its conversation without moving to another, as a closed chat tab."""
+        clients.off_thread(_client_id(request))
+        return Ok()
 
     @app.get("/memory")
     async def memory() -> MemorySnapshot:
@@ -558,6 +597,24 @@ def _add_run_routes(
         run = hub.start(thread_id, service.send(session, text, attachments), channel, client_id, text)
         return RunStarted(run_id=run.id)
 
+    @app.post("/threads/{thread_id}/dispatched/{dispatch_id}")
+    async def send_dispatched(thread_id: str, dispatch_id: str, request: Request, body: Dispatching) -> RunStarted:
+        """Sends a message the inbox sent on (a Dispatched event) here, as it was written."""
+        session = Session(settings.owner_id, body.channel, thread_id)
+        client_id = _client_id(request)
+        clients.on_thread(client_id, thread_id)
+        run = hub.start(thread_id, service.send_dispatched(session, dispatch_id), body.channel, client_id, body.text)
+        return RunStarted(run_id=run.id)
+
+    @app.post("/threads/{thread_id}/moves")
+    async def move_dispatched(thread_id: str, request: Request, body: Moving) -> RunStarted:
+        """Asks in the inbox where a message it sent on goes instead, and sends it on again (a Dispatched
+        event)."""
+        session = Session(settings.owner_id, body.channel, thread_id)
+        events = service.move_dispatched(session, body.id or None)
+        run = hub.start(thread_id, events, body.channel, _client_id(request))
+        return RunStarted(run_id=run.id)
+
     @app.post("/threads/{thread_id}/approvals")
     async def approve(thread_id: str, body: Approvals, request: Request) -> RunStarted:
         session = Session(settings.owner_id, body.channel, thread_id)
@@ -567,6 +624,12 @@ def _add_run_routes(
     @app.post("/threads/{thread_id}/cancel")
     async def cancel(thread_id: str) -> CancelResult:
         return CancelResult(cancelled=await service.cancel(thread_id))
+
+    @app.get("/runs")
+    async def runs_in_progress() -> list[RunInProgress]:
+        """Replies in progress in any conversation, oldest first. `run` and `run_finished` events tell
+        when this changes."""
+        return [RunInProgress(run_id=r.id, thread_id=r.thread_id, channel=r.channel) for r in hub.running()]
 
     @app.get("/runs/{run_id}/events", response_class=EventSourceResponse, responses=_EVENT_STREAM)
     async def run_events(run_id: str, request: Request, after: int = 0) -> EventSourceResponse:
@@ -816,11 +879,14 @@ def _add_channel_chat_routes(app: FastAPI, service: AssistantService, hub: RunHu
         text: Annotated[str, Form()] = "",
         voice: Annotated[bool, Form()] = False,
         files: Annotated[list[UploadFile] | None, File()] = None,
+        reply_to: Annotated[str, Form()] = "",
+        message: Annotated[str, Form()] = "",
     ) -> Ok:
-        """`voice`: the message was a voice note (Settings → Audio can speak only those replies)."""
+        """`voice`: the message was a voice note (Settings → Audio can speak only those replies). `reply_to`:
+        the id of the message it replies to, whose conversation it goes on in; `message`: its own id."""
         _require_channel(request, name)
         attachments = [await _attachment(f) for f in files or []]
-        chats.spawn(chats.message(name, chat, text, attachments, voice))
+        chats.spawn(chats.message(name, chat, text, attachments, voice, reply_to, message))
         return Ok()
 
     @app.post("/channels/{name}/presses")
@@ -1203,6 +1269,32 @@ def _add_alert_routes(app: FastAPI, service: AssistantService) -> None:
         return Ok()
 
 
+def _add_notification_routes(app: FastAPI, service: AssistantService) -> None:
+    """The notifications feed (core/notifications.py): job results and background work that ended."""
+
+    @app.get("/notifications")
+    async def notification_list() -> list[Notification]:
+        """The newest first."""
+        return await service.notifications(settings.owner_id)
+
+    @app.post("/notifications/read")
+    async def read_notifications() -> Ok:
+        await service.mark_notifications_read(settings.owner_id)
+        return Ok()
+
+    @app.delete("/notifications/{notification_id}")
+    async def dismiss_notification(notification_id: str) -> Ok:
+        """404: no such notification."""
+        if not await service.dismiss_notification(settings.owner_id, notification_id):
+            raise HTTPException(404, f"No notification {notification_id}.")
+        return Ok()
+
+    @app.delete("/notifications")
+    async def clear_notifications() -> Ok:
+        await service.clear_notifications(settings.owner_id)
+        return Ok()
+
+
 def _add_task_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/agent-tasks/running")
     async def running_tasks() -> list[RunningTask]:
@@ -1241,6 +1333,35 @@ def _add_identity_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return AssistantName(name=await service.rename_assistant(body.name))
         except InvalidNameError as e:
+            raise HTTPException(400, str(e)) from e
+
+
+def _add_prompt_routes(app: FastAPI, service: AssistantService) -> None:
+    """The system prompt texts the user edits (core/conversation/prompt_edits.py), used from the next
+    user message in each conversation."""
+
+    @app.get("/settings/prompts")
+    async def prompt_sections() -> list[PromptSection]:
+        return await service.prompt_sections()
+
+    @app.put("/settings/prompts/{name}")
+    async def save_prompt(name: str, body: PromptText) -> PromptSection:
+        """404: not a prompt the user can edit. 400: an empty text, or the edit can't be written."""
+        try:
+            return await service.save_prompt(name, body.text)
+        except UnknownPromptError as e:
+            raise HTTPException(404, str(e)) from e
+        except PromptEditError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.delete("/settings/prompts/{name}")
+    async def reset_prompt(name: str) -> PromptSection:
+        """Back to the built-in text. 404: not a prompt the user can edit. 400: the edit can't be deleted."""
+        try:
+            return await service.reset_prompt(name)
+        except UnknownPromptError as e:
+            raise HTTPException(404, str(e)) from e
+        except PromptEditError as e:
             raise HTTPException(400, str(e)) from e
 
 
@@ -1284,12 +1405,20 @@ def _add_startup_routes(app: FastAPI, startup: Any) -> None:
             raise HTTPException(400, str(e)) from e
 
 
-def _add_restart_route(app: FastAPI, restart: Any) -> None:
-    """Restarting the daemon once no run is in progress (daemon/restart.py). `restart` offers request()."""
+def _add_shutdown_routes(app: FastAPI, shutdown: Any) -> None:
+    """Restarting or stopping the daemon once no run is in progress (daemon/shutdown.py). `shutdown` offers
+    request(ending). The answer goes out before the daemon stops: stopping waits for requests in progress."""
 
     @app.post("/system/restart")
-    async def restart_daemon() -> RestartStatus:
-        return RestartStatus(waiting_for_runs=restart.request())
+    async def restart_daemon() -> ShutdownStatus:
+        return ShutdownStatus(waiting_for_runs=shutdown.request(Ending.RESTART))
+
+    @app.post("/system/stop")
+    async def stop_daemon() -> ShutdownStatus:
+        try:
+            return ShutdownStatus(waiting_for_runs=shutdown.request(Ending.STOP))
+        except StopRefusedError as e:
+            raise HTTPException(409, str(e)) from e
 
 
 def _add_log_routes(app: FastAPI, logs: Mapping[str, LogSource], streams: DeviceStreams) -> None:
@@ -1336,6 +1465,22 @@ def _add_log_level_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return LogLevelSetting(level=await service.set_log_level(body.level))
         except LogLevelError as e:
+            raise HTTPException(400, str(e)) from e
+
+
+def _add_dispatch_routes(app: FastAPI, service: AssistantService) -> None:
+    """How sure routing a message from the inbox has to be (core/conversation/dispatch_setting.py)."""
+
+    @app.get("/settings/dispatch")
+    async def dispatch_setting() -> DispatchSetting:
+        return await service.dispatch_setting()
+
+    @app.put("/settings/dispatch")
+    async def set_dispatch_setting(body: DispatchSetting) -> DispatchSetting:
+        """400: a confidence outside 0 to 1."""
+        try:
+            return await service.set_dispatch_setting(body)
+        except DispatchSettingError as e:
             raise HTTPException(400, str(e)) from e
 
 

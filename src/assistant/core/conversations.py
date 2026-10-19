@@ -22,11 +22,13 @@ class Conversation:
     titled: bool = False
     # The channels its messages came from (cli, web, telegram), in the order they were first used.
     channels: list[str] = field(default_factory=list)
-    # What it's about (names, topics), written by the model with the title; a message in home is
+    # What it's about (names, topics), written by the model with the title; a message in the inbox is
     # matched against them (core/conversation/related.py).
     tags: list[str] = field(default_factory=list)
-    # Whether it's the home conversation (core/home.py). Set when listed, not stored.
-    home: bool = False
+    # Kept to read, never routed to: the home conversation from before the inbox (core/inbox.py).
+    archived: bool = False
+    # Whether it's the inbox (core/inbox.py). Set when listed, not stored.
+    inbox: bool = False
 
 
 def namespace(user_id: str) -> tuple[str, ...]:
@@ -44,7 +46,7 @@ async def load(store: BaseStore, user_id: str, thread_id: str) -> Conversation |
 
 
 async def save(store: BaseStore, user_id: str, conversation: Conversation) -> None:
-    record = {k: v for k, v in asdict(conversation).items() if k != "home"}
+    record = {k: v for k, v in asdict(conversation).items() if k != "inbox"}
     await store.aput(namespace(user_id), conversation.thread_id, record)
 
 
@@ -55,9 +57,9 @@ async def recent(store: BaseStore, user_id: str) -> list[Conversation]:
 
 
 async def set_title(store: BaseStore, user_id: str, thread_id: str, title: str, tags: list[str]) -> bool:
-    """False for an empty title or an unknown conversation."""
+    """False for an empty title, an unknown conversation or an archived one, which keeps its own."""
     conversation = await load(store, user_id, thread_id)
-    if conversation is None or not title:
+    if conversation is None or not title or conversation.archived:
         return False
     conversation.title, conversation.titled, conversation.tags = title_from(title), True, tags
     await save(store, user_id, conversation)
@@ -80,6 +82,14 @@ async def set_channels(store: BaseStore, user_id: str, thread_id: str, channels:
     conversation = await load(store, user_id, thread_id)
     if conversation is not None:
         conversation.channels = channels
+        await save(store, user_id, conversation)
+
+
+async def archive(store: BaseStore, user_id: str, thread_id: str, title: str) -> None:
+    """Keeps the conversation to read under `title`, out of routing. Nothing to do for an unlisted one."""
+    conversation = await load(store, user_id, thread_id)
+    if conversation is not None:
+        conversation.title, conversation.titled, conversation.archived = title, True, True
         await save(store, user_id, conversation)
 
 

@@ -4,8 +4,13 @@ import type { RunEvent, ShownMessage } from "../api/types";
 
 export type ChatItem =
   | { kind: "user"; id: number; text: string; files: string[]; channel?: string }
-  | { kind: "assistant"; id: number; text: string }
+  // `dispatchId`: the inbox's record of a message it sent on, which can be moved.
+  | { kind: "assistant"; id: number; text: string; dispatchId?: string }
   | { kind: "thinking"; id: number; text: string }
+  // A quick exchange the inbox carried to this conversation, as Markdown, before the message that followed it up.
+  | { kind: "carried"; id: number; text: string }
+  // Background work that ended, which the assistant followed up on without a message from the user.
+  | { kind: "notice"; id: number; text: string }
   | ToolItem
   | { kind: "transcript"; id: number; text: string; language: string }
   | { kind: "error"; id: number; message: string }
@@ -43,6 +48,11 @@ export function finalReply(t: Transcript): string {
     .trim();
 }
 
+/** A quick exchange the inbox carried here, shown before the message that followed it up. */
+export function addCarried(t: Transcript, text: string): Transcript {
+  return add({ ...t, streaming: null }, { kind: "carried", text });
+}
+
 export function addUser(t: Transcript, text: string, files: string[], channel?: string): Transcript {
   return add({ ...t, streaming: null }, { kind: "user", text, files, channel });
 }
@@ -62,6 +72,9 @@ export function apply(t: Transcript, event: RunEvent): Transcript {
       return addThinking(ended, event.text);
     case "Transcribed":
       return add(ended, { kind: "transcript", text: event.text, language: event.language });
+    case "Dispatched":
+      // As the inbox records it (core/conversation/dispatch_nodes.py), so history reads the same.
+      return add(ended, { kind: "assistant", text: event.line, dispatchId: event.id });
     case "Error":
       return add(ended, { kind: "error", message: event.message });
     case "Cancelled":
@@ -102,8 +115,10 @@ function add(t: Transcript, item: NewItem): Transcript {
 function addShown(t: Transcript, message: ShownMessage): Transcript {
   if (message.role === "user") return add(t, { kind: "user", text: message.text, files: [] });
   if (message.role === "thinking") return add(t, { kind: "thinking", text: message.text });
+  if (message.role === "carried") return add(t, { kind: "carried", text: message.text });
+  if (message.role === "notice") return add(t, { kind: "notice", text: message.text });
   if (message.role === "tool") return add(t, shownTool(message));
-  return add(t, { kind: "assistant", text: message.text });
+  return add(t, { kind: "assistant", text: message.text, dispatchId: message.dispatch_id || undefined });
 }
 
 /** A handed-off agent's tool call comes with what it was about and its output, as it was shown live. */

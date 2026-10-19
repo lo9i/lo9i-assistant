@@ -25,6 +25,22 @@ class RunsMixin(ChatBase):
         async for event in self._follow(run["run_id"]):
             yield event
 
+    async def send_dispatched(self, session: Session, dispatch_id: str, text: str) -> AsyncIterator[Event]:
+        """Sends a message the inbox sent on (a Dispatched event) in `session`'s conversation, as it was
+        written."""
+        body = {"channel": session.channel, "text": text}
+        run = await self._transport.request("POST", f"/threads/{session.thread_id}/dispatched/{dispatch_id}", json=body)
+        async for event in self._follow(run["run_id"]):
+            yield event
+
+    async def move_dispatched(self, session: Session, dispatch_id: str = "") -> AsyncIterator[Event]:
+        """Asks in the inbox (`session`) where a message it sent on goes instead, the last one when `dispatch_id`
+        is empty; a Dispatched event says where it went."""
+        body = {"channel": session.channel, "id": dispatch_id}
+        run = await self._transport.request("POST", f"/threads/{session.thread_id}/moves", json=body)
+        async for event in self._follow(run["run_id"]):
+            yield event
+
     async def resume(self, session: Session, decisions: dict[str, dict[str, Any]]) -> AsyncIterator[Event]:
         body = {"channel": session.channel, "decisions": decisions}
         run = await self._transport.request("POST", f"/threads/{session.thread_id}/approvals", json=body)

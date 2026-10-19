@@ -31,7 +31,7 @@
 
   // The assistant keeps this up to date from conversations; the user adds and edits items here too.
   const memory = resource((c) => c.memory.snapshot(), ["memory"]);
-  const { chat, client, notices } = useDaemon();
+  const { chats, client, notices } = useDaemon();
 
   // What it saved on its own: facts, and a summary of each past conversation.
   const facts = resource((c) => c.memory.facts(), ["memory"]);
@@ -61,7 +61,7 @@
 <!-- A settings tab of its own page. -->
 <TopBar title="Settings">
   {#snippet actions()}
-    <button class="btn btn--primary" onclick={() => startGetToKnowYou(chat)}
+    <button class="btn btn--primary" onclick={() => startGetToKnowYou(chats)}
       ><Sparkles size={16} /><span class="hide-narrow">Get to know me</span></button
     >
   {/snippet}

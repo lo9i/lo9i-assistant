@@ -38,4 +38,4 @@ async def test_up_recalls_commands_without_opening_the_menu(app):
         await pilot.press("down", "down")
         await wait_for(pilot, lambda: prompt.value == "")
         await pilot.press("up", "up", "enter")
-        await wait_for(pilot, lambda: len(app.query(SystemNote)) == 2)
+        await wait_for(pilot, lambda: len(app.query(SystemNote)) == 3)  # the conversations, then /help twice

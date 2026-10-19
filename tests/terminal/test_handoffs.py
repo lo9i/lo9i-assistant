@@ -7,6 +7,8 @@ from tests.terminal.conftest import wait_for
 async def test_claude_hands_the_conversation_over_and_off_takes_it_back(app, client):
     async with app.run_test() as pilot:
         await wait_for(pilot, lambda: "/claude" in app._agents)
+        await pilot.press("ctrl+n")
+        await wait_for(pilot, lambda: app.sub_title == "owner:new")
         thread_id = app._live.session.thread_id
         await pilot.click("#prompt")
         await pilot.press(*"/claude relative", "enter")
@@ -31,7 +33,7 @@ async def test_the_command_menu_offers_the_agents_command(app, client):
 async def test_claude_alone_picks_a_folder_used_before(app, client):
     async with app.run_test() as pilot:
         await wait_for(pilot, lambda: "/claude" in app._agents)
-        thread_id = app._live.session.thread_id
+        thread_id = "owner:new"  # the app is on the inbox, which hands a new conversation
         await pilot.click("#prompt")
         await pilot.press(*"/claude", "enter", "enter")
         await wait_for(pilot, lambda: isinstance(app.screen, AgentFolderScreen))
@@ -47,7 +49,7 @@ async def test_claude_alone_picks_a_folder_used_before(app, client):
 async def test_claude_alone_browses_to_a_new_project(app, client):
     async with app.run_test() as pilot:
         await wait_for(pilot, lambda: "/claude" in app._agents)
-        thread_id = app._live.session.thread_id
+        thread_id = "owner:new"  # the app is on the inbox, which hands a new conversation
         await pilot.click("#prompt")
         await pilot.press(*"/claude", "enter", "enter")
         await wait_for(pilot, lambda: "Browse…" in _options(app))

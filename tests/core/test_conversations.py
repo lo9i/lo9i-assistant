@@ -15,7 +15,9 @@ async def _say(service, text, session=None):
 
 
 async def _archived(service):
-    await asyncio.gather(*service._background)
+    """Background work can start more (a title that succeeds titles the others waiting)."""
+    while service._background:
+        await asyncio.gather(*service._background)
     await service.memory_writer.write_all()
 
 
@@ -63,9 +65,47 @@ async def test_the_model_titles_after_the_first_and_third_reply_and_when_left(se
     assert titles.inputs[0] == "User: plan my trip to Rome\n\nAssistant: ok"  # no turn headers
     [listed] = await service.list_conversations("owner")
     assert listed.title == "Trip to Rome" and listed.titled
-    await service.new_channel_thread("owner", "cli")
+    service.leave_thread("owner", (await service.session("owner", "cli")).thread_id)
     await _archived(service)
     assert len(titles.inputs) == 3 and "thanks" in titles.inputs[2]
+
+
+async def test_a_failed_title_is_tried_again_at_the_next_reply(service, script, titles):
+    titles.error = RuntimeError("model down")
+    trip = Session("owner", "web", await service.new_thread("owner"))
+    await _say(service, "plan my trip to Rome", trip)
+    await _archived(service)
+    titles.error = None
+    await _say(service, "and book a hotel", trip)  # the second reply: not one titled early
+    await _archived(service)
+    [listed] = await service.list_conversations("owner")
+    assert (listed.title, listed.tags) == ("Trip to Rome", ["rome"])
+
+
+async def test_the_next_title_that_succeeds_titles_those_waiting(service, script, titles):
+    titles.error = RuntimeError("model down")
+    first = Session("owner", "web", await service.new_thread("owner"))
+    second = Session("owner", "web", await service.new_thread("owner"))
+    await _say(service, "plan my trip to Rome", first)
+    await _say(service, "what's the weather", second)
+    await _archived(service)
+    titles.error = None
+    third = Session("owner", "web", await service.new_thread("owner"))
+    await _say(service, "book a table", third)
+    await _archived(service)
+    assert all(c.titled and c.tags for c in await service.list_conversations("owner"))
+
+
+async def test_titling_what_waits_stops_at_the_first_failure(service, script, titles):
+    for text in ("one", "two", "three"):
+        await _say(service, text, Session("owner", "web", await service.new_thread("owner")))
+    await _archived(service)
+    for listed in await service.list_conversations("owner"):
+        listed.titled, listed.tags = False, []
+        await conversations.save(service.store, "owner", listed)
+    titles.error, asked = RuntimeError("model down"), len(titles.inputs)
+    assert await service.title_untitled("owner") == 0
+    assert len(titles.inputs) == asked + 1  # one call, not one per conversation
 
 
 async def test_shown_messages_leave_out_turn_headers_and_tool_output(service, script):

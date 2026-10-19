@@ -3,7 +3,7 @@
 import json
 
 from assistant.core.agent_tasks.steps import AgentSteps
-from assistant.core.events import TextDelta, Thinking, ToolFinished, ToolStarted
+from assistant.core.events import TextDelta, ToolFinished, ToolStarted
 
 
 def _events(steps: AgentSteps, *messages: dict | str) -> list:
@@ -27,11 +27,11 @@ def test_a_subagents_tool_calls_go_inside_the_call_that_started_it_and_its_words
     ]
 
 
-def test_texts_apart_from_each_other_are_separate_paragraphs_and_thinking_is_its_own():
+def test_texts_and_thinking_apart_from_each_other_are_separate_paragraphs_of_what_it_says():
     steps = AgentSteps("Claude Code")
     events = _events(steps, {"kind": "text", "text": "One."}, {"kind": "thinking", "text": "Two?"})
     events += _events(steps, {"kind": "text", "text": "Three."}, {"kind": "text", "text": "Four."})
-    assert events == [TextDelta("One."), Thinking("Two?"), TextDelta("Three."), TextDelta("\n\nFour.")]
+    assert events == [TextDelta("One."), TextDelta("\n\nTwo?"), TextDelta("\n\nThree."), TextDelta("\n\nFour.")]
     assert steps.spoke
 
 
@@ -62,9 +62,9 @@ def test_words_stream_and_their_whole_block_isnt_shown_again():
         {"kind": "text_delta", "text": "sub", "within": "a1"},
     )
     assert events == [
-        Thinking("The test "),
-        Thinking("expects a list."),
-        TextDelta("Running "),
+        TextDelta("The test "),
+        TextDelta("expects a list."),
+        TextDelta("\n\nRunning "),
         TextDelta("it."),
         TextDelta("\n\nDone."),
         TextDelta("\n\nWhole."),

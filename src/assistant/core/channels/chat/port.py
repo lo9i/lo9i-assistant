@@ -8,6 +8,10 @@ from typing import Protocol
 # (label, button data). The data comes back when the button is pressed.
 Buttons = list[tuple[str, str]]
 
+# The chat id of the user's own chat on a channel, for what the assistant starts: every paired Telegram
+# account, the owner's Slack DM.
+OWN_CHAT = ""
+
 
 @dataclass(frozen=True)
 class ChatLimits:

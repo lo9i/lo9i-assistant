@@ -1,5 +1,6 @@
-from textual.widgets import Button, Input, Markdown, Select
+from textual.widgets import Button, Input, Label, Markdown, Select
 
+from assistant.core.conversation.dispatch_setting import DispatchSetting
 from assistant_terminal.tui.screens import ModelScreen
 from tests.terminal.conftest import wait_for
 
@@ -60,3 +61,17 @@ async def test_each_provider_asks_for_its_own_fields(app, client):
             screen.query_one(f"#model-{name}", Input).value = value
         screen.query_one("#save", Button).press()
         await wait_for(pilot, lambda: client.model.saved == ("groq", {"api_key": "gsk"}, "llama", "llama"))
+
+
+async def test_the_confidence_to_continue_a_conversation_is_set(app, client):
+    async with app.run_test(size=(110, 50)) as pilot:
+        screen = await _open(pilot, app)
+        confidence = screen.query_one("#dispatch-confidence", Input)
+        await wait_for(pilot, lambda: confidence.value == "0.7")
+        message = screen.query_one("#dispatch-message", Label)
+        confidence.value = "1.5"
+        screen.query_one("#dispatch-save", Button).press()
+        await wait_for(pilot, lambda: "from 0 to 1" in str(message.render()))
+        confidence.value = "0.6"
+        screen.query_one("#dispatch-save", Button).press()
+        await wait_for(pilot, lambda: client.model.dispatching == DispatchSetting(0.6))

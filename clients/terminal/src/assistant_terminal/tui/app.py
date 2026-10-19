@@ -1,6 +1,6 @@
 """Full-screen terminal app: chat on the left, memory on the right."""
 
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any, ClassVar
 
 from textual import work
@@ -17,6 +17,7 @@ from assistant.client.recorder import Recorder, RecordingUnavailableError
 from assistant.client.recorder import available as recording_available
 from assistant.core.agent import (
     Agent,
+    Conversation,
     ConversationError,
     FoundServer,
     HandoffError,
@@ -25,8 +26,15 @@ from assistant.core.agent import (
     SkillError,
 )
 from assistant.core.attachments import Attachment
-from assistant.core.events import is_plugin_offer, is_plugin_setup, is_question, is_side_conversation
+from assistant.core.events import (
+    Dispatched,
+    Event,
+    is_plugin_offer,
+    is_plugin_setup,
+    is_question,
+)
 from assistant_terminal.commands import GET_TO_KNOW_ME, Command, agent_commands, help_lines
+from assistant_terminal.conversations_text import listed_title, when
 from assistant_terminal.history import History
 from assistant_terminal.preferences import Preferences
 from assistant_terminal.tasks_text import task_line
@@ -53,12 +61,12 @@ from assistant_terminal.tui.screens import (
     LogsScreen,
     McpScreen,
     ModelScreen,
+    NotificationsScreen,
     PluginsScreen,
     ProfileScreen,
     QuestionScreen,
     RepositoryInstallScreen,
     SessionsScreen,
-    SideConversationScreen,
     SkillsScreen,
     StartupScreen,
     UsageScreen,
@@ -67,13 +75,23 @@ from assistant_terminal.tui.screens import (
 from assistant_terminal.tui.theme import NAME as THEME_NAME
 from assistant_terminal.tui.theme import THEME
 from assistant_terminal.tui.turn import TurnView
-from assistant_terminal.tui.widgets import MemoryPanel, MouseStatus, StatusLine, SystemNote, UserMessage
+from assistant_terminal.tui.widgets import (
+    CarriedNote,
+    MemoryPanel,
+    MouseStatus,
+    StatusLine,
+    SystemNote,
+    UserMessage,
+)
 
 _PLACEHOLDER = "Message the assistant   (type / for commands)"
 _PLACEHOLDER_WITH_MIC = "Message the assistant   (type / for commands, F3 to record)"
 _MIN_RECORDING_SECONDS = 0.5
 # The title when the user hasn't named the assistant.
 _DEFAULT_TITLE = "lo9i assistant"
+# Conversations the chat opens to, in a note that goes once a message is sent.
+_LISTED = 8
+_LIST_NOTE = "conversations-note"
 
 
 class AssistantApp(App):
@@ -104,6 +122,8 @@ class AssistantApp(App):
         self.ansi_color = True
         self._service = service
         self._live = LiveConversation(service, session, service.clients.own_id)
+        # The app starts on the inbox (main.py); a message there goes where it belongs.
+        self._inbox_id = session.thread_id
         self._history = history
         self._preferences = preferences
         self._busy = False
@@ -117,8 +137,10 @@ class AssistantApp(App):
         self._plugin_updates = PluginUpdates(service.repositories, lambda text: self.notify(text, timeout=10))
         self._commands: dict[str, Callable[[str], Awaitable[None]]] = {
             "/new": self._command_new,
-            "/home": self._command_home,
+            "/inbox": self._command_inbox,
+            "/move": self._command_move,
             "/conversations": self._command_conversations,
+            "/notifications": self._command_notifications,
             "/attach": self._command_attach,
             "/mcp": self._command_mcp,
             "/model": self._command_model,
@@ -165,6 +187,7 @@ class AssistantApp(App):
         self.register_theme(THEME)
         self.theme = THEME_NAME
         await self.refresh_thread()
+        await self._show_conversations()
         self.query_one("#chat", VerticalScroll).anchor()
         self.query_one("#prompt", Input).focus()
         await self.refresh_memory()
@@ -328,6 +351,7 @@ class AssistantApp(App):
         if self._busy:
             self.notify("The assistant is still working on the last message.", severity="warning")
             return False
+        await self._chat.query(f".{_LIST_NOTE}").remove()
         await self._chat.mount(UserMessage(text or _attachment_label(attachments), [a.name for a in attachments]))
         self._run_turn(text, attachments)
         return True
@@ -340,57 +364,44 @@ class AssistantApp(App):
     async def _run_turn(self, text: str, attachments: list[Attachment]) -> None:
         self._busy = True
         try:
-            carried = await self._turn(text, attachments)
-            if carried is not None:
-                await self._move_to_side(carried)
+            await self._turn(lambda: self._service.send(self._live.session, text, attachments))
         except DaemonUnavailableError as e:
             self._status.clear()
             self.notify(f"{e} Your message may not have been answered.", severity="error", timeout=10)
         finally:
             self._busy = False
 
-    async def _turn(self, text: str, attachments: list[Attachment]) -> dict[str, Any] | None:
-        """Runs the turn and returns the side conversation suggestion the user took, if any."""
+    async def _turn(self, start: Callable[[], AsyncIterator[Event]]) -> None:
+        """Runs the turn from `start`, then goes where the inbox sent its message on."""
         view = TurnView(self._chat, self._status)
-        carried: dict[str, Any] | None = None
-        approvals = await view.render(self._service.send(self._live.session, text, attachments))
+        approvals = await view.render(start())
         while approvals:
-            decisions: dict[str, dict[str, Any]] = {}
-            for approval in approvals:
-                decisions[approval.interrupt_id] = decision = await self._decide(approval.request)
-                if is_side_conversation(approval.request) and decision.get("moved"):
-                    carried = approval.request
+            decisions = {a.interrupt_id: await self._decide(a.request) for a in approvals}
             approvals = await view.render(self._service.resume(self._live.session, decisions))
         await self.refresh_memory()
-        return carried
+        if view.dispatched is not None:
+            await self._go_on(view.dispatched)
 
-    async def _move_to_side(self, request: dict[str, Any]) -> None:
-        """The agent's suggestion was taken: the task goes on in the side conversation it names, or a
-        new one, starting with its brief."""
-        if thread_id := request.get("thread_id"):
-            await self._live.resume(str(thread_id))
-            await self.refresh_thread()
-            await show_history(self._chat, await self._service.conversations.messages(str(thread_id)))
-            self.notify(f"Back in {request.get('title')}. /home goes back.")
+    async def _go_on(self, dispatched: Dispatched) -> None:
+        """The inbox sent the message on: to the conversation it went to, or a new one, where it's sent as it
+        was written. The next message goes there too; /inbox goes back."""
+        if dispatched.thread_id:
+            await self._open(dispatched.thread_id)
         else:
             await self._live.start_new()
             await self._chat.remove_children()
-            self.notify(await self._hand_new(request.get("handoff")))
             await self.refresh_thread()
-        first_message = str(request.get("first_message", ""))
-        await self._chat.mount(UserMessage(first_message, []))
-        await self._turn(first_message, [])
+        self.notify(f"→ {dispatched.title}. /inbox goes back.")
+        if dispatched.carried:
+            await self._chat.mount(CarriedNote(dispatched.carried))
+        await self._chat.mount(UserMessage(dispatched.text, []))
+        session = self._live.session
+        await self._turn(lambda: self._service.send_dispatched(session, dispatched.id, dispatched.text))
 
-    async def _hand_new(self, handoff: dict[str, str] | None) -> str:
-        """A coding task's side conversation is handed to its agent; what to tell the user."""
-        if not handoff:
-            return "Moved to a side conversation. /home goes back."
-        thread_id = self._live.session.thread_id
-        try:
-            await self._service.conversations.hand_to(thread_id, handoff["command"], handoff["folder"])
-        except HandoffError as e:
-            return f"Moved to a side conversation. {e}"
-        return f"Moved to a side conversation with {handoff['name']}. /home goes back."
+    async def _open(self, thread_id: str) -> None:
+        await self._live.resume(thread_id)
+        await self.refresh_thread()
+        await show_history(self._chat, await self._service.conversations.messages(thread_id))
 
     async def _decide(self, request: dict[str, Any]) -> dict[str, Any]:
         """The user's answer to what the run waits for. A plugin the agent offers is installed here,
@@ -428,7 +439,7 @@ class AssistantApp(App):
         pinned = await self._service.conversations.pinned(thread_id)
         running = await self._service.tasks.running()
         parts = [
-            thread_id,
+            "inbox" if thread_id == self._inbox_id else thread_id,
             *([f"talking to {handoff.name} in {handoff.folder}"] if handoff else []),
             *([f"pinned: {', '.join(pinned)}"] if pinned else []),
             *(task_line(task, thread_id) for task in running),
@@ -503,18 +514,55 @@ class AssistantApp(App):
         previous = " The previous reply keeps running; you'll be notified when it's done." if still_running else ""
         self.notify(f"Started a new conversation.{previous}")
 
-    async def _command_home(self, _: str) -> None:
+    async def _command_inbox(self, _: str) -> None:
+        """Back to the inbox, shown as the list of conversations rather than its own messages."""
         still_running = self._busy
         if still_running:
             self._stop_showing_turn()
-        await self._live.go_home(leave_running=still_running)
+        await self._live.go_inbox(leave_running=still_running)
+        self._inbox_id = self._live.session.thread_id
         await self.refresh_thread()
-        await show_history(self._chat, await self._service.conversations.messages(self._live.session.thread_id))
-        self.notify("Back home." + (" The previous reply keeps running." if still_running else ""))
+        await self._show_conversations()
+        self.notify(
+            "In the inbox: the next message goes where it belongs."
+            + (" The previous reply keeps running." if still_running else "")
+        )
+
+    @reports_daemon_unavailable
+    async def _show_conversations(self) -> None:
+        """What the chat opens to: the latest conversations, newest first, instead of the inbox's own
+        messages."""
+        listed = [c for c in await self._service.conversations.recent() if not c.inbox][:_LISTED]
+        await self._chat.remove_children()
+        await self._chat.mount(SystemNote(_conversations_note(listed), classes=_LIST_NOTE))
+
+    async def _command_move(self, _: str) -> None:
+        """Asks in the inbox where the last message it sent on goes instead, and goes there."""
+        if self._busy:
+            self.notify("The assistant is still working on the last message.", severity="warning")
+            return
+        if self._live.session.thread_id != self._inbox_id:
+            await self._command_inbox("")
+        self._run_move()
+
+    @work(exclusive=True, group="turn")
+    async def _run_move(self) -> None:
+        self._busy = True
+        try:
+            session = self._live.session
+            await self._turn(lambda: self._service.move_dispatched(session))
+        except DaemonUnavailableError as e:
+            self._status.clear()
+            self.notify(str(e), severity="error", timeout=10)
+        finally:
+            self._busy = False
 
     async def _command_conversations(self, _: str) -> None:
         screen = ConversationsScreen(self._service.conversations, self._live.session.thread_id)
         self.push_screen(screen, self._resume)
+
+    async def _command_notifications(self, _: str) -> None:
+        self.push_screen(NotificationsScreen(self._service.notifications), self._resume)
 
     @reports_daemon_unavailable
     async def _resume(self, thread_id: str | None) -> None:
@@ -622,8 +670,11 @@ class AssistantApp(App):
 
     @reports_daemon_unavailable
     async def _hand_to(self, agent: Agent, folder: str | None) -> None:
+        """The inbox sends every message on, so in it the agent gets a new conversation."""
         if folder is None:
             return
+        if self._live.session.thread_id == self._inbox_id:
+            await self._command_new("")
         try:
             handoff = await self._service.conversations.hand_to(self._live.session.thread_id, agent.command, folder)
         except HandoffError as e:
@@ -708,10 +759,18 @@ def _attachment_label(attachments: list[Attachment]) -> str:
     return "🎤 voice message" if any(a.media_type.startswith("audio/") for a in attachments) else "(attachment)"
 
 
-def _screen_for(request: dict[str, Any]) -> ApprovalScreen | QuestionScreen | SideConversationScreen:
-    """What the run waits for: a question with options, a task to move to a side conversation, or an approval."""
+def _screen_for(request: dict[str, Any]) -> ApprovalScreen | QuestionScreen:
+    """What the run waits for: a question with options, or an approval."""
     if is_question(request):
         return QuestionScreen(request)
-    if is_side_conversation(request):
-        return SideConversationScreen(request)
     return ApprovalScreen(request)
+
+
+def _conversations_note(listed: list[Conversation]) -> str:
+    """Markdown: the conversations by title and when, and how to go on."""
+    lines = [f"- **{listed_title(c)}** · {when(c)}" for c in listed]
+    hint = (
+        "Write a message: it goes on in the conversation it's about, or starts a new one. "
+        "/conversations opens one, /new starts one, /notifications shows what finished."
+    )
+    return "\n".join(["### Conversations", *lines, "", hint]) if lines else f"### No conversations yet\n\n{hint}"

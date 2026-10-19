@@ -13,14 +13,15 @@
 
   type Props = {
     conversation: Conversation | null;
-    current: boolean;
+    // Open in this tab.
+    open: boolean;
     /** Connected clients on this conversation. */
     sessions: ConnectedClient[];
     devices: Device[] | undefined;
     oncontinue: (threadId: string) => void;
     ondelete: (threadId: string) => void;
   };
-  let { conversation, current, sessions, devices, oncontinue, ondelete }: Props = $props();
+  let { conversation, open, sessions, devices, oncontinue, ondelete }: Props = $props();
   let confirming = $state(false);
 
   // Reloads when the conversation gets new messages, which updates the conversation list.
@@ -44,7 +45,7 @@
     <section class="details surface--glass">
       <header>
         <h2 class="text-heading">{conversation.title || "Untitled"}</h2>
-        {#if current}<span class="pill pill--accent">This tab</span>{/if}
+        {#if open}<span class="pill pill--accent">Open</span>{/if}
       </header>
       <dl>
         <dt class="micro-label">ID</dt>

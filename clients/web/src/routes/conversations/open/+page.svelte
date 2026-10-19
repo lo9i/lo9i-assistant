@@ -1,27 +1,32 @@
 <script lang="ts">
-  import GitBranchPlus from "@lucide/svelte/icons/git-branch-plus";
-  import House from "@lucide/svelte/icons/house";
+  import { goto } from "$app/navigation";
+  import { resolve } from "$app/paths";
+  import List from "@lucide/svelte/icons/list";
+  import Plus from "@lucide/svelte/icons/plus";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import ChatPanel from "$lib/ui/chat/ChatPanel.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
-  const { chat } = useDaemon();
-  // One conversation, home; a side conversation is a branch off it for focused work, left with Back home.
-  const snapshot = external(chat.subscribe, () => chat.getSnapshot());
-  const onSide = $derived(snapshot.current.threadId !== snapshot.current.homeId);
+  const { chats } = useDaemon();
+  // The conversation shown; the others open beside it are in the sidebar, every one in Chat's list.
+  const snapshot = external(chats.subscribe, () => chats.current.getSnapshot());
+  const inInbox = $derived(snapshot.current.threadId === snapshot.current.inboxId);
   const conversations = resource((c) => c.conversations.list(), ["conversations"]);
-  const sideTitle = $derived(conversations.data?.find((c) => c.thread_id === snapshot.current.threadId)?.title || "New side conversation");
+  const title = $derived(
+    inInbox ? "Inbox" : conversations.data?.find((c) => c.thread_id === snapshot.current.threadId)?.title || "New conversation",
+  );
+
+  async function startNew(): Promise<void> {
+    await chats.startNew();
+  }
 </script>
 
-<TopBar title={onSide ? sideTitle : "Chat"}>
+<TopBar {title}>
   {#snippet actions()}
-    {#if onSide}
-      <button class="btn btn--primary" onclick={() => chat.goHome()}><House size={16} /><span class="hide-narrow">Back home</span></button>
-    {:else}
-      <button class="btn btn--ghost" title="Focused work in a conversation of its own" onclick={() => chat.startNew()}
-        ><GitBranchPlus size={16} /><span class="hide-narrow">Side conversation</span></button
-      >
-    {/if}
+    <button class="btn btn--ghost" title="Every conversation, newest first" onclick={() => goto(resolve("/conversations"))}
+      ><List size={16} /><span class="hide-narrow">All conversations</span></button
+    >
+    <button class="btn btn--primary" onclick={startNew}><Plus size={16} /><span class="hide-narrow">New conversation</span></button>
   {/snippet}
 </TopBar>
 

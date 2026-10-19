@@ -17,8 +17,9 @@ from assistant_terminal.tui.app import AssistantApp
 
 async def _chat() -> None:
     async with connect() as client:
-        # Every terminal opens on home; /new starts a side conversation, /conversations resumes one.
-        session = Session(settings.owner_id, "cli", await client.home_thread(settings.owner_id))
+        # Every terminal opens on the inbox, which routes each message to its conversation; /new starts one,
+        # /conversations opens one.
+        session = Session(settings.owner_id, "cli", await client.inbox_thread(settings.owner_id))
         await _open(client, session)
 
 

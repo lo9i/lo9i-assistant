@@ -27,4 +27,4 @@ async def test_running_tasks_show_under_the_title_as_they_go(app, client):
         await wait_for(pilot, lambda: "Claude Code working" in app.sub_title and "Bash: pytest" in app.sub_title)
         client.tasks.tasks = []
         await client.bus.put(("agent_task_reports", {}))
-        await wait_for(pilot, lambda: app.sub_title == thread_id)
+        await wait_for(pilot, lambda: app.sub_title == "inbox")

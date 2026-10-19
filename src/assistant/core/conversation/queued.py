@@ -1,7 +1,8 @@
 """Messages waiting to be sent in a conversation once its current run ends: a coding task the assistant
-handed to its agent along with the side conversation it's in (core/agent_tasks/tools.py). The daemon sends
-each as a run of its own, so every app shows the agent's work in that conversation (daemon/queued.py).
-Kept in the Store, so a restart doesn't lose one."""
+handed to its agent along with the conversation it's in (core/agent_tasks/tools.py), and a follow-up on
+background work that ended there (core/background.py), which the assistant answers with no message from the
+user. The daemon sends each as a run of its own, so every app shows it in that conversation
+(daemon/queued.py). Kept in the Store, so a restart doesn't lose one."""
 
 from dataclasses import dataclass
 
@@ -12,7 +13,9 @@ from langgraph.store.base import BaseStore
 class Queued:
     # The channel the conversation was on when it was queued: the run is sent from it.
     channel: str
+    # The message; for a follow-up, what ended, as the user was told.
     text: str
+    follow_up: bool = False
 
 
 def _namespace(user_id: str) -> tuple[str, ...]:
@@ -21,7 +24,8 @@ def _namespace(user_id: str) -> tuple[str, ...]:
 
 async def add(store: BaseStore, user_id: str, thread_id: str, queued: Queued) -> None:
     item = await store.aget(_namespace(user_id), thread_id)
-    waiting = [*(item.value["messages"] if item else []), {"channel": queued.channel, "text": queued.text}]
+    added = {"channel": queued.channel, "text": queued.text, "follow_up": queued.follow_up}
+    waiting = [*(item.value["messages"] if item else []), added]
     await store.aput(_namespace(user_id), thread_id, {"messages": waiting})
 
 
@@ -35,7 +39,7 @@ async def take(store: BaseStore, user_id: str, thread_id: str) -> Queued | None:
         await store.aput(_namespace(user_id), thread_id, {"messages": rest})
     else:
         await store.adelete(_namespace(user_id), thread_id)
-    return Queued(first["channel"], first["text"])
+    return Queued(first["channel"], first["text"], bool(first.get("follow_up")))
 
 
 async def threads(store: BaseStore, user_id: str) -> list[str]:
