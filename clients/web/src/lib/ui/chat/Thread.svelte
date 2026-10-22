@@ -133,6 +133,7 @@
           {#if item.args || item.output || item.steps?.length}<span class="chevron"><ChevronRight size={12} /></span>{/if}
         </summary>
         {#if item.args && Object.keys(item.args).length && !arg}<pre>{JSON.stringify(item.args, null, 2)}</pre>{/if}
+        {#if arg}<pre class="command">{arg}</pre>{/if}
         {#if item.steps?.length}
           <div class="steps">
             {#each item.steps as step, i (i)}
@@ -148,6 +149,7 @@
                 </summary>
                 <!-- A note a handed-off agent reports is a line of text, with no arguments. -->
                 {#if step.args && Object.keys(step.args).length && !stepArg}<pre>{JSON.stringify(step.args, null, 2)}</pre>{/if}
+                {#if stepArg}<pre class="command">{stepArg}</pre>{/if}
                 {#if step.output}<pre>{step.output}</pre>{/if}
               </details>
             {/each}
@@ -283,6 +285,12 @@
   .tool pre {
     margin-top: 8px;
     max-width: min(800px, 80vw);
+  }
+  .tool pre.command {
+    opacity: 0.85;
+  }
+  .tool[open] > summary > .detail {
+    display: none;
   }
   .detail {
     max-width: min(480px, 60vw);
