@@ -8,6 +8,8 @@ import type {
   AgentFolders,
   Alert,
   Notification,
+  HomePage,
+  HomeSection,
   BusEvent,
   ChannelStatus,
   ConnectedClient,
@@ -512,6 +514,31 @@ export class NotificationsGroup {
   }
 }
 
+/** Home: its sections with their last results, built by the assistant from the plugins (core/home/). */
+export class HomeGroup {
+  constructor(private readonly transport: Transport) {}
+
+  get(): Promise<HomePage> {
+    return this.transport.request("GET", "/home");
+  }
+
+  /** Builds the sections again in the background; unforced, nothing happens while the last refresh is under ten
+   * minutes old. Each section's result is announced as a `home` event. */
+  refresh(force = false): Promise<HomePage> {
+    return this.transport.request("POST", "/home/refresh", { force });
+  }
+
+  /** New and changed sections are built in the background. Throws ApiError (400) for sections that can't be saved. */
+  saveSections(sections: HomeSection[]): Promise<HomePage> {
+    return this.transport.request("PUT", "/home/sections", { sections });
+  }
+
+  /** Back to the built-in sections. */
+  resetSections(): Promise<HomePage> {
+    return this.transport.request("DELETE", "/home/sections");
+  }
+}
+
 /** Coding agents' tasks running in the background, with their latest steps. */
 export class TasksGroup {
   constructor(private readonly transport: Transport) {}
@@ -749,6 +776,7 @@ export class DaemonClient {
   readonly mcp: McpGroup;
   readonly alerts: AlertsGroup;
   readonly notifications: NotificationsGroup;
+  readonly home: HomeGroup;
   readonly tasks: TasksGroup;
   readonly runs: RunsGroup;
   readonly repositories: RepositoriesGroup;
@@ -776,6 +804,7 @@ export class DaemonClient {
     this.mcp = new McpGroup(transport);
     this.alerts = new AlertsGroup(transport);
     this.notifications = new NotificationsGroup(transport);
+    this.home = new HomeGroup(transport);
     this.tasks = new TasksGroup(transport);
     this.runs = new RunsGroup(transport);
     this.repositories = new RepositoriesGroup(transport);

@@ -1,0 +1,1 @@
+Las facturas sin pagar que vencen hoy o que ya vencieron, de la más vieja a la más nueva. Para cada una: su nombre como título, el monto con su moneda y el bien al que corresponde como subtítulo (y "vencida" si ya venció), y su fecha de vencimiento.

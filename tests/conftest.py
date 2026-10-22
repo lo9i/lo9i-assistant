@@ -18,12 +18,14 @@ from pydantic import Field
 import assistant.core.agent.model as model_module
 import assistant.core.agent.service as service_module
 import assistant.core.graph as graph_module
+import assistant.core.home.builder as home_builder_module
 import assistant.core.subagent as subagent_module
 from assistant.core.agent import AssistantService
 from assistant.core.config import settings
 from assistant.core.conversation.digest import DigestInput, MemoryDigest
 from assistant.core.conversation.dispatch import QUICK, Candidate, Pick
 from assistant.core.conversation.titles import Titled
+from assistant.core.home.model import SectionContent
 from assistant.core.memory.embedder import EmbeddingError
 
 
@@ -174,7 +176,40 @@ def script(monkeypatch: pytest.MonkeyPatch) -> Script:
     monkeypatch.setattr(graph_module, "build_llm", lambda choice, model: script.model())
     # Subagents answer from the same script, in the order the calls happen.
     monkeypatch.setattr(subagent_module, "build_llm", lambda choice, model: script.model())
+    # So do Home's sections; their format step finds nothing unless a test uses `formats`.
+    monkeypatch.setattr(home_builder_module, "build_llm", lambda choice, model: script.model())
+    monkeypatch.setattr(home_builder_module, "build_structured", lambda choice, model, schema, meter=None: Formats())
     return script
+
+
+class Formats:
+    """Home's format step (core/home/builder.py): the queued answers in order (an exception is raised), then an
+    empty section. A section whose title is in `failing` fails."""
+
+    def __init__(self) -> None:
+        self.answers: deque[Any] = deque()
+        self.requests: list[list[BaseMessage]] = []
+        self.failing: set[str] = set()
+        # When set, each answer waits for it: a model that takes its time.
+        self.gate: asyncio.Event | None = None
+
+    async def ainvoke(self, messages: list[BaseMessage]) -> Any:
+        self.requests.append(messages)
+        if self.gate is not None:
+            await self.gate.wait()
+        if any(f"Section: {title}\n" in messages[-1].text for title in self.failing):
+            raise RuntimeError("the model is down")
+        answer = self.answers.popleft() if self.answers else SectionContent(items=[])
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+
+@pytest.fixture
+def formats(monkeypatch: pytest.MonkeyPatch, script: Script) -> Formats:
+    formats = Formats()
+    monkeypatch.setattr(home_builder_module, "build_structured", lambda choice, model, schema, meter=None: formats)
+    return formats
 
 
 class Digests:

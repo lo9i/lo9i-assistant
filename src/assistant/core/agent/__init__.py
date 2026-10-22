@@ -1,7 +1,7 @@
 """AssistantService: the only core API that gateways use.
 
 The service is a facade (`service.py`) composed of mixins, one per concern:
-threads, channel threads, files, memory, channels, email, mcp, sign-ins, alerts, notifications, follow-ups, tasks,
+threads, channel threads, files, memory, channels, email, mcp, sign-ins, alerts, notifications, home, follow-ups, tasks,
 repositories, model, identity, prompts, speech, log level, web search, skills, pinned skills, jobs, usage,
 messaging, runs and locking.
 """
@@ -13,6 +13,7 @@ from assistant.core.agent.devices import Device, DeviceError, PairingCode
 from assistant.core.agent.email import EmailAccount, EmailAccountNotFoundError, EmailError, EmailProvider
 from assistant.core.agent.files import FileUnavailableError, UploadedFile
 from assistant.core.agent.handoffs import Agent, AgentFolders, FolderError, FolderListing, Handoff, HandoffError
+from assistant.core.agent.home import HomeCard, HomeItem, HomePage, HomeSection, HomeSectionsError, SectionResult
 from assistant.core.agent.identity import InvalidNameError
 from assistant.core.agent.jobs import Job, JobError, RunRecord
 from assistant.core.agent.mcp import (
@@ -76,6 +77,11 @@ __all__ = [
     "FoundSkill",
     "Handoff",
     "HandoffError",
+    "HomeCard",
+    "HomeItem",
+    "HomePage",
+    "HomeSection",
+    "HomeSectionsError",
     "InstalledFromRepository",
     "InvalidNameError",
     "InvalidSearchKeyError",
@@ -107,6 +113,7 @@ __all__ = [
     "RepositoryPlugins",
     "RunRecord",
     "RunningTask",
+    "SectionResult",
     "ServerField",
     "ServerValues",
     "Session",

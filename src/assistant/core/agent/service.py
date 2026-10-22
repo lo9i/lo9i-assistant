@@ -14,6 +14,7 @@ from assistant.core.agent.dispatch import DispatchMixin
 from assistant.core.agent.email import EmailMixin
 from assistant.core.agent.files import FilesMixin
 from assistant.core.agent.follow_ups import FollowUpsMixin
+from assistant.core.agent.home import HomeMixin
 from assistant.core.agent.identity import IdentityMixin
 from assistant.core.agent.jobs import JobsMixin
 from assistant.core.agent.locking import LockingMixin
@@ -46,6 +47,7 @@ from assistant.core.channels.processes import ChannelProcesses
 from assistant.core.config import settings
 from assistant.core.conversation.memory_writer import MemoryWriter
 from assistant.core.health import HealthLog
+from assistant.core.home.refresh import HomeRefresh
 from assistant.core.llm import choice
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.mcp import folders, logins
@@ -81,6 +83,7 @@ class AssistantService(
     McpMixin,
     AlertsMixin,
     NotificationsMixin,
+    HomeMixin,
     FollowUpsMixin,
     TasksMixin,
     RepositoriesMixin,
@@ -127,6 +130,7 @@ class AssistantService(
         self._task_reports = TaskReports(storage.store)
         self.task_ends = TaskEnds(self.agent_tasks, self._task_reports, bus, background)
         self._plugin_tools = PluginTools(self.mcp, AgentTools(self.agent_tasks, self._task_reports))
+        self.home_refresh = HomeRefresh(storage.store, bus, lambda: self._home_builder, self._plugin_tools)
         self.pages = McpPages(storage.store, environments, secrets)
         self.channels_hub = ChannelHub(self.outbox, self.approvals, bus, self.assistant_name, self.channel_commands)
         self.channel_processes = ChannelProcesses(storage.store, self.channels_hub, environments, secrets)

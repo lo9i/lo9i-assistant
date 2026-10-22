@@ -1,7 +1,7 @@
 """The model from any client: which provider, its values (keys, URLs) and models the assistant
 uses. Set in the app, it overrides .env and applies at once: the graph (with its summarizer),
-digester and titler are rebuilt, and runs already going finish on the model they started with. A provider's package is
-installed the first time it's chosen. Secret values never leave the daemon."""
+digester, titler and Home's builder are rebuilt, and runs already going finish on the model they started
+with. A provider's package is installed the first time it's chosen. Secret values never leave the daemon."""
 
 import asyncio
 import logging
@@ -15,6 +15,7 @@ from assistant.core.conversation.digest import build_digester
 from assistant.core.conversation.summary import build_summarizer
 from assistant.core.conversation.titles import build_titler
 from assistant.core.graph import build_graph
+from assistant.core.home.builder import build_section_builder
 from assistant.core.llm import build_llm, choice, packages
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.listing import ModelListError, ModelOption, available
@@ -125,6 +126,7 @@ class ModelMixin(ServiceBase):
             self._storage, model, build_summarizer(model, self._storage.usage), self._plugin_tools
         )
         self._subagents = build_subagents(self._storage, model, self._plugin_tools)
+        self._home_builder = build_section_builder(self._storage, model, self._plugin_tools)
 
 
 async def usable_choice(store: BaseStore, secrets: SecretBox) -> ModelChoice:

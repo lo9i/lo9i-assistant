@@ -12,6 +12,8 @@ import pytest
 from assistant.client.daemon_client import DaemonClient
 from assistant.core import notifications
 from assistant.core.agent import (
+    HomeSection,
+    HomeSectionsError,
     InvalidNameError,
     InvalidSearchKeyError,
     Session,
@@ -183,6 +185,20 @@ async def test_the_inbox_sends_a_message_on_and_the_client_sends_it_where_it_wen
     assert await client.model.set_dispatch(DispatchSetting(0.5)) == DispatchSetting(0.5)
     with pytest.raises(DispatchSettingError):
         await client.model.set_dispatch(DispatchSetting(2))
+
+
+async def test_home_is_shown_refreshed_and_its_sections_edited(client, service):
+    assert [c.section.title for c in (await client.home.get()).cards] == ["Calendario", "Watchlist", "Gastos"]
+    with pytest.raises(HomeSectionsError, match="Every section needs a title"):
+        await client.home.save_sections([HomeSection(title="", prompt="x")])
+    page = await client.home.save_sections([HomeSection(title="Agenda", prompt="Today.", plugins=["calendar"])])
+    assert [c.section.title for c in page.cards] == ["Agenda"] and page.cards[0].section.id
+    await service.home_refresh.wait("owner")
+    await client.home.refresh(force=True)
+    await service.home_refresh.wait("owner")
+    page = await client.home.get()
+    assert page.updated_at and page.cards[0].result is not None and page.cards[0].result.status == "unavailable"
+    assert len((await client.home.reset_sections()).cards) == 3
 
 
 async def test_notifications_are_listed_read_and_dismissed(client, service):

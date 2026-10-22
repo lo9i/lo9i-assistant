@@ -3157,6 +3157,119 @@
         }
       }
     },
+    "/home": {
+      "get": {
+        "summary": "Home",
+        "operationId": "home_home_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomePage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/home/refresh": {
+      "post": {
+        "summary": "Refresh Home",
+        "description": "Builds the sections again in the background, unless a refresh runs or, unforced, the last one is\nunder ten minutes old.",
+        "operationId": "refresh_home_home_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HomeRefresh"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/home/sections": {
+      "put": {
+        "summary": "Save Home Sections",
+        "description": "The new and changed ones are built in the background. 400: sections that can't be saved.",
+        "operationId": "save_home_sections_home_sections_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HomeSections"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Reset Home Sections",
+        "description": "Back to the built-in sections.",
+        "operationId": "reset_home_sections_home_sections_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomePage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/agent-tasks/running": {
       "get": {
         "summary": "Running Tasks",
@@ -5513,6 +5626,146 @@
         "title": "Handoff",
         "description": "The agent a conversation is with, and the folder it works in."
       },
+      "HomeCard": {
+        "properties": {
+          "section": {
+            "$ref": "#/components/schemas/HomeSection"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SectionResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "section"
+        ],
+        "title": "HomeCard"
+      },
+      "HomeItem": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "What it is, in a few words: the event, the show or movie, the bill."
+          },
+          "subtitle": {
+            "type": "string",
+            "title": "Subtitle",
+            "description": "One short line more, or empty: where, which episode, how much.",
+            "default": ""
+          },
+          "date": {
+            "type": "string",
+            "title": "Date",
+            "description": "Its day as YYYY-MM-DD, or empty when it has none.",
+            "default": ""
+          },
+          "time": {
+            "type": "string",
+            "title": "Time",
+            "description": "Its time of day as HH:MM, 24-hour, or empty when it has none.",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "HomeItem",
+        "description": "One thing the section shows: an event, an episode, a bill."
+      },
+      "HomePage": {
+        "properties": {
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/HomeCard"
+            },
+            "type": "array",
+            "title": "Cards"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At",
+            "default": ""
+          },
+          "refreshing": {
+            "type": "boolean",
+            "title": "Refreshing",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "cards"
+        ],
+        "title": "HomePage"
+      },
+      "HomeRefresh": {
+        "properties": {
+          "force": {
+            "type": "boolean",
+            "title": "Force",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "HomeRefresh"
+      },
+      "HomeSection": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "default": ""
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "plugins": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Plugins",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "prompt"
+        ],
+        "title": "HomeSection",
+        "description": "A section as the user wrote it."
+      },
+      "HomeSections": {
+        "properties": {
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/HomeSection"
+            },
+            "type": "array",
+            "title": "Sections"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sections"
+        ],
+        "title": "HomeSections"
+      },
       "HostStatus": {
         "properties": {
           "os": {
@@ -7147,6 +7400,62 @@
           "steps"
         ],
         "title": "RunningTask"
+      },
+      "SectionResult": {
+        "properties": {
+          "section_id": {
+            "type": "string",
+            "title": "Section Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unavailable",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HomeItem"
+            },
+            "type": "array",
+            "title": "Items",
+            "default": []
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          },
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "default": ""
+          },
+          "page": {
+            "type": "string",
+            "title": "Page",
+            "default": ""
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "section_id",
+          "title",
+          "status",
+          "at"
+        ],
+        "title": "SectionResult"
       },
       "ServerField": {
         "properties": {

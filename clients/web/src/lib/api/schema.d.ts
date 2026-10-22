@@ -1386,6 +1386,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Home */
+        get: operations["home_home_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/home/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Home
+         * @description Builds the sections again in the background, unless a refresh runs or, unforced, the last one is
+         *     under ten minutes old.
+         */
+        post: operations["refresh_home_home_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/home/sections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Home Sections
+         * @description The new and changed ones are built in the background. 400: sections that can't be saved.
+         */
+        put: operations["save_home_sections_home_sections_put"];
+        post?: never;
+        /**
+         * Reset Home Sections
+         * @description Back to the built-in sections.
+         */
+        delete: operations["reset_home_sections_home_sections_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/agent-tasks/running": {
         parameters: {
             query?: never;
@@ -2547,6 +2609,88 @@ export interface components {
             /** Folder */
             folder: string;
         };
+        /** HomeCard */
+        HomeCard: {
+            section: components["schemas"]["HomeSection"];
+            result?: components["schemas"]["SectionResult"] | null;
+        };
+        /**
+         * HomeItem
+         * @description One thing the section shows: an event, an episode, a bill.
+         */
+        HomeItem: {
+            /**
+             * Title
+             * @description What it is, in a few words: the event, the show or movie, the bill.
+             */
+            title: string;
+            /**
+             * Subtitle
+             * @description One short line more, or empty: where, which episode, how much.
+             * @default
+             */
+            subtitle: string;
+            /**
+             * Date
+             * @description Its day as YYYY-MM-DD, or empty when it has none.
+             * @default
+             */
+            date: string;
+            /**
+             * Time
+             * @description Its time of day as HH:MM, 24-hour, or empty when it has none.
+             * @default
+             */
+            time: string;
+        };
+        /** HomePage */
+        HomePage: {
+            /** Cards */
+            cards: components["schemas"]["HomeCard"][];
+            /**
+             * Updated At
+             * @default
+             */
+            updated_at: string;
+            /**
+             * Refreshing
+             * @default false
+             */
+            refreshing: boolean;
+        };
+        /** HomeRefresh */
+        HomeRefresh: {
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+        };
+        /**
+         * HomeSection
+         * @description A section as the user wrote it.
+         */
+        HomeSection: {
+            /**
+             * Id
+             * @default
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Prompt */
+            prompt: string;
+            /**
+             * Plugins
+             * @default []
+             */
+            plugins: string[];
+        };
+        /** HomeSections */
+        HomeSections: {
+            /** Sections */
+            sections: components["schemas"]["HomeSection"][];
+        };
         /**
          * HostStatus
          * @description The computer the daemon runs on. Sizes in bytes, percentages 0-100, `load_average` over 1, 5 and
@@ -3307,6 +3451,40 @@ export interface components {
             started_at: string;
             /** Steps */
             steps: string[];
+        };
+        /** SectionResult */
+        SectionResult: {
+            /** Section Id */
+            section_id: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "unavailable" | "failed";
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["HomeItem"][];
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /**
+             * Page
+             * @default
+             */
+            page: string;
+            /** At */
+            at: string;
         };
         /**
          * ServerField
@@ -6208,6 +6386,112 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    home_home_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomePage"];
+                };
+            };
+        };
+    };
+    refresh_home_home_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HomeRefresh"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_home_sections_home_sections_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HomeSections"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_home_sections_home_sections_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomePage"];
                 };
             };
         };

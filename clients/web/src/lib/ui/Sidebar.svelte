@@ -7,6 +7,7 @@
   import ChartColumn from "@lucide/svelte/icons/chart-column";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
   import Files from "@lucide/svelte/icons/files";
+  import House from "@lucide/svelte/icons/house";
   import Laptop from "@lucide/svelte/icons/laptop";
   import CornerDownRight from "@lucide/svelte/icons/corner-down-right";
   import Inbox from "@lucide/svelte/icons/inbox";
@@ -84,6 +85,7 @@
   const ALERTS = resolve("/alerts");
   const NOTIFICATIONS = resolve("/notifications");
   const NAV: Item[] = [
+    { href: resolve("/home"), label: "Home", Icon: House },
     // The open conversations show under Chat.
     { href: CHAT, label: "Chat", Icon: MessageCircle, add: { label: "New conversation", run: startNew }, exact: true },
     { href: resolve("/files"), label: "Files", Icon: Files },

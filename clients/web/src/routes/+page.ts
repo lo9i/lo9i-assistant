@@ -1,7 +1,7 @@
 import { redirect } from "@sveltejs/kit";
 import { resolve } from "$app/paths";
 
-// Chat opens to its list of conversations.
+// The app opens on Home.
 export function load(): never {
-  redirect(307, resolve("/conversations"));
+  redirect(307, resolve("/home"));
 }

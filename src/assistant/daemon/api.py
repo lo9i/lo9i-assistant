@@ -36,6 +36,9 @@ from assistant.core.agent import (
     FolderListing,
     Handoff,
     HandoffError,
+    HomePage,
+    HomeSection,
+    HomeSectionsError,
     InstalledFromRepository,
     InvalidNameError,
     InvalidSearchKeyError,
@@ -276,6 +279,15 @@ class PromptText(BaseModel):
     text: str
 
 
+class HomeRefresh(BaseModel):
+    # Even when the last refresh is fresh (the Refresh button).
+    force: bool = False
+
+
+class HomeSections(BaseModel):
+    sections: list[HomeSection]
+
+
 class SkillChange(BaseModel):
     description: str
     instructions: str
@@ -465,6 +477,7 @@ def create_app(
     _add_mcp_routes(app, service)
     _add_alert_routes(app, service)
     _add_notification_routes(app, service)
+    _add_home_routes(app, service)
     _add_task_routes(app, service)
     _add_repository_routes(app, service)
     _add_identity_routes(app, service)
@@ -1293,6 +1306,33 @@ def _add_notification_routes(app: FastAPI, service: AssistantService) -> None:
     async def clear_notifications() -> Ok:
         await service.clear_notifications(settings.owner_id)
         return Ok()
+
+
+def _add_home_routes(app: FastAPI, service: AssistantService) -> None:
+    """Home (core/home/): its sections with their last results; each result saved publishes `home`."""
+
+    @app.get("/home")
+    async def home() -> HomePage:
+        return await service.home(settings.owner_id)
+
+    @app.post("/home/refresh")
+    async def refresh_home(body: HomeRefresh) -> HomePage:
+        """Builds the sections again in the background, unless a refresh runs or, unforced, the last one is
+        under ten minutes old."""
+        return await service.refresh_home(settings.owner_id, body.force)
+
+    @app.put("/home/sections")
+    async def save_home_sections(body: HomeSections) -> HomePage:
+        """The new and changed ones are built in the background. 400: sections that can't be saved."""
+        try:
+            return await service.save_home_sections(settings.owner_id, body.sections)
+        except HomeSectionsError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.delete("/home/sections")
+    async def reset_home_sections() -> HomePage:
+        """Back to the built-in sections."""
+        return await service.reset_home_sections(settings.owner_id)
 
 
 def _add_task_routes(app: FastAPI, service: AssistantService) -> None:

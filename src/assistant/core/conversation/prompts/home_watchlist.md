@@ -1,0 +1,1 @@
+De mi watchlist: los episodios de mis series que se estrenan hoy y las películas que se estrenan esta semana (de hoy a siete días). Para un episodio: la serie como título y la temporada y el episodio como subtítulo (por ejemplo T2 E5, y su nombre si lo tiene); para una película: su título y "película" como subtítulo. Cada uno con su fecha de estreno.

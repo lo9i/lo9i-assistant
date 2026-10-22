@@ -37,6 +37,8 @@ _CHANGE_EVENTS = {
     "notifications": "notifications",
     # Messages waiting to be sent in a conversation (core/conversation/queued.py), for the daemon to send.
     "queued_messages": "queued_messages",
+    # Home's sections and their last results (core/home/).
+    "home": "home",
     # Skills pinned to a conversation (core/conversation/pinned.py).
     "pinned_skills": "pinned_skills",
     # Conversations handed to a plugin's agent (core/conversation/handoffs.py).

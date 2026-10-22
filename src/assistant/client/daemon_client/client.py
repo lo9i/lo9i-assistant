@@ -8,6 +8,7 @@ from assistant.client.daemon_client.devices import DevicesApi
 from assistant.client.daemon_client.email import EmailApi
 from assistant.client.daemon_client.events import EventsMixin
 from assistant.client.daemon_client.files import FilesApi
+from assistant.client.daemon_client.home import HomeApi
 from assistant.client.daemon_client.identity import IdentityApi
 from assistant.client.daemon_client.jobs import JobsApi
 from assistant.client.daemon_client.logs import LogsApi
@@ -51,6 +52,7 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         self.mcp = McpApi(transport)
         self.alerts = AlertsApi(transport)
         self.notifications = NotificationsApi(transport)
+        self.home = HomeApi(transport)
         self.tasks = TasksApi(transport)
         self.repositories = RepositoriesApi(transport)
         self.system = SystemApi(transport)
