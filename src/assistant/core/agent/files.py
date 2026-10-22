@@ -36,13 +36,13 @@ class FileUnavailableError(Exception):
 
 class FilesMixin(ServiceBase):
     async def list_files(self, user_id: str) -> list[UploadedFile]:
-        """Newest first. Files no longer on disk are left out."""
+        """Newest first, each file once. Files no longer on disk are left out."""
         found: list[UploadedFile] = []
         for conversation in await conversations.recent(self._storage.store, user_id):
             state = await self._graph.aget_state({"configurable": {"thread_id": conversation.thread_id}})
             references = _references(state.values.get("messages", []))
             found += await asyncio.to_thread(_on_disk, conversation, references)
-        return sorted(found, key=lambda f: f.uploaded_at, reverse=True)
+        return sorted(_once(found), key=lambda f: f.uploaded_at, reverse=True)
 
     async def file_content(self, user_id: str, path: str) -> tuple[UploadedFile, bytes]:
         """A file from the list, to view or download. Only paths the list has, so nothing else in the
@@ -57,6 +57,12 @@ class FilesMixin(ServiceBase):
 def _references(messages: Sequence[BaseMessage]) -> list[tuple[str, dict[str, str]]]:
     """Each file's reference with the tool that brought it, "" for the user's."""
     return [("", r) for r in user_uploads(messages)] + tool_uploads(messages)
+
+
+def _once(files: list[UploadedFile]) -> list[UploadedFile]:
+    """One entry per file, with the conversation written in last: a file can be in several (a message the inbox
+    sent on keeps its files in the inbox and where it went), and the apps list each file by its path."""
+    return list({f.path: f for f in reversed(files)}.values())
 
 
 def _on_disk(conversation: Conversation, references: list[tuple[str, dict[str, str]]]) -> list[UploadedFile]:

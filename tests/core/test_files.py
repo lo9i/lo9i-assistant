@@ -4,7 +4,9 @@ conversation they're in."""
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from assistant.core import uploads
+from assistant.core.agent import Session
 from assistant.core.attachments import TOOL_MEDIA_SENDER, Attachment, reference, tool_uploads, user_uploads
+from assistant.core.events import Dispatched
 from tests.conftest import collect
 
 NOTE = Attachment("notes.txt", "text/plain", b"buy milk")
@@ -22,6 +24,16 @@ async def test_lists_the_files_sent_with_their_conversation(service):
         ("shot.png", "image/png", 9, second.thread_id, ""),
     }
     assert all(f.conversation for f in files)
+
+
+async def test_a_file_in_several_conversations_is_listed_once_with_the_latest(service, dispatch):
+    inbox_session = await service.session("owner", "web")
+    events = await collect(service.send(inbox_session, "read this", [NOTE]))
+    sent_on = next(e for e in events if isinstance(e, Dispatched))
+    where = Session("owner", "web", await service.new_thread("owner"))
+    await collect(service.send_dispatched(where, sent_on.id))
+    [listed] = await service.list_files("owner")
+    assert (listed.name, listed.thread_id) == ("notes.txt", where.thread_id)
 
 
 async def test_files_deleted_from_disk_are_left_out(service):
