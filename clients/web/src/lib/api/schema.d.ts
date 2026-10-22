@@ -1424,6 +1424,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/home/watch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Watch Home
+         * @description The calling client shows Home: it's refreshed every half hour while it does, until DELETE or until the
+         *     client disconnects.
+         */
+        put: operations["watch_home_home_watch_put"];
+        post?: never;
+        /** Unwatch Home */
+        delete: operations["unwatch_home_home_watch_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/home/sections": {
         parameters: {
             query?: never;
@@ -6439,6 +6461,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    watch_home_home_watch_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+        };
+    };
+    unwatch_home_home_watch_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
                 };
             };
         };

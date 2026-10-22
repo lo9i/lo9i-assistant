@@ -48,6 +48,7 @@ from assistant.core.config import settings
 from assistant.core.conversation.memory_writer import MemoryWriter
 from assistant.core.health import HealthLog
 from assistant.core.home.refresh import HomeRefresh
+from assistant.core.home.schedule import HomeSchedule
 from assistant.core.llm import choice
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.mcp import folders, logins
@@ -131,6 +132,7 @@ class AssistantService(
         self.task_ends = TaskEnds(self.agent_tasks, self._task_reports, bus, background)
         self._plugin_tools = PluginTools(self.mcp, AgentTools(self.agent_tasks, self._task_reports))
         self.home_refresh = HomeRefresh(storage.store, bus, lambda: self._home_builder, self._plugin_tools)
+        self.home_schedule = HomeSchedule(storage.store, self.home_refresh, settings.owner_id)
         self.pages = McpPages(storage.store, environments, secrets)
         self.channels_hub = ChannelHub(self.outbox, self.approvals, bus, self.assistant_name, self.channel_commands)
         self.channel_processes = ChannelProcesses(storage.store, self.channels_hub, environments, secrets)

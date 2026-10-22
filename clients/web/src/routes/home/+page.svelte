@@ -6,7 +6,7 @@
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import type { HomePage, HomeSection } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
-  import { dayOf, moved, updatedLabel, withSection, withoutSection } from "$lib/home";
+  import { dayOf, moved, updatedLabel, whileVisible, withSection, withoutSection } from "$lib/home";
   import { describe } from "$lib/notices";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
@@ -14,10 +14,11 @@
   import SectionEditor from "$lib/ui/home/SectionEditor.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
-  // Home (core/home/): each section the assistant built from the plugins, as it was last saved. Opening it starts a
-  // refresh in the background (the daemon skips it when the last one is under ten minutes old); each section
-  // shows its new result as it's saved (a `home` event).
-  const { client, notices } = useDaemon();
+  // Home (core/home/): each section the assistant built from the plugins, as it was last saved. Showing it starts a
+  // refresh in the background (the daemon skips it when the last one is under ten minutes old, today), and while
+  // it's visible the daemon refreshes it every half hour; each section shows its new result as it's saved (a
+  // `home` event).
+  const { client, hub, notices } = useDaemon();
   const home = resource((c) => c.home.get(), ["home"]);
   const servers = resource((c) => c.mcp.servers(), ["mcp"]);
   const plugins = $derived((servers.data ?? []).filter((s) => s.transport !== "none").map((s) => s.name));
@@ -34,11 +35,37 @@
   let removing = $state<HomeSection | null>(null);
   let resetting = $state(false);
 
+  let visible = false;
+
   onMount(() => {
-    void refresh(false);
+    const stop = whileVisible(document, shown, () => {
+      visible = false;
+      void call(() => client.home.unwatch());
+    });
+    // A restarted daemon has forgotten that this tab shows Home.
+    const reconnected = hub.onReconnect(() => visible && shown());
     const tick = setInterval(() => (now = new Date()), 60_000);
-    return () => clearInterval(tick);
+    return () => {
+      reconnected();
+      stop();
+      clearInterval(tick);
+    };
   });
+
+  function shown(): void {
+    visible = true;
+    now = new Date();
+    void call(() => client.home.watch());
+    void refresh(false);
+  }
+
+  async function call(request: () => Promise<void>): Promise<void> {
+    try {
+      await request();
+    } catch (e) {
+      notices.report(e);
+    }
+  }
 
   function show(page: HomePage): void {
     home.data = page;

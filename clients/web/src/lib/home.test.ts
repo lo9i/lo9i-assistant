@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { HomeSection } from "./api/types";
-import { dayOf, itemWhen, moved, updatedLabel, withSection, withoutSection } from "./home";
+import { dayOf, itemWhen, moved, updatedLabel, whileVisible, withSection, withoutSection } from "./home";
 
 const section = (id: string, title = id): HomeSection => ({ id, title, prompt: `${title} today.`, plugins: [] });
 
@@ -60,5 +60,44 @@ describe("editing the sections", () => {
     expect(moved(sections, "b", 1).map((s) => s.id)).toEqual(["a", "c", "b"]);
     expect(moved(sections, "a", -1)).toBe(sections);
     expect(moved(sections, "c", 1)).toBe(sections);
+  });
+});
+
+describe("following whether the page is visible", () => {
+  class Page extends EventTarget {
+    visibilityState: DocumentVisibilityState = "visible";
+    show(state: DocumentVisibilityState): void {
+      this.visibilityState = state;
+      this.dispatchEvent(new Event("visibilitychange"));
+    }
+  }
+
+  it("says when it shows and hides, and hides when stopped", () => {
+    const page = new Page();
+    const said: string[] = [];
+    const stop = whileVisible(
+      page,
+      () => said.push("shown"),
+      () => said.push("hidden"),
+    );
+    page.show("hidden");
+    page.show("hidden");
+    page.show("visible");
+    stop();
+    page.show("hidden");
+    expect(said).toEqual(["shown", "hidden", "shown", "hidden"]);
+  });
+
+  it("waits for a page that starts hidden", () => {
+    const page = new Page();
+    page.visibilityState = "hidden";
+    const said: string[] = [];
+    const stop = whileVisible(
+      page,
+      () => said.push("shown"),
+      () => said.push("hidden"),
+    );
+    stop();
+    expect(said).toEqual([]);
   });
 });

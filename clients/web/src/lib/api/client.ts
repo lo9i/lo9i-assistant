@@ -528,6 +528,16 @@ export class HomeGroup {
     return this.transport.request("POST", "/home/refresh", { force });
   }
 
+  /** This tab shows Home: the daemon refreshes it now and then until `unwatch`, or until this tab's event stream
+   * closes. */
+  async watch(): Promise<void> {
+    await this.transport.request("PUT", "/home/watch");
+  }
+
+  async unwatch(): Promise<void> {
+    await this.transport.request("DELETE", "/home/watch");
+  }
+
   /** New and changed sections are built in the background. Throws ApiError (400) for sections that can't be saved. */
   saveSections(sections: HomeSection[]): Promise<HomePage> {
     return this.transport.request("PUT", "/home/sections", { sections });

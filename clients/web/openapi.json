@@ -3214,6 +3214,41 @@
         }
       }
     },
+    "/home/watch": {
+      "put": {
+        "summary": "Watch Home",
+        "description": "The calling client shows Home: it's refreshed every half hour while it does, until DELETE or until the\nclient disconnects.",
+        "operationId": "watch_home_home_watch_put",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Unwatch Home",
+        "operationId": "unwatch_home_home_watch_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/home/sections": {
       "put": {
         "summary": "Save Home Sections",

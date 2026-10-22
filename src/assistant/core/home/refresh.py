@@ -1,13 +1,14 @@
 """Refreshing Home: every section built again in the background, each on its own, its result saved as it's ready.
 
-A refresh asked for while the last one ended under FRESH_MINUTES ago does nothing unless forced (the Refresh
-button), so opening Home again and again doesn't call the model each time. One refresh runs per user at a
+A refresh asked for while the last one ended under FRESH_MINUTES ago, the same day, does nothing unless forced
+(the Refresh button), so opening Home again and again doesn't call the model each time. The daemon keeps it
+current on its own too (schedule.py). One refresh runs per user at a
 time; sections the user just changed are built after it."""
 
 import asyncio
 import logging
 from collections.abc import Callable, Collection
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from langgraph.store.base import BaseStore
@@ -15,6 +16,7 @@ from langgraph.store.base import BaseStore
 from assistant.core.bus import EventBus
 from assistant.core.home import results, sections
 from assistant.core.home.builder import SectionBuilder
+from assistant.core.home.clock import within
 from assistant.core.home.model import HomeCard, HomePage, HomeSection, SectionResult
 from assistant.core.mcp import servers
 from assistant.core.mcp.sanitize import tool_name
@@ -55,7 +57,7 @@ class HomeRefresh:
 
     async def refresh(self, user_id: str, force: bool = False, only: Collection[str] | None = None) -> None:
         """Starts building every section in the background, unless a refresh is running or, unforced, the last one
-        ended under FRESH_MINUTES ago. The sections in `only` (the ones the user just changed) are built whenever
+        ended under FRESH_MINUTES ago, today. The sections in `only` (the ones the user just changed) are built whenever
         it was, once the running refresh ends."""
         running = self._running.get(user_id)
         if running is not None and only is None:
@@ -73,8 +75,7 @@ class HomeRefresh:
             await asyncio.wait([task])
 
     async def _fresh(self, user_id: str) -> bool:
-        refreshed = await results.refreshed_at(self._store, user_id)
-        return refreshed is not None and datetime.now(UTC) - refreshed < timedelta(minutes=FRESH_MINUTES)
+        return within(await results.refreshed_at(self._store, user_id), datetime.now(UTC), FRESH_MINUTES)
 
     def _ended(self, user_id: str, task: asyncio.Task) -> None:
         if self._running.get(user_id) is task:

@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -22,6 +23,7 @@ from assistant.core.agent import (
 from assistant.core.attachments import Attachment
 from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
 from assistant.core.events import ApprovalRequired, Cancelled, Dispatched, Done, ToolFinished
+from assistant.core.home import results
 from assistant.core.internet import brave_key
 from assistant.core.logs import LogWriter, log_sources
 from assistant.daemon.api import create_app
@@ -199,6 +201,19 @@ async def test_home_is_shown_refreshed_and_its_sections_edited(client, service):
     page = await client.home.get()
     assert page.updated_at and page.cards[0].result is not None and page.cards[0].result.status == "unavailable"
     assert len((await client.home.reset_sections()).cards) == 3
+
+
+async def test_a_client_showing_home_keeps_it_current_until_it_stops(client, service):
+    now = datetime.now(UTC)
+    await results.mark_refreshed(service.store, "owner", now - timedelta(minutes=31))
+    await client.home.watch()
+    await service.home_schedule.tick(now)
+    assert (await client.home.get()).refreshing
+    await service.home_refresh.wait("owner")
+    await results.mark_refreshed(service.store, "owner", now - timedelta(minutes=31))
+    await client.home.unwatch()
+    await service.home_schedule.tick(now)
+    assert not (await client.home.get()).refreshing
 
 
 async def test_notifications_are_listed_read_and_dismissed(client, service):

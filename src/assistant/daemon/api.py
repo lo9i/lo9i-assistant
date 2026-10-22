@@ -455,7 +455,9 @@ def create_app(
     _require_client_header(app)
     _require_known_host(app)
     _add_security_headers(app)
-    clients = ClientRegistry(service.bus, leave=partial(service.leave_thread, settings.owner_id))
+    clients = ClientRegistry(
+        service.bus, leave=partial(service.leave_thread, settings.owner_id), gone=service.unwatch_home
+    )
     streams = DeviceStreams()
     add_device_routes(app, service, streams)
     _add_client_routes(app, service, clients, streams)
@@ -1320,6 +1322,18 @@ def _add_home_routes(app: FastAPI, service: AssistantService) -> None:
         """Builds the sections again in the background, unless a refresh runs or, unforced, the last one is
         under ten minutes old."""
         return await service.refresh_home(settings.owner_id, body.force)
+
+    @app.put("/home/watch")
+    async def watch_home(request: Request) -> Ok:
+        """The calling client shows Home: it's refreshed every half hour while it does, until DELETE or until the
+        client disconnects."""
+        service.watch_home(_client_id(request))
+        return Ok()
+
+    @app.delete("/home/watch")
+    async def unwatch_home(request: Request) -> Ok:
+        service.unwatch_home(_client_id(request))
+        return Ok()
 
     @app.put("/home/sections")
     async def save_home_sections(body: HomeSections) -> HomePage:

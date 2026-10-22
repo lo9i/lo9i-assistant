@@ -1,5 +1,5 @@
-"""Home for clients (core/home/): the sections with their last results, a refresh in the background, and the
-sections the user edits."""
+"""Home for clients (core/home/): the sections with their last results, a refresh in the background, the clients
+showing it, and the sections the user edits."""
 
 from collections.abc import Collection
 
@@ -27,6 +27,14 @@ class HomeMixin(ServiceBase):
         """Starts a refresh in the background unless one runs or, unforced, the last one is fresh."""
         await self.home_refresh.refresh(user_id, force)
         return await self.home_refresh.page(user_id)
+
+    def watch_home(self, client_id: str) -> None:
+        """The client shows Home now: it's kept current while it does (core/home/schedule.py)."""
+        self.home_schedule.watch(client_id)
+
+    def unwatch_home(self, client_id: str) -> None:
+        """The client stopped showing Home, or disconnected."""
+        self.home_schedule.unwatch(client_id)
 
     async def save_home_sections(self, user_id: str, wanted: list[HomeSection]) -> HomePage:
         """Saves them and builds the ones that are new or changed; a removed section's result goes. Raises

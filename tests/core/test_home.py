@@ -1,6 +1,6 @@
 """Home: each section built by the worker model from its plugins' read-only tools, answered in one format and
-validated, kept between refreshes; a section without its plugin, or that fails, says so without stopping the
-others. The plugin runs in-process."""
+validated, kept between refreshes and refreshed by the daemon at the start of the day and while a client shows it;
+a section without its plugin, or that fails, says so without stopping the others. The plugin runs in-process."""
 
 import asyncio
 from collections.abc import AsyncIterator
@@ -14,9 +14,12 @@ from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
 
 from assistant.core.agent import AssistantService, HomeItem, HomeSection, HomeSectionsError, McpServer
+from assistant.core.config import settings
 from assistant.core.home import results
 from assistant.core.home.builder import LIMIT_REACHED, MAX_STEPS
+from assistant.core.home.clock import within
 from assistant.core.home.model import SectionContent
+from assistant.core.home.refresh import FRESH_MINUTES
 from assistant.core.mcp import hub as hub_module
 from assistant.core.mcp import servers
 
@@ -226,3 +229,44 @@ async def test_a_section_links_to_its_plugins_page(service):
     await _only(service, "Agenda")
     result = (await service.home("owner")).cards[0].result
     assert result is not None and result.page == "calendar"
+
+
+# A fixed afternoon, so the day boundaries don't depend on when the tests run.
+NOW = datetime(2026, 10, 22, 15, 0, tzinfo=UTC)
+
+
+async def _tick(service: AssistantService, refreshed: datetime) -> None:
+    """A tick of the daemon's schedule at NOW, after a refresh at `refreshed`."""
+    await results.mark_refreshed(service.store, "owner", refreshed)
+    await service.home_schedule.tick(NOW)
+    await service.home_refresh.wait("owner")
+
+
+async def test_home_is_refreshed_on_the_first_tick_of_the_day(service, formats):
+    await _install_calendar(service)
+    await _only(service, "Agenda")
+    await _tick(service, NOW - timedelta(hours=16))
+    assert len(formats.requests) == 2
+    await _tick(service, NOW - timedelta(hours=2))
+    assert len(formats.requests) == 2  # nobody watching: once a day is enough
+
+
+async def test_home_is_refreshed_every_half_hour_while_a_client_shows_it(service, formats):
+    await _install_calendar(service)
+    await _only(service, "Agenda")
+    service.watch_home("tab")
+    await _tick(service, NOW - timedelta(minutes=20))
+    assert len(formats.requests) == 1
+    await _tick(service, NOW - timedelta(minutes=31))
+    assert len(formats.requests) == 2
+    service.unwatch_home("tab")
+    await _tick(service, NOW - timedelta(minutes=31))
+    assert len(formats.requests) == 2
+
+
+def test_a_refresh_from_before_midnight_isnt_current_after_it(monkeypatch):
+    monkeypatch.setattr(settings, "timezone", "America/Argentina/Buenos_Aires")
+    before_midnight = datetime(2026, 10, 22, 2, 55, tzinfo=UTC)  # 23:55 there
+    assert within(before_midnight, before_midnight + timedelta(minutes=4), FRESH_MINUTES)
+    assert not within(before_midnight, before_midnight + timedelta(minutes=6), FRESH_MINUTES)
+    assert not within(None, before_midnight, FRESH_MINUTES)

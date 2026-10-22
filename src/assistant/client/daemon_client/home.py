@@ -17,6 +17,13 @@ class HomeApi:
         """Unforced, nothing happens while the last refresh is fresh."""
         return HomePage.model_validate(await self._transport.request("POST", "/home/refresh", json={"force": force}))
 
+    async def watch(self) -> None:
+        """This client shows Home: the daemon keeps it current until `unwatch` or until the client disconnects."""
+        await self._transport.request("PUT", "/home/watch")
+
+    async def unwatch(self) -> None:
+        await self._transport.request("DELETE", "/home/watch")
+
     async def save_sections(self, sections: list[HomeSection]) -> HomePage:
         """Raises HomeSectionsError."""
         body = {"sections": [s.model_dump() for s in sections]}

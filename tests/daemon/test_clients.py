@@ -36,6 +36,16 @@ async def test_connecting_and_disconnecting_is_announced():
     assert kinds == ["clients", "clients"]
 
 
+async def test_a_client_is_gone_once_its_last_connection_closes():
+    gone = []
+    clients = ClientRegistry(EventBus(), leave=lambda thread_id: None, gone=gone.append)
+    first, second = clients.add("abc", "web", "localhost"), clients.add("abc", "web", "localhost")
+    clients.remove(first)
+    assert gone == []
+    clients.remove(second)
+    assert gone == ["abc"]
+
+
 async def test_clients_route(service):
     app = create_app(service, RunHub())
     transport = httpx.ASGITransport(app=trusted(app))

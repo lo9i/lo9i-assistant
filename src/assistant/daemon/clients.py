@@ -4,7 +4,8 @@ connected while it holds the /events stream open, which every client does for it
 A conversation no client is on any more is left, which archives it: right away when its client
 moves to another conversation, and after a grace period when its client disconnects, since a
 reloaded page or a client reconnecting after a restart comes back to it. A client can hold more
-conversations under ids made from its own (CLIENT_ID_PART); they're left with it."""
+conversations under ids made from its own (CLIENT_ID_PART); they're left with it. `gone` hears of a client
+whose last connection closed, for what it was showing (Home)."""
 
 import asyncio
 from collections.abc import Callable
@@ -19,10 +20,15 @@ _LEAVE_GRACE_SECONDS = 30
 
 class ClientRegistry:
     def __init__(
-        self, bus: EventBus, leave: Callable[[str], None], grace_seconds: float = _LEAVE_GRACE_SECONDS
+        self,
+        bus: EventBus,
+        leave: Callable[[str], None],
+        grace_seconds: float = _LEAVE_GRACE_SECONDS,
+        gone: Callable[[str], None] | None = None,
     ) -> None:
         self._bus = bus
         self._leave = leave
+        self._gone = gone
         self._grace_seconds = grace_seconds
         self._clients: dict[int, ConnectedClient] = {}
         self._next_key = 0
@@ -43,6 +49,8 @@ class ClientRegistry:
             return
         self._bus.publish("clients")
         if client.id and not self._connected(client.id):
+            if self._gone is not None:
+                self._gone(client.id)
             for held in self._held_by(client.id):
                 self._left_later(self._threads.pop(held))
 

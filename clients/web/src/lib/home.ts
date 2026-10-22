@@ -54,3 +54,23 @@ export function moved(sections: HomeSection[], id: string, by: -1 | 1): HomeSect
   [result[from], result[to]] = [result[to], result[from]];
   return result;
 }
+
+type Visibility = Pick<Document, "visibilityState" | "addEventListener" | "removeEventListener">;
+
+/** Calls `shown` when the page is visible (now, and each time it shows again) and `hidden` when it stops being,
+ * including when the returned function stops following it. */
+export function whileVisible(doc: Visibility, shown: () => void, hidden: () => void): () => void {
+  let visible = false;
+  const follow = (): void => {
+    const now = doc.visibilityState === "visible";
+    if (now === visible) return;
+    visible = now;
+    (now ? shown : hidden)();
+  };
+  follow();
+  doc.addEventListener("visibilitychange", follow);
+  return () => {
+    doc.removeEventListener("visibilitychange", follow);
+    if (visible) hidden();
+  };
+}

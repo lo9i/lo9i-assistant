@@ -14,6 +14,7 @@ from assistant.core.graph import Graph
 from assistant.core.health import HealthLog
 from assistant.core.home.builder import SectionBuilder
 from assistant.core.home.refresh import HomeRefresh
+from assistant.core.home.schedule import HomeSchedule
 from assistant.core.mcp.hub import McpHub
 from assistant.core.mcp.pages import McpPages
 from assistant.core.memory.indexer import MemoryIndexer
@@ -73,6 +74,8 @@ class ServiceBase:
     # Builds Home's sections in the background (core/home/), with the builder of the model in use. Requests start
     # its refreshes; the daemon doesn't run it as a task.
     home_refresh: HomeRefresh
+    # Refreshes Home at the start of the day and while a client shows it. The daemon runs it as a supervised task.
+    home_schedule: HomeSchedule
     _home_builder: SectionBuilder
     _transcriber: Transcriber
     _synthesizer: Synthesizer
