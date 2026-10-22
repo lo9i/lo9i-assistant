@@ -1,6 +1,7 @@
 // What every page uses to talk to the daemon, shared through Svelte context.
 import { getContext, setContext } from "svelte";
 import type { DaemonClient } from "./api/client";
+import { DaemonUnavailableError } from "./api/errors";
 import type { EventHub } from "./api/eventHub";
 import type { ChatController } from "./chat/controller";
 import type { OpenChats } from "./chat/openChats";
@@ -30,12 +31,14 @@ export function useDaemon(): Daemon {
 }
 
 /** Data loaded from the daemon, and loaded again whenever it reports a change of one of `kinds`,
- * or state that `load` reads (such as a selection) changes. Call during component setup. */
+ * or state that `load` reads (such as a selection) changes, and when the daemon can be reached again after it
+ * couldn't, since changes made meanwhile weren't heard. Call during component setup. */
 export function resource<T>(load: (client: DaemonClient) => Promise<T>, kinds: string[]): Resource<T> {
   const { client, hub } = useDaemon();
   const loaded = new Resource(() => load(client));
   $effect(() => loaded.reload());
   $effect(() => hub.on(kinds, () => loaded.reload()));
+  $effect(() => hub.onReconnect(() => loaded.reload()));
   return loaded;
 }
 
@@ -46,7 +49,9 @@ export class Resource<T> {
 
   constructor(private readonly load: () => Promise<T>) {}
 
-  /** Only the newest load's answer is kept, so a slow earlier one can't overwrite it. */
+  /** Only the newest load's answer is kept, so a slow earlier one can't overwrite it. A daemon that can't be
+   * reached isn't this data's error: the app says so for every page (ConnectionBanner), the data loaded before
+   * stays, and it's loaded again once the daemon is back. */
   reload = (): void => {
     const call = ++this.latest;
     this.load().then(
@@ -56,7 +61,7 @@ export class Resource<T> {
         this.error = null;
       },
       (e: unknown) => {
-        if (call === this.latest) this.error = describe(e);
+        if (call === this.latest && !(e instanceof DaemonUnavailableError)) this.error = describe(e);
       },
     );
   };

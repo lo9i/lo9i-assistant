@@ -1,9 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import House from "@lucide/svelte/icons/house";
   import Plus from "@lucide/svelte/icons/plus";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
+  import { DaemonUnavailableError } from "$lib/api/errors";
   import type { HomePage, HomeSection } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { dayOf, moved, updatedLabel, whileVisible, withSection, withoutSection } from "$lib/home";
@@ -40,7 +42,7 @@
   onMount(() => {
     const stop = whileVisible(document, shown, () => {
       visible = false;
-      void call(() => client.home.unwatch());
+      void inBackground(() => client.home.unwatch());
     });
     // A restarted daemon has forgotten that this tab shows Home.
     const reconnected = hub.onReconnect(() => visible && shown());
@@ -55,15 +57,17 @@
   function shown(): void {
     visible = true;
     now = new Date();
-    void call(() => client.home.watch());
-    void refresh(false);
+    void inBackground(() => client.home.watch());
+    void inBackground(async () => show(await client.home.refresh(false)));
   }
 
-  async function call(request: () => Promise<void>): Promise<void> {
+  // What showing Home does on its own: while the daemon can't be reached the banner says so, and it's done again
+  // once the daemon is back (onReconnect), so only other errors are reported.
+  async function inBackground(request: () => Promise<void>): Promise<void> {
     try {
       await request();
     } catch (e) {
-      notices.report(e);
+      if (!(e instanceof DaemonUnavailableError)) notices.report(e);
     }
   }
 
@@ -71,9 +75,9 @@
     home.data = page;
   }
 
-  async function refresh(force: boolean): Promise<void> {
+  async function refresh(): Promise<void> {
     try {
-      show(await client.home.refresh(force));
+      show(await client.home.refresh(true));
     } catch (e) {
       notices.report(e);
     }
@@ -121,7 +125,7 @@
   {#snippet actions()}
     {#if home.data?.updated_at}<span class="text-meta hide-narrow">{updatedLabel(home.data.updated_at, now)}</span>{/if}
     <button class="btn btn--ghost" onclick={() => edit(null)}><Plus size={16} /><span class="hide-narrow">Add section</span></button>
-    <button class="btn btn--primary" disabled={refreshing} onclick={() => refresh(true)}>
+    <button class="btn btn--primary" disabled={refreshing} onclick={refresh}>
       <span class="icon" class:spinning={refreshing}><RefreshCw size={16} /></span><span class="hide-narrow"
         >{refreshing ? "Refreshing…" : "Refresh"}</span
       >
@@ -131,7 +135,9 @@
 
 <div class="screen">
   {#if home.error && !home.data}
-    <p class="error-text">{home.error}</p>
+    <section class="surface--glass">
+      <EmptyState icon={CircleAlert} title="Home couldn't load" text={home.error} />
+    </section>
   {:else if home.data === undefined}
     <p class="text-meta">Loading…</p>
   {:else if home.data.cards.length === 0}

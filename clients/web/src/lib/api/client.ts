@@ -902,8 +902,8 @@ export class DaemonClient {
 
   /** Daemon events from now on, for as long as `signal` isn't aborted, resuming after a daemon restart.
    * `onOpen` is called each time the stream opens, after a restart too. */
-  async *events(signal: AbortSignal, onOpen?: () => void): AsyncGenerator<BusEvent> {
-    for await (const event of resumableEvents(this.transport, "/events", BUS_RECONNECT, signal, "", onOpen)) {
+  async *events(signal: AbortSignal, onOpen?: () => void, onLost?: () => void): AsyncGenerator<BusEvent> {
+    for await (const event of resumableEvents(this.transport, "/events", BUS_RECONNECT, signal, "", onOpen, onLost)) {
       yield { kind: event.event, data: JSON.parse(event.data) };
     }
   }

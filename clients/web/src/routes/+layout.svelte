@@ -4,7 +4,7 @@
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
   import { DaemonClient } from "$lib/api/client";
-  import { ApiError } from "$lib/api/errors";
+  import { ApiError, DaemonUnavailableError } from "$lib/api/errors";
   import { EventHub } from "$lib/api/eventHub";
   import { HttpTransport, partClientId } from "$lib/api/transport";
   import { ChatController } from "$lib/chat/controller";
@@ -39,6 +39,11 @@
   const stop = new AbortController();
   let closed = false;
   let listening = false;
+  // Before the app opens, a daemon that can't be reached (restarting, not started yet) is tried again this often,
+  // as the event stream does once it's open.
+  const RETRY_MS = 2000;
+  let retry: ReturnType<typeof setTimeout> | undefined;
+  let retrying = $state(false);
 
   onMount(() => theme.apply());
 
@@ -47,13 +52,16 @@
     void start();
     return () => {
       closed = true;
+      clearTimeout(retry);
       stop.abort();
       close();
     };
   });
 
   async function start(): Promise<void> {
+    clearTimeout(retry);
     error = null;
+    retrying = false;
     if (!(await paired())) return;
     if (!listening) {
       listening = true;
@@ -81,7 +89,13 @@
       return;
     }
     if (daemon) notices.report(e);
-    else error = describe(e);
+    else unreachable(e);
+  }
+
+  function unreachable(e: unknown): void {
+    error = describe(e);
+    retrying = e instanceof DaemonUnavailableError && !closed;
+    if (retrying) retry = setTimeout(() => void start(), RETRY_MS);
   }
 
   async function open(): Promise<void> {
@@ -120,7 +134,11 @@
   <div class="splash">
     {#if error}
       <p>{error}</p>
-      <button class="btn btn--neutral" onclick={() => start()}>Try again</button>
+      {#if retrying}
+        <p class="text-meta trying"><span class="spinner"></span>Trying again…</p>
+      {:else}
+        <button class="btn btn--neutral" onclick={() => start()}>Try again</button>
+      {/if}
     {:else}
       <div class="spinner"></div>
     {/if}
@@ -135,5 +153,11 @@
     gap: 16px;
     min-height: 100vh;
     color: var(--color-text-muted);
+  }
+  .trying {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
   }
 </style>

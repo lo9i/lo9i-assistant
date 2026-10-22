@@ -9,6 +9,7 @@
   import { failingNotice, signedOutNotice } from "$lib/health";
   import { openConversation } from "$lib/ui/openConversation";
   import { sidebar } from "$lib/sidebar.svelte";
+  import ConnectionBanner from "./ConnectionBanner.svelte";
   import Sidebar from "./Sidebar.svelte";
   import KeptKeysDialog from "./plugins/KeptKeysDialog.svelte";
   import Toasts from "./Toasts.svelte";
@@ -73,6 +74,7 @@
 <div class="app-layout" class:collapsed={sidebar.collapsed}>
   <Sidebar name={name.data || "lo9i"} />
   <main class="main">{@render children()}</main>
+  <ConnectionBanner name={name.data || "lo9i"} />
   <!-- Floating in the window's bottom right corner, on every page: typing above, talking below. -->
   <div class="quick">
     <TextButton />

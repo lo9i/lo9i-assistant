@@ -61,6 +61,29 @@ describe("resumableEvents", () => {
     expect(opens).toBe(2);
   });
 
+  it("says each time the stream is lost, before trying again", async () => {
+    const t = transport([
+      new Response(body("id: 1\ndata: a\n\n")),
+      new DaemonUnavailableError("restarting"),
+      new Response(body("id: 2\ndata: b\n\n")),
+    ]);
+    const seen: string[] = [];
+    const events = resumableEvents(
+      t,
+      "/events",
+      { delayMs: 0 },
+      new AbortController().signal,
+      "",
+      () => seen.push("open"),
+      () => seen.push("lost"),
+    );
+    for await (const event of events) {
+      seen.push(event.data);
+      if (event.data === "b") break;
+    }
+    expect(seen).toEqual(["open", "a", "lost", "lost", "open", "b"]);
+  });
+
   it("gives up after the policy's attempts", async () => {
     const t = transport([]);
     const events = resumableEvents(t, "/runs/x/events", { delayMs: 0, attempts: 3 }, new AbortController().signal);

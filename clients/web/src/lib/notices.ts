@@ -37,9 +37,12 @@ export class NoticeBoard {
   }
 }
 
+/** What a call says when the daemon can't be reached: most often it's restarting. */
+export const UNREACHABLE = "Can't reach the assistant right now. It may be restarting; try again in a moment.";
+
 /** What went wrong with a daemon call, for showing it. */
 export function describe(error: unknown): string {
-  if (error instanceof DaemonUnavailableError) return "Can't reach the daemon. Is it running?";
+  if (error instanceof DaemonUnavailableError) return UNREACHABLE;
   if (error instanceof ApiError) return error.detail;
   return String(error);
 }
