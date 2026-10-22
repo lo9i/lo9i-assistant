@@ -21,6 +21,7 @@ CATEGORIES = (
     "media/video",
     "other/general",
     "productivity/calendar",
+    "software/factory",
 )
 DEFAULT = "other/general"
 # The category a plugin with that section of server.yaml is in.
