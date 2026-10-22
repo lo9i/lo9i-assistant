@@ -1,7 +1,7 @@
-// The conversations this browser tab is on, kept across reloads: the chat's open ones, and the voice
-// button's own. sessionStorage is per tab, so a new tab starts new conversations. Storage can be unavailable
+// The conversations this browser tab is on, kept across reloads: the chat's open ones, and the floating
+// voice and text buttons' own (where their last message was sent on). sessionStorage is per tab, so a new tab starts new conversations. Storage can be unavailable
 // (private windows, blocked site data); the tab then starts fresh on reload.
-const KEYS = { chat: "lo9i.thread", voice: "lo9i.voiceThread" };
+const KEYS = { chat: "lo9i.thread", voice: "lo9i.voiceThread", text: "lo9i.textThread" };
 const OPEN = "lo9i.openThreads";
 
 export type Lane = keyof typeof KEYS;

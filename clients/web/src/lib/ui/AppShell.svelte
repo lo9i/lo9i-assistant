@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
-  import { resolve } from "$app/paths";
-  import VoiceButton from "./voice/VoiceButton.svelte";
+  import TextButton from "./quick/TextButton.svelte";
+  import VoiceButton from "./quick/VoiceButton.svelte";
   import type { Snippet } from "svelte";
   import type { BackgroundEnded, Failing, JobFinished, SignedOut } from "$lib/api/types";
   import { followRuns } from "$lib/chat/events";
   import { saveOpen, saveThread } from "$lib/chat/tabThread";
   import { external, provideDaemon, resource, type Daemon } from "$lib/daemon.svelte";
   import { failingNotice, signedOutNotice } from "$lib/health";
+  import { openConversation } from "$lib/ui/openConversation";
   import { sidebar } from "$lib/sidebar.svelte";
   import Sidebar from "./Sidebar.svelte";
   import KeptKeysDialog from "./plugins/KeptKeysDialog.svelte";
@@ -22,19 +22,21 @@
   // svelte-ignore state_referenced_locally
   provideDaemon(daemon);
   // svelte-ignore state_referenced_locally
-  const { chats, voice, hub, notices } = daemon;
+  const { chats, voice, text, hub, notices } = daemon;
   const name = resource((client) => client.identity.name(), ["settings"]);
   const open = external(chats.subscribe, chats.getSnapshot);
   const voiceThreadId = external(voice.subscribe, () => voice.getSnapshot().threadId);
+  const textThreadId = external(text.subscribe, () => text.getSnapshot().threadId);
 
   // The chat follows runs whichever page is open, so a reply keeps streaming in the background.
   $effect(() => followRuns(hub, chats));
-  $effect(() => followRuns(hub, { all: () => [voice] }));
+  $effect(() => followRuns(hub, { all: () => [voice, text] }));
   $effect(() => {
     void open.current;
     saveOpen(chats.saved());
   });
   $effect(() => saveThread(voiceThreadId.current, "voice"));
+  $effect(() => saveThread(textThreadId.current, "text"));
   $effect(() => {
     document.title = name.data || "lo9i";
   });
@@ -49,19 +51,12 @@
     hub.on(["background_ended"], (data) => {
       const ended = data as BackgroundEnded;
       const open =
-        ended.channel === UNATTENDED ? undefined : { label: "Open its conversation", run: () => void openConversation(ended.thread_id) };
+        ended.channel === UNATTENDED
+          ? undefined
+          : { label: "Open its conversation", run: () => void openConversation(chats, notices, ended.thread_id) };
       notices.notify(ended.text, ended.ok ? "info" : "warning", open);
     }),
   );
-
-  async function openConversation(threadId: string): Promise<void> {
-    try {
-      await chats.show(threadId);
-      await goto(resolve("/conversations/open"));
-    } catch (e) {
-      notices.report(e);
-    }
-  }
   $effect(() => hub.on(["failing"], (data) => notices.notify(failingNotice(data as Failing), "warning")));
   $effect(() => hub.on(["signed_out"], (data) => notices.notify(signedOutNotice(data as SignedOut), "warning")));
 
@@ -78,7 +73,11 @@
 <div class="app-layout" class:collapsed={sidebar.collapsed}>
   <Sidebar name={name.data || "lo9i"} />
   <main class="main">{@render children()}</main>
-  <VoiceButton />
+  <!-- Floating in the window's bottom right corner, on every page: typing above, talking below. -->
+  <div class="quick">
+    <TextButton />
+    <VoiceButton />
+  </div>
 </div>
 <Toasts {notices} />
 <KeptKeysDialog />
@@ -96,6 +95,15 @@
   }
   .main {
     min-width: 0;
+  }
+  .quick {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: var(--z-popover);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
   @media (max-width: 680px) {
     .app-layout {
