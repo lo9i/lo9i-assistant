@@ -79,6 +79,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
   - Tool calls are logged by the model's call id, so a retried call returns the first result.
   - Needs an OpenAI key in addition to the Anthropic key. Not needed for Telegram voice notes.
 - A5. Spoken replies in Slack. Settings → Audio speaks replies in the web chat and as Telegram voice notes; Slack doesn't get them yet (upload the audio with `files.uploadV2`).
+- A50. A message the inbox sends on is two runs on the client (`ChatController.ownTurn`, then `goOn` → `sendDispatched`), and between them it isn't busy: the web app's floating text button re-enables its input and its fab stops spinning for a moment, and the chat's composer does the same. Keep the controller busy from the inbox's run until the run where the message went has started.
 
 
 ## Platforms

@@ -25,9 +25,11 @@
   const standalone = page.url.pathname === resolve("/oauth");
 
   const client = new DaemonClient(new HttpTransport());
-  // The voice button and each conversation open beside the first talk under ids the daemon ties to this client.
+  // The voice and text buttons and each conversation open beside the first talk under ids the daemon ties to
+  // this client.
   const partClient = (part: string) => new DaemonClient(new HttpTransport(partClientId(client.clientId, part)));
   const voiceClient = partClient("voice");
+  const textClient = partClient("text");
   const hub = new EventHub();
   const notices = new NoticeBoard();
   let daemon = $state<Daemon | null>(null);
@@ -85,15 +87,17 @@
   async function open(): Promise<void> {
     try {
       const { threads, active } = savedOpen();
-      const [chats, voice] = await Promise.all([
+      const [chats, voice, text] = await Promise.all([
         OpenChats.open((part) => (part === null ? client : partClient(part)), CHANNEL, threads, active, notices),
         ChatController.open(voiceClient, CHANNEL, savedThread("voice"), notices),
+        ChatController.open(textClient, CHANNEL, savedThread("text"), notices),
       ]);
       if (closed) {
         chats.closeAll();
-        return voice.close();
+        voice.close();
+        return text.close();
       }
-      daemon = { client, hub, notices, chats, voice };
+      daemon = { client, hub, notices, chats, voice, text };
     } catch (e) {
       lostPairing(e);
     }
@@ -102,6 +106,7 @@
   function close(): void {
     daemon?.chats.closeAll();
     daemon?.voice.close();
+    daemon?.text.close();
   }
 </script>
 

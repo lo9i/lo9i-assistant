@@ -6,8 +6,16 @@ import type { ChatController } from "./chat/controller";
 import type { OpenChats } from "./chat/openChats";
 import { describe, type NoticeBoard } from "./notices";
 
-// `chats` are the conversations open in the chat; `voice` is the voice button's, kept apart from them.
-export type Daemon = { client: DaemonClient; hub: EventHub; notices: NoticeBoard; chats: OpenChats; voice: ChatController };
+// `chats` are the conversations open in the chat; `voice` and `text` are the floating buttons', kept apart
+// from them: each writes in the inbox and follows its message to where it was sent on.
+export type Daemon = {
+  client: DaemonClient;
+  hub: EventHub;
+  notices: NoticeBoard;
+  chats: OpenChats;
+  voice: ChatController;
+  text: ChatController;
+};
 
 const KEY = Symbol("daemon");
 

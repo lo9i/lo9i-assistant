@@ -80,6 +80,14 @@ export class ChatController {
     await this.own(text, names, (signal) => this.client.send(this.live.session, text, files, signal));
   }
 
+  /** Writes in the inbox, from wherever this is: the inbox sends the message on to its conversation, and
+   * this goes there with it (or stays in the inbox for a quick answer). */
+  async write(text: string, files: File[]): Promise<void> {
+    if (this.ownRun !== null) return;
+    if (this.state.threadId !== this.state.inboxId) await this.goInbox();
+    await this.send(text, files);
+  }
+
   /** Sends here a message the inbox sent on, as it was written, after the quick exchange it followed up. */
   async sendDispatched(dispatched: Dispatched): Promise<void> {
     const { id, text, carried } = dispatched;

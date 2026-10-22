@@ -3,6 +3,7 @@ import { ApiError } from "../api/errors";
 import type { Decision, RunEvent, Session } from "../api/types";
 import { NoticeBoard } from "../notices";
 import { ChatController, type ChatClient } from "./controller";
+import { finalReply } from "./transcript";
 
 /** A daemon whose runs play the queued events. With `keepOpen`, a run stays open after them. */
 class FakeDaemon implements ChatClient {
@@ -153,6 +154,25 @@ describe("ChatController", () => {
     expect(daemon.sent).toEqual(["inbox: plan my week", "t2: plan my week (d1)"]);
     expect(chat.getSnapshot().threadId).toBe("t2");
     expect(texts(chat)).toEqual(["plan my week", "A plan."]);
+  });
+
+  it("writes in the inbox from any conversation, and goes where the message was sent on", async () => {
+    const daemon = new FakeDaemon();
+    daemon.runs = [
+      [
+        { type: "Dispatched", id: "d1", thread_id: "t1", title: "Trip", text: "flights?", line: "→ Continued in “Trip”." },
+        { type: "Done" },
+      ],
+      [{ type: "TextDelta", text: "Two flights." }, { type: "Done" }],
+      [{ type: "TextDelta", text: "Sunny." }, { type: "Done" }],
+    ];
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    await chat.write("flights?", []);
+    expect(chat.getSnapshot().threadId).toBe("t1");
+    await chat.write("weather?", []);
+    expect(daemon.sent).toEqual(["inbox: flights?", "t1: flights? (d1)", "inbox: weather?"]);
+    expect(chat.getSnapshot().threadId).toBe("inbox");
+    expect(finalReply(chat.getSnapshot().transcript)).toBe("Sunny.");
   });
 
   it("hands where the inbox sent a message on to whoever shows it, when someone does", async () => {
