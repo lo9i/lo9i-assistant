@@ -258,15 +258,17 @@
   />
   <StatusBar>
     <WorkingStatus threadId={snapshot.current.threadId} />
+    <ConversationStats threadId={snapshot.current.threadId} />
     {#if handoff.data}
       <AgentStatus handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")} />
     {/if}
-    <ConversationStats threadId={snapshot.current.threadId} />
   </StatusBar>
-  <QuickButtons docked />
   {#if dragging > 0}<div class="drop-hint" aria-hidden="true">Drop files to attach them</div>{/if}
 </section>
 
+<!-- Outside the chat: its glass blur would make it their containing block, so they'd sit in its corner, not the
+     window's. -->
+<QuickButtons docked />
 {#if snapshot.current.approval}
   <ApprovalModal approval={snapshot.current.approval} onanswer={(d) => chats.current.answer(d)} />
 {/if}
