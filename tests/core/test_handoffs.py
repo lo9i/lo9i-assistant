@@ -11,8 +11,11 @@ from pathlib import Path
 import pytest
 
 from assistant.core.agent import AssistantService, FolderError, HandoffError, Session
+from assistant.core.agent_tasks import workers
+from assistant.core.agent_tasks.records import TaskStore
 from assistant.core.attachments import Attachment
-from assistant.core.events import Done, Error, TextDelta, ToolFinished, ToolStarted
+from assistant.core.conversation import queued
+from assistant.core.events import Done, Error, TextDelta, ToolFinished, ToolStarted, UserSaid
 from assistant.core.mcp import folders, servers
 from assistant.core.mcp.servers import McpServer
 from assistant.daemon.managers import ByHand
@@ -262,3 +265,131 @@ async def test_a_running_task_names_the_conversation_handed_to_the_agent(service
     run.cancel()
     with pytest.raises(asyncio.CancelledError):
         await run
+
+
+async def _working(service, session, tmp_path) -> str:
+    """The agent's task in the conversation, once its worker has started."""
+    async with asyncio.timeout(10):
+        while True:
+            task = await service.agent_tasks.working_in("claude-code", session.thread_id, str(tmp_path))
+            if task and (folders.data("claude-code") / "tasks" / task / "pid").exists():
+                return task
+            await asyncio.sleep(0.02)
+
+
+async def _taking_messages(service, session, tmp_path) -> str:
+    task = await _working(service, session, tmp_path)
+    async with asyncio.timeout(10):
+        while not (folders.data("claude-code") / "tasks" / task / "inbox").is_dir():
+            await asyncio.sleep(0.02)
+    return task
+
+
+async def test_messages_sent_while_the_agent_works_reach_it_and_show_among_its_steps(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    run = asyncio.create_task(collect(service.send(session, "take messages")))
+    await _taking_messages(service, session, tmp_path)
+    await service.message_agent("owner", session.thread_id, "skip the slow tests")
+    await service.interrupt_agent("owner", session.thread_id)
+    await service.message_agent("owner", session.thread_id, "that's all")
+    events = await run
+    said = [e for e in events if isinstance(e, TextDelta | UserSaid)]
+    assert said == [
+        TextDelta("Working."),
+        UserSaid("skip the slow tests"),
+        UserSaid("that's all"),
+        TextDelta("Took 3 messages."),  # its reply answers the last message
+    ]
+    assert ToolStarted("Interrupted", {}, within=events[2].id) in events and events[-1] == Done()
+    shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
+    assert shown[-6:] == [  # in order, after a reload
+        ("user", "take messages"),
+        ("assistant", "Working."),
+        ("user", "skip the slow tests"),
+        ("tool", "Interrupted"),
+        ("user", "that's all"),
+        ("assistant", "Took 3 messages."),
+    ]
+
+
+async def test_messages_the_agent_ended_without_taking_are_answered_next_in_its_session(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    run = asyncio.create_task(collect(service.send(session, "take messages")))
+    task = await _taking_messages(service, session, tmp_path)
+    tasks = TaskStore(folders.data("claude-code") / "tasks")
+    tasks.add_message(task, {"kind": "message", "text": "that's all"})
+    tasks.add_message(task, {"kind": "message", "text": "and one more"})
+    workers.wake(tasks.pid(task) or 0)
+    events = await run
+    assert [e for e in events if isinstance(e, UserSaid)] == [UserSaid("that's all"), UserSaid("and one more")]
+    assert TextDelta(f"Done in {tmp_path}: and one more") in events and events[-1] == Done()
+    assert (asked()[-1]["prompt"], asked()[-1]["follow_up_of"]) == ("and one more", task)
+
+
+async def test_only_an_agent_at_work_that_takes_messages_gets_them(service, tmp_path):
+    other = Session("owner", "cli", await service.new_thread("owner"))
+    with pytest.raises(HandoffError, match="isn't handed to an agent"):
+        await service.message_agent("owner", other.thread_id, "hello")
+    session = await _handed(service, tmp_path)
+    with pytest.raises(HandoffError, match="Claude Code isn't working on anything now"):
+        await service.interrupt_agent("owner", session.thread_id)
+    run = asyncio.create_task(collect(service.send(session, "work a while")))  # a worker without an inbox
+    await _working(service, session, tmp_path)
+    with pytest.raises(HandoffError, match="Claude Code can't take messages while it works"):
+        await service.message_agent("owner", session.thread_id, "hello")
+    (tmp_path / "release").write_text("")
+    assert (await run)[-1] == Done()
+
+
+async def test_the_list_of_running_tasks_hears_of_each_step_and_of_the_end(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    after = service.bus.last_id
+    await collect(service.send(session, "work out loud"))
+    progress = [e.data for e in [e async for e in _events_after(service, after)] if e.kind == "agent_task_progress"]
+    assert progress == [{"thread_id": session.thread_id}] * 7  # its 6 steps, then its end
+    assert await service.running_tasks() == []
+
+
+async def _events_after(service, after):
+    """The bus events published since `after`."""
+    async with asyncio.timeout(1):
+        async for event in service.bus.subscribe(after):
+            yield event
+            if event.id == service.bus.last_id:
+                return
+
+
+def _finished(service, after) -> list[dict]:
+    """The agent_finished events published since `after`."""
+    return [e.data for e in service.bus._history if e.id > after and e.kind == "agent_finished"]
+
+
+async def test_the_apps_hear_once_the_agent_is_done_with_the_job_not_at_each_message_it_goes_on_with(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    after = service.bus.last_id
+    await queued.add(service.store, "owner", session.thread_id, queued.Queued("web", "and then the docs"))
+    await collect(service.send(session, "fix the tests"))
+    assert _finished(service, after) == []  # the next message goes on with the job
+    await queued.take(service.store, "owner", session.thread_id)
+    await collect(service.send(session, "and then the docs"))
+    await collect(service.send(session, "break"))
+    assert _finished(service, after) == [
+        {
+            "thread_id": session.thread_id,
+            "agent": "Claude Code",
+            "ok": True,
+            "text": f"Done in {tmp_path}: and then the docs",
+        },
+        {"thread_id": session.thread_id, "agent": "Claude Code", "ok": False, "text": "Claude Code: the agent gave up"},
+    ]
+
+
+async def test_a_job_the_user_stopped_isnt_told(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    after = service.bus.last_id
+    run = asyncio.create_task(collect(service.send(session, "sleep")))
+    await _working(service, session, tmp_path)
+    run.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await run
+    assert _finished(service, after) == []

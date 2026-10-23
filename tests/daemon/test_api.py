@@ -335,6 +335,10 @@ async def test_a_conversation_is_handed_to_an_agent_and_back(client, service, tm
     assert await client.conversations.agent(thread_id) == handoff
     with pytest.raises(HandoffError):
         await client.conversations.hand_to(thread_id, "claude", "relative/folder")
+    with pytest.raises(HandoffError, match="isn't working on anything now"):
+        await client.conversations.message_agent(thread_id, "skip the slow tests")
+    with pytest.raises(HandoffError, match="isn't working on anything now"):
+        await client.conversations.interrupt_agent(thread_id)
     await client.conversations.take_back(thread_id)
     assert await client.conversations.agent(thread_id) is None
     assert (await client.conversations.agent_folders()).recent == [str(tmp_path)]

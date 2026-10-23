@@ -70,6 +70,8 @@ export function apply(t: Transcript, event: RunEvent): Transcript {
       return toolFinished(ended, event.name, event.output);
     case "Thinking":
       return addThinking(ended, event.text);
+    case "UserSaid":
+      return add(ended, { kind: "user", text: event.text, files: [] });
     case "Transcribed":
       return add(ended, { kind: "transcript", text: event.text, language: event.language });
     case "Dispatched":

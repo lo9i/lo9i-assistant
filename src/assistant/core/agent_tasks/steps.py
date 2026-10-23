@@ -4,15 +4,16 @@ become the run's events, shown as the assistant's own would be, so the agent's w
 and its thinking reads as what it says: the user hands the conversation over to talk to it;
 while task_status waits for a task they show inside that call (`within_call`).
 A note, or a plain line from a worker that reports nothing finer, goes inside a call named after the
-agent. For the task tools each reads as one line (`line`). The steps of a handed-off reply are kept with
-it, in its message's `response_metadata` under STEPS, which no model call sends: history shows them again
+agent; a message the user sent while it worked shows as theirs, where it was passed on. For the task
+tools each reads as one line (`line`). The steps of a handed-off reply are kept with it, in its message's
+`response_metadata` under STEPS, which no model call sends: history shows them again
 (core/conversation/display.py)."""
 
 import json
 import uuid
 from typing import Any
 
-from assistant.core.events import Event, TextDelta, ToolFinished, ToolStarted
+from assistant.core.events import Event, TextDelta, ToolFinished, ToolStarted, UserSaid
 
 _LINE = 200
 # Where a handed-off reply keeps its steps, as the worker wrote them.
@@ -34,7 +35,7 @@ class AgentSteps:
         self._last = ""
         # The text or thinking whose words are streaming now, "" when none is.
         self._open = ""
-        # It said something: its reply, its last text, has been shown with it.
+        # It said something since the user's last message: its reply, its last text, has been shown with it.
         self.spoke = False
         # Every step so far but the streamed words, as written, to keep with the reply.
         self.lines: list[str] = []
@@ -73,6 +74,10 @@ class AgentSteps:
             return [ToolStarted(step.get("tool", ""), _args(step), id=step.get("id", ""), within=within)]
         if kind == "result":
             return [ToolFinished(step.get("tool", ""), text, within=within)]
+        if kind == "user":
+            # What it says next answers the user's message: its reply isn't said yet.
+            self._open, self.spoke = "", False
+            return [UserSaid(text)]
         return self._note(text)
 
     def _words(self, kind: str, text: str) -> list[str]:
@@ -106,7 +111,7 @@ def within_call(message: str, call_id: str) -> list[Event]:
         return [ToolStarted(step.get("tool", ""), _args(step), id=step.get("id", ""), within=call_id)]
     if kind == "result":
         return [ToolFinished(step.get("tool", ""), step.get("text", ""), within=call_id)]
-    if kind in ("note", "text") and (text := line(message)):
+    if kind in ("note", "text", "user") and (text := line(message)):
         return [ToolStarted(text, {}, within=call_id), ToolFinished(text, "", within=call_id)]
     return []
 
@@ -123,8 +128,9 @@ def line(message: str) -> str:
     if kind == "tool":
         tool, detail = step.get("tool", ""), step.get("detail", "")
         return f"{tool}: {detail}" if detail else tool
-    if kind in ("note", "text") and text:
+    if kind in ("note", "text", "user") and text:
         first = text.splitlines()[0]
+        first = f"The user: {first}" if kind == "user" else first
         return first if len(first) <= _LINE else first[:_LINE] + "…"
     return ""
 

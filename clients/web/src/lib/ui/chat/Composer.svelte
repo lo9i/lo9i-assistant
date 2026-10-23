@@ -25,8 +25,21 @@
     sent?: string[];
     /** Commands installed plugins add, such as /claude. */
     extra?: Command[];
+    /** The agent the conversation is handed to works on the last message: what's typed goes to it meanwhile. */
+    steering?: { agent: string; onsteer: (text: string) => void } | null;
   };
-  let { busy, running, onsend, onstop, oncommand, text = $bindable(""), files = $bindable([]), sent = [], extra = [] }: Props = $props();
+  let {
+    busy,
+    running,
+    onsend,
+    onstop,
+    oncommand,
+    text = $bindable(""),
+    files = $bindable([]),
+    sent = [],
+    extra = [],
+    steering = null,
+  }: Props = $props();
   // The sent message shown (an index into `sent`), and what was being typed before Up.
   let recalled = $state<number | null>(null);
   let typed = "";
@@ -79,6 +92,12 @@
     if (command !== null) {
       if (chosen && chosen.name !== command.name) pick(chosen);
       else run(command.name, command.arg);
+      return;
+    }
+    if (steering) {
+      // Files wait in the box for the next message.
+      if (text.trim()) steering.onsteer(text.trim());
+      type("");
       return;
     }
     if (busy || (!text.trim() && files.length === 0)) return;
@@ -212,7 +231,9 @@
       <textarea
         bind:this={box}
         value={text}
-        placeholder="Message · Enter to send, Shift+Enter for a new line, / for commands"
+        placeholder={steering
+          ? `Message ${steering.agent} while it works · Enter to send`
+          : "Message · Enter to send, Shift+Enter for a new line, / for commands"}
         rows={1}
         oninput={(e) => type(e.currentTarget.value)}
         {onkeydown}
@@ -224,6 +245,11 @@
         <ArrowUp size={14} />
       </button>
     {:else if running}
+      {#if steering && text.trim()}
+        <button class="send" aria-label="Send to {steering.agent}" title="Send to {steering.agent} while it works" onclick={submit}>
+          <ArrowUp size={14} />
+        </button>
+      {/if}
       <button class="send" aria-label="Stop" title="Stop (Esc)" onclick={onstop}><Square size={12} fill="currentColor" /></button>
     {:else}
       <button class="lead" aria-label="Record a voice message" title="Record a voice message" onclick={record}>

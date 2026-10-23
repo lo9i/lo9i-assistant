@@ -124,6 +124,8 @@ export type RunEvent =
   // `within`: the id of the delegate call whose subagent made this call; empty for the agent's own.
   | { type: "ToolStarted"; name: string; args: Record<string, unknown>; id?: string; within?: string }
   | { type: "ToolFinished"; name: string; output: string; within?: string }
+  // A message the user sent the agent the conversation is handed to while it worked, where it was passed on.
+  | { type: "UserSaid"; text: string }
   | ApprovalRequired
   | { type: "Transcribed"; text: string; language: string }
   | Dispatched
@@ -145,6 +147,10 @@ export type JobFinished = { name: string; status: string; summary: string };
 
 /** A `background_ended` bus event: background work started in a conversation ended (core/background.py). */
 export type BackgroundEnded = { thread_id: string; channel: string; ok: boolean; text: string };
+
+/** An `agent_finished` bus event: the agent a conversation is handed to is done with the user's job and waits for
+ * them (core/agent/handoffs.py). `text` is the start of its reply, or what went wrong. */
+export type AgentFinished = { thread_id: string; agent: string; ok: boolean; text: string };
 
 /** A `failing` bus event: an MCP server or a skill failed FAILING_AFTER times in a row (core/health.py). */
 export type Failing = { area: "mcp" | "skill"; name: string; error: string };

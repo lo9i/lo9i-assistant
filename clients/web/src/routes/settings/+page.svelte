@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from "$app/state";
+  import AgentDoneCard from "$lib/ui/settings/AgentDoneCard.svelte";
   import AssistantCard from "$lib/ui/settings/AssistantCard.svelte";
   import EmailCard from "$lib/ui/settings/EmailCard.svelte";
   import HostCard from "$lib/ui/settings/HostCard.svelte";
@@ -53,6 +54,7 @@
         <StartupCard />
         <WebSearchCard />
         <EmailCard />
+        <AgentDoneCard />
       </div>
     </div>
   {:else if tab === "model"}

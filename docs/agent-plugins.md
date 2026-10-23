@@ -44,6 +44,7 @@ Each task is a folder under the plugin's data folder, `tasks/<id>/`. Every file 
 | `result.json` | worker | `{"ok", "text", "finished_at", "cost_usd"}`, written last, whole (write it to another name, then rename). `text` is the agent's final answer, or what went wrong. |
 | `stopped` | daemon | The user stopped the task. |
 | `conversation` | daemon | The conversation handed to the agent that the task answers in. The worker doesn't read it. |
+| `inbox/` | worker makes it, daemon writes in it | What the user sends the task while it works (below). |
 | `worker.log` | the worker's output | For finding out why a worker failed. |
 
 The daemon starts the worker detached, so it outlives a restart of the daemon. Stopping a task signals
@@ -53,6 +54,25 @@ whose worker is gone without a `result.json` counts as failed.
 
 When a task started with `start_task` ends, the daemon tells the conversation that started it and the
 user, unless the assistant read its end first (docs/background-work.md).
+
+## Messages while it works
+
+In a conversation handed to the agent, the user can write to it while it works on a message, and
+interrupt it (`POST /conversations/<id>/agent/messages`, `/agent/interrupt`; `AgentTasks.message`,
+`interrupt`). A worker that takes them makes `inbox/` once it's ready, after handling SIGUSR1: the
+daemon sends nothing to a task without one, and the apps say the agent can't take messages while it
+works. The daemon writes each message as a JSON file in `inbox/`, written whole and then renamed, named so
+the files sort in the order they were sent, and then sends SIGUSR1 to the worker's pid only (the commands
+it started would end on it).
+
+| Message | What the worker does |
+|---|---|
+| `{"kind": "message", "text"}` | Passes it on to the agent, which takes it between its steps, and writes a `user` step with the file's name (without `.json`) as its `id`. |
+| `{"kind": "interrupt"}` | Stops the agent's step in progress; the task stays running and waits for the next message. |
+
+The task ends once the agent has answered every message it was sent. Messages left in `inbox/` without a
+`user` step when it ends (sent just as it finished) go to the agent next, as a follow-up in the same
+session, in the same run.
 
 ## Steps
 
@@ -67,10 +87,12 @@ Each line of `progress.log` is a JSON object with a `kind`; fields that are empt
 | `result` | `tool`, `text`, `id` | A tool call's result: the call it ends, its output, shortened. |
 | `text_delta` | `text` | Words of a text as they're written. The whole text follows as a `text` step. |
 | `thinking_delta` | `text` | Words of a thinking as they're written. The whole thinking follows as a `thinking` step. |
+| `user` | `text`, `id` | A message the user sent while it worked, passed on to the agent; `id` is its file in `inbox/`. |
 
 `within` on any step is the id of the tool call whose subagent took it. In a conversation handed to the
 agent, the daemon shows text as the reply, thinking apart, and each tool call with its result
-(`core/agent_tasks/steps.py`); notes go inside a call named after the agent. Words stream as they're
+(`core/agent_tasks/steps.py`); notes go inside a call named after the agent, and `user` steps show as the
+user's messages (a `UserSaid` event). Words stream as they're
 written, and the whole text or thinking that follows them isn't shown again; a worker that writes no
 deltas shows each block whole. History and the task tools keep only the whole blocks. The daemon reads
 new lines at most a tenth of a second after they're written. The task tools show notes, text and tool

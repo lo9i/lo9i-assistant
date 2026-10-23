@@ -36,6 +36,14 @@ class ToolFinished:
 
 
 @dataclass
+class UserSaid:
+    """A message the user sent an agent the conversation is handed to while it worked
+    (core/agent_tasks/steps.py), shown among its steps where it was passed on."""
+
+    text: str
+
+
+@dataclass
 class ApprovalRequired:
     """The run waits for the user. Usually an approval, answered with {"approved", "reason"}; a
     request whose `kind` is QUESTION is a question with options (core/tools/questions.py), with
@@ -118,6 +126,7 @@ Event = (
     | Thinking
     | ToolStarted
     | ToolFinished
+    | UserSaid
     | ApprovalRequired
     | Transcribed
     | Dispatched
