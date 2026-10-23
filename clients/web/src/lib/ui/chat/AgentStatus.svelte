@@ -2,14 +2,14 @@
   import Bot from "@lucide/svelte/icons/bot";
   import type { Handoff } from "$lib/api/types";
 
-  // The agent this conversation is handed to (/claude): its replies come from it, not the assistant. While it
-  // works, Interrupt stops its step in progress and it waits for the user's next message.
+  // In the status bar: the agent this conversation is handed to (/claude), whose replies come from it, not the
+  // assistant. While it works, Interrupt stops its step in progress and it waits for the user's next message.
   type Props = { handoff: Handoff; working?: boolean; oninterrupt?: () => void; onback: () => void };
   let { handoff, working = false, oninterrupt, onback }: Props = $props();
 </script>
 
-<div class="agent" role="status">
-  <Bot size={14} aria-hidden="true" />
+<div class="agent">
+  <Bot size={13} aria-hidden="true" />
   <span>Talking to <strong>{handoff.name}</strong> in <code>{handoff.folder}</code></span>
   {#if working && oninterrupt}
     <button type="button" class="btn btn--ghost btn--sm" title="Stop its current step and wait for you" onclick={oninterrupt}>
@@ -24,13 +24,10 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
-    padding: 4px 16px;
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm);
+    gap: 6px;
+    min-width: 0;
   }
   .agent span {
-    flex: 1;
     min-width: 0;
     overflow-wrap: anywhere;
   }

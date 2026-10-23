@@ -1,14 +1,14 @@
 import { render } from "svelte/server";
 import { describe, expect, it } from "vitest";
-import AgentBar from "./AgentBar.svelte";
+import AgentStatus from "./AgentStatus.svelte";
 
 const handoff = { server: "claude-code", command: "claude", name: "Claude Code", folder: "/repo" };
 
-describe("AgentBar", () => {
+describe("AgentStatus", () => {
   it("offers to interrupt the agent only while it works", () => {
-    const working = render(AgentBar, { props: { handoff, working: true, oninterrupt: () => {}, onback: () => {} } });
+    const working = render(AgentStatus, { props: { handoff, working: true, oninterrupt: () => {}, onback: () => {} } });
     expect(working.body).toContain("Interrupt");
-    const idle = render(AgentBar, { props: { handoff, working: false, oninterrupt: () => {}, onback: () => {} } });
+    const idle = render(AgentStatus, { props: { handoff, working: false, oninterrupt: () => {}, onback: () => {} } });
     expect(idle.body).not.toContain("Interrupt");
   });
 });

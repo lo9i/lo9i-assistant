@@ -12,12 +12,13 @@
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { Player, speaksReply } from "$lib/speech";
   import type { Agent } from "$lib/api/types";
-  import AgentBar from "./AgentBar.svelte";
+  import AgentStatus from "./AgentStatus.svelte";
   import AgentFolderModal from "./AgentFolderModal.svelte";
   import ApprovalModal from "./ApprovalModal.svelte";
   import Composer from "./Composer.svelte";
   import HelpModal from "./HelpModal.svelte";
   import PinnedSkills from "./PinnedSkills.svelte";
+  import StatusBar from "./StatusBar.svelte";
   import TasksBar from "./TasksBar.svelte";
   import Thread from "./Thread.svelte";
 
@@ -252,14 +253,6 @@
   />
   <PinnedSkills skills={pinned.data ?? []} onunpin={unpin} />
   <TasksBar threadId={snapshot.current.threadId} onopen={(threadId) => chats.show(threadId)} />
-  {#if handoff.data}
-    <AgentBar
-      handoff={handoff.data}
-      working={agentWorking}
-      oninterrupt={interrupt}
-      onback={() => agentCommand(`/${handoff.data?.command}`, "off")}
-    />
-  {/if}
   <Composer
     bind:text={draft.text}
     bind:files={draft.files}
@@ -272,6 +265,16 @@
     {extra}
     steering={agentWorking && handoff.data ? { agent: handoff.data.name, onsteer: steer } : null}
   />
+  <StatusBar>
+    {#if handoff.data}
+      <AgentStatus
+        handoff={handoff.data}
+        working={agentWorking}
+        oninterrupt={interrupt}
+        onback={() => agentCommand(`/${handoff.data?.command}`, "off")}
+      />
+    {/if}
+  </StatusBar>
   {#if dragging > 0}<div class="drop-hint" aria-hidden="true">Drop files to attach them</div>{/if}
 </section>
 
