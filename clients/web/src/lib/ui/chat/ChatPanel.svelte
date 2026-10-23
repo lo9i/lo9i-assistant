@@ -1,11 +1,10 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { draft } from "$lib/chat/draft.svelte";
   import { carriesFiles, droppedFiles } from "$lib/chat/dropped";
   import { tellAgent } from "$lib/chat/agentWork";
-  import { agentCommands, parse } from "$lib/chat/commands";
+  import { agentCommands } from "$lib/chat/commands";
   import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
   import { sentTexts } from "$lib/chat/history";
   import { finalReply, toolRunning } from "$lib/chat/transcript";
@@ -56,15 +55,6 @@
   // Each conversation keeps its own unsent text and files.
   $effect.pre(() => {
     draft.thread = snapshot.current.threadId;
-  });
-
-  // A message written on the Chat list: sent from here, so it's shown and spoken like any other.
-  onMount(() => {
-    const queued = draft.takeQueued();
-    if (queued === null) return;
-    const typed = parse(queued.text);
-    if (typed) command(typed.name, typed.arg);
-    else void send(queued.text, queued.files);
   });
 
   /** Sends, then reads the answer aloud when Settings → Audio says so. */
