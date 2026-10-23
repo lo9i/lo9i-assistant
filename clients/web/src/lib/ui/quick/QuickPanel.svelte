@@ -64,11 +64,11 @@
 </section>
 
 <style>
-  /* Above the buttons, in the same corner: two one above the other, or a row while a chat is shown. */
+  /* Above the buttons, in the same corner: the buttons are always in a row. */
   .bubble {
     position: fixed;
     right: 10px;
-    bottom: 88px;
+    bottom: 51px;
     z-index: var(--z-popover);
     display: flex;
     flex-direction: column;
@@ -78,9 +78,6 @@
     overflow-y: auto;
     padding: 12px 16px 16px;
     box-shadow: var(--shadow-popover);
-  }
-  .bubble.docked {
-    bottom: 51px;
   }
   header {
     display: flex;
