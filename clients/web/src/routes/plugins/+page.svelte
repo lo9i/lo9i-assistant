@@ -31,6 +31,7 @@
   import InstallDialog from "$lib/ui/repositories/InstallDialog.svelte";
   import PluginSetup from "$lib/ui/plugins/PluginSetup.svelte";
   import PluginUpdates from "$lib/ui/plugins/PluginUpdates.svelte";
+  import { type UpdateStep, updateEach } from "$lib/pluginUpdates";
   import RepositoriesDialog from "$lib/ui/repositories/RepositoriesDialog.svelte";
 
   const { client, notices } = useDaemon();
@@ -91,20 +92,19 @@
   // Installed plugins the extras have a newer version of, for the Updates table.
   const newer = $derived((all ?? []).filter(hasNewer));
 
-  /** One after the other: an update restarts the plugin. One that fails doesn't stop the rest. */
+  // Each row's progress in the Updates table, by keyOf, from Update all or Update selected until the next.
+  let steps = $state<Record<string, UpdateStep>>({});
+
   async function updateMany(picked: Plugin[]): Promise<void> {
     busy = true;
-    const failed: string[] = [];
-    for (const p of picked) {
-      try {
-        await updateOne(p);
-      } catch (e) {
-        failed.push(p.name);
-        notices.report(e);
-      }
-    }
+    steps = {};
+    const { updated } = await updateEach(
+      picked,
+      updateOne,
+      (key, step) => (steps = { ...steps, [key]: step }),
+      (e) => notices.report(e),
+    );
     busy = false;
-    const updated = picked.filter((p) => !failed.includes(p.name)).map((p) => p.name);
     if (updated.length) notices.notify(`Updated ${updated.join(", ")}.`);
     listing.reload();
   }
@@ -122,7 +122,7 @@
 
 <div class="screen">
   <div class="main">
-    {#if newer.length}<PluginUpdates plugins={newer} {busy} onupdate={updateMany} />{/if}
+    {#if newer.length}<PluginUpdates plugins={newer} {busy} {steps} onupdate={updateMany} />{/if}
     <section class="table-card surface--glass">
       <header class="toolbar">
         <div>
