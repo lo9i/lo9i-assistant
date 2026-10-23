@@ -1,5 +1,5 @@
 // Talking to the agent a conversation is handed to (/claude) while it works on the last message: what's typed
-// goes to it between its steps, and Interrupt stops the step in progress (core/agent/handoffs.py).
+// goes to it between its steps (core/agent/handoffs.py).
 import { describe } from "../notices";
 
 type Notices = { notify(text: string, level: "info" | "warning"): void };

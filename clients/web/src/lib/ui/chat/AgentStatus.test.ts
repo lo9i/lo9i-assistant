@@ -5,10 +5,10 @@ import AgentStatus from "./AgentStatus.svelte";
 const handoff = { server: "claude-code", command: "claude", name: "Claude Code", folder: "/repo" };
 
 describe("AgentStatus", () => {
-  it("offers to interrupt the agent only while it works", () => {
-    const working = render(AgentStatus, { props: { handoff, working: true, oninterrupt: () => {}, onback: () => {} } });
-    expect(working.body).toContain("Interrupt");
-    const idle = render(AgentStatus, { props: { handoff, working: false, oninterrupt: () => {}, onback: () => {} } });
-    expect(idle.body).not.toContain("Interrupt");
+  it("names the agent and its folder, with no Interrupt button", () => {
+    const { body } = render(AgentStatus, { props: { handoff, onback: () => {} } });
+    expect(body).toContain("Claude Code</strong> in <code>/repo</code>");
+    expect(body).toContain("Back to the assistant");
+    expect(body).not.toContain("Interrupt");
   });
 });

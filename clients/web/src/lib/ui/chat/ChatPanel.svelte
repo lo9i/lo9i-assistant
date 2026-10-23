@@ -85,11 +85,6 @@
     if (!taken && !draft.text) draft.text = text;
   }
 
-  async function interrupt(): Promise<void> {
-    const threadId = snapshot.current.threadId;
-    await tellAgent(() => client.conversations.interruptAgent(threadId), notices);
-  }
-
   function dragenter(e: DragEvent): void {
     if (!carriesFiles(e.dataTransfer)) return;
     e.preventDefault();
@@ -264,12 +259,7 @@
   <StatusBar>
     <WorkingStatus threadId={snapshot.current.threadId} />
     {#if handoff.data}
-      <AgentStatus
-        handoff={handoff.data}
-        working={agentWorking}
-        oninterrupt={interrupt}
-        onback={() => agentCommand(`/${handoff.data?.command}`, "off")}
-      />
+      <AgentStatus handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")} />
     {/if}
     <ConversationStats threadId={snapshot.current.threadId} />
     <QuickButtons docked />
