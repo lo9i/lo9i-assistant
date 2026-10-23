@@ -67,8 +67,8 @@
   /* Above the buttons, in the same corner: two one above the other, or a row while a chat is shown. */
   .bubble {
     position: fixed;
-    right: 5px;
-    bottom: 83px;
+    right: 10px;
+    bottom: 88px;
     z-index: var(--z-popover);
     display: flex;
     flex-direction: column;
@@ -80,7 +80,7 @@
     box-shadow: var(--shadow-popover);
   }
   .bubble.docked {
-    bottom: 46px;
+    bottom: 51px;
   }
   header {
     display: flex;

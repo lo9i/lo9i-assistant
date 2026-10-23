@@ -3,7 +3,7 @@
   import VoiceButton from "./VoiceButton.svelte";
   import { quickDock } from "./openPanel.svelte";
 
-  // The quick text and voice buttons, 5px from the window's bottom right corner: typing above talking, or
+  // The quick text and voice buttons, 10px from the window's bottom right corner: typing above talking, or
   // `docked` in a row while a chat is shown, beside its status bar (AppShell doesn't show its own then).
   let { docked = false }: { docked?: boolean } = $props();
 
@@ -22,8 +22,8 @@
 <style>
   .quick {
     position: fixed;
-    right: 5px;
-    bottom: 5px;
+    right: 10px;
+    bottom: 10px;
     z-index: var(--z-popover);
     display: flex;
     flex-direction: column;
