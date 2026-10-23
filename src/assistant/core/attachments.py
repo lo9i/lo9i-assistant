@@ -3,7 +3,9 @@
 Stored form: files are saved under the uploads dir and the message keeps a reference block
 (a LangChain `non_standard` block), so checkpoints never hold file contents.
 Request form: `hydrate` replaces each reference with the file's content before the model call.
-Hydration is deterministic, so every turn renders earlier messages identically and the prompt
+A file the model can't read (a video, an archive) is sent as a note with where it was saved, to
+open with bash; an agent a conversation is handed to gets every file's path. Hydration is
+deterministic, so every turn renders earlier messages identically and the prompt
 cache and thinking blocks stay valid.
 
 Tool results keep their references (images from MCP tools) in the message's `artifact`, which
@@ -37,9 +39,7 @@ class Attachment:
 
 
 def to_content(text: str, attachments: Sequence[Attachment]) -> list[Block]:
-    """Save attachments and build stored message content. Raises ValueError on unsupported types."""
-    for attachment in attachments:
-        _converter_for(attachment)
+    """Save attachments, of any type, and build stored message content."""
     blocks = [reference(a) for a in attachments]
     return [*blocks, {"type": "text", "text": text}] if text else blocks
 
@@ -180,8 +180,7 @@ def _hydrate_block(block: Any) -> list[Any]:
     try:
         convert = _converter_for(attachment)
     except ValueError:
-        # Only tool results refer to such files (an email's spreadsheet): chat attachments are checked
-        # when they're sent.
+        # A file the model can't take (a video, a spreadsheet): it can open it with bash.
         return [_text(f"[File {attachment.name} ({attachment.media_type}) saved at {where}; open it with bash]")]
     return [_text(f"[Uploaded file {attachment.name}, saved at {where}]"), convert(attachment)]
 
