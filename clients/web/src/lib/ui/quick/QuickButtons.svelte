@@ -23,14 +23,15 @@
   .quick {
     position: fixed;
     right: 24px;
-    bottom: 24px;
+    bottom: 19px;
     z-index: var(--z-popover);
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
   .docked {
-    position: static;
+    position: relative;
+    top: 5px;
     flex-direction: row;
     margin-left: auto;
   }
