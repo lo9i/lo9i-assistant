@@ -22,18 +22,18 @@
 <style>
   .quick {
     position: fixed;
-    right: 19px;
-    bottom: 19px;
+    right: 24px;
+    bottom: 24px;
     z-index: var(--z-popover);
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
+  /* 5px from the chat's bottom right corner, past the status bar's padding. */
   .docked {
-    position: relative;
-    top: 5px;
-    left: 5px;
+    position: static;
     flex-direction: row;
-    margin-left: auto;
+    align-self: flex-end;
+    margin: 0 calc(5px - var(--status-bar-right, 0px)) calc(5px - var(--status-bar-bottom, 0px)) auto;
   }
 </style>

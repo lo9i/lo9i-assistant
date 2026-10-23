@@ -12,12 +12,15 @@
 
 <style>
   .status-bar {
+    /* Read by the quick buttons, which sit closer to the chat's corner than the padding. */
+    --status-bar-right: 16px;
+    --status-bar-bottom: 6px;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 4px 16px;
     min-height: 28px;
-    padding: 0 16px 6px 24px;
+    padding: 0 var(--status-bar-right) var(--status-bar-bottom) 24px;
     color: var(--color-text-muted);
     font-size: var(--font-size-xs);
   }
