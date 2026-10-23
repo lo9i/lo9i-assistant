@@ -17,13 +17,14 @@ import contextlib
 import logging
 import time
 from collections import defaultdict, deque
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Iterator
 from datetime import timedelta
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from assistant.core.agent import AssistantService, Device, DeviceError, PairingCode
@@ -126,13 +127,20 @@ class DeviceStreams:
             async for item in events:
                 yield item
             return
-        ended = asyncio.Event()
-        self._ends[device.id].add(ended)
-        try:
+        with self.watching(device.id) as ended:
             async for item in _until(events, ended):
                 yield item
+
+    @contextlib.contextmanager
+    def watching(self, device_id: str) -> Iterator[asyncio.Event]:
+        """An event set when the device is revoked, for a connection that stays open (a page's
+        WebSocket, daemon/page_sockets.py)."""
+        ended = asyncio.Event()
+        self._ends[device_id].add(ended)
+        try:
+            yield ended
         finally:
-            self._ends[device.id].discard(ended)
+            self._ends[device_id].discard(ended)
 
     def end(self, device_id: str) -> None:
         for ended in self._ends.pop(device_id, set()):
@@ -266,8 +274,8 @@ async def _stop(following: asyncio.Future[Any] | None) -> None:
         await following
 
 
-def token_of(request: Request) -> str:
-    """The device token a request carries: the browser's cookie, or a bearer token."""
+def token_of(request: HTTPConnection) -> str:
+    """The device token a request or WebSocket carries: the browser's cookie, or a bearer token."""
     bearer = request.headers.get("authorization", "")
     return request.cookies.get(COOKIE) or bearer.removeprefix("Bearer ").strip()
 

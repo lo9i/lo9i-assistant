@@ -28,7 +28,8 @@ code from it. In its commands, arguments and env values:
     trusted: false
     include: []                    # tools the agent gets; empty means all but `exclude`
     exclude: []
-    page:                          # optional: a web page, shown in the web app (core/mcp/pages.py)
+    page:                          # optional: a web page, shown in the web app (core/mcp/pages.py); its
+                                   # WebSockets pass through too, with no time limit (daemon/page_sockets.py)
       command: "{bin}/my-page"
       args: [--socket, "{socket}"]
     channel:                       # optional: a chat channel (core/channels/), with or without `command`
