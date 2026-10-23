@@ -145,6 +145,17 @@ export class ConversationsGroup {
     await this.transport.request("DELETE", this.agentPath(threadId));
   }
 
+  /** Passes a message on to the agent while it works on the conversation's last one; it takes it between its
+   * steps. Throws ApiError (409) when it isn't working, or can't take messages while it works. */
+  async messageAgent(threadId: string, text: string): Promise<void> {
+    await this.transport.request("POST", `${this.agentPath(threadId)}/messages`, { text });
+  }
+
+  /** Stops the agent's step in progress; it waits for the next message. Throws ApiError (409) as messageAgent. */
+  async interruptAgent(threadId: string): Promise<void> {
+    await this.transport.request("POST", `${this.agentPath(threadId)}/interrupt`);
+  }
+
   private agentPath(threadId: string): string {
     return `/conversations/${encodeURIComponent(threadId)}/agent`;
   }

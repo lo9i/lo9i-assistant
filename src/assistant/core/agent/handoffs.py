@@ -2,7 +2,7 @@
 from the apps, and a message's run when the agent answers it instead of the assistant's model."""
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
 
 from langchain_core.messages import AIMessage, HumanMessage
@@ -66,6 +66,29 @@ class HandoffsMixin(RunsMixin):
 
     async def take_back_conversation(self, user_id: str, thread_id: str) -> None:
         await handoffs.take_back(self._storage.store, user_id, thread_id)
+
+    async def message_agent(self, user_id: str, thread_id: str, text: str) -> None:
+        """Passes `text` on to the agent's task working in the conversation, which takes it between its
+        steps; it shows among them. Raises HandoffError when none is working, or its agent can't take
+        messages while it works."""
+        await self._tell_agent(user_id, thread_id, lambda task: self.agent_tasks.message(task, text))
+
+    async def interrupt_agent(self, user_id: str, thread_id: str) -> None:
+        """Stops the step the agent's task in the conversation is taking; the task waits for the user's
+        next message (message_agent). Raises HandoffError as message_agent does."""
+        await self._tell_agent(user_id, thread_id, self.agent_tasks.interrupt)
+
+    async def _tell_agent(self, user_id: str, thread_id: str, tell: Callable[[str], Awaitable[None]]) -> None:
+        handoff = await handoffs.current(self._storage.store, user_id, thread_id)
+        if handoff is None:
+            raise HandoffError("This conversation isn't handed to an agent.")
+        try:
+            task = await self.agent_tasks.working_in(handoff.server, thread_id, handoff.folder)
+            if not task:
+                raise HandoffError(f"{handoff.name} isn't working on anything now. Send it as a new message.")
+            await tell(task)
+        except AgentTaskError as e:
+            raise HandoffError(str(e)) from e
 
     async def _handed_off(
         self, session: Session, handoff: Handoff, message: HumanMessage, said: str

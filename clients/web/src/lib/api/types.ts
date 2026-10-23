@@ -124,6 +124,8 @@ export type RunEvent =
   // `within`: the id of the delegate call whose subagent made this call; empty for the agent's own.
   | { type: "ToolStarted"; name: string; args: Record<string, unknown>; id?: string; within?: string }
   | { type: "ToolFinished"; name: string; output: string; within?: string }
+  // A message the user sent the agent the conversation is handed to while it worked, where it was passed on.
+  | { type: "UserSaid"; text: string }
   | ApprovalRequired
   | { type: "Transcribed"; text: string; language: string }
   | Dispatched

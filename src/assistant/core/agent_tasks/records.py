@@ -8,6 +8,8 @@
 - stopped: the user stopped it. The daemon writes it.
 - conversation: the conversation handed to the agent that the task answers in (AgentTasks.converse). The
   daemon writes it before the worker starts.
+- inbox/: what the user sends the task while it works. The worker makes the folder once it takes them;
+  the daemon writes each message in it as a file of its own, then wakes the worker (workers.wake).
 - worker.log: the worker's output, for finding out why one failed.
 
 Every file has one writer, so the daemon and the worker never race on one. A task's state comes from
@@ -18,13 +20,14 @@ calls them in a thread.
 import json
 import os
 import subprocess
+import time
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
-from assistant.core.agent_tasks.steps import streamed
+from assistant.core.agent_tasks.steps import parse, streamed
 
 Status = Literal["running", "done", "failed", "stopped"]
 
@@ -34,6 +37,7 @@ _PROGRESS = "progress.log"
 _RESULT = "result.json"
 _STOPPED = "stopped"
 _CONVERSATION = "conversation"
+_INBOX = "inbox"
 # How long a task may go without its worker's pid before it counts as a worker that never started.
 _START_SECONDS = 60
 
@@ -129,6 +133,22 @@ class TaskStore:
         """The conversation the task answers in; "" for one it doesn't (start_task)."""
         path = self.folder(task_id) / _CONVERSATION
         return path.read_text() if path.is_file() else ""
+
+    def takes_messages(self, task_id: str) -> bool:
+        """Its worker takes messages while it works: it made the inbox."""
+        return (self.folder(task_id) / _INBOX).is_dir()
+
+    def add_message(self, task_id: str, message: dict[str, str]) -> None:
+        """A message for the worker (docs/agent-plugins.md), named so it sorts after the ones before."""
+        _write_json(self.folder(task_id) / _INBOX / f"{time.time_ns()}-{uuid.uuid4().hex[:6]}.json", message)
+
+    def untaken(self, task_id: str) -> list[str]:
+        """The texts of the messages its worker ended without taking, oldest first."""
+        folder = self.folder(task_id)
+        taken = {step.get("id") for step in map(parse, _tail(folder / _PROGRESS, None)) if step.get("kind") == "user"}
+        sent = [path for path in sorted((folder / _INBOX).glob("*.json")) if path.stem not in taken]
+        messages = [json.loads(path.read_text()) for path in sent]
+        return [message.get("text", "") for message in messages if message.get("kind") == "message"]
 
     def progress_after(self, task_id: str, seen: int) -> list[str]:
         """The task's progress lines after the first `seen`, for following it as it goes."""

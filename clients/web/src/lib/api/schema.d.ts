@@ -686,6 +686,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations/{thread_id}/agent/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Message Agent
+         * @description Passes a message on to the agent while it works on the conversation's last one; it takes it
+         *     between its steps. 409: it isn't working, or can't take messages while it works.
+         */
+        post: operations["message_agent_conversations__thread_id__agent_messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{thread_id}/agent/interrupt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Interrupt Agent
+         * @description Stops the agent's step in progress; it waits for the next message. 409 as for messages.
+         */
+        post: operations["interrupt_agent_conversations__thread_id__agent_interrupt_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/files": {
         parameters: {
             query?: never;
@@ -3782,6 +3823,11 @@ export interface components {
             /** Thread Id */
             thread_id: string;
         };
+        /** ToAgent */
+        ToAgent: {
+            /** Text */
+            text: string;
+        };
         /** TokenReport */
         TokenReport: {
             /** Days */
@@ -5055,6 +5101,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConversationAgent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    message_agent_conversations__thread_id__agent_messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToAgent"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    interrupt_agent_conversations__thread_id__agent_interrupt_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
                 };
             };
             /** @description Validation Error */

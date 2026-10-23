@@ -20,6 +20,7 @@ from assistant.core.events import (
     ToolFinished,
     ToolStarted,
     Transcribed,
+    UserSaid,
 )
 from assistant_terminal.tui.widgets import (
     AssistantMessage,
@@ -29,6 +30,7 @@ from assistant_terminal.tui.widgets import (
     ThinkingNote,
     ToolCall,
     TranscriptNote,
+    UserMessage,
 )
 
 _STOP_HINT = "esc to stop"
@@ -80,6 +82,8 @@ class TurnView:
                 await self._thinking(text)
             case Transcribed(text, language):
                 await self._chat.mount(TranscriptNote(text, language))
+            case UserSaid(text):
+                await self._chat.mount(UserMessage(text, []))
             case Dispatched():
                 self.dispatched = event
                 await self._chat.mount(AssistantMessage(event.line))

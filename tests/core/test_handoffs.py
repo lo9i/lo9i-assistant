@@ -11,8 +11,10 @@ from pathlib import Path
 import pytest
 
 from assistant.core.agent import AssistantService, FolderError, HandoffError, Session
+from assistant.core.agent_tasks import workers
+from assistant.core.agent_tasks.records import TaskStore
 from assistant.core.attachments import Attachment
-from assistant.core.events import Done, Error, TextDelta, ToolFinished, ToolStarted
+from assistant.core.events import Done, Error, TextDelta, ToolFinished, ToolStarted, UserSaid
 from assistant.core.mcp import folders, servers
 from assistant.core.mcp.servers import McpServer
 from assistant.daemon.managers import ByHand
@@ -262,3 +264,77 @@ async def test_a_running_task_names_the_conversation_handed_to_the_agent(service
     run.cancel()
     with pytest.raises(asyncio.CancelledError):
         await run
+
+
+async def _working(service, session, tmp_path) -> str:
+    """The agent's task in the conversation, once its worker has started."""
+    async with asyncio.timeout(10):
+        while True:
+            task = await service.agent_tasks.working_in("claude-code", session.thread_id, str(tmp_path))
+            if task and (folders.data("claude-code") / "tasks" / task / "pid").exists():
+                return task
+            await asyncio.sleep(0.02)
+
+
+async def _taking_messages(service, session, tmp_path) -> str:
+    task = await _working(service, session, tmp_path)
+    async with asyncio.timeout(10):
+        while not (folders.data("claude-code") / "tasks" / task / "inbox").is_dir():
+            await asyncio.sleep(0.02)
+    return task
+
+
+async def test_messages_sent_while_the_agent_works_reach_it_and_show_among_its_steps(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    run = asyncio.create_task(collect(service.send(session, "take messages")))
+    await _taking_messages(service, session, tmp_path)
+    await service.message_agent("owner", session.thread_id, "skip the slow tests")
+    await service.interrupt_agent("owner", session.thread_id)
+    await service.message_agent("owner", session.thread_id, "that's all")
+    events = await run
+    said = [e for e in events if isinstance(e, TextDelta | UserSaid)]
+    assert said == [
+        TextDelta("Working."),
+        UserSaid("skip the slow tests"),
+        UserSaid("that's all"),
+        TextDelta("Took 3 messages."),  # its reply answers the last message
+    ]
+    assert ToolStarted("Interrupted", {}, within=events[2].id) in events and events[-1] == Done()
+    shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
+    assert shown[-6:] == [  # in order, after a reload
+        ("user", "take messages"),
+        ("assistant", "Working."),
+        ("user", "skip the slow tests"),
+        ("tool", "Interrupted"),
+        ("user", "that's all"),
+        ("assistant", "Took 3 messages."),
+    ]
+
+
+async def test_messages_the_agent_ended_without_taking_are_answered_next_in_its_session(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    run = asyncio.create_task(collect(service.send(session, "take messages")))
+    task = await _taking_messages(service, session, tmp_path)
+    tasks = TaskStore(folders.data("claude-code") / "tasks")
+    tasks.add_message(task, {"kind": "message", "text": "that's all"})
+    tasks.add_message(task, {"kind": "message", "text": "and one more"})
+    workers.wake(tasks.pid(task) or 0)
+    events = await run
+    assert [e for e in events if isinstance(e, UserSaid)] == [UserSaid("that's all"), UserSaid("and one more")]
+    assert TextDelta(f"Done in {tmp_path}: and one more") in events and events[-1] == Done()
+    assert (asked()[-1]["prompt"], asked()[-1]["follow_up_of"]) == ("and one more", task)
+
+
+async def test_only_an_agent_at_work_that_takes_messages_gets_them(service, tmp_path):
+    other = Session("owner", "cli", await service.new_thread("owner"))
+    with pytest.raises(HandoffError, match="isn't handed to an agent"):
+        await service.message_agent("owner", other.thread_id, "hello")
+    session = await _handed(service, tmp_path)
+    with pytest.raises(HandoffError, match="Claude Code isn't working on anything now"):
+        await service.interrupt_agent("owner", session.thread_id)
+    run = asyncio.create_task(collect(service.send(session, "work a while")))  # a worker without an inbox
+    await _working(service, session, tmp_path)
+    with pytest.raises(HandoffError, match="Claude Code can't take messages while it works"):
+        await service.message_agent("owner", session.thread_id, "hello")
+    (tmp_path / "release").write_text("")
+    assert (await run)[-1] == Done()

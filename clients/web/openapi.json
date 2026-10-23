@@ -1433,6 +1433,96 @@
         }
       }
     },
+    "/conversations/{thread_id}/agent/messages": {
+      "post": {
+        "summary": "Message Agent",
+        "description": "Passes a message on to the agent while it works on the conversation's last one; it takes it\nbetween its steps. 409: it isn't working, or can't take messages while it works.",
+        "operationId": "message_agent_conversations__thread_id__agent_messages_post",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToAgent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{thread_id}/agent/interrupt": {
+      "post": {
+        "summary": "Interrupt Agent",
+        "description": "Stops the agent's step in progress; it waits for the next message. 409 as for messages.",
+        "operationId": "interrupt_agent_conversations__thread_id__agent_interrupt_post",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/files": {
       "get": {
         "summary": "File List",
@@ -8029,6 +8119,20 @@
           "thread_id"
         ],
         "title": "ThreadCreated"
+      },
+      "ToAgent": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "ToAgent"
       },
       "TokenReport": {
         "properties": {

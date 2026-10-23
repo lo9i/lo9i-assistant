@@ -2,7 +2,7 @@
 tools it used. Turn headers and tool outputs are left out; a quick exchange the inbox carried to the
 conversation shows before the message that followed it up (core/conversation/carried.py). A reply of an
 agent the conversation was handed to shows its steps as they were shown live: its thinking, its text, each
-tool call with its output (core/agent_tasks/steps.py)."""
+tool call with its output, and the messages the user sent it while it worked (core/agent_tasks/steps.py)."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -52,13 +52,15 @@ def _shown(message: BaseMessage) -> list[ShownMessage]:
 
 
 def _agent_reply(lines: list[str], reply: str) -> list[ShownMessage]:
-    """Its own steps, not its subagents'; the reply after them unless its last text already said it. Its
-    thinking reads as what it says, as it was shown live (core/agent_tasks/steps.py)."""
+    """Its own steps, not its subagents'; the reply after them unless its last text, after the user's last
+    message to it, already said it. Its thinking reads as what it says, as it was shown live
+    (core/agent_tasks/steps.py)."""
     shown: list[ShownMessage] = []
     steps = [step for step in (parse(line) for line in lines) if not step.get("within")]
     for step in steps:
         _add_step(shown, step)
-    if not any(step.get("kind") == "text" for step in steps):
+    last_message = max((i for i, step in enumerate(steps) if step.get("kind") == "user"), default=-1)
+    if not any(step.get("kind") == "text" for step in steps[last_message + 1 :]):
         _add_step(shown, {"kind": "text", "text": reply})
     return shown
 
@@ -73,6 +75,8 @@ def _add_step(shown: list[ShownMessage], step: dict[str, str]) -> None:
         shown.append(ShownMessage("tool", step.get("tool", ""), detail=step.get("detail", "")))
     elif kind == "result":
         _finish(shown, step.get("tool", ""), text)
+    elif kind == "user":
+        shown.append(ShownMessage("user", text))
     else:
         shown.append(ShownMessage("tool", text))
 

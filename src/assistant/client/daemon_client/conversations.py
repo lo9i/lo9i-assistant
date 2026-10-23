@@ -75,3 +75,15 @@ class ConversationsApi:
     async def take_back(self, thread_id: str) -> None:
         """The assistant answers again from the next message."""
         await self._transport.request("DELETE", f"/conversations/{thread_id}/agent")
+
+    async def message_agent(self, thread_id: str, text: str) -> None:
+        """Passes `text` on to the agent while it works on the conversation's last message; it takes it
+        between its steps. Raises HandoffError when it isn't working, or can't take messages while it works."""
+        path = f"/conversations/{thread_id}/agent/messages"
+        await self._transport.request("POST", path, json={"text": text}, errors={409: HandoffError})
+
+    async def interrupt_agent(self, thread_id: str) -> None:
+        """Stops the agent's step in progress; it waits for the next message. Raises HandoffError as
+        message_agent does."""
+        path = f"/conversations/{thread_id}/agent/interrupt"
+        await self._transport.request("POST", path, errors={409: HandoffError})

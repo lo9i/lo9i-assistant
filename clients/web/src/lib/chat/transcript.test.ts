@@ -27,6 +27,22 @@ describe("transcript", () => {
     expect(t.items.map((i) => (i.kind === "assistant" ? i.text : i.kind))).toEqual(["user", "Hello", "tool", "Done"]);
   });
 
+  it("shows a message sent to a working agent among its steps, and its words after it as a new message", () => {
+    const t = play([
+      { type: "TextDelta", text: "Running the tests" },
+      { type: "ToolStarted", name: "Bash", args: { detail: "pytest" } },
+      { type: "UserSaid", text: "skip the slow ones" },
+      { type: "TextDelta", text: "Skipping them" },
+    ]);
+    expect(t.items.map((i) => (i.kind === "assistant" || i.kind === "user" ? i.text : i.kind))).toEqual([
+      "hi",
+      "Running the tests",
+      "tool",
+      "skip the slow ones",
+      "Skipping them",
+    ]);
+  });
+
   it("matches tool results to calls in order", () => {
     const t = play([
       { type: "ToolStarted", name: "bash", args: {} },

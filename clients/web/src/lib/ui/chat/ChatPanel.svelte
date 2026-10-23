@@ -4,6 +4,7 @@
   import { resolve } from "$app/paths";
   import { draft } from "$lib/chat/draft.svelte";
   import { carriesFiles, droppedFiles } from "$lib/chat/dropped";
+  import { tellAgent } from "$lib/chat/agentWork";
   import { agentCommands, parse } from "$lib/chat/commands";
   import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
   import { sentTexts } from "$lib/chat/history";
@@ -46,6 +47,8 @@
   let dragging = $state(0);
   const streaming = $derived(snapshot.current.transcript.streaming !== null);
   const inInbox = $derived(snapshot.current.threadId === snapshot.current.inboxId);
+  // The agent the conversation is handed to is working on its last message: what's typed goes to it meanwhile.
+  const agentWorking = $derived(!!handoff.data && (snapshot.current.busy || snapshot.current.mirroring));
 
   // A message written on the Chat list: sent from here, so it's shown and spoken like any other.
   onMount(() => {
@@ -75,6 +78,18 @@
     } catch (e) {
       notices.report(e);
     }
+  }
+
+  /** Passes a message on to the working agent; one it can't take goes back in the box. */
+  async function steer(text: string): Promise<void> {
+    const threadId = snapshot.current.threadId;
+    const taken = await tellAgent(() => client.conversations.messageAgent(threadId, text), notices);
+    if (!taken && !draft.text) draft.text = text;
+  }
+
+  async function interrupt(): Promise<void> {
+    const threadId = snapshot.current.threadId;
+    await tellAgent(() => client.conversations.interruptAgent(threadId), notices);
   }
 
   function dragenter(e: DragEvent): void {
@@ -238,7 +253,12 @@
   <PinnedSkills skills={pinned.data ?? []} onunpin={unpin} />
   <TasksBar threadId={snapshot.current.threadId} onopen={(threadId) => chats.show(threadId)} />
   {#if handoff.data}
-    <AgentBar handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")} />
+    <AgentBar
+      handoff={handoff.data}
+      working={agentWorking}
+      oninterrupt={interrupt}
+      onback={() => agentCommand(`/${handoff.data?.command}`, "off")}
+    />
   {/if}
   <Composer
     bind:text={draft.text}
@@ -250,6 +270,7 @@
     onstop={() => chats.current.stop()}
     oncommand={command}
     {extra}
+    steering={agentWorking && handoff.data ? { agent: handoff.data.name, onsteer: steer } : null}
   />
   {#if dragging > 0}<div class="drop-hint" aria-hidden="true">Drop files to attach them</div>{/if}
 </section>

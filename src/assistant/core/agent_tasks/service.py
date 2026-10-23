@@ -3,6 +3,7 @@ started detached with the plugin's env, keys and login (docs/agent-plugins.md); 
 plugin's data folder (records.py), so tasks outlive a restart of the daemon."""
 
 import asyncio
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -112,18 +113,51 @@ class AgentTasks:
         await _stop(_tasks(server), task_id)
         return await self.state(task_id)
 
+    async def message(self, task_id: str, text: str) -> None:
+        """Passes `text` on to a running task, whose agent takes it between its steps. Raises AgentTaskError
+        for an unknown task, one that isn't running, or an agent that takes no messages while it works."""
+        await self._tell(task_id, {"kind": "message", "text": text})
+
+    async def interrupt(self, task_id: str) -> None:
+        """Stops the step a running task is taking; it then waits for the user's next message. Raises
+        AgentTaskError as `message` does."""
+        await self._tell(task_id, {"kind": "interrupt"})
+
+    async def working_in(self, agent: str, conversation: str, folder: str) -> str:
+        """The id of the task running for the conversation in `folder`; "" when none is."""
+        server = self._agent(agent)
+        tasks = _tasks(server)
+        last = await asyncio.to_thread(_sessions(server).last, conversation, folder, tasks)
+        if last is None or (await asyncio.to_thread(tasks.state, last.id, 0)).status != "running":
+            return ""
+        return last.id
+
     async def converse(self, agent: str, conversation: str, folder: str, message: str, report: Report) -> str:
         """Answers `message` in `folder`, continuing what was said in this conversation there, and returns
-        the reply. `report` gets each step as the worker writes it. Cancelling stops the task. Raises
+        the reply. `report` gets each step as the worker writes it. Messages sent to the task that it ended
+        without taking are answered next, in the same session. Cancelling stops the task. Raises
         AgentTaskError when it can't start or ends without a reply."""
-        server = self._agent(agent)
-        task = await self._next_in_conversation(server, conversation, str(_existing_folder(folder)), message)
-        try:
-            state = await until_ended(_tasks(server), task.id, report)
-        except BaseException:
-            await _stop(_tasks(server), task.id)
-            raise
-        return _reply(state)
+        server, where = self._agent(agent), str(_existing_folder(folder))
+        task = await self._next_in_conversation(server, conversation, where, message)
+        while True:
+            state = await _answered(_tasks(server), task.id, report)
+            left = await asyncio.to_thread(_tasks(server).untaken, task.id)
+            if state.status != "done" or not left:
+                return _reply(state)
+            for text in left:
+                await report(json.dumps({"kind": "user", "text": text}))
+            task = await self._next_in_conversation(server, conversation, where, "\n\n".join(left))
+
+    async def _tell(self, task_id: str, message: dict[str, str]) -> None:
+        server = await self._owner(task_id)
+        tasks = _tasks(server)
+        if (await asyncio.to_thread(tasks.state, task_id, 0)).status != "running":
+            raise AgentTaskError(f"{server.agent_name} has already finished that task.")
+        if not await asyncio.to_thread(tasks.takes_messages, task_id):
+            raise AgentTaskError(f"{server.agent_name} can't take messages while it works. Wait for it to finish.")
+        await asyncio.to_thread(tasks.add_message, task_id, message)
+        if (pid := await asyncio.to_thread(tasks.pid, task_id)) is not None:
+            await asyncio.to_thread(workers.wake, pid)
 
     async def _next_in_conversation(self, server: McpServer, conversation: str, folder: str, message: str) -> Task:
         tasks, sessions = _tasks(server), _sessions(server)
@@ -201,6 +235,15 @@ async def _stop(tasks: TaskStore, task_id: str) -> None:
     await asyncio.to_thread(tasks.mark_stopped, task_id)
     if (pid := await asyncio.to_thread(tasks.pid, task_id)) is not None:
         await asyncio.to_thread(workers.stop, pid)
+
+
+async def _answered(tasks: TaskStore, task_id: str, report: Report) -> TaskState:
+    """The task's state once it ends; stopping the wait stops the task."""
+    try:
+        return await until_ended(tasks, task_id, report)
+    except BaseException:
+        await _stop(tasks, task_id)
+        raise
 
 
 def _reply(state: TaskState) -> str:

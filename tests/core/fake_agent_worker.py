@@ -2,6 +2,7 @@
 
 import json
 import os
+import signal
 import sys
 import time
 from pathlib import Path
@@ -45,7 +46,31 @@ def _work(folder: Path, task: dict) -> tuple[bool, str]:
             time.sleep(0.02)
     if prompt == "sleep":
         time.sleep(60)
+    if prompt == "take messages":
+        return _take_messages(folder)
     return True, f"Done in {repository}: {prompt}"
+
+
+def _take_messages(folder: Path) -> tuple[bool, str]:
+    """Takes what the user sends while it works, from its inbox: an interrupt is a note, a message a step of
+    its own, and "that's all" ends it, leaving any message after it."""
+    signal.signal(signal.SIGUSR1, lambda *_: None)
+    (folder / "inbox").mkdir()
+    _steps(folder, [json.dumps({"kind": "text", "text": "Working."})])
+    taken: set[str] = set()
+    while True:
+        for path in sorted((folder / "inbox").glob("*.json")):
+            if path.stem in taken:
+                continue
+            taken.add(path.stem)
+            message = json.loads(path.read_text())
+            if message["kind"] == "interrupt":
+                _steps(folder, [json.dumps({"kind": "note", "text": "Interrupted"})])
+                continue
+            _steps(folder, [json.dumps({"kind": "user", "text": message["text"], "id": path.stem})])
+            if message["text"] == "that's all":
+                return True, f"Took {len(taken)} messages."
+        time.sleep(0.02)
 
 
 def _steps(folder: Path, lines: list[str]) -> None:

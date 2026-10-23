@@ -19,6 +19,7 @@ from assistant.core.events import (
     ToolFinished,
     ToolStarted,
     Transcribed,
+    UserSaid,
 )
 from assistant_terminal.spinner import Spinner
 from assistant_terminal.style import BOLD, DIM, GRAY, RED, RESET, code, paint
@@ -82,6 +83,8 @@ class _Printer:
                 _write(paint(DIM, _result(output)) + "\n")
             case Transcribed(text, language):
                 _write(paint(DIM, f"{_INDENT}🎤 heard ({language}): {text}") + "\n")
+            case UserSaid(text):
+                _write(f"\n{paint(BOLD, '> ' + text)}\n")
             case Dispatched(line=line):
                 _write(f"{_BULLET}{line}\n")
             case Error(message):

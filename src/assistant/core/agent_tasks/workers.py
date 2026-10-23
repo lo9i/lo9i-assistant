@@ -18,6 +18,13 @@ def start(command: list[str], folder: Path, env: dict[str, str], cwd: Path | Non
     subprocess.run(["/bin/sh", "-c", _DETACH, "sh", *command, str(folder)], env=environment, cwd=cwd, check=True)
 
 
+def wake(pid: int) -> None:
+    """Tells the worker a message is waiting in its inbox. Only the worker: the commands it started would
+    end on a signal they don't expect."""
+    with contextlib.suppress(ProcessLookupError):
+        os.kill(pid, signal.SIGUSR1)
+
+
 def stop(pid: int) -> None:
     """Stops the worker and everything it started: it leads its own process group (docs/agent-plugins.md)."""
     with contextlib.suppress(ProcessLookupError):

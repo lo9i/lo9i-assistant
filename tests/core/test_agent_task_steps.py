@@ -2,8 +2,8 @@
 
 import json
 
-from assistant.core.agent_tasks.steps import AgentSteps
-from assistant.core.events import TextDelta, ToolFinished, ToolStarted
+from assistant.core.agent_tasks.steps import AgentSteps, line
+from assistant.core.events import TextDelta, ToolFinished, ToolStarted, UserSaid
 
 
 def _events(steps: AgentSteps, *messages: dict | str) -> list:
@@ -85,3 +85,17 @@ def test_a_tasks_latest_steps_leave_out_the_streamed_words(tmp_path):
     (store.folder(task.id) / "progress.log").write_text("".join(json.dumps(line) + "\n" for line in lines))
     assert [json.loads(line)["kind"] for line in store.state(task.id).progress] == ["text", "tool"]
     assert store.state(task.id, progress_lines=0).progress == []
+
+
+def test_a_message_the_user_sent_while_it_worked_shows_as_theirs_and_its_next_words_answer_it():
+    steps = AgentSteps("Claude Code")
+    events = _events(
+        steps,
+        {"kind": "text", "text": "Running the tests."},
+        {"kind": "user", "text": "skip the slow ones", "id": "m1"},
+        {"kind": "text_delta", "text": "Skipping"},
+        {"kind": "text", "text": "Skipping"},
+    )
+    assert events == [TextDelta("Running the tests."), UserSaid("skip the slow ones"), TextDelta("Skipping")]
+    assert steps.spoke and steps.reply("Skipping") == []
+    assert line(json.dumps({"kind": "user", "text": "skip the slow ones"})) == "The user: skip the slow ones"
