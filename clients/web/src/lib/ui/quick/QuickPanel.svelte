@@ -7,8 +7,8 @@
   import { openConversation } from "../openConversation";
 
   // The panel above the quick buttons: what was asked (`children`), the reply, and the conversation the
-  // inbox sent the message on to, to open in Chat. `docked`: the buttons are in a chat's status bar, lower
-  // than when they float.
+  // inbox sent the message on to, to open in Chat. `docked`: the buttons are in a row while a chat is
+  // shown, lower than when they're stacked.
   let {
     title,
     chat,
@@ -64,11 +64,11 @@
 </section>
 
 <style>
-  /* Above the buttons, in the same corner: two floating one above the other, or a row in the status bar. */
+  /* Above the buttons, in the same corner: two one above the other, or a row while a chat is shown. */
   .bubble {
     position: fixed;
-    right: 24px;
-    bottom: 102px;
+    right: 5px;
+    bottom: 83px;
     z-index: var(--z-popover);
     display: flex;
     flex-direction: column;
@@ -80,7 +80,7 @@
     box-shadow: var(--shadow-popover);
   }
   .bubble.docked {
-    bottom: 48px;
+    bottom: 46px;
   }
   header {
     display: flex;

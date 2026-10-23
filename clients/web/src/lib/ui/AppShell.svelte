@@ -85,7 +85,7 @@
   <Sidebar name={name.data || "lo9i"} />
   <main class="main">{@render children()}</main>
   <ConnectionBanner name={name.data || "lo9i"} />
-  <!-- Floating in the window's bottom right corner, on every page but a chat, whose status bar has them. -->
+  <!-- Floating in the window's bottom right corner, on every page but a chat, which shows them in a row. -->
   {#if quickDock.count === 0}<QuickButtons />{/if}
 </div>
 <Toasts {notices} />

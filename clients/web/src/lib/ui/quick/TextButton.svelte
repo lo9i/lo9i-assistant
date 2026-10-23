@@ -10,7 +10,7 @@
 
   // A short message to the assistant from any page: written in the inbox, which sends it on to its
   // conversation; the reply shows here.
-  // `docked`: in a chat's status bar (QuickButtons).
+  // `docked`: in a row while a chat is shown (QuickButtons).
   let { docked = false }: { docked?: boolean } = $props();
   const { text: chat } = useDaemon();
   const snapshot = external(chat.subscribe, chat.getSnapshot);

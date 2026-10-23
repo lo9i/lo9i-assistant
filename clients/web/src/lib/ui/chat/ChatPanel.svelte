@@ -262,8 +262,8 @@
       <AgentStatus handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")} />
     {/if}
     <ConversationStats threadId={snapshot.current.threadId} />
-    <QuickButtons docked />
   </StatusBar>
+  <QuickButtons docked />
   {#if dragging > 0}<div class="drop-hint" aria-hidden="true">Drop files to attach them</div>{/if}
 </section>
 

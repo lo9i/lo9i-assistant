@@ -15,7 +15,7 @@
 
   // Talks with the assistant from any page: each recording is written in the inbox, which sends it on to
   // its conversation, and the reply is read aloud.
-  // `docked`: in a chat's status bar (QuickButtons).
+  // `docked`: in a row while a chat is shown (QuickButtons).
   let { docked = false }: { docked?: boolean } = $props();
   const { client, notices, voice } = useDaemon();
   const snapshot = external(voice.subscribe, voice.getSnapshot);
