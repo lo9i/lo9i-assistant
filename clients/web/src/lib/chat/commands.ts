@@ -51,7 +51,7 @@ export function agentCommands(agents: Agent[]): Command[] {
 
 /** Commands to offer while the command name is being typed: text starting with / and no space yet. */
 export function offered(text: string, extra: Command[] = []): Command[] {
-  if (!text.startsWith("/") || /\s/.test(text)) return [];
+  if (!text.startsWith("/") || /\s/.test(text) || text.indexOf("/", 1) >= 0) return [];
   return [...COMMANDS, ...extra].filter((c) => c.name.startsWith(text));
 }
 
@@ -60,8 +60,10 @@ export function parse(text: string): { name: string; arg: string } | null {
   const trimmed = text.trim();
   if (!trimmed.startsWith("/")) return null;
   const space = trimmed.search(/\s/);
-  if (space < 0) return { name: trimmed, arg: "" };
-  return { name: trimmed.slice(0, space), arg: trimmed.slice(space).trim() };
+  const name = space < 0 ? trimmed : trimmed.slice(0, space);
+  // A path like /Users/me/project is a message, not a command: names have no second slash.
+  if (name.indexOf("/", 1) >= 0) return null;
+  return { name, arg: space < 0 ? "" : trimmed.slice(space).trim() };
 }
 
 export function known(name: string): boolean {
