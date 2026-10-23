@@ -45,16 +45,16 @@
     </div>
   </div>
   {#if tab === "general"}
-    <!-- The assistant on one side; the small settings stacked on the other. -->
+    <!-- Two balanced columns: assistant and agent notices; startup, search, email. -->
     <div class="grid">
       <div class="stack">
         <AssistantCard />
+        <AgentDoneCard />
       </div>
       <div class="stack">
         <StartupCard />
         <WebSearchCard />
         <EmailCard />
-        <AgentDoneCard />
       </div>
     </div>
   {:else if tab === "model"}
