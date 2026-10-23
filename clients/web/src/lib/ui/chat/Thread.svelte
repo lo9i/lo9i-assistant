@@ -86,19 +86,20 @@
       <div class="row assistant">
         <div class="bubble assistant-bubble">
           <span class="badge"><Sparkle size={14} fill="currentColor" /></span>
-          <div class="prose">{@html markdown(item.text)}</div>
-        </div>
-        <div class="message-footer">
-          <button class="round" aria-label="Copy" title="Copy" onclick={() => copy(item.id, item.text)}>
+          <!-- In the badge's corner, shown while the pointer is on the reply. -->
+          <button class="copy" class:done={copied === item.id} aria-label="Copy" title="Copy" onclick={() => copy(item.id, item.text)}>
             {#if copied === item.id}<Check size={14} />{:else}<Copy size={14} />{/if}
           </button>
-          {#if item.dispatchId && onmove}
-            {@const dispatchId = item.dispatchId}
+          <div class="prose">{@html markdown(item.text)}</div>
+        </div>
+        {#if item.dispatchId && onmove}
+          {@const dispatchId = item.dispatchId}
+          <div class="message-footer">
             <button class="round" aria-label="Move" title="Move to another conversation" onclick={() => onmove(dispatchId)}>
               <Forward size={14} />
             </button>
-          {/if}
-        </div>
+          </div>
+        {/if}
       </div>
     {:else if item.kind === "thinking"}
       <details class="tool thought">
@@ -234,6 +235,45 @@
     top: 10px;
     right: 12px;
     color: var(--color-brand);
+  }
+  .copy {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+  }
+  .copy:hover {
+    background: var(--color-bg-hover-ghost);
+    color: var(--color-text-primary);
+  }
+  .assistant-bubble:hover .copy,
+  .copy:focus-visible,
+  .copy.done {
+    opacity: 1;
+  }
+  .assistant-bubble:hover .badge,
+  .assistant-bubble:has(.copy:focus-visible) .badge,
+  .assistant-bubble:has(.copy.done) .badge {
+    opacity: 0;
+  }
+  /* No hover on a touch screen: it stays. */
+  @media (hover: none) {
+    .copy {
+      opacity: 1;
+    }
+    .badge {
+      display: none;
+    }
   }
   .message-footer {
     display: flex;

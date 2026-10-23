@@ -19,7 +19,6 @@
   import HelpModal from "./HelpModal.svelte";
   import PinnedSkills from "./PinnedSkills.svelte";
   import StatusBar from "./StatusBar.svelte";
-  import TasksBar from "./TasksBar.svelte";
   import WorkingStatus from "./WorkingStatus.svelte";
   import QuickButtons from "../quick/QuickButtons.svelte";
   import Thread from "./Thread.svelte";
@@ -259,7 +258,6 @@
     onmove={inInbox ? (dispatchId) => chats.move(dispatchId) : undefined}
   />
   <PinnedSkills skills={pinned.data ?? []} onunpin={unpin} />
-  <TasksBar threadId={snapshot.current.threadId} onopen={(threadId) => chats.show(threadId)} />
   <Composer
     bind:text={draft.text}
     bind:files={draft.files}

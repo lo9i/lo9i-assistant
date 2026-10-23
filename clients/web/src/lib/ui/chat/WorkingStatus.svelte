@@ -4,7 +4,7 @@
   import { resource } from "$lib/daemon.svelte";
 
   // In the status bar: the coding agents working in this conversation, and for how long. Their steps show in the
-  // thread; tasks in other conversations show above the message box (TasksBar).
+  // thread.
   let { threadId }: { threadId: string } = $props();
 
   const running = resource((c) => c.tasks.running(), ["agent_task_progress", "agent_task_reports", "background_ended"]);
