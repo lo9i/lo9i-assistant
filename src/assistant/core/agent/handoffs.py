@@ -12,7 +12,8 @@ from assistant.core import inbox
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
 from assistant.core.agent_tasks.service import AgentTaskError
-from assistant.core.agent_tasks.steps import STEPS, AgentSteps
+from assistant.core.agent_tasks.steps import STEPS, AgentSteps, streamed
+from assistant.core.bus import EventBus
 from assistant.core.conversation import agent_folders, handoffs
 from assistant.core.conversation.agent_folders import AgentFolders, FolderError, FolderListing
 from assistant.core.conversation.handoffs import Agent, Handoff
@@ -128,20 +129,33 @@ class HandoffsMixin(RunsMixin):
         agent = next((a for a in await self.agents() if a.server == handoff.server), None)
         if agent is None:
             raise HandoffError(f"{handoff.name} isn't installed or is turned off. /{handoff.command} off goes back.")
+        reported = _Steps(steps, self.bus, session.thread_id)
         try:
-            return await self.agent_tasks.converse(agent.server, session.thread_id, handoff.folder, said, _Steps(steps))
+            return await self.agent_tasks.converse(agent.server, session.thread_id, handoff.folder, said, reported)
         except AgentTaskError as e:
             raise HandoffError(f"{handoff.name}: {e}") from e
+        finally:
+            # Its end too, so the apps' list of running tasks drops it.
+            reported.progressed()
 
 
 class _Steps:
-    """Each line the agent's worker writes is a step it took (core/agent_tasks/steps.py)."""
+    """Each line the agent's worker writes is a step it took (core/agent_tasks/steps.py). Each step, not
+    the words of one as they stream, is an `agent_task_progress` event, as for a task start_task started
+    (core/agent_tasks/ends.py), so the apps' list of running tasks follows it."""
 
-    def __init__(self, steps: asyncio.Queue[str]) -> None:
+    def __init__(self, steps: asyncio.Queue[str], bus: EventBus, thread_id: str) -> None:
         self._steps = steps
+        self._bus = bus
+        self._thread_id = thread_id
 
     async def __call__(self, step: str) -> None:
         self._steps.put_nowait(step)
+        if not streamed(step):
+            self.progressed()
+
+    def progressed(self) -> None:
+        self._bus.publish("agent_task_progress", thread_id=self._thread_id)
 
 
 async def _steps_while(asking: asyncio.Task[str], steps: asyncio.Queue[str]) -> AsyncIterator[str]:

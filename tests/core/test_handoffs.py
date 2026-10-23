@@ -338,3 +338,21 @@ async def test_only_an_agent_at_work_that_takes_messages_gets_them(service, tmp_
         await service.message_agent("owner", session.thread_id, "hello")
     (tmp_path / "release").write_text("")
     assert (await run)[-1] == Done()
+
+
+async def test_the_list_of_running_tasks_hears_of_each_step_and_of_the_end(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    after = service.bus.last_id
+    await collect(service.send(session, "work out loud"))
+    progress = [e.data for e in [e async for e in _events_after(service, after)] if e.kind == "agent_task_progress"]
+    assert progress == [{"thread_id": session.thread_id}] * 7  # its 6 steps, then its end
+    assert await service.running_tasks() == []
+
+
+async def _events_after(service, after):
+    """The bus events published since `after`."""
+    async with asyncio.timeout(1):
+        async for event in service.bus.subscribe(after):
+            yield event
+            if event.id == service.bus.last_id:
+                return
