@@ -476,6 +476,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations/{thread_id}/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pending Approvals
+         * @description What its run stopped to ask and still waits for, whoever started it, so a client opening it
+         *     can ask the user. Answered with POST /threads/<id>/approvals; empty when nothing waits.
+         */
+        get: operations["pending_approvals_conversations__thread_id__approvals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/conversations/{thread_id}/resume": {
         parameters: {
             query?: never;
@@ -2148,6 +2169,25 @@ export interface components {
              * @enum {string}
              */
             kind: "failing" | "signed_out";
+        };
+        /**
+         * ApprovalRequired
+         * @description The run waits for the user. Usually an approval, answered with {"approved", "reason"}; a
+         *     request whose `kind` is QUESTION is a question with options (core/tools/questions.py), with
+         *     `question`, `options` and `multiple`, answered with {"choices": [picked options]}. One whose
+         *     `kind` is PLUGIN_OFFER offers a plugin from the extras (core/tools/plugins.py), with `name`,
+         *     `description` and the plugin as the repository lists it (`server` or `skill`): the app installs
+         *     it through its usual route and answers {"installed": bool}. One whose `kind` is PLUGIN_SETUP
+         *     opens an installed plugin's setup (its email accounts, a channel's pairing), with `name`,
+         *     `description` and `server`, answered with {"done": true} once the user closes it.
+         */
+        ApprovalRequired: {
+            /** Interrupt Id */
+            interrupt_id: string;
+            /** Request */
+            request: {
+                [key: string]: unknown;
+            };
         };
         /** Approvals */
         Approvals: {
@@ -4681,6 +4721,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConversationStats"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pending_approvals_conversations__thread_id__approvals_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRequired"][];
                 };
             };
             /** @description Validation Error */

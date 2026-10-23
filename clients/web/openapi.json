@@ -837,6 +837,50 @@
         }
       }
     },
+    "/conversations/{thread_id}/approvals": {
+      "get": {
+        "summary": "Pending Approvals",
+        "description": "What its run stopped to ask and still waits for, whoever started it, so a client opening it\ncan ask the user. Answered with POST /threads/<id>/approvals; empty when nothing waits.",
+        "operationId": "pending_approvals_conversations__thread_id__approvals_get",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApprovalRequired"
+                  },
+                  "title": "Response Pending Approvals Conversations  Thread Id  Approvals Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/conversations/{thread_id}/resume": {
       "post": {
         "summary": "Resume Conversation",
@@ -4778,6 +4822,26 @@
           "at"
         ],
         "title": "Alert"
+      },
+      "ApprovalRequired": {
+        "properties": {
+          "interrupt_id": {
+            "type": "string",
+            "title": "Interrupt Id"
+          },
+          "request": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Request"
+          }
+        },
+        "type": "object",
+        "required": [
+          "interrupt_id",
+          "request"
+        ],
+        "title": "ApprovalRequired",
+        "description": "The run waits for the user. Usually an approval, answered with {\"approved\", \"reason\"}; a\nrequest whose `kind` is QUESTION is a question with options (core/tools/questions.py), with\n`question`, `options` and `multiple`, answered with {\"choices\": [picked options]}. One whose\n`kind` is PLUGIN_OFFER offers a plugin from the extras (core/tools/plugins.py), with `name`,\n`description` and the plugin as the repository lists it (`server` or `skill`): the app installs\nit through its usual route and answers {\"installed\": bool}. One whose `kind` is PLUGIN_SETUP\nopens an installed plugin's setup (its email accounts, a channel's pairing), with `name`,\n`description` and `server`, answered with {\"done\": true} once the user closes it."
       },
       "Approvals": {
         "properties": {

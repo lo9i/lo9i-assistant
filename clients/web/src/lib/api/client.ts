@@ -7,6 +7,8 @@ import type {
   Agent,
   AgentFolders,
   Alert,
+  ApprovalRequest,
+  ApprovalRequired,
   Notification,
   HomePage,
   HomeSection,
@@ -96,6 +98,13 @@ export class ConversationsGroup {
   /** Its messages, tokens and tool calls, and when it started and was last written in; all zero for a new one. */
   stats(threadId: string): Promise<ConversationStats> {
     return this.transport.request("GET", `/conversations/${encodeURIComponent(threadId)}/stats`);
+  }
+
+  /** What its run stopped to ask and still waits for, whoever started it; answered with `resume`. */
+  async approvals(threadId: string): Promise<ApprovalRequired[]> {
+    const path = `/conversations/${encodeURIComponent(threadId)}/approvals`;
+    const waiting = await this.transport.request<Schemas["ApprovalRequired"][]>("GET", path);
+    return waiting.map((a) => ({ type: "ApprovalRequired", interrupt_id: a.interrupt_id, request: a.request as ApprovalRequest }));
   }
 
   /** Deletes its messages, its place in the list, and the files sent in it. Fails while a client is on it. */

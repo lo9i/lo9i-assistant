@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { ApiError } from "../api/errors";
-import type { Decision, RunEvent, Session } from "../api/types";
+import type { ApprovalRequired, Decision, RunEvent, Session } from "../api/types";
 import { NoticeBoard } from "../notices";
 import { ChatController, type ChatClient } from "./controller";
 import { finalReply } from "./transcript";
@@ -12,8 +12,11 @@ class FakeDaemon implements ChatClient {
   runs: RunEvent[][] = [];
   decisions: Record<string, Decision>[] = [];
   keepOpen = false;
+  // What a conversation's run stopped for and waits on, until it's resumed.
+  waiting = new Map<string, ApprovalRequired[]>();
   conversations = {
     messages: async () => [{ role: "user", text: "earlier", detail: "", output: "", dispatch_id: "" }],
+    approvals: async (threadId: string) => this.waiting.get(threadId) ?? [],
   };
 
   sent: string[] = [];
@@ -40,8 +43,9 @@ class FakeDaemon implements ChatClient {
     this.sent.push(`${session.thread_id}: move ${id}`);
     return this.play(signal);
   };
-  resume = (_s: Session, decisions: Record<string, Decision>, signal: AbortSignal) => {
+  resume = (session: Session, decisions: Record<string, Decision>, signal: AbortSignal) => {
     this.decisions.push(decisions);
+    this.waiting.delete(session.thread_id);
     return this.play(signal);
   };
   followRun = (_id: string, signal: AbortSignal) => this.play(signal);
@@ -219,6 +223,73 @@ describe("ChatController", () => {
     expect(texts(chat)).toHaveLength(3);
   });
 });
+
+describe("ChatController with a run waiting for the user", () => {
+  const approval: ApprovalRequired = { type: "ApprovalRequired", interrupt_id: "i1", request: { tool: "mcp__factory__approve" } };
+  const resumed: RunEvent[] = [{ type: "TextDelta", text: "approved it" }, { type: "Done" }];
+
+  beforeEach(() => {
+    board = new NoticeBoard();
+  });
+
+  it("asks on opening a conversation whose run waits, as after a reload, and goes on with the answer", async () => {
+    const daemon = new FakeDaemon();
+    daemon.waiting.set("t1", [approval]);
+    daemon.runs = [resumed];
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    await until(() => chat.getSnapshot().approval !== null);
+    expect(chat.getSnapshot()).toMatchObject({ approval, busy: true });
+    chat.answer({ approved: true, reason: null });
+    await until(() => !chat.getSnapshot().busy);
+    expect(daemon.decisions).toEqual([{ i1: { approved: true, reason: null } }]);
+    expect(chat.getSnapshot().approval).toBeNull();
+    expect(texts(chat)).toEqual(["earlier", "approved it"]);
+  });
+
+  it("asks what a run started elsewhere stopped for, once it ends", async () => {
+    const daemon = new FakeDaemon();
+    daemon.runs = [[{ type: "ToolStarted", name: "mcp__factory__approve", args: {} }, approval], resumed];
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    await chat.mirror({ run_id: "r", thread_id: "t1", channel: "worker", client_id: "", text: "" });
+    expect(chat.getSnapshot().approval).toBeNull();
+    daemon.waiting.set("t1", [approval]);
+    chat.runFinished({ run_id: "r", thread_id: "t1", channel: "worker", status: "ok", reply: "" });
+    await until(() => chat.getSnapshot().approval !== null);
+    chat.answer({ approved: false, reason: "no" });
+    await until(() => !chat.getSnapshot().busy);
+    expect(daemon.decisions).toEqual([{ i1: { approved: false, reason: "no" } }]);
+  });
+
+  it("asks on going back to a conversation whose run waits, and not for another conversation's", async () => {
+    const daemon = new FakeDaemon();
+    daemon.saved.add("t3");
+    daemon.waiting.set("t3", [approval]);
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    chat.runFinished({ run_id: "r", thread_id: "t3", channel: "web", status: "ok", reply: "" });
+    await settle();
+    expect(chat.getSnapshot().approval).toBeNull();
+    await chat.resume("t3");
+    await until(() => chat.getSnapshot().approval !== null);
+  });
+
+  it("stops asking once another client answers and goes on with the run", async () => {
+    const daemon = new FakeDaemon();
+    daemon.waiting.set("t1", [approval]);
+    daemon.runs = [resumed];
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    await until(() => chat.getSnapshot().approval !== null);
+    daemon.waiting.delete("t1");
+    await chat.mirror({ run_id: "r", thread_id: "t1", channel: "telegram", client_id: "", text: "" });
+    expect(chat.getSnapshot()).toMatchObject({ approval: null, busy: false });
+    expect(daemon.decisions).toEqual([]);
+    expect(texts(chat)).toEqual(["earlier", "approved it"]);
+    expect(board.getSnapshot()).toEqual([]);
+  });
+});
+
+async function settle(): Promise<void> {
+  for (let i = 0; i < 10; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 async function until(condition: () => boolean): Promise<void> {
   for (let i = 0; i < 100 && !condition(); i++) await new Promise((resolve) => setTimeout(resolve, 0));

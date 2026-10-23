@@ -17,6 +17,7 @@ export interface ChatClient extends Conversations {
   followRun(runId: string, signal: AbortSignal): AsyncIterable<RunEvent>;
   conversations: {
     messages(threadId: string): Promise<ShownMessage[]>;
+    approvals(threadId: string): Promise<ApprovalRequired[]>;
   };
 }
 
@@ -58,7 +59,9 @@ export class ChatController {
     const threadId = await rejoin(client, earlier, inboxId);
     const history = await client.conversations.messages(threadId);
     const live = new LiveConversation(client, { channel, thread_id: threadId });
-    return new ChatController(client, live, notices, fromHistory(history), inboxId);
+    const chat = new ChatController(client, live, notices, fromHistory(history), inboxId);
+    void chat.answerPending();
+    return chat;
   }
 
   /** Opens on a new conversation, beside the ones open already. */
@@ -137,6 +140,7 @@ export class ChatController {
       await this.live.goInbox(stillRunning);
       this.set({ inboxId: this.live.session.thread_id });
       await this.showHistory();
+      void this.answerPending();
       if (stillRunning) this.notify("In the inbox. The previous reply keeps running.");
     });
   }
@@ -161,6 +165,7 @@ export class ChatController {
       await this.live.resume(threadId, stillRunning);
       this.stopShowing();
       await this.showHistory();
+      void this.answerPending();
       this.notify("Resumed the conversation." + (stillRunning ? " The previous reply keeps running." : ""));
     });
   }
@@ -168,6 +173,8 @@ export class ChatController {
   /** Show a run started elsewhere in this conversation as it happens. */
   async mirror(run: RunAnnounced): Promise<void> {
     if (!this.live.startedElsewhere(run)) return;
+    // Another client answered what this page is asking, and goes on with the run there.
+    if (this.decide !== null) this.ownRun?.abort();
     if (run.text) this.set({ transcript: addUser(this.state.transcript, run.text, [], run.channel) });
     const mirror = new AbortController();
     this.mirrors.add(mirror);
@@ -177,6 +184,8 @@ export class ChatController {
   }
 
   runFinished(run: RunFinished): void {
+    // A run started anywhere, this page watching it or not, may have stopped to ask the user.
+    if (run.thread_id === this.live.session.thread_id) void this.answerPending();
     if (!this.live.leftRunFinished(run)) return;
     const excerpt = run.reply.length > EXCERPT ? run.reply.slice(0, EXCERPT) + "…" : run.reply;
     this.notify(`Previous conversation finished: ${excerpt || run.status}`, run.status === "ok" ? "info" : "warning");
@@ -200,12 +209,29 @@ export class ChatController {
     let shown = await this.render(start(signal));
     let dispatched = shown.dispatched;
     while (shown.approvals.length) {
-      const decisions: Record<string, Decision> = {};
-      for (const approval of shown.approvals) decisions[approval.interrupt_id] = await this.ask(approval, signal);
-      shown = await this.render(this.client.resume(this.live.session, decisions, signal));
+      shown = await this.render(this.answered(shown.approvals, signal));
       dispatched ??= shown.dispatched;
     }
     return dispatched;
+  }
+
+  /** Asks what the conversation's run stopped for and still waits on, whoever started it (another client, a
+   * channel, the daemon's queued runs, or this page before a reload), and goes on with the answers as this
+   * page's own run. */
+  private async answerPending(): Promise<void> {
+    if (this.ownRun !== null) return;
+    const threadId = this.live.session.thread_id;
+    let waiting: ApprovalRequired[] = [];
+    await this.guarded(async () => (waiting = await this.client.conversations.approvals(threadId)));
+    if (!waiting.length || threadId !== this.live.session.thread_id) return;
+    await this.ownTurn((signal) => this.answered(waiting, signal));
+  }
+
+  /** The run going on with the user's answers to `approvals`, once they gave them. */
+  private async *answered(approvals: ApprovalRequired[], signal: AbortSignal): AsyncIterable<RunEvent> {
+    const decisions: Record<string, Decision> = {};
+    for (const approval of approvals) decisions[approval.interrupt_id] = await this.ask(approval, signal);
+    yield* this.client.resume(this.live.session, decisions, signal);
   }
 
   /** The inbox sent the message on: this conversation goes to where it went, or a new one, and sends it there. */

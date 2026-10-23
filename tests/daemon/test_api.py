@@ -168,8 +168,10 @@ async def test_send_with_attachment_approve_and_resume(client, script):
 
     events = await collect(client.send(session, "clean up"))
     approval = next(e for e in events if isinstance(e, ApprovalRequired))
+    assert await client.conversations.pending_approvals(session.thread_id) == [approval]
     events = await collect(client.resume(session, {approval.interrupt_id: {"approved": False, "reason": "no"}}))
     assert events[0] == ToolFinished("bash", "The user rejected this (no).")
+    assert await client.conversations.pending_approvals(session.thread_id) == []
 
 
 async def test_the_inbox_sends_a_message_on_and_the_client_sends_it_where_it_went(dispatch, client, script):

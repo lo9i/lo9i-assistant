@@ -91,6 +91,7 @@ from assistant.core.channels.chat.conversations import ChannelChats
 from assistant.core.channels.chat.port import ChatLimits
 from assistant.core.config import settings
 from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
+from assistant.core.events import ApprovalRequired
 from assistant.core.health import Area
 from assistant.core.logs import (
     MAX_LINES,
@@ -674,6 +675,12 @@ def _add_conversation_routes(app: FastAPI, service: AssistantService, clients: C
         """Its messages, tokens and tool calls, and when it started and was last written in. All zero for a
         new one; `run_finished` events tell when they may have changed."""
         return await service.conversation_stats(settings.owner_id, thread_id)
+
+    @app.get("/conversations/{thread_id}/approvals")
+    async def pending_approvals(thread_id: str) -> list[ApprovalRequired]:
+        """What its run stopped to ask and still waits for, whoever started it, so a client opening it
+        can ask the user. Answered with POST /threads/<id>/approvals; empty when nothing waits."""
+        return await service.pending_approvals(thread_id)
 
     @app.post("/conversations/{thread_id}/resume")
     async def resume_conversation(thread_id: str, request: Request) -> Ok:

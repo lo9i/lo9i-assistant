@@ -30,6 +30,8 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - A51. Home (`core/home/`) is only in the web app. Give the terminal app a `/home` screen with the sections, Refresh and editing; the Python `DaemonClient` has `client.home` for it.
 - A52. Home's items link only to the section's plugin page, not to the item (the watchlist title, the bill), because the plugins' pages have no addresses for one item. Once a page takes one (`/watchlist/title/<id>`), let the format carry an item's id and link to it.
 - A49. A message the assistant starts in the user's own chat on Telegram (`send_message`, the end of background work) goes to every paired account, but lo9i keeps only the last one's message id (the plugin returns one), so replying to it from another paired account goes to the inbox instead of its conversation. Return every copy's id from the plugin's `send` (in the protocol) and keep them all.
+- A54. The terminal app asks for an approval only in a run it started itself (`clients/terminal/.../tui/app.py`): one a run started elsewhere stopped for (a channel, a queued follow-up or task, before the app restarted) waits unseen until a message is sent there. Ask on opening a conversation and when a run in it ends, with `client.conversations.pending_approvals`, as the web app does (`clients/web/src/lib/chat/controller.ts::answerPending`).
+- A55. An approval waiting in a conversation the web app has open but not shown (another of the tab's open conversations) shows only once that one is shown: the sidebar doesn't mark it. Mark the open conversations waiting for an answer.
 
 ## Daemon
 
