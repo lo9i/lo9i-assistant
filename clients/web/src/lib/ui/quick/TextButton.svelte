@@ -10,6 +10,8 @@
 
   // A short message to the assistant from any page: written in the inbox, which sends it on to its
   // conversation; the reply shows here.
+  // `docked`: in a chat's status bar (QuickButtons).
+  let { docked = false }: { docked?: boolean } = $props();
   const { text: chat } = useDaemon();
   const snapshot = external(chat.subscribe, chat.getSnapshot);
   let draft = $state("");
@@ -62,6 +64,7 @@
     hint="Ask for something; it goes to the right conversation."
     onstop={() => void chat.stop()}
     onclose={close}
+    {docked}
   >
     <input
       bind:this={input}

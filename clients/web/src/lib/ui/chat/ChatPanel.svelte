@@ -20,6 +20,8 @@
   import PinnedSkills from "./PinnedSkills.svelte";
   import StatusBar from "./StatusBar.svelte";
   import TasksBar from "./TasksBar.svelte";
+  import WorkingStatus from "./WorkingStatus.svelte";
+  import QuickButtons from "../quick/QuickButtons.svelte";
   import Thread from "./Thread.svelte";
 
   // Commands that open a tab of the settings page.
@@ -271,6 +273,7 @@
     steering={agentWorking && handoff.data ? { agent: handoff.data.name, onsteer: steer } : null}
   />
   <StatusBar>
+    <WorkingStatus threadId={snapshot.current.threadId} />
     {#if handoff.data}
       <AgentStatus
         handoff={handoff.data}
@@ -279,6 +282,7 @@
         onback={() => agentCommand(`/${handoff.data?.command}`, "off")}
       />
     {/if}
+    <QuickButtons docked />
   </StatusBar>
   {#if dragging > 0}<div class="drop-hint" aria-hidden="true">Drop files to attach them</div>{/if}
 </section>

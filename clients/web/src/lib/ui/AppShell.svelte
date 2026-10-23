@@ -1,6 +1,6 @@
 <script lang="ts">
-  import TextButton from "./quick/TextButton.svelte";
-  import VoiceButton from "./quick/VoiceButton.svelte";
+  import QuickButtons from "./quick/QuickButtons.svelte";
+  import { quickDock } from "./quick/openPanel.svelte";
   import type { Snippet } from "svelte";
   import { announce } from "$lib/agentDone";
   import { agentDone, chime, systemNotice } from "$lib/agentDone.svelte";
@@ -85,11 +85,8 @@
   <Sidebar name={name.data || "lo9i"} />
   <main class="main">{@render children()}</main>
   <ConnectionBanner name={name.data || "lo9i"} />
-  <!-- Floating in the window's bottom right corner, on every page: typing above, talking below. -->
-  <div class="quick">
-    <TextButton />
-    <VoiceButton />
-  </div>
+  <!-- Floating in the window's bottom right corner, on every page but a chat, whose status bar has them. -->
+  {#if quickDock.count === 0}<QuickButtons />{/if}
 </div>
 <Toasts {notices} />
 <KeptKeysDialog />
@@ -107,15 +104,6 @@
   }
   .main {
     min-width: 0;
-  }
-  .quick {
-    position: fixed;
-    right: 24px;
-    bottom: 24px;
-    z-index: var(--z-popover);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
   }
   @media (max-width: 680px) {
     .app-layout {
