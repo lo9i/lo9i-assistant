@@ -15,6 +15,8 @@
 
   // Talks with the assistant from any page: each recording is written in the inbox, which sends it on to
   // its conversation, and the reply is read aloud.
+  // `docked`: in a chat's status bar (QuickButtons).
+  let { docked = false }: { docked?: boolean } = $props();
   const { client, notices, voice } = useDaemon();
   const snapshot = external(voice.subscribe, voice.getSnapshot);
   const recorder = new Recorder();
@@ -114,6 +116,7 @@
     hint={current === "listening" ? "" : "Tap the button and ask for something."}
     onstop={() => void stopThinking()}
     onclose={close}
+    {docked}
   >
     {#if current === "listening"}
       <p class="status">

@@ -6,7 +6,8 @@
   import Modal from "../Modal.svelte";
 
   // Coding agents' tasks running in the background, each with what it's doing now. A task from another
-  // conversation says which, and opens it.
+  // conversation says which, and opens it. One working in this conversation is in the status bar
+  // (WorkingStatus), its steps in the thread.
   let { threadId, onopen }: { threadId: string; onopen: (threadId: string) => void } = $props();
 
   const running = resource((c) => c.tasks.running(), ["agent_task_progress", "agent_task_reports", "background_ended"]);
@@ -18,7 +19,7 @@
     return () => clearInterval(timer);
   });
 
-  const tasks = $derived(running.data ?? []);
+  const tasks = $derived((running.data ?? []).filter((t) => t.thread_id !== threadId));
   const open = $derived(tasks.find((t) => t.id === shown));
 
   function elsewhere(task: RunningTask): string | null {

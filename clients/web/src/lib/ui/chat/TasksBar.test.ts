@@ -25,11 +25,18 @@ vi.mock("$lib/daemon.svelte", () => ({
 }));
 
 describe("TasksBar", () => {
-  it("shows each running task's latest step, and which conversation another one is in", () => {
+  it("says which conversation another task is in, and opens it", () => {
     const { body } = render(TasksBar, { props: { threadId: "t1", onopen: () => {} } });
-    expect(body).toContain("Bash: pytest");
-    expect(body).not.toContain("Read: README.md");
     expect(body).toContain("in Docs");
     expect(body.match(/>Open</g)).toHaveLength(1);
+  });
+
+  it("shows another conversation's task with its latest step, and leaves this one's to the status bar", () => {
+    const here = render(TasksBar, { props: { threadId: "t1", onopen: () => {} } }).body;
+    expect(here).not.toContain("Bash: pytest");
+    expect(here.match(/is working/g)).toHaveLength(1);
+    const elsewhere = render(TasksBar, { props: { threadId: "t2", onopen: () => {} } }).body;
+    expect(elsewhere).toContain("Bash: pytest");
+    expect(elsewhere).not.toContain("Read: README.md");
   });
 });

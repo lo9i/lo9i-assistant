@@ -295,6 +295,9 @@
   /* Open, a call is one card: its name on top, then what it was about and what it gave back, each a section. */
   .tool[open] {
     width: min(800px, 100%);
+    /* overflow: hidden takes away a flex item's minimum height: without this, the thread, a column that
+       scrolls, shrinks the open card to its borders once it's longer than the screen. */
+    flex-shrink: 0;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: var(--color-bg-hover-ghost);

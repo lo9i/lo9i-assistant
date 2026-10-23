@@ -265,8 +265,8 @@
 <style>
   .dock {
     position: relative;
-    /* Room on the right for the voice button floating in the window's corner. */
-    padding: 8px 48px 12px 16px;
+    /* Little below: the status bar follows right under it. */
+    padding: 8px 16px 2px 16px;
   }
   .composer {
     display: flex;

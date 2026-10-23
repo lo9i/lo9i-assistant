@@ -6,8 +6,9 @@
   import { useDaemon } from "$lib/daemon.svelte";
   import { openConversation } from "../openConversation";
 
-  // The panel above the floating buttons: what was asked (`children`), the reply, and the conversation the
-  // inbox sent the message on to, to open in Chat.
+  // The panel above the quick buttons: what was asked (`children`), the reply, and the conversation the
+  // inbox sent the message on to, to open in Chat. `docked`: the buttons are in a chat's status bar, lower
+  // than when they float.
   let {
     title,
     chat,
@@ -15,6 +16,7 @@
     hint = "",
     onstop,
     onclose,
+    docked = false,
     children,
   }: {
     title: string;
@@ -23,6 +25,7 @@
     hint?: string;
     onstop: () => void;
     onclose: () => void;
+    docked?: boolean;
     children?: Snippet;
   } = $props();
 
@@ -35,7 +38,7 @@
   }
 </script>
 
-<section class="bubble surface--glass" aria-live="polite">
+<section class="bubble surface--glass" class:docked aria-live="polite">
   <header>
     <span class="micro-label">{title}</span>
     <button class="icon" aria-label="Close" title="Close" onclick={onclose}><X size={14} /></button>
@@ -61,7 +64,7 @@
 </section>
 
 <style>
-  /* Above the buttons, in the same corner. */
+  /* Above the buttons, in the same corner: two floating one above the other, or a row in the status bar. */
   .bubble {
     position: fixed;
     right: 24px;
@@ -75,6 +78,9 @@
     overflow-y: auto;
     padding: 12px 16px 16px;
     box-shadow: var(--shadow-popover);
+  }
+  .bubble.docked {
+    bottom: 48px;
   }
   header {
     display: flex;
