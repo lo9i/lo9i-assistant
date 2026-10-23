@@ -13,13 +13,17 @@ from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
 from assistant.core.agent_tasks.service import AgentTaskError
 from assistant.core.agent_tasks.steps import STEPS, AgentSteps, streamed
+from assistant.core.background import short
 from assistant.core.bus import EventBus
-from assistant.core.conversation import agent_folders, handoffs
+from assistant.core.conversation import agent_folders, handoffs, queued
 from assistant.core.conversation.agent_folders import AgentFolders, FolderError, FolderListing
 from assistant.core.conversation.handoffs import Agent, Handoff
 from assistant.core.events import Done, Error, Event
 
 __all__ = ["Agent", "AgentFolders", "FolderError", "FolderListing", "Handoff", "HandoffError", "HandoffsMixin"]
+
+# How much of the agent's reply, or of what went wrong, the apps' notice shows.
+_FINISHED = 200
 
 
 class HandoffError(Exception):
@@ -113,6 +117,7 @@ class HandoffsMixin(RunsMixin):
         except HandoffError as e:
             for event in [*steps.end("Failed"), Error(str(e))]:
                 yield event
+            await self._agent_finished(session, handoff, False, str(e))
             return
         for event in steps.end("Done"):
             yield event
@@ -121,8 +126,19 @@ class HandoffsMixin(RunsMixin):
         # Its steps go with the reply, for history; no model call sends response_metadata.
         answer = AIMessage(reply, response_metadata={STEPS: steps.lines})
         await self._graph.aupdate_state(config, {"messages": [message, answer]}, as_node="agent")
+        await self._agent_finished(session, handoff, True, reply)
         for event in [*steps.reply(reply), Done()]:
             yield event
+
+    async def _agent_finished(self, session: Session, handoff: Handoff, ok: bool, text: str) -> None:
+        """The agent is done with what the user gave it, and waits for them: an `agent_finished` event, which
+        the apps tell the user of. Not while another message waits to go to it (core/conversation/queued.py):
+        the job goes on with that one. A run the user stopped isn't one they need telling of."""
+        if session.thread_id in await queued.threads(self._storage.store, session.user_id):
+            return
+        self.bus.publish(
+            "agent_finished", thread_id=session.thread_id, agent=handoff.name, ok=ok, text=short(text, _FINISHED)
+        )
 
     async def _ask_agent(self, session: Session, handoff: Handoff, said: str, steps: asyncio.Queue[str]) -> str:
         """Raises HandoffError with what went wrong, for the user."""

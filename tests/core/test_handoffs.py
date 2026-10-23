@@ -14,6 +14,7 @@ from assistant.core.agent import AssistantService, FolderError, HandoffError, Se
 from assistant.core.agent_tasks import workers
 from assistant.core.agent_tasks.records import TaskStore
 from assistant.core.attachments import Attachment
+from assistant.core.conversation import queued
 from assistant.core.events import Done, Error, TextDelta, ToolFinished, ToolStarted, UserSaid
 from assistant.core.mcp import folders, servers
 from assistant.core.mcp.servers import McpServer
@@ -356,3 +357,39 @@ async def _events_after(service, after):
             yield event
             if event.id == service.bus.last_id:
                 return
+
+
+def _finished(service, after) -> list[dict]:
+    """The agent_finished events published since `after`."""
+    return [e.data for e in service.bus._history if e.id > after and e.kind == "agent_finished"]
+
+
+async def test_the_apps_hear_once_the_agent_is_done_with_the_job_not_at_each_message_it_goes_on_with(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    after = service.bus.last_id
+    await queued.add(service.store, "owner", session.thread_id, queued.Queued("web", "and then the docs"))
+    await collect(service.send(session, "fix the tests"))
+    assert _finished(service, after) == []  # the next message goes on with the job
+    await queued.take(service.store, "owner", session.thread_id)
+    await collect(service.send(session, "and then the docs"))
+    await collect(service.send(session, "break"))
+    assert _finished(service, after) == [
+        {
+            "thread_id": session.thread_id,
+            "agent": "Claude Code",
+            "ok": True,
+            "text": f"Done in {tmp_path}: and then the docs",
+        },
+        {"thread_id": session.thread_id, "agent": "Claude Code", "ok": False, "text": "Claude Code: the agent gave up"},
+    ]
+
+
+async def test_a_job_the_user_stopped_isnt_told(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    after = service.bus.last_id
+    run = asyncio.create_task(collect(service.send(session, "sleep")))
+    await _working(service, session, tmp_path)
+    run.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await run
+    assert _finished(service, after) == []

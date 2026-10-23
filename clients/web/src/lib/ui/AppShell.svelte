@@ -2,7 +2,9 @@
   import TextButton from "./quick/TextButton.svelte";
   import VoiceButton from "./quick/VoiceButton.svelte";
   import type { Snippet } from "svelte";
-  import type { BackgroundEnded, Failing, JobFinished, SignedOut } from "$lib/api/types";
+  import { announce } from "$lib/agentDone";
+  import { agentDone, chime, systemNotice } from "$lib/agentDone.svelte";
+  import type { AgentFinished, BackgroundEnded, Failing, JobFinished, SignedOut } from "$lib/api/types";
   import { followRuns } from "$lib/chat/events";
   import { saveOpen, saveThread } from "$lib/chat/tabThread";
   import { external, provideDaemon, resource, type Daemon } from "$lib/daemon.svelte";
@@ -56,6 +58,14 @@
           ? undefined
           : { label: "Open its conversation", run: () => void openConversation(chats, notices, ended.thread_id) };
       notices.notify(ended.text, ended.ok ? "info" : "warning", open);
+    }),
+  );
+  // Once the agent a conversation is handed to is done with the user's job: a sound and a pop-up, as Settings say.
+  $effect(() =>
+    hub.on(["agent_finished"], (data) => {
+      const finished = data as AgentFinished;
+      const telling = { chime, visible: () => document.visibilityState === "visible", system: systemNotice, toast: notices.notify };
+      announce(finished, agentDone.preference, telling, () => void openConversation(chats, notices, finished.thread_id));
     }),
   );
   $effect(() => hub.on(["failing"], (data) => notices.notify(failingNotice(data as Failing), "warning")));
