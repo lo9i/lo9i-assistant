@@ -24,6 +24,7 @@ from assistant.core.agent import (
     Conversation,
     ConversationBusyError,
     ConversationError,
+    ConversationStats,
     Decoding,
     EmailAccount,
     EmailAccountNotFoundError,
@@ -667,6 +668,12 @@ def _add_conversation_routes(app: FastAPI, service: AssistantService, clients: C
     @app.get("/conversations/{thread_id}/messages")
     async def conversation_messages(thread_id: str) -> list[ShownMessage]:
         return await service.conversation_messages(thread_id)
+
+    @app.get("/conversations/{thread_id}/stats")
+    async def conversation_stats(thread_id: str) -> ConversationStats:
+        """Its messages, tokens and tool calls, and when it started and was last written in. All zero for a
+        new one; `run_finished` events tell when they may have changed."""
+        return await service.conversation_stats(settings.owner_id, thread_id)
 
     @app.post("/conversations/{thread_id}/resume")
     async def resume_conversation(thread_id: str, request: Request) -> Ok:

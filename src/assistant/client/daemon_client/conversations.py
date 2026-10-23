@@ -4,6 +4,7 @@ from assistant.core.agent import (
     AgentFolders,
     Conversation,
     ConversationError,
+    ConversationStats,
     FolderError,
     FolderListing,
     Handoff,
@@ -26,6 +27,10 @@ class ConversationsApi:
 
     async def messages(self, thread_id: str) -> list[ShownMessage]:
         return [ShownMessage(**m) for m in await self._transport.request("GET", f"/conversations/{thread_id}/messages")]
+
+    async def stats(self, thread_id: str) -> ConversationStats:
+        """Its messages, tokens and tool calls, and when it started and was last written in."""
+        return ConversationStats(**await self._transport.request("GET", f"/conversations/{thread_id}/stats"))
 
     async def delete(self, thread_id: str) -> None:
         """Raises ConversationError when it doesn't exist, a client is on it or a reply is running."""

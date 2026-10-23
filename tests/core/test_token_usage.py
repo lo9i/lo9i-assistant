@@ -8,6 +8,7 @@ from langchain_core.messages.ai import UsageMetadata
 from langchain_core.outputs import ChatGenerationChunk
 
 import assistant.core.graph as graph_module
+from assistant.core.agent import Session
 from assistant.core.config import settings
 from assistant.core.usage import prices
 from assistant.core.usage.tokens import active_skill, input_parts, job_of, output_parts
@@ -124,3 +125,27 @@ async def test_metered_replies_still_stream_and_record_the_streamed_usage(servic
     assert [e.text for e in events if isinstance(e, TextDelta)] == ["hello ", "there "]
     report = await service.token_report(7)
     assert (report.total.input_tokens, report.total.output_tokens, report.estimated_calls) == (10, 2, 0)
+
+
+async def test_a_conversations_stats_count_only_its_own_messages_tokens_and_tool_calls(service, script):
+    script.reply(
+        "",
+        tool_calls=[{"name": "use_skill", "args": {"name": "nope"}, "id": "c1"}],
+        usage_metadata=_usage(900, 30, cache_read=600),
+    )
+    script.reply("done", usage_metadata=_usage(1000, 20, cache_read=850))
+    session = Session("owner", "cli", await service.new_thread("owner"))
+    await collect(service.send(session, "go"))
+    script.reply("elsewhere", usage_metadata=_usage(5000, 500))
+    await collect(service.send(Session("owner", "web", await service.new_thread("owner")), "other"))
+
+    stats = await service.conversation_stats("owner", session.thread_id)
+    assert (stats.messages, stats.model_calls, stats.tool_calls) == (2, 2, 1)
+    assert (stats.input_tokens, stats.cache_read_tokens, stats.output_tokens) == (1900, 1450, 50)
+    assert stats.started_at and stats.last_activity and stats.started_at <= stats.last_activity
+
+
+async def test_a_new_conversation_has_no_stats(service):
+    stats = await service.conversation_stats("owner", await service.new_thread("owner"))
+    assert (stats.messages, stats.model_calls, stats.tool_calls, stats.input_tokens) == (0, 0, 0, 0)
+    assert stats.started_at is None and stats.last_activity is None

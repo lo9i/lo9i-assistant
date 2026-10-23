@@ -9,6 +9,7 @@ type Schemas = components["schemas"];
 export type Session = { channel: string; thread_id: string };
 export type Conversation = Schemas["Conversation"];
 export type ShownMessage = Schemas["ShownMessage"];
+export type ConversationStats = Schemas["ConversationStats"];
 export type Job = Schemas["Job"];
 export type RunRecord = Schemas["RunRecord"];
 export type ChannelStatus = Schemas["ChannelStatus"];

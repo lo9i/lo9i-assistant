@@ -16,6 +16,7 @@
   import AgentFolderModal from "./AgentFolderModal.svelte";
   import ApprovalModal from "./ApprovalModal.svelte";
   import Composer from "./Composer.svelte";
+  import ConversationStats from "./ConversationStats.svelte";
   import HelpModal from "./HelpModal.svelte";
   import PinnedSkills from "./PinnedSkills.svelte";
   import StatusBar from "./StatusBar.svelte";
@@ -280,6 +281,7 @@
         onback={() => agentCommand(`/${handoff.data?.command}`, "off")}
       />
     {/if}
+    <ConversationStats threadId={snapshot.current.threadId} />
     <QuickButtons docked />
   </StatusBar>
   {#if dragging > 0}<div class="drop-hint" aria-hidden="true">Drop files to attach them</div>{/if}

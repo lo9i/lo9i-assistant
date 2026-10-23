@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS tool_calls (
     status TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS tool_calls_at ON tool_calls (at);
+CREATE INDEX IF NOT EXISTS tool_calls_thread ON tool_calls (thread_id);
 CREATE TABLE IF NOT EXISTS model_calls (
     id INTEGER PRIMARY KEY,
     at TEXT NOT NULL,
@@ -41,6 +42,7 @@ CREATE TABLE IF NOT EXISTS model_calls (
     estimated INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS model_calls_at ON model_calls (at);
+CREATE INDEX IF NOT EXISTS model_calls_thread ON model_calls (thread_id);
 CREATE TABLE IF NOT EXISTS token_parts (
     call_id INTEGER NOT NULL REFERENCES model_calls (id),
     kind TEXT NOT NULL,
@@ -139,6 +141,18 @@ class TokenReport:
     estimated_calls: int = 0
 
 
+@dataclass(frozen=True)
+class ThreadUsage:
+    """One conversation's model calls, every purpose included (replies, summaries, titles), and its tool
+    calls. `input_tokens` counts the cache reads too."""
+
+    model_calls: int = 0
+    input_tokens: int = 0
+    cache_read_tokens: int = 0
+    output_tokens: int = 0
+    tool_calls: int = 0
+
+
 class UsageLog:
     def __init__(self, conn: aiosqlite.Connection) -> None:
         self._conn = conn
@@ -216,6 +230,16 @@ class UsageLog:
             by_tool=(await self._tool_rows(since))[:_TOP],
             estimated_calls=await self._estimated_calls(since),
         )
+
+    async def thread_usage(self, thread_id: str) -> ThreadUsage:
+        query = """
+            SELECT COUNT(*), COALESCE(SUM(input_tokens), 0), COALESCE(SUM(cache_read_tokens), 0),
+                   COALESCE(SUM(output_tokens), 0), (SELECT COUNT(*) FROM tool_calls WHERE thread_id = ?)
+            FROM model_calls WHERE thread_id = ?
+        """
+        async with self._conn.execute(query, (thread_id, thread_id)) as cursor:
+            row = await cursor.fetchone()
+        return ThreadUsage(*row) if row else ThreadUsage()
 
     async def _token_rows(self, column: str, since: str) -> list[TokenRow]:
         """Rows per value of `column`, the most tokens first. Grouped by model too, since each has its price."""

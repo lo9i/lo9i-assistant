@@ -14,6 +14,7 @@ import type {
   ChannelStatus,
   ConnectedClient,
   Conversation,
+  ConversationStats,
   Decision,
   Device,
   EmailAccount,
@@ -90,6 +91,11 @@ export class ConversationsGroup {
 
   messages(threadId: string): Promise<ShownMessage[]> {
     return this.transport.request("GET", `/conversations/${encodeURIComponent(threadId)}/messages`);
+  }
+
+  /** Its messages, tokens and tool calls, and when it started and was last written in; all zero for a new one. */
+  stats(threadId: string): Promise<ConversationStats> {
+    return this.transport.request("GET", `/conversations/${encodeURIComponent(threadId)}/stats`);
   }
 
   /** Deletes its messages, its place in the list, and the files sent in it. Fails while a client is on it. */

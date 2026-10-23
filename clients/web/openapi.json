@@ -797,6 +797,46 @@
         }
       }
     },
+    "/conversations/{thread_id}/stats": {
+      "get": {
+        "summary": "Conversation Stats",
+        "description": "Its messages, tokens and tool calls, and when it started and was last written in. All zero for a\nnew one; `run_finished` events tell when they may have changed.",
+        "operationId": "conversation_stats_conversations__thread_id__stats_get",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationStats"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/conversations/{thread_id}/resume": {
       "post": {
         "summary": "Resume Conversation",
@@ -5104,6 +5144,74 @@
         },
         "type": "object",
         "title": "ConversationAgent"
+      },
+      "ConversationStats": {
+        "properties": {
+          "thread_id": {
+            "type": "string",
+            "title": "Thread Id"
+          },
+          "messages": {
+            "type": "integer",
+            "title": "Messages"
+          },
+          "model_calls": {
+            "type": "integer",
+            "title": "Model Calls"
+          },
+          "input_tokens": {
+            "type": "integer",
+            "title": "Input Tokens"
+          },
+          "cache_read_tokens": {
+            "type": "integer",
+            "title": "Cache Read Tokens"
+          },
+          "output_tokens": {
+            "type": "integer",
+            "title": "Output Tokens"
+          },
+          "tool_calls": {
+            "type": "integer",
+            "title": "Tool Calls"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "last_activity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Activity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "thread_id",
+          "messages",
+          "model_calls",
+          "input_tokens",
+          "cache_read_tokens",
+          "output_tokens",
+          "tool_calls",
+          "started_at",
+          "last_activity"
+        ],
+        "title": "ConversationStats",
+        "description": "`input_tokens` counts the cache reads too. The times are None for a conversation not in the list\n(a new one before its first message)."
       },
       "DeliveryResult": {
         "properties": {

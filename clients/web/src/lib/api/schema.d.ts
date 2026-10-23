@@ -455,6 +455,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations/{thread_id}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Conversation Stats
+         * @description Its messages, tokens and tool calls, and when it started and was last written in. All zero for a
+         *     new one; `run_finished` events tell when they may have changed.
+         */
+        get: operations["conversation_stats_conversations__thread_id__stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/conversations/{thread_id}/resume": {
         parameters: {
             query?: never;
@@ -2305,6 +2326,31 @@ export interface components {
         /** ConversationAgent */
         ConversationAgent: {
             handoff?: components["schemas"]["Handoff"] | null;
+        };
+        /**
+         * ConversationStats
+         * @description `input_tokens` counts the cache reads too. The times are None for a conversation not in the list
+         *     (a new one before its first message).
+         */
+        ConversationStats: {
+            /** Thread Id */
+            thread_id: string;
+            /** Messages */
+            messages: number;
+            /** Model Calls */
+            model_calls: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Cache Read Tokens */
+            cache_read_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Tool Calls */
+            tool_calls: number;
+            /** Started At */
+            started_at: string | null;
+            /** Last Activity */
+            last_activity: string | null;
         };
         /** DeliveryResult */
         DeliveryResult: {
@@ -4604,6 +4650,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ShownMessage"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    conversation_stats_conversations__thread_id__stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationStats"];
                 };
             };
             /** @description Validation Error */

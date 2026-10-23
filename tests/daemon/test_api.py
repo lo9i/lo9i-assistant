@@ -590,3 +590,13 @@ async def test_token_usage_through_the_client(client, script):
     await collect(client.send(await _new_session(client), "hello"))
     report = await client.usage.tokens(7)
     assert report.total.calls == 1 and report.total.input_tokens == 50 and report.by_purpose[0].name == "reply"
+
+
+async def test_conversation_stats_through_the_client(client, script):
+    session = await _new_session(client)
+    assert (await client.conversations.stats(session.thread_id)).messages == 0
+    script.reply("hi", usage_metadata={"input_tokens": 50, "output_tokens": 5, "total_tokens": 55})
+    await collect(client.send(session, "hello"))
+    stats = await client.conversations.stats(session.thread_id)
+    assert stats.thread_id == session.thread_id and stats.messages == 2 and stats.model_calls == 1
+    assert stats.input_tokens == 50 and stats.output_tokens == 5 and stats.last_activity is not None
