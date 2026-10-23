@@ -22,7 +22,7 @@
 <style>
   .quick {
     position: fixed;
-    right: 24px;
+    right: 19px;
     bottom: 19px;
     z-index: var(--z-popover);
     display: flex;
@@ -32,6 +32,7 @@
   .docked {
     position: relative;
     top: 5px;
+    left: 5px;
     flex-direction: row;
     margin-left: auto;
   }
