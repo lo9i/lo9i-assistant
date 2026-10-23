@@ -11,6 +11,9 @@ browser's cookies; /auth/pair/token). It goes to the server's
 page on its Unix socket (core/mcp/pages.py) as /<path>, with X-Forwarded-Prefix: /<name> so the page
 can link back. The device cookie never reaches the page, and the page can't set cookies: those
 would be the web app's cookies too, since browsers don't separate cookies by port.
+
+A request is answered in one piece, within `_TIMEOUT`. What stays open (a terminal, live updates) is a
+WebSocket to the same path, passed through for as long as it lasts (daemon/page_sockets.py).
 """
 
 import logging
@@ -18,14 +21,15 @@ from pathlib import Path
 
 import httpx
 from starlette.applications import Starlette
-from starlette.requests import Request
+from starlette.requests import HTTPConnection, Request
 from starlette.responses import PlainTextResponse, RedirectResponse, Response
-from starlette.routing import Route
+from starlette.routing import Route, WebSocketRoute
+from starlette.websockets import WebSocket
 
 from assistant.core.agent import AssistantService, Device
 from assistant.core.config import settings
-from assistant.daemon import https
-from assistant.daemon.auth import token_of
+from assistant.daemon import https, page_sockets
+from assistant.daemon.auth import DeviceStreams, token_of
 
 logger = logging.getLogger(__name__)
 
@@ -36,13 +40,17 @@ _TIMEOUT = httpx.Timeout(30)
 _REQUEST_DROPPED = {"host", "cookie", "authorization", "x-forwarded-prefix", "content-length", "connection"}
 _RESPONSE_DROPPED = {"set-cookie", "content-length", "transfer-encoding", "connection", "content-encoding"}
 _METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"]
+_NOT_PAIRED = "Open this page from the assistant's web app on a paired device."
 
 
-def create_pages_app(service: AssistantService) -> Starlette:
+def create_pages_app(service: AssistantService, streams: DeviceStreams | None = None) -> Starlette:
+    """`streams` is the API's (daemon/auth.py), so revoking a device closes its pages' WebSockets."""
+    streams = streams or DeviceStreams()
+
     async def page(request: Request) -> Response:
         name, path = request.path_params["name"], request.path_params.get("path", "")
         if await _device(service, request) is None:
-            return PlainTextResponse("Open this page from the assistant's web app on a paired device.", 401)
+            return PlainTextResponse(_NOT_PAIRED, 401)
         socket = service.pages.socket(name)
         if socket is None:
             return PlainTextResponse(f"{name} has no page running.", 404)
@@ -51,10 +59,24 @@ def create_pages_app(service: AssistantService) -> Starlette:
     async def bare(request: Request) -> Response:
         return RedirectResponse(f"/{request.path_params['name']}/", 307)
 
+    async def live(websocket: WebSocket) -> None:
+        name, path = websocket.path_params["name"], websocket.path_params.get("path", "")
+        device = await _device(service, websocket)
+        if device is None:
+            return await page_sockets.refuse(websocket, 401, _NOT_PAIRED)
+        if not page_sockets.from_a_page(websocket, _web_app_origins(PORT_OFFSET)):
+            return await page_sockets.refuse(websocket, 403, "Only the assistant's pages may open this.")
+        socket = service.pages.socket(name)
+        if socket is None:
+            return await page_sockets.refuse(websocket, 404, f"{name} has no page running.")
+        with streams.watching(device.id) as revoked:
+            await page_sockets.pass_through(websocket, socket, name, path, revoked)
+
     return Starlette(
         routes=[
             Route("/{name}", bare, methods=_METHODS),
             Route("/{name}/{path:path}", page, methods=_METHODS),
+            WebSocketRoute("/{name}/{path:path}", live),
         ]
     )
 
@@ -67,7 +89,7 @@ def ports() -> list[dict]:
     return binds
 
 
-async def _device(service: AssistantService, request: Request) -> Device | None:
+async def _device(service: AssistantService, request: HTTPConnection) -> Device | None:
     token = token_of(request)
     ip = request.client.host if request.client else ""
     return await service.device_for_token(token, ip) if token else None
@@ -97,8 +119,10 @@ def _framed(response: Response) -> Response:
     return response
 
 
-def _web_app_origins() -> list[str]:
-    origins = [f"http://127.0.0.1:{settings.daemon_port}", f"http://localhost:{settings.daemon_port}"]
+def _web_app_origins(offset: int = 0) -> list[str]:
+    """The web app's origins; with `PORT_OFFSET`, the pages'."""
+    port = settings.daemon_port + offset
+    origins = [f"http://127.0.0.1:{port}", f"http://localhost:{port}"]
     if https.enabled():
-        origins.append(f"https://{settings.https_host}:{settings.https_port}")
+        origins.append(f"https://{settings.https_host}:{settings.https_port + offset}")
     return origins

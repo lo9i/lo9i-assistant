@@ -23,7 +23,7 @@ from assistant.core.logs import LogSource, LogWriter, configure, log_sources, ou
 from assistant.daemon import https, launchd, managers, pages, systemd
 from assistant.daemon.adapters import supervise
 from assistant.daemon.api import create_app
-from assistant.daemon.auth import trusted
+from assistant.daemon.auth import DeviceStreams, trusted
 from assistant.daemon.mail_watcher import MailWatcher
 from assistant.daemon.pages import create_pages_app
 from assistant.daemon.queued import QueuedMessages
@@ -60,9 +60,10 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
             logger.info("Kept the home conversation %s as an archived conversation; the inbox replaces it.", retired)
         shutdown = Shutdown(service, stop, managers.current())
         hub = RunHub(service.bus)
-        app = create_app(service, hub, Startup(stop), shutdown, logs=logs)
+        streams = DeviceStreams()
+        app = create_app(service, hub, Startup(stop), shutdown, logs=logs, streams=streams)
         servers = _listeners(app, socket_path)
-        page_servers = [_server(create_pages_app(service), **bind) for bind in pages.ports()]
+        page_servers = [_server(create_pages_app(service, streams), **bind) for bind in pages.ports()]
         tasks = [asyncio.create_task(s.serve()) for s in [*servers, *page_servers]]
         background = [asyncio.create_task(_catch_up_conversations(service)), asyncio.create_task(_prune(service))]
         if https.enabled():

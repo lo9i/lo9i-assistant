@@ -454,7 +454,9 @@ def create_app(
     shutdown: Any = None,
     web_ui: Path = BUILD_DIR,
     logs: Mapping[str, LogSource] | None = None,
+    streams: DeviceStreams | None = None,
 ) -> FastAPI:
+    """`streams` is shared with the pages app, so revoking a device also closes its pages' WebSockets."""
     app = FastAPI(title="lo9i daemon")
     # Checked outside in: the host name, the client header, then the device.
     require_device(app, service)
@@ -464,7 +466,7 @@ def create_app(
     clients = ClientRegistry(
         service.bus, leave=partial(service.leave_thread, settings.owner_id), gone=service.unwatch_home
     )
-    streams = DeviceStreams()
+    streams = streams or DeviceStreams()
     add_device_routes(app, service, streams)
     _add_client_routes(app, service, clients, streams)
     _add_session_routes(app, service, clients)
