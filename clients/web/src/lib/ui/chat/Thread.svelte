@@ -292,6 +292,38 @@
   .tool[open] > summary > .detail {
     display: none;
   }
+  /* Open, a call is one card: its name on top, then what it was about and what it gave back, each a section. */
+  .tool[open] {
+    width: min(800px, 100%);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-hover-ghost);
+    overflow: hidden;
+  }
+  .tool[open] > summary {
+    display: flex;
+    border: 0;
+    border-radius: 0;
+    background: none;
+  }
+  .tool[open] > :not(summary) {
+    margin: 0;
+    max-width: none;
+    border-top: 1px solid var(--color-border);
+  }
+  .tool[open] > pre {
+    border-width: 1px 0 0;
+    border-radius: 0;
+    background: none;
+  }
+  .tool[open] > .steps {
+    padding: 8px 12px 8px 24px;
+    border-left: 0;
+  }
+  .tool[open] > .thought-text,
+  .tool[open] > .carried {
+    padding: 10px 12px;
+  }
   .detail {
     max-width: min(480px, 60vw);
     overflow: hidden;
