@@ -51,6 +51,11 @@
   // The agent the conversation is handed to is working on its last message: what's typed goes to it meanwhile.
   const agentWorking = $derived(!!handoff.data && (snapshot.current.busy || snapshot.current.mirroring));
 
+  // Each conversation keeps its own unsent text and files.
+  $effect.pre(() => {
+    draft.thread = snapshot.current.threadId;
+  });
+
   // A message written on the Chat list: sent from here, so it's shown and spoken like any other.
   onMount(() => {
     const queued = draft.takeQueued();
