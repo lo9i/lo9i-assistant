@@ -150,6 +150,15 @@ async def test_the_agent_gets_the_full_paths_of_the_files_sent_and_the_conversat
     assert (await service.conversation_messages(session.thread_id))[0].text == "[attachment photo.png]\nlook"
 
 
+async def test_the_agent_gets_a_video_like_any_file(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    video = Attachment("clip.mov", "video/quicktime", b"fake movie")
+    events = await collect(service.send(session, "trim it", [video]))
+    assert isinstance(events[-1], Done)
+    saved = Path(asked()[0]["prompt"].splitlines()[-1].removeprefix("- ").removesuffix(" (clip.mov)"))
+    assert saved.read_bytes() == b"fake movie"
+
+
 async def test_only_an_installed_agent_and_an_existing_folder_can_be_handed_to(service, tmp_path):
     session = Session("owner", "cli", await service.new_thread("owner"))
     with pytest.raises(HandoffError, match="No plugin brings /codex"):

@@ -43,12 +43,16 @@ async def test_deleted_file_becomes_a_placeholder(service, script):
     assert "is no longer available" in json.dumps(script.requests[-1][1].content)
 
 
-async def test_unsupported_attachment_is_rejected_before_saving(service, isolated_settings):
-    events = await collect(
-        service.send(await service.session("u", "cli"), "x", [Attachment("a.zip", "application/zip", b"x")])
-    )
-    assert events == [Error("Unsupported attachment type: application/zip (a.zip)")]
-    assert not (isolated_settings / "uploads").exists()
+async def test_a_file_the_model_cant_read_is_saved_and_named_with_where_it_is(service, script):
+    video = Attachment("clip.mov", "video/quicktime", b"fake movie")
+    session = await service.session("u", "cli")
+    events = await collect(service.send(session, "what's in it?", [video]))
+    assert not any(isinstance(e, Error) for e in events)
+    blocks = await _stored_first_message(service, session)
+    path = next(b for b in blocks if b.get("type") == "non_standard")["value"]["upload"]["path"]
+    assert uploads.load(path) == b"fake movie"
+    sent = json.dumps(script.requests[0][1].content)
+    assert "clip.mov (video/quicktime) saved at" in sent and "open it with bash" in sent and "base64" not in sent
 
 
 def _after_a_tool_image() -> list[BaseMessage]:
