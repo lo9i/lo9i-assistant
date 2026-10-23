@@ -4,16 +4,12 @@
   import { page } from "$app/state";
   import Inbox from "@lucide/svelte/icons/inbox";
   import Plus from "@lucide/svelte/icons/plus";
-  import { agentCommands } from "$lib/chat/commands";
-  import { draft } from "$lib/chat/draft.svelte";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
-  import Composer from "$lib/ui/chat/Composer.svelte";
   import ConversationPreview from "$lib/ui/chat/ConversationPreview.svelte";
   import ConversationsTable from "$lib/ui/chat/ConversationsTable.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
-  // What Chat opens to: a message box that sends to the inbox, which routes each message to the
-  // conversation it's about or a new one, and every conversation, newest activity first.
+  // What Chat opens to: every conversation, newest activity first.
   const OPEN = resolve("/conversations/open");
   const { chats, client, notices } = useDaemon();
   const open = external(chats.subscribe, chats.getSnapshot);
@@ -22,13 +18,10 @@
   const conversations = resource((c) => c.conversations.list(), ["conversations"]);
   // The inbox has an entry of its own above the list.
   const listed = $derived(conversations.data?.filter((c) => !c.inbox));
-  const agents = resource((c) => c.conversations.agents(), ["mcp"]);
   const clients = resource((c) => c.clients.list(), ["clients"]);
   const devices = resource((c) => c.devices.list(), ["devices"]);
   // Links from other pages (Active sessions, Notifications) pick a conversation with ?c=<thread id>.
   let picked = $state<string | null>(page.url.searchParams.get("c"));
-  let text = $state("");
-  let files = $state<File[]>([]);
 
   // Until one is picked: this tab's conversation, or the most recent one.
   const selected = $derived.by(() => {
@@ -43,13 +36,6 @@
 
   async function continueWith(threadId: string): Promise<void> {
     await chats.show(threadId);
-    await goto(OPEN);
-  }
-
-  /** The chat panel sends it from the inbox once it opens, so it's shown and spoken like any message. */
-  async function write(message: string, attached: File[]): Promise<void> {
-    draft.queue(message, attached);
-    await chats.goInbox();
     await goto(OPEN);
   }
 
@@ -89,21 +75,6 @@
 </TopBar>
 
 <div class="screen">
-  <section class="write surface--glass" aria-label="Write a message">
-    <p class="text-meta">
-      Write anything: it goes on in the conversation it's about, or starts a new one. Quick questions are answered in the inbox.
-    </p>
-    <Composer
-      bind:text
-      bind:files
-      busy={false}
-      running={false}
-      onsend={write}
-      onstop={() => {}}
-      oncommand={(name, arg) => write(`${name} ${arg}`.trim(), [])}
-      extra={agentCommands(agents.data ?? [])}
-    />
-  </section>
   <div class="lists">
     <ConversationsTable
       conversations={listed}
@@ -133,15 +104,6 @@
     height: calc(100dvh - 76px);
     max-width: 1600px;
     margin: 0 auto;
-  }
-  .write {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 12px 16px;
-  }
-  .write p {
-    margin: 0;
   }
   .lists {
     flex: 1;
