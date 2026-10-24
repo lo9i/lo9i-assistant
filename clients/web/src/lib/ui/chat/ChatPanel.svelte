@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Clock from "@lucide/svelte/icons/clock";
+  import X from "@lucide/svelte/icons/x";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { draft } from "$lib/chat/draft.svelte";
@@ -78,6 +80,30 @@
       notices.report(e);
     }
   }
+
+  // Messages written while a reply runs, per conversation; each goes out when the one before finishes.
+  let queued = $state<Record<string, { text: string; files: File[] }[]>>({});
+  const waiting = $derived(queued[snapshot.current.threadId] ?? []);
+  function enqueue(text: string, files: File[]): void {
+    const id = snapshot.current.threadId;
+    queued[id] = [...(queued[id] ?? []), { text, files }];
+  }
+  function unqueue(index: number): void {
+    const id = snapshot.current.threadId;
+    const [item] = (queued[id] ?? []).slice(index, index + 1);
+    queued[id] = (queued[id] ?? []).filter((_, i) => i !== index);
+    if (item && !draft.text.trim()) {
+      draft.text = item.text;
+      draft.files = item.files;
+    }
+  }
+  $effect(() => {
+    const id = snapshot.current.threadId;
+    if (snapshot.current.busy || snapshot.current.mirroring || !queued[id]?.length) return;
+    const [next, ...rest] = queued[id];
+    queued[id] = rest;
+    void send(next.text, next.files);
+  });
 
   /** Passes a message and its files on to the working agent; what it can't take goes back in the box. */
   async function steer(text: string, files: File[]): Promise<void> {
@@ -246,6 +272,16 @@
     loadCall={(callId) => client.conversations.toolCall(snapshot.current.threadId, callId)}
     loadStep={(callId, index) => client.conversations.toolCallStep(snapshot.current.threadId, callId, index)}
   />
+  {#if waiting.length}
+    <ul class="queued" aria-label="Queued messages">
+      {#each waiting as item, i (i)}
+        <li>
+          <Clock size={12} /><span>{item.text || item.files.map((f) => f.name).join(", ")}</span>
+          <button aria-label="Take back" title="Take back to edit" onclick={() => unqueue(i)}><X size={12} /></button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
   <PinnedSkills skills={pinned.data ?? []} onunpin={unpin} />
   <Composer
     bind:text={draft.text}
@@ -254,6 +290,7 @@
     busy={snapshot.current.busy}
     running={snapshot.current.busy || snapshot.current.mirroring}
     onsend={send}
+    onqueue={enqueue}
     onstop={() => chats.current.stop()}
     oncommand={command}
     {extra}
@@ -298,5 +335,38 @@
     background: color-mix(in srgb, var(--color-accent) 8%, transparent);
     font-weight: 600;
     pointer-events: none;
+  }
+  .queued {
+    list-style: none;
+    margin: 0;
+    padding: 0 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+  .queued li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 70%;
+    padding: 4px 6px 4px 10px;
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+  }
+  .queued span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .queued button {
+    display: flex;
+    border: 0;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    padding: 2px;
   }
 </style>

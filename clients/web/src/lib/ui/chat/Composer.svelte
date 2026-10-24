@@ -26,6 +26,7 @@
     /** Commands installed plugins add, such as /claude. */
     extra?: Command[];
     /** The agent the conversation is handed to works on the last message: what's typed and attached goes to it meanwhile. */
+    onqueue?: (text: string, files: File[]) => void;
     steering?: { agent: string; onsteer: (text: string, files: File[]) => void } | null;
   };
   let {
@@ -39,6 +40,7 @@
     sent = [],
     extra = [],
     steering = null,
+    onqueue,
   }: Props = $props();
   // The sent message shown (an index into `sent`), and what was being typed before Up.
   let recalled = $state<number | null>(null);
@@ -96,7 +98,14 @@
       else run(command.name, command.arg);
       return;
     }
-    if (!hasMessage || (busy && !steering)) return;
+    if (!hasMessage) return;
+    // While the assistant replies, the message waits in ChatPanel's queue and goes out when it's done.
+    if (busy && !steering) {
+      onqueue?.(text.trim(), files);
+      type("");
+      files = [];
+      return;
+    }
     // While the agent works it gets the message; what it can't take comes back in the box (ChatPanel's steer).
     if (steering) steering.onsteer(text.trim(), files);
     else onsend(text.trim(), files);
@@ -245,6 +254,10 @@
     {:else if running}
       {#if steering && hasMessage}
         <button class="send" aria-label="Send to {steering.agent}" title="Send to {steering.agent} while it works" onclick={submit}>
+          <ArrowUp size={14} />
+        </button>
+      {:else if hasMessage && onqueue}
+        <button class="send" aria-label="Queue message" title="Send when the reply finishes" onclick={submit}>
           <ArrowUp size={14} />
         </button>
       {/if}

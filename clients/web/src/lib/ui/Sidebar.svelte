@@ -9,7 +9,7 @@
   import Files from "@lucide/svelte/icons/files";
   import House from "@lucide/svelte/icons/house";
   import Laptop from "@lucide/svelte/icons/laptop";
-  import CornerDownRight from "@lucide/svelte/icons/corner-down-right";
+  import MessageSquare from "@lucide/svelte/icons/message-square";
   import Inbox from "@lucide/svelte/icons/inbox";
   import ListChecks from "@lucide/svelte/icons/list-checks";
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
@@ -159,7 +159,7 @@
               >
                 {#if entry.running}<LoaderCircle size={14} class="spin" aria-label="working" />
                 {:else if entry.inbox}<Inbox size={14} />
-                {:else}<CornerDownRight size={14} />{/if}
+                {:else}<MessageSquare size={14} />{/if}
                 <span>{entry.title}</span>
                 {#if entry.waiting}<i class="waiting" aria-label="waiting for your answer"></i>{/if}
               </button>
@@ -360,15 +360,15 @@
   }
   /* The conversations open in this tab, and others working, under Chat. */
   .open {
-    margin: 0 0 4px;
-    padding: 0;
+    margin: 0 0 4px 22px;
+    padding: 0 0 0 6px;
     list-style: none;
+    border-left: 2px solid var(--color-accent);
   }
   .branch {
     display: flex;
     align-items: center;
     gap: 2px;
-    padding-left: 22px;
   }
   .branch-item {
     flex: 1;
@@ -392,7 +392,7 @@
   }
   .branch-item :global(svg) {
     flex: none;
-    color: var(--color-accent);
+    color: var(--color-text-muted);
   }
   .waiting {
     flex: none;
