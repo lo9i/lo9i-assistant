@@ -10,6 +10,7 @@ import signal
 import sys
 from collections.abc import Callable, Mapping
 from pathlib import Path
+from typing import Any
 
 import httpx
 import uvicorn
@@ -21,7 +22,7 @@ from assistant.core.config import settings
 from assistant.core.internet import browser
 from assistant.core.logs import LogSource, LogWriter, configure, log_sources, output_path, process_output
 from assistant.daemon import https, launchd, managers, pages, systemd, updates
-from assistant.daemon.adapters import supervise
+from assistant.daemon.adapters import Adapter, supervise
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import DeviceStreams, trusted
 from assistant.daemon.mail_watcher import MailWatcher
@@ -34,6 +35,10 @@ from assistant.daemon.startup import Startup
 from assistant.daemon.updates import Updates
 
 logger = logging.getLogger(__name__)
+# How long a stop runs before the log says what it still waits for, and again each time after.
+_SLOW_STOP_SECONDS = 60
+# How many of the coroutines a task waits through the log names, innermost last.
+_WHERE_DEPTH = 4
 
 
 class _Server(uvicorn.Server):
@@ -66,24 +71,24 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         app = create_app(service, hub, Startup(stop), shutdown, logs=logs, streams=streams, updates=updater)
         servers = _listeners(app, socket_path)
         page_servers = [_server(create_pages_app(service, streams), **bind) for bind in pages.ports()]
-        tasks = [asyncio.create_task(s.serve()) for s in [*servers, *page_servers]]
+        tasks = [asyncio.create_task(s.serve(), name="http server") for s in [*servers, *page_servers]]
         background = [asyncio.create_task(_catch_up_conversations(service)), asyncio.create_task(_prune(service))]
         if https.enabled():
             background.append(asyncio.create_task(https.reload_on_renewal(servers[-1], page_servers[-1])))
         scheduler = Scheduler(service)
-        tasks.append(asyncio.create_task(supervise(scheduler, stop)))
-        tasks.append(asyncio.create_task(supervise(MailWatcher(service, scheduler), stop)))
-        tasks.append(asyncio.create_task(supervise(service.mcp, stop)))
-        tasks.append(asyncio.create_task(supervise(service.pages, stop)))
-        tasks.append(asyncio.create_task(supervise(service.channels_hub, stop)))
-        tasks.append(asyncio.create_task(supervise(service.channel_processes, stop)))
-        tasks.append(asyncio.create_task(supervise(service.memory_index, stop)))
-        tasks.append(asyncio.create_task(supervise(service.conversation_index, stop)))
-        tasks.append(asyncio.create_task(supervise(service.memory_writer, stop)))
-        tasks.append(asyncio.create_task(supervise(service.task_ends, stop)))
-        tasks.append(asyncio.create_task(supervise(QueuedMessages(service, hub), stop)))
-        tasks.append(asyncio.create_task(supervise(service.update_checker, stop)))
-        tasks.append(asyncio.create_task(supervise(service.home_schedule, stop)))
+        tasks.append(_supervised(scheduler, stop))
+        tasks.append(_supervised(MailWatcher(service, scheduler), stop))
+        tasks.append(_supervised(service.mcp, stop))
+        tasks.append(_supervised(service.pages, stop))
+        tasks.append(_supervised(service.channels_hub, stop))
+        tasks.append(_supervised(service.channel_processes, stop))
+        tasks.append(_supervised(service.memory_index, stop))
+        tasks.append(_supervised(service.conversation_index, stop))
+        tasks.append(_supervised(service.memory_writer, stop))
+        tasks.append(_supervised(service.task_ends, stop))
+        tasks.append(_supervised(QueuedMessages(service, hub), stop))
+        tasks.append(_supervised(service.update_checker, stop))
+        tasks.append(_supervised(service.home_schedule, stop))
         # Downloads once in the background; until then pages are read without rendering.
         install = asyncio.create_task(browser.install_browser()) if settings.web_render else None
         logger.info("Daemon ready on %s and http://127.0.0.1:%s", socket_path, settings.daemon_port)
@@ -99,9 +104,34 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         AppStatus.should_exit = True
         for server in [*servers, *page_servers]:
             server.should_exit = True
-        await asyncio.gather(*tasks, return_exceptions=True)
+        await until_done(tasks)
     socket_path.unlink(missing_ok=True)
     return shutdown.ending or Ending.STOP
+
+
+def _supervised(adapter: Adapter, stop: asyncio.Event) -> asyncio.Task:
+    return asyncio.create_task(supervise(adapter, stop), name=adapter.name)
+
+
+async def until_done(tasks: list[asyncio.Task]) -> None:
+    """Waits for the daemon's tasks to end. Each minute some are still running, the log says which and where each
+    waits, so a stop that hangs (a model call that never answers) says what it hangs on."""
+    pending = set(tasks)
+    while pending:
+        _, pending = await asyncio.wait(pending, timeout=_SLOW_STOP_SECONDS)
+        if pending:
+            waiting = "; ".join(sorted(f"{t.get_name()} at {_where(t)}" for t in pending))
+            logger.warning("Still stopping: waiting for %s", waiting)
+
+
+def _where(task: asyncio.Task) -> str:
+    """Where the task waits: the last coroutines it awaits through, innermost last, each with its line."""
+    frames = []
+    coro: Any = task.get_coro()
+    while coro is not None and (frame := getattr(coro, "cr_frame", None) or getattr(coro, "ag_frame", None)):
+        frames.append(f"{frame.f_code.co_name} ({Path(frame.f_code.co_filename).name}:{frame.f_lineno})")
+        coro = getattr(coro, "cr_await", None) or getattr(coro, "ag_await", None)
+    return " → ".join(frames[-_WHERE_DEPTH:]) or "an unknown place"
 
 
 def _announcer(service: AssistantService) -> Callable[[Ending, int], None]:

@@ -164,3 +164,25 @@ def test_the_log_says_which_signal_stopped_the_daemon(caplog):
     stop = asyncio.Event()
     server._stopped_by(signal.SIGTERM, stop)
     assert stop.is_set() and "Stopping: SIGTERM received" in caplog.text
+
+
+async def test_a_stop_that_takes_long_says_what_it_still_waits_for_and_where(caplog, monkeypatch):
+    monkeypatch.setattr(server, "_SLOW_STOP_SECONDS", 0.05)
+    caplog.set_level("WARNING", logger="assistant.daemon.server")
+    answered = asyncio.Event()
+
+    async def _never_answers() -> None:
+        await answered.wait()
+
+    async def memory_writer() -> None:
+        await _never_answers()
+
+    quick = asyncio.create_task(asyncio.sleep(0), name="scheduler")
+    slow = asyncio.create_task(memory_writer(), name="memory writer")
+    waiting = asyncio.create_task(server.until_done([quick, slow]))
+    await asyncio.sleep(0.12)
+    assert "Still stopping: waiting for memory writer at memory_writer (test_shutdown.py:" in caplog.text
+    assert "→ _never_answers (test_shutdown.py:" in caplog.text and "→ wait (locks.py:" in caplog.text
+    assert "scheduler" not in caplog.text
+    answered.set()
+    await asyncio.wait_for(waiting, 1)
