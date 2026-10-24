@@ -39,8 +39,8 @@
   }
 
   // One point per day of the period, days without calls at 0.
-  function series(key: "input_tokens" | "output_tokens") {
-    const byDay = new Map(((report.data as TokenReport | undefined)?.by_day ?? []).map((r) => [r.name, r[key]]));
+  function series(key: "input_tokens" | "output_tokens" | "calls" | "cost") {
+    const byDay = new Map(((report.data as TokenReport | undefined)?.by_day ?? []).map((r) => [r.name, r[key] ?? 0]));
     const out: { day: string; value: number }[] = [];
     const now = new Date();
     for (let i = days - 1; i >= 0; i--) {
@@ -52,6 +52,8 @@
   }
   const inputSeries = $derived(series("input_tokens"));
   const outputSeries = $derived(series("output_tokens"));
+  const callSeries = $derived(series("calls"));
+  const costSeries = $derived(series("cost"));
 
   function money(dollars: number | null | undefined): string {
     return dollars == null ? "No price" : `$${dollars.toFixed(2)}`;
@@ -69,9 +71,9 @@
   <div class="tiles">
     <div class="tile surface--glass">
       <span class="micro-label">Model calls</span>
-      <span class="value">{total.calls}</span>
+      <TokenLine points={callSeries} label="Model calls per day" />
       <span class="text-caption">
-        {report.data?.estimated_calls ? `${report.data.estimated_calls} estimated (no usage reported)` : `last ${days} days`}
+        {total.calls} total{report.data?.estimated_calls ? ` · ${report.data.estimated_calls} estimated` : ""}
       </span>
     </div>
     <div class="tile surface--glass">
@@ -88,8 +90,8 @@
     </div>
     <div class="tile surface--glass">
       <span class="micro-label">Cost</span>
-      <span class="value">{money(total.cost)}</span>
-      <span class="text-caption">models with a known price</span>
+      <TokenLine points={costSeries} label="Cost per day" />
+      <span class="text-caption">{money(total.cost)} total · models with a known price</span>
     </div>
   </div>
 
