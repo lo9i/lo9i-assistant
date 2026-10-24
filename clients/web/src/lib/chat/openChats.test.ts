@@ -49,7 +49,7 @@ class Daemon {
         return play();
       },
       resume: empty,
-      followRun: empty,
+      followRunBatches: async function* (): AsyncGenerator<RunEvent[]> {},
       cancel: async () => true,
       conversations: {
         live: async () => ({ messages: [], runs: [] }),

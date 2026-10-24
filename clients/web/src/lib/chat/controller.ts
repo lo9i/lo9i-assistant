@@ -14,7 +14,7 @@ export interface ChatClient extends Conversations {
   moveDispatched(session: Session, dispatchId: string, signal: AbortSignal): AsyncIterable<RunEvent>;
   resume(session: Session, decisions: Record<string, Decision>, signal: AbortSignal): AsyncIterable<RunEvent>;
   cancel(session: Session): Promise<boolean>;
-  followRun(runId: string, signal: AbortSignal): AsyncIterable<RunEvent>;
+  followRunBatches(runId: string, signal: AbortSignal): AsyncIterable<RunEvent[]>;
   conversations: {
     live(threadId: string): Promise<ShownConversation>;
     approvals(threadId: string): Promise<ApprovalRequired[]>;
@@ -233,10 +233,10 @@ export class ChatController {
 
   /** Runs the turn and returns where the inbox sent its message on, if it did. */
   private async turn(start: Start, signal: AbortSignal): Promise<Dispatched | null> {
-    let shown = await this.render(start(signal));
+    let shown = await this.render(singly(start(signal)));
     let dispatched = shown.dispatched;
     while (shown.approvals.length) {
-      shown = await this.render(this.answered(shown.approvals, signal));
+      shown = await this.render(singly(this.answered(shown.approvals, signal)));
       dispatched ??= shown.dispatched;
     }
     return dispatched;
@@ -285,7 +285,7 @@ export class ChatController {
     for (const run of unseen) {
       if (following.signal.aborted) break;
       this.showStarted(run);
-      await this.show(following, () => this.render(this.client.followRun(run.run_id, following.signal)));
+      await this.show(following, () => this.render(this.client.followRunBatches(run.run_id, following.signal)));
     }
     this.mirrors.delete(following);
     this.showing();
@@ -299,15 +299,20 @@ export class ChatController {
     if (run.notice) this.set({ transcript: addNotice(this.state.transcript, run.notice) });
   }
 
-  /** Show the events and return the approvals the run is waiting on, and where the inbox sent its message on. */
-  private async render(events: AsyncIterable<RunEvent>): Promise<{ approvals: ApprovalRequired[]; dispatched: Dispatched | null }> {
+  /** Show the events and return the approvals the run is waiting on, and where the inbox sent its message on. Each
+   * batch is one update of the page, however many events it has. */
+  private async render(batches: AsyncIterable<RunEvent[]>): Promise<{ approvals: ApprovalRequired[]; dispatched: Dispatched | null }> {
     const approvals: ApprovalRequired[] = [];
     let dispatched: Dispatched | null = null;
     try {
-      for await (const event of events) {
-        if (event.type === "ApprovalRequired") approvals.push(event);
-        else if (event.type === "Dispatched") dispatched = event;
-        if (event.type !== "ApprovalRequired") this.set({ transcript: apply(this.state.transcript, event) });
+      for await (const batch of batches) {
+        let transcript = this.state.transcript;
+        for (const event of batch) {
+          if (event.type === "ApprovalRequired") approvals.push(event);
+          else if (event.type === "Dispatched") dispatched = event;
+          if (event.type !== "ApprovalRequired") transcript = apply(transcript, event);
+        }
+        this.set({ transcript });
       }
     } finally {
       this.set({ transcript: endText(this.state.transcript) });
@@ -410,6 +415,11 @@ export class ChatController {
     this.state = { ...this.state, ...change };
     this.listeners.forEach((listener) => listener());
   }
+}
+
+/** Each event as a batch of its own: a run this page started streams as it's written. */
+async function* singly(events: AsyncIterable<RunEvent>): AsyncGenerator<RunEvent[]> {
+  for await (const event of events) yield [event];
 }
 
 /** The conversation to open on: `earlier` if the daemon still has it, else the inbox. A conversation

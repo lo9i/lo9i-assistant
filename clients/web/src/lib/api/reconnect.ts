@@ -2,7 +2,7 @@
 // resumes after the last event received, so nothing is missed or repeated (like
 // src/assistant/client/daemon_client/reconnect.py).
 import { ApiError, DaemonUnavailableError, isAbort } from "./errors";
-import { readEvents, type ServerEvent } from "./sse";
+import { readEventBatches, type ServerEvent } from "./sse";
 import type { Transport } from "./transport";
 
 export type ReconnectPolicy = {
@@ -25,14 +25,27 @@ export async function* resumableEvents(
   onOpen: () => void = () => {},
   onLost: () => void = () => {},
 ): AsyncGenerator<ServerEvent> {
+  for await (const batch of resumableEventBatches(transport, path, policy, signal, after, onOpen, onLost)) yield* batch;
+}
+
+/** `resumableEvents` in the batches they arrived in (sse.ts's `readEventBatches`). */
+export async function* resumableEventBatches(
+  transport: Transport,
+  path: string,
+  policy: ReconnectPolicy,
+  signal: AbortSignal,
+  after = "0",
+  onOpen: () => void = () => {},
+  onLost: () => void = () => {},
+): AsyncGenerator<ServerEvent[]> {
   let lastId = after;
   let failures = 0;
   for (;;) {
     try {
-      for await (const event of open(transport, path, lastId, signal, onOpen)) {
-        lastId = event.id || lastId;
+      for await (const batch of open(transport, path, lastId, signal, onOpen)) {
+        lastId = batch.findLast((event) => event.id)?.id ?? lastId;
         failures = 0;
-        yield event;
+        yield batch;
       }
     } catch (error) {
       if (!droppedConnection(error)) throw error;
@@ -50,7 +63,7 @@ async function* open(transport: Transport, path: string, lastId: string, signal:
   }
   if (!response.ok || response.body === null) return;
   onOpen();
-  yield* readEvents(response.body);
+  yield* readEventBatches(response.body);
 }
 
 /** A connection that failed or broke off, as opposed to an abort or an error reconnecting can't fix. */

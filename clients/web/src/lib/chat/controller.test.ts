@@ -59,19 +59,31 @@ class FakeDaemon implements ChatClient {
     this.waiting.delete(session.thread_id);
     return this.play(signal);
   };
-  followRun = (id: string, signal: AbortSignal) => {
+  followRunBatches = (id: string, signal: AbortSignal) => {
     this.followed.push(id);
-    return this.play(signal);
+    return this.playAtOnce(signal);
   };
+
+  /** As the daemon replays a run's past events to a page following it from its start: in one read. */
+  private async *playAtOnce(signal: AbortSignal): AsyncGenerator<RunEvent[]> {
+    const events = this.runs.shift() ?? [];
+    signal.throwIfAborted();
+    if (events.length) yield events;
+    await this.heldOpen(signal);
+  }
+
+  private async heldOpen(signal: AbortSignal): Promise<void> {
+    if (this.keepOpen) {
+      await new Promise<void>((_, reject) => signal.addEventListener("abort", () => reject(signal.reason)));
+    }
+  }
 
   private async *play(signal: AbortSignal): AsyncGenerator<RunEvent> {
     for (const event of this.runs.shift() ?? []) {
       signal.throwIfAborted();
       yield event;
     }
-    if (this.keepOpen) {
-      await new Promise<void>((_, reject) => signal.addEventListener("abort", () => reject(signal.reason)));
-    }
+    await this.heldOpen(signal);
   }
 }
 
@@ -299,6 +311,26 @@ describe("ChatController with a run in progress on showing a conversation", () =
     const [, user, tool] = chat.getSnapshot().transcript.items;
     expect(user).toMatchObject({ kind: "user", channel: undefined });
     expect(tool).toMatchObject({ state: "done", output: "built" });
+  });
+
+  it("shows the events that came at once in one update, never the run half shown", async () => {
+    const daemon = new FakeDaemon();
+    daemon.inProgress.set("t1", [inProgress("r1", "long task")]);
+    daemon.runs = [
+      [
+        { type: "ToolStarted", name: "bash", args: { command: "make" }, id: "c1" },
+        { type: "ToolFinished", name: "bash", output: "built" },
+        { type: "TextDelta", text: "Built " },
+        { type: "TextDelta", text: "it." },
+        { type: "Done" },
+      ],
+    ];
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    const seen: string[][] = [];
+    chat.subscribe(() => seen.push(texts(chat)));
+    await until(() => texts(chat).length === 4 && !chat.getSnapshot().mirroring);
+    const shownRun = seen.filter((shown) => shown.length > 2);
+    expect(shownRun.every((shown) => shown.join("|") === "earlier|long task|tool|Built it.")).toBe(true);
   });
 
   it("follows the runs in progress one after another, each after what started it", async () => {

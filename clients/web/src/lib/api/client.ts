@@ -1,7 +1,7 @@
 // The daemon's HTTP API for the web UI, grouped like src/assistant/client/daemon_client: the
 // conversation on the client, every other area as a group.
 import type { components } from "./schema";
-import { resumableEvents, type ReconnectPolicy } from "./reconnect";
+import { resumableEventBatches, resumableEvents, type ReconnectPolicy } from "./reconnect";
 import type { Transport } from "./transport";
 import type {
   Agent,
@@ -1003,9 +1003,17 @@ export class DaemonClient {
 
   /** A run's events from its first, reconnecting if the connection drops. */
   async *followRun(runId: string, signal: AbortSignal): AsyncGenerator<RunEvent> {
-    for await (const event of resumableEvents(this.transport, `/runs/${runId}/events`, RUN_RECONNECT, signal)) {
-      if (event.event === END) return;
-      yield JSON.parse(event.data) as RunEvent;
+    for await (const batch of this.followRunBatches(runId, signal)) yield* batch;
+  }
+
+  /** `followRun`'s events in the batches they arrived in: following a run from its start, its past events come at
+   * once, and the chat applies them in one go instead of updating the page for each. */
+  async *followRunBatches(runId: string, signal: AbortSignal): AsyncGenerator<RunEvent[]> {
+    for await (const batch of resumableEventBatches(this.transport, `/runs/${runId}/events`, RUN_RECONNECT, signal)) {
+      const end = batch.findIndex((event) => event.event === END);
+      const events = (end < 0 ? batch : batch.slice(0, end)).map((event) => JSON.parse(event.data) as RunEvent);
+      if (events.length) yield events;
+      if (end >= 0) return;
     }
   }
 

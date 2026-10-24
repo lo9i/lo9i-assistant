@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readEvents } from "./sse";
+import { readEventBatches, readEvents } from "./sse";
 import { body } from "./testing";
 
 async function all(stream: ReadableStream<Uint8Array>) {
@@ -24,5 +24,15 @@ describe("readEvents", () => {
 
   it("skips comments and events without data", async () => {
     expect(await all(body(": ping\n\nevent: x\n\n"))).toEqual([]);
+  });
+});
+
+describe("readEventBatches", () => {
+  it("gives the events each read completed together", async () => {
+    const batches = [];
+    for await (const batch of readEventBatches(body("id: 1\ndata: a\n\nid: 2\ndata: b\n\nid: 3\nda", "ta: c\n\n"))) {
+      batches.push(batch.map((event) => event.data));
+    }
+    expect(batches).toEqual([["a", "b"], ["c"]]);
   });
 });
