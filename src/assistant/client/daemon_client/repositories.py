@@ -11,6 +11,7 @@ from assistant.core.agent import (
     FoundSkill,
     InstalledFromRepository,
     KeptKeys,
+    PluginIcon,
     PluginUpdate,
     Repository,
     RepositoryContents,
@@ -99,17 +100,22 @@ class RepositoriesApi:
 
 
 def _contents(data: dict[str, Any]) -> RepositoryContents:
-    skills, servers = [FoundSkill(**s) for s in data["skills"]], [_server(s) for s in data["servers"]]
+    skills, servers = [_skill(s) for s in data["skills"]], [_server(s) for s in data["servers"]]
     return RepositoryContents(skills, servers, data["problems"], data["checked"])
 
 
 def _server(data: dict[str, Any]) -> FoundServer:
-    return FoundServer(**{**data, "fields": [ServerField(**f) for f in data["fields"]]})
+    fields = [ServerField(**f) for f in data["fields"]]
+    return FoundServer(**{**data, "fields": fields, "icon": PluginIcon(**data.get("icon", {}))})
+
+
+def _skill(data: dict[str, Any]) -> FoundSkill:
+    return FoundSkill(**{**data, "icon": PluginIcon(**data.get("icon", {}))})
 
 
 def offered_plugin(request: dict[str, Any]) -> FoundServer | FoundSkill:
     """The plugin in a request the agent paused for (core/events.py::PLUGIN_OFFER)."""
-    return _server(request["server"]) if "server" in request else FoundSkill(**request["skill"])
+    return _server(request["server"]) if "server" in request else _skill(request["skill"])
 
 
 def _with_url(body: dict[str, Any], url: str | None) -> dict[str, Any]:

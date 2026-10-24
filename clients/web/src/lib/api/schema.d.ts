@@ -2860,6 +2860,7 @@ export interface components {
              * @default
              */
             agent: string;
+            icon?: components["schemas"]["PluginIcon"];
         };
         /**
          * FoundSkill
@@ -2892,6 +2893,7 @@ export interface components {
              * @default other/general
              */
             category: string;
+            icon?: components["schemas"]["PluginIcon"];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -3335,6 +3337,7 @@ export interface components {
              * @default false
              */
             failing: boolean;
+            icon?: components["schemas"]["PluginIcon"];
         };
         /** McpSignInStart */
         McpSignInStart: {
@@ -3548,6 +3551,11 @@ export interface components {
              * @default
              */
             run_at: string;
+            /**
+             * Plugin
+             * @default
+             */
+            plugin: string;
         };
         /** Ok */
         Ok: {
@@ -3591,6 +3599,24 @@ export interface components {
         PinnedSkills: {
             /** Skills */
             skills: string[];
+        };
+        /** PluginIcon */
+        PluginIcon: {
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Svg
+             * @default
+             */
+            svg: string;
+            /**
+             * Mono
+             * @default false
+             */
+            mono: boolean;
         };
         /** PluginUpdate */
         PluginUpdate: {
@@ -4008,6 +4034,7 @@ export interface components {
             category: string;
             /** Platforms */
             platforms?: string[];
+            icon?: components["schemas"]["PluginIcon"];
         };
         /** SkillChange */
         SkillChange: {

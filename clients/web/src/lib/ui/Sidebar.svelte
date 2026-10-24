@@ -19,10 +19,10 @@
   import Settings from "@lucide/svelte/icons/settings";
   import Sparkles from "@lucide/svelte/icons/sparkles";
   import X from "@lucide/svelte/icons/x";
-  import PanelsTopLeft from "@lucide/svelte/icons/panels-top-left";
   import { openList } from "$lib/chat/openList";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { pageLabel } from "$lib/pages";
+  import PluginIcon from "./PluginIcon.svelte";
   import { sidebar } from "$lib/sidebar.svelte";
 
   let { name }: { name: string } = $props();
@@ -167,7 +167,7 @@
       {@const href = resolve("/pages/[name]", { name: p.name })}
       <div class="nav-row">
         <a {href} class="nav-item" aria-current={page.url.pathname === href ? "page" : undefined} title={pageLabel(p.name)}>
-          <PanelsTopLeft size={20} />
+          <PluginIcon icon={p.icon} size={20} />
           <span class="label">{pageLabel(p.name)}</span>
         </a>
       </div>

@@ -113,6 +113,7 @@ async def test_a_tasks_end_goes_to_the_feed_with_the_conversation_it_was_started
     told = await _told(service, after)
     [feed] = await notifications.recent(service.store, "owner")
     assert (feed.kind, feed.title, feed.thread_id, feed.ok) == ("background", "Fix the tests", session.thread_id, False)
+    assert feed.plugin == "claude-code"  # The apps show its icon.
     assert feed.text == told["text"] and not feed.read
     await service.delete_conversation("owner", session.thread_id)
     assert (await notifications.recent(service.store, "owner"))[0].thread_id == ""
@@ -179,6 +180,7 @@ async def test_an_mcp_servers_background_work_is_told_to_the_conversation_that_s
         "ok": True,
         "text": "✅ convert: photos is ready: 3 files converted.",
     }
+    assert (await notifications.recent(service.store, "owner"))[0].plugin == "convert"
     await collect(service.send(session, "done?"))
     assert "The MCP server convert says its background work photos finished: photos is ready" in _notes(
         script.requests[-1]

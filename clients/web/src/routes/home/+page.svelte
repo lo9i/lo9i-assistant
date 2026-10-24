@@ -10,6 +10,7 @@
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { dayOf, moved, updatedLabel, whileVisible, withSection, withoutSection } from "$lib/home";
   import { describe } from "$lib/notices";
+  import { installedIcon } from "$lib/pluginIcons";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import SectionCard from "$lib/ui/home/SectionCard.svelte";
@@ -149,6 +150,7 @@
       {#each home.data.cards as card, i (card.section.id)}
         <SectionCard
           {card}
+          icon={installedIcon(servers.data, card.section.plugins[0] ?? "")}
           {today}
           {refreshing}
           first={i === 0}

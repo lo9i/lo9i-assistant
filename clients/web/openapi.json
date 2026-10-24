@@ -6105,6 +6105,9 @@
             "type": "string",
             "title": "Agent",
             "default": ""
+          },
+          "icon": {
+            "$ref": "#/components/schemas/PluginIcon"
           }
         },
         "type": "object",
@@ -6154,6 +6157,9 @@
             "type": "string",
             "title": "Category",
             "default": "other/general"
+          },
+          "icon": {
+            "$ref": "#/components/schemas/PluginIcon"
           }
         },
         "type": "object",
@@ -7087,6 +7093,9 @@
             "type": "boolean",
             "title": "Failing",
             "default": false
+          },
+          "icon": {
+            "$ref": "#/components/schemas/PluginIcon"
           }
         },
         "type": "object",
@@ -7500,6 +7509,11 @@
             "type": "string",
             "title": "Run At",
             "default": ""
+          },
+          "plugin": {
+            "type": "string",
+            "title": "Plugin",
+            "default": ""
           }
         },
         "type": "object",
@@ -7611,6 +7625,27 @@
           "skills"
         ],
         "title": "PinnedSkills"
+      },
+      "PluginIcon": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          },
+          "svg": {
+            "type": "string",
+            "title": "Svg",
+            "default": ""
+          },
+          "mono": {
+            "type": "boolean",
+            "title": "Mono",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "PluginIcon"
       },
       "PluginUpdate": {
         "properties": {
@@ -8417,6 +8452,9 @@
             },
             "type": "array",
             "title": "Platforms"
+          },
+          "icon": {
+            "$ref": "#/components/schemas/PluginIcon"
           }
         },
         "type": "object",

@@ -9,6 +9,7 @@ from typing import Any
 from langgraph.store.base import BaseStore
 
 from assistant.core.mcp.install import FoundServer, ServerField
+from assistant.core.repositories.icons import PluginIcon
 from assistant.core.skills.install import FoundSkill
 
 _NAMESPACE = ("repository_listings",)
@@ -30,7 +31,7 @@ async def load(store: BaseStore, url: str) -> Listing | None:
     if item is None:
         return None
     data = item.value
-    skills, servers = [FoundSkill(**s) for s in data["skills"]], [_server(s) for s in data["servers"]]
+    skills, servers = [_skill(s) for s in data["skills"]], [_server(s) for s in data["servers"]]
     return Listing(data["commit"], skills, servers, data.get("problems", []), data.get("checked", ""))
 
 
@@ -46,4 +47,9 @@ async def forget(store: BaseStore, url: str) -> None:
 
 
 def _server(data: dict[str, Any]) -> FoundServer:
-    return FoundServer(**{**data, "fields": [ServerField(**f) for f in data["fields"]]})
+    fields = [ServerField(**f) for f in data["fields"]]
+    return FoundServer(**{**data, "fields": fields, "icon": PluginIcon(**data.get("icon", {}))})
+
+
+def _skill(data: dict[str, Any]) -> FoundSkill:
+    return FoundSkill(**{**data, "icon": PluginIcon(**data.get("icon", {}))})

@@ -1,4 +1,4 @@
-import type { FoundServer, FoundSkill, Offered, Repository, RepositoryPlugins } from "./api/types";
+import type { FoundServer, FoundSkill, Offered, PluginIcon, Repository, RepositoryPlugins } from "./api/types";
 
 /** The assistant's extras, official, when a listing's repository isn't named: an empty url installs from them. */
 const EXTRAS: Repository = { url: "", name: "the assistant's extras", official: true, private: false };
@@ -44,6 +44,11 @@ export function fromRepositories(read: RepositoryPlugins[]): { plugins: Plugin[]
 function lastChecked(read: RepositoryPlugins[]): string {
   const times = read.map((r) => r.contents?.checked ?? "");
   return times.includes("") ? "" : times.reduce((a, b) => (a < b ? a : b), times[0] ?? "");
+}
+
+/** What the apps show beside it: its own icon, or its category's (src/assistant/core/repositories/icons.py). */
+export function iconOf(p: Plugin): PluginIcon | undefined {
+  return p.kind === "server" ? p.server.icon : p.skill.icon;
 }
 
 /** "Official" for the extras' plugins; the repository's name for the others. */

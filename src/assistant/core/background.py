@@ -51,6 +51,8 @@ class Ended:
     note: str
     # The assistant follows it up at once, unasked, as it does when the work failed.
     follow_up: bool = False
+    # The plugin whose work it was (an MCP server, a coding agent's), for the apps to show its icon.
+    plugin: str = ""
 
 
 def current_origin() -> Origin | None:
@@ -94,7 +96,9 @@ class BackgroundEnds:
         started_in = await conversations.load(self._store, origin.user_id, origin.thread_id) if attended else None
         title = started_in.title if started_in else _UNLISTED_TITLE
         thread_id = started_in.thread_id if started_in else ""
-        await notifications.add(self._store, origin.user_id, "background", title, work.notice, work.ok, thread_id)
+        await notifications.add(
+            self._store, origin.user_id, "background", title, work.notice, work.ok, thread_id, plugin=work.plugin
+        )
 
     async def _message(self, origin: Origin, text: str, attended: bool) -> None:
         """Like send_message: replying to it goes on in the conversation the work was started in, and a

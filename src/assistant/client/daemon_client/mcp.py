@@ -13,6 +13,7 @@ from assistant.core.agent import (
     McpServerError,
     McpServerStatus,
     McpToolInfo,
+    PluginIcon,
 )
 
 _ERRORS = {400: McpServerError, 404: McpServerError}
@@ -78,4 +79,5 @@ def _settings(server: McpServer) -> dict[str, Any]:
 
 
 def status_from_json(data: dict[str, Any]) -> McpServerStatus:
-    return McpServerStatus(**{**data, "tools": [McpToolInfo(**t) for t in data["tools"]]})
+    tools = [McpToolInfo(**t) for t in data["tools"]]
+    return McpServerStatus(**{**data, "tools": tools, "icon": PluginIcon(**data.get("icon", {}))})

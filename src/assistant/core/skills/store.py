@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 
 from assistant.core.config import settings
-from assistant.core.repositories import categories, folders, platforms
+from assistant.core.repositories import categories, folders, icons, platforms
 from assistant.core.repositories import source as skill_source
 from assistant.core.skills import files as skill_files
 from assistant.core.skills.errors import SkillError as SkillError
@@ -46,6 +46,8 @@ class Skill:
     category: str = categories.DEFAULT
     # `platforms:` in its SKILL.md, the systems it runs on; empty for all (repositories/platforms.py).
     platforms: list[str] = field(default_factory=list)
+    # `icon:` in its SKILL.md (repositories/icons.py); empty when it declares none.
+    icon: icons.PluginIcon = field(default_factory=icons.PluginIcon)
 
 
 def list_skills() -> list[Skill]:
@@ -156,6 +158,7 @@ def read(skill_folder: Path, default_name: str | None = None) -> Skill | None:
     source = skill_source.read(skill_folder)
     category, category_problems = _category(meta)
     systems, platform_problems = _platforms(meta)
+    icon, icon_problems = _icon(meta, skill_folder)
     return Skill(
         str(meta.get("name") or default_name or skill_folder.name),
         description,
@@ -164,12 +167,21 @@ def read(skill_folder: Path, default_name: str | None = None) -> Skill | None:
         files,
         source.url if source else None,
         (source.server or None) if source else None,
-        [*header_problems, *category_problems, *platform_problems, *problems(body, files)],
+        [*header_problems, *category_problems, *platform_problems, *icon_problems, *problems(body, files)],
         str(meta.get("version") or ""),
         _plugin(source, str(meta.get("name") or default_name or skill_folder.name)),
         category,
         systems,
+        icon,
     )
+
+
+def _icon(meta: dict, folder: Path) -> tuple[icons.PluginIcon, list[str]]:
+    """The icon its SKILL.md declares, or none and the problem with the one it declares."""
+    try:
+        return icons.parse(meta.get("icon"), folder), []
+    except ValueError as e:
+        return icons.PluginIcon(), [f"In its SKILL.md, {e}."]
 
 
 def _platforms(meta: dict) -> tuple[list[str], list[str]]:

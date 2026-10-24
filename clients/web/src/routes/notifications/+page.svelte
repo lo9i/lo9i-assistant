@@ -9,6 +9,8 @@
   import { localTime } from "$lib/health";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
+  import { installedIcon } from "$lib/pluginIcons";
+  import PluginIcon from "$lib/ui/PluginIcon.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
   // Scheduled jobs' results and background work that ended (core/notifications.py), apart from any
@@ -16,6 +18,8 @@
   // the Jobs page with its whole reply. Seen here, they're read.
   const { client, chats, notices } = useDaemon();
   const notifications = resource((c) => c.notifications.list(), ["notifications"]);
+  // For the icon of the plugin whose work ended.
+  const servers = resource((c) => c.mcp.servers(), ["mcp"]);
   let picked = $state<string | null>(null);
   let clearing = $state(false);
   // Until one is picked: the newest.
@@ -94,7 +98,13 @@
           <tbody>
             {#each notifications.data as n (n.id)}
               <tr class:selected={n.id === shown.id} class:failed={!n.ok} onclick={() => (picked = n.id)}>
-                <td><button class="row-button" onclick={() => (picked = n.id)}>{n.title}</button></td>
+                <td>
+                  <button class="row-button" onclick={() => (picked = n.id)}>
+                    {#if n.plugin && installedIcon(servers.data, n.plugin)}<span class="plugin-icon"
+                        ><PluginIcon icon={installedIcon(servers.data, n.plugin)} size={16} /></span
+                      >{/if}{n.title}
+                  </button>
+                </td>
                 <td class="text-label summary">{n.text}</td>
                 <td class="text-label hide-narrow">{localTime(n.at)}</td>
               </tr>
@@ -223,6 +233,15 @@
     font-weight: 500;
     text-align: left;
     cursor: pointer;
+  }
+  .row-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .plugin-icon {
+    display: inline-flex;
+    color: var(--color-text-muted);
   }
   .details {
     flex: none;

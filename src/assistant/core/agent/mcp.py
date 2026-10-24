@@ -3,7 +3,7 @@ choosing which tools the agent gets, trusting it or not, and removing it. Env va
 sign-ins never leave the daemon."""
 
 import asyncio
-from dataclasses import dataclass, fields, replace
+from dataclasses import dataclass, field, fields, replace
 
 from assistant.core.agent.base import ServiceBase
 from assistant.core.integrations.email import accounts as email_accounts
@@ -12,6 +12,7 @@ from assistant.core.mcp.hub import McpHub, McpProbe, McpToolInfo
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.mcp.sign_in import McpSignIn
 from assistant.core.repositories import listed
+from assistant.core.repositories.icons import PluginIcon
 from assistant.core.repositories.listed import KeptKeys
 
 __all__ = [
@@ -22,6 +23,7 @@ __all__ = [
     "McpServerError",
     "McpServerStatus",
     "McpToolInfo",
+    "PluginIcon",
     "mcp_status",
 ]
 
@@ -60,6 +62,8 @@ class McpServerStatus:
     failed_at: str = ""
     # At least FAILING_AFTER in a row: the user was alerted.
     failing: bool = False
+    # What the apps show beside it; empty for one added by hand (core/repositories/icons.py).
+    icon: PluginIcon = field(default_factory=PluginIcon)
 
 
 @dataclass
@@ -180,4 +184,5 @@ async def mcp_status(hub: McpHub, server: McpServer) -> McpServerStatus:
         failure=health.error,
         failed_at=health.at,
         failing=health.failing,
+        icon=PluginIcon(**server.icon),
     )

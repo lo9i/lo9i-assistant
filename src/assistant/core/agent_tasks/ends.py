@@ -95,7 +95,7 @@ def ended(found: FoundTask) -> Ended:
     note = f'{agent}\'s task {task.id} in {task.repository}, asked "{asked}", is {state.status}'
     if result:
         note += f": {short(result, _RESULT_NOTE)}"
-    return Ended(note_key(task.id), state.status == "done", notice, note)
+    return Ended(note_key(task.id), state.status == "done", notice, note, plugin=found.agent.server)
 
 
 def _notice(agent: str, state: TaskState, asked: str, result: str) -> str:

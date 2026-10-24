@@ -34,6 +34,8 @@ class Notification:
     # A job's run: the job's name and when the run started (RunRecord.at), to open it on the Jobs page.
     job: str = ""
     run_at: str = ""
+    # The plugin whose work ended, for the apps to show its icon; "" for none.
+    plugin: str = ""
 
 
 def _namespace(user_id: str) -> tuple[str, ...]:
@@ -41,9 +43,10 @@ def _namespace(user_id: str) -> tuple[str, ...]:
 
 
 async def add(
-    store: BaseStore, user_id: str, kind: Kind, title: str, text: str, ok: bool, thread_id: str = ""
+    store: BaseStore, user_id: str, kind: Kind, title: str, text: str, ok: bool, thread_id: str = "", plugin: str = ""
 ) -> Notification:
-    notification = Notification(uuid4().hex, datetime.now(UTC).isoformat(), kind, title, text, ok, thread_id)
+    at = datetime.now(UTC).isoformat()
+    notification = Notification(uuid4().hex, at, kind, title, text, ok, thread_id, plugin=plugin)
     await _save(store, user_id, notification)
     return notification
 

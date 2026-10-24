@@ -10,10 +10,10 @@ picking the repository is the user's decision, never the agent's.
 """
 
 import asyncio
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
-from assistant.core.repositories import categories, platforms
+from assistant.core.repositories import categories, icons, platforms
 from assistant.core.repositories.checkout import checkout, default_name
 from assistant.core.repositories.folders import SERVER_FILE, subfolders
 from assistant.core.repositories.source import Source
@@ -35,6 +35,8 @@ class FoundSkill:
     installed_version: str = ""
     # What it's for, to group it in the apps (repositories/categories.py).
     category: str = categories.DEFAULT
+    # What the apps show beside it: its own, or its category's (repositories/icons.py).
+    icon: icons.PluginIcon = field(default_factory=icons.PluginIcon)
 
 
 @dataclass(frozen=True)
@@ -46,7 +48,10 @@ class Candidate:
 
     def found(self) -> FoundSkill:
         skill = self.skill
-        return FoundSkill(skill.name, skill.description, skill.files, version=skill.version, category=skill.category)
+        icon = icons.or_category(skill.icon, skill.category)
+        return FoundSkill(
+            skill.name, skill.description, skill.files, version=skill.version, category=skill.category, icon=icon
+        )
 
 
 def find(root: Path, url: str) -> dict[str, Candidate]:

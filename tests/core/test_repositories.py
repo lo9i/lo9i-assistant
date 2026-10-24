@@ -17,11 +17,13 @@ from assistant.core.agent import (
     SkillError,
 )
 from assistant.core.mcp import keys, servers
-from assistant.core.repositories import checkout
+from assistant.core.repositories import check, checkout
+from assistant.core.repositories.icons import PluginIcon
 from assistant.core.repositories.source import Source
 from assistant.core.skills import install as skill_install
 from assistant.core.skills import store
 from assistant.core.uv import find as find_uv
+from tests.core.test_plugin_icons import BRAND
 
 URL = "https://example.com/me/lo9i-extras.git"
 
@@ -669,3 +671,30 @@ async def test_the_assistant_cant_delete_a_skill_a_plugin_installed(service, rep
     events = await collect(service.send(await service.session("u", "cli"), "delete the expenses skill"))
     [finished] = [e for e in events if isinstance(e, ToolFinished)]
     assert "installed by the expenses plugin" in finished.output and "expenses" in [s.name for s in store.list_skills()]
+
+
+async def test_the_icon_reaches_the_listing_the_installed_server_and_its_status(service, repo):
+    manifest = (repo / "other" / "general" / "hello" / "server.yaml").read_text()
+    _write(repo / "other" / "general" / "hello", {"server.yaml": manifest + "icon: icon.svg\n", "icon.svg": BRAND})
+    _write(repo / "apps" / "media" / "films", {"server.yaml": "url: https://films.example.com/mcp\nicon: tv"})
+    _skill(repo / "apps" / "finance" / "budget", "budget", "Budget", {})
+    contents = await service.browse_repository(URL)
+    by_name = {s.name: s.icon for s in contents.servers}
+    assert by_name["hello"] == PluginIcon(svg=BRAND) and by_name["films"] == PluginIcon(name="tv")
+    assert by_name["tasks"] == PluginIcon(name="puzzle")  # other/general's
+    assert {s.name: s.icon for s in contents.skills}["budget"] == PluginIcon(name="wallet")
+    await service.install_from_repository(URL, [], [HELLO])
+    assert (await servers.load(service.store, "hello")).icon == {"name": "", "svg": BRAND, "mono": False}
+    [status] = [s for s in await service.mcp_servers() if s.name == "hello"]
+    assert status.icon == PluginIcon(svg=BRAND)
+
+
+async def test_a_plugin_with_an_icon_that_cant_be_used_is_left_out_with_why(service, repo):
+    _write(repo / "apps" / "media" / "films", {"server.yaml": "url: https://films.example.com/mcp\nicon: nope"})
+    shows = "---\nname: shows\ndescription: Shows\nicon: x.svg\n---\nSteps."
+    _write(repo / "apps" / "media" / "shows", {"SKILL.md": shows})
+    contents = await service.browse_repository(URL)
+    assert "films" not in {s.name for s in contents.servers}
+    assert any("'nope' isn't a Lucide icon" in p for p in contents.problems)
+    # A skill's problems are its own, as with its header: the check before a push says them.
+    assert any("x.svg isn't a file in its folder" in p for p in check.problems(repo))

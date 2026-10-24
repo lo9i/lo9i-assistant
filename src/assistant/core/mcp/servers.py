@@ -66,6 +66,9 @@ class McpServer:
     # Which env or header values are the user's keys (keys.py): its fields, for a plugin installed
     # from a repository. One added by hand has all of them as keys.
     keys: list[str] = field(default_factory=list)
+    # What the apps show beside it, as its plugin declared it (core/repositories/icons.py's PluginIcon);
+    # empty for one added by hand or installed before icons.
+    icon: dict[str, Any] = field(default_factory=dict)
 
     @property
     def transport(self) -> str:

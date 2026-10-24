@@ -5,12 +5,15 @@
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Trash from "@lucide/svelte/icons/trash-2";
-  import type { HomeCard } from "$lib/api/types";
+  import type { HomeCard, PluginIcon as Icon } from "$lib/api/types";
   import { itemWhen } from "$lib/home";
   import { pageLabel } from "$lib/pages";
+  import PluginIcon from "../PluginIcon.svelte";
 
   type Props = {
     card: HomeCard;
+    // The icon of the plugin it reads first; none when that isn't installed.
+    icon?: Icon | null;
     // YYYY-MM-DD, to say when each item is.
     today: string;
     refreshing: boolean;
@@ -20,13 +23,15 @@
     ondelete: () => void;
     onmove: (by: -1 | 1) => void;
   };
-  let { card, today, refreshing, first, last, onedit, ondelete, onmove }: Props = $props();
+  let { card, icon = null, today, refreshing, first, last, onedit, ondelete, onmove }: Props = $props();
   const result = $derived(card.result);
 </script>
 
 <section class="card surface--glass" aria-label={card.section.title}>
   <header>
-    <h2 class="text-heading">{card.section.title}</h2>
+    <h2 class="text-heading title">
+      {#if icon}<span class="plugin-icon"><PluginIcon {icon} size={18} /></span>{/if}{card.section.title}
+    </h2>
     <div class="tools">
       {#if result?.page}
         <a
@@ -75,6 +80,15 @@
 </section>
 
 <style>
+  .title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .plugin-icon {
+    display: inline-flex;
+    color: var(--color-text-muted);
+  }
   .card {
     display: flex;
     flex-direction: column;

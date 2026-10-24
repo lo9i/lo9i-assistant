@@ -45,6 +45,8 @@ code from it. In its commands, arguments and env values:
     platforms: [macos]             # optional: the systems it runs on (repositories/platforms.py); all if absent
     format: 2                      # the plugin format it's written in (repositories/formats.py); 1 if absent
     category: communications       # outside a category's folder: what it's for (repositories/categories.py)
+    icon: tv                       # optional: a Lucide icon's name, or an .svg file in its folder
+                                   # (repositories/icons.py); its category's icon if absent
     steps:                         # optional: how to get what it asks for, shown when installing
       - In your provider's settings, create an app password.
     email:                         # optional: email providers it offers (core/integrations/email/providers.py)
@@ -68,7 +70,7 @@ from langgraph.store.base import BaseStore
 from assistant.core.integrations.email import providers as email_providers
 from assistant.core.mcp import environment, folders, keys, logins, servers
 from assistant.core.mcp.servers import McpServer, McpServerError
-from assistant.core.repositories import categories, formats, platforms
+from assistant.core.repositories import categories, formats, icons, platforms
 from assistant.core.repositories import source as folder_source
 from assistant.core.repositories.checkout import checkout, default_name
 from assistant.core.repositories.errors import RepositoryError
@@ -130,6 +132,8 @@ class FoundServer:
     model_login: str = ""
     # The command of the agent it adds, like "claude" for /claude (core/conversation/handoffs.py); "" for none.
     agent: str = ""
+    # What the apps show beside it (repositories/icons.py).
+    icon: icons.PluginIcon = field(default_factory=icons.PluginIcon)
 
 
 @dataclass(frozen=True)
@@ -165,6 +169,7 @@ class Candidate:
             agent_args=[fill(a) for a in t.agent_args],
             source=url,
             keys=sorted(given),
+            icon=asdict(self.found.icon),
         )
         if any("{uv}" in text for text in _commands(filled)) or (self.needs_environment and find_uv() is None):
             raise McpServerError(f"{t.name} runs with uv, and the assistant can't find uv on this computer.")
@@ -375,6 +380,7 @@ def _found(data: dict[str, Any], template: McpServer, folder: Path, category_fol
     """Raises ValueError for fields, a skill or a category that can't be used."""
     channel, email = bool(template.channel_command), bool(template.email_providers)
     sections = {s for s, has in (("channel", channel), ("email", email)) if has}
+    category = categories.parse(data.get("category"), sections, category_folder)
     return FoundServer(
         template.name,
         str(data.get("description", "")),
@@ -385,11 +391,12 @@ def _found(data: dict[str, Any], template: McpServer, folder: Path, category_fol
         bool(template.page_command),
         channel,
         version=str(data.get("version", "")),
-        category=categories.parse(data.get("category"), sections, category_folder),
+        category=category,
         email=email,
         steps=[str(s).strip() for s in data.get("steps", []) if str(s).strip()],
         model_login=template.model_login,
         agent=template.agent_command,
+        icon=icons.or_category(icons.parse(data.get("icon"), folder), category),
     )
 
 

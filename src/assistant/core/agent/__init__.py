@@ -23,6 +23,7 @@ from assistant.core.agent.mcp import (
     McpServerError,
     McpServerStatus,
     McpToolInfo,
+    PluginIcon,
 )
 from assistant.core.agent.memory import Episode, Fact, MemoryEditError, MemoryNotFoundError
 from assistant.core.agent.model import ModelOption, ModelProvider, ModelSettingsError, ModelStatus, ProviderField
@@ -104,6 +105,7 @@ __all__ = [
     "ModelStatus",
     "Notification",
     "PairingCode",
+    "PluginIcon",
     "PluginUpdate",
     "PromptEditError",
     "PromptSection",

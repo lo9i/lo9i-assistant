@@ -14,6 +14,7 @@
     categoryOf,
     describe,
     fromRepositories,
+    iconOf,
     keyOf,
     kindOf,
     runsOf,
@@ -24,6 +25,7 @@
   } from "$lib/plugins";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
+  import PluginIcon from "$lib/ui/PluginIcon.svelte";
   import SearchField from "$lib/ui/SearchField.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
   import PluginUpdatesSwitch from "$lib/ui/settings/PluginUpdatesSwitch.svelte";
@@ -180,7 +182,9 @@
                   {#each group.plugins as p (keyOf(p))}
                     <tr class:selected={plugin && keyOf(p) === keyOf(plugin)} onclick={() => (picked = keyOf(p))}>
                       <td>
-                        <button class="row-button" onclick={() => (picked = keyOf(p))}>{p.name}</button>
+                        <button class="row-button" onclick={() => (picked = keyOf(p))}
+                          ><span class="plugin-icon"><PluginIcon icon={iconOf(p)} size={16} /></span>{p.name}</button
+                        >
                         <span class="source" class:official={p.repository.official}>{sourceOf(p)}</span>
                         {#if describe(p)}<p class="text-caption row-description">{describe(p)}</p>{/if}
                       </td>
@@ -209,7 +213,9 @@
   <div class="column">
     {#if plugin}
       <section class="details surface--glass">
-        <header><h2 class="text-heading">{plugin.name}</h2></header>
+        <header>
+          <h2 class="text-heading title"><PluginIcon icon={iconOf(plugin)} size={22} />{plugin.name}</h2>
+        </header>
         {#if describe(plugin)}<p>{describe(plugin)}</p>{/if}
         <dl>
           <dt class="micro-label">Source</dt>
@@ -384,11 +390,23 @@
     box-shadow: inset 3px 0 0 var(--color-accent);
   }
   .row-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     border: 0;
     background: none;
     padding: 0;
     font-weight: 500;
     cursor: pointer;
+  }
+  .plugin-icon {
+    display: inline-flex;
+    color: var(--color-text-muted);
+  }
+  .title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
   .source {
     margin-left: 8px;

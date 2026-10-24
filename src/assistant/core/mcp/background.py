@@ -71,4 +71,4 @@ def ended(server: str, finished: WorkFinished) -> Ended:
     notice = f"{'✅' if finished.ok else '⚠️'} {server}: {short(text, _NOTICE)}"
     outcome = "finished" if finished.ok else "failed"
     note = f"The MCP server {server} says its background work {finished.work} {outcome}: {short(text, _NOTE)}"
-    return Ended(f"mcp:{server}:{finished.work}", finished.ok, notice, note, finished.follow_up)
+    return Ended(f"mcp:{server}:{finished.work}", finished.ok, notice, note, finished.follow_up, plugin=server)
