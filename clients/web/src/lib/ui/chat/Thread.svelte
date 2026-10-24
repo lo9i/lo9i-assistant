@@ -102,7 +102,7 @@
             {#if item.channel}<span class="micro-label">{item.channel}</span>{/if}
             {#if item.text}<p>{item.text}</p>{/if}
             {#each item.files as file (file)}
-              <span class="file"><Paperclip size={12} />{file}</span>
+              <span class="file"><Paperclip size={12} color="var(--color-accent)" />{file}</span>
             {/each}
           </div>
         </div>
