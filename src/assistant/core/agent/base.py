@@ -8,6 +8,7 @@ from assistant.core.bus import EventBus
 from assistant.core.channels.hub import ChannelHub
 from assistant.core.channels.processes import ChannelProcesses
 from assistant.core.conversation.digest import Digester
+from assistant.core.conversation.meanings import ConversationIndexer, SimilarConversations
 from assistant.core.conversation.memory_writer import MemoryWriter
 from assistant.core.conversation.titles import Titler
 from assistant.core.graph import Graph
@@ -57,9 +58,11 @@ class ServiceBase:
     pages: McpPages
     # Embeds new facts and episodes for memory search. The daemon runs it as a supervised task.
     memory_index: MemoryIndexer
+    conversation_index: ConversationIndexer
     # Digests archived parts of conversations into memory. The daemon runs it as a supervised task.
     memory_writer: MemoryWriter
     _recall: MemoryRecall
+    _similar: SimilarConversations
     # Checks the extras for newer plugin versions. The daemon runs it as a supervised task.
     update_checker: UpdateChecker
     # Encrypts accounts' passwords and tokens (core/secret_store.py).

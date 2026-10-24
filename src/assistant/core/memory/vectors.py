@@ -1,4 +1,5 @@
-"""The vectors of saved facts and episodes, in their own SQLite table.
+"""The vectors of saved facts and episodes, and of conversations (core/conversation/meanings.py), in their own
+SQLite table.
 
 Kept apart from the Store, so saving a memory never waits on (or fails with) the embedding model:
 the indexer (indexer.py) embeds what's new in the background.
@@ -9,7 +10,7 @@ from collections.abc import Iterable
 import aiosqlite
 import numpy as np
 
-# A memory by its kind ("fact" or "episode") and its key in the Store.
+# A memory by its kind ("fact", "episode", or "conversation") and its key.
 MemoryKey = tuple[str, str]
 
 _SCHEMA = """
@@ -50,10 +51,14 @@ class MemoryVectors:
         )
 
     async def nearest(self, user_id: str, kind: str, model: str, vector: list[float], limit: int) -> list[str]:
-        """Keys of the memories of `kind` closest in meaning to `vector`, closest first.
+        """Keys of the memories of `kind` closest in meaning to `vector`, closest first."""
+        return [key for key, _ in await self.ranked(user_id, kind, model, vector)][:limit]
+
+    async def ranked(self, user_id: str, kind: str, model: str, vector: list[float]) -> list[tuple[str, float]]:
+        """Every key of `kind` with how close it is to `vector` (the cosine similarity), closest first.
 
         Compared in numpy rather than with a SQLite vector extension: Python builds often can't load
-        extensions, and a few thousand memories take about a millisecond."""
+        extensions, and a few thousand vectors take about a millisecond."""
         sql = "SELECT key, embedding FROM memory_vectors WHERE user_id = ? AND kind = ? AND model = ?"
         async with self._conn.execute(sql, (user_id, kind, model)) as cursor:
             rows = list(await cursor.fetchall())
@@ -63,7 +68,13 @@ class MemoryVectors:
         scores = np.stack([np.frombuffer(blob, dtype=np.float32) for _, blob in rows]) @ np.asarray(
             vector, dtype=np.float32
         )
-        return [rows[i][0] for i in np.argsort(-scores)[:limit]]
+        return [(rows[i][0], float(scores[i])) for i in np.argsort(-scores)]
+
+    async def any(self, user_id: str, kind: str, model: str) -> bool:
+        """Whether any vector of `kind` was made by `model`."""
+        sql = "SELECT 1 FROM memory_vectors WHERE user_id = ? AND kind = ? AND model = ? LIMIT 1"
+        async with self._conn.execute(sql, (user_id, kind, model)) as cursor:
+            return await cursor.fetchone() is not None
 
 
 def _blob(vector: list[float]) -> bytes:

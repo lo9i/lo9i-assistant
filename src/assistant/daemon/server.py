@@ -78,6 +78,7 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         tasks.append(asyncio.create_task(supervise(service.channels_hub, stop)))
         tasks.append(asyncio.create_task(supervise(service.channel_processes, stop)))
         tasks.append(asyncio.create_task(supervise(service.memory_index, stop)))
+        tasks.append(asyncio.create_task(supervise(service.conversation_index, stop)))
         tasks.append(asyncio.create_task(supervise(service.memory_writer, stop)))
         tasks.append(asyncio.create_task(supervise(service.task_ends, stop)))
         tasks.append(asyncio.create_task(supervise(QueuedMessages(service, hub), stop)))

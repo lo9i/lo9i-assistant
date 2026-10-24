@@ -5,6 +5,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.store.base import BaseStore
 
 from assistant.core.bus import EventBus
+from assistant.core.conversation.meanings import SimilarConversations
 from assistant.core.conversation.search import MessageIndex
 from assistant.core.memory.recall import MemoryRecall
 from assistant.core.outbox import Outbox
@@ -52,6 +53,8 @@ class Context:
     search: MessageIndex | None = field(default=None, compare=False)
     # For searching saved facts and episodes by meaning.
     recall: MemoryRecall | None = field(default=None, compare=False)
+    # For routing from the inbox: the conversations closest in meaning to a message.
+    similar: SimilarConversations | None = field(default=None, compare=False)
     # For delegate. None inside a subagent, so subagents don't start their own.
     subagents: Subagents | None = field(default=None, compare=False)
     # For offer_plugin, which waits for the server the user just installed.

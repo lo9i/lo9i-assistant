@@ -66,7 +66,9 @@ def _dispatch_node(classify: Classifier, then: str) -> Node:
         inbox_id = await inbox.current(store, context.user_id)
         if inbox_id is None or thread_of(config) != inbox_id:
             return Command(goto=then)
-        found = await candidates(store, require_search(context), context.user_id, inbox_id, said(message))
+        found = await candidates(
+            store, require_search(context), context.user_id, inbox_id, said(message), context.similar
+        )
         exchange = state.get("inbox_exchange")
         pick = await _picked(classify, store, context.user_id, state["messages"], exchange, found)
         return _routed(state["messages"], exchange, pick, found, then)
@@ -117,7 +119,7 @@ async def _moving(classify: Classifier, runtime: Runtime[Context], dispatch_id: 
     inbox_id = await inbox.current(store, context.user_id)
     if kept is None or inbox_id is None:
         return Command(goto=END, update={"dispatching": None})
-    found = await candidates(store, require_search(context), context.user_id, inbox_id, kept.said)
+    found = await candidates(store, require_search(context), context.user_id, inbox_id, kept.said, context.similar)
     others = [c for c in found if c.thread_id != kept.sent_to]
     pick = await classify(kept.said, others, "")
     titles = {c.thread_id: c.title for c in others}

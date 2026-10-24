@@ -133,6 +133,7 @@ class RunsMixin(LockingMixin, SearchMixin):
             forwards_approvals=self.approvals.available,
             search=self._storage.search,
             recall=self._recall,
+            similar=self._similar,
             subagents=self._subagents,
             mcp=self.mcp,
         )

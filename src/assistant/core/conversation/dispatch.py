@@ -1,8 +1,8 @@
 """Where a message written in the inbox (core/inbox.py) goes: on in the conversation it continues, into a
 new one, or, for a quick question one answer settles, answered right in the inbox. The worker model picks
 among the conversations the message most likely continues (their tags matched as in related.py, then the
-most recent), with how sure it is; the graph moves it without asking (core/conversation/dispatch_nodes.py).
-Archived conversations are never picked."""
+closest in meaning, meanings.py, then the most recent), with how sure it is; the graph moves it without
+asking (core/conversation/dispatch_nodes.py). Archived conversations are never picked."""
 
 import re
 from collections.abc import Awaitable, Callable, Sequence
@@ -15,6 +15,7 @@ from langgraph.store.base import BaseStore
 
 from assistant.core import conversations
 from assistant.core.conversation import prompts, related
+from assistant.core.conversation.meanings import SimilarConversations
 from assistant.core.conversation.search import MessageIndex
 from assistant.core.llm import build_llm, metered
 from assistant.core.llm.choice import ModelChoice
@@ -23,8 +24,10 @@ from assistant.core.usage.meter import TokenMeter
 
 _PROMPT = prompts.load("dispatch")
 _EXCHANGE = prompts.load("dispatch_exchange")
-# The conversations the model chooses among: those the message's words match first, then the most recent.
+# The conversations the model chooses among: those the message's words match first, then those closest in
+# meaning, then the most recent.
 _CANDIDATES = 15
+_BY_MEANING = 3
 _OPENING_CHARS = 200
 _LINE = re.compile(r"^[^\w\n]*(pick|confidence|else)[^\w\n]*?:[^\w\n]*([\w.]+)", re.IGNORECASE | re.MULTILINE)
 
@@ -76,12 +79,21 @@ def build_classifier(choice: ModelChoice, usage: UsageLog) -> Classifier:
 
 
 async def candidates(
-    store: BaseStore, search: MessageIndex, user_id: str, inbox_id: str, message: str
+    store: BaseStore,
+    search: MessageIndex,
+    user_id: str,
+    inbox_id: str,
+    message: str,
+    similar: SimilarConversations | None = None,
 ) -> list[Candidate]:
-    """The conversations `message` may continue: those its words match, then the most recent."""
+    """The conversations `message` may continue: those its words match, then those closest in meaning (an older
+    one it continues in other words), then the most recent."""
     listed = [c for c in await conversations.recent(store, user_id) if c.thread_id != inbox_id and not c.archived]
     matched = related.matches(message, {c.thread_id: c.tags for c in listed})
-    ordered = [*matched, *(c.thread_id for c in listed if c.thread_id not in matched)][:_CANDIDATES]
+    others = [c.thread_id for c in listed if c.thread_id not in matched]
+    meant = await similar.nearest(user_id, message, others, _BY_MEANING) if similar else []
+    first = [*matched, *meant]
+    ordered = [*first, *(t for t in others if t not in first)][:_CANDIDATES]
     by_id = {c.thread_id: c for c in listed}
     openings = await search.first_user_messages(user_id, ordered)
     now = datetime.now(UTC)

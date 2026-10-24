@@ -45,6 +45,7 @@ from assistant.core.bus import EventBus
 from assistant.core.channels.hub import ChannelHub
 from assistant.core.channels.processes import ChannelProcesses
 from assistant.core.config import settings
+from assistant.core.conversation.meanings import ConversationIndexer, SimilarConversations
 from assistant.core.conversation.memory_writer import MemoryWriter
 from assistant.core.health import HealthLog
 from assistant.core.home.refresh import HomeRefresh
@@ -139,6 +140,8 @@ class AssistantService(
         embedder = E5Embedder()
         self.memory_index = MemoryIndexer(storage.store, storage.vectors, embedder, bus)
         self._recall = MemoryRecall(storage.store, storage.vectors, embedder)
+        self.conversation_index = ConversationIndexer(storage.store, storage.search, storage.vectors, embedder, bus)
+        self._similar = SimilarConversations(storage.vectors, embedder)
         self.memory_writer = MemoryWriter(
             storage.store, storage.checkpointer, bus, lambda: self._digester, self._recall
         )
