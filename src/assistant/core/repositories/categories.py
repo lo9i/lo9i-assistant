@@ -37,10 +37,15 @@ def plugin_folders(root: Path) -> list[Path]:
 def of_folder(root: Path, folder: Path) -> str:
     """The category whose folder holds this plugin's folder, or "" outside them."""
     try:
-        parent = PurePosixPath(folder.parent.relative_to(root).as_posix())
+        return of_path(folder.relative_to(root).as_posix())
     except ValueError:
         return ""
-    return str(parent) if str(parent) in CATEGORIES else ""
+
+
+def of_path(path: str) -> str:
+    """The category whose folder holds the plugin at this path in its repository, or "" outside them."""
+    parent = str(PurePosixPath(path).parent)
+    return parent if parent in CATEGORIES else ""
 
 
 def parse(value: object, sections: set[str], folder: str = "") -> str:

@@ -53,6 +53,7 @@ from assistant.core.home.schedule import HomeSchedule
 from assistant.core.llm import choice
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.mcp import folders, logins
+from assistant.core.mcp import install as plugin_install
 from assistant.core.mcp import keys as plugin_keys
 from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.hub import McpHub
@@ -174,6 +175,7 @@ class AssistantService(
             async with open_storage(settings.database_path, bus) as storage:
                 await choice.migrate(storage.store, secrets)
                 await plugin_keys.migrate(storage.store, secrets)
+                await plugin_install.add_missing_icons(storage.store, secrets)
                 await profile.migrate(storage.store)
                 await asyncio.to_thread(folders.remove_old_libraries)
                 service = cls(storage, await usable_choice(storage.store, secrets), bus, secrets)

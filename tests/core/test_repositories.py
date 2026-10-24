@@ -4,6 +4,7 @@ local folder; installed local servers really run."""
 import asyncio
 import re
 import shutil
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -16,7 +17,7 @@ from assistant.core.agent import (
     ServerValues,
     SkillError,
 )
-from assistant.core.mcp import keys, servers
+from assistant.core.mcp import install, keys, servers
 from assistant.core.repositories import check, checkout
 from assistant.core.repositories.icons import PluginIcon
 from assistant.core.repositories.source import Source
@@ -687,6 +688,23 @@ async def test_the_icon_reaches_the_listing_the_installed_server_and_its_status(
     assert (await servers.load(service.store, "hello")).icon == {"name": "", "svg": BRAND, "mono": False}
     [status] = [s for s in await service.mcp_servers() if s.name == "hello"]
     assert status.icon == PluginIcon(svg=BRAND)
+
+
+async def test_a_server_installed_before_icons_gets_its_icon_from_its_folder_at_start(service, repo):
+    manifest = (repo / "other" / "general" / "hello" / "server.yaml").read_text()
+    _write(repo / "other" / "general" / "hello", {"server.yaml": manifest + "icon: icon.svg\n", "icon.svg": BRAND})
+    _write(repo / "apps" / "media" / "films", {"server.yaml": "url: https://films.example.com/mcp"})
+    await service.install_from_repository(URL, [], [HELLO, ServerValues("films")])
+    for name in ("hello", "films"):
+        await servers.save(service.store, replace(await servers.load(service.store, name), icon={}))
+    await servers.save(service.store, McpServer("mine", url="https://mine.example.com/mcp"))
+    await install.add_missing_icons(service.store, service.secrets)
+    assert (await servers.load(service.store, "hello")).icon == {"name": "", "svg": BRAND, "mono": False}
+    assert (await servers.load(service.store, "films")).icon == {"name": "clapperboard", "svg": "", "mono": False}
+    assert (await servers.load(service.store, "mine")).icon == {}
+    assert (await keys.fill(service.store, service.secrets, await servers.load(service.store, "hello"))).env[
+        "HELLO_TOKEN"
+    ] == "s3cret"
 
 
 async def test_a_plugin_with_an_icon_that_cant_be_used_is_left_out_with_why(service, repo):

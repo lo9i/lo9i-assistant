@@ -268,6 +268,34 @@ def installed_version(name: str) -> str:
     return record.version if record else ""
 
 
+async def add_missing_icons(store: BaseStore, box: SecretBox) -> None:
+    """Give servers installed before icons existed the icon their installed folder declares, so the apps
+    stop showing the generic one before their next update. Run at start; once a record has its icon,
+    it's left alone."""
+    for server in await servers.load_all(store):
+        if not server.source or server.icon:
+            continue
+        icon = await asyncio.to_thread(installed_icon, server.name)
+        if icon is not None:
+            await keys.save(store, box, replace(server, icon=asdict(icon)))
+
+
+def installed_icon(name: str) -> icons.PluginIcon | None:
+    """The icon the server installed here declares in its folder, or its category's; None when its folder
+    or its server.yaml can't say."""
+    folder = folders.code(name)
+    source = folder_source.read(folder)
+    manifest = folder / SERVER_FILE
+    if source is None or not manifest.is_file():
+        return None
+    try:
+        data = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
+        category = _category(data, _template(data, name), categories.of_path(source.path))
+        return icons.or_category(icons.parse(data.get("icon"), folder), category)
+    except (yaml.YAMLError, TypeError, ValueError, McpServerError):
+        return None
+
+
 def uninstall(name: str) -> None:
     """Delete the server's installed code and its skill, if it has them. Its data stays, for
     installing it again, unless `delete_data` is called too."""
@@ -379,8 +407,7 @@ def _template(data: dict[str, Any], name: str) -> McpServer:
 def _found(data: dict[str, Any], template: McpServer, folder: Path, category_folder: str) -> FoundServer:
     """Raises ValueError for fields, a skill or a category that can't be used."""
     channel, email = bool(template.channel_command), bool(template.email_providers)
-    sections = {s for s, has in (("channel", channel), ("email", email)) if has}
-    category = categories.parse(data.get("category"), sections, category_folder)
+    category = _category(data, template, category_folder)
     return FoundServer(
         template.name,
         str(data.get("description", "")),
@@ -398,6 +425,12 @@ def _found(data: dict[str, Any], template: McpServer, folder: Path, category_fol
         agent=template.agent_command,
         icon=icons.or_category(icons.parse(data.get("icon"), folder), category),
     )
+
+
+def _category(data: dict[str, Any], template: McpServer, category_folder: str) -> str:
+    """Raises ValueError for a category that isn't in the list or that its sections don't allow."""
+    has = {"channel": bool(template.channel_command), "email": bool(template.email_providers)}
+    return categories.parse(data.get("category"), {s for s, present in has.items() if present}, category_folder)
 
 
 def _channel_protocol(value: object) -> int:
