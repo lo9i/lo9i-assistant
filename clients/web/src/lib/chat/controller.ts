@@ -5,7 +5,7 @@ import { ApiError } from "../api/errors";
 import { LiveConversation, type Conversations } from "../api/live";
 import type { ApprovalRequired, Decision, Dispatched, RunAnnounced, RunEvent, RunFinished, Session, ShownMessage } from "../api/types";
 import type { NoticeBoard } from "../notices";
-import { addCarried, addUser, apply, empty, endRun, endText, fromHistory, type Transcript } from "./transcript";
+import { addCarried, addNotice, addUser, apply, empty, endRun, endText, fromHistory, type Transcript } from "./transcript";
 
 /** The DaemonClient calls the chat needs. */
 export interface ChatClient extends Conversations {
@@ -176,6 +176,7 @@ export class ChatController {
     // Another client answered what this page is asking, and goes on with the run there.
     if (this.decide !== null) this.ownRun?.abort();
     if (run.text) this.set({ transcript: addUser(this.state.transcript, run.text, [], run.channel) });
+    if (run.notice) this.set({ transcript: addNotice(this.state.transcript, run.notice) });
     const mirror = new AbortController();
     this.mirrors.add(mirror);
     await this.show(mirror, () => this.render(this.client.followRun(run.run_id, mirror.signal)));

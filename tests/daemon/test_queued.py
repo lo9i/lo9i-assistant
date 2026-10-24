@@ -23,7 +23,7 @@ async def test_a_waiting_message_is_sent_once_the_run_ends_and_one_left_at_start
     stop = asyncio.Event()
     sending = asyncio.create_task(QueuedMessages(service, RunHub(service.bus)).run(stop))
     run = await _announced(service, after, left)
-    assert (run["text"], run["channel"], run["client_id"]) == ("from before the restart", "web", "")
+    assert (run["text"], run["channel"], run["client_id"], run["notice"]) == ("from before the restart", "web", "", "")
     await queued.add(service.store, "owner", waiting, Queued("telegram", "the task"))
     after = service.bus.last_id
     service.bus.publish("run_finished", run_id="r1", thread_id=waiting, channel="web", status="ok", reply="")
@@ -44,6 +44,7 @@ async def test_a_follow_up_runs_at_once_where_nothing_runs_and_isnt_shown_as_the
     after = service.bus.last_id
     await queued.add(service.store, "owner", "owner:photos", Queued("web", "⚠️ photos: failed", True))
     run = await _announced(service, after, "owner:photos")
-    assert (run["text"], run["channel"]) == ("", "web")
+    # Announced with what it follows up on, which the apps show live where the user's message would be.
+    assert (run["text"], run["notice"], run["channel"]) == ("", "⚠️ photos: failed", "web")
     stop.set()
     await sending

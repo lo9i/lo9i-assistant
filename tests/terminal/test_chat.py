@@ -488,3 +488,20 @@ async def test_a_run_that_ends_in_this_conversation_is_asked_about_when_it_waits
         await pilot.press("escape")
         await wait_for(pilot, lambda: client.decisions is not None and not app._busy)
         assert client.decisions["i8"]["approved"] is False
+
+
+async def test_a_follow_up_run_shows_what_it_follows_up_on_as_it_starts(app, client):
+    from assistant_terminal.tui.widgets import FollowUpNote
+
+    async def follow_up():
+        yield TextDelta("The conversion failed; I'll retry with a smaller file.")
+        yield Done()
+
+    client.runs["r2"] = follow_up
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        thread_id = app._live.session.thread_id
+        run = {"run_id": "r2", "thread_id": thread_id, "channel": "web", "client_id": "", "text": ""}
+        await client.bus.put(("run", run | {"notice": "⚠️ convert: it failed"}))
+        await wait_for(pilot, lambda: app.query(FollowUpNote) and app.query(AssistantMessage))
+        assert "convert: it failed" in str(app.query_one(FollowUpNote).render())

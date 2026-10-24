@@ -38,16 +38,30 @@ class RunHub:
         self._tasks: set[asyncio.Task] = set()
 
     def start(
-        self, thread_id: str, events: AsyncIterator[Event], channel: str = "", client_id: str = "", text: str = ""
+        self,
+        thread_id: str,
+        events: AsyncIterator[Event],
+        channel: str = "",
+        client_id: str = "",
+        text: str = "",
+        notice: str = "",
     ) -> Run:
         """Start consuming a run. Other clients hear about it on the bus, so a conversation shown
         in several places (two terminals, Telegram) updates everywhere. `client_id` names the
-        client that started it, which already shows it."""
+        client that started it, which already shows it. `text` is what the user wrote; `notice`, for a
+        follow-up the assistant runs on its own (core/agent/follow_ups.py), what it follows up on, which the
+        apps show where the user's message would be."""
         run = Run(id=uuid4().hex, thread_id=thread_id, channel=channel)
         self._runs[run.id] = run
         if self._bus is not None:
             self._bus.publish(
-                "run", run_id=run.id, thread_id=thread_id, channel=channel, client_id=client_id, text=text
+                "run",
+                run_id=run.id,
+                thread_id=thread_id,
+                channel=channel,
+                client_id=client_id,
+                text=text,
+                notice=notice,
             )
         task = asyncio.create_task(self._consume(run, events))
         self._tasks.add(task)

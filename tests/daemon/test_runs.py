@@ -43,6 +43,7 @@ async def test_starting_a_run_is_announced_on_the_bus():
         "channel": "web",
         "client_id": "tab-1",
         "text": "hi",
+        "notice": "",
     }
 
 

@@ -140,7 +140,15 @@ export type RunEvent =
 
 /** A `run` bus event: a run started by any client or channel. `client_id` is empty for a channel
  * without a client (Telegram). */
-export type RunAnnounced = { run_id: string; thread_id: string; channel: string; client_id: string; text: string };
+/** A `run` bus event. `notice`: for a follow-up the assistant runs on its own, what it follows up on. */
+export type RunAnnounced = {
+  run_id: string;
+  thread_id: string;
+  channel: string;
+  client_id: string;
+  text: string;
+  notice?: string;
+};
 
 /** A `run_finished` bus event. */
 export type RunFinished = { run_id: string; thread_id: string; channel: string; status: string; reply: string };

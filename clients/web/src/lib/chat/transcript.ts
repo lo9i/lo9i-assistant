@@ -48,6 +48,12 @@ export function finalReply(t: Transcript): string {
     .trim();
 }
 
+/** What a follow-up the assistant runs on its own follows up on (background work that ended), where the user's
+ * message would be, as history shows it. */
+export function addNotice(t: Transcript, text: string): Transcript {
+  return add({ ...t, streaming: null }, { kind: "notice", text });
+}
+
 /** A quick exchange the inbox carried here, shown before the message that followed it up. */
 export function addCarried(t: Transcript, text: string): Transcript {
   return add({ ...t, streaming: null }, { kind: "carried", text });

@@ -46,6 +46,7 @@ class QueuedMessages:
         session = Session(settings.owner_id, waiting.channel, thread_id)
         if waiting.follow_up:
             # The message isn't the user's: the apps show its notice from the conversation, not as theirs.
-            self._hub.start(thread_id, self._service.follow_up(session, waiting.text), waiting.channel)
+            follow_up = self._service.follow_up(session, waiting.text)
+            self._hub.start(thread_id, follow_up, waiting.channel, notice=waiting.text)
             return
         self._hub.start(thread_id, self._service.send(session, waiting.text), waiting.channel, text=waiting.text)

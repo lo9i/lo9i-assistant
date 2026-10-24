@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RunEvent } from "../api/types";
-import { addCarried, addUser, apply, empty, endRun, fromHistory, inlineArg, toolRunning } from "./transcript";
+import { addCarried, addNotice, addUser, apply, empty, endRun, fromHistory, inlineArg, toolRunning } from "./transcript";
 
 const play = (events: RunEvent[]) => events.reduce(apply, addUser(empty, "hi", []));
 const kinds = (events: RunEvent[]) => play(events).items.map((item) => item.kind);
@@ -15,6 +15,8 @@ describe("transcript", () => {
     const followed = fromHistory([{ role: "notice", text: "⚠️ convert: it failed", detail: "", output: "", dispatch_id: "" }]);
     expect(followed.items[0]).toMatchObject({ kind: "notice", text: "⚠️ convert: it failed" });
     expect(addCarried(empty, "**You:** how far?").items[0]).toMatchObject({ kind: "carried", text: "**You:** how far?" });
+    // A follow-up run started elsewhere shows what it follows up on as it starts, as history does.
+    expect(addNotice(empty, "⚠️ convert: it failed").items[0]).toMatchObject({ kind: "notice", text: "⚠️ convert: it failed" });
   });
 
   it("streams text into one message until another event arrives", () => {

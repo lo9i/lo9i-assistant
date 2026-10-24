@@ -79,6 +79,7 @@ from assistant_terminal.tui.turn import TurnView
 from assistant_terminal.tui.widgets import (
     CarriedNote,
     ConnectionNote,
+    FollowUpNote,
     MemoryPanel,
     MouseStatus,
     StatusLine,
@@ -236,7 +237,9 @@ class AssistantApp(App):
         self.notify(f"Job {job['name']}: {job['status']}", severity=severity)
 
     def show_background_ended(self, ended: dict[str, Any]) -> None:
-        self.notify(ended["text"], severity="information" if ended["ok"] else "warning", timeout=10)
+        """A toast can't be opened: /notifications opens the conversation it ended in."""
+        text = f"{ended['text']} (/notifications opens it)"
+        self.notify(text, severity="information" if ended["ok"] else "warning", timeout=10)
 
     def show_failing(self, failing: dict[str, Any]) -> None:
         what, where = ("MCP server", "/mcp") if failing["area"] == "mcp" else ("skill", "/skills")
@@ -262,6 +265,8 @@ class AssistantApp(App):
     async def _mirror(self, run: dict[str, Any]) -> None:
         if run["text"]:
             await self._chat.mount(UserMessage(f"[{run['channel']}] {run['text']}", []))
+        if run.get("notice"):
+            await self._chat.mount(FollowUpNote(run["notice"]))
         await TurnView(self._chat, self._status).render(self._service.follow_run(run["run_id"]))
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
