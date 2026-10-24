@@ -3,6 +3,7 @@
   import type { TokenReport, TokenRow } from "$lib/api/types";
   import { resource } from "$lib/daemon.svelte";
   import EmptyState from "./EmptyState.svelte";
+  import TokenLine from "./TokenLine.svelte";
 
   let { days }: { days: number } = $props();
 
@@ -37,6 +38,21 @@
     return tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k` : String(tokens);
   }
 
+  // One point per day of the period, days without calls at 0.
+  function series(key: "input_tokens" | "output_tokens") {
+    const byDay = new Map(((report.data as TokenReport | undefined)?.by_day ?? []).map((r) => [r.name, r[key]]));
+    const out: { day: string; value: number }[] = [];
+    const now = new Date();
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      out.push({ day, value: byDay.get(day) ?? 0 });
+    }
+    return out;
+  }
+  const inputSeries = $derived(series("input_tokens"));
+  const outputSeries = $derived(series("output_tokens"));
+
   function money(dollars: number | null | undefined): string {
     return dollars == null ? "No price" : `$${dollars.toFixed(2)}`;
   }
@@ -60,15 +76,15 @@
     </div>
     <div class="tile surface--glass">
       <span class="micro-label">Input tokens</span>
-      <span class="value">{count(total.input_tokens)}</span>
+      <TokenLine points={inputSeries} label="Input tokens per day" />
       <span class="text-caption">
-        {total.input_tokens ? Math.round((100 * total.cache_read_tokens) / total.input_tokens) : 0}% read from the cache
+        {count(total.input_tokens)} total · {total.input_tokens ? Math.round((100 * total.cache_read_tokens) / total.input_tokens) : 0}% from the cache
       </span>
     </div>
     <div class="tile surface--glass">
       <span class="micro-label">Output tokens</span>
-      <span class="value">{count(total.output_tokens)}</span>
-      <span class="text-caption">replies and tool calls</span>
+      <TokenLine points={outputSeries} label="Output tokens per day" />
+      <span class="text-caption">{count(total.output_tokens)} total · replies and tool calls</span>
     </div>
     <div class="tile surface--glass">
       <span class="micro-label">Cost</span>
