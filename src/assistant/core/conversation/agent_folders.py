@@ -30,7 +30,7 @@ class FolderListing:
     path: str
     # None at the root.
     parent: str | None
-    # Full paths of the folders inside, by name; hidden ones left out.
+    # Full paths of the folders inside, by name; hidden ones (named with a dot) only when asked for.
     children: list[str]
 
 
@@ -60,13 +60,14 @@ async def remember(store: BaseStore, user_id: str, folder: Path) -> None:
     await store.aput(_namespace(user_id), _KEY, {"folders": [str(folder), *saved][:_RECENT_LIMIT]})
 
 
-async def children(folder: str) -> FolderListing:
-    """Raises FolderError when `folder` isn't an existing folder given by its full path, or can't be read."""
+async def children(folder: str, hidden: bool = False) -> FolderListing:
+    """The folders inside `folder`, hidden ones too when `hidden`. Raises FolderError when `folder` isn't an
+    existing folder given by its full path, or can't be read."""
     where = Path(folder).expanduser()
     if not where.is_absolute():
         raise FolderError(f"{folder} isn't a full path.")
     try:
-        inside = await asyncio.to_thread(_folders_in, where)
+        inside = await asyncio.to_thread(_folders_in, where, hidden)
     except OSError as e:
         raise FolderError(f"Can't read {folder}: {e.strerror or e}") from e
     return FolderListing(str(where), str(where.parent) if where.parent != where else None, inside)
@@ -76,8 +77,8 @@ async def ensure_workspace() -> None:
     await asyncio.to_thread(workspace().mkdir, parents=True, exist_ok=True)
 
 
-def _folders_in(where: Path) -> list[str]:
-    found = (p for p in where.iterdir() if not p.name.startswith(".") and p.is_dir())
+def _folders_in(where: Path, hidden: bool) -> list[str]:
+    found = (p for p in where.iterdir() if (hidden or not p.name.startswith(".")) and p.is_dir())
     return sorted((str(p) for p in found), key=lambda p: Path(p).name.lower())
 
 

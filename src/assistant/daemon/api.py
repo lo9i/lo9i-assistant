@@ -723,10 +723,11 @@ def _add_handoff_routes(app: FastAPI, service: AssistantService) -> None:
         return await service.agent_folders(settings.owner_id)
 
     @app.get("/agents/folders/children")
-    async def child_folders(path: str) -> FolderListing:
-        """The folders inside `path`, to browse to one. 400: not a full path, or it can't be read."""
+    async def child_folders(path: str, hidden: bool = False) -> FolderListing:
+        """The folders inside `path`, to browse to one; hidden ones (named with a dot) too when `hidden`. 400: not
+        a full path, or it can't be read."""
         try:
-            return await service.child_folders(path)
+            return await service.child_folders(path, hidden)
         except FolderError as e:
             raise HTTPException(400, str(e)) from e
 

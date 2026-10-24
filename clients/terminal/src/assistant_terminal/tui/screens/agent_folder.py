@@ -1,6 +1,6 @@
 """Picking the folder a conversation is handed to an agent in (/claude alone), so the user never types a
-path: the agents' workspace, the folders used before, or browsing to one from the home folder. Returns
-the picked folder's full path, or None."""
+path: the agents' workspace, the folders used before, or browsing to one from the home folder, hidden
+folders (named with a dot) only after Show hidden. Returns the picked folder's full path, or None."""
 
 from pathlib import Path
 from typing import ClassVar
@@ -28,6 +28,9 @@ class AgentFolderScreen(ModalScreen[str | None]):
         super().__init__()
         self._conversations = conversations
         self._agent_name = agent_name
+        self._hidden = False
+        # The folder being browsed; None before browsing.
+        self._browsing: str | None = None
 
     def compose(self) -> ComposeResult:
         with Vertical(id="agent-folder"):
@@ -35,6 +38,7 @@ class AgentFolderScreen(ModalScreen[str | None]):
             yield Static(id="agent-folder-path", markup=False)
             yield OptionList(id="agent-folder-options")
             with Horizontal(id="agent-folder-buttons"):
+                yield Button("Show hidden", id="hidden")
                 yield Button("Close (esc)", id="close")
 
     @reports_daemon_unavailable
@@ -49,8 +53,15 @@ class AgentFolderScreen(ModalScreen[str | None]):
         elif chosen.startswith(_BROWSE):
             await self._browse(chosen.removeprefix(_BROWSE))
 
-    def on_button_pressed(self, _: Button.Pressed) -> None:
-        self.action_close()
+    @reports_daemon_unavailable
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id != "hidden":
+            self.action_close()
+            return
+        self._hidden = not self._hidden
+        event.button.label = "Hide hidden" if self._hidden else "Show hidden"
+        if self._browsing is not None:
+            await self._browse(self._browsing)
 
     def action_close(self) -> None:
         self.dismiss(None)
@@ -64,10 +75,11 @@ class AgentFolderScreen(ModalScreen[str | None]):
 
     async def _browse(self, path: str) -> None:
         try:
-            listing = await self._conversations.child_folders(path)
+            listing = await self._conversations.child_folders(path, self._hidden)
         except FolderError as e:
             self.notify(str(e), severity="error")
             return
+        self._browsing = listing.path
         options = [Option("Use this folder", id=_PICK + listing.path)]
         if listing.parent is not None:
             options.append(Option(".. up", id=_BROWSE + listing.parent))

@@ -139,9 +139,11 @@ export class ConversationsGroup {
     return this.transport.request("GET", "/agents/folders");
   }
 
-  /** The folders inside `path`, to browse to one. Throws ApiError (400) when it isn't a full path or can't be read. */
-  childFolders(path: string): Promise<FolderListing> {
-    return this.transport.request("GET", `/agents/folders/children?path=${encodeURIComponent(path)}`);
+  /** The folders inside `path`, to browse to one; hidden ones (named with a dot) too when `hidden`. Throws ApiError
+   * (400) when it isn't a full path or can't be read. */
+  childFolders(path: string, hidden = false): Promise<FolderListing> {
+    const query = `path=${encodeURIComponent(path)}${hidden ? "&hidden=true" : ""}`;
+    return this.transport.request("GET", `/agents/folders/children?${query}`);
   }
 
   /** The agent the conversation is handed to; null while the assistant answers. */

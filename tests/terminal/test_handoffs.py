@@ -1,4 +1,4 @@
-from textual.widgets import Input, OptionList
+from textual.widgets import Button, Input, OptionList
 
 from assistant_terminal.tui.screens import AgentFolderScreen
 from tests.terminal.conftest import wait_for
@@ -62,6 +62,22 @@ async def test_claude_alone_browses_to_a_new_project(app, client):
         await pilot.press("enter")
         await wait_for(pilot, lambda: thread_id in client.conversations.handoffs)
         assert client.conversations.handoffs[thread_id].folder == "/home/me/projects/new"
+
+
+async def test_hidden_folders_show_only_after_show_hidden(app, client):
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: "/claude" in app._agents)
+        await pilot.click("#prompt")
+        await pilot.press(*"/claude", "enter", "enter")
+        await wait_for(pilot, lambda: "Browse…" in _options(app))
+        await pilot.press("end", "enter")
+        await wait_for(pilot, lambda: "projects/" in _options(app))
+        assert ".config/" not in _options(app)
+        app.screen.query_one("#hidden", Button).press()
+        await wait_for(pilot, lambda: ".config/" in _options(app))
+        assert str(app.screen.query_one("#hidden", Button).label) == "Hide hidden"
+        app.screen.query_one("#hidden", Button).press()
+        await wait_for(pilot, lambda: ".config/" not in _options(app))
 
 
 def _options(app) -> list[str]:

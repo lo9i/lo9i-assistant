@@ -745,12 +745,15 @@ class FakeConversations:
     async def agent_folders(self):
         return AgentFolders("/home/me/.lo9i/claude-workspace", ["/home/me/projects/app"], "/home/me")
 
-    async def child_folders(self, path):
+    async def child_folders(self, path, hidden=False):
         inside = {
             "/home/me": ["/home/me/projects"],
             "/home/me/projects": ["/home/me/projects/app", "/home/me/projects/new"],
         }
-        return FolderListing(path, str(Path(path).parent), inside.get(path, []))
+        found = inside.get(path, [])
+        if hidden and path == "/home/me":
+            found = ["/home/me/.config", *found]
+        return FolderListing(path, str(Path(path).parent), found)
 
     async def hand_to(self, thread_id, command, folder):
         if not folder.startswith("/"):

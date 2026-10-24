@@ -1356,7 +1356,7 @@
     "/agents/folders/children": {
       "get": {
         "summary": "Child Folders",
-        "description": "The folders inside `path`, to browse to one. 400: not a full path, or it can't be read.",
+        "description": "The folders inside `path`, to browse to one; hidden ones (named with a dot) too when `hidden`. 400: not\na full path, or it can't be read.",
         "operationId": "child_folders_agents_folders_children_get",
         "parameters": [
           {
@@ -1366,6 +1366,16 @@
             "schema": {
               "type": "string",
               "title": "Path"
+            }
+          },
+          {
+            "name": "hidden",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Hidden"
             }
           }
         ],

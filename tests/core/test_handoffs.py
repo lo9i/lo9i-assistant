@@ -242,6 +242,13 @@ async def test_browsing_lists_the_folders_inside_without_hidden_ones_or_files(se
             await service.child_folders(wrong)
 
 
+async def test_hidden_folders_are_listed_when_asked_for(service, tmp_path):
+    root = tmp_path / "browsed"
+    for name in ("b", ".config"):
+        (root / name).mkdir(parents=True)
+    assert (await service.child_folders(str(root), hidden=True)).children == [str(root / ".config"), str(root / "b")]
+
+
 async def test_each_message_continues_the_agents_session_in_that_folder(service, tmp_path):
     session = await _handed(service, tmp_path)
     first = await collect(service.send(session, "session"))

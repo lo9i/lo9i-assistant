@@ -66,9 +66,9 @@ class HandoffsMixin(RunsMixin):
         """The folders the apps offer to hand a conversation to: the workspace and the ones used before."""
         return await agent_folders.offered(self._storage.store, user_id)
 
-    async def child_folders(self, folder: str) -> FolderListing:
-        """The folders inside `folder`, to browse to one. Raises FolderError."""
-        return await agent_folders.children(folder)
+    async def child_folders(self, folder: str, hidden: bool = False) -> FolderListing:
+        """The folders inside `folder`, to browse to one; hidden ones too when `hidden`. Raises FolderError."""
+        return await agent_folders.children(folder, hidden)
 
     async def take_back_conversation(self, user_id: str, thread_id: str) -> None:
         await handoffs.take_back(self._storage.store, user_id, thread_id)

@@ -26,3 +26,16 @@ describe("ConversationsGroup.messageAgent", () => {
     expect(form.getAll("files")).toHaveLength(1);
   });
 });
+
+describe("ConversationsGroup.childFolders", () => {
+  it("leaves hidden folders out unless asked for them", async () => {
+    const { transport, request } = recording();
+    const conversations = new ConversationsGroup(transport);
+    await conversations.childFolders("/Users/me");
+    await conversations.childFolders("/Users/me", true);
+    expect(request.mock.calls.map((call) => call[1])).toEqual([
+      "/agents/folders/children?path=%2FUsers%2Fme",
+      "/agents/folders/children?path=%2FUsers%2Fme&hidden=true",
+    ]);
+  });
+});

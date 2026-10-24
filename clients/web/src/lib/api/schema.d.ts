@@ -695,7 +695,8 @@ export interface paths {
         };
         /**
          * Child Folders
-         * @description The folders inside `path`, to browse to one. 400: not a full path, or it can't be read.
+         * @description The folders inside `path`, to browse to one; hidden ones (named with a dot) too when `hidden`. 400: not
+         *     a full path, or it can't be read.
          */
         get: operations["child_folders_agents_folders_children_get"];
         put?: never;
@@ -5257,6 +5258,7 @@ export interface operations {
         parameters: {
             query: {
                 path: string;
+                hidden?: boolean;
             };
             header?: never;
             path?: never;

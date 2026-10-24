@@ -13,6 +13,8 @@
   const { client, notices } = useDaemon();
   let folders = $state<AgentFolders | null>(null);
   let listing = $state<FolderListing | null>(null);
+  // Folders named with a dot (.config, .local) are left out unless the user asks.
+  let showHidden = $state(false);
   const view = $derived(folderView(folders, listing));
 
   $effect(() => {
@@ -24,7 +26,7 @@
 
   async function browse(path: string): Promise<void> {
     try {
-      listing = await client.conversations.childFolders(path);
+      listing = await client.conversations.childFolders(path, showHidden);
     } catch (e) {
       notices.report(e);
     }
@@ -49,6 +51,13 @@
     {/each}
     {#if view.empty}<p class="text-meta">No folders inside.</p>{/if}
   </div>
+  {#if listing}
+    {@const here = listing.path}
+    <label class="hidden-toggle text-meta">
+      <input type="checkbox" bind:checked={showHidden} onchange={() => browse(here)} />
+      Show hidden folders
+    </label>
+  {/if}
   {#snippet footer()}
     <button class="btn btn--ghost" onclick={close}>Cancel</button>
     {#if view.primary}
@@ -74,5 +83,12 @@
   }
   .path {
     margin-left: auto;
+  }
+  .hidden-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    cursor: pointer;
   }
 </style>

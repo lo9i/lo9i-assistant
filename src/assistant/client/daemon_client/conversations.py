@@ -69,10 +69,11 @@ class ConversationsApi:
         """The folders to offer for /<command>: the workspace and the ones used before."""
         return AgentFolders(**await self._transport.request("GET", "/agents/folders"))
 
-    async def child_folders(self, path: str) -> FolderListing:
-        """The folders inside `path`, to browse to one. Raises FolderError."""
+    async def child_folders(self, path: str, hidden: bool = False) -> FolderListing:
+        """The folders inside `path`, to browse to one; hidden ones too when `hidden`. Raises FolderError."""
+        params = {"path": path, "hidden": "true"} if hidden else {"path": path}
         found = await self._transport.request(
-            "GET", "/agents/folders/children", params={"path": path}, errors={400: FolderError}
+            "GET", "/agents/folders/children", params=params, errors={400: FolderError}
         )
         return FolderListing(**found)
 
