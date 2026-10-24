@@ -261,9 +261,10 @@
   <StatusBar>
     <WorkingStatus threadId={snapshot.current.threadId} />
     <ConversationStats threadId={snapshot.current.threadId} />
-    <ModelStatus />
     {#if handoff.data}
       <AgentStatus handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")} />
+    {:else}
+      <ModelStatus />
     {/if}
   </StatusBar>
   {#if dragging > 0}<div class="drop-hint" aria-hidden="true">Drop files to attach them</div>{/if}
