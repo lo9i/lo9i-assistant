@@ -77,7 +77,7 @@ def is_too_large(state: Mapping[str, Any]) -> bool:
 
 
 def estimate_tokens(state: Mapping[str, Any]) -> int:
-    """Size of the next request (H3): the token count the API reported for the last call,
+    """Size of the next request: the token count the API reported for the last call,
     plus an estimate for messages added since. Falls back to a character estimate when the
     epoch has no reported count yet."""
     anchor = state.get("usage_anchor")

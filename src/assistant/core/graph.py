@@ -51,7 +51,7 @@ class AgentState(MessagesState):
     epoch_summary: str
     epoch_started_at: str
     last_activity: str
-    # Reported token count of the last model call (H3). Cleared when an epoch starts.
+    # Reported token count of the last model call. Cleared when an epoch starts.
     usage_anchor: dict | None
     # When the last model call was, and before which message tool results are sent as stubs
     # (conversation/trim.py).
