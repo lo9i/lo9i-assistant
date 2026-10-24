@@ -158,13 +158,6 @@
     gap: 6px;
     padding: 20px 24px;
   }
-  .value {
-    font-size: 28px;
-    font-weight: 700;
-    line-height: 1;
-    letter-spacing: -0.02em;
-    font-variant-numeric: tabular-nums;
-  }
   .table-card {
     overflow: hidden;
   }
