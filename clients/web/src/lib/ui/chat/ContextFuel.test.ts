@@ -31,6 +31,7 @@ describe("ContextFuel", () => {
   it("shows how full the assistant's context is", () => {
     const { body } = render(ContextFuel, { props: { threadId: "t1" } });
     expect(body).toContain("Context: 30k / 120k tokens (25%). Older messages are summarized when it's full.");
+    expect(body).toMatch(/<span class="percent[^"]*">25%<\/span>/);
   });
 
   it("shows the agent's context while the conversation is handed to it", () => {

@@ -15,10 +15,11 @@
   const ratio = $derived(shown ? Math.min(1, shown.context_tokens / shown.context_limit) : 0);
   const SEGMENTS = 24;
   const filled = $derived(Math.round(ratio * SEGMENTS));
+  const percent = $derived(Math.round(ratio * 100));
   const color = $derived(ratio > 0.9 ? "#e5534b" : ratio > 0.7 ? "#e5b931" : "var(--color-accent)");
   const title = $derived.by(() => {
     if (!shown) return "";
-    const figures = `${compact(shown.context_tokens)} / ${compact(shown.context_limit)} tokens (${Math.round(ratio * 100)}%)`;
+    const figures = `${compact(shown.context_tokens)} / ${compact(shown.context_limit)} tokens (${percent}%)`;
     return shown.context_agent
       ? `${shown.context_agent}'s context: ${figures}, as of its last answer. It compacts older messages as it nears full.`
       : `Context: ${figures}. Older messages are summarized when it's full.`;
@@ -30,6 +31,7 @@
     {#each Array(SEGMENTS) as _, i (i)}
       <span class="seg" style="background: {color}; opacity: {i < filled ? 1 : 0.25}"></span>
     {/each}
+    <span class="percent">{percent}%</span>
   </span>
 {/if}
 
@@ -39,8 +41,11 @@
     align-items: center;
     gap: 2px;
     height: 10px;
-    transform: translateY(-1px);
     cursor: default;
+  }
+  .percent {
+    margin-left: 4px;
+    font-variant-numeric: tabular-nums;
   }
   .seg {
     width: 3px;
