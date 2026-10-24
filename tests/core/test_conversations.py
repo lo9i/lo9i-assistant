@@ -134,6 +134,20 @@ async def test_a_tool_call_shows_its_start_and_loads_in_full(service, script):
         await service.conversation_tool_call(session.thread_id, "nope")
 
 
+async def test_messages_before_a_run_in_progress_stop_where_it_started(service, script):
+    script.reply("Hello.").call("bash", command="echo hi").reply("Said hi.")
+    await _say(service, "hello")
+    session = await service.session("owner", "cli")
+    run = service.send(session, "say hi")
+    await anext(run)  # its first tool call: the run is in progress, and its message saved
+    texts = [m.text for m in await service.conversation_messages(session.thread_id)]
+    assert texts[:3] == ["hello", "Hello.", "say hi"]
+    assert [m.text for m in await service.messages_before_run(session.thread_id)] == ["hello", "Hello."]
+    await collect(run)
+    after = [m.text for m in await service.messages_before_run(session.thread_id)]
+    assert after == ["hello", "Hello.", "say hi", "bash", "Said hi."]
+
+
 async def test_leaving_a_conversation_again_archives_only_what_is_new(service, script, digests):
     session = await service.session("owner", "cli")
     await _say(service, "one")

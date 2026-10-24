@@ -62,6 +62,7 @@ import type {
   ServerValues,
   Session,
   ShownCall,
+  ShownConversation,
   ShownMessage,
   ShutdownStatus,
   SignedIn,
@@ -96,6 +97,12 @@ export class ConversationsGroup {
 
   messages(threadId: string): Promise<ShownMessage[]> {
     return this.transport.request("GET", `/conversations/${encodeURIComponent(threadId)}/messages`);
+  }
+
+  /** Its messages up to its runs in progress, and those runs, oldest first, to follow from their start (`followRun`)
+   * as if the page had been watching them. */
+  live(threadId: string): Promise<ShownConversation> {
+    return this.transport.request("GET", `/conversations/${encodeURIComponent(threadId)}/live`);
   }
 
   /** A tool call in full, which `messages` shows only the start of when it's `partial`. Throws ApiError (404) when

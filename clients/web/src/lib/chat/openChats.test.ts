@@ -48,7 +48,7 @@ class Daemon {
       resume: empty,
       followRun: empty,
       cancel: async () => true,
-      conversations: { messages: async () => [], approvals: async () => [] },
+      conversations: { live: async () => ({ messages: [], runs: [] }), approvals: async () => [] },
     };
   };
 

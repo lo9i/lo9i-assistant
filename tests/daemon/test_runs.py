@@ -87,3 +87,18 @@ async def test_only_runs_in_progress_are_listed_as_running():
     release.set()
     [_ async for _ in hub.follow(waits, 0)]
     assert hub.running() == []
+
+
+async def test_runs_in_progress_are_listed_per_conversation_with_how_they_were_announced():
+    hub = RunHub()
+    release = asyncio.Event()
+
+    async def waiting():
+        await release.wait()
+        yield Done()
+
+    here = hub.start("t1", waiting(), channel="telegram", client_id="", text="hi", notice="")
+    elsewhere = hub.start("t2", waiting())
+    assert hub.running("t1") == [here] and hub.running() == [here, elsewhere]
+    assert (here.channel, here.text) == ("telegram", "hi")
+    release.set()

@@ -687,6 +687,46 @@
         }
       }
     },
+    "/conversations/{thread_id}/live": {
+      "get": {
+        "summary": "Live Conversation",
+        "description": "Its messages up to its runs in progress, and those runs, oldest first, which a client follows from\ntheir start (`/runs/<id>/events`) to show them as if it had been watching.",
+        "operationId": "live_conversation_conversations__thread_id__live_get",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShownConversation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/runs/{run_id}/events": {
       "get": {
         "summary": "Run Events",
@@ -7996,6 +8036,21 @@
           "channel": {
             "type": "string",
             "title": "Channel"
+          },
+          "client_id": {
+            "type": "string",
+            "title": "Client Id",
+            "default": ""
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          },
+          "notice": {
+            "type": "string",
+            "title": "Notice",
+            "default": ""
           }
         },
         "type": "object",
@@ -8253,6 +8308,31 @@
         ],
         "title": "ShownCall",
         "description": "A tool call of the assistant's in full, loaded when the user opens it."
+      },
+      "ShownConversation": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ShownMessage"
+            },
+            "type": "array",
+            "title": "Messages"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/RunInProgress"
+            },
+            "type": "array",
+            "title": "Runs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "messages",
+          "runs"
+        ],
+        "title": "ShownConversation",
+        "description": "A conversation as a client opens it while its runs may be in progress."
       },
       "ShownMessage": {
         "properties": {

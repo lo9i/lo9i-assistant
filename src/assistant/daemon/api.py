@@ -120,7 +120,7 @@ from assistant.daemon.auth import (
 from assistant.daemon.channel_runs import ChannelRuns
 from assistant.daemon.clients import ClientRegistry
 from assistant.daemon.launchd import StartupError
-from assistant.daemon.runs import RunHub
+from assistant.daemon.runs import Run, RunHub
 from assistant.daemon.shutdown import Ending
 from assistant.daemon.web_ui import BUILD_DIR, add_web_ui, is_web_ui
 from assistant.protocol import (
@@ -437,6 +437,29 @@ class RunInProgress(BaseModel):
     run_id: str
     thread_id: str
     channel: str
+    # As announced in its `run` event: the client that started it, what the user wrote, the notice of a follow-up.
+    client_id: str = ""
+    text: str = ""
+    notice: str = ""
+
+    @classmethod
+    def of(cls, run: Run) -> "RunInProgress":
+        return cls(
+            run_id=run.id,
+            thread_id=run.thread_id,
+            channel=run.channel,
+            client_id=run.client_id,
+            text=run.text,
+            notice=run.notice,
+        )
+
+
+class ShownConversation(BaseModel):
+    """A conversation as a client opens it while its runs may be in progress."""
+
+    # Its messages up to the first run in progress, which `runs` shows from its start.
+    messages: list[ShownMessage]
+    runs: list[RunInProgress]
 
 
 class CancelResult(BaseModel):
@@ -666,7 +689,16 @@ def _add_run_routes(
     async def runs_in_progress() -> list[RunInProgress]:
         """Replies in progress in any conversation, oldest first. `run` and `run_finished` events tell
         when this changes."""
-        return [RunInProgress(run_id=r.id, thread_id=r.thread_id, channel=r.channel) for r in hub.running()]
+        return [RunInProgress.of(r) for r in hub.running()]
+
+    @app.get("/conversations/{thread_id}/live")
+    async def live_conversation(thread_id: str) -> ShownConversation:
+        """Its messages up to its runs in progress, and those runs, oldest first, which a client follows from
+        their start (`/runs/<id>/events`) to show them as if it had been watching."""
+        # Listed before the messages are read, with no wait between: a run listed here that ends while they're read
+        # still stops them where it started.
+        runs = [RunInProgress.of(r) for r in hub.running(thread_id)]
+        return ShownConversation(messages=await service.messages_before_run(thread_id), runs=runs)
 
     @app.get("/runs/{run_id}/events", response_class=EventSourceResponse, responses=_EVENT_STREAM)
     async def run_events(run_id: str, request: Request, after: int = 0) -> EventSourceResponse:

@@ -3,7 +3,7 @@
 // (another client, or a channel like Telegram). React reads it through subscribe/getSnapshot (useSyncExternalStore).
 import { ApiError } from "../api/errors";
 import { LiveConversation, type Conversations } from "../api/live";
-import type { ApprovalRequired, Decision, Dispatched, RunAnnounced, RunEvent, RunFinished, Session, ShownMessage } from "../api/types";
+import type { ApprovalRequired, Decision, Dispatched, RunAnnounced, RunEvent, RunFinished, Session, ShownConversation } from "../api/types";
 import type { NoticeBoard } from "../notices";
 import { addCarried, addNotice, addUser, apply, empty, endRun, endText, fromHistory, type Transcript } from "./transcript";
 
@@ -16,12 +16,15 @@ export interface ChatClient extends Conversations {
   cancel(session: Session): Promise<boolean>;
   followRun(runId: string, signal: AbortSignal): AsyncIterable<RunEvent>;
   conversations: {
-    messages(threadId: string): Promise<ShownMessage[]>;
+    live(threadId: string): Promise<ShownConversation>;
     approvals(threadId: string): Promise<ApprovalRequired[]>;
   };
 }
 
 type Start = (signal: AbortSignal) => AsyncIterable<RunEvent>;
+
+/** A run to show from its start, as its `run` event announced it or the conversation lists it in progress. */
+type Followed = Pick<RunAnnounced, "run_id" | "channel" | "client_id" | "text" | "notice">;
 
 export type ChatSnapshot = {
   threadId: string;
@@ -46,6 +49,10 @@ export class ChatController {
   // input doesn't come back for a moment between the two.
   private handingOn = false;
   private readonly mirrors = new Set<AbortController>();
+  // The runs shown in this transcript, by id: one in progress on opening that is also announced shows once.
+  private followed = new Set<string>();
+  // The conversation's history loading: a run announced meanwhile shows after it, unless it's among its runs.
+  private loading: Promise<unknown> = Promise.resolve();
   private decide: ((decision: Decision) => void) | null = null;
 
   private constructor(
@@ -62,9 +69,9 @@ export class ChatController {
   static async open(client: ChatClient, channel: string, earlier: string | null, notices: NoticeBoard): Promise<ChatController> {
     const inboxId = await client.inboxThread();
     const threadId = await rejoin(client, earlier, inboxId);
-    const history = await client.conversations.messages(threadId);
     const live = new LiveConversation(client, { channel, thread_id: threadId });
-    const chat = new ChatController(client, live, notices, fromHistory(history), inboxId);
+    const chat = new ChatController(client, live, notices, empty, inboxId);
+    await chat.showHistory();
     void chat.answerPending();
     return chat;
   }
@@ -196,16 +203,11 @@ export class ChatController {
 
   /** Show a run started elsewhere in this conversation as it happens. */
   async mirror(run: RunAnnounced): Promise<void> {
-    if (!this.live.startedElsewhere(run)) return;
+    await this.loaded();
+    if (!this.live.startedElsewhere(run) || this.followed.has(run.run_id)) return;
     // Another client answered what this page is asking, and goes on with the run there.
     if (this.decide !== null) this.ownRun?.abort();
-    if (run.text) this.set({ transcript: addUser(this.state.transcript, run.text, [], run.channel) });
-    if (run.notice) this.set({ transcript: addNotice(this.state.transcript, run.notice) });
-    const mirror = new AbortController();
-    this.mirrors.add(mirror);
-    await this.show(mirror, () => this.render(this.client.followRun(run.run_id, mirror.signal)));
-    this.mirrors.delete(mirror);
-    this.showing();
+    await this.follow([run]);
   }
 
   runFinished(run: RunFinished): void {
@@ -273,6 +275,30 @@ export class ChatController {
     await this.sendDispatched(dispatched, started);
   }
 
+  /** Shows runs not shown yet from their start, one after another as they run, until the page stops showing them. */
+  private async follow(runs: Followed[]): Promise<void> {
+    const unseen = runs.filter((run) => !this.followed.has(run.run_id));
+    if (!unseen.length) return;
+    unseen.forEach((run) => this.followed.add(run.run_id));
+    const following = new AbortController();
+    this.mirrors.add(following);
+    for (const run of unseen) {
+      if (following.signal.aborted) break;
+      this.showStarted(run);
+      await this.show(following, () => this.render(this.client.followRun(run.run_id, following.signal)));
+    }
+    this.mirrors.delete(following);
+    this.showing();
+  }
+
+  /** What a run answers, where the user's message would be: what they wrote, from where when it wasn't this page,
+   * or the notice of a follow-up. */
+  private showStarted(run: Followed): void {
+    const channel = run.client_id === this.client.clientId ? undefined : run.channel;
+    if (run.text) this.set({ transcript: addUser(this.state.transcript, run.text, [], channel) });
+    if (run.notice) this.set({ transcript: addNotice(this.state.transcript, run.notice) });
+  }
+
   /** Show the events and return the approvals the run is waiting on, and where the inbox sent its message on. */
   private async render(events: AsyncIterable<RunEvent>): Promise<{ approvals: ApprovalRequired[]; dispatched: Dispatched | null }> {
     const approvals: ApprovalRequired[] = [];
@@ -329,16 +355,39 @@ export class ChatController {
     const wasBusy = this.ownRun !== null;
     this.ownRun?.abort();
     this.ownRun = null;
-    this.mirrors.forEach((mirror) => mirror.abort());
-    this.mirrors.clear();
+    this.stopFollowing();
     this.set({ transcript: endRun(this.state.transcript) });
     this.showing();
     return wasBusy;
   }
 
+  /** Stops showing runs started elsewhere; the daemon keeps them going. */
+  private stopFollowing(): void {
+    this.mirrors.forEach((mirror) => mirror.abort());
+    this.mirrors.clear();
+    this.followed = new Set();
+  }
+
+  /** Shows the conversation's history up to its runs in progress, then those runs from their start, as if the page
+   * had been watching them. */
   private async showHistory(): Promise<void> {
     const threadId = this.live.session.thread_id;
-    this.set({ threadId, transcript: fromHistory(await this.client.conversations.messages(threadId)) });
+    const loading = this.client.conversations.live(threadId);
+    this.loading = loading.catch(() => {});
+    const { messages, runs } = await loading;
+    this.stopFollowing();
+    this.set({ threadId, transcript: fromHistory(messages) });
+    this.showing();
+    void this.follow(runs);
+  }
+
+  /** Returns once the conversation's history has loaded, the latest load if another started meanwhile. */
+  private async loaded(): Promise<void> {
+    let loading: Promise<unknown>;
+    do {
+      loading = this.loading;
+      await loading;
+    } while (loading !== this.loading);
   }
 
   private async guarded(action: () => Promise<unknown>): Promise<void> {

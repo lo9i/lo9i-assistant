@@ -26,6 +26,10 @@ class Run:
     id: str
     thread_id: str
     channel: str = ""
+    # The client that started it, what the user wrote and the notice of a follow-up, as announced (`start`).
+    client_id: str = ""
+    text: str = ""
+    notice: str = ""
     events: list[dict[str, Any]] = field(default_factory=list)
     finished: bool = False
     changed: asyncio.Condition = field(default_factory=asyncio.Condition)
@@ -51,7 +55,7 @@ class RunHub:
         client that started it, which already shows it. `text` is what the user wrote; `notice`, for a
         follow-up the assistant runs on its own (core/agent/follow_ups.py), what it follows up on, which the
         apps show where the user's message would be."""
-        run = Run(id=uuid4().hex, thread_id=thread_id, channel=channel)
+        run = Run(uuid4().hex, thread_id, channel=channel, client_id=client_id, text=text, notice=notice)
         self._runs[run.id] = run
         if self._bus is not None:
             self._bus.publish(
@@ -71,9 +75,9 @@ class RunHub:
     def get(self, run_id: str) -> Run | None:
         return self._runs.get(run_id)
 
-    def running(self) -> list[Run]:
-        """The runs still in progress, oldest first."""
-        return [run for run in self._runs.values() if not run.finished]
+    def running(self, thread_id: str | None = None) -> list[Run]:
+        """The runs still in progress, in `thread_id` or in any conversation, oldest first."""
+        return [r for r in self._runs.values() if not r.finished and thread_id in (None, r.thread_id)]
 
     async def follow(self, run: Run, after: int) -> AsyncIterator[tuple[int, dict[str, Any] | None]]:
         """(event id, event) for events after `after`, then (id, None) once the run is finished."""

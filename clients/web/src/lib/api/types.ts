@@ -46,6 +46,7 @@ export type HomeItem = Schemas["HomeItem"];
 export type SectionResult = Schemas["SectionResult"];
 export type RunningTask = Schemas["RunningTask"];
 export type RunInProgress = Schemas["RunInProgress"];
+export type ShownConversation = Schemas["ShownConversation"];
 export type DispatchSetting = Schemas["DispatchSetting"];
 export type Skill = Schemas["Skill"];
 export type FoundSkill = Schemas["FoundSkill"];

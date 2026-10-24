@@ -95,6 +95,8 @@ class ServiceBase:
     _conversations_lock: asyncio.Lock
     # The task running each thread's graph, while it runs (core/agent/runs.py).
     _active_runs: dict[str, asyncio.Task]
+    # How many messages each thread had when its run in progress started (core/agent/runs.py).
+    _run_starts: dict[str, int]
     # Set while no run is in progress (core/agent/runs.py).
     _no_runs: asyncio.Event
 
