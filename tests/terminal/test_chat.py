@@ -454,3 +454,37 @@ async def test_a_handed_off_agent_shows_its_thinking_text_and_tool_calls_in_orde
         await pilot.pause()
         assert note.title == "✻ Thinking"  # the whole text shows below, so the first line isn't repeated
         assert app.query_one(ToolCall).title == "✓ Bash(pytest -q)"
+
+
+async def test_an_approval_a_run_started_elsewhere_waits_for_is_asked_on_opening_its_conversation(app, client):
+    from assistant.core.agent import Conversation
+    from assistant.core.events import ApprovalRequired
+
+    at = "2030-01-01T09:00:00+00:00"
+    client.conversations.items.append(Conversation("owner:b", "clean up", at, at))
+    request = {"tool": "bash", "command": "rm -rf build", "reason": "recursive delete"}
+    client.conversations.waiting["owner:b"] = [ApprovalRequired("i9", request)]
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/conversations", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
+        await pilot.press("down", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ApprovalScreen))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: client.decisions is not None and not app._busy)
+        assert client.decisions == {"i9": {"approved": True, "reason": None}}
+
+
+async def test_a_run_that_ends_in_this_conversation_is_asked_about_when_it_waits(app, client):
+    from assistant.core.events import ApprovalRequired
+
+    request = {"tool": "bash", "command": "rm -rf build", "reason": "recursive delete"}
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        client.conversations.waiting[app._live.session.thread_id] = [ApprovalRequired("i8", request)]
+        run = {"run_id": "r1", "thread_id": app._live.session.thread_id, "channel": "telegram", "status": "ok"}
+        await client.bus.put(("run_finished", run | {"reply": ""}))
+        await wait_for(pilot, lambda: isinstance(app.screen, ApprovalScreen))
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: client.decisions is not None and not app._busy)
+        assert client.decisions["i8"]["approved"] is False

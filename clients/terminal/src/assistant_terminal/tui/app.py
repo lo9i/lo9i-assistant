@@ -198,6 +198,7 @@ class AssistantApp(App):
         await self.refresh_plugin_updates()
         await self.refresh_agents()
         self._listen()
+        self._answer_pending()
 
     @work(exclusive=True, group="events")
     async def _listen(self) -> None:
@@ -221,6 +222,9 @@ class AssistantApp(App):
         self.workers.cancel_group(self, "mirror")
 
     def run_finished(self, run: dict[str, Any]) -> None:
+        if run["thread_id"] == self._live.session.thread_id:
+            # It may have stopped for an approval no one answered yet.
+            self._answer_pending()
         if not self._live.left_run_finished(run):
             return
         excerpt = run["reply"][:160] + ("…" if len(run["reply"]) > 160 else "")
@@ -413,6 +417,26 @@ class AssistantApp(App):
         await self._live.resume(thread_id)
         await self.refresh_thread()
         await show_history(self._chat, await self._service.conversations.messages(thread_id))
+        self._answer_pending()
+
+    @work(exclusive=True, group="pending")
+    @reports_daemon_unavailable
+    async def _answer_pending(self) -> None:
+        """Asks what the conversation's run stopped for and still waits on, whoever started it (another app, a
+        channel, the daemon's queued runs, this app before it restarted), and goes on with the answers as this
+        app's own turn, as the web app does."""
+        if self._busy:
+            return
+        session = self._live.session
+        waiting = await self._service.conversations.pending_approvals(session.thread_id)
+        if not waiting or session.thread_id != self._live.session.thread_id or self._busy:
+            return
+        self._busy = True
+        try:
+            decisions = {a.interrupt_id: await self._decide(a.request) for a in waiting}
+            await self._turn(lambda: self._service.resume(session, decisions))
+        finally:
+            self._busy = False
 
     async def _decide(self, request: dict[str, Any]) -> dict[str, Any]:
         """The user's answer to what the run waits for. A plugin the agent offers is installed here,
@@ -590,6 +614,7 @@ class AssistantApp(App):
         await self.refresh_thread()
         await show_history(self._chat, await self._service.conversations.messages(thread_id))
         self.notify("Resumed the conversation." + (" The previous reply keeps running." if still_running else ""))
+        self._answer_pending()
 
     async def action_paste(self) -> None:
         """A copied file or screenshot is attached to the next message; text goes in the box."""

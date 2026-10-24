@@ -721,6 +721,11 @@ class FakeConversations:
         self.said = {"owner:abc": [ShownMessage("user", "plan my trip"), ShownMessage("assistant", "Rome it is.")]}
         self.pins: dict[str, list[str]] = {}
         self.handoffs: dict[str, Handoff] = {}
+        # What each conversation's run stopped for and still waits on, whoever started it.
+        self.waiting: dict[str, list[ApprovalRequired]] = {}
+
+    async def pending_approvals(self, thread_id):
+        return self.waiting.pop(thread_id, [])
 
     async def recent(self):
         return list(self.items)
