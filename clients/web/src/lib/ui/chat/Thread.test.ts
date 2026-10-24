@@ -23,4 +23,9 @@ describe("Thread", () => {
     expect(body).toContain('aria-label="Move"');
     expect(body).toContain("message-footer");
   });
+
+  it("opens at the newest message with no Go to bottom link", () => {
+    const { body } = render(Thread, { props: { ...props, items: [reply, routed] } });
+    expect(body).not.toContain("Go to bottom");
+  });
 });
