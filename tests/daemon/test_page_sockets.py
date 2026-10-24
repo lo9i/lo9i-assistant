@@ -41,7 +41,10 @@ async def app(scope, receive, send):
     while True:
         message = await receive()
         if message["type"] == "websocket.disconnect":
-            open(sys.argv[2], "w").write(str(message.get("code")))
+            # Whole or not at all: the test reads it as soon as it exists.
+            with open(sys.argv[2] + ".part", "w") as left:
+                left.write(str(message.get("code")))
+            __import__("os").replace(sys.argv[2] + ".part", sys.argv[2])
             return
         if message.get("text") == "close":
             await send({"type": "websocket.close", "code": 4321, "reason": "done"})
