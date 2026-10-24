@@ -69,10 +69,6 @@
 
 <div class="shell">
   <SettingsTabs active="memory" />
-  <header class="intro">
-    <h2 class="text-heading">Profile</h2>
-    <p class="text-meta">Always in the assistant's mind. Changes apply from the next conversation.</p>
-  </header>
   {#if memory.error}
     <p class="error-text">{memory.error}</p>
   {:else if memory.data}
@@ -136,10 +132,16 @@
     gap: 16px;
     align-items: start;
   }
+  /* Columns rather than a grid: a short section sits right under the one above it, instead of leaving
+     the space a long neighbor takes in its row. */
   .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr));
-    gap: 16px;
-    align-items: start;
+    columns: min(360px, 100%);
+    column-gap: 16px;
+    /* The last section's margin, so the page's gap alone separates what follows. */
+    margin-bottom: -16px;
+  }
+  .grid > :global(*) {
+    break-inside: avoid;
+    margin-bottom: 16px;
   }
 </style>
