@@ -101,6 +101,11 @@ export function sharedLogin(server: FoundServer): string {
     : "";
 }
 
+/** What an install dialog says about a plugin that uses the user's ssh agent (its keys reach any host it connects to). */
+export function sshAgentNote(server: FoundServer): string {
+  return server.ssh_agent ? "It uses your ssh agent, so it can sign in with the keys the agent holds." : "";
+}
+
 /** The first required field left empty, to say so before installing; null when all are there. */
 export function missingField(server: FoundServer, values: Record<string, string>): string | null {
   const field = server.fields.find((f) => !optional(server, f.key) && !(values[f.key] ?? "").trim());

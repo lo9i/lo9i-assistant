@@ -148,10 +148,11 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
 def _guide(contents: RepositoryContents) -> str:
     """What to do: a single plugin's steps for what it asks for, numbered, when it has them."""
     one = contents.servers[0] if len(contents.servers) == 1 and not contents.skills else None
-    if one is None or not (one.steps or one.model_login):
+    if one is None or not (one.steps or one.model_login or one.ssh_agent):
         return "Check what to install. Servers ask for their values below, then Install."
     shared = [_SHARED_LOGIN] if one.model_login == "copilot" else []
-    return "\n\n".join([*shared, "\n".join(f"{i}. {step}" for i, step in enumerate(one.steps, 1))]).strip()
+    agent = [_SSH_AGENT] if one.ssh_agent else []
+    return "\n\n".join([*shared, *agent, "\n".join(f"{i}. {step}" for i, step in enumerate(one.steps, 1))]).strip()
 
 
 def _offer_intro(plugin: FoundServer | FoundSkill) -> str:
@@ -162,6 +163,8 @@ def _offer_intro(plugin: FoundServer | FoundSkill) -> str:
 _KNOWN_HINT = "leave empty to keep the one you set before"
 # A plugin that uses the assistant's Copilot login (core/mcp/logins.py).
 _SHARED_LOGIN = "It uses your GitHub Copilot login from /model while the model is GitHub Copilot."
+# A plugin whose processes get the user's ssh agent (core/mcp/ssh_agent.py).
+_SSH_AGENT = "It uses your ssh agent, so it can sign in with the keys the agent holds."
 
 
 def _field_input(server: FoundServer, field: ServerField) -> Input:

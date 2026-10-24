@@ -519,6 +519,18 @@ async def test_an_unknown_model_login_is_refused(service, repo):
     assert re.search("its model_login 'claude' isn't one of copilot", await _problems(service))
 
 
+async def test_a_server_can_ask_for_the_ssh_agent_with_true_or_false(service, repo):
+    _write(repo / "remote", {"server.yaml": "url: https://remote.example.com/mcp\nssh_agent: true"})
+    _write(
+        repo / "other" / "general" / "odd", {"server.yaml": "url: https://odd.example.com/mcp\nssh_agent: yes-please"}
+    )
+    found = next(s for s in (await service.browse_repository(URL)).servers if s.name == "remote")
+    assert found.ssh_agent
+    assert re.search("its ssh_agent must be true or false", await _problems(service))
+    await service.install_from_repository(URL, [], [ServerValues("remote", {})])
+    assert (await servers.load(service.store, "remote")).ssh_agent
+
+
 async def test_a_channel_is_in_communications(service, repo):
     _write(repo / "bot", {"server.yaml": "channel: {command: run-bot}"})
     contents = await service.browse_repository(URL)

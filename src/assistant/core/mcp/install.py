@@ -37,6 +37,7 @@ code from it. In its commands, arguments and env values:
       style: A phone chat. Short messages.   # how to write there, for the system prompt
       protocol: 2                  # the channel protocol it speaks (docs/channel-plugins.md); 1 if absent
     model_login: copilot           # optional: a login of lo9i's its server gets instead of its own (logins.py)
+    ssh_agent: true                # optional: its processes get the user's ssh agent (ssh_agent.py)
     agent:                         # optional: a coding agent (docs/agent-plugins.md, core/agent_tasks/)
       command: claude              # /claude <folder> hands a conversation to it, /claude off back
       name: Claude Code
@@ -68,7 +69,7 @@ import yaml
 from langgraph.store.base import BaseStore
 
 from assistant.core.integrations.email import providers as email_providers
-from assistant.core.mcp import environment, folders, keys, logins, servers
+from assistant.core.mcp import environment, folders, keys, logins, servers, ssh_agent
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.repositories import categories, formats, icons, platforms
 from assistant.core.repositories import source as folder_source
@@ -132,6 +133,8 @@ class FoundServer:
     model_login: str = ""
     # The command of the agent it adds, like "claude" for /claude (core/conversation/handoffs.py); "" for none.
     agent: str = ""
+    # Its processes get the user's ssh agent (core/mcp/ssh_agent.py), for the install dialogs to say.
+    ssh_agent: bool = False
     # What the apps show beside it (repositories/icons.py).
     icon: icons.PluginIcon = field(default_factory=icons.PluginIcon)
 
@@ -400,6 +403,7 @@ def _template(data: dict[str, Any], name: str) -> McpServer:
         channel_protocol=_channel_protocol(data.get("channel", {}).get("protocol")),
         email_providers=[asdict(p) for p in email_providers.parse(data.get("email"), name)],
         model_login=logins.parse(data.get("model_login")),
+        ssh_agent=ssh_agent.parse(data.get("ssh_agent")),
         **_agent(data.get("agent")),
     )
 
@@ -423,6 +427,7 @@ def _found(data: dict[str, Any], template: McpServer, folder: Path, category_fol
         steps=[str(s).strip() for s in data.get("steps", []) if str(s).strip()],
         model_login=template.model_login,
         agent=template.agent_command,
+        ssh_agent=template.ssh_agent,
         icon=icons.or_category(icons.parse(data.get("icon"), folder), category),
     )
 

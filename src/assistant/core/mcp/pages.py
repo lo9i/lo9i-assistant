@@ -12,7 +12,7 @@ from langgraph.store.base import BaseStore
 from mcp.client.stdio import get_default_environment
 
 from assistant.core.config import settings
-from assistant.core.mcp import folders, keys, servers
+from assistant.core.mcp import folders, keys, servers, ssh_agent
 from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.process import ProcessSpec, keep_running
 from assistant.core.mcp.servers import McpServer
@@ -96,7 +96,7 @@ class McpPages:
 def _spec(server: McpServer) -> ProcessSpec:
     folders.page_socket(server.name).parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     code = folders.code(server.name)
-    env = get_default_environment() | {"TZ": settings.timezone} | server.env
+    env = get_default_environment() | {"TZ": settings.timezone} | ssh_agent.with_agent(server).env
     return ProcessSpec(server.page_command, server.page_args, env, code if code.is_dir() else None)
 
 

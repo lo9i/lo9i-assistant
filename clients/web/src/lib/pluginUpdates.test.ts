@@ -18,6 +18,7 @@ const server = (name: string): FoundServer => ({
   installed_version: "1",
   category: "other/general",
   model_login: "",
+  ssh_agent: false,
   agent: "",
   email: false,
 });

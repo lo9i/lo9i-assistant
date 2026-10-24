@@ -16,7 +16,7 @@ from assistant.core.agent_tasks.sessions import Sessions
 from assistant.core.agent_tasks.steps import Upload
 from assistant.core.agent_tasks.waiting import Report, at_most, until_ended
 from assistant.core.config import settings
-from assistant.core.mcp import folders, keys, logins, servers
+from assistant.core.mcp import folders, keys, logins, servers, ssh_agent
 from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.logins import SharedLogins
 from assistant.core.mcp.servers import McpServer, McpServerError
@@ -176,7 +176,9 @@ class AgentTasks:
     async def _launch(self, server: McpServer, tasks: TaskStore, task: Task) -> None:
         """The worker runs with the plugin's env and keys, its login (core/mcp/logins.py) and the time zone,
         in the plugin's folder, from its own environment."""
-        filled = logins.with_login(await keys.fill(self._store, self._secrets, server), self._shared())
+        filled = ssh_agent.with_agent(
+            logins.with_login(await keys.fill(self._store, self._secrets, server), self._shared())
+        )
         try:
             await self._environments.ensure(server.name, server.agent_worker)
         except McpServerError as e:

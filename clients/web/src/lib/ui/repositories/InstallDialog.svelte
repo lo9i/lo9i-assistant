@@ -4,7 +4,7 @@
   import type { FoundServer, FoundSkill, Offered } from "$lib/api/types";
   import { useDaemon } from "$lib/daemon.svelte";
   import { describe } from "$lib/notices";
-  import { emptyHint, missingField, optional, sharedLogin } from "$lib/plugins";
+  import { emptyHint, missingField, optional, sharedLogin, sshAgentNote } from "$lib/plugins";
   import Modal from "../Modal.svelte";
 
   // `kind`: only MCP servers (the MCP servers page) or only skills (the Skills page). `server` or
@@ -112,6 +112,7 @@
 
 {#snippet fields(server: FoundServer)}
   {#if sharedLogin(server)}<p class="text-label">{sharedLogin(server)}</p>{/if}
+  {#if sshAgentNote(server)}<p class="text-label">{sshAgentNote(server)}</p>{/if}
   {#if server.steps?.length}
     <ol class="steps">
       {#each server.steps as step, i (i)}<li class="text-label">{step}</li>{/each}

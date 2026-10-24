@@ -2903,6 +2903,11 @@ export interface components {
              * @default
              */
             agent: string;
+            /**
+             * Ssh Agent
+             * @default false
+             */
+            ssh_agent: boolean;
             icon?: components["schemas"]["PluginIcon"];
         };
         /**

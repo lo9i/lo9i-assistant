@@ -11,6 +11,7 @@ import {
   pluginsOf,
   runsOf,
   sharedLogin,
+  sshAgentNote,
   hasNewer,
   updatable,
   versionOf,
@@ -43,6 +44,7 @@ const contents: RepositoryContents = {
       installed_version: "",
       category: "other/general",
       model_login: "",
+      ssh_agent: false,
       agent: "",
       email: false,
     },
@@ -102,6 +104,7 @@ group("versionOf", () => {
             installed,
             category: "other/general",
             model_login: "",
+            ssh_agent: false,
             agent: "",
             email: false,
           },
@@ -133,6 +136,7 @@ group("updatable", () => {
           installed,
           category: "other/general",
           model_login: "",
+          ssh_agent: false,
           agent: "",
           email: false,
         },
@@ -167,6 +171,7 @@ const found = (over: Partial<FoundServer>): FoundServer => ({
   installed_version: "",
   category: "other/general",
   model_login: "",
+  ssh_agent: false,
   agent: "",
   email: false,
   ...over,
@@ -200,6 +205,7 @@ group("emptyHint and sharedLogin", () => {
     fields: [{ key: "CLAUDE_TOKEN", label: "Claude token", secret: true, help: "", optional: true }],
     known_fields: [],
     model_login: "copilot",
+    ssh_agent: false,
   });
   it("says a field may be left empty", () => {
     expect(optional(coder, "CLAUDE_TOKEN")).toBe(true);
@@ -210,6 +216,10 @@ group("emptyHint and sharedLogin", () => {
   it("says when the plugin uses the Copilot login", () => {
     expect(sharedLogin(coder)).toContain("GitHub Copilot login");
     expect(sharedLogin(found({}))).toBe("");
+  });
+  it("says when the plugin uses the ssh agent", () => {
+    expect(sshAgentNote(found({ ssh_agent: true }))).toContain("ssh agent");
+    expect(sshAgentNote(found({}))).toBe("");
   });
 });
 

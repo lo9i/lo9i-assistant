@@ -325,6 +325,20 @@ async def test_a_server_asking_for_the_copilot_login_gets_it_while_the_model_is_
     assert ENV["copilot"] not in env()
 
 
+async def test_a_server_that_asks_for_the_ssh_agent_gets_its_socket_and_others_dont(service, monkeypatch):
+    from assistant.core.mcp import pages, ssh_agent
+
+    monkeypatch.setenv(ssh_agent.ENV, "/tmp/agent.sock")
+    await _add(service, ssh_agent=True)
+    assert service.mcp._running["notes"].connection.server.env[ssh_agent.ENV] == "/tmp/agent.sock"
+    assert (await servers.load(service.store, "notes")).env == {}  # never saved with the plugin
+    page = McpServer(name="hosts", page_command="hosts-web", ssh_agent=True)
+    assert pages._spec(page).env[ssh_agent.ENV] == "/tmp/agent.sock"
+    assert ssh_agent.ENV not in pages._spec(McpServer(name="other", page_command="other-web")).env
+    monkeypatch.delenv(ssh_agent.ENV)
+    assert ssh_agent.ENV not in pages._spec(page).env  # the daemon has no agent: nothing to pass
+
+
 async def test_a_connection_that_cant_be_got_ready_fails_without_connecting():
     opened: list[str] = []
 

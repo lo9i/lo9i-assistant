@@ -57,6 +57,8 @@ class McpServer:
     email_providers: list[dict[str, Any]] = field(default_factory=list)
     # A login of lo9i's its MCP server gets instead of one of its own (core/mcp/logins.py); "" for none.
     model_login: str = ""
+    # Its processes get the user's ssh agent (core/mcp/ssh_agent.py).
+    ssh_agent: bool = False
     # A coding agent it brings (docs/agent-plugins.md): the apps' command that hands a conversation to it
     # (/claude), its name, and the worker the daemon runs for each of its tasks (core/agent_tasks/).
     agent_command: str = ""

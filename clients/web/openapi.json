@@ -6204,6 +6204,11 @@
             "title": "Agent",
             "default": ""
           },
+          "ssh_agent": {
+            "type": "boolean",
+            "title": "Ssh Agent",
+            "default": false
+          },
           "icon": {
             "$ref": "#/components/schemas/PluginIcon"
           }
