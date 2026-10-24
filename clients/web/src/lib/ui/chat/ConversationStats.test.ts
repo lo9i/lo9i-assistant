@@ -17,6 +17,7 @@ const stats: Stats = {
   tool_calls: 2,
   context_tokens: 0,
   context_limit: 150000,
+  context_agent: "",
   started_at: "2026-10-23T08:00:00Z",
   last_activity: "2026-10-23T09:00:00Z",
 };

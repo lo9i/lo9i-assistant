@@ -5,6 +5,8 @@
 - progress.log: what the agent is doing, one JSON step per line (docs/agent-plugins.md), with the words
   of its text and thinking as they're written. The worker appends to it.
 - result.json: how it ended. The worker writes it last.
+- context.json: how full the agent's context was once it answered, when the worker can say. The worker
+  writes it just before result.json.
 - stopped: the user stopped it. The daemon writes it.
 - conversation: the conversation handed to the agent that the task answers in (AgentTasks.converse). The
   daemon writes it before the worker starts.
@@ -35,6 +37,7 @@ _TASK = "task.json"
 _PID = "pid"
 _PROGRESS = "progress.log"
 _RESULT = "result.json"
+_CONTEXT = "context.json"
 _STOPPED = "stopped"
 _CONVERSATION = "conversation"
 _INBOX = "inbox"
@@ -65,6 +68,14 @@ class Outcome:
     text: str
     finished_at: str = ""
     cost_usd: float | None = None
+
+
+@dataclass(frozen=True)
+class Context:
+    """How full the agent's context is: `tokens` in it, of the model's `window`."""
+
+    tokens: int
+    window: int
 
 
 @dataclass(frozen=True)
@@ -118,6 +129,17 @@ class TaskStore:
         steps = [line for line in _tail(folder / _PROGRESS, None) if not streamed(line)]
         progress = steps[-progress_lines:] if progress_lines else []
         return TaskState(task, self._status(task, outcome, alive), outcome, progress)
+
+    def context(self, task_id: str) -> Context | None:
+        """How full the agent's context was when the task ended or, while it runs, when the task it follows
+        up on did. None when the worker didn't say."""
+        task = self.get(task_id)
+        for answered in (task.id, task.follow_up_of):
+            path = self.folder(answered) / _CONTEXT
+            if answered and path.is_file():
+                data = json.loads(path.read_text())
+                return Context(int(data["tokens"]), int(data["window"]))
+        return None
 
     def pid(self, task_id: str) -> int | None:
         path = self.folder(task_id) / _PID

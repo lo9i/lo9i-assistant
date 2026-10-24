@@ -300,10 +300,10 @@
   <StatusBar>
     <WorkingStatus threadId={snapshot.current.threadId} />
     <ConversationStats threadId={snapshot.current.threadId} />
+    <ContextFuel threadId={snapshot.current.threadId} />
     {#if handoff.data}
       <AgentStatus handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")} />
     {:else}
-      <ContextFuel threadId={snapshot.current.threadId} />
       <ModelStatus />
     {/if}
   </StatusBar>

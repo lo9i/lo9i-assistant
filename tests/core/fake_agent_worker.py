@@ -61,6 +61,9 @@ def _work(folder: Path, task: dict) -> tuple[bool, str]:
         time.sleep(60)
     if prompt == "take messages":
         return _take_messages(folder)
+    if prompt.startswith("fill context "):
+        tokens = int(prompt.removeprefix("fill context "))
+        (folder / "context.json").write_text(json.dumps({"tokens": tokens, "window": 200_000}))
     return True, f"Done in {repository}: {prompt}"
 
 

@@ -5733,6 +5733,11 @@
             "type": "integer",
             "title": "Context Limit",
             "default": 0
+          },
+          "context_agent": {
+            "type": "string",
+            "title": "Context Agent",
+            "default": ""
           }
         },
         "type": "object",
@@ -5748,7 +5753,7 @@
           "last_activity"
         ],
         "title": "ConversationStats",
-        "description": "`input_tokens` counts the cache reads too. The times are None for a conversation not in the list\n(a new one before its first message)."
+        "description": "`input_tokens` counts the cache reads too. The times are None for a conversation not in the list\n(a new one before its first message). The context is the assistant's or, while the conversation is handed\nto an agent, that agent's (`context_agent` its name), as of its last answer; 0 when it's not known."
       },
       "DeliveryResult": {
         "properties": {

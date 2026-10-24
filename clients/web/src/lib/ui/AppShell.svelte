@@ -105,7 +105,6 @@
   .main {
     min-width: 0;
     margin-left: 0; /* 16px gap right of the sidebar */
-
   }
   @media (max-width: 680px) {
     .app-layout {

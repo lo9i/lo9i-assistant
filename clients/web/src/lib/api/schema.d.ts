@@ -2617,7 +2617,8 @@ export interface components {
         /**
          * ConversationStats
          * @description `input_tokens` counts the cache reads too. The times are None for a conversation not in the list
-         *     (a new one before its first message).
+         *     (a new one before its first message). The context is the assistant's or, while the conversation is handed
+         *     to an agent, that agent's (`context_agent` its name), as of its last answer; 0 when it's not known.
          */
         ConversationStats: {
             /** Thread Id */
@@ -2648,6 +2649,11 @@ export interface components {
              * @default 0
              */
             context_limit: number;
+            /**
+             * Context Agent
+             * @default
+             */
+            context_agent: string;
         };
         /** DeliveryResult */
         DeliveryResult: {

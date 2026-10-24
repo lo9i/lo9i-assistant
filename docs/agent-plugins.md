@@ -42,6 +42,7 @@ Each task is a folder under the plugin's data folder, `tasks/<id>/`. Every file 
 | `pid` | worker | Its process id, written first. |
 | `progress.log` | worker | One step per line, as JSON (below), appended as the agent works. |
 | `result.json` | worker | `{"ok", "text", "finished_at", "cost_usd"}`, written last, whole (write it to another name, then rename). `text` is the agent's final answer, or what went wrong. |
+| `context.json` | worker, optional | `{"tokens", "window"}`: how full the agent's context is once it answered, `tokens` of the model's `window`, written whole just before `result.json`. While a conversation is handed to the agent, the apps show it as the conversation's context, from the latest task in its session that wrote one. A separate file because a daemon from before it reads `result.json` into its own fields only. |
 | `stopped` | daemon | The user stopped the task. |
 | `conversation` | daemon | The conversation handed to the agent that the task answers in. The worker doesn't read it. |
 | `inbox/` | worker makes it, daemon writes in it | What the user sends the task while it works (below). |

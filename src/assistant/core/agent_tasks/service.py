@@ -11,7 +11,7 @@ from langgraph.store.base import BaseStore
 from mcp.client.stdio import get_default_environment
 
 from assistant.core.agent_tasks import sent, workers
-from assistant.core.agent_tasks.records import Task, TaskState, TaskStore, lost
+from assistant.core.agent_tasks.records import Context, Task, TaskState, TaskStore, lost
 from assistant.core.agent_tasks.sessions import Sessions
 from assistant.core.agent_tasks.steps import Upload
 from assistant.core.agent_tasks.waiting import Report, at_most, until_ended
@@ -124,6 +124,16 @@ class AgentTasks:
         """Stops the step a running task is taking; it then waits for the user's next message. Raises
         AgentTaskError as `message` does."""
         await self._tell(task_id, {"kind": "interrupt"})
+
+    async def context(self, agent: str, conversation: str, folder: str) -> Context | None:
+        """How full the agent's context is in the conversation's session in `folder`, as of its last answer.
+        None before one, when its worker doesn't say, or for an agent that's gone."""
+        server = self._agents.get(agent)
+        if server is None:
+            return None
+        tasks, where = _tasks(server), str(Path(folder).expanduser())
+        last = await asyncio.to_thread(_sessions(server).last, conversation, where, tasks)
+        return await asyncio.to_thread(tasks.context, last.id) if last else None
 
     async def working_in(self, agent: str, conversation: str, folder: str) -> str:
         """The id of the task running for the conversation in `folder`; "" when none is."""

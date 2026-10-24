@@ -256,6 +256,26 @@ async def test_each_message_continues_the_agents_session_in_that_folder(service,
     assert asked()[1]["follow_up_of"] == asked()[0]["id"]
 
 
+async def test_the_conversations_context_is_the_agents_while_its_handed_to_it(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    stats = await service.conversation_stats("owner", session.thread_id)
+    assert (stats.context_tokens, stats.context_limit, stats.context_agent) == (0, 0, "Claude Code")
+    await collect(service.send(session, "fill context 61000"))
+    stats = await service.conversation_stats("owner", session.thread_id)
+    assert (stats.context_tokens, stats.context_limit, stats.context_agent) == (61_000, 200_000, "Claude Code")
+    # While it works on the next message, and after an answer that didn't say, it's as of the last that did.
+    working = asyncio.create_task(collect(service.send(session, "work a while")))
+    while not await service.agent_tasks.working_in("claude-code", session.thread_id, str(tmp_path)):
+        await asyncio.sleep(0.02)
+    assert (await service.conversation_stats("owner", session.thread_id)).context_tokens == 61_000
+    (tmp_path / "release").touch()
+    await asyncio.wait_for(working, 10)
+    assert (await service.conversation_stats("owner", session.thread_id)).context_tokens == 61_000
+    await service.take_back_conversation("owner", session.thread_id)
+    stats = await service.conversation_stats("owner", session.thread_id)
+    assert stats.context_agent == "" and stats.context_limit == settings.epoch_max_tokens
+
+
 async def test_stopping_the_run_stops_the_agents_task(service, tmp_path):
     session = await _handed(service, tmp_path)
     run = asyncio.create_task(collect(service.send(session, "sleep")))

@@ -3,13 +3,14 @@
   import type { Handoff } from "$lib/api/types";
 
   // In the status bar: the agent this conversation is handed to (/claude), whose replies come from it, not the
-  // assistant.
+  // assistant. Named where the assistant's model is otherwise, so it's plain who answers.
   type Props = { handoff: Handoff; onback: () => void };
   let { handoff, onback }: Props = $props();
 </script>
 
 <div class="agent" title="{handoff.name} in {handoff.folder}">
   <Bot size={13} aria-hidden="true" />
+  <span class="name">{handoff.name}</span>
   <button type="button" class="btn btn--ghost btn--sm" onclick={onback}>Back to the assistant</button>
 </div>
 
@@ -20,5 +21,9 @@
     align-items: center;
     gap: 6px;
     min-width: 0;
+  }
+  .name {
+    cursor: default;
+    color: #e5b931;
   }
 </style>
