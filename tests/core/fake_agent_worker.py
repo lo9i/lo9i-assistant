@@ -16,6 +16,16 @@ _WORKING = [
     {"kind": "text", "text": "All green."},
 ]
 
+# A call that starts a subagent of the agent's own, whose steps carry the call's id as `within`.
+_DELEGATING = [
+    {"kind": "tool", "tool": "Task", "detail": "find the bug", "id": "t1"},
+    {"kind": "thinking", "text": "Looking for parse.", "within": "t1"},
+    {"kind": "tool", "tool": "Grep", "detail": "def parse", "id": "s1", "within": "t1"},
+    {"kind": "result", "tool": "Grep", "text": "parse.py:3", "id": "s1", "within": "t1"},
+    {"kind": "result", "tool": "Task", "text": "It's in parse.py", "id": "t1"},
+    {"kind": "text", "text": "Found it in parse.py."},
+]
+
 
 def main() -> None:
     folder = Path(sys.argv[-1])
@@ -32,6 +42,9 @@ def _work(folder: Path, task: dict) -> tuple[bool, str]:
     if prompt == "work out loud":
         _steps(folder, [json.dumps(step) for step in _WORKING])
         return True, "All green."
+    if prompt == "delegate":
+        _steps(folder, [json.dumps(step) for step in _DELEGATING])
+        return True, "Found it in parse.py."
     if prompt == "think, then answer":
         _steps(folder, [json.dumps({"kind": "thinking", "text": "Easy one."})])
         return True, "Four."

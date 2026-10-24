@@ -71,7 +71,7 @@ class AgentSteps:
             self.spoke = self.spoke or block == "text"
             return [TextDelta(words) for words in self._words(kind, text)]
         if kind == "tool":
-            return [ToolStarted(step.get("tool", ""), _args(step), id=step.get("id", ""), within=within)]
+            return [ToolStarted(step.get("tool", ""), args_of(step), id=step.get("id", ""), within=within)]
         if kind == "result":
             return [ToolFinished(step.get("tool", ""), text, within=within)]
         if kind == "user":
@@ -108,7 +108,7 @@ def within_call(message: str, call_id: str) -> list[Event]:
     if step.get("within"):
         return []
     if kind == "tool":
-        return [ToolStarted(step.get("tool", ""), _args(step), id=step.get("id", ""), within=call_id)]
+        return [ToolStarted(step.get("tool", ""), args_of(step), id=step.get("id", ""), within=call_id)]
     if kind == "result":
         return [ToolFinished(step.get("tool", ""), step.get("text", ""), within=call_id)]
     if kind in ("note", "text", "user") and (text := line(message)):
@@ -146,7 +146,7 @@ def parse(message: str) -> dict[str, str]:
     return {str(k): str(v) for k, v in step.items()}
 
 
-def _args(step: dict[str, str]) -> dict[str, Any]:
+def args_of(step: dict[str, str]) -> dict[str, Any]:
     """What the call is about (a command, a file): the apps show a call's one argument next to its name."""
     detail = step.get("detail", "")
     return {"detail": detail} if detail else {}

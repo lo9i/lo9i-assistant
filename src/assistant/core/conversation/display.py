@@ -13,7 +13,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMe
 from langchain_core.messages.tool import ToolCall
 
 from assistant.core import subagent_steps
-from assistant.core.agent_tasks.steps import STEPS, parse
+from assistant.core.agent_tasks.steps import STEPS, args_of, parse
 from assistant.core.conversation import carried, ended
 from assistant.core.conversation.dispatched import DISPATCH_ID
 from assistant.core.conversation.turn_header import is_header
@@ -31,7 +31,8 @@ class ShownMessage:
     # its task and the subagent's answer.
     detail: str = ""
     output: str = ""
-    # A delegate call's: the subagent's tool calls.
+    # A delegate call's, or a handed-off agent's call that started a subagent of its own: the subagent's tool
+    # calls.
     steps: list[SubagentStep] = field(default_factory=list)
     # The inbox's record of a message it sent on: the message's id, to move it (core/conversation/dispatched.py).
     dispatch_id: str = ""
@@ -68,33 +69,52 @@ def _call(call: ToolCall, result: ToolMessage | None) -> ShownMessage:
 
 
 def _agent_reply(lines: list[str], reply: str) -> list[ShownMessage]:
-    """Its own steps, not its subagents'; the reply after them unless its last text, after the user's last
-    message to it, already said it. Its thinking reads as what it says, as it was shown live
-    (core/agent_tasks/steps.py)."""
+    """Its steps, with its own subagents' tool calls inside the call that started them (their words aren't
+    shown, as live); the reply after them unless its last text, after the user's last message to it, already
+    said it. Its thinking reads as what it says, as it was shown live (core/agent_tasks/steps.py)."""
     shown: list[ShownMessage] = []
-    steps = [step for step in (parse(line) for line in lines) if not step.get("within")]
+    calls: dict[str, ShownMessage] = {}
+    steps = [parse(line) for line in lines]
     for step in steps:
-        _add_step(shown, step)
-    last_message = max((i for i, step in enumerate(steps) if step.get("kind") == "user"), default=-1)
-    if not any(step.get("kind") == "text" for step in steps[last_message + 1 :]):
-        _add_step(shown, {"kind": "text", "text": reply})
+        if within := step.get("within"):
+            _add_inner(calls.get(within), step)
+        else:
+            _add_step(shown, step, calls)
+    own = [step for step in steps if not step.get("within")]
+    last_message = max((i for i, step in enumerate(own) if step.get("kind") == "user"), default=-1)
+    if not any(step.get("kind") == "text" for step in own[last_message + 1 :]):
+        _add_step(shown, {"kind": "text", "text": reply}, calls)
     return shown
 
 
-def _add_step(shown: list[ShownMessage], step: dict[str, str]) -> None:
+def _add_step(shown: list[ShownMessage], step: dict[str, str], calls: dict[str, ShownMessage]) -> None:
     kind, text = step.get("kind"), step.get("text", "")
     if kind in ("text", "thinking") and shown and shown[-1].role == "assistant":
         shown[-1].text += f"\n\n{text}"
     elif kind in ("text", "thinking"):
         shown.append(ShownMessage("assistant", text))
     elif kind == "tool":
-        shown.append(ShownMessage("tool", step.get("tool", ""), detail=step.get("detail", "")))
+        shown.append(call := ShownMessage("tool", step.get("tool", ""), detail=step.get("detail", "")))
+        calls[step.get("id") or f"#{len(calls)}"] = call
     elif kind == "result":
         _finish(shown, step.get("tool", ""), text)
     elif kind == "user":
         shown.append(ShownMessage("user", text))
     else:
         shown.append(ShownMessage("tool", text))
+
+
+def _add_inner(call: ShownMessage | None, step: dict[str, str]) -> None:
+    """A step of the agent's own subagent: its tool calls go inside the call that started it."""
+    if call is None:
+        return
+    name = step.get("tool", "")
+    if step.get("kind") == "tool":
+        call.steps.append(SubagentStep(name, args_of(step), ""))
+    elif step.get("kind") == "result":
+        index = next((i for i, s in enumerate(call.steps) if s.name == name and not s.output), None)
+        if index is not None:
+            call.steps[index] = SubagentStep(name, call.steps[index].args, step.get("text", "") or "(no output)")
 
 
 def _finish(shown: list[ShownMessage], tool: str, output: str) -> None:

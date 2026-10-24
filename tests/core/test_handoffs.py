@@ -19,6 +19,7 @@ from assistant.core.conversation import queued
 from assistant.core.events import Done, Error, TextDelta, ToolFinished, ToolStarted, UserSaid
 from assistant.core.mcp import folders, servers
 from assistant.core.mcp.servers import McpServer
+from assistant.core.subagent_steps import SubagentStep
 from assistant.daemon.managers import ByHand
 from assistant.daemon.shutdown import Ending, Shutdown
 from tests.conftest import collect
@@ -89,6 +90,17 @@ async def test_the_agents_thinking_text_and_tool_calls_are_shown_as_it_works(ser
         "messages"
     ]
     assert messages[-1].content == "All green."  # what the assistant's model reads when it gets the conversation back
+
+
+async def test_the_agents_own_subagent_steps_show_inside_the_call_that_started_them_after_a_reload(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    events = await collect(service.send(session, "delegate"))
+    assert ToolStarted("Grep", {"detail": "def parse"}, id="s1", within="t1") in events  # live, inside Task
+    shown = await service.conversation_messages(session.thread_id)
+    task, said = shown[1:]
+    assert (task.role, task.text, task.detail, task.output) == ("tool", "Task", "find the bug", "It's in parse.py")
+    assert task.steps == [SubagentStep("Grep", {"detail": "def parse"}, "parse.py:3")]
+    assert (said.role, said.text) == ("assistant", "Found it in parse.py.")
 
 
 async def test_a_reply_after_only_thinking_is_a_paragraph_of_the_same_message(service, tmp_path):
