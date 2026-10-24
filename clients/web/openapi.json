@@ -1520,7 +1520,7 @@
     "/conversations/{thread_id}/agent/messages": {
       "post": {
         "summary": "Message Agent",
-        "description": "Passes a message on to the agent while it works on the conversation's last one; it takes it\nbetween its steps. 409: it isn't working, or can't take messages while it works.",
+        "description": "Passes a message, and the files sent with it, on to the agent while it works on the conversation's\nlast one; it takes it between its steps. 400: neither text nor files. 409: it isn't working, or can't\ntake messages while it works.",
         "operationId": "message_agent_conversations__thread_id__agent_messages_post",
         "parameters": [
           {
@@ -1534,11 +1534,10 @@
           }
         ],
         "requestBody": {
-          "required": true,
           "content": {
-            "application/json": {
+            "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/ToAgent"
+                "$ref": "#/components/schemas/Body_message_agent_conversations__thread_id__agent_messages_post"
               }
             }
           }
@@ -4926,6 +4925,32 @@
         ],
         "title": "Body_channel_message_channels__name__messages_post"
       },
+      "Body_message_agent_conversations__thread_id__agent_messages_post": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "title": "Body_message_agent_conversations__thread_id__agent_messages_post"
+      },
       "Body_send_threads__thread_id__messages_post": {
         "properties": {
           "channel": {
@@ -8291,20 +8316,6 @@
           "thread_id"
         ],
         "title": "ThreadCreated"
-      },
-      "ToAgent": {
-        "properties": {
-          "text": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Text"
-          }
-        },
-        "type": "object",
-        "required": [
-          "text"
-        ],
-        "title": "ToAgent"
       },
       "TokenReport": {
         "properties": {

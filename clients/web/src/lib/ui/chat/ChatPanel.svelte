@@ -3,7 +3,7 @@
   import { resolve } from "$app/paths";
   import { draft } from "$lib/chat/draft.svelte";
   import { carriesFiles, droppedFiles } from "$lib/chat/dropped";
-  import { tellAgent } from "$lib/chat/agentWork";
+  import { putBack, tellAgent } from "$lib/chat/agentWork";
   import { agentCommands } from "$lib/chat/commands";
   import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
   import { sentTexts } from "$lib/chat/history";
@@ -78,11 +78,11 @@
     }
   }
 
-  /** Passes a message on to the working agent; one it can't take goes back in the box. */
-  async function steer(text: string): Promise<void> {
+  /** Passes a message and its files on to the working agent; what it can't take goes back in the box. */
+  async function steer(text: string, files: File[]): Promise<void> {
     const threadId = snapshot.current.threadId;
-    const taken = await tellAgent(() => client.conversations.messageAgent(threadId, text), notices);
-    if (!taken && !draft.text) draft.text = text;
+    const taken = await tellAgent(() => client.conversations.messageAgent(threadId, text, files), notices);
+    if (!taken) putBack(draft, text, files);
   }
 
   function dragenter(e: DragEvent): void {
