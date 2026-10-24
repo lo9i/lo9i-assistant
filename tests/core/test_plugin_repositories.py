@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from assistant.core.agent import PluginUpdate, Repository, RepositoryError
+from assistant.core.agent import FoundServer, PluginUpdate, Repository, RepositoryError, RepositoryPlugins
 from assistant.core.mcp import servers
 from assistant.core.repositories import cache, offers
 from assistant.core.repositories.known import EXTRAS
@@ -103,6 +103,32 @@ async def test_the_agent_offers_only_the_extras_plugins(service, remote):
     assert await offers.offerable(service._storage.store) == []
 
 
+async def test_a_cached_listing_is_what_each_repository_offered_when_last_read(service, remote):
+    await service.add_repository(MINE)
+    await service.install_from_repository(MINE, [], [HELLO])
+    manifest = remote / "other" / "general" / "hello" / "server.yaml"
+    manifest.write_text(f"version: 2.0.0\n{manifest.read_text()}")
+    REMOTE["head"] = "head2"
+    hello = _hello(await service.repository_plugins(cached=True))
+    # Installed is read fresh; the version is the one kept from the last read.
+    assert (hello.installed, hello.version) == (True, "")
+    assert _hello(await service.repository_plugins()).version == "2.0.0"
+
+
+def _hello(read: list[RepositoryPlugins]) -> FoundServer:
+    assert read[1].contents is not None
+    return next(s for s in read[1].contents.servers if s.name == "hello")
+
+
+async def test_a_cached_listing_reads_a_repository_never_read(service, remote):
+    await service.add_repository(MINE)
+    await cache.forget(service._storage.store, MINE)
+    downloads = REMOTE["downloads"]
+    read = await service.repository_plugins(cached=True)
+    assert [r.error for r in read] == ["", ""] and read[1].contents is not None
+    assert REMOTE["downloads"] == downloads + 2  # the extras were never read either
+
+
 # --- Private repositories ---
 
 PRIVATE = "https://github.com/me/private-plugins"
@@ -175,3 +201,14 @@ def test_a_token_reaches_git_as_a_header_for_the_repositorys_host_only():
     assert env["GIT_CONFIG_KEY_0"] == "http.https://github.com/.extraHeader"
     sent = base64.b64decode(env["GIT_CONFIG_VALUE_0"].removeprefix("Authorization: Basic ")).decode()
     assert sent == f"x-access-token:{TOKEN}"
+
+
+async def test_each_check_is_recorded_even_when_nothing_changed(service, remote):
+    first = (await service.repository_plugins())[0].contents
+    assert first is not None and first.checked
+    second = (await service.repository_plugins())[0].contents
+    assert second is not None and second.checked > first.checked
+    assert (await service.repository_plugins(cached=True))[0].contents == second
+    # A repository that can't be reached keeps the time it last was.
+    REMOTE["head"] = None
+    assert (await service.repository_plugins())[0].contents == second

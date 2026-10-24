@@ -31,15 +31,31 @@
   import InstallDialog from "$lib/ui/repositories/InstallDialog.svelte";
   import PluginSetup from "$lib/ui/plugins/PluginSetup.svelte";
   import PluginUpdates from "$lib/ui/plugins/PluginUpdates.svelte";
-  import { type UpdateStep, updateEach } from "$lib/pluginUpdates";
+  import RepositoryCheck from "$lib/ui/plugins/RepositoryCheck.svelte";
+  import { type CheckState, type UpdateStep, checkRepositories, updateEach } from "$lib/pluginUpdates";
   import RepositoriesDialog from "$lib/ui/repositories/RepositoriesDialog.svelte";
 
   const { client, notices } = useDaemon();
-  // The repositories are downloaded to list them, so this reloads after an action here or on
-  // refresh, not on every server's status change. One that can't be read says why under the list.
-  const listing = resource(async (c) => fromRepositories(await c.repositories.plugins()), []);
+  // Shown at once as the repositories offered it when last checked; installed or not is read fresh. Each visit
+  // checks them again in the background: a check that finds something new saves it, announced as `plugins`.
+  const listing = resource(async (c) => fromRepositories(await c.repositories.plugins(true)), ["plugins"]);
   const all = $derived(listing.data?.plugins);
   let managing = $state(false);
+
+  let check = $state<CheckState>("idle");
+  const checkNow = () =>
+    checkRepositories(
+      () => client.repositories.plugins(),
+      (s) => (check = s),
+    );
+  // Once the list shows, so on a first visit, where showing it downloads the repositories, they aren't twice at once.
+  let started = false;
+  $effect(() => {
+    if (listing.data && !started) {
+      started = true;
+      void checkNow();
+    }
+  });
 
   let picked = $state<string | null>(null);
   let query = $state("");
@@ -134,11 +150,15 @@
         <div class="tools">
           <SearchField bind:value={query} label="Search plugins" />
           {#if all}<span class="pill">{all.length}</span>{/if}
+          <RepositoryCheck {check} checked={listing.data?.checked ?? ""} />
           <button class="btn btn--ghost btn--sm" title="Repositories plugins are listed from" onclick={() => (managing = true)}
             ><GitBranch size={14} />Repositories</button
           >
-          <button class="btn btn--ghost btn--sm" title="Check the repositories for a newer version" onclick={() => listing.reload()}
-            ><RefreshCw size={14} /></button
+          <button
+            class="btn btn--ghost btn--sm"
+            title="Check the repositories for a newer version"
+            disabled={check === "checking"}
+            onclick={() => void checkNow()}><RefreshCw size={14} /></button
           >
         </div>
       </header>

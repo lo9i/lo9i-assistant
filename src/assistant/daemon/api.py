@@ -1232,9 +1232,11 @@ def _add_repository_routes(app: FastAPI, service: AssistantService) -> None:
         return Ok()
 
     @app.get("/repositories/plugins")
-    async def repository_plugins() -> list[RepositoryPlugins]:
-        """What every listed repository offers; one that can't be read has an error instead."""
-        return await service.repository_plugins()
+    async def repository_plugins(cached: bool = False) -> list[RepositoryPlugins]:
+        """What every listed repository offers; one that can't be read has an error instead.
+        `cached=true` answers from the listings kept from the last read, reaching only a repository
+        never read; a read that finds something new publishes `plugins`."""
+        return await service.repository_plugins(cached)
 
     @app.post("/repositories/browse")
     async def browse_repository(body: RepositoryAddress) -> RepositoryContents:

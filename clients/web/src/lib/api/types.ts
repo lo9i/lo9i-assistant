@@ -52,6 +52,8 @@ export type FoundServer = Schemas["FoundServer"];
 export type ServerField = Schemas["ServerField"];
 export type ServerValues = Schemas["ServerValuesBody"];
 export type RepositoryContents = Schemas["RepositoryContents"];
+/** Skills and MCP servers to list or offer: a repository's, or a choice of them. */
+export type Offered = Pick<RepositoryContents, "skills" | "servers">;
 export type Repository = Schemas["Repository"];
 export type KeptKeys = Schemas["KeptKeys"];
 export type Removed = Schemas["Removed"];

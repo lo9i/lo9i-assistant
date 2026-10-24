@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { DaemonUnavailableError } from "./api/errors";
 import type { FoundServer } from "./api/types";
 import { pluginsOf } from "./plugins";
-import { type UpdateStep, updateEach } from "./pluginUpdates";
+import { type CheckState, type UpdateStep, checkRepositories, updateEach } from "./pluginUpdates";
 
 const server = (name: string): FoundServer => ({
   name,
@@ -52,5 +53,25 @@ describe("updateEach", () => {
     ]);
     expect(got).toEqual({ updated: ["watchlist", "notes"], failed: ["expenses"] });
     expect(errors).toEqual([new Error("no network")]);
+  });
+});
+
+describe("checkRepositories", () => {
+  async function states(read: () => Promise<unknown>): Promise<CheckState[]> {
+    const seen: CheckState[] = [];
+    await checkRepositories(read, (s) => seen.push(s));
+    return seen;
+  }
+
+  it("is checking while the repositories are read, then idle", async () => {
+    expect(await states(async () => [])).toEqual(["checking", "idle"]);
+  });
+
+  it("fails quietly when they can't be read", async () => {
+    expect(await states(() => Promise.reject(new Error("no network")))).toEqual(["checking", "failed"]);
+  });
+
+  it("leaves an unreachable daemon to the app's banner", async () => {
+    expect(await states(() => Promise.reject(new DaemonUnavailableError("down")))).toEqual(["checking", "idle"]);
   });
 });

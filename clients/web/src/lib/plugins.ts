@@ -1,4 +1,4 @@
-import type { FoundServer, FoundSkill, Repository, RepositoryContents, RepositoryPlugins } from "./api/types";
+import type { FoundServer, FoundSkill, Offered, Repository, RepositoryPlugins } from "./api/types";
 
 /** The assistant's extras, official, when a listing's repository isn't named: an empty url installs from them. */
 const EXTRAS: Repository = { url: "", name: "the assistant's extras", official: true, private: false };
@@ -8,7 +8,7 @@ export type Plugin =
   | { kind: "server"; name: string; installed: boolean; server: FoundServer; repository: Repository }
   | { kind: "skill"; name: string; installed: boolean; skill: FoundSkill; repository: Repository };
 
-export function pluginsOf(contents: RepositoryContents, repository: Repository = EXTRAS): Plugin[] {
+export function pluginsOf(contents: Offered, repository: Repository = EXTRAS): Plugin[] {
   return [
     ...contents.servers.map((server): Plugin => ({
       kind: "server",
@@ -29,14 +29,21 @@ export function pluginsOf(contents: RepositoryContents, repository: Repository =
 
 /** Every repository's plugins, the official extras first, and what the ones that couldn't be read said, or the
  *  plugins in them that couldn't be. */
-export function fromRepositories(read: RepositoryPlugins[]): { plugins: Plugin[]; errors: string[] } {
+export function fromRepositories(read: RepositoryPlugins[]): { plugins: Plugin[]; errors: string[]; checked: string } {
   return {
     plugins: read.flatMap((r) => (r.contents ? pluginsOf(r.contents, r.repository) : [])),
     errors: [
       ...read.filter((r) => r.error).map((r) => `${r.repository.name}: ${r.error}`),
       ...read.flatMap((r) => (r.contents?.problems ?? []).map((p) => `${r.repository.name}: ${p}`)),
     ],
+    checked: lastChecked(read),
   };
+}
+
+/** When every repository was last checked: the oldest of their checks, "" while one never was. */
+function lastChecked(read: RepositoryPlugins[]): string {
+  const times = read.map((r) => r.contents?.checked ?? "");
+  return times.includes("") ? "" : times.reduce((a, b) => (a < b ? a : b), times[0] ?? "");
 }
 
 /** "Official" for the extras' plugins; the repository's name for the others. */

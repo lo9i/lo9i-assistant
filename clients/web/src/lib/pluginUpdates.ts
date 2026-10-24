@@ -1,4 +1,23 @@
+import { DaemonUnavailableError } from "./api/errors";
 import { type Plugin, keyOf } from "./plugins";
+
+/** The background check of the repositories: running, or failed (the list kept from the last read stays). */
+export type CheckState = "idle" | "checking" | "failed";
+
+/**
+ * Read the repositories for what changed since they were last read. The page shows the kept listing meanwhile; a
+ * read that finds something new saves it, which the daemon announces as `plugins`, so the page loads it then.
+ * An unreachable daemon isn't this check's failure: the app says so for every page.
+ */
+export async function checkRepositories(read: () => Promise<unknown>, onstate: (state: CheckState) => void): Promise<void> {
+  onstate("checking");
+  try {
+    await read();
+    onstate("idle");
+  } catch (e) {
+    onstate(e instanceof DaemonUnavailableError ? "idle" : "failed");
+  }
+}
 
 /** Where a plugin picked for an update is: its turn to come, updating now, or how it went. */
 export type UpdateStep = "waiting" | "updating" | "updated" | "failed";

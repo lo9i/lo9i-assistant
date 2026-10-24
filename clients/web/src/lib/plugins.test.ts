@@ -47,6 +47,7 @@ const contents: RepositoryContents = {
       email: false,
     },
   ],
+  checked: "",
 };
 
 group("pluginsOf", () => {
@@ -230,5 +231,15 @@ group("fromRepositories", () => {
       "me/plugins: Couldn't get the repository",
       "lo9i/lo9i-assistant-extras: apps/finance/ledger/server.yaml can't be used: bad",
     ]);
+  });
+
+  it("was checked when its least recently checked repository was, and not while one never was", () => {
+    const repository = (name: string) => ({ url: `https://github.com/${name}`, name, official: false, private: false });
+    const at = (name: string, checked: string) => ({ repository: repository(name), contents: { ...contents, checked }, error: "" });
+    expect(fromRepositories([at("a", "2026-10-24T10:00:00Z"), at("b", "2026-10-24T09:00:00Z")]).checked).toBe("2026-10-24T09:00:00Z");
+    expect(fromRepositories([at("a", "2026-10-24T10:00:00Z"), at("b", "")]).checked).toBe("");
+    expect(fromRepositories([at("a", "2026-10-24T10:00:00Z"), { repository: repository("b"), contents: null, error: "x" }]).checked).toBe(
+      "",
+    );
   });
 });

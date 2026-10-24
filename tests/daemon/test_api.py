@@ -4,8 +4,9 @@ import asyncio
 import json
 import os
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
@@ -21,6 +22,7 @@ from assistant.core.agent import (
     SpeechSettingsError,
 )
 from assistant.core.attachments import Attachment
+from assistant.core.config import settings
 from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
 from assistant.core.events import ApprovalRequired, Cancelled, Dispatched, Done, ToolFinished
 from assistant.core.home import results
@@ -206,7 +208,9 @@ async def test_home_is_shown_refreshed_and_its_sections_edited(client, service):
 
 
 async def test_a_client_showing_home_keeps_it_current_until_it_stops(client, service):
-    now = datetime.now(UTC)
+    # Midday, so the last refresh 31 minutes before is the same day: just after midnight it would be yesterday's,
+    # and the day's first tick refreshes whoever watches.
+    now = datetime.now(ZoneInfo(settings.timezone)).replace(hour=12, minute=0, second=0, microsecond=0)
     await results.mark_refreshed(service.store, "owner", now - timedelta(minutes=31))
     await client.home.watch()
     await service.home_schedule.tick(now)
