@@ -3,16 +3,21 @@ operating instructions and the channel hints. The others are left out: they are 
 in, or say how a feature works, so an edit could break it.
 
 An edit is kept as a file (prompts.edit_path) and used instead of the built-in text. Saving the built-in
-text, or resetting, removes the file, so a later update of the built-in text applies again. Each epoch
+text, or resetting, removes the file, so a later update of the built-in text applies again. The built-in text
+an edit was made from is kept beside it (prompts.base_path): when an update changes the built-in text, the edit
+still hides it, so the section says what changed (`built_in_changes`) until the user saves the edit again, keeps
+it as it is (`keep`) or resets it. Each epoch
 records a digest of the texts its system prompt was built with (epochs.py); when it changes, the next
 user message starts a new epoch with nothing summarized, as with a rename.
 """
 
 import asyncio
+import difflib
 import hashlib
 import os
 from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass
+from pathlib import Path
 
 from assistant.core.conversation import prompts
 from assistant.core.conversation.prompts import UnreadableEditError
@@ -43,6 +48,9 @@ class PromptSection:
     edited: bool
     # Why the edit can't be used (a file that isn't UTF-8 or can't be read); the built-in text is used meanwhile.
     problem: str = ""
+    # How the built-in text changed since the edit was made from it, as a unified diff; "" when it didn't (or
+    # there's no edit).
+    built_in_changes: str = ""
 
 
 class UnknownPromptError(LookupError):
@@ -65,7 +73,9 @@ async def section(name: str) -> PromptSection:
         text = await asyncio.to_thread(prompts.edited, name) or default
     except UnreadableEditError as e:
         return PromptSection(name, title, description, default, default, True, str(e))
-    return PromptSection(name, title, description, text, default, text != default)
+    edited = text != default
+    changes = await asyncio.to_thread(_changes_since_edit, name, default) if edited else ""
+    return PromptSection(name, title, description, text, default, edited, built_in_changes=changes)
 
 
 async def save(name: str, text: str) -> PromptSection:
@@ -77,7 +87,16 @@ async def save(name: str, text: str) -> PromptSection:
         raise PromptEditError("The text can't be empty. Reset it to use the built-in one.")
     if text == prompts.default(name):
         return await reset(name)
-    await _changing(name, asyncio.to_thread(_write, name, text))
+    await _changing(name, asyncio.to_thread(_write, prompts.edit_path(name), text))
+    await _changing(name, asyncio.to_thread(_write, prompts.base_path(name), prompts.default(name)))
+    return await section(name)
+
+
+async def keep(name: str) -> PromptSection:
+    """Keeps the edit as it is after the built-in text changed: the change is seen, and not said again. Raises
+    UnknownPromptError, PromptEditError."""
+    _about(name)
+    await _changing(name, asyncio.to_thread(_keep_base, name, replace=True))
     return await section(name)
 
 
@@ -85,7 +104,33 @@ async def reset(name: str) -> PromptSection:
     """Back to the built-in text, also when the edit can't be read. Raises UnknownPromptError, PromptEditError."""
     _about(name)
     await _changing(name, asyncio.to_thread(prompts.edit_path(name).unlink, missing_ok=True))
+    await _changing(name, asyncio.to_thread(prompts.base_path(name).unlink, missing_ok=True))
     return await section(name)
+
+
+async def keep_bases() -> None:
+    """For edits made before the built-in text they came from was kept, or by hand: the one in use now, so a later
+    change of it is said. Run at start."""
+    for name in prompts.EDITABLE:
+        await asyncio.to_thread(_keep_base, name, replace=False)
+
+
+def _keep_base(name: str, replace: bool) -> None:
+    """Records the built-in text in use now as the one the edit came from, when there's an edit; with `replace`
+    false, only when none was recorded."""
+    if prompts.edit_path(name).is_file() and (replace or not prompts.base_path(name).is_file()):
+        _write(prompts.base_path(name), prompts.default(name))
+
+
+def _changes_since_edit(name: str, default: str) -> str:
+    """The built-in text's change since the edit was made from it, as a unified diff; "" when there's none."""
+    path = prompts.base_path(name)
+    try:
+        base = path.read_text(encoding="utf-8").strip() if path.is_file() else default
+    except (OSError, UnicodeDecodeError):
+        return ""
+    lines = difflib.unified_diff(base.splitlines(), default.splitlines(), "when you edited it", "now", lineterm="", n=1)
+    return "\n".join(lines)
 
 
 async def _changing(name: str, change: Awaitable[None]) -> None:
@@ -112,9 +157,8 @@ def _about(name: str) -> tuple[str, str]:
     return _ABOUT[name]
 
 
-def _write(name: str, text: str) -> None:
+def _write(path: Path, text: str) -> None:
     """Written whole and then moved into place, so a turn starting meanwhile never reads half of it."""
-    path = prompts.edit_path(name)
     path.parent.mkdir(parents=True, exist_ok=True)
     partial = path.with_name(f".{path.name}.partial")
     partial.write_text(f"{text}\n", encoding="utf-8")

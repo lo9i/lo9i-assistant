@@ -1538,6 +1538,17 @@ def _add_prompt_routes(app: FastAPI, service: AssistantService) -> None:
         except PromptEditError as e:
             raise HTTPException(400, str(e)) from e
 
+    @app.post("/settings/prompts/{name}/kept")
+    async def keep_prompt(name: str) -> PromptSection:
+        """Keeps the edit as it is after the built-in text changed (`built_in_changes`), which isn't said again.
+        404: not a prompt the user can edit. 400: that can't be recorded."""
+        try:
+            return await service.keep_prompt(name)
+        except UnknownPromptError as e:
+            raise HTTPException(404, str(e)) from e
+        except PromptEditError as e:
+            raise HTTPException(400, str(e)) from e
+
     @app.delete("/settings/prompts/{name}")
     async def reset_prompt(name: str) -> PromptSection:
         """Back to the built-in text. 404: not a prompt the user can edit. 400: the edit can't be deleted."""

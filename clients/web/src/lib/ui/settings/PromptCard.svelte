@@ -36,6 +36,15 @@
     }
   }
 
+  async function keep(name: string): Promise<void> {
+    try {
+      settle(await client.prompts.keep(name));
+      notices.notify("Your edit stays as it is.");
+    } catch (e) {
+      error = describe(e);
+    }
+  }
+
   async function reset(name: string): Promise<void> {
     try {
       settle(await client.prompts.reset(name));
@@ -76,6 +85,17 @@
     <p class="text-meta">{section.description}</p>
     {#if section.problem}
       <p class="error-text">{section.problem} The assistant uses the built-in text below until you reset or save it.</p>
+    {/if}
+    {#if section.built_in_changes}
+      <!-- An update changed the built-in text this edit hides: what changed, to take into the edit or not. -->
+      <div class="notice-warn changes">
+        <p class="text-label">The built-in text changed since you edited it. Your edit is still what the assistant uses.</p>
+        <pre>{section.built_in_changes}</pre>
+        <p class="text-meta">Take what you want into your edit and save it, keep your edit as it is, or reset to the new built-in text.</p>
+        <div class="actions">
+          <button class="btn btn--neutral btn--sm" onclick={() => keep(section.name)}>Keep my edit</button>
+        </div>
+      </div>
     {/if}
     <textarea
       class="input"
@@ -130,6 +150,19 @@
     font-family: var(--font-mono);
     font-size: var(--font-size-sm);
     line-height: 1.5;
+  }
+  .changes {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .changes pre {
+    margin: 0;
+    max-height: 240px;
+    overflow: auto;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    white-space: pre-wrap;
   }
   .actions {
     display: flex;

@@ -17,6 +17,12 @@ class PromptsMixin(ServiceBase):
         self.bus.publish("prompts")
         return saved
 
+    async def keep_prompt(self, name: str) -> PromptSection:
+        """Keeps an edit as it is after its built-in text changed, so the change isn't said again."""
+        kept = await prompt_edits.keep(name)
+        self.bus.publish("prompts")
+        return kept
+
     async def reset_prompt(self, name: str) -> PromptSection:
         """Back to the built-in text. Raises UnknownPromptError, PromptEditError."""
         reset = await prompt_edits.reset(name)

@@ -1054,12 +1054,16 @@ class FakePrompts:
         if not text.strip():
             raise PromptEditError("Write the text, or reset it to the built-in one.")
         section = self.items[name]
-        self.items[name] = replace(section, text=text, edited=text != section.default)
+        self.items[name] = replace(section, text=text, edited=text != section.default, built_in_changes="")
+        return self.items[name]
+
+    async def keep(self, name):
+        self.items[name] = replace(self.items[name], built_in_changes="")
         return self.items[name]
 
     async def reset(self, name):
         section = self.items[name]
-        self.items[name] = replace(section, text=section.default, edited=False)
+        self.items[name] = replace(section, text=section.default, edited=False, built_in_changes="")
         return self.items[name]
 
 

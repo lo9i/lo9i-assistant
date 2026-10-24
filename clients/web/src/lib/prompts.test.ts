@@ -10,6 +10,7 @@ const section = (text: string, edited: boolean): PromptSection => ({
   default: "Built in.",
   edited,
   problem: "",
+  built_in_changes: "",
 });
 
 describe("prompt drafts", () => {

@@ -45,6 +45,7 @@ from assistant.core.bus import EventBus
 from assistant.core.channels.hub import ChannelHub
 from assistant.core.channels.processes import ChannelProcesses
 from assistant.core.config import settings
+from assistant.core.conversation import prompt_edits
 from assistant.core.conversation.meanings import ConversationIndexer, SimilarConversations
 from assistant.core.conversation.memory_writer import MemoryWriter
 from assistant.core.health import HealthLog
@@ -177,6 +178,7 @@ class AssistantService(
                 await plugin_keys.migrate(storage.store, secrets)
                 await plugin_install.add_missing_icons(storage.store, secrets)
                 await profile.migrate(storage.store)
+                await prompt_edits.keep_bases()
                 await asyncio.to_thread(folders.remove_old_libraries)
                 service = cls(storage, await usable_choice(storage.store, secrets), bus, secrets)
                 await service.agent_tasks.reload()

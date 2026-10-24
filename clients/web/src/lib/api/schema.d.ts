@@ -1905,6 +1905,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings/prompts/{name}/kept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep Prompt
+         * @description Keeps the edit as it is after the built-in text changed (`built_in_changes`), which isn't said again.
+         *     404: not a prompt the user can edit. 400: that can't be recorded.
+         */
+        post: operations["keep_prompt_settings_prompts__name__kept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/settings/speech": {
         parameters: {
             query?: never;
@@ -3728,6 +3749,11 @@ export interface components {
              * @default
              */
             problem: string;
+            /**
+             * Built In Changes
+             * @default
+             */
+            built_in_changes: string;
         };
         /** PromptText */
         PromptText: {
@@ -7782,6 +7808,37 @@ export interface operations {
         };
     };
     reset_prompt_settings_prompts__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptSection"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    keep_prompt_settings_prompts__name__kept_post: {
         parameters: {
             query?: never;
             header?: never;

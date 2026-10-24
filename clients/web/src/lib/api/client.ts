@@ -370,6 +370,11 @@ export class PromptsGroup {
     return this.transport.request("PUT", `/settings/prompts/${encodeURIComponent(name)}`, { text });
   }
 
+  /** Keeps the edit as it is after its built-in text changed (`built_in_changes`), which isn't said again. */
+  keep(name: string): Promise<PromptSection> {
+    return this.transport.request("POST", `/settings/prompts/${encodeURIComponent(name)}/kept`);
+  }
+
   /** Back to the built-in text. */
   reset(name: string): Promise<PromptSection> {
     return this.transport.request("DELETE", `/settings/prompts/${encodeURIComponent(name)}`);

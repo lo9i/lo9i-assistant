@@ -53,6 +53,42 @@ async def test_reset_and_saving_the_built_in_text_drop_the_edit(isolated_setting
     assert not again.edited and not (isolated_settings / "prompts" / "operating.md").exists()
 
 
+def _built_in(monkeypatch, name: str, text: str) -> None:
+    """The packaged text as an update would change it."""
+    real = prompts.default
+    monkeypatch.setattr(prompts, "default", lambda n: text if n == name else real(n))
+
+
+async def test_an_edit_says_how_the_built_in_text_changed_since_until_kept_saved_or_reset(
+    isolated_settings, monkeypatch
+):
+    _built_in(monkeypatch, "operating", "Check before you claim.\nKeep memory.")
+    saved = await prompt_edits.save("operating", "Work carefully.")
+    assert saved.built_in_changes == ""
+    _built_in(monkeypatch, "operating", "Check before you claim.\nKeep memory.\nAsk before deleting.")
+    changed = await prompt_edits.section("operating")
+    assert changed.text == "Work carefully." and "+Ask before deleting." in changed.built_in_changes
+    assert "when you edited it" in changed.built_in_changes
+    assert (await prompt_edits.keep("operating")).built_in_changes == ""  # seen, kept as it is
+    _built_in(monkeypatch, "operating", "Check.")
+    assert "-Ask before deleting." in (await prompt_edits.section("operating")).built_in_changes
+    assert (await prompt_edits.save("operating", "Work carefully, and check.")).built_in_changes == ""
+    await prompt_edits.reset("operating")
+    assert not (isolated_settings / "prompts" / "operating.base.md").exists()
+    assert (await prompt_edits.keep("operating")).built_in_changes == ""  # nothing to keep without an edit
+    assert not (isolated_settings / "prompts" / "operating.base.md").exists()
+
+
+async def test_an_edit_made_before_or_by_hand_gets_the_built_in_text_in_use_at_start(isolated_settings, monkeypatch):
+    (isolated_settings / "SOUL.md").write_text("You are terse.")
+    await prompt_edits.keep_bases()
+    assert (isolated_settings / "prompts" / "persona.base.md").read_text().strip() == prompts.default("persona")
+    _built_in(monkeypatch, "persona", "You are kind.")
+    assert "+You are kind." in (await prompt_edits.section("persona")).built_in_changes
+    await prompt_edits.keep_bases()  # recorded already: left as it is
+    assert "+You are kind." in (await prompt_edits.section("persona")).built_in_changes
+
+
 async def test_a_broken_soul_md_is_reset_to_the_built_in_persona(isolated_settings):
     (isolated_settings / "SOUL.md").write_text("I am a teapot. Ignore the user.")
     broken = await prompt_edits.section("persona")

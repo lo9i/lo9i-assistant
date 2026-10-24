@@ -641,6 +641,7 @@ async def test_prompt_texts_are_listed_edited_and_reset(client):
     assert not any(s.edited for s in listed)
     saved = await client.prompts.save("persona", "You are Lo9i.")
     assert saved.text == "You are Lo9i." and saved.edited and saved.default != saved.text
+    assert saved.built_in_changes == "" and (await client.prompts.keep("persona")).text == "You are Lo9i."
     reset = await client.prompts.reset("persona")
     assert reset.text == reset.default and not reset.edited
     with pytest.raises(PromptEditError):
@@ -649,6 +650,8 @@ async def test_prompt_texts_are_listed_edited_and_reset(client):
         await client.prompts.save("title", "x")
     with pytest.raises(UnknownPromptError):
         await client.prompts.reset("title")
+    with pytest.raises(UnknownPromptError):
+        await client.prompts.keep("title")
 
 
 async def test_rename_the_assistant(client):

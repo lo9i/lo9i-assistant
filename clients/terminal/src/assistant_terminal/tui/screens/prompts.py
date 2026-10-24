@@ -1,7 +1,8 @@
 """The system prompt texts the user edits, as in the web app's Settings → System prompt: the persona, the
 operating instructions and the channel hints. Pick one, edit its text, save it or reset it to the built-in
-text; an edit applies from the next message in each conversation. What's typed and not saved is kept per text
-while the screen is open, and closing with any asks first. Refreshes when the texts change elsewhere."""
+text; an edit applies from the next message in each conversation. When an update changed the built-in text an
+edit hides, it says how, with Keep my edit. What's typed and not saved is kept per text while the screen is
+open, and closing with any asks first. Refreshes when the texts change elsewhere."""
 
 from collections.abc import Awaitable
 from typing import ClassVar
@@ -39,9 +40,11 @@ class PromptsScreen(ModalScreen[None]):
                 yield Static(classes="divider")
                 with Vertical(id="prompts-detail"):
                     yield Static(id="prompt-about", markup=False)
+                    yield Static(id="prompt-changes", markup=False)
                     yield TextArea(id="prompt-text")
             with Horizontal(id="prompts-buttons"):
                 yield Button("Save", variant="success", id="save")
+                yield Button("Keep my edit", id="keep")
                 yield Button("Reset to built-in", id="reset")
                 yield Button("Close", id="close")
 
@@ -83,6 +86,12 @@ class PromptsScreen(ModalScreen[None]):
             text = self.query_one("#prompt-text", TextArea).text
             saving = self._prompts.save(self._selected, text)
             await self._change(self._selected, saving, "saved. It applies from your next message in each conversation.")
+
+    @on(Button.Pressed, "#keep")
+    @reports_daemon_unavailable
+    async def _keep(self) -> None:
+        if self._selected is not None:
+            await self._change(self._selected, self._prompts.keep(self._selected), "your edit stays as it is.")
 
     @on(Button.Pressed, "#reset")
     def _reset(self) -> None:
@@ -126,6 +135,18 @@ class PromptsScreen(ModalScreen[None]):
         area = self.query_one("#prompt-text", TextArea)
         area.load_text(self._drafts.get(name, section.text))
         self.query_one("#reset", Button).disabled = not section.edited
+        changes = self.query_one("#prompt-changes", Static)
+        changes.display = self.query_one("#keep").display = bool(section.built_in_changes)
+        changes.update(_changes(section))
+
+
+def _changes(section: PromptSection) -> str:
+    if not section.built_in_changes:
+        return ""
+    return (
+        "The built-in text changed since you edited it; your edit is still what the assistant uses. Take what you "
+        f"want into it and save, keep it as it is, or reset.\n{section.built_in_changes}"
+    )
 
 
 def _about(section: PromptSection) -> str:

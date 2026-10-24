@@ -10,7 +10,7 @@ vi.mock("$lib/daemon.svelte", () => ({
   resource: () => loaded,
 }));
 
-const persona = (text: string, problem = ""): PromptSection => ({
+const persona = (text: string, problem = "", built_in_changes = ""): PromptSection => ({
   name: "persona",
   title: "Persona",
   description: "Who it is.",
@@ -18,6 +18,7 @@ const persona = (text: string, problem = ""): PromptSection => ({
   default: "You are an assistant.",
   edited: true,
   problem,
+  built_in_changes,
 });
 
 const operating: PromptSection = {
@@ -28,6 +29,7 @@ const operating: PromptSection = {
   default: "Built in.",
   edited: false,
   problem: "",
+  built_in_changes: "",
 };
 
 describe("PromptCard", () => {
@@ -52,5 +54,15 @@ describe("PromptCard", () => {
     expect(body).toContain("read /home/u/.lo9i/SOUL.md: not UTF-8. The assistant uses the built-in text");
     expect(body).toMatch(/<textarea[^>]*>You are an assistant\.<\/textarea>/);
     expect(body).toContain("Reset to default");
+  });
+
+  it("says how the built-in text changed since the edit, and offers keeping the edit", () => {
+    loaded.data = [persona("You are Lo9i.", "", "--- when you edited it\n+++ now\n+Be kind."), operating];
+    const { body } = render(PromptCard);
+    expect(body).toContain("The built-in text changed since you edited it.");
+    expect(body).toContain("+Be kind.");
+    expect(body).toContain("Keep my edit");
+    loaded.data = [persona("You are Lo9i."), operating];
+    expect(render(PromptCard).body).not.toContain("Keep my edit");
   });
 });

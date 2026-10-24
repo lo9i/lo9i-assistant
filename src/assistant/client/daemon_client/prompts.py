@@ -20,6 +20,12 @@ class PromptsApi:
         data = await self._transport.request("PUT", f"/settings/prompts/{name}", json={"text": text}, errors=_ERRORS)
         return PromptSection(**data)
 
+    async def keep(self, name: str) -> PromptSection:
+        """Keeps the edit as it is after the built-in text changed (`built_in_changes`). Raises PromptEditError or
+        UnknownPromptError."""
+        path = f"/settings/prompts/{name}/kept"
+        return PromptSection(**await self._transport.request("POST", path, errors=_ERRORS))
+
     async def reset(self, name: str) -> PromptSection:
         """Back to the built-in text. Raises PromptEditError or UnknownPromptError."""
         return PromptSection(**await self._transport.request("DELETE", f"/settings/prompts/{name}", errors=_ERRORS))

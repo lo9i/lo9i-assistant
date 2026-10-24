@@ -57,3 +57,18 @@ async def test_an_empty_text_isnt_saved_and_unsaved_text_is_kept_across_texts(ap
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
         await pilot.press("y")
         await wait_for(pilot, lambda: not isinstance(app.screen, (PromptsScreen, ConfirmScreen)))
+
+
+async def test_a_change_of_the_built_in_text_is_shown_until_the_edit_is_kept(app, client):
+    from dataclasses import replace
+
+    persona = client.prompts.items["persona"]
+    changes = "--- when you edited it\n+++ now\n+Be kind."
+    client.prompts.items["persona"] = replace(persona, text="You are Lo9i.", edited=True, built_in_changes=changes)
+    async with app.run_test(size=(120, 40)) as pilot:
+        screen = await _open(pilot, app)
+        shown = screen.query_one("#prompt-changes", Static)
+        await wait_for(pilot, lambda: "+Be kind." in str(shown.render()) and shown.display)
+        screen.query_one("#keep", Button).press()
+        await wait_for(pilot, lambda: not client.prompts.items["persona"].built_in_changes and not shown.display)
+        assert not screen.query_one("#keep").display

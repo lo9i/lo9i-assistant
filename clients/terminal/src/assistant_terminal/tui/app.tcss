@@ -723,3 +723,12 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     margin-right: 1;
     min-width: 8;
 }
+
+/* How the built-in text changed since an edit: a few lines of diff above the editor. */
+#prompt-changes {
+    height: auto;
+    max-height: 10;
+    overflow-y: auto;
+    margin-bottom: 1;
+    color: $warning;
+}

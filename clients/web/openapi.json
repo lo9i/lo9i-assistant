@@ -4232,6 +4232,46 @@
         }
       }
     },
+    "/settings/prompts/{name}/kept": {
+      "post": {
+        "summary": "Keep Prompt",
+        "description": "Keeps the edit as it is after the built-in text changed (`built_in_changes`), which isn't said again.\n404: not a prompt the user can edit. 400: that can't be recorded.",
+        "operationId": "keep_prompt_settings_prompts__name__kept_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptSection"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/settings/speech": {
       "get": {
         "summary": "Speech Settings",
@@ -7860,6 +7900,11 @@
           "problem": {
             "type": "string",
             "title": "Problem",
+            "default": ""
+          },
+          "built_in_changes": {
+            "type": "string",
+            "title": "Built In Changes",
             "default": ""
           }
         },

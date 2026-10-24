@@ -50,6 +50,11 @@ def edited(name: str) -> str:
         raise UnreadableEditError(f"Can't read {path}: {e}.") from e
 
 
+def base_path(name: str) -> Path:
+    """Where the built-in text an edit was made from is kept, to tell when the built-in one changed since."""
+    return Path(settings.prompts_dir).expanduser() / f"{name}.base.md"
+
+
 def edit_path(name: str) -> Path:
     """Where the user's edit of an editable prompt is kept."""
     if name == "persona":
