@@ -10,6 +10,7 @@
   import Confirm from "$lib/ui/Confirm.svelte";
   import { clientLabel, conversationLabel } from "$lib/sessions";
   import EmptyState from "$lib/ui/EmptyState.svelte";
+  import TopBar from "$lib/ui/TopBar.svelte";
 
   const { client, notices } = useDaemon();
   const devices = resource((c) => c.devices.list(), ["devices"]);
@@ -63,6 +64,12 @@
   }
 </script>
 
+<TopBar title="Devices">
+  {#snippet actions()}
+    <button class="btn btn--primary" onclick={pair}><Link size={16} /><span class="hide-narrow">Pair a browser</span></button>
+  {/snippet}
+</TopBar>
+
 <div class="screen">
   <section class="table-card surface--glass">
     <header class="toolbar">
@@ -70,10 +77,7 @@
         <h2 class="text-heading">Paired browsers</h2>
         <p class="text-meta">Browsers allowed to use the assistant over the network. Click one to see it on the right.</p>
       </div>
-      <div class="toolbar-actions">
-        {#if devices.data}<span class="pill">{devices.data.length}</span>{/if}
-        <button class="btn btn--primary" onclick={pair}><Link size={16} /><span class="hide-narrow">Pair a browser</span></button>
-      </div>
+      {#if devices.data}<span class="pill">{devices.data.length}</span>{/if}
     </header>
     <div class="scroll">
       {#if devices.error}
@@ -184,8 +188,8 @@
     /* Cards take the height of their content, up to the screen; long lists scroll inside. */
     align-items: flex-start;
     gap: 16px;
-    padding: 16px;
-    height: 100dvh;
+    padding: 0 16px 16px;
+    height: calc(100dvh - 76px);
     max-width: 1600px;
     margin: 0 auto;
   }
@@ -214,12 +218,6 @@
     padding: 16px 24px;
     min-height: 66px;
     border-bottom: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
-  }
-  .toolbar-actions {
-    flex: none;
-    display: flex;
-    align-items: center;
-    gap: 12px;
   }
   .toolbar p {
     margin: 4px 0 0;
