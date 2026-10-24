@@ -285,7 +285,7 @@
     display: flex;
     width: fit-content;
     padding: 3px 8px;
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-accent);
     border-radius: var(--radius-sm, 6px);
     align-items: center;
     gap: 4px;
