@@ -112,6 +112,12 @@ export class ConversationsGroup {
     return this.transport.request("GET", path);
   }
 
+  /** A step inside a tool call in full (a delegate call's, a handed-off agent's), by its place from 0. */
+  toolCallStep(threadId: string, callId: string, index: number): Promise<ShownCall> {
+    const path = `/conversations/${encodeURIComponent(threadId)}/tool-calls/${encodeURIComponent(callId)}/steps/${index}`;
+    return this.transport.request("GET", path);
+  }
+
   /** Its messages, tokens and tool calls, and when it started and was last written in; all zero for a new one. */
   stats(threadId: string): Promise<ConversationStats> {
     return this.transport.request("GET", `/conversations/${encodeURIComponent(threadId)}/stats`);

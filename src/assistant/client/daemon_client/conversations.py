@@ -16,11 +16,11 @@ from assistant.core.agent import (
     HandoffError,
     ShownCall,
     ShownMessage,
+    ShownStep,
     SkillError,
 )
 from assistant.core.attachments import Attachment
 from assistant.core.events import ApprovalRequired
-from assistant.core.subagent_steps import SubagentStep
 
 
 @dataclass(frozen=True)
@@ -57,6 +57,12 @@ class ConversationsApi:
         """A tool call in full, which `messages` shows only the start of when it's `partial`. Raises
         ConversationError when the conversation has no such call."""
         path = f"/conversations/{thread_id}/tool-calls/{quote(call_id, safe='')}"
+        return ShownCall(**await self._transport.request("GET", path, errors={404: ConversationError}))
+
+    async def tool_call_step(self, thread_id: str, call_id: str, index: int) -> ShownCall:
+        """A step inside a tool call in full, by its place from 0, which `messages` shows only the start of when
+        it's `partial`. Raises ConversationError when the call has no such step."""
+        path = f"/conversations/{thread_id}/tool-calls/{quote(call_id, safe='')}/steps/{index}"
         return ShownCall(**await self._transport.request("GET", path, errors={404: ConversationError}))
 
     async def stats(self, thread_id: str) -> ConversationStats:
@@ -137,5 +143,5 @@ class ConversationsApi:
 
 
 def _shown(message: dict) -> ShownMessage:
-    steps = [SubagentStep(**step) for step in message.pop("steps", [])]
+    steps = [ShownStep(**step) for step in message.pop("steps", [])]
     return ShownMessage(**message, steps=steps)

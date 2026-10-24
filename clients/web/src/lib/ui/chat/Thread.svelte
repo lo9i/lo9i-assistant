@@ -11,7 +11,7 @@
   import Wrench from "@lucide/svelte/icons/wrench";
   import type { Snippet } from "svelte";
   import type { ShownCall } from "$lib/api/types";
-  import { inlineArg, withWhole, type ChatItem } from "$lib/chat/transcript";
+  import { inlineArg, withWhole, withWholeStep, type ChatItem } from "$lib/chat/transcript";
   import { WholeCalls } from "$lib/chat/wholeCalls.svelte";
   import { markdown } from "$lib/markdown";
 
@@ -24,12 +24,14 @@
     onmove?: (dispatchId: string) => void;
     /** Loads a tool call from history in full when it's opened; its card shows only its start until then. */
     loadCall?: (callId: string) => Promise<ShownCall>;
+    /** Loads a step inside a call from history (a delegate call's, a handed-off agent's) in full when it's opened. */
+    loadStep?: (callId: string, index: number) => Promise<ShownCall>;
     /** Shown after the last message. */
     end?: Snippet;
     /** Keep the newest message in view as content arrives (the live chat). A preview reads from the top. */
     follow?: boolean;
   };
-  let { items, thinking, name, onsuggest, onmove, loadCall, end, follow = true }: Props = $props();
+  let { items, thinking, name, onsuggest, onmove, loadCall, loadStep, end, follow = true }: Props = $props();
   const wholes = new WholeCalls();
 
   const SUGGESTIONS = [
@@ -161,9 +163,14 @@
           {#if arg}<pre class="command">{arg}</pre>{/if}
           {#if call.steps?.length}
             <div class="steps">
-              {#each call.steps as step, i (i)}
+              {#each call.steps as shownStep, i (i)}
+                {@const wholeStep = wholes.getStep(item.callId, i)}
+                {@const step = wholeStep?.state === "loaded" ? withWholeStep(shownStep, wholeStep.call) : shownStep}
                 {@const stepArg = inlineArg(step.args)}
-                <details class="tool step {step.state}">
+                <details
+                  class="tool step {step.state}"
+                  ontoggle={(e) => e.currentTarget.open && loadStep && wholes.openStep(item, i, shownStep, loadStep)}
+                >
                   <summary>
                     <Wrench size={12} />
                     <span>{step.name}</span>
@@ -176,6 +183,8 @@
                   {#if step.args && Object.keys(step.args).length && !stepArg}<pre>{JSON.stringify(step.args, null, 2)}</pre>{/if}
                   {#if stepArg}<pre class="command">{stepArg}</pre>{/if}
                   {#if step.output}<pre>{step.output}</pre>{/if}
+                  {#if wholeStep?.state === "loading"}<p class="text-caption whole-note">Loading the whole step…</p>{/if}
+                  {#if wholeStep?.state === "failed"}<p class="text-caption whole-note">Couldn't load the whole step.</p>{/if}
                 </details>
               {/each}
             </div>

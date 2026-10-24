@@ -114,6 +114,7 @@
             name=""
             onsuggest={() => {}}
             loadCall={(callId) => client.conversations.toolCall(threadId, callId)}
+            loadStep={(callId, index) => client.conversations.toolCallStep(threadId, callId, index)}
             follow={false}
           >
             {#snippet end()}

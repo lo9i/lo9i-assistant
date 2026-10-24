@@ -122,11 +122,11 @@ class ToolCall(Collapsible):
 
 
 class PartialToolCall(ToolCall):
-    """A tool call history shows the start of: its arguments on one line and the start of its output. The whole
-    call loads the first time it's expanded; one that couldn't load tries again the next time."""
+    """A tool call history shows the start of, or a step inside one: its arguments on one line and the start of its
+    output. The whole call loads the first time it's expanded; one that couldn't load tries again the next time."""
 
-    def __init__(self, name: str, detail: str, output: str, load: Callable[[], Awaitable[ShownCall]]) -> None:
-        super().__init__(name, {"detail": detail} if detail else {})
+    def __init__(self, name: str, args: dict[str, Any], output: str, load: Callable[[], Awaitable[ShownCall]]) -> None:
+        super().__init__(name, args)
         self._name, self._preview, self._load, self._whole = name, output.strip(), load, False
         self.finish(output)
 

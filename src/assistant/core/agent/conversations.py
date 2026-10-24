@@ -9,11 +9,11 @@ from assistant.core.agent.threads import ConversationError
 from assistant.core.agent.titles import TitlesMixin
 from assistant.core.context import UNATTENDED_CHANNEL
 from assistant.core.conversation import summaries
-from assistant.core.conversation.display import ShownCall, ShownMessage, shown, tool_call
+from assistant.core.conversation.display import ShownCall, ShownMessage, ShownStep, shown, tool_call, tool_call_step
 from assistant.core.conversation.turn_header import channels
 from assistant.core.conversations import Conversation
 
-__all__ = ["Conversation", "ConversationsMixin", "ShownCall", "ShownMessage"]
+__all__ = ["Conversation", "ConversationsMixin", "ShownCall", "ShownMessage", "ShownStep"]
 
 
 class ConversationsMixin(TitlesMixin):
@@ -45,6 +45,16 @@ class ConversationsMixin(TitlesMixin):
         if call is None:
             raise ConversationError("No such tool call in this conversation.")
         return call
+
+    async def conversation_tool_call_step(self, thread_id: str, call_id: str, index: int) -> ShownCall:
+        """A step inside a tool call in full (a delegate call's subagent's, a task's, a handed-off agent's own
+        subagent's), by its place from 0, which the call shows only the start of (`partial`). Raises
+        ConversationError when the conversation has no such step."""
+        state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
+        step = tool_call_step(state.values.get("messages", []), call_id, index)
+        if step is None:
+            raise ConversationError("No such step in this tool call.")
+        return step
 
     async def _note_activity(self, session: Session, text: str) -> None:
         """Keeps the list current. Scheduled job runs aren't conversations the user resumes."""

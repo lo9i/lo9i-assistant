@@ -770,6 +770,9 @@ class FakeConversations:
             raise ConversationError("No such tool call in this conversation.")
         return self.calls[(thread_id, call_id)]
 
+    async def tool_call_step(self, thread_id, call_id, index):
+        return await self.tool_call(thread_id, f"{call_id}#{index}")
+
     async def recent(self):
         return list(self.items)
 

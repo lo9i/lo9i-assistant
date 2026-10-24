@@ -1,6 +1,7 @@
 """A conversation as clients show it: what the user wrote, what the assistant answered, and which
 tools it used, each call with its arguments on one line and the start of its output: the whole call loads
-when the user opens it (`tool_call`). Turn headers are left out; a quick exchange the inbox carried to the
+when the user opens it (`tool_call`), and each step inside it when that's opened (`tool_call_step`). Turn
+headers are left out; a quick exchange the inbox carried to the
 conversation shows before the message that followed it up (core/conversation/carried.py). A reply of an
 agent the conversation was handed to shows its steps as they were shown live: its thinking, its text, each
 tool call with its output, and the messages the user sent it while it worked (core/agent_tasks/steps.py). A
@@ -8,7 +9,7 @@ delegate call shows the subagent's tool calls inside it, as they streamed live (
 
 import json
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
@@ -19,12 +20,25 @@ from assistant.core.agent_tasks.steps import STEPS, Upload, args_of, files_of, p
 from assistant.core.conversation import carried, ended
 from assistant.core.conversation.dispatched import DISPATCH_ID
 from assistant.core.conversation.turn_header import is_header
-from assistant.core.subagent_steps import SubagentStep
 
 # The most of a call's arguments and of its output history sends: enough to tell what the call was, without
 # sending every page or file it read each time a conversation is shown.
 _DETAIL = 120
 _OUTPUT = 200
+# A handed-off agent's tool call is named after its reply and its place among the reply's calls (`_agent_id`).
+_AGENT = "agent~"
+
+
+@dataclass
+class ShownStep:
+    """A tool call inside a delegate call (its subagent's), a task_status call (the task's) or a handed-off
+    agent's call (its own subagent's): its arguments and the start of its output, `partial` when they leave
+    something out, so the whole step is worth loading (`tool_call_step`)."""
+
+    name: str
+    args: dict[str, Any]
+    output: str
+    partial: bool = False
 
 
 @dataclass
@@ -41,11 +55,11 @@ class ShownMessage:
     output: str = ""
     # A delegate call's, or a handed-off agent's call that started a subagent of its own: the subagent's tool
     # calls.
-    steps: list[SubagentStep] = field(default_factory=list)
+    steps: list[ShownStep] = field(default_factory=list)
     # The inbox's record of a message it sent on: the message's id, to move it (core/conversation/dispatched.py).
     dispatch_id: str = ""
-    # An assistant's tool call: its id, and whether `detail` (its arguments on one line) and `output` leave
-    # something out, so the whole call is worth loading (`tool_call`).
+    # A tool call: its id (a handed-off agent's is made up, `_agent_id`), and whether `detail` (its arguments on
+    # one line) and `output` leave something out, so the whole call is worth loading (`tool_call`).
     call_id: str = ""
     partial: bool = False
 
@@ -72,7 +86,7 @@ def _shown(message: BaseMessage, results: dict[str, ToolMessage]) -> list[ShownM
         before = [ShownMessage("carried", carried.shown(exchange))] if exchange else []
         return [*before, ShownMessage("user", _text(message.content, skip_header=True))]
     if isinstance(message, AIMessage) and (steps := message.response_metadata.get(STEPS)):
-        return _agent_reply(steps, _text(message.content))
+        return [_cut(m) for m in _agent_reply(steps, _text(message.content), message.id or "")]
     if isinstance(message, AIMessage):
         text = _text(message.content)
         calls = [_call(call, results.get(call["id"] or "")) for call in message.tool_calls]
@@ -82,13 +96,50 @@ def _shown(message: BaseMessage, results: dict[str, ToolMessage]) -> list[ShownM
 
 
 def tool_call(messages: Sequence[BaseMessage], call_id: str) -> ShownCall | None:
-    """The assistant's call with that id, with all its arguments and its whole output; "" until it has one."""
-    calls = (call for m in messages if isinstance(m, AIMessage) for call in m.tool_calls if call["id"] == call_id)
-    call = next(calls, None)
+    """The call with that id, with all its arguments and its whole output; "" until it has one."""
+    if call_id.startswith(_AGENT):
+        agent_call = _agent_call(messages, call_id)
+        return None if agent_call is None else ShownCall(agent_call.text, _about(agent_call.detail), agent_call.output)
+    call = _assistant_call(messages, call_id)
     if call is None:
         return None
-    result = next((m for m in messages if isinstance(m, ToolMessage) and m.tool_call_id == call_id), None)
+    result = _result(messages, call_id)
     return ShownCall(call["name"], call["args"], result.text if result is not None else "")
+
+
+def tool_call_step(messages: Sequence[BaseMessage], call_id: str, index: int) -> ShownCall | None:
+    """The step at `index` (from 0) inside the call with that id, with all its arguments and its whole output."""
+    steps = _whole_steps(messages, call_id)
+    if not 0 <= index < len(steps):
+        return None
+    return ShownCall(steps[index].name, steps[index].args, steps[index].output)
+
+
+def _whole_steps(messages: Sequence[BaseMessage], call_id: str) -> list[ShownStep]:
+    if call_id.startswith(_AGENT):
+        agent_call = _agent_call(messages, call_id)
+        return agent_call.steps if agent_call is not None else []
+    result = _result(messages, call_id) if _assistant_call(messages, call_id) is not None else None
+    return [ShownStep(s.name, s.args, s.output) for s in subagent_steps.of(result)] if result is not None else []
+
+
+def _assistant_call(messages: Sequence[BaseMessage], call_id: str) -> ToolCall | None:
+    calls = (call for m in messages if isinstance(m, AIMessage) for call in m.tool_calls if call["id"] == call_id)
+    return next(calls, None)
+
+
+def _result(messages: Sequence[BaseMessage], call_id: str) -> ToolMessage | None:
+    return next((m for m in messages if isinstance(m, ToolMessage) and m.tool_call_id == call_id), None)
+
+
+def _agent_call(messages: Sequence[BaseMessage], call_id: str) -> ShownMessage | None:
+    """A handed-off agent's call, whole, from the reply its id names."""
+    message_id = call_id.removeprefix(_AGENT).rpartition("~")[0]
+    reply = next((m for m in messages if isinstance(m, AIMessage) and m.id == message_id), None)
+    if reply is None or not (lines := reply.response_metadata.get(STEPS)):
+        return None
+    calls = _agent_reply(lines, _text(reply.content), message_id)
+    return next((m for m in calls if m.call_id == call_id), None)
 
 
 def _call(call: ToolCall, result: ToolMessage | None) -> ShownMessage:
@@ -97,7 +148,32 @@ def _call(call: ToolCall, result: ToolMessage | None) -> ShownMessage:
     if result is None or not (steps := subagent_steps.of(result)):
         return _preview(call, result)
     about = str(call["args"].get("task") or call["args"].get("task_id", ""))
-    return ShownMessage("tool", call["name"], detail=about, output=result.text, steps=steps)
+    whole = [ShownStep(s.name, s.args, s.output) for s in steps]
+    return _cut(
+        ShownMessage("tool", call["name"], detail=about, output=result.text, steps=whole, call_id=call["id"] or "")
+    )
+
+
+def _cut(message: ShownMessage) -> ShownMessage:
+    """A call with steps, or a handed-off agent's, as history sends it: the start of what it was about, of its
+    output and of each step's."""
+    if message.role != "tool" or not message.call_id:
+        return message
+    detail, output = _start(message.detail, _DETAIL), _start(message.output, _OUTPUT)
+    partial = detail != message.detail or output != message.output
+    steps = [_cut_step(step) for step in message.steps]
+    return replace(message, detail=detail, output=output, steps=steps, partial=partial)
+
+
+def _cut_step(step: ShownStep) -> ShownStep:
+    output = _start(step.output, _OUTPUT)
+    line = _one_line(step.args)
+    args = step.args if len(line) <= _DETAIL else {"detail": _start(line, _DETAIL)}
+    return ShownStep(step.name, args, output, partial=output != step.output or args is not step.args)
+
+
+def _about(detail: str) -> dict[str, Any]:
+    return {"detail": detail} if detail else {}
 
 
 def _preview(call: ToolCall, result: ToolMessage | None) -> ShownMessage:
@@ -133,10 +209,11 @@ def _start(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit].rstrip() + "…"
 
 
-def _agent_reply(lines: list[str], reply: str) -> list[ShownMessage]:
+def _agent_reply(lines: list[str], reply: str, message_id: str) -> list[ShownMessage]:
     """Its steps, with its own subagents' tool calls inside the call that started them (their words aren't
     shown, as live); the reply after them unless its last text, after the user's last message to it, already
-    said it. Its thinking reads as what it says, as it was shown live (core/agent_tasks/steps.py)."""
+    said it. Its thinking reads as what it says, as it was shown live (core/agent_tasks/steps.py). Each tool
+    call is named after the reply (`message_id`) and its place, to load it whole."""
     shown: list[ShownMessage] = []
     calls: dict[str, ShownMessage] = {}
     steps = [parse(line) for line in lines]
@@ -151,6 +228,14 @@ def _agent_reply(lines: list[str], reply: str) -> list[ShownMessage]:
     last_message = max((i for i, step in enumerate(own) if step.get("kind") == "user"), default=-1)
     if not any(step.get("kind") == "text" for step in own[last_message + 1 :]):
         _add_step(shown, {"kind": "text", "text": reply}, calls)
+    return _named(shown, message_id)
+
+
+def _named(shown: list[ShownMessage], message_id: str) -> list[ShownMessage]:
+    """Its tool calls with an id each: the reply's and their place among its calls. A note has nothing to load."""
+    calls = [m for m in shown if m.role == "tool" and (m.output or m.detail or m.steps)]
+    for place, call in enumerate(calls):
+        call.call_id = f"{_AGENT}{message_id}~{place}" if message_id else ""
     return shown
 
 
@@ -180,11 +265,11 @@ def _add_inner(call: ShownMessage | None, step: dict[str, str]) -> None:
         return
     name = step.get("tool", "")
     if step.get("kind") == "tool":
-        call.steps.append(SubagentStep(name, args_of(step), ""))
+        call.steps.append(ShownStep(name, args_of(step), ""))
     elif step.get("kind") == "result":
         index = next((i for i, s in enumerate(call.steps) if s.name == name and not s.output), None)
         if index is not None:
-            call.steps[index] = SubagentStep(name, call.steps[index].args, step.get("text", "") or "(no output)")
+            call.steps[index] = ShownStep(name, call.steps[index].args, step.get("text", "") or "(no output)")
 
 
 def _finish(shown: list[ShownMessage], tool: str, output: str) -> None:

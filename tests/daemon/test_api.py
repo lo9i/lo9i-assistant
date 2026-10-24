@@ -21,6 +21,7 @@ from assistant.core.agent import (
     InvalidNameError,
     InvalidSearchKeyError,
     Session,
+    ShownStep,
     SpeechSettingsError,
 )
 from assistant.core.attachments import Attachment
@@ -30,7 +31,6 @@ from assistant.core.events import ApprovalRequired, Cancelled, Dispatched, Done,
 from assistant.core.home import results
 from assistant.core.internet import brave_key
 from assistant.core.logs import LogWriter, log_sources
-from assistant.core.subagent_steps import SubagentStep
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
 from assistant.daemon.runs import RunHub
@@ -777,7 +777,7 @@ async def test_a_delegate_calls_steps_reach_the_client_with_the_conversation(cli
     session = await service.session("owner", "cli")
     await collect(service.send(session, "go"))
     call = next(m for m in await client.conversations.messages(session.thread_id) if m.role == "tool")
-    assert call.steps == [SubagentStep("bash", {"command": "echo hi"}, "exit code: 0\nhi\n")]
+    assert call.steps == [ShownStep("bash", {"command": "echo hi"}, "exit code: 0\nhi\n")]
 
 
 async def test_a_tool_calls_preview_loads_in_full_through_the_client(client, service, script):
@@ -790,3 +790,15 @@ async def test_a_tool_calls_preview_loads_in_full_through_the_client(client, ser
     assert whole.args == {"command": "seq 1 100"} and "\n100\n" in whole.output
     with pytest.raises(ConversationError):
         await client.conversations.tool_call(session.thread_id, "no/such call")
+
+
+async def test_a_step_inside_a_delegate_call_loads_in_full_through_the_client(client, service, script):
+    script.call("delegate", task="count").call("bash", command="seq 1 100").reply("Counted.").reply("ok")
+    session = await service.session("owner", "cli")
+    await collect(service.send(session, "go"))
+    call = next(m for m in await client.conversations.messages(session.thread_id) if m.role == "tool")
+    assert call.steps[0].partial and "\n100\n" not in call.steps[0].output
+    whole = await client.conversations.tool_call_step(session.thread_id, call.call_id, 0)
+    assert whole.args == {"command": "seq 1 100"} and "\n100\n" in whole.output
+    with pytest.raises(ConversationError):
+        await client.conversations.tool_call_step(session.thread_id, call.call_id, 1)

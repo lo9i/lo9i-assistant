@@ -44,7 +44,7 @@ from assistant_terminal.tui.attachments import AttachmentBar
 from assistant_terminal.tui.command_menu import CommandMenu
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.followed import FollowedRuns
-from assistant_terminal.tui.history import show_history
+from assistant_terminal.tui.history import Loaders, show_history
 from assistant_terminal.tui.live import handlers as live_handlers
 from assistant_terminal.tui.mouse import switch_mouse
 from assistant_terminal.tui.plugin_updates import PluginUpdates
@@ -456,7 +456,10 @@ class AssistantApp(App):
         conversations = self._service.conversations
         opened = await self._open_live(thread_id)
         try:
-            await show_history(self._chat, opened.messages, partial(conversations.tool_call, thread_id))
+            loaders = Loaders(
+                partial(conversations.tool_call, thread_id), partial(conversations.tool_call_step, thread_id)
+            )
+            await show_history(self._chat, opened.messages, loaders)
         finally:
             self._followed_runs.loaded()
         self._follow(opened.runs)

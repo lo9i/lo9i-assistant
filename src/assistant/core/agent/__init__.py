@@ -8,7 +8,7 @@ messaging, runs and locking.
 
 from assistant.core.agent.alerts import Alert
 from assistant.core.agent.channels import ChannelNotConnectedError, ChannelStatus, SetupItem
-from assistant.core.agent.conversations import Conversation, ShownCall, ShownMessage
+from assistant.core.agent.conversations import Conversation, ShownCall, ShownMessage, ShownStep
 from assistant.core.agent.devices import Device, DeviceError, PairingCode
 from assistant.core.agent.email import EmailAccount, EmailAccountNotFoundError, EmailError, EmailProvider
 from assistant.core.agent.files import FileUnavailableError, UploadedFile
@@ -123,6 +123,7 @@ __all__ = [
     "SetupItem",
     "ShownCall",
     "ShownMessage",
+    "ShownStep",
     "SignInError",
     "SignedIn",
     "Skill",

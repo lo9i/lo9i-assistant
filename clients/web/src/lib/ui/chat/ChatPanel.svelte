@@ -244,6 +244,7 @@
     onsuggest={(text) => (draft.text = text)}
     onmove={inInbox ? (dispatchId) => chats.move(dispatchId) : undefined}
     loadCall={(callId) => client.conversations.toolCall(snapshot.current.threadId, callId)}
+    loadStep={(callId, index) => client.conversations.toolCallStep(snapshot.current.threadId, callId, index)}
   />
   <PinnedSkills skills={pinned.data ?? []} onunpin={unpin} />
   <Composer

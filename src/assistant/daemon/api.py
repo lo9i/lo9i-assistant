@@ -727,6 +727,16 @@ def _add_conversation_routes(app: FastAPI, service: AssistantService, clients: C
         except ConversationError as e:
             raise HTTPException(404, str(e)) from e
 
+    @app.get("/conversations/{thread_id}/tool-calls/{call_id}/steps/{index}")
+    async def conversation_tool_call_step(thread_id: str, call_id: str, index: int) -> ShownCall:
+        """A step inside a tool call in full (a delegate call's subagent's, a task's, a handed-off agent's own
+        subagent's), by its place from 0: the call shows each step's start, `partial` when that leaves something
+        out. 404: the call has no such step."""
+        try:
+            return await service.conversation_tool_call_step(thread_id, call_id, index)
+        except ConversationError as e:
+            raise HTTPException(404, str(e)) from e
+
     @app.get("/conversations/{thread_id}/stats")
     async def conversation_stats(thread_id: str) -> ConversationStats:
         """Its messages, tokens and tool calls, and when it started and was last written in. All zero for a

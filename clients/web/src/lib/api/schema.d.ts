@@ -497,6 +497,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations/{thread_id}/tool-calls/{call_id}/steps/{index}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Conversation Tool Call Step
+         * @description A step inside a tool call in full (a delegate call's subagent's, a task's, a handed-off agent's own
+         *     subagent's), by its place from 0: the call shows each step's start, `partial` when that leaves something
+         *     out. 404: the call has no such step.
+         */
+        get: operations["conversation_tool_call_step_conversations__thread_id__tool_calls__call_id__steps__index__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/conversations/{thread_id}/stats": {
         parameters: {
             query?: never;
@@ -3993,7 +4015,7 @@ export interface components {
              */
             output: string;
             /** Steps */
-            steps?: components["schemas"]["SubagentStep"][];
+            steps?: components["schemas"]["ShownStep"][];
             /**
              * Dispatch Id
              * @default
@@ -4004,6 +4026,27 @@ export interface components {
              * @default
              */
             call_id: string;
+            /**
+             * Partial
+             * @default false
+             */
+            partial: boolean;
+        };
+        /**
+         * ShownStep
+         * @description A tool call inside a delegate call (its subagent's), a task_status call (the task's) or a handed-off
+         *     agent's call (its own subagent's): its arguments and the start of its output, `partial` when they leave
+         *     something out, so the whole step is worth loading (`tool_call_step`).
+         */
+        ShownStep: {
+            /** Name */
+            name: string;
+            /** Args */
+            args: {
+                [key: string]: unknown;
+            };
+            /** Output */
+            output: string;
             /**
              * Partial
              * @default false
@@ -4201,20 +4244,6 @@ export interface components {
              * @default true
              */
             starts_without_login: boolean;
-        };
-        /**
-         * SubagentStep
-         * @description One of the subagent's tool calls: the tool, what it was called with, and what it answered.
-         */
-        SubagentStep: {
-            /** Name */
-            name: string;
-            /** Args */
-            args: {
-                [key: string]: unknown;
-            };
-            /** Output */
-            output: string;
         };
         /** ThreadCreated */
         ThreadCreated: {
@@ -5081,6 +5110,39 @@ export interface operations {
             path: {
                 thread_id: string;
                 call_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShownCall"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    conversation_tool_call_step_conversations__thread_id__tool_calls__call_id__steps__index__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+                call_id: string;
+                index: number;
             };
             cookie?: never;
         };

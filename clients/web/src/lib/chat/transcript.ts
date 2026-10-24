@@ -22,7 +22,9 @@ export type ToolState = "running" | "done" | "cancelled";
  * shows its arguments on one line and the start of its output: the whole call loads by `callId` when opened. */
 export type ToolItem = ToolStep & { kind: "tool"; id: number; callId?: string; partial?: boolean; steps?: ToolStep[] };
 
-export type ToolStep = { name: string; args?: Record<string, unknown>; output?: string; state: ToolState };
+/** One from history that's `partial` shows the start of its arguments and output: it loads whole by its call's
+ * `callId` and its place when opened. */
+export type ToolStep = { name: string; args?: Record<string, unknown>; output?: string; state: ToolState; partial?: boolean };
 
 export type Transcript = {
   items: ChatItem[];
@@ -135,7 +137,13 @@ function addShown(t: Transcript, message: ShownMessage): Transcript {
  * line and the start of its output, `partial` when the whole call is worth loading (`withWhole`). */
 function shownTool(message: ShownMessage): Omit<ToolItem, "id"> {
   const args = message.detail ? { detail: message.detail } : undefined;
-  const steps = message.steps?.map((s): ToolStep => ({ name: s.name, args: s.args, output: s.output, state: "done" }));
+  const steps = message.steps?.map((s): ToolStep => ({
+    name: s.name,
+    args: s.args,
+    output: s.output,
+    state: "done",
+    ...(s.partial ? { partial: true } : {}),
+  }));
   const item = { kind: "tool" as const, name: message.text, args, output: message.output || undefined, state: "done" as const };
   const call = { ...item, ...(message.call_id ? { callId: message.call_id } : {}), ...(message.partial ? { partial: true } : {}) };
   return steps?.length ? { ...call, steps } : call;
@@ -144,6 +152,11 @@ function shownTool(message: ShownMessage): Omit<ToolItem, "id"> {
 /** A call from history with all its arguments and its whole output, loaded when it was opened. */
 export function withWhole(item: ToolItem, call: ShownCall): ToolItem {
   return { ...item, args: call.args, output: call.output || undefined, partial: false };
+}
+
+/** A step from history with all its arguments and its whole output, loaded when it was opened. */
+export function withWholeStep(step: ToolStep, call: ShownCall): ToolStep {
+  return { ...step, args: call.args, output: call.output || undefined, partial: false };
 }
 
 /** Thinking streams: an event right after another continues it. */

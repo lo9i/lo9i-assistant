@@ -886,6 +886,64 @@
         }
       }
     },
+    "/conversations/{thread_id}/tool-calls/{call_id}/steps/{index}": {
+      "get": {
+        "summary": "Conversation Tool Call Step",
+        "description": "A step inside a tool call in full (a delegate call's subagent's, a task's, a handed-off agent's own\nsubagent's), by its place from 0: the call shows each step's start, `partial` when that leaves something\nout. 404: the call has no such step.",
+        "operationId": "conversation_tool_call_step_conversations__thread_id__tool_calls__call_id__steps__index__get",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          },
+          {
+            "name": "call_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Call Id"
+            }
+          },
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Index"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShownCall"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/conversations/{thread_id}/stats": {
       "get": {
         "summary": "Conversation Stats",
@@ -8356,7 +8414,7 @@
           },
           "steps": {
             "items": {
-              "$ref": "#/components/schemas/SubagentStep"
+              "$ref": "#/components/schemas/ShownStep"
             },
             "type": "array",
             "title": "Steps"
@@ -8383,6 +8441,36 @@
           "text"
         ],
         "title": "ShownMessage"
+      },
+      "ShownStep": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "args": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Args"
+          },
+          "output": {
+            "type": "string",
+            "title": "Output"
+          },
+          "partial": {
+            "type": "boolean",
+            "title": "Partial",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "args",
+          "output"
+        ],
+        "title": "ShownStep",
+        "description": "A tool call inside a delegate call (its subagent's), a task_status call (the task's) or a handed-off\nagent's call (its own subagent's): its arguments and the start of its output, `partial` when they leave\nsomething out, so the whole step is worth loading (`tool_call_step`)."
       },
       "ShutdownStatus": {
         "properties": {
@@ -8793,31 +8881,6 @@
         ],
         "title": "StartupStatus",
         "description": "Whether the daemon starts at boot, and whether this daemon was started that way."
-      },
-      "SubagentStep": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "args": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Args"
-          },
-          "output": {
-            "type": "string",
-            "title": "Output"
-          }
-        },
-        "type": "object",
-        "required": [
-          "name",
-          "args",
-          "output"
-        ],
-        "title": "SubagentStep",
-        "description": "One of the subagent's tool calls: the tool, what it was called with, and what it answered."
       },
       "ThreadCreated": {
         "properties": {

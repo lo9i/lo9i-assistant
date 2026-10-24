@@ -2,8 +2,7 @@
 
 from textual.widgets import Markdown, OptionList
 
-from assistant.core.agent import Conversation, ShownCall, ShownMessage
-from assistant.core.subagent_steps import SubagentStep
+from assistant.core.agent import Conversation, ShownCall, ShownMessage, ShownStep
 from assistant_terminal.tui.screens import ConversationsScreen
 from tests.terminal.conftest import wait_for
 
@@ -79,7 +78,7 @@ async def test_a_delegate_call_shows_the_subagents_steps_inside_it_when_resumed(
     from assistant_terminal.tui.widgets import ToolCall
 
     client.conversations.items = [Conversation(f"owner:{n}", f"trip {n}", _AT, _AT) for n in ("abc", "b")]
-    step = SubagentStep("bash", {"command": "grep -r token logs"}, "token=42")
+    step = ShownStep("bash", {"command": "grep -r token logs"}, "token=42")
     client.conversations.said["owner:b"] = [
         ShownMessage("tool", "delegate", detail="Find the token", output="It's 42.", steps=[step]),
     ]
@@ -119,3 +118,29 @@ async def test_a_tool_call_shows_its_start_and_loads_in_full_when_expanded(app, 
         assert loaded.title == '✓ bash({"command": "seq 1 100", "timeout": 5})'
         note = "a.txt…\n\nCouldn't load the whole call."
         await wait_for(pilot, lambda: str(failed.query_one(".tool-result", Static).content) == note)
+
+
+async def test_a_step_inside_a_delegate_call_shows_its_start_and_loads_in_full_when_expanded(app, client):
+    from textual.widgets import Static
+
+    from assistant_terminal.tui.widgets import PartialToolCall, ToolCall
+
+    client.conversations.items = [Conversation(f"owner:{n}", f"trip {n}", _AT, _AT) for n in ("abc", "b")]
+    steps = [
+        ShownStep("bash", {"command": "cat log"}, "line…", partial=True),
+        ShownStep("bash", {"command": "ls"}, "a"),
+    ]
+    client.conversations.said["owner:b"] = [
+        ShownMessage("tool", "delegate", detail="Read the log", output="Done.", steps=steps, call_id="d1"),
+    ]
+    client.conversations.calls[("owner:b", "d1#0")] = ShownCall("bash", {"command": "cat log"}, "line\nline\n")
+    async with app.run_test() as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/conversations", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
+        await pilot.press("down", "enter")
+        await wait_for(pilot, lambda: len(app.query(ToolCall)) == 3)
+        [step] = app.query(PartialToolCall)
+        assert step.title == "✓ bash(cat log)" and step in app.query(ToolCall).first().query(ToolCall)
+        step.collapsed = False
+        await wait_for(pilot, lambda: str(step.query_one(".tool-result", Static).content) == "line\nline")

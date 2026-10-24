@@ -156,7 +156,10 @@ describe("transcript", () => {
   });
 
   it("shows a delegate call's task, the subagent's steps and its answer again in history", () => {
-    const steps = [{ name: "bash", args: { command: "grep -r token logs" }, output: "token=42" }];
+    const steps = [
+      { name: "bash", args: { command: "grep -r token logs" }, output: "token=42", partial: false },
+      { name: "bash", args: { command: "cat log" }, output: "line…", partial: true },
+    ];
     const history = fromHistory([
       { role: "tool", text: "delegate", detail: "Find the token", output: "It's 42.", dispatch_id: "", call_id: "", partial: false, steps },
       { role: "tool", text: "bash", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, steps: [] },
@@ -167,8 +170,12 @@ describe("transcript", () => {
       args: { detail: "Find the token" },
       output: "It's 42.",
       state: "done",
-      steps: [{ name: "bash", args: { command: "grep -r token logs" }, output: "token=42", state: "done" }],
+      steps: [
+        { name: "bash", args: { command: "grep -r token logs" }, output: "token=42", state: "done" },
+        { name: "bash", args: { command: "cat log" }, output: "line…", state: "done", partial: true },
+      ],
     });
+    expect(history.items[0].kind === "tool" && history.items[0].steps?.[0]).not.toHaveProperty("partial");
     expect(history.items[1]).not.toHaveProperty("steps");
   });
 

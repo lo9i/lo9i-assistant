@@ -4,12 +4,11 @@ conversation; approvals inside it pause the run and resume it where it stopped."
 from langchain_core.messages import HumanMessage, ToolMessage
 
 from assistant.core import subagent_steps
-from assistant.core.agent import Session
+from assistant.core.agent import Session, ShownStep
 from assistant.core.config import settings
 from assistant.core.context import UNATTENDED_CHANNEL
 from assistant.core.events import ApprovalRequired, Done, ToolFinished, ToolStarted
 from assistant.core.subagent import LIMIT_REACHED
-from assistant.core.subagent_steps import SubagentStep
 from tests.conftest import collect
 
 
@@ -121,7 +120,7 @@ async def test_the_subagents_steps_show_again_inside_the_delegate_call_after_a_r
     call = next(m for m in shown if m.role == "tool")
     assert (call.text, call.detail, call.output) == ("delegate", "Find the token", "The token is 42.")
     assert call.steps == [
-        SubagentStep("bash", {"command": "echo token-in-a-long-log"}, "exit code: 0\ntoken-in-a-long-log\n")
+        ShownStep("bash", {"command": "echo token-in-a-long-log"}, "exit code: 0\ntoken-in-a-long-log\n")
     ]
     # The main agent still reads only the answer.
     assert _tool_results(script.requests[-1]) == ["The token is 42."]

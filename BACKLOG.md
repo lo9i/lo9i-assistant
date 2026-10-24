@@ -21,7 +21,6 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - A35. Home (`core/home/`) is only in the web app. Give the terminal app a `/home` screen with the sections, Refresh and editing; the Python `DaemonClient` has `client.home` for it.
 - A36. Home's items link only to the section's plugin page, not to the item (the watchlist title, the bill), because the plugins' pages have no addresses for one item. Once a page takes one (`/watchlist/title/<id>`), let the format carry an item's id and link to it.
 - A34. A message the assistant starts in the user's own chat on Telegram (`send_message`, the end of background work) goes to every paired account, but lo9i keeps only the last one's message id (the plugin returns one), so replying to it from another paired account goes to the inbox instead of its conversation. Return every copy's id from the plugin's `send` (in the protocol) and keep them all.
-- A44. History sends the assistant's own tool calls as a preview that loads in full when opened (`core/conversation/display.py::_preview`, `GET /conversations/<id>/tool-calls/<call id>`), but a delegate or task_status call's answer, its subagent's steps (each output up to 4000 characters, `core/subagent_steps.py`) and a handed-off agent's tool outputs still come whole with every load of the conversation. Preview them the same way, loading a step in full by its call and position.
 
 ## Daemon
 

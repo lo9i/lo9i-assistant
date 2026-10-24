@@ -43,4 +43,19 @@ describe("WholeCalls", () => {
     await calls.open(preview, load);
     expect(calls.get("c1")).toEqual({ state: "loaded", call: whole });
   });
+
+  it("loads a partial step inside a call by the call and its place, once, and leaves a whole one alone", async () => {
+    const calls = new WholeCalls();
+    const step = { name: "bash", args: { command: "cat log" }, output: "line…", state: "done" as const, partial: true };
+    const load = vi.fn().mockResolvedValue(whole);
+    const call = { ...preview, partial: false, steps: [step, { ...step, partial: false }] };
+    await calls.openStep(call, 0, step, load);
+    await calls.openStep(call, 0, step, load);
+    await calls.openStep(call, 1, { ...step, partial: false }, load);
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(load).toHaveBeenCalledWith("c1", 0);
+    expect(calls.getStep("c1", 0)).toEqual({ state: "loaded", call: whole });
+    expect(calls.getStep("c1", 1)).toBeUndefined();
+    expect(calls.get("c1")).toBeUndefined();
+  });
 });
