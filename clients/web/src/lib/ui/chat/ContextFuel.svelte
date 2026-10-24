@@ -31,7 +31,7 @@
     {#each Array(SEGMENTS) as _, i (i)}
       <span class="seg" style="background: {color}; opacity: {i < filled ? 1 : 0.25}"></span>
     {/each}
-    <span class="percent">{percent}%</span>
+    <span class="percent" style="color: {color}">{percent}%</span>
   </span>
 {/if}
 
