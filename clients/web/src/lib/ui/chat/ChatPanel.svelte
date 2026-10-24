@@ -16,6 +16,7 @@
   import ApprovalModal from "./ApprovalModal.svelte";
   import Composer from "./Composer.svelte";
   import ConversationStats from "./ConversationStats.svelte";
+  import ModelStatus from "./ModelStatus.svelte";
   import HelpModal from "./HelpModal.svelte";
   import PinnedSkills from "./PinnedSkills.svelte";
   import StatusBar from "./StatusBar.svelte";
@@ -260,6 +261,7 @@
   <StatusBar>
     <WorkingStatus threadId={snapshot.current.threadId} />
     <ConversationStats threadId={snapshot.current.threadId} />
+    <ModelStatus />
     {#if handoff.data}
       <AgentStatus handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")} />
     {/if}
