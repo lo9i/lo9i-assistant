@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../api/errors";
-import type { RunEvent, Session } from "../api/types";
+import type { ApprovalRequired, RunEvent, Session } from "../api/types";
 import { NoticeBoard } from "../notices";
 import type { ChatClient } from "./controller";
 import { OpenChats } from "./openChats";
+import { openList } from "./openList";
 
 /** The daemon as each open conversation's client sees it, recording which client is on which conversation. */
 class Daemon {
@@ -13,6 +14,8 @@ class Daemon {
   sent: string[] = [];
   on = new Map<string, string>();
   left: string[] = [];
+  // What each conversation's run stopped for and waits on.
+  waiting = new Map<string, ApprovalRequired[]>();
   private next = 10;
 
   clientFor = (part: string | null): ChatClient => {
@@ -48,7 +51,10 @@ class Daemon {
       resume: empty,
       followRun: empty,
       cancel: async () => true,
-      conversations: { live: async () => ({ messages: [], runs: [] }), approvals: async () => [] },
+      conversations: {
+        live: async () => ({ messages: [], runs: [] }),
+        approvals: async (threadId: string) => this.waiting.get(threadId) ?? [],
+      },
     };
   };
 
@@ -58,6 +64,12 @@ class Daemon {
   }
 }
 
+const approval = (id: string): ApprovalRequired => ({ type: "ApprovalRequired", interrupt_id: id, request: { tool: "bash" } });
+const waiting = (chats: OpenChats) =>
+  openList(chats.getSnapshot(), [], [])
+    .filter((item) => item.waiting)
+    .map((item) => item.threadId);
+const settled = () => new Promise((resolve) => setTimeout(resolve, 0));
 const threads = (chats: OpenChats) => chats.all().map((c) => c.getSnapshot().threadId);
 const open = (daemon: Daemon, saved: string[], active = 0) => OpenChats.open(daemon.clientFor, "web", saved, active, new NoticeBoard());
 
@@ -180,5 +192,21 @@ describe("OpenChats", () => {
     expect(chats.getSnapshot().activeKey).toBe(second);
     await chats.close(second);
     expect(threads(chats)).toEqual(["t2"]);
+  });
+
+  it("marks an open conversation not shown that waits for an answer, on opening and when a run there stops for one", async () => {
+    const daemon = new Daemon();
+    daemon.waiting.set("t2", [approval("i1")]);
+    const chats = await open(daemon, ["t1", "t2"], 0);
+    await settled();
+    expect(chats.current.getSnapshot().threadId).toBe("t1");
+    expect(waiting(chats)).toEqual(["t2"]);
+    daemon.saved.add("t3");
+    await chats.show("t3");
+    chats.activate(chats.getSnapshot().chats[0].key);
+    daemon.waiting.set("t3", [approval("i2")]);
+    chats.all().forEach((chat) => chat.runFinished({ run_id: "r", thread_id: "t3", channel: "telegram", status: "ok", reply: "" }));
+    await settled();
+    expect(waiting(chats)).toEqual(["t2", "t3"]);
   });
 });

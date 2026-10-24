@@ -78,6 +78,8 @@
     Icon: typeof Plus;
     add?: Add;
     count?: () => number;
+    // What the count counts, for screen readers; "new" when not given.
+    counted?: string;
     also?: string[];
     // Active only on this exact path, for a page with pages under it that have their own item.
     exact?: boolean;
@@ -86,8 +88,17 @@
   const NOTIFICATIONS = resolve("/notifications");
   const NAV: Item[] = [
     { href: resolve("/home"), label: "Home", Icon: House },
-    // The open conversations show under Chat.
-    { href: CHAT, label: "Chat", Icon: MessageCircle, add: { label: "New conversation", run: startNew }, exact: true },
+    // The open conversations show under Chat. Its count is those waiting for an answer, for when that list is hidden
+    // (the sidebar collapsed, a phone).
+    {
+      href: CHAT,
+      label: "Chat",
+      Icon: MessageCircle,
+      add: { label: "New conversation", run: startNew },
+      exact: true,
+      count: () => everything.filter((entry) => entry.waiting).length,
+      counted: "waiting for your answer",
+    },
     { href: resolve("/files"), label: "Files", Icon: Files },
     { href: resolve("/usage"), label: "Usage", Icon: ChartColumn },
     { href: resolve("/sessions"), label: "Active sessions", Icon: MonitorSmartphone },
@@ -126,7 +137,7 @@
         <a href={item.href} class="nav-item" aria-current={active ? "page" : undefined} title={item.label}>
           <item.Icon size={20} />
           <span class="label">{item.label}</span>
-          {#if item.count?.()}<span class="count" aria-label="{item.count()} new">{item.count()}</span>{/if}
+          {#if item.count?.()}<span class="count" aria-label="{item.count()} {item.counted ?? 'new'}">{item.count()}</span>{/if}
         </a>
         {#if item.add}
           {@const add = item.add}
