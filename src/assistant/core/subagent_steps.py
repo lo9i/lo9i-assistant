@@ -1,5 +1,6 @@
-"""What a subagent did for a delegate call (core/subagent.py), kept with the call's result so history shows
-it again after a reload, inside the call, as it was shown live. It goes in the result's
+"""What a subagent did for a delegate call (core/subagent.py), or the steps a task showed while task_status
+waited for it (core/agent_tasks/tools.py), kept with the call's result so history shows them again after a
+reload, inside the call, as they were shown live. It goes in the result's
 `response_metadata`, which no model call sends, so the main agent still reads only the answer."""
 
 from dataclasses import asdict, dataclass

@@ -2,7 +2,8 @@
 thinking, what it says, a tool call or a tool call's result. For a conversation handed to the agent they
 become the run's events, shown as the assistant's own would be, so the agent's work reads like a reply,
 and its thinking reads as what it says: the user hands the conversation over to talk to it;
-while task_status waits for a task they show inside that call (`within_call`).
+while task_status waits for a task they show inside that call (`within_call`), and are kept with its result
+(`kept_within`).
 A note, or a plain line from a worker that reports nothing finer, goes inside a call named after the
 agent; a message the user sent while it worked shows as theirs, where it was passed on. For the task
 tools each reads as one line (`line`). The steps of a handed-off reply are kept with it, in its message's
@@ -14,6 +15,7 @@ import uuid
 from typing import Any
 
 from assistant.core.events import Event, TextDelta, ToolFinished, ToolStarted, UserSaid
+from assistant.core.subagent_steps import SubagentStep
 
 _LINE = 200
 # Where a handed-off reply keeps its steps, as the worker wrote them.
@@ -114,6 +116,26 @@ def within_call(message: str, call_id: str) -> list[Event]:
     if kind in ("note", "text", "user") and (text := line(message)):
         return [ToolStarted(text, {}, within=call_id), ToolFinished(text, "", within=call_id)]
     return []
+
+
+def kept_within(messages: list[str]) -> list[SubagentStep]:
+    """The steps shown inside a task_status call, as they were shown, to keep with its result
+    (core/subagent_steps.py) so history shows them again: each call with the result that answered it."""
+    kept: list[SubagentStep] = []
+    for event in (event for message in messages for event in within_call(message, "")):
+        if isinstance(event, ToolStarted):
+            kept.append(SubagentStep(event.name, event.args, ""))
+        elif isinstance(event, ToolFinished):
+            _answer(kept, event)
+    return kept
+
+
+def _answer(kept: list[SubagentStep], finished: ToolFinished) -> None:
+    """Gives the latest call of that tool still without one its output."""
+    for i in reversed(range(len(kept))):
+        if kept[i].name == finished.name and not kept[i].output:
+            kept[i] = SubagentStep(finished.name, kept[i].args, finished.output)
+            return
 
 
 def streamed(message: str) -> bool:

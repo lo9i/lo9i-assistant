@@ -61,11 +61,12 @@ def _shown(message: BaseMessage, results: dict[str, ToolMessage]) -> list[ShownM
 
 
 def _call(call: ToolCall, result: ToolMessage | None) -> ShownMessage:
-    """A tool call; a delegate call with its task, the subagent's steps and its answer."""
+    """A tool call; a delegate call with its task, the subagent's steps and its answer, and a task_status call
+    that waited with the task's steps and its state."""
     if result is None or not (steps := subagent_steps.of(result)):
         return ShownMessage("tool", call["name"])
-    task = str(call["args"].get("task", ""))
-    return ShownMessage("tool", call["name"], detail=task, output=result.text, steps=steps)
+    about = str(call["args"].get("task") or call["args"].get("task_id", ""))
+    return ShownMessage("tool", call["name"], detail=about, output=result.text, steps=steps)
 
 
 def _agent_reply(lines: list[str], reply: str) -> list[ShownMessage]:

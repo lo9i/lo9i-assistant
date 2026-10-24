@@ -162,6 +162,18 @@ async def test_waiting_for_a_task_shows_its_steps_inside_the_call(service, scrip
     assert inside == ["Read: README.md", "Ran: pytest"]
 
 
+async def test_the_steps_a_waiting_task_status_showed_show_again_after_a_reload(service, script, tmp_path):
+    await service.add_mcp_server(agent_plugin(trusted=True))
+    task = await service.agent_tasks.start("claude-code", str(tmp_path), "show your steps")
+    script.call("task_status", task_id=task.id, wait_seconds=30).reply("Done.")
+    session = await side(service)
+    await collect(service.send(session, "how is it going?"))
+    call = next(m for m in await service.conversation_messages(session.thread_id) if m.role == "tool")
+    assert (call.text, call.detail) == ("task_status", task.id)
+    assert [step.name for step in call.steps] == ["Read: README.md", "Ran: pytest"]
+    assert f"{task.id} (Claude Code): done" in call.output
+
+
 def test_an_agents_worker_needs_format_3_and_libraries_arent_installed(tmp_path):
     from assistant.core.mcp import install
     from assistant.core.repositories.errors import RepositoryError

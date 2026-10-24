@@ -7,23 +7,25 @@ task's end is told to the conversation that started it (ends.py), unless these t
 from pathlib import Path
 from typing import Annotated, Any
 
+from langchain_core.messages import ToolMessage
 from langchain_core.tools import BaseTool, InjectedToolCallId, StructuredTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from langgraph.config import get_store, get_stream_writer
 from langgraph.runtime import get_runtime
 from pydantic import BaseModel, Field
 
-from assistant.core import inbox
+from assistant.core import inbox, subagent_steps
 from assistant.core.agent_tasks.records import TaskState, lost
 from assistant.core.agent_tasks.reports import TaskReports
 from assistant.core.agent_tasks.service import MAX_WAIT_SECONDS, AgentTaskError, AgentTasks, CodingAgent, FoundTask
-from assistant.core.agent_tasks.steps import line, within_call
+from assistant.core.agent_tasks.steps import kept_within, line, within_call
 from assistant.core.agent_tasks.waiting import Report
 from assistant.core.background import Origin, current_origin, short
 from assistant.core.context import Context, require_store
 from assistant.core.conversation import handoffs, queued
 from assistant.core.conversation.handoffs import Handoff
 from assistant.core.conversation.queued import Queued
+from assistant.core.subagent_steps import SubagentAnswer
 from assistant.core.tools.approval import ask
 from assistant.core.tools.side import moved_out_of_inbox
 
@@ -124,12 +126,13 @@ def _build(tasks: AgentTasks, reports: TaskReports) -> list[BaseTool]:
             await reports.expect(started.id, origin)
         return f"Started task {started.id} in {repository}. The user is notified when it ends."
 
-    async def task_status(task_id: str, tool_call_id: str, wait_seconds: int = 0) -> str:
+    async def task_status(task_id: str, tool_call_id: str, wait_seconds: int = 0) -> str | ToolMessage:
         """A task's state: running, done, failed or stopped, its latest steps, and its result once it ends."""
+        shown: list[str] = []
         try:
             async with reports.reading(task_id):
                 found = await (
-                    tasks.wait(task_id, wait_seconds, _shown_within(tool_call_id))
+                    tasks.wait(task_id, wait_seconds, _shown_within(tool_call_id, shown))
                     if wait_seconds
                     else tasks.state(task_id)
                 )
@@ -137,7 +140,7 @@ def _build(tasks: AgentTasks, reports: TaskReports) -> list[BaseTool]:
                     await reports.seen(task_id, current_origin())
         except AgentTaskError as e:
             return str(e)
-        return render(found)
+        return _with_steps(render(found), shown, tool_call_id)
 
     async def list_tasks() -> str:
         """The coding agents' latest tasks, newest first, with their state."""
@@ -187,15 +190,23 @@ async def _hand_with_task(where: Origin, agent: CodingAgent, repository: str, ta
     await queued.add(store, where.user_id, where.thread_id, Queued(where.channel, task))
 
 
-def _shown_within(call_id: str) -> Report:
-    """While task_status waits, the apps show the task's steps inside its call."""
+def _shown_within(call_id: str, shown: list[str]) -> Report:
+    """While task_status waits, the apps show the task's steps inside its call; each is noted in `shown`."""
     write = get_stream_writer()
 
     async def _report(message: str) -> None:
+        shown.append(message)
         for event in within_call(message, call_id):
             write(event)
 
     return _report
+
+
+def _with_steps(text: str, shown: list[str], call_id: str) -> str | ToolMessage:
+    """The result, with the steps shown inside the call kept beside it, so history shows them again."""
+    if not (steps := kept_within(shown)):
+        return text
+    return subagent_steps.result(SubagentAnswer(text, steps), call_id, "task_status")
 
 
 def _approve(tasks: AgentTasks, agent: str, action: str, brief: str) -> str | None:
