@@ -152,6 +152,11 @@ CommandMenu.visible {
     width: 1fr;
 }
 
+ContextFuel {
+    width: auto;
+    padding: 0 1;
+}
+
 MouseStatus {
     width: auto;
     padding: 0 1;

@@ -85,6 +85,7 @@ from assistant_terminal.tui.turn import TurnView
 from assistant_terminal.tui.widgets import (
     CarriedNote,
     ConnectionNote,
+    ContextFuel,
     FollowUpNote,
     MemoryPanel,
     MouseStatus,
@@ -195,6 +196,7 @@ class AssistantApp(App):
             yield PromptInput(placeholder=_PLACEHOLDER_WITH_MIC if self._can_record else _PLACEHOLDER, id="prompt")
         with Horizontal(id="footer-row"):
             yield Footer()
+            yield ContextFuel()
             yield MouseStatus(self._preferences.mouse)
 
     @reports_daemon_unavailable
@@ -546,6 +548,15 @@ class AssistantApp(App):
             *(task_line(task, thread_id) for task in running),
         ]
         self.sub_title = " · ".join(parts)
+        await self.refresh_context()
+
+    @reports_daemon_unavailable
+    async def refresh_context(self) -> None:
+        """How full the conversation's context is: after each reply, a handoff, or moving to another one."""
+        thread_id = self._live.session.thread_id
+        stats = await self._service.conversations.stats(thread_id)
+        if thread_id == self._live.session.thread_id:
+            self.query_one(ContextFuel).show(stats)
 
     async def refresh_agents(self) -> None:
         """The commands installed plugins' agents add, like /claude."""

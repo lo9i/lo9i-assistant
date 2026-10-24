@@ -24,6 +24,7 @@ class LiveApp(Protocol):
 
     def show_ending(self, ending: dict[str, Any]) -> None: ...
     def run_finished(self, run: dict[str, Any]) -> None: ...
+    def refresh_context(self) -> Awaitable[None]: ...
     def reload_host(self) -> Awaitable[None]: ...
 
 
@@ -54,7 +55,9 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         await app.reload_host()
 
     async def run_finished(data: dict[str, Any]) -> None:
+        """A reply ended: what /host waits for, and how full the conversation's context is now."""
         app.run_finished(data)
+        await app.refresh_context()
         await app.reload_host()
 
     async def mcp(_: dict[str, Any]) -> None:

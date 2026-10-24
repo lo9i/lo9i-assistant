@@ -11,7 +11,8 @@ from textual.containers import VerticalScroll
 from textual.widgets import Collapsible, Markdown, Static
 
 from assistant.client.errors import DaemonUnavailableError
-from assistant.core.agent import ConversationError, MemorySnapshot, ShownCall
+from assistant.core.agent import ConversationError, ConversationStats, MemorySnapshot, ShownCall
+from assistant_terminal.context_text import detail, fuel
 
 _FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
@@ -149,6 +150,14 @@ class PartialToolCall(ToolCall):
 
     def _noted(self, note: str) -> str:
         return "\n\n".join(filter(None, [self._preview, note]))
+
+
+class ContextFuel(Static):
+    """How full the conversation's context is, in the footer (context_text.py); the figures on hover."""
+
+    def show(self, stats: ConversationStats | None) -> None:
+        self.update(fuel(stats) if stats else "")
+        self.tooltip = detail(stats) if stats and stats.context_limit > 0 and stats.context_tokens > 0 else None
 
 
 class MouseStatus(Static):

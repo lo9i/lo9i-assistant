@@ -16,6 +16,7 @@ from assistant.core.agent import (
     ChannelStatus,
     Conversation,
     ConversationError,
+    ConversationStats,
     Device,
     DeviceError,
     EmailAccount,
@@ -823,6 +824,8 @@ class FakeConversations:
         self.calls: dict[tuple[str, str], ShownCall] = {}
         # The runs in progress in each conversation, as `live` lists them.
         self.in_progress: dict[str, list[dict]] = {}
+        # How full each conversation's context is: tokens, limit, and the agent's name while handed to one.
+        self.context: dict[str, tuple[int, int, str]] = {}
 
     async def pending_approvals(self, thread_id):
         return self.waiting.pop(thread_id, [])
@@ -840,6 +843,10 @@ class FakeConversations:
 
     async def messages(self, thread_id):
         return self.said.get(thread_id, [])
+
+    async def stats(self, thread_id):
+        tokens, limit, agent = self.context.get(thread_id, (0, 0, ""))
+        return ConversationStats(thread_id, 0, 0, 0, 0, 0, 0, None, None, tokens, limit, agent)
 
     async def live(self, thread_id):
         return OpenedConversation(self.said.get(thread_id, []), self.in_progress.get(thread_id, []))
