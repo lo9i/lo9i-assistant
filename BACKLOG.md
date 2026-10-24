@@ -68,6 +68,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Context
 
+- A53. An installed plugin gets its icon (`core/repositories/icons.py`) with its install or its next update, kept in its record: one installed before icons, from a repository whose plugin doesn't change, shows the generic icon in the sidebar, Home and notifications until then (Plugins shows the listing's at once). Read it from the installed folder for those, once at start.
 - H1. Better epoch summaries: quote user messages verbatim, keep ids and paths exactly, and let `search_memory` search tool outputs too (it covers only what the user and the assistant wrote).
 - H2. The inbox answers quick questions with its whole epoch in context, which holds every message it routed elsewhere and its "→ Continued in …" line (`core/conversation/dispatch_nodes.py`): unrelated topics the model reads past, and tokens spent on each quick answer. Leave routed messages out of the inbox's model calls (`core/conversation/trim.py` stubs them already for tool results), keeping them in its history.
 - H3. An edited prompt text (`core/conversation/prompt_edits.py`) hides every later change to its built-in text: an update that adds a rule to `operating.md` never reaches a user who edited it, and nothing says so. Keep the built-in text an edit was made from, and show in Settings → System prompt when the built-in one changed since, with what changed.
