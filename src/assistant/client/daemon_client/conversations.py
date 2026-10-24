@@ -16,6 +16,7 @@ from assistant.core.agent import (
 )
 from assistant.core.attachments import Attachment
 from assistant.core.events import ApprovalRequired
+from assistant.core.subagent_steps import SubagentStep
 
 
 class ConversationsApi:
@@ -30,7 +31,7 @@ class ConversationsApi:
         return [Conversation(**c) for c in await self._transport.request("GET", "/conversations")]
 
     async def messages(self, thread_id: str) -> list[ShownMessage]:
-        return [ShownMessage(**m) for m in await self._transport.request("GET", f"/conversations/{thread_id}/messages")]
+        return [_shown(m) for m in await self._transport.request("GET", f"/conversations/{thread_id}/messages")]
 
     async def stats(self, thread_id: str) -> ConversationStats:
         """Its messages, tokens and tool calls, and when it started and was last written in."""
@@ -106,3 +107,8 @@ class ConversationsApi:
         message_agent does."""
         path = f"/conversations/{thread_id}/agent/interrupt"
         await self._transport.request("POST", path, errors={409: HandoffError})
+
+
+def _shown(message: dict) -> ShownMessage:
+    steps = [SubagentStep(**step) for step in message.pop("steps", [])]
+    return ShownMessage(**message, steps=steps)

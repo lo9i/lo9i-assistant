@@ -9,17 +9,19 @@ from assistant.core.conversation.search import MessageIndex
 from assistant.core.memory.recall import MemoryRecall
 from assistant.core.outbox import Outbox
 from assistant.core.secret_store import SecretBox
+from assistant.core.subagent_steps import SubagentAnswer
 
 # The channel scheduled jobs run on.
 UNATTENDED_CHANNEL = "worker"
 
 
 class Subagents(ABC):
-    """Runs a task in a subagent of its own and returns its answer (core/subagent.py). A base class,
-    not a Protocol: tools validate the context with pydantic, which can't check a Protocol."""
+    """Runs a task in a subagent of its own and returns its answer, with the steps it took
+    (core/subagent.py). A base class, not a Protocol: tools validate the context with pydantic, which can't
+    check a Protocol."""
 
     @abstractmethod
-    async def run(self, task: str, context: "Context", call_id: str) -> str:
+    async def run(self, task: str, context: "Context", call_id: str) -> SubagentAnswer:
         """`call_id`: the delegate call's, which the subagent's tool events name."""
 
 

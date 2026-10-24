@@ -150,6 +150,23 @@ describe("transcript", () => {
     expect(history.items.map((i) => i.kind)).toEqual(["user", "tool", "assistant"]);
   });
 
+  it("shows a delegate call's task, the subagent's steps and its answer again in history", () => {
+    const steps = [{ name: "bash", args: { command: "grep -r token logs" }, output: "token=42" }];
+    const history = fromHistory([
+      { role: "tool", text: "delegate", detail: "Find the token", output: "It's 42.", dispatch_id: "", steps },
+      { role: "tool", text: "bash", detail: "", output: "", dispatch_id: "", steps: [] },
+    ]);
+    expect(history.items[0]).toMatchObject({
+      kind: "tool",
+      name: "delegate",
+      args: { detail: "Find the token" },
+      output: "It's 42.",
+      state: "done",
+      steps: [{ name: "bash", args: { command: "grep -r token logs" }, output: "token=42", state: "done" }],
+    });
+    expect(history.items[1]).not.toHaveProperty("steps");
+  });
+
   it("shows a handed-off agent's thinking and tool calls again in history", () => {
     const history = fromHistory([
       { role: "thinking", text: "The test expects a list.", detail: "", output: "", dispatch_id: "" },

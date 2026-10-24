@@ -2,18 +2,22 @@
 tools it used. Turn headers and tool outputs are left out; a quick exchange the inbox carried to the
 conversation shows before the message that followed it up (core/conversation/carried.py). A reply of an
 agent the conversation was handed to shows its steps as they were shown live: its thinking, its text, each
-tool call with its output, and the messages the user sent it while it worked (core/agent_tasks/steps.py)."""
+tool call with its output, and the messages the user sent it while it worked (core/agent_tasks/steps.py). A
+delegate call shows the subagent's tool calls inside it, as they streamed live (core/subagent_steps.py)."""
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
+from langchain_core.messages.tool import ToolCall
 
+from assistant.core import subagent_steps
 from assistant.core.agent_tasks.steps import STEPS, parse
 from assistant.core.conversation import carried, ended
 from assistant.core.conversation.dispatched import DISPATCH_ID
 from assistant.core.conversation.turn_header import is_header
+from assistant.core.subagent_steps import SubagentStep
 
 
 @dataclass
@@ -23,18 +27,22 @@ class ShownMessage:
     role: str
     # A tool's name for a tool.
     text: str
-    # A handed-off agent's tool call: what it was about (a command, a file), and its output.
+    # A handed-off agent's tool call: what it was about (a command, a file), and its output. A delegate call:
+    # its task and the subagent's answer.
     detail: str = ""
     output: str = ""
+    # A delegate call's: the subagent's tool calls.
+    steps: list[SubagentStep] = field(default_factory=list)
     # The inbox's record of a message it sent on: the message's id, to move it (core/conversation/dispatched.py).
     dispatch_id: str = ""
 
 
 def shown(messages: Sequence[BaseMessage]) -> list[ShownMessage]:
-    return [m for message in messages for m in _shown(message)]
+    results = {m.tool_call_id: m for m in messages if isinstance(m, ToolMessage)}
+    return [m for message in messages for m in _shown(message, results)]
 
 
-def _shown(message: BaseMessage) -> list[ShownMessage]:
+def _shown(message: BaseMessage, results: dict[str, ToolMessage]) -> list[ShownMessage]:
     if isinstance(message, HumanMessage) and (notice := ended.follow_up_notice(message)):
         return [ShownMessage("notice", notice)]
     if isinstance(message, HumanMessage):
@@ -45,10 +53,18 @@ def _shown(message: BaseMessage) -> list[ShownMessage]:
         return _agent_reply(steps, _text(message.content))
     if isinstance(message, AIMessage):
         text = _text(message.content)
-        calls = [ShownMessage("tool", call["name"]) for call in message.tool_calls]
+        calls = [_call(call, results.get(call["id"] or "")) for call in message.tool_calls]
         said = ShownMessage("assistant", text, dispatch_id=message.response_metadata.get(DISPATCH_ID, ""))
         return [*([said] if text else []), *calls]
     return []
+
+
+def _call(call: ToolCall, result: ToolMessage | None) -> ShownMessage:
+    """A tool call; a delegate call with its task, the subagent's steps and its answer."""
+    if result is None or not (steps := subagent_steps.of(result)):
+        return ShownMessage("tool", call["name"])
+    task = str(call["args"].get("task", ""))
+    return ShownMessage("tool", call["name"], detail=task, output=result.text, steps=steps)
 
 
 def _agent_reply(lines: list[str], reply: str) -> list[ShownMessage]:

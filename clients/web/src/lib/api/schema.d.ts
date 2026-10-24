@@ -3725,6 +3725,8 @@ export interface components {
              * @default
              */
             output: string;
+            /** Steps */
+            steps?: components["schemas"]["SubagentStep"][];
             /**
              * Dispatch Id
              * @default
@@ -3921,6 +3923,20 @@ export interface components {
              * @default true
              */
             starts_without_login: boolean;
+        };
+        /**
+         * SubagentStep
+         * @description One of the subagent's tool calls: the tool, what it was called with, and what it answered.
+         */
+        SubagentStep: {
+            /** Name */
+            name: string;
+            /** Args */
+            args: {
+                [key: string]: unknown;
+            };
+            /** Output */
+            output: string;
         };
         /** ThreadCreated */
         ThreadCreated: {

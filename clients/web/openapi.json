@@ -7911,6 +7911,13 @@
             "title": "Output",
             "default": ""
           },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/SubagentStep"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
           "dispatch_id": {
             "type": "string",
             "title": "Dispatch Id",
@@ -8330,6 +8337,31 @@
         ],
         "title": "StartupStatus",
         "description": "Whether the daemon starts at boot, and whether this daemon was started that way."
+      },
+      "SubagentStep": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "args": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Args"
+          },
+          "output": {
+            "type": "string",
+            "title": "Output"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "args",
+          "output"
+        ],
+        "title": "SubagentStep",
+        "description": "One of the subagent's tool calls: the tool, what it was called with, and what it answered."
       },
       "ThreadCreated": {
         "properties": {

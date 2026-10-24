@@ -3,11 +3,13 @@ conversation; approvals inside it pause the run and resume it where it stopped."
 
 from langchain_core.messages import HumanMessage, ToolMessage
 
+from assistant.core import subagent_steps
 from assistant.core.agent import Session
 from assistant.core.config import settings
 from assistant.core.context import UNATTENDED_CHANNEL
 from assistant.core.events import ApprovalRequired, Done, ToolFinished, ToolStarted
 from assistant.core.subagent import LIMIT_REACHED
+from assistant.core.subagent_steps import SubagentStep
 from tests.conftest import collect
 
 
@@ -107,3 +109,30 @@ async def test_scheduled_jobs_dont_delegate(service, script):
     events = await collect(service.send(Session("u", UNATTENDED_CHANNEL, "job:x:1"), "go"))
     finished = next(e for e in events if isinstance(e, ToolFinished))
     assert finished.output.startswith("Not delegated: subagents don't run in scheduled jobs.")
+
+
+async def test_the_subagents_steps_show_again_inside_the_delegate_call_after_a_reload(service, script):
+    script.call("delegate", task="Find the token")
+    script.call("bash", command="echo token-in-a-long-log").reply("The token is 42.")
+    script.reply("It's 42.")
+    session = await service.session("u", "cli")
+    await collect(service.send(session, "find it"))
+    shown = await service.conversation_messages(session.thread_id)
+    call = next(m for m in shown if m.role == "tool")
+    assert (call.text, call.detail, call.output) == ("delegate", "Find the token", "The token is 42.")
+    assert call.steps == [
+        SubagentStep("bash", {"command": "echo token-in-a-long-log"}, "exit code: 0\ntoken-in-a-long-log\n")
+    ]
+    # The main agent still reads only the answer.
+    assert _tool_results(script.requests[-1]) == ["The token is 42."]
+
+
+async def test_kept_steps_stop_at_a_length_and_other_tools_keep_none(service, script, monkeypatch):
+    monkeypatch.setattr(subagent_steps, "_MAX_OUTPUT", 10)
+    script.call("delegate", task="read").call("bash", command="seq 100").reply("done")
+    script.call("bash", command="echo hi").reply("ok")
+    session = await service.session("u", "cli")
+    await collect(service.send(session, "go"))
+    delegate, bash = [m for m in await service.conversation_messages(session.thread_id) if m.role == "tool"]
+    assert delegate.steps[0].output == "exit code:\n…"
+    assert (bash.text, bash.detail, bash.output, bash.steps) == ("bash", "", "", [])

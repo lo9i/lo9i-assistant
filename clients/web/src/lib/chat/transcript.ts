@@ -123,10 +123,13 @@ function addShown(t: Transcript, message: ShownMessage): Transcript {
   return add(t, { kind: "assistant", text: message.text, dispatchId: message.dispatch_id || undefined });
 }
 
-/** A handed-off agent's tool call comes with what it was about and its output, as it was shown live. */
+/** A handed-off agent's tool call comes with what it was about and its output, a delegate call with its task,
+ * the subagent's steps and its answer, as they were shown live. */
 function shownTool(message: ShownMessage): Omit<ToolItem, "id"> {
   const args = message.detail ? { detail: message.detail } : undefined;
-  return { kind: "tool", name: message.text, args, output: message.output || undefined, state: "done" };
+  const steps = message.steps?.map((s): ToolStep => ({ name: s.name, args: s.args, output: s.output, state: "done" }));
+  const item = { kind: "tool" as const, name: message.text, args, output: message.output || undefined, state: "done" as const };
+  return steps?.length ? { ...item, steps } : item;
 }
 
 /** Thinking streams: an event right after another continues it. */

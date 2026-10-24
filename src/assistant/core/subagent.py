@@ -2,7 +2,9 @@
 worker model, so the tool output it reads never reaches the main conversation; only its answer does.
 
 A subagent's graph runs inside the delegate call. It shares the run's checkpointer under that call's
-namespace, so an approval inside it pauses the main run and the answer resumes it where it stopped."""
+namespace, so an approval inside it pauses the main run and the answer resumes it where it stopped. Its
+tool calls stream live inside the delegate call, and are kept with the call's result for history
+(core/subagent_steps.py)."""
 
 import asyncio
 from collections.abc import Awaitable, Callable, Sequence
@@ -30,6 +32,7 @@ from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.providers import IMAGES_IN_TOOL_RESULTS
 from assistant.core.mcp.sanitize import MCP_PREFIX
 from assistant.core.storage import Storage
+from assistant.core.subagent_steps import SubagentAnswer, SubagentStep
 from assistant.core.tools.registry import subagent_tools
 from assistant.core.usage.meter import TokenMeter
 
@@ -60,7 +63,7 @@ class SubagentRunner(Subagents):
         self._graph = graph
         self._mcp = mcp
 
-    async def run(self, task: str, context: Context, call_id: str) -> str:
+    async def run(self, task: str, context: Context, call_id: str) -> SubagentAnswer:
         mcp_tools = self._mcp.read_only_definitions()
         start = SubagentState(messages=[HumanMessage(task)], mcp_tools=mcp_tools, steps=0, call_id=call_id)
         state = await self._graph.ainvoke(
@@ -68,12 +71,19 @@ class SubagentRunner(Subagents):
             {"recursion_limit": 2 * settings.subagent_max_steps + 5},
             context=replace(context, subagents=None),
         )
-        return answer(state["messages"])
+        return SubagentAnswer(answer(state["messages"]), steps(state["messages"]))
 
 
 def answer(messages: Sequence[Any]) -> str:
     last = messages[-1] if messages else None
     return (last.text if isinstance(last, AIMessage) else "") or NO_ANSWER
+
+
+def steps(messages: Sequence[Any]) -> list[SubagentStep]:
+    """Its tool calls that ran, each with its result. The last step's calls end the task unrun."""
+    results = {m.tool_call_id: m.text for m in messages if isinstance(m, ToolMessage)}
+    calls = [call for m in messages if isinstance(m, AIMessage) for call in m.tool_calls]
+    return [SubagentStep(c["name"], c["args"], results[c["id"]]) for c in calls if c["id"] in results]
 
 
 def build_subagents(storage: Storage, choice: ModelChoice, mcp: McpTools) -> SubagentRunner:

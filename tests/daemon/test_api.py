@@ -28,6 +28,7 @@ from assistant.core.events import ApprovalRequired, Cancelled, Dispatched, Done,
 from assistant.core.home import results
 from assistant.core.internet import brave_key
 from assistant.core.logs import LogWriter, log_sources
+from assistant.core.subagent_steps import SubagentStep
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
 from assistant.daemon.runs import RunHub
@@ -616,3 +617,11 @@ async def test_conversation_stats_through_the_client(client, script):
     stats = await client.conversations.stats(session.thread_id)
     assert stats.thread_id == session.thread_id and stats.messages == 2 and stats.model_calls == 1
     assert stats.input_tokens == 50 and stats.output_tokens == 5 and stats.last_activity is not None
+
+
+async def test_a_delegate_calls_steps_reach_the_client_with_the_conversation(client, service, script):
+    script.call("delegate", task="look").call("bash", command="echo hi").reply("hi").reply("ok")
+    session = await service.session("owner", "cli")
+    await collect(service.send(session, "go"))
+    call = next(m for m in await client.conversations.messages(session.thread_id) if m.role == "tool")
+    assert call.steps == [SubagentStep("bash", {"command": "echo hi"}, "exit code: 0\nhi\n")]

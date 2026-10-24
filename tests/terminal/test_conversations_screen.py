@@ -3,6 +3,7 @@
 from textual.widgets import Markdown, OptionList
 
 from assistant.core.agent import Conversation, ShownMessage
+from assistant.core.subagent_steps import SubagentStep
 from assistant_terminal.tui.screens import ConversationsScreen
 from tests.terminal.conftest import wait_for
 
@@ -72,3 +73,22 @@ async def test_a_handed_off_agents_thinking_and_tool_calls_show_again_when_resum
         assert [type(w) for w in chat.children][-3:] == [ThinkingNote, ToolCall, AssistantMessage]
         assert isinstance(chat.children[0], CarriedNote)  # the quick exchange from the inbox, before it
         assert app.query_one(ToolCall).title == "✓ Bash(pytest -q)"
+
+
+async def test_a_delegate_call_shows_the_subagents_steps_inside_it_when_resumed(app, client):
+    from assistant_terminal.tui.widgets import ToolCall
+
+    client.conversations.items = [Conversation(f"owner:{n}", f"trip {n}", _AT, _AT) for n in ("abc", "b")]
+    step = SubagentStep("bash", {"command": "grep -r token logs"}, "token=42")
+    client.conversations.said["owner:b"] = [
+        ShownMessage("tool", "delegate", detail="Find the token", output="It's 42.", steps=[step]),
+    ]
+    async with app.run_test() as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/conversations", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
+        await pilot.press("down", "enter")
+        await wait_for(pilot, lambda: len(app.query(ToolCall)) == 2)
+        call, inside = app.query(ToolCall)
+        assert call.title == "✓ delegate(Find the token) · 1 step"
+        assert inside.title == "✓ bash(grep -r token logs)" and inside in call.query(ToolCall)
