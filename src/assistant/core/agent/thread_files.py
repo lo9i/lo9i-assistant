@@ -6,8 +6,9 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from langchain_core.messages import BaseMessage
+from langchain_core.runnables import RunnableConfig
 
-from assistant.core import conversations, uploads
+from assistant.core import checkpoints, conversations, uploads
 from assistant.core.agent.base import ServiceBase
 from assistant.core.attachments import upload_paths
 from assistant.core.speech.voice import audio_paths
@@ -15,8 +16,18 @@ from assistant.core.speech.voice import audio_paths
 
 class ThreadFilesMixin(ServiceBase):
     async def _thread_messages(self, thread_id: str) -> list[BaseMessage]:
+        """The conversation's messages, then those of the subagents its delegate calls ran, each kept under its
+        call's namespace: their tools bring files too (an email's attachments)."""
         state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
-        return list(state.values.get("messages", []))
+        messages = list(state.values.get("messages", []))
+        for namespace in await checkpoints.subgraph_namespaces(self._storage.checkpointer, thread_id):
+            messages += await self._subgraph_messages(thread_id, namespace)
+        return messages
+
+    async def _subgraph_messages(self, thread_id: str, namespace: str) -> list[BaseMessage]:
+        config = RunnableConfig(configurable={"thread_id": thread_id, "checkpoint_ns": namespace})
+        saved = await self._storage.checkpointer.aget_tuple(config)
+        return list(saved.checkpoint["channel_values"].get("messages", [])) if saved else []
 
     async def _files_elsewhere(self, user_id: str, thread_id: str) -> list[Path]:
         """The files the user's conversations other than `thread_id` refer to."""

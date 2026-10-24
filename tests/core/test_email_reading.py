@@ -8,6 +8,7 @@ import pytest
 from aioimaplib.imap_testing_server import Mail as MockMail
 from aioimaplib.imap_testing_server import MockImapServer
 
+from assistant.core import uploads
 from assistant.core.agent import EmailError
 from assistant.core.integrations.email import imap, smtp
 from assistant.core.integrations.email.accounts import EmailConfig
@@ -168,6 +169,16 @@ async def test_attachments_read_are_listed_in_files(service, script, reading):
     await _tool(service, script, "read_email", uid=7)
     listed = {(f.name, f.tool) for f in await service.list_files("u")}
     assert listed == {("budget.xlsx", "read_email"), ("chart.png", "read_email")}  # not the one too large
+
+
+async def test_attachments_a_subagent_read_are_listed_and_deleted_with_its_conversation(service, script, reading):
+    script.call("delegate", task="Read the budget mail").call("read_email", uid=7).reply("A budget.").reply("ok")
+    session = await service.session("u", "cli")
+    await collect(service.send(session, "check mail"))
+    files = await service.list_files("u")
+    assert {(f.name, f.tool) for f in files} == {("budget.xlsx", "read_email"), ("chart.png", "read_email")}
+    await service.delete_conversation("u", session.thread_id)
+    assert not [f.path for f in files if uploads.absolute(f.path).exists()]
 
 
 async def test_tools_point_to_setting_up_email_without_an_account(service, script):
