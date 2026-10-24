@@ -12,12 +12,12 @@
   const NOTES: Record<string, string[]> = {
     macos: [
       "macOS asks for your administrator password once. It runs as your user, without anyone logging in.",
-      "A sleeping or powered-off Mac runs nothing; missed jobs catch up within 6 hours.",
+      "A sleeping or powered-off Mac runs nothing; missed jobs catch up within 6 hours, and Notifications says when one ran late or was missed.",
       "With FileVault on, after a restart nothing runs until someone logs in once.",
     ],
     linux: [
       "It runs as a systemd user service (lo9i-assistant), as your user. Its log is in Settings → Logs; output from before it starts logging is in journalctl --user -u lo9i-assistant.",
-      "A powered-off or suspended computer runs nothing; missed jobs catch up within 6 hours.",
+      "A powered-off or suspended computer runs nothing; missed jobs catch up within 6 hours, and Notifications says when one ran late or was missed.",
       "Ollama isn't included: its Linux installer runs it as a service of its own.",
     ],
   };

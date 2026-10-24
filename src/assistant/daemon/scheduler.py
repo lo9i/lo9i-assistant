@@ -3,8 +3,9 @@ inside the daemon like the other background tasks.
 
 Every tick it reloads the jobs (so edits apply without restarts) and starts the due ones. A job's
 next run is moved forward (or a one-time job turned off) before its run starts, so a crash never
-repeats a run. A run that was due while the daemon was down runs once if it's within the grace
-window, otherwise it's recorded as missed.
+repeats a run. A run that was due while the daemon was down (the computer off or asleep) runs once if
+it's within the grace window, and its notification says how late; otherwise it's recorded as missed, which
+is notified too, so the user knows it didn't run.
 
 A run that needs approval waits for the user's answer on a connected chat channel (core/approvals.py), up to
 JOB_APPROVAL_MINUTES; the run's time limit doesn't count the wait. Runs in progress are kept in the
@@ -37,6 +38,9 @@ logger = logging.getLogger(__name__)
 
 # Short enough to notice a due job within a minute of waking from sleep.
 _TICK_SECONDS = 30
+# A run that starts later than this after it was due says so: ticks and a busy daemon account for less.
+_LATE = timedelta(minutes=5)
+_MISSED = "it was due while the assistant wasn't running (the computer was off or asleep)"
 _SUMMARY_CHARS = 300
 
 
@@ -100,17 +104,19 @@ class Scheduler:
             return  # full: stays due, starts on a later tick
         scheduled = datetime.fromisoformat(job.next_run_at)
         _advance(job, now)
-        if now - scheduled > timedelta(hours=settings.jobs_grace_hours):
-            job.record(RunRecord(scheduled.isoformat(), "missed", "the daemon wasn't running"))
-        elif key in self._running:
+        missed = now - scheduled > timedelta(hours=settings.jobs_grace_hours)
+        if not missed and key in self._running:
             job.record(RunRecord(now.isoformat(), "skipped", "the previous run was still going"))
-        else:
-            self._start(key, job, now, _message(job))
+        elif not missed:
+            self._start(key, job, now, _message(job), scheduled)
         await store.save(self._store, job)
+        if missed:
+            await self._record(job, RunRecord(scheduled.isoformat(), "missed", _MISSED))
 
-    def _start(self, key: str, job: Job, now: datetime, message: str) -> None:
+    def _start(self, key: str, job: Job, now: datetime, message: str, scheduled: datetime | None = None) -> None:
         thread_id = f"job:{job.name}:{now.strftime('%Y-%m-%dT%H:%M:%S')}"
-        run = ActiveRun(job.user_id, job.name, thread_id, now.isoformat())
+        due = scheduled.isoformat() if scheduled else ""
+        run = ActiveRun(job.user_id, job.name, thread_id, now.isoformat(), due)
         self._launch(key, self._execute(job, run, self._service.send(_session(run), message)))
 
     def _launch(self, key: str, execution: Coroutine[None, None, None]) -> None:
@@ -169,27 +175,45 @@ class Scheduler:
         return {"approved": False, "reason": f"nobody answered on a chat channel within {minutes} minutes"}
 
     async def _finish(self, job: Job, run: ActiveRun, record: RunRecord) -> None:
-        await self._record(job, record)
+        await self._record(job, record, _lateness(run))
         await active.finish(self._store, run)
 
-    async def _record(self, job: Job, run: RunRecord) -> None:
-        """Append to the job's latest version, so edits made during the run are kept."""
+    async def _record(self, job: Job, run: RunRecord, late: str = "") -> None:
+        """Append to the job's latest version, so edits made during the run are kept. `late` says, in its
+        notification, that the run started well after it was due."""
         current = await store.load(self._store, job.user_id, job.name)
         if current is None:
             return
         current.record(run)
         await store.save(self._store, current)
         if run.status != "skipped":
-            await _notify(self._store, job, run)
+            await _notify(self._store, job, run, late)
         self._service.bus.publish("job", name=job.name, status=run.status, summary=run.summary)
         logger.info("Job %s: %s", job.name, run.status)
 
 
-async def _notify(saved: BaseStore, job: Job, run: RunRecord) -> None:
+async def _notify(saved: BaseStore, job: Job, run: RunRecord, late: str = "") -> None:
     """Into the notifications feed: a run's result, or why it failed or didn't run, opening on the job."""
     ok = run.status == "ok"
     text = run.summary if ok else f"{run.status.capitalize()}: {run.summary}"
-    await notifications.add_job_run(saved, job.user_id, job.name, run.at, text, ok)
+    await notifications.add_job_run(saved, job.user_id, job.name, run.at, f"{late}{text}", ok)
+
+
+def _lateness(run: ActiveRun) -> str:
+    """What the notification says first when the run started well after it was due; "" otherwise."""
+    if not run.scheduled:
+        return ""
+    late = datetime.fromisoformat(run.started) - datetime.fromisoformat(run.scheduled)
+    if late <= _LATE:
+        return ""
+    return (
+        f"Ran {_duration(late)} late: the assistant wasn't running when it was due (the computer was off or asleep). "
+    )
+
+
+def _duration(span: timedelta) -> str:
+    hours, minutes = divmod(round(span.total_seconds() / 60), 60)
+    return f"{hours} h {minutes} min" if hours else f"{minutes} min"
 
 
 async def _follow(events: AsyncIterator[Event], outcome: _Outcome) -> list[ApprovalRequired]:

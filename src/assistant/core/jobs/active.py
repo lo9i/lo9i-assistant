@@ -15,6 +15,9 @@ class ActiveRun:
     job: str
     thread_id: str
     started: str
+    # When the run was due (ISO 8601); "" for a run new mail started. A run that started well after it, the
+    # computer asleep or the daemon down at the time, says so in its notification.
+    scheduled: str = ""
 
 
 def namespace(user_id: str) -> tuple[str, ...]:

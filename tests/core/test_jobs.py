@@ -85,10 +85,30 @@ async def test_denied_action_marks_the_run_as_needing_attention(service, script)
     assert not told.ok and told.text.startswith("Needs attention: ")
 
 
-async def test_run_missed_beyond_the_grace_window_is_recorded_not_run(service, script):
+async def test_run_missed_beyond_the_grace_window_is_recorded_not_run_and_notified(service, script):
     now = await _job_due(service, script, minutes_ago=7 * 60)
     job = await _run_tick(service, now)
     assert job.runs[-1].status == "missed" and datetime.fromisoformat(job.next_run_at) > now
+    [told] = await notifications.recent(service.store, "owner")
+    assert (told.job, told.run_at, told.ok) == ("daily-news", job.runs[-1].at, False)
+    assert told.text == "Missed: it was due while the assistant wasn't running (the computer was off or asleep)"
+
+
+async def test_a_run_that_starts_well_after_it_was_due_says_how_late(service, script):
+    now = await _job_due(service, script, minutes_ago=125)
+    script.reply("Here is today's summary.")
+    await _run_tick(service, now)
+    [told] = await notifications.recent(service.store, "owner")
+    assert told.ok and told.text.startswith("Ran 2 h 5 min late: the assistant wasn't running when it was due")
+    assert told.text.endswith("Here is today's summary.")
+
+
+async def test_a_run_on_time_says_nothing_about_when(service, script):
+    now = await _job_due(service, script, minutes_ago=1)
+    script.reply("Here is today's summary.")
+    await _run_tick(service, now)
+    [told] = await notifications.recent(service.store, "owner")
+    assert told.text == "Here is today's summary."
 
 
 async def test_list_update_and_delete(service, script):

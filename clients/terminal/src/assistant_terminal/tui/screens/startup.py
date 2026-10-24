@@ -18,13 +18,15 @@ _ABOUT = {
 without anyone logging in, so scheduled jobs and Telegram keep working. It runs as your user.
 
 - macOS asks for your administrator password once.
-- A sleeping or powered-off Mac runs nothing; missed jobs catch up within 6 hours.
+- A sleeping or powered-off Mac runs nothing; missed jobs catch up within 6 hours, and /notifications says
+  when one ran late or was missed.
 - With FileVault on, after a restart nothing runs until someone logs in once.""",
     "linux": """Starting at boot runs the assistant as a systemd user service (`lo9i-assistant`) from the moment
 the computer starts, so scheduled jobs and Telegram keep working. It runs as your user.
 
 - Its log: `/logs`; output from before it starts logging: `journalctl --user -u lo9i-assistant`
-- A powered-off or suspended computer runs nothing; missed jobs catch up within 6 hours.
+- A powered-off or suspended computer runs nothing; missed jobs catch up within 6 hours, and /notifications
+  says when one ran late or was missed.
 - Ollama isn't included: its Linux installer runs it as a service of its own.""",
     "unsupported": "Start at boot works on macOS and on Linux with systemd. This system has neither.",
 }
