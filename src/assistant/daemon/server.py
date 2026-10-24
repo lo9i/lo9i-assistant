@@ -8,7 +8,7 @@ import logging
 import os
 import signal
 import sys
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 import httpx
@@ -20,7 +20,7 @@ from assistant.core.agent import AssistantService
 from assistant.core.config import settings
 from assistant.core.internet import browser
 from assistant.core.logs import LogSource, LogWriter, configure, log_sources, output_path, process_output
-from assistant.daemon import https, launchd, managers, pages, systemd
+from assistant.daemon import https, launchd, managers, pages, systemd, updates
 from assistant.daemon.adapters import supervise
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import DeviceStreams, trusted
@@ -31,6 +31,7 @@ from assistant.daemon.runs import RunHub
 from assistant.daemon.scheduler import Scheduler
 from assistant.daemon.shutdown import Ending, Shutdown, exec_again
 from assistant.daemon.startup import Startup
+from assistant.daemon.updates import Updates
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +59,11 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         # Before any request, so no message lands in the home conversation it retires.
         if retired := await service.retire_home(settings.owner_id):
             logger.info("Kept the home conversation %s as an archived conversation; the inbox replaces it.", retired)
-        shutdown = Shutdown(service, stop, managers.current())
+        shutdown = Shutdown(service, stop, managers.current(), _announcer(service))
         hub = RunHub(service.bus)
         streams = DeviceStreams()
-        app = create_app(service, hub, Startup(stop), shutdown, logs=logs, streams=streams)
+        updater = _updates(service, shutdown)
+        app = create_app(service, hub, Startup(stop), shutdown, logs=logs, streams=streams, updates=updater)
         servers = _listeners(app, socket_path)
         page_servers = [_server(create_pages_app(service, streams), **bind) for bind in pages.ports()]
         tasks = [asyncio.create_task(s.serve()) for s in [*servers, *page_servers]]
@@ -99,6 +101,21 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         await asyncio.gather(*tasks, return_exceptions=True)
     socket_path.unlink(missing_ok=True)
     return shutdown.ending or Ending.STOP
+
+
+def _announcer(service: AssistantService) -> Callable[[Ending, int], None]:
+    """Tells every app a restart or stop is coming (an `ending` event)."""
+    return lambda ending, waiting: service.bus.publish("ending", ending=ending.value, waiting_for_runs=waiting)
+
+
+def _updates(service: AssistantService, shutdown: Shutdown) -> Updates:
+    root = updates.repository_root()
+    return Updates(
+        root,
+        updates.default_steps(root),
+        restart=lambda: shutdown.request(Ending.RESTART),
+        announce=lambda: service.bus.publish("update"),
+    )
 
 
 def _listeners(app, socket_path: Path) -> list["_Server"]:

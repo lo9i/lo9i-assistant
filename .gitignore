@@ -16,3 +16,6 @@ workspace/
 clients/web/node_modules/
 src/assistant/daemon/webui/
 clients/web/.svelte-kit/
+
+# The commit a copy made by scripts/deploy.sh comes from (daemon/updates.py).
+.lo9i-version

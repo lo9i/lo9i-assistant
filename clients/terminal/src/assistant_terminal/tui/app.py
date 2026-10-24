@@ -72,6 +72,7 @@ from assistant_terminal.tui.screens import (
     UsageScreen,
     WebSearchScreen,
 )
+from assistant_terminal.tui.screens.host import ending_text
 from assistant_terminal.tui.theme import NAME as THEME_NAME
 from assistant_terminal.tui.theme import THEME
 from assistant_terminal.tui.turn import TurnView
@@ -233,6 +234,13 @@ class AssistantApp(App):
     def show_failing(self, failing: dict[str, Any]) -> None:
         what, where = ("MCP server", "/mcp") if failing["area"] == "mcp" else ("skill", "/skills")
         self.notify(f"The {what} {failing['name']} keeps failing: {failing['error']}. See {where}.", severity="warning")
+
+    def show_ending(self, ending: dict[str, Any]) -> None:
+        """Any app asked for a restart or stop, or an update was installed (daemon/shutdown.py)."""
+        restart = ending["ending"] == "restart"
+        said = ending_text("restarts" if restart else "stops", ending["waiting_for_runs"])
+        back = "This app reconnects when it's back." if restart else "Start it again on the computer it runs on."
+        self.notify(f"{said} {back}", timeout=15)
 
     def show_signed_out(self, signed_out: dict[str, Any]) -> None:
         self.notify(f"The MCP server {signed_out['name']} needs you to sign in again. See /mcp.", severity="warning")

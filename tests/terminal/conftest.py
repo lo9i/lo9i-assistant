@@ -70,12 +70,15 @@ from assistant.core.logs import COMPONENTS, LogEntry, LogFileInfo, LogOptions, L
 from assistant.core.repositories.known import EXTRAS
 from assistant.core.usage.log import TokenRow, ToolUsage
 from assistant.protocol import (
+    Commit,
     ConnectedClient,
     HostStatus,
     ShutdownStatus,
     StartupError,
     StartupStatus,
     StopRefusedError,
+    UpdateError,
+    UpdateStatus,
 )
 from assistant_terminal.history import History
 from assistant_terminal.preferences import Preferences
@@ -414,7 +417,25 @@ class FakeModel:
 
 
 class FakeSystem:
-    def __init__(self):
+    def __init__(self, bus: asyncio.Queue):
+        # As the daemon does, a restart or stop asked for is announced to every app (an `ending` event).
+        self._bus = bus
+        self.update_now = UpdateStatus(
+            installed_from="git",
+            current=Commit("a1b2c3d4", "First", "2026-10-24T12:00:00Z"),
+            upstream="origin/main",
+            behind=0,
+            new=[],
+            checked_at="",
+            can_update=False,
+            reason="",
+            state="idle",
+            step="",
+            error="",
+        )
+        # What a check finds next.
+        self.upstream_has: list[Commit] = []
+        self.updates_started = 0
         self.state = StartupStatus(enabled=False, managed=False, includes_ollama=False)
         self.cancel_password = False
         # macos, linux or unsupported; on linux, whether lingering is on.
@@ -459,13 +480,30 @@ class FakeSystem:
 
     async def restart(self):
         self.endings.append("restart")
+        await self._bus.put(("ending", {"ending": "restart", "waiting_for_runs": 0}))
         return ShutdownStatus(waiting_for_runs=0)
 
     async def stop(self):
         if self.stop_refusal:
             raise StopRefusedError(self.stop_refusal)
         self.endings.append("stop")
+        await self._bus.put(("ending", {"ending": "stop", "waiting_for_runs": 1}))
         return ShutdownStatus(waiting_for_runs=1)
+
+    async def update_status(self):
+        return self.update_now
+
+    async def check_for_update(self):
+        new = self.upstream_has
+        self.update_now = replace(self.update_now, checked_at="now", new=new, behind=len(new), can_update=True)
+        return self.update_now
+
+    async def update(self):
+        if not self.update_now.behind:
+            raise UpdateError("lo9i is up to date.")
+        self.updates_started += 1
+        self.update_now = replace(self.update_now, state="updating", step="Downloading the update")
+        return self.update_now
 
 
 def _mcp_status(name: str, trusted: bool = False, source: str = "") -> McpServerStatus:
@@ -874,7 +912,7 @@ class FakeClient:
         self.usage = FakeUsage()
         self.channels = FakeChannels()
         self.email = FakeEmail()
-        self.system = FakeSystem()
+        self.system = FakeSystem(self.bus)
         self.clients = FakeClients()
         self.conversations = FakeConversations()
         self.tasks = FakeTasks()

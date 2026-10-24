@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -33,7 +34,15 @@ from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
 from assistant.daemon.runs import RunHub
 from assistant.daemon.shutdown import Ending
-from assistant.protocol import CLIENT_HEADER, CLIENT_ID_HEADER, StartupStatus, StopRefusedError
+from assistant.protocol import (
+    CLIENT_HEADER,
+    CLIENT_ID_HEADER,
+    Commit,
+    StartupStatus,
+    StopRefusedError,
+    UpdateError,
+    UpdateStatus,
+)
 from tests.conftest import collect, written
 
 
@@ -99,6 +108,62 @@ async def test_a_stop_the_service_manager_would_undo_is_refused_with_its_reason(
             await system.stop()
 
 
+class _Updates:
+    def __init__(self, refusal: str = "") -> None:
+        self.started = 0
+        self._refusal = refusal
+        self._status = UpdateStatus(
+            installed_from="git",
+            current=Commit("a1", "First", "2026-10-24T00:00:00Z"),
+            upstream="origin/main",
+            behind=1,
+            new=[Commit("b2", "Second", "2026-10-24T01:00:00Z")],
+            checked_at="2026-10-24T02:00:00Z",
+            can_update=not refusal,
+            reason=refusal,
+            state="idle",
+            step="",
+            error="",
+        )
+
+    async def status(self) -> UpdateStatus:
+        return self._status
+
+    async def check(self) -> UpdateStatus:
+        return self._status
+
+    async def start(self) -> UpdateStatus:
+        if self._refusal:
+            raise UpdateError(self._refusal)
+        self.started += 1
+        return replace(self._status, state="updating", step="Downloading the update")
+
+
+@asynccontextmanager
+async def _updating(service, updates: _Updates):
+    transport = httpx.ASGITransport(app=trusted(create_app(service, RunHub(), updates=updates)))
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}
+    ) as http:
+        yield DaemonClient(http).system
+
+
+async def test_the_apps_see_the_version_whats_new_and_start_an_update(service):
+    updates = _Updates()
+    async with _updating(service, updates) as system:
+        status = await system.update_status()
+        assert status.current == Commit("a1", "First", "2026-10-24T00:00:00Z")
+        assert (await system.check_for_update()).new == [Commit("b2", "Second", "2026-10-24T01:00:00Z")]
+        assert (await system.update()).step == "Downloading the update"
+    assert updates.started == 1
+
+
+async def test_an_update_that_cant_be_installed_says_why(service):
+    async with _updating(service, _Updates(refusal="This copy has changes that aren't committed.")) as system:
+        with pytest.raises(UpdateError, match="changes that aren't committed"):
+            await system.update()
+
+
 async def test_stopping_needs_a_paired_device_on_the_network(app):
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}
@@ -115,7 +180,9 @@ async def test_host_describes_the_computer_the_daemon_runs_on(client):
 
 async def test_every_json_response_has_a_typed_schema(service):
     """Web clients generate their types from /openapi.json, so no route may answer an untyped object."""
-    openapi = create_app(service, RunHub(), _Startup(), _Shutdown(), logs=log_sources(LogWriter())).openapi()
+    openapi = create_app(
+        service, RunHub(), _Startup(), _Shutdown(), logs=log_sources(LogWriter()), updates=_Updates()
+    ).openapi()
     untyped = [
         f"{method.upper()} {path}"
         for path, operations in openapi["paths"].items()
@@ -133,7 +200,10 @@ async def test_the_web_clients_schema_matches_the_routes(service):
     (`npm run api` in clients/web/) to rewrite it after changing a route."""
     current = (
         json.dumps(
-            create_app(service, RunHub(), _Startup(), _Shutdown(), logs=log_sources(LogWriter())).openapi(), indent=2
+            create_app(
+                service, RunHub(), _Startup(), _Shutdown(), logs=log_sources(LogWriter()), updates=_Updates()
+            ).openapi(),
+            indent=2,
         )
         + "\n"
     )

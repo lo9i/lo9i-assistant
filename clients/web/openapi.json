@@ -4563,6 +4563,61 @@
         }
       }
     },
+    "/system/update": {
+      "get": {
+        "summary": "Update Status",
+        "description": "As of the last check; doesn't reach the repository.",
+        "operationId": "update_status_system_update_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateStatus"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Install Update",
+        "description": "Starts installing what's new; the daemon restarts once it's installed and no run is in progress. 409:\nnothing to install, or it can't be installed here, with why.",
+        "operationId": "install_update_system_update_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/update/check": {
+      "post": {
+        "summary": "Check For Update",
+        "description": "Fetches the repository and says what's new.",
+        "operationId": "check_for_update_system_update_check_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/logs": {
       "get": {
         "summary": "Logs Options",
@@ -5138,6 +5193,30 @@
           "text"
         ],
         "title": "CommandReply"
+      },
+      "Commit": {
+        "properties": {
+          "sha": {
+            "type": "string",
+            "title": "Sha"
+          },
+          "subject": {
+            "type": "string",
+            "title": "Subject"
+          },
+          "date": {
+            "type": "string",
+            "title": "Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sha",
+          "subject",
+          "date"
+        ],
+        "title": "Commit",
+        "description": "A version of lo9i: a commit of its repository. `date` is the commit's, ISO 8601."
       },
       "ConnectedClient": {
         "properties": {
@@ -8546,6 +8625,79 @@
           "last_used"
         ],
         "title": "ToolUsage"
+      },
+      "UpdateStatus": {
+        "properties": {
+          "installed_from": {
+            "type": "string",
+            "title": "Installed From"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Commit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "upstream": {
+            "type": "string",
+            "title": "Upstream"
+          },
+          "behind": {
+            "type": "integer",
+            "title": "Behind"
+          },
+          "new": {
+            "items": {
+              "$ref": "#/components/schemas/Commit"
+            },
+            "type": "array",
+            "title": "New"
+          },
+          "checked_at": {
+            "type": "string",
+            "title": "Checked At"
+          },
+          "can_update": {
+            "type": "boolean",
+            "title": "Can Update"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "step": {
+            "type": "string",
+            "title": "Step"
+          },
+          "error": {
+            "type": "string",
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "installed_from",
+          "current",
+          "upstream",
+          "behind",
+          "new",
+          "checked_at",
+          "can_update",
+          "reason",
+          "state",
+          "step",
+          "error"
+        ],
+        "title": "UpdateStatus",
+        "description": "The version the daemon runs and whether a newer one can be installed from the app (daemon/updates.py).\n\n`installed_from`: \"git\" (a clone the app can update), \"deployed\" (copied from another computer by\nscripts/deploy.sh, updated from there) or \"package\" (neither, nothing to compare against).\n`state`: idle, checking, updating (`step` says what it does), failed (`error` says why) or restarting.\n`new`: the commits the update brings, newest first, as of the last check (`checked_at`, ISO 8601).\n`reason`: why it can't be updated from the app, when `can_update` is false."
       },
       "UploadedFile": {
         "properties": {

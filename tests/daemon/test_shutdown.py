@@ -52,6 +52,19 @@ async def test_a_stop_waits_for_the_runs_in_progress_then_goes_through_the_servi
     assert manager.stops == 1 and shutdown.ending is Ending.STOP
 
 
+async def test_every_app_hears_a_restart_or_stop_is_coming_and_what_it_waits_for():
+    heard: list[tuple[Ending, int]] = []
+    shutdown = Shutdown(_Runs(running=2), asyncio.Event(), _Manager(), lambda e, n: heard.append((e, n)))
+    shutdown.request(Ending.RESTART)
+    shutdown.request(Ending.STOP)
+    assert heard == [(Ending.RESTART, 2), (Ending.STOP, 2)]
+    with pytest.raises(StopRefusedError):
+        Shutdown(_Runs(), asyncio.Event(), _Manager(refusal="no"), lambda e, n: heard.append((e, n))).request(
+            Ending.STOP
+        )
+    assert len(heard) == 2
+
+
 async def test_a_restart_never_asks_the_service_manager():
     manager, stop = _Manager(), asyncio.Event()
     shutdown = Shutdown(_Runs(), stop, manager)

@@ -1,5 +1,6 @@
 """The computer the daemon runs on: system, versions and current use, as the web app's Host card. Restarts
-or stops the daemon, after asking (daemon/shutdown.py)."""
+or stops the daemon, after asking (daemon/shutdown.py), and checks for and installs a newer version of lo9i
+(daemon/updates.py), whose progress comes as `update` events."""
 
 from typing import ClassVar
 
@@ -11,11 +12,15 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown
 
 from assistant.client.daemon_client import SystemApi
-from assistant.protocol import HostStatus, StopRefusedError
+from assistant.protocol import Commit, HostStatus, StopRefusedError, UpdateError, UpdateStatus
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 _RESTART = "Restart the assistant? It stops and starts again once the runs in progress end."
+_UPDATE = (
+    "Update the assistant? It downloads the new version, installs what it needs and restarts once the runs in "
+    "progress end."
+)
 _STOP = (
     "Stop the assistant? Jobs, chat channels and the apps stop working until it's started again on the "
     "computer it runs on (opening the terminal app there starts it). It waits for the runs in progress to end."
@@ -34,6 +39,8 @@ class HostScreen(ModalScreen[None]):
             yield Markdown("## Host\n\nLoading…", id="host-body")
             with Horizontal(id="host-buttons"):
                 yield Button("Refresh", variant="primary", id="refresh")
+                yield Button("Check for updates", id="check")
+                yield Button("Update", variant="success", id="update", disabled=True)
                 yield Button("Restart", variant="warning", id="restart")
                 yield Button("Stop", variant="error", id="stop")
                 yield Button("Close", id="close")
@@ -55,8 +62,8 @@ class HostScreen(ModalScreen[None]):
     async def _restart(self) -> None:
         if not await self.app.push_screen_wait(ConfirmScreen(_RESTART, "Restart")):
             return
-        waiting = (await self._system.restart()).waiting_for_runs
-        self.notify(_ending("restarts", waiting), timeout=10)
+        # The daemon tells every app it's coming (an `ending` event, AssistantApp.show_ending).
+        await self._system.restart()
 
     @on(Button.Pressed, "#stop")
     @work
@@ -65,31 +72,60 @@ class HostScreen(ModalScreen[None]):
         if not await self.app.push_screen_wait(ConfirmScreen(_STOP, "Stop")):
             return
         try:
-            waiting = (await self._system.stop()).waiting_for_runs
+            await self._system.stop()
         except StopRefusedError as e:
             self.notify(str(e), severity="error", timeout=15)
+
+    @on(Button.Pressed, "#check")
+    @work
+    @reports_daemon_unavailable
+    async def _check(self) -> None:
+        self.query_one("#check", Button).disabled = True
+        try:
+            await self._show(await self._system.check_for_update())
+        finally:
+            self.query_one("#check", Button).disabled = False
+
+    @on(Button.Pressed, "#update")
+    @work
+    @reports_daemon_unavailable
+    async def _update(self) -> None:
+        if not await self.app.push_screen_wait(ConfirmScreen(_UPDATE, "Update")):
             return
-        self.notify(_ending("stops", waiting), timeout=10)
+        try:
+            await self._show(await self._system.update())
+        except UpdateError as e:
+            self.notify(str(e), severity="error", timeout=15)
+
+    async def reload(self) -> None:
+        """An update's state changed (an `update` event)."""
+        await self._refresh()
 
     @reports_daemon_unavailable
     async def _refresh(self) -> None:
-        await self.query_one("#host-body", Markdown).update(describe(await self._system.host()))
+        await self._show(await self._system.update_status())
+
+    async def _show(self, update: UpdateStatus) -> None:
+        host = await self._system.host()
+        await self.query_one("#host-body", Markdown).update(describe(host, update))
+        self.query_one("#update", Button).disabled = not can_install(update)
 
 
-def _ending(does: str, waiting: int) -> str:
+def ending_text(does: str, waiting: int) -> str:
     if not waiting:
         return f"The assistant {does} now."
     runs = "the run in progress ends" if waiting == 1 else f"the {waiting} runs in progress end"
     return f"The assistant {does} once {runs}."
 
 
-def describe(host: HostStatus) -> str:
+def describe(host: HostStatus, update: UpdateStatus | None = None) -> str:
+    version = f"v{host.version} · {version_text(update.current)}" if update else f"v{host.version}"
     rows = [
         ("OS", host.os),
         ("Arch", host.arch),
         ("Host", host.hostname),
         ("Python", host.python),
-        ("lo9i", f"v{host.version}"),
+        ("lo9i", version),
         ("CPU", f"{host.cpu_cores} cores · {round(host.cpu_percent)}%"),
         ("Memory", _usage(host.memory_used, host.memory_total)),
         ("Disk", _usage(host.disk_used, host.disk_total)),
@@ -97,7 +133,41 @@ def describe(host: HostStatus) -> str:
     ]
     if host.load_average:
         rows.append(("Load avg", " / ".join(f"{load:.2f}" for load in host.load_average)))
-    return "## Host\n\n| | |\n|---|---|\n" + "\n".join(f"| {term} | {value} |" for term, value in rows)
+    table = "## Host\n\n| | |\n|---|---|\n" + "\n".join(f"| {term} | {value} |" for term, value in rows)
+    return table + (_updates(update) if update else "")
+
+
+def _updates(update: UpdateStatus) -> str:
+    new = "".join(f"\n- `{c.sha[:7]}` {c.subject}" for c in update.new) if update.state != "restarting" else ""
+    return f"\n\n### Updates\n\n{update_line(update)}\n{new}"
+
+
+def version_text(commit: Commit | None) -> str:
+    """The commit and its day, as the web app's Host card says it (lib/updates.ts)."""
+    return f"{commit.sha[:7]} · {commit.date[:10]}" if commit else "unknown"
+
+
+def update_line(update: UpdateStatus) -> str:
+    """Where the update stands, as the web app's Host card says it (lib/updates.ts)."""
+    if update.state == "checking":
+        return "Checking for updates…"
+    if update.state == "updating":
+        return f"{update.step}…"
+    if update.state == "restarting":
+        return "Installed. Restarting once the runs in progress end…"
+    if update.state == "failed":
+        return update.error
+    if update.reason:
+        return update.reason
+    if not update.checked_at:
+        return "Not checked yet."
+    if not update.behind:
+        return f"Up to date with {update.upstream}."
+    return f"{update.behind} new {'change' if update.behind == 1 else 'changes'} on {update.upstream}."
+
+
+def can_install(update: UpdateStatus) -> bool:
+    return update.can_update and update.behind > 0 and update.state in ("idle", "failed")
 
 
 def _usage(used: int, total: int) -> str:

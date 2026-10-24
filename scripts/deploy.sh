@@ -2,8 +2,9 @@
 # Install or update the assistant on another (Linux) host over SSH, from this checkout.
 #
 # - Builds the web UI here, so the host doesn't need npm.
-# - Copies this working tree, including uncommitted changes, to DIR on the host. The host's .env,
-#   virtualenv and data (~/.lo9i) are left alone.
+# - Copies this working tree, including uncommitted changes, to DIR on the host, with the commit it comes
+#   from in .lo9i-version (the version the host's app shows). The host's .env, virtualenv and data
+#   (~/.lo9i) are left alone.
 # - Runs install.sh there, which installs the dependencies and (re)starts the daemon as a systemd
 #   user service. The first time, without a terminal to ask in, it writes DIR/.env from
 #   .env.example and stops: fill it in on the host and deploy again.
@@ -17,6 +18,8 @@ HOST="${1:?Usage: scripts/deploy.sh user@host [DIR]}"
 DIR="${2:-lo9i-assistant}"
 
 build_web_ui
+# The commit this copy comes from, which the host's Settings → System shows as its version (daemon/updates.py).
+uv run --quiet python -m assistant.daemon.updates
 # Not .git: the host runs the files, not the repository, and from a worktree .git is a file pointing at
 # this computer, which breaks git (installing plugins) in the daemon's folder on the host.
 rsync -az --delete \

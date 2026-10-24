@@ -89,6 +89,42 @@ class StartupError(Exception):
     """Enabling or disabling start at boot failed or was cancelled."""
 
 
+@dataclass
+class Commit:
+    """A version of lo9i: a commit of its repository. `date` is the commit's, ISO 8601."""
+
+    sha: str
+    subject: str
+    date: str
+
+
+@dataclass
+class UpdateStatus:
+    """The version the daemon runs and whether a newer one can be installed from the app (daemon/updates.py).
+
+    `installed_from`: "git" (a clone the app can update), "deployed" (copied from another computer by
+    scripts/deploy.sh, updated from there) or "package" (neither, nothing to compare against).
+    `state`: idle, checking, updating (`step` says what it does), failed (`error` says why) or restarting.
+    `new`: the commits the update brings, newest first, as of the last check (`checked_at`, ISO 8601).
+    `reason`: why it can't be updated from the app, when `can_update` is false."""
+
+    installed_from: str
+    current: Commit | None
+    upstream: str
+    behind: int
+    new: list[Commit]
+    checked_at: str
+    can_update: bool
+    reason: str
+    state: str
+    step: str
+    error: str
+
+
+class UpdateError(Exception):
+    """An update can't start; the message says why."""
+
+
 class StopRefusedError(Exception):
     """The daemon can't be stopped from the app; the message says why."""
 

@@ -2068,6 +2068,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Update Status
+         * @description As of the last check; doesn't reach the repository.
+         */
+        get: operations["update_status_system_update_get"];
+        put?: never;
+        /**
+         * Install Update
+         * @description Starts installing what's new; the daemon restarts once it's installed and no run is in progress. 409:
+         *     nothing to install, or it can't be installed here, with why.
+         */
+        post: operations["install_update_system_update_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/update/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check For Update
+         * @description Fetches the repository and says what's new.
+         */
+        post: operations["check_for_update_system_update_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/logs": {
         parameters: {
             query?: never;
@@ -2314,6 +2359,18 @@ export interface components {
         CommandReply: {
             /** Text */
             text: string;
+        };
+        /**
+         * Commit
+         * @description A version of lo9i: a commit of its repository. `date` is the commit's, ISO 8601.
+         */
+        Commit: {
+            /** Sha */
+            sha: string;
+            /** Subject */
+            subject: string;
+            /** Date */
+            date: string;
         };
         /**
          * ConnectedClient
@@ -4025,6 +4082,39 @@ export interface components {
             avg_ms: number;
             /** Last Used */
             last_used: string;
+        };
+        /**
+         * UpdateStatus
+         * @description The version the daemon runs and whether a newer one can be installed from the app (daemon/updates.py).
+         *
+         *     `installed_from`: "git" (a clone the app can update), "deployed" (copied from another computer by
+         *     scripts/deploy.sh, updated from there) or "package" (neither, nothing to compare against).
+         *     `state`: idle, checking, updating (`step` says what it does), failed (`error` says why) or restarting.
+         *     `new`: the commits the update brings, newest first, as of the last check (`checked_at`, ISO 8601).
+         *     `reason`: why it can't be updated from the app, when `can_update` is false.
+         */
+        UpdateStatus: {
+            /** Installed From */
+            installed_from: string;
+            current: components["schemas"]["Commit"] | null;
+            /** Upstream */
+            upstream: string;
+            /** Behind */
+            behind: number;
+            /** New */
+            new: components["schemas"]["Commit"][];
+            /** Checked At */
+            checked_at: string;
+            /** Can Update */
+            can_update: boolean;
+            /** Reason */
+            reason: string;
+            /** State */
+            state: string;
+            /** Step */
+            step: string;
+            /** Error */
+            error: string;
         };
         /** UploadedFile */
         UploadedFile: {
@@ -7824,6 +7914,66 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ShutdownStatus"];
+                };
+            };
+        };
+    };
+    update_status_system_update_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateStatus"];
+                };
+            };
+        };
+    };
+    install_update_system_update_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateStatus"];
+                };
+            };
+        };
+    };
+    check_for_update_system_update_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateStatus"];
                 };
             };
         };

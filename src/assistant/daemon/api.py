@@ -131,6 +131,8 @@ from assistant.protocol import (
     ShutdownStatus,
     StartupStatus,
     StopRefusedError,
+    UpdateError,
+    UpdateStatus,
 )
 
 
@@ -451,6 +453,7 @@ def create_app(
     web_ui: Path = BUILD_DIR,
     logs: Mapping[str, LogSource] | None = None,
     streams: DeviceStreams | None = None,
+    updates: Any = None,
 ) -> FastAPI:
     """`streams` is shared with the pages app, so revoking a device also closes its pages' WebSockets."""
     app = FastAPI(title="lo9i daemon")
@@ -498,6 +501,8 @@ def create_app(
         _add_startup_routes(app, startup)
     if shutdown is not None:
         _add_shutdown_routes(app, shutdown)
+    if updates is not None:
+        _add_update_routes(app, updates)
     if logs is not None:
         _add_log_routes(app, logs, streams)
     add_web_ui(app, web_ui)
@@ -1517,6 +1522,30 @@ def _add_shutdown_routes(app: FastAPI, shutdown: Any) -> None:
         try:
             return ShutdownStatus(waiting_for_runs=shutdown.request(Ending.STOP))
         except StopRefusedError as e:
+            raise HTTPException(409, str(e)) from e
+
+
+def _add_update_routes(app: FastAPI, updates: Any) -> None:
+    """The version the daemon runs and installing a newer one (daemon/updates.py). `updates` offers status(),
+    check() and start(). An `update` event tells the apps each change of its state."""
+
+    @app.get("/system/update")
+    async def update_status() -> UpdateStatus:
+        """As of the last check; doesn't reach the repository."""
+        return await updates.status()
+
+    @app.post("/system/update/check")
+    async def check_for_update() -> UpdateStatus:
+        """Fetches the repository and says what's new."""
+        return await updates.check()
+
+    @app.post("/system/update")
+    async def install_update() -> UpdateStatus:
+        """Starts installing what's new; the daemon restarts once it's installed and no run is in progress. 409:
+        nothing to install, or it can't be installed here, with why."""
+        try:
+            return await updates.start()
+        except UpdateError as e:
             raise HTTPException(409, str(e)) from e
 
 

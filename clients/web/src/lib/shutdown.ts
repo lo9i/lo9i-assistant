@@ -28,3 +28,9 @@ export function endingText(ending: Ending, waitingForRuns: number): string {
 function runs(count: number): string {
   return count === 1 ? "the run in progress ends" : `the ${count} runs in progress end`;
 }
+
+/** On every page, once any app asked for a restart or stop: what's coming and what it waits for. */
+export function comingText(name: string, ending: Ending, waitingForRuns: number): string {
+  const does = ending === "restart" ? "restarts" : "stops";
+  return waitingForRuns === 0 ? `${name} ${does} now.` : `${name} ${does} once ${runs(waitingForRuns)}.`;
+}

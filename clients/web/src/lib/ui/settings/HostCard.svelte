@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { LoaderCircle, Power, RefreshCw, RotateCcw } from "@lucide/svelte";
-  import type { HostStatus } from "$lib/api/types";
+  import { Download, LoaderCircle, Power, RefreshCw, RotateCcw, SearchCheck } from "@lucide/svelte";
+  import type { HostStatus, UpdateStatus } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { CONFIRM, endingText, type Ending } from "$lib/shutdown";
+  import { canInstall, updateLine, versionText } from "$lib/updates";
   import Confirm from "../Confirm.svelte";
   import Modal from "../Modal.svelte";
   import SettingsCard from "../Card.svelte";
@@ -11,9 +12,20 @@
   // Read when the page opens and when the user refreshes: use changes all the time, so no event announces it.
   const loaded = resource((c) => c.system.host(), []);
   const h = $derived(loaded.data);
-  let confirming = $state<Ending | null>(null);
-  // Set once the daemon accepted a restart or stop; the page waits for it to come back.
+  // Each change of an update's state comes as an `update` event.
+  const update = resource((c) => c.system.updateStatus(), ["update"]);
+  let confirming = $state<Ending | "update" | null>(null);
+  let checking = $state(false);
+  // Set once the daemon accepted a restart or stop, from this page or anywhere (an update installed, another
+  // tab); the page waits for it to come back.
   let ending = $state<{ ending: Ending; text: string } | null>(null);
+
+  $effect(() =>
+    hub.on(["ending"], (data) => {
+      const kind = data.ending as Ending;
+      ending = { ending: kind, text: endingText(kind, Number(data.waiting_for_runs ?? 0)) };
+    }),
+  );
 
   // The events stream reconnects on its own; once it does, the daemon is back, maybe with a new web build.
   $effect(() => {
@@ -27,6 +39,30 @@
     } catch (e) {
       notices.report(e);
     }
+  }
+
+  async function check(): Promise<void> {
+    checking = true;
+    try {
+      await client.system.checkForUpdate();
+      await update.reload();
+    } catch (e) {
+      notices.report(e);
+    } finally {
+      checking = false;
+    }
+  }
+
+  async function install(): Promise<void> {
+    try {
+      await client.system.update();
+    } catch (e) {
+      notices.report(e);
+    }
+  }
+
+  function busy(status: UpdateStatus): boolean {
+    return checking || ["checking", "updating", "restarting"].includes(status.state);
   }
 
   function size(bytes: number): string {
@@ -50,7 +86,7 @@
       ["Arch", h.arch],
       ["Host", h.hostname],
       ["Python", h.python],
-      ["lo9i", `v${h.version}`],
+      ["lo9i", update.data ? `v${h.version} · ${versionText(update.data.current)}` : `v${h.version}`],
       ["CPU", `${h.cpu_cores} cores · ${Math.round(h.cpu_percent)}%`],
       ["Memory", usage(h.memory_used, h.memory_total)],
       ["Disk", usage(h.disk_used, h.disk_total)],
@@ -76,14 +112,51 @@
         </div>
       {/each}
     </dl>
+    {#if update.data}
+      {@const u = update.data}
+      <section class="update">
+        <p class="micro-label">Updates</p>
+        <p class="text-label" class:error-text={u.state === "failed"}>
+          {#if busy(u)}<LoaderCircle size={14} class="spin" aria-hidden="true" />{/if}
+          {updateLine(u)}
+        </p>
+        {#if u.new.length && u.state !== "restarting"}
+          <ul class="commits">
+            {#each u.new as commit (commit.sha)}
+              <li><code>{commit.sha.slice(0, 7)}</code> {commit.subject}</li>
+            {/each}
+          </ul>
+        {/if}
+      </section>
+    {/if}
     <div class="actions">
+      {#if update.data?.installed_from === "git"}
+        <button class="btn btn--sm" onclick={check} disabled={busy(update.data)}>
+          <SearchCheck size={14} /> Check for updates
+        </button>
+      {/if}
+      {#if update.data && canInstall(update.data)}
+        <button class="btn btn--sm btn--primary" onclick={() => (confirming = "update")} disabled={busy(update.data)}>
+          <Download size={14} /> Update and restart
+        </button>
+      {/if}
       <button class="btn btn--sm" onclick={() => (confirming = "restart")}><RotateCcw size={14} /> Restart</button>
       <button class="btn btn--sm btn--danger" onclick={() => (confirming = "stop")}><Power size={14} /> Stop</button>
     </div>
   {/if}
 </SettingsCard>
 
-{#if confirming}
+{#if confirming === "update"}
+  <Confirm
+    title="Update the assistant?"
+    text="It downloads the new version, installs what it needs and restarts once the runs in progress end. This page reloads when it's back."
+    action="Update"
+    onanswer={(yes) => {
+      confirming = null;
+      if (yes) void install();
+    }}
+  />
+{:else if confirming}
   {@const kind = confirming}
   <Confirm
     {...CONFIRM[kind]}
@@ -115,7 +188,33 @@
   }
   .actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
+  }
+  .update {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .update .text-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .update :global(.spin) {
+    animation: spin 1s linear infinite;
+  }
+  .commits {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-height: 180px;
+    overflow-y: auto;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+  }
+  .commits li {
+    padding: 2px 0;
   }
   p {
     margin: 0;
@@ -135,7 +234,8 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .waiting :global(.spin) {
+    .waiting :global(.spin),
+    .update :global(.spin) {
       animation: none;
     }
   }

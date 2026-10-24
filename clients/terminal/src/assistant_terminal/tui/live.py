@@ -21,6 +21,8 @@ class LiveApp(Protocol):
     def show_background_ended(self, ended: dict[str, Any]) -> None: ...
     def show_failing(self, failing: dict[str, Any]) -> None: ...
     def show_signed_out(self, signed_out: dict[str, Any]) -> None: ...
+
+    def show_ending(self, ending: dict[str, Any]) -> None: ...
     def run_finished(self, run: dict[str, Any]) -> None: ...
 
 
@@ -69,6 +71,8 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         "background_ended": app.show_background_ended,
         "failing": app.show_failing,
         "signed_out": app.show_signed_out,
+        "update": screen,
+        "ending": app.show_ending,
         "run": app.mirror_run,
         "run_finished": app.run_finished,
     }

@@ -68,6 +68,7 @@ import type {
   SpeechStatus,
   StartupStatus,
   TokenReport,
+  UpdateStatus,
   UploadedFile,
   UsageReport,
   WebSearchStatus,
@@ -710,6 +711,22 @@ export class SystemGroup {
    * start it again. */
   stop(): Promise<ShutdownStatus> {
     return this.transport.request("POST", "/system/stop");
+  }
+
+  /** The version the daemon runs and, as of the last check, what's new (src/assistant/daemon/updates.py). */
+  updateStatus(): Promise<UpdateStatus> {
+    return this.transport.request("GET", "/system/update");
+  }
+
+  /** Reaches the repository to see what's new. */
+  checkForUpdate(): Promise<UpdateStatus> {
+    return this.transport.request("POST", "/system/update/check");
+  }
+
+  /** Starts installing what's new; the daemon restarts once it's installed. Throws ApiError (409) when there's
+   * nothing to install or it can't be installed there, saying why. */
+  update(): Promise<UpdateStatus> {
+    return this.transport.request("POST", "/system/update");
   }
 }
 

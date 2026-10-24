@@ -11,6 +11,7 @@ import asyncio
 import logging
 import os
 import sys
+from collections.abc import Callable
 from enum import StrEnum
 from typing import Protocol
 
@@ -45,10 +46,19 @@ class ServiceManager(Protocol):
 
 
 class Shutdown:
-    def __init__(self, runs: Runs, stop: asyncio.Event, manager: ServiceManager) -> None:
+    def __init__(
+        self,
+        runs: Runs,
+        stop: asyncio.Event,
+        manager: ServiceManager,
+        announce: Callable[[Ending, int], None] = lambda ending, waiting: None,
+    ) -> None:
+        """`announce` tells the apps a restart or stop is coming, and how many runs it waits for, so every one of
+        them can say so, not only the one that asked."""
         self._runs = runs
         self._stop = stop
         self._manager = manager
+        self._announce = announce
         self._wanted = Ending.RESTART
         self._waiting: asyncio.Task | None = None
         # How the daemon ends, once it does; None until then, and when a signal stopped it.
@@ -63,7 +73,9 @@ class Shutdown:
         self._wanted = ending
         if self._waiting is None:
             self._waiting = asyncio.create_task(self._when_no_runs())
-        return self._runs.runs_in_progress()
+        waiting = self._runs.runs_in_progress()
+        self._announce(ending, waiting)
+        return waiting
 
     async def _when_no_runs(self) -> None:
         await self._runs.until_no_runs()
