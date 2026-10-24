@@ -1,3 +1,4 @@
+import { createRawSnippet } from "svelte";
 import { render } from "svelte/server";
 import { describe, expect, it } from "vitest";
 import AgentStatus from "./AgentStatus.svelte";
@@ -11,5 +12,13 @@ describe("AgentStatus", () => {
     expect(body).toContain('title="Claude Code in /repo"');
     expect(body).toContain("Back to the assistant");
     expect(body).not.toContain("Interrupt");
+  });
+
+  it("shows its context between its name and the way back", () => {
+    const children = createRawSnippet(() => ({ render: () => "<span>fuel</span>" }));
+    const { body } = render(AgentStatus, { props: { handoff, onback: () => {}, children } });
+    const name = body.indexOf("Claude Code</span>");
+    expect(name).toBeLessThan(body.indexOf("fuel"));
+    expect(body.indexOf("fuel")).toBeLessThan(body.indexOf("Back to the assistant"));
   });
 });
