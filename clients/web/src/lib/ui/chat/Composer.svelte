@@ -25,8 +25,8 @@
     sent?: string[];
     /** Commands installed plugins add, such as /claude. */
     extra?: Command[];
-    /** The agent the conversation is handed to works on the last message: what's typed goes to it meanwhile. */
-    steering?: { agent: string; onsteer: (text: string) => void } | null;
+    /** The agent the conversation is handed to works on the last message: what's typed and attached goes to it meanwhile. */
+    steering?: { agent: string; onsteer: (text: string, files: File[]) => void } | null;
   };
   let {
     busy,
@@ -87,6 +87,8 @@
     box?.focus();
   }
 
+  const hasMessage = $derived(text.trim() !== "" || files.length > 0);
+
   function submit(): void {
     const command = parse(text);
     if (command !== null) {
@@ -94,14 +96,10 @@
       else run(command.name, command.arg);
       return;
     }
-    if (steering) {
-      // Files wait in the box for the next message.
-      if (text.trim()) steering.onsteer(text.trim());
-      type("");
-      return;
-    }
-    if (busy || (!text.trim() && files.length === 0)) return;
-    onsend(text.trim(), files);
+    if (!hasMessage || (busy && !steering)) return;
+    // While the agent works it gets the message; what it can't take comes back in the box (ChatPanel's steer).
+    if (steering) steering.onsteer(text.trim(), files);
+    else onsend(text.trim(), files);
     type("");
     files = [];
   }
@@ -245,7 +243,7 @@
         <ArrowUp size={14} />
       </button>
     {:else if running}
-      {#if steering && text.trim()}
+      {#if steering && hasMessage}
         <button class="send" aria-label="Send to {steering.agent}" title="Send to {steering.agent} while it works" onclick={submit}>
           <ArrowUp size={14} />
         </button>
@@ -255,7 +253,7 @@
       <button class="lead" aria-label="Record a voice message" title="Record a voice message" onclick={record}>
         <Mic size={16} />
       </button>
-      <button class="send" aria-label="Send" onclick={submit} disabled={!text.trim() && files.length === 0}>
+      <button class="send" aria-label="Send" onclick={submit} disabled={!hasMessage}>
         <ArrowUp size={14} />
       </button>
     {/if}

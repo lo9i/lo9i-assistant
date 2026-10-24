@@ -160,10 +160,14 @@ export class ConversationsGroup {
     await this.transport.request("DELETE", this.agentPath(threadId));
   }
 
-  /** Passes a message on to the agent while it works on the conversation's last one; it takes it between its
-   * steps. Throws ApiError (409) when it isn't working, or can't take messages while it works. */
-  async messageAgent(threadId: string, text: string): Promise<void> {
-    await this.transport.request("POST", `${this.agentPath(threadId)}/messages`, { text });
+  /** Passes a message, and the files sent with it, on to the agent while it works on the conversation's last one;
+   * it takes it between its steps. Throws ApiError (409) when it isn't working, or can't take messages while it
+   * works. */
+  async messageAgent(threadId: string, text: string, files: File[] = []): Promise<void> {
+    const form = new FormData();
+    form.append("text", text);
+    files.forEach((file) => form.append("files", file, file.name));
+    await this.transport.request("POST", `${this.agentPath(threadId)}/messages`, form);
   }
 
   /** Stops the agent's step in progress; it waits for the next message. Throws ApiError (409) as messageAgent. */

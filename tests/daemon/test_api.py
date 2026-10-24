@@ -303,6 +303,14 @@ async def test_a_profile_edit_with_an_unknown_section_or_too_many_items_is_422(a
         assert (await http.put("/memory/profile/goals", json=too_many)).status_code == 422
 
 
+async def test_a_message_to_the_agent_with_neither_text_nor_files_is_400(app):
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=trusted(app)), base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}
+    ) as http:
+        response = await http.post("/conversations/t/agent/messages", data={"text": "  "})
+        assert response.status_code == 400 and "attach a file" in response.text
+
+
 async def test_skills_and_usage_endpoints(client, script, isolated_settings, monkeypatch):
     from assistant.core.agent import SkillError
     from assistant.core.config import settings
@@ -343,6 +351,8 @@ async def test_a_conversation_is_handed_to_an_agent_and_back(client, service, tm
         await client.conversations.hand_to(thread_id, "claude", "relative/folder")
     with pytest.raises(HandoffError, match="isn't working on anything now"):
         await client.conversations.message_agent(thread_id, "skip the slow tests")
+    with pytest.raises(HandoffError, match="isn't working on anything now"):
+        await client.conversations.message_agent(thread_id, "", [Attachment("shot.png", "image/png", b"png")])
     with pytest.raises(HandoffError, match="isn't working on anything now"):
         await client.conversations.interrupt_agent(thread_id)
     await client.conversations.take_back(thread_id)

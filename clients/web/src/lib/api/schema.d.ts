@@ -739,8 +739,9 @@ export interface paths {
         put?: never;
         /**
          * Message Agent
-         * @description Passes a message on to the agent while it works on the conversation's last one; it takes it
-         *     between its steps. 409: it isn't working, or can't take messages while it works.
+         * @description Passes a message, and the files sent with it, on to the agent while it works on the conversation's
+         *     last one; it takes it between its steps. 400: neither text nor files. 409: it isn't working, or can't
+         *     take messages while it works.
          */
         post: operations["message_agent_conversations__thread_id__agent_messages_post"];
         delete?: never;
@@ -2233,6 +2234,16 @@ export interface components {
              * @default
              */
             message: string;
+        };
+        /** Body_message_agent_conversations__thread_id__agent_messages_post */
+        Body_message_agent_conversations__thread_id__agent_messages_post: {
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /** Files */
+            files?: string[] | null;
         };
         /** Body_send_threads__thread_id__messages_post */
         Body_send_threads__thread_id__messages_post: {
@@ -3916,11 +3927,6 @@ export interface components {
             /** Thread Id */
             thread_id: string;
         };
-        /** ToAgent */
-        ToAgent: {
-            /** Text */
-            text: string;
-        };
         /** TokenReport */
         TokenReport: {
             /** Days */
@@ -5278,9 +5284,9 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": components["schemas"]["ToAgent"];
+                "multipart/form-data": components["schemas"]["Body_message_agent_conversations__thread_id__agent_messages_post"];
             };
         };
         responses: {
