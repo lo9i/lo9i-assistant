@@ -124,7 +124,7 @@ function add(t: Transcript, item: NewItem): Transcript {
 }
 
 function addShown(t: Transcript, message: ShownMessage): Transcript {
-  if (message.role === "user") return add(t, { kind: "user", text: message.text, files: [] });
+  if (message.role === "user") return add(t, { kind: "user", ...splitAttachments(message.text) });
   if (message.role === "thinking") return add(t, { kind: "thinking", text: message.text });
   if (message.role === "carried") return add(t, { kind: "carried", text: message.text });
   if (message.role === "notice") return add(t, { kind: "notice", text: message.text });
@@ -218,4 +218,18 @@ function cancelCall(item: ToolItem): ToolItem {
 
 function update(t: Transcript, id: number, change: (item: ChatItem) => ChatItem): Transcript {
   return { ...t, items: t.items.map((item) => (item.id === id ? change(item) : item)) };
+}
+
+/** History keeps a message's files as "[attachment name]" lines; pulls them out so they show as files. */
+export function splitAttachments(text: string): { text: string; files: string[] } {
+  const files: string[] = [];
+  const rest = text
+    .split("\n")
+    .filter((line) => {
+      const m = /^\[attachment (.+)\]$/.exec(line.trim());
+      if (m) files.push(m[1]);
+      return !m;
+    })
+    .join("\n");
+  return { text: rest.trim(), files };
 }

@@ -100,7 +100,7 @@
         <div class="row user">
           <div class="bubble user-bubble">
             {#if item.channel}<span class="micro-label">{item.channel}</span>{/if}
-            <p>{item.text}</p>
+            {#if item.text}<p>{item.text}</p>{/if}
             {#each item.files as file (file)}
               <span class="file"><Paperclip size={12} />{file}</span>
             {/each}
