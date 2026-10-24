@@ -5,6 +5,10 @@
   import EmptyState from "./EmptyState.svelte";
   import TokenLine from "./TokenLine.svelte";
   import TokenBars from "./TokenBars.svelte";
+  import Activity from "@lucide/svelte/icons/activity";
+  import ArrowDownToLine from "@lucide/svelte/icons/arrow-down-to-line";
+  import ArrowUpFromLine from "@lucide/svelte/icons/arrow-up-from-line";
+  import CircleDollarSign from "@lucide/svelte/icons/circle-dollar-sign";
 
   let { days }: { days: number } = $props();
 
@@ -71,28 +75,38 @@
 {:else if total}
   <div class="tiles">
     <div class="tile surface--glass">
-      <span class="micro-label">Model calls</span>
-      <TokenBars points={callSeries} label="Model calls per day" />
+      <span class="tile-head"><Activity size={18} class="tile-icon" aria-hidden="true" />Model calls</span>
+      <div class="tile-body">
+        <span class="big">{total.calls.toLocaleString()}</span>
+        <div class="chart"><TokenBars points={callSeries} label="Model calls per day" /></div>
+      </div>
+      <span class="text-caption">{report.data?.estimated_calls ? `${report.data.estimated_calls} estimated` : `last ${days} days`}</span>
+    </div>
+    <div class="tile surface--glass">
+      <span class="tile-head"><ArrowDownToLine size={18} class="tile-icon" aria-hidden="true" />Input tokens</span>
+      <div class="tile-body">
+        <span class="big">{count(total.input_tokens)}</span>
+        <div class="chart"><TokenLine points={inputSeries} label="Input tokens per day" /></div>
+      </div>
       <span class="text-caption">
-        {total.calls} total{report.data?.estimated_calls ? ` · ${report.data.estimated_calls} estimated` : ""}
+        {total.input_tokens ? Math.round((100 * total.cache_read_tokens) / total.input_tokens) : 0}% from the cache
       </span>
     </div>
     <div class="tile surface--glass">
-      <span class="micro-label">Input tokens</span>
-      <TokenLine points={inputSeries} label="Input tokens per day" />
-      <span class="text-caption">
-        {count(total.input_tokens)} total · {total.input_tokens ? Math.round((100 * total.cache_read_tokens) / total.input_tokens) : 0}% from the cache
-      </span>
+      <span class="tile-head"><ArrowUpFromLine size={18} class="tile-icon" aria-hidden="true" />Output tokens</span>
+      <div class="tile-body">
+        <span class="big">{count(total.output_tokens)}</span>
+        <div class="chart"><TokenLine points={outputSeries} label="Output tokens per day" /></div>
+      </div>
+      <span class="text-caption">replies and tool calls</span>
     </div>
     <div class="tile surface--glass">
-      <span class="micro-label">Output tokens</span>
-      <TokenLine points={outputSeries} label="Output tokens per day" />
-      <span class="text-caption">{count(total.output_tokens)} total · replies and tool calls</span>
-    </div>
-    <div class="tile surface--glass">
-      <span class="micro-label">Cost</span>
-      <TokenLine points={costSeries} label="Cost per day" />
-      <span class="text-caption">{money(total.cost)} total · models with a known price</span>
+      <span class="tile-head"><CircleDollarSign size={18} class="tile-icon" aria-hidden="true" />Cost</span>
+      <div class="tile-body">
+        <span class="big">{money(total.cost)}</span>
+        <div class="chart"><TokenLine points={costSeries} label="Cost per day" /></div>
+      </div>
+      <span class="text-caption">models with a known price</span>
     </div>
   </div>
 
@@ -156,8 +170,34 @@
   .tile {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 14px;
     padding: 20px 24px;
+    border-radius: 16px;
+  }
+  .tile-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+  }
+  .tile-head :global(.tile-icon) {
+    color: var(--color-accent, #f59e0b);
+  }
+  .tile-body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .big {
+    font-size: 2.25rem;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .chart {
+    flex: 0 1 50%;
+    min-width: 60px;
   }
   .table-card {
     overflow: hidden;

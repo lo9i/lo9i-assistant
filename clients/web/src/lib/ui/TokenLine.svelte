@@ -9,12 +9,10 @@
     points.map((p, i) => [points.length > 1 ? (i / (points.length - 1)) * W : W / 2, H - 4 - (p.value / max) * (H - 8)]),
   );
   const line = $derived(coords.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" "));
-  const area = $derived(coords.length ? `0,${H} ${line} ${W},${H}` : "");
 </script>
 
 <svg viewBox="0 0 {W} {H}" preserveAspectRatio="none" role="img" aria-label={label}>
   {#if coords.length}
-    <polygon points={area} class="area" />
     <polyline points={line} class="line" vector-effect="non-scaling-stroke" />
   {/if}
   {#each points as p, i (p.day)}
@@ -27,7 +25,7 @@
 <style>
   svg {
     width: 100%;
-    height: 70px;
+    height: 44px;
     display: block;
   }
   .line {
@@ -35,8 +33,5 @@
     stroke: var(--color-accent, #f59e0b);
     stroke-width: 2;
     stroke-linejoin: round;
-  }
-  .area {
-    fill: color-mix(in srgb, var(--color-accent, #f59e0b) 15%, transparent);
   }
 </style>

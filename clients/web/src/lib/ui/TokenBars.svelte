@@ -21,7 +21,7 @@
 <style>
   svg {
     width: 100%;
-    height: 70px;
+    height: 44px;
     display: block;
   }
   .bar {
