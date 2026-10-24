@@ -9,9 +9,11 @@ from dataclasses import replace
 
 import pytest
 
+from assistant.core.agent.session import Session
 from assistant.daemon import launchd, managers, server, systemd
 from assistant.daemon.shutdown import Ending, Pending, Shutdown
 from assistant.protocol import NoEndingError, StartupStatus, StopRefusedError
+from tests.conftest import collect, written
 
 
 class _Runs:
@@ -140,6 +142,35 @@ async def test_now_cancels_the_runs_a_stop_waits_for_so_it_goes_ahead():
     assert shutdown.pending() is None
     with pytest.raises(NoEndingError):
         shutdown.take_back()
+
+
+async def _held_run(service, tmp_path, name: str) -> asyncio.Task:
+    """A run of a conversation of its own, held in its bash call until the file `name` is written."""
+    session = Session("owner", "web", await service.new_thread("owner"))
+    run = asyncio.create_task(collect(service.send(session, f"wait for {name}")))
+    await written(tmp_path / "workspace" / f"{name}.started")
+    return run
+
+
+async def test_a_restart_asked_for_by_a_reply_in_progress_outlasts_a_new_message_and_goes_ahead_when_both_end(
+    service, script, tmp_path
+):
+    # The reply asking for the restart is itself a run it waits for; a message sent while it waits must not drop it.
+    for name in ("asking", "next"):
+        script.call("bash", command=f"echo started > {name}.started; until [ -f {name} ]; do sleep 0.02; done")
+    script.reply("asked").reply("answered")
+    stop = asyncio.Event()
+    shutdown = Shutdown(service, stop, _Manager())
+    asking = await _held_run(service, tmp_path, "asking")
+    assert shutdown.request(Ending.RESTART, "web (unix socket)") == 1
+    following = await _held_run(service, tmp_path, "next")
+    (tmp_path / "workspace" / "asking").touch()
+    await asyncio.wait_for(asking, 10)
+    assert shutdown.pending() == Pending(Ending.RESTART, 1) and not stop.is_set()
+    (tmp_path / "workspace" / "next").touch()
+    await asyncio.wait_for(following, 10)
+    await asyncio.wait_for(stop.wait(), 1)
+    assert shutdown.ending is Ending.RESTART
 
 
 @pytest.mark.parametrize(
