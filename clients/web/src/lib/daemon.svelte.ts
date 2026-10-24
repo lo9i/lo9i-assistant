@@ -67,9 +67,11 @@ export class Resource<T> {
   };
 }
 
-/** A value kept by a plain TypeScript object (subscribe + getSnapshot), as Svelte state. */
+/** A value kept by a plain TypeScript object (subscribe + getSnapshot), as Svelte state. Raw, not deeply reactive:
+ * snapshots are never changed in place, and a new one keeps what didn't change (a transcript's items). Proxied, each
+ * change would wrap the whole value again, so every message on the page would count as new and be rendered again. */
 export function external<T>(subscribe: (listener: () => void) => () => void, get: () => T): { readonly current: T } {
-  let current = $state(get());
+  let current = $state.raw(get());
   $effect(() => subscribe(() => (current = get())));
   return {
     get current() {
