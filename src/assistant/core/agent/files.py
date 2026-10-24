@@ -10,6 +10,7 @@ from langchain_core.messages import BaseMessage
 
 from assistant.core import conversations, uploads
 from assistant.core.agent.thread_files import ThreadFilesMixin
+from assistant.core.agent_tasks import sent
 from assistant.core.attachments import tool_uploads, user_uploads
 from assistant.core.conversations import Conversation
 
@@ -54,8 +55,8 @@ class FilesMixin(ThreadFilesMixin):
 
 
 def _references(messages: Sequence[BaseMessage]) -> list[tuple[str, dict[str, str]]]:
-    """Each file's reference with the tool that brought it, "" for the user's."""
-    return [("", r) for r in user_uploads(messages)] + tool_uploads(messages)
+    """Each file's reference with the tool that brought it, "" for the user's (to an agent at work too)."""
+    return [("", r) for r in [*user_uploads(messages), *sent.uploads(messages)]] + tool_uploads(messages)
 
 
 def _once(files: list[UploadedFile]) -> list[UploadedFile]:

@@ -3,16 +3,17 @@ started detached with the plugin's env, keys and login (docs/agent-plugins.md); 
 plugin's data folder (records.py), so tasks outlive a restart of the daemon."""
 
 import asyncio
-import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from langgraph.store.base import BaseStore
 from mcp.client.stdio import get_default_environment
 
-from assistant.core.agent_tasks import workers
+from assistant.core.agent_tasks import sent, workers
 from assistant.core.agent_tasks.records import Task, TaskState, TaskStore, lost
 from assistant.core.agent_tasks.sessions import Sessions
+from assistant.core.agent_tasks.steps import Upload
 from assistant.core.agent_tasks.waiting import Report, at_most, until_ended
 from assistant.core.config import settings
 from assistant.core.mcp import folders, keys, logins, servers
@@ -113,10 +114,11 @@ class AgentTasks:
         await _stop(_tasks(server), task_id)
         return await self.state(task_id)
 
-    async def message(self, task_id: str, text: str) -> None:
-        """Passes `text` on to a running task, whose agent takes it between its steps. Raises AgentTaskError
-        for an unknown task, one that isn't running, or an agent that takes no messages while it works."""
-        await self._tell(task_id, {"kind": "message", "text": text})
+    async def message(self, task_id: str, text: str, said: str, files: list[Upload]) -> None:
+        """Passes `text` on to a running task, whose agent takes it between its steps; its step shows what
+        the user `said` and the `files` they sent instead (sent.py). Raises AgentTaskError for an unknown task,
+        one that isn't running, or an agent that takes no messages while it works."""
+        await self._tell(task_id, sent.message(text, said, files))
 
     async def interrupt(self, task_id: str) -> None:
         """Stops the step a running task is taking; it then waits for the user's next message. Raises
@@ -140,15 +142,15 @@ class AgentTasks:
         server, where = self._agent(agent), str(_existing_folder(folder))
         task = await self._next_in_conversation(server, conversation, where, message)
         while True:
-            state = await _answered(_tasks(server), task.id, report)
+            state = await _answered(_tasks(server), task.id, _as_sent(_tasks(server), task.id, report))
             left = await asyncio.to_thread(_tasks(server).untaken, task.id)
             if state.status != "done" or not left:
                 return _reply(state)
-            for text in left:
-                await report(json.dumps({"kind": "user", "text": text}))
-            task = await self._next_in_conversation(server, conversation, where, "\n\n".join(left))
+            for untaken in left:
+                await report(sent.user_step(untaken))
+            task = await self._next_in_conversation(server, conversation, where, "\n\n".join(m["text"] for m in left))
 
-    async def _tell(self, task_id: str, message: dict[str, str]) -> None:
+    async def _tell(self, task_id: str, message: dict[str, Any]) -> None:
         server = await self._owner(task_id)
         tasks = _tasks(server)
         if (await asyncio.to_thread(tasks.state, task_id, 0)).status != "running":
@@ -244,6 +246,17 @@ async def _answered(tasks: TaskStore, task_id: str, report: Report) -> TaskState
     except BaseException:
         await _stop(tasks, task_id)
         raise
+
+
+def _as_sent(tasks: TaskStore, task_id: str, report: Report) -> Report:
+    """`report` with each `user` step showing what the user sent, as they sent it (sent.py)."""
+
+    async def reported(step: str) -> None:
+        if message_id := sent.message_id(step):
+            step = sent.as_sent(step, await asyncio.to_thread(tasks.message, task_id, message_id))
+        await report(step)
+
+    return reported
 
 
 def _reply(state: TaskState) -> str:

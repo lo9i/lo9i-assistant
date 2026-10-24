@@ -83,8 +83,9 @@ class _Printer:
                 _write(paint(DIM, _result(output)) + "\n")
             case Transcribed(text, language):
                 _write(paint(DIM, f"{_INDENT}🎤 heard ({language}): {text}") + "\n")
-            case UserSaid(text):
-                _write(f"\n{paint(BOLD, '> ' + text)}\n")
+            case UserSaid(text, files):
+                attached = "".join(f"  📎 {name}\n" for name in files)
+                _write(f"\n{paint(BOLD, '> ' + text)}\n{attached}")
             case Dispatched(line=line):
                 _write(f"{_BULLET}{line}\n")
             case Error(message):

@@ -15,7 +15,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMe
 from langchain_core.messages.tool import ToolCall
 
 from assistant.core import subagent_steps
-from assistant.core.agent_tasks.steps import STEPS, args_of, parse
+from assistant.core.agent_tasks.steps import STEPS, Upload, args_of, files_of, parse
 from assistant.core.conversation import carried, ended
 from assistant.core.conversation.dispatched import DISPATCH_ID
 from assistant.core.conversation.turn_header import is_header
@@ -140,9 +140,11 @@ def _agent_reply(lines: list[str], reply: str) -> list[ShownMessage]:
     shown: list[ShownMessage] = []
     calls: dict[str, ShownMessage] = {}
     steps = [parse(line) for line in lines]
-    for step in steps:
+    for line, step in zip(lines, steps, strict=True):
         if within := step.get("within"):
             _add_inner(calls.get(within), step)
+        elif step.get("kind") == "user":
+            shown.append(ShownMessage("user", _with_attachments(step.get("text", ""), files_of(line))))
         else:
             _add_step(shown, step, calls)
     own = [step for step in steps if not step.get("within")]
@@ -163,10 +165,13 @@ def _add_step(shown: list[ShownMessage], step: dict[str, str], calls: dict[str, 
         calls[step.get("id") or f"#{len(calls)}"] = call
     elif kind == "result":
         _finish(shown, step.get("tool", ""), text)
-    elif kind == "user":
-        shown.append(ShownMessage("user", text))
     else:
         shown.append(ShownMessage("tool", text))
+
+
+def _with_attachments(text: str, files: list[Upload]) -> str:
+    """A message the user sent an agent at work, its files named as a message's are (`_block_text`)."""
+    return "\n".join(filter(None, [text, *(f"[attachment {f['name']}]" for f in files)]))
 
 
 def _add_inner(call: ShownMessage | None, step: dict[str, str]) -> None:

@@ -12,7 +12,7 @@ from assistant.core import inbox, uploads
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
 from assistant.core.agent_tasks.service import AgentTaskError
-from assistant.core.agent_tasks.steps import STEPS, AgentSteps, streamed
+from assistant.core.agent_tasks.steps import STEPS, AgentSteps, Upload, streamed
 from assistant.core.attachments import Attachment, reference
 from assistant.core.background import short
 from assistant.core.bus import EventBus
@@ -82,8 +82,8 @@ class HandoffsMixin(RunsMixin):
         HandoffError when none is working, or its agent can't take messages while it works."""
 
         async def tell(task: str) -> None:
-            said = await asyncio.to_thread(_with_files, text, attachments)
-            await self.agent_tasks.message(task, said)
+            files = await asyncio.to_thread(_saved, attachments)
+            await self.agent_tasks.message(task, _with_files(text, files), text.strip(), files)
 
         await self._tell_agent(user_id, thread_id, tell)
 
@@ -164,9 +164,14 @@ class HandoffsMixin(RunsMixin):
             reported.progressed()
 
 
-def _with_files(text: str, attachments: Sequence[Attachment]) -> str:
+def _saved(attachments: Sequence[Attachment]) -> list[Upload]:
+    """Saves the files under the uploads dir and returns their references."""
+    return [reference(a)["value"]["upload"] for a in attachments]
+
+
+def _with_files(text: str, files: list[Upload]) -> str:
     """`text`, then a note per file saved under the uploads dir, as the model gets a file it can't read."""
-    notes = [_saved_note(reference(a)["value"]["upload"]) for a in attachments]
+    notes = [_saved_note(upload) for upload in files]
     return "\n\n".join(part for part in [text.strip(), "\n".join(notes)] if part)
 
 

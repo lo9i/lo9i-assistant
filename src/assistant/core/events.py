@@ -41,6 +41,8 @@ class UserSaid:
     (core/agent_tasks/steps.py), shown among its steps where it was passed on."""
 
     text: str
+    # The names of the files sent with it.
+    files: list[str] = field(default_factory=list)
 
 
 @dataclass

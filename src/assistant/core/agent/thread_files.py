@@ -1,6 +1,7 @@
-"""The files a conversation's messages refer to: the uploads the user sent and tool results brought, and the
-voice recordings. The Files list (files.py) reads them, and deleting a conversation (threads.py) deletes them
-unless another conversation refers to them too (a message the inbox sent on keeps its files in both)."""
+"""The files a conversation's messages refer to: the uploads the user sent and tool results brought, those
+sent to an agent while it worked (core/agent_tasks/sent.py), and the voice recordings. The Files list
+(files.py) reads them, and deleting a conversation (threads.py) deletes them unless another conversation
+refers to them too (a message the inbox sent on keeps its files in both)."""
 
 from collections.abc import Sequence
 from pathlib import Path
@@ -10,6 +11,7 @@ from langchain_core.runnables import RunnableConfig
 
 from assistant.core import checkpoints, conversations, uploads
 from assistant.core.agent.base import ServiceBase
+from assistant.core.agent_tasks import sent
 from assistant.core.attachments import upload_paths
 from assistant.core.speech.voice import audio_paths
 
@@ -39,5 +41,6 @@ class ThreadFilesMixin(ServiceBase):
 
 
 def referenced(messages: Sequence[BaseMessage]) -> list[Path]:
-    """The files the messages refer to: uploads and voice recordings."""
-    return [uploads.absolute(p) for p in upload_paths(messages)] + audio_paths(messages)
+    """The files the messages refer to: uploads, those sent to an agent while it worked, and voice recordings."""
+    paths = [*upload_paths(messages), *(upload["path"] for upload in sent.uploads(messages))]
+    return [uploads.absolute(p) for p in paths] + audio_paths(messages)

@@ -82,8 +82,8 @@ class TurnView:
                 await self._thinking(text)
             case Transcribed(text, language):
                 await self._chat.mount(TranscriptNote(text, language))
-            case UserSaid(text):
-                await self._chat.mount(UserMessage(text, []))
+            case UserSaid(text, files):
+                await self._chat.mount(UserMessage(text, files))
             case Dispatched():
                 self.dispatched = event
                 await self._chat.mount(AssistantMessage(event.line))

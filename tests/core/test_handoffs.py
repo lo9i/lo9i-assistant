@@ -358,17 +358,32 @@ async def test_messages_the_agent_ended_without_taking_are_answered_next_in_its_
 async def test_files_sent_while_the_agent_works_are_saved_and_it_gets_where(service, tmp_path):
     session = await _handed(service, tmp_path)
     run = asyncio.create_task(collect(service.send(session, "take messages")))
-    await _taking_messages(service, session, tmp_path)
+    task = await _taking_messages(service, session, tmp_path)
     shot = Attachment("shot.png", "image/png", b"\x89PNG")
     await service.message_agent("owner", session.thread_id, "  see this  ", [shot])
     await service.message_agent("owner", session.thread_id, "", [Attachment("log.txt", "text/plain", b"log")])
     await service.message_agent("owner", session.thread_id, "that's all")
-    said = [e.text for e in await run if isinstance(e, UserSaid)]
-    assert said[0].startswith("see this\n\n[File shot.png (image/png) saved at ")
-    assert said[1].startswith("[File log.txt (text/plain) saved at ")  # files alone
-    saved = [Path(s.split(" saved at ")[1].removesuffix("; open it from there]")) for s in said[:2]]
+    assert [e for e in await run if isinstance(e, UserSaid)] == [
+        UserSaid("see this", ["shot.png"]),  # as the user sent it, its files shown as files
+        UserSaid("", ["log.txt"]),
+        UserSaid("that's all"),
+    ]
+    got = [s["text"] for s in _progress(task) if s.get("kind") == "user"]  # what the agent got: where they are
+    assert got[0].startswith("see this\n\n[File shot.png (image/png) saved at ")
+    assert got[1].startswith("[File log.txt (text/plain) saved at ")  # files alone
+    saved = [Path(s.split(" saved at ")[1].removesuffix("; open it from there]")) for s in got[:2]]
     assert [p.read_bytes() for p in saved] == [b"\x89PNG", b"log"]
     assert all(p.is_relative_to(Path(settings.uploads_dir).expanduser()) for p in saved)
+    shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
+    assert ("user", "see this\n[attachment shot.png]") in shown and ("user", "[attachment log.txt]") in shown
+    assert {f.name for f in await service.list_files("owner")} == {"shot.png", "log.txt"}
+    await service.delete_conversation("owner", session.thread_id)
+    assert not [p for p in saved if p.exists()]
+
+
+def _progress(task: str) -> list[dict]:
+    log = folders.data("claude-code") / "tasks" / task / "progress.log"
+    return [json.loads(line) for line in log.read_text().splitlines() if line.startswith("{")]
 
 
 async def test_files_sent_when_no_agent_works_are_not_saved(service, tmp_path):

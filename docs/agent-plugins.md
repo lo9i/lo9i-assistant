@@ -67,7 +67,7 @@ it started would end on it).
 
 | Message | What the worker does |
 |---|---|
-| `{"kind": "message", "text"}` | Passes it on to the agent, which takes it between its steps, and writes a `user` step with the file's name (without `.json`) as its `id`. |
+| `{"kind": "message", "text"}` | Passes it on to the agent, which takes it between its steps, and writes a `user` step with the file's name (without `.json`) as its `id`. The daemon also writes `said` and `files` (what the user wrote and the files they sent, which `text` names with where they're saved): they're its own, for showing the step as the user sent it (`core/agent_tasks/sent.py`); a worker leaves them alone. |
 | `{"kind": "interrupt"}` | Stops the agent's step in progress; the task stays running and waits for the next message. |
 
 The task ends once the agent has answered every message it was sent. Messages left in `inbox/` without a

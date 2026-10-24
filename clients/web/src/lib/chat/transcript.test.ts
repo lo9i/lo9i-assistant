@@ -35,7 +35,7 @@ describe("transcript", () => {
     const t = play([
       { type: "TextDelta", text: "Running the tests" },
       { type: "ToolStarted", name: "Bash", args: { detail: "pytest" } },
-      { type: "UserSaid", text: "skip the slow ones" },
+      { type: "UserSaid", text: "skip the slow ones", files: ["slow.txt"] },
       { type: "TextDelta", text: "Skipping them" },
     ]);
     expect(t.items.map((i) => (i.kind === "assistant" || i.kind === "user" ? i.text : i.kind))).toEqual([
@@ -45,6 +45,7 @@ describe("transcript", () => {
       "skip the slow ones",
       "Skipping them",
     ]);
+    expect(t.items.find((i) => i.kind === "user" && i.text === "skip the slow ones")).toMatchObject({ files: ["slow.txt"] });
   });
 
   it("matches tool results to calls in order", () => {

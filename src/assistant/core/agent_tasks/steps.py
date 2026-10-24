@@ -20,6 +20,8 @@ from assistant.core.subagent_steps import SubagentStep
 _LINE = 200
 # Where a handed-off reply keeps its steps, as the worker wrote them.
 STEPS = "agent_steps"
+# An upload's reference (path, name, media_type), as `attachments.reference` keeps it.
+Upload = dict[str, str]
 
 
 # The words of a text or a thinking as they're written, before the whole of it comes as one step.
@@ -47,7 +49,7 @@ class AgentSteps:
         kind = step.get("kind", "")
         if kind not in _DELTAS:
             self.lines.append(message)
-        events = self._events(step)
+        events = self._events(step, files_of(message))
         if events:
             block = _DELTAS.get(kind, kind)
             self._last = _SHOWN_AS.get(block, block)
@@ -63,7 +65,7 @@ class AgentSteps:
         """Closes the call that holds the notes, when there is one."""
         return [ToolFinished(self._name, output)] if self._notes else []
 
-    def _events(self, step: dict[str, str]) -> list[Event]:
+    def _events(self, step: dict[str, str], files: list[Upload]) -> list[Event]:
         kind, text, within = step.get("kind", ""), step.get("text", ""), step.get("within", "")
         block = _DELTAS.get(kind, kind)
         # A subagent's own words aren't forwarded; its tool calls are shown inside the call that started it.
@@ -79,7 +81,7 @@ class AgentSteps:
         if kind == "user":
             # What it says next answers the user's message: its reply isn't said yet.
             self._open, self.spoke = "", False
-            return [UserSaid(text)]
+            return [UserSaid(text, [f["name"] for f in files])]
         return self._note(text)
 
     def _words(self, kind: str, text: str) -> list[str]:
@@ -155,6 +157,17 @@ def line(message: str) -> str:
         first = f"The user: {first}" if kind == "user" else first
         return first if len(first) <= _LINE else first[:_LINE] + "…"
     return ""
+
+
+def files_of(message: str) -> list[Upload]:
+    """The files a `user` step carries, as the daemon kept them (core/agent_tasks/sent.py)."""
+    try:
+        files = json.loads(message).get("files", [])
+    except (json.JSONDecodeError, AttributeError):
+        return []
+    if not isinstance(files, list):
+        return []
+    return [f for f in files if isinstance(f, dict) and {"path", "name", "media_type"} <= f.keys()]
 
 
 def parse(message: str) -> dict[str, str]:

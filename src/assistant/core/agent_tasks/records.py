@@ -25,7 +25,7 @@ import uuid
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from assistant.core.agent_tasks.steps import parse, streamed
 
@@ -138,17 +138,24 @@ class TaskStore:
         """Its worker takes messages while it works: it made the inbox."""
         return (self.folder(task_id) / _INBOX).is_dir()
 
-    def add_message(self, task_id: str, message: dict[str, str]) -> None:
+    def add_message(self, task_id: str, message: dict[str, Any]) -> None:
         """A message for the worker (docs/agent-plugins.md), named so it sorts after the ones before."""
         _write_json(self.folder(task_id) / _INBOX / f"{time.time_ns()}-{uuid.uuid4().hex[:6]}.json", message)
 
-    def untaken(self, task_id: str) -> list[str]:
-        """The texts of the messages its worker ended without taking, oldest first."""
+    def message(self, task_id: str, message_id: str) -> dict[str, Any] | None:
+        """The message sent to it under that id (a `user` step's), or None when there's none."""
+        path = self.folder(task_id) / _INBOX / f"{message_id}.json"
+        if Path(message_id).name != message_id or not path.is_file():
+            return None
+        return json.loads(path.read_text())
+
+    def untaken(self, task_id: str) -> list[dict[str, Any]]:
+        """The messages its worker ended without taking, oldest first."""
         folder = self.folder(task_id)
         taken = {step.get("id") for step in map(parse, _tail(folder / _PROGRESS, None)) if step.get("kind") == "user"}
         sent = [path for path in sorted((folder / _INBOX).glob("*.json")) if path.stem not in taken]
         messages = [json.loads(path.read_text()) for path in sent]
-        return [message.get("text", "") for message in messages if message.get("kind") == "message"]
+        return [message for message in messages if message.get("kind") == "message"]
 
     def progress_after(self, task_id: str, seen: int) -> list[str]:
         """The task's progress lines after the first `seen`, for following it as it goes."""
