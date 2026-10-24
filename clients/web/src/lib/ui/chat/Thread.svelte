@@ -35,21 +35,38 @@
   ];
 
   let scroller = $state<HTMLElement>();
+  let height = $state(0);
   let atBottom = true;
+  // Scrolled up from the newest message, far enough that the live chat offers to go back down.
+  let away = $state(false);
   let copied = $state<number | null>(null);
+
+  function below(el: HTMLElement): number {
+    return el.scrollHeight - el.scrollTop - el.clientHeight;
+  }
 
   // Follow new content only when the reader is already at the bottom.
   $effect.pre(() => {
     void items;
     void thinking;
     const el = scroller;
-    if (el) atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (el) atBottom = below(el) < 80;
   });
   $effect(() => {
     void items;
     void thinking;
+    void height;
     if (follow && scroller && atBottom) scroller.scrollTop = scroller.scrollHeight;
+    measure();
   });
+
+  function measure(): void {
+    if (scroller) away = below(scroller) > 100;
+  }
+
+  function toBottom(): void {
+    scroller?.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
+  }
 
   async function copy(id: number, text: string): Promise<void> {
     await navigator.clipboard.writeText(text);
@@ -58,129 +75,160 @@
   }
 </script>
 
-<div class="thread" bind:this={scroller}>
-  {#if items.length === 0 && !thinking}
-    <div class="empty">
-      <span class="empty-icon"><Sparkles size={28} /></span>
-      <h2>How can {name} help?</h2>
-      <p class="text-label">Ask anything, attach a file or a screenshot, or type / for commands.</p>
-      <div class="suggestions">
-        {#each SUGGESTIONS as suggestion (suggestion)}
-          <button onclick={() => onsuggest(suggestion)}>{suggestion}</button>
-        {/each}
-      </div>
-    </div>
-  {/if}
-  {#each items as item (item.id)}
-    {#if item.kind === "user"}
-      <div class="row user">
-        <div class="bubble user-bubble">
-          {#if item.channel}<span class="micro-label">{item.channel}</span>{/if}
-          <p>{item.text}</p>
-          {#each item.files as file (file)}
-            <span class="file"><Paperclip size={12} />{file}</span>
+<div class="frame">
+  <div class="thread" bind:this={scroller} bind:clientHeight={height} onscroll={measure}>
+    {#if items.length === 0 && !thinking}
+      <div class="empty">
+        <span class="empty-icon"><Sparkles size={28} /></span>
+        <h2>How can {name} help?</h2>
+        <p class="text-label">Ask anything, attach a file or a screenshot, or type / for commands.</p>
+        <div class="suggestions">
+          {#each SUGGESTIONS as suggestion (suggestion)}
+            <button onclick={() => onsuggest(suggestion)}>{suggestion}</button>
           {/each}
         </div>
       </div>
-    {:else if item.kind === "assistant"}
-      <div class="row assistant">
-        <div class="bubble assistant-bubble">
-          <span class="badge"><Sparkle size={14} fill="currentColor" /></span>
-          <!-- In the badge's corner, shown while the pointer is on the reply. -->
-          <button class="copy" class:done={copied === item.id} aria-label="Copy" title="Copy" onclick={() => copy(item.id, item.text)}>
-            {#if copied === item.id}<Check size={14} />{:else}<Copy size={14} />{/if}
-          </button>
-          <div class="prose">{@html markdown(item.text)}</div>
-        </div>
-        {#if item.dispatchId && onmove}
-          {@const dispatchId = item.dispatchId}
-          <div class="message-footer">
-            <button class="round" aria-label="Move" title="Move to another conversation" onclick={() => onmove(dispatchId)}>
-              <Forward size={14} />
-            </button>
-          </div>
-        {/if}
-      </div>
-    {:else if item.kind === "thinking"}
-      <details class="tool thought">
-        <summary>
-          <Brain size={12} />
-          <span>Thinking</span>
-          <!-- Open, the whole text shows below, so the preview would repeat its first line. -->
-          <span class="detail preview">{item.text.split("\n")[0]}</span>
-          <span class="chevron"><ChevronRight size={12} /></span>
-        </summary>
-        <p class="thought-text">{item.text}</p>
-      </details>
-    {:else if item.kind === "carried"}
-      <details class="tool thought">
-        <summary>
-          <Inbox size={12} />
-          <span>From the inbox</span>
-          <span class="chevron"><ChevronRight size={12} /></span>
-        </summary>
-        <div class="prose carried">{@html markdown(item.text)}</div>
-      </details>
-    {:else if item.kind === "tool"}
-      {@const arg = inlineArg(item.args)}
-      <details class="tool {item.state}">
-        <summary>
-          <Wrench size={12} />
-          <span>{item.name}</span>
-          {#if arg}<span class="detail" title={arg}>{arg}</span>{/if}
-          {#if item.state === "running"}<span class="dots"><i></i><i></i><i></i></span>{/if}
-          {#if item.state === "cancelled"}<span class="stopped">stopped</span>{/if}
-          {#if item.steps?.length}<span class="steps-count">{item.steps.length} {item.steps.length === 1 ? "step" : "steps"}</span>{/if}
-          {#if item.args || item.output || item.steps?.length}<span class="chevron"><ChevronRight size={12} /></span>{/if}
-        </summary>
-        {#if item.args && Object.keys(item.args).length && !arg}<pre>{JSON.stringify(item.args, null, 2)}</pre>{/if}
-        {#if arg}<pre class="command">{arg}</pre>{/if}
-        {#if item.steps?.length}
-          <div class="steps">
-            {#each item.steps as step, i (i)}
-              {@const stepArg = inlineArg(step.args)}
-              <details class="tool step {step.state}">
-                <summary>
-                  <Wrench size={12} />
-                  <span>{step.name}</span>
-                  {#if stepArg}<span class="detail" title={stepArg}>{stepArg}</span>{/if}
-                  {#if step.state === "running"}<span class="dots"><i></i><i></i><i></i></span>{/if}
-                  {#if step.state === "cancelled"}<span class="stopped">stopped</span>{/if}
-                  <span class="chevron"><ChevronRight size={12} /></span>
-                </summary>
-                <!-- A note a handed-off agent reports is a line of text, with no arguments. -->
-                {#if step.args && Object.keys(step.args).length && !stepArg}<pre>{JSON.stringify(step.args, null, 2)}</pre>{/if}
-                {#if stepArg}<pre class="command">{stepArg}</pre>{/if}
-                {#if step.output}<pre>{step.output}</pre>{/if}
-              </details>
+    {/if}
+    {#each items as item (item.id)}
+      {#if item.kind === "user"}
+        <div class="row user">
+          <div class="bubble user-bubble">
+            {#if item.channel}<span class="micro-label">{item.channel}</span>{/if}
+            <p>{item.text}</p>
+            {#each item.files as file (file)}
+              <span class="file"><Paperclip size={12} />{file}</span>
             {/each}
           </div>
-        {/if}
-        {#if item.output}<pre>{item.output}</pre>{/if}
-      </details>
-    {:else if item.kind === "notice"}
-      <p class="text-caption notice"><Inbox size={12} />{item.text}</p>
-    {:else if item.kind === "transcript"}
-      <p class="text-caption">Heard ({item.language}): {item.text}</p>
-    {:else if item.kind === "error"}
-      <div class="notice-warn">
-        <TriangleAlert size={16} />
-        <div>
-          <strong>Something went wrong</strong>
-          <p class="text-meta">{item.message}</p>
         </div>
-      </div>
-    {:else if item.kind === "stopped"}
-      <p class="text-caption">Stopped.</p>
+      {:else if item.kind === "assistant"}
+        <div class="row assistant">
+          <div class="bubble assistant-bubble">
+            <span class="badge"><Sparkle size={14} fill="currentColor" /></span>
+            <!-- In the badge's corner, shown while the pointer is on the reply. -->
+            <button class="copy" class:done={copied === item.id} aria-label="Copy" title="Copy" onclick={() => copy(item.id, item.text)}>
+              {#if copied === item.id}<Check size={14} />{:else}<Copy size={14} />{/if}
+            </button>
+            <div class="prose">{@html markdown(item.text)}</div>
+          </div>
+          {#if item.dispatchId && onmove}
+            {@const dispatchId = item.dispatchId}
+            <div class="message-footer">
+              <button class="round" aria-label="Move" title="Move to another conversation" onclick={() => onmove(dispatchId)}>
+                <Forward size={14} />
+              </button>
+            </div>
+          {/if}
+        </div>
+      {:else if item.kind === "thinking"}
+        <details class="tool thought">
+          <summary>
+            <Brain size={12} />
+            <span>Thinking</span>
+            <!-- Open, the whole text shows below, so the preview would repeat its first line. -->
+            <span class="detail preview">{item.text.split("\n")[0]}</span>
+            <span class="chevron"><ChevronRight size={12} /></span>
+          </summary>
+          <p class="thought-text">{item.text}</p>
+        </details>
+      {:else if item.kind === "carried"}
+        <details class="tool thought">
+          <summary>
+            <Inbox size={12} />
+            <span>From the inbox</span>
+            <span class="chevron"><ChevronRight size={12} /></span>
+          </summary>
+          <div class="prose carried">{@html markdown(item.text)}</div>
+        </details>
+      {:else if item.kind === "tool"}
+        {@const arg = inlineArg(item.args)}
+        <details class="tool {item.state}">
+          <summary>
+            <Wrench size={12} />
+            <span>{item.name}</span>
+            {#if arg}<span class="detail" title={arg}>{arg}</span>{/if}
+            {#if item.state === "running"}<span class="dots"><i></i><i></i><i></i></span>{/if}
+            {#if item.state === "cancelled"}<span class="stopped">stopped</span>{/if}
+            {#if item.steps?.length}<span class="steps-count">{item.steps.length} {item.steps.length === 1 ? "step" : "steps"}</span>{/if}
+            {#if item.args || item.output || item.steps?.length}<span class="chevron"><ChevronRight size={12} /></span>{/if}
+          </summary>
+          {#if item.args && Object.keys(item.args).length && !arg}<pre>{JSON.stringify(item.args, null, 2)}</pre>{/if}
+          {#if arg}<pre class="command">{arg}</pre>{/if}
+          {#if item.steps?.length}
+            <div class="steps">
+              {#each item.steps as step, i (i)}
+                {@const stepArg = inlineArg(step.args)}
+                <details class="tool step {step.state}">
+                  <summary>
+                    <Wrench size={12} />
+                    <span>{step.name}</span>
+                    {#if stepArg}<span class="detail" title={stepArg}>{stepArg}</span>{/if}
+                    {#if step.state === "running"}<span class="dots"><i></i><i></i><i></i></span>{/if}
+                    {#if step.state === "cancelled"}<span class="stopped">stopped</span>{/if}
+                    <span class="chevron"><ChevronRight size={12} /></span>
+                  </summary>
+                  <!-- A note a handed-off agent reports is a line of text, with no arguments. -->
+                  {#if step.args && Object.keys(step.args).length && !stepArg}<pre>{JSON.stringify(step.args, null, 2)}</pre>{/if}
+                  {#if stepArg}<pre class="command">{stepArg}</pre>{/if}
+                  {#if step.output}<pre>{step.output}</pre>{/if}
+                </details>
+              {/each}
+            </div>
+          {/if}
+          {#if item.output}<pre>{item.output}</pre>{/if}
+        </details>
+      {:else if item.kind === "notice"}
+        <p class="text-caption notice"><Inbox size={12} />{item.text}</p>
+      {:else if item.kind === "transcript"}
+        <p class="text-caption">Heard ({item.language}): {item.text}</p>
+      {:else if item.kind === "error"}
+        <div class="notice-warn">
+          <TriangleAlert size={16} />
+          <div>
+            <strong>Something went wrong</strong>
+            <p class="text-meta">{item.message}</p>
+          </div>
+        </div>
+      {:else if item.kind === "stopped"}
+        <p class="text-caption">Stopped.</p>
+      {/if}
+    {/each}
+    {#if thinking}
+      <div class="thinking">Thinking <span class="dots"><i></i><i></i><i></i></span></div>
     {/if}
-  {/each}
-  {#if thinking}
-    <div class="thinking">Thinking <span class="dots"><i></i><i></i><i></i></span></div>
+    {#if end}{@render end()}{/if}
+  </div>
+  <!-- Over the thread's foot, just above the composer, so showing it never moves the messages. -->
+  {#if follow && away}
+    <button class="to-bottom" onclick={toBottom}>↓ Go to bottom</button>
   {/if}
-  {#if end}{@render end()}{/if}
 </div>
 
 <style>
+  .frame {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .to-bottom {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 2px 10px;
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--surface-glass-bg);
+    backdrop-filter: var(--surface-glass-blur);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+  }
+  .to-bottom:hover {
+    color: var(--color-text-primary);
+    text-decoration: underline;
+  }
   .thread {
     flex: 1;
     overflow-y: auto;
