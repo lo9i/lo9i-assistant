@@ -15,7 +15,7 @@ class FakeDaemon implements ChatClient {
   // What a conversation's run stopped for and waits on, until it's resumed.
   waiting = new Map<string, ApprovalRequired[]>();
   conversations = {
-    messages: async () => [{ role: "user", text: "earlier", detail: "", output: "", dispatch_id: "" }],
+    messages: async () => [{ role: "user", text: "earlier", detail: "", output: "", dispatch_id: "", call_id: "", partial: false }],
     approvals: async (threadId: string) => this.waiting.get(threadId) ?? [],
   };
 

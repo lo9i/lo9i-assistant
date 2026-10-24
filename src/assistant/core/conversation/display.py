@@ -1,10 +1,12 @@
 """A conversation as clients show it: what the user wrote, what the assistant answered, and which
-tools it used. Turn headers and tool outputs are left out; a quick exchange the inbox carried to the
+tools it used, each call with its arguments on one line and the start of its output: the whole call loads
+when the user opens it (`tool_call`). Turn headers are left out; a quick exchange the inbox carried to the
 conversation shows before the message that followed it up (core/conversation/carried.py). A reply of an
 agent the conversation was handed to shows its steps as they were shown live: its thinking, its text, each
 tool call with its output, and the messages the user sent it while it worked (core/agent_tasks/steps.py). A
 delegate call shows the subagent's tool calls inside it, as they streamed live (core/subagent_steps.py)."""
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -19,6 +21,11 @@ from assistant.core.conversation.dispatched import DISPATCH_ID
 from assistant.core.conversation.turn_header import is_header
 from assistant.core.subagent_steps import SubagentStep
 
+# The most of a call's arguments and of its output history sends: enough to tell what the call was, without
+# sending every page or file it read each time a conversation is shown.
+_DETAIL = 120
+_OUTPUT = 200
+
 
 @dataclass
 class ShownMessage:
@@ -28,7 +35,8 @@ class ShownMessage:
     # A tool's name for a tool.
     text: str
     # A handed-off agent's tool call: what it was about (a command, a file), and its output. A delegate call:
-    # its task and the subagent's answer.
+    # its task and the subagent's answer. Any other call of the assistant's: its arguments on one line and the
+    # start of its output.
     detail: str = ""
     output: str = ""
     # A delegate call's, or a handed-off agent's call that started a subagent of its own: the subagent's tool
@@ -36,6 +44,19 @@ class ShownMessage:
     steps: list[SubagentStep] = field(default_factory=list)
     # The inbox's record of a message it sent on: the message's id, to move it (core/conversation/dispatched.py).
     dispatch_id: str = ""
+    # An assistant's tool call: its id, and whether `detail` (its arguments on one line) and `output` leave
+    # something out, so the whole call is worth loading (`tool_call`).
+    call_id: str = ""
+    partial: bool = False
+
+
+@dataclass
+class ShownCall:
+    """A tool call of the assistant's in full, loaded when the user opens it."""
+
+    name: str
+    args: dict[str, Any]
+    output: str
 
 
 def shown(messages: Sequence[BaseMessage]) -> list[ShownMessage]:
@@ -60,13 +81,56 @@ def _shown(message: BaseMessage, results: dict[str, ToolMessage]) -> list[ShownM
     return []
 
 
+def tool_call(messages: Sequence[BaseMessage], call_id: str) -> ShownCall | None:
+    """The assistant's call with that id, with all its arguments and its whole output; "" until it has one."""
+    calls = (call for m in messages if isinstance(m, AIMessage) for call in m.tool_calls if call["id"] == call_id)
+    call = next(calls, None)
+    if call is None:
+        return None
+    result = next((m for m in messages if isinstance(m, ToolMessage) and m.tool_call_id == call_id), None)
+    return ShownCall(call["name"], call["args"], result.text if result is not None else "")
+
+
 def _call(call: ToolCall, result: ToolMessage | None) -> ShownMessage:
     """A tool call; a delegate call with its task, the subagent's steps and its answer, and a task_status call
     that waited with the task's steps and its state."""
     if result is None or not (steps := subagent_steps.of(result)):
-        return ShownMessage("tool", call["name"])
+        return _preview(call, result)
     about = str(call["args"].get("task") or call["args"].get("task_id", ""))
     return ShownMessage("tool", call["name"], detail=about, output=result.text, steps=steps)
+
+
+def _preview(call: ToolCall, result: ToolMessage | None) -> ShownMessage:
+    """A call with its arguments on one line, as live cards show a lone one (a command, a file), and the start
+    of its output."""
+    output = result.text if result is not None else ""
+    detail, start = _start(_one_line(call["args"]), _DETAIL), _start(output, _OUTPUT)
+    # Cards show `detail` as the arguments themselves only when they're one text or number on one line.
+    exact = _alone(call["args"]) if call["args"] else ""
+    whole = detail == exact and start == output
+    return ShownMessage("tool", call["name"], detail, start, call_id=call["id"] or "", partial=not whole)
+
+
+def _one_line(args: dict[str, Any]) -> str:
+    if (alone := _alone(args)) is not None:
+        return " ".join(alone.split())
+    return ", ".join(f"{name}: {' '.join(_value(value).split())}" for name, value in args.items())
+
+
+def _alone(args: dict[str, Any]) -> str | None:
+    """The call's one argument when it's text or a number, which live cards show as it is."""
+    values = list(args.values())
+    if len(values) == 1 and isinstance(values[0], str | int | float) and not isinstance(values[0], bool):
+        return str(values[0])
+    return None
+
+
+def _value(value: Any) -> str:
+    return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+
+
+def _start(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[:limit].rstrip() + "…"
 
 
 def _agent_reply(lines: list[str], reply: str) -> list[ShownMessage]:

@@ -1,6 +1,7 @@
 """Full-screen terminal app: chat on the left, memory on the right."""
 
 from collections.abc import AsyncIterator, Awaitable, Callable
+from functools import partial
 from typing import Any, ClassVar
 
 from textual import work
@@ -431,8 +432,14 @@ class AssistantApp(App):
     async def _open(self, thread_id: str) -> None:
         await self._live.resume(thread_id)
         await self.refresh_thread()
-        await show_history(self._chat, await self._service.conversations.messages(thread_id))
+        await self._show_history(thread_id)
         self._answer_pending()
+
+    async def _show_history(self, thread_id: str) -> None:
+        conversations = self._service.conversations
+        await show_history(
+            self._chat, await conversations.messages(thread_id), partial(conversations.tool_call, thread_id)
+        )
 
     @work(exclusive=True, group="pending")
     @reports_daemon_unavailable
@@ -627,7 +634,7 @@ class AssistantApp(App):
             self.notify(str(e), severity="error")
             return
         await self.refresh_thread()
-        await show_history(self._chat, await self._service.conversations.messages(thread_id))
+        await self._show_history(thread_id)
         self.notify("Resumed the conversation." + (" The previous reply keeps running." if still_running else ""))
         self._answer_pending()
 

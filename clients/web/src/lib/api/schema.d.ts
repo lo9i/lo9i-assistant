@@ -455,6 +455,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations/{thread_id}/tool-calls/{call_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Conversation Tool Call
+         * @description A tool call in full: its messages show each call's arguments on one line and the start of its output,
+         *     `partial` when that leaves something out. 404: the conversation has no such call.
+         */
+        get: operations["conversation_tool_call_conversations__thread_id__tool_calls__call_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/conversations/{thread_id}/stats": {
         parameters: {
             query?: never;
@@ -3869,6 +3890,20 @@ export interface components {
              */
             value: string;
         };
+        /**
+         * ShownCall
+         * @description A tool call of the assistant's in full, loaded when the user opens it.
+         */
+        ShownCall: {
+            /** Name */
+            name: string;
+            /** Args */
+            args: {
+                [key: string]: unknown;
+            };
+            /** Output */
+            output: string;
+        };
         /** ShownMessage */
         ShownMessage: {
             /** Role */
@@ -3892,6 +3927,16 @@ export interface components {
              * @default
              */
             dispatch_id: string;
+            /**
+             * Call Id
+             * @default
+             */
+            call_id: string;
+            /**
+             * Partial
+             * @default false
+             */
+            partial: boolean;
         };
         /**
          * ShutdownStatus
@@ -4912,6 +4957,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ShownMessage"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    conversation_tool_call_conversations__thread_id__tool_calls__call_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+                call_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShownCall"];
                 };
             };
             /** @description Validation Error */

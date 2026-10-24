@@ -70,6 +70,7 @@ from assistant.core.agent import (
     ServerValues,
     Session,
     SetupItem,
+    ShownCall,
     ShownMessage,
     SignedIn,
     SignInError,
@@ -684,6 +685,15 @@ def _add_conversation_routes(app: FastAPI, service: AssistantService, clients: C
     @app.get("/conversations/{thread_id}/messages")
     async def conversation_messages(thread_id: str) -> list[ShownMessage]:
         return await service.conversation_messages(thread_id)
+
+    @app.get("/conversations/{thread_id}/tool-calls/{call_id}")
+    async def conversation_tool_call(thread_id: str, call_id: str) -> ShownCall:
+        """A tool call in full: its messages show each call's arguments on one line and the start of its output,
+        `partial` when that leaves something out. 404: the conversation has no such call."""
+        try:
+            return await service.conversation_tool_call(thread_id, call_id)
+        except ConversationError as e:
+            raise HTTPException(404, str(e)) from e
 
     @app.get("/conversations/{thread_id}/stats")
     async def conversation_stats(thread_id: str) -> ConversationStats:

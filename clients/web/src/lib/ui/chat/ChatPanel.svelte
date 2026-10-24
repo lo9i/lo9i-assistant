@@ -242,6 +242,7 @@
     name={name.data || "the assistant"}
     onsuggest={(text) => (draft.text = text)}
     onmove={inInbox ? (dispatchId) => chats.move(dispatchId) : undefined}
+    loadCall={(callId) => client.conversations.toolCall(snapshot.current.threadId, callId)}
   />
   <PinnedSkills skills={pinned.data ?? []} onunpin={unpin} />
   <Composer

@@ -2,7 +2,7 @@
 
 from textual.widgets import Markdown, OptionList
 
-from assistant.core.agent import Conversation, ShownMessage
+from assistant.core.agent import Conversation, ShownCall, ShownMessage
 from assistant.core.subagent_steps import SubagentStep
 from assistant_terminal.tui.screens import ConversationsScreen
 from tests.terminal.conftest import wait_for
@@ -92,3 +92,30 @@ async def test_a_delegate_call_shows_the_subagents_steps_inside_it_when_resumed(
         call, inside = app.query(ToolCall)
         assert call.title == "✓ delegate(Find the token) · 1 step"
         assert inside.title == "✓ bash(grep -r token logs)" and inside in call.query(ToolCall)
+
+
+async def test_a_tool_call_shows_its_start_and_loads_in_full_when_expanded(app, client):
+    from textual.widgets import Static
+
+    from assistant_terminal.tui.widgets import PartialToolCall
+
+    client.conversations.items = [Conversation(f"owner:{n}", f"trip {n}", _AT, _AT) for n in ("abc", "b")]
+    client.conversations.said["owner:b"] = [
+        ShownMessage("tool", "bash", detail="seq 1 100", output="1\n2…", call_id="c1", partial=True),
+        ShownMessage("tool", "bash", detail="ls", output="a.txt…", call_id="gone", partial=True),
+    ]
+    client.conversations.calls[("owner:b", "c1")] = ShownCall("bash", {"command": "seq 1 100", "timeout": 5}, "1\n2\n3")
+    async with app.run_test() as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/conversations", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
+        await pilot.press("down", "enter")
+        await wait_for(pilot, lambda: len(app.query(PartialToolCall)) == 2)
+        loaded, failed = app.query(PartialToolCall)
+        assert loaded.title == "✓ bash(seq 1 100)"
+        assert str(loaded.query_one(".tool-result", Static).content) == "1\n2…"
+        loaded.collapsed = failed.collapsed = False
+        await wait_for(pilot, lambda: str(loaded.query_one(".tool-result", Static).content) == "1\n2\n3")
+        assert loaded.title == '✓ bash({"command": "seq 1 100", "timeout": 5})'
+        note = "a.txt…\n\nCouldn't load the whole call."
+        await wait_for(pilot, lambda: str(failed.query_one(".tool-result", Static).content) == note)

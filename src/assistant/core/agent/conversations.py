@@ -5,13 +5,14 @@ from datetime import UTC, datetime
 
 from assistant.core import conversations, inbox
 from assistant.core.agent.session import Session
+from assistant.core.agent.threads import ConversationError
 from assistant.core.agent.titles import TitlesMixin
 from assistant.core.context import UNATTENDED_CHANNEL
-from assistant.core.conversation.display import ShownMessage, shown
+from assistant.core.conversation.display import ShownCall, ShownMessage, shown, tool_call
 from assistant.core.conversation.turn_header import channels
 from assistant.core.conversations import Conversation
 
-__all__ = ["Conversation", "ConversationsMixin", "ShownMessage"]
+__all__ = ["Conversation", "ConversationsMixin", "ShownCall", "ShownMessage"]
 
 
 class ConversationsMixin(TitlesMixin):
@@ -25,6 +26,15 @@ class ConversationsMixin(TitlesMixin):
     async def conversation_messages(self, thread_id: str) -> list[ShownMessage]:
         state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
         return shown(state.values.get("messages", []))
+
+    async def conversation_tool_call(self, thread_id: str, call_id: str) -> ShownCall:
+        """A tool call in full, which its conversation's messages show only the start of (`partial`). Raises
+        ConversationError when the conversation has no such call."""
+        state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
+        call = tool_call(state.values.get("messages", []), call_id)
+        if call is None:
+            raise ConversationError("No such tool call in this conversation.")
+        return call
 
     async def _note_activity(self, session: Session, text: str) -> None:
         """Keeps the list current. Scheduled job runs aren't conversations the user resumes."""

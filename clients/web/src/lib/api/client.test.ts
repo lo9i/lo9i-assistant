@@ -40,6 +40,14 @@ describe("ConversationsGroup.childFolders", () => {
   });
 });
 
+describe("ConversationsGroup.toolCall", () => {
+  it("asks for the call by its id in its conversation", async () => {
+    const { transport, request } = recording();
+    await new ConversationsGroup(transport).toolCall("owner:t 1", "toolu/1");
+    expect(request.mock.calls[0].slice(0, 2)).toEqual(["GET", "/conversations/owner%3At%201/tool-calls/toolu%2F1"]);
+  });
+});
+
 describe("JobsGroup.runReply", () => {
   it("asks for the run by when it started and returns its whole reply", async () => {
     const { transport, request } = recording();

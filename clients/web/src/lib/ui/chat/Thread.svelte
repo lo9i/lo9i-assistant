@@ -10,7 +10,9 @@
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import Wrench from "@lucide/svelte/icons/wrench";
   import type { Snippet } from "svelte";
-  import { inlineArg, type ChatItem } from "$lib/chat/transcript";
+  import type { ShownCall } from "$lib/api/types";
+  import { inlineArg, withWhole, type ChatItem } from "$lib/chat/transcript";
+  import { WholeCalls } from "$lib/chat/wholeCalls.svelte";
   import { markdown } from "$lib/markdown";
 
   type Props = {
@@ -20,12 +22,15 @@
     onsuggest: (text: string) => void;
     /** Moves a message the inbox sent on (its record's `dispatchId`) to another conversation; only in the inbox. */
     onmove?: (dispatchId: string) => void;
+    /** Loads a tool call from history in full when it's opened; its card shows only its start until then. */
+    loadCall?: (callId: string) => Promise<ShownCall>;
     /** Shown after the last message. */
     end?: Snippet;
     /** Keep the newest message in view as content arrives (the live chat). A preview reads from the top. */
     follow?: boolean;
   };
-  let { items, thinking, name, onsuggest, onmove, end, follow = true }: Props = $props();
+  let { items, thinking, name, onsuggest, onmove, loadCall, end, follow = true }: Props = $props();
+  const wholes = new WholeCalls();
 
   const SUGGESTIONS = [
     "What do you remember about me?",
@@ -139,22 +144,24 @@
           <div class="prose carried">{@html markdown(item.text)}</div>
         </details>
       {:else if item.kind === "tool"}
-        {@const arg = inlineArg(item.args)}
-        <details class="tool {item.state}">
+        {@const whole = wholes.get(item.callId)}
+        {@const call = whole?.state === "loaded" ? withWhole(item, whole.call) : item}
+        {@const arg = inlineArg(call.args)}
+        <details class="tool {call.state}" ontoggle={(e) => e.currentTarget.open && loadCall && wholes.open(item, loadCall)}>
           <summary>
             <Wrench size={12} />
-            <span>{item.name}</span>
+            <span>{call.name}</span>
             {#if arg}<span class="detail" title={arg}>{arg}</span>{/if}
-            {#if item.state === "running"}<span class="dots"><i></i><i></i><i></i></span>{/if}
-            {#if item.state === "cancelled"}<span class="stopped">stopped</span>{/if}
-            {#if item.steps?.length}<span class="steps-count">{item.steps.length} {item.steps.length === 1 ? "step" : "steps"}</span>{/if}
-            {#if item.args || item.output || item.steps?.length}<span class="chevron"><ChevronRight size={12} /></span>{/if}
+            {#if call.state === "running"}<span class="dots"><i></i><i></i><i></i></span>{/if}
+            {#if call.state === "cancelled"}<span class="stopped">stopped</span>{/if}
+            {#if call.steps?.length}<span class="steps-count">{call.steps.length} {call.steps.length === 1 ? "step" : "steps"}</span>{/if}
+            {#if call.args || call.output || call.steps?.length}<span class="chevron"><ChevronRight size={12} /></span>{/if}
           </summary>
-          {#if item.args && Object.keys(item.args).length && !arg}<pre>{JSON.stringify(item.args, null, 2)}</pre>{/if}
+          {#if call.args && Object.keys(call.args).length && !arg}<pre>{JSON.stringify(call.args, null, 2)}</pre>{/if}
           {#if arg}<pre class="command">{arg}</pre>{/if}
-          {#if item.steps?.length}
+          {#if call.steps?.length}
             <div class="steps">
-              {#each item.steps as step, i (i)}
+              {#each call.steps as step, i (i)}
                 {@const stepArg = inlineArg(step.args)}
                 <details class="tool step {step.state}">
                   <summary>
@@ -173,7 +180,9 @@
               {/each}
             </div>
           {/if}
-          {#if item.output}<pre>{item.output}</pre>{/if}
+          {#if call.output}<pre>{call.output}</pre>{/if}
+          {#if whole?.state === "loading"}<p class="text-caption whole-note">Loading the whole call…</p>{/if}
+          {#if whole?.state === "failed"}<p class="text-caption whole-note">Couldn't load the whole call.</p>{/if}
         </details>
       {:else if item.kind === "notice"}
         <p class="text-caption notice"><Inbox size={12} />{item.text}</p>
@@ -413,6 +422,9 @@
   .tool[open] > .thought-text,
   .tool[open] > .carried {
     padding: 10px 12px;
+  }
+  .tool[open] > .whole-note {
+    padding: 6px 12px;
   }
   .detail {
     max-width: min(480px, 60vw);
