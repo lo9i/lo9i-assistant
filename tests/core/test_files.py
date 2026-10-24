@@ -54,3 +54,18 @@ def test_files_from_tool_results_arent_the_users():
     ]
     assert [r["name"] for r in user_uploads(messages)] == ["notes.txt"]
     assert [(tool, r["name"]) for tool, r in tool_uploads(messages)] == [("chart", "shot.png")]
+
+
+async def test_deleting_a_conversation_keeps_the_files_another_one_refers_to(service, dispatch):
+    inbox_session = await service.session("owner", "web")
+    events = await collect(service.send(inbox_session, "read this", [NOTE]))
+    sent_on = next(e for e in events if isinstance(e, Dispatched))
+    where = Session("owner", "web", await service.new_thread("owner"))
+    await collect(service.send_dispatched(where, sent_on.id))
+    [listed] = await service.list_files("owner")
+    await service.delete_conversation("owner", where.thread_id)
+    assert uploads.absolute(listed.path).is_file()
+    [left] = await service.list_files("owner")
+    assert (left.path, left.thread_id) == (listed.path, inbox_session.thread_id)
+    await service.delete_conversation("owner", inbox_session.thread_id)
+    assert not uploads.absolute(listed.path).exists()

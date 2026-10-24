@@ -2,16 +2,15 @@ import asyncio
 from pathlib import Path
 from uuid import uuid4
 
-from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.messages import AIMessage
 
-from assistant.core import conversations, inbox, notifications, uploads
+from assistant.core import conversations, inbox, notifications
 from assistant.core.agent.archive import ArchiveMixin
 from assistant.core.agent.session import Session
-from assistant.core.attachments import upload_paths
+from assistant.core.agent.thread_files import ThreadFilesMixin, referenced
 from assistant.core.channels.chat import threads as chat_threads
 from assistant.core.config import settings
 from assistant.core.conversation import ended, handoffs, moved, pinned
-from assistant.core.speech.voice import audio_paths
 
 # What the home conversation from before the inbox is listed as.
 _HOME_TITLE = "Home (before the inbox)"
@@ -25,7 +24,7 @@ class ConversationBusyError(ConversationError):
     """A reply is running in the conversation."""
 
 
-class ThreadsMixin(ArchiveMixin):
+class ThreadsMixin(ArchiveMixin, ThreadFilesMixin):
     """Conversations. A client (terminal, web page) holds its own and says when it leaves one. A message
     written outside a conversation goes to the inbox (core/inbox.py), which routes it; a chat channel
     (Telegram) writes every new message there and keeps the conversation its last one went to."""
@@ -84,7 +83,8 @@ class ThreadsMixin(ArchiveMixin):
 
     async def delete_conversation(self, user_id: str, thread_id: str) -> None:
         """Delete the conversation: its messages, its place in the list and in search, and the files
-        and voice recordings sent in it. What memory learned from it stays. A channel on it (Telegram) starts
+        and voice recordings sent in it, but those another conversation refers to too. What memory learned from it
+        stays. A channel on it (Telegram) starts
         a new one with its next message. Raises ConversationError for an unknown one,
         ConversationBusyError while a reply is running."""
         listed = await conversations.load(self._storage.store, user_id, thread_id)
@@ -93,7 +93,7 @@ class ThreadsMixin(ArchiveMixin):
         if thread_id in self._active_runs:
             raise ConversationBusyError("A reply is still running in this conversation. Stop it first.")
         async with self._thread_lock(thread_id):
-            state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
+            messages = await self._thread_messages(thread_id)
             await self._storage.checkpointer.adelete_thread(thread_id)
             await self._storage.search.remove(thread_id)
             async with self._conversations_lock:
@@ -106,7 +106,7 @@ class ThreadsMixin(ArchiveMixin):
             await moved.forget(self._storage.store, user_id, thread_id)
             await notifications.forget_conversation(self._storage.store, user_id, thread_id)
             await chat_threads.forget(self._storage.store, user_id, listed.channels, thread_id)
-        await asyncio.to_thread(_delete_files, state.values.get("messages", []))
+        await asyncio.to_thread(_delete_files, referenced(messages), await self._files_elsewhere(user_id, thread_id))
         self.bus.publish("conversations")
 
     async def _forget_channel_pointers(self, user_id: str, thread_id: str) -> None:
@@ -125,12 +125,13 @@ class ThreadsMixin(ArchiveMixin):
         return replies[-1].text.strip() if replies else ""
 
 
-def _delete_files(messages: list[BaseMessage]) -> None:
-    """The conversation's uploads and voice recordings. Only files inside the uploads folder."""
+def _delete_files(paths: list[Path], kept: list[Path]) -> None:
+    """The conversation's files, but those in `kept`. Only files inside the uploads folder."""
     root = Path(settings.uploads_dir).expanduser().resolve()
-    for path in [uploads.absolute(p) for p in upload_paths(messages)] + audio_paths(messages):
+    keep = {path.resolve() for path in kept}
+    for path in paths:
         target = path.resolve()
-        if target.is_relative_to(root) and target.is_file():
+        if target.is_relative_to(root) and target not in keep and target.is_file():
             target.unlink()
             _remove_empty(target.parent, root)
 

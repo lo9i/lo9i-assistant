@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from langchain_core.messages import BaseMessage
 
 from assistant.core import conversations, uploads
-from assistant.core.agent.base import ServiceBase
+from assistant.core.agent.thread_files import ThreadFilesMixin
 from assistant.core.attachments import tool_uploads, user_uploads
 from assistant.core.conversations import Conversation
 
@@ -34,13 +34,12 @@ class FileUnavailableError(Exception):
     """No file in the user's conversations has that path (deleted with its conversation, or never one of theirs)."""
 
 
-class FilesMixin(ServiceBase):
+class FilesMixin(ThreadFilesMixin):
     async def list_files(self, user_id: str) -> list[UploadedFile]:
         """Newest first, each file once. Files no longer on disk are left out."""
         found: list[UploadedFile] = []
         for conversation in await conversations.recent(self._storage.store, user_id):
-            state = await self._graph.aget_state({"configurable": {"thread_id": conversation.thread_id}})
-            references = _references(state.values.get("messages", []))
+            references = _references(await self._thread_messages(conversation.thread_id))
             found += await asyncio.to_thread(_on_disk, conversation, references)
         return sorted(_once(found), key=lambda f: f.uploaded_at, reverse=True)
 
