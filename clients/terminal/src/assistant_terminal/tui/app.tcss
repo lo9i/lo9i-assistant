@@ -106,6 +106,12 @@ ToolCall .tool-result {
     padding: 0 0 0 2;
 }
 
+ConnectionNote {
+    height: 1;
+    padding: 0 1;
+    color: ansi_yellow;
+}
+
 StatusLine {
     height: 1;
     margin-top: 1;

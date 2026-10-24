@@ -88,3 +88,18 @@ async def test_every_restart_or_stop_announced_shows_in_the_app(app, client):
         await client.bus.put(("ending", {"ending": "restart", "waiting_for_runs": 2}))
         await wait_for(pilot, lambda: "restarts once the 2 runs in progress end" in _notices(app))
         assert "reconnects when it's back" in _notices(app)
+
+
+async def test_the_app_says_while_the_assistant_cant_be_reached_and_when_its_back(app, client):
+    from assistant_terminal.tui.widgets import ConnectionNote
+    from tests.terminal.conftest import LOST, OPEN
+
+    async with app.run_test(size=(110, 40)) as pilot:
+        note = app.query_one(ConnectionNote)
+        assert not note.display
+        await client.bus.put((LOST, {}))
+        await wait_for(pilot, lambda: note.display)
+        assert "Can't reach the assistant right now" in str(note.render())
+        await client.bus.put((OPEN, {}))
+        await wait_for(pilot, lambda: not note.display)
+        assert "Connected to the assistant again." in _notices(app)

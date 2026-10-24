@@ -137,6 +137,23 @@ def _on_off(on: bool) -> str:
     return "on" if on else "off"
 
 
+class ConnectionNote(Static):
+    """Says the assistant can't be reached while the app's event stream is lost (a restart, a computer that slept),
+    as the web app's banner does, and that it's back."""
+
+    def __init__(self) -> None:
+        super().__init__("⚠ Can't reach the assistant right now. It may be restarting. Reconnecting…", id="connection")
+        self.display = False
+
+    def lost(self) -> None:
+        self.display = True
+
+    def back(self) -> None:
+        if self.display:
+            self.display = False
+            self.app.notify("Connected to the assistant again.")
+
+
 class StatusLine(Static):
     """'⠋ Thinking… 12s' while the agent works, empty otherwise."""
 

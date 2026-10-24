@@ -84,6 +84,8 @@ from assistant_terminal.history import History
 from assistant_terminal.preferences import Preferences
 
 _NEXT = "2030-01-01T09:00:00+00:00"
+# Put on FakeClient.bus: the event stream drops, then opens again.
+LOST, OPEN = "<stream lost>", "<stream open>"
 
 
 class FakeSkills:
@@ -979,9 +981,17 @@ class FakeClient:
             raise ConversationError(f"No conversation {thread_id}.")
         self.active_thread = thread_id
 
-    async def events(self):
+    async def events(self, on_open=lambda: None, on_lost=lambda: None):
+        """What the tests put on the bus; LOST and OPEN stand for the stream dropping and opening again."""
+        on_open()
         while True:
-            yield await self.bus.get()
+            kind, data = await self.bus.get()
+            if kind == LOST:
+                on_lost()
+            elif kind == OPEN:
+                on_open()
+            else:
+                yield kind, data
 
     def follow_run(self, run_id):
         return self.runs[run_id]()

@@ -78,6 +78,7 @@ from assistant_terminal.tui.theme import THEME
 from assistant_terminal.tui.turn import TurnView
 from assistant_terminal.tui.widgets import (
     CarriedNote,
+    ConnectionNote,
     MemoryPanel,
     MouseStatus,
     StatusLine,
@@ -173,6 +174,7 @@ class AssistantApp(App):
         with Horizontal(id="main"):
             yield VerticalScroll(id="chat")
             yield MemoryPanel(id="memory")
+        yield ConnectionNote()
         yield StatusLine(id="status")
         yield CommandMenu(id="command-menu")
         # One bordered box: the attached files, then the text being typed.
@@ -201,7 +203,8 @@ class AssistantApp(App):
     async def _listen(self) -> None:
         """Daemon events for as long as the app runs (see live.py)."""
         dispatch = live_handlers(self)
-        async for kind, data in self._service.events():
+        note = self.query_one(ConnectionNote)
+        async for kind, data in self._service.events(on_open=note.back, on_lost=note.lost):
             handler = dispatch.get(kind)
             result = handler(data) if handler else None
             if result is not None:

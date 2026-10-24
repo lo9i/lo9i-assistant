@@ -2,7 +2,7 @@
 and resumes after the last event received, so nothing is missed or repeated."""
 
 import asyncio
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from dataclasses import dataclass
 
 import httpx
@@ -20,10 +20,17 @@ class ReconnectPolicy:
 
 
 async def resumable_events(
-    transport: Transport, path: str, policy: ReconnectPolicy, after: str = "0"
+    transport: Transport,
+    path: str,
+    policy: ReconnectPolicy,
+    after: str = "0",
+    on_open: Callable[[], None] = lambda: None,
+    on_lost: Callable[[], None] = lambda: None,
 ) -> AsyncGenerator[tuple[str, str]]:
     """(event type, data) for the stream at `path` after the event id `after` ("" for the stream's
     own start), until the caller stops reading. A connection that drops or ends is reopened.
+    `on_open` is called each time the stream opens, `on_lost` each time it drops or can't be opened,
+    so a client can say the daemon is away (a restart, a computer that slept) and when it's back.
     Raises DaemonUnavailableError when the policy gives up, and httpx.HTTPStatusError for a
     client error (4xx), which reconnecting can't fix."""
     last_id, failures = after, 0
@@ -31,6 +38,7 @@ async def resumable_events(
         try:
             async with transport.stream(path, last_id) as response:
                 response.raise_for_status()
+                on_open()
                 async for event_id, kind, data in read_events(response):
                     last_id, failures = event_id or last_id, 0
                     yield kind, data
@@ -39,6 +47,7 @@ async def resumable_events(
                 raise
         except httpx.TransportError:
             pass
+        on_lost()
         failures += 1
         await _wait_or_give_up(policy, failures)
 

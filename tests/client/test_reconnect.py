@@ -74,3 +74,21 @@ async def test_a_stream_read_from_now_sends_no_id_until_it_has_one():
         if kind == "end":
             break
     assert kinds == ["message", "end"] and seen == [None, "9"]
+
+
+async def test_the_reader_hears_when_the_stream_drops_and_opens_again():
+    heard, calls = [], []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        if len(calls) == 1:
+            raise httpx.ConnectError("refused")  # the daemon is restarting
+        return httpx.Response(200, text="id: 1\nevent: end\ndata: {}\n\n")
+
+    events = resumable_events(
+        _transport(handler), "/events", _NOW, on_open=lambda: heard.append("open"), on_lost=lambda: heard.append("lost")
+    )
+    async for kind, _ in events:
+        if kind == "end":
+            break
+    assert heard == ["lost", "open"]
