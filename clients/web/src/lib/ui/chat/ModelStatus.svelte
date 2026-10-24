@@ -13,8 +13,6 @@
 <style>
   .model {
     cursor: default;
-    border: 1px solid #e5b931;
-    border-radius: 999px;
-    padding: 0 8px;
+    color: #e5b931;
   }
 </style>
