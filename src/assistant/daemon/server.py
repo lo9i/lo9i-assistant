@@ -163,20 +163,24 @@ async def _prune(service: AssistantService) -> None:
 
 async def _index_conversations(service: AssistantService) -> None:
     """Lists conversations saved before the conversation list existed, records the channels of
-    those listed before channels were, and adds messages not yet searchable to the search index (a
-    catch-up; after it, all of this happens as conversations go)."""
+    those listed before channels were and the summaries of those summarized before summaries were kept
+    apart, and adds messages not yet searchable to the search index (a catch-up; after it, all of this
+    happens as conversations go)."""
     try:
         added = await service.index_conversations(settings.owner_id)
         filled = await service.fill_channels(settings.owner_id)
+        summarized = await service.fill_summaries(settings.owner_id)
         searchable = await service.index_messages(settings.owner_id)
     except Exception:
         logger.exception("Couldn't catch up on earlier conversations")
         return
-    if added or filled or searchable:
+    if added or filled or summarized or searchable:
         logger.info(
-            "Added %s earlier conversations to the list, recorded channels for %s and made %s messages searchable.",
+            "Added %s earlier conversations to the list, recorded channels for %s and summaries for %s, and made"
+            " %s messages searchable.",
             added,
             filled,
+            summarized,
             searchable,
         )
 

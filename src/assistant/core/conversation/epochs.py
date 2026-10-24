@@ -14,7 +14,7 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from langgraph.store.base import BaseStore
 
 from assistant.core.config import settings
-from assistant.core.conversation import pending, pinned, prompt_edits
+from assistant.core.conversation import pending, pinned, prompt_edits, summaries
 from assistant.core.conversation.pending import PendingPart
 from assistant.core.conversation.prompt import build_system_prompt
 from assistant.core.conversation.summary import Summarizer
@@ -110,6 +110,7 @@ async def compact(
         return {}
     summary = await summarizer(state.get("epoch_summary", ""), render(state["messages"][start:cut]))
     await pending.add(store, user_id, _part(state, thread_id, start, cut, now))
+    await summaries.save(store, user_id, thread_id, summary)
     return {"epoch_start": cut, **await open_epoch(store, user_id, thread_id, now, summary)}
 
 

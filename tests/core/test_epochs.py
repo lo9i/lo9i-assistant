@@ -8,7 +8,7 @@ import pytest
 from langchain_core.messages import AIMessage
 
 from assistant.core.config import settings
-from assistant.core.conversation import pending
+from assistant.core.conversation import pending, summaries
 from assistant.core.conversation.digest import MemoryDigest
 from assistant.core.conversation.epochs import cut_index, estimate_tokens, usage_anchor
 from tests.conftest import collect
@@ -161,3 +161,26 @@ async def test_the_running_writer_digests_a_new_part_on_its_own(service, script,
     stop.set()
     await writer
     assert len(digests.inputs) == 1
+
+
+async def test_a_new_epochs_summary_is_kept_for_routing_and_goes_with_the_conversation(
+    service, script, digests, small_epochs
+):
+    session = await service.session("u", "cli")
+    await collect(service.send(session, "one"))
+    await collect(service.send(session, "two"))
+    assert (await summaries.of_user(service.store, "u"))[session.thread_id] == "summary 1"
+    await service.delete_conversation("u", session.thread_id)
+    assert session.thread_id not in await summaries.of_user(service.store, "u")
+
+
+async def test_conversations_summarized_before_summaries_were_kept_get_theirs_once(
+    service, script, digests, small_epochs
+):
+    session = await service.session("u", "cli")
+    await collect(service.send(session, "one"))
+    await collect(service.send(session, "two"))
+    await service.store.adelete(("conversation_summaries", "u"), session.thread_id)
+    assert await service.fill_summaries("u") == 1
+    assert (await summaries.of_user(service.store, "u"))[session.thread_id] == "summary 1"
+    assert await service.fill_summaries("u") == 0

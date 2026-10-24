@@ -1,11 +1,12 @@
 """Conversations found by meaning, for routing from the inbox (dispatch.py): an older conversation a message
 continues in other words than its tags' is still among those the model chooses from.
 
-Each conversation's title, tags and first message are embedded with the local model (core/memory/e5.py) and
-kept with the memories' vectors, as kind "conversation". A vector's key is the conversation's id with a
-digest of that text, so a conversation retitled (core/conversation/titles.py) is embedded again and its old
-vector dropped, as a deleted one's is. The daemon keeps them in step as conversations change, the way it
-keeps the memories' (core/memory/indexer.py).
+Each conversation's title, tags, latest running summary (summaries.py) and first message are embedded with
+the local model (core/memory/e5.py) and kept with the memories' vectors, as kind "conversation". A vector's
+key is the conversation's id with a digest of that text, so a conversation retitled
+(core/conversation/titles.py) or summarized again is embedded again and its old vector dropped, as a deleted
+one's is. The daemon keeps them in step as conversations change, the way it keeps the memories'
+(core/memory/indexer.py).
 """
 
 import asyncio
@@ -18,6 +19,7 @@ from langgraph.store.base import BaseStore
 
 from assistant.core import conversations
 from assistant.core.bus import EventBus
+from assistant.core.conversation import summaries
 from assistant.core.conversation.search import MessageIndex
 from assistant.core.conversations import Conversation
 from assistant.core.memory.embedder import Embedder, EmbeddingError
@@ -31,6 +33,10 @@ KIND = "conversation"
 _BATCH = 32
 # How much of the first message goes in: enough to say what it was about.
 _OPENING_CHARS = 500
+# How much of the running summary goes in: with the rest, within what the model reads of a passage (512 tokens).
+_SUMMARY_CHARS = 1000
+# What changes the texts embedded.
+_CHANGES = ("conversations", "conversation_summaries")
 
 
 class ConversationIndexer:
@@ -68,7 +74,10 @@ class ConversationIndexer:
     async def _texts(self, user_id: str) -> dict[str, str]:
         listed = [c for c in await conversations.recent(self._store, user_id) if not c.archived]
         openings = await self._search.first_user_messages(user_id, [c.thread_id for c in listed])
-        texts = {c.thread_id: passage(c, openings.get(c.thread_id, "")) for c in listed}
+        summarized = await summaries.of_user(self._store, user_id)
+        texts = {
+            c.thread_id: passage(c, openings.get(c.thread_id, ""), summarized.get(c.thread_id, "")) for c in listed
+        }
         return {key_of(thread_id, text): text for thread_id, text in texts.items() if text}
 
     async def _sync_logged(self) -> None:
@@ -82,7 +91,7 @@ class ConversationIndexer:
 
     async def _next_change(self, after: int) -> None:
         async for event in self._bus.subscribe(after):
-            if event.kind == "conversations":
+            if event.kind in _CHANGES:
                 return
 
     async def _users(self) -> set[str]:
@@ -111,9 +120,15 @@ class SimilarConversations:
         return [thread_id for thread_id in closest if thread_id in allowed][:limit]
 
 
-def passage(conversation: Conversation, opening: str) -> str:
-    """What a conversation is about: its title, its tags and how it began."""
-    parts = [conversation.title, ", ".join(conversation.tags), " ".join(opening.split())[:_OPENING_CHARS]]
+def passage(conversation: Conversation, opening: str, summary: str = "") -> str:
+    """What a conversation is about: its title, its tags, its latest summary, which says what it moved on to,
+    and how it began."""
+    parts = [
+        conversation.title,
+        ", ".join(conversation.tags),
+        " ".join(summary.split())[:_SUMMARY_CHARS],
+        " ".join(opening.split())[:_OPENING_CHARS],
+    ]
     return ". ".join(part for part in parts if part)
 
 

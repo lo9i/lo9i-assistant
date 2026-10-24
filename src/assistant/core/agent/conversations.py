@@ -8,6 +8,7 @@ from assistant.core.agent.session import Session
 from assistant.core.agent.threads import ConversationError
 from assistant.core.agent.titles import TitlesMixin
 from assistant.core.context import UNATTENDED_CHANNEL
+from assistant.core.conversation import summaries
 from assistant.core.conversation.display import ShownCall, ShownMessage, shown, tool_call
 from assistant.core.conversation.turn_header import channels
 from assistant.core.conversations import Conversation
@@ -88,6 +89,21 @@ class ConversationsMixin(TitlesMixin):
                 async with self._conversations_lock:
                     await conversations.set_channels(self._storage.store, user_id, conversation.thread_id, found)
                 filled += 1
+        return filled
+
+    async def fill_summaries(self, user_id: str) -> int:
+        """Keeps the running summary of conversations listed before summaries were kept apart, read from their
+        checkpoints (core/conversation/summaries.py), and an empty one for those never summarized, so each is
+        read once. Returns how many had one."""
+        kept = await summaries.of_user(self._storage.store, user_id)
+        filled = 0
+        for conversation in await conversations.recent(self._storage.store, user_id):
+            if conversation.thread_id in kept:
+                continue
+            state = await self._graph.aget_state({"configurable": {"thread_id": conversation.thread_id}})
+            summary = state.values.get("epoch_summary", "")
+            await summaries.save(self._storage.store, user_id, conversation.thread_id, summary)
+            filled += bool(summary)
         return filled
 
     async def _saved_threads(self, user_id: str) -> list[str]:

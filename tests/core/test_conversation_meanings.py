@@ -1,11 +1,12 @@
-"""Routing from the inbox finds conversations by meaning too: each conversation's title, tags and first
-message are embedded (a fake embedder here, whose vectors come from the words), so an older conversation a
+"""Routing from the inbox finds conversations by meaning too: each conversation's title, tags, latest summary
+and first message are embedded (a fake embedder here, whose vectors come from the words), so an older conversation a
 message continues in words its tags don't have is still offered to the model."""
 
 from langchain_core.messages import HumanMessage
 
 from assistant.core import conversations
 from assistant.core.agent import AssistantService, Session
+from assistant.core.conversation import summaries
 from assistant.core.conversation.dispatch import candidates
 from assistant.core.conversation.meanings import KIND
 from assistant.core.conversations import Conversation
@@ -46,6 +47,19 @@ async def test_what_a_conversation_is_about_includes_how_it_began(service: Assis
     await service.conversation_index.sync("owner")
     assert await service._similar.nearest("owner", "the kitchen tap still drips", ["tap", "tax"], 1) == ["tap"]
     assert await service._similar.nearest("owner", "yearly tax return due", ["tap", "tax"], 1) == ["tax"]
+
+
+async def test_a_conversation_is_found_by_what_its_latest_summary_says_it_moved_on_to(service: AssistantService):
+    await _side(service, "move", "New conversation", 1)
+    await _side(service, "cake", "New conversation", 2)
+    await service._storage.search.add("owner", "move", [HumanMessage("which boxes for the move")])
+    await service._storage.search.add("owner", "cake", [HumanMessage("a birthday cake for friday")])
+    await service.conversation_index.sync("owner")
+    asked = "piano mover on friday"
+    assert await service._similar.nearest("owner", asked, ["move", "cake"], 1) == ["cake"]
+    await summaries.save(service.store, "owner", "move", "After the boxes, they booked a piano mover for Friday.")
+    assert await service.conversation_index.sync("owner") == 1  # embedded again with it
+    assert await service._similar.nearest("owner", asked, ["move", "cake"], 1) == ["move"]
 
 
 async def test_a_retitled_conversation_is_embedded_again_and_a_deleted_one_forgotten(service: AssistantService):

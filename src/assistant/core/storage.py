@@ -33,6 +33,8 @@ _CHANGE_EVENTS = {
     "threads": "threads",
     "settings": "settings",
     "conversations": "conversations",
+    # Each conversation's latest running summary (core/conversation/summaries.py), which routing embeds.
+    "conversation_summaries": "conversation_summaries",
     # Job results and background work that ended (core/notifications.py).
     "notifications": "notifications",
     # Messages waiting to be sent in a conversation (core/conversation/queued.py), for the daemon to send.
