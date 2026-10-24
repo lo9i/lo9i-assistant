@@ -160,6 +160,36 @@ describe("ChatController", () => {
     expect(texts(chat)).toEqual(["plan my week", "A plan."]);
   });
 
+  it("stays busy from the inbox's run until the run where its message went has started", async () => {
+    const daemon = new FakeDaemon();
+    daemon.runs = [
+      [{ type: "Dispatched", id: "d1", thread_id: "t1", title: "Trip", text: "flights?", line: "→ Continued in “Trip”." }],
+      [{ type: "TextDelta", text: "Two flights." }, { type: "Done" }],
+    ];
+    const chat = await ChatController.open(daemon, "web", null, board);
+    const busy: boolean[] = [];
+    chat.subscribe(() => busy.at(-1) !== chat.getSnapshot().busy && busy.push(chat.getSnapshot().busy));
+    await chat.send("flights?", []);
+    expect(busy).toEqual([false, true, false]);
+  });
+
+  it("hands its message on busy until the run there starts, or the handing on ends without one", async () => {
+    const daemon = new FakeDaemon();
+    const dispatched = { type: "Dispatched", id: "d1", thread_id: "t1", title: "Trip", text: "?", line: "→ Trip." } as const;
+    daemon.runs = [[dispatched], [dispatched]];
+    const chat = await ChatController.open(daemon, "web", null, board);
+    const whileHanding: boolean[] = [];
+    chat.onDispatched = async (_d, started) => {
+      whileHanding.push(chat.getSnapshot().busy);
+      if (whileHanding.length === 1) started();
+      whileHanding.push(chat.getSnapshot().busy);
+    };
+    await chat.send("a", []);
+    await chat.send("b", []);
+    expect(whileHanding).toEqual([true, false, true, true]);
+    expect(chat.getSnapshot().busy).toBe(false);
+  });
+
   it("writes in the inbox from any conversation, and goes where the message was sent on", async () => {
     const daemon = new FakeDaemon();
     daemon.runs = [

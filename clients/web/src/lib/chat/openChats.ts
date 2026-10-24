@@ -87,11 +87,11 @@ export class OpenChats {
   }
 
   /** The inbox sent a message on: where it went opens beside the others, or a new one, shown, and it's sent
-   * there. The inbox stays open behind it. */
-  private async goOn(dispatched: Dispatched): Promise<void> {
+   * there. The inbox stays open behind it, busy until the run there has started. */
+  private async goOn(dispatched: Dispatched, started: () => void): Promise<void> {
     try {
       const chat = dispatched.thread_id ? await this.shown(dispatched.thread_id) : await this.startNew();
-      await chat.sendDispatched(dispatched);
+      await chat.sendDispatched(dispatched, started);
     } catch (e) {
       this.notices.report(e);
     }
@@ -152,7 +152,7 @@ export class OpenChats {
   }
 
   private follow(open: OpenChat): void {
-    open.chat.onDispatched = (dispatched) => this.goOn(dispatched);
+    open.chat.onDispatched = (dispatched, started) => this.goOn(dispatched, started);
     this.unsubscribe.set(
       open.key,
       open.chat.subscribe(() => this.changed()),

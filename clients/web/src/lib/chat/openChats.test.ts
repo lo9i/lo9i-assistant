@@ -139,6 +139,23 @@ describe("OpenChats", () => {
     expect(daemon.sent).toEqual(["inbox: flights?", "t1: d1"]);
   });
 
+  it("keeps the inbox busy until the run where its message went has started there, not after", async () => {
+    const daemon = new Daemon();
+    const chats = await open(daemon, []);
+    const inbox = chats.current;
+    daemon.runs = [
+      [{ type: "Dispatched", id: "d1", thread_id: "t1", title: "Trip", text: "flights?", line: "→ Continued in “Trip”." }],
+      [{ type: "TextDelta", text: "Two flights." }],
+    ];
+    const seen: [boolean, boolean][] = [];
+    chats.subscribe(() => {
+      const [first, second] = chats.all().map((c) => c.getSnapshot().busy);
+      if (second !== undefined) seen.push([first, second]);
+    });
+    await inbox.send("flights?", []);
+    expect(seen.find(([inboxBusy]) => !inboxBusy)).toEqual([false, true]);
+  });
+
   it("moves a message from the inbox, showing the inbox first, and opens where it goes", async () => {
     const daemon = new Daemon();
     const chats = await open(daemon, ["t2"]);

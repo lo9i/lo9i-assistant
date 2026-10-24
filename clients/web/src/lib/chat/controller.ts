@@ -21,6 +21,8 @@ export interface ChatClient extends Conversations {
   };
 }
 
+type Start = (signal: AbortSignal) => AsyncIterable<RunEvent>;
+
 export type ChatSnapshot = {
   threadId: string;
   // The inbox's id: a message written there is routed to its conversation (core/inbox.py).
@@ -40,6 +42,9 @@ export class ChatController {
   private readonly listeners = new Set<() => void>();
   // Aborting one stops showing that run's events; the run keeps going in the daemon.
   private ownRun: AbortController | null = null;
+  // The inbox's run sent its message on, and the run where it went hasn't started yet: still busy, so the
+  // input doesn't come back for a moment between the two.
+  private handingOn = false;
   private readonly mirrors = new Set<AbortController>();
   private decide: ((decision: Decision) => void) | null = null;
 
@@ -91,11 +96,12 @@ export class ChatController {
     await this.send(text, files);
   }
 
-  /** Sends here a message the inbox sent on, as it was written, after the quick exchange it followed up. */
-  async sendDispatched(dispatched: Dispatched): Promise<void> {
+  /** Sends here a message the inbox sent on, as it was written, after the quick exchange it followed up;
+   * `started` is called once its run has. */
+  async sendDispatched(dispatched: Dispatched, started: () => void = () => {}): Promise<void> {
     const { id, text, carried } = dispatched;
     if (carried && this.ownRun === null) this.set({ transcript: addCarried(this.state.transcript, carried) });
-    await this.own(text, [], (signal) => this.client.sendDispatched(this.live.session, id, text, signal));
+    await this.own(text, [], (signal) => this.client.sendDispatched(this.live.session, id, text, signal), started);
   }
 
   /** Asks in the inbox where a message it sent on goes instead (the last one for ""), and sends it there. */
@@ -103,26 +109,44 @@ export class ChatController {
     await this.ownTurn((signal) => this.client.moveDispatched(this.live.session, dispatchId, signal));
   }
 
-  /** Where a message the inbox sent on goes on; without one, this conversation goes there. */
-  onDispatched: ((dispatched: Dispatched) => Promise<void>) | null = null;
+  /** Where a message the inbox sent on goes on, calling `started` once its run there has; without one, this
+   * conversation goes there. */
+  onDispatched: ((dispatched: Dispatched, started: () => void) => Promise<void>) | null = null;
 
   /** This page's own run of a message, from `start`. */
-  private async own(text: string, files: string[], start: (signal: AbortSignal) => AsyncIterable<RunEvent>): Promise<void> {
+  private async own(text: string, files: string[], start: Start, started: () => void = () => {}): Promise<void> {
     if (this.ownRun !== null) return;
     this.set({ transcript: addUser(this.state.transcript, text, files) });
-    await this.ownTurn(start);
+    await this.ownTurn(start, started);
   }
 
   /** This page's own run, from `start`; after it, the conversation goes where the inbox sent its message on. */
-  private async ownTurn(start: (signal: AbortSignal) => AsyncIterable<RunEvent>): Promise<void> {
+  private async ownTurn(start: Start, started: () => void = () => {}): Promise<void> {
     if (this.ownRun !== null) return;
     const run = new AbortController();
     this.ownRun = run;
     let dispatched: Dispatched | null = null;
-    await this.show(run, async () => (dispatched = await this.turn(start, run.signal)));
+    await this.show(run, async () => {
+      started();
+      dispatched = await this.turn(start, run.signal);
+    });
     if (this.ownRun === run) this.ownRun = null;
+    if (dispatched !== null) await this.handOn(dispatched);
     this.showing();
-    if (dispatched !== null) await (this.onDispatched ?? ((d) => this.goOn(d)))(dispatched);
+  }
+
+  /** Goes on where the inbox sent its message, busy until the run there has started. */
+  private async handOn(dispatched: Dispatched): Promise<void> {
+    this.handingOn = true;
+    const started = () => {
+      this.handingOn = false;
+      this.showing();
+    };
+    try {
+      await (this.onDispatched ?? ((d, s) => this.goOn(d, s)))(dispatched, started);
+    } finally {
+      this.handingOn = false;
+    }
   }
 
   /** Stop the reply in progress, whichever channel started it. */
@@ -206,7 +230,7 @@ export class ChatController {
   }
 
   /** Runs the turn and returns where the inbox sent its message on, if it did. */
-  private async turn(start: (signal: AbortSignal) => AsyncIterable<RunEvent>, signal: AbortSignal): Promise<Dispatched | null> {
+  private async turn(start: Start, signal: AbortSignal): Promise<Dispatched | null> {
     let shown = await this.render(start(signal));
     let dispatched = shown.dispatched;
     while (shown.approvals.length) {
@@ -236,7 +260,7 @@ export class ChatController {
   }
 
   /** The inbox sent the message on: this conversation goes to where it went, or a new one, and sends it there. */
-  private async goOn(dispatched: Dispatched): Promise<void> {
+  private async goOn(dispatched: Dispatched, started: () => void): Promise<void> {
     await this.guarded(async () => {
       if (dispatched.thread_id) {
         await this.live.resume(dispatched.thread_id);
@@ -246,7 +270,7 @@ export class ChatController {
         this.set({ threadId: this.live.session.thread_id, transcript: empty });
       }
     });
-    await this.sendDispatched(dispatched);
+    await this.sendDispatched(dispatched, started);
   }
 
   /** Show the events and return the approvals the run is waiting on, and where the inbox sent its message on. */
@@ -297,7 +321,7 @@ export class ChatController {
   }
 
   private showing(): void {
-    this.set({ busy: this.ownRun !== null, mirroring: this.mirrors.size > 0 });
+    this.set({ busy: this.ownRun !== null || this.handingOn, mirroring: this.mirrors.size > 0 });
   }
 
   /** Stops showing runs and returns whether this page's own reply was running. */
