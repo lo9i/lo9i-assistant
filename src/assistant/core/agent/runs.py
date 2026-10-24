@@ -39,6 +39,14 @@ class RunsMixin(LockingMixin, SearchMixin):
     def runs_in_progress(self) -> int:
         return len(self._active_runs)
 
+    def cancel_runs(self) -> int:
+        """Stops every run in progress, as `cancel` does; a restart or stop waiting for them goes ahead
+        (daemon/shutdown.py). Returns how many it stopped."""
+        running = [task for task in self._active_runs.values() if not task.done()]
+        for task in running:
+            task.cancel()
+        return len(running)
+
     async def until_no_runs(self) -> None:
         """Returns once no conversation has a run in progress."""
         await self._no_runs.wait()

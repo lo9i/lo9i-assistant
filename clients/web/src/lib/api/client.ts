@@ -47,6 +47,7 @@ import type {
   ModelProvider,
   ModelStatus,
   PairingCode,
+  PendingEnding,
   PluginUpdate,
   PluginUpdateChecks,
   PromptSection,
@@ -722,6 +723,23 @@ export class SystemGroup {
    * start it again. */
   stop(): Promise<ShutdownStatus> {
     return this.transport.request("POST", "/system/stop");
+  }
+
+  /** The restart or stop waiting for runs to end; `ending` is "" when none is. */
+  ending(): Promise<PendingEnding> {
+    return this.transport.request("GET", "/system/ending");
+  }
+
+  /** The daemon keeps running. Throws ApiError (409) when nothing waits, or it already went ahead. */
+  takeBackEnding(): Promise<PendingEnding> {
+    return this.transport.request("DELETE", "/system/ending");
+  }
+
+  /** Cancels the runs the restart or stop waits for, so it goes ahead; returns how many. Throws ApiError (409)
+   * when nothing waits. */
+  async endNow(): Promise<number> {
+    const cancelled: Schemas["CancelledRuns"] = await this.transport.request("POST", "/system/ending/now");
+    return cancelled.cancelled;
   }
 
   /** The version the daemon runs and, as of the last check, what's new (src/assistant/daemon/updates.py). */

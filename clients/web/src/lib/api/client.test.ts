@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ConversationsGroup, JobsGroup } from "./client";
+import { ConversationsGroup, JobsGroup, SystemGroup } from "./client";
 import type { Transport } from "./transport";
 
 function recording(): { transport: Transport; request: ReturnType<typeof vi.fn> } {
@@ -47,5 +47,21 @@ describe("JobsGroup.runReply", () => {
     const text = await new JobsGroup(transport).runReply("daily news", "2026-10-24T09:00:00+00:00");
     expect(request.mock.calls[0].slice(0, 2)).toEqual(["GET", "/jobs/daily%20news/reply?at=2026-10-24T09%3A00%3A00%2B00%3A00"]);
     expect(text).toBe("The whole reply.");
+  });
+});
+
+describe("SystemGroup's pending ending", () => {
+  it("reads it, takes it back, and makes it go ahead now", async () => {
+    const { transport, request } = recording();
+    const system = new SystemGroup(transport);
+    await system.ending();
+    await system.takeBackEnding();
+    request.mockResolvedValue({ cancelled: 2 });
+    expect(await system.endNow()).toBe(2);
+    expect(request.mock.calls.map((call) => call.slice(0, 2))).toEqual([
+      ["GET", "/system/ending"],
+      ["DELETE", "/system/ending"],
+      ["POST", "/system/ending/now"],
+    ]);
   });
 });

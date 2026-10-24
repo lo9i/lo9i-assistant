@@ -4,6 +4,7 @@
   import Power from "@lucide/svelte/icons/power";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import WifiOff from "@lucide/svelte/icons/wifi-off";
+  import { DaemonUnavailableError } from "$lib/api/errors";
   import { external, useDaemon } from "$lib/daemon.svelte";
   import { comingText, type Ending } from "$lib/shutdown";
 
@@ -12,19 +13,34 @@
   // that slept), and a new version of this page once it's back (an update installed: the build this tab runs is
   // no longer the one the daemon serves). The pages load again by themselves when the stream opens again.
   let { name }: { name: string } = $props();
-  const { hub } = useDaemon();
+  const { client, hub, notices } = useDaemon();
   const connection = external(hub.subscribeConnection, hub.getConnection);
   let coming = $state<{ ending: Ending; waiting: number } | null>(null);
   let newVersion = $state(false);
 
-  $effect(() =>
-    hub.on(["ending"], (data) => {
-      coming = { ending: data.ending as Ending, waiting: Number(data.waiting_for_runs ?? 0) };
-    }),
-  );
+  $effect(() => {
+    void pending();
+    return hub.on(["ending"], (data) => {
+      coming = data.taken_back ? null : { ending: data.ending as Ending, waiting: Number(data.waiting_for_runs ?? 0) };
+    });
+  });
+  // How many runs it still waits for; once none, it's going ahead and what's coming stays.
+  $effect(() => hub.on(["run_finished"], () => void (coming && pending())));
+
+  /** A restart or stop asked for before this page loaded, or the runs it waits for now. */
+  async function pending(): Promise<void> {
+    try {
+      const found = await client.system.ending();
+      if (found.ending) coming = { ending: found.ending as Ending, waiting: found.waiting_for_runs };
+    } catch (e) {
+      // Unreachable: the banner says so already, and this is read again when the stream opens.
+      if (!(e instanceof DaemonUnavailableError)) notices.report(e);
+    }
+  }
   $effect(() =>
     hub.onReconnect(() => {
       coming = null;
+      void pending();
       // Asks for the build's version.json, which an update replaces: no polling, once per reconnection.
       void updated.check().then((changed) => (newVersion = changed));
     }),

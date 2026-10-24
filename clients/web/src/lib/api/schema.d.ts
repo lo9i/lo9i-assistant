@@ -2089,6 +2089,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/ending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pending Ending
+         * @description The restart or stop waiting for runs to end; `ending` is "" when none is.
+         */
+        get: operations["pending_ending_system_ending_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Take Back Ending
+         * @description The daemon keeps running. 409: nothing is waiting, or it already went ahead.
+         */
+        delete: operations["take_back_ending_system_ending_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/ending/now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End Now
+         * @description Cancels the runs the restart or stop waits for, so it goes ahead. 409: nothing is waiting.
+         */
+        post: operations["end_now_system_ending_now_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/update": {
         parameters: {
             query?: never;
@@ -2332,6 +2376,11 @@ export interface components {
         CancelResult: {
             /** Cancelled */
             cancelled: boolean;
+        };
+        /** CancelledRuns */
+        CancelledRuns: {
+            /** Cancelled */
+            cancelled: number;
         };
         /** ChannelCommand */
         ChannelCommand: {
@@ -3506,6 +3555,16 @@ export interface components {
             code: string;
             /** Expires At */
             expires_at: string;
+        };
+        /**
+         * PendingEnding
+         * @description The restart or stop waiting for runs to end; `ending` is "" when none is.
+         */
+        PendingEnding: {
+            /** Ending */
+            ending: string;
+            /** Waiting For Runs */
+            waiting_for_runs: number;
         };
         /** PinnedSkills */
         PinnedSkills: {
@@ -7992,6 +8051,66 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ShutdownStatus"];
+                };
+            };
+        };
+    };
+    pending_ending_system_ending_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingEnding"];
+                };
+            };
+        };
+    };
+    take_back_ending_system_ending_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingEnding"];
+                };
+            };
+        };
+    };
+    end_now_system_ending_now_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancelledRuns"];
                 };
             };
         };

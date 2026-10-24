@@ -1,6 +1,7 @@
 """The computer the daemon runs on: system, versions and current use, as the web app's Host card. Restarts
 or stops the daemon, after asking (daemon/shutdown.py), and checks for and installs a newer version of lo9i
-(daemon/updates.py), whose progress comes as `update` events."""
+(daemon/updates.py), whose progress comes as `update` events. A restart or stop waiting for runs to end shows
+here, whoever asked for it, with Cancel, which takes it back, and Now, which cancels the runs so it goes ahead."""
 
 from typing import ClassVar
 
@@ -12,7 +13,15 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown
 
 from assistant.client.daemon_client import SystemApi
-from assistant.protocol import Commit, HostStatus, StopRefusedError, UpdateError, UpdateStatus
+from assistant.protocol import (
+    Commit,
+    HostStatus,
+    NoEndingError,
+    PendingEnding,
+    StopRefusedError,
+    UpdateError,
+    UpdateStatus,
+)
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
@@ -21,6 +30,7 @@ _UPDATE = (
     "Update the assistant? It downloads the new version, installs what it needs and restarts once the runs in "
     "progress end."
 )
+_NOW = "Cancel the runs in progress so the assistant {does} now? Their replies stop where they are."
 _STOP = (
     "Stop the assistant? Jobs, chat channels and the apps stop working until it's started again on the "
     "computer it runs on (opening the terminal app there starts it). It waits for the runs in progress to end."
@@ -43,6 +53,8 @@ class HostScreen(ModalScreen[None]):
                 yield Button("Update", variant="success", id="update", disabled=True)
                 yield Button("Restart", variant="warning", id="restart")
                 yield Button("Stop", variant="error", id="stop")
+                yield Button("Cancel restart", id="take-back")
+                yield Button("Now", variant="error", id="now")
                 yield Button("Close", id="close")
 
     async def on_mount(self) -> None:
@@ -76,6 +88,28 @@ class HostScreen(ModalScreen[None]):
         except StopRefusedError as e:
             self.notify(str(e), severity="error", timeout=15)
 
+    @on(Button.Pressed, "#take-back")
+    @reports_daemon_unavailable
+    async def _take_back(self) -> None:
+        try:
+            await self._system.take_back_ending()
+        except NoEndingError as e:
+            self.notify(str(e), severity="warning")
+        await self._refresh()
+
+    @on(Button.Pressed, "#now")
+    @work
+    @reports_daemon_unavailable
+    async def _now(self) -> None:
+        pending = await self._system.ending()
+        does = "restarts" if pending.ending == "restart" else "stops"
+        if not pending.ending or not await self.app.push_screen_wait(ConfirmScreen(_NOW.format(does=does), "Now")):
+            return
+        try:
+            await self._system.end_now()
+        except NoEndingError as e:
+            self.notify(str(e), severity="warning")
+
     @on(Button.Pressed, "#check")
     @work
     @reports_daemon_unavailable
@@ -98,7 +132,8 @@ class HostScreen(ModalScreen[None]):
             self.notify(str(e), severity="error", timeout=15)
 
     async def reload(self) -> None:
-        """An update's state changed (an `update` event)."""
+        """An update's state changed (an `update` event), or a restart or stop asked for or taken back, or one of
+        the runs it waits for ended."""
         await self._refresh()
 
     @reports_daemon_unavailable
@@ -106,10 +141,13 @@ class HostScreen(ModalScreen[None]):
         await self._show(await self._system.update_status())
 
     async def _show(self, update: UpdateStatus) -> None:
-        host = await self._system.host()
+        host, pending = await self._system.host(), await self._system.ending()
         # Before the text: once it says what's new, Update works.
         self.query_one("#update", Button).disabled = not can_install(update)
-        await self.query_one("#host-body", Markdown).update(describe(host, update))
+        take_back = self.query_one("#take-back", Button)
+        take_back.label = f"Cancel {pending.ending or 'restart'}"
+        take_back.display = self.query_one("#now").display = bool(pending.waiting_for_runs)
+        await self.query_one("#host-body", Markdown).update(describe(host, update, pending))
 
 
 def ending_text(does: str, waiting: int) -> str:
@@ -119,7 +157,7 @@ def ending_text(does: str, waiting: int) -> str:
     return f"The assistant {does} once {runs}."
 
 
-def describe(host: HostStatus, update: UpdateStatus | None = None) -> str:
+def describe(host: HostStatus, update: UpdateStatus | None = None, pending: PendingEnding | None = None) -> str:
     version = f"v{host.version} · {version_text(update.current)}" if update else f"v{host.version}"
     rows = [
         ("OS", host.os),
@@ -135,7 +173,14 @@ def describe(host: HostStatus, update: UpdateStatus | None = None) -> str:
     if host.load_average:
         rows.append(("Load avg", " / ".join(f"{load:.2f}" for load in host.load_average)))
     table = "## Host\n\n| | |\n|---|---|\n" + "\n".join(f"| {term} | {value} |" for term, value in rows)
-    return table + (_updates(update) if update else "")
+    return table + (_updates(update) if update else "") + (_pending(pending) if pending and pending.ending else "")
+
+
+def _pending(pending: PendingEnding) -> str:
+    restart = pending.ending == "restart"
+    said = ending_text("restarts" if restart else "stops", pending.waiting_for_runs)
+    choices = f" Cancel {pending.ending} keeps it running; Now cancels the runs." if pending.waiting_for_runs else ""
+    return f"\n\n### {'Restart' if restart else 'Stop'} pending\n\n{said}{choices}"
 
 
 def _updates(update: UpdateStatus) -> str:

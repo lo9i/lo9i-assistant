@@ -4622,6 +4622,61 @@
         }
       }
     },
+    "/system/ending": {
+      "get": {
+        "summary": "Pending Ending",
+        "description": "The restart or stop waiting for runs to end; `ending` is \"\" when none is.",
+        "operationId": "pending_ending_system_ending_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingEnding"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Take Back Ending",
+        "description": "The daemon keeps running. 409: nothing is waiting, or it already went ahead.",
+        "operationId": "take_back_ending_system_ending_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingEnding"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/ending/now": {
+      "post": {
+        "summary": "End Now",
+        "description": "Cancels the runs the restart or stop waits for, so it goes ahead. 409: nothing is waiting.",
+        "operationId": "end_now_system_ending_now_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelledRuns"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/system/update": {
       "get": {
         "summary": "Update Status",
@@ -5145,6 +5200,19 @@
           "cancelled"
         ],
         "title": "CancelResult"
+      },
+      "CancelledRuns": {
+        "properties": {
+          "cancelled": {
+            "type": "integer",
+            "title": "Cancelled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cancelled"
+        ],
+        "title": "CancelledRuns"
       },
       "ChannelCommand": {
         "properties": {
@@ -7459,6 +7527,25 @@
           "expires_at"
         ],
         "title": "PairingCode"
+      },
+      "PendingEnding": {
+        "properties": {
+          "ending": {
+            "type": "string",
+            "title": "Ending"
+          },
+          "waiting_for_runs": {
+            "type": "integer",
+            "title": "Waiting For Runs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ending",
+          "waiting_for_runs"
+        ],
+        "title": "PendingEnding",
+        "description": "The restart or stop waiting for runs to end; `ending` is \"\" when none is."
       },
       "PinnedSkills": {
         "properties": {

@@ -35,7 +35,7 @@ _KEEP_ALIVE = {"SuccessfulExit": False}
 LEGACY_OUTPUT = Path("~/.lo9i/daemon.log")
 
 
-__all__ = ["Service", "StartupError", "disable", "enable", "move_legacy_output", "status"]
+__all__ = ["Beside", "Service", "StartupError", "disable", "enable", "move_legacy_output", "status"]
 
 
 class Service:
@@ -48,6 +48,22 @@ class Service:
         return (
             "macOS would start the assistant again at once: start at boot was turned on before it could be "
             "stopped from the app. Turn start at boot off and on again to allow it."
+        )
+
+    async def stop(self, stop: asyncio.Event) -> None:
+        stop.set()
+
+
+class Beside:
+    """A daemon started by hand. While start at boot is on, launchd keeps trying to start the LaunchDaemon, and
+    stopping those tries needs an administrator, so the next one would take over: stopping would restart it."""
+
+    def stop_refusal(self) -> str | None:
+        if not status().enabled:
+            return None
+        return (
+            "Start at boot is on, so macOS would start the assistant again at once. Turn start at boot off to stop "
+            "it, or restart it instead."
         )
 
     async def stop(self, stop: asyncio.Event) -> None:

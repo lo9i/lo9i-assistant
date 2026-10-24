@@ -24,6 +24,7 @@ class LiveApp(Protocol):
 
     def show_ending(self, ending: dict[str, Any]) -> None: ...
     def run_finished(self, run: dict[str, Any]) -> None: ...
+    def reload_host(self) -> Awaitable[None]: ...
 
 
 def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[None] | None]]:
@@ -46,6 +47,15 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
     async def thread(_: dict[str, Any]) -> None:
         """The conversation's pinned skills or the agent it's handed to changed."""
         await app.refresh_thread()
+
+    async def ending(data: dict[str, Any]) -> None:
+        """A restart or stop asked for or taken back: said, and shown in /host."""
+        app.show_ending(data)
+        await app.reload_host()
+
+    async def run_finished(data: dict[str, Any]) -> None:
+        app.run_finished(data)
+        await app.reload_host()
 
     async def mcp(_: dict[str, Any]) -> None:
         """Plugins changed: an agent's command may have come or gone."""
@@ -75,7 +85,7 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         "failing": app.show_failing,
         "signed_out": app.show_signed_out,
         "update": screen,
-        "ending": app.show_ending,
+        "ending": ending,
         "run": app.mirror_run,
-        "run_finished": app.run_finished,
+        "run_finished": run_finished,
     }

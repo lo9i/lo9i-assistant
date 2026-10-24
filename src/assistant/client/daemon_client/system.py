@@ -4,6 +4,8 @@ from assistant.client.daemon_client.transport import Transport
 from assistant.protocol import (
     Commit,
     HostStatus,
+    NoEndingError,
+    PendingEnding,
     ShutdownStatus,
     StartupError,
     StartupStatus,
@@ -46,6 +48,21 @@ class SystemApi:
         """The daemon stops once no run is in progress. Raises StopRefusedError when its service manager
         would start it again."""
         return ShutdownStatus(**await self._transport.request("POST", "/system/stop", errors={409: StopRefusedError}))
+
+    async def ending(self) -> PendingEnding:
+        """The restart or stop waiting for runs to end; `ending` is "" when none is."""
+        return PendingEnding(**await self._transport.request("GET", "/system/ending"))
+
+    async def take_back_ending(self) -> PendingEnding:
+        """The daemon keeps running. Raises NoEndingError when nothing waits, or it already went ahead."""
+        data = await self._transport.request("DELETE", "/system/ending", errors={409: NoEndingError})
+        return PendingEnding(**data)
+
+    async def end_now(self) -> int:
+        """Cancels the runs the restart or stop waits for, so it goes ahead; returns how many. Raises
+        NoEndingError when nothing waits."""
+        data = await self._transport.request("POST", "/system/ending/now", errors={409: NoEndingError})
+        return data["cancelled"]
 
     async def update_status(self) -> UpdateStatus:
         """The version it runs and, as of the last check, what's new."""

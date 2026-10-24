@@ -25,6 +25,12 @@ export function endingText(ending: Ending, waitingForRuns: number): string {
   return `The assistant stops ${when}. Start it again on the computer it runs on; this page reloads when it's back.`;
 }
 
+/** While it waits for runs: what Cancel and Now do. */
+export function waitingText(ending: Ending): string {
+  const does = ending === "restart" ? "restarts" : "stops";
+  return `Cancel keeps the assistant running. Now cancels the runs in progress, and it ${does} at once.`;
+}
+
 function runs(count: number): string {
   return count === 1 ? "the run in progress ends" : `the ${count} runs in progress end`;
 }

@@ -68,6 +68,7 @@ export type TokenRow = Schemas["TokenRow"];
 export type HostStatus = Schemas["HostStatus"];
 export type StartupStatus = Schemas["StartupStatus"];
 export type ShutdownStatus = Schemas["ShutdownStatus"];
+export type PendingEnding = Schemas["PendingEnding"];
 export type UpdateStatus = Schemas["UpdateStatus"];
 export type Commit = Schemas["Commit"];
 export type ConnectedClient = Schemas["ConnectedClient"];

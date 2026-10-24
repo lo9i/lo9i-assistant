@@ -4,12 +4,14 @@ does when stopped (daemon/managers.py), and how the process ends (daemon/server.
 import asyncio
 import os
 import signal
+import sys
+from dataclasses import replace
 
 import pytest
 
 from assistant.daemon import launchd, managers, server, systemd
-from assistant.daemon.shutdown import Ending, Shutdown
-from assistant.protocol import StopRefusedError
+from assistant.daemon.shutdown import Ending, Pending, Shutdown
+from assistant.protocol import NoEndingError, StartupStatus, StopRefusedError
 
 
 class _Runs:
@@ -24,6 +26,11 @@ class _Runs:
 
     async def until_no_runs(self) -> None:
         await self.ended.wait()
+
+    def cancel_runs(self) -> int:
+        cancelled, self.running = self.running, 0
+        self.ended.set()
+        return cancelled
 
 
 class _Manager:
@@ -54,16 +61,17 @@ async def test_a_stop_waits_for_the_runs_in_progress_then_goes_through_the_servi
 
 
 async def test_every_app_hears_a_restart_or_stop_is_coming_and_what_it_waits_for():
-    heard: list[tuple[Ending, int]] = []
-    shutdown = Shutdown(_Runs(running=2), asyncio.Event(), _Manager(), lambda e, n: heard.append((e, n)))
+    heard: list[tuple[Ending, int, bool]] = []
+    shutdown = Shutdown(_Runs(running=2), asyncio.Event(), _Manager(), lambda e, n, back: heard.append((e, n, back)))
     shutdown.request(Ending.RESTART)
     shutdown.request(Ending.STOP)
-    assert heard == [(Ending.RESTART, 2), (Ending.STOP, 2)]
+    shutdown.take_back()
+    assert heard == [(Ending.RESTART, 2, False), (Ending.STOP, 2, False), (Ending.STOP, 0, True)]
     with pytest.raises(StopRefusedError):
-        Shutdown(_Runs(), asyncio.Event(), _Manager(refusal="no"), lambda e, n: heard.append((e, n))).request(
-            Ending.STOP
-        )
-    assert len(heard) == 2
+        Shutdown(
+            _Runs(), asyncio.Event(), _Manager(refusal="no"), lambda e, n, back: heard.append((e, n, back))
+        ).request(Ending.STOP)
+    assert len(heard) == 3
 
 
 async def test_a_restart_never_asks_the_service_manager():
@@ -105,10 +113,39 @@ async def test_a_stop_that_fails_can_be_asked_again():
     assert manager.stops == 2 and shutdown.ending is Ending.STOP
 
 
+async def test_a_pending_restart_is_shown_and_taken_back_and_the_daemon_keeps_running():
+    runs, stop = _Runs(running=2), asyncio.Event()
+    shutdown = Shutdown(runs, stop, _Manager())
+    assert shutdown.pending() is None
+    shutdown.request(Ending.RESTART)
+    assert shutdown.pending() == Pending(Ending.RESTART, 2)
+    shutdown.take_back("web")
+    assert shutdown.pending() is None
+    runs.ended.set()
+    await asyncio.sleep(0.01)
+    assert not stop.is_set() and shutdown.ending is None
+    with pytest.raises(NoEndingError):
+        shutdown.take_back()
+
+
+async def test_now_cancels_the_runs_a_stop_waits_for_so_it_goes_ahead():
+    runs, manager, stop = _Runs(running=3), _Manager(), asyncio.Event()
+    shutdown = Shutdown(runs, stop, manager)
+    with pytest.raises(NoEndingError):
+        shutdown.now()
+    shutdown.request(Ending.STOP)
+    assert shutdown.now("terminal") == 3
+    await asyncio.wait_for(stop.wait(), 1)
+    assert manager.stops == 1 and shutdown.ending is Ending.STOP
+    assert shutdown.pending() is None
+    with pytest.raises(NoEndingError):
+        shutdown.take_back()
+
+
 @pytest.mark.parametrize(
     "env,manager",
     [
-        ({}, managers.ByHand),
+        ({}, launchd.Beside if sys.platform == "darwin" else systemd.Beside),
         ({launchd.MANAGED_ENV: "1"}, launchd.Service),
         ({systemd.MANAGED_ENV: "1"}, systemd.Service),
     ],
@@ -119,6 +156,33 @@ def test_the_service_manager_is_the_one_that_started_the_daemon(monkeypatch, env
     for name, value in env.items():
         monkeypatch.setenv(name, value)
     assert isinstance(managers.current(), manager)
+
+
+async def test_a_daemon_started_by_hand_beside_start_at_boot_on_macos_isnt_stopped_as_launchd_would_restart_it(
+    monkeypatch,
+):
+    on = StartupStatus(enabled=True, managed=False, includes_ollama=False)
+    monkeypatch.setattr(launchd, "status", lambda: on)
+    assert "Turn start at boot off" in (launchd.Beside().stop_refusal() or "")
+    monkeypatch.setattr(launchd, "status", lambda: replace(on, enabled=False))
+    assert launchd.Beside().stop_refusal() is None
+
+
+async def test_a_daemon_started_by_hand_beside_the_systemd_service_stops_its_tries_too(monkeypatch):
+    calls: list[tuple[str, ...]] = []
+
+    async def systemctl(*args: str) -> None:
+        calls.append(args)
+
+    on = StartupStatus(enabled=True, managed=False, includes_ollama=False, platform="linux")
+    monkeypatch.setattr(systemd, "_systemctl", systemctl)
+    monkeypatch.setattr(systemd, "status", lambda: on)
+    stop = asyncio.Event()
+    await systemd.Beside().stop(stop)
+    assert stop.is_set() and calls == [("stop", systemd.SERVICE)]
+    monkeypatch.setattr(systemd, "status", lambda: replace(on, enabled=False))
+    await systemd.Beside().stop(asyncio.Event())
+    assert len(calls) == 1
 
 
 async def test_a_daemon_started_by_hand_stops_by_exiting():

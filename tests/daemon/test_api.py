@@ -33,11 +33,13 @@ from assistant.core.subagent_steps import SubagentStep
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
 from assistant.daemon.runs import RunHub
-from assistant.daemon.shutdown import Ending
+from assistant.daemon.shutdown import Ending, Pending
 from assistant.protocol import (
     CLIENT_HEADER,
     CLIENT_ID_HEADER,
     Commit,
+    NoEndingError,
+    PendingEnding,
     StartupStatus,
     StopRefusedError,
     UpdateError,
@@ -86,6 +88,19 @@ class _Shutdown:
         self.askers.append(by)
         return 2
 
+    def pending(self) -> Pending | None:
+        return Pending(self.requests[-1], 2) if self.requests else None
+
+    def take_back(self, by: str = "") -> None:
+        if not self.requests:
+            raise NoEndingError("Nothing to take back.")
+        self.requests.clear()
+
+    def now(self, by: str = "") -> int:
+        if not self.requests:
+            raise NoEndingError("Nothing waits.")
+        return 2
+
 
 @asynccontextmanager
 async def _system(service, shutdown: _Shutdown):
@@ -104,6 +119,19 @@ async def test_a_restart_or_stop_is_requested_and_says_how_many_runs_it_waits_fo
     assert shutdown.requests == [Ending.RESTART, Ending.STOP]
     # The log says who asked (daemon/shutdown.py).
     assert shutdown.askers == ["t (unix socket)"] * 2
+
+
+async def test_a_pending_restart_is_read_made_to_go_ahead_and_taken_back(service):
+    async with _system(service, _Shutdown()) as system:
+        assert (await system.ending()).ending == ""
+        with pytest.raises(NoEndingError):
+            await system.end_now()
+        await system.restart()
+        assert await system.ending() == PendingEnding("restart", 2)
+        assert await system.end_now() == 2
+        assert (await system.take_back_ending()).ending == ""
+        with pytest.raises(NoEndingError):
+            await system.take_back_ending()
 
 
 async def test_a_stop_the_service_manager_would_undo_is_refused_with_its_reason(service):

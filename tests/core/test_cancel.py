@@ -31,3 +31,17 @@ async def test_cancel_kills_a_running_command_and_answers_its_call(service, scri
     await collect(service.send(session, "and now?"))
     results = [m for m in script.requests[-1] if isinstance(m, ToolMessage)]
     assert results[-1].text == "[cancelled by the user before it finished]"
+
+
+async def test_every_run_in_progress_is_cancelled_at_once_so_a_restart_waiting_for_them_goes_ahead(
+    service, script, tmp_path
+):
+    script.call("bash", command="echo started > mark; sleep 30")
+    session = await service.session("owner", "cli")
+    run = asyncio.create_task(collect(service.send(session, "wait")))
+    await written(tmp_path / "workspace" / "mark")
+    assert service.runs_in_progress() == 1
+    assert service.cancel_runs() == 1
+    assert isinstance((await asyncio.wait_for(run, 10))[-1], Cancelled)
+    await asyncio.wait_for(service.until_no_runs(), 1)
+    assert service.cancel_runs() == 0

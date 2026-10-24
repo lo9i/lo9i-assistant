@@ -76,6 +76,8 @@ from assistant.protocol import (
     Commit,
     ConnectedClient,
     HostStatus,
+    NoEndingError,
+    PendingEnding,
     ShutdownStatus,
     StartupError,
     StartupStatus,
@@ -450,6 +452,10 @@ class FakeSystem:
         # "restart" and "stop", as asked; a stop is refused with this reason when it's set.
         self.endings: list[str] = []
         self.stop_refusal = ""
+        # The runs a restart or stop asked for waits for; "now" cancels them.
+        self.runs = 0
+        self.pending = PendingEnding("", 0)
+        self.cancelled_runs = 0
 
     async def startup_status(self):
         return self.state
@@ -484,16 +490,35 @@ class FakeSystem:
         return self.state
 
     async def restart(self):
-        self.endings.append("restart")
-        await self._bus.put(("ending", {"ending": "restart", "waiting_for_runs": 0}))
-        return ShutdownStatus(waiting_for_runs=0)
+        return await self._end("restart", self.runs)
 
     async def stop(self):
         if self.stop_refusal:
             raise StopRefusedError(self.stop_refusal)
-        self.endings.append("stop")
-        await self._bus.put(("ending", {"ending": "stop", "waiting_for_runs": 1}))
-        return ShutdownStatus(waiting_for_runs=1)
+        return await self._end("stop", max(self.runs, 1))
+
+    async def _end(self, ending, runs):
+        self.endings.append(ending)
+        if runs:
+            self.pending = PendingEnding(ending, runs)
+        await self._bus.put(("ending", {"ending": ending, "waiting_for_runs": runs, "taken_back": False}))
+        return ShutdownStatus(waiting_for_runs=runs)
+
+    async def ending(self):
+        return self.pending
+
+    async def take_back_ending(self):
+        if not self.pending.ending:
+            raise NoEndingError("No restart or stop is waiting to be taken back.")
+        ending, self.pending = self.pending.ending, PendingEnding("", 0)
+        await self._bus.put(("ending", {"ending": ending, "waiting_for_runs": 0, "taken_back": True}))
+        return self.pending
+
+    async def end_now(self):
+        if not self.pending.ending:
+            raise NoEndingError("No restart or stop is waiting for runs.")
+        self.cancelled_runs, self.pending = self.pending.waiting_for_runs, PendingEnding("", 0)
+        return self.cancelled_runs
 
     async def update_status(self):
         return self.update_now

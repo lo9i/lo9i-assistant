@@ -214,6 +214,11 @@ class AssistantApp(App):
             if result is not None:
                 await result
 
+    async def reload_host(self) -> None:
+        """The runs a restart or stop waits for changed: /host says how many are left."""
+        if isinstance(self.screen, HostScreen):
+            await self.screen.reload()
+
     async def reload_screen(self) -> None:
         reload = getattr(self.screen, "reload", None)
         if reload is not None:
@@ -248,8 +253,11 @@ class AssistantApp(App):
         self.notify(f"The {what} {failing['name']} keeps failing: {failing['error']}. See {where}.", severity="warning")
 
     def show_ending(self, ending: dict[str, Any]) -> None:
-        """Any app asked for a restart or stop, or an update was installed (daemon/shutdown.py)."""
+        """Any app asked for a restart or stop, or took one back, or an update was installed (daemon/shutdown.py)."""
         restart = ending["ending"] == "restart"
+        if ending.get("taken_back"):
+            self.notify(f"The {'restart' if restart else 'stop'} was cancelled: the assistant keeps running.")
+            return
         said = ending_text("restarts" if restart else "stops", ending["waiting_for_runs"])
         back = "This app reconnects when it's back." if restart else "Start it again on the computer it runs on."
         self.notify(f"{said} {back}", timeout=15)

@@ -8,7 +8,7 @@ import logging
 import os
 import signal
 import sys
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +30,7 @@ from assistant.daemon.pages import create_pages_app
 from assistant.daemon.queued import QueuedMessages
 from assistant.daemon.runs import RunHub
 from assistant.daemon.scheduler import Scheduler
-from assistant.daemon.shutdown import Ending, Shutdown, exec_again
+from assistant.daemon.shutdown import Announce, Ending, Shutdown, exec_again
 from assistant.daemon.startup import Startup
 from assistant.daemon.updates import Updates
 
@@ -134,9 +134,11 @@ def _where(task: asyncio.Task) -> str:
     return " → ".join(frames[-_WHERE_DEPTH:]) or "an unknown place"
 
 
-def _announcer(service: AssistantService) -> Callable[[Ending, int], None]:
+def _announcer(service: AssistantService) -> Announce:
     """Tells every app a restart or stop is coming (an `ending` event)."""
-    return lambda ending, waiting: service.bus.publish("ending", ending=ending.value, waiting_for_runs=waiting)
+    return lambda ending, waiting, taken_back: service.bus.publish(
+        "ending", ending=ending.value, waiting_for_runs=waiting, taken_back=taken_back
+    )
 
 
 def _updates(service: AssistantService, shutdown: Shutdown) -> Updates:

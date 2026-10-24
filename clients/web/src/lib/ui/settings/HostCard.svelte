@@ -2,7 +2,7 @@
   import { Download, LoaderCircle, Power, RefreshCw, RotateCcw, SearchCheck } from "@lucide/svelte";
   import type { HostStatus, UpdateStatus } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
-  import { CONFIRM, endingText, type Ending } from "$lib/shutdown";
+  import { CONFIRM, endingText, waitingText, type Ending } from "$lib/shutdown";
   import { canInstall, updateLine, versionText } from "$lib/updates";
   import Confirm from "../Confirm.svelte";
   import Modal from "../Modal.svelte";
@@ -17,15 +17,51 @@
   let confirming = $state<Ending | "update" | null>(null);
   let checking = $state(false);
   // Set once the daemon accepted a restart or stop, from this page or anywhere (an update installed, another
-  // tab); the page waits for it to come back.
-  let ending = $state<{ ending: Ending; text: string } | null>(null);
+  // tab, before this page loaded); the page waits for it to come back. While it waits for runs to end, it can be
+  // taken back, or made to go ahead now by cancelling them.
+  let ending = $state<{ ending: Ending; waiting: number } | null>(null);
+  // Cancel or Now was pressed and the daemon hasn't answered yet.
+  let answering = $state(false);
 
-  $effect(() =>
-    hub.on(["ending"], (data) => {
-      const kind = data.ending as Ending;
-      ending = { ending: kind, text: endingText(kind, Number(data.waiting_for_runs ?? 0)) };
-    }),
-  );
+  $effect(() => {
+    void pending();
+    return hub.on(["ending"], (data) => {
+      ending = data.taken_back ? null : { ending: data.ending as Ending, waiting: Number(data.waiting_for_runs ?? 0) };
+    });
+  });
+  // How many runs it still waits for; once none, it's going ahead and the count stays.
+  $effect(() => hub.on(["run_finished"], () => void pending()));
+
+  async function pending(): Promise<void> {
+    try {
+      const found = await client.system.ending();
+      if (found.ending) ending = { ending: found.ending as Ending, waiting: found.waiting_for_runs };
+    } catch (e) {
+      notices.report(e);
+    }
+  }
+
+  async function takeBack(): Promise<void> {
+    await whileAnswering(async () => {
+      await client.system.takeBackEnding();
+      ending = null;
+    });
+  }
+
+  async function now(): Promise<void> {
+    await whileAnswering(() => client.system.endNow());
+  }
+
+  async function whileAnswering(action: () => Promise<unknown>): Promise<void> {
+    answering = true;
+    try {
+      await action();
+    } catch (e) {
+      notices.report(e);
+    } finally {
+      answering = false;
+    }
+  }
 
   // The events stream reconnects on its own; once it does, the daemon is back, maybe with a new web build.
   $effect(() => {
@@ -35,7 +71,7 @@
   async function end(kind: Ending): Promise<void> {
     try {
       const status = await (kind === "restart" ? client.system.restart() : client.system.stop());
-      ending = { ending: kind, text: endingText(kind, status.waiting_for_runs) };
+      ending = { ending: kind, waiting: status.waiting_for_runs };
     } catch (e) {
       notices.report(e);
     }
@@ -168,10 +204,20 @@
 {/if}
 
 {#if ending}
-  <!-- No way to close it: the page has nothing to show until the daemon is back, and then it reloads. -->
+  <!-- No way to close it: the page has nothing to show until the daemon is back, and then it reloads. While it
+       waits for runs, Cancel takes it back and Now cancels them. -->
   <Modal title={ending.ending === "restart" ? "Restarting" : "Stopping"} width={440}>
-    <p class="text-label">{ending.text}</p>
+    <p class="text-label">{endingText(ending.ending, ending.waiting)}</p>
+    {#if ending.waiting}
+      <p class="text-meta">{waitingText(ending.ending)}</p>
+    {/if}
     <p class="text-meta waiting"><LoaderCircle size={14} class="spin" aria-hidden="true" /> Waiting for the assistant…</p>
+    {#snippet footer()}
+      {#if ending?.waiting}
+        <button class="btn btn--ghost" onclick={takeBack} disabled={answering}>Cancel</button>
+        <button class="btn btn--danger" onclick={now} disabled={answering}>Now</button>
+      {/if}
+    {/snippet}
   </Modal>
 {/if}
 

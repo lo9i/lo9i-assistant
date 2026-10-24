@@ -53,6 +53,18 @@ class ShutdownStatus:
 
 
 @dataclass
+class PendingEnding:
+    """The restart or stop waiting for runs to end; `ending` is "" when none is."""
+
+    ending: str
+    waiting_for_runs: int
+
+
+class NoEndingError(Exception):
+    """No restart or stop is waiting for runs: none was asked for, or it already went ahead."""
+
+
+@dataclass
 class StartupStatus:
     """Whether the daemon starts at boot, and whether this daemon was started that way."""
 

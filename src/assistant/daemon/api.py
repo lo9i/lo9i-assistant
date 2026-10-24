@@ -128,6 +128,8 @@ from assistant.protocol import (
     END,
     ConnectedClient,
     HostStatus,
+    NoEndingError,
+    PendingEnding,
     ShutdownStatus,
     StartupStatus,
     StopRefusedError,
@@ -340,6 +342,10 @@ class RepositoryInstall(BaseModel):
 
 class JobChange(BaseModel):
     enabled: bool
+
+
+class CancelledRuns(BaseModel):
+    cancelled: int
 
 
 class JobRunReply(BaseModel):
@@ -1526,7 +1532,8 @@ def _add_startup_routes(app: FastAPI, startup: Any) -> None:
 
 def _add_shutdown_routes(app: FastAPI, shutdown: Any) -> None:
     """Restarting or stopping the daemon once no run is in progress (daemon/shutdown.py). `shutdown` offers
-    request(ending). The answer goes out before the daemon stops: stopping waits for requests in progress."""
+    request(ending), pending(), take_back() and now(). The answer goes out before the daemon stops: stopping waits
+    for requests in progress."""
 
     @app.post("/system/restart")
     async def restart_daemon(request: Request) -> ShutdownStatus:
@@ -1538,6 +1545,33 @@ def _add_shutdown_routes(app: FastAPI, shutdown: Any) -> None:
             return ShutdownStatus(waiting_for_runs=shutdown.request(Ending.STOP, _asker(request)))
         except StopRefusedError as e:
             raise HTTPException(409, str(e)) from e
+
+    @app.get("/system/ending")
+    async def pending_ending() -> PendingEnding:
+        """The restart or stop waiting for runs to end; `ending` is "" when none is."""
+        return _pending(shutdown)
+
+    @app.delete("/system/ending")
+    async def take_back_ending(request: Request) -> PendingEnding:
+        """The daemon keeps running. 409: nothing is waiting, or it already went ahead."""
+        try:
+            shutdown.take_back(_asker(request))
+        except NoEndingError as e:
+            raise HTTPException(409, str(e)) from e
+        return _pending(shutdown)
+
+    @app.post("/system/ending/now")
+    async def end_now(request: Request) -> CancelledRuns:
+        """Cancels the runs the restart or stop waits for, so it goes ahead. 409: nothing is waiting."""
+        try:
+            return CancelledRuns(cancelled=shutdown.now(_asker(request)))
+        except NoEndingError as e:
+            raise HTTPException(409, str(e)) from e
+
+
+def _pending(shutdown: Any) -> PendingEnding:
+    pending = shutdown.pending()
+    return PendingEnding(pending.ending.value, pending.waiting_for_runs) if pending else PendingEnding("", 0)
 
 
 def _asker(request: Request) -> str:

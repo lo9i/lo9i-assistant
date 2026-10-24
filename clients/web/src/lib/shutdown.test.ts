@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { comingText, endingText } from "./shutdown";
+import { comingText, endingText, waitingText } from "./shutdown";
 
 describe("endingText", () => {
   it("says when the daemon restarts or stops", () => {
@@ -15,5 +15,12 @@ describe("comingText", () => {
     expect(comingText("lo9i", "restart", 0)).toBe("lo9i restarts now.");
     expect(comingText("lo9i", "restart", 2)).toBe("lo9i restarts once the 2 runs in progress end.");
     expect(comingText("lo9i", "stop", 1)).toBe("lo9i stops once the run in progress ends.");
+  });
+});
+
+describe("waitingText", () => {
+  it("says what Cancel and Now do while it waits for runs", () => {
+    expect(waitingText("restart")).toBe("Cancel keeps the assistant running. Now cancels the runs in progress, and it restarts at once.");
+    expect(waitingText("stop")).toContain("and it stops at once.");
   });
 });

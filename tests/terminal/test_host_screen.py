@@ -83,6 +83,35 @@ async def test_checks_for_an_update_lists_whats_new_and_installs_it_after_asking
         assert client.system.updates_started == 1
 
 
+async def test_a_pending_restart_shows_with_cancel_and_now(app, client):
+    client.system.runs = 2
+    async with app.run_test(size=(140, 40)) as pilot:
+        screen = await _host_screen(pilot, app)
+
+        def body() -> str:
+            return screen.query_one("#host-body", Markdown).source
+
+        assert not screen.query_one("#now", Button).display
+        screen.query_one("#restart", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: "### Restart pending" in body())
+        assert "restarts once the 2 runs in progress end" in body()
+        take_back = screen.query_one("#take-back", Button)
+        assert take_back.display and str(take_back.label) == "Cancel restart"
+        take_back.press()
+        await wait_for(pilot, lambda: "The restart was cancelled: the assistant keeps running." in _notices(app))
+        await wait_for(pilot, lambda: "pending" not in body() and not screen.query_one("#now", Button).display)
+        screen.query_one("#stop", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: "### Stop pending" in body())
+        screen.query_one("#now", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: client.system.cancelled_runs == 2)
+
+
 async def test_every_restart_or_stop_announced_shows_in_the_app(app, client):
     async with app.run_test(size=(110, 40)) as pilot:
         await client.bus.put(("ending", {"ending": "restart", "waiting_for_runs": 2}))
