@@ -8,9 +8,8 @@
   let { handoff, onback }: Props = $props();
 </script>
 
-<div class="agent">
+<div class="agent" title="{handoff.name} in {handoff.folder}">
   <Bot size={13} aria-hidden="true" />
-  <span>Talking to <strong>{handoff.name}</strong> in <code>{handoff.folder}</code></span>
   <button type="button" class="btn btn--ghost btn--sm" onclick={onback}>Back to the assistant</button>
 </div>
 
@@ -21,9 +20,5 @@
     align-items: center;
     gap: 6px;
     min-width: 0;
-  }
-  .agent span {
-    min-width: 0;
-    overflow-wrap: anywhere;
   }
 </style>
