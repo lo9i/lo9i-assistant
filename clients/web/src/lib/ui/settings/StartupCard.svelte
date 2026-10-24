@@ -3,6 +3,7 @@
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { describe } from "$lib/notices";
   import SettingsCard from "../Card.svelte";
+  import Toggle from "../Toggle.svelte";
 
   const { client } = useDaemon();
   const loaded = resource((c) => c.system.startup(), []);
@@ -47,7 +48,9 @@
 >
   {#snippet status()}
     {#if s}
-      <span class="pill" class:pill--accent={s.enabled}>{s.enabled ? `On${s.includes_ollama ? " · with Ollama" : ""}` : "Off"}</span>
+      {#if s.platform !== "unsupported"}
+        <Toggle checked={s.enabled} label="Start at boot" onchange={change} />
+      {/if}
     {/if}
   {/snippet}
   {#if s === undefined}
@@ -64,13 +67,7 @@
         runs this once on the computer: <code>sudo loginctl enable-linger $USER</code>
       </p>
     {/if}
-    <div>
-      {#if s.enabled}
-        <button class="btn btn--danger" onclick={() => change(false)}>Turn off</button>
-      {:else}
-        <button class="btn btn--primary" onclick={() => change(true)}>Turn on</button>
-      {/if}
-    </div>
+    {#if s.enabled && s.includes_ollama}<p class="text-meta">Ollama starts with it.</p>{/if}
     {#if message}<p class="text-meta">{message}</p>{/if}
   {/if}
 </SettingsCard>
