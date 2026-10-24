@@ -454,7 +454,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     align: center middle;
 }
 
-#skills, #jobs, #conversations, #devices, #files, #usage, #sessions, #mcp, #plugins, #logs, #notifications {
+#skills, #jobs, #conversations, #devices, #files, #usage, #sessions, #mcp, #plugins, #logs, #notifications, #prompts {
     width: 90%;
     max-width: 120;
     height: 80%;
@@ -468,7 +468,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     margin: 0;
 }
 
-#skills-title, #jobs-title, #conversations-title, #devices-title, #files-title, #mcp-title, #plugins-title, #notifications-title {
+#skills-title, #jobs-title, #conversations-title, #devices-title, #files-title, #mcp-title, #plugins-title, #notifications-title, #prompts-title {
     height: auto;
     text-style: bold;
     margin-bottom: 1;
@@ -491,7 +491,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     display: block;
 }
 
-#skills-main, #jobs-main, #conversations-main, #devices-main, #files-main, #mcp-main, #usage-scroll, #plugins-main {
+#skills-main, #jobs-main, #conversations-main, #devices-main, #files-main, #mcp-main, #usage-scroll, #plugins-main, #prompts-main {
     height: 1fr;
 }
 
@@ -513,7 +513,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
 
 /* Lists of short labels (dates, job and skill names) have no frame; a divider sets them apart from the
    detail next to them. */
-#conversations-list, #jobs-list, #devices-list, #files-list, #skills-list, #mcp-list, #plugins-list {
+#conversations-list, #jobs-list, #devices-list, #files-list, #skills-list, #mcp-list, #plugins-list, #prompts-list {
     border: none;
 }
 
@@ -528,7 +528,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     background: transparent;
 }
 
-#jobs-list, #devices-list, #files-list, #skills-list, #mcp-list, #plugins-list {
+#jobs-list, #devices-list, #files-list, #skills-list, #mcp-list, #plugins-list, #prompts-list {
     width: 32;
 }
 
@@ -538,23 +538,23 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
     border-bottom: solid ansi_bright_black;
 }
 
-#conversations-main .divider, #jobs-main .divider, #devices-main .divider, #files-main .divider, #skills-main .divider, #mcp-main .divider, #plugins-main .divider {
+#conversations-main .divider, #jobs-main .divider, #devices-main .divider, #files-main .divider, #skills-main .divider, #mcp-main .divider, #plugins-main .divider, #prompts-main .divider {
     width: 1;
     height: 1fr;
     margin: 1 1 1 0;
     border-left: solid ansi_bright_black;
 }
 
-#skills-detail, #jobs-detail, #conversations-detail, #devices-detail, #files-detail, #mcp-detail, #plugins-detail {
+#skills-detail, #jobs-detail, #conversations-detail, #devices-detail, #files-detail, #mcp-detail, #plugins-detail, #prompts-detail {
     padding: 0 1;
 }
 
-#skills-buttons, #jobs-buttons, #conversations-buttons, #devices-buttons, #files-buttons, #usage-buttons, #sessions-buttons, #mcp-buttons, #plugins-buttons, #notifications-buttons {
+#skills-buttons, #jobs-buttons, #conversations-buttons, #devices-buttons, #files-buttons, #usage-buttons, #sessions-buttons, #mcp-buttons, #plugins-buttons, #notifications-buttons, #prompts-buttons {
     height: auto;
     margin-top: 1;
 }
 
-#skills-buttons Button, #jobs-buttons Button, #conversations-buttons Button, #devices-buttons Button, #usage-buttons Button, #mcp-buttons Button, #plugins-buttons Button, #notifications-buttons Button {
+#skills-buttons Button, #jobs-buttons Button, #conversations-buttons Button, #devices-buttons Button, #usage-buttons Button, #mcp-buttons Button, #plugins-buttons Button, #notifications-buttons Button, #prompts-buttons Button {
     margin-right: 2;
 }
 
@@ -683,4 +683,15 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, UsageScreen, Sessi
 #logs-record {
     width: 26;
     margin-right: 2;
+}
+
+/* What the text is for over the text, which takes the rest. */
+#prompt-about {
+    height: auto;
+    margin-bottom: 1;
+    color: ansi_bright_black;
+}
+
+#prompt-text {
+    height: 1fr;
 }

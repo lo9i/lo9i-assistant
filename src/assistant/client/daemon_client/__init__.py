@@ -22,6 +22,7 @@ from assistant.client.daemon_client.memory import MemoryApi
 from assistant.client.daemon_client.model import ModelApi
 from assistant.client.daemon_client.notifications import NotificationsApi
 from assistant.client.daemon_client.oauth import OAuthApi
+from assistant.client.daemon_client.prompts import PromptsApi
 from assistant.client.daemon_client.repositories import RepositoriesApi, offered_plugin
 from assistant.client.daemon_client.skills import SkillsApi
 from assistant.client.daemon_client.speech import SpeechApi
@@ -47,6 +48,7 @@ __all__ = [
     "ModelApi",
     "NotificationsApi",
     "OAuthApi",
+    "PromptsApi",
     "RepositoriesApi",
     "SkillsApi",
     "SpeechApi",

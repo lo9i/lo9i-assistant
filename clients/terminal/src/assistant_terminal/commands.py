@@ -43,6 +43,7 @@ COMMANDS = [
     Command("/startup", "/startup", "Start the assistant at boot"),
     Command("/host", "/host", "The computer the assistant runs on"),
     Command("/name", "/name <name>", "Rename the assistant"),
+    Command("/prompt", "/prompt", "Edit the system prompt: persona, operating instructions, channel hints"),
     Command("/pin", "/pin [skill]", "Keep a skill's instructions on for this conversation; alone, list them"),
     Command("/unpin", "/unpin <skill>", "Turn a pinned skill off for this conversation"),
     Command("/profile", "/profile", "What the assistant knows about you: add, edit and remove"),

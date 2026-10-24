@@ -42,6 +42,8 @@ from assistant.core.agent import (
     Notification,
     PairingCode,
     PluginUpdate,
+    PromptEditError,
+    PromptSection,
     Repository,
     RepositoryContents,
     RepositoryError,
@@ -930,6 +932,33 @@ class FakeNotifications:
         self.items = []
 
 
+class FakePrompts:
+    def __init__(self):
+        self.items = {
+            name: PromptSection(name, title, f"About the {title.lower()}.", text, text, False)
+            for name, title, text in (
+                ("persona", "Persona", "You are the assistant."),
+                ("operating", "Operating instructions", "Work carefully."),
+                ("channels", "Channels", "Write short lines."),
+            )
+        }
+
+    async def list(self):
+        return list(self.items.values())
+
+    async def save(self, name, text):
+        if not text.strip():
+            raise PromptEditError("Write the text, or reset it to the built-in one.")
+        section = self.items[name]
+        self.items[name] = replace(section, text=text, edited=text != section.default)
+        return self.items[name]
+
+    async def reset(self, name):
+        section = self.items[name]
+        self.items[name] = replace(section, text=section.default, edited=False)
+        return self.items[name]
+
+
 class FakeClient:
     """DaemonClient's shape: the conversation on the client, everything else in groups."""
 
@@ -961,6 +990,7 @@ class FakeClient:
         self.speech = FakeSpeech()
         self.web_search = FakeWebSearch()
         self.notifications = FakeNotifications()
+        self.prompts = FakePrompts()
         # When set, the inbox sends the next message on there instead of running it.
         self.dispatch_to: Dispatched | None = None
 

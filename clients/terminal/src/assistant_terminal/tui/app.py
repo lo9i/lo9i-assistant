@@ -64,6 +64,7 @@ from assistant_terminal.tui.screens import (
     NotificationsScreen,
     PluginsScreen,
     ProfileScreen,
+    PromptsScreen,
     QuestionScreen,
     RepositoryInstallScreen,
     SessionsScreen,
@@ -162,6 +163,7 @@ class AssistantApp(App):
             "/profile": self._command_profile,
             "/sessions": self._command_sessions,
             "/name": self._command_name,
+            "/prompt": self._command_prompt,
             "/pin": self._command_pin,
             "/unpin": self._command_unpin,
             "/get-to-know-me": self._command_get_to_know_me,
@@ -748,6 +750,9 @@ class AssistantApp(App):
 
     async def _command_skills(self, _: str) -> None:
         self.push_screen(SkillsScreen(self._service.skills, self._service.repositories))
+
+    async def _command_prompt(self, _: str) -> None:
+        self.push_screen(PromptsScreen(self._service.prompts))
 
     async def _command_jobs(self, _: str) -> None:
         self.push_screen(JobsScreen(self._service.jobs))

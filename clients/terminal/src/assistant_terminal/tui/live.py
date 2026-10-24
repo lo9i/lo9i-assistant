@@ -61,6 +61,7 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         "jobs": screen,
         "conversations": screen,
         "notifications": screen,
+        "prompts": screen,
         "devices": screen,
         "mcp": mcp,
         "settings": settings,

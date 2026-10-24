@@ -569,20 +569,22 @@ async def test_plugin_update_routes(client):
     assert not await client.repositories.update_checks()
 
 
-async def test_prompt_texts_are_listed_edited_and_reset(app):
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=trusted(app)), base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}
-    ) as http:
-        listed = (await http.get("/settings/prompts")).json()
-        assert [s["name"] for s in listed] == ["persona", "operating", "channels"]
-        assert not any(s["edited"] for s in listed)
-        saved = (await http.put("/settings/prompts/persona", json={"text": "You are Lo9i."})).json()
-        assert saved["text"] == "You are Lo9i." and saved["edited"] and saved["default"] != saved["text"]
-        reset = (await http.delete("/settings/prompts/persona")).json()
-        assert reset["text"] == reset["default"] and not reset["edited"]
-        assert (await http.put("/settings/prompts/persona", json={"text": " "})).status_code == 400
-        assert (await http.put("/settings/prompts/title", json={"text": "x"})).status_code == 404
-        assert (await http.delete("/settings/prompts/title")).status_code == 404
+async def test_prompt_texts_are_listed_edited_and_reset(client):
+    from assistant.core.agent import PromptEditError, UnknownPromptError
+
+    listed = await client.prompts.list()
+    assert [s.name for s in listed] == ["persona", "operating", "channels"]
+    assert not any(s.edited for s in listed)
+    saved = await client.prompts.save("persona", "You are Lo9i.")
+    assert saved.text == "You are Lo9i." and saved.edited and saved.default != saved.text
+    reset = await client.prompts.reset("persona")
+    assert reset.text == reset.default and not reset.edited
+    with pytest.raises(PromptEditError):
+        await client.prompts.save("persona", " ")
+    with pytest.raises(UnknownPromptError):
+        await client.prompts.save("title", "x")
+    with pytest.raises(UnknownPromptError):
+        await client.prompts.reset("title")
 
 
 async def test_rename_the_assistant(client):
