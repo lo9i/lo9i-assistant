@@ -283,6 +283,10 @@
   }
   .file {
     display: flex;
+    width: fit-content;
+    padding: 3px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm, 6px);
     align-items: center;
     gap: 4px;
     font-size: var(--font-size-xs);
