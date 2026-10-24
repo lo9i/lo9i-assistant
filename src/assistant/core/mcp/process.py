@@ -103,14 +103,21 @@ async def _run_once(run: _Run, spec: ProcessSpec, stop: asyncio.Event) -> int | 
 
 
 async def _terminate(proc: asyncio.subprocess.Process) -> None:
-    with contextlib.suppress(ProcessLookupError):
-        os.killpg(proc.pid, signal.SIGTERM)
+    _signal_group(proc, signal.SIGTERM)
     try:
         await asyncio.wait_for(proc.wait(), _STOP_SECONDS)
     except TimeoutError:
-        with contextlib.suppress(ProcessLookupError):
-            os.killpg(proc.pid, signal.SIGKILL)
+        _signal_group(proc, signal.SIGKILL)
         await proc.wait()
+
+
+def _signal_group(proc: asyncio.subprocess.Process, sig: signal.Signals) -> None:
+    """Signals the process's group, unless it's gone. A process that just exited isn't reaped until the event
+    loop handles its SIGCHLD, so its returncode is still None: its group is then gone (ESRCH), or, on macOS,
+    only zombies, which kill answers with EPERM. Either way there's nothing left to stop, and proc.wait() reaps
+    it."""
+    with contextlib.suppress(ProcessLookupError, PermissionError):
+        os.killpg(proc.pid, sig)
 
 
 async def _log_output(log: logging.Logger, proc: asyncio.subprocess.Process) -> None:

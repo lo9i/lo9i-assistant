@@ -114,10 +114,10 @@ class TaskStore:
     def state(self, task_id: str, progress_lines: int = 30) -> TaskState:
         task = self.get(task_id)
         folder = self.folder(task_id)
-        outcome = _read_outcome(folder / _RESULT)
+        outcome, alive = self._ended(task)
         steps = [line for line in _tail(folder / _PROGRESS, None) if not streamed(line)]
         progress = steps[-progress_lines:] if progress_lines else []
-        return TaskState(task, self._status(task, outcome), outcome, progress)
+        return TaskState(task, self._status(task, outcome, alive), outcome, progress)
 
     def pid(self, task_id: str) -> int | None:
         path = self.folder(task_id) / _PID
@@ -161,12 +161,23 @@ class TaskStore:
         """The task's progress lines after the first `seen`, for following it as it goes."""
         return _tail(self.folder(task_id) / _PROGRESS, None)[seen:]
 
-    def _status(self, task: Task, outcome: Outcome | None) -> Status:
+    def _ended(self, task: Task) -> tuple[Outcome | None, bool]:
+        """Its result, and whether its worker still runs. A worker writes its result just before it exits, so
+        the result is read again after the worker is found gone: the first read can come just before it was
+        written, and a task that ended well would read as lost."""
+        path = self.folder(task.id) / _RESULT
+        if (outcome := _read_outcome(path)) is not None:
+            return outcome, False
+        if self._alive(task):
+            return None, True
+        return _read_outcome(path), False
+
+    def _status(self, task: Task, outcome: Outcome | None, alive: bool) -> Status:
         if (self.folder(task.id) / _STOPPED).exists():
             return "stopped"
         if outcome is not None:
             return "done" if outcome.ok else "failed"
-        return "running" if self._alive(task) else "failed"
+        return "running" if alive else "failed"
 
     def _alive(self, task: Task) -> bool:
         """Its worker is running: the process with its pid is the one started for this task's folder,

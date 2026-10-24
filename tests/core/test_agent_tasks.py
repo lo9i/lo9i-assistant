@@ -203,3 +203,25 @@ async def test_the_libraries_plugins_used_to_share_are_removed_when_the_service_
         assert not libraries.exists()
     async with AssistantService.open():
         assert not libraries.exists()
+
+
+def test_a_worker_that_writes_its_result_and_exits_between_two_reads_isnt_lost(tmp_path, monkeypatch):
+    """A worker writes its result just before it exits: the state is read again after the worker is found gone,
+    so one read just before the result was written doesn't call a task that ended well lost."""
+    import json
+
+    from assistant.core.agent_tasks import records
+    from assistant.core.agent_tasks.records import TaskStore
+
+    tasks = TaskStore(tmp_path)
+    task = tasks.create(str(tmp_path), "fix it")
+    (tasks.folder(task.id) / "pid").write_text("1")
+
+    def finishes_meanwhile(command: int) -> str:
+        (tasks.folder(task.id) / "result.json").write_text(json.dumps({"ok": True, "text": "Fixed."}))
+        return ""  # gone by the time it's asked about
+
+    monkeypatch.setattr(records, "_command_of", finishes_meanwhile)
+    state = tasks.state(task.id)
+    assert (state.status, state.outcome and state.outcome.text) == ("done", "Fixed.")
+    assert not records.lost(state)
