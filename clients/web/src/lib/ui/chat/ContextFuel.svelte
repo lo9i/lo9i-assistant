@@ -33,8 +33,8 @@
     display: inline-flex;
     align-items: center;
     gap: 2px;
-    height: 12px;
-    vertical-align: middle;
+    height: 10px;
+    transform: translateY(-1px);
     cursor: default;
   }
   .seg {
