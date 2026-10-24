@@ -1,13 +1,29 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { page } from "$app/state";
   import FileX from "@lucide/svelte/icons/file-x";
   import { resource } from "$lib/daemon.svelte";
-  import { pageLabel, pageUrl } from "$lib/pages";
+  import { pageLabel, pagesOrigin, pageUrl, themeMessage } from "$lib/pages";
+  import { theme } from "$lib/theme.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
 
   const servers = resource((c) => c.mcp.servers(), ["mcp"]);
   const name = $derived(page.params.name ?? "");
   const server = $derived(servers.data?.find((s) => s.name === name && s.page));
+  // The page is told the app's theme in its address once; a change after goes to it as a message, so the
+  // frame isn't loaded again.
+  const src = $derived(
+    pageUrl(
+      name,
+      window.location,
+      untrack(() => theme.resolved),
+    ),
+  );
+  let frame = $state<HTMLIFrameElement | null>(null);
+
+  $effect(() => {
+    frame?.contentWindow?.postMessage(themeMessage(theme.resolved), pagesOrigin(window.location));
+  });
 </script>
 
 <!-- Only the page: it has its own title and layout, so no top bar above it. -->
@@ -20,7 +36,7 @@
     <EmptyState icon={FileX} title="Turned off" text="Turn {name} on in MCP servers to see its page." />
   {:else}
     <!-- The page's own origin (daemon/pages.py): it can't reach the web app or its API. -->
-    <iframe title={pageLabel(name)} src={pageUrl(name, window.location)}></iframe>
+    <iframe bind:this={frame} title={pageLabel(name)} {src}></iframe>
   {/if}
 </div>
 

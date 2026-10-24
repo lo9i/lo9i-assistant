@@ -29,7 +29,9 @@ code from it. In its commands, arguments and env values:
     include: []                    # tools the agent gets; empty means all but `exclude`
     exclude: []
     page:                          # optional: a web page, shown in the web app (core/mcp/pages.py); its
-                                   # WebSockets pass through too, with no time limit (daemon/page_sockets.py)
+                                   # WebSockets pass through too, with no time limit (daemon/page_sockets.py);
+                                   # it's told the app's theme: ?theme=light|dark on its first address, and a
+                                   # {"type": "lo9i:theme", "theme"} message from its frame's parent on a change
       command: "{bin}/my-page"
       args: [--socket, "{socket}"]
     channel:                       # optional: a chat channel (core/channels/), with or without `command`

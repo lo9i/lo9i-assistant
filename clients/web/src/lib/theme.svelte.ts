@@ -1,10 +1,14 @@
 // Dark (the default), light, or following the system. Kept per browser; storage can be unavailable.
 export type ThemePreference = "dark" | "light" | "system";
+/** What shows: the preference, with "system" settled by the system's. */
+export type ResolvedTheme = "dark" | "light";
 
 const KEY = "lo9i.theme";
 
 class Theme {
   preference = $state<ThemePreference>(read());
+  // Plugin pages are told it (routes/pages/[name]), since they can't read the app's.
+  resolved = $state<ResolvedTheme>("dark");
 
   set(preference: ThemePreference): void {
     this.preference = preference;
@@ -21,6 +25,7 @@ class Theme {
     const media = window.matchMedia("(prefers-color-scheme: light)");
     const update = () => {
       const light = this.preference === "light" || (this.preference === "system" && media.matches);
+      this.resolved = light ? "light" : "dark";
       if (light) document.documentElement.dataset.theme = "light";
       else delete document.documentElement.dataset.theme;
     };

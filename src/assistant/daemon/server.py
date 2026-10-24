@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 from sse_starlette.sse import AppStatus
 
 from assistant.core.agent import AssistantService
@@ -29,7 +29,7 @@ from assistant.daemon.pages import create_pages_app
 from assistant.daemon.queued import QueuedMessages
 from assistant.daemon.runs import RunHub
 from assistant.daemon.scheduler import Scheduler
-from assistant.daemon.shutdown import Announce, Ending, Shutdown, exec_again
+from assistant.daemon.shutdown import Announce, Ending, Shutdown, exec_again, from_dotenv
 from assistant.daemon.startup import Startup
 from assistant.daemon.updates import Updates
 
@@ -229,6 +229,9 @@ def run() -> None:
     rotated = output.rotate(output_path())
     # Settings read .env themselves, but the model and tracing SDKs read their keys from the
     # environment, and the daemon may be started from a shell that doesn't have them.
+    # A restart re-launches this process with its environment, so the keys .env added are noted and dropped
+    # before it (exec_again): the new daemon reads .env afresh, and a line removed from it is gone.
+    from_dotenv.update(key for key in dotenv_values(".env") if key not in os.environ)
     load_dotenv(".env", override=False)
     writer = LogWriter()
     configure(writer)

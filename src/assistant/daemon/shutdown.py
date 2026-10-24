@@ -139,6 +139,13 @@ class Shutdown:
         self.ending = Ending.STOP
 
 
+from_dotenv: set[str] = set()
+"""The environment variables the daemon took from .env at start, rather than from whatever started it."""
+
+
 def exec_again() -> None:
-    """Replaces this process with a new daemon started the same way."""
+    """Replaces this process with a new daemon started the same way, without what .env had added to its
+    environment, so the new one reads .env as it is now."""
+    for key in from_dotenv:
+        os.environ.pop(key, None)
     os.execv(sys.executable, sys.orig_argv)
