@@ -6,7 +6,6 @@
   import Forward from "@lucide/svelte/icons/forward";
   import Inbox from "@lucide/svelte/icons/inbox";
   import Paperclip from "@lucide/svelte/icons/paperclip";
-  import Sparkle from "@lucide/svelte/icons/sparkle";
   import Sparkles from "@lucide/svelte/icons/sparkles";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import Wrench from "@lucide/svelte/icons/wrench";
@@ -103,7 +102,7 @@
       {:else if item.kind === "assistant"}
         <div class="row assistant">
           <div class="bubble assistant-bubble">
-            <span class="badge"><Sparkle size={14} fill="currentColor" /></span>
+            <span class="badge"><Sparkles size={14} /></span>
             <!-- In the badge's corner, shown while the pointer is on the reply. -->
             <button class="copy" class:done={copied === item.id} aria-label="Copy" title="Copy" onclick={() => copy(item.id, item.text)}>
               {#if copied === item.id}<Check size={14} />{:else}<Copy size={14} />{/if}
