@@ -37,6 +37,19 @@ async def test_lists_shows_pauses_and_deletes(app, client):
         await wait_for(pilot, lambda: list(client.jobs.items) == ["stretch"] and "once at" in body())
 
 
+async def test_the_last_run_shows_its_whole_reply(app, client):
+    async with app.run_test(size=(120, 40)) as pilot:
+        screen = await _open(pilot, app)
+        body = screen.query_one("#job-body", Markdown)
+        await wait_for(pilot, lambda: "Run the skill news-digest" in body.source)
+        assert "in full" not in body.source
+        screen.query_one("#reply", Button).press()
+        await wait_for(pilot, lambda: "**Reply of Tue 29 Sep 09:00**" in body.source and "in full" in body.source)
+        await pilot.press("down")
+        await wait_for(pilot, lambda: "once at" in body.source)
+        assert screen.query_one("#reply", Button).disabled
+
+
 async def test_refreshes_when_a_job_changes(app, client):
     async with app.run_test(size=(120, 40)) as pilot:
         screen = await _open(pilot, app)

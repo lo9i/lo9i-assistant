@@ -1,7 +1,9 @@
-"""Scheduled jobs for clients: list them, pause or resume them, delete them. The agent creates and
-edits jobs with its tools (core/tools/jobs.py); store writes tell clients about every change."""
+"""Scheduled jobs for clients: list them, pause or resume them, delete them, read a run's whole reply. The
+agent creates and edits jobs with its tools (core/tools/jobs.py); store writes tell clients about every change."""
 
 from datetime import UTC, datetime
+
+from langchain_core.messages import AIMessage
 
 from assistant.core.agent.base import ServiceBase
 from assistant.core.jobs import schedule as cron
@@ -24,6 +26,21 @@ class JobsMixin(ServiceBase):
         job.enabled = enabled
         await store.save(self._storage.store, job)
         return job
+
+    async def job_run_reply(self, user_id: str, name: str, at: str) -> str:
+        """The whole reply of the job's run that started at `at` (its record keeps only the end of it), or
+        its summary when it has none (a run skipped, missed or failed before replying). Raises JobError."""
+        job = await self._job(user_id, name)
+        run = next((r for r in job.runs if r.at == at), None)
+        if run is None:
+            raise JobError(f"{name} has no run at {at}.")
+        reply = await self._last_reply(run.thread_id) if run.thread_id and run.status == "ok" else ""
+        return reply or run.summary
+
+    async def _last_reply(self, thread_id: str) -> str:
+        state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
+        replies = [m for m in state.values.get("messages", []) if isinstance(m, AIMessage)]
+        return replies[-1].text.strip() if replies else ""
 
     async def delete_job(self, user_id: str, name: str) -> None:
         """Raises JobError if it doesn't exist."""

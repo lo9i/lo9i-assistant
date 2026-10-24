@@ -2,10 +2,12 @@
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from assistant.core import notifications
 from assistant.core.jobs import store
 from assistant.core.jobs.schedule import next_runs
-from assistant.core.jobs.store import Job, RunRecord
+from assistant.core.jobs.store import Job, JobError, RunRecord
 from assistant.daemon.scheduler import Scheduler
 from tests.conftest import collect
 
@@ -58,7 +60,20 @@ async def test_due_job_runs_unattended_and_records_the_result(service, script):
     assert datetime.fromisoformat(job.next_run_at) > now
     [told] = await notifications.recent(service.store, "owner")
     assert (told.kind, told.title, told.ok, told.thread_id) == ("job", "Job daily-news", True, "")
+    assert (told.job, told.run_at) == ("daily-news", job.runs[-1].at)
     assert "today's summary" in told.text
+
+
+async def test_a_job_runs_whole_reply_is_read_though_its_record_keeps_only_the_end(service, script):
+    now = await _job_due(service, script, minutes_ago=1)
+    long = "Headlines. " + "x" * 400 + " The end."
+    script.reply(long)
+    job = await _run_tick(service, now)
+    run = job.runs[-1]
+    assert len(run.summary) < len(long)
+    assert await service.job_run_reply("owner", "daily-news", run.at) == long
+    with pytest.raises(JobError, match="no run at"):
+        await service.job_run_reply("owner", "daily-news", "2020-01-01T00:00:00+00:00")
 
 
 async def test_denied_action_marks_the_run_as_needing_attention(service, script):

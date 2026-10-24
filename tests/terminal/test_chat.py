@@ -3,7 +3,7 @@
 import asyncio
 from dataclasses import replace
 
-from textual.widgets import Input, Markdown
+from textual.widgets import Button, Input, Markdown
 
 from assistant.client import DaemonUnavailableError, clipboard
 from assistant.core.attachments import Attachment
@@ -18,7 +18,13 @@ from assistant.core.events import (
     ToolStarted,
 )
 from assistant_terminal.tui.attachments import AttachmentBar
-from assistant_terminal.tui.screens import ApprovalScreen, ConversationsScreen, NotificationsScreen, QuestionScreen
+from assistant_terminal.tui.screens import (
+    ApprovalScreen,
+    ConversationsScreen,
+    JobsScreen,
+    NotificationsScreen,
+    QuestionScreen,
+)
 from assistant_terminal.tui.widgets import (
     AssistantMessage,
     StoppedNote,
@@ -135,13 +141,19 @@ async def test_a_notification_opens_the_conversation_its_work_started_in(app, cl
         await wait_for(pilot, lambda: app.sub_title == "owner:trip")
 
 
-async def test_a_job_notification_has_no_conversation_to_open_and_can_be_dismissed(app, client):
+async def test_a_job_notification_opens_its_run_with_the_whole_reply_and_can_be_dismissed(app, client):
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.click("#prompt")
         await pilot.press(*"/notifications", "enter")
         await wait_for(pilot, lambda: isinstance(app.screen, NotificationsScreen))
         await pilot.press("down")
-        await wait_for(pilot, lambda: app.screen.query_one("#open").disabled)
+        await wait_for(pilot, lambda: str(app.screen.query_one("#open", Button).label) == "Open the job")
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, JobsScreen))
+        body = app.screen.query_one("#job-body", Markdown)
+        await wait_for(pilot, lambda: "three headlines, the weather and the markets, in full" in body.source)
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: isinstance(app.screen, NotificationsScreen))
         await pilot.click("#dismiss")
         await wait_for(pilot, lambda: [n.id for n in client.notifications.items] == ["n1"])
 

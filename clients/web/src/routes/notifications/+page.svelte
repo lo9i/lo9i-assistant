@@ -12,7 +12,8 @@
   import TopBar from "$lib/ui/TopBar.svelte";
 
   // Scheduled jobs' results and background work that ended (core/notifications.py), apart from any
-  // conversation. Each opens the conversation its work was started in, when it has one. Seen here, they're read.
+  // conversation. Each opens the conversation its work was started in, when it has one, and a job's run opens on
+  // the Jobs page with its whole reply. Seen here, they're read.
   const { client, chats, notices } = useDaemon();
   const notifications = resource((c) => c.notifications.list(), ["notifications"]);
   let picked = $state<string | null>(null);
@@ -35,6 +36,10 @@
     } catch (e) {
       notices.report(e);
     }
+  }
+
+  function jobLink(n: Notification): string {
+    return `${resolve("/jobs")}?job=${encodeURIComponent(n.job)}&run=${encodeURIComponent(n.run_at)}`;
   }
 
   async function dismiss(n: Notification): Promise<void> {
@@ -117,6 +122,8 @@
         <div class="actions">
           {#if shown.thread_id}
             <button class="btn btn--neutral btn--sm" onclick={() => openConversation(shown)}>Open its conversation</button>
+          {:else if shown.job}
+            <a class="btn btn--neutral btn--sm" href={jobLink(shown)}>Open the job</a>
           {/if}
           <button class="btn btn--ghost btn--sm" onclick={() => dismiss(shown)}>Dismiss</button>
         </div>

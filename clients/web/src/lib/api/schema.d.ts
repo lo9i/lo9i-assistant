@@ -1272,6 +1272,26 @@ export interface paths {
         patch: operations["change_job_jobs__name__patch"];
         trace?: never;
     };
+    "/jobs/{name}/reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Job Run Reply
+         * @description The reply of the job's run that started `at`, as the notification of that run links to it.
+         */
+        get: operations["job_run_reply_jobs__name__reply_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/mcp/servers": {
         parameters: {
             query?: never;
@@ -2989,6 +3009,14 @@ export interface components {
             enabled: boolean;
         };
         /**
+         * JobRunReply
+         * @description A job run's whole reply; its record keeps only the end of it.
+         */
+        JobRunReply: {
+            /** Text */
+            text: string;
+        };
+        /**
          * KeptKeys
          * @description What a removed plugin left kept, for the user to keep or delete: its keys' names, and the
          *     token of the private repository it came from when nothing else needs that any more.
@@ -3435,6 +3463,16 @@ export interface components {
              * @default false
              */
             read: boolean;
+            /**
+             * Job
+             * @default
+             */
+            job: string;
+            /**
+             * Run At
+             * @default
+             */
+            run_at: string;
         };
         /** Ok */
         Ok: {
@@ -6417,6 +6455,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Job"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    job_run_reply_jobs__name__reply_get: {
+        parameters: {
+            query: {
+                at: string;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRunReply"];
                 };
             };
             /** @description Validation Error */

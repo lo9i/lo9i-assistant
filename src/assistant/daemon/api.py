@@ -342,6 +342,12 @@ class JobChange(BaseModel):
     enabled: bool
 
 
+class JobRunReply(BaseModel):
+    """A job run's whole reply; its record keeps only the end of it."""
+
+    text: str
+
+
 class McpServerSettings(BaseModel):
     name: str
     # Either command (a local server) or url (a remote one).
@@ -1418,6 +1424,14 @@ def _add_job_routes(app: FastAPI, service: AssistantService) -> None:
             return await service.set_job_enabled(settings.owner_id, name, body.enabled)
         except JobError as e:
             raise HTTPException(400, str(e)) from e
+
+    @app.get("/jobs/{name}/reply")
+    async def job_run_reply(name: str, at: str) -> JobRunReply:
+        """The reply of the job's run that started `at`, as the notification of that run links to it."""
+        try:
+            return JobRunReply(text=await service.job_run_reply(settings.owner_id, name, at))
+        except JobError as e:
+            raise HTTPException(404, str(e)) from e
 
     @app.delete("/jobs/{name}")
     async def delete_job(name: str) -> Ok:

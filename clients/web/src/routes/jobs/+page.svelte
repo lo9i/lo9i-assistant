@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from "$app/state";
   import CalendarClock from "@lucide/svelte/icons/calendar-clock";
   import History from "@lucide/svelte/icons/history";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -14,7 +15,11 @@
 
   const { client, notices } = useDaemon();
   const jobs = resource((c) => c.jobs.list(), ["jobs"]);
-  let picked = $state<string | null>(null);
+  // A job run's notification links here with ?job=<name>&run=<when it started>, opening that run.
+  let picked = $state<string | null>(page.url.searchParams.get("job"));
+  // The run whose whole reply shows (its record keeps only the end of it), by when it started.
+  let opened = $state<string | null>(page.url.searchParams.get("run"));
+  let reply = $state<{ at: string; text: string } | null>(null);
   let query = $state("");
   // By name or task.
   const shown = $derived((jobs.data ?? []).filter((j) => `${j.name} ${j.task}`.toLowerCase().includes(query.trim().toLowerCase())));
@@ -31,6 +36,25 @@
   function last(j: Job): string {
     const run = j.runs?.at(-1);
     return run ? run.status : "not run yet";
+  }
+
+  $effect(() => {
+    const name = job?.name;
+    const at = opened;
+    if (!name || !at || !job?.runs?.some((r) => r.at === at)) return;
+    client.jobs
+      .runReply(name, at)
+      .then((text) => (reply = { at, text }))
+      .catch(notices.report);
+  });
+
+  function pick(name: string): void {
+    picked = name;
+    opened = null;
+  }
+
+  function toggle(at: string): void {
+    opened = opened === at ? null : at;
   }
 
   function change(action: () => Promise<unknown>): void {
@@ -59,8 +83,8 @@
           <thead><tr><th>Job</th><th class="hide-narrow">Schedule</th><th>State</th><th class="hide-narrow">Last run</th></tr></thead>
           <tbody>
             {#each shown as j (j.name)}
-              <tr class:selected={j.name === job.name} onclick={() => (picked = j.name)}>
-                <td><button class="row-button" onclick={() => (picked = j.name)}>{j.name}</button></td>
+              <tr class:selected={j.name === job.name} onclick={() => pick(j.name)}>
+                <td><button class="row-button" onclick={() => pick(j.name)}>{j.name}</button></td>
                 <td class="hide-narrow">{every(j)}</td>
                 <td>
                   <span class="state">
@@ -106,17 +130,24 @@
       </section>
       <section class="runs-card surface--glass">
         <h3 class="micro-label">Recent runs</h3>
+        <p class="text-caption hint">Click a run to read its whole reply.</p>
         <div class="runs-scroll">
           {#if runs.length === 0}
             <EmptyState icon={History} title="Not run yet" text="Runs show up here after the job's first run." />
           {:else}
             <ul class="runs">
               {#each runs as run (run.at)}
-                <li>
+                <li class:opened={run.at === opened}>
                   <span class="status-dot" style:--tone={TONES[run.status]}></span>
                   <div>
-                    <span>{local(run.at, job.timezone)} · <strong>{run.status}</strong></span>
-                    {#if run.summary}<p class="text-meta">{run.summary}</p>{/if}
+                    <button class="run-button" aria-expanded={run.at === opened} onclick={() => toggle(run.at)}>
+                      {local(run.at, job.timezone)} · <strong>{run.status}</strong>
+                    </button>
+                    {#if run.at === opened && reply?.at === run.at}
+                      <div class="prose reply">{@html markdown(reply.text)}</div>
+                    {:else if run.summary}
+                      <p class="text-meta">{run.summary}</p>
+                    {/if}
                   </div>
                 </li>
               {/each}
@@ -291,6 +322,26 @@
   }
   .runs p {
     margin: 2px 0 0;
+  }
+  .runs li > div {
+    min-width: 0;
+  }
+  .hint {
+    margin: 4px 0 0;
+    padding: 0 16px;
+  }
+  .run-button {
+    border: 0;
+    background: none;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .reply {
+    margin-top: 6px;
+    overflow-wrap: anywhere;
   }
   @media (max-width: 900px) {
     .screen {

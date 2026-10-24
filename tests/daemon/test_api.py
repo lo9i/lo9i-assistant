@@ -310,6 +310,19 @@ async def test_notifications_are_listed_read_and_dismissed(client, service):
     assert await client.notifications.list() == []
 
 
+async def test_a_job_runs_reply_is_read_and_a_missing_run_is_a_job_error(client, service):
+    from assistant.core.jobs import store
+    from assistant.core.jobs.store import Job, JobError, RunRecord
+
+    at = "2026-10-24T09:00:00+00:00"
+    job = Job("news", "owner", "0 9 * * *", "UTC", "Read the news.", at)
+    job.record(RunRecord(at, "skipped", "the previous run was still going"))
+    await store.save(service.store, job)
+    assert await client.jobs.run_reply("news", at) == "the previous run was still going"
+    with pytest.raises(JobError):
+        await client.jobs.run_reply("news", "2026-10-23T09:00:00+00:00")
+
+
 async def test_threads_memory_and_channels(client):
     assert await client.new_thread("owner") != await client.new_thread("owner")
     assert (await client.memory.snapshot()).facts == []

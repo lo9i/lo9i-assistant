@@ -692,6 +692,11 @@ class FakeJobs:
             raise JobError(f"No job named {name}.")
         self.items.pop(name)
 
+    async def run_reply(self, name, at):
+        if not any(r.at == at for r in self.items[name].runs):
+            raise JobError(f"{name} has no run at {at}.")
+        return "Sent the digest: three headlines, the weather and the markets, in full."
+
 
 class FakeIdentity:
     def __init__(self):
@@ -900,7 +905,16 @@ class FakeNotifications:
     def __init__(self):
         self.items = [
             Notification("n1", _NEXT, "background", "plan my trip", "✅ Claude Code finished.", True, "owner:abc"),
-            Notification("n2", _NEXT, "job", "Job news", "Failed: no network", False),
+            Notification(
+                "n2",
+                _NEXT,
+                "job",
+                "Job daily-news",
+                "Sent the digest.",
+                True,
+                job="daily-news",
+                run_at="2026-09-29T09:00:00+00:00",
+            ),
         ]
 
     async def list(self):

@@ -228,6 +228,15 @@ export class JobsGroup {
   async delete(name: string): Promise<void> {
     await this.transport.request("DELETE", `/jobs/${encodeURIComponent(name)}`);
   }
+
+  /** The whole reply of the job's run that started `at`; its record keeps only the end of it. */
+  async runReply(name: string, at: string): Promise<string> {
+    const reply: Schemas["JobRunReply"] = await this.transport.request(
+      "GET",
+      `/jobs/${encodeURIComponent(name)}/reply?at=${encodeURIComponent(at)}`,
+    );
+    return reply.text;
+  }
 }
 
 /** The chat channels installed as plugins (Telegram, Slack): what each shows for setting it up, and its buttons. */

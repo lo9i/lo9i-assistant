@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ConversationsGroup } from "./client";
+import { ConversationsGroup, JobsGroup } from "./client";
 import type { Transport } from "./transport";
 
 function recording(): { transport: Transport; request: ReturnType<typeof vi.fn> } {
@@ -37,5 +37,15 @@ describe("ConversationsGroup.childFolders", () => {
       "/agents/folders/children?path=%2FUsers%2Fme",
       "/agents/folders/children?path=%2FUsers%2Fme&hidden=true",
     ]);
+  });
+});
+
+describe("JobsGroup.runReply", () => {
+  it("asks for the run by when it started and returns its whole reply", async () => {
+    const { transport, request } = recording();
+    request.mockResolvedValue({ text: "The whole reply." });
+    const text = await new JobsGroup(transport).runReply("daily news", "2026-10-24T09:00:00+00:00");
+    expect(request.mock.calls[0].slice(0, 2)).toEqual(["GET", "/jobs/daily%20news/reply?at=2026-10-24T09%3A00%3A00%2B00%3A00"]);
+    expect(text).toBe("The whole reply.");
   });
 });

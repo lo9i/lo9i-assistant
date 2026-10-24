@@ -186,11 +186,10 @@ class Scheduler:
 
 
 async def _notify(saved: BaseStore, job: Job, run: RunRecord) -> None:
-    """Into the notifications feed: a run's result, or why it failed or didn't run. A job's run isn't a
-    conversation the user opens, so there's none to link."""
+    """Into the notifications feed: a run's result, or why it failed or didn't run, opening on the job."""
     ok = run.status == "ok"
     text = run.summary if ok else f"{run.status.capitalize()}: {run.summary}"
-    await notifications.add(saved, job.user_id, "job", f"Job {job.name}", text, ok)
+    await notifications.add_job_run(saved, job.user_id, job.name, run.at, text, ok)
 
 
 async def _follow(events: AsyncIterator[Event], outcome: _Outcome) -> list[ApprovalRequired]:

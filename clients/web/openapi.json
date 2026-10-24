@@ -2884,6 +2884,55 @@
         }
       }
     },
+    "/jobs/{name}/reply": {
+      "get": {
+        "summary": "Job Run Reply",
+        "description": "The reply of the job's run that started `at`, as the notification of that run links to it.",
+        "operationId": "job_run_reply_jobs__name__reply_get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "at",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "At"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobRunReply"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/mcp/servers": {
       "get": {
         "summary": "Mcp Servers",
@@ -6373,6 +6422,20 @@
         ],
         "title": "JobChange"
       },
+      "JobRunReply": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "JobRunReply",
+        "description": "A job run's whole reply; its record keeps only the end of it."
+      },
       "KeptKeys": {
         "properties": {
           "plugin": {
@@ -7305,6 +7368,16 @@
             "type": "boolean",
             "title": "Read",
             "default": false
+          },
+          "job": {
+            "type": "string",
+            "title": "Job",
+            "default": ""
+          },
+          "run_at": {
+            "type": "string",
+            "title": "Run At",
+            "default": ""
           }
         },
         "type": "object",

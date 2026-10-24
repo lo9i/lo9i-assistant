@@ -1,7 +1,8 @@
 """The notifications feed: scheduled jobs' results and background work that ended (core/background.py),
 listed by the apps apart from any conversation (the web app's Notifications page, /notifications in the
 terminal app), newest first, besides the toast or chat message each one also gets. Each names the
-conversation its work was started in, when there is one, so the apps open it from there. One Store record
+conversation its work was started in, when there is one, so the apps open it from there; a job's run names
+its job and run instead, which the apps open on the Jobs page with the run's full reply. One Store record
 per notification under ("notifications", user_id); past _KEPT the oldest go."""
 
 from dataclasses import asdict, dataclass
@@ -30,6 +31,9 @@ class Notification:
     # The conversation the work was started in, to open it; "" for none (a scheduled job's run).
     thread_id: str = ""
     read: bool = False
+    # A job's run: the job's name and when the run started (RunRecord.at), to open it on the Jobs page.
+    job: str = ""
+    run_at: str = ""
 
 
 def _namespace(user_id: str) -> tuple[str, ...]:
@@ -40,10 +44,22 @@ async def add(
     store: BaseStore, user_id: str, kind: Kind, title: str, text: str, ok: bool, thread_id: str = ""
 ) -> Notification:
     notification = Notification(uuid4().hex, datetime.now(UTC).isoformat(), kind, title, text, ok, thread_id)
+    await _save(store, user_id, notification)
+    return notification
+
+
+async def add_job_run(store: BaseStore, user_id: str, job: str, run_at: str, text: str, ok: bool) -> Notification:
+    """A scheduled job's run, which opens on the Jobs page: its run isn't a conversation the user opens."""
+    at = datetime.now(UTC).isoformat()
+    notification = Notification(uuid4().hex, at, "job", f"Job {job}", text, ok, job=job, run_at=run_at)
+    await _save(store, user_id, notification)
+    return notification
+
+
+async def _save(store: BaseStore, user_id: str, notification: Notification) -> None:
     await store.aput(_namespace(user_id), notification.id, asdict(notification))
     for old in (await recent(store, user_id))[_KEPT:]:
         await store.adelete(_namespace(user_id), old.id)
-    return notification
 
 
 async def recent(store: BaseStore, user_id: str) -> list[Notification]:

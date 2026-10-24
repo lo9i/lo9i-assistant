@@ -45,6 +45,11 @@ def describe(job: Job) -> str:
     return f"### {job.name}\n\n{job.task}\n\n**Runs:** {timing(job)}, {state(job)}\n\n**Recent runs**\n\n{runs}"
 
 
+def with_reply(job: Job, at: str, reply: str) -> str:
+    """The job's description with the whole reply of its run that started `at`."""
+    return f"{describe(job)}\n\n**Reply of {_local(at, job.timezone)}**\n\n{reply}"
+
+
 def _run(run: RunRecord, timezone: str) -> str:
     detail = f": {run.summary}" if run.summary else ""
     return f"- {_local(run.at, timezone)} **{run.status}**{detail}"

@@ -602,7 +602,7 @@ class AssistantApp(App):
         self.push_screen(screen, self._resume)
 
     async def _command_notifications(self, _: str) -> None:
-        self.push_screen(NotificationsScreen(self._service.notifications), self._resume)
+        self.push_screen(NotificationsScreen(self._service.notifications, self._service.jobs), self._resume)
 
     @reports_daemon_unavailable
     async def _resume(self, thread_id: str | None) -> None:
