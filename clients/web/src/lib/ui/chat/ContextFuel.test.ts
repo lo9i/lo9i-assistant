@@ -40,6 +40,17 @@ describe("ContextFuel", () => {
     expect(body).toContain("Claude Code's context: 61k / 200k tokens (31%), as of its last answer.");
   });
 
+  it("fades from the accent colour to yellow and then to red as it fills", () => {
+    const at = (tokens: number) => {
+      loaded.data = { ...stats, context_tokens: tokens, context_limit: 100000 };
+      return render(ContextFuel, { props: { threadId: "t1" } }).body;
+    };
+    expect(at(50000)).toContain('style="color: var(--color-accent)"');
+    expect(at(62500)).toContain('style="color: color-mix(in oklab, #e5b931 50%, var(--color-accent))"');
+    expect(at(87500)).toContain('style="color: color-mix(in oklab, #e5534b 50%, #e5b931)"');
+    expect(at(100000)).toContain('style="color: color-mix(in oklab, #e5534b 100%, #e5b931)"');
+  });
+
   it("is hidden before the agent's first answer and for another conversation", () => {
     loaded.data = { ...stats, context_tokens: 0, context_limit: 0, context_agent: "Claude Code" };
     expect(render(ContextFuel, { props: { threadId: "t1" } }).body).not.toContain("fuel");

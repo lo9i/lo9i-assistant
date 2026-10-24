@@ -16,7 +16,21 @@
   const SEGMENTS = 24;
   const filled = $derived(Math.round(ratio * SEGMENTS));
   const percent = $derived(Math.round(ratio * 100));
-  const color = $derived(ratio > 0.9 ? "#e5534b" : ratio > 0.7 ? "#e5b931" : "var(--color-accent)");
+  // The accent colour until half full, then fading to yellow at three quarters and to red when full.
+  const YELLOW = "#e5b931";
+  const RED = "#e5534b";
+  const color = $derived(
+    ratio <= 0.5
+      ? "var(--color-accent)"
+      : ratio <= 0.75
+        ? `color-mix(in oklab, ${YELLOW} ${share(ratio, 0.5)}%, var(--color-accent))`
+        : `color-mix(in oklab, ${RED} ${share(ratio, 0.75)}%, ${YELLOW})`,
+  );
+
+  /** How far `ratio` is through the quarter that starts at `from`, as a percentage. */
+  function share(ratio: number, from: number): number {
+    return Math.round(((ratio - from) / 0.25) * 100);
+  }
   const title = $derived.by(() => {
     if (!shown) return "";
     const figures = `${compact(shown.context_tokens)} / ${compact(shown.context_limit)} tokens (${percent}%)`;
