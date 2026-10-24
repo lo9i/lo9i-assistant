@@ -5,10 +5,10 @@ import tempfile
 from pathlib import Path
 
 import httpx
-import uvicorn
 
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
+from assistant.daemon.http_server import HttpServer, Listener
 from assistant.daemon.runs import RunHub
 from assistant.protocol import CLIENT_HEADER
 
@@ -61,16 +61,16 @@ async def test_unix_socket_requests_are_not_checked_for_the_host(service):
     # Short path: macOS limits Unix socket paths to 104 bytes.
     socket_path = Path(tempfile.mkdtemp(prefix="lo9i-")) / "d.sock"
     app = trusted(create_app(service, RunHub()))  # As the daemon serves its socket.
-    server = uvicorn.Server(uvicorn.Config(app, uds=str(socket_path), lifespan="off"))
-    task = asyncio.create_task(server.serve())
+    stop = asyncio.Event()
+    task = asyncio.create_task(HttpServer(app, Listener(socket=str(socket_path))).serve(stop))
     try:
-        while not server.started:
+        while not socket_path.exists():
             await asyncio.sleep(0.01)
         transport = httpx.AsyncHTTPTransport(uds=str(socket_path))
         async with httpx.AsyncClient(transport=transport, base_url="http://lo9i", headers={CLIENT_HEADER: "t"}) as http:
             assert (await http.get("/conversations")).status_code == 200
     finally:
-        server.should_exit = True
+        stop.set()
         await task
         socket_path.unlink(missing_ok=True)
         socket_path.parent.rmdir()

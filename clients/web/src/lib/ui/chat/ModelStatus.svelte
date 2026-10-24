@@ -7,11 +7,14 @@
 </script>
 
 {#if model.data && !model.error}
-  <span class="model" title="Provider: {model.data.provider} · worker: {model.data.worker_model}">model: {model.data.model}</span>
+  <span class="model" title="Provider: {model.data.provider} · worker: {model.data.worker_model}">{model.data.model}</span>
 {/if}
 
 <style>
   .model {
     cursor: default;
+    border: 1px solid var(--color-border, currentColor);
+    border-radius: 999px;
+    padding: 0 8px;
   }
 </style>

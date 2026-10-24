@@ -1,6 +1,6 @@
 """The areas of the assistant a log record comes from, by its logger: loggers are named after their
 module (`assistant.core.mcp.process`), so an area is the packages and modules it covers. The most
-specific prefix wins. Anything else, libraries such as uvicorn or the MCP SDK, is `OTHER`."""
+specific prefix wins. Anything else, libraries such as Hypercorn or the MCP SDK, is `OTHER`."""
 
 OTHER = "other"
 

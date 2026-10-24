@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 
 # Waits only for the page to take the connection; once open, it stays as long as both sides want it.
 _OPEN_SECONDS = 10
-# uvicorn's limit for what the browser sends, so both directions take the same.
+# The server's limit for what the browser sends (Hypercorn's websocket_max_message_size), so both directions
+# take the same.
 _MAX_MESSAGE = 16 * 1024 * 1024
 # Codes a close frame may carry (RFC 6455 7.4); the others only describe how a connection ended.
 _UNSENDABLE = {1005, 1006, 1015}
