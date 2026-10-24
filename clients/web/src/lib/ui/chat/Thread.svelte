@@ -251,7 +251,7 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 10px;
     padding: 16px 16px 8px;
   }
   .row {
