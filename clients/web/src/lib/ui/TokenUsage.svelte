@@ -4,6 +4,7 @@
   import { resource } from "$lib/daemon.svelte";
   import EmptyState from "./EmptyState.svelte";
   import TokenLine from "./TokenLine.svelte";
+  import TokenBars from "./TokenBars.svelte";
 
   let { days }: { days: number } = $props();
 
@@ -71,7 +72,7 @@
   <div class="tiles">
     <div class="tile surface--glass">
       <span class="micro-label">Model calls</span>
-      <TokenLine points={callSeries} label="Model calls per day" />
+      <TokenBars points={callSeries} label="Model calls per day" />
       <span class="text-caption">
         {total.calls} total{report.data?.estimated_calls ? ` · ${report.data.estimated_calls} estimated` : ""}
       </span>
