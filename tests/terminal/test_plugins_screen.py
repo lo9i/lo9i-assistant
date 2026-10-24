@@ -260,3 +260,43 @@ def test_a_plugin_a_repository_couldnt_read_is_named_with_the_repository():
         "me/plugins: Couldn't get the repository",
         "lo9i/lo9i-assistant-extras: apps/finance/ledger/server.yaml can't be used: bad",
     ]
+
+
+def _checked(screen) -> str:
+    return str(screen.query_one("#plugins-checked").render())
+
+
+async def test_the_list_shows_at_once_as_last_checked_then_the_repositories_are_checked(app, client):
+    async with app.run_test(size=(120, 44)) as pilot:
+        screen = await _open(pilot, app)
+        await wait_for(pilot, lambda: client.repositories.checks_made == 1)
+        await wait_for(pilot, lambda: _checked(screen) == "Checked just now")
+        assert screen.query_one("#plugins-list", OptionList).option_count == 4
+        screen.query_one("#refresh", Button).press()
+        await wait_for(pilot, lambda: client.repositories.checks_made == 2)
+
+
+async def test_a_check_that_cant_reach_the_repositories_keeps_the_list_from_the_last_one(app, client):
+    client.repositories.check_fails = True
+    async with app.run_test(size=(120, 44)) as pilot:
+        screen = await _open(pilot, app)
+        await wait_for(pilot, lambda: _checked(screen).startswith("Couldn't check for updates · checked"))
+        assert screen.query_one("#plugins-list", OptionList).option_count == 4
+
+
+def test_the_last_check_is_the_oldest_and_none_while_one_never_was():
+    from datetime import UTC, datetime
+
+    from assistant_terminal.plugins_text import checked_line, last_checked
+
+    extras = Repository(EXTRAS, "lo9i/lo9i-assistant-extras", True)
+    older, newer = "2030-01-01T09:00:00+00:00", "2030-01-01T10:00:00+00:00"
+    read = [
+        RepositoryPlugins(extras, RepositoryContents([], [], [], newer)),
+        RepositoryPlugins(extras, RepositoryContents([], [], [], older)),
+    ]
+    assert last_checked(read) == older
+    assert last_checked([*read, RepositoryPlugins(extras, None, "no network")]) == ""
+    now = datetime(2030, 1, 1, 12, tzinfo=UTC)
+    assert checked_line(older, False, False, now) == "Checked 3 hours ago"
+    assert checked_line("", True, False, now) == "Checking for updates…"

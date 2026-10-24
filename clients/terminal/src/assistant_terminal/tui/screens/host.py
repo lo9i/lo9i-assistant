@@ -107,8 +107,9 @@ class HostScreen(ModalScreen[None]):
 
     async def _show(self, update: UpdateStatus) -> None:
         host = await self._system.host()
-        await self.query_one("#host-body", Markdown).update(describe(host, update))
+        # Before the text: once it says what's new, Update works.
         self.query_one("#update", Button).disabled = not can_install(update)
+        await self.query_one("#host-body", Markdown).update(describe(host, update))
 
 
 def ending_text(does: str, waiting: int) -> str:

@@ -1,11 +1,14 @@
 """Plugins: the MCP servers and skills the repositories offer (the official extras and the ones the user
 added under Repositories), each installed or not, to install, update or remove; as in the web app's
-Plugins page. The repositories are downloaded to list them, so the list loads when the screen opens and
-after each action, not on every daemon event."""
+Plugins page. The list shows at once as the repositories offered it when last checked, then they're checked
+again in the background (Refresh checks again); a check that finds something new saves it, announced as
+`plugins`, and the list is read again then."""
 
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import ClassVar
 
+import httpx
 from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
@@ -14,16 +17,19 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
+from assistant.client import DaemonUnavailableError
 from assistant.client.daemon_client import ChannelsApi, EmailApi, McpApi, OAuthApi, RepositoriesApi, SkillsApi
-from assistant.core.agent import McpServerError, RepositoryError, ServerValues, SkillError
+from assistant.core.agent import McpServerError, RepositoryError, RepositoryPlugins, ServerValues, SkillError
 from assistant_terminal.plugins_text import (
     Plugin,
     by_category,
     category_label,
+    checked_line,
     describe,
     from_repositories,
     has_newer,
     label,
+    last_checked,
     matches,
     updatable,
 )
@@ -57,6 +63,8 @@ class PluginsScreen(ModalScreen[None]):
         self._all: list[Plugin] = []
         # A plugin's key, or "category:<name>" for a category's shared settings.
         self._selected: str | None = None
+        # When the repositories were last checked, as the list shown; "" while one never was.
+        self._checked = ""
 
     def compose(self) -> ComposeResult:
         with Vertical(id="plugins"):
@@ -64,6 +72,7 @@ class PluginsScreen(ModalScreen[None]):
                 "Plugins: MCP servers, chat channels and skills from the official extras and your repositories",
                 id="plugins-title",
             )
+            yield Static("", id="plugins-checked")
             yield Input(placeholder="Search plugins", id="plugins-search")
             with Horizontal(id="plugins-main"):
                 yield OptionList(id="plugins-list")
@@ -86,6 +95,7 @@ class PluginsScreen(ModalScreen[None]):
     async def on_mount(self) -> None:
         self._show_checks(await self._repositories.update_checks())
         await self._load()
+        self._check()
 
     @on(Button.Pressed, "#checks")
     @reports_daemon_unavailable
@@ -100,10 +110,31 @@ class PluginsScreen(ModalScreen[None]):
 
     @reports_daemon_unavailable
     async def _load(self) -> None:
-        self._all, unread = from_repositories(await self._repositories.plugins())
+        """As the repositories offered it when last checked; installed or not is read fresh."""
+        await self._apply(await self._repositories.plugins(cached=True))
+
+    @work(exclusive=True, group="check")
+    async def _check(self) -> None:
+        """Reaches the repositories again. Quiet when it fails: the list from the last check stays."""
+        self._show_checked(checking=True)
+        try:
+            read = await self._repositories.plugins()
+        except (DaemonUnavailableError, httpx.HTTPError):
+            self._show_checked(failed=True)
+            return
+        await self._apply(read)
+
+    async def _apply(self, read: list[RepositoryPlugins]) -> None:
+        self._all, unread = from_repositories(read)
         for error in unread:
             self.notify(error, severity="error", timeout=10)
+        self._checked = last_checked(read)
+        self._show_checked()
         await self._list()
+
+    def _show_checked(self, checking: bool = False, failed: bool = False) -> None:
+        line = checked_line(self._checked, checking, failed, datetime.now(UTC))
+        self.query_one("#plugins-checked", Static).update(line)
 
     @on(Button.Pressed, "#repositories")
     @work
@@ -148,8 +179,8 @@ class PluginsScreen(ModalScreen[None]):
         self.dismiss()
 
     @on(Button.Pressed, "#refresh")
-    async def _refresh(self) -> None:
-        await self._load()
+    def _refresh(self) -> None:
+        self._check()
 
     @on(Button.Pressed, "#install")
     @work
@@ -231,8 +262,9 @@ class PluginsScreen(ModalScreen[None]):
 
     @reports_daemon_unavailable
     async def reload(self) -> None:
-        """Called when the daemon reports a change, such as a channel's new pairing code. The extras
-        aren't downloaded again: only the shown plugin's setup is."""
+        """Called when the daemon reports a change: a check that found something new (`plugins`), a channel's new
+        pairing code. The list is read as last checked, which downloads nothing, and the shown plugin's setup."""
+        await self._load()
         await self._show_setup(self._current())
 
     async def _show_setup(self, plugin: Plugin | None) -> None:

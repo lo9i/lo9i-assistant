@@ -4,6 +4,7 @@ import asyncio
 from dataclasses import replace
 from pathlib import Path
 
+import httpx
 import pytest
 
 import assistant_terminal.tui.app as app_module
@@ -582,6 +583,10 @@ class FakeRepositories:
 
         # Tokens the private ones were added with, by address.
         self.tokens: dict[str, str] = {}
+        # When the listings kept were last checked, and checks made (each reaches the repositories).
+        self.last_check = "2029-12-31T09:00:00+00:00"
+        self.checks_made = 0
+        self.check_fails = False
 
     async def forget_keys(self, kept):
         self.forgotten = kept
@@ -603,13 +608,19 @@ class FakeRepositories:
         self.added.remove(url)
         self.tokens.pop(url, None)
 
-    async def plugins(self):
+    async def plugins(self, cached=False):
+        """`cached`: as last checked (`last_check`); otherwise a check, which fails when `check_fails`."""
+        if not cached:
+            self.checks_made += 1
+            if self.check_fails:
+                raise httpx.ConnectError("no network")
+            self.last_check = "2030-01-01T09:00:00+00:00"
         if self.unreachable:
             extras = RepositoryPlugins((await self.list())[0], None, "Couldn't get the repository: no network")
             return [extras]
         listed = await self.list()
-        mine = [RepositoryPlugins(r, RepositoryContents([], list(self.mine))) for r in listed[1:]]
-        return [RepositoryPlugins(listed[0], await self.browse()), *mine]
+        mine = [RepositoryPlugins(r, RepositoryContents([], list(self.mine), [], self.last_check)) for r in listed[1:]]
+        return [RepositoryPlugins(listed[0], replace(await self.browse(), checked=self.last_check)), *mine]
 
     async def updates(self):
         return list(self.pending) if self.checks else []

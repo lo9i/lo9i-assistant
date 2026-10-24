@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
+from datetime import UTC, datetime
 
 from assistant.client import DaemonClient, DaemonUnavailableError
 from assistant.client.files import load_attachment
@@ -23,7 +24,7 @@ from assistant_terminal.logs_text import log_line
 from assistant_terminal.mcp_text import shown as shown_servers
 from assistant_terminal.mcp_text import summary as mcp_summary
 from assistant_terminal.notifications_text import notification_line
-from assistant_terminal.plugins_text import from_repositories, source
+from assistant_terminal.plugins_text import checked_line, from_repositories, last_checked, source
 from assistant_terminal.render import render
 from assistant_terminal.sessions_text import describe as describe_sessions
 from assistant_terminal.style import GREEN, RESET, YELLOW, code, paint
@@ -201,7 +202,10 @@ class Repl:
     async def _plugins(self, _: str) -> None:
         """Lists them, the installed channels' setup and the email accounts; installing, pressing a
         channel's buttons and connecting an account need the full app (they ask for values)."""
-        found, unread = from_repositories(await self._service.repositories.plugins())
+        read = await self._service.repositories.plugins(cached=True)
+        found, unread = from_repositories(read)
+        if checked := last_checked(read):
+            print(f"As the repositories offered them when last checked ({_checked(checked)}).")
         print(
             "\n".join(
                 f"{p.name} ({source(p)}): {'installed' if p.installed else 'not installed'}. {p.description}"
@@ -385,3 +389,7 @@ async def _answer_question(request: dict) -> dict:
     numbers = {int(n) for n in answer.split() if n.isdigit()}
     picked = [o for i, o in enumerate(options, 1) if i in numbers]
     return {"choices": (picked if request.get("multiple") else picked[:1]) if answer else None}
+
+
+def _checked(checked: str) -> str:
+    return checked_line(checked, checking=False, failed=False, now=datetime.now(UTC)).lower()

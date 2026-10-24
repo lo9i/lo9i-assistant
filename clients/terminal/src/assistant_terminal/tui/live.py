@@ -39,7 +39,9 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         await app.reload_screen()
 
     async def plugins(_: dict[str, Any]) -> None:
+        """A check of the repositories found something new: the title's updates and the Plugins list."""
         await app.refresh_plugin_updates()
+        await app.reload_screen()
 
     async def thread(_: dict[str, Any]) -> None:
         """The conversation's pinned skills or the agent it's handed to changed."""

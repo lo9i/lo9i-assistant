@@ -2,6 +2,7 @@
 and the ones the user added), and one plugin's details."""
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from assistant.core.agent import FoundServer, FoundSkill, Repository, RepositoryContents, RepositoryPlugins
 from assistant.core.repositories.known import EXTRAS
@@ -102,6 +103,32 @@ def from_repositories(read: list[RepositoryPlugins]) -> tuple[list[Plugin], list
     errors = [f"{r.repository.name}: {r.error}" for r in read if r.error]
     problems = [f"{r.repository.name}: {p}" for r in read if r.contents for p in r.contents.problems]
     return found, [*errors, *problems]
+
+
+def last_checked(read: list[RepositoryPlugins]) -> str:
+    """When every repository was last checked: the oldest of their checks, "" while one never was (as the web
+    app's lib/plugins.ts says it)."""
+    times = [r.contents.checked if r.contents else "" for r in read]
+    return "" if not times or "" in times else min(times)
+
+
+def checked_line(checked: str, checking: bool, failed: bool, now: datetime) -> str:
+    """Beside the list, which is the one kept from the last check while the repositories are checked again."""
+    if checking:
+        return "Checking for updates…"
+    when = f"checked {_ago(datetime.fromisoformat(checked), now)}" if checked else ""
+    if failed:
+        return "Couldn't check for updates" + (f" · {when}" if when else "")
+    return when.capitalize()
+
+
+def _ago(then: datetime, now: datetime) -> str:
+    minutes = int((now - (then if then.tzinfo else then.replace(tzinfo=UTC))).total_seconds() // 60)
+    for size, unit in ((24 * 60, "day"), (60, "hour"), (1, "minute")):
+        if minutes >= size:
+            count = minutes // size
+            return f"{count} {unit}{'s' if count > 1 else ''} ago"
+    return "just now"
 
 
 def source(plugin: Plugin) -> str:
