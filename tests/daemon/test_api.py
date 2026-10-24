@@ -411,6 +411,39 @@ async def test_unknown_run_is_404(app):
         assert (await http.get("/runs/nope/events")).status_code == 404
 
 
+async def test_a_conversation_opens_with_its_messages_and_the_runs_in_progress_there(service, script):
+    script.reply("Hello.")
+    hub = RunHub()
+    session = Session("owner", "cli", await service.new_thread("owner"))
+    await collect(service.send(session, "hi"))
+    release = asyncio.Event()
+
+    async def waiting():
+        await release.wait()
+        yield Done()
+
+    run = hub.start(session.thread_id, waiting(), channel="telegram", text="and now?")
+    hub.start("elsewhere", waiting())
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=trusted(create_app(service, hub))),
+        base_url="http://127.0.0.1",
+        headers={CLIENT_HEADER: "t"},
+    ) as http:
+        live = (await http.get(f"/conversations/{session.thread_id}/live")).json()
+    release.set()
+    assert [m["text"] for m in live["messages"]] == ["hi", "Hello."]
+    assert live["runs"] == [
+        {
+            "run_id": run.id,
+            "thread_id": session.thread_id,
+            "channel": "telegram",
+            "client_id": "",
+            "text": "and now?",
+            "notice": "",
+        }
+    ]
+
+
 async def test_a_profile_edit_with_an_unknown_section_or_too_many_items_is_422(app):
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=trusted(app)), base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}

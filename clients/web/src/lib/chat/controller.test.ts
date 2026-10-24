@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { ApiError } from "../api/errors";
-import type { ApprovalRequired, Decision, RunEvent, Session } from "../api/types";
+import type { ApprovalRequired, Decision, RunEvent, RunInProgress, Session } from "../api/types";
 import { NoticeBoard } from "../notices";
 import { ChatController, type ChatClient } from "./controller";
 import { finalReply } from "./transcript";
 
-/** A daemon whose runs play the queued events. With `keepOpen`, a run stays open after them. */
+/** A daemon whose runs play the queued events, those followed and those in progress in a conversation alike. With
+ * `keepOpen`, a run stays open after them; with `slowHistory`, a conversation's history loads once it resolves. */
 class FakeDaemon implements ChatClient {
   clientId = "me";
   saved = new Set(["t1"]);
@@ -14,8 +15,18 @@ class FakeDaemon implements ChatClient {
   keepOpen = false;
   // What a conversation's run stopped for and waits on, until it's resumed.
   waiting = new Map<string, ApprovalRequired[]>();
+  // The runs in progress in each conversation, oldest first.
+  inProgress = new Map<string, RunInProgress[]>();
+  slowHistory: Promise<void> | null = null;
+  loading: string[] = [];
+  followed: string[] = [];
   conversations = {
-    messages: async () => [{ role: "user", text: "earlier", detail: "", output: "", dispatch_id: "", call_id: "", partial: false }],
+    live: async (threadId: string) => {
+      this.loading.push(threadId);
+      await this.slowHistory;
+      const messages = [{ role: "user", text: "earlier", detail: "", output: "", dispatch_id: "", call_id: "", partial: false }];
+      return { messages, runs: this.inProgress.get(threadId) ?? [] };
+    },
     approvals: async (threadId: string) => this.waiting.get(threadId) ?? [],
   };
 
@@ -48,7 +59,10 @@ class FakeDaemon implements ChatClient {
     this.waiting.delete(session.thread_id);
     return this.play(signal);
   };
-  followRun = (_id: string, signal: AbortSignal) => this.play(signal);
+  followRun = (id: string, signal: AbortSignal) => {
+    this.followed.push(id);
+    return this.play(signal);
+  };
 
   private async *play(signal: AbortSignal): AsyncGenerator<RunEvent> {
     for (const event of this.runs.shift() ?? []) {
@@ -60,6 +74,15 @@ class FakeDaemon implements ChatClient {
     }
   }
 }
+
+const inProgress = (run_id: string, text: string, client_id = "me"): RunInProgress => ({
+  run_id,
+  thread_id: "t1",
+  channel: client_id ? "web" : "telegram",
+  client_id,
+  text,
+  notice: "",
+});
 
 const texts = (chat: ChatController) => chat.getSnapshot().transcript.items.map((i) => ("text" in i ? i.text : i.kind));
 
@@ -251,6 +274,96 @@ describe("ChatController", () => {
     expect(texts(chat)).toEqual(["earlier", "hi", "from telegram"]);
     await chat.mirror({ run_id: "r2", thread_id: "t1", channel: "web", client_id: "me", text: "mine" });
     expect(texts(chat)).toHaveLength(3);
+  });
+});
+
+describe("ChatController with a run in progress on showing a conversation", () => {
+  beforeEach(() => {
+    board = new NoticeBoard();
+  });
+
+  it("follows it from its start after the history before it, as if the page had been watching", async () => {
+    const daemon = new FakeDaemon();
+    daemon.inProgress.set("t1", [inProgress("r1", "long task")]);
+    daemon.runs = [
+      [
+        { type: "ToolStarted", name: "bash", args: { command: "make" }, id: "c1" },
+        { type: "ToolFinished", name: "bash", output: "built" },
+        { type: "TextDelta", text: "Built it." },
+        { type: "Done" },
+      ],
+    ];
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    await until(() => texts(chat).length === 4 && !chat.getSnapshot().mirroring);
+    expect(texts(chat)).toEqual(["earlier", "long task", "tool", "Built it."]);
+    const [, user, tool] = chat.getSnapshot().transcript.items;
+    expect(user).toMatchObject({ kind: "user", channel: undefined });
+    expect(tool).toMatchObject({ state: "done", output: "built" });
+  });
+
+  it("follows the runs in progress one after another, each after what started it", async () => {
+    const daemon = new FakeDaemon();
+    daemon.inProgress.set("t1", [inProgress("r1", "first?", ""), inProgress("r2", "second?")]);
+    daemon.runs = [
+      [{ type: "TextDelta", text: "First." }, { type: "Done" }],
+      [{ type: "TextDelta", text: "Second." }, { type: "Done" }],
+    ];
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    await until(() => texts(chat).length === 5);
+    expect(texts(chat)).toEqual(["earlier", "first?", "First.", "second?", "Second."]);
+    expect(chat.getSnapshot().transcript.items[1]).toMatchObject({ channel: "telegram" });
+  });
+
+  it("shows it once when its run event comes too", async () => {
+    const daemon = new FakeDaemon();
+    const run = inProgress("r1", "hi", "");
+    daemon.inProgress.set("t1", [run]);
+    daemon.runs = [[{ type: "TextDelta", text: "working" }]];
+    daemon.keepOpen = true;
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    await until(() => texts(chat).includes("working"));
+    await chat.mirror(run);
+    expect(daemon.followed).toEqual(["r1"]);
+    expect(texts(chat)).toEqual(["earlier", "hi", "working"]);
+  });
+
+  it("shows a run announced while the history loads after it, unless it's among the runs in progress", async () => {
+    const daemon = new FakeDaemon();
+    daemon.saved.add("t3");
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    let loaded = () => {};
+    daemon.slowHistory = new Promise((resolve) => (loaded = resolve));
+    const listed = { ...inProgress("r1", "listed", ""), thread_id: "t3" };
+    daemon.inProgress.set("t3", [listed]);
+    daemon.runs = [[{ type: "Done" }], [{ type: "Done" }]];
+    const resumed = chat.resume("t3");
+    await until(() => daemon.loading.includes("t3"));
+    const announced = chat.mirror({ ...listed, run_id: "r2", text: "announced" });
+    const again = chat.mirror(listed);
+    loaded();
+    await Promise.all([resumed, announced, again]);
+    await until(() => !chat.getSnapshot().mirroring);
+    expect(daemon.followed.sort()).toEqual(["r1", "r2"]);
+    expect(texts(chat)).toEqual(["earlier", "listed", "announced"]);
+  });
+
+  it("stops following when the page goes to another conversation, and follows again on coming back", async () => {
+    const daemon = new FakeDaemon();
+    daemon.saved.add("t3");
+    daemon.inProgress.set("t1", [inProgress("r1", "a"), inProgress("r2", "b")]);
+    daemon.runs = [[{ type: "TextDelta", text: "working" }], [{ type: "TextDelta", text: "working again" }]];
+    daemon.keepOpen = true;
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    await until(() => texts(chat).includes("working"));
+    await chat.resume("t3");
+    await settle();
+    expect(chat.getSnapshot()).toMatchObject({ threadId: "t3", mirroring: false });
+    expect(texts(chat)).toEqual(["earlier"]);
+    expect(daemon.followed).toEqual(["r1"]);
+    await chat.resume("t1");
+    await until(() => texts(chat).includes("working again"));
+    expect(texts(chat)).toEqual(["earlier", "a", "working again"]);
+    expect(chat.getSnapshot().mirroring).toBe(true);
   });
 });
 

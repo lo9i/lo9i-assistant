@@ -59,10 +59,20 @@ class RunsMixin(LockingMixin, SearchMixin):
         """A run of the conversation: the graph's, or a handed-off agent's (handoffs.py). One at a time
         per conversation, cancellable, and indexed and pruned when it ends."""
         async with self._thread_lock(session.thread_id):
-            async for event in self._cancellable(session, events):
-                yield event
-            await self._index_after_run(session.user_id, session.thread_id)
-            await checkpoints.prune(self._storage.checkpointer, session.thread_id)
+            await self._mark_start(session.thread_id)
+            try:
+                async for event in self._cancellable(session, events):
+                    yield event
+                await self._index_after_run(session.user_id, session.thread_id)
+                await checkpoints.prune(self._storage.checkpointer, session.thread_id)
+            finally:
+                self._run_starts.pop(session.thread_id, None)
+
+    async def _mark_start(self, thread_id: str) -> None:
+        """Where the run starts in its conversation's messages: while it runs, history a client follows it with
+        stops there (`messages_before_run`), since the client replays the run's events from its start."""
+        state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
+        self._run_starts[thread_id] = len(state.values.get("messages", []))
 
     async def prune_checkpoints(self) -> int:
         """Prunes the conversations saved before runs pruned their own (core/checkpoints.py), one at a

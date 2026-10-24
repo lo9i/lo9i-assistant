@@ -404,6 +404,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations/{thread_id}/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live Conversation
+         * @description Its messages up to its runs in progress, and those runs, oldest first, which a client follows from
+         *     their start (`/runs/<id>/events`) to show them as if it had been watching.
+         */
+        get: operations["live_conversation_conversations__thread_id__live_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/runs/{run_id}/events": {
         parameters: {
             query?: never;
@@ -3788,6 +3809,21 @@ export interface components {
             thread_id: string;
             /** Channel */
             channel: string;
+            /**
+             * Client Id
+             * @default
+             */
+            client_id: string;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /**
+             * Notice
+             * @default
+             */
+            notice: string;
         };
         /** RunRecord */
         RunRecord: {
@@ -3929,6 +3965,16 @@ export interface components {
             };
             /** Output */
             output: string;
+        };
+        /**
+         * ShownConversation
+         * @description A conversation as a client opens it while its runs may be in progress.
+         */
+        ShownConversation: {
+            /** Messages */
+            messages: components["schemas"]["ShownMessage"][];
+            /** Runs */
+            runs: components["schemas"]["RunInProgress"][];
         };
         /** ShownMessage */
         ShownMessage: {
@@ -4909,6 +4955,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunInProgress"][];
+                };
+            };
+        };
+    };
+    live_conversation_conversations__thread_id__live_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShownConversation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

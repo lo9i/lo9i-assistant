@@ -27,6 +27,15 @@ class ConversationsMixin(TitlesMixin):
         state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
         return shown(state.values.get("messages", []))
 
+    async def messages_before_run(self, thread_id: str) -> list[ShownMessage]:
+        """Its messages up to its run in progress, all of them when none runs, for a client that replays that
+        run's events from its start (daemon/runs.py). A run that starts while they're read stops them too, and
+        what came before a run never changes, so the run's own messages are never shown twice."""
+        before = self._run_starts.get(thread_id)
+        state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
+        start = before if before is not None else self._run_starts.get(thread_id)
+        return shown(state.values.get("messages", [])[:start])
+
     async def conversation_tool_call(self, thread_id: str, call_id: str) -> ShownCall:
         """A tool call in full, which its conversation's messages show only the start of (`partial`). Raises
         ConversationError when the conversation has no such call."""
