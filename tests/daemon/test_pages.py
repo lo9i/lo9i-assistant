@@ -25,6 +25,14 @@ import uvicorn
 async def app(scope, receive, send):
     if scope["type"] != "http":
         return
+    if scope["path"] == "/late":
+        await __import__("asyncio").sleep(2)
+    if scope["path"] == "/stream":
+        await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"text/event-stream")]})
+        await send({"type": "http.response.body", "body": b"data: one\\n\\n", "more_body": True})
+        await __import__("asyncio").sleep(1)
+        await send({"type": "http.response.body", "body": b"data: two\\n\\n"})
+        return
     seen = {"path": scope["path"], "query": scope["query_string"].decode(), "pid": __import__("os").getpid(),
             "headers": {k.decode(): v.decode() for k, v in scope["headers"]}}
     await send({"type": "http.response.start", "status": 200,
@@ -108,6 +116,20 @@ async def test_a_browser_that_leaves_before_sending_its_request_is_let_go_quietl
     await create_pages_app(pages)(scope, receive, send)
     assert sent[0]["status"] == 499
     assert "Traceback" not in caplog.text
+
+
+async def test_a_page_streams_for_as_long_as_it_writes_once_it_started_in_time(pages, monkeypatch):
+    from assistant.daemon import pages as page_proxy
+
+    monkeypatch.setattr(page_proxy, "FIRST_BYTE_SECONDS", 0.5)
+    async with _http(pages, await _paired(pages)) as http:
+        streamed = await http.get("/notes/stream")
+        late = await http.get("/notes/late")
+    # Its second event came a second after the first, past the time a page has to start answering.
+    assert (streamed.status_code, streamed.text) == (200, "data: one\n\ndata: two\n\n")
+    assert streamed.headers["content-type"] == "text/event-stream"
+    assert streamed.headers["content-security-policy"].startswith("frame-ancestors ")
+    assert (late.status_code, late.text) == (504, "The page of notes didn't answer in time.")
 
 
 async def test_pages_need_a_paired_device(pages):

@@ -12,17 +12,20 @@ page on its Unix socket (core/mcp/pages.py) as /<path>, with X-Forwarded-Prefix:
 can link back. The device cookie never reaches the page, and the page can't set cookies: those
 would be the web app's cookies too, since browsers don't separate cookies by port.
 
-A request is answered in one piece, within `_TIMEOUT`. What stays open (a terminal, live updates) is a
-WebSocket to the same path, passed through for as long as it lasts (daemon/page_sockets.py).
+A request's answer is passed on as the page writes it: the page has `FIRST_BYTE_SECONDS` to start answering,
+and then no time limit, so it can stream (Server-Sent Events, a long download). What goes both ways (a terminal)
+is a WebSocket to the same path, passed through for as long as it lasts (daemon/page_sockets.py).
 """
 
+import asyncio
 import logging
 from pathlib import Path
 
 import httpx
 from starlette.applications import Starlette
+from starlette.background import BackgroundTask
 from starlette.requests import ClientDisconnect, HTTPConnection, Request
-from starlette.responses import PlainTextResponse, RedirectResponse, Response
+from starlette.responses import PlainTextResponse, RedirectResponse, Response, StreamingResponse
 from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket
 
@@ -36,7 +39,8 @@ logger = logging.getLogger(__name__)
 
 # The web app finds pages at its own port plus this (clients/web/src/lib/pages.ts).
 PORT_OFFSET = 1
-_TIMEOUT = httpx.Timeout(30)
+# How long a page has to start answering; once it has, its answer may take as long as it streams.
+FIRST_BYTE_SECONDS = 30
 # Not passed on to the page: the daemon's credentials, and what the proxy sets itself.
 _REQUEST_DROPPED = {"host", "cookie", "authorization", "x-forwarded-prefix", "content-length", "connection"}
 _RESPONSE_DROPPED = {"set-cookie", "content-length", "transfer-encoding", "connection", "content-encoding"}
@@ -107,16 +111,32 @@ async def _forward(request: Request, socket: Path, name: str, path: str) -> Resp
         return Response(status_code=_CLIENT_GONE)
     headers = {k: v for k, v in request.headers.items() if k.lower() not in _REQUEST_DROPPED}
     headers["x-forwarded-prefix"] = f"/{name}"
-    transport = httpx.AsyncHTTPTransport(uds=str(socket))
+    query = f"?{request.url.query}" if request.url.query else ""
+    http = httpx.AsyncClient(transport=httpx.AsyncHTTPTransport(uds=str(socket)), base_url="http://page", timeout=None)
+    sent = http.build_request(request.method, f"/{path}{query}", headers=headers, content=body)
     try:
-        async with httpx.AsyncClient(transport=transport, base_url="http://page", timeout=_TIMEOUT) as http:
-            query = f"?{request.url.query}" if request.url.query else ""
-            answer = await http.request(request.method, f"/{path}{query}", headers=headers, content=body)
-    except httpx.TransportError as e:
-        logger.warning("The page of %s didn't answer: %s", name, e)
-        return PlainTextResponse(f"The page of {name} isn't answering yet. Try again in a moment.", 503)
+        async with asyncio.timeout(FIRST_BYTE_SECONDS):
+            answer = await http.send(sent, stream=True)
+    except (httpx.TransportError, TimeoutError) as e:
+        await http.aclose()
+        return _not_answering(name, e)
     kept = {k: v for k, v in answer.headers.items() if k.lower() not in _RESPONSE_DROPPED}
-    return Response(answer.content, answer.status_code, headers=kept)
+    closed = BackgroundTask(_close, answer, http)
+    return StreamingResponse(answer.aiter_bytes(), answer.status_code, headers=kept, background=closed)
+
+
+def _not_answering(name: str, error: Exception) -> Response:
+    if isinstance(error, TimeoutError):
+        logger.warning("The page of %s didn't start answering within %ss", name, FIRST_BYTE_SECONDS)
+        return PlainTextResponse(f"The page of {name} didn't answer in time.", 504)
+    logger.warning("The page of %s didn't answer: %s", name, error)
+    return PlainTextResponse(f"The page of {name} isn't answering yet. Try again in a moment.", 503)
+
+
+async def _close(answer: httpx.Response, http: httpx.AsyncClient) -> None:
+    """Once the answer was passed on, or the browser left in the middle of it."""
+    await answer.aclose()
+    await http.aclose()
 
 
 def _framed(response: Response) -> Response:

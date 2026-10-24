@@ -10,7 +10,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-import httpx
 import pytest
 import uvicorn
 from websockets.asyncio.client import connect, unix_connect
@@ -149,7 +148,7 @@ async def test_a_paired_device_talks_to_the_page_both_ways_under_its_prefix(serv
 
 
 async def test_it_stays_open_past_the_time_a_request_gets(service, page, pages_port, monkeypatch):
-    monkeypatch.setattr("assistant.daemon.pages._TIMEOUT", httpx.Timeout(0.1))
+    monkeypatch.setattr("assistant.daemon.pages.FIRST_BYTE_SECONDS", 0.1)
     _, token = await _paired(service)
     async with _open(pages_port, "/notes/", token, _page_origin()) as ws:
         await _seen(ws)
