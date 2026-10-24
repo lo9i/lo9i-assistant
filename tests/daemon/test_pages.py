@@ -10,6 +10,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from starlette.types import Message, Scope
 
 from assistant.core.agent import McpServer, McpServerChanges
 from assistant.core.mcp import folders
@@ -86,6 +87,27 @@ async def test_a_paired_device_sees_the_page_under_its_prefix_without_the_daemon
     assert "cookie" not in seen["headers"]
     assert "set-cookie" not in answer.headers
     assert answer.headers["content-security-policy"].startswith("frame-ancestors http://127.0.0.1:")
+
+
+async def test_a_browser_that_leaves_before_sending_its_request_is_let_go_quietly(pages, caplog):
+    token = await _paired(pages)
+    sent: list[Message] = []
+
+    async def receive() -> Message:
+        return {"type": "http.disconnect"}
+
+    async def send(message: Message) -> None:
+        sent.append(message)
+
+    scope: Scope = {
+        "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": "POST", "scheme": "http",
+        "path": "/notes/save", "raw_path": b"/notes/save", "query_string": b"", "root_path": "",
+        "headers": [(b"host", b"board:8766"), (b"cookie", f"{COOKIE}={token}".encode())],
+        "client": ("100.64.0.2", 5000), "server": ("board", 8766),
+    }  # fmt: skip
+    await create_pages_app(pages)(scope, receive, send)
+    assert sent[0]["status"] == 499
+    assert "Traceback" not in caplog.text
 
 
 async def test_pages_need_a_paired_device(pages):

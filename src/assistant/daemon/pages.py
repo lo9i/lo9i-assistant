@@ -21,7 +21,7 @@ from pathlib import Path
 
 import httpx
 from starlette.applications import Starlette
-from starlette.requests import HTTPConnection, Request
+from starlette.requests import ClientDisconnect, HTTPConnection, Request
 from starlette.responses import PlainTextResponse, RedirectResponse, Response
 from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket
@@ -42,6 +42,8 @@ _REQUEST_DROPPED = {"host", "cookie", "authorization", "x-forwarded-prefix", "co
 _RESPONSE_DROPPED = {"set-cookie", "content-length", "transfer-encoding", "connection", "content-encoding"}
 _METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"]
 _NOT_PAIRED = "Open this page from the assistant's web app on a paired device."
+# What the answer to a request whose browser left says, for the record (nginx's "client closed request").
+_CLIENT_GONE = 499
 
 
 def create_pages_app(service: AssistantService, streams: DeviceStreams | None = None) -> Starlette:
@@ -97,15 +99,19 @@ async def _device(service: AssistantService, request: HTTPConnection) -> Device 
 
 
 async def _forward(request: Request, socket: Path, name: str, path: str) -> Response:
+    try:
+        body = await request.body()
+    except ClientDisconnect:
+        # The browser left (the page closed, or it moved on) before sending all of it: nothing to pass on,
+        # and nobody to answer.
+        return Response(status_code=_CLIENT_GONE)
     headers = {k: v for k, v in request.headers.items() if k.lower() not in _REQUEST_DROPPED}
     headers["x-forwarded-prefix"] = f"/{name}"
     transport = httpx.AsyncHTTPTransport(uds=str(socket))
     try:
         async with httpx.AsyncClient(transport=transport, base_url="http://page", timeout=_TIMEOUT) as http:
             query = f"?{request.url.query}" if request.url.query else ""
-            answer = await http.request(
-                request.method, f"/{path}{query}", headers=headers, content=await request.body()
-            )
+            answer = await http.request(request.method, f"/{path}{query}", headers=headers, content=body)
     except httpx.TransportError as e:
         logger.warning("The page of %s didn't answer: %s", name, e)
         return PlainTextResponse(f"The page of {name} isn't answering yet. Try again in a moment.", 503)
