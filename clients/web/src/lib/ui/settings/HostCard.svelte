@@ -77,6 +77,13 @@
     }
   }
 
+  // Takes the kind as an argument: `{@const kind}` is derived from `confirming`, so read after clearing it, it's
+  // null and the restart would become a stop.
+  function answer(kind: Ending, yes: boolean): void {
+    confirming = null;
+    if (yes) void end(kind);
+  }
+
   async function check(): Promise<void> {
     checking = true;
     try {
@@ -194,13 +201,7 @@
   />
 {:else if confirming}
   {@const kind = confirming}
-  <Confirm
-    {...CONFIRM[kind]}
-    onanswer={(yes) => {
-      confirming = null;
-      if (yes) void end(kind);
-    }}
-  />
+  <Confirm {...CONFIRM[kind]} onanswer={(yes) => answer(kind, yes)} />
 {/if}
 
 {#if ending}
