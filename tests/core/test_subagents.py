@@ -135,4 +135,5 @@ async def test_kept_steps_stop_at_a_length_and_other_tools_keep_none(service, sc
     await collect(service.send(session, "go"))
     delegate, bash = [m for m in await service.conversation_messages(session.thread_id) if m.role == "tool"]
     assert delegate.steps[0].output == "exit code:\n…"
-    assert (bash.text, bash.detail, bash.output, bash.steps) == ("bash", "", "", [])
+    assert (bash.text, bash.detail, bash.output, bash.steps) == ("bash", "echo hi", "exit code: 0\nhi\n", [])
+    assert not bash.partial

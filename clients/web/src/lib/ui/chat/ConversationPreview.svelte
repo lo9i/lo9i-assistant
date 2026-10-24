@@ -5,7 +5,7 @@
   import { resolve } from "$app/paths";
   import type { ConnectedClient, Conversation, Device } from "$lib/api/types";
   import { fromHistory } from "$lib/chat/transcript";
-  import { resource } from "$lib/daemon.svelte";
+  import { resource, useDaemon } from "$lib/daemon.svelte";
   import { clientLabel, deviceLabel } from "$lib/sessions";
   import Confirm from "../Confirm.svelte";
   import EmptyState from "../EmptyState.svelte";
@@ -23,6 +23,7 @@
   };
   let { conversation, open, sessions, devices, oncontinue, ondelete }: Props = $props();
   let confirming = $state(false);
+  const { client } = useDaemon();
 
   // Reloads when the conversation gets new messages, which updates the conversation list.
   const messages = resource(
@@ -106,7 +107,15 @@
       {:else}
         <!-- A new Thread per conversation, so each one opens at its first message. -->
         {#key conversation.thread_id}
-          <Thread {items} thinking={false} name="" onsuggest={() => {}} follow={false}>
+          {@const threadId = conversation.thread_id}
+          <Thread
+            {items}
+            thinking={false}
+            name=""
+            onsuggest={() => {}}
+            loadCall={(callId) => client.conversations.toolCall(threadId, callId)}
+            follow={false}
+          >
             {#snippet end()}
               <button class="btn btn--primary reply" onclick={() => oncontinue(conversation.thread_id)}>
                 <Play size={14} />Continue

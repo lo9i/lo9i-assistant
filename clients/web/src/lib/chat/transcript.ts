@@ -1,6 +1,6 @@
 // What the chat shows: past messages, then each run's events as they arrive (like
 // src/assistant/gateways/cli/tui/turn.py). Pure functions, so the rules are testable without a page.
-import type { RunEvent, ShownMessage } from "../api/types";
+import type { RunEvent, ShownCall, ShownMessage } from "../api/types";
 
 export type ChatItem =
   | { kind: "user"; id: number; text: string; files: string[]; channel?: string }
@@ -18,8 +18,9 @@ export type ChatItem =
 
 export type ToolState = "running" | "done" | "cancelled";
 
-/** A tool call. A delegate call's subagent reports its own calls as `steps`. */
-export type ToolItem = ToolStep & { kind: "tool"; id: number; callId?: string; steps?: ToolStep[] };
+/** A tool call. A delegate call's subagent reports its own calls as `steps`. One from history that's `partial`
+ * shows its arguments on one line and the start of its output: the whole call loads by `callId` when opened. */
+export type ToolItem = ToolStep & { kind: "tool"; id: number; callId?: string; partial?: boolean; steps?: ToolStep[] };
 
 export type ToolStep = { name: string; args?: Record<string, unknown>; output?: string; state: ToolState };
 
@@ -130,12 +131,19 @@ function addShown(t: Transcript, message: ShownMessage): Transcript {
 }
 
 /** A handed-off agent's tool call comes with what it was about and its output, a delegate call with its task,
- * the subagent's steps and its answer, as they were shown live. */
+ * the subagent's steps and its answer, as they were shown live. Any other call comes with its arguments on one
+ * line and the start of its output, `partial` when the whole call is worth loading (`withWhole`). */
 function shownTool(message: ShownMessage): Omit<ToolItem, "id"> {
   const args = message.detail ? { detail: message.detail } : undefined;
   const steps = message.steps?.map((s): ToolStep => ({ name: s.name, args: s.args, output: s.output, state: "done" }));
   const item = { kind: "tool" as const, name: message.text, args, output: message.output || undefined, state: "done" as const };
-  return steps?.length ? { ...item, steps } : item;
+  const call = { ...item, ...(message.call_id ? { callId: message.call_id } : {}), ...(message.partial ? { partial: true } : {}) };
+  return steps?.length ? { ...call, steps } : call;
+}
+
+/** A call from history with all its arguments and its whole output, loaded when it was opened. */
+export function withWhole(item: ToolItem, call: ShownCall): ToolItem {
+  return { ...item, args: call.args, output: call.output || undefined, partial: false };
 }
 
 /** Thinking streams: an event right after another continues it. */

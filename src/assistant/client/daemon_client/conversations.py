@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from urllib.parse import quote
 
 from assistant.client.daemon_client.transport import Transport
 from assistant.core.agent import (
@@ -11,6 +12,7 @@ from assistant.core.agent import (
     FolderListing,
     Handoff,
     HandoffError,
+    ShownCall,
     ShownMessage,
     SkillError,
 )
@@ -32,6 +34,12 @@ class ConversationsApi:
 
     async def messages(self, thread_id: str) -> list[ShownMessage]:
         return [_shown(m) for m in await self._transport.request("GET", f"/conversations/{thread_id}/messages")]
+
+    async def tool_call(self, thread_id: str, call_id: str) -> ShownCall:
+        """A tool call in full, which `messages` shows only the start of when it's `partial`. Raises
+        ConversationError when the conversation has no such call."""
+        path = f"/conversations/{thread_id}/tool-calls/{quote(call_id, safe='')}"
+        return ShownCall(**await self._transport.request("GET", path, errors={404: ConversationError}))
 
     async def stats(self, thread_id: str) -> ConversationStats:
         """Its messages, tokens and tool calls, and when it started and was last written in."""

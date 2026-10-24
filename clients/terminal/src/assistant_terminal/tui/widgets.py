@@ -2,13 +2,16 @@
 
 import json
 import time
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from rich.markup import escape
+from textual import work
 from textual.containers import VerticalScroll
 from textual.widgets import Collapsible, Markdown, Static
 
-from assistant.core.agent import MemorySnapshot
+from assistant.client.errors import DaemonUnavailableError
+from assistant.core.agent import ConversationError, MemorySnapshot, ShownCall
 
 _FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
@@ -116,6 +119,36 @@ class ToolCall(Collapsible):
     def cancel(self) -> None:
         self._result.update("(cancelled)")
         self.title = self.title.replace("⏺", "✗", 1)
+
+
+class PartialToolCall(ToolCall):
+    """A tool call history shows the start of: its arguments on one line and the start of its output. The whole
+    call loads the first time it's expanded; one that couldn't load tries again the next time."""
+
+    def __init__(self, name: str, detail: str, output: str, load: Callable[[], Awaitable[ShownCall]]) -> None:
+        super().__init__(name, {"detail": detail} if detail else {})
+        self._name, self._preview, self._load, self._whole = name, output.strip(), load, False
+        self.finish(output)
+
+    def on_collapsible_expanded(self, event: Collapsible.Expanded) -> None:
+        if event.collapsible is self and not self._whole:
+            self._load_whole()
+
+    @work(exclusive=True)
+    async def _load_whole(self) -> None:
+        self._result.update(self._noted("Loading the whole call…"))
+        try:
+            whole = await self._load()
+        except (ConversationError, DaemonUnavailableError):
+            self._result.update(self._noted("Couldn't load the whole call."))
+            return
+        self._whole = True
+        self._call = f"{self._name}({_describe(whole.args)})" if whole.args else self._name
+        self.title = f"✓ {self._call}"
+        self._result.update(whole.output.strip() or "(no output)")
+
+    def _noted(self, note: str) -> str:
+        return "\n\n".join(filter(None, [self._preview, note]))
 
 
 class MouseStatus(Static):

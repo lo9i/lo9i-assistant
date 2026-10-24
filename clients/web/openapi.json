@@ -797,6 +797,55 @@
         }
       }
     },
+    "/conversations/{thread_id}/tool-calls/{call_id}": {
+      "get": {
+        "summary": "Conversation Tool Call",
+        "description": "A tool call in full: its messages show each call's arguments on one line and the start of its output,\n`partial` when that leaves something out. 404: the conversation has no such call.",
+        "operationId": "conversation_tool_call_conversations__thread_id__tool_calls__call_id__get",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          },
+          {
+            "name": "call_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Call Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShownCall"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/conversations/{thread_id}/stats": {
       "get": {
         "summary": "Conversation Stats",
@@ -8145,6 +8194,31 @@
         "title": "SetupItem",
         "description": "A line the apps show for a channel: text, a code to read out, a value to copy, or a button\n(`value` is the action it sends back)."
       },
+      "ShownCall": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "args": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Args"
+          },
+          "output": {
+            "type": "string",
+            "title": "Output"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "args",
+          "output"
+        ],
+        "title": "ShownCall",
+        "description": "A tool call of the assistant's in full, loaded when the user opens it."
+      },
       "ShownMessage": {
         "properties": {
           "role": {
@@ -8176,6 +8250,16 @@
             "type": "string",
             "title": "Dispatch Id",
             "default": ""
+          },
+          "call_id": {
+            "type": "string",
+            "title": "Call Id",
+            "default": ""
+          },
+          "partial": {
+            "type": "boolean",
+            "title": "Partial",
+            "default": false
           }
         },
         "type": "object",

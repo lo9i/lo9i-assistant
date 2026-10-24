@@ -61,6 +61,7 @@ import type {
   RunningTask,
   ServerValues,
   Session,
+  ShownCall,
   ShownMessage,
   ShutdownStatus,
   SignedIn,
@@ -95,6 +96,13 @@ export class ConversationsGroup {
 
   messages(threadId: string): Promise<ShownMessage[]> {
     return this.transport.request("GET", `/conversations/${encodeURIComponent(threadId)}/messages`);
+  }
+
+  /** A tool call in full, which `messages` shows only the start of when it's `partial`. Throws ApiError (404) when
+   * the conversation has no such call. */
+  toolCall(threadId: string, callId: string): Promise<ShownCall> {
+    const path = `/conversations/${encodeURIComponent(threadId)}/tool-calls/${encodeURIComponent(callId)}`;
+    return this.transport.request("GET", path);
   }
 
   /** Its messages, tokens and tool calls, and when it started and was last written in; all zero for a new one. */

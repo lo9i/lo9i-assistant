@@ -52,6 +52,7 @@ from assistant.core.agent import (
     ServerField,
     Session,
     SetupItem,
+    ShownCall,
     ShownMessage,
     SignedIn,
     SignInError,
@@ -755,9 +756,16 @@ class FakeConversations:
         self.handoffs: dict[str, Handoff] = {}
         # What each conversation's run stopped for and still waits on, whoever started it.
         self.waiting: dict[str, list[ApprovalRequired]] = {}
+        # Tool calls in full, by conversation and call id.
+        self.calls: dict[tuple[str, str], ShownCall] = {}
 
     async def pending_approvals(self, thread_id):
         return self.waiting.pop(thread_id, [])
+
+    async def tool_call(self, thread_id, call_id):
+        if (thread_id, call_id) not in self.calls:
+            raise ConversationError("No such tool call in this conversation.")
+        return self.calls[(thread_id, call_id)]
 
     async def recent(self):
         return list(self.items)

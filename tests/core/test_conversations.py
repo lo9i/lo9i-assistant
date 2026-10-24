@@ -108,7 +108,7 @@ async def test_titling_what_waits_stops_at_the_first_failure(service, script, ti
     assert len(titles.inputs) == asked + 1  # one call, not one per conversation
 
 
-async def test_shown_messages_leave_out_turn_headers_and_tool_output(service, script):
+async def test_shown_messages_leave_out_turn_headers(service, script):
     script.call("remember", fact="likes Rome").reply("Saved!")
     await _say(service, "remember I like Rome")
     session = await service.session("owner", "cli")
@@ -118,6 +118,20 @@ async def test_shown_messages_leave_out_turn_headers_and_tool_output(service, sc
         ("tool", "remember"),
         ("assistant", "Saved!"),
     ]
+
+
+async def test_a_tool_call_shows_its_start_and_loads_in_full(service, script):
+    script.call("bash", command="seq 1 100").reply("Counted.")
+    await _say(service, "count to 100")
+    session = await service.session("owner", "cli")
+    call = next(m for m in await service.conversation_messages(session.thread_id) if m.role == "tool")
+    assert call.detail == "seq 1 100" and call.partial and call.call_id
+    assert len(call.output) <= 201 and call.output.endswith("…")
+    whole = await service.conversation_tool_call(session.thread_id, call.call_id)
+    assert whole.name == "bash" and whole.args == {"command": "seq 1 100"}
+    assert whole.output.startswith(call.output[:-1]) and "\n100\n" in whole.output
+    with pytest.raises(ConversationError):
+        await service.conversation_tool_call(session.thread_id, "nope")
 
 
 async def test_leaving_a_conversation_again_archives_only_what_is_new(service, script, digests):

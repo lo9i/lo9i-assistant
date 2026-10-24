@@ -15,6 +15,7 @@ import pytest
 from assistant.client.daemon_client import DaemonClient
 from assistant.core import notifications
 from assistant.core.agent import (
+    ConversationError,
     HomeSection,
     HomeSectionsError,
     InvalidNameError,
@@ -742,3 +743,15 @@ async def test_a_delegate_calls_steps_reach_the_client_with_the_conversation(cli
     await collect(service.send(session, "go"))
     call = next(m for m in await client.conversations.messages(session.thread_id) if m.role == "tool")
     assert call.steps == [SubagentStep("bash", {"command": "echo hi"}, "exit code: 0\nhi\n")]
+
+
+async def test_a_tool_calls_preview_loads_in_full_through_the_client(client, service, script):
+    script.call("bash", command="seq 1 100").reply("Counted.")
+    session = await service.session("owner", "cli")
+    await collect(service.send(session, "count"))
+    call = next(m for m in await client.conversations.messages(session.thread_id) if m.role == "tool")
+    assert call.partial and call.detail == "seq 1 100"
+    whole = await client.conversations.tool_call(session.thread_id, call.call_id)
+    assert whole.args == {"command": "seq 1 100"} and "\n100\n" in whole.output
+    with pytest.raises(ConversationError):
+        await client.conversations.tool_call(session.thread_id, "no/such call")
