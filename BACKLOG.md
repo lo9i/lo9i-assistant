@@ -1,6 +1,7 @@
 # Backlog
 
-Open work, tackled one at a time. Finished items are deleted and the remaining codes renumbered.
+Open work, tackled one at a time. Finished items are deleted and the remaining codes renumbered. Items waiting
+for something to happen before they're worth doing are under To revisit, with what brings them back.
 A = action, G = memory gap, H = context improvement, Q = open question, R = risk.
 
 ## Agent
@@ -69,7 +70,6 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - A50. The private watchlist's YouTube items (added from a link in + Add) record that MeTube took the link, not that its videos arrived: a download that fails on the Pi, or a playlist with private videos, still shows as sent, and the page doesn't link to MeTube to look. Read MeTube's `/history` (its done and queued items, with their status and error) for the item's link and show it, with a link to MeTube's page.
 - A23. Kept plugin keys can't be seen or deleted later: the Keep or Delete question after a removal is the only place. A Keys list in Settings (both apps), naming each removed plugin's kept keys and private repository tokens, with Delete.
 - A18. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen.
-- A14. Plugins repeat the code their protocol needs: Telegram and Slack each have `daemon.py` and `runner.py`, Claude Code and Copilot each have `task_folder.py`. The extras' `tests/test_shared_code.py` (run by their pre-commit hook) fails when the copies differ, but a protocol change still means changing every copy. Publish one small client per protocol on PyPI, which each plugin's `uv.lock` pins, once a third channel or agent plugin comes or a protocol changes again.
 - A53. The hosts plugin (extras, `connectivity/remote/hosts`) hasn't been tried in the web app itself: its page, terminal and reconnects were checked through the pages port and the plugin's page on their own, not in the iframe with a browser's keyboard, sleep and network changes. Try it there, on a phone too.
 - A54. The hosts plugin's ssh gets only MCP's default environment (`core/mcp/pages.py`, `get_default_environment`), without `SSH_AUTH_SOCK`: keys held only by an ssh agent (a passphrase key not in the macOS keychain) don't work for its checks and tools, and its terminal asks for the passphrase on every reconnect. Pass the agent's socket to plugins that declare they need it.
 - A55. The hosts plugin's `run_command` types into the Herdr session's focused pane and finds the end of a command by an `echo "$?"` marker: it needs a POSIX shell there (not fish), and goes wherever the user moved the focus (another tab or split). Starting a session's headless server waits for its socket to answer (Herdr gives no other sign that it's ready). Give the assistant a pane of its own in the session, named, and wait on Herdr's events when it has one for readiness.
@@ -111,6 +111,12 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
   - Prompts in `core/conversation/prompts/` stay in English; the model replies in the user's language.
   - Speech: the speech-to-text language and the Kokoro voice follow the chosen language.
   - Dates and times in the apps use the language's format.
+
+## To revisit
+
+Not worth doing yet; each item says what was done and when to look at it again.
+
+- A14. Plugins repeat the code their protocol needs: Telegram and Slack each have `daemon.py` and `runner.py`, Claude Code and Copilot each have `task_folder.py`, so a protocol change means changing every copy. Done: the extras' `tests/test_shared_code.py` (run by their pre-commit hook) fails when the copies differ, and lists the differences meant to be there. Left: publish one small client per protocol on PyPI, which each plugin's `uv.lock` pins. Revisit when a third channel or agent plugin comes, or a protocol changes again.
 
 ## Open questions and risks
 
