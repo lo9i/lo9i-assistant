@@ -1,7 +1,7 @@
 <script lang="ts">
   import SecretInput from "../SecretInput.svelte";
   import { untrack } from "svelte";
-  import type { FoundServer, FoundSkill, RepositoryContents } from "$lib/api/types";
+  import type { FoundServer, FoundSkill, Offered } from "$lib/api/types";
   import { useDaemon } from "$lib/daemon.svelte";
   import { describe } from "$lib/notices";
   import { emptyHint, missingField, optional, sharedLogin } from "$lib/plugins";
@@ -21,7 +21,7 @@
   const only = $derived(onlyServer ?? onlySkill);
   const { client } = useDaemon();
 
-  let found = $state<RepositoryContents | null>(null);
+  let found = $state<Offered | null>(null);
   let skills = $state(new Set<string>());
   let servers = $state(new Set<string>());
   // Values typed for each server's fields, by server name and field key. Secret ones go straight to the daemon.
@@ -41,7 +41,7 @@
     }
   }
 
-  function offer(contents: RepositoryContents): void {
+  function offer(contents: Offered): void {
     const onlyOne = contents.skills.length + contents.servers.length === 1;
     skills = new Set(onlyOne ? contents.skills.map((s) => s.name) : []);
     servers = new Set(onlyOne ? contents.servers.map((s) => s.name) : []);

@@ -1686,6 +1686,8 @@ export interface paths {
         /**
          * Repository Plugins
          * @description What every listed repository offers; one that can't be read has an error instead.
+         *     `cached=true` answers from the listings kept from the last read, reaching only a repository
+         *     never read; a read that finds something new publishes `plugins`.
          */
         get: operations["repository_plugins_repositories_plugins_get"];
         put?: never;
@@ -3510,6 +3512,11 @@ export interface components {
             servers: components["schemas"]["FoundServer"][];
             /** Problems */
             problems?: string[];
+            /**
+             * Checked
+             * @default
+             */
+            checked: string;
         };
         /** RepositoryInstall */
         RepositoryInstall: {
@@ -7032,7 +7039,9 @@ export interface operations {
     };
     repository_plugins_repositories_plugins_get: {
         parameters: {
-            query?: never;
+            query?: {
+                cached?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7046,6 +7055,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RepositoryPlugins"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

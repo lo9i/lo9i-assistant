@@ -3720,19 +3720,41 @@
     "/repositories/plugins": {
       "get": {
         "summary": "Repository Plugins",
-        "description": "What every listed repository offers; one that can't be read has an error instead.",
+        "description": "What every listed repository offers; one that can't be read has an error instead.\n`cached=true` answers from the listings kept from the last read, reaching only a repository\nnever read; a read that finds something new publishes `plugins`.",
         "operationId": "repository_plugins_repositories_plugins_get",
+        "parameters": [
+          {
+            "name": "cached",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Cached"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/RepositoryPlugins"
                   },
-                  "type": "array",
                   "title": "Response Repository Plugins Repositories Plugins Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -7504,6 +7526,11 @@
             },
             "type": "array",
             "title": "Problems"
+          },
+          "checked": {
+            "type": "string",
+            "title": "Checked",
+            "default": ""
           }
         },
         "type": "object",

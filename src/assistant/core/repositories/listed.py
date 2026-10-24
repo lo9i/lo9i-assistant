@@ -159,14 +159,19 @@ async def tokens(store: BaseStore, box: SecretBox) -> dict[str, str]:
     return {url: t for url, t in found.items() if t}
 
 
-async def plugins(store: BaseStore, box: SecretBox) -> list[RepositoryPlugins]:
+async def plugins(store: BaseStore, box: SecretBox, cached: bool = False) -> list[RepositoryPlugins]:
     """What every listed repository offers, read at the same time. One that can't be read says why
-    and doesn't keep the others from showing."""
+    and doesn't keep the others from showing. `cached` answers from what each offered when last read,
+    without reaching it, so a page opens at once; only one never read is reached."""
     keys = await tokens(store, box)
-    return list(await asyncio.gather(*(_plugins(store, r, keys.get(r.url, "")) for r in await listed(store))))
+    read = (_plugins(store, r, keys.get(r.url, ""), cached) for r in await listed(store))
+    return list(await asyncio.gather(*read))
 
 
-async def _plugins(store: BaseStore, repository: Repository, token: str) -> RepositoryPlugins:
+async def _plugins(store: BaseStore, repository: Repository, token: str, cached: bool) -> RepositoryPlugins:
+    kept = await contents.kept(store, repository.url) if cached else None
+    if kept is not None:
+        return RepositoryPlugins(repository, kept)
     try:
         return RepositoryPlugins(repository, await contents.browse(store, repository.url, token))
     except RepositoryError as e:

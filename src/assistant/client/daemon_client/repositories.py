@@ -54,9 +54,11 @@ class RepositoriesApi:
         """Its installed plugins stay. Raises RepositoryError for the extras or one not listed."""
         await self._transport.request("POST", "/repositories/remove", json={"url": url}, errors=_ERRORS)
 
-    async def plugins(self) -> builtins.list[RepositoryPlugins]:
-        """What every listed repository offers; one that can't be read has an error instead."""
-        data = await self._transport.request("GET", "/repositories/plugins", timeout=DOWNLOAD_TIMEOUT)
+    async def plugins(self, cached: bool = False) -> builtins.list[RepositoryPlugins]:
+        """What every listed repository offers; one that can't be read has an error instead.
+        `cached`: as each one offered it when last read, reaching only those never read."""
+        params = {"cached": "true"} if cached else None
+        data = await self._transport.request("GET", "/repositories/plugins", params=params, timeout=DOWNLOAD_TIMEOUT)
         return [
             RepositoryPlugins(
                 Repository(**r["repository"]), _contents(r["contents"]) if r["contents"] else None, r["error"]
@@ -97,7 +99,8 @@ class RepositoriesApi:
 
 
 def _contents(data: dict[str, Any]) -> RepositoryContents:
-    return RepositoryContents([FoundSkill(**s) for s in data["skills"]], [_server(s) for s in data["servers"]])
+    skills, servers = [FoundSkill(**s) for s in data["skills"]], [_server(s) for s in data["servers"]]
+    return RepositoryContents(skills, servers, data["problems"], data["checked"])
 
 
 def _server(data: dict[str, Any]) -> FoundServer:

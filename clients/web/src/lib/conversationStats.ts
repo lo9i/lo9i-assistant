@@ -1,6 +1,6 @@
 // A conversation's stats as the chat's status bar shows them (GET /conversations/<id>/stats).
 import type { ConversationStats } from "./api/types";
-import { duration } from "./duration";
+import { ago } from "./duration";
 import { localTime } from "./health";
 
 /** Like "24 messages · 182k tokens · 37 tools · 2 h ago". */
@@ -41,9 +41,4 @@ function counted(count: number, noun: string): string {
 
 function exact(count: number): string {
   return count.toLocaleString("en-US");
-}
-
-function ago(at: string, now: string): string {
-  const since = duration(at, now);
-  return since === "under a minute" ? "just now" : `${since} ago`;
 }

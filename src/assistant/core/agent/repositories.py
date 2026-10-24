@@ -71,9 +71,10 @@ class RepositoriesMixin(ServiceBase):
         """Delete what a removed plugin left kept, when the user says so."""
         await listed.forget(self._storage.store, kept.plugin, kept.repository)
 
-    async def repository_plugins(self) -> list[RepositoryPlugins]:
-        """What every listed repository offers, each saying whether it's installed here from it."""
-        return await listed.plugins(self._storage.store, self.secrets)
+    async def repository_plugins(self, cached: bool = False) -> list[RepositoryPlugins]:
+        """What every listed repository offers, each saying whether it's installed here from it.
+        `cached`: as each repository offered it when last read, reaching only those never read."""
+        return await listed.plugins(self._storage.store, self.secrets, cached)
 
     async def plugin_updates(self) -> list[PluginUpdate]:
         """Installed plugins their repository has a newer version of, as of the last check."""

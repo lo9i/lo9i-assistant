@@ -8,3 +8,9 @@ export function duration(from: string, to: string): string {
   const days = Math.floor(hours / 24);
   return days === 1 ? "1 day" : `${days} days`;
 }
+
+/** "just now", "12 min ago", "3 days ago". */
+export function ago(at: string, now: string): string {
+  const since = duration(at, now);
+  return since === "under a minute" ? "just now" : `${since} ago`;
+}

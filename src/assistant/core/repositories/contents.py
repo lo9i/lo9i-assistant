@@ -4,6 +4,7 @@ downloaded again when the repository has a newer commit (cache.py)."""
 
 import asyncio
 from dataclasses import dataclass, field, replace
+from datetime import UTC, datetime
 from pathlib import Path
 
 from langgraph.store.base import BaseStore
@@ -30,6 +31,8 @@ class RepositoryContents:
     servers: list[FoundServer]
     # A plugin that can't be read, one line each (its file and why): only it is left out.
     problems: list[str] = field(default_factory=list)
+    # When the repository was last reached (ISO, UTC); "" if not since this was first recorded.
+    checked: str = ""
 
 
 @dataclass
@@ -54,7 +57,7 @@ async def _with_state(store: BaseStore, url: str, listing: Listing) -> Repositor
     installed = {s.name for s in await servers.load_all(store) if s.source == url}
     found = [await _with_server_state(store, s, s.name in installed) for s in listing.servers]
     skills = [await _with_skill_state(s, url) for s in listing.skills]
-    return RepositoryContents(skills, found, listing.problems)
+    return RepositoryContents(skills, found, listing.problems, listing.checked)
 
 
 async def _with_server_state(store: BaseStore, server: FoundServer, installed: bool) -> FoundServer:
@@ -73,7 +76,7 @@ async def _with_skill_state(skill: FoundSkill, url: str) -> FoundSkill:
 
 async def _listing(store: BaseStore, url: str, token: str) -> Listing:
     """The kept listing while the repository's latest commit is the same, or while it can't be
-    reached; a fresh download otherwise."""
+    reached; a fresh download otherwise. Either way a repository reached is saved as checked now."""
     kept = await cache.load(store, url)
     try:
         commit = await git.latest_commit(url, token)
@@ -81,9 +84,8 @@ async def _listing(store: BaseStore, url: str, token: str) -> Listing:
         if kept is not None:
             return kept
         raise
-    if kept is not None and kept.commit == commit:
-        return kept
-    listing = await _download(url, token)
+    listing = kept if kept is not None and kept.commit == commit else await _download(url, token)
+    listing = replace(listing, checked=datetime.now(UTC).isoformat())
     await cache.save(store, url, listing)
     return listing
 

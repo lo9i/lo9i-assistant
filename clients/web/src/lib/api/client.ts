@@ -432,9 +432,10 @@ export class RepositoriesGroup {
     await this.transport.request("POST", "/repositories/remove", { url });
   }
 
-  /** What every listed repository offers, each plugin saying whether it's installed; one that can't be read has an error. */
-  plugins(): Promise<RepositoryPlugins[]> {
-    return this.transport.request("GET", "/repositories/plugins");
+  /** What every listed repository offers, each plugin saying whether it's installed; one that can't be read has an error.
+   * `cached`: as each one offered it when last read, at once, reaching only those never read. */
+  plugins(cached = false): Promise<RepositoryPlugins[]> {
+    return this.transport.request("GET", cached ? "/repositories/plugins?cached=true" : "/repositories/plugins");
   }
 
   /** The plugins (MCP servers and skills) a repository offers, the assistant's extras when no url is given. */
