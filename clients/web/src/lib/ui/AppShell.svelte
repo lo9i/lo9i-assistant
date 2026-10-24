@@ -104,8 +104,8 @@
   }
   .main {
     min-width: 0;
-    /* pages pad 16px; pull back so the gap right of the sidebar matches its 8px left margin */
-    margin-left: -8px;
+    margin-left: 0; /* 16px gap right of the sidebar */
+
   }
   @media (max-width: 680px) {
     .app-layout {
