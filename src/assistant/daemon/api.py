@@ -1514,15 +1514,22 @@ def _add_shutdown_routes(app: FastAPI, shutdown: Any) -> None:
     request(ending). The answer goes out before the daemon stops: stopping waits for requests in progress."""
 
     @app.post("/system/restart")
-    async def restart_daemon() -> ShutdownStatus:
-        return ShutdownStatus(waiting_for_runs=shutdown.request(Ending.RESTART))
+    async def restart_daemon(request: Request) -> ShutdownStatus:
+        return ShutdownStatus(waiting_for_runs=shutdown.request(Ending.RESTART, _asker(request)))
 
     @app.post("/system/stop")
-    async def stop_daemon() -> ShutdownStatus:
+    async def stop_daemon(request: Request) -> ShutdownStatus:
         try:
-            return ShutdownStatus(waiting_for_runs=shutdown.request(Ending.STOP))
+            return ShutdownStatus(waiting_for_runs=shutdown.request(Ending.STOP, _asker(request)))
         except StopRefusedError as e:
             raise HTTPException(409, str(e)) from e
+
+
+def _asker(request: Request) -> str:
+    """Who asked, for the log: the kind of client, and the paired device or the Unix socket."""
+    device = device_of(request)
+    kind = request.headers.get(CLIENT_HEADER, "") or "a client"
+    return f"{kind} ({f'device {device.name}' if device else 'unix socket'})"
 
 
 def _add_update_routes(app: FastAPI, updates: Any) -> None:

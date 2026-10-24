@@ -64,21 +64,25 @@ class Shutdown:
         # How the daemon ends, once it does; None until then, and when a signal stopped it.
         self.ending: Ending | None = None
 
-    def request(self, ending: Ending) -> int:
-        """Ends the daemon this way once no run is in progress. Returns how many runs it waits for.
-        Raises StopRefusedError when asked to stop a daemon that can't be."""
+    def request(self, ending: Ending, by: str = "") -> int:
+        """Ends the daemon this way once no run is in progress. Returns how many runs it waits for. `by` says
+        who asked (a client, an update), for the log. Raises StopRefusedError when asked to stop a daemon that
+        can't be."""
         if ending is Ending.STOP and (reason := self._manager.stop_refusal()):
+            logger.info("A stop asked for by %s was refused: %s", by or "a client", reason)
             raise StopRefusedError(reason)
         # The latest request wins: asked to stop while waiting to restart, it stops.
         self._wanted = ending
         if self._waiting is None:
             self._waiting = asyncio.create_task(self._when_no_runs())
         waiting = self._runs.runs_in_progress()
+        logger.info("A %s was asked for by %s; it waits for %s run(s) in progress.", ending, by or "a client", waiting)
         self._announce(ending, waiting)
         return waiting
 
     async def _when_no_runs(self) -> None:
         await self._runs.until_no_runs()
+        logger.info("No run in progress: the %s goes ahead.", self._wanted)
         if self._wanted is Ending.RESTART:
             self.ending = Ending.RESTART
             self._stop.set()

@@ -114,7 +114,7 @@ def _updates(service: AssistantService, shutdown: Shutdown) -> Updates:
     return Updates(
         root,
         updates.default_steps(root),
-        restart=lambda: shutdown.request(Ending.RESTART),
+        restart=lambda: shutdown.request(Ending.RESTART, "an update"),
         announce=lambda: service.bus.publish("update"),
     )
 
@@ -191,8 +191,14 @@ def _server(app, **bind) -> _Server:
 def _stop_event() -> asyncio.Event:
     stop = asyncio.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
-        asyncio.get_running_loop().add_signal_handler(sig, stop.set)
+        asyncio.get_running_loop().add_signal_handler(sig, _stopped_by, sig, stop)
     return stop
+
+
+def _stopped_by(sig: signal.Signals, stop: asyncio.Event) -> None:
+    """A signal stops the daemon at once; the log says which, since a stop from the apps ends the same way."""
+    logger.info("Stopping: %s received (from a service manager, a script or Ctrl+C).", sig.name)
+    stop.set()
 
 
 def run() -> None:

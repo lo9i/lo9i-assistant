@@ -76,12 +76,14 @@ class _Startup:
 class _Shutdown:
     def __init__(self, refusal: str | None = None) -> None:
         self.requests: list[Ending] = []
+        self.askers: list[str] = []
         self._refusal = refusal
 
-    def request(self, ending: Ending) -> int:
+    def request(self, ending: Ending, by: str = "") -> int:
         if ending is Ending.STOP and self._refusal:
             raise StopRefusedError(self._refusal)
         self.requests.append(ending)
+        self.askers.append(by)
         return 2
 
 
@@ -100,6 +102,8 @@ async def test_a_restart_or_stop_is_requested_and_says_how_many_runs_it_waits_fo
         assert (await system.restart()).waiting_for_runs == 2
         assert (await system.stop()).waiting_for_runs == 2
     assert shutdown.requests == [Ending.RESTART, Ending.STOP]
+    # The log says who asked (daemon/shutdown.py).
+    assert shutdown.askers == ["t (unix socket)"] * 2
 
 
 async def test_a_stop_the_service_manager_would_undo_is_refused_with_its_reason(service):

@@ -3,6 +3,7 @@ does when stopped (daemon/managers.py), and how the process ends (daemon/server.
 
 import asyncio
 import os
+import signal
 
 import pytest
 
@@ -142,3 +143,24 @@ def test_a_daemon_that_found_another_running_exits_so_its_service_manager_tries_
     with pytest.raises(SystemExit) as exited:
         server.end(None)
     assert exited.value.code == os.EX_TEMPFAIL
+
+
+async def test_the_log_says_who_asked_for_a_restart_or_stop_and_when_it_goes_ahead(caplog):
+    caplog.set_level("INFO", logger="assistant.daemon.shutdown")
+    stop = asyncio.Event()
+    Shutdown(_Runs(), stop, _Manager()).request(Ending.RESTART, "web (device Mac)")
+    await asyncio.wait_for(stop.wait(), 1)
+    assert "A restart was asked for by web (device Mac); it waits for 0 run(s) in progress." in caplog.text
+    assert "No run in progress: the restart goes ahead." in caplog.text
+    with pytest.raises(StopRefusedError):
+        Shutdown(_Runs(), asyncio.Event(), _Manager(refusal="launchd would start it again")).request(
+            Ending.STOP, "terminal (unix socket)"
+        )
+    assert "A stop asked for by terminal (unix socket) was refused: launchd would start it again" in caplog.text
+
+
+def test_the_log_says_which_signal_stopped_the_daemon(caplog):
+    caplog.set_level("INFO", logger="assistant.daemon.server")
+    stop = asyncio.Event()
+    server._stopped_by(signal.SIGTERM, stop)
+    assert stop.is_set() and "Stopping: SIGTERM received" in caplog.text
