@@ -5723,6 +5723,16 @@
               }
             ],
             "title": "Last Activity"
+          },
+          "context_tokens": {
+            "type": "integer",
+            "title": "Context Tokens",
+            "default": 0
+          },
+          "context_limit": {
+            "type": "integer",
+            "title": "Context Limit",
+            "default": 0
           }
         },
         "type": "object",

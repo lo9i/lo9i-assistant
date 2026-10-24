@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from assistant.core import conversations
 from assistant.core.agent.conversations import ConversationsMixin
 from assistant.core.config import settings
+from assistant.core.conversation.epochs import estimate_tokens
 from assistant.core.usage.log import TokenReport, UsageReport
 
 __all__ = ["ConversationStats", "TokenReport", "UsageMixin", "UsageReport"]
@@ -27,6 +28,8 @@ class ConversationStats:
     tool_calls: int
     started_at: str | None
     last_activity: str | None
+    context_tokens: int = 0
+    context_limit: int = 0
 
 
 class UsageMixin(ConversationsMixin):
@@ -46,6 +49,8 @@ class UsageMixin(ConversationsMixin):
         shown = await self.conversation_messages(thread_id)
         usage = await self._storage.usage.thread_usage(thread_id)
         listed = await conversations.load(self._storage.store, user_id, thread_id)
+        state = (await self._graph.aget_state({"configurable": {"thread_id": thread_id}})).values
+        context = estimate_tokens(state) if state.get("messages") else 0
         return ConversationStats(
             thread_id=thread_id,
             messages=sum(m.role in _MESSAGE_ROLES for m in shown),
@@ -56,4 +61,6 @@ class UsageMixin(ConversationsMixin):
             tool_calls=usage.tool_calls,
             started_at=listed.started_at if listed else None,
             last_activity=listed.updated_at if listed else None,
+            context_tokens=context,
+            context_limit=settings.epoch_max_tokens,
         )

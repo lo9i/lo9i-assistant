@@ -19,6 +19,7 @@
   import Composer from "./Composer.svelte";
   import ConversationStats from "./ConversationStats.svelte";
   import ModelStatus from "./ModelStatus.svelte";
+  import ContextFuel from "./ContextFuel.svelte";
   import HelpModal from "./HelpModal.svelte";
   import PinnedSkills from "./PinnedSkills.svelte";
   import StatusBar from "./StatusBar.svelte";
@@ -302,6 +303,7 @@
     {#if handoff.data}
       <AgentStatus handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")} />
     {:else}
+      <ContextFuel threadId={snapshot.current.threadId} />
       <ModelStatus />
     {/if}
   </StatusBar>

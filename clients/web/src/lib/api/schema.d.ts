@@ -2638,6 +2638,16 @@ export interface components {
             started_at: string | null;
             /** Last Activity */
             last_activity: string | null;
+            /**
+             * Context Tokens
+             * @default 0
+             */
+            context_tokens: number;
+            /**
+             * Context Limit
+             * @default 0
+             */
+            context_limit: number;
         };
         /** DeliveryResult */
         DeliveryResult: {

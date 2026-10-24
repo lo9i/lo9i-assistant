@@ -15,6 +15,8 @@ const stats: Stats = {
   cache_read_tokens: 2500,
   output_tokens: 200,
   tool_calls: 2,
+  context_tokens: 0,
+  context_limit: 150000,
   started_at: "2026-10-23T08:00:00Z",
   last_activity: "2026-10-23T09:00:00Z",
 };
