@@ -115,7 +115,7 @@
   ];
 
   // Each conversation keeps the same colour, picked from its id.
-  const TINTS = ["#5b9a3c", "#c0503a", "#c79a2a", "#3f8fc4", "#9a5bc0", "#2fa59a", "#d0753a", "#c04f86"];
+  const TINTS = ["var(--color-accent)", "#e5b931", "#3f9fe0", "#e0603f", "#a56ee0", "#2fc4b2", "#e08a2f", "#e05f9e"];
   function tint(id: string): string {
     let h = 0;
     for (const c of id ?? "") h = (h * 31 + c.charCodeAt(0)) >>> 0;
@@ -374,7 +374,7 @@
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 0;
   }
   .branch {
     display: flex;
@@ -389,9 +389,9 @@
     gap: 6px;
     padding: 5px 8px;
     border: 0;
-    border-left: 3px solid var(--tint);
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--tint) 7%, transparent);
+    border-left: 2px solid var(--tint);
+    border-radius: 0;
+    background: none;
     color: var(--color-text-muted);
     font-size: var(--font-size-xs);
     text-align: left;
