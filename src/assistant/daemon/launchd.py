@@ -17,6 +17,7 @@ from pathlib import Path
 
 from assistant.core.config import settings
 from assistant.core.logs import output_path
+from assistant.daemon import output
 from assistant.protocol import StartupError, StartupStatus
 
 DAEMON_LABEL = "com.lo9i.assistant"
@@ -107,24 +108,10 @@ def move_legacy_output() -> bool:
     start at boot is turned off and on, which needs the administrator's password, so the daemon sends
     its output to output_path() itself, where the Logs page reads it. Only what's printed before this
     runs at start stays behind. Returns whether it moved."""
-    if not _is_stderr(LEGACY_OUTPUT.expanduser()):
+    if not output.is_stderr(LEGACY_OUTPUT.expanduser()):
         return False
-    output_path().parent.mkdir(parents=True, exist_ok=True)
-    sys.stdout.flush()
-    sys.stderr.flush()
-    output = os.open(output_path(), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
-    os.dup2(output, sys.stdout.fileno())
-    os.dup2(output, sys.stderr.fileno())
-    os.close(output)
+    output.send_output_to(output_path())
     return True
-
-
-def _is_stderr(path: Path) -> bool:
-    try:
-        stream, file = os.fstat(sys.stderr.fileno()), path.stat()
-    except (OSError, ValueError):
-        return False
-    return (stream.st_dev, stream.st_ino) == (file.st_dev, file.st_ino)
 
 
 def ollama_plist() -> bytes | None:

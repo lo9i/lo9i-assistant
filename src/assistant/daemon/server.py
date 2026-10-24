@@ -21,7 +21,7 @@ from assistant.core.agent import AssistantService
 from assistant.core.config import settings
 from assistant.core.internet import browser
 from assistant.core.logs import LogSource, LogWriter, configure, log_sources, output_path, process_output
-from assistant.daemon import https, launchd, managers, pages, systemd, updates
+from assistant.daemon import https, launchd, managers, output, pages, systemd, updates
 from assistant.daemon.adapters import Adapter, supervise
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import DeviceStreams, trusted
@@ -233,6 +233,7 @@ def _stopped_by(sig: signal.Signals, stop: asyncio.Event) -> None:
 
 def run() -> None:
     moved = launchd.move_legacy_output()
+    rotated = output.rotate(output_path())
     # Settings read .env themselves, but the model and tracing SDKs read their keys from the
     # environment, and the daemon may be started from a shell that doesn't have them.
     load_dotenv(".env", override=False)
@@ -245,6 +246,8 @@ def run() -> None:
             output_path(),
             launchd.LEGACY_OUTPUT,
         )
+    if rotated:
+        logger.info("The output file was full: the output before is in %s.", output.kept(output_path()))
     logs = log_sources(writer, process_output(systemd.SERVICE))
     end(asyncio.run(serve(logs)))
 
