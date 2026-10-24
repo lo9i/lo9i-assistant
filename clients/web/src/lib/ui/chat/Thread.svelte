@@ -249,7 +249,7 @@
   }
   .bubble {
     position: relative;
-    padding: 14px 18px;
+    padding: 8px 12px;
     border-radius: 16px;
     font-size: 0.92rem;
     line-height: 1.55;
