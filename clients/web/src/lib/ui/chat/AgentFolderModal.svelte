@@ -1,17 +1,19 @@
 <script lang="ts">
   import Folder from "@lucide/svelte/icons/folder";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
+  import { folderView, type FolderChoice } from "$lib/agentFolders";
   import type { AgentFolders, FolderListing } from "$lib/api/types";
   import { useDaemon } from "$lib/daemon.svelte";
   import Modal from "../Modal.svelte";
 
   // /claude alone: the folder the agent works in, picked instead of typed. The workspace, the folders
   // used before, or browsing to one from the home folder. The daemon lists them: this browser may be on
-  // another device.
+  // another device. What it offers at each point is lib/agentFolders.ts.
   let { agentName, onpick }: { agentName: string; onpick: (folder: string | null) => void } = $props();
   const { client, notices } = useDaemon();
   let folders = $state<AgentFolders | null>(null);
   let listing = $state<FolderListing | null>(null);
+  const view = $derived(folderView(folders, listing));
 
   $effect(() => {
     client.conversations.agentFolders().then(
@@ -28,40 +30,30 @@
     }
   }
 
-  const name = (path: string) => path.split("/").filter(Boolean).pop() ?? path;
+  function choose(choice: FolderChoice): void {
+    if (choice.action === "pick") onpick(choice.path);
+    else void browse(choice.path);
+  }
+
   const close = () => onpick(null);
 </script>
 
-<Modal
-  title="Where should {agentName} work?"
-  description={listing ? listing.path : "The workspace, a folder used before, or browse to one."}
-  onclose={close}
->
+<Modal title="Where should {agentName} work?" description={view.description} onclose={close}>
   <div class="options">
-    {#if listing}
-      {#if listing.parent}
-        <button class="btn btn--neutral option" onclick={() => browse(listing!.parent!)}><ArrowUp size={16} /> Up</button>
-      {/if}
-      {#each listing.children as child (child)}
-        <button class="btn btn--neutral option" onclick={() => browse(child)}><Folder size={16} /> {name(child)}</button>
-      {:else}
-        <p class="text-meta">No folders inside.</p>
-      {/each}
-    {:else if folders}
-      <button class="btn btn--neutral option" onclick={() => onpick(folders!.workspace)}>
-        <Folder size={16} /> Workspace <span class="text-meta path">{folders.workspace}</span>
+    {#each view.choices as choice (choice.path + choice.label)}
+      <button class="btn btn--neutral option" onclick={() => choose(choice)}>
+        {#if choice.up}<ArrowUp size={16} />{:else}<Folder size={16} />{/if}
+        {choice.label}
+        {#if choice.detail}<span class="text-meta path">{choice.detail}</span>{/if}
       </button>
-      {#each folders.recent as folder (folder)}
-        <button class="btn btn--neutral option" onclick={() => onpick(folder)}><Folder size={16} /> {folder}</button>
-      {/each}
-    {/if}
+    {/each}
+    {#if view.empty}<p class="text-meta">No folders inside.</p>{/if}
   </div>
   {#snippet footer()}
     <button class="btn btn--ghost" onclick={close}>Cancel</button>
-    {#if listing}
-      <button class="btn btn--primary" onclick={() => onpick(listing!.path)}>Use this folder</button>
-    {:else if folders}
-      <button class="btn btn--primary" onclick={() => browse(folders!.home)}>Browse…</button>
+    {#if view.primary}
+      {@const primary = view.primary}
+      <button class="btn btn--primary" onclick={() => choose(primary)}>{primary.label}</button>
     {/if}
   {/snippet}
 </Modal>
