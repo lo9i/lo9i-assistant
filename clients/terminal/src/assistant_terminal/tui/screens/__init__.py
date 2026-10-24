@@ -12,6 +12,7 @@ from assistant_terminal.tui.screens.devices import DevicesScreen
 from assistant_terminal.tui.screens.email import EmailScreen
 from assistant_terminal.tui.screens.email_recipients import EmailRecipientsScreen
 from assistant_terminal.tui.screens.files import FilesScreen
+from assistant_terminal.tui.screens.home import HomeScreen
 from assistant_terminal.tui.screens.host import HostScreen
 from assistant_terminal.tui.screens.jobs import JobsScreen
 from assistant_terminal.tui.screens.kept_keys_list import KeptKeysListScreen
@@ -41,6 +42,7 @@ __all__ = [
     "EmailRecipientsScreen",
     "EmailScreen",
     "FilesScreen",
+    "HomeScreen",
     "HostScreen",
     "JobsScreen",
     "KeptKeysListScreen",

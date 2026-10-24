@@ -26,6 +26,7 @@ COMMANDS = [
     Command("/inbox", "/inbox", "Back to the inbox: the next message goes where it belongs"),
     Command("/move", "/move", "Move the last message the inbox sent on to another conversation"),
     Command("/notifications", "/notifications", "Job results and background work that ended"),
+    Command("/home", "/home", "Home: what the assistant gathered from your plugins, by section"),
     Command("/attach", "/attach <path>", "Attach a file to the next message"),
     Command("/plugins", "/plugins", "Install, update and remove plugins from the extras"),
     Command("/skills", "/skills", "Browse, install and delete skills"),

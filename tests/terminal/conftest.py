@@ -26,6 +26,11 @@ from assistant.core.agent import (
     FoundServer,
     Handoff,
     HandoffError,
+    HomeCard,
+    HomeItem,
+    HomePage,
+    HomeSection,
+    HomeSectionsError,
     InstalledFromRepository,
     InvalidNameError,
     InvalidSearchKeyError,
@@ -50,6 +55,7 @@ from assistant.core.agent import (
     RepositoryError,
     RepositoryPlugins,
     RunRecord,
+    SectionResult,
     ServerField,
     Session,
     SetupItem,
@@ -548,6 +554,56 @@ def _mcp_status(name: str, trusted: bool = False, source: str = "") -> McpServer
     )
 
 
+def _built_in_home() -> list[HomeSection]:
+    return [HomeSection(id="calendar", title="Calendar", prompt="Today's events.", plugins=["calendar"])]
+
+
+class FakeHome:
+    """Home with the built-in Calendar section, built once, and the sections as saved."""
+
+    def __init__(self):
+        self.sections = _built_in_home()
+        self.results = {
+            "calendar": SectionResult(
+                section_id="calendar",
+                title="Calendar",
+                status="ok",
+                items=[HomeItem(title="Dentist", subtitle="Av. Corrientes 1234", time="09:30")],
+                at="2026-10-24T08:00:00+00:00",
+            )
+        }
+        self.refreshes: list[bool] = []
+        self.watching = False
+        self.refusal = ""
+
+    def _page(self) -> HomePage:
+        cards = [HomeCard(section=s, result=self.results.get(s.id)) for s in self.sections]
+        return HomePage(cards=cards, updated_at="2026-10-24T08:00:00+00:00")
+
+    async def get(self):
+        return self._page()
+
+    async def refresh(self, force=False):
+        self.refreshes.append(force)
+        return self._page()
+
+    async def watch(self):
+        self.watching = True
+
+    async def unwatch(self):
+        self.watching = False
+
+    async def save_sections(self, sections):
+        if self.refusal:
+            raise HomeSectionsError(self.refusal)
+        self.sections = [s if s.id else s.model_copy(update={"id": f"s{i}"}) for i, s in enumerate(sections)]
+        return self._page()
+
+    async def reset_sections(self):
+        self.sections = _built_in_home()
+        return self._page()
+
+
 class FakeMcp:
     def __init__(self):
         self.items = {"notes": _mcp_status("notes")}
@@ -1032,6 +1088,7 @@ class FakeClient:
         self.logs = FakeLogs()
         self.files = FakeFiles()
         self.mcp = FakeMcp()
+        self.home = FakeHome()
         self.repositories = FakeRepositories(self.skills, self.mcp)
         self.oauth = FakeOAuth(self.email, self.mcp)
         self.model = FakeModel()

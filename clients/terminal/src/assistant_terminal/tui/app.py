@@ -59,6 +59,7 @@ from assistant_terminal.tui.screens import (
     EmailRecipientsScreen,
     EmailScreen,
     FilesScreen,
+    HomeScreen,
     HostScreen,
     JobsScreen,
     KeptKeysListScreen,
@@ -169,6 +170,7 @@ class AssistantApp(App):
             "/profile": self._command_profile,
             "/sessions": self._command_sessions,
             "/keys": self._command_keys,
+            "/home": self._command_home,
             "/name": self._command_name,
             "/prompt": self._command_prompt,
             "/pin": self._command_pin,
@@ -835,6 +837,13 @@ class AssistantApp(App):
 
     async def _command_keys(self, _: str) -> None:
         self.push_screen(KeptKeysListScreen(self._service.repositories))
+
+    async def _command_home(self, _: str) -> None:
+        self.push_screen(HomeScreen(self._service.home, self._plugins_with_tools))
+
+    async def _plugins_with_tools(self) -> list[str]:
+        """The plugins a Home section may read: those with tools."""
+        return [s.name for s in await self._service.mcp.servers() if s.transport != "none"]
 
     async def _command_startup(self, _: str) -> None:
         self.push_screen(StartupScreen(self._service.system))
