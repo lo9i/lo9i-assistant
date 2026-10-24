@@ -284,7 +284,7 @@
   .file {
     display: flex;
     width: fit-content;
-    padding: 3px 8px;
+    padding: 1px 4px;
     border: 1px solid var(--color-accent);
     border-radius: var(--radius-sm, 6px);
     align-items: center;
