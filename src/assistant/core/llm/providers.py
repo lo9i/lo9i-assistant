@@ -11,6 +11,13 @@ from dataclasses import dataclass
 
 # Prompt caching, token exchange or server URLs that lo9i handles itself (core/llm/__init__.py).
 NATIVE = ("anthropic", "copilot", "openai")
+# How long a prompt cache lasts after its last use, in minutes, unless a provider says otherwise:
+# Anthropic's default cache, the one lo9i asks for, lasts 5 minutes, and OpenAI's in-memory one "around
+# 5 to 10 minutes of inactivity". Old tool results are trimmed only once it has expired (core/conversation/trim.py).
+CACHE_MINUTES = 5.0
+# OpenAI's own API keeps prompts in its extended retention by default, which "typically keeps entries available
+# for around 30 minutes"; servers that only speak its API (Ollama, vLLM) keep theirs as above.
+OPENAI_CACHE_MINUTES = 30.0
 # Providers whose API takes images inside tool results. Others get images from tools in a message
 # after the results (core/attachments.py): OpenAI-style APIs accept images only in user messages.
 IMAGES_IN_TOOL_RESULTS = frozenset({"anthropic"})
@@ -47,6 +54,8 @@ class ModelProvider:
     model_key: str = ""
     # Set when the list is sent to clients: whether the package is installed (core/llm/packages.py).
     installed: bool = True
+    # How long its prompt cache lasts after its last use, in minutes.
+    prompt_cache_minutes: float = CACHE_MINUTES
 
 
 def _key(label: str = "API key", help: str = "") -> ProviderField:
@@ -84,6 +93,7 @@ def _lc(
     help: str = "",
     max_tokens_key: str = "max_tokens",
     model_key: str = "",
+    prompt_cache_minutes: float = CACHE_MINUTES,
 ) -> ModelProvider:
     return ModelProvider(
         id,
@@ -94,6 +104,7 @@ def _lc(
         module=module,
         max_tokens_key=max_tokens_key,
         model_key=model_key,
+        prompt_cache_minutes=prompt_cache_minutes,
     )
 
 
@@ -182,7 +193,8 @@ LANGCHAIN_PROVIDERS = [
     ),
     _lc("mistralai", "Mistral AI", "langchain-mistralai>=1.1,<2", "langchain_mistralai", [_key()]),
     _lc("groq", "Groq", "langchain-groq>=1.1,<2", "langchain_groq", [_key()]),
-    _lc("deepseek", "DeepSeek", "langchain-deepseek>=1.1,<2", "langchain_deepseek", [_key()]),
+    # Its cache is cleared "usually within a few hours to a few days" after its last use.
+    _lc("deepseek", "DeepSeek", "langchain-deepseek>=1.1,<2", "langchain_deepseek", [_key()], prompt_cache_minutes=60),
     _lc("xai", "xAI (Grok)", "langchain-xai>=1.3,<2", "langchain_xai", [_key()]),
     _lc("openrouter", "OpenRouter", "langchain-openrouter>=0.2.9,<1", "langchain_openrouter", [_key()]),
     _lc("together", "Together AI", "langchain-together>=0.4,<1", "langchain_together", [_key()]),

@@ -1,6 +1,7 @@
 """Old tool results: a long epoch keeps resending every email and web page the agent read, long
-after it used them. Once the prompt cache has expired, the next call misses it anyway, so from then
-on tool results before the last TRIM_KEEP_TURNS user turns are sent as a short stub. The checkpoint
+after it used them. Once the prompt cache has expired (how long it lasts depends on the provider,
+core/llm/choice.py::prompt_cache_minutes), the next call misses it anyway, so from then on tool results
+before the last TRIM_KEEP_TURNS user turns are sent as a short stub. The checkpoint
 keeps them whole, and the tool call stays, so the agent can call the tool again.
 
 The point is kept in state and only moves forward at a user message, so every call after it sends
@@ -21,10 +22,11 @@ from assistant.core.conversation.epochs import cut_index
 _MIN_CHARS = 1000
 
 
-def trim_update(state: Mapping[str, Any], now: datetime) -> dict[str, Any]:
-    """State update that moves the trim point, when the cache has expired and there's something
-    new to trim. The reported token count no longer applies, so it's cleared."""
-    if not _cache_expired(state, now):
+def trim_update(state: Mapping[str, Any], now: datetime, cache_minutes: float) -> dict[str, Any]:
+    """State update that moves the trim point, when the cache, which lasts `cache_minutes` after the
+    last model call, has expired and there's something new to trim. The reported token count no longer
+    applies, so it's cleared."""
+    if not _cache_expired(state, now, cache_minutes):
         return {}
     messages, start = state["messages"], state.get("epoch_start", 0)
     point = cut_index(messages, start, settings.trim_keep_turns)
@@ -39,9 +41,9 @@ def trimmed(messages: Sequence[BaseMessage], start: int, before: int) -> list[Ba
     return [_stub(m) if i < before and _trimmable(m) else m for i, m in enumerate(messages[start:], start)]
 
 
-def _cache_expired(state: Mapping[str, Any], now: datetime) -> bool:
+def _cache_expired(state: Mapping[str, Any], now: datetime, cache_minutes: float) -> bool:
     last = state.get("last_model_call")
-    return bool(last) and now - datetime.fromisoformat(last) > timedelta(minutes=settings.prompt_cache_minutes)
+    return bool(last) and now - datetime.fromisoformat(last) > timedelta(minutes=cache_minutes)
 
 
 def _trimmable(message: BaseMessage) -> TypeGuard[ToolMessage]:

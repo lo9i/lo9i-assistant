@@ -3388,6 +3388,11 @@ export interface components {
              * @default true
              */
             installed: boolean;
+            /**
+             * Prompt Cache Minutes
+             * @default 5
+             */
+            prompt_cache_minutes: number;
         };
         /**
          * ModelStatus

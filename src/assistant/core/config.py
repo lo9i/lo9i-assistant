@@ -50,9 +50,8 @@ class Settings(BaseSettings):
     epoch_max_tokens: int = 150_000
     epoch_idle_hours: float = 6
     epoch_keep_turns: int = 4
-    # Old tool results (conversation/trim.py). Providers drop a cached prompt after this many idle
-    # minutes; the next call then sends tool results before the last TRIM_KEEP_TURNS user turns as stubs.
-    prompt_cache_minutes: float = 5
+    # Old tool results (conversation/trim.py): once the provider's prompt cache has expired
+    # (llm/choice.py::prompt_cache_minutes), tool results before the last TRIM_KEEP_TURNS user turns are stubs.
     trim_keep_turns: int = 2
     # Starting a new conversation archives the old one as an episode if it had at least this many user turns.
     episode_min_turns: int = 2

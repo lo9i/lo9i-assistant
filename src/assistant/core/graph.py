@@ -34,7 +34,7 @@ from assistant.core.conversation.epochs import (
 from assistant.core.conversation.summary import Summarizer
 from assistant.core.conversation.trim import trim_update, trimmed
 from assistant.core.llm import build_llm, metered
-from assistant.core.llm.choice import ModelChoice
+from assistant.core.llm.choice import ModelChoice, prompt_cache_minutes
 from assistant.core.llm.providers import IMAGES_IN_TOOL_RESULTS
 from assistant.core.storage import Storage
 from assistant.core.tools import tools_for
@@ -95,7 +95,7 @@ class McpTools(Protocol):
 def build_graph(storage: Storage, choice: ModelChoice, summarizer: Summarizer, mcp: McpTools) -> Graph:
     tools = tools_for(settings.toolsets)
     builder = StateGraph(AgentState, context_schema=Context)
-    builder.add_node("epoch", _epoch_node(summarizer, mcp))
+    builder.add_node("epoch", _epoch_node(summarizer, mcp, prompt_cache_minutes(choice)))
     llm = metered(build_llm(choice, choice.model), TokenMeter(storage.usage, "reply"))
     builder.add_node("agent", _agent_node(llm, tools, choice.provider in IMAGES_IN_TOOL_RESULTS))
     builder.add_node("tools", ToolNode(tools, awrap_tool_call=mcp_calls(mcp)))
@@ -112,13 +112,14 @@ def build_graph(storage: Storage, choice: ModelChoice, summarizer: Summarizer, m
     return builder.compile(checkpointer=storage.checkpointer, store=storage.store)
 
 
-def _epoch_node(summarizer: Summarizer, mcp: McpTools) -> Node:
-    """Runs once per user message: opens the first epoch, or starts a new one when needed."""
+def _epoch_node(summarizer: Summarizer, mcp: McpTools, cache_minutes: float) -> Node:
+    """Runs once per user message: opens the first epoch, or starts a new one when needed, and trims old
+    tool results once the model's prompt cache, which lasts `cache_minutes`, has expired."""
 
     async def _epoch(state: AgentState, runtime: Runtime[Context], config: RunnableConfig) -> dict:
         now = datetime.now(UTC)
         thread_id = config.get("configurable", {})["thread_id"]
-        trim = trim_update(state, now)
+        trim = trim_update(state, now, cache_minutes)
         update = await _epoch_update(cast(AgentState, {**state, **trim}), runtime, thread_id, summarizer, mcp, now)
         if "system_prompt" in update:
             update["mcp_tools"] = mcp.definitions()

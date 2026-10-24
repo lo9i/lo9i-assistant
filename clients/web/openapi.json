@@ -7221,6 +7221,11 @@
             "type": "boolean",
             "title": "Installed",
             "default": true
+          },
+          "prompt_cache_minutes": {
+            "type": "number",
+            "title": "Prompt Cache Minutes",
+            "default": 5.0
           }
         },
         "type": "object",

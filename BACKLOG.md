@@ -68,7 +68,6 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 ## Context
 
 - H1. Better epoch summaries: quote user messages verbatim, keep ids and paths exactly, and let `search_memory` search tool outputs too (it covers only what the user and the assistant wrote).
-- H2. Old tool results are trimmed after a fixed `prompt_cache_minutes` (5) idle gap (`core/conversation/trim.py`), the same for every provider. A provider whose cache lasts longer (Anthropic's 1-hour cache, some OpenAI models) loses a cache that was still valid. Take the cache lifetime from the model choice (`core/llm/providers.py`) instead of one setting; a local model with no cache could trim at any user message.
 - H3. The inbox answers quick questions with its whole epoch in context, which holds every message it routed elsewhere and its "→ Continued in …" line (`core/conversation/dispatch_nodes.py`): unrelated topics the model reads past, and tokens spent on each quick answer. Leave routed messages out of the inbox's model calls (`core/conversation/trim.py` stubs them already for tool results), keeping them in its history.
 - H4. An edited prompt text (`core/conversation/prompt_edits.py`) hides every later change to its built-in text: an update that adds a rule to `operating.md` never reaches a user who edited it, and nothing says so. Keep the built-in text an edit was made from, and show in Settings → System prompt when the built-in one changed since, with what changed.
 
