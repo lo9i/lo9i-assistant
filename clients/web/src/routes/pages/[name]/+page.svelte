@@ -25,19 +25,22 @@
 </div>
 
 <style>
+  /* The page fills the space beside the sidebar and lays itself out, like the app's own pages. */
   .frame-shell {
     height: 100dvh;
+  }
+  .frame-shell > :global(:not(iframe)) {
     max-width: 1600px;
     margin: 0 auto;
     padding: 16px;
   }
+  /* No border and no background: a page that leaves its own background out shows the app's through it,
+     so it reads as part of the app rather than a page set into it. */
   iframe {
+    display: block;
     width: 100%;
     height: 100%;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    /* Under the border too, the page's white would show through its translucent color. */
-    background: var(--color-bg-page);
-    background-clip: padding-box;
+    border: 0;
+    background: transparent;
   }
 </style>
