@@ -12,6 +12,7 @@ from textual.widgets import Footer, Header, Input
 
 from assistant.client import DaemonClient, DaemonUnavailableError, clipboard
 from assistant.client.daemon_client import offered_plugin
+from assistant.client.daemon_client.conversations import OpenedConversation
 from assistant.client.files import load_attachment
 from assistant.client.live import LiveConversation
 from assistant.client.recorder import Recorder, RecordingUnavailableError
@@ -42,6 +43,7 @@ from assistant_terminal.tasks_text import task_line
 from assistant_terminal.tui.attachments import AttachmentBar
 from assistant_terminal.tui.command_menu import CommandMenu
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.followed import FollowedRuns
 from assistant_terminal.tui.history import show_history
 from assistant_terminal.tui.live import handlers as live_handlers
 from assistant_terminal.tui.mouse import switch_mouse
@@ -132,6 +134,8 @@ class AssistantApp(App):
         self._history = history
         self._preferences = preferences
         self._busy = False
+        # The runs shown that this app isn't streaming itself (another app's, a channel's, the daemon's).
+        self._followed_runs = FollowedRuns()
         self._recorder = Recorder()
         # F3 is hidden when this session has no microphone (see client/recorder.py).
         self._can_record = recording_available()
@@ -195,6 +199,7 @@ class AssistantApp(App):
         self.theme = THEME_NAME
         await self.refresh_thread()
         await self._show_conversations()
+        await self._follow_in_progress()
         self.query_one("#chat", VerticalScroll).anchor()
         self.query_one("#prompt", Input).focus()
         await self.refresh_memory()
@@ -269,16 +274,26 @@ class AssistantApp(App):
     def mirror_run(self, run: dict[str, Any]) -> None:
         """Show a run started elsewhere in this conversation (another client or channel) as it happens."""
         if self._live.started_elsewhere(run):
-            self._mirror(run)
+            self._follow([run])
 
     @work(group="mirror")
     @reports_daemon_unavailable
-    async def _mirror(self, run: dict[str, Any]) -> None:
+    async def _follow(self, runs: list[dict[str, Any]]) -> None:
+        """Shows the runs not shown yet from their start, one after another as they run, while this conversation
+        is the one shown."""
+        for run in await self._followed_runs.unseen(runs):
+            if run["thread_id"] != self._live.session.thread_id:
+                return
+            await self._show_started(run)
+            await TurnView(self._chat, self._status).render(self._service.follow_run(run["run_id"]))
+
+    async def _show_started(self, run: dict[str, Any]) -> None:
+        """What the run answers: what the user wrote, from where when it wasn't this app, or a follow-up's notice."""
         if run["text"]:
-            await self._chat.mount(UserMessage(f"[{run['channel']}] {run['text']}", []))
+            text = run["text"] if self._live.own(run) else f"[{run['channel']}] {run['text']}"
+            await self._chat.mount(UserMessage(text, []))
         if run.get("notice"):
             await self._chat.mount(FollowUpNote(run["notice"]))
-        await TurnView(self._chat, self._status).render(self._service.follow_run(run["run_id"]))
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         """F3 only when recording can work; Esc only while a reply runs; Up, Down and Ctrl+V only
@@ -436,10 +451,32 @@ class AssistantApp(App):
         self._answer_pending()
 
     async def _show_history(self, thread_id: str) -> None:
+        """The conversation's history up to its runs in progress, then those runs from their start, as if this app
+        had been watching them."""
         conversations = self._service.conversations
-        await show_history(
-            self._chat, await conversations.messages(thread_id), partial(conversations.tool_call, thread_id)
-        )
+        opened = await self._open_live(thread_id)
+        try:
+            await show_history(self._chat, opened.messages, partial(conversations.tool_call, thread_id))
+        finally:
+            self._followed_runs.loaded()
+        self._follow(opened.runs)
+
+    async def _follow_in_progress(self) -> None:
+        """The runs in progress in the inbox, which shows the list of conversations instead of its history."""
+        opened = await self._open_live(self._live.session.thread_id)
+        self._followed_runs.loaded()
+        self._follow(opened.runs)
+
+    async def _open_live(self, thread_id: str) -> OpenedConversation:
+        """Stops showing the last conversation's runs and loads this one's; runs announced meanwhile wait for
+        `loaded`."""
+        self.workers.cancel_group(self, "mirror")
+        self._followed_runs.loading()
+        try:
+            return await self._service.conversations.live(thread_id)
+        except BaseException:
+            self._followed_runs.loaded()
+            raise
 
     @work(exclusive=True, group="pending")
     @reports_daemon_unavailable
@@ -580,6 +617,7 @@ class AssistantApp(App):
         self._inbox_id = self._live.session.thread_id
         await self.refresh_thread()
         await self._show_conversations()
+        await self._follow_in_progress()
         self.notify(
             "In the inbox: the next message goes where it belongs."
             + (" The previous reply keeps running." if still_running else "")

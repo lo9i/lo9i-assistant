@@ -1,4 +1,6 @@
 from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import Any
 from urllib.parse import quote
 
 from assistant.client.daemon_client.transport import Transport
@@ -21,6 +23,17 @@ from assistant.core.events import ApprovalRequired
 from assistant.core.subagent_steps import SubagentStep
 
 
+@dataclass(frozen=True)
+class OpenedConversation:
+    """A conversation as a client opens it while runs may be in progress there."""
+
+    # Its messages up to the first run in progress.
+    messages: list[ShownMessage]
+    # Those runs, oldest first, as their `run` events announced them (run_id, thread_id, channel, client_id,
+    # text, notice): a client follows them from their start (`follow_run`), as if it had been watching.
+    runs: list[dict[str, Any]]
+
+
 class ConversationsApi:
     """Earlier conversations: the list, what was said in one, deleting one, and the skills pinned to
     one. Resuming one is a conversation call on the client (`resume_thread`)."""
@@ -34,6 +47,11 @@ class ConversationsApi:
 
     async def messages(self, thread_id: str) -> list[ShownMessage]:
         return [_shown(m) for m in await self._transport.request("GET", f"/conversations/{thread_id}/messages")]
+
+    async def live(self, thread_id: str) -> OpenedConversation:
+        """Its messages up to its runs in progress, and those runs."""
+        found = await self._transport.request("GET", f"/conversations/{thread_id}/live")
+        return OpenedConversation([_shown(m) for m in found["messages"]], found["runs"])
 
     async def tool_call(self, thread_id: str, call_id: str) -> ShownCall:
         """A tool call in full, which `messages` shows only the start of when it's `partial`. Raises

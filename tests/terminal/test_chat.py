@@ -517,3 +517,43 @@ async def test_a_follow_up_run_shows_what_it_follows_up_on_as_it_starts(app, cli
         await client.bus.put(("run", run | {"notice": "⚠️ convert: it failed"}))
         await wait_for(pilot, lambda: app.query(FollowUpNote) and app.query(AssistantMessage))
         assert "convert: it failed" in str(app.query_one(FollowUpNote).render())
+
+
+async def test_a_conversation_opened_while_its_reply_runs_shows_it_from_its_start_once(app, client):
+    from assistant.core.agent import ShownMessage
+
+    release = asyncio.Event()
+
+    async def running():
+        yield TextDelta("Booking the hotel.")
+        await release.wait()
+        yield Done()
+
+    client.conversations.items.append(replace(client.conversations.items[0], thread_id="owner:trip", title="Trip"))
+    client.conversations.said["owner:trip"] = [ShownMessage("user", "find flights"), ShownMessage("assistant", "Two.")]
+    run = {"run_id": "r1", "thread_id": "owner:trip", "channel": "telegram", "client_id": "", "text": "and a hotel"}
+    client.conversations.in_progress["owner:trip"] = [run]
+    client.runs["r1"] = running
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        await app._resume("owner:trip")
+        await wait_for(pilot, lambda: len(app.query(AssistantMessage)) == 2)
+        await client.bus.put(("run", run))  # its announcement, heard after: it shows once
+        release.set()
+        await pilot.pause(0.3)
+        users = [str(m.render()) for m in app.query(UserMessage)]
+        assert users == ["> find flights", "> [telegram] and a hotel"]
+        assert len(app.query(AssistantMessage)) == 2
+
+
+async def test_the_inbox_shows_its_reply_in_progress_at_start(app, client):
+    async def running():
+        yield TextDelta("It's 4 pm.")
+        yield Done()
+
+    run = {"run_id": "r1", "thread_id": "owner:abc", "channel": "web", "client_id": "", "text": "what time is it?"}
+    client.conversations.in_progress["owner:abc"] = [run]
+    client.runs["r1"] = running
+    async with app.run_test(size=(120, 36)) as pilot:
+        await wait_for(pilot, lambda: app.query(AssistantMessage))
+        assert "[web] what time is it?" in str(app.query(UserMessage).last().render())

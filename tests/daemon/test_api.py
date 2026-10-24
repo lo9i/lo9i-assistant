@@ -430,7 +430,9 @@ async def test_a_conversation_opens_with_its_messages_and_the_runs_in_progress_t
         headers={CLIENT_HEADER: "t"},
     ) as http:
         live = (await http.get(f"/conversations/{session.thread_id}/live")).json()
+        opened = await DaemonClient(http).conversations.live(session.thread_id)  # as the terminal app opens it
     release.set()
+    assert [m.text for m in opened.messages] == ["hi", "Hello."] and opened.runs == live["runs"]
     assert [m["text"] for m in live["messages"]] == ["hi", "Hello."]
     assert live["runs"] == [
         {

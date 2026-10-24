@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 import assistant_terminal.tui.app as app_module
+from assistant.client.daemon_client.conversations import OpenedConversation
 from assistant.core.agent import (
     Agent,
     AgentFolders,
@@ -758,6 +759,8 @@ class FakeConversations:
         self.waiting: dict[str, list[ApprovalRequired]] = {}
         # Tool calls in full, by conversation and call id.
         self.calls: dict[tuple[str, str], ShownCall] = {}
+        # The runs in progress in each conversation, as `live` lists them.
+        self.in_progress: dict[str, list[dict]] = {}
 
     async def pending_approvals(self, thread_id):
         return self.waiting.pop(thread_id, [])
@@ -772,6 +775,9 @@ class FakeConversations:
 
     async def messages(self, thread_id):
         return self.said.get(thread_id, [])
+
+    async def live(self, thread_id):
+        return OpenedConversation(self.said.get(thread_id, []), self.in_progress.get(thread_id, []))
 
     async def delete(self, thread_id):
         self.items = [c for c in self.items if c.thread_id != thread_id]

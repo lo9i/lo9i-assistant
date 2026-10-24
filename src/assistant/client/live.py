@@ -47,7 +47,11 @@ class LiveConversation:
 
     def started_elsewhere(self, run: dict[str, Any]) -> bool:
         """A run (from a `run` event) in this conversation, started by anything but this client."""
-        return run["thread_id"] == self.session.thread_id and run.get("client_id") != self._client_id
+        return run["thread_id"] == self.session.thread_id and not self.own(run)
+
+    def own(self, run: dict[str, Any]) -> bool:
+        """This client started the run (from a `run` event, or a conversation's runs in progress)."""
+        return run.get("client_id") == self._client_id
 
     def left_run_finished(self, run: dict[str, Any]) -> bool:
         """True, once, when a finished run (a `run_finished` event) is one left with `start_new`."""
