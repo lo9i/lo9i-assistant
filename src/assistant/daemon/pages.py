@@ -30,6 +30,7 @@ from assistant.core.agent import AssistantService, Device
 from assistant.core.config import settings
 from assistant.daemon import https, page_sockets
 from assistant.daemon.auth import DeviceStreams, token_of
+from assistant.daemon.http_server import Listener
 
 logger = logging.getLogger(__name__)
 
@@ -81,12 +82,12 @@ def create_pages_app(service: AssistantService, streams: DeviceStreams | None = 
     )
 
 
-def ports() -> list[dict]:
-    """uvicorn bind arguments for the pages listeners: localhost, and HTTPS when configured."""
-    binds: list[dict] = [{"host": "127.0.0.1", "port": settings.daemon_port + PORT_OFFSET}]
+def listeners() -> list[Listener]:
+    """Where the pages listen: localhost, and HTTPS when configured (last)."""
+    found = [Listener(host="127.0.0.1", port=settings.daemon_port + PORT_OFFSET)]
     if https.enabled():
-        binds.append({**https.bind(), "port": settings.https_port + PORT_OFFSET})
-    return binds
+        found.append(https.listener(settings.https_port + PORT_OFFSET))
+    return found
 
 
 async def _device(service: AssistantService, request: HTTPConnection) -> Device | None:

@@ -7,7 +7,7 @@
 </script>
 
 {#if model.data && !model.error}
-  <span class="model" title="Provider: {model.data.provider} · worker: {model.data.worker_model}">{model.data.model}</span>
+  <span class="model" title="Provider: {model.data.provider} · worker: {model.data.worker_model}">model: {model.data.model}</span>
 {/if}
 
 <style>

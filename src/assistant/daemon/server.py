@@ -3,7 +3,6 @@ configured, over HTTPS for other hosts, and supervises its background tasks, inc
 channels' processes. Stops cleanly on SIGINT or SIGTERM, and restarts or stops when asked (daemon/shutdown.py)."""
 
 import asyncio
-import contextlib
 import logging
 import os
 import signal
@@ -13,7 +12,6 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-import uvicorn
 from dotenv import load_dotenv
 from sse_starlette.sse import AppStatus
 
@@ -25,6 +23,7 @@ from assistant.daemon import https, launchd, managers, output, pages, systemd, u
 from assistant.daemon.adapters import Adapter, supervise
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import DeviceStreams, trusted
+from assistant.daemon.http_server import HttpServer, Listener
 from assistant.daemon.mail_watcher import MailWatcher
 from assistant.daemon.pages import create_pages_app
 from assistant.daemon.queued import QueuedMessages
@@ -39,14 +38,6 @@ logger = logging.getLogger(__name__)
 _SLOW_STOP_SECONDS = 60
 # How many of the coroutines a task waits through the log names, innermost last.
 _WHERE_DEPTH = 4
-
-
-class _Server(uvicorn.Server):
-    """Two servers share one process, so signals are handled once, by the daemon."""
-
-    @contextlib.contextmanager
-    def capture_signals(self):
-        yield
 
 
 async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
@@ -70,8 +61,8 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         updater = _updates(service, shutdown)
         app = create_app(service, hub, Startup(stop), shutdown, logs=logs, streams=streams, updates=updater)
         servers = _listeners(app, socket_path)
-        page_servers = [_server(create_pages_app(service, streams), **bind) for bind in pages.ports()]
-        tasks = [asyncio.create_task(s.serve(), name="http server") for s in [*servers, *page_servers]]
+        page_servers = [HttpServer(create_pages_app(service, streams), at) for at in pages.listeners()]
+        tasks = [asyncio.create_task(s.serve(stop), name="http server") for s in [*servers, *page_servers]]
         background = [asyncio.create_task(_catch_up_conversations(service)), asyncio.create_task(_prune(service))]
         if https.enabled():
             background.append(asyncio.create_task(https.reload_on_renewal(servers[-1], page_servers[-1])))
@@ -99,11 +90,9 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
             install.cancel()
         for task in background:
             task.cancel()
-        # The daemon handles signals itself (`_Server`), so sse_starlette never sees one; without
-        # this, open event streams keep the servers waiting for them to end.
+        # The daemon handles signals itself, so sse_starlette never sees one; without this, open event
+        # streams would hold the servers until their grace period ends (daemon/http_server.py).
         AppStatus.should_exit = True
-        for server in [*servers, *page_servers]:
-            server.should_exit = True
         await until_done(tasks)
     socket_path.unlink(missing_ok=True)
     return shutdown.ending or Ending.STOP
@@ -151,12 +140,15 @@ def _updates(service: AssistantService, shutdown: Shutdown) -> Updates:
     )
 
 
-def _listeners(app, socket_path: Path) -> list["_Server"]:
+def _listeners(app, socket_path: Path) -> list[HttpServer]:
     """The Unix socket, localhost, and HTTPS when configured (last). Only the Unix socket is
     trusted; network requests need a paired device (daemon/auth.py)."""
-    servers = [_server(trusted(app), uds=str(socket_path)), _server(app, host="127.0.0.1", port=settings.daemon_port)]
+    servers = [
+        HttpServer(trusted(app), Listener(socket=str(socket_path))),
+        HttpServer(app, Listener(host="127.0.0.1", port=settings.daemon_port)),
+    ]
     if https.enabled():
-        servers.append(_server(app, **https.bind()))
+        servers.append(HttpServer(app, https.listener(settings.https_port)))
     return servers
 
 
@@ -213,11 +205,6 @@ async def _already_running(socket_path: Path) -> bool:
             return (await http.get("/health")).status_code == 200
     except httpx.TransportError:
         return False
-
-
-def _server(app, **bind) -> _Server:
-    # No logging config of uvicorn's own: its records go to the daemon's log files like any other.
-    return _Server(uvicorn.Config(app, log_level="warning", log_config=None, lifespan="off", **bind))
 
 
 def _stop_event() -> asyncio.Event:
