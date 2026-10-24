@@ -2,17 +2,18 @@
 from the apps, and a message's run when the agent answers it instead of the assistant's model."""
 
 import asyncio
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from pathlib import Path
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 
-from assistant.core import inbox
+from assistant.core import inbox, uploads
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
 from assistant.core.agent_tasks.service import AgentTaskError
 from assistant.core.agent_tasks.steps import STEPS, AgentSteps, streamed
+from assistant.core.attachments import Attachment, reference
 from assistant.core.background import short
 from assistant.core.bus import EventBus
 from assistant.core.conversation import agent_folders, handoffs, queued
@@ -72,11 +73,19 @@ class HandoffsMixin(RunsMixin):
     async def take_back_conversation(self, user_id: str, thread_id: str) -> None:
         await handoffs.take_back(self._storage.store, user_id, thread_id)
 
-    async def message_agent(self, user_id: str, thread_id: str, text: str) -> None:
+    async def message_agent(
+        self, user_id: str, thread_id: str, text: str, attachments: Sequence[Attachment] = ()
+    ) -> None:
         """Passes `text` on to the agent's task working in the conversation, which takes it between its
-        steps; it shows among them. Raises HandoffError when none is working, or its agent can't take
-        messages while it works."""
-        await self._tell_agent(user_id, thread_id, lambda task: self.agent_tasks.message(task, text))
+        steps; it shows among them. Files sent with it are saved as any upload, once a task is there to
+        take them, and the agent gets where: it runs on this computer and opens them from there. Raises
+        HandoffError when none is working, or its agent can't take messages while it works."""
+
+        async def tell(task: str) -> None:
+            said = await asyncio.to_thread(_with_files, text, attachments)
+            await self.agent_tasks.message(task, said)
+
+        await self._tell_agent(user_id, thread_id, tell)
 
     async def interrupt_agent(self, user_id: str, thread_id: str) -> None:
         """Stops the step the agent's task in the conversation is taking; the task waits for the user's
@@ -153,6 +162,17 @@ class HandoffsMixin(RunsMixin):
         finally:
             # Its end too, so the apps' list of running tasks drops it.
             reported.progressed()
+
+
+def _with_files(text: str, attachments: Sequence[Attachment]) -> str:
+    """`text`, then a note per file saved under the uploads dir, as the model gets a file it can't read."""
+    notes = [_saved_note(reference(a)["value"]["upload"]) for a in attachments]
+    return "\n\n".join(part for part in [text.strip(), "\n".join(notes)] if part)
+
+
+def _saved_note(upload: dict[str, str]) -> str:
+    where = uploads.absolute(upload["path"])
+    return f"[File {upload['name']} ({upload['media_type']}) saved at {where}; open it from there]"
 
 
 class _Steps:

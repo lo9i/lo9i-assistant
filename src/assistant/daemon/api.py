@@ -397,10 +397,6 @@ class HandTo(BaseModel):
     folder: str
 
 
-class ToAgent(BaseModel):
-    text: str = Field(min_length=1)
-
-
 class PinnedSkills(BaseModel):
     # In the order they were pinned.
     skills: list[str]
@@ -748,11 +744,19 @@ def _add_handoff_routes(app: FastAPI, service: AssistantService) -> None:
         return ConversationAgent()
 
     @app.post("/conversations/{thread_id}/agent/messages")
-    async def message_agent(thread_id: str, body: ToAgent) -> Ok:
-        """Passes a message on to the agent while it works on the conversation's last one; it takes it
-        between its steps. 409: it isn't working, or can't take messages while it works."""
+    async def message_agent(
+        thread_id: str,
+        text: Annotated[str, Form()] = "",
+        files: Annotated[list[UploadFile] | None, File()] = None,
+    ) -> Ok:
+        """Passes a message, and the files sent with it, on to the agent while it works on the conversation's
+        last one; it takes it between its steps. 400: neither text nor files. 409: it isn't working, or can't
+        take messages while it works."""
+        if not text.strip() and not files:
+            raise HTTPException(400, "Write a message or attach a file.")
+        attachments = [await _attachment(f) for f in files or []]
         try:
-            await service.message_agent(settings.owner_id, thread_id, body.text)
+            await service.message_agent(settings.owner_id, thread_id, text, attachments)
         except HandoffError as e:
             raise HTTPException(409, str(e)) from e
         return Ok()

@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 from assistant.client.daemon_client.transport import Transport
 from assistant.core.agent import (
     Agent,
@@ -12,6 +14,7 @@ from assistant.core.agent import (
     ShownMessage,
     SkillError,
 )
+from assistant.core.attachments import Attachment
 from assistant.core.events import ApprovalRequired
 
 
@@ -88,11 +91,15 @@ class ConversationsApi:
         """The assistant answers again from the next message."""
         await self._transport.request("DELETE", f"/conversations/{thread_id}/agent")
 
-    async def message_agent(self, thread_id: str, text: str) -> None:
-        """Passes `text` on to the agent while it works on the conversation's last message; it takes it
-        between its steps. Raises HandoffError when it isn't working, or can't take messages while it works."""
+    async def message_agent(self, thread_id: str, text: str, attachments: Sequence[Attachment] = ()) -> None:
+        """Passes `text` and the files with it on to the agent while it works on the conversation's last
+        message; it takes it between its steps. Raises HandoffError when it isn't working, or can't take
+        messages while it works."""
         path = f"/conversations/{thread_id}/agent/messages"
-        await self._transport.request("POST", path, json={"text": text}, errors={409: HandoffError})
+        files = [("files", (a.name, a.data, a.media_type)) for a in attachments]
+        await self._transport.request(
+            "POST", path, data={"text": text}, files=files or None, errors={409: HandoffError}
+        )
 
     async def interrupt_agent(self, thread_id: str) -> None:
         """Stops the agent's step in progress; it waits for the next message. Raises HandoffError as

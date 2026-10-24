@@ -14,6 +14,7 @@ from assistant.core.agent import AssistantService, FolderError, HandoffError, Se
 from assistant.core.agent_tasks import workers
 from assistant.core.agent_tasks.records import TaskStore
 from assistant.core.attachments import Attachment
+from assistant.core.config import settings
 from assistant.core.conversation import queued
 from assistant.core.events import Done, Error, TextDelta, ToolFinished, ToolStarted, UserSaid
 from assistant.core.mcp import folders, servers
@@ -333,6 +334,31 @@ async def test_messages_the_agent_ended_without_taking_are_answered_next_in_its_
     assert [e for e in events if isinstance(e, UserSaid)] == [UserSaid("that's all"), UserSaid("and one more")]
     assert TextDelta(f"Done in {tmp_path}: and one more") in events and events[-1] == Done()
     assert (asked()[-1]["prompt"], asked()[-1]["follow_up_of"]) == ("and one more", task)
+
+
+async def test_files_sent_while_the_agent_works_are_saved_and_it_gets_where(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    run = asyncio.create_task(collect(service.send(session, "take messages")))
+    await _taking_messages(service, session, tmp_path)
+    shot = Attachment("shot.png", "image/png", b"\x89PNG")
+    await service.message_agent("owner", session.thread_id, "  see this  ", [shot])
+    await service.message_agent("owner", session.thread_id, "", [Attachment("log.txt", "text/plain", b"log")])
+    await service.message_agent("owner", session.thread_id, "that's all")
+    said = [e.text for e in await run if isinstance(e, UserSaid)]
+    assert said[0].startswith("see this\n\n[File shot.png (image/png) saved at ")
+    assert said[1].startswith("[File log.txt (text/plain) saved at ")  # files alone
+    saved = [Path(s.split(" saved at ")[1].removesuffix("; open it from there]")) for s in said[:2]]
+    assert [p.read_bytes() for p in saved] == [b"\x89PNG", b"log"]
+    assert all(p.is_relative_to(Path(settings.uploads_dir).expanduser()) for p in saved)
+
+
+async def test_files_sent_when_no_agent_works_are_not_saved(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    uploads_dir = Path(settings.uploads_dir).expanduser()
+    before = set(uploads_dir.rglob("*")) if uploads_dir.exists() else set()
+    with pytest.raises(HandoffError, match="isn't working on anything now"):
+        await service.message_agent("owner", session.thread_id, "see", [Attachment("a.png", "image/png", b"x")])
+    assert (set(uploads_dir.rglob("*")) if uploads_dir.exists() else set()) == before
 
 
 async def test_only_an_agent_at_work_that_takes_messages_gets_them(service, tmp_path):
