@@ -3,7 +3,8 @@ is there, and installing it, then restarting (daemon/shutdown.py).
 
 The version is a commit of lo9i's repository. A clone (install.sh, or a checkout someone works in) updates
 itself: it fetches its upstream branch, and an update fast-forwards to it, syncs the dependencies, builds the
-web app when npm is there, and restarts once no run is in progress. A clone with changes not committed, or
+web app when npm is there, and restarts once no run is in progress; one that fails after the fast-forward goes
+back to the commit it came from and installs what that one needs again. A clone with changes not committed, or
 commits its upstream doesn't have, isn't touched: the update says why instead. A copy scripts/deploy.sh made
 has no repository; it carries the commit it was made from (`VERSION_FILE`) and is updated by deploying again.
 """
@@ -95,18 +96,49 @@ class Updates:
         return await self.status()
 
     async def _update(self, upstream: str) -> None:
-        steps = [Step("Downloading the update", ["git", "merge", "--ff-only", "--quiet", upstream]), *self._steps]
-        for step in steps:
-            self._set("updating", step.label)
+        merge = Step("Downloading the update", ["git", "merge", "--ff-only", "--quiet", upstream])
+        self._set("updating", merge.label)
+        try:
+            before = (await _git(self._root, "rev-parse", "HEAD")).strip()
+            await self._run_step(merge)
+        except _FailedError as e:
+            self._failed(f"{merge.label} failed: {e}")
+            return
+        for done, step in enumerate(self._steps):
             try:
-                await _run(self._root, step.command, step.timeout)
+                await self._run_step(step)
             except _FailedError as e:
-                logger.warning("The update failed at %s: %s", step.label, e)
-                self._set("failed", error=f"{step.label} failed: {e}")
+                await self._go_back(before, self._steps[: done + 1], f"{step.label} failed: {e}")
                 return
         logger.info("Updated to %s; restarting.", upstream)
         self._set("restarting")
         self._restart()
+
+    async def _go_back(self, before: str, ran: Sequence[Step], error: str) -> None:
+        """Back to the commit the update came from, with what it needs: the steps that ran (the one that failed
+        included) run again there; those after it never changed anything. Otherwise the next restart would run
+        the new commits with what the old ones needed. The tree was clean before the update (`_blocker`), so
+        whatever the steps changed in it is theirs."""
+        logger.warning("The update failed (%s); going back to %s.", error, before)
+        reset = Step("Going back to the version before", ["git", "reset", "--hard", "--quiet", before])
+        for step in [reset, *(Step(f"Going back: {s.label}", s.command, s.timeout) for s in ran)]:
+            try:
+                await self._run_step(step)
+            except _FailedError as e:
+                self._failed(
+                    f"{error}. {step.label} failed too: {e}. A restart now would run a version that isn't fully"
+                    " installed."
+                )
+                return
+        self._failed(f"{error}. lo9i went back to the version it was on, which keeps running.")
+
+    async def _run_step(self, step: Step) -> None:
+        self._set("updating", step.label)
+        await _run(self._root, step.command, step.timeout)
+
+    def _failed(self, error: str) -> None:
+        logger.warning("The update failed: %s", error)
+        self._set("failed", error=error)
 
     async def _fetch(self) -> _Checked:
         now = datetime.now(UTC).isoformat(timespec="seconds")

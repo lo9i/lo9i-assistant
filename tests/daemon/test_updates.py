@@ -104,7 +104,41 @@ async def test_a_step_that_fails_says_which_and_why_and_nothing_restarts(repos):
     await _until_done(lo9i)
     status = await lo9i.status()
     assert status.state == "failed" and spy.restarts == 0
-    assert status.error == "Building the web app failed: npm ERR! missing script: build"
+    assert status.error.startswith("Building the web app failed: npm ERR! missing script: build. ")
+
+
+async def test_a_step_that_fails_after_the_new_commits_came_goes_back_to_the_version_before(repos, tmp_path):
+    clone, other = repos
+    _commit(other, "b.txt", "Second")
+    _git(other, "push", "-q", "origin", "HEAD:main")
+    installed = tmp_path / "installed"
+    steps = [
+        Step("Installing its dependencies", ["sh", "-c", f"git log -1 --format=%s >> {installed}"]),
+        # Fails on the new version, after changing a file the repository has.
+        Step("Building the web app", ["sh", "-c", "test ! -f b.txt || { echo half > a.txt; exit 1; }"]),
+        Step("Never run", ["sh", "-c", f"echo never >> {installed}"]),
+    ]
+    spy = _Spy()
+    lo9i = _updates(clone, spy, steps)
+    await lo9i.start()
+    await _until_done(lo9i)
+    status = await lo9i.status()
+    assert (status.state, status.current and status.current.subject) == ("failed", "First") and spy.restarts == 0
+    assert status.error.endswith("lo9i went back to the version it was on, which keeps running.")
+    assert installed.read_text().split() == ["Second", "First"]  # what the old version needs, installed again
+    assert not (clone / "b.txt").exists() and (clone / "a.txt").read_text() == "First"
+
+
+async def test_going_back_that_fails_too_says_a_restart_would_run_a_half_installed_version(repos):
+    clone, other = repos
+    _commit(other, "b.txt", "Second")
+    _git(other, "push", "-q", "origin", "HEAD:main")
+    lo9i = _updates(clone, _Spy(), [Step("Installing its dependencies", ["sh", "-c", "exit 1"])])
+    await lo9i.start()
+    await _until_done(lo9i)
+    error = (await lo9i.status()).error
+    assert "Going back: Installing its dependencies failed too" in error
+    assert error.endswith("A restart now would run a version that isn't fully installed.")
 
 
 async def test_changes_not_committed_or_commits_not_pushed_keep_the_copy_as_it_is(repos):
