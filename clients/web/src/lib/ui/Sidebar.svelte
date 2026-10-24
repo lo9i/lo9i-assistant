@@ -113,6 +113,14 @@
       count: () => updates.data?.length ?? 0,
     },
   ];
+
+  // Each conversation keeps the same colour, picked from its id.
+  const TINTS = ["#5b9a3c", "#c0503a", "#c79a2a", "#3f8fc4", "#9a5bc0", "#2fa59a", "#d0753a", "#c04f86"];
+  function tint(id: string): string {
+    let h = 0;
+    for (const c of id ?? "") h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    return TINTS[h % TINTS.length];
+  }
 </script>
 
 <aside class="sidebar">
@@ -152,6 +160,7 @@
             <li class="branch">
               <button
                 class="branch-item"
+                style:--tint={tint(entry.threadId)}
                 class:current={entry.active && page.url.pathname === OPEN}
                 aria-current={entry.active && page.url.pathname === OPEN ? "true" : undefined}
                 title={entry.title + (entry.waiting ? " · waiting for your answer" : entry.running ? " · working" : "")}
@@ -360,10 +369,12 @@
   }
   /* The conversations open in this tab, and others working, under Chat. */
   .open {
-    margin: 0 0 4px 22px;
-    padding: 0 0 0 6px;
+    margin: 2px 0 4px 22px;
+    padding: 0;
     list-style: none;
-    border-left: 2px solid var(--color-accent);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
   }
   .branch {
     display: flex;
@@ -378,8 +389,9 @@
     gap: 6px;
     padding: 5px 8px;
     border: 0;
+    border-left: 3px solid var(--tint);
     border-radius: var(--radius-sm);
-    background: none;
+    background: color-mix(in srgb, var(--tint) 7%, transparent);
     color: var(--color-text-muted);
     font-size: var(--font-size-xs);
     text-align: left;
