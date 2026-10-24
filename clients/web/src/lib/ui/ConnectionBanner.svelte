@@ -37,6 +37,31 @@
       if (!(e instanceof DaemonUnavailableError)) notices.report(e);
     }
   }
+  // While it waits for runs: Cancel keeps the daemon running, Now cancels the runs so it goes ahead.
+  let answering = $state(false);
+  async function answer(act: () => Promise<unknown>, after: () => void): Promise<void> {
+    answering = true;
+    try {
+      await act();
+      after();
+    } catch (e) {
+      notices.report(e);
+      void pending();
+    } finally {
+      answering = false;
+    }
+  }
+  const takeBack = () =>
+    answer(
+      () => client.system.takeBackEnding(),
+      () => (coming = null),
+    );
+  const now = () =>
+    answer(
+      () => client.system.endNow(),
+      () => {},
+    );
+
   $effect(() =>
     hub.onReconnect(() => {
       coming = null;
@@ -65,6 +90,10 @@
   <div class="banner surface--glass" role="status" aria-live="polite">
     <RefreshCw size={16} />
     <span>{comingText(name, coming.ending, coming.waiting)}</span>
+    {#if coming.waiting}
+      <button class="btn btn--sm btn--ghost" onclick={takeBack} disabled={answering}>Cancel</button>
+      <button class="btn btn--sm btn--danger" onclick={now} disabled={answering}>Now</button>
+    {/if}
   </div>
 {:else if newVersion}
   <div class="banner surface--glass fresh" role="status" aria-live="polite">
