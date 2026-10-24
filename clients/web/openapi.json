@@ -3883,6 +3883,29 @@
         }
       }
     },
+    "/plugins/keys": {
+      "get": {
+        "summary": "Kept Plugin Keys",
+        "description": "Everything removed plugins left kept: each plugin's keys while it isn't installed again (`repository`\nempty), and each private repository's token nothing needs any more (`plugin` empty). `plugins` and\n`settings` events tell when it may have changed.",
+        "operationId": "kept_plugin_keys_plugins_keys_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/KeptKeys"
+                  },
+                  "type": "array",
+                  "title": "Response Kept Plugin Keys Plugins Keys Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/plugins/keys/forget": {
       "post": {
         "summary": "Forget Plugin Keys",

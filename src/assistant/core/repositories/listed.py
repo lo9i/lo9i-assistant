@@ -123,10 +123,27 @@ async def after_removal(store: BaseStore, plugin: str, source: str) -> KeptKeys 
     return KeptKeys(plugin, names, source if orphan else "", name_of(source) if orphan else "")
 
 
+async def kept(store: BaseStore) -> list[KeptKeys]:
+    """Everything removed plugins left kept, to see and delete later: each plugin's keys while it isn't
+    installed again, then each private repository's token while it isn't listed and nothing installed comes
+    from it (with no plugin)."""
+    installed = {s.name for s in await servers.load_all(store)}
+    plugins = [
+        KeptKeys(name, names) for name, names in sorted((await keys.kept(store)).items()) if name not in installed
+    ]
+    _, private = await _added(store)
+    listed_now = await listed(store)
+    orphans = [
+        url for url in private if not any(_same(url, r.url) for r in listed_now) and not await in_use(store, url)
+    ]
+    return [*plugins, *(KeptKeys("", [], url, name_of(url)) for url in orphans)]
+
+
 async def forget(store: BaseStore, plugin: str, repository: str) -> None:
     """Delete what a removed plugin left kept: its keys when it isn't installed again, and the token
-    of `repository` when it isn't listed and nothing installed comes from it."""
-    if plugin not in {s.name for s in await servers.load_all(store)}:
+    of `repository` when it isn't listed and nothing installed comes from it. An empty `plugin` deletes
+    only the token."""
+    if plugin and plugin not in {s.name for s in await servers.load_all(store)}:
         await keys.delete(store, plugin)
     if not repository or any(_same(repository, r.url) for r in await listed(store)):
         return

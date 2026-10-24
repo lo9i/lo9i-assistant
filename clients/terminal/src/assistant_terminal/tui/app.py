@@ -61,6 +61,7 @@ from assistant_terminal.tui.screens import (
     FilesScreen,
     HostScreen,
     JobsScreen,
+    KeptKeysListScreen,
     LogsScreen,
     McpScreen,
     ModelScreen,
@@ -167,6 +168,7 @@ class AssistantApp(App):
             "/logs": self._command_logs,
             "/profile": self._command_profile,
             "/sessions": self._command_sessions,
+            "/keys": self._command_keys,
             "/name": self._command_name,
             "/prompt": self._command_prompt,
             "/pin": self._command_pin,
@@ -830,6 +832,9 @@ class AssistantApp(App):
 
     async def _command_sessions(self, _: str) -> None:
         self.push_screen(SessionsScreen(self._service.clients))
+
+    async def _command_keys(self, _: str) -> None:
+        self.push_screen(KeptKeysListScreen(self._service.repositories))
 
     async def _command_startup(self, _: str) -> None:
         self.push_screen(StartupScreen(self._service.system))

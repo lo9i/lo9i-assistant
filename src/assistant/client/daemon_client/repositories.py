@@ -35,6 +35,10 @@ class RepositoriesApi:
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
 
+    async def kept_keys(self) -> list[KeptKeys]:
+        """Everything removed plugins left kept: their keys, and private repositories' tokens."""
+        return [KeptKeys(**k) for k in await self._transport.request("GET", "/plugins/keys")]
+
     async def forget_keys(self, kept: KeptKeys) -> None:
         """Delete what a removed plugin left kept."""
         await self._transport.request("POST", "/plugins/keys/forget", json=asdict(kept))

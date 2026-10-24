@@ -616,9 +616,15 @@ class FakeRepositories:
         self.last_check = "2029-12-31T09:00:00+00:00"
         self.checks_made = 0
         self.check_fails = False
+        # What removed plugins left kept.
+        self.kept: list[KeptKeys] = []
 
     async def forget_keys(self, kept):
         self.forgotten = kept
+        self.kept = [k for k in self.kept if k != kept]
+
+    async def kept_keys(self):
+        return list(self.kept)
 
     async def list(self):
         return [Repository(EXTRAS, "lo9i/lo9i-assistant-extras", True)] + [

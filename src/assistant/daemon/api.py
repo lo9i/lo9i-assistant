@@ -1295,6 +1295,13 @@ def _add_repository_routes(app: FastAPI, service: AssistantService) -> None:
             raise HTTPException(400, str(e)) from e
         return Ok()
 
+    @app.get("/plugins/keys")
+    async def kept_plugin_keys() -> list[KeptKeys]:
+        """Everything removed plugins left kept: each plugin's keys while it isn't installed again (`repository`
+        empty), and each private repository's token nothing needs any more (`plugin` empty). `plugins` and
+        `settings` events tell when it may have changed."""
+        return await service.kept_keys()
+
     @app.post("/plugins/keys/forget")
     async def forget_plugin_keys(body: KeptKeys) -> Ok:
         """Delete what a removed plugin left kept (Removed.kept), when the user says so."""

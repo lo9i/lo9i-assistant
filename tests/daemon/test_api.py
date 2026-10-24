@@ -802,3 +802,13 @@ async def test_a_step_inside_a_delegate_call_loads_in_full_through_the_client(cl
     assert whole.args == {"command": "seq 1 100"} and "\n100\n" in whole.output
     with pytest.raises(ConversationError):
         await client.conversations.tool_call_step(session.thread_id, call.call_id, 1)
+
+
+async def test_kept_keys_are_listed_and_deleted_through_the_client(client, service):
+    from assistant.core.agent import KeptKeys
+    from assistant.core.mcp import keys
+
+    await keys.put(service.store, service.secrets, "hello", keys.Keys({"HELLO_TOKEN": "s3cret"}))
+    assert await client.repositories.kept_keys() == [KeptKeys("hello", ["HELLO_TOKEN"])]
+    await client.repositories.forget_keys(KeptKeys("hello", ["HELLO_TOKEN"]))
+    assert await client.repositories.kept_keys() == []

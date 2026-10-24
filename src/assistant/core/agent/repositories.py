@@ -67,6 +67,10 @@ class RepositoriesMixin(ServiceBase):
         """Its plugins stay installed. Raises RepositoryError for the extras or one not listed."""
         await listed.remove(self._storage.store, url)
 
+    async def kept_keys(self) -> list[KeptKeys]:
+        """Everything removed plugins left kept: their keys, and private repositories' tokens."""
+        return await listed.kept(self._storage.store)
+
     async def forget_keys(self, kept: KeptKeys) -> None:
         """Delete what a removed plugin left kept, when the user says so."""
         await listed.forget(self._storage.store, kept.plugin, kept.repository)

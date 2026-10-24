@@ -4,6 +4,7 @@
   import AssistantCard from "$lib/ui/settings/AssistantCard.svelte";
   import EmailCard from "$lib/ui/settings/EmailCard.svelte";
   import HostCard from "$lib/ui/settings/HostCard.svelte";
+  import KeptKeysCard from "$lib/ui/settings/KeptKeysCard.svelte";
   import MicrophoneCard from "$lib/ui/settings/MicrophoneCard.svelte";
   import DispatchCard from "$lib/ui/settings/DispatchCard.svelte";
   import ModelCard from "$lib/ui/settings/ModelCard.svelte";
@@ -71,6 +72,9 @@
     <div class="grid">
       <div class="stack">
         <HostCard />
+      </div>
+      <div class="stack">
+        <KeptKeysCard />
       </div>
     </div>
   {:else}

@@ -1742,6 +1742,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/plugins/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Kept Plugin Keys
+         * @description Everything removed plugins left kept: each plugin's keys while it isn't installed again (`repository`
+         *     empty), and each private repository's token nothing needs any more (`plugin` empty). `plugins` and
+         *     `settings` events tell when it may have changed.
+         */
+        get: operations["kept_plugin_keys_plugins_keys_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/plugins/keys/forget": {
         parameters: {
             query?: never;
@@ -7497,6 +7519,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    kept_plugin_keys_plugins_keys_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeptKeys"][];
                 };
             };
         };

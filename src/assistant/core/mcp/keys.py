@@ -90,6 +90,12 @@ async def names(store: BaseStore, name: str) -> list[str]:
     return list(item.value.get("names", [])) if item else []
 
 
+async def kept(store: BaseStore) -> dict[str, list[str]]:
+    """Every plugin's kept keys' names, by plugin, without reading their values."""
+    items = await store.asearch(_NAMESPACE, limit=10_000)
+    return {item.key: list(item.value.get("names", [])) for item in items}
+
+
 async def delete(store: BaseStore, name: str) -> None:
     await secret_store.delete(store, _ref(name))
     await store.adelete(_NAMESPACE, name)

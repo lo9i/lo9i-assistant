@@ -79,6 +79,20 @@ async def test_the_user_can_delete_a_removed_plugins_keys(service, extras):
     assert "s3cret" not in await _plain_store(service)
 
 
+async def test_kept_keys_are_listed_later_until_installed_again_or_deleted(service, extras):
+    assert await service.kept_keys() == []
+    await service.install_from_repository(URL, [], [HELLO])
+    assert await service.kept_keys() == []  # installed: its keys are in use
+    await service.remove_mcp_server("hello")
+    assert await service.kept_keys() == [KeptKeys("hello", ["HELLO_TOKEN", "HELLO_USER"])]
+    await service.install_from_repository(URL, [], [ServerValues("hello", {"HELLO_USER": "", "HELLO_TOKEN": ""})])
+    assert await service.kept_keys() == []
+    kept = await service.remove_mcp_server("hello")
+    assert kept is not None
+    await service.forget_keys(kept)
+    assert await service.kept_keys() == []
+
+
 async def test_keys_saved_in_plain_before_are_moved_out_at_start(service):
     old = McpServer("old", command="run", env={"API_KEY": "plain"}, source="https://example.com/x")
     await servers.save(service.store, old)
@@ -100,6 +114,10 @@ async def test_a_private_repositorys_token_stays_while_a_plugin_from_it_is_insta
     assert await service.update_mcp_server_from_repository("hello")
     kept = await service.remove_mcp_server("hello")
     assert kept is not None and (kept.repository, kept.repository_name) == (PRIVATE, "me/private-plugins")
+    listed = await service.kept_keys()  # kept for later: the plugin's keys, and the token on its own
+    assert listed == [KeptKeys("hello", kept.keys), KeptKeys("", [], PRIVATE, "me/private-plugins")]
+    await service.forget_keys(listed[1])
+    assert await service.kept_keys() == [KeptKeys("hello", kept.keys)]
     await service.forget_keys(kept)
     assert await service.store.asearch(("secrets",)) == []
 

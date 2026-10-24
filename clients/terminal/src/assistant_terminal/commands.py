@@ -40,6 +40,7 @@ COMMANDS = [
     Command("/websearch", "/websearch", "Web search: the Brave Search API key"),
     Command("/email", "/email", "Who the assistant emails without asking, from any account"),
     Command("/mcp", "/mcp", "MCP servers and their tools"),
+    Command("/keys", "/keys", "Keys and tokens removed plugins left kept, to delete them"),
     Command("/startup", "/startup", "Start the assistant at boot"),
     Command("/host", "/host", "The computer the assistant runs on"),
     Command("/name", "/name <name>", "Rename the assistant"),

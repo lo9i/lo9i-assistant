@@ -450,6 +450,12 @@ export class OAuthGroup {
 export class RepositoriesGroup {
   constructor(private readonly transport: Transport) {}
 
+  /** Everything removed plugins left kept: each plugin's keys while it isn't installed again (no `repository`),
+   * and each private repository's token nothing needs any more (no `plugin`). */
+  keptKeys(): Promise<KeptKeys[]> {
+    return this.transport.request("GET", "/plugins/keys");
+  }
+
   /** Delete what a removed plugin left kept: its keys, its private repository's token. */
   async forgetKeys(kept: KeptKeys): Promise<void> {
     await this.transport.request("POST", "/plugins/keys/forget", kept);

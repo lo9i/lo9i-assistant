@@ -12,6 +12,11 @@ class KeptKeysQuestion {
 
 export const keptKeys = new KeptKeysQuestion();
 
+/** What a kept entry is listed as in Settings: its plugin, or the repository whose token is left. */
+export function keptName(kept: KeptKeys): string {
+  return kept.plugin || `Token for ${kept.repository_name}`;
+}
+
 /** "HELLO_TOKEN, HELLO_USER and the token for me/private": what the question names. */
 export function describeKept(kept: KeptKeys): string {
   const parts = [...kept.keys];

@@ -54,6 +54,8 @@ _CHANGE_EVENTS = {
     "skill_health": "skills",
     # What the extras offer, kept between downloads (core/repositories/cache.py).
     "repository_listings": "plugins",
+    # Removed plugins' kept keys (core/mcp/keys.py), which Settings lists.
+    "plugin_keys": "plugins",
 }
 
 
