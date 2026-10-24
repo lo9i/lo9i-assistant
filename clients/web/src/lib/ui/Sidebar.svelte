@@ -211,9 +211,9 @@
 <style>
   .sidebar {
     position: sticky;
-    top: 16px;
-    height: calc(100vh - 32px);
-    margin: 16px;
+    top: 8px;
+    height: calc(100vh - 16px);
+    margin: 8px 0 8px 8px;
     display: flex;
     flex-direction: column;
     gap: 16px;

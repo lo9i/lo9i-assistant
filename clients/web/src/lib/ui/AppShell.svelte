@@ -95,7 +95,7 @@
   .app-layout {
     --sidebar-rail: 220px;
     display: grid;
-    grid-template-columns: calc(var(--sidebar-rail) + 32px) minmax(0, 1fr);
+    grid-template-columns: calc(var(--sidebar-rail) + 8px) minmax(0, 1fr);
     min-height: 100vh;
     transition: grid-template-columns 0.18s ease;
   }
@@ -104,6 +104,8 @@
   }
   .main {
     min-width: 0;
+    /* pages pad 16px; pull back so the gap right of the sidebar matches its 8px left margin */
+    margin-left: -8px;
   }
   @media (max-width: 680px) {
     .app-layout {
