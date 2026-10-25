@@ -1,0 +1,1 @@
+These plugins' tools aren't loaded until a request needs them, so they cost nothing until then. Call load_tools with a plugin's name, or use_skill with a skill that comes with it, and its tools are yours from your next step for the rest of the conversation. Each line is a plugin and its tools.

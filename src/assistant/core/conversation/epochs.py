@@ -25,14 +25,20 @@ _CHARS_PER_TOKEN = 4
 
 
 async def open_epoch(
-    store: BaseStore, user_id: str, thread_id: str, now: datetime, summary: str = ""
+    store: BaseStore,
+    user_id: str,
+    thread_id: str,
+    now: datetime,
+    plugin_tools: Mapping[str, Sequence[str]],
+    summary: str = "",
 ) -> dict[str, Any]:
-    """State update that starts an epoch with a freshly built system prompt."""
+    """State update that starts an epoch with a freshly built system prompt. `plugin_tools`: the plugins
+    whose tools it can load (core/plugin_loading.py), which the graph keeps with the epoch."""
     name = await load_name(store)
     pinned_skills = await pinned.load(store, user_id, thread_id)
     texts = await prompt_edits.current()
     return {
-        "system_prompt": await build_system_prompt(store, user_id, name, summary, pinned_skills, texts),
+        "system_prompt": await build_system_prompt(store, user_id, name, summary, pinned_skills, texts, plugin_tools),
         "assistant_name": name,
         "prompt_texts": prompt_edits.digest(texts),
         "pinned_skills": pinned_skills,
@@ -59,12 +65,17 @@ async def is_reworded(state: Mapping[str, Any]) -> bool:
 
 
 async def reopen(
-    state: Mapping[str, Any], store: BaseStore, user_id: str, thread_id: str, now: datetime
+    state: Mapping[str, Any],
+    store: BaseStore,
+    user_id: str,
+    thread_id: str,
+    now: datetime,
+    plugin_tools: Mapping[str, Sequence[str]],
 ) -> dict[str, Any]:
     """A new epoch at the same point, after a rename, a pinned skill, an edited prompt text or a change in
-    the MCP tools.
+    the plugins' tools.
     Nothing is summarized: the messages stay, only the prompt and tools change (one cache miss)."""
-    return await open_epoch(store, user_id, thread_id, now, state.get("epoch_summary", ""))
+    return await open_epoch(store, user_id, thread_id, now, plugin_tools, state.get("epoch_summary", ""))
 
 
 def is_idle(state: Mapping[str, Any], now: datetime) -> bool:
@@ -100,7 +111,13 @@ def _estimate(messages: Sequence[BaseMessage]) -> int:
 
 
 async def compact(
-    state: Mapping[str, Any], store: BaseStore, user_id: str, thread_id: str, summarizer: Summarizer, now: datetime
+    state: Mapping[str, Any],
+    store: BaseStore,
+    user_id: str,
+    thread_id: str,
+    summarizer: Summarizer,
+    now: datetime,
+    plugin_tools: Mapping[str, Sequence[str]],
 ) -> dict[str, Any]:
     """Archive the older part of the epoch and start a new one. Returns a state update."""
     start = state.get("epoch_start", 0)
@@ -111,7 +128,7 @@ async def compact(
     summary = await summarizer(state.get("epoch_summary", ""), render(state["messages"][start:cut]))
     await pending.add(store, user_id, _part(state, thread_id, start, cut, now))
     await summaries.save(store, user_id, thread_id, summary)
-    return {"epoch_start": cut, **await open_epoch(store, user_id, thread_id, now, summary)}
+    return {"epoch_start": cut, **await open_epoch(store, user_id, thread_id, now, plugin_tools, summary)}
 
 
 async def archive(

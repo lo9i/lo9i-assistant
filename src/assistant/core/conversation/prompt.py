@@ -1,9 +1,10 @@
 """Builds the system prompt at the start of each epoch.
 
 Order runs from stable to volatile: persona, the assistant's name, operating instructions, channel hints,
-skills, the skills pinned to the conversation, connected accounts, plugins it can offer, then profile,
-facts, recent episodes and the running summary. Prompt texts live in `prompts/`; the persona, operating
-instructions and channel hints are the user's edits when there are some (prompt_edits.py).
+skills, the plugins whose tools load on demand, the skills pinned to the conversation, connected accounts,
+plugins it can offer, then profile, facts, recent episodes and the running summary. Prompt texts live in
+`prompts/`; the persona, operating instructions and channel hints are the user's edits when there are some
+(prompt_edits.py).
 """
 
 import asyncio
@@ -25,6 +26,7 @@ _NAME = prompts.load("name")
 _ACCOUNTS = prompts.load("accounts")
 _PLUGINS = prompts.load("plugins")
 _PINNED = prompts.load("pinned")
+_PLUGIN_TOOLS = prompts.load("plugin_tools")
 
 
 async def build_system_prompt(
@@ -34,8 +36,11 @@ async def build_system_prompt(
     conversation_summary: str,
     pinned: Sequence[str] = (),
     texts: Mapping[str, str] | None = None,
+    plugin_tools: Mapping[str, Sequence[str]] | None = None,
 ) -> str:
-    """`texts`: the texts the user can edit, by name (prompt_edits.current()); read now when left out."""
+    """`texts`: the texts the user can edit, by name (prompt_edits.current()); read now when left out.
+    `plugin_tools`: each plugin with tools and their names, which a conversation loads when it needs them
+    (core/plugin_loading.py)."""
     texts = await prompt_edits.current() if texts is None else texts
     recent = await episodes.recent(store, user_id, settings.memory_max_episodes)
     sections = [
@@ -44,6 +49,7 @@ async def build_system_prompt(
         texts["operating"],
         f"# Channels\n\n{await _channels_index(store, texts['channels'])}",
         f"# Skills\n\n{await _skills_index()}",
+        *_plugin_tools_section(plugin_tools or {}),
         *await _pinned_section(pinned),
         f"# Accounts\n\n{await _accounts_index(store)}",
         *await _plugins_section(store),
@@ -66,6 +72,12 @@ async def _skills_index() -> str:
     listed = await asyncio.to_thread(skills.list_skills)
     lines = "\n".join(f"- {s.name}: {s.description}" for s in listed)
     return f"To run a skill, call use_skill with its name and follow the instructions.\n\n{lines or '(none yet)'}"
+
+
+def _plugin_tools_section(plugin_tools: Mapping[str, Sequence[str]]) -> list[str]:
+    """No section when no plugin has tools."""
+    lines = "\n".join(f"- {plugin}: {', '.join(tools)}" for plugin, tools in sorted(plugin_tools.items()))
+    return [f"# Plugin tools\n\n{_PLUGIN_TOOLS}\n\n{lines}"] if lines else []
 
 
 async def _pinned_section(names: Sequence[str]) -> list[str]:
