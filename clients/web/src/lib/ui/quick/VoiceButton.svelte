@@ -15,8 +15,6 @@
 
   // Talks with the assistant from any page: each recording is written in the inbox, which sends it on to
   // its conversation, and the reply is read aloud.
-  // `docked`: in a row while a chat is shown (QuickButtons).
-  let { docked = false }: { docked?: boolean } = $props();
   const { client, notices, voice } = useDaemon();
   const snapshot = external(voice.subscribe, voice.getSnapshot);
   const recorder = new Recorder();
@@ -116,7 +114,6 @@
     hint={current === "listening" ? "" : "Tap the button and ask for something."}
     onstop={() => void stopThinking()}
     onclose={close}
-    {docked}
   >
     {#if current === "listening"}
       <p class="status">
@@ -127,13 +124,13 @@
 {/if}
 <FloatingButton label={LABELS[current]} tone={current} onclick={press}>
   {#if current === "listening"}
-    <Send size={12} />
+    <Send size={18} />
   {:else if current === "thinking"}
-    <LoaderCircle size={12} class="spin" />
+    <LoaderCircle size={18} class="spin" />
   {:else if current === "speaking"}
-    <Volume2 size={12} />
+    <Volume2 size={18} />
   {:else}
-    <AudioLines size={12} />
+    <AudioLines size={18} />
   {/if}
 </FloatingButton>
 

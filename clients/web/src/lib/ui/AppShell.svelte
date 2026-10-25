@@ -1,6 +1,4 @@
 <script lang="ts">
-  import QuickButtons from "./quick/QuickButtons.svelte";
-  import { quickDock } from "./quick/openPanel.svelte";
   import type { Snippet } from "svelte";
   import { announce } from "$lib/agentDone";
   import { agentDone, chime, systemNotice } from "$lib/agentDone.svelte";
@@ -85,8 +83,6 @@
   <Sidebar name={name.data || "lo9i"} />
   <main class="main">{@render children()}</main>
   <ConnectionBanner name={name.data || "lo9i"} />
-  <!-- Floating in the window's bottom right corner, on every page but a chat, which shows them in a row. -->
-  {#if quickDock.count === 0}<QuickButtons />{/if}
 </div>
 <Toasts {notices} />
 <KeptKeysDialog />

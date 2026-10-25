@@ -3,6 +3,8 @@
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
   import Bell from "@lucide/svelte/icons/bell";
+  import TextButton from "./quick/TextButton.svelte";
+  import VoiceButton from "./quick/VoiceButton.svelte";
   import CalendarClock from "@lucide/svelte/icons/calendar-clock";
   import ChartColumn from "@lucide/svelte/icons/chart-column";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
@@ -207,12 +209,20 @@
         {#if unread}<span class="count" aria-label="{unread} new">{unread}</span>{/if}
       </a>
     </div>
-    <div class="nav-row">
-      <a href={ALERTS} class="nav-item" aria-current={page.url.pathname.startsWith(ALERTS) ? "page" : undefined} title="Alerts">
-        <Bell size={20} />
-        <span class="label">Alerts</span>
+    <!-- Last: alerts, and a short message or voice to the assistant (sent to the inbox, routed on). -->
+    <div class="bar">
+      <a
+        href={ALERTS}
+        class="bar-item"
+        aria-current={page.url.pathname.startsWith(ALERTS) ? "page" : undefined}
+        aria-label="Alerts"
+        title="Alerts"
+      >
+        <Bell size={18} />
         {#if alerts.data?.length}<span class="count" aria-label="{alerts.data.length} new">{alerts.data.length}</span>{/if}
       </a>
+      <TextButton />
+      <VoiceButton />
     </div>
   </div>
 </aside>
@@ -477,6 +487,46 @@
     .nav-item {
       justify-content: center;
       padding: 10px 0;
+    }
+  }
+  .bar {
+    display: flex;
+    justify-content: space-around;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .bar :global(.bar-item) {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition:
+      background 0.12s ease,
+      color 0.12s ease;
+  }
+  .bar :global(.bar-item:hover),
+  .bar :global(.bar-item[aria-current="page"]) {
+    background: var(--color-bg-hover-ghost);
+    color: var(--color-text-primary);
+  }
+  .bar .count {
+    top: 2px;
+    left: 20px;
+  }
+  :global(.collapsed) .bar {
+    flex-direction: column;
+    align-items: center;
+  }
+  @media (max-width: 680px) {
+    .bar {
+      flex-direction: column;
+      align-items: center;
     }
   }
 </style>

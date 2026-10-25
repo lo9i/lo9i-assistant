@@ -7,8 +7,7 @@
   import { openConversation } from "../openConversation";
 
   // The panel above the quick buttons: what was asked (`children`), the reply, and the conversation the
-  // inbox sent the message on to, to open in Chat. `docked`: the buttons are in a row while a chat is
-  // shown, lower than when they're stacked.
+  // inbox sent the message on to, to open in Chat.
   let {
     title,
     chat,
@@ -16,7 +15,6 @@
     hint = "",
     onstop,
     onclose,
-    docked = false,
     children,
   }: {
     title: string;
@@ -25,7 +23,6 @@
     hint?: string;
     onstop: () => void;
     onclose: () => void;
-    docked?: boolean;
     children?: Snippet;
   } = $props();
 
@@ -38,7 +35,7 @@
   }
 </script>
 
-<section class="bubble surface--glass" class:docked aria-live="polite">
+<section class="bubble surface--glass" aria-live="polite">
   <header>
     <span class="micro-label">{title}</span>
     <button class="icon" aria-label="Close" title="Close" onclick={onclose}><X size={14} /></button>
@@ -64,11 +61,11 @@
 </section>
 
 <style>
-  /* Above the buttons, in the same corner: the buttons are always in a row. */
+  /* Beside the sidebar's bottom bar, where its buttons are. */
   .bubble {
     position: fixed;
-    right: 10px;
-    bottom: 51px;
+    left: calc(var(--sidebar-rail, 220px) + 24px);
+    bottom: 16px;
     z-index: var(--z-popover);
     display: flex;
     flex-direction: column;

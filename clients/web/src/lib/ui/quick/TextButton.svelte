@@ -10,8 +10,6 @@
 
   // A short message to the assistant from any page: written in the inbox, which sends it on to its
   // conversation; the reply shows here.
-  // `docked`: in a row while a chat is shown (QuickButtons).
-  let { docked = false }: { docked?: boolean } = $props();
   const { text: chat } = useDaemon();
   const snapshot = external(chat.subscribe, chat.getSnapshot);
   let draft = $state("");
@@ -64,7 +62,6 @@
     hint="Ask for something; it goes to the right conversation."
     onstop={() => void chat.stop()}
     onclose={close}
-    {docked}
   >
     <input
       bind:this={input}
@@ -79,9 +76,9 @@
 {/if}
 <FloatingButton label={busy ? "Stop" : "Type to the assistant"} tone={busy ? "thinking" : ""} onclick={press}>
   {#if busy}
-    <LoaderCircle size={12} class="spin" />
+    <LoaderCircle size={18} class="spin" />
   {:else}
-    <Keyboard size={12} />
+    <Keyboard size={18} />
   {/if}
 </FloatingButton>
 
