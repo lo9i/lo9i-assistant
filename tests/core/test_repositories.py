@@ -8,6 +8,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from cryptography.fernet import Fernet
 
 from assistant.core.agent import (
     McpServer,
@@ -17,7 +18,7 @@ from assistant.core.agent import (
     ServerValues,
     SkillError,
 )
-from assistant.core.mcp import folders, install, keys, servers
+from assistant.core.mcp import data_key, folders, install, keys, servers
 from assistant.core.repositories import check, checkout
 from assistant.core.repositories.icons import PluginIcon
 from assistant.core.repositories.source import Source
@@ -339,7 +340,7 @@ async def test_a_server_with_an_environment_needs_uv(service, repo, monkeypatch)
 
 
 async def test_a_server_in_a_newer_format_than_the_daemon_reads_isnt_found(service, repo):
-    _write(repo / "other" / "general" / "ledger", {"server.yaml": _IN_ENVIRONMENT.replace("format: 2", "format: 4")})
+    _write(repo / "other" / "general" / "ledger", {"server.yaml": _IN_ENVIRONMENT.replace("format: 2", "format: 5")})
     assert "ledger" not in [s.name for s in (await service.browse_repository(URL)).servers]
 
 
@@ -529,6 +530,71 @@ async def test_a_server_can_ask_for_the_ssh_agent_with_true_or_false(service, re
     assert re.search("its ssh_agent must be true or false", await _problems(service))
     await service.install_from_repository(URL, [], [ServerValues("remote", {})])
     assert (await servers.load(service.store, "remote")).ssh_agent
+
+
+_KEEPER = """
+command: "{python}"
+args: ["{dir}/server.py"]
+format: 4
+data_key: true
+"""
+
+
+async def _data_key(service, name: str = "keeper") -> str:
+    """The key the plugin's processes get, as they get it; "" when it has none."""
+    server = await data_key.with_key(service.store, service.secrets, await servers.load(service.store, name))
+    return server.env.get(data_key.ENV, "")
+
+
+async def test_a_plugin_that_asks_gets_a_data_key_of_its_own_kept_encrypted(service, repo):
+    _write(repo / "other" / "general" / "keeper", {"server.yaml": _KEEPER, "server.py": _SERVER})
+    await service.install_from_repository(URL, [], [HELLO, ServerValues("keeper")])
+    key = await _data_key(service)
+    assert len(Fernet(key.encode()).encrypt(b"x")) > 0  # A key the plugin can use as it is.
+    # Not in its record, and only encrypted in the Store; a plugin that didn't ask has none.
+    assert data_key.ENV not in (await servers.load(service.store, "keeper")).env
+    assert key not in str([item.value for item in await service.store.asearch(("secrets",), limit=100)])
+    assert await _data_key(service, "hello") == ""
+    # Each plugin's own.
+    _write(repo / "other" / "general" / "keeper2", {"server.yaml": _KEEPER, "server.py": _SERVER})
+    await service.install_from_repository(URL, [], [ServerValues("keeper2")])
+    assert await _data_key(service, "keeper2") not in ("", key)
+
+
+async def test_a_data_key_stays_through_updates_and_removal_and_goes_with_the_data(service, repo):
+    _write(repo / "other" / "general" / "keeper", {"server.yaml": _KEEPER, "server.py": _SERVER})
+    await service.install_from_repository(URL, [], [ServerValues("keeper")])
+    key = await _data_key(service)
+    await service.update_mcp_server_from_repository("keeper")
+    assert await _data_key(service) == key
+    # Removed and installed again, it opens what it kept.
+    await service.remove_mcp_server("keeper")
+    await service.install_from_repository(URL, [], [ServerValues("keeper")])
+    assert await _data_key(service) == key
+    # Its data deleted, the key that read it goes too: installing again makes a new one.
+    await service.remove_mcp_server("keeper", delete_data=True)
+    await service.install_from_repository(URL, [], [ServerValues("keeper")])
+    assert await _data_key(service) not in ("", key)
+
+
+async def test_an_update_that_asks_for_a_data_key_makes_one(service, repo):
+    folder = repo / "other" / "general" / "keeper"
+    _write(folder, {"server.yaml": _KEEPER.replace("format: 4\ndata_key: true\n", ""), "server.py": _SERVER})
+    await service.install_from_repository(URL, [], [ServerValues("keeper")])
+    assert await _data_key(service) == ""
+    _write(folder, {"server.yaml": _KEEPER})
+    await service.update_mcp_server_from_repository("keeper")
+    assert await _data_key(service) != ""
+
+
+async def test_a_data_key_needs_format_4_and_true_or_false(service, repo):
+    _write(repo / "other" / "general" / "old", {"server.yaml": _KEEPER.replace("format: 4", "format: 3")})
+    _write(
+        repo / "other" / "general" / "odd", {"server.yaml": _KEEPER.replace("data_key: true", "data_key: yes-please")}
+    )
+    problems = await _problems(service)
+    assert "it asks for a data_key, which needs format: 4" in problems
+    assert "its data_key must be true or false" in problems
 
 
 async def test_a_channel_is_in_communications(service, repo):

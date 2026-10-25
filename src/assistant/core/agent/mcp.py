@@ -7,7 +7,7 @@ from dataclasses import dataclass, field, fields, replace
 
 from assistant.core.agent.base import ServiceBase
 from assistant.core.integrations.email import accounts as email_accounts
-from assistant.core.mcp import install, keys, servers
+from assistant.core.mcp import data_key, install, keys, servers
 from assistant.core.mcp.hub import McpHub, McpProbe, McpToolInfo
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.mcp.sign_in import McpSignIn
@@ -132,6 +132,8 @@ class McpMixin(ServiceBase):
         if delete_data:
             await asyncio.to_thread(install.delete_data, name)
             await email_accounts.remove_plugin_accounts(self._storage.store, name)
+            # What it encrypted is gone with it.
+            await data_key.delete(self._storage.store, name)
         if not removed.source:
             await keys.delete(self._storage.store, name)
             return None

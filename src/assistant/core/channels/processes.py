@@ -11,7 +11,7 @@ from mcp.client.stdio import get_default_environment
 
 from assistant.core.channels.hub import ChannelHub, protocol_problem
 from assistant.core.config import settings
-from assistant.core.mcp import folders, keys, servers, ssh_agent
+from assistant.core.mcp import data_key, folders, keys, servers, ssh_agent
 from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.process import ProcessSpec, keep_running
 from assistant.core.mcp.servers import McpServer
@@ -53,7 +53,8 @@ class ChannelProcesses:
         if not self._active:
             return
         found = [s for s in await servers.load_all(self._store) if _runnable(s)]
-        wanted = {s.name: s for s in await keys.fill_all(self._store, self._secrets, found)}
+        filled = await keys.fill_all(self._store, self._secrets, found)
+        wanted = {s.name: await data_key.with_key(self._store, self._secrets, s) for s in filled}
         for name, running in list(self._running.items()):
             if name not in wanted or not _same(running.server, wanted[name]):
                 await self._stop(name)

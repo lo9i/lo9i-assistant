@@ -59,6 +59,8 @@ class McpServer:
     model_login: str = ""
     # Its processes get the user's ssh agent (core/mcp/ssh_agent.py).
     ssh_agent: bool = False
+    # Its processes get a key of its own for encrypting its data (core/mcp/data_key.py).
+    data_key: bool = False
     # A coding agent it brings (docs/agent-plugins.md): the apps' command that hands a conversation to it
     # (/claude), its name, and the worker the daemon runs for each of its tasks (core/agent_tasks/).
     agent_command: str = ""

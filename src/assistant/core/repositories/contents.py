@@ -11,8 +11,8 @@ from langgraph.store.base import BaseStore
 
 from assistant.core.channels import legacy
 from assistant.core.integrations.email import accounts as email_accounts
+from assistant.core.mcp import data_key, keys, servers
 from assistant.core.mcp import install as server_install
-from assistant.core.mcp import keys, servers
 from assistant.core.mcp.install import FoundServer, ServerValues
 from assistant.core.mcp.servers import McpServer
 from assistant.core.repositories import cache
@@ -121,6 +121,7 @@ async def install(
         installed = [await asyncio.to_thread(skill_install.install, found_skills[n], url, commit) for n in skills]
         new = [await server_install.install(found_servers[w.name], w.values, url, commit) for w in wanted]
     for server in new:
+        await data_key.ensure(store, box, server)
         await keys.save(store, box, server)
         await legacy.hand_over(store, server.name)
         if any(p.get("custom") for p in server.email_providers):

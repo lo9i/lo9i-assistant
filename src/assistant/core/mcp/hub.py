@@ -26,7 +26,7 @@ from assistant.core.bus import EventBus
 from assistant.core.context import McpStarts
 from assistant.core.health import Health, HealthLog
 from assistant.core.hidden_text import strip_hidden
-from assistant.core.mcp import background, keys, logins, servers, sign_in, ssh_agent, tool_cache
+from assistant.core.mcp import background, data_key, keys, logins, servers, sign_in, ssh_agent, tool_cache
 from assistant.core.mcp.background import WorkFinished
 from assistant.core.mcp.connection import (
     ClientFactory,
@@ -127,7 +127,10 @@ class McpHub(McpStarts):
         if not self._active:
             return
         enabled = [s for s in await servers.load_all(self._store) if s.enabled and s.is_mcp]
-        saved = await keys.fill_all(self._store, self._secrets, enabled)
+        saved = [
+            await data_key.with_key(self._store, self._secrets, s)
+            for s in await keys.fill_all(self._store, self._secrets, enabled)
+        ]
         wanted = {s.name: ssh_agent.with_agent(logins.with_login(s, self._shared())) for s in saved}
         for name in [n for n in self._running if n not in wanted]:
             await self._stop(name)
