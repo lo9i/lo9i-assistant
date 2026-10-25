@@ -76,6 +76,11 @@ def estimate(messages: Sequence[BaseMessage]) -> int:
     return sum(_size(m.content) for m in messages)
 
 
+def estimate_text(text: str) -> int:
+    """A rough count of a text's tokens, at the same rate as the rest."""
+    return _estimate(text)
+
+
 def _input_kind(message: BaseMessage, new: bool) -> tuple[str, str]:
     if isinstance(message, SystemMessage):
         return "system", ""

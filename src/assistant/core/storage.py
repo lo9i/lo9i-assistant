@@ -41,6 +41,8 @@ _CHANGE_EVENTS = {
     "queued_messages": "queued_messages",
     # Home's sections and their last results (core/home/).
     "home": "home",
+    # The health checks' reports and the causes marked as known noise (core/doctor/).
+    "doctor": "doctor",
     # Skills pinned to a conversation (core/conversation/pinned.py).
     "pinned_skills": "pinned_skills",
     # Conversations handed to a plugin's agent (core/conversation/handoffs.py).

@@ -11,6 +11,7 @@ from assistant.client.daemon_client.client import DaemonClient
 from assistant.client.daemon_client.clients import ClientsApi
 from assistant.client.daemon_client.conversations import ConversationsApi
 from assistant.client.daemon_client.devices import DevicesApi
+from assistant.client.daemon_client.doctor import DoctorApi
 from assistant.client.daemon_client.email import EmailApi
 from assistant.client.daemon_client.files import FilesApi
 from assistant.client.daemon_client.home import HomeApi
@@ -37,6 +38,7 @@ __all__ = [
     "ConversationsApi",
     "DaemonClient",
     "DevicesApi",
+    "DoctorApi",
     "EmailApi",
     "FilesApi",
     "HomeApi",

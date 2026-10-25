@@ -9,6 +9,7 @@ import type {
   Alert,
   ApprovalRequest,
   ApprovalRequired,
+  DoctorPage,
   Notification,
   HomePage,
   HomeSection,
@@ -556,7 +557,8 @@ export class McpGroup {
   }
 }
 
-/** MCP servers and skills that keep failing, listed until dismissed or working again. */
+/** MCP servers and skills that keep failing, listed until dismissed or working again, and the health check's new or
+ * growing causes, until dismissed. */
 export class AlertsGroup {
   constructor(private readonly transport: Transport) {}
 
@@ -566,6 +568,30 @@ export class AlertsGroup {
 
   async dismiss(area: Alert["area"], name: string): Promise<void> {
     await this.transport.request("POST", `/alerts/${area}/${encodeURIComponent(name)}/dismiss`);
+  }
+}
+
+/** The daemon's health checks (core/doctor/): the latest report, checking today now, and known noise. */
+export class DoctorGroup {
+  constructor(private readonly transport: Transport) {}
+
+  get(): Promise<DoctorPage> {
+    return this.transport.request("GET", "/doctor");
+  }
+
+  /** Checks today so far in the background; its report comes with a `doctor` event. */
+  check(): Promise<DoctorPage> {
+    return this.transport.request("POST", "/doctor/check");
+  }
+
+  /** The cause is noise: left out from now on. Throws ApiError (404) for one the latest check didn't find. */
+  markKnown(causeId: string): Promise<DoctorPage> {
+    return this.transport.request("PUT", `/doctor/known/${encodeURIComponent(causeId)}`);
+  }
+
+  /** The cause shows again from the next check. */
+  forgetKnown(causeId: string): Promise<DoctorPage> {
+    return this.transport.request("DELETE", `/doctor/known/${encodeURIComponent(causeId)}`);
   }
 }
 
@@ -894,6 +920,7 @@ export class DaemonClient {
   readonly prompts: PromptsGroup;
   readonly mcp: McpGroup;
   readonly alerts: AlertsGroup;
+  readonly doctor: DoctorGroup;
   readonly notifications: NotificationsGroup;
   readonly home: HomeGroup;
   readonly tasks: TasksGroup;
@@ -922,6 +949,7 @@ export class DaemonClient {
     this.prompts = new PromptsGroup(transport);
     this.mcp = new McpGroup(transport);
     this.alerts = new AlertsGroup(transport);
+    this.doctor = new DoctorGroup(transport);
     this.notifications = new NotificationsGroup(transport);
     this.home = new HomeGroup(transport);
     this.tasks = new TasksGroup(transport);

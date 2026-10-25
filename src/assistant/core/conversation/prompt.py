@@ -9,6 +9,7 @@ plugins it can offer, then profile, facts, recent episodes and the running summa
 
 import asyncio
 from collections.abc import Mapping, Sequence
+from typing import Literal
 
 from langgraph.store.base import BaseStore
 
@@ -28,6 +29,22 @@ _PLUGINS = prompts.load("plugins")
 _PINNED = prompts.load("pinned")
 _PLUGIN_TOOLS = prompts.load("plugin_tools")
 
+PromptPart = Literal[
+    "persona",
+    "name",
+    "operating",
+    "channels",
+    "skills",
+    "plugin_tools",
+    "pinned",
+    "accounts",
+    "plugins",
+    "profile",
+    "facts",
+    "recent",
+    "summary",
+]
+
 
 async def build_system_prompt(
     store: BaseStore,
@@ -41,25 +58,39 @@ async def build_system_prompt(
     """`texts`: the texts the user can edit, by name (prompt_edits.current()); read now when left out.
     `plugin_tools`: each plugin with tools and their names, which a conversation loads when it needs them
     (core/plugin_loading.py)."""
+    parts = await prompt_parts(store, user_id, name, conversation_summary, pinned, texts, plugin_tools)
+    return "\n\n".join(text for _, text in parts)
+
+
+async def prompt_parts(
+    store: BaseStore,
+    user_id: str,
+    name: str,
+    conversation_summary: str,
+    pinned: Sequence[str] = (),
+    texts: Mapping[str, str] | None = None,
+    plugin_tools: Mapping[str, Sequence[str]] | None = None,
+) -> list[tuple[PromptPart, str]]:
+    """The system prompt's sections in order, each with the part it is (the doctor measures each one,
+    core/doctor/context.py). Parts with nothing to say are left out."""
     texts = await prompt_edits.current() if texts is None else texts
     recent = await episodes.recent(store, user_id, settings.memory_max_episodes)
-    sections = [
-        texts["persona"],
-        *([_NAME.format(name=name)] if name else []),
-        texts["operating"],
-        f"# Channels\n\n{await _channels_index(store, texts['channels'])}",
-        f"# Skills\n\n{await _skills_index()}",
-        *_plugin_tools_section(plugin_tools or {}),
-        *await _pinned_section(pinned),
-        f"# Accounts\n\n{await _accounts_index(store)}",
-        *await _plugins_section(store),
-        f"# User profile\n\n{profile.render(await profile.load(store, user_id))}",
-        f"# Saved facts\n\n{facts.render(await facts.load(store, user_id, settings.memory_max_facts))}",
-        f"# Recent conversations\n\n{episodes.render(recent)}",
+    parts: list[tuple[PromptPart, str | None]] = [
+        ("persona", texts["persona"]),
+        ("name", _NAME.format(name=name) if name else None),
+        ("operating", texts["operating"]),
+        ("channels", f"# Channels\n\n{await _channels_index(store, texts['channels'])}"),
+        ("skills", f"# Skills\n\n{await _skills_index()}"),
+        ("plugin_tools", _plugin_tools_section(plugin_tools or {})),
+        ("pinned", await _pinned_section(pinned)),
+        ("accounts", f"# Accounts\n\n{await _accounts_index(store)}"),
+        ("plugins", await _plugins_section(store)),
+        ("profile", f"# User profile\n\n{profile.render(await profile.load(store, user_id))}"),
+        ("facts", f"# Saved facts\n\n{facts.render(await facts.load(store, user_id, settings.memory_max_facts))}"),
+        ("recent", f"# Recent conversations\n\n{episodes.render(recent)}"),
+        ("summary", f"# Conversation so far\n\n{conversation_summary}" if conversation_summary else None),
     ]
-    if conversation_summary:
-        sections.append(f"# Conversation so far\n\n{conversation_summary}")
-    return "\n\n".join(sections)
+    return [(part, text) for part, text in parts if text is not None]
 
 
 async def _channels_index(store: BaseStore, hints: str) -> str:
@@ -74,17 +105,17 @@ async def _skills_index() -> str:
     return f"To run a skill, call use_skill with its name and follow the instructions.\n\n{lines or '(none yet)'}"
 
 
-def _plugin_tools_section(plugin_tools: Mapping[str, Sequence[str]]) -> list[str]:
+def _plugin_tools_section(plugin_tools: Mapping[str, Sequence[str]]) -> str | None:
     """No section when no plugin has tools."""
     lines = "\n".join(f"- {plugin}: {', '.join(tools)}" for plugin, tools in sorted(plugin_tools.items()))
-    return [f"# Plugin tools\n\n{_PLUGIN_TOOLS}\n\n{lines}"] if lines else []
+    return f"# Plugin tools\n\n{_PLUGIN_TOOLS}\n\n{lines}" if lines else None
 
 
-async def _pinned_section(names: Sequence[str]) -> list[str]:
+async def _pinned_section(names: Sequence[str]) -> str | None:
     """The pinned skills in full; no section when none is pinned. A pinned skill that was deleted is
     left out. Like memory, a pinned skill edited mid-epoch shows from the next one."""
     parts = [f"## Skill: {skill.name}\n\n{render_skill(skill)}" for skill in await _loaded(names)]
-    return [f"# Pinned skills\n\n{_PINNED}\n\n" + "\n\n".join(parts)] if parts else []
+    return f"# Pinned skills\n\n{_PINNED}\n\n" + "\n\n".join(parts) if parts else None
 
 
 async def _loaded(names: Sequence[str]) -> list[skills.Skill]:
@@ -97,11 +128,11 @@ async def _loaded(names: Sequence[str]) -> list[skills.Skill]:
     return loaded
 
 
-async def _plugins_section(store: BaseStore) -> list[str]:
+async def _plugins_section(store: BaseStore) -> str | None:
     """The plugins the agent can offer; no section when there are none. Like accounts, a plugin
     installed or added to the extras shows from the next epoch."""
     lines = "\n".join(f"- {o.name}: {o.description}" for o in await offers.offerable(store))
-    return [f"# Plugins you can offer\n\n{_PLUGINS}\n\n{lines}"] if lines else []
+    return f"# Plugins you can offer\n\n{_PLUGINS}\n\n{lines}" if lines else None
 
 
 async def _accounts_index(store: BaseStore) -> str:

@@ -59,6 +59,7 @@ from assistant_terminal.tui.screens import (
     ChannelSetupScreen,
     ConversationsScreen,
     DevicesScreen,
+    DoctorScreen,
     EmailRecipientsScreen,
     EmailScreen,
     FilesScreen,
@@ -176,6 +177,7 @@ class AssistantApp(App):
             "/files": self._command_files,
             "/usage": self._command_usage,
             "/logs": self._command_logs,
+            "/doctor": self._command_doctor,
             "/profile": self._command_profile,
             "/sessions": self._command_sessions,
             "/keys": self._command_keys,
@@ -748,7 +750,8 @@ class AssistantApp(App):
         self.push_screen(screen, self._resume)
 
     async def _command_notifications(self, _: str) -> None:
-        self.push_screen(NotificationsScreen(self._service.notifications, self._service.jobs), self._resume)
+        screen = NotificationsScreen(self._service.notifications, self._service.jobs, self._service.doctor)
+        self.push_screen(screen, self._resume)
 
     @reports_daemon_unavailable
     async def _resume(self, thread_id: str | None) -> None:
@@ -911,6 +914,9 @@ class AssistantApp(App):
 
     async def _command_logs(self, _: str) -> None:
         self.push_screen(LogsScreen(self._service.logs))
+
+    async def _command_doctor(self, _: str) -> None:
+        self.push_screen(DoctorScreen(self._service.doctor))
 
     async def _command_profile(self, _: str) -> None:
         self.push_screen(ProfileScreen(self._service.memory))

@@ -5,6 +5,7 @@ from assistant.client.daemon_client.channels import ChannelsApi
 from assistant.client.daemon_client.clients import ClientsApi
 from assistant.client.daemon_client.conversations import ConversationsApi
 from assistant.client.daemon_client.devices import DevicesApi
+from assistant.client.daemon_client.doctor import DoctorApi
 from assistant.client.daemon_client.email import EmailApi
 from assistant.client.daemon_client.events import EventsMixin
 from assistant.client.daemon_client.files import FilesApi
@@ -52,6 +53,7 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         self.oauth = OAuthApi(transport)
         self.mcp = McpApi(transport)
         self.alerts = AlertsApi(transport)
+        self.doctor = DoctorApi(transport)
         self.notifications = NotificationsApi(transport)
         self.prompts = PromptsApi(transport)
         self.home = HomeApi(transport)

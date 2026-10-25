@@ -30,7 +30,7 @@
   });
 
   function kind(n: Notification): string {
-    return n.kind === "job" ? "Scheduled job" : "Background work";
+    return n.kind === "job" ? "Scheduled job" : n.kind === "doctor" ? "Health check" : "Background work";
   }
 
   async function openConversation(n: Notification): Promise<void> {
@@ -79,7 +79,7 @@
     <header class="toolbar">
       <div>
         <h2 class="text-heading">What finished</h2>
-        <p class="text-meta">Scheduled jobs' results and background work that ended. Click one to see it on the right.</p>
+        <p class="text-meta">Scheduled jobs' results, background work that ended and health checks. Click one to see it on the right.</p>
       </div>
       {#if notifications.data}<span class="pill">{notifications.data.length}</span>{/if}
     </header>
@@ -134,6 +134,8 @@
             <button class="btn btn--neutral btn--sm" onclick={() => openConversation(shown)}>Open its conversation</button>
           {:else if shown.job}
             <a class="btn btn--neutral btn--sm" href={jobLink(shown)}>Open the job</a>
+          {:else if shown.kind === "doctor"}
+            <a class="btn btn--neutral btn--sm" href={resolve("/doctor")}>Open the health check</a>
           {/if}
           <button class="btn btn--ghost btn--sm" onclick={() => dismiss(shown)}>Dismiss</button>
         </div>

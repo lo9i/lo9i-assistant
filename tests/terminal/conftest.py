@@ -75,6 +75,7 @@ from assistant.core.agent import (
 )
 from assistant.core.agent.skills import FoundSkill, SkillSummary
 from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
+from assistant.core.doctor.model import Cause, ContextPart, DoctorPage, DoctorReport, KnownCause, StartingContext
 from assistant.core.events import ApprovalRequired, Dispatched, Done, TextDelta, ToolFinished, ToolStarted, Transcribed
 from assistant.core.integrations.email.providers import EmailProvider
 from assistant.core.llm.choice import PROVIDERS as PROVIDERS_FOR_MODEL
@@ -1014,6 +1015,59 @@ class FakeOAuth:
         raise SignInError("This sign-in has expired or was already used.")
 
 
+class FakeDoctor:
+    """The latest check found a growing failure and a warning, and nothing is known noise yet."""
+
+    def __init__(self):
+        self.report = DoctorReport(
+            day="2026-10-24",
+            at="2026-10-24T23:59:00+00:00",
+            whole_day=True,
+            compared_with="2026-10-23",
+            causes=[
+                _cause("c1", "ConnectionError: refused", 3, change="growing", before=1),
+                _cause("c2", "Poll failed", 1, level="WARNING", where="assistant.core.channels.telegram"),
+            ],
+            gone=[_cause("c3", "KeyError: 'title'", 1)],
+            context=StartingContext(
+                tokens=12_000,
+                window=150_000,
+                parts=[
+                    ContextPart(name="Saved facts", tokens=3100, before=2300),
+                    ContextPart(name="Skills", tokens=900),
+                ],
+            ),
+        )
+        self.known: list[KnownCause] = []
+        self.checks = 0
+
+    def _page(self) -> DoctorPage:
+        return DoctorPage(report=self.report, known=list(self.known))
+
+    async def get(self):
+        return self._page()
+
+    async def check(self):
+        self.checks += 1
+        return self._page().model_copy(update={"checking": True})
+
+    async def mark_known(self, cause_id):
+        cause = next(c for c in self.report.causes if c.id == cause_id)
+        self.known.append(KnownCause(id=cause.id, kind=cause.kind, title=cause.title, at="2026-10-25T08:00:00+00:00"))
+        self.report = self.report.model_copy(update={"causes": [c for c in self.report.causes if c.id != cause_id]})
+        return self._page()
+
+    async def forget_known(self, cause_id):
+        self.known = [k for k in self.known if k.id != cause_id]
+        return self._page()
+
+
+def _cause(id: str, title: str, count: int, **fields) -> Cause:
+    times = {"first": "2026-10-24T09:00:00+00:00", "last": "2026-10-24T11:00:00+00:00"}
+    defaults = {"kind": "log", "level": "ERROR", "where": "assistant/core/mcp/hub.py in _connect"}
+    return Cause.model_validate({"id": id, "title": title, "count": count, **times, **defaults, **fields})
+
+
 class FakeNotifications:
     def __init__(self):
         self.items = [
@@ -1106,6 +1160,7 @@ class FakeClient:
         self.speech = FakeSpeech()
         self.web_search = FakeWebSearch()
         self.notifications = FakeNotifications()
+        self.doctor = FakeDoctor()
         self.prompts = FakePrompts()
         # When set, the inbox sends the next message on there instead of running it.
         self.dispatch_to: Dispatched | None = None

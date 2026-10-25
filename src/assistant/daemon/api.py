@@ -18,6 +18,7 @@ from assistant.core.agent import (
     Agent,
     AgentFolders,
     Alert,
+    AlertArea,
     AssistantService,
     ChannelNotConnectedError,
     ChannelStatus,
@@ -26,6 +27,7 @@ from assistant.core.agent import (
     ConversationError,
     ConversationStats,
     Decoding,
+    DoctorPage,
     EmailAccount,
     EmailAccountNotFoundError,
     EmailError,
@@ -93,7 +95,6 @@ from assistant.core.channels.chat.port import ChatLimits
 from assistant.core.config import settings
 from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
 from assistant.core.events import ApprovalRequired
-from assistant.core.health import Area
 from assistant.core.logs import (
     MAX_LINES,
     LogEntry,
@@ -521,6 +522,7 @@ def create_app(
     _add_job_routes(app, service)
     _add_mcp_routes(app, service)
     _add_alert_routes(app, service)
+    _add_doctor_routes(app, service)
     _add_notification_routes(app, service)
     _add_home_routes(app, service)
     _add_task_routes(app, service)
@@ -1397,13 +1399,42 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
 def _add_alert_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/alerts")
     async def alerts() -> list[Alert]:
-        """MCP servers and skills that keep failing, the newest first."""
+        """MCP servers and skills that keep failing, and the health check's new or growing causes, the newest
+        first."""
         return await service.alerts()
 
     @app.post("/alerts/{area}/{name}/dismiss")
-    async def dismiss_alert(area: Area, name: str) -> Ok:
+    async def dismiss_alert(area: AlertArea, name: str) -> Ok:
         await service.dismiss_alert(area, name)
         return Ok()
+
+
+def _add_doctor_routes(app: FastAPI, service: AssistantService) -> None:
+    """The doctor (core/doctor/): the latest health check, checking today now, and the causes marked as known
+    noise. Each change publishes `doctor`."""
+
+    @app.get("/doctor")
+    async def doctor() -> DoctorPage:
+        return await service.doctor_page(settings.owner_id)
+
+    @app.post("/doctor/check")
+    async def check_health() -> DoctorPage:
+        """Checks today so far in the background, unless a check runs; its report comes with a `doctor` event."""
+        return await service.check_health(settings.owner_id)
+
+    @app.put("/doctor/known/{cause_id}")
+    async def mark_known(cause_id: str) -> DoctorPage:
+        """The cause is noise: left out from now on. 404: the latest check didn't find it."""
+        if not await service.mark_known(settings.owner_id, cause_id):
+            raise HTTPException(404, f"The latest check found no cause {cause_id}.")
+        return await service.doctor_page(settings.owner_id)
+
+    @app.delete("/doctor/known/{cause_id}")
+    async def forget_known(cause_id: str) -> DoctorPage:
+        """The cause shows again from the next check. 404: it wasn't marked."""
+        if not await service.forget_known(settings.owner_id, cause_id):
+            raise HTTPException(404, f"No known cause {cause_id}.")
+        return await service.doctor_page(settings.owner_id)
 
 
 def _add_notification_routes(app: FastAPI, service: AssistantService) -> None:

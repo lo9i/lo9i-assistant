@@ -27,3 +27,9 @@ def _stub(call: ToolCall) -> ToolMessage:
         f"[No result: {call['name']} didn't finish, the run ended with an error. Call it again if it's still needed.]"
     )
     return ToolMessage(text, tool_call_id=call["id"], name=call["name"], status="error")
+
+
+def unanswered(messages: Sequence[BaseMessage]) -> list[ToolCall]:
+    """The tool calls in `messages` that never got a result (the doctor counts them, core/doctor/)."""
+    results = {m.tool_call_id for m in messages if isinstance(m, ToolMessage)}
+    return [c for m in messages if isinstance(m, AIMessage) for c in m.tool_calls if c["id"] not in results]

@@ -1,4 +1,4 @@
-"""The notifications feed: scheduled jobs' results and background work that ended (core/background.py),
+"""The notifications feed: scheduled jobs' results, background work that ended (core/background.py) and health checks,
 listed by the apps apart from any conversation (the web app's Notifications page, /notifications in the
 terminal app), newest first, besides the toast or chat message each one also gets. Each names the
 conversation its work was started in, when there is one, so the apps open it from there; a job's run names
@@ -15,7 +15,7 @@ from langgraph.store.base import BaseStore, PutOp
 _KEPT = 200
 _SCAN_LIMIT = 10_000
 
-Kind = Literal["job", "background"]
+Kind = Literal["job", "background", "doctor"]
 
 
 @dataclass
@@ -23,7 +23,8 @@ class Notification:
     id: str
     # ISO 8601.
     at: str
-    # job: a scheduled job's run; background: work that ended after the call that started it.
+    # job: a scheduled job's run; background: work that ended after the call that started it; doctor: the daily
+    # health check (core/doctor/), which the apps open on its page.
     kind: Kind
     title: str
     text: str

@@ -3367,7 +3367,7 @@
     "/alerts": {
       "get": {
         "summary": "Alerts",
-        "description": "MCP servers and skills that keep failing, the newest first.",
+        "description": "MCP servers and skills that keep failing, and the health check's new or growing causes, the newest\nfirst.",
         "operationId": "alerts_alerts_get",
         "responses": {
           "200": {
@@ -3399,7 +3399,8 @@
             "schema": {
               "enum": [
                 "mcp",
-                "skill"
+                "skill",
+                "doctor"
               ],
               "type": "string",
               "title": "Area"
@@ -3422,6 +3423,121 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doctor": {
+      "get": {
+        "summary": "Doctor",
+        "operationId": "doctor_doctor_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doctor/check": {
+      "post": {
+        "summary": "Check Health",
+        "description": "Checks today so far in the background, unless a check runs; its report comes with a `doctor` event.",
+        "operationId": "check_health_doctor_check_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doctor/known/{cause_id}": {
+      "put": {
+        "summary": "Mark Known",
+        "description": "The cause is noise: left out from now on. 404: the latest check didn't find it.",
+        "operationId": "mark_known_doctor_known__cause_id__put",
+        "parameters": [
+          {
+            "name": "cause_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cause Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Forget Known",
+        "description": "The cause shows again from the next check. 404: it wasn't marked.",
+        "operationId": "forget_known_doctor_known__cause_id__delete",
+        "parameters": [
+          {
+            "name": "cause_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cause Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorPage"
                 }
               }
             }
@@ -5183,7 +5299,8 @@
             "type": "string",
             "enum": [
               "mcp",
-              "skill"
+              "skill",
+              "doctor"
             ],
             "title": "Area"
           },
@@ -5207,10 +5324,18 @@
             "type": "string",
             "enum": [
               "failing",
-              "signed_out"
+              "signed_out",
+              "new",
+              "growing",
+              "context"
             ],
             "title": "Kind",
             "default": "failing"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "default": ""
           }
         },
         "type": "object",
@@ -5424,6 +5549,87 @@
         ],
         "title": "CancelledRuns"
       },
+      "Cause": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "log",
+              "conversation"
+            ],
+            "title": "Kind"
+          },
+          "level": {
+            "type": "string",
+            "title": "Level",
+            "default": ""
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "where": {
+            "type": "string",
+            "title": "Where",
+            "default": ""
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "first": {
+            "type": "string",
+            "title": "First"
+          },
+          "last": {
+            "type": "string",
+            "title": "Last"
+          },
+          "example": {
+            "type": "string",
+            "title": "Example",
+            "default": ""
+          },
+          "threads": {
+            "items": {
+              "$ref": "#/components/schemas/ThreadRef"
+            },
+            "type": "array",
+            "title": "Threads",
+            "default": []
+          },
+          "change": {
+            "type": "string",
+            "enum": [
+              "",
+              "new",
+              "growing"
+            ],
+            "title": "Change",
+            "default": ""
+          },
+          "before": {
+            "type": "integer",
+            "title": "Before",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "count",
+          "first",
+          "last"
+        ],
+        "title": "Cause",
+        "description": "One cause and how often it happened in the day. `id` stays the same across days and versions: it's made\nof the kind, the text with its numbers and ids left out, and where it happened, without line numbers."
+      },
       "ChannelCommand": {
         "properties": {
           "command": {
@@ -5593,6 +5799,35 @@
         ],
         "title": "ConnectedClient",
         "description": "A client holding the daemon's event stream open. `transport` is \"unix socket\" or host:port.\n`device_id` is the paired device it connected from (empty on the Unix socket), `thread_id` the\nconversation it's on (empty until it starts, resumes or writes to one)."
+      },
+      "ContextPart": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "tokens": {
+            "type": "integer",
+            "title": "Tokens"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "tokens"
+        ],
+        "title": "ContextPart"
       },
       "Conversation": {
         "properties": {
@@ -5832,6 +6067,100 @@
           "channel"
         ],
         "title": "Dispatching"
+      },
+      "DoctorPage": {
+        "properties": {
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DoctorReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "known": {
+            "items": {
+              "$ref": "#/components/schemas/KnownCause"
+            },
+            "type": "array",
+            "title": "Known"
+          },
+          "checking": {
+            "type": "boolean",
+            "title": "Checking",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "report",
+          "known"
+        ],
+        "title": "DoctorPage",
+        "description": "The latest report, the causes marked as known, and whether a check runs now."
+      },
+      "DoctorReport": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "title": "Day"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "whole_day": {
+            "type": "boolean",
+            "title": "Whole Day"
+          },
+          "causes": {
+            "items": {
+              "$ref": "#/components/schemas/Cause"
+            },
+            "type": "array",
+            "title": "Causes"
+          },
+          "gone": {
+            "items": {
+              "$ref": "#/components/schemas/Cause"
+            },
+            "type": "array",
+            "title": "Gone",
+            "default": []
+          },
+          "compared_with": {
+            "type": "string",
+            "title": "Compared With",
+            "default": ""
+          },
+          "context": {
+            "$ref": "#/components/schemas/StartingContext"
+          },
+          "known": {
+            "type": "integer",
+            "title": "Known",
+            "default": 0
+          },
+          "dismissed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Dismissed",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "at",
+          "whole_day",
+          "causes",
+          "context"
+        ],
+        "title": "DoctorReport"
       },
       "EmailAccount": {
         "properties": {
@@ -6772,6 +7101,44 @@
         "title": "KeptKeys",
         "description": "What a removed plugin left kept, for the user to keep or delete: its keys' names, and the\ntoken of the private repository it came from when nothing else needs that any more."
       },
+      "KnownCause": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "log",
+              "conversation"
+            ],
+            "title": "Kind"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "where": {
+            "type": "string",
+            "title": "Where",
+            "default": ""
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "at"
+        ],
+        "title": "KnownCause",
+        "description": "Recurring noise that isn't a problem: left out of every report from then on."
+      },
       "LanguageOption": {
         "properties": {
           "code": {
@@ -7655,7 +8022,8 @@
             "type": "string",
             "enum": [
               "job",
-              "background"
+              "background",
+              "doctor"
             ],
             "title": "Kind"
           },
@@ -8936,6 +9304,38 @@
         ],
         "title": "SpokenRepliesChange"
       },
+      "StartingContext": {
+        "properties": {
+          "tokens": {
+            "type": "integer",
+            "title": "Tokens"
+          },
+          "window": {
+            "type": "integer",
+            "title": "Window"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/ContextPart"
+            },
+            "type": "array",
+            "title": "Parts"
+          },
+          "too_large": {
+            "type": "boolean",
+            "title": "Too Large",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "tokens",
+          "window",
+          "parts"
+        ],
+        "title": "StartingContext",
+        "description": "The context a new conversation starts with, its system prompt and tool definitions, against the window\nthe conversation's context is measured against (the chat's context bar)."
+      },
       "StartupStatus": {
         "properties": {
           "enabled": {
@@ -8982,6 +9382,24 @@
           "thread_id"
         ],
         "title": "ThreadCreated"
+      },
+      "ThreadRef": {
+        "properties": {
+          "thread_id": {
+            "type": "string",
+            "title": "Thread Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "thread_id",
+          "title"
+        ],
+        "title": "ThreadRef"
       },
       "TokenReport": {
         "properties": {
