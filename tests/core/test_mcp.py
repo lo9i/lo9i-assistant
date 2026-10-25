@@ -1,10 +1,11 @@
-"""MCP servers: tools frozen per epoch, chosen per server, approved on untrusted servers, cleaned,
-and retried only when that's safe. The server runs in-process."""
+"""MCP servers: tools loaded on demand and kept per epoch, chosen per server, approved on untrusted servers,
+cleaned, and retried only when that's safe. The server runs in-process."""
 
 import asyncio
 import base64
 import json
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -16,6 +17,7 @@ from mcp.types import AudioContent, CallToolResult, ImageContent, TextContent, T
 
 from assistant.core.agent import AssistantService, McpServer, McpServerChanges, McpServerError
 from assistant.core.bus import EventBus
+from assistant.core.config import settings
 from assistant.core.events import ApprovalRequired, ToolFinished
 from assistant.core.health import HealthLog
 from assistant.core.hidden_text import strip_hidden
@@ -27,8 +29,9 @@ from assistant.core.mcp.media import ToolMedia
 from assistant.core.mcp.oauth import McpAuth
 from assistant.core.mcp.on_demand import OnDemand
 from assistant.core.mcp.tools import McpTool
-from assistant.core.repositories import cache, checkout
+from assistant.core.repositories import cache, checkout, source
 from assistant.core.repositories.known import EXTRAS
+from assistant.core.skills import store as skills
 from assistant.core.speech.voice import audio_paths
 from assistant.core.tools.approval import UNATTENDED_DENIAL
 from tests.conftest import collect
@@ -37,6 +40,7 @@ from tests.core.test_speech import FakeTranscriber
 READ = "mcp__notes__read_notes"
 ADD = "mcp__notes__add_note"
 CHART = "mcp__notes__chart"
+LOAD = "load_tools"
 _PNG_BASE64 = base64.b64encode(b"\x89PNG fake").decode()
 FLAG = "\U0001f3f4\U000e0067\U000e0062\U000e0073\U000e0063\U000e0074\U000e007f"
 
@@ -98,29 +102,103 @@ def _names(tools: list[Any]) -> set[str]:
     return {t["function"]["name"] for t in tools if isinstance(t, dict)}
 
 
+def _notes_skill() -> None:
+    skills.save("notes-help", "Keeping notes", "Read the notes before adding one.")
+    source.write(skills.folder("notes-help"), source.Source("https://example.com/extras", ".", "c1", server="notes"))
+
+
 async def _say(service: AssistantService, text: str, channel: str = "cli") -> list:
     return await collect(service.send(await service.session("owner", channel), text))
 
 
-async def test_tools_of_an_added_server_are_offered_from_the_next_message(service, script, summaries):
+async def test_an_added_server_is_listed_from_the_next_message_and_its_tools_load_when_asked(
+    service, script, summaries
+):
     await _say(service, "hi")
     await _add(service)
-    script.call(READ).reply("done")
+    script.call(LOAD, plugin="notes").call(READ).reply("done")
     events = await _say(service, "read my notes")
-    assert _names(script.bound[-1]) == {READ, ADD, CHART}
+    assert _names(script.bound[0]) == set() and _names(script.bound[1]) == {LOAD}
+    assert "- notes: add_note, chart, read_notes" in script.requests[1][0].text
+    assert _names(script.bound[2]) == _names(script.bound[3]) == {LOAD, READ, ADD, CHART}
     assert ToolFinished(READ, "no notes") in events
     assert summaries.inputs == []  # a new epoch at the same point: nothing summarized
 
 
-async def test_a_change_in_the_tools_takes_effect_at_the_next_message(service, script, summaries):
+async def test_loaded_tools_stay_for_the_epoch_and_a_change_takes_effect_at_the_next_message(
+    service, script, summaries
+):
     await _add(service)
-    script.call(READ).reply("done")
+    script.call(LOAD, plugin="notes").reply("loaded")
     await _say(service, "hi")
-    assert _names(script.bound[0]) == _names(script.bound[1]) == {READ, ADD, CHART}  # same list in the whole turn
+    await _say(service, "and now")
+    assert _names(script.bound[-1]) == {LOAD, READ, ADD, CHART}
     await service.update_mcp_server("notes", McpServerChanges(include=["read_notes"]))
     await _say(service, "again")
-    assert _names(script.bound[-1]) == {READ}
-    assert len(script.requests[-1]) == 6 and summaries.inputs == []  # every message kept
+    assert _names(script.bound[-1]) == {LOAD, READ}
+    assert "- notes: read_notes" in script.requests[-1][0].text
+    assert len(script.requests[-1]) == 8 and summaries.inputs == []  # every message kept
+
+
+async def test_calling_a_tool_of_a_plugin_not_loaded_runs_it_and_loads_the_plugin(service, script):
+    await _add(service)
+    script.call(READ).reply("done")
+    events = await _say(service, "read my notes")
+    assert ToolFinished(READ, "no notes") in events
+    assert _names(script.bound[0]) == {LOAD} and _names(script.bound[1]) == {LOAD, READ, ADD, CHART}
+
+
+async def test_a_skill_that_comes_with_a_plugin_loads_its_tools(service, script):
+    await _add(service)
+    _notes_skill()
+    script.call("use_skill", name="notes-help").reply("done")
+    events = await _say(service, "help with my notes")
+    used = next(e for e in events if isinstance(e, ToolFinished))
+    assert "notes plugin's tools come with this skill" in used.output
+    assert _names(script.bound[1]) == {LOAD, READ, ADD, CHART}
+
+
+async def test_a_pinned_skills_plugin_is_loaded_from_the_epochs_start(service, script):
+    await _add(service)
+    _notes_skill()
+    session = await service.session("owner", "cli")
+    await collect(service.send(session, "hi"))
+    await service.pin_skill("owner", session.thread_id, "notes-help")
+    await collect(service.send(session, "my notes"))
+    assert _names(script.bound[0]) == {LOAD} and _names(script.bound[-1]) == {LOAD, READ, ADD, CHART}
+
+
+async def test_a_new_epoch_that_summarizes_starts_with_no_tools_loaded(service, script, summaries):
+    await _add(service)
+    script.call(LOAD, plugin="notes").reply("loaded")
+    session = await service.session("owner", "cli")
+    await collect(service.send(session, "hi"))
+    config = {"configurable": {"thread_id": session.thread_id}}
+    old = (datetime.now(UTC) - timedelta(hours=settings.epoch_idle_hours + 1)).isoformat()
+    await service._graph.aupdate_state(config, {"last_activity": old}, as_node="epoch")
+    await collect(service.send(session, "back"))
+    assert len(summaries.inputs) == 1 and _names(script.bound[-1]) == {LOAD}
+
+
+async def test_a_new_epoch_that_summarizes_keeps_the_plugins_its_kept_turns_called(
+    service, script, summaries, monkeypatch
+):
+    monkeypatch.setattr(settings, "epoch_max_tokens", 1)
+    monkeypatch.setattr(settings, "epoch_keep_turns", 2)
+    await _add(service)
+    script.reply("hello").call(READ).reply("no notes")
+    session = await service.session("owner", "cli")
+    for text in ("first", "read my notes", "and now"):
+        await collect(service.send(session, text))
+    assert len(summaries.inputs) == 1 and _names(script.bound[-1]) == {LOAD, READ, ADD, CHART}
+
+
+async def test_an_unknown_plugin_loads_nothing(service, script):
+    await _add(service)
+    script.call(LOAD, plugin="todo").reply("no such plugin")
+    events = await _say(service, "load todo")
+    assert next(e for e in events if isinstance(e, ToolFinished)).output.startswith("No plugin named todo")
+    assert _names(script.bound[-1]) == {LOAD}
 
 
 async def test_a_server_installed_from_an_offer_brings_its_tools_to_the_same_run(
@@ -141,16 +219,17 @@ async def test_a_server_installed_from_an_offer_brings_its_tools_to_the_same_run
     await service.add_mcp_server(McpServer(name="notes", command="notes-server", source=EXTRAS))
     events = await collect(service.resume(session, {offer.interrupt_id: {"installed": True}}))
     assert events[0] == ToolFinished("offer_plugin", "notes is installed. Its tools are available now.")
-    assert _names(script.bound[0]) == set() and _names(script.bound[1]) == {READ, ADD, CHART}
+    assert _names(script.bound[0]) == set() and _names(script.bound[1]) == {LOAD, READ, ADD, CHART}
+    assert "- notes: add_note, chart, read_notes" in script.requests[1][0].text
     assert ToolFinished(READ, "no notes") in events
     assert summaries.inputs == []  # a new epoch at the same point: nothing summarized
 
 
 async def test_excluded_tools_are_left_out_and_stop_working_at_once(service, script):
     await _add(service, exclude=["add_*"])
-    script.reply("ok")
+    script.call(LOAD, plugin="notes").reply("ok")
     await _say(service, "hi")
-    assert _names(script.bound[-1]) == {READ, CHART}
+    assert _names(script.bound[-1]) == {LOAD, READ, CHART}
     await service.update_mcp_server("notes", McpServerChanges(exclude=["read_*"]))
     script.call(READ).reply("ok")
     events = await _say(service, "read")

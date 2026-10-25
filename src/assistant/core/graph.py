@@ -1,10 +1,10 @@
 import asyncio
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Collection, Sequence
 from datetime import UTC, datetime
 from typing import Any, Protocol, cast
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, SystemMessage, ToolCall, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
 from langgraph.graph import END, START, MessagesState, StateGraph
@@ -15,6 +15,7 @@ from langgraph.runtime import Runtime
 from langgraph.store.base import BaseStore
 from langgraph.types import Send
 
+from assistant.core import plugin_loading
 from assistant.core.attachments import hydrate
 from assistant.core.config import settings
 from assistant.core.context import Context, require_store
@@ -71,10 +72,16 @@ class AgentState(MessagesState):
     # A digest of the prompt texts the user can edit (conversation/prompt_edits.py) this epoch's system
     # prompt was built with; an edit starts a new epoch.
     prompt_texts: str
-    # Definitions of the MCP tools this epoch offers, frozen when it starts like the system
-    # prompt. When the servers' tools change, the next user message starts a new epoch, or right
-    # after offer_plugin when the user installed a server (_installed_node).
+    # Definitions of the plugins' tools this epoch offers (core/plugin_tools.py): load_tools, the task tools
+    # and the tools of the plugins it loaded, which change only when it loads one (_loaded_node). When the
+    # plugins' tools change, the next user message starts a new epoch, or right after offer_plugin when the
+    # user installed a server.
     mcp_tools: list[dict[str, Any]]
+    # The plugins whose tools this epoch loaded (core/plugin_loading.py). A new epoch at the same point keeps
+    # them; one that summarizes keeps those its kept turns called (_kept_plugins).
+    loaded_plugins: list[str]
+    # Each plugin with tools and their names, as this epoch's system prompt lists them.
+    plugin_tools: dict[str, list[str]]
 
 
 Graph = CompiledStateGraph[AgentState, Context, AgentState, AgentState]
@@ -83,7 +90,11 @@ Graph = CompiledStateGraph[AgentState, Context, AgentState, AgentState]
 class McpTools(Protocol):
     """Tools from plugins, which come and go while the daemon runs (`core/plugin_tools.py`)."""
 
-    def definitions(self) -> list[dict[str, Any]]: ...
+    def definitions(self, loaded: Collection[str]) -> list[dict[str, Any]]: ...
+
+    def catalog(self) -> dict[str, list[str]]: ...
+
+    def plugin_of(self, name: str) -> str | None: ...
 
     def read_only_definitions(self) -> list[dict[str, Any]]: ...
 
@@ -101,7 +112,7 @@ def build_graph(storage: Storage, choice: ModelChoice, summarizer: Summarizer, m
     llm = metered(build_llm(choice, choice.model), TokenMeter(storage.usage, "reply"))
     builder.add_node("agent", _agent_node(llm, tools, choice.provider in IMAGES_IN_TOOL_RESULTS))
     builder.add_node("tools", ToolNode(tools, awrap_tool_call=mcp_calls(mcp)))
-    builder.add_node("installed", _installed_node(mcp))
+    builder.add_node("installed", _loaded_node(mcp))
     dispatch = dispatch_nodes(build_classifier(choice, storage.usage), then="epoch")
     builder.add_node(DISPATCH, dispatch[DISPATCH], destinations=("epoch", ASK, SEND))
     builder.add_node(ASK, dispatch[ASK], destinations=(SEND,))
@@ -122,58 +133,104 @@ def _epoch_node(summarizer: Summarizer, mcp: McpTools, cache_minutes: float) -> 
         now = datetime.now(UTC)
         thread_id = config.get("configurable", {})["thread_id"]
         trim = trim_update(state, now, cache_minutes)
-        update = await _epoch_update(cast(AgentState, {**state, **trim}), runtime, thread_id, summarizer, mcp, now)
+        catalog = mcp.catalog()
+        update = await _epoch_update(
+            cast(AgentState, {**state, **trim}), runtime, thread_id, summarizer, mcp, catalog, now
+        )
         if "system_prompt" in update:
-            update["mcp_tools"] = mcp.definitions()
+            update |= await _plugins_update(state, update, mcp, catalog)
         return {**trim, **update, "last_activity": now.isoformat()}
 
     return _epoch
 
 
 async def _epoch_update(
-    state: AgentState, runtime: Runtime[Context], thread_id: str, summarizer: Summarizer, mcp: McpTools, now: datetime
+    state: AgentState,
+    runtime: Runtime[Context],
+    thread_id: str,
+    summarizer: Summarizer,
+    mcp: McpTools,
+    catalog: dict[str, list[str]],
+    now: datetime,
 ) -> dict:
     user_id, store = runtime.context.user_id, require_store(runtime.store)
     if not state.get("system_prompt"):
-        return await open_epoch(store, user_id, thread_id, now)
+        return await open_epoch(store, user_id, thread_id, now, catalog)
     if is_idle(state, now) or is_too_large(state):
-        update = await compact(state, store, user_id, thread_id, summarizer, now)
+        update = await compact(state, store, user_id, thread_id, summarizer, now, catalog)
         if update:
             return update
-    if await _prompt_changed(state, store, user_id, thread_id, mcp):
-        return await reopen(state, store, user_id, thread_id, now)
+    if await _prompt_changed(state, store, user_id, thread_id, mcp, catalog):
+        return await reopen(state, store, user_id, thread_id, now, catalog)
     return {}
 
 
-async def _prompt_changed(state: AgentState, store: BaseStore, user_id: str, thread_id: str, mcp: McpTools) -> bool:
+async def _plugins_update(state: AgentState, epoch: dict, mcp: McpTools, catalog: dict[str, list[str]]) -> dict:
+    """The plugins' tools a new epoch starts with: its pinned skills' plugins, and those it keeps."""
+    pinned = await plugin_loading.skill_plugins(epoch["pinned_skills"])
+    loaded = sorted(plugin for plugin in {*_kept_plugins(state, epoch, mcp), *pinned} if plugin in catalog)
+    return {"loaded_plugins": loaded, "mcp_tools": mcp.definitions(loaded), "plugin_tools": catalog}
+
+
+def _kept_plugins(state: AgentState, epoch: dict, mcp: McpTools) -> set[str]:
+    """At the same point (nothing summarized, `epoch_start` stays) the plugins loaded before; after a summary,
+    those whose tools the turns it keeps called, so the work in progress goes on with them."""
+    if "epoch_start" not in epoch:
+        return set(state.get("loaded_plugins", []))
+    kept = state["messages"][epoch["epoch_start"] :]
+    calls = [call for message in kept if isinstance(message, AIMessage) for call in message.tool_calls]
+    return {plugin for call in calls if (plugin := mcp.plugin_of(call["name"]))}
+
+
+async def _prompt_changed(
+    state: AgentState, store: BaseStore, user_id: str, thread_id: str, mcp: McpTools, catalog: dict[str, list[str]]
+) -> bool:
     """What the epoch's system prompt or tools were built from changed: the name, the pinned skills,
-    the prompt texts the user edits or the MCP tools."""
+    the prompt texts the user edits or the plugins' tools."""
     if await is_renamed(state, store) or await is_repinned(state, store, user_id, thread_id):
         return True
     if await is_reworded(state):
         return True
-    return state.get("mcp_tools", []) != mcp.definitions()
+    if state.get("plugin_tools", {}) != catalog:
+        return True
+    return state.get("mcp_tools", []) != mcp.definitions(state.get("loaded_plugins", []))
 
 
-def _installed_node(mcp: McpTools) -> Node:
-    """Runs after each round of tool calls. When the round offered a plugin and the user installed a server,
-    a new epoch at the same point brings its tools, so the agent uses them now, not from the user's next
+def _loaded_node(mcp: McpTools) -> Node:
+    """Runs after each round of tool calls. A round that asked for plugins' tools (core/plugin_loading.py)
+    loads them, so the next call offers them. When the round offered a plugin and the user installed it, a
+    new epoch at the same point brings its tools, so the agent uses them now, not from the user's next
     message. Nothing is split or summarized: the prompt and tools change, the messages stay."""
 
-    async def _installed(state: AgentState, runtime: Runtime[Context], config: RunnableConfig) -> dict:
-        if not _offered_plugin(state["messages"]) or state.get("mcp_tools", []) == mcp.definitions():
+    async def _loaded(state: AgentState, runtime: Runtime[Context], config: RunnableConfig) -> dict:
+        calls = _last_calls(state["messages"])
+        catalog = mcp.catalog()
+        before = state.get("loaded_plugins", [])
+        loaded = sorted({*before, *await plugin_loading.requested(calls, catalog, mcp.plugin_of)})
+        definitions = mcp.definitions(loaded)
+        installed = _offered_plugin(calls) and (
+            state.get("plugin_tools", {}) != catalog or state.get("mcp_tools", []) != definitions
+        )
+        if loaded == before and not installed:
             return {}
-        user_id, store = runtime.context.user_id, require_store(runtime.store)
-        thread_id = config.get("configurable", {})["thread_id"]
-        update = await reopen(state, store, user_id, thread_id, datetime.now(UTC))
-        return {**update, "mcp_tools": mcp.definitions()}
+        update: dict[str, Any] = {"loaded_plugins": loaded, "mcp_tools": definitions}
+        if installed:
+            user_id, store = runtime.context.user_id, require_store(runtime.store)
+            thread_id = config.get("configurable", {})["thread_id"]
+            update |= await reopen(state, store, user_id, thread_id, datetime.now(UTC), catalog)
+            update["plugin_tools"] = catalog
+        return update
 
-    return _installed
+    return _loaded
 
 
-def _offered_plugin(messages: Sequence[Any]) -> bool:
+def _last_calls(messages: Sequence[Any]) -> list[ToolCall]:
     last = next((m for m in reversed(messages) if isinstance(m, AIMessage)), None)
-    return last is not None and any(call["name"] == "offer_plugin" for call in last.tool_calls)
+    return last.tool_calls if last is not None else []
+
+
+def _offered_plugin(calls: Sequence[ToolCall]) -> bool:
+    return any(call["name"] == "offer_plugin" for call in calls)
 
 
 def each_tool_call(node: str) -> Callable[[MessagesState], str | list[Send]]:

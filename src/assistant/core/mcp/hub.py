@@ -1,8 +1,9 @@
 """The connected MCP servers and the tools they give the agent.
 
-The daemon runs the hub as a supervised task. The graph reads two things from it: the tool
-definitions, which each epoch freezes into its state so the tool list stays byte-identical within
-the epoch, and the tool to run for a call, looked up live so a tool turned off stops working at once.
+The daemon runs the hub as a supervised task. The graph reads three things from it: the list of servers
+and their tools' names, which the system prompt shows; the definitions of the tools a conversation loaded,
+which its epoch keeps in state so the tool list changes only when it loads more; and the tool to run for a
+call, looked up live so a tool turned off stops working at once.
 Local servers run on demand (core/mcp/on_demand.py); remote ones stay connected.
 """
 
@@ -10,6 +11,7 @@ import asyncio
 import contextlib
 import json
 import logging
+from collections.abc import Collection
 from dataclasses import dataclass
 from functools import partial
 from typing import Any
@@ -141,9 +143,24 @@ class McpHub(McpStarts):
             await self._stop(name)
         await self.reload()
 
-    def definitions(self) -> list[dict[str, Any]]:
-        """The tool definitions for the model, in a stable order."""
-        return [_definition(tool) for _, tool in sorted(self._tools.items())]
+    def definitions(self, servers: Collection[str]) -> list[dict[str, Any]]:
+        """The definitions of these servers' tools for the model, in a stable order. A conversation loads a
+        server's tools when it needs them (core/plugin_loading.py)."""
+        return [_definition(tool) for _, tool in sorted(self._tools.items()) if tool.connection.server.name in servers]
+
+    def catalog(self) -> dict[str, list[str]]:
+        """Each server with tools, and their names without the server's prefix, for the list a conversation
+        loads them from."""
+        catalog: dict[str, list[str]] = {}
+        for name, tool in sorted(self._tools.items()):
+            server = tool.connection.server.name
+            catalog.setdefault(server, []).append(name.removeprefix(tool_name(server, "")))
+        return catalog
+
+    def server_of(self, name: str) -> str | None:
+        """The server whose tool the model sees under `name`."""
+        tool = self._tools.get(name)
+        return tool.connection.server.name if tool else None
 
     def read_only_definitions(self) -> list[dict[str, Any]]:
         """Definitions of the tools that say they only read, for subagents."""

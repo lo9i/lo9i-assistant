@@ -37,14 +37,14 @@ async def _call(service: AssistantService, name: str, **args) -> str:
 
 
 def _offered(service: AssistantService) -> list[str]:
-    return [d["function"]["name"] for d in service._plugin_tools.definitions()]
+    return [d["function"]["name"] for d in service._plugin_tools.definitions(())]
 
 
 async def test_the_task_tools_come_with_an_agent_plugin_and_name_its_agents(service):
     assert _offered(service) == []
     await service.add_mcp_server(agent_plugin())
     assert _offered(service) == _TOOLS
-    start = next(d for d in service._plugin_tools.definitions() if d["function"]["name"] == "start_task")
+    start = next(d for d in service._plugin_tools.definitions(()) if d["function"]["name"] == "start_task")
     assert start["function"]["description"].endswith("Agents: claude-code (Claude Code).")
     assert service._plugin_tools.read_only_definitions() == []  # subagents don't start tasks
     await service.remove_mcp_server("claude-code")

@@ -52,7 +52,9 @@ async def use_skill(name: str) -> str:
         skill = await asyncio.to_thread(store.load, name)
     except SkillError as e:
         return str(e)
-    return f"# Skill: {skill.name}\n\n{render_skill(skill)}"
+    # The graph loads the tools of the plugin it comes with after this call (core/plugin_loading.py).
+    loaded = f"\n\n(The {skill.server} plugin's tools come with this skill: they're yours from your next step.)"
+    return f"# Skill: {skill.name}\n\n{render_skill(skill)}{loaded if skill.server else ''}"
 
 
 @register("skills")
