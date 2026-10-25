@@ -17,15 +17,28 @@ export class EventHub {
   private opened = false;
   private connection: Connection = "connecting";
 
+  /** `report` hears a handler's error, which stops neither the other handlers nor the stream. */
+  constructor(private readonly report: (error: unknown) => void = (error) => console.error("Event handler failed", error)) {}
+
   /** Calls `handler` for each event of these kinds; returns what stops it. */
   on(kinds: string[], handler: Handler): () => void {
     kinds.forEach((kind) => this.handlersOf(kind).add(handler));
     return () => kinds.forEach((kind) => this.handlers.get(kind)?.delete(handler));
   }
 
-  /** Handlers run without waiting, so a slow one doesn't hold back the events after it. */
+  /** Handlers run without waiting, so a slow one doesn't hold back the events after it. One that fails is
+   * reported: the events after it still reach every handler, the stream stays open. */
   dispatch(event: BusEvent): void {
-    this.handlers.get(event.kind)?.forEach((handler) => void handler(event.data));
+    this.handlers.get(event.kind)?.forEach((handler) => this.run(handler, event.data));
+  }
+
+  private run(handler: Handler, data: Record<string, unknown>): void {
+    try {
+      const result = handler(data);
+      if (result instanceof Promise) result.catch(this.report);
+    } catch (error) {
+      this.report(error);
+    }
   }
 
   /** Calls `handler` each time the stream opens again after a dropped connection, such as when the daemon is

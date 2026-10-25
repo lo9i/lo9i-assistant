@@ -38,14 +38,23 @@
     return run ? run.status : "not run yet";
   }
 
+  // The job of the opened run while it has that run. A string, so the reply is fetched again only when the run
+  // opened changes, not on every `jobs` event, which brings a new copy of each job.
+  const openedIn = $derived(job && opened && job.runs?.some((r) => r.at === opened) ? job.name : null);
+
+  // Only the answer for the run still opened shows: one opened before it may answer later.
   $effect(() => {
-    const name = job?.name;
+    const name = openedIn;
     const at = opened;
-    if (!name || !at || !job?.runs?.some((r) => r.at === at)) return;
-    client.jobs
-      .runReply(name, at)
-      .then((text) => (reply = { at, text }))
-      .catch(notices.report);
+    if (!name || !at) return;
+    let current = true;
+    client.jobs.runReply(name, at).then(
+      (text) => current && (reply = { at, text }),
+      (e: unknown) => current && notices.report(e),
+    );
+    return () => {
+      current = false;
+    };
   });
 
   function pick(name: string): void {

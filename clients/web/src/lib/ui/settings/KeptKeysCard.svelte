@@ -52,8 +52,9 @@
     text={entry.plugin ? "Installing it again will ask for them again." : "Adding the repository again will ask for a token again."}
     action="Delete"
     onanswer={(yes) => {
-      deleting = null;
+      // Before clearing `deleting`: `entry` is derived from it, so it would read null after.
       if (yes) void remove(entry);
+      deleting = null;
     }}
   />
 {/if}

@@ -3,7 +3,6 @@
   import { announce } from "$lib/agentDone";
   import { agentDone, chime, systemNotice } from "$lib/agentDone.svelte";
   import type { AgentFinished, BackgroundEnded, Failing, JobFinished, SignedOut } from "$lib/api/types";
-  import { followRuns } from "$lib/chat/events";
   import { saveOpen, saveThread } from "$lib/chat/tabThread";
   import { external, provideDaemon, resource, type Daemon } from "$lib/daemon.svelte";
   import { failingNotice, signedOutNotice } from "$lib/health";
@@ -29,9 +28,6 @@
   const voiceThreadId = external(voice.subscribe, () => voice.getSnapshot().threadId);
   const textThreadId = external(text.subscribe, () => text.getSnapshot().threadId);
 
-  // The chat follows runs whichever page is open, so a reply keeps streaming in the background.
-  $effect(() => followRuns(hub, chats));
-  $effect(() => followRuns(hub, { all: () => [voice, text] }));
   $effect(() => {
     void open.current;
     saveOpen(chats.saved());

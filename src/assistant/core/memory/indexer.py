@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 # Texts embedded per model call.
 _BATCH = 32
+# The vectors this indexer keeps; others in the table (conversations, core/conversation/meanings.py) aren't its own.
+_KINDS = ("fact", "episode")
 
 
 class MemoryIndexer:
@@ -46,7 +48,7 @@ class MemoryIndexer:
 
     async def sync(self, user_id: str) -> int:
         wanted = await self._memories(user_id)
-        indexed = await self._vectors.indexed(user_id)
+        indexed = {key: model for key, model in (await self._vectors.indexed(user_id)).items() if key[0] in _KINDS}
         await self._vectors.remove(user_id, [key for key in indexed if key not in wanted])
         missing = [key for key in wanted if indexed.get(key) != self._embedder.model]
         for batch in batched(missing, _BATCH):

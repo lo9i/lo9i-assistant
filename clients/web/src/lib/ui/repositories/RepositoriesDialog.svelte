@@ -106,8 +106,9 @@
       : "Its plugins stop showing in Plugins. The ones installed from it stay installed and keep updating from it."}
     action="Remove"
     onanswer={(yes) => {
-      removing = null;
+      // Before clearing `removing`: `r` is derived from it, so it would read null after.
       if (yes) void remove(r);
+      removing = null;
     }}
   />
 {/if}

@@ -34,6 +34,7 @@ from assistant.core.conversation.epochs import (
 from assistant.core.conversation.routed import without_routed
 from assistant.core.conversation.summary import Summarizer
 from assistant.core.conversation.trim import trim_update, trimmed
+from assistant.core.conversation.unanswered import answered
 from assistant.core.llm import build_llm, metered
 from assistant.core.llm.choice import ModelChoice, prompt_cache_minutes
 from assistant.core.llm.providers import IMAGES_IN_TOOL_RESULTS
@@ -207,7 +208,9 @@ def mcp_calls(mcp: McpTools) -> AsyncToolCallWrapper:
 
 def _agent_node(llm: BaseChatModel, tools: Sequence[BaseTool], images_in_tool_results: bool) -> Node:
     async def _agent(state: AgentState) -> dict:
-        epoch = without_routed(trimmed(state["messages"], state.get("epoch_start", 0), state.get("trimmed_before", 0)))
+        epoch = answered(
+            without_routed(trimmed(state["messages"], state.get("epoch_start", 0), state.get("trimmed_before", 0)))
+        )
         messages = await asyncio.to_thread(hydrate, epoch, images_in_tool_results)
         bound = llm.bind_tools([*tools, *state.get("mcp_tools", [])])
         response = await bound.ainvoke([SystemMessage(state["system_prompt"]), *messages])

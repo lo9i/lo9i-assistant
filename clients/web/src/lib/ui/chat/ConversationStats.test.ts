@@ -34,11 +34,13 @@ describe("ConversationStats", () => {
     expect(body).toContain("Cache read tokens: 2,500");
   });
 
-  it("is hidden for a conversation with no messages, another conversation's stats, or a failed load", () => {
+  it("shows a conversation with no messages yet", () => {
+    loaded.data = { ...stats, messages: 0, input_tokens: 0, cache_read_tokens: 0, output_tokens: 0, tool_calls: 0 };
+    expect(render(ConversationStats, { props: { threadId: "t1" } }).body).toContain("0 messages");
+  });
+
+  it("is hidden for another conversation's stats, or a failed load", () => {
     expect(render(ConversationStats, { props: { threadId: "t2" } }).body).not.toContain("messages");
-    loaded.data = { ...stats, messages: 0 };
-    expect(render(ConversationStats, { props: { threadId: "t1" } }).body).not.toContain("tokens");
-    loaded.data = stats;
     loaded.error = "Internal Server Error";
     const failed = render(ConversationStats, { props: { threadId: "t1" } }).body;
     expect(failed).not.toContain("tokens");

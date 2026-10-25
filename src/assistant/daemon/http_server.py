@@ -15,9 +15,10 @@ from dataclasses import dataclass
 from ssl import SSLContext
 from typing import Any, cast
 
-from hypercorn.asyncio import serve
-from hypercorn.config import Config
+from hypercorn.asyncio.run import worker_serve
+from hypercorn.config import Config, Sockets
 from hypercorn.typing import Framework
+from hypercorn.utils import wrap_app
 
 # Long enough for the answer to a restart or stop to go out, and for a request in progress to end.
 GRACEFUL_SECONDS = 10
@@ -45,9 +46,32 @@ class HttpServer:
     def __init__(self, app: Any, listener: Listener) -> None:
         self._app = cast(Framework, app)
         self._config = _Config(listener)
+        self._listener = listener
+        self._sockets: Sockets | None = None
+
+    @property
+    def address(self) -> str:
+        return self._listener.address
+
+    def bind(self) -> None:
+        """Binds the listener and listens now, before `serve`: the daemon says it's ready only once each one is,
+        and a failure here is the daemon's to handle, not lost in the task `serve` runs in. Connections that come
+        before `serve` accepts wait in the backlog. Raises OSError when it can't bind (the port is taken)."""
+        self._sockets = self._config.create_sockets()
+        for sock in [*self._sockets.secure_sockets, *self._sockets.insecure_sockets]:
+            sock.listen(self._config.backlog)
+
+    def unbind(self) -> None:
+        """Lets go of what `bind` bound, for a daemon that won't serve after all."""
+        if self._sockets is not None:
+            for sock in [*self._sockets.secure_sockets, *self._sockets.insecure_sockets, *self._sockets.quic_sockets]:
+                sock.close()
+            self._sockets = None
 
     async def serve(self, stop: asyncio.Event) -> None:
-        await serve(self._app, self._config, shutdown_trigger=stop.wait)
+        """Serves until `stop` is set, on the sockets `bind` bound, or binding them itself."""
+        app = wrap_app(self._app, self._config.wsgi_max_body_size, None)
+        await worker_serve(app, self._config, sockets=self._sockets, shutdown_trigger=stop.wait)
 
     def reload_certificate(self, certfile: str, keyfile: str) -> None:
         """Loads a renewed certificate: new connections get it, open ones keep theirs. Raises OSError or

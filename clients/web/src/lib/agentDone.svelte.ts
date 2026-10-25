@@ -68,10 +68,16 @@ export async function allowPopups(): Promise<boolean> {
   return Notification.permission === "granted";
 }
 
-/** A system notification; false when the browser doesn't show them for this page. */
+/** A system notification; false when the browser doesn't show them for this page. Android's Chrome grants the
+ * permission yet allows them only from a service worker, which this app hasn't: its constructor throws. */
 export function systemNotice(title: string, body: string, onclick: () => void): boolean {
   if (!popupsAllowed()) return false;
-  const shown = new Notification(title, { body, tag: "lo9i-agent-finished" });
+  let shown: Notification;
+  try {
+    shown = new Notification(title, { body, tag: "lo9i-agent-finished" });
+  } catch {
+    return false;
+  }
   shown.onclick = () => {
     window.focus();
     onclick();

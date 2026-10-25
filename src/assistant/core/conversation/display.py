@@ -16,7 +16,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMe
 from langchain_core.messages.tool import ToolCall
 
 from assistant.core import subagent_steps
-from assistant.core.agent_tasks.steps import STEPS, Upload, args_of, files_of, parse
+from assistant.core.agent_tasks.steps import STEPS, UNANSWERED, Upload, args_of, files_of, parse
 from assistant.core.conversation import carried, ended
 from assistant.core.conversation.dispatched import DISPATCH_ID
 from assistant.core.conversation.turn_header import is_header
@@ -86,7 +86,8 @@ def _shown(message: BaseMessage, results: dict[str, ToolMessage]) -> list[ShownM
         before = [ShownMessage("carried", carried.shown(exchange))] if exchange else []
         return [*before, ShownMessage("user", _text(message.content, skip_header=True))]
     if isinstance(message, AIMessage) and (steps := message.response_metadata.get(STEPS)):
-        return [_cut(m) for m in _agent_reply(steps, _text(message.content), message.id or "")]
+        unanswered = bool(message.response_metadata.get(UNANSWERED))
+        return [_cut(m) for m in _agent_reply(steps, _text(message.content), message.id or "", unanswered)]
     if isinstance(message, AIMessage):
         text = _text(message.content)
         calls = [_call(call, results.get(call["id"] or "")) for call in message.tool_calls]
@@ -138,7 +139,7 @@ def _agent_call(messages: Sequence[BaseMessage], call_id: str) -> ShownMessage |
     reply = next((m for m in messages if isinstance(m, AIMessage) and m.id == message_id), None)
     if reply is None or not (lines := reply.response_metadata.get(STEPS)):
         return None
-    calls = _agent_reply(lines, _text(reply.content), message_id)
+    calls = _agent_reply(lines, _text(reply.content), message_id, bool(reply.response_metadata.get(UNANSWERED)))
     return next((m for m in calls if m.call_id == call_id), None)
 
 
@@ -209,11 +210,12 @@ def _start(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit].rstrip() + "…"
 
 
-def _agent_reply(lines: list[str], reply: str, message_id: str) -> list[ShownMessage]:
+def _agent_reply(lines: list[str], reply: str, message_id: str, unanswered: bool = False) -> list[ShownMessage]:
     """Its steps, with its own subagents' tool calls inside the call that started them (their words aren't
     shown, as live); the reply after them unless its last text, after the user's last message to it, already
     said it. Its thinking reads as what it says, as it was shown live (core/agent_tasks/steps.py). Each tool
-    call is named after the reply (`message_id`) and its place, to load it whole."""
+    call is named after the reply (`message_id`) and its place, to load it whole. When it ended `unanswered`,
+    the reply is the note saying how, always shown on its own after the steps."""
     shown: list[ShownMessage] = []
     calls: dict[str, ShownMessage] = {}
     steps = [parse(line) for line in lines]
@@ -224,11 +226,17 @@ def _agent_reply(lines: list[str], reply: str, message_id: str) -> list[ShownMes
             shown.append(ShownMessage("user", _with_attachments(step.get("text", ""), files_of(line))))
         else:
             _add_step(shown, step, calls)
-    own = [step for step in steps if not step.get("within")]
-    last_message = max((i for i, step in enumerate(own) if step.get("kind") == "user"), default=-1)
-    if not any(step.get("kind") == "text" for step in own[last_message + 1 :]):
+    if unanswered:
+        shown.append(ShownMessage("assistant", reply))
+    elif not _said_after_last_message(steps):
         _add_step(shown, {"kind": "text", "text": reply}, calls)
     return _named(shown, message_id)
+
+
+def _said_after_last_message(steps: list[dict[str, str]]) -> bool:
+    own = [step for step in steps if not step.get("within")]
+    last_message = max((i for i, step in enumerate(own) if step.get("kind") == "user"), default=-1)
+    return any(step.get("kind") == "text" for step in own[last_message + 1 :])
 
 
 def _named(shown: list[ShownMessage], message_id: str) -> list[ShownMessage]:

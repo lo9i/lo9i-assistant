@@ -5,18 +5,21 @@ the conversation back. The agent's worker is tests/core/fake_agent_worker.py."""
 import asyncio
 import json
 import sys
+import threading
 from collections.abc import AsyncIterator
 from pathlib import Path
+from typing import cast
 
 import pytest
 
 from assistant.core.agent import AssistantService, FolderError, HandoffError, Session, ShownStep
+from assistant.core.agent.handoffs import _steps_while
 from assistant.core.agent_tasks import workers
 from assistant.core.agent_tasks.records import TaskStore
 from assistant.core.attachments import Attachment
 from assistant.core.config import settings
 from assistant.core.conversation import queued
-from assistant.core.events import Done, Error, TextDelta, ToolFinished, ToolStarted, UserSaid
+from assistant.core.events import Cancelled, Done, Error, TextDelta, ToolFinished, ToolStarted, UserSaid
 from assistant.core.mcp import folders, servers
 from assistant.core.mcp.servers import McpServer
 from assistant.daemon.managers import ByHand
@@ -142,11 +145,12 @@ async def test_handed_back_the_assistant_answers_and_hears_who_did_meanwhile(ser
     assert "handed this conversation to Claude Code" in header and f"Done in {tmp_path}" in messages[-2].content
 
 
-async def test_an_agent_error_is_shown_and_nothing_is_added(service, tmp_path):
+async def test_an_agent_error_is_shown_and_kept_after_the_message(service, tmp_path):
     session = await _handed(service, tmp_path)
     events = await collect(service.send(session, "break"))
     assert len(events) == 1 and isinstance(events[0], Error) and "the agent gave up" in events[0].message
-    assert await service.conversation_messages(session.thread_id) == []
+    shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
+    assert shown == [("user", "break"), ("assistant", "Claude Code: the agent gave up")]
 
 
 async def test_the_agent_gets_the_full_paths_of_the_files_sent_and_the_conversation_keeps_them(service, tmp_path):
@@ -481,3 +485,92 @@ async def test_a_job_the_user_stopped_isnt_told(service, tmp_path):
     with pytest.raises(asyncio.CancelledError):
         await run
     assert _finished(service, after) == []
+
+
+async def test_steps_stopped_while_waiting_leave_no_wait_on_the_queue():
+    asking: asyncio.Future[str] = asyncio.get_running_loop().create_future()
+    steps: asyncio.Queue[str] = asyncio.Queue()
+    reading = asyncio.ensure_future(anext(_steps_while(cast(asyncio.Task[str], asking), steps)))
+    await asyncio.sleep(0)
+    reading.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await reading
+    await asyncio.sleep(0)
+    steps.put_nowait("next")
+    await asyncio.sleep(0.01)
+    assert steps.qsize() == 1
+
+
+async def test_a_stopped_run_keeps_what_the_user_sent_the_agent_with_a_note(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    run = asyncio.create_task(collect(service.send(session, "leave messages")))
+    await _taking_messages(service, session, tmp_path)
+    shot = Attachment("shot.png", "image/png", b"\x89PNG")
+    await service.message_agent("owner", session.thread_id, "see this", [shot])  # it never takes it
+    assert await service.cancel(session.thread_id)
+    assert isinstance((await run)[-1], Cancelled)
+    shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
+    assert shown[0] == ("user", "leave messages")
+    assert shown[-2:] == [
+        ("user", "see this\n[attachment shot.png]"),
+        ("assistant", "[stopped before Claude Code replied]"),
+    ]
+    files = await service.list_files("owner")
+    assert [f.name for f in files] == ["shot.png"]
+    await service.delete_conversation("owner", session.thread_id)
+    assert await service.list_files("owner") == []
+
+
+async def test_messages_a_failed_task_didnt_take_are_shown_and_kept_with_the_error(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    run = asyncio.create_task(collect(service.send(session, "leave messages and fail")))
+    await _taking_messages(service, session, tmp_path)
+    await service.message_agent("owner", session.thread_id, "see this", [Attachment("shot.png", "image/png", b"x")])
+    (tmp_path / "release").write_text("")
+    events = await run
+    assert UserSaid("see this", ["shot.png"]) in events
+    assert isinstance(events[-1], Error) and events[-1].message == "Claude Code: it broke"
+    shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
+    assert shown == [
+        ("user", "leave messages and fail"),
+        ("assistant", "Working."),
+        ("user", "see this\n[attachment shot.png]"),
+        ("assistant", "Claude Code: it broke"),
+    ]
+    assert [f.name for f in await service.list_files("owner")] == ["shot.png"]
+
+
+async def test_a_message_written_as_the_task_ends_is_answered_next(service, tmp_path, monkeypatch):
+    session = await _handed(service, tmp_path)
+    run = asyncio.create_task(collect(service.send(session, "leave messages")))
+    await _taking_messages(service, session, tmp_path)
+    read, untaken, write = threading.Event(), TaskStore.untaken, TaskStore.add_message
+
+    def reading(self, task_id):
+        read.set()
+        return untaken(self, task_id)
+
+    def as_it_ends(self, task_id, message):
+        (tmp_path / "release").write_text("")  # the task ends after the check that it runs, before the write
+        read.wait(timeout=2)  # long enough for its untaken messages to be read, were they read meanwhile
+        write(self, task_id, message)
+
+    monkeypatch.setattr(TaskStore, "untaken", reading)
+    monkeypatch.setattr(TaskStore, "add_message", as_it_ends)
+    await service.message_agent("owner", session.thread_id, "one more")
+    events = await run
+    assert UserSaid("one more") in events
+    assert TextDelta(f"Done in {tmp_path}: one more") in events and events[-1] == Done()
+
+
+async def test_files_sent_to_an_agent_that_cant_take_them_are_not_kept(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    run = asyncio.create_task(collect(service.send(session, "work a while")))  # a worker without an inbox
+    await _working(service, session, tmp_path)
+    uploads_dir = Path(settings.uploads_dir).expanduser()
+    before = set(uploads_dir.rglob("*")) if uploads_dir.exists() else set()
+    with pytest.raises(HandoffError, match="can't take messages while it works"):
+        await service.message_agent("owner", session.thread_id, "see", [Attachment("a.png", "image/png", b"x")])
+    assert (set(uploads_dir.rglob("*")) if uploads_dir.exists() else set()) == before
+    (tmp_path / "release").write_text("")
+    assert (await run)[-1] == Done()

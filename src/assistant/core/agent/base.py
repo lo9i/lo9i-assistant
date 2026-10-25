@@ -97,7 +97,9 @@ class ServiceBase:
     _active_runs: dict[str, asyncio.Task]
     # How many messages each thread had when its run in progress started (core/agent/runs.py).
     _run_starts: dict[str, int]
-    # Set while no run is in progress (core/agent/runs.py).
+    # How many runs are in progress, each counted until its cleanup is done, and set while none is
+    # (core/agent/runs.py).
+    _open_runs: int
     _no_runs: asyncio.Event
 
     async def _servers_changed(self) -> None:

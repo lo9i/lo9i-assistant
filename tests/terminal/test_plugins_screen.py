@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import replace
 
 from textual.widgets import Button, Input, Markdown, OptionList
@@ -302,3 +303,63 @@ def test_the_last_check_is_the_oldest_and_none_while_one_never_was():
     now = datetime(2030, 1, 1, 12, tzinfo=UTC)
     assert checked_line(older, False, False, now) == "Checked 3 hours ago"
     assert checked_line("", True, False, now) == "Checking for updates…"
+
+
+async def test_only_changes_to_plugins_read_them_again_and_an_error_is_told_once(app, client):
+    client.repositories.unreachable = True
+    read = []
+    plugins = client.repositories.plugins
+
+    async def counted(cached=False):
+        read.append(cached)
+        return await plugins(cached)
+
+    client.repositories.plugins = counted
+
+    def told() -> int:
+        return sum("no network" in str(n.message) for n in app._notifications)
+
+    async with app.run_test(size=(120, 44)) as pilot:
+        await _open(pilot, app)
+        await wait_for(pilot, lambda: len(read) == 2 and told() == 1)
+        for kind in ("conversations", "jobs", "notifications", "home", "clients", "update"):
+            await client.bus.put((kind, {}))
+        await pilot.pause(0.2)
+        assert len(read) == 2
+        await client.bus.put(("plugins", {}))
+        await wait_for(pilot, lambda: len(read) == 3)
+        await pilot.pause(0.1)
+        assert told() == 1
+
+
+async def test_reading_the_plugins_again_doesnt_hold_up_the_other_events(app, client):
+    from assistant.core.events import Done, TextDelta
+    from assistant_terminal.tui.widgets import AssistantMessage
+
+    # Set while the list reads at once; cleared, the next read waits.
+    reading = asyncio.Event()
+    reading.set()
+    plugins = client.repositories.plugins
+
+    async def slow(cached=False):
+        if cached:
+            await reading.wait()
+        return await plugins(cached)
+
+    async def elsewhere():
+        yield TextDelta("Done there.")
+        yield Done()
+
+    client.repositories.plugins = slow
+    client.runs["r1"] = elsewhere
+    async with app.run_test(size=(120, 44)) as pilot:
+        screen = await _open(pilot, app)
+        await wait_for(pilot, lambda: screen.query_one("#plugins-list", OptionList).option_count == 4)
+        reading.clear()
+        await client.bus.put(("plugins", {}))
+        run = {"run_id": "r1", "thread_id": "owner:abc", "channel": "web", "client_id": "other", "text": "hi"}
+        await client.bus.put(("run", run))
+        try:
+            await wait_for(pilot, lambda: app.query(AssistantMessage))
+        finally:
+            reading.set()

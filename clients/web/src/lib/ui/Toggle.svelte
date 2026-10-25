@@ -1,8 +1,13 @@
 <script lang="ts">
-  let { checked, label, onchange }: { checked: boolean; label: string; onchange: (on: boolean) => void } = $props();
+  let {
+    checked,
+    label,
+    onchange,
+    disabled = false,
+  }: { checked: boolean; label: string; onchange: (on: boolean) => void; disabled?: boolean } = $props();
 </script>
 
-<button class="toggle" role="switch" aria-checked={checked} aria-label={label} onclick={() => onchange(!checked)}>
+<button class="toggle" role="switch" aria-checked={checked} aria-label={label} {disabled} onclick={() => onchange(!checked)}>
   <span class="knob"></span>
 </button>
 
@@ -33,6 +38,10 @@
   }
   .toggle[aria-checked="true"] .knob {
     transform: translateX(14px);
+  }
+  .toggle:disabled {
+    opacity: 0.55;
+    cursor: default;
   }
   .toggle:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--color-accent) 55%, transparent);

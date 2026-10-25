@@ -59,10 +59,11 @@ class HomeRefresh:
         """Starts building every section in the background, unless a refresh is running or, unforced, the last one
         ended under FRESH_MINUTES ago, today. The sections in `only` (the ones the user just changed) are built whenever
         it was, once the running refresh ends."""
+        if only is None and not force and user_id not in self._running and await self._fresh(user_id):
+            return
+        # Read after the await, with none between it and starting: a call meanwhile may have started one.
         running = self._running.get(user_id)
         if running is not None and only is None:
-            return
-        if running is None and only is None and not force and await self._fresh(user_id):
             return
         task = asyncio.create_task(self._run(user_id, only, running))
         self._running[user_id] = task

@@ -59,6 +59,7 @@ code from it. In its commands, arguments and env values:
 
 import asyncio
 import contextlib
+import logging
 import re
 import shutil
 import sys
@@ -83,6 +84,8 @@ from assistant.core.secret_store import SecretBox
 from assistant.core.skills import store as skills
 from assistant.core.skills.errors import SkillError
 from assistant.core.uv import find as find_uv
+
+logger = logging.getLogger(__name__)
 
 _KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]{0,63}$")
 _COMMAND = re.compile(r"^[a-z][a-z0-9-]{1,23}$")
@@ -273,16 +276,25 @@ def installed_version(name: str) -> str:
     return record.version if record else ""
 
 
-async def add_missing_icons(store: BaseStore, box: SecretBox) -> None:
+async def add_missing_icons(store: BaseStore) -> None:
     """Give servers installed before icons existed the icon their installed folder declares, so the apps
     stop showing the generic one before their next update. Run at start; once a record has its icon,
-    it's left alone."""
+    it's left alone. Only the icon is written, so their keys aren't read; a folder that can't be read is
+    logged and its server left without one, which never stops the start."""
     for server in await servers.load_all(store):
         if not server.source or server.icon:
             continue
-        icon = await asyncio.to_thread(installed_icon, server.name)
+        icon = await asyncio.to_thread(_readable_icon, server.name)
         if icon is not None:
-            await keys.save(store, box, replace(server, icon=asdict(icon)))
+            await servers.set_icon(store, server.name, asdict(icon))
+
+
+def _readable_icon(name: str) -> icons.PluginIcon | None:
+    try:
+        return installed_icon(name)
+    except (OSError, yaml.YAMLError, ValueError) as e:
+        logger.warning("Couldn't read the icon %s's folder declares: %s", name, e)
+        return None
 
 
 def installed_icon(name: str) -> icons.PluginIcon | None:

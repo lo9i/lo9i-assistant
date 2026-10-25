@@ -136,6 +136,15 @@ async def save(store: BaseStore, server: McpServer) -> None:
     await store.aput(_NAMESPACE, server.name, asdict(server))
 
 
+async def set_icon(store: BaseStore, name: str, icon: dict[str, Any]) -> None:
+    """The record's icon alone: its keys, kept apart (keys.py), and every other setting stay as saved. Raises
+    McpServerError for an unknown server."""
+    item = await store.aget(_NAMESPACE, name)
+    if item is None:
+        raise McpServerError(f"No MCP server named {name}.")
+    await store.aput(_NAMESPACE, name, {**item.value, "icon": icon})
+
+
 async def remove(store: BaseStore, name: str) -> None:
     await load(store, name)
     await store.adelete(_NAMESPACE, name)

@@ -164,7 +164,7 @@ main() {
   ensure_env
   # --inexact keeps the model providers' packages the daemon installed when they were chosen.
   uv sync --frozen --inexact --quiet
-  build_web_ui
+  build_web_ui ci
   has_systemd && start_service
   next_steps
 }

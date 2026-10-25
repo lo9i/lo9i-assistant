@@ -64,11 +64,14 @@ stop_daemon() {
 
 # Builds the web UI into the daemon package (src/assistant/daemon/webui), which serves it at /app/.
 # Without npm the build is skipped and /app/ says the page isn't built; the CLI still works.
+# `build_web_ui ci` installs the packages exactly as package-lock.json has them, never rewriting it: in a clone the
+# app updates, a changed lock would stop every later update (src/assistant/daemon/updates.py). Without it, a
+# checkout someone works in installs as usual, keeping node_modules and the lock in line with package.json.
 build_web_ui() {
   if ! command -v npm >/dev/null; then
     echo "npm isn't installed; skipping the web UI build." >&2
     return
   fi
-  npm --prefix clients/web install --no-audit --no-fund --silent
+  npm --prefix clients/web "${1:-install}" --no-audit --no-fund --silent
   npm --prefix clients/web run build --silent >/dev/null
 }

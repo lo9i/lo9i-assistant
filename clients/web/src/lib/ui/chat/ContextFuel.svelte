@@ -8,9 +8,7 @@
 
   const stats = resource((c) => c.conversations.stats(threadId), ["run_finished", "handoffs"]);
   const shown = $derived(
-    stats.data && !stats.error && stats.data.thread_id === threadId && stats.data.context_limit > 0 && stats.data.context_tokens > 0
-      ? stats.data
-      : null,
+    stats.data && !stats.error && stats.data.thread_id === threadId && stats.data.context_limit > 0 ? stats.data : null,
   );
   const ratio = $derived(shown ? Math.min(1, shown.context_tokens / shown.context_limit) : 0);
   const SEGMENTS = 24;

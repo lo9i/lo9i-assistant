@@ -176,6 +176,16 @@ async def test_a_refresh_within_ten_minutes_of_the_last_does_nothing_unless_forc
     assert len(formats.requests) == 3
 
 
+async def test_refreshes_asked_for_at_once_build_each_section_once(service, formats):
+    await _install_calendar(service)
+    await _only(service, "Agenda")
+    await results.mark_refreshed(service.store, "owner", datetime.now(UTC) - timedelta(minutes=11))
+    formats.answers.extend([SectionContent(items=[HomeItem(title="Standup")])] * 2)
+    await asyncio.gather(service.refresh_home("owner", False), service.refresh_home("owner", True))
+    await service.home_refresh.wait("owner")
+    assert len(formats.requests) == 2  # the one saving it, then one refresh
+
+
 async def test_a_refresh_says_its_running_until_every_section_is_saved(service, formats):
     await _install_calendar(service)
     await _only(service, "Agenda")

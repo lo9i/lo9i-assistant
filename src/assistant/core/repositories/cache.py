@@ -13,6 +13,9 @@ from assistant.core.repositories.icons import PluginIcon
 from assistant.core.skills.install import FoundSkill
 
 _NAMESPACE = ("repository_listings",)
+# What a listing holds. Raised whenever a plugin's record gains a field read from the repository (its icon, its
+# ssh_agent), so a listing kept before is read again instead of giving the new field its default.
+_FORMAT = 2
 
 
 @dataclass(frozen=True)
@@ -32,13 +35,21 @@ async def load(store: BaseStore, url: str) -> Listing | None:
         return None
     data = item.value
     skills, servers = [_skill(s) for s in data["skills"]], [_server(s) for s in data["servers"]]
-    return Listing(data["commit"], skills, servers, data.get("problems", []), data.get("checked", ""))
+    # One of an older format keeps no commit: it's shown while the repository can't be reached, never reused once it is.
+    commit = data["commit"] if data.get("format") == _FORMAT else ""
+    return Listing(commit, skills, servers, data.get("problems", []), data.get("checked", ""))
 
 
 async def save(store: BaseStore, url: str, listing: Listing) -> None:
     skills = [asdict(replace(s, installed=False, installed_version="")) for s in listing.skills]
     servers = [asdict(replace(s, installed=False, installed_version="")) for s in listing.servers]
-    value = {"commit": listing.commit, "skills": skills, "servers": servers, "problems": listing.problems}
+    value = {
+        "format": _FORMAT,
+        "commit": listing.commit,
+        "skills": skills,
+        "servers": servers,
+        "problems": listing.problems,
+    }
     await store.aput(_NAMESPACE, url, {**value, "checked": listing.checked})
 
 

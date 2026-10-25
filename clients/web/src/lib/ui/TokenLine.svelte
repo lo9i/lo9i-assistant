@@ -1,6 +1,10 @@
 <script lang="ts">
-  // A small line chart of one value per day.
-  let { points, label }: { points: { day: string; value: number }[]; label: string } = $props();
+  // A small line chart of one value per day, in `color` (the accent when left out).
+  let {
+    points,
+    label,
+    color = "var(--color-accent, #f59e0b)",
+  }: { points: { day: string; value: number }[]; label: string; color?: string } = $props();
 
   const W = 300;
   const H = 70;
@@ -11,7 +15,7 @@
   const line = $derived(coords.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" "));
 </script>
 
-<svg viewBox="0 0 {W} {H}" preserveAspectRatio="none" role="img" aria-label={label}>
+<svg viewBox="0 0 {W} {H}" preserveAspectRatio="none" role="img" aria-label={label} style:--line-color={color}>
   {#if coords.length}
     <polyline points={line} class="line" vector-effect="non-scaling-stroke" />
   {/if}
@@ -30,7 +34,7 @@
   }
   .line {
     fill: none;
-    stroke: var(--color-accent, #f59e0b);
+    stroke: var(--line-color);
     stroke-width: 2;
     stroke-linejoin: round;
   }
