@@ -262,7 +262,7 @@
     align-items: flex-start;
     gap: 16px;
     padding: 16px;
-    height: calc(100dvh - 76px - 34px);
+    height: calc(100dvh - var(--top-bar-height) - 34px);
     max-width: 1600px;
     margin: 0 auto;
   }

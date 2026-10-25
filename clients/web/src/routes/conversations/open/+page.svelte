@@ -35,13 +35,12 @@
 <style>
   .screen {
     padding: 0 16px 16px;
-    height: calc(100dvh - 76px);
+    height: calc(100dvh - var(--top-bar-height));
     max-width: 1600px;
     margin: 0 auto;
   }
   @media (max-width: 680px) {
     .screen {
-      height: calc(100dvh - 60px);
       padding: 0 8px 8px;
     }
   }

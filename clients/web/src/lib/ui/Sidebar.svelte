@@ -235,7 +235,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 16px;
+    padding: 10px 16px;
     border-bottom: 1px solid var(--color-border);
   }
   .mark {
@@ -459,7 +459,7 @@
   }
   :global(.collapsed) .brand {
     justify-content: center;
-    padding: 16px 0;
+    padding: 10px 0;
   }
   :global(.collapsed) .collapse {
     transform: rotate(180deg);

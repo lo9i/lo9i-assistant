@@ -28,4 +28,11 @@ describe("Thread", () => {
     const { body } = render(Thread, { props: { ...props, items: [reply, routed] } });
     expect(body).not.toContain("Go to bottom");
   });
+
+  it("pins no message over a thread that hasn't scrolled", () => {
+    const asked: ChatItem = { kind: "user", id: 3, text: "Plan the trip", files: [] };
+    const { body } = render(Thread, { props: { ...props, items: [asked, reply] } });
+    expect(body).toContain("Plan the trip");
+    expect(body).not.toContain('class="asked');
+  });
 });

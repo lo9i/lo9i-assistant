@@ -17,6 +17,8 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-full: 9999px;
+  /* The pages' title bar, level with the sidebar's name; pages that fill the screen take it off their height. */
+  --top-bar-height: 58px;
 
   --z-popover: 50;
   --z-modal: 100;
@@ -503,6 +505,9 @@ kbd {
 }
 
 @media (max-width: 680px) {
+  :root {
+    --top-bar-height: 52px;
+  }
   .hide-narrow {
     display: none;
   }
