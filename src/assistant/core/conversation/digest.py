@@ -21,7 +21,9 @@ from assistant.core.usage.meter import TokenMeter
 class MemoryDigest(BaseModel):
     episode_summary: str = Field(description="Summary of the transcript only: topics, decisions, outcomes.")
     profile: Profile = Field(description="The full updated user profile.")
-    new_facts: list[str] = Field(description="One-off facts worth remembering that are not saved yet.")
+    new_facts: list[str] = Field(
+        description="Lasting details about the user that are not saved yet, as the rules allow; usually none."
+    )
     outdated_fact_ids: list[str] = Field(description="Ids of saved facts the transcript shows are wrong or outdated.")
 
 
