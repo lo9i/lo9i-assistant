@@ -418,6 +418,21 @@ async def test_a_server_that_asks_for_the_ssh_agent_gets_its_socket_and_others_d
     assert ssh_agent.ENV not in pages._spec(page).env  # the daemon has no agent: nothing to pass
 
 
+async def test_a_server_that_asks_for_a_data_key_gets_it_when_it_starts_and_others_dont(service):
+    from assistant.core.mcp import data_key, pages
+
+    await data_key.ensure(service.store, service.secrets, McpServer(name="notes", data_key=True))
+    await _add(service, data_key=True)
+    key = service.mcp._running["notes"].connection.server.env[data_key.ENV]
+    assert key and (await servers.load(service.store, "notes")).env == {}  # never saved with the plugin
+    page = await data_key.with_key(
+        service.store, service.secrets, McpServer(name="notes", page_command="notes-web", data_key=True)
+    )
+    assert pages._spec(page).env[data_key.ENV] == key
+    other = await data_key.with_key(service.store, service.secrets, McpServer(name="other", page_command="other-web"))
+    assert data_key.ENV not in pages._spec(other).env
+
+
 async def test_a_connection_that_cant_be_got_ready_fails_without_connecting():
     opened: list[str] = []
 

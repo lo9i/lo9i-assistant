@@ -40,6 +40,9 @@ code from it. In its commands, arguments and env values:
       protocol: 2                  # the channel protocol it speaks (docs/channel-plugins.md); 1 if absent
     model_login: copilot           # optional: a login of lo9i's its server gets instead of its own (logins.py)
     ssh_agent: true                # optional: its processes get the user's ssh agent (ssh_agent.py)
+    data_key: true                 # optional, format 4: a random key of its own, made when it's installed and
+                                   # kept encrypted by lo9i (also when it's removed, with its data), that its
+                                   # processes get in LO9I_DATA_KEY to encrypt what they keep in {data} (data_key.py)
     agent:                         # optional: a coding agent (docs/agent-plugins.md, core/agent_tasks/)
       command: claude              # /claude <folder> hands a conversation to it, /claude off back
       name: Claude Code
@@ -72,7 +75,7 @@ import yaml
 from langgraph.store.base import BaseStore
 
 from assistant.core.integrations.email import providers as email_providers
-from assistant.core.mcp import environment, folders, keys, logins, servers, ssh_agent
+from assistant.core.mcp import data_key, environment, folders, keys, logins, servers, ssh_agent
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.repositories import categories, formats, icons, platforms
 from assistant.core.repositories import source as folder_source
@@ -266,6 +269,7 @@ async def update(store: BaseStore, box: SecretBox, name: str, tokens: dict[str, 
     kept = replace(
         new, enabled=current.enabled, trusted=current.trusted, include=current.include, exclude=current.exclude
     )
+    await data_key.ensure(store, box, kept)
     await keys.save(store, box, kept)
     return kept
 
@@ -395,6 +399,8 @@ def _parse(data: dict[str, Any], name: str, root: Path, folder: Path) -> Candida
         raise ValueError(f"it uses {environment.PLACEHOLDER}, which needs format: 2")
     if version < 3 and template.agent_worker:
         raise ValueError("its agent section has a worker, which needs format: 3")
+    if version < 4 and template.data_key:
+        raise ValueError("it asks for a data_key, which needs format: 4")
     return Candidate(found, template, folder, folder.relative_to(root).as_posix(), systems, version)
 
 
@@ -418,6 +424,7 @@ def _template(data: dict[str, Any], name: str) -> McpServer:
         email_providers=[asdict(p) for p in email_providers.parse(data.get("email"), name)],
         model_login=logins.parse(data.get("model_login")),
         ssh_agent=ssh_agent.parse(data.get("ssh_agent")),
+        data_key=data_key.parse(data.get("data_key")),
         **_agent(data.get("agent")),
     )
 
