@@ -12,7 +12,7 @@ from assistant.core import inbox, uploads
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
 from assistant.core.agent_tasks.service import AgentTaskError
-from assistant.core.agent_tasks.steps import STEPS, AgentSteps, Upload, streamed
+from assistant.core.agent_tasks.steps import STEPS, UNANSWERED, AgentSteps, Upload, streamed
 from assistant.core.attachments import Attachment, reference
 from assistant.core.background import short
 from assistant.core.bus import EventBus
@@ -79,11 +79,16 @@ class HandoffsMixin(RunsMixin):
         """Passes `text` on to the agent's task working in the conversation, which takes it between its
         steps; it shows among them. Files sent with it are saved as any upload, once a task is there to
         take them, and the agent gets where: it runs on this computer and opens them from there. Raises
-        HandoffError when none is working, or its agent can't take messages while it works."""
+        HandoffError when none is working, or its agent can't take messages while it works; the files saved
+        for a message it didn't get go, since no message refers to them."""
 
         async def tell(task: str) -> None:
             files = await asyncio.to_thread(_saved, attachments)
-            await self.agent_tasks.message(task, _with_files(text, files), text.strip(), files)
+            try:
+                await self.agent_tasks.message(task, _with_files(text, files), text.strip(), files)
+            except AgentTaskError:
+                await asyncio.to_thread(_discard, files)
+                raise
 
         await self._tell_agent(user_id, thread_id, tell)
 
@@ -114,30 +119,60 @@ class HandoffsMixin(RunsMixin):
         self, session: Session, handoff: Handoff, message: HumanMessage, said: str
     ) -> AsyncIterator[Event]:
         """The agent answers, its thinking, text and tool calls shown as it works; the message and its
-        reply are added to the conversation."""
+        reply are added to the conversation. When it ends without a reply, or the run is stopped, the
+        message is added all the same, with what the agent did and a note saying how it ended: as the
+        user's message stays when the assistant's own run fails, and with it the files they sent."""
         steps = AgentSteps(handoff.name)
         reported: asyncio.Queue[str] = asyncio.Queue()
         asking = asyncio.create_task(self._ask_agent(session, handoff, said, reported))
-        async for step in _steps_while(asking, reported):
-            for event in steps.events(step):
-                yield event
         try:
+            async for step in _steps_while(asking, reported):
+                for event in steps.events(step):
+                    yield event
             reply = await asking
         except HandoffError as e:
+            await self._keep_turn(session, message, steps, str(e), answered=False)
             for event in [*steps.end("Failed"), Error(str(e))]:
                 yield event
             await self._agent_finished(session, handoff, False, str(e))
             return
+        except (asyncio.CancelledError, Exception) as e:
+            # Shielded: a second cancel (the reader gone too) mustn't lose what the user sent.
+            await asyncio.shield(self._keep_unanswered(session, message, steps, asking, reported, _ended(handoff, e)))
+            raise
         for event in steps.end("Done"):
             yield event
-        config: RunnableConfig = {"configurable": {"thread_id": session.thread_id}}
-        # Written as the agent node's output: the graph reads it as a finished turn, nothing left to run.
-        # Its steps go with the reply, for history; no model call sends response_metadata.
-        answer = AIMessage(reply, response_metadata={STEPS: steps.lines})
-        await self._graph.aupdate_state(config, {"messages": [message, answer]}, as_node="agent")
+        await self._keep_turn(session, message, steps, reply)
         await self._agent_finished(session, handoff, True, reply)
         for event in [*steps.reply(reply), Done()]:
             yield event
+
+    async def _keep_unanswered(
+        self,
+        session: Session,
+        message: HumanMessage,
+        steps: AgentSteps,
+        asking: asyncio.Task[str],
+        reported: asyncio.Queue[str],
+        note: str,
+    ) -> None:
+        """Once the agent's task has wound down, with the steps it reported meanwhile: the messages the user
+        sent it that it didn't take among them (AgentTasks.converse)."""
+        await asyncio.wait({asking})
+        while not reported.empty():
+            steps.events(reported.get_nowait())
+        await self._keep_turn(session, message, steps, note, answered=False)
+
+    async def _keep_turn(
+        self, session: Session, message: HumanMessage, steps: AgentSteps, text: str, answered: bool = True
+    ) -> None:
+        """Written as the agent node's output: the graph reads it as a finished turn, nothing left to run.
+        Its steps go with the reply, for history; no model call sends response_metadata. Shielded: stopping
+        the run as it's written doesn't lose it."""
+        config: RunnableConfig = {"configurable": {"thread_id": session.thread_id}}
+        kept = {STEPS: steps.lines} | ({} if answered else {UNANSWERED: True})
+        answer = AIMessage(text, response_metadata=kept)
+        await asyncio.shield(self._graph.aupdate_state(config, {"messages": [message, answer]}, as_node="agent"))
 
     async def _agent_finished(self, session: Session, handoff: Handoff, ok: bool, text: str) -> None:
         """The agent is done with what the user gave it, and waits for them: an `agent_finished` event, which
@@ -167,6 +202,18 @@ class HandoffsMixin(RunsMixin):
 def _saved(attachments: Sequence[Attachment]) -> list[Upload]:
     """Saves the files under the uploads dir and returns their references."""
     return [reference(a)["value"]["upload"] for a in attachments]
+
+
+def _discard(files: list[Upload]) -> None:
+    for upload in files:
+        uploads.delete(upload["path"])
+
+
+def _ended(handoff: Handoff, error: BaseException) -> str:
+    """What the conversation keeps instead of the reply of an agent that gave none."""
+    if isinstance(error, asyncio.CancelledError):
+        return f"[stopped before {handoff.name} replied]"
+    return f"[{handoff.name} ended without a reply: {type(error).__name__}: {error}]"
 
 
 def _with_files(text: str, files: list[Upload]) -> str:
@@ -201,6 +248,7 @@ class _Steps:
 
 async def _steps_while(asking: asyncio.Task[str], steps: asyncio.Queue[str]) -> AsyncIterator[str]:
     """The steps as they come, until the agent has replied. Stopping the run stops the task too."""
+    step: asyncio.Future[str] | None = None
     try:
         while not (asking.done() and steps.empty()):
             step = asyncio.ensure_future(steps.get())
@@ -211,3 +259,6 @@ async def _steps_while(asking: asyncio.Task[str], steps: asyncio.Queue[str]) -> 
                 step.cancel()
     finally:
         asking.cancel()
+        # Closed while waiting (the run stopped): left pending, the wait would be destroyed with the queue.
+        if step is not None:
+            step.cancel()

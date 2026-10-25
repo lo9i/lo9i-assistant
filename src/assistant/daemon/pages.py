@@ -14,11 +14,13 @@ would be the web app's cookies too, since browsers don't separate cookies by por
 
 A request's answer is passed on as the page writes it: the page has `FIRST_BYTE_SECONDS` to start answering,
 and then no time limit, so it can stream (Server-Sent Events, a long download). What goes both ways (a terminal)
-is a WebSocket to the same path, passed through for as long as it lasts (daemon/page_sockets.py).
+is a WebSocket to the same path, passed through for as long as it lasts (daemon/page_sockets.py). Either one
+ends when its device is revoked, as the API's event streams do.
 """
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 
 import httpx
@@ -51,17 +53,18 @@ _CLIENT_GONE = 499
 
 
 def create_pages_app(service: AssistantService, streams: DeviceStreams | None = None) -> Starlette:
-    """`streams` is the API's (daemon/auth.py), so revoking a device closes its pages' WebSockets."""
+    """`streams` is the API's (daemon/auth.py), so revoking a device ends its pages' answers and WebSockets."""
     streams = streams or DeviceStreams()
 
     async def page(request: Request) -> Response:
         name, path = request.path_params["name"], request.path_params.get("path", "")
-        if await _device(service, request) is None:
+        device = await _device(service, request)
+        if device is None:
             return PlainTextResponse(_NOT_PAIRED, 401)
         socket = service.pages.socket(name)
         if socket is None:
             return PlainTextResponse(f"{name} has no page running.", 404)
-        return _framed(await _forward(request, socket, name, path))
+        return _framed(await _forward(request, socket, name, path, lambda body: streams.guard(body, device)))
 
     async def bare(request: Request) -> Response:
         return RedirectResponse(f"/{request.path_params['name']}/", 307)
@@ -102,7 +105,10 @@ async def _device(service: AssistantService, request: HTTPConnection) -> Device 
     return await service.device_for_token(token, ip) if token else None
 
 
-async def _forward(request: Request, socket: Path, name: str, path: str) -> Response:
+async def _forward(
+    request: Request, socket: Path, name: str, path: str, guard: Callable[[AsyncIterator[bytes]], AsyncIterator[bytes]]
+) -> Response:
+    """`guard` ends the answer's body early, when its device is revoked."""
     try:
         body = await request.body()
     except ClientDisconnect:
@@ -122,7 +128,7 @@ async def _forward(request: Request, socket: Path, name: str, path: str) -> Resp
         return _not_answering(name, e)
     kept = {k: v for k, v in answer.headers.items() if k.lower() not in _RESPONSE_DROPPED}
     closed = BackgroundTask(_close, answer, http)
-    return StreamingResponse(answer.aiter_bytes(), answer.status_code, headers=kept, background=closed)
+    return StreamingResponse(guard(answer.aiter_bytes()), answer.status_code, headers=kept, background=closed)
 
 
 def _not_answering(name: str, error: Exception) -> Response:

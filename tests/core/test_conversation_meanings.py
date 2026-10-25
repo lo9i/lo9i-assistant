@@ -10,6 +10,7 @@ from assistant.core.conversation import summaries
 from assistant.core.conversation.dispatch import candidates
 from assistant.core.conversation.meanings import KIND
 from assistant.core.conversations import Conversation
+from assistant.core.memory import facts
 from tests.conftest import collect
 
 
@@ -100,3 +101,11 @@ async def test_a_message_in_the_inbox_is_routed_with_the_conversations_close_in_
     await collect(service.send(await service.session("owner", "web"), "my sourdough starter smells sour"))
     _, offered = dispatch.inputs[-1]
     assert offered[0].thread_id == "bread"
+
+
+async def test_a_memory_change_keeps_the_conversations_vectors(service: AssistantService):
+    await _side(service, "bread", "Sourdough starter feeding schedule", 1, ["baking"])
+    await service.conversation_index.sync("owner")
+    await facts.add(service.store, "owner", "Bakes bread on Sundays")
+    await service.memory_index.sync_all()
+    assert await service.conversation_index.sync("owner") == 0

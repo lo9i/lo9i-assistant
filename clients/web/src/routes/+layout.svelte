@@ -8,7 +8,9 @@
   import { EventHub } from "$lib/api/eventHub";
   import { HttpTransport, partClientId } from "$lib/api/transport";
   import { ChatController } from "$lib/chat/controller";
+  import { followRuns } from "$lib/chat/events";
   import { OpenChats } from "$lib/chat/openChats";
+  import { ChatTab } from "$lib/chat/tab";
   import { savedOpen, savedThread } from "$lib/chat/tabThread";
   import type { Daemon } from "$lib/daemon.svelte";
   import { describe, NoticeBoard } from "$lib/notices";
@@ -32,6 +34,10 @@
   const textClient = partClient("text");
   const hub = new EventHub();
   const notices = new NoticeBoard();
+  // Every chat of the tab, the quick buttons' too: each hears of runs from the moment it's made, before its history
+  // has loaded, so a run that starts meanwhile shows. Each try at opening makes its own, so a chat that finishes
+  // opening after a try failed hears nothing.
+  let tab = new ChatTab();
   let daemon = $state<Daemon | null>(null);
   let error = $state<string | null>(null);
   // Every request needs a paired device; until this browser is one, the pairing page shows.
@@ -49,9 +55,11 @@
 
   onMount(() => {
     if (standalone) return;
+    const unfollow = followRuns(hub, { all: () => tab.all() });
     void start();
     return () => {
       closed = true;
+      unfollow();
       clearTimeout(retry);
       stop.abort();
       close();
@@ -99,12 +107,15 @@
   }
 
   async function open(): Promise<void> {
+    tab = new ChatTab();
     try {
       const { threads, active } = savedOpen();
-      const [chats, voice, text] = await Promise.all([
-        OpenChats.open((part) => (part === null ? client : partClient(part)), CHANNEL, threads, active, notices),
-        ChatController.open(voiceClient, CHANNEL, savedThread("voice"), notices),
-        ChatController.open(textClient, CHANNEL, savedThread("text"), notices),
+      // The chats first: a run waiting for an answer in a conversation one of them is on asks there, not behind a
+      // quick button (ChatTab.asks).
+      const chats = await OpenChats.open((part) => (part === null ? client : partClient(part)), CHANNEL, threads, active, notices, tab);
+      const [voice, text] = await Promise.all([
+        ChatController.open(voiceClient, CHANNEL, savedThread("voice"), notices, tab, "quick"),
+        ChatController.open(textClient, CHANNEL, savedThread("text"), notices, tab, "quick"),
       ]);
       if (closed) {
         chats.closeAll();
@@ -113,6 +124,7 @@
       }
       daemon = { client, hub, notices, chats, voice, text };
     } catch (e) {
+      tab.all().forEach((chat) => chat.close());
       lostPairing(e);
     }
   }

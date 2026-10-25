@@ -9,6 +9,7 @@
   import type { HomePage, HomeSection } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { dayOf, moved, updatedLabel, whileVisible, withSection, withoutSection } from "$lib/home";
+  import { HomeSaves } from "$lib/homeSaves.svelte";
   import { describe } from "$lib/notices";
   import { installedIcon } from "$lib/pluginIcons";
   import Confirm from "$lib/ui/Confirm.svelte";
@@ -27,6 +28,8 @@
   const plugins = $derived((servers.data ?? []).filter((s) => s.transport !== "none").map((s) => s.name));
   const sections = $derived(home.data?.cards.map((c) => c.section) ?? []);
   const refreshing = $derived(home.data?.refreshing ?? false);
+  // Moving, removing and saving a section build on the list last asked for, so quick clicks add up.
+  const saves = new HomeSaves(async (next) => show(await client.home.saveSections(next)));
 
   // The clock the labels read, moved on every minute so "Updated" and the days stay right.
   let now = $state(new Date());
@@ -87,16 +90,16 @@
   // The daemon builds the new and changed sections in the background.
   async function saveEdited(section: HomeSection): Promise<void> {
     try {
-      show(await client.home.saveSections(withSection(sections, section)));
+      await saves.send(withSection(saves.latest(sections), section));
       editing = undefined;
     } catch (e) {
       editError = describe(e);
     }
   }
 
-  async function change(next: HomeSection[]): Promise<void> {
+  async function change(edit: (latest: HomeSection[]) => HomeSection[]): Promise<void> {
     try {
-      show(await client.home.saveSections(next));
+      await saves.send(edit(saves.latest(sections)));
     } catch (e) {
       notices.report(e);
     }
@@ -104,7 +107,7 @@
 
   function remove(section: HomeSection): void {
     removing = null;
-    void change(withoutSection(sections, section.id ?? ""));
+    void change((latest) => withoutSection(latest, section.id ?? ""));
   }
 
   async function reset(): Promise<void> {
@@ -157,7 +160,7 @@
           last={i === home.data.cards.length - 1}
           onedit={() => edit(card.section)}
           ondelete={() => (removing = card.section)}
-          onmove={(by) => change(moved(sections, card.section.id ?? "", by))}
+          onmove={(by) => change((latest) => moved(latest, card.section.id ?? "", by))}
         />
       {/each}
     </div>

@@ -41,7 +41,8 @@ _WHERE_DEPTH = 4
 
 
 async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
-    """Returns how the daemon ended: None when another daemon was running, STOP when stopped by a signal."""
+    """Returns how the daemon ended: None when it couldn't start (another daemon was running, or a listener
+    couldn't bind), STOP when stopped by a signal."""
     stop = _stop_event()
     socket_path = Path(settings.daemon_socket).expanduser()
     if await _already_running(socket_path):
@@ -55,13 +56,15 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         # Before any request, so no message lands in the home conversation it retires.
         if retired := await service.retire_home(settings.owner_id):
             logger.info("Kept the home conversation %s as an archived conversation; the inbox replaces it.", retired)
-        shutdown = Shutdown(service, stop, managers.current(), _announcer(service))
+        shutdown, updater = _ending(service, stop)
         hub = RunHub(service.bus)
         streams = DeviceStreams()
-        updater = _updates(service, shutdown)
         app = create_app(service, hub, Startup(stop), shutdown, logs=logs, streams=streams, updates=updater)
         servers = _listeners(app, socket_path)
         page_servers = [HttpServer(create_pages_app(service, streams), at) for at in pages.listeners()]
+        if not _bound([*servers, *page_servers]):
+            socket_path.unlink(missing_ok=True)
+            return None
         tasks = [asyncio.create_task(s.serve(stop), name="http server") for s in [*servers, *page_servers]]
         background = [asyncio.create_task(_catch_up_conversations(service)), asyncio.create_task(_prune(service))]
         if https.enabled():
@@ -86,6 +89,9 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         if https.enabled():
             logger.info("Serving HTTPS for %s on %s:%s", settings.https_host, settings.https_bind, settings.https_port)
         await stop.wait()
+        # An update in progress finishes or goes back before the daemon ends, however it was asked to end.
+        updater.close()
+        tasks.append(asyncio.create_task(updater.until_installed(), name="update"))
         if install is not None:
             install.cancel()
         for task in background:
@@ -130,14 +136,33 @@ def _announcer(service: AssistantService) -> Announce:
     )
 
 
-def _updates(service: AssistantService, shutdown: Shutdown) -> Updates:
+def _ending(service: AssistantService, stop: asyncio.Event) -> tuple[Shutdown, Updates]:
+    """The restart or stop, which waits for an update in progress, and the updater, which asks for a restart once
+    it installed one."""
     root = updates.repository_root()
-    return Updates(
+    updater = Updates(
         root,
         updates.default_steps(root),
-        restart=lambda: shutdown.request(Ending.RESTART, "an update"),
+        # Bound when called: the shutdown below exists by the time an update is installed.
+        restart=lambda: shutdown.restart_for_update(),
         announce=lambda: service.bus.publish("update"),
     )
+    shutdown = Shutdown(service, stop, managers.current(), _announcer(service), updater)
+    return shutdown, updater
+
+
+def _bound(servers: list[HttpServer]) -> bool:
+    """Binds every listener before the daemon says it's ready. One that can't (its port is taken) is logged and
+    the daemon doesn't start, so the service manager tries again; the ones bound before it are let go."""
+    for done, server in enumerate(servers):
+        try:
+            server.bind()
+        except OSError as e:
+            logger.error("Couldn't listen on %s: %s. The daemon doesn't start.", server.address, e)
+            for bound in servers[:done]:
+                bound.unbind()
+            return False
+    return True
 
 
 def _listeners(app, socket_path: Path) -> list[HttpServer]:

@@ -168,6 +168,24 @@ describe("OpenChats", () => {
     expect(seen.find(([inboxBusy]) => !inboxBusy)).toEqual([false, true]);
   });
 
+  it("sends a message the inbox sent on to an open conversation once what it asks is answered, queued meanwhile", async () => {
+    const daemon = new Daemon();
+    daemon.waiting.set("t1", [approval("i1")]);
+    const chats = await open(daemon, ["inbox", "t1"], 0);
+    const [inbox, trip] = chats.all();
+    await settled();
+    expect(trip.getSnapshot().approval).not.toBeNull();
+    daemon.runs = [[{ type: "Dispatched", id: "d1", thread_id: "t1", title: "Trip", text: "flights?", line: "→ Continued in “Trip”." }]];
+    await inbox.send("flights?", []);
+    expect(chats.current).toBe(trip);
+    expect(trip.getSnapshot().queued).toMatchObject([{ text: "flights?" }]);
+    expect(daemon.sent).toEqual(["inbox: flights?"]);
+    trip.answer({ approved: true, reason: null });
+    await settled();
+    expect(daemon.sent).toEqual(["inbox: flights?", "t1: d1"]);
+    expect(trip.getSnapshot().queued).toEqual([]);
+  });
+
   it("moves a message from the inbox, showing the inbox first, and opens where it goes", async () => {
     const daemon = new Daemon();
     const chats = await open(daemon, ["t2"]);

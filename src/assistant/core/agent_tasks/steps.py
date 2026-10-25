@@ -20,6 +20,9 @@ from assistant.core.subagent_steps import SubagentStep
 _LINE = 200
 # Where a handed-off reply keeps its steps, as the worker wrote them.
 STEPS = "agent_steps"
+# Set on a handed-off agent's message when it ended without a reply (it failed, or the run was stopped): its
+# text is a note saying so, which history shows after the steps whatever the agent said before.
+UNANSWERED = "agent_unanswered"
 # An upload's reference (path, name, media_type), as `attachments.reference` keeps it.
 Upload = dict[str, str]
 

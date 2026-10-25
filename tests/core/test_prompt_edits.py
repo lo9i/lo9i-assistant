@@ -152,3 +152,19 @@ async def test_saving_and_resetting_tell_the_clients(service):
     await service.save_prompt("persona", "You are kind.")
     await service.reset_prompt("persona")
     assert [(await anext(subscription)).kind for _ in range(2)] == ["prompts", "prompts"]
+
+
+async def test_a_prompts_folder_that_cant_be_written_never_stops_the_start(isolated_settings, caplog):
+    (isolated_settings / "SOUL.md").write_text("You are terse.")
+    (isolated_settings / "prompts").write_text("a file where the folder should be")
+    await prompt_edits.keep_bases()
+    assert "persona" in caplog.text and (await prompt_edits.section("persona")).text == "You are terse."
+
+
+async def test_an_edit_saved_is_in_use_even_when_the_built_in_text_it_came_from_cant_be_recorded(
+    isolated_settings, caplog
+):
+    (isolated_settings / "prompts").write_text("a file where the folder should be")
+    saved = await prompt_edits.save("persona", "You are kind.")
+    assert saved.edited and saved.text == "You are kind." and saved.built_in_changes == ""
+    assert prompts.load("persona") == "You are kind." and "persona" in caplog.text

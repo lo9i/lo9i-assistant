@@ -1,6 +1,8 @@
 """Full-screen terminal app: chat on the left, memory on the right."""
 
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+from contextlib import contextmanager
+from dataclasses import replace
 from functools import partial
 from typing import Any, ClassVar
 
@@ -8,6 +10,7 @@ from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, VerticalScroll
+from textual.screen import Screen
 from textual.widgets import Footer, Header, Input
 
 from assistant.client import DaemonClient, DaemonUnavailableError, clipboard
@@ -136,7 +139,12 @@ class AssistantApp(App):
         self._inbox_id = session.thread_id
         self._history = history
         self._preferences = preferences
-        self._busy = False
+        # The turn this app runs in the conversation shown (_turn_here), while one runs.
+        self._turn_token: object | None = None
+        # The approval or question dialog open for this conversation's run, while one is (_ask).
+        self._asking: Screen[Any] | None = None
+        # Whether the event stream opened once: the first time, the inbox's runs in progress are read (_listen).
+        self._listened = False
         # The runs shown that this app isn't streaming itself (another app's, a channel's, the daemon's).
         self._followed_runs = FollowedRuns()
         self._recorder = Recorder()
@@ -205,14 +213,13 @@ class AssistantApp(App):
         self.theme = THEME_NAME
         await self.refresh_thread()
         await self._show_conversations()
-        await self._follow_in_progress()
         self.query_one("#chat", VerticalScroll).anchor()
         self.query_one("#prompt", Input).focus()
+        self._listen()
         await self.refresh_memory()
         await self.refresh_title()
         await self.refresh_plugin_updates()
         await self.refresh_agents()
-        self._listen()
         self._answer_pending()
 
     @work(exclusive=True, group="events")
@@ -220,26 +227,78 @@ class AssistantApp(App):
         """Daemon events for as long as the app runs (see live.py)."""
         dispatch = live_handlers(self)
         note = self.query_one(ConnectionNote)
-        async for kind, data in self._service.events(on_open=note.back, on_lost=note.lost):
+        async for kind, data in self._service.events(on_open=self._stream_opened, on_lost=note.lost):
             handler = dispatch.get(kind)
             result = handler(data) if handler else None
             if result is not None:
                 await result
+
+    def _stream_opened(self) -> None:
+        """The first time, the inbox's runs in progress are read only now: the stream announces every run
+        started after it opened, so none falls between the two. Runs it announces wait for that read."""
+        self.query_one(ConnectionNote).back()
+        if self._listened:
+            return
+        self._listened = True
+        if self._live.session.thread_id != self._inbox_id:
+            return  # Moved on before it opened: that conversation's opening read its runs.
+        self._followed_runs.loading()
+        self._read_in_progress()
+
+    @work(group="mirror")
+    @reports_daemon_unavailable
+    async def _read_in_progress(self) -> None:
+        """Cancelled when another conversation opens, which then says when its own runs have loaded."""
+        try:
+            opened = await self._service.conversations.live(self._live.session.thread_id)
+        except DaemonUnavailableError:
+            self._followed_runs.loaded()
+            raise
+        self._followed_runs.loaded()
+        self._follow(opened.runs)
 
     async def reload_host(self) -> None:
         """The runs a restart or stop waits for changed: /host says how many are left."""
         if isinstance(self.screen, HostScreen):
             await self.screen.reload()
 
-    async def reload_screen(self) -> None:
-        reload = getattr(self.screen, "reload", None)
-        if reload is not None:
-            await reload()
+    def reload_screen(self, kind: str) -> None:
+        """The open screen reads what the event `kind` changed again, if it shows that: a screen with
+        `RELOADS_ON` names the events it shows, any other reloads on each. In the background, so the events
+        after it (a reply shown live, an approval) don't wait for it; a newer reload replaces one running."""
+        screen = self.screen
+        reload = getattr(screen, "reload", None)
+        if reload is not None and kind in getattr(screen, "RELOADS_ON", (kind,)):
+            screen.run_worker(reload, group="reload", exclusive=True)
 
     def _stop_showing_turn(self) -> None:
-        """Stop showing the reply in progress; the daemon finishes it and tells us when it's done."""
-        self.workers.cancel_group(self, "turn")
+        """Leaving the conversation: stop showing everything tied to it, the reply in progress, an approval
+        being answered and the runs followed. The daemon finishes them and tells us when they're done."""
+        self._stop_turn()
         self.workers.cancel_group(self, "mirror")
+
+    def _stop_turn(self) -> None:
+        """The turn ends here at once: the next one isn't refused while the cancelled worker winds down, and its
+        dialog goes with it (cancelling doesn't close a screen it waits on)."""
+        self.workers.cancel_group(self, "turn")
+        self.workers.cancel_group(self, "pending")
+        self._turn_token = None
+        if self._asking is not None and self.screen is self._asking:
+            self._asking.dismiss()
+
+    @property
+    def _busy(self) -> bool:
+        return self._turn_token is not None
+
+    @contextmanager
+    def _turn_here(self) -> Iterator[None]:
+        """A turn runs until it ends or `_stop_turn`, whichever comes first."""
+        token = self._turn_token = object()
+        try:
+            yield
+        finally:
+            if self._turn_token is token:
+                self._turn_token = None
 
     def run_finished(self, run: dict[str, Any]) -> None:
         if run["thread_id"] == self._live.session.thread_id:
@@ -280,7 +339,14 @@ class AssistantApp(App):
     def mirror_run(self, run: dict[str, Any]) -> None:
         """Show a run started elsewhere in this conversation (another client or channel) as it happens."""
         if self._live.started_elsewhere(run):
+            self._drop_answered_elsewhere()
             self._follow([run])
+
+    def _drop_answered_elsewhere(self) -> None:
+        """A run started elsewhere while this conversation's approval is asked here: another app answered it (or
+        a new message went past it), so the dialog goes and its answer isn't sent; the run shows instead."""
+        if self._asking is not None:
+            self._stop_turn()
 
     @work(group="mirror")
     @reports_daemon_unavailable
@@ -414,22 +480,22 @@ class AssistantApp(App):
 
     @work(exclusive=True, group="turn")
     async def _run_turn(self, text: str, attachments: list[Attachment]) -> None:
-        self._busy = True
-        try:
-            await self._turn(lambda: self._service.send(self._live.session, text, attachments))
-        except DaemonUnavailableError as e:
-            self._status.clear()
-            self.notify(f"{e} Your message may not have been answered.", severity="error", timeout=10)
-        finally:
-            self._busy = False
+        session = replace(self._live.session)
+        with self._turn_here():
+            try:
+                await self._turn(session, lambda: self._service.send(session, text, attachments))
+            except DaemonUnavailableError as e:
+                self._status.clear()
+                self.notify(f"{e} Your message may not have been answered.", severity="error", timeout=10)
 
-    async def _turn(self, start: Callable[[], AsyncIterator[Event]]) -> None:
-        """Runs the turn from `start`, then goes where the inbox sent its message on."""
+    async def _turn(self, session: Session, start: Callable[[], AsyncIterator[Event]]) -> None:
+        """Runs the turn from `start` in `session`'s conversation (a copy: the app's own changes when it moves to
+        another), then goes where the inbox sent its message on."""
         view = TurnView(self._chat, self._status)
         approvals = await view.render(start())
         while approvals:
             decisions = {a.interrupt_id: await self._decide(a.request) for a in approvals}
-            approvals = await view.render(self._service.resume(self._live.session, decisions))
+            approvals = await view.render(self._service.resume(session, decisions))
         await self.refresh_memory()
         if view.dispatched is not None:
             await self._go_on(view.dispatched)
@@ -447,8 +513,8 @@ class AssistantApp(App):
         if dispatched.carried:
             await self._chat.mount(CarriedNote(dispatched.carried))
         await self._chat.mount(UserMessage(dispatched.text, []))
-        session = self._live.session
-        await self._turn(lambda: self._service.send_dispatched(session, dispatched.id, dispatched.text))
+        session = replace(self._live.session)
+        await self._turn(session, lambda: self._service.send_dispatched(session, dispatched.id, dispatched.text))
 
     async def _open(self, thread_id: str) -> None:
         await self._live.resume(thread_id)
@@ -487,24 +553,25 @@ class AssistantApp(App):
             self._followed_runs.loaded()
             raise
 
-    @work(exclusive=True, group="pending")
-    @reports_daemon_unavailable
-    async def _answer_pending(self) -> None:
+    def _answer_pending(self) -> None:
         """Asks what the conversation's run stopped for and still waits on, whoever started it (another app, a
         channel, the daemon's queued runs, this app before it restarted), and goes on with the answers as this
-        app's own turn, as the web app does."""
-        if self._busy:
-            return
-        session = self._live.session
+        app's own turn, as the web app does. Not while a turn runs here: it asks for its own run's approvals,
+        and one answering already is never cancelled (a `run_finished` for its run comes while it runs)."""
+        if not self._busy:
+            self._ask_pending(replace(self._live.session))
+
+    @work(exclusive=True, group="pending")
+    @reports_daemon_unavailable
+    async def _ask_pending(self, session: Session) -> None:
+        """Only a worker still reading what waits is replaced by a newer one: the answering starts in the same
+        step that finds it (`_turn_here`)."""
         waiting = await self._service.conversations.pending_approvals(session.thread_id)
         if not waiting or session.thread_id != self._live.session.thread_id or self._busy:
             return
-        self._busy = True
-        try:
+        with self._turn_here():
             decisions = {a.interrupt_id: await self._decide(a.request) for a in waiting}
-            await self._turn(lambda: self._service.resume(session, decisions))
-        finally:
-            self._busy = False
+            await self._turn(session, lambda: self._service.resume(session, decisions))
 
     async def _decide(self, request: dict[str, Any]) -> dict[str, Any]:
         """The user's answer to what the run waits for. A plugin the agent offers is installed here,
@@ -522,7 +589,15 @@ class AssistantApp(App):
             if isinstance(plugin, FoundServer):
                 await self._set_up(plugin)
             return {"done": True}
-        return await self.push_screen_wait(_screen_for(request))
+        return await self._ask(_screen_for(request))
+
+    async def _ask(self, screen: ApprovalScreen | QuestionScreen) -> dict[str, Any]:
+        """The dialog's answer; it goes when the run is answered elsewhere first (_drop_answered_elsewhere)."""
+        self._asking = screen
+        try:
+            return await self.push_screen_wait(screen)
+        finally:
+            self._asking = None
 
     async def _set_up(self, plugin: FoundServer) -> None:
         """An installed plugin's setup, in the conversation: an email plugin's accounts, a channel's pairing."""
@@ -558,6 +633,7 @@ class AssistantApp(App):
         if thread_id == self._live.session.thread_id:
             self.query_one(ContextFuel).show(stats)
 
+    @reports_daemon_unavailable
     async def refresh_agents(self) -> None:
         """The commands installed plugins' agents add, like /claude."""
         agents = await self._service.conversations.agents()
@@ -567,6 +643,7 @@ class AssistantApp(App):
         }
         self.query_one(CommandMenu).set_extra(self._agent_commands)
 
+    @reports_daemon_unavailable
     async def refresh_title(self) -> None:
         self.title = await self._service.identity.name() or _DEFAULT_TITLE
 
@@ -618,8 +695,7 @@ class AssistantApp(App):
 
     async def _command_new(self, _: str) -> None:
         still_running = self._busy
-        if still_running:
-            self._stop_showing_turn()
+        self._stop_showing_turn()
         await self._live.start_new(leave_running=still_running)
         await self.refresh_thread()
         await self._chat.remove_children()
@@ -629,8 +705,7 @@ class AssistantApp(App):
     async def _command_inbox(self, _: str) -> None:
         """Back to the inbox, shown as the list of conversations rather than its own messages."""
         still_running = self._busy
-        if still_running:
-            self._stop_showing_turn()
+        self._stop_showing_turn()
         await self._live.go_inbox(leave_running=still_running)
         self._inbox_id = self._live.session.thread_id
         await self.refresh_thread()
@@ -660,15 +735,13 @@ class AssistantApp(App):
 
     @work(exclusive=True, group="turn")
     async def _run_move(self) -> None:
-        self._busy = True
-        try:
-            session = self._live.session
-            await self._turn(lambda: self._service.move_dispatched(session))
-        except DaemonUnavailableError as e:
-            self._status.clear()
-            self.notify(str(e), severity="error", timeout=10)
-        finally:
-            self._busy = False
+        session = replace(self._live.session)
+        with self._turn_here():
+            try:
+                await self._turn(session, lambda: self._service.move_dispatched(session))
+            except DaemonUnavailableError as e:
+                self._status.clear()
+                self.notify(str(e), severity="error", timeout=10)
 
     async def _command_conversations(self, _: str) -> None:
         screen = ConversationsScreen(self._service.conversations, self._live.session.thread_id)
@@ -682,13 +755,12 @@ class AssistantApp(App):
         if thread_id is None or thread_id == self._live.session.thread_id:
             return
         still_running = self._busy
-        if still_running:
-            self._stop_showing_turn()
         try:
             await self._live.resume(thread_id, leave_running=still_running)
         except ConversationError as e:
             self.notify(str(e), severity="error")
             return
+        self._stop_showing_turn()
         await self.refresh_thread()
         await self._show_history(thread_id)
         self.notify("Resumed the conversation." + (" The previous reply keeps running." if still_running else ""))

@@ -29,7 +29,7 @@
 
   let { name }: { name: string } = $props();
 
-  const { chats, voice } = useDaemon();
+  const { chats } = useDaemon();
   // MCP servers that come with a web page, shown in an iframe (routes/pages/[name]).
   const servers = resource((c) => c.mcp.servers(), ["mcp"]);
   const pages = $derived((servers.data ?? []).filter((s) => s.page && s.enabled));
@@ -49,12 +49,11 @@
   const runs = resource((c) => c.runs.inProgress(), ["run", "run_finished"]);
   const tasks = resource((c) => c.tasks.running(), ["agent_task_progress", "agent_task_reports", "background_ended"]);
   const open = external(chats.subscribe, chats.getSnapshot);
-  const voiceThread = external(voice.subscribe, () => voice.getSnapshot().threadId);
   const everything = $derived(
     openList(open.current, conversations.data ?? [], [
       ...(runs.data ?? []).map((r) => r.thread_id),
       ...(tasks.data ?? []).map((t) => t.thread_id),
-    ]).filter((item) => item.threadId !== voiceThread.current),
+    ]),
   );
   async function show(item: { key: string | null; threadId: string }): Promise<void> {
     if (item.key === null) await chats.show(item.threadId);
@@ -106,6 +105,7 @@
     { href: resolve("/sessions"), label: "Active sessions", Icon: MonitorSmartphone },
     { href: resolve("/jobs"), label: "Scheduled", Icon: CalendarClock },
     { href: resolve("/devices"), label: "Devices", Icon: Laptop, add: { label: "Pair a browser", run: pairBrowser } },
+    { href: NOTIFICATIONS, label: "Notifications", Icon: ListChecks, count: () => unread },
     // About you, Skills, Plugins, MCP servers and Logs are settings tabs with pages of their own; plugin updates show here.
     {
       href: resolve("/settings"),
@@ -185,6 +185,7 @@
         </ul>
       {/if}
     {/each}
+    {#if pages.length}<hr class="divider" />{/if}
     {#each pages as p (p.name)}
       {@const href = resolve("/pages/[name]", { name: p.name })}
       <div class="nav-row">
@@ -197,18 +198,6 @@
   </nav>
   <!-- At the bottom, on its own: what needs attention. -->
   <div class="footer-slot">
-    <div class="nav-row">
-      <a
-        href={NOTIFICATIONS}
-        class="nav-item"
-        aria-current={page.url.pathname.startsWith(NOTIFICATIONS) ? "page" : undefined}
-        title="Notifications"
-      >
-        <ListChecks size={20} />
-        <span class="label">Notifications</span>
-        {#if unread}<span class="count" aria-label="{unread} new">{unread}</span>{/if}
-      </a>
-    </div>
     <!-- Last: alerts, and a short message or voice to the assistant (sent to the inbox, routed on). -->
     <div class="bar">
       <a
@@ -292,6 +281,12 @@
     gap: 4px;
     padding-inline: 8px;
     overflow-y: auto;
+  }
+  .divider {
+    flex: none;
+    margin: 4px 4px;
+    border: 0;
+    border-top: 1px solid var(--color-border);
   }
   .footer-slot {
     padding: 8px;

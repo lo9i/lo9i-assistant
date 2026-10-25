@@ -14,6 +14,7 @@ user message starts a new epoch with nothing summarized, as with a rename.
 import asyncio
 import difflib
 import hashlib
+import logging
 import os
 from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass
@@ -21,6 +22,8 @@ from pathlib import Path
 
 from assistant.core.conversation import prompts
 from assistant.core.conversation.prompts import UnreadableEditError
+
+logger = logging.getLogger(__name__)
 
 _ABOUT = {
     "persona": ("Persona", "Who the assistant is and how it behaves. It opens the system prompt."),
@@ -88,7 +91,7 @@ async def save(name: str, text: str) -> PromptSection:
     if text == prompts.default(name):
         return await reset(name)
     await _changing(name, asyncio.to_thread(_write, prompts.edit_path(name), text))
-    await _changing(name, asyncio.to_thread(_write, prompts.base_path(name), prompts.default(name)))
+    await asyncio.to_thread(_record_base, name)
     return await section(name)
 
 
@@ -110,9 +113,30 @@ async def reset(name: str) -> PromptSection:
 
 async def keep_bases() -> None:
     """For edits made before the built-in text they came from was kept, or by hand: the one in use now, so a later
-    change of it is said. Run at start."""
+    change of it is said. Run at start; one that can't be written is logged and tried again at the next start, as
+    it only tells of changes and must never stop the assistant."""
     for name in prompts.EDITABLE:
-        await asyncio.to_thread(_keep_base, name, replace=False)
+        try:
+            await asyncio.to_thread(_keep_base, name, replace=False)
+        except OSError as e:
+            logger.warning("Can't record the built-in %s text its edit came from: %s", name, e)
+
+
+def _record_base(name: str) -> None:
+    """After saving an edit, which is in use from then on whether or not this works. A failure is logged and the
+    record of an earlier edit goes with it, so no change the user has seen is said again."""
+    try:
+        _write(prompts.base_path(name), prompts.default(name))
+    except OSError as e:
+        logger.warning("Can't record the built-in %s text its edit came from: %s", name, e)
+        _forget_base(name)
+
+
+def _forget_base(name: str) -> None:
+    try:
+        prompts.base_path(name).unlink(missing_ok=True)
+    except OSError as e:
+        logger.warning("Can't remove %s: %s", prompts.base_path(name), e)
 
 
 def _keep_base(name: str, replace: bool) -> None:

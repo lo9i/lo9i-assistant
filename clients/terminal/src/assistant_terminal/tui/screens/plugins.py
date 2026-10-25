@@ -47,6 +47,10 @@ _CATEGORY = "category:"
 
 class PluginsScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    # The daemon events that change what it shows (AssistantApp.reload_screen): a check that found something new
+    # or kept keys (`plugins`), MCP servers installed or removed (`mcp`), a channel's setup (`channels`), the
+    # repositories listed (`settings`).
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"plugins", "mcp", "channels", "settings"})
 
     def __init__(
         self,
@@ -65,6 +69,8 @@ class PluginsScreen(ModalScreen[None]):
         self._selected: str | None = None
         # When the repositories were last checked, as the list shown; "" while one never was.
         self._checked = ""
+        # The repositories' errors told, so each is told once while it lasts.
+        self._told: set[str] = set()
 
     def compose(self) -> ComposeResult:
         with Vertical(id="plugins"):
@@ -127,7 +133,9 @@ class PluginsScreen(ModalScreen[None]):
     async def _apply(self, read: list[RepositoryPlugins]) -> None:
         self._all, unread = from_repositories(read)
         for error in unread:
-            self.notify(error, severity="error", timeout=10)
+            if error not in self._told:
+                self.notify(error, severity="error", timeout=10)
+        self._told = set(unread)
         self._checked = last_checked(read)
         self._show_checked()
         await self._list()
@@ -262,8 +270,9 @@ class PluginsScreen(ModalScreen[None]):
 
     @reports_daemon_unavailable
     async def reload(self) -> None:
-        """Called when the daemon reports a change: a check that found something new (`plugins`), a channel's new
-        pairing code. The list is read as last checked, which downloads nothing, and the shown plugin's setup."""
+        """Called when the daemon reports a change in `RELOADS_ON`: a check that found something new, a channel's
+        new pairing code. The list is read as last checked, which downloads only a repository never read, and the
+        shown plugin's setup."""
         await self._load()
         await self._show_setup(self._current())
 

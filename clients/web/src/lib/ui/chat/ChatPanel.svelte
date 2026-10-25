@@ -10,6 +10,7 @@
   import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
   import { sentTexts } from "$lib/chat/history";
   import { finalReply, toolRunning } from "$lib/chat/transcript";
+  import type { ChatController } from "$lib/chat/controller";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { Player, speaksReply } from "$lib/speech";
   import type { Agent } from "$lib/api/types";
@@ -37,12 +38,15 @@
   const { client, notices, chats } = useDaemon();
   // The open conversation shown; the sidebar picks it.
   const snapshot = external(chats.subscribe, () => chats.current.getSnapshot());
+  // A snapshot comes with every update of the transcript; what's loaded for the conversation is loaded again only
+  // when it's another one.
+  const threadId = $derived(snapshot.current.threadId);
   const name = resource((c) => c.identity.name(), ["settings"]);
   const speech = resource((c) => c.speech.settings(), ["settings"]);
-  const pinned = resource((c) => c.conversations.pinned(snapshot.current.threadId), ["pinned_skills"]);
+  const pinned = resource((c) => c.conversations.pinned(threadId), ["pinned_skills"]);
   // Plugins can bring agents a conversation is handed to (/claude); the one this conversation is with.
   const agents = resource((c) => c.conversations.agents(), ["mcp"]);
-  const handoff = resource((c) => c.conversations.agent(snapshot.current.threadId), ["handoffs"]);
+  const handoff = resource((c) => c.conversations.agent(threadId), ["handoffs"]);
   const extra = $derived(agentCommands(agents.data ?? []));
   const player = new Player();
   let help = $state(false);
@@ -51,13 +55,13 @@
   // Drags enter and leave every element they pass over; the chat is under a drag while this is above 0.
   let dragging = $state(0);
   const streaming = $derived(snapshot.current.transcript.streaming !== null);
-  const inInbox = $derived(snapshot.current.threadId === snapshot.current.inboxId);
+  const inInbox = $derived(threadId === snapshot.current.inboxId);
   // The agent the conversation is handed to is working on its last message: what's typed goes to it meanwhile.
   const agentWorking = $derived(!!handoff.data && (snapshot.current.busy || snapshot.current.mirroring));
 
   // Each conversation keeps its own unsent text and files.
   $effect.pre(() => {
-    draft.thread = snapshot.current.threadId;
+    draft.thread = threadId;
   });
 
   /** Sends, then reads the answer aloud when Settings → Audio says so. */
@@ -65,6 +69,11 @@
     player.stop();
     const chat = chats.current;
     await chat.send(text, files);
+    await speak(chat, files);
+  }
+
+  /** Reads `chat`'s answer to a message with `files` aloud when Settings → Audio says so. */
+  async function speak(chat: ChatController, files: File[]): Promise<void> {
     const reply = finalReply(chat.getSnapshot().transcript);
     if (
       !reply ||
@@ -81,33 +90,21 @@
     }
   }
 
-  // Messages written while a reply runs, per conversation; each goes out when the one before finishes.
-  let queued = $state<Record<string, { text: string; files: File[] }[]>>({});
-  const waiting = $derived(queued[snapshot.current.threadId] ?? []);
+  // Messages written while a reply runs wait in the conversation's queue, each going out when the one before
+  // finishes; so do the ones the inbox sends on to it meanwhile.
   function enqueue(text: string, files: File[]): void {
-    const id = snapshot.current.threadId;
-    queued[id] = [...(queued[id] ?? []), { text, files }];
+    chats.current.queue(text, files, (chat) => speak(chat, files));
   }
   function unqueue(index: number): void {
-    const id = snapshot.current.threadId;
-    const [item] = (queued[id] ?? []).slice(index, index + 1);
-    queued[id] = (queued[id] ?? []).filter((_, i) => i !== index);
+    const item = chats.current.unqueue(index);
     if (item && !draft.text.trim()) {
       draft.text = item.text;
       draft.files = item.files;
     }
   }
-  $effect(() => {
-    const id = snapshot.current.threadId;
-    if (snapshot.current.busy || snapshot.current.mirroring || !queued[id]?.length) return;
-    const [next, ...rest] = queued[id];
-    queued[id] = rest;
-    void send(next.text, next.files);
-  });
 
   /** Passes a message and its files on to the working agent; what it can't take goes back in the box. */
   async function steer(text: string, files: File[]): Promise<void> {
-    const threadId = snapshot.current.threadId;
     const taken = await tellAgent(() => client.conversations.messageAgent(threadId, text, files), notices);
     if (!taken) putBack(draft, text, files);
   }
@@ -145,7 +142,7 @@
   async function pin(skill: string): Promise<void> {
     if (!skill) return notices.notify("Usage: /pin <skill>", "warning");
     try {
-      await client.conversations.pin(snapshot.current.threadId, skill);
+      await client.conversations.pin(threadId, skill);
       notices.notify(`Pinned ${skill} to this conversation. It takes effect from your next message.`);
     } catch (e) {
       notices.report(e);
@@ -155,7 +152,7 @@
   async function unpin(skill: string): Promise<void> {
     if (!skill) return notices.notify("Usage: /unpin <skill>", "warning");
     try {
-      await client.conversations.unpin(snapshot.current.threadId, skill);
+      await client.conversations.unpin(threadId, skill);
       notices.notify(`Unpinned ${skill}. It takes effect from your next message.`);
     } catch (e) {
       notices.report(e);
@@ -168,7 +165,7 @@
     if (!agent) return;
     if (arg === "off") {
       try {
-        await client.conversations.takeBack(snapshot.current.threadId);
+        await client.conversations.takeBack(threadId);
         notices.notify("The assistant answers again from your next message.");
       } catch (e) {
         notices.report(e);
@@ -269,15 +266,18 @@
     name={name.data || "the assistant"}
     onsuggest={(text) => (draft.text = text)}
     onmove={inInbox ? (dispatchId) => chats.move(dispatchId) : undefined}
-    loadCall={(callId) => client.conversations.toolCall(snapshot.current.threadId, callId)}
-    loadStep={(callId, index) => client.conversations.toolCallStep(snapshot.current.threadId, callId, index)}
+    loadCall={(callId) => client.conversations.toolCall(threadId, callId)}
+    loadStep={(callId, index) => client.conversations.toolCallStep(threadId, callId, index)}
   />
-  {#if waiting.length}
+  {#if snapshot.current.queued.length}
     <ul class="queued" aria-label="Queued messages">
-      {#each waiting as item, i (i)}
+      {#each snapshot.current.queued as item, i (i)}
         <li>
           <Clock size={12} /><span>{item.text || item.files.map((f) => f.name).join(", ")}</span>
-          <button aria-label="Take back" title="Take back to edit" onclick={() => unqueue(i)}><X size={12} /></button>
+          <!-- One the inbox sent on here can't be taken back: it was already written. -->
+          {#if !item.dispatched}
+            <button aria-label="Take back" title="Take back to edit" onclick={() => unqueue(i)}><X size={12} /></button>
+          {/if}
         </li>
       {/each}
     </ul>
@@ -297,16 +297,14 @@
     steering={agentWorking && handoff.data ? { agent: handoff.data.name, onsteer: steer } : null}
   />
   <StatusBar>
-    <WorkingStatus threadId={snapshot.current.threadId} />
-    <ConversationStats threadId={snapshot.current.threadId} />
+    <WorkingStatus {threadId} />
+    <ConversationStats {threadId} />
     {#if handoff.data}
-      <AgentStatus handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")}>
-        <ContextFuel threadId={snapshot.current.threadId} />
-      </AgentStatus>
+      <AgentStatus handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")} />
     {:else}
-      <ContextFuel threadId={snapshot.current.threadId} />
       <ModelStatus />
     {/if}
+    <span class="fuel-end"><ContextFuel {threadId} /></span>
   </StatusBar>
   {#if dragging > 0}<div class="drop-hint" aria-hidden="true">Drop files to attach them</div>{/if}
 </section>
@@ -368,5 +366,9 @@
     color: inherit;
     cursor: pointer;
     padding: 2px;
+  }
+  /* The context bar at the status bar's right end. */
+  .fuel-end {
+    margin-left: auto;
   }
 </style>

@@ -2,10 +2,12 @@
 through the daemon's pages port. The page here is a real process."""
 
 import asyncio
+import contextlib
 import json
 import shutil
 import sys
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 
 import httpx
@@ -14,7 +16,7 @@ from starlette.types import Message, Scope
 
 from assistant.core.agent import McpServer, McpServerChanges
 from assistant.core.mcp import folders
-from assistant.daemon.auth import COOKIE
+from assistant.daemon.auth import COOKIE, DeviceStreams
 from assistant.daemon.pages import create_pages_app
 
 # Answers every request with what it received, and tries to set a cookie the daemon must drop.
@@ -206,3 +208,35 @@ async def test_a_client_paired_for_a_token_reaches_the_page_with_it_as_a_bearer(
         assert seen["path"] == "/x" and "authorization" not in seen["headers"]
         assert (await http.get("/notes/x", headers={"Authorization": "Bearer wrong"})).status_code == 401
     assert device.name == "Watchlist extension"
+
+
+class _Watched(DeviceStreams):
+    """Says when an answer started following its device."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.watched = asyncio.Event()
+
+    @contextlib.contextmanager
+    def watching(self, device_id: str) -> Iterator[asyncio.Event]:
+        with super().watching(device_id) as ended:
+            self.watched.set()
+            yield ended
+
+
+async def test_revoking_a_device_ends_the_answers_its_pages_are_streaming(pages):
+    code = await pages.open_device_pairing()
+    device, token = await pages.pair_device(code.code, "phone", "100.64.0.2")
+    streams = _Watched()
+    transport = httpx.ASGITransport(app=create_pages_app(pages, streams), client=("100.64.0.2", 5000))
+
+    async def revoke() -> None:
+        await streams.watched.wait()
+        streams.end(device.id)
+
+    revoking = asyncio.create_task(revoke())
+    async with httpx.AsyncClient(transport=transport, base_url="http://board:8766", cookies={COOKIE: token}) as http:
+        # The page writes its second event a second after its first; the device is gone before that.
+        streamed = await asyncio.wait_for(http.get("/notes/stream"), 0.9)
+    await revoking
+    assert streamed.status_code == 200 and "two" not in streamed.text

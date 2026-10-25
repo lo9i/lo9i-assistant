@@ -3,6 +3,7 @@ install steps and restarts. The repositories here are real, made in a temporary 
 
 import asyncio
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -10,7 +11,8 @@ import pytest
 
 from assistant.daemon import updates
 from assistant.daemon.updates import VERSION_FILE, Step, Updates
-from assistant.protocol import Commit, UpdateError
+from assistant.protocol import Commit, UpdateError, UpdateStatus
+from tests.conftest import written
 
 
 def _git(folder: Path, *args: str) -> str:
@@ -191,3 +193,73 @@ async def test_the_version_written_for_a_deploy_says_when_it_has_changes_not_com
     (clone / "a.txt").write_text("edited")
     version = await updates._this_version(clone)
     assert version.subject == "First (with changes not committed)"
+
+
+def _pushed(other: Path) -> None:
+    _commit(other, "b.txt", "Second")
+    _git(other, "push", "-q", "origin", "HEAD:main")
+
+
+async def test_two_updates_asked_for_at_once_install_once_and_a_check_meanwhile_leaves_it_installing(repos, tmp_path):
+    clone, other = repos
+    _pushed(other)
+    ran, release = tmp_path / "ran", tmp_path / "release"
+    step = Step(
+        "Installing its dependencies", ["sh", "-c", f"echo x >> {ran}; until [ -f {release} ]; do sleep 0.02; done"]
+    )
+    spy = _Spy()
+    lo9i = _updates(clone, spy, [step])
+    first, second, checked = await asyncio.gather(lo9i.start(), lo9i.start(), lo9i.check(), return_exceptions=True)
+    assert isinstance(first, UpdateStatus) and first.state == "updating"
+    assert isinstance(second, UpdateError) and "already being installed" in str(second)
+    assert isinstance(checked, UpdateStatus) and checked.state == "updating" and lo9i.installing()
+    with pytest.raises(UpdateError, match="already being installed"):
+        await lo9i.start()
+    release.touch()
+    await asyncio.wait_for(lo9i.until_installed(), 30)
+    assert ran.read_text().split() == ["x"] and spy.restarts == 1 and not lo9i.installing()
+
+
+async def test_once_the_daemon_is_ending_no_update_starts(repos):
+    clone, other = repos
+    _pushed(other)
+    lo9i = _updates(clone, _Spy())
+    lo9i.close()
+    with pytest.raises(UpdateError, match="restarting or stopping"):
+        await lo9i.start()
+    assert not (clone / "b.txt").exists()
+    await asyncio.wait_for(lo9i.until_installed(), 1)
+
+
+async def test_a_git_command_that_fails_after_the_fetch_says_why_and_the_check_ends(repos, monkeypatch):
+    clone, other = repos
+    _pushed(other)
+    real = updates._git
+
+    async def git(root: Path, *args: str) -> str:
+        if args[0] == "status":
+            raise updates._FailedError("fatal: index file corrupt")
+        return await real(root, *args)
+
+    monkeypatch.setattr(updates, "_git", git)
+    checked = await _updates(clone, _Spy()).check()
+    assert checked.state == "idle" and not checked.can_update
+    assert checked.reason == "Couldn't compare this copy with origin/main: fatal: index file corrupt"
+
+
+def test_the_web_apps_packages_install_as_the_lock_has_them(monkeypatch, tmp_path):
+    monkeypatch.setattr(updates.shutil, "which", lambda name: f"/usr/bin/{name}")
+    commands = [step.command for step in updates.default_steps(tmp_path)]
+    assert ["/usr/bin/npm", "--prefix", "clients/web", "ci", "--no-audit", "--no-fund", "--silent"] in commands
+    assert not any("install" in command for command in commands)
+
+
+async def test_a_step_whose_update_is_cancelled_is_killed(tmp_path):
+    pid = tmp_path / "pid"
+    step = asyncio.create_task(updates._run(tmp_path, ["sh", "-c", f"echo $$ > {pid}; exec sleep 30"], 60))
+    child = int(await written(pid))
+    step.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await step
+    with pytest.raises(ProcessLookupError):
+        os.kill(child, 0)

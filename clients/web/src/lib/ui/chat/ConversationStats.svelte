@@ -3,7 +3,7 @@
   import { resource } from "$lib/daemon.svelte";
 
   // In the status bar: how long the conversation is and what it took, with the figures in its tooltip. Loaded again
-  // when the conversation changes and when a reply ends; hidden while it has no messages, and when it can't be loaded.
+  // when the conversation changes and when a reply ends; shown from the start (all zeros), hidden only when it can't be loaded.
   let { threadId }: { threadId: string } = $props();
 
   const stats = resource((c) => c.conversations.stats(threadId), ["run_finished"]);
@@ -14,7 +14,7 @@
   });
 
   // The last conversation's stats stay until this one's arrive; they aren't shown meanwhile.
-  const shown = $derived(stats.data && !stats.error && stats.data.thread_id === threadId && stats.data.messages > 0 ? stats.data : null);
+  const shown = $derived(stats.data && !stats.error && stats.data.thread_id === threadId ? stats.data : null);
 </script>
 
 {#if shown}

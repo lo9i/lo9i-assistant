@@ -23,3 +23,11 @@ def load(relative: str) -> bytes | None:
 
 def absolute(relative: str) -> Path:
     return Path(settings.uploads_dir).expanduser() / relative
+
+
+def delete(relative: str) -> None:
+    """Removes the file, and the folder `save` made for it once it's empty."""
+    path = absolute(relative)
+    path.unlink(missing_ok=True)
+    if path.parent != absolute("") and path.parent.is_dir() and not any(path.parent.iterdir()):
+        path.parent.rmdir()

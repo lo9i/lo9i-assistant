@@ -8,6 +8,9 @@
   const { client } = useDaemon();
   const loaded = resource((c) => c.system.startup(), []);
   let message = $state("");
+  // The change asked for, until the daemon answers with the new status: the toggle shows it and takes no other tap
+  // meanwhile, so a second tap during the macOS password dialog doesn't ask again.
+  let changing = $state<boolean | null>(null);
   const s = $derived(loaded.data);
 
   const NOTES: Record<string, string[]> = {
@@ -25,13 +28,25 @@
   const computer = $derived(s?.platform === "macos" ? "the Mac" : "the computer");
 
   async function change(enable: boolean): Promise<void> {
+    if (changing !== null) return;
+    changing = enable;
+    try {
+      await ask(enable);
+    } finally {
+      changing = null;
+    }
+  }
+
+  async function ask(enable: boolean): Promise<void> {
     message = s?.platform === "macos" ? "Waiting for the macOS password dialog…" : "Working…";
     try {
-      message = done(enable, await (enable ? client.system.enableStartup() : client.system.disableStartup()));
+      const status = await (enable ? client.system.enableStartup() : client.system.disableStartup());
+      loaded.data = status;
+      message = done(enable, status);
     } catch (e) {
       message = describe(e);
+      loaded.reload();
     }
-    loaded.reload();
   }
 
   function done(enabled: boolean, s: StartupStatus): string {
@@ -49,7 +64,7 @@
   {#snippet status()}
     {#if s}
       {#if s.platform !== "unsupported"}
-        <Toggle checked={s.enabled} label="Start at boot" onchange={change} />
+        <Toggle checked={changing ?? s.enabled} label="Start at boot" disabled={changing !== null} onchange={change} />
       {/if}
     {/if}
   {/snippet}

@@ -11,6 +11,7 @@ const state = (threadId: string, change: Partial<ChatSnapshot> = {}): ChatSnapsh
   busy: false,
   mirroring: false,
   approval: null,
+  queued: [],
   ...change,
 });
 const conversation = (thread_id: string, title: string, inbox = false) => ({ thread_id, title, inbox }) as Conversation;

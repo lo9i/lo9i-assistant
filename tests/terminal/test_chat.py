@@ -557,3 +557,164 @@ async def test_the_inbox_shows_its_reply_in_progress_at_start(app, client):
     async with app.run_test(size=(120, 36)) as pilot:
         await wait_for(pilot, lambda: app.query(AssistantMessage))
         assert "[web] what time is it?" in str(app.query(UserMessage).last().render())
+
+
+def _waiting_in_b(client):
+    """A conversation whose run waits on an approval, as `owner:b`."""
+    from assistant.core.agent import Conversation
+    from assistant.core.events import ApprovalRequired
+
+    at = "2030-01-01T09:00:00+00:00"
+    client.conversations.items.append(Conversation("owner:b", "clean up", at, at))
+    request = {"tool": "bash", "command": "rm -rf build", "reason": "recursive delete"}
+    client.conversations.waiting["owner:b"] = [ApprovalRequired("i9", request)]
+
+
+async def _answer_in_b(app, pilot):
+    await app._resume("owner:b")
+    await wait_for(pilot, lambda: isinstance(app.screen, ApprovalScreen))
+    await pilot.press("y")
+
+
+async def test_leaving_while_an_answered_approval_runs_stops_showing_it(app, client):
+    from assistant.core.events import ApprovalRequired
+
+    _waiting_in_b(client)
+    release, resumed = asyncio.Event(), []
+
+    async def resume(session, decisions):
+        resumed.append(session.thread_id)
+        yield TextDelta("Cleaning ")
+        await release.wait()
+        yield TextDelta("up.")
+        yield ApprovalRequired("i10", {"tool": "bash", "command": "rm -rf dist", "reason": "again"})
+
+    client.resume = resume
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        await _answer_in_b(app, pilot)
+        await wait_for(pilot, lambda: app.query(AssistantMessage))
+        await pilot.press(*"/new", "enter")
+        await wait_for(pilot, lambda: app.sub_title == "owner:new" and not app._busy)
+        release.set()
+        await pilot.pause(0.3)
+        assert not app.query(AssistantMessage)
+        assert not isinstance(app.screen, ApprovalScreen)
+        assert resumed == ["owner:b"]
+        await pilot.press(*"hi", "enter")
+        await wait_for(pilot, lambda: client.sent and client.sent[-1][0] == "hi")
+
+
+async def test_leaving_while_the_approvals_are_read_asks_nothing_in_the_next_conversation(app, client):
+    _waiting_in_b(client)
+    reading = asyncio.Event()
+    pending = client.conversations.pending_approvals
+
+    async def slow(thread_id):
+        await reading.wait()
+        return await pending(thread_id)
+
+    client.conversations.pending_approvals = slow
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        await app._resume("owner:b")
+        await pilot.press(*"/new", "enter")
+        await wait_for(pilot, lambda: app.sub_title == "owner:new")
+        reading.set()
+        await pilot.pause(0.3)
+        assert not isinstance(app.screen, ApprovalScreen)
+        assert client.decisions is None
+
+
+async def test_a_run_finished_while_an_approval_is_asked_doesnt_replace_the_dialog(app, client):
+    _waiting_in_b(client)
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        await app._resume("owner:b")
+        await wait_for(pilot, lambda: isinstance(app.screen, ApprovalScreen))
+        run = {"run_id": "r1", "thread_id": "owner:b", "channel": "telegram", "status": "ok", "reply": ""}
+        await client.bus.put(("run_finished", run))
+        await pilot.pause(0.2)
+        await pilot.press("y")
+        await wait_for(pilot, lambda: client.decisions is not None and not app._busy)
+        assert client.decisions == {"i9": {"approved": True, "reason": None}}
+        assert not isinstance(app.screen, ApprovalScreen)
+        # The answered run went on to its end here: memory read again after it.
+        assert "backend engineer" in str(app.query_one("#memory-body").render())
+
+
+async def test_the_run_finished_of_the_answer_running_here_lets_it_end(app, client):
+    _waiting_in_b(client)
+    release = asyncio.Event()
+
+    async def resume(session, decisions):
+        client.decisions = decisions
+        yield TextDelta("Cleaned up.")
+        await release.wait()
+        client.memory.profile = {"work": ["backend engineer"]}
+        yield Done()
+
+    client.resume = resume
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        await _answer_in_b(app, pilot)
+        await wait_for(pilot, lambda: app.query(AssistantMessage))
+        run = {"run_id": "r2", "thread_id": "owner:b", "channel": "cli", "status": "ok", "reply": "Cleaned up."}
+        await client.bus.put(("run_finished", run))
+        await pilot.pause(0.2)
+        release.set()
+        await wait_for(pilot, lambda: "backend engineer" in str(app.query_one("#memory-body").render()))
+        assert not app._busy
+
+
+async def test_an_approval_answered_in_another_app_closes_the_dialog_and_shows_its_run(app, client):
+    _waiting_in_b(client)
+
+    async def answered_there():
+        yield TextDelta("Deleted build.")
+        yield Done()
+
+    client.runs["r3"] = answered_there
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        await app._resume("owner:b")
+        await wait_for(pilot, lambda: isinstance(app.screen, ApprovalScreen))
+        run = {"run_id": "r3", "thread_id": "owner:b", "channel": "web", "client_id": "other", "text": ""}
+        await client.bus.put(("run", run))
+        await wait_for(pilot, lambda: not isinstance(app.screen, ApprovalScreen) and not app._busy)
+        await wait_for(pilot, lambda: app.query(AssistantMessage))
+        assert client.decisions is None
+
+
+async def test_a_run_started_as_the_app_starts_shows_though_it_began_before_listening(app, client):
+    async def running():
+        yield TextDelta("It's 4 pm.")
+        yield Done()
+
+    run = {"run_id": "r1", "thread_id": "owner:abc", "channel": "web", "client_id": "", "text": "what time is it?"}
+    client.runs["r1"] = running
+    events = client.events
+
+    def started_just_before_the_stream_opened(on_open=lambda: None, on_lost=lambda: None):
+        # The run began after the app read the conversations, before it listened: its announcement is gone.
+        client.conversations.in_progress["owner:abc"] = [run]
+        return events(on_open, on_lost)
+
+    client.events = started_just_before_the_stream_opened
+    async with app.run_test(size=(120, 36)) as pilot:
+        await wait_for(pilot, lambda: app.query(AssistantMessage))
+        assert "[web] what time is it?" in str(app.query(UserMessage).last().render())
+
+
+async def test_an_unreachable_daemon_while_reading_the_agents_keeps_the_events_coming(app, client):
+    async def unreachable():
+        raise DaemonUnavailableError("Lost the connection to the daemon.")
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        client.conversations.agents = unreachable
+        await client.bus.put(("mcp", {}))
+        await wait_for(pilot, lambda: any("Lost the connection" in str(n.message) for n in app._notifications))
+        client.memory.profile = {"work": ["programmer"]}
+        await client.bus.put(("memory", {}))
+        await wait_for(pilot, lambda: "programmer" in str(app.query_one("#memory-body").render()))

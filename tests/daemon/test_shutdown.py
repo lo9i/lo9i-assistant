@@ -144,6 +144,75 @@ async def test_now_cancels_the_runs_a_stop_waits_for_so_it_goes_ahead():
         shutdown.take_back()
 
 
+class _Update:
+    """An update being installed until `done` is set."""
+
+    def __init__(self) -> None:
+        self.done = asyncio.Event()
+
+    def installing(self) -> bool:
+        return not self.done.is_set()
+
+    async def until_installed(self) -> None:
+        await self.done.wait()
+
+
+async def test_a_restart_or_stop_waits_for_an_update_being_installed_and_for_runs_started_meanwhile():
+    runs, update, stop = _Runs(), _Update(), asyncio.Event()
+    shutdown = Shutdown(runs, stop, _Manager(), update=update)
+    shutdown.request(Ending.RESTART)
+    await asyncio.sleep(0.01)
+    assert not stop.is_set() and shutdown.pending() == Pending(Ending.RESTART, 0)
+    runs.running, runs.ended = 1, asyncio.Event()
+    update.done.set()
+    await asyncio.sleep(0.01)
+    assert not stop.is_set()
+    runs.ended.set()
+    await asyncio.wait_for(stop.wait(), 1)
+    assert shutdown.ending is Ending.RESTART
+
+
+async def test_the_restart_an_update_asks_for_cant_be_taken_back_but_can_go_ahead_now():
+    runs, stop = _Runs(running=1), asyncio.Event()
+    shutdown = Shutdown(runs, stop, _Manager())
+    assert shutdown.restart_for_update() == 1
+    with pytest.raises(NoEndingError, match="An update was installed"):
+        shutdown.take_back("web")
+    assert shutdown.pending() == Pending(Ending.RESTART, 1)
+    assert shutdown.now("web") == 1
+    await asyncio.wait_for(stop.wait(), 1)
+    assert shutdown.ending is Ending.RESTART
+
+
+async def test_a_stop_asked_for_while_an_update_installed_stays_a_stop():
+    runs, manager, stop = _Runs(running=1), _Manager(), asyncio.Event()
+    shutdown = Shutdown(runs, stop, manager)
+    shutdown.request(Ending.STOP)
+    shutdown.restart_for_update()
+    runs.cancel_runs()
+    await asyncio.wait_for(stop.wait(), 1)
+    assert manager.stops == 1 and shutdown.ending is Ending.STOP
+
+
+async def test_a_stop_that_fails_after_an_update_was_installed_restarts_instead():
+    runs, manager, stop = _Runs(running=1), _Manager(fails=True), asyncio.Event()
+    shutdown = Shutdown(runs, stop, manager)
+    shutdown.request(Ending.STOP)
+    shutdown.restart_for_update()
+    runs.cancel_runs()
+    await asyncio.wait_for(stop.wait(), 1)
+    assert manager.stops == 1 and shutdown.ending is Ending.RESTART
+
+
+async def test_a_request_once_the_daemon_is_ending_changes_nothing():
+    stop = asyncio.Event()
+    stop.set()  # A signal stopped it.
+    shutdown = Shutdown(_Runs(), stop, _Manager())
+    assert shutdown.restart_for_update() == 0
+    await asyncio.sleep(0.01)
+    assert shutdown.pending() is None and shutdown.ending is None
+
+
 async def _held_run(service, tmp_path, name: str) -> asyncio.Task:
     """A run of a conversation of its own, held in its bash call until the file `name` is written."""
     session = Session("owner", "web", await service.new_thread("owner"))

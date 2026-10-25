@@ -2,7 +2,8 @@
 operating instructions and the channel hints. Pick one, edit its text, save it or reset it to the built-in
 text; an edit applies from the next message in each conversation. When an update changed the built-in text an
 edit hides, it says how, with Keep my edit. What's typed and not saved is kept per text while the screen is
-open, and closing with any asks first. Refreshes when the texts change elsewhere."""
+open, and closing with any asks first. Refreshes when the texts change elsewhere (the `prompts` event), keeping
+the focus and what's being typed."""
 
 from collections.abc import Awaitable
 from typing import ClassVar
@@ -23,6 +24,8 @@ from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 class PromptsScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "close", "Close")]
+    # The daemon events that change what it shows (AssistantApp.reload_screen).
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"prompts"})
 
     def __init__(self, prompts: PromptsApi) -> None:
         super().__init__()
@@ -51,6 +54,7 @@ class PromptsScreen(ModalScreen[None]):
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
         await self.reload()
+        self.query_one("#prompts-list", OptionList).focus()
 
     @reports_daemon_unavailable
     async def reload(self) -> None:
@@ -62,7 +66,6 @@ class PromptsScreen(ModalScreen[None]):
         options.add_options([Option(s.title, id=s.name) for s in sections])
         keep = self._selected if self._selected in self._shown else sections[0].name
         options.highlighted = list(self._shown).index(keep)
-        options.focus()
         self._show(keep)
 
     def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
@@ -133,7 +136,10 @@ class PromptsScreen(ModalScreen[None]):
         section = self._shown[name]
         self.query_one("#prompt-about", Static).update(_about(section))
         area = self.query_one("#prompt-text", TextArea)
-        area.load_text(self._drafts.get(name, section.text))
+        text = self._drafts.get(name, section.text)
+        # Loading puts the cursor back at the start: only when the text shown changes.
+        if area.text != text:
+            area.load_text(text)
         self.query_one("#reset", Button).disabled = not section.edited
         changes = self.query_one("#prompt-changes", Static)
         changes.display = self.query_one("#keep").display = bool(section.built_in_changes)

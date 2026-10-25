@@ -20,6 +20,7 @@ calls them in a thread.
 """
 
 import json
+import logging
 import os
 import subprocess
 import time
@@ -30,6 +31,8 @@ from pathlib import Path
 from typing import Any, Literal
 
 from assistant.core.agent_tasks.steps import parse, streamed
+
+logger = logging.getLogger(__name__)
 
 Status = Literal["running", "done", "failed", "stopped"]
 
@@ -135,10 +138,8 @@ class TaskStore:
         up on did. None when the worker didn't say."""
         task = self.get(task_id)
         for answered in (task.id, task.follow_up_of):
-            path = self.folder(answered) / _CONTEXT
-            if answered and path.is_file():
-                data = json.loads(path.read_text())
-                return Context(int(data["tokens"]), int(data["window"]))
+            if answered and (context := _read_context(self.folder(answered) / _CONTEXT)) is not None:
+                return context
         return None
 
     def pid(self, task_id: str) -> int | None:
@@ -220,6 +221,19 @@ def lost(state: TaskState) -> bool:
 def _command_of(pid: int) -> str:
     found = subprocess.run(["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True, check=False)
     return found.stdout
+
+
+def _read_context(path: Path) -> Context | None:
+    """None when the worker wrote none. It's optional (docs/agent-plugins.md), so one that can't be read counts
+    as none: logged, it never breaks what asks how full the context is."""
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return Context(int(data["tokens"]), int(data["window"]))
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        logger.warning("Can't read %s, left out: %s", path, e)
+        return None
 
 
 def _read_outcome(path: Path) -> Outcome | None:

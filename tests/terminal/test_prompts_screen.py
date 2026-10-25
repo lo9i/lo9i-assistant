@@ -72,3 +72,27 @@ async def test_a_change_of_the_built_in_text_is_shown_until_the_edit_is_kept(app
         screen.query_one("#keep", Button).press()
         await wait_for(pilot, lambda: not client.prompts.items["persona"].built_in_changes and not shown.display)
         assert not screen.query_one("#keep").display
+
+
+async def test_other_changes_leave_the_text_being_typed_and_the_focus_alone(app, client):
+    from dataclasses import replace
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        screen = await _open(pilot, app)
+        area = screen.query_one("#prompt-text", TextArea)
+        await wait_for(pilot, lambda: area.text == "You are the assistant.")
+        area.focus()
+        area.load_text("You are Lo9i, and")
+        area.move_cursor((0, 9))
+        await pilot.pause()
+        for kind in ("conversations", "jobs", "notifications", "settings", "mcp", "plugins"):
+            await client.bus.put((kind, {}))
+        await pilot.pause(0.2)
+        assert app.focused is area and area.text == "You are Lo9i, and" and area.cursor_location == (0, 9)
+        # Changed in another app: the draft and the focus stay, the other texts show it.
+        client.prompts.items["operating"] = replace(client.prompts.items["operating"], text="Work fast.")
+        await client.bus.put(("prompts", {}))
+        await pilot.pause(0.2)
+        assert app.focused is area and area.text == "You are Lo9i, and" and area.cursor_location == (0, 9)
+        screen.query_one("#prompts-list", OptionList).highlighted = 1
+        await wait_for(pilot, lambda: area.text == "Work fast.")

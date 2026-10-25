@@ -33,14 +33,6 @@
       {#if icon}<span class="plugin-icon"><PluginIcon {icon} size={18} /></span>{/if}{card.section.title}
     </h2>
     <div class="tools">
-      {#if result?.page}
-        <a
-          class="btn btn--icon"
-          href={resolve("/pages/[name]", { name: result.page })}
-          title="Open {pageLabel(result.page)}"
-          aria-label="Open {pageLabel(result.page)}"><ExternalLink size={16} /></a
-        >
-      {/if}
       <button class="btn btn--icon" title="Move up" aria-label="Move up" disabled={first} onclick={() => onmove(-1)}
         ><ArrowUp size={16} /></button
       >
@@ -49,6 +41,14 @@
       >
       <button class="btn btn--icon" title="Edit" aria-label="Edit {card.section.title}" onclick={onedit}><Pencil size={16} /></button>
       <button class="btn btn--icon" title="Remove" aria-label="Remove {card.section.title}" onclick={ondelete}><Trash size={16} /></button>
+      {#if result?.page}
+        <a
+          class="btn btn--icon"
+          href={resolve("/pages/[name]", { name: result.page })}
+          title="Open {pageLabel(result.page)}"
+          aria-label="Open {pageLabel(result.page)}"><ExternalLink size={16} /></a
+        >
+      {/if}
     </div>
   </header>
 

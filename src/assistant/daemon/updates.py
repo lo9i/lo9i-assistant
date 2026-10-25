@@ -7,6 +7,10 @@ web app when npm is there, and restarts once no run is in progress; one that fai
 back to the commit it came from and installs what that one needs again. A clone with changes not committed, or
 commits its upstream doesn't have, isn't touched: the update says why instead. A copy scripts/deploy.sh made
 has no repository; it carries the commit it was made from (`VERSION_FILE`) and is updated by deploying again.
+
+One update at a time, and the daemon never ends in the middle of one: a restart or stop waits for it as it waits
+for runs (daemon/shutdown.py), and a signal's stop waits for it too (server.py, `close` and `until_installed`),
+so the tree is left either on the new version with what it needs or back on the old one.
 """
 
 import asyncio
@@ -32,6 +36,7 @@ _GIT_SECONDS = 60
 # One line per commit: its sha, subject and date, apart by a character no subject has.
 _FORMAT = "--format=%H%x1f%s%x1f%cI"
 _NPM_PLACES = ("/opt/homebrew/bin/npm", "/usr/local/bin/npm", "/usr/bin/npm")
+_MERGE = "Downloading the update"
 
 
 @dataclass(frozen=True)
@@ -68,6 +73,11 @@ class Updates:
         self._checked: _Checked | None = None
         self._state, self._step, self._error = "idle", "", ""
         self._task: asyncio.Task | None = None
+        # Held by a check and by starting an update, so two never fetch at once and a check never says "idle"
+        # over an update that started while it fetched.
+        self._lock = asyncio.Lock()
+        # Set once the daemon is ending: no update starts any more.
+        self._closed = False
 
     async def status(self) -> UpdateStatus:
         kind = installed_from(self._root)
@@ -77,27 +87,49 @@ class Updates:
 
     async def check(self) -> UpdateStatus:
         """Fetches the upstream branch and says what's new on it."""
+        async with self._lock:
+            await self._check()
+        return await self.status()
+
+    async def start(self) -> UpdateStatus:
+        """Starts installing what's new. Raises UpdateError when there's nothing to install or it can't be."""
+        async with self._lock:
+            if self._closed:
+                raise UpdateError("lo9i is restarting or stopping. Update once it's back.")
+            if self._state in ("updating", "restarting"):
+                raise UpdateError("An update is already being installed.")
+            status = await self._check()
+            if not status.can_update:
+                raise UpdateError(status.reason)
+            if not status.behind:
+                raise UpdateError("lo9i is up to date.")
+            # Before the lock is let go, so the next start or check sees it.
+            self._set("updating", _MERGE)
+            self._task = asyncio.create_task(self._update(status.upstream))
+        return await self.status()
+
+    def installing(self) -> bool:
+        """Whether an update is being installed or going back."""
+        return self._task is not None and not self._task.done()
+
+    async def until_installed(self) -> None:
+        """Returns once no update is being installed: it finished, or failed and went back."""
+        if self._task is not None:
+            await asyncio.wait([self._task])
+
+    def close(self) -> None:
+        """The daemon is ending: no update starts any more. One in progress goes on (`until_installed`)."""
+        self._closed = True
+
+    async def _check(self) -> UpdateStatus:
         if installed_from(self._root) == "git" and self._state not in ("updating", "restarting"):
             self._set("checking")
             self._checked = await self._fetch()
             self._set("idle")
         return await self.status()
 
-    async def start(self) -> UpdateStatus:
-        """Starts installing what's new. Raises UpdateError when there's nothing to install or it can't be."""
-        if self._state in ("updating", "restarting"):
-            raise UpdateError("An update is already being installed.")
-        status = await self.check()
-        if not status.can_update:
-            raise UpdateError(status.reason)
-        if not status.behind:
-            raise UpdateError("lo9i is up to date.")
-        self._task = asyncio.create_task(self._update(status.upstream))
-        return await self.status()
-
     async def _update(self, upstream: str) -> None:
-        merge = Step("Downloading the update", ["git", "merge", "--ff-only", "--quiet", upstream])
-        self._set("updating", merge.label)
+        merge = Step(_MERGE, ["git", "merge", "--ff-only", "--quiet", upstream])
         try:
             before = (await _git(self._root, "rev-parse", "HEAD")).strip()
             await self._run_step(merge)
@@ -152,6 +184,14 @@ class Updates:
             await _git(self._root, "fetch", "--quiet")
         except _FailedError as e:
             return _Checked(upstream, [], now, f"Couldn't reach the repository: {e}")
+        try:
+            return await self._compared(upstream, now)
+        except _FailedError as e:
+            return _Checked(upstream, [], now, f"Couldn't compare this copy with {upstream}: {e}")
+
+    async def _compared(self, upstream: str, now: str) -> _Checked:
+        """What's new on the fetched upstream, and whether it can be installed. Raises _FailedError when git
+        can't say."""
         new = _commits(await _git(self._root, "log", _FORMAT, f"-{_LISTED}", f"HEAD..{upstream}"))
         return _Checked(upstream, new, now, await self._blocker(upstream))
 
@@ -214,9 +254,11 @@ def default_steps(root: Path) -> list[Step]:
         logger.info("npm isn't installed in %s; updates won't rebuild the web app.", root)
         return steps
     web = ["--prefix", "clients/web"]
+    # `ci`, not `install`: install may rewrite the tracked package-lock.json, and a copy with changes not committed
+    # takes no more updates (`_blocker`).
     return [
         *steps,
-        Step("Installing the web app's packages", [npm, *web, "install", "--no-audit", "--no-fund", "--silent"]),
+        Step("Installing the web app's packages", [npm, *web, "ci", "--no-audit", "--no-fund", "--silent"]),
         Step("Building the web app", [npm, *web, "run", "build", "--silent"]),
     ]
 
@@ -260,12 +302,20 @@ async def _run(root: Path, command: list[str], timeout: float) -> str:
     try:
         out, err = await asyncio.wait_for(process.communicate(), timeout)
     except TimeoutError:
-        process.kill()
-        await process.wait()
         raise _FailedError(f"it took longer than {int(timeout)} seconds") from None
+    finally:
+        await _ended(process)
     if process.returncode:
         raise _FailedError(_last_line(err.decode(errors="replace") or out.decode(errors="replace")))
     return out.decode(errors="replace")
+
+
+async def _ended(process: asyncio.subprocess.Process) -> None:
+    """Kills the command if it still runs: it took too long, or its task was cancelled, and left running it would
+    go on changing the tree after the update stopped following it."""
+    if process.returncode is None:
+        process.kill()
+        await process.wait()
 
 
 def _last_line(text: str) -> str:

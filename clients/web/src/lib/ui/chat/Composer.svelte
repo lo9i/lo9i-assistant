@@ -99,8 +99,9 @@
       return;
     }
     if (!hasMessage) return;
-    // While the assistant replies, the message waits in ChatPanel's queue and goes out when it's done.
-    if (busy && !steering) {
+    // While a reply runs, this page's or one started elsewhere, the message waits in the conversation's queue and goes
+    // out when it's done.
+    if (running && !steering) {
       onqueue?.(text.trim(), files);
       type("");
       files = [];

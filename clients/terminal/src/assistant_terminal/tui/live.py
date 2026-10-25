@@ -1,9 +1,9 @@
 """Reacts to daemon events while the app is open: memory and skills reload the panel, finished jobs and
 background work, MCP servers or skills that keep failing, MCP servers whose sign-in stopped working and new plugin
 updates show a notification, integration, channel, client, job, notification feed and settings changes refresh
-an open screen, a rename updates the title, pinning or unpinning a skill updates the subtitle, runs started
-elsewhere in this conversation appear in the chat live, and a conversation left with /new while its reply was
-running reports when it finishes."""
+an open screen that shows them (in the background), a rename updates the title, pinning or unpinning a skill
+updates the subtitle, runs started elsewhere in this conversation appear in the chat live, and a conversation left
+with /new while its reply was running reports when it finishes."""
 
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
@@ -11,7 +11,7 @@ from typing import Any, Protocol
 
 class LiveApp(Protocol):
     def refresh_memory(self) -> Awaitable[None]: ...
-    def reload_screen(self) -> Awaitable[None]: ...
+    def reload_screen(self, kind: str) -> None: ...
     def refresh_title(self) -> Awaitable[None]: ...
     def refresh_thread(self) -> Awaitable[None]: ...
     def refresh_agents(self) -> Awaitable[None]: ...
@@ -32,18 +32,18 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
     async def memory(_: dict[str, Any]) -> None:
         await app.refresh_memory()
 
-    async def screen(_: dict[str, Any]) -> None:
-        await app.reload_screen()
+    def screen(kind: str) -> Callable[[dict[str, Any]], None]:
+        return lambda _: app.reload_screen(kind)
 
     async def settings(_: dict[str, Any]) -> None:
         await app.refresh_title()
         await app.refresh_plugin_updates()
-        await app.reload_screen()
+        app.reload_screen("settings")
 
     async def plugins(_: dict[str, Any]) -> None:
         """A check of the repositories found something new: the title's updates and the Plugins list."""
         await app.refresh_plugin_updates()
-        await app.reload_screen()
+        app.reload_screen("plugins")
 
     async def thread(_: dict[str, Any]) -> None:
         """The conversation's pinned skills or the agent it's handed to changed."""
@@ -63,20 +63,20 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
     async def mcp(_: dict[str, Any]) -> None:
         """Plugins changed: an agent's command may have come or gone."""
         await app.refresh_agents()
-        await app.reload_screen()
+        app.reload_screen("mcp")
 
     return {
         "memory": memory,
         "skills": memory,
-        "integrations": screen,
-        "channels": screen,
-        "clients": screen,
-        "jobs": screen,
-        "conversations": screen,
-        "notifications": screen,
-        "home": screen,
-        "prompts": screen,
-        "devices": screen,
+        "integrations": screen("integrations"),
+        "channels": screen("channels"),
+        "clients": screen("clients"),
+        "jobs": screen("jobs"),
+        "conversations": screen("conversations"),
+        "notifications": screen("notifications"),
+        "home": screen("home"),
+        "prompts": screen("prompts"),
+        "devices": screen("devices"),
         "mcp": mcp,
         "settings": settings,
         "plugins": plugins,
@@ -88,7 +88,7 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         "background_ended": app.show_background_ended,
         "failing": app.show_failing,
         "signed_out": app.show_signed_out,
-        "update": screen,
+        "update": screen("update"),
         "ending": ending,
         "run": app.mirror_run,
         "run_finished": run_finished,

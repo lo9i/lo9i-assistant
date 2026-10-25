@@ -61,6 +61,8 @@ def _work(folder: Path, task: dict) -> tuple[bool, str]:
         time.sleep(60)
     if prompt == "take messages":
         return _take_messages(folder)
+    if prompt in ("leave messages", "leave messages and fail"):
+        return _leave_messages(folder, repository, prompt == "leave messages")
     if prompt.startswith("fill context "):
         tokens = int(prompt.removeprefix("fill context "))
         (folder / "context.json").write_text(json.dumps({"tokens": tokens, "window": 200_000}))
@@ -87,6 +89,16 @@ def _take_messages(folder: Path) -> tuple[bool, str]:
             if message["text"] == "that's all":
                 return True, f"Took {len(taken)} messages."
         time.sleep(0.02)
+
+
+def _leave_messages(folder: Path, repository: Path, ok: bool) -> tuple[bool, str]:
+    """Takes messages while it works, but ends once `release` is there without taking any."""
+    signal.signal(signal.SIGUSR1, lambda *_: None)
+    (folder / "inbox").mkdir()
+    _steps(folder, [json.dumps({"kind": "text", "text": "Working."})])
+    while not (repository / "release").exists():
+        time.sleep(0.02)
+    return (True, "Released.") if ok else (False, "it broke")
 
 
 def _steps(folder: Path, lines: list[str]) -> None:

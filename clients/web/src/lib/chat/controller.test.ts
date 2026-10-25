@@ -3,16 +3,19 @@ import { ApiError } from "../api/errors";
 import type { ApprovalRequired, Decision, RunEvent, RunInProgress, Session } from "../api/types";
 import { NoticeBoard } from "../notices";
 import { ChatController, type ChatClient } from "./controller";
+import { ChatTab } from "./tab";
 import { finalReply } from "./transcript";
 
 /** A daemon whose runs play the queued events, those followed and those in progress in a conversation alike. With
- * `keepOpen`, a run stays open after them; with `slowHistory`, a conversation's history loads once it resolves. */
+ * `keepOpen`, a run stays open after them, and with `holding` until it resolves; with `slowHistory`, a conversation's
+ * history loads once it resolves. */
 class FakeDaemon implements ChatClient {
   clientId = "me";
   saved = new Set(["t1"]);
   runs: RunEvent[][] = [];
   decisions: Record<string, Decision>[] = [];
   keepOpen = false;
+  holding: Promise<void> | null = null;
   // What a conversation's run stopped for and waits on, until it's resumed.
   waiting = new Map<string, ApprovalRequired[]>();
   // The runs in progress in each conversation, oldest first.
@@ -76,6 +79,7 @@ class FakeDaemon implements ChatClient {
     if (this.keepOpen) {
       await new Promise<void>((_, reject) => signal.addEventListener("abort", () => reject(signal.reason)));
     }
+    await this.holding;
   }
 
   private async *play(signal: AbortSignal): AsyncGenerator<RunEvent> {
@@ -211,17 +215,20 @@ describe("ChatController", () => {
   it("hands its message on busy until the run there starts, or the handing on ends without one", async () => {
     const daemon = new FakeDaemon();
     const dispatched = { type: "Dispatched", id: "d1", thread_id: "t1", title: "Trip", text: "?", line: "→ Trip." } as const;
-    daemon.runs = [[dispatched], [dispatched]];
+    daemon.runs = [[dispatched], [{ type: "TextDelta", text: "On it." }], [dispatched]];
     const chat = await ChatController.open(daemon, "web", null, board);
+    const there = await ChatController.open(daemon, "web", "t1", board);
     const whileHanding: boolean[] = [];
-    chat.onDispatched = async (_d, started) => {
+    const whileThere: boolean[] = [];
+    there.subscribe(() => texts(there).includes("On it.") && whileThere.push(chat.getSnapshot().busy));
+    chat.onDispatched = async () => {
       whileHanding.push(chat.getSnapshot().busy);
-      if (whileHanding.length === 1) started();
-      whileHanding.push(chat.getSnapshot().busy);
+      return whileHanding.length === 1 ? there : null;
     };
     await chat.send("a", []);
     await chat.send("b", []);
-    expect(whileHanding).toEqual([true, false, true, true]);
+    expect(whileHanding).toEqual([true, true]);
+    expect(whileThere[0]).toBe(false);
     expect(chat.getSnapshot().busy).toBe(false);
   });
 
@@ -254,7 +261,10 @@ describe("ChatController", () => {
     ];
     const chat = await ChatController.open(daemon, "web", null, board);
     const handed: string[] = [];
-    chat.onDispatched = async (d) => void handed.push(d.thread_id);
+    chat.onDispatched = async (d) => {
+      handed.push(d.thread_id);
+      return null;
+    };
     await chat.send("flights?", []);
     expect(handed).toEqual(["t1"]);
     expect(chat.getSnapshot().threadId).toBe("inbox");
@@ -286,6 +296,141 @@ describe("ChatController", () => {
     expect(texts(chat)).toEqual(["earlier", "hi", "from telegram"]);
     await chat.mirror({ run_id: "r2", thread_id: "t1", channel: "web", client_id: "me", text: "mine" });
     expect(texts(chat)).toHaveLength(3);
+  });
+});
+
+describe("ChatController with messages waiting for the reply before them", () => {
+  const dispatched = { type: "Dispatched", id: "d1", thread_id: "t1", title: "Trip", text: "flights?", line: "→ Trip." } as const;
+  const approval: ApprovalRequired = { type: "ApprovalRequired", interrupt_id: "i1", request: { tool: "bash" } };
+
+  beforeEach(() => {
+    board = new NoticeBoard();
+  });
+
+  it("sends what the inbox sent on once the run where it went has finished, showing it queued meanwhile", async () => {
+    const daemon = new FakeDaemon();
+    daemon.runs = [[approval], [dispatched, { type: "Done" }], [{ type: "Done" }], [{ type: "TextDelta", text: "Two flights." }]];
+    const inbox = await ChatController.open(daemon, "web", null, board);
+    const there = await ChatController.open(daemon, "web", "t1", board);
+    inbox.onDispatched = async () => there;
+    const asking = there.send("clean up", []);
+    await until(() => there.getSnapshot().approval !== null);
+    await inbox.send("flights?", []);
+    expect(inbox.getSnapshot().busy).toBe(false);
+    expect(there.getSnapshot().queued).toMatchObject([{ text: "flights?", dispatched }]);
+    expect(there.unqueue(0)).toBeNull();
+    there.answer({ approved: true, reason: null });
+    await asking;
+    await until(() => finalReply(there.getSnapshot().transcript) === "Two flights.");
+    expect(daemon.sent).toEqual(["t1: clean up", "inbox: flights?", "t1: flights? (d1)"]);
+    expect(there.getSnapshot().queued).toEqual([]);
+  });
+
+  it("sends what was queued in the inbox while it routed after the message, where it went", async () => {
+    const daemon = new FakeDaemon();
+    daemon.runs = [[dispatched, { type: "Done" }], [{ type: "Done" }], [{ type: "TextDelta", text: "Three hotels." }]];
+    const inbox = await ChatController.open(daemon, "web", null, board);
+    const there = await ChatController.open(daemon, "web", "t1", board);
+    inbox.onDispatched = async () => there;
+    const answered: ChatController[] = [];
+    const sent = inbox.send("flights?", []);
+    inbox.queue("and hotels?", [], (chat) => answered.push(chat));
+    await sent;
+    await until(() => answered.length > 0);
+    expect(daemon.sent).toEqual(["inbox: flights?", "t1: flights? (d1)", "t1: and hotels?"]);
+    expect(answered).toEqual([there]);
+    expect(finalReply(there.getSnapshot().transcript)).toBe("Three hotels.");
+    expect(inbox.getSnapshot().queued).toEqual([]);
+  });
+
+  it("sends a message queued while a run started elsewhere shows once it ends, and at once when nothing runs", async () => {
+    const daemon = new FakeDaemon();
+    let release = () => {};
+    daemon.holding = new Promise((resolve) => (release = resolve));
+    daemon.runs = [[{ type: "TextDelta", text: "from telegram" }]];
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    const mirrored = chat.mirror({ run_id: "r", thread_id: "t1", channel: "telegram", client_id: "", text: "hi" });
+    await until(() => chat.getSnapshot().mirroring);
+    chat.queue("next", []);
+    expect(daemon.sent).toEqual([]);
+    daemon.holding = null;
+    release();
+    await mirrored;
+    await until(() => daemon.sent.length === 1);
+    expect(daemon.sent).toEqual(["t1: next"]);
+    await until(() => !chat.getSnapshot().busy);
+    chat.queue("now", []);
+    expect(daemon.sent).toEqual(["t1: next", "t1: now"]);
+  });
+});
+
+describe("ChatController in a tab with other chats", () => {
+  const approval: ApprovalRequired = { type: "ApprovalRequired", interrupt_id: "i1", request: { tool: "bash" } };
+  const finished = { run_id: "r", thread_id: "inbox", channel: "telegram", status: "ok", reply: "" };
+
+  beforeEach(() => {
+    board = new NoticeBoard();
+  });
+
+  it("asks what a run waits on in the chat in Chat, not behind a quick button on the same conversation", async () => {
+    const daemon = new FakeDaemon();
+    const tab = new ChatTab();
+    const chat = await ChatController.open(daemon, "web", null, board, tab);
+    const quick = await ChatController.open(daemon, "web", null, board, tab, "quick");
+    daemon.waiting.set("inbox", [approval]);
+    quick.runFinished(finished);
+    chat.runFinished(finished);
+    await until(() => chat.getSnapshot().approval !== null);
+    await settle();
+    expect(quick.getSnapshot().approval).toBeNull();
+  });
+
+  it("asks behind a quick button when no chat in Chat is on the conversation", async () => {
+    const daemon = new FakeDaemon();
+    const tab = new ChatTab();
+    const chat = await ChatController.open(daemon, "web", "t1", board, tab);
+    const quick = await ChatController.open(daemon, "web", null, board, tab, "quick");
+    daemon.waiting.set("inbox", [approval]);
+    [chat, quick].forEach((c) => c.runFinished(finished));
+    await until(() => quick.getSnapshot().approval !== null);
+    expect(chat.getSnapshot().approval).toBeNull();
+  });
+
+  it("leaves asking to the chat whose own reply stopped for it", async () => {
+    const daemon = new FakeDaemon();
+    daemon.runs = [[approval]];
+    const tab = new ChatTab();
+    const chat = await ChatController.open(daemon, "web", null, board, tab);
+    const quick = await ChatController.open(daemon, "web", null, board, tab, "quick");
+    void quick.write("clean up", []);
+    await until(() => quick.getSnapshot().approval !== null);
+    daemon.waiting.set("inbox", [approval]);
+    chat.runFinished(finished);
+    await settle();
+    expect(chat.getSnapshot()).toMatchObject({ approval: null, busy: false });
+  });
+
+  it("hears of a run that starts while its history loads, and shows it after the history", async () => {
+    const daemon = new FakeDaemon();
+    let loaded = () => {};
+    daemon.slowHistory = new Promise((resolve) => (loaded = resolve));
+    const tab = new ChatTab();
+    const opening = ChatController.open(daemon, "web", "t1", board, tab);
+    await until(() => daemon.loading.length > 0);
+    daemon.runs = [[{ type: "TextDelta", text: "from telegram" }, { type: "Done" }]];
+    tab.all().forEach((c) => c.mirror({ run_id: "r", thread_id: "t1", channel: "telegram", client_id: "", text: "hi" }));
+    loaded();
+    const chat = await opening;
+    await until(() => texts(chat).includes("from telegram"));
+    expect(texts(chat)).toEqual(["earlier", "hi", "from telegram"]);
+  });
+
+  it("leaves the tab when it's closed", async () => {
+    const tab = new ChatTab();
+    const chat = await ChatController.open(new FakeDaemon(), "web", "t1", board, tab);
+    expect(tab.all()).toEqual([chat]);
+    chat.close();
+    expect(tab.all()).toEqual([]);
   });
 });
 

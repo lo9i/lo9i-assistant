@@ -158,6 +158,7 @@ class AssistantService(
         self._thread_locks = defaultdict(asyncio.Lock)
         self._active_runs = {}
         self._run_starts = {}
+        self._open_runs = 0
         self._no_runs = asyncio.Event()
         self._no_runs.set()
 
@@ -176,7 +177,7 @@ class AssistantService(
             async with open_storage(settings.database_path, bus) as storage:
                 await choice.migrate(storage.store, secrets)
                 await plugin_keys.migrate(storage.store, secrets)
-                await plugin_install.add_missing_icons(storage.store, secrets)
+                await plugin_install.add_missing_icons(storage.store)
                 await profile.migrate(storage.store)
                 await prompt_edits.keep_bases()
                 await asyncio.to_thread(folders.remove_old_libraries)

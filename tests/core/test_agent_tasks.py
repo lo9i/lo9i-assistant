@@ -225,3 +225,16 @@ def test_a_worker_that_writes_its_result_and_exits_between_two_reads_isnt_lost(t
     state = tasks.state(task.id)
     assert (state.status, state.outcome and state.outcome.text) == ("done", "Fixed.")
     assert not records.lost(state)
+
+
+@pytest.mark.parametrize("written", ["{not json", '{"tokens": 5}', '{"tokens": "many", "window": 10}', "[1, 2]"])
+def test_a_context_the_worker_wrote_that_cant_be_read_counts_as_none(tmp_path, caplog, written):
+    from assistant.core.agent_tasks.records import Context, TaskStore
+
+    tasks = TaskStore(tmp_path)
+    first = tasks.create(str(tmp_path), "fix it")
+    (tasks.folder(first.id) / "context.json").write_text('{"tokens": 61000, "window": 200000}')
+    follow_up = tasks.create(str(tmp_path), "and this", follow_up_of=first.id)
+    (tasks.folder(follow_up.id) / "context.json").write_text(written)
+    assert tasks.context(follow_up.id) == Context(61_000, 200_000)  # as if it wrote none: the one before
+    assert "context.json" in caplog.text

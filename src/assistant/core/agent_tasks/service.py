@@ -52,6 +52,9 @@ class AgentTasks:
         self._environments = environments
         self._shared = shared
         self._agents: dict[str, McpServer] = {}
+        # Held while a message is written to a task's inbox, and while the messages a task ended without
+        # taking are read: a message is then either among them or refused as sent to a task that has ended.
+        self._inboxes = asyncio.Lock()
 
     async def reload(self) -> None:
         """Brings the agents in line with the saved plugins. Called after every change."""
@@ -146,28 +149,48 @@ class AgentTasks:
 
     async def converse(self, agent: str, conversation: str, folder: str, message: str, report: Report) -> str:
         """Answers `message` in `folder`, continuing what was said in this conversation there, and returns
-        the reply. `report` gets each step as the worker writes it. Messages sent to the task that it ended
-        without taking are answered next, in the same session. Cancelling stops the task. Raises
-        AgentTaskError when it can't start or ends without a reply."""
+        the reply. `report` gets each step as the worker writes it, and a `user` step for each message sent
+        to the task that it ended without taking, however it ended, so the conversation keeps what the user
+        sent. After a task that's done they're answered next, in the same session. Cancelling stops the
+        task. Raises AgentTaskError when it can't start or ends without a reply."""
         server, where = self._agent(agent), str(_existing_folder(folder))
         task = await self._next_in_conversation(server, conversation, where, message)
         while True:
-            state = await _answered(_tasks(server), task.id, _as_sent(_tasks(server), task.id, report))
-            left = await asyncio.to_thread(_tasks(server).untaken, task.id)
+            state, left = await self._answered(_tasks(server), task.id, report)
             if state.status != "done" or not left:
                 return _reply(state)
-            for untaken in left:
-                await report(sent.user_step(untaken))
             task = await self._next_in_conversation(server, conversation, where, "\n\n".join(m["text"] for m in left))
 
+    async def _answered(self, tasks: TaskStore, task_id: str, report: Report) -> tuple[TaskState, list[dict[str, Any]]]:
+        """The task's state once it ends, and the messages it ended without taking; stopping the wait stops
+        the task, and its untaken messages are reported all the same."""
+        try:
+            state = await until_ended(tasks, task_id, _as_sent(tasks, task_id, report))
+        except BaseException:
+            await _stop(tasks, task_id)
+            await self._untaken(tasks, task_id, report)
+            raise
+        return state, await self._untaken(tasks, task_id, report)
+
+    async def _untaken(self, tasks: TaskStore, task_id: str, report: Report) -> list[dict[str, Any]]:
+        """Once the task has ended: read under the lock `_tell` writes under, after which no message reaches it."""
+        async with self._inboxes:
+            left = await asyncio.to_thread(tasks.untaken, task_id)
+        for untaken in left:
+            await report(sent.user_step(untaken))
+        return left
+
     async def _tell(self, task_id: str, message: dict[str, Any]) -> None:
+        """The check that it runs and the write are one step for `_untaken`: a task that ends in between still
+        has the message among those it didn't take, which its conversation answers next."""
         server = await self._owner(task_id)
         tasks = _tasks(server)
-        if (await asyncio.to_thread(tasks.state, task_id, 0)).status != "running":
-            raise AgentTaskError(f"{server.agent_name} has already finished that task.")
-        if not await asyncio.to_thread(tasks.takes_messages, task_id):
-            raise AgentTaskError(f"{server.agent_name} can't take messages while it works. Wait for it to finish.")
-        await asyncio.to_thread(tasks.add_message, task_id, message)
+        async with self._inboxes:
+            if (await asyncio.to_thread(tasks.state, task_id, 0)).status != "running":
+                raise AgentTaskError(f"{server.agent_name} has already finished that task.")
+            if not await asyncio.to_thread(tasks.takes_messages, task_id):
+                raise AgentTaskError(f"{server.agent_name} can't take messages while it works. Wait for it to finish.")
+            await asyncio.to_thread(tasks.add_message, task_id, message)
         if (pid := await asyncio.to_thread(tasks.pid, task_id)) is not None:
             await asyncio.to_thread(workers.wake, pid)
 
@@ -249,15 +272,6 @@ async def _stop(tasks: TaskStore, task_id: str) -> None:
     await asyncio.to_thread(tasks.mark_stopped, task_id)
     if (pid := await asyncio.to_thread(tasks.pid, task_id)) is not None:
         await asyncio.to_thread(workers.stop, pid)
-
-
-async def _answered(tasks: TaskStore, task_id: str, report: Report) -> TaskState:
-    """The task's state once it ends; stopping the wait stops the task."""
-    try:
-        return await until_ended(tasks, task_id, report)
-    except BaseException:
-        await _stop(tasks, task_id)
-        raise
 
 
 def _as_sent(tasks: TaskStore, task_id: str, report: Report) -> Report:

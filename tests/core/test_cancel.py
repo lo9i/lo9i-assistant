@@ -45,3 +45,18 @@ async def test_every_run_in_progress_is_cancelled_at_once_so_a_restart_waiting_f
     assert isinstance((await asyncio.wait_for(run, 10))[-1], Cancelled)
     await asyncio.wait_for(service.until_no_runs(), 1)
     assert service.cancel_runs() == 0
+
+
+async def test_no_runs_means_a_cancelled_runs_cleanup_is_done_so_the_service_can_close_after(service, script, tmp_path):
+    script.call("bash", command="echo started > mark; sleep 30")
+    session = await service.session("owner", "cli")
+    run = asyncio.create_task(collect(service.send(session, "wait")))
+    await written(tmp_path / "workspace" / "mark")
+    service.cancel_runs()
+    await asyncio.wait_for(service.until_no_runs(), 10)
+    # Read before the run's reader ends: what "End now" closes the service on.
+    state = await service._graph.aget_state({"configurable": {"thread_id": session.thread_id}})
+    results = [m for m in state.values["messages"] if isinstance(m, ToolMessage)]
+    assert results[-1].text == "[cancelled by the user before it finished]"
+    assert service.runs_in_progress() == 0
+    await asyncio.wait_for(run, 10)

@@ -5,6 +5,7 @@ import { ApiError } from "../api/errors";
 import { LiveConversation, type Conversations } from "../api/live";
 import type { ApprovalRequired, Decision, Dispatched, RunAnnounced, RunEvent, RunFinished, Session, ShownConversation } from "../api/types";
 import type { NoticeBoard } from "../notices";
+import { ChatTab, type Place } from "./tab";
 import { addCarried, addNotice, addUser, apply, empty, endRun, endText, fromHistory, type Transcript } from "./transcript";
 
 /** The DaemonClient calls the chat needs. */
@@ -26,6 +27,10 @@ type Start = (signal: AbortSignal) => AsyncIterable<RunEvent>;
 /** A run to show from its start, as its `run` event announced it or the conversation lists it in progress. */
 type Followed = Pick<RunAnnounced, "run_id" | "channel" | "client_id" | "text" | "notice">;
 
+/** A message waiting for the reply before it to finish. One the inbox sent on here (`dispatched`) can't be taken
+ * back: the daemon keeps it as sent on. `after` is called once its own reply has finished. */
+export type Queued = { text: string; files: File[]; dispatched?: Dispatched; after?: (chat: ChatController) => unknown };
+
 export type ChatSnapshot = {
   threadId: string;
   // The inbox's id: a message written there is routed to its conversation (core/inbox.py).
@@ -36,6 +41,8 @@ export type ChatSnapshot = {
   // A reply started from another channel is being shown.
   mirroring: boolean;
   approval: ApprovalRequired | null;
+  // Messages to send here once nothing runs, oldest first.
+  queued: Queued[];
 };
 
 const EXCERPT = 160;
@@ -61,26 +68,41 @@ export class ChatController {
     private readonly notices: NoticeBoard,
     transcript: Transcript,
     inboxId: string,
+    private readonly tab: ChatTab,
+    place: Place,
   ) {
-    this.state = { threadId: live.session.thread_id, inboxId, transcript, busy: false, mirroring: false, approval: null };
+    this.state = { threadId: live.session.thread_id, inboxId, transcript, busy: false, mirroring: false, approval: null, queued: [] };
+    tab.join(this, place);
   }
 
-  /** Opens on `earlier`, the conversation this tab was on before a reload, or the inbox. */
-  static async open(client: ChatClient, channel: string, earlier: string | null, notices: NoticeBoard): Promise<ChatController> {
+  /** Opens on `earlier`, the conversation this tab was on before a reload, or the inbox, as one of `tab`'s chats. */
+  static async open(
+    client: ChatClient,
+    channel: string,
+    earlier: string | null,
+    notices: NoticeBoard,
+    tab = new ChatTab(),
+    place: Place = "chat",
+  ): Promise<ChatController> {
     const inboxId = await client.inboxThread();
     const threadId = await rejoin(client, earlier, inboxId);
     const live = new LiveConversation(client, { channel, thread_id: threadId });
-    const chat = new ChatController(client, live, notices, empty, inboxId);
-    await chat.showHistory();
+    const chat = new ChatController(client, live, notices, empty, inboxId, tab, place);
+    try {
+      await chat.showHistory();
+    } catch (error) {
+      chat.close();
+      throw error;
+    }
     void chat.answerPending();
     return chat;
   }
 
   /** Opens on a new conversation, beside the ones open already. */
-  static async openNew(client: ChatClient, channel: string, notices: NoticeBoard): Promise<ChatController> {
+  static async openNew(client: ChatClient, channel: string, notices: NoticeBoard, tab = new ChatTab()): Promise<ChatController> {
     const inboxId = await client.inboxThread();
     const live = new LiveConversation(client, { channel, thread_id: await client.newThread() });
-    return new ChatController(client, live, notices, empty, inboxId);
+    return new ChatController(client, live, notices, empty, inboxId, tab, "chat");
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -103,12 +125,33 @@ export class ChatController {
     await this.send(text, files);
   }
 
-  /** Sends here a message the inbox sent on, as it was written, after the quick exchange it followed up;
-   * `started` is called once its run has. */
-  async sendDispatched(dispatched: Dispatched, started: () => void = () => {}): Promise<void> {
+  /** Sends here a message the inbox sent on, as it was written, after the quick exchange it followed up, and then
+   * `following`, the messages queued in the inbox behind it; `started` is called once its run has. While a run goes
+   * on here, it waits in the queue for it to finish, and `started` is called at once. */
+  async sendDispatched(dispatched: Dispatched, started: () => void = () => {}, following: Queued[] = []): Promise<void> {
     const { id, text, carried } = dispatched;
-    if (carried && this.ownRun === null) this.set({ transcript: addCarried(this.state.transcript, carried) });
+    if (this.ownRun !== null || this.mirrors.size > 0) {
+      this.set({ queued: [...this.state.queued, { text, files: [], dispatched }, ...following] });
+      return started();
+    }
+    this.set({ queued: [...this.state.queued, ...following] });
+    if (carried) this.set({ transcript: addCarried(this.state.transcript, carried) });
     await this.own(text, [], (signal) => this.client.sendDispatched(this.live.session, id, text, signal), started);
+  }
+
+  /** Sends `text` and `files` once nothing runs here, after the messages queued before it; at once when nothing does.
+   * `after` is called once its reply has finished. */
+  queue(text: string, files: File[], after?: (chat: ChatController) => unknown): void {
+    this.set({ queued: [...this.state.queued, { text, files, after }] });
+    this.sendQueued();
+  }
+
+  /** Takes back the queued message at `index` and returns it; not one the inbox sent on, which stays. */
+  unqueue(index: number): Queued | null {
+    const item = this.state.queued[index];
+    if (!item || item.dispatched) return null;
+    this.set({ queued: this.state.queued.filter((_, i) => i !== index) });
+    return item;
   }
 
   /** Asks in the inbox where a message it sent on goes instead (the last one for ""), and sends it there. */
@@ -116,9 +159,9 @@ export class ChatController {
     await this.ownTurn((signal) => this.client.moveDispatched(this.live.session, dispatchId, signal));
   }
 
-  /** Where a message the inbox sent on goes on, calling `started` once its run there has; without one, this
-   * conversation goes there. */
-  onDispatched: ((dispatched: Dispatched, started: () => void) => Promise<void>) | null = null;
+  /** The chat a message the inbox sent on goes to, which sends it there (null when it can't be shown); without one,
+   * this conversation goes there. */
+  onDispatched: ((dispatched: Dispatched) => Promise<ChatController | null>) | null = null;
 
   /** This page's own run of a message, from `start`. */
   private async own(text: string, files: string[], start: Start, started: () => void = () => {}): Promise<void> {
@@ -140,20 +183,40 @@ export class ChatController {
     if (this.ownRun === run) this.ownRun = null;
     if (dispatched !== null) await this.handOn(dispatched);
     this.showing();
+    this.sendQueued();
   }
 
-  /** Goes on where the inbox sent its message, busy until the run there has started. */
+  /** Goes on where the inbox sent its message, busy until the run there has started. The messages queued here
+   * until then follow it there; once it has, what's written here is sent here. */
   private async handOn(dispatched: Dispatched): Promise<void> {
     this.handingOn = true;
     const started = () => {
       this.handingOn = false;
       this.showing();
+      this.sendQueued();
     };
     try {
-      await (this.onDispatched ?? ((d, s) => this.goOn(d, s)))(dispatched, started);
+      const there = await (this.onDispatched ?? ((d) => this.goOn(d)))(dispatched);
+      await there?.sendDispatched(dispatched, started, this.takeQueued());
     } finally {
       this.handingOn = false;
     }
+  }
+
+  /** The next queued message, once nothing runs here. */
+  private sendQueued(): void {
+    if (this.ownRun !== null || this.handingOn || this.mirrors.size > 0) return;
+    const [next, ...rest] = this.state.queued;
+    if (!next) return;
+    this.set({ queued: rest });
+    if (next.dispatched) void this.sendDispatched(next.dispatched);
+    else void this.send(next.text, next.files).then(() => next.after?.(this));
+  }
+
+  private takeQueued(): Queued[] {
+    const queued = this.state.queued;
+    this.set({ queued: [] });
+    return queued;
   }
 
   /** Stop the reply in progress, whichever channel started it. */
@@ -218,15 +281,17 @@ export class ChatController {
     this.notify(`Previous conversation finished: ${excerpt || run.status}`, run.status === "ok" ? "info" : "warning");
   }
 
-  /** Stop showing every run; the daemon keeps them going. */
+  /** Stop showing every run, for good; the daemon keeps them going. */
   close(): void {
     this.stopShowing();
+    this.tab.leave(this);
   }
 
   /** Closes the conversation for good: the daemon leaves it unless another client is on it. Returns whether
    * its reply was still running, which the daemon finishes. */
   async leave(): Promise<boolean> {
     const stillRunning = this.stopShowing();
+    this.tab.leave(this);
     await this.guarded(() => this.client.leaveThread());
     return stillRunning;
   }
@@ -250,7 +315,7 @@ export class ChatController {
     const threadId = this.live.session.thread_id;
     let waiting: ApprovalRequired[] = [];
     await this.guarded(async () => (waiting = await this.client.conversations.approvals(threadId)));
-    if (!waiting.length || threadId !== this.live.session.thread_id) return;
+    if (!waiting.length || threadId !== this.live.session.thread_id || !this.tab.asks(this, threadId)) return;
     await this.ownTurn((signal) => this.answered(waiting, signal));
   }
 
@@ -261,9 +326,10 @@ export class ChatController {
     yield* this.client.resume(this.live.session, decisions, signal);
   }
 
-  /** The inbox sent the message on: this conversation goes to where it went, or a new one, and sends it there. */
-  private async goOn(dispatched: Dispatched, started: () => void): Promise<void> {
-    await this.guarded(async () => {
+  /** The inbox sent the message on: this conversation goes to where it went, or a new one, to send it there; null
+   * when it can't. */
+  private async goOn(dispatched: Dispatched): Promise<ChatController | null> {
+    try {
       if (dispatched.thread_id) {
         await this.live.resume(dispatched.thread_id);
         await this.showHistory();
@@ -271,8 +337,11 @@ export class ChatController {
         await this.live.startNew();
         this.set({ threadId: this.live.session.thread_id, transcript: empty });
       }
-    });
-    await this.sendDispatched(dispatched, started);
+      return this;
+    } catch (error) {
+      this.report(error);
+      return null;
+    }
   }
 
   /** Shows runs not shown yet from their start, one after another as they run, until the page stops showing them. */
@@ -289,6 +358,7 @@ export class ChatController {
     }
     this.mirrors.delete(following);
     this.showing();
+    this.sendQueued();
   }
 
   /** What a run answers, where the user's message would be: what they wrote, from where when it wasn't this page,
@@ -355,13 +425,14 @@ export class ChatController {
     this.set({ busy: this.ownRun !== null || this.handingOn, mirroring: this.mirrors.size > 0 });
   }
 
-  /** Stops showing runs and returns whether this page's own reply was running. */
+  /** Stops showing runs, and drops the messages queued for this conversation, which the page leaves; returns whether
+   * this page's own reply was running. */
   private stopShowing(): boolean {
     const wasBusy = this.ownRun !== null;
     this.ownRun?.abort();
     this.ownRun = null;
     this.stopFollowing();
-    this.set({ transcript: endRun(this.state.transcript) });
+    this.set({ transcript: endRun(this.state.transcript), queued: [] });
     this.showing();
     return wasBusy;
   }

@@ -17,7 +17,7 @@ from assistant.core.agent import (
     ServerValues,
     SkillError,
 )
-from assistant.core.mcp import install, keys, servers
+from assistant.core.mcp import folders, install, keys, servers
 from assistant.core.repositories import check, checkout
 from assistant.core.repositories.icons import PluginIcon
 from assistant.core.repositories.source import Source
@@ -639,6 +639,21 @@ async def test_the_listing_is_kept_until_the_repository_has_a_newer_commit(servi
     assert REMOTE["downloads"] == 2 and "later" in [s.name for s in contents.skills]
 
 
+async def test_a_listing_kept_in_an_older_format_is_read_again_at_the_same_commit(service, repo):
+    await service.browse_repository(URL)
+    item = await service.store.aget(("repository_listings",), URL)
+    assert item is not None
+    old = {k: v for k, v in item.value.items() if k != "format"}
+    old["servers"] = [{k: v for k, v in s.items() if k not in ("icon", "ssh_agent")} for s in old["servers"]]
+    await service.store.aput(("repository_listings",), URL, old)
+    REMOTE["head"] = None
+    assert {s.name for s in (await service.browse_repository(URL)).servers} >= {"hello"}  # shown while unreachable
+    REMOTE["head"] = "head1"
+    contents = await service.browse_repository(URL)
+    assert REMOTE["downloads"] == 2
+    assert next(s for s in contents.servers if s.name == "hello").icon == PluginIcon(name="puzzle")
+
+
 async def test_an_unreachable_repository_shows_the_kept_listing(service, repo):
     REMOTE["head"] = None
     with pytest.raises(RepositoryError, match="no network"):
@@ -710,13 +725,27 @@ async def test_a_server_installed_before_icons_gets_its_icon_from_its_folder_at_
     for name in ("hello", "films"):
         await servers.save(service.store, replace(await servers.load(service.store, name), icon={}))
     await servers.save(service.store, McpServer("mine", url="https://mine.example.com/mcp"))
-    await install.add_missing_icons(service.store, service.secrets)
+    await install.add_missing_icons(service.store)
     assert (await servers.load(service.store, "hello")).icon == {"name": "", "svg": BRAND, "mono": False}
     assert (await servers.load(service.store, "films")).icon == {"name": "clapperboard", "svg": "", "mono": False}
     assert (await servers.load(service.store, "mine")).icon == {}
     assert (await keys.fill(service.store, service.secrets, await servers.load(service.store, "hello"))).env[
         "HELLO_TOKEN"
     ] == "s3cret"
+
+
+async def test_a_server_whose_folder_cant_be_read_is_left_without_an_icon_and_the_others_get_theirs(
+    service, repo, caplog
+):
+    _write(repo / "apps" / "media" / "films", {"server.yaml": "url: https://films.example.com/mcp"})
+    await service.install_from_repository(URL, [], [HELLO, ServerValues("films")])
+    for name in ("hello", "films"):
+        await servers.save(service.store, replace(await servers.load(service.store, name), icon={}))
+    (folders.code("hello") / ".source.yaml").write_text("url: [unclosed")
+    await install.add_missing_icons(service.store)
+    assert (await servers.load(service.store, "hello")).icon == {}
+    assert (await servers.load(service.store, "films")).icon == {"name": "clapperboard", "svg": "", "mono": False}
+    assert "Couldn't read the icon hello's folder declares" in caplog.text
 
 
 async def test_a_plugin_with_an_icon_that_cant_be_used_is_left_out_with_why(service, repo):
