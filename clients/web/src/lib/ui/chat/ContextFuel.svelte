@@ -29,25 +29,82 @@
   function share(ratio: number, from: number): number {
     return Math.round(((ratio - from) / 0.25) * 100);
   }
-  const title = $derived.by(() => {
-    if (!shown) return "";
-    const figures = `${compact(shown.context_tokens)} / ${compact(shown.context_limit)} tokens (${percent}%)`;
-    return shown.context_agent
-      ? `${shown.context_agent}'s context: ${figures}, as of its last answer. It compacts older messages as it nears full.`
-      : `Context: ${figures}. Older messages are summarized when it's full.`;
+  const info = $derived.by(() => {
+    if (!shown) return null;
+    return {
+      heading: shown.context_agent ? `${shown.context_agent}'s context` : "Context",
+      figures: `${compact(shown.context_tokens)} / ${compact(shown.context_limit)} tokens`,
+      note: shown.context_agent
+        ? "As of its last answer. It compacts older messages as it nears full."
+        : "Older messages are summarized when it's full.",
+    };
   });
 </script>
 
 {#if shown}
-  <span class="fuel" style="border-color: {color}" {title}>
+  <span class="wrap">
+  <span class="fuel" style="border-color: {color}" aria-label="Context {percent}%">
     {#each Array(SEGMENTS) as _, i (i)}
       <span class="seg" style="background: {color}; opacity: {i < filled ? 0.4 : 0.1}"></span>
     {/each}
     <span class="percent" style="color: {color}">{percent}%</span>
   </span>
+  {#if info}
+    <span class="bubble" role="tooltip">
+      <span class="head">{info.heading} <b style="color: {color}">{percent}%</b></span>
+      <span class="figs">{info.figures}</span>
+      <span class="note">{info.note}</span>
+    </span>
+  {/if}
+  </span>
 {/if}
 
 <style>
+  .wrap {
+    position: relative;
+    display: inline-flex;
+  }
+  .bubble {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    width: max-content;
+    max-width: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-bg-page);
+    box-shadow: var(--shadow-popover);
+    color: var(--color-text-muted);
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: normal;
+    opacity: 0;
+    transform: translateY(4px);
+    pointer-events: none;
+    transition: opacity 0.12s ease, transform 0.12s ease;
+    z-index: 50;
+  }
+  .wrap:hover .bubble {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--color-text-primary);
+    font-weight: 600;
+  }
+  .figs {
+    font-variant-numeric: tabular-nums;
+  }
+  .note {
+    color: var(--color-text-faint);
+  }
   .fuel {
     display: inline-flex;
     align-items: center;
@@ -55,7 +112,7 @@
     height: 10px;
     padding: 2px 4px;
     border: 1px solid;
-    border-radius: 3px;
+    border-radius: 6px;
     box-sizing: content-box;
     cursor: default;
   }

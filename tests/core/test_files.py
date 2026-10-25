@@ -5,6 +5,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from assistant.core import uploads
 from assistant.core.agent import Session
+from assistant.core.agent.files import UploadedFile, _searched
 from assistant.core.attachments import TOOL_MEDIA_SENDER, Attachment, reference, tool_uploads, user_uploads
 from assistant.core.events import Dispatched
 from tests.conftest import collect
@@ -24,6 +25,22 @@ async def test_lists_the_files_sent_with_their_conversation(service):
         ("shot.png", "image/png", 9, second.thread_id, ""),
     }
     assert all(f.conversation for f in files)
+
+
+async def test_a_page_of_the_files_matching_a_search(service):
+    session = await service.session("owner", "cli")
+    await collect(service.send(session, "read this", [NOTE]))
+    await collect(service.send(session, "look", [PNG]))
+    newest_first = await service.list_files("owner")
+    assert await service.files_page("owner", limit=1) == newest_first[:1]
+    assert await service.files_page("owner", offset=1, limit=1) == newest_first[1:]
+    assert [f.name for f in await service.files_page("owner", " IMAGE/ ")] == ["shot.png"]
+    assert len(await service.files_page("owner", "you")) == 2
+
+
+def test_a_search_finds_an_mcp_tools_file_by_its_server_and_tool():
+    file = UploadedFile("p", "chart.png", "image/png", 1, "2026-10-25T00:00:00+00:00", "t", "Sales", "mcp__charts__draw")
+    assert _searched(file) == "chart.png image/png charts: draw sales"
 
 
 async def test_a_file_in_several_conversations_is_listed_once_with_the_latest(service, dispatch):

@@ -781,6 +781,33 @@ async def test_files_through_the_client(client):
         await client.files.content(replace(listed, path="../../lo9i.db"))
 
 
+async def test_files_come_in_pages_and_searched_by_the_daemon(client):
+    session = await _new_session(client)
+    for name in ("a.txt", "b.txt", "shot.png"):
+        await collect(client.send(session, "keep this", [Attachment(name, "text/plain", name.encode())]))
+    every = await client.files.list()
+    assert len(every) == 3
+    pages = [await client.files.list(offset=offset, limit=2) for offset in (0, 2)]
+    assert [len(page) for page in pages] == [2, 1] and pages[0] + pages[1] == every
+    assert [f.name for f in await client.files.list("PNG")] == ["shot.png"]
+    assert [f.name for f in await client.files.list("you", offset=2, limit=2)] == [every[2].name]
+    assert await client.files.list("nothing like it") == []
+
+
+async def test_notifications_come_in_pages(client, service):
+    for title in ("First", "Second", "Third"):
+        await notifications.add(service.store, "owner", "job", title, "Done.", True)
+    every = await client.notifications.list()
+    assert [n.title for n in every] == ["Third", "Second", "First"]
+    assert await client.notifications.list(limit=2) == every[:2]
+    assert await client.notifications.list(offset=2, limit=2) == every[2:]
+
+
+async def test_a_page_has_at_most_200(client):
+    with pytest.raises(httpx.HTTPStatusError):
+        await client.notifications.list(limit=201)
+
+
 async def test_token_usage_through_the_client(client, script):
     script.reply("hi", usage_metadata={"input_tokens": 50, "output_tokens": 5, "total_tokens": 55})
     await collect(client.send(await _new_session(client), "hello"))

@@ -8,9 +8,9 @@ __all__ = ["Notification", "NotificationsMixin"]
 
 
 class NotificationsMixin(ServiceBase):
-    async def notifications(self, user_id: str) -> list[Notification]:
-        """Newest first."""
-        return await notifications.recent(self._storage.store, user_id)
+    async def notifications(self, user_id: str, offset: int = 0, limit: int | None = None) -> list[Notification]:
+        """Newest first, from `offset`: at most `limit`, all of them with None."""
+        return await notifications.page(self._storage.store, user_id, offset, limit)
 
     async def mark_notifications_read(self, user_id: str) -> None:
         await notifications.mark_read(self._storage.store, user_id)

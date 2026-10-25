@@ -47,6 +47,7 @@ import type {
   ModelOption,
   ModelProvider,
   ModelStatus,
+  Page,
   PairingCode,
   PendingEnding,
   PluginUpdate,
@@ -213,9 +214,10 @@ export class ConversationsGroup {
 export class FilesGroup {
   constructor(private readonly transport: Transport) {}
 
-  /** The files in the user's conversations, sent by them or brought by tool results, newest first. */
-  list(): Promise<UploadedFile[]> {
-    return this.transport.request("GET", "/files");
+  /** The files in the user's conversations, sent by them or brought by tool results, newest first: those matching
+   * `query` (name, type, where it came from or conversation), the `page` of them or all. */
+  list(query = "", page?: Page): Promise<UploadedFile[]> {
+    return this.transport.request("GET", `/files${pageQuery(page, query ? { q: query } : {})}`);
   }
 
   /** A file's content, to show or save. Throws ApiError (404) when it isn't there any more. */
@@ -599,8 +601,9 @@ export class DoctorGroup {
 export class NotificationsGroup {
   constructor(private readonly transport: Transport) {}
 
-  list(): Promise<Notification[]> {
-    return this.transport.request("GET", "/notifications");
+  /** The `page` of them, or all. */
+  list(page?: Page): Promise<Notification[]> {
+    return this.transport.request("GET", `/notifications${pageQuery(page)}`);
   }
 
   async markRead(): Promise<void> {
@@ -852,6 +855,15 @@ export class LogsGroup {
 
 function logPath(name: string): string {
   return `/logs/${encodeURIComponent(name)}`;
+}
+
+function pageQuery(page: Page | undefined, params: Record<string, string> = {}): string {
+  const query = new URLSearchParams(params);
+  if (page) {
+    query.set("offset", String(page.offset));
+    query.set("limit", String(page.limit));
+  }
+  return query.size ? `?${query}` : "";
 }
 
 function logParams(query: LogQuery): string {

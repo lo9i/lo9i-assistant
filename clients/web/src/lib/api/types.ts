@@ -94,6 +94,9 @@ export type LogFileInfo = Schemas["LogFileInfo"];
 export type LogLevelSetting = Schemas["LogLevelSetting"];
 export type PromptSection = Schemas["PromptSection"];
 /** What a log shows: entries at `level` or above ("" for all) from `component` ("" for all), the latest `lines`. */
+/** Which part of a list the daemon pages (files, notifications) to load: from `offset`, at most `limit`, which the
+ * daemon takes up to 200. */
+export type Page = { offset: number; limit: number };
 export type LogQuery = { level: string; component: string; lines: number };
 /** A followed log's events: its page (at the start of every connection), then each new matching entry. */
 export type LogEvent = { kind: "page"; page: LogPage } | { kind: "entry"; entry: LogEntry };

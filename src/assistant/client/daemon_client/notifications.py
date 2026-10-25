@@ -1,3 +1,4 @@
+from assistant.client.daemon_client.paging import page_params
 from assistant.client.daemon_client.transport import Transport
 from assistant.core.agent import Notification
 
@@ -8,8 +9,10 @@ class NotificationsApi:
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
 
-    async def list(self) -> list[Notification]:
-        return [Notification(**n) for n in await self._transport.request("GET", "/notifications")]
+    async def list(self, offset: int = 0, limit: int | None = None) -> list[Notification]:
+        """From `offset`, at most `limit` (all without it)."""
+        listed = await self._transport.request("GET", "/notifications", params=page_params(offset, limit))
+        return [Notification(**n) for n in listed]
 
     async def mark_read(self) -> None:
         await self._transport.request("POST", "/notifications/read")

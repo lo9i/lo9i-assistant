@@ -1,4 +1,9 @@
 <script lang="ts">
+  let tip = $state<{ title: string; status: string; color: string; x: number; y: number } | null>(null);
+  function showTip(e: Event, title: string, status: string, color: string) {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    tip = { title, status, color, x: r.right + 10, y: r.top + r.height / 2 };
+  }
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
@@ -12,7 +17,6 @@
   import House from "@lucide/svelte/icons/house";
   import Laptop from "@lucide/svelte/icons/laptop";
   import MessageSquare from "@lucide/svelte/icons/message-square";
-  import Inbox from "@lucide/svelte/icons/inbox";
   import ListChecks from "@lucide/svelte/icons/list-checks";
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import MessageCircle from "@lucide/svelte/icons/message-circle";
@@ -91,14 +95,14 @@
   const NAV: Item[] = [
     { href: resolve("/home"), label: "Home", Icon: House },
     // The open conversations show under Chat. Its count is those waiting for an answer, for when that list is hidden
-    // (the sidebar collapsed, a phone).
+    // (the sidebar collapsed, a phone); the inbox too, which that list leaves out.
     {
       href: CHAT,
       label: "Chat",
       Icon: MessageCircle,
       add: { label: "New conversation", run: startNew },
       exact: true,
-      count: () => everything.filter((entry) => entry.waiting).length,
+      count: () => open.current.chats.filter((c) => c.state.approval !== null).length,
       counted: "waiting for your answer",
     },
     { href: resolve("/files"), label: "Files", Icon: Files },
@@ -167,11 +171,13 @@
                 style:--tint={tint(entry.threadId)}
                 class:current={entry.active && page.url.pathname === OPEN}
                 aria-current={entry.active && page.url.pathname === OPEN ? "true" : undefined}
-                title={entry.title + (entry.waiting ? " · waiting for your answer" : entry.running ? " · working" : "")}
+                onmouseenter={(e) => showTip(e, entry.title, entry.waiting ? "Waiting for your answer" : entry.running ? "Working…" : "", tint(entry.threadId))}
+                onmouseleave={() => (tip = null)}
+                onfocus={(e) => showTip(e, entry.title, "", tint(entry.threadId))}
+                onblur={() => (tip = null)}
                 onclick={() => show(entry)}
               >
                 {#if entry.running}<LoaderCircle size={14} class="spin" aria-label="working" />
-                {:else if entry.inbox}<Inbox size={14} />
                 {:else}<MessageSquare size={14} />{/if}
                 <span>{entry.title}</span>
                 {#if entry.waiting}<i class="waiting" aria-label="waiting for your answer"></i>{/if}
@@ -218,7 +224,52 @@
   </div>
 </aside>
 
+{#if tip}
+  <div class="conv-tip" role="tooltip" style="left: {tip.x}px; top: {tip.y}px">
+    <span class="tip-title"><i style="background: {tip.color}"></i>{tip.title}</span>
+    {#if tip.status}<span class="tip-status">{tip.status}</span>{/if}
+  </div>
+{/if}
+
 <style>
+  .conv-tip {
+    position: fixed;
+    transform: translateY(-50%);
+    z-index: 100;
+    max-width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-bg-page);
+    box-shadow: var(--shadow-popover);
+    font-size: 12px;
+    line-height: 1.4;
+    pointer-events: none;
+    animation: tip-in 0.12s ease;
+  }
+  @keyframes tip-in {
+    from { opacity: 0; transform: translate(-4px, -50%); }
+  }
+  .tip-title {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    color: var(--color-text-primary);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .tip-title i {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .tip-status {
+    color: var(--color-text-muted);
+  }
   .sidebar {
     position: sticky;
     top: 8px;

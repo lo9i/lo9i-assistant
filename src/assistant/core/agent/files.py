@@ -2,6 +2,7 @@
 and the ones tool results brought (an email's attachments, an MCP tool's images)."""
 
 import asyncio
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -15,6 +16,8 @@ from assistant.core.attachments import tool_uploads, user_uploads
 from assistant.core.conversations import Conversation
 
 __all__ = ["FileUnavailableError", "FilesMixin", "UploadedFile"]
+
+_MCP_TOOL = re.compile(r"mcp__(.+?)__(.+)")
 
 
 @dataclass
@@ -42,7 +45,16 @@ class FilesMixin(ThreadFilesMixin):
         for conversation in await conversations.recent(self._storage.store, user_id):
             references = _references(await self._thread_messages(conversation.thread_id))
             found += await asyncio.to_thread(_on_disk, conversation, references)
-        return sorted(_once(found), key=lambda f: f.uploaded_at, reverse=True)
+        return sorted(_once(found), key=lambda f: (f.uploaded_at, f.path), reverse=True)
+
+    async def files_page(
+        self, user_id: str, query: str = "", offset: int = 0, limit: int | None = None
+    ) -> list[UploadedFile]:
+        """The files matching `query` (by name, type, where they came from or conversation), newest first, from
+        `offset`: at most `limit`, all of them with None. Each page still reads every conversation (BACKLOG.md)."""
+        words = query.strip().lower()
+        matching = [f for f in await self.list_files(user_id) if words in _searched(f)]
+        return matching[offset : None if limit is None else offset + limit]
 
     async def file_content(self, user_id: str, path: str) -> tuple[UploadedFile, bytes]:
         """A file from the list, to view or download. Only paths the list has, so nothing else in the
@@ -57,6 +69,13 @@ class FilesMixin(ThreadFilesMixin):
 def _references(messages: Sequence[BaseMessage]) -> list[tuple[str, dict[str, str]]]:
     """Each file's reference with the tool that brought it, "" for the user's (to an agent at work too)."""
     return [("", r) for r in [*user_uploads(messages), *sent.uploads(messages)]] + tool_uploads(messages)
+
+
+def _searched(file: UploadedFile) -> str:
+    """What a search looks in, as the Files page shows it: the user, or the tool (an MCP tool as "server: tool")."""
+    mcp = _MCP_TOOL.match(file.tool)
+    source = f"{mcp[1]}: {mcp[2]}" if mcp else file.tool or "You"
+    return f"{file.name} {file.media_type} {source} {file.conversation}".lower()
 
 
 def _once(files: list[UploadedFile]) -> list[UploadedFile]:

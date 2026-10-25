@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ConversationsGroup, JobsGroup, SystemGroup } from "./client";
+import { ConversationsGroup, FilesGroup, JobsGroup, NotificationsGroup, SystemGroup } from "./client";
 import type { Transport } from "./transport";
 
 function recording(): { transport: Transport; request: ReturnType<typeof vi.fn> } {
@@ -70,6 +70,27 @@ describe("SystemGroup's pending ending", () => {
       ["GET", "/system/ending"],
       ["DELETE", "/system/ending"],
       ["POST", "/system/ending/now"],
+    ]);
+  });
+});
+
+describe("paged lists", () => {
+  it("ask for the whole list without a page, as before", async () => {
+    const { transport, request } = recording();
+    await new FilesGroup(transport).list();
+    await new NotificationsGroup(transport).list();
+    expect(request.mock.calls.map((call) => call[1])).toEqual(["/files", "/notifications"]);
+  });
+
+  it("ask for a page, and files for those matching a search", async () => {
+    const { transport, request } = recording();
+    await new FilesGroup(transport).list("tax pdf", { offset: 50, limit: 50 });
+    await new FilesGroup(transport).list("", { offset: 0, limit: 50 });
+    await new NotificationsGroup(transport).list({ offset: 100, limit: 50 });
+    expect(request.mock.calls.map((call) => call[1])).toEqual([
+      "/files?q=tax+pdf&offset=50&limit=50",
+      "/files?offset=0&limit=50",
+      "/notifications?offset=100&limit=50",
     ]);
   });
 });

@@ -844,7 +844,9 @@ export interface paths {
         };
         /**
          * File List
-         * @description The files in the user's conversations, sent by them or brought by tool results, newest first.
+         * @description The files in the user's conversations, sent by them or brought by tool results, newest first: those
+         *     matching `q` (name, type, where it came from or conversation), from `offset`, at most `limit` (all
+         *     without it).
          */
         get: operations["file_list_files_get"];
         put?: never;
@@ -1568,7 +1570,7 @@ export interface paths {
         };
         /**
          * Notification List
-         * @description The newest first.
+         * @description The newest first, from `offset`, at most `limit` (all without it).
          */
         get: operations["notification_list_notifications_get"];
         put?: never;
@@ -6087,7 +6089,11 @@ export interface operations {
     };
     file_list_files_get: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string;
+                offset?: number;
+                limit?: number | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6101,6 +6107,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UploadedFile"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -7475,7 +7490,10 @@ export interface operations {
     };
     notification_list_notifications_get: {
         parameters: {
-            query?: never;
+            query?: {
+                offset?: number;
+                limit?: number | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7489,6 +7507,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Notification"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

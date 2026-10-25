@@ -30,14 +30,16 @@ describe("ContextFuel", () => {
 
   it("shows how full the assistant's context is", () => {
     const { body } = render(ContextFuel, { props: { threadId: "t1" } });
-    expect(body).toContain("Context: 30k / 120k tokens (25%). Older messages are summarized when it's full.");
+    expect(body).toContain("30k / 120k tokens");
+    expect(body).toContain("Older messages are summarized when it's full.");
     expect(body).toMatch(/<span class="percent[^"]*" style="color: var\(--color-accent\)">25%<\/span>/);
   });
 
   it("shows the agent's context while the conversation is handed to it", () => {
     loaded.data = { ...stats, context_tokens: 61000, context_limit: 200000, context_agent: "Claude Code" };
     const { body } = render(ContextFuel, { props: { threadId: "t1" } });
-    expect(body).toContain("Claude Code's context: 61k / 200k tokens (31%), as of its last answer.");
+    expect(body).toContain("Claude Code's context");
+    expect(body).toContain("61k / 200k tokens");
   });
 
   it("fades from the accent colour to yellow and then to red as it fills", () => {

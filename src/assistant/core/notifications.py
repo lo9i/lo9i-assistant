@@ -69,7 +69,12 @@ async def _save(store: BaseStore, user_id: str, notification: Notification) -> N
 async def recent(store: BaseStore, user_id: str) -> list[Notification]:
     """Newest first."""
     items = await store.asearch(_namespace(user_id), limit=_SCAN_LIMIT)
-    return sorted((Notification(**i.value) for i in items), key=lambda n: n.at, reverse=True)
+    return sorted((Notification(**i.value) for i in items), key=lambda n: (n.at, n.id), reverse=True)
+
+
+async def page(store: BaseStore, user_id: str, offset: int = 0, limit: int | None = None) -> list[Notification]:
+    """Newest first, from `offset`: at most `limit`, all of them with None. There are at most _KEPT to sort."""
+    return (await recent(store, user_id))[offset : None if limit is None else offset + limit]
 
 
 async def mark_read(store: BaseStore, user_id: str) -> None:

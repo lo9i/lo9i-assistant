@@ -34,7 +34,7 @@
 
 <style>
   .screen {
-    padding: 0 16px 16px;
+    padding: 0 16px 8px;
     height: calc(100dvh - var(--top-bar-height));
     max-width: 1600px;
     margin: 0 auto;

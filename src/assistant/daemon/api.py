@@ -911,11 +911,19 @@ def _refuse_if_open(clients: ClientRegistry, thread_id: str, caller: str) -> Non
         raise HTTPException(409, "It's open in another window or app. Move that one to another conversation first.")
 
 
+# A page of a list the apps load as it's scrolled (Files, Notifications). Without one, the whole list, as
+# the terminal app reads it.
+_PageLimit = Annotated[int | None, Query(ge=1, le=200)]
+_Offset = Annotated[int, Query(ge=0)]
+
+
 def _add_file_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/files")
-    async def file_list() -> list[UploadedFile]:
-        """The files in the user's conversations, sent by them or brought by tool results, newest first."""
-        return await service.list_files(settings.owner_id)
+    async def file_list(q: str = "", offset: _Offset = 0, limit: _PageLimit = None) -> list[UploadedFile]:
+        """The files in the user's conversations, sent by them or brought by tool results, newest first: those
+        matching `q` (name, type, where it came from or conversation), from `offset`, at most `limit` (all
+        without it)."""
+        return await service.files_page(settings.owner_id, q, offset, limit)
 
     @app.get("/files/content", response_class=Response, responses=_FILE)
     async def file_content(path: str) -> Response:
@@ -1441,9 +1449,9 @@ def _add_notification_routes(app: FastAPI, service: AssistantService) -> None:
     """The notifications feed (core/notifications.py): job results and background work that ended."""
 
     @app.get("/notifications")
-    async def notification_list() -> list[Notification]:
-        """The newest first."""
-        return await service.notifications(settings.owner_id)
+    async def notification_list(offset: _Offset = 0, limit: _PageLimit = None) -> list[Notification]:
+        """The newest first, from `offset`, at most `limit` (all without it)."""
+        return await service.notifications(settings.owner_id, offset, limit)
 
     @app.post("/notifications/read")
     async def read_notifications() -> Ok:

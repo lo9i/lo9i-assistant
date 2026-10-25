@@ -35,11 +35,18 @@ describe("openList", () => {
     ];
     const items = openList(open, conversations, ["t3", "t2", "job:x"]);
     expect(items.map((i) => [i.key, i.title, i.active, i.running, i.waiting])).toEqual([
-      ["", "Inbox", false, false, false],
       ["a", "Trip", true, true, false],
       ["b", "Taxes", false, true, true],
       ["c", "New conversation", false, false, false],
       [null, "Calendar", false, true, false],
     ]);
+  });
+
+  it("leaves the inbox out, open here or working elsewhere", () => {
+    const open = { chats: [{ key: "a", state: state("t1") }], activeKey: "a" };
+    const conversations = [conversation("inbox", "Quick questions", true), conversation("t1", "Trip")];
+    expect(openList(open, conversations, ["inbox"]).map((i) => i.threadId)).toEqual(["t1"]);
+    const shown = { chats: [{ key: "", state: state("inbox", { busy: true }) }], activeKey: "" };
+    expect(openList(shown, conversations, [])).toEqual([]);
   });
 });

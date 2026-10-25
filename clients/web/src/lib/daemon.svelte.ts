@@ -3,9 +3,11 @@ import { getContext, setContext } from "svelte";
 import type { DaemonClient } from "./api/client";
 import { DaemonUnavailableError } from "./api/errors";
 import type { EventHub } from "./api/eventHub";
+import type { Page } from "./api/types";
 import type { ChatController } from "./chat/controller";
 import type { OpenChats } from "./chat/openChats";
 import { describe, type NoticeBoard } from "./notices";
+import { PagedList } from "./pagedList.svelte";
 
 // `chats` are the conversations open in the chat; `voice` and `text` are the floating buttons', kept apart
 // from them: each writes in the inbox and follows its message to where it was sent on.
@@ -40,6 +42,22 @@ export function resource<T>(load: (client: DaemonClient) => Promise<T>, kinds: s
   $effect(() => hub.on(kinds, () => loaded.reload()));
   $effect(() => hub.onReconnect(() => loaded.reload()));
   return loaded;
+}
+
+/** A list the daemon sends a page at a time, loaded as it's scrolled (PagedList, with ListEnd after its items): its
+ * first page, and again when state that `load` reads (a search) changes; from the start, as much as it shows, when
+ * the daemon reports a change of one of `kinds` and when it can be reached again. Call during component setup. */
+export function pagedResource<T>(
+  load: (client: DaemonClient, page: Page) => Promise<T[]>,
+  key: (item: T) => string,
+  kinds: string[],
+): PagedList<T> {
+  const { client, hub } = useDaemon();
+  const list = new PagedList((page) => load(client, page), key);
+  $effect(() => void list.restart());
+  $effect(() => hub.on(kinds, () => void list.reload()));
+  $effect(() => hub.onReconnect(() => void list.reload()));
+  return list;
 }
 
 export class Resource<T> {

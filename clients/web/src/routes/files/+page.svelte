@@ -3,24 +3,31 @@
   import type { UploadedFile } from "$lib/api/types";
   import FileIcon from "@lucide/svelte/icons/file";
   import Files from "@lucide/svelte/icons/files";
-  import { resource } from "$lib/daemon.svelte";
+  import { pagedResource } from "$lib/daemon.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import FilePreview from "$lib/ui/FilePreview.svelte";
+  import ListEnd from "$lib/ui/ListEnd.svelte";
   import SearchField from "$lib/ui/SearchField.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
-  // A file arrives with a message, which updates its conversation; deleting one removes its files.
-  const files = resource((c) => c.files.list(), ["conversations"]);
-  let picked = $state<string | null>(null);
   let query = $state("");
-  // By name, type, where it came from or conversation.
-  const shown = $derived(
-    (files.data ?? []).filter((f) =>
-      `${f.name} ${f.media_type} ${source(f)} ${f.conversation}`.toLowerCase().includes(query.trim().toLowerCase()),
-    ),
+  // The daemon searches by name, type, where it came from or conversation, once typing pauses.
+  let searched = $state("");
+  $effect(() => {
+    const words = query.trim();
+    const timer = setTimeout(() => (searched = words), 250);
+    return () => clearTimeout(timer);
+  });
+  // A page at a time as the table is scrolled. A file arrives with a message, which updates its conversation;
+  // deleting one removes its files.
+  const files = pagedResource(
+    (c, page) => c.files.list(searched, page),
+    (f) => f.path,
+    ["conversations"],
   );
-  // Until one is picked: the newest.
-  const file = $derived(files.data?.find((f) => f.path === picked) ?? files.data?.[0]);
+  let picked = $state<UploadedFile | null>(null);
+  // Until one is picked: the newest. A search that leaves the picked one out keeps showing it.
+  const file = $derived(files.items.find((f) => f.path === picked?.path) ?? (searched ? picked : null) ?? files.items[0]);
 
   // The user, or the tool whose result brought it (an MCP tool as "server: tool").
   function source(f: UploadedFile): string {
@@ -52,15 +59,19 @@
       </div>
       <div class="tools">
         <SearchField bind:value={query} label="Search files" />
-        {#if files.data}<span class="pill">{files.data.length}</span>{/if}
+        {#if files.loaded}<span class="pill">{files.items.length}{files.done ? "" : "+"}</span>{/if}
       </div>
     </header>
     <div class="scroll">
-      {#if files.error}
+      {#if files.error && !files.items.length}
         <p class="error-text pad">{files.error}</p>
-      {:else if files.data?.length === 0}
-        <EmptyState icon={Files} title="No files yet" text="Files you attach to a message, and the ones tools bring in, show up here." />
-      {:else if files.data && file}
+      {:else if files.loaded && !files.items.length}
+        {#if searched}
+          <p class="text-meta pad">No files match “{searched}”.</p>
+        {:else}
+          <EmptyState icon={Files} title="No files yet" text="Files you attach to a message, and the ones tools bring in, show up here." />
+        {/if}
+      {:else if file}
         <table class="data-table">
           <thead>
             <tr>
@@ -73,9 +84,9 @@
             </tr>
           </thead>
           <tbody>
-            {#each shown as f (f.path)}
-              <tr class:selected={f.path === file.path} onclick={() => (picked = f.path)}>
-                <td><button class="row-button" onclick={() => (picked = f.path)}>{f.name}</button></td>
+            {#each files.items as f (f.path)}
+              <tr class:selected={f.path === file.path} onclick={() => (picked = f)}>
+                <td><button class="row-button" onclick={() => (picked = f)}>{f.name}</button></td>
                 <td class="text-label hide-narrow">{f.media_type}</td>
                 <td class="text-label">{size(f.size)}</td>
                 <td class="text-label hide-narrow">{source(f)}</td>
@@ -85,6 +96,7 @@
             {/each}
           </tbody>
         </table>
+        <ListEnd list={files} />
       {/if}
     </div>
   </section>
@@ -123,7 +135,7 @@
     /* Cards take the height of their content, up to the screen; long lists scroll inside. */
     align-items: flex-start;
     gap: 16px;
-    padding: 0 16px 16px;
+    padding: 0 16px 8px;
     height: calc(100dvh - var(--top-bar-height));
     max-width: 1600px;
     margin: 0 auto;

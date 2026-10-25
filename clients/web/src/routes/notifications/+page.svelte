@@ -5,25 +5,30 @@
   import BellOff from "@lucide/svelte/icons/bell-off";
   import ListChecks from "@lucide/svelte/icons/list-checks";
   import type { Notification } from "$lib/api/types";
-  import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { pagedResource, resource, useDaemon } from "$lib/daemon.svelte";
   import { localTime } from "$lib/health";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
+  import ListEnd from "$lib/ui/ListEnd.svelte";
   import { installedIcon } from "$lib/pluginIcons";
   import PluginIcon from "$lib/ui/PluginIcon.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
   // Scheduled jobs' results and background work that ended (core/notifications.py), apart from any
   // conversation. Each opens the conversation its work was started in, when it has one, and a job's run opens on
-  // the Jobs page with its whole reply. Seen here, they're read.
+  // the Jobs page with its whole reply. Seen here, they're read. A page at a time as the table is scrolled.
   const { client, chats, notices } = useDaemon();
-  const notifications = resource((c) => c.notifications.list(), ["notifications"]);
+  const notifications = pagedResource(
+    (c, page) => c.notifications.list(page),
+    (n) => n.id,
+    ["notifications"],
+  );
   // For the icon of the plugin whose work ended.
   const servers = resource((c) => c.mcp.servers(), ["mcp"]);
   let picked = $state<string | null>(null);
   let clearing = $state(false);
   // Until one is picked: the newest.
-  const shown = $derived(notifications.data?.find((n) => n.id === picked) ?? notifications.data?.[0]);
+  const shown = $derived(notifications.items.find((n) => n.id === picked) ?? notifications.items[0]);
 
   onMount(() => {
     client.notifications.markRead().catch((e) => notices.report(e));
@@ -66,7 +71,7 @@
 
 <TopBar title="Notifications">
   {#snippet actions()}
-    {#if notifications.data?.length}
+    {#if notifications.items.length}
       <button class="btn btn--ghost" onclick={() => (clearing = true)}
         ><BellOff size={16} /><span class="hide-narrow">Clear all</span></button
       >
@@ -81,22 +86,22 @@
         <h2 class="text-heading">What finished</h2>
         <p class="text-meta">Scheduled jobs' results, background work that ended and health checks. Click one to see it on the right.</p>
       </div>
-      {#if notifications.data}<span class="pill">{notifications.data.length}</span>{/if}
+      {#if notifications.loaded}<span class="pill">{notifications.items.length}{notifications.done ? "" : "+"}</span>{/if}
     </header>
     <div class="scroll">
-      {#if notifications.error}
+      {#if notifications.error && !notifications.items.length}
         <p class="error-text pad">{notifications.error}</p>
-      {:else if notifications.data?.length === 0}
+      {:else if notifications.loaded && !notifications.items.length}
         <EmptyState
           icon={ListChecks}
           title="Nothing yet"
           text="When a scheduled job runs or background work ends (a coding task, a download), it shows up here."
         />
-      {:else if notifications.data && shown}
+      {:else if shown}
         <table class="data-table">
           <thead><tr><th>About</th><th>What happened</th><th class="hide-narrow">When</th></tr></thead>
           <tbody>
-            {#each notifications.data as n (n.id)}
+            {#each notifications.items as n (n.id)}
               <tr class:selected={n.id === shown.id} class:failed={!n.ok} onclick={() => (picked = n.id)}>
                 <td>
                   <button class="row-button" onclick={() => (picked = n.id)}>
@@ -111,6 +116,7 @@
             {/each}
           </tbody>
         </table>
+        <ListEnd list={notifications} />
       {/if}
     </div>
   </section>
@@ -163,7 +169,7 @@
     /* Cards take the height of their content, up to the screen; long lists scroll inside. */
     align-items: flex-start;
     gap: 16px;
-    padding: 0 16px 16px;
+    padding: 0 16px 8px;
     height: calc(100dvh - var(--top-bar-height));
     max-width: 1600px;
     margin: 0 auto;
