@@ -52,8 +52,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 ## Context
 
 - H1. Better epoch summaries: quote user messages verbatim, keep ids and paths exactly, and let `search_memory` search tool outputs too (it covers only what the user and the assistant wrote).
-- H2. The inbox answers quick questions with its whole epoch in context, which holds every message it routed elsewhere and its "→ Continued in …" line (`core/conversation/dispatch_nodes.py`): unrelated topics the model reads past, and tokens spent on each quick answer. Leave routed messages out of the inbox's model calls (`core/conversation/trim.py` stubs them already for tool results), keeping them in its history.
-- H3. How long a provider's prompt cache lasts is known only for some (`core/llm/providers.py`): Anthropic's 5-minute cache, OpenAI's own API (extended retention, about 30 minutes), DeepSeek (hours). The rest use 5 minutes: Gemini's implicit cache and xAI don't document theirs, Groq caches only its gpt-oss models (2 hours), and a provider with no cache could trim at every user message. Anthropic's 1-hour cache (writes cost 2x the input price instead of 1.25x) isn't offered: a choice in Settings → Model could turn it on, with the lifetime following.
+- H2. How long a provider's prompt cache lasts is known only for some (`core/llm/providers.py`): Anthropic's 5-minute cache, OpenAI's own API (extended retention, about 30 minutes), DeepSeek (hours). The rest use 5 minutes: Gemini's implicit cache and xAI don't document theirs, Groq caches only its gpt-oss models (2 hours), and a provider with no cache could trim at every user message. Anthropic's 1-hour cache (writes cost 2x the input price instead of 1.25x) isn't offered: a choice in Settings → Model could turn it on, with the lifetime following.
 
 ## Voice
 

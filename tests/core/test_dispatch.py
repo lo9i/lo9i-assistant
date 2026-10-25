@@ -119,6 +119,19 @@ async def test_a_quick_question_is_answered_in_the_inbox(dispatch, service, scri
     assert shown == ["what time is it in Tokyo?", "It's 3 pm in Tokyo."]
 
 
+async def test_a_quick_answer_doesnt_read_the_messages_the_inbox_sent_on(dispatch, service, script):
+    inbox = await _inbox(service)
+    await collect(service.send(inbox, "book the flights to Rome"))
+    dispatch.picks.append(Pick(QUICK, 0.9, ""))
+    script.reply("It's 3 pm in Tokyo.")
+    await collect(service.send(inbox, "what time is it in Tokyo?"))
+    sent = " ".join(m.text for m in script.requests[-1])
+    assert "what time is it in Tokyo?" in sent
+    assert "Rome" not in sent and "Started a new conversation" not in sent
+    shown = [m.text for m in await service.conversation_messages(inbox.thread_id)]
+    assert shown[:2] == ["book the flights to Rome", "→ Started a new conversation."]  # history keeps them
+
+
 async def test_a_quick_exchange_that_goes_on_moves_to_a_new_conversation_with_it(dispatch, service, script):
     inbox = await _inbox(service)
     dispatch.picks.extend([Pick(QUICK, 0.9, ""), *[Pick(FOLLOW_UP, 0.9, "")] * INBOX_TURNS])
