@@ -28,9 +28,11 @@
     loadStep?: (callId: string, index: number) => Promise<ShownCall>;
     /** Shown after the last message. */
     end?: Snippet;
-    /** Keep the newest message in view as content arrives (the live chat). A preview reads from the top. */
+    /** Keep the newest message in view as content arrives, and the user's message the content at the top answers
+     * pinned there (the live chat). A preview reads from the top. */
     follow?: boolean;
   };
+  type UserItem = Extract<ChatItem, { kind: "user" }>;
   let { items, thinking, name, onsuggest, onmove, loadCall, loadStep, end, follow = true }: Props = $props();
   const wholes = new WholeCalls();
 
@@ -46,6 +48,12 @@
   // Scrolled up from the newest message, far enough that the live chat offers to go back down.
   let away = $state(false);
   let copied = $state<number | null>(null);
+  // Where the copy of the user's message sits, from the thread's top (`.asked`'s top).
+  const PINNED_TOP = 8;
+  // The last user message whose start has scrolled up past where its copy sits: what's at the top answers it, so
+  // its copy shows there, as an editor's sticky scroll shows the function being read.
+  let askedId = $state<number | null>(null);
+  const asked = $derived(items.find((item): item is UserItem => item.kind === "user" && item.id === askedId));
 
   function below(el: HTMLElement): number {
     return el.scrollHeight - el.scrollTop - el.clientHeight;
@@ -68,6 +76,24 @@
 
   function measure(): void {
     if (scroller) away = below(scroller) > 100;
+    askedId = follow && scroller ? scrolledPast(scroller) : null;
+  }
+
+  function scrolledPast(el: HTMLElement): number | null {
+    const line = el.getBoundingClientRect().top + PINNED_TOP;
+    const rows = el.querySelectorAll<HTMLElement>(".row.user");
+    for (let i = rows.length - 1; i >= 0; i--) {
+      if (rows[i].getBoundingClientRect().top < line) return Number(rows[i].dataset.id);
+    }
+    return null;
+  }
+
+  // To the message's start, just under its copy, so the copy covers it and the rest reads on below.
+  function toAsked(): void {
+    const row = scroller?.querySelector(`.row.user[data-id="${askedId}"]`);
+    if (!scroller || !row) return;
+    const offset = row.getBoundingClientRect().top - scroller.getBoundingClientRect().top - PINNED_TOP + 1;
+    scroller.scrollBy({ top: offset, behavior: "smooth" });
   }
 
   function toBottom(): void {
@@ -97,7 +123,7 @@
     {/if}
     {#each items as item (item.id)}
       {#if item.kind === "user"}
-        <div class="row user">
+        <div class="row user" data-id={item.id}>
           <div class="bubble user-bubble">
             {#if item.channel}<span class="micro-label">{item.channel}</span>{/if}
             {#if item.text}<p>{item.text}</p>{/if}
@@ -214,6 +240,13 @@
     {/if}
     {#if end}{@render end()}{/if}
   </div>
+  <!-- Over the thread's top, like an editor's sticky scroll: what the reply below answers. Its own row stays as it
+       is, so following the newest content never moves. -->
+  {#if asked}
+    <button class="asked" title="Go to your message" onclick={toAsked}>
+      <span class="asked-text">{asked.text || asked.files.join(", ")}</span>
+    </button>
+  {/if}
   <!-- Over the thread's foot, just above the composer, so showing it never moves the messages. -->
   {#if follow && away}
     <button class="to-bottom" onclick={toBottom}>↓ Go to bottom</button>
@@ -241,6 +274,36 @@
     color: var(--color-text-muted);
     font-size: var(--font-size-xs);
     cursor: pointer;
+  }
+  .asked {
+    position: absolute;
+    top: 8px;
+    right: 16px;
+    z-index: 1;
+    max-width: 85%;
+    padding: 8px 12px;
+    border: 1px solid var(--color-border);
+    /* The user's bubble, where it was. */
+    border-radius: 16px;
+    border-bottom-right-radius: 8px;
+    /* Solid, so the reply scrolling under it doesn't show through; tinted like the user's bubbles. */
+    background: color-mix(in srgb, var(--color-action-primary) 12%, var(--color-bg-page));
+    box-shadow: var(--shadow-popover);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    text-align: left;
+    cursor: pointer;
+  }
+  .asked-text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
   .to-bottom:hover {
     color: var(--color-text-primary);

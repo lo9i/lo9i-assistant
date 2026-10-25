@@ -40,14 +40,14 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    min-height: 76px;
-    padding: 16px 16px 0;
+    min-height: var(--top-bar-height);
+    padding: 8px 16px 0;
     max-width: 1600px;
     margin: 0 auto;
   }
   h1 {
     min-width: 0;
-    margin: 0;
+    margin: 0 0 0 5px;
     font-size: var(--font-size-xl);
     font-weight: 600;
     letter-spacing: -0.01em;
@@ -62,9 +62,6 @@
     gap: 16px;
   }
   @media (max-width: 680px) {
-    .inner {
-      min-height: 60px;
-    }
     h1 {
       font-size: var(--font-size-lg);
     }

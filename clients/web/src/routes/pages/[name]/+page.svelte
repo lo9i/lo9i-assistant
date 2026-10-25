@@ -44,7 +44,7 @@
   /* The page fills the space beside the sidebar and lays itself out, like the app's own pages. */
   .frame-shell {
     height: 100dvh;
-    padding-top: 16px;
+    padding-top: 8px;
     box-sizing: border-box;
   }
   .frame-shell > :global(:not(iframe)) {
