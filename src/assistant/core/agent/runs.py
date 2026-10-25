@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from collections.abc import AsyncIterator, Callable
 from typing import Any, cast
 
@@ -18,6 +19,8 @@ from assistant.core.stream_events import approval_events, to_events
 from assistant.core.usage.log import UsageLog
 from assistant.core.usage.meter import CHANNEL, CONVERSATION
 from assistant.core.usage.tracker import UsageTracker
+
+logger = logging.getLogger(__name__)
 
 # The result of a tool call that a cancelled run never finished. Every tool call needs a result
 # before the model is called again.
@@ -87,7 +90,7 @@ class RunsMixin(LockingMixin, SearchMixin):
         """Runs in a task of its own, so `cancel` stops the run and never the caller reading the events
         (the run hub, a Telegram handler)."""
         events: asyncio.Queue[Event | None] = asyncio.Queue()
-        task = asyncio.create_task(self._produce(produce, events))
+        task = asyncio.create_task(self._produce(session.thread_id, produce, events))
         # A callback, not a `finally` in the task: a task cancelled before it starts never runs one.
         task.add_done_callback(lambda _: events.put_nowait(None))
         self._active_runs[session.thread_id] = task
@@ -104,11 +107,15 @@ class RunsMixin(LockingMixin, SearchMixin):
             await self._answer_open_tool_calls(session.thread_id)
             yield Cancelled()
 
-    async def _produce(self, produce: Callable[[], AsyncIterator[Event]], events: asyncio.Queue[Event | None]) -> None:
+    async def _produce(
+        self, thread_id: str, produce: Callable[[], AsyncIterator[Event]], events: asyncio.Queue[Event | None]
+    ) -> None:
         try:
             async for event in produce():
                 events.put_nowait(event)
         except Exception as e:
+            # The apps show only the message; the log keeps where it came from.
+            logger.exception("A run in %s failed", thread_id)
             events.put_nowait(Error(f"{type(e).__name__}: {e}"))
 
     async def pending_approvals(self, thread_id: str) -> list[ApprovalRequired]:

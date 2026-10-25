@@ -65,6 +65,26 @@ class NotifyingStore(AsyncSqliteStore):
 
     bus: EventBus
 
+    @asynccontextmanager
+    async def _cursor(self, *, transaction: bool = True) -> AsyncIterator[aiosqlite.Cursor]:
+        """The library's, with two changes. Its transaction is a plain BEGIN that reads, then writes: in WAL
+        mode, another connection committing in between fails the write at once with "database is locked",
+        whatever the busy timeout. BEGIN IMMEDIATE takes the write lock first, waiting the busy timeout for it.
+        And a batch that fails is rolled back instead of committed halfway."""
+        if not self.is_setup:
+            await self.setup()
+        async with self.lock, self.conn.cursor() as cur:
+            if not transaction:
+                yield cur
+                return
+            await self.conn.execute("BEGIN IMMEDIATE")
+            try:
+                yield cur
+            except BaseException:
+                await self.conn.execute("ROLLBACK")
+                raise
+            await self.conn.execute("COMMIT")
+
     async def abatch(self, ops) -> list[Result]:
         ops = list(ops)
         results = await super().abatch(ops)
