@@ -281,3 +281,19 @@ async def test_a_stop_that_takes_long_says_what_it_still_waits_for_and_where(cap
     assert "scheduler" not in caplog.text
     answered.set()
     await asyncio.wait_for(waiting, 1)
+
+
+def test_a_restart_drops_what_dotenv_added_so_it_is_read_afresh(monkeypatch):
+    """A line removed from .env is gone after a restart, while what the shell set stays."""
+    from assistant.daemon import shutdown
+
+    monkeypatch.setenv("EPOCH_MAX_TOKENS", "22000")
+    monkeypatch.setenv("FROM_SHELL", "kept")
+    monkeypatch.setattr(shutdown, "from_dotenv", {"EPOCH_MAX_TOKENS"})
+    seen = {}
+    monkeypatch.setattr(shutdown.os, "execv", lambda *args: seen.update(os.environ))
+
+    shutdown.exec_again()
+
+    assert "EPOCH_MAX_TOKENS" not in seen
+    assert seen["FROM_SHELL"] == "kept"
