@@ -208,7 +208,8 @@
     /* Cards take the height of their content, up to the screen; long lists scroll inside. */
     align-items: flex-start;
     gap: 16px;
-    height: calc(100dvh - 140px);
+    /* Below the title bar, the settings tabs and the gaps around them. */
+    height: calc(100dvh - var(--top-bar-height) - 72px);
   }
   /* The table takes three quarters of the width, the details the rest. */
   .table-card {

@@ -39,9 +39,9 @@
 </script>
 
 {#if shown}
-  <span class="fuel" {title}>
+  <span class="fuel" style="border-color: {color}" {title}>
     {#each Array(SEGMENTS) as _, i (i)}
-      <span class="seg" style="background: {color}; opacity: {i < filled ? 1 : 0.25}"></span>
+      <span class="seg" style="background: {color}; opacity: {i < filled ? 0.4 : 0.1}"></span>
     {/each}
     <span class="percent" style="color: {color}">{percent}%</span>
   </span>
@@ -53,6 +53,10 @@
     align-items: center;
     gap: 2px;
     height: 10px;
+    padding: 2px 4px;
+    border: 1px solid;
+    border-radius: 3px;
+    box-sizing: content-box;
     cursor: default;
   }
   .percent {
