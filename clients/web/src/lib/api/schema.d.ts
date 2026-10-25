@@ -1469,7 +1469,8 @@ export interface paths {
         };
         /**
          * Alerts
-         * @description MCP servers and skills that keep failing, the newest first.
+         * @description MCP servers and skills that keep failing, and the health check's new or growing causes, the newest
+         *     first.
          */
         get: operations["alerts_alerts_get"];
         put?: never;
@@ -1492,6 +1493,67 @@ export interface paths {
         /** Dismiss Alert */
         post: operations["dismiss_alert_alerts__area___name__dismiss_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/doctor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Doctor */
+        get: operations["doctor_doctor_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/doctor/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Health
+         * @description Checks today so far in the background, unless a check runs; its report comes with a `doctor` event.
+         */
+        post: operations["check_health_doctor_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/doctor/known/{cause_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Mark Known
+         * @description The cause is noise: left out from now on. 404: the latest check didn't find it.
+         */
+        put: operations["mark_known_doctor_known__cause_id__put"];
+        post?: never;
+        /**
+         * Forget Known
+         * @description The cause shows again from the next check. 404: it wasn't marked.
+         */
+        delete: operations["forget_known_doctor_known__cause_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2374,7 +2436,7 @@ export interface components {
              * Area
              * @enum {string}
              */
-            area: "mcp" | "skill";
+            area: "mcp" | "skill" | "doctor";
             /** Name */
             name: string;
             /** Failures */
@@ -2388,7 +2450,12 @@ export interface components {
              * @default failing
              * @enum {string}
              */
-            kind: "failing" | "signed_out";
+            kind: "failing" | "signed_out" | "new" | "growing" | "context";
+            /**
+             * Title
+             * @default
+             */
+            title: string;
         };
         /**
          * ApprovalRequired
@@ -2489,6 +2556,59 @@ export interface components {
             /** Cancelled */
             cancelled: number;
         };
+        /**
+         * Cause
+         * @description One cause and how often it happened in the day. `id` stays the same across days and versions: it's made
+         *     of the kind, the text with its numbers and ids left out, and where it happened, without line numbers.
+         */
+        Cause: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "log" | "conversation";
+            /**
+             * Level
+             * @default
+             */
+            level: string;
+            /** Title */
+            title: string;
+            /**
+             * Where
+             * @default
+             */
+            where: string;
+            /** Count */
+            count: number;
+            /** First */
+            first: string;
+            /** Last */
+            last: string;
+            /**
+             * Example
+             * @default
+             */
+            example: string;
+            /**
+             * Threads
+             * @default []
+             */
+            threads: components["schemas"]["ThreadRef"][];
+            /**
+             * Change
+             * @default
+             * @enum {string}
+             */
+            change: "" | "new" | "growing";
+            /**
+             * Before
+             * @default 0
+             */
+            before: number;
+        };
         /** ChannelCommand */
         ChannelCommand: {
             /** Command */
@@ -2574,6 +2694,15 @@ export interface components {
              * @default
              */
             thread_id: string;
+        };
+        /** ContextPart */
+        ContextPart: {
+            /** Name */
+            name: string;
+            /** Tokens */
+            tokens: number;
+            /** Before */
+            before?: number | null;
         };
         /** Conversation */
         Conversation: {
@@ -2698,6 +2827,52 @@ export interface components {
              * @default
              */
             text: string;
+        };
+        /**
+         * DoctorPage
+         * @description The latest report, the causes marked as known, and whether a check runs now.
+         */
+        DoctorPage: {
+            report: components["schemas"]["DoctorReport"] | null;
+            /** Known */
+            known: components["schemas"]["KnownCause"][];
+            /**
+             * Checking
+             * @default false
+             */
+            checking: boolean;
+        };
+        /** DoctorReport */
+        DoctorReport: {
+            /** Day */
+            day: string;
+            /** At */
+            at: string;
+            /** Whole Day */
+            whole_day: boolean;
+            /** Causes */
+            causes: components["schemas"]["Cause"][];
+            /**
+             * Gone
+             * @default []
+             */
+            gone: components["schemas"]["Cause"][];
+            /**
+             * Compared With
+             * @default
+             */
+            compared_with: string;
+            context: components["schemas"]["StartingContext"];
+            /**
+             * Known
+             * @default 0
+             */
+            known: number;
+            /**
+             * Dismissed
+             * @default []
+             */
+            dismissed: string[];
         };
         /** EmailAccount */
         EmailAccount: {
@@ -3216,6 +3391,28 @@ export interface components {
              */
             repository_name: string;
         };
+        /**
+         * KnownCause
+         * @description Recurring noise that isn't a problem: left out of every report from then on.
+         */
+        KnownCause: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "log" | "conversation";
+            /** Title */
+            title: string;
+            /**
+             * Where
+             * @default
+             */
+            where: string;
+            /** At */
+            at: string;
+        };
         /** LanguageOption */
         LanguageOption: {
             /** Code */
@@ -3631,7 +3828,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "job" | "background";
+            kind: "job" | "background" | "doctor";
             /** Title */
             title: string;
             /** Text */
@@ -4293,6 +4490,24 @@ export interface components {
             voice: string;
         };
         /**
+         * StartingContext
+         * @description The context a new conversation starts with, its system prompt and tool definitions, against the window
+         *     the conversation's context is measured against (the chat's context bar).
+         */
+        StartingContext: {
+            /** Tokens */
+            tokens: number;
+            /** Window */
+            window: number;
+            /** Parts */
+            parts: components["schemas"]["ContextPart"][];
+            /**
+             * Too Large
+             * @default false
+             */
+            too_large: boolean;
+        };
+        /**
          * StartupStatus
          * @description Whether the daemon starts at boot, and whether this daemon was started that way.
          */
@@ -4318,6 +4533,13 @@ export interface components {
         ThreadCreated: {
             /** Thread Id */
             thread_id: string;
+        };
+        /** ThreadRef */
+        ThreadRef: {
+            /** Thread Id */
+            thread_id: string;
+            /** Title */
+            title: string;
         };
         /** TokenReport */
         TokenReport: {
@@ -7122,7 +7344,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                area: "mcp" | "skill";
+                area: "mcp" | "skill" | "doctor";
                 name: string;
             };
             cookie?: never;
@@ -7136,6 +7358,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    doctor_doctor_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DoctorPage"];
+                };
+            };
+        };
+    };
+    check_health_doctor_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DoctorPage"];
+                };
+            };
+        };
+    };
+    mark_known_doctor_known__cause_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cause_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DoctorPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forget_known_doctor_known__cause_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cause_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DoctorPage"];
                 };
             };
             /** @description Validation Error */

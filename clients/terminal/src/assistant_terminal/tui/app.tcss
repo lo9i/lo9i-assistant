@@ -455,11 +455,11 @@ ModalScreen Input, ModalScreen OptionList, ModalScreen MarkdownHeader {
     border: round #2f343f;
 }
 
-SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen, HomeScreen, UsageScreen, SessionsScreen, McpScreen, LogsScreen, NotificationsScreen {
+SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen, HomeScreen, DoctorScreen, UsageScreen, SessionsScreen, McpScreen, LogsScreen, NotificationsScreen {
     align: center middle;
 }
 
-#skills, #jobs, #conversations, #devices, #keys, #home, #files, #usage, #sessions, #mcp, #plugins, #logs, #notifications, #prompts {
+#skills, #jobs, #conversations, #devices, #keys, #home, #doctor, #files, #usage, #sessions, #mcp, #plugins, #logs, #notifications, #prompts {
     width: 90%;
     max-width: 120;
     height: 80%;
@@ -468,12 +468,12 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     background: $dialog-background;
 }
 
-#skills Markdown, #jobs Markdown, #conversations Markdown, #devices Markdown, #keys Markdown, #home Markdown, #files Markdown, #usage Markdown, #sessions Markdown, #mcp Markdown, #plugins Markdown {
+#skills Markdown, #jobs Markdown, #conversations Markdown, #devices Markdown, #keys Markdown, #home Markdown, #doctor Markdown, #files Markdown, #usage Markdown, #sessions Markdown, #mcp Markdown, #plugins Markdown {
     background: transparent;
     margin: 0;
 }
 
-#skills-title, #jobs-title, #conversations-title, #devices-title, #keys-title, #home-title, #files-title, #mcp-title, #plugins-title, #notifications-title, #prompts-title {
+#skills-title, #jobs-title, #conversations-title, #devices-title, #keys-title, #home-title, #doctor-title, #files-title, #mcp-title, #plugins-title, #notifications-title, #prompts-title {
     height: auto;
     text-style: bold;
     margin-bottom: 1;
@@ -496,7 +496,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     display: block;
 }
 
-#skills-main, #jobs-main, #conversations-main, #devices-main, #keys-main, #home-main, #files-main, #mcp-main, #usage-scroll, #plugins-main, #prompts-main {
+#skills-main, #jobs-main, #conversations-main, #devices-main, #keys-main, #home-main, #doctor-main, #files-main, #mcp-main, #usage-scroll, #plugins-main, #prompts-main {
     height: 1fr;
 }
 
@@ -510,7 +510,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     height: auto;
 }
 
-#skills-list, #jobs-list, #conversations-list, #devices-list, #keys-list, #home-list, #files-list, #plugins-list {
+#skills-list, #jobs-list, #conversations-list, #devices-list, #keys-list, #home-list, #doctor-list, #files-list, #plugins-list {
     width: 36;
     border: round ansi_bright_black;
     background: transparent;
@@ -518,7 +518,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
 
 /* Lists of short labels (dates, job and skill names) have no frame; a divider sets them apart from the
    detail next to them. */
-#conversations-list, #jobs-list, #devices-list, #keys-list, #home-list, #files-list, #skills-list, #mcp-list, #plugins-list, #prompts-list {
+#conversations-list, #jobs-list, #devices-list, #keys-list, #home-list, #doctor-list, #files-list, #skills-list, #mcp-list, #plugins-list, #prompts-list {
     border: none;
 }
 
@@ -533,7 +533,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     background: transparent;
 }
 
-#jobs-list, #devices-list, #keys-list, #home-list, #files-list, #skills-list, #mcp-list, #plugins-list, #prompts-list {
+#jobs-list, #devices-list, #keys-list, #home-list, #doctor-list, #files-list, #skills-list, #mcp-list, #plugins-list, #prompts-list {
     width: 32;
 }
 
@@ -543,23 +543,23 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     border-bottom: solid ansi_bright_black;
 }
 
-#conversations-main .divider, #jobs-main .divider, #devices-main .divider, #keys-main .divider, #home-main .divider, #files-main .divider, #skills-main .divider, #mcp-main .divider, #plugins-main .divider, #prompts-main .divider {
+#conversations-main .divider, #jobs-main .divider, #devices-main .divider, #keys-main .divider, #home-main .divider, #doctor-main .divider, #files-main .divider, #skills-main .divider, #mcp-main .divider, #plugins-main .divider, #prompts-main .divider {
     width: 1;
     height: 1fr;
     margin: 1 1 1 0;
     border-left: solid ansi_bright_black;
 }
 
-#skills-detail, #jobs-detail, #conversations-detail, #devices-detail, #keys-detail, #home-detail, #files-detail, #mcp-detail, #plugins-detail, #prompts-detail {
+#skills-detail, #jobs-detail, #conversations-detail, #devices-detail, #keys-detail, #home-detail, #doctor-detail, #files-detail, #mcp-detail, #plugins-detail, #prompts-detail {
     padding: 0 1;
 }
 
-#skills-buttons, #jobs-buttons, #conversations-buttons, #devices-buttons, #keys-buttons, #home-buttons, #files-buttons, #usage-buttons, #sessions-buttons, #mcp-buttons, #plugins-buttons, #notifications-buttons, #prompts-buttons {
+#skills-buttons, #jobs-buttons, #conversations-buttons, #devices-buttons, #keys-buttons, #home-buttons, #doctor-buttons, #files-buttons, #usage-buttons, #sessions-buttons, #mcp-buttons, #plugins-buttons, #notifications-buttons, #prompts-buttons {
     height: auto;
     margin-top: 1;
 }
 
-#skills-buttons Button, #jobs-buttons Button, #conversations-buttons Button, #devices-buttons Button, #keys-buttons Button, #home-buttons Button, #usage-buttons Button, #mcp-buttons Button, #plugins-buttons Button, #notifications-buttons Button, #prompts-buttons Button {
+#skills-buttons Button, #jobs-buttons Button, #conversations-buttons Button, #devices-buttons Button, #keys-buttons Button, #home-buttons Button, #doctor-buttons Button, #usage-buttons Button, #mcp-buttons Button, #plugins-buttons Button, #notifications-buttons Button, #prompts-buttons Button {
     margin-right: 2;
 }
 

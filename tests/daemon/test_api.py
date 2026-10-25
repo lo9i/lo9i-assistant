@@ -339,6 +339,29 @@ async def test_notifications_are_listed_read_and_dismissed(client, service):
     assert await client.notifications.list() == []
 
 
+async def test_the_health_check_runs_on_demand_and_known_noise_is_marked(client, service):
+    from assistant.core.logs import LOG_FILES
+
+    path = LOG_FILES["daemon"].path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    local = datetime.now().astimezone()
+    path.write_text(f"{local:%Y-%m-%d %H:%M:%S},000 WARNING assistant.core.channels.telegram: Poll failed\n")
+    assert (await client.doctor.get()).report is None
+    assert (await client.doctor.check()).checking
+    await service.doctor.wait()
+    page = await client.doctor.get()
+    assert page.report is not None and [c.title for c in page.report.causes] == ["Poll failed"]
+    cause = page.report.causes[0]
+    marked = await client.doctor.mark_known(cause.id)
+    assert [k.id for k in marked.known] == [cause.id] and marked.report and marked.report.causes == []
+    assert (await client.doctor.forget_known(cause.id)).known == []
+    with pytest.raises(httpx.HTTPStatusError):
+        await client.doctor.forget_known(cause.id)
+    with pytest.raises(httpx.HTTPStatusError):
+        await client.doctor.mark_known("nothing-like-it")
+    await client.alerts.dismiss("doctor", "context")
+
+
 async def test_a_job_runs_reply_is_read_and_a_missing_run_is_a_job_error(client, service):
     from assistant.core.jobs import store
     from assistant.core.jobs.store import Job, JobError, RunRecord

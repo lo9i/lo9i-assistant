@@ -4,13 +4,15 @@
   import CircleCheck from "@lucide/svelte/icons/circle-check";
   import type { Alert } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { doctorProblem } from "$lib/doctor";
   import { localTime } from "$lib/health";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
   const { client, notices } = useDaemon();
-  // Failures are stored with the servers and skills, so their events refresh the list.
-  const alerts = resource((c) => c.alerts.list(), ["mcp", "skills"]);
+  // Failures are stored with the servers and skills, and the health check's with its reports, so their events refresh
+  // the list.
+  const alerts = resource((c) => c.alerts.list(), ["mcp", "skills", "doctor"]);
   let picked = $state<string | null>(null);
   // Until one is picked: the newest.
   const alert = $derived(alerts.data?.find((a) => key(a) === picked) ?? alerts.data?.[0]);
@@ -19,16 +21,28 @@
     return `${a.area}/${a.name}`;
   }
 
-  function kind(a: Alert): string {
-    return a.area === "mcp" ? "MCP server" : "Skill";
+  /** A health check's alert names a cause by its id: its title is what to show. */
+  function label(a: Alert): string {
+    return a.title || a.name;
   }
 
-  /** Failures in a row, or that a remote server waits for the user to sign in again. */
+  function kind(a: Alert): string {
+    return a.area === "mcp" ? "MCP server" : a.area === "skill" ? "Skill" : "Health check";
+  }
+
+  /** Failures in a row, that a remote server waits for the user to sign in again, or the health check's change. */
   function problem(a: Alert): string {
+    if (a.area === "doctor") return doctorProblem(a);
     return a.kind === "signed_out" ? "Sign in again" : `${a.failures} in a row`;
   }
 
+  function pill(a: Alert): string {
+    if (a.area === "doctor") return a.kind === "context" ? "large" : a.kind;
+    return a.kind === "signed_out" ? "signed out" : "failing";
+  }
+
   function href(a: Alert): string {
+    if (a.area === "doctor") return a.kind === "context" ? resolve("/doctor") : `${resolve("/doctor")}?c=${encodeURIComponent(a.name)}`;
     return `${a.area === "mcp" ? resolve("/mcp") : resolve("/skills")}?s=${encodeURIComponent(a.name)}`;
   }
 
@@ -48,7 +62,10 @@
     <header class="toolbar">
       <div>
         <h2 class="text-heading">Needs attention</h2>
-        <p class="text-meta">MCP servers and skills that keep failing or need you to sign in again. Click one to see it on the right.</p>
+        <p class="text-meta">
+          MCP servers and skills that keep failing or need you to sign in again, and what the health check found new or growing. Click one
+          to see it on the right.
+        </p>
       </div>
       {#if alerts.data}<span class="pill">{alerts.data.length}</span>{/if}
     </header>
@@ -67,7 +84,7 @@
           <tbody>
             {#each alerts.data as a (key(a))}
               <tr class:selected={key(a) === key(alert)} onclick={() => (picked = key(a))}>
-                <td><button class="row-button" onclick={() => (picked = key(a))}>{a.name}</button></td>
+                <td><button class="row-button" onclick={() => (picked = key(a))}>{label(a)}</button></td>
                 <td class="text-label hide-narrow">{kind(a)}</td>
                 <td class="text-label">{problem(a)}</td>
                 <td class="text-label hide-narrow">{localTime(a.at)}</td>
@@ -83,8 +100,8 @@
     {#if alert}
       <section class="details surface--glass">
         <header>
-          <h2 class="text-heading">{alert.name}</h2>
-          <span class="pill pill--danger">{alert.kind === "signed_out" ? "signed out" : "failing"}</span>
+          <h2 class="text-heading">{label(alert)}</h2>
+          <span class="pill pill--danger">{pill(alert)}</span>
         </header>
         <dl>
           <dt class="micro-label">Kind</dt>

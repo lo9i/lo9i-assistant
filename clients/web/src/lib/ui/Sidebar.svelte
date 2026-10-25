@@ -33,8 +33,9 @@
   // MCP servers that come with a web page, shown in an iframe (routes/pages/[name]).
   const servers = resource((c) => c.mcp.servers(), ["mcp"]);
   const pages = $derived((servers.data ?? []).filter((s) => s.page && s.enabled));
-  // Failures are stored with the servers and skills, so their events refresh the count.
-  const alerts = resource((c) => c.alerts.list(), ["mcp", "skills"]);
+  // Failures are stored with the servers and skills, and the health check's with its reports, so their events refresh
+  // the count.
+  const alerts = resource((c) => c.alerts.list(), ["mcp", "skills", "doctor"]);
   // A new listing of the extras, an install or update, or the setting changes what's newer.
   const updates = resource((c) => c.repositories.updates(), ["plugins", "mcp", "skills", "settings"]);
   // Job results and background work that ended, counted until the Notifications page is seen.
@@ -106,12 +107,13 @@
     { href: resolve("/jobs"), label: "Scheduled", Icon: CalendarClock },
     { href: resolve("/devices"), label: "Devices", Icon: Laptop, add: { label: "Pair a browser", run: pairBrowser } },
     { href: NOTIFICATIONS, label: "Notifications", Icon: ListChecks, count: () => unread },
-    // About you, Skills, Plugins, MCP servers and Logs are settings tabs with pages of their own; plugin updates show here.
+    // About you, Skills, Plugins, MCP servers, Logs and Health are settings tabs with pages of their own; plugin updates
+    // show here.
     {
       href: resolve("/settings"),
       label: "Settings",
       Icon: Settings,
-      also: [resolve("/memory"), resolve("/skills"), resolve("/plugins"), resolve("/mcp"), resolve("/logs")],
+      also: [resolve("/memory"), resolve("/skills"), resolve("/plugins"), resolve("/mcp"), resolve("/logs"), resolve("/doctor")],
       count: () => updates.data?.length ?? 0,
     },
   ];

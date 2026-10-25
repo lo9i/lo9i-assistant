@@ -1,15 +1,16 @@
 """AssistantService: the only core API that gateways use.
 
 The service is a facade (`service.py`) composed of mixins, one per concern:
-threads, channel threads, files, memory, channels, email, mcp, sign-ins, alerts, notifications, home, follow-ups, tasks,
-repositories, model, identity, prompts, speech, log level, web search, skills, pinned skills, jobs, usage,
-messaging, runs and locking.
+threads, channel threads, files, memory, channels, email, mcp, sign-ins, alerts, doctor, notifications, home,
+follow-ups, tasks, repositories, model, identity, prompts, speech, log level, web search, skills, pinned skills, jobs,
+usage, messaging, runs and locking.
 """
 
-from assistant.core.agent.alerts import Alert
+from assistant.core.agent.alerts import Alert, AlertArea
 from assistant.core.agent.channels import ChannelNotConnectedError, ChannelStatus, SetupItem
 from assistant.core.agent.conversations import Conversation, ShownCall, ShownMessage, ShownStep
 from assistant.core.agent.devices import Device, DeviceError, PairingCode
+from assistant.core.agent.doctor import Cause, ContextPart, DoctorPage, DoctorReport, KnownCause, StartingContext
 from assistant.core.agent.email import EmailAccount, EmailAccountNotFoundError, EmailError, EmailProvider
 from assistant.core.agent.files import FileUnavailableError, UploadedFile
 from assistant.core.agent.handoffs import Agent, AgentFolders, FolderError, FolderListing, Handoff, HandoffError
@@ -56,9 +57,12 @@ __all__ = [
     "Agent",
     "AgentFolders",
     "Alert",
+    "AlertArea",
     "AssistantService",
+    "Cause",
     "ChannelNotConnectedError",
     "ChannelStatus",
+    "ContextPart",
     "Conversation",
     "ConversationBusyError",
     "ConversationError",
@@ -66,6 +70,8 @@ __all__ = [
     "Decoding",
     "Device",
     "DeviceError",
+    "DoctorPage",
+    "DoctorReport",
     "EmailAccount",
     "EmailAccountNotFoundError",
     "EmailError",
@@ -90,6 +96,7 @@ __all__ = [
     "Job",
     "JobError",
     "KeptKeys",
+    "KnownCause",
     "McpProbe",
     "McpServer",
     "McpServerChanges",
@@ -132,6 +139,7 @@ __all__ = [
     "SpeechSettingsError",
     "SpeechStatus",
     "SpokenReplies",
+    "StartingContext",
     "SynthesisError",
     "TokenReport",
     "UnknownPromptError",

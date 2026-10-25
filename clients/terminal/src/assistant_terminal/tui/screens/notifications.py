@@ -1,7 +1,7 @@
-"""The notifications feed: scheduled jobs' results and background work that ended, newest first. Enter (or
-Open) goes to the conversation the work was started in, when it has one, or opens a job's run in /jobs with
-its whole reply; Dismiss and Clear remove them. Returns the conversation's thread id to open, or None.
-Opening the screen marks them read."""
+"""The notifications feed: scheduled jobs' results, background work that ended and health checks, newest first.
+Enter (or Open) goes to the conversation the work was started in, when it has one, opens a job's run in /jobs with
+its whole reply, or a health check in /doctor; Dismiss and Clear remove them. Returns the conversation's thread id
+to open, or None. Opening the screen marks them read."""
 
 from typing import ClassVar
 
@@ -13,10 +13,11 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, OptionList, Static
 from textual.widgets.option_list import Option
 
-from assistant.client.daemon_client import JobsApi, NotificationsApi
+from assistant.client.daemon_client import DoctorApi, JobsApi, NotificationsApi
 from assistant.core.agent import Notification
 from assistant_terminal.notifications_text import notification_line
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.screens.doctor import DoctorScreen
 from assistant_terminal.tui.screens.jobs import JobsScreen
 
 
@@ -26,10 +27,11 @@ class NotificationsScreen(ModalScreen[str | None]):
         Binding("enter", "open", show=False, priority=True),
     ]
 
-    def __init__(self, notifications: NotificationsApi, jobs: JobsApi) -> None:
+    def __init__(self, notifications: NotificationsApi, jobs: JobsApi, doctor: DoctorApi) -> None:
         super().__init__()
         self._notifications = notifications
         self._jobs = jobs
+        self._doctor = doctor
         self._shown: dict[str, Notification] = {}
         self._selected: str | None = None
 
@@ -85,6 +87,8 @@ class NotificationsScreen(ModalScreen[str | None]):
             self.dismiss(notification.thread_id)
         elif notification is not None and notification.job:
             self.app.push_screen(JobsScreen(self._jobs, notification.job, notification.run_at))
+        elif notification is not None and notification.kind == "doctor":
+            self.app.push_screen(DoctorScreen(self._doctor))
 
     @on(Button.Pressed, "#close")
     def action_close(self) -> None:
@@ -107,6 +111,12 @@ class NotificationsScreen(ModalScreen[str | None]):
         self._selected = notification_id
         notification = self._shown[notification_id]
         opening = self.query_one("#open", Button)
-        opening.label = "Open the job" if notification.job else "Open its conversation"
-        opening.disabled = not (notification.thread_id or notification.job)
+        opening.label = _opening(notification)
+        opening.disabled = not (notification.thread_id or notification.job or notification.kind == "doctor")
         opening.tooltip = None if not opening.disabled else "It has nothing to open."
+
+
+def _opening(notification: Notification) -> str:
+    if notification.job:
+        return "Open the job"
+    return "Open the health check" if notification.kind == "doctor" else "Open its conversation"

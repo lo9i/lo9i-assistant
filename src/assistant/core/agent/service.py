@@ -11,6 +11,7 @@ from assistant.core.agent.channel_threads import ChannelThreadsMixin
 from assistant.core.agent.channels import ChannelsMixin
 from assistant.core.agent.devices import DevicesMixin
 from assistant.core.agent.dispatch import DispatchMixin
+from assistant.core.agent.doctor import DoctorMixin
 from assistant.core.agent.email import EmailMixin
 from assistant.core.agent.files import FilesMixin
 from assistant.core.agent.follow_ups import FollowUpsMixin
@@ -48,6 +49,8 @@ from assistant.core.config import settings
 from assistant.core.conversation import prompt_edits
 from assistant.core.conversation.meanings import ConversationIndexer, SimilarConversations
 from assistant.core.conversation.memory_writer import MemoryWriter
+from assistant.core.doctor.doctor import Doctor
+from assistant.core.doctor.schedule import DoctorSchedule
 from assistant.core.health import HealthLog
 from assistant.core.home.refresh import HomeRefresh
 from assistant.core.home.schedule import HomeSchedule
@@ -86,6 +89,7 @@ class AssistantService(
     ChannelsMixin,
     McpMixin,
     AlertsMixin,
+    DoctorMixin,
     NotificationsMixin,
     HomeMixin,
     FollowUpsMixin,
@@ -136,6 +140,10 @@ class AssistantService(
         self._plugin_tools = PluginTools(self.mcp, AgentTools(self.agent_tasks, self._task_reports))
         self.home_refresh = HomeRefresh(storage.store, bus, lambda: self._home_builder, self._plugin_tools)
         self.home_schedule = HomeSchedule(storage.store, self.home_refresh, settings.owner_id)
+        self.doctor = Doctor(
+            storage.store, bus, lambda: self._graph, lambda: self._active_runs.keys(), self._plugin_tools
+        )
+        self.doctor_schedule = DoctorSchedule(storage.store, self.doctor, settings.owner_id)
         self.pages = McpPages(storage.store, environments, secrets)
         self.channels_hub = ChannelHub(self.outbox, self.approvals, bus, self.assistant_name, self.channel_commands)
         self.channel_processes = ChannelProcesses(storage.store, self.channels_hub, environments, secrets)

@@ -11,6 +11,8 @@ from assistant.core.conversation.digest import Digester
 from assistant.core.conversation.meanings import ConversationIndexer, SimilarConversations
 from assistant.core.conversation.memory_writer import MemoryWriter
 from assistant.core.conversation.titles import Titler
+from assistant.core.doctor.doctor import Doctor
+from assistant.core.doctor.schedule import DoctorSchedule
 from assistant.core.graph import Graph
 from assistant.core.health import HealthLog
 from assistant.core.home.builder import SectionBuilder
@@ -79,6 +81,10 @@ class ServiceBase:
     home_refresh: HomeRefresh
     # Refreshes Home at the start of the day and while a client shows it. The daemon runs it as a supervised task.
     home_schedule: HomeSchedule
+    # Checks the daemon's health (core/doctor/); requests start a check of today in the background.
+    doctor: Doctor
+    # Checks each day once it ended. The daemon runs it as a supervised task.
+    doctor_schedule: DoctorSchedule
     _home_builder: SectionBuilder
     _transcriber: Transcriber
     _synthesizer: Synthesizer
