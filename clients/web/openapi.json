@@ -794,6 +794,84 @@
         }
       }
     },
+    "/conversations/{thread_id}": {
+      "get": {
+        "summary": "Conversation",
+        "description": "One conversation as the list shows it: its title, tags and channels. 404: it isn't listed (a new one\nbefore its first message); `conversations` events tell when it changes.",
+        "operationId": "conversation_conversations__thread_id__get",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Conversation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Conversation",
+        "description": "Deletes a conversation no client is on. 404: no such conversation; 409: a client is on\nit or a reply is running.",
+        "operationId": "delete_conversation_conversations__thread_id__delete",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/conversations/{thread_id}/messages": {
       "get": {
         "summary": "Conversation Messages",
@@ -1033,46 +1111,6 @@
         "summary": "Resume Conversation",
         "description": "Moves the calling client to an earlier conversation, leaving the one it was on.",
         "operationId": "resume_conversation_conversations__thread_id__resume_post",
-        "parameters": [
-          {
-            "name": "thread_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Thread Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Ok"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/conversations/{thread_id}": {
-      "delete": {
-        "summary": "Delete Conversation",
-        "description": "Deletes a conversation no client is on. 404: no such conversation; 409: a client is on\nit or a reply is running.",
-        "operationId": "delete_conversation_conversations__thread_id__delete",
         "parameters": [
           {
             "name": "thread_id",

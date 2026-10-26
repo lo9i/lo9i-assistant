@@ -2,8 +2,8 @@
 background work, MCP servers or skills that keep failing, MCP servers whose sign-in stopped working and new plugin
 updates show a notification, integration, channel, client, job, notification feed and settings changes refresh
 an open screen that shows them (in the background), a rename updates the title, pinning or unpinning a skill
-updates the subtitle, runs started elsewhere in this conversation appear in the chat live, and a conversation left
-with /new while its reply was running reports when it finishes."""
+and titling the conversation update the subtitle, runs started elsewhere in this conversation appear in the chat
+live, and a conversation left with /new while its reply was running reports when it finishes."""
 
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
@@ -49,6 +49,11 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         """The conversation's pinned skills or the agent it's handed to changed."""
         await app.refresh_thread()
 
+    async def conversations(_: dict[str, Any]) -> None:
+        """A conversation was listed, titled or deleted: the subtitle's title, and /conversations."""
+        await app.refresh_thread()
+        app.reload_screen("conversations")
+
     async def ending(data: dict[str, Any]) -> None:
         """A restart or stop asked for or taken back: said, and shown in /host."""
         app.show_ending(data)
@@ -72,7 +77,7 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         "channels": screen("channels"),
         "clients": screen("clients"),
         "jobs": screen("jobs"),
-        "conversations": screen("conversations"),
+        "conversations": conversations,
         "notifications": screen("notifications"),
         "home": screen("home"),
         "prompts": screen("prompts"),

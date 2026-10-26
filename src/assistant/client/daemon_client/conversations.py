@@ -45,6 +45,14 @@ class ConversationsApi:
         """Newest activity first."""
         return [Conversation(**c) for c in await self._transport.request("GET", "/conversations")]
 
+    async def get(self, thread_id: str) -> Conversation | None:
+        """One conversation as `recent` lists it; None while it isn't listed (a new one before its first message)."""
+        try:
+            found = await self._transport.request("GET", f"/conversations/{thread_id}", errors={404: ConversationError})
+        except ConversationError:
+            return None
+        return Conversation(**found)
+
     async def messages(self, thread_id: str) -> list[ShownMessage]:
         return [_shown(m) for m in await self._transport.request("GET", f"/conversations/{thread_id}/messages")]
 

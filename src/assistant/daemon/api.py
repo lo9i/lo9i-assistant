@@ -716,6 +716,15 @@ def _add_conversation_routes(app: FastAPI, service: AssistantService, clients: C
     async def conversation_list() -> list[Conversation]:
         return await service.list_conversations(settings.owner_id)
 
+    @app.get("/conversations/{thread_id}")
+    async def conversation(thread_id: str) -> Conversation:
+        """One conversation as the list shows it: its title, tags and channels. 404: it isn't listed (a new one
+        before its first message); `conversations` events tell when it changes."""
+        try:
+            return await service.conversation(settings.owner_id, thread_id)
+        except ConversationError as e:
+            raise HTTPException(404, str(e)) from e
+
     @app.get("/conversations/{thread_id}/messages")
     async def conversation_messages(thread_id: str) -> list[ShownMessage]:
         return await service.conversation_messages(thread_id)

@@ -56,13 +56,14 @@ export function sourceOf(p: Plugin): string {
   return p.repository.official ? "Official" : p.repository.name;
 }
 
-/** "MCP server · channel · skill · page", "Channel" (a chat channel without tools), "Email provider", or "Skill". */
+/** "MCP server · channel · skill · page", "Channel" (a chat channel without tools), "Email provider", "Coding agent · skill", or "Skill". */
 export function kindOf(p: Plugin): string {
   if (p.kind === "skill") return "Skill";
   const parts: Array<[string, boolean | undefined]> = [
     ["MCP server", p.server.transport !== "none"],
     ["channel", p.server.channel],
     ["email provider", p.server.email],
+    ["coding agent", Boolean(p.server.agent)],
     ["skill", p.server.skill],
     ["page", p.server.page],
   ];

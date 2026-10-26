@@ -24,6 +24,14 @@ class ConversationsMixin(TitlesMixin):
             replace(c, inbox=c.thread_id == inbox_id) for c in await conversations.recent(self._storage.store, user_id)
         ]
 
+    async def conversation(self, user_id: str, thread_id: str) -> Conversation:
+        """One conversation as the list shows it. Raises ConversationError when it isn't listed (a new one
+        before its first message)."""
+        found = await conversations.load(self._storage.store, user_id, thread_id)
+        if found is None:
+            raise ConversationError(f"No conversation {thread_id}.")
+        return replace(found, inbox=thread_id == await inbox.current(self._storage.store, user_id))
+
     async def conversation_messages(self, thread_id: str) -> list[ShownMessage]:
         state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
         return shown(state.values.get("messages", []))

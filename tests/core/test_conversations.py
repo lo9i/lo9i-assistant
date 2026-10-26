@@ -36,6 +36,16 @@ async def test_messages_are_listed_titled_by_the_first_one_until_the_model_title
     assert await service.title_untitled("owner") == 0
 
 
+async def test_one_conversation_is_read_as_the_list_shows_it_once_it_has_a_message(service):
+    session = await service.session("owner", "cli")
+    with pytest.raises(ConversationError):
+        await service.conversation("owner", session.thread_id)
+    await _say(service, "plan my trip", session)
+    await _archived(service)  # Titling runs in the background and would change it between the two reads.
+    [listed] = await service.list_conversations("owner")
+    assert await service.conversation("owner", session.thread_id) == listed
+
+
 async def test_a_conversation_records_the_channels_it_was_used_from(service):
     cli = await service.session("owner", "cli")
     await _say(service, "one", cli)
