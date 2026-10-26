@@ -4,6 +4,8 @@ A personal AI assistant built on LangGraph. A daemon owns all state and runs the
 
 It remembers you (a profile, facts and past episodes), runs shell commands, searches and reads the web, sends and reads email, runs scheduled jobs, and uses tools from MCP servers. Risky actions ask for your approval first.
 
+Website: [lo9i.com.ar](https://lo9i.com.ar/)
+
 ## Quick install
 
 Linux, macOS, WSL2
