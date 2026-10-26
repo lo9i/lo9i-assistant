@@ -917,6 +917,7 @@ class FakeDevices:
 
 class FakeFiles:
     def __init__(self):
+        self.pages = []
         self.items = [
             UploadedFile(
                 "a1/notes.txt",
@@ -940,8 +941,9 @@ class FakeFiles:
             ),
         ]
 
-    async def list(self):
-        return list(self.items)
+    async def list(self, query="", offset=0, limit=None):
+        self.pages.append((offset, limit))
+        return self.items[offset : None if limit is None else offset + limit]
 
     async def content(self, file):
         return b"buy milk"
@@ -1070,6 +1072,7 @@ def _cause(id: str, title: str, count: int, **fields) -> Cause:
 
 class FakeNotifications:
     def __init__(self):
+        self.pages = []
         self.items = [
             Notification("n1", _NEXT, "background", "plan my trip", "✅ Claude Code finished.", True, "owner:abc"),
             Notification(
@@ -1084,8 +1087,9 @@ class FakeNotifications:
             ),
         ]
 
-    async def list(self):
-        return list(self.items)
+    async def list(self, offset=0, limit=None):
+        self.pages.append((offset, limit))
+        return self.items[offset : None if limit is None else offset + limit]
 
     async def mark_read(self):
         self.items = [replace(n, read=True) for n in self.items]

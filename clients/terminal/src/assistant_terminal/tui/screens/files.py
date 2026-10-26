@@ -18,7 +18,9 @@ from assistant.client.daemon_client import FilesApi
 from assistant.client.files import save_download
 from assistant.core.agent import FileUnavailableError, UploadedFile
 from assistant_terminal.files_text import describe
+from assistant_terminal.paging import Pages
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.paged_list import PagedOptionList
 
 _EMPTY = "No files yet. Files you attach to a message, and the ones tools bring in, show up here."
 
@@ -29,14 +31,14 @@ class FilesScreen(ModalScreen[None]):
     def __init__(self, files: FilesApi) -> None:
         super().__init__()
         self._files = files
-        self._shown: dict[str, UploadedFile] = {}
+        self._pages = Pages(lambda offset, limit: files.list(offset=offset, limit=limit), lambda f: f.path)
         self._selected: str | None = None
 
     def compose(self) -> ComposeResult:
         with Vertical(id="files"):
             yield Static("Files", id="files-title")
             with Horizontal(id="files-main"):
-                yield OptionList(id="files-list")
+                yield PagedOptionList(self._pages, lambda f: Option(f.name, id=f.path), id="files-list")
                 yield Static(classes="divider")
                 with VerticalScroll(id="files-detail"):
                     yield Markdown(id="file-body")
@@ -52,18 +54,19 @@ class FilesScreen(ModalScreen[None]):
     @reports_daemon_unavailable
     async def reload(self) -> None:
         """Called when a conversation changes: a message brought a file, or one was deleted with its files."""
-        files = await self._files.list()
-        self._shown = {f.path: f for f in files}
-        options = self.query_one("#files-list", OptionList)
-        options.clear_options()
-        options.add_options([Option(f.name, id=f.path) for f in files])
+        options = self.query_one("#files-list", PagedOptionList)
+        files = await options.reload()
         if self._selected not in self._shown:
             self._selected = files[0].path if files else None
         if self._selected is None:
             await self._body(_EMPTY)
             return
-        options.highlighted = list(self._shown).index(self._selected)
+        options.highlighted = options.get_option_index(self._selected)
         await self._body(describe(self._shown[self._selected]))
+
+    @property
+    def _shown(self) -> dict[str, UploadedFile]:
+        return {f.path: f for f in self._pages.items}
 
     async def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
         if event.option.id in self._shown:

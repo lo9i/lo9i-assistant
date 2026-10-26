@@ -16,7 +16,9 @@ from textual.widgets.option_list import Option
 from assistant.client.daemon_client import DoctorApi, JobsApi, NotificationsApi
 from assistant.core.agent import Notification
 from assistant_terminal.notifications_text import notification_line
+from assistant_terminal.paging import Pages
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.paged_list import PagedOptionList
 from assistant_terminal.tui.screens.doctor import DoctorScreen
 from assistant_terminal.tui.screens.jobs import JobsScreen
 
@@ -32,14 +34,14 @@ class NotificationsScreen(ModalScreen[str | None]):
         self._notifications = notifications
         self._jobs = jobs
         self._doctor = doctor
-        self._shown: dict[str, Notification] = {}
+        self._pages = Pages(lambda offset, limit: notifications.list(offset, limit), lambda n: n.id)
         self._selected: str | None = None
 
     def compose(self) -> ComposeResult:
         with Vertical(id="notifications"):
             yield Static("Notifications", id="notifications-title")
             yield Static("No notifications.", id="notifications-empty")
-            yield OptionList(id="notifications-list")
+            yield PagedOptionList(self._pages, lambda n: Option(notification_line(n), id=n.id), id="notifications-list")
             with Horizontal(id="notifications-buttons"):
                 yield Button("Open its conversation", variant="success", id="open")
                 yield Button("Dismiss", id="dismiss")
@@ -54,11 +56,8 @@ class NotificationsScreen(ModalScreen[str | None]):
     @reports_daemon_unavailable
     async def reload(self) -> None:
         """Called when the feed changes (a job ran, a task ended)."""
-        items = await self._notifications.list()
-        self._shown = {n.id: n for n in items}
-        options = self.query_one("#notifications-list", OptionList)
-        options.clear_options()
-        options.add_options([Option(notification_line(n), id=n.id) for n in items])
+        options = self.query_one("#notifications-list", PagedOptionList)
+        items = await options.reload()
         self.query_one("#notifications").set_class(not items, "empty")
         for button in ("#open", "#dismiss", "#clear"):
             self.query_one(button).display = bool(items)
@@ -66,7 +65,7 @@ class NotificationsScreen(ModalScreen[str | None]):
             self.query_one("#close", Button).focus()
             return
         keep = self._selected if self._selected in self._shown else items[0].id
-        options.highlighted = list(self._shown).index(keep)
+        options.highlighted = options.get_option_index(keep)
         options.focus()
         self._select(keep)
 
@@ -106,6 +105,10 @@ class NotificationsScreen(ModalScreen[str | None]):
     async def _clear(self) -> None:
         await self._notifications.clear()
         await self.reload()
+
+    @property
+    def _shown(self) -> dict[str, Notification]:
+        return {n.id: n for n in self._pages.items}
 
     def _select(self, notification_id: str) -> None:
         self._selected = notification_id
