@@ -16,8 +16,19 @@
   let input = $state<HTMLInputElement>();
 
   const busy = $derived(snapshot.current.busy);
-  const reply = $derived(finalReply(snapshot.current.transcript));
   const open = $derived(quickPanel.open === "text");
+  // The panel opens empty: only what comes after the opening shows, not the last exchange.
+  let since = $state(0);
+  let wasOpen = false;
+  $effect.pre(() => {
+    const items = snapshot.current.transcript.items.length;
+    if (open && !wasOpen && !busy) since = items;
+    wasOpen = open;
+  });
+  const reply = $derived.by(() => {
+    const t = snapshot.current.transcript;
+    return finalReply({ ...t, items: t.items.slice(since) });
+  });
 
   // Ready for the next message whenever the panel opens or a reply ends.
   $effect(() => {
