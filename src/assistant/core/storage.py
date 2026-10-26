@@ -35,6 +35,8 @@ _CHANGE_EVENTS = {
     "conversations": "conversations",
     # Each conversation's latest running summary (core/conversation/summaries.py), which routing embeds.
     "conversation_summaries": "conversation_summaries",
+    # The files each conversation refers to (core/conversation/file_index.py), which the Files lists show.
+    "conversation_files": "conversations",
     # Job results and background work that ended (core/notifications.py).
     "notifications": "notifications",
     # Messages waiting to be sent in a conversation (core/conversation/queued.py), for the daemon to send.

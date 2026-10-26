@@ -1,18 +1,16 @@
-"""The files in the user's conversations, read from the messages that refer to them: the ones the user sent
-and the ones tool results brought (an email's attachments, an MCP tool's images)."""
+"""The files in the user's conversations, read from the index of the messages that refer to them
+(core/conversation/file_index.py): the ones the user sent and the ones tool results brought (an email's attachments,
+an MCP tool's images)."""
 
 import asyncio
 import re
-from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from langchain_core.messages import BaseMessage
-
 from assistant.core import conversations, uploads
 from assistant.core.agent.thread_files import ThreadFilesMixin
-from assistant.core.agent_tasks import sent
-from assistant.core.attachments import tool_uploads, user_uploads
+from assistant.core.conversation import file_index
+from assistant.core.conversation.file_index import FileReference
 from assistant.core.conversations import Conversation
 
 __all__ = ["FileUnavailableError", "FilesMixin", "UploadedFile"]
@@ -41,17 +39,25 @@ class FileUnavailableError(Exception):
 class FilesMixin(ThreadFilesMixin):
     async def list_files(self, user_id: str) -> list[UploadedFile]:
         """Newest first, each file once. Files no longer on disk are left out."""
-        found: list[UploadedFile] = []
+        indexed = await file_index.of_user(self._storage.store, user_id)
+        found: list[tuple[Conversation, list[FileReference]]] = []
         for conversation in await conversations.recent(self._storage.store, user_id):
-            references = _references(await self._thread_messages(conversation.thread_id))
-            found += await asyncio.to_thread(_on_disk, conversation, references)
-        return sorted(_once(found), key=lambda f: (f.uploaded_at, f.path), reverse=True)
+            found.append((conversation, await self._references(conversation.thread_id, indexed)))
+        files = await asyncio.to_thread(_on_disk, found)
+        return sorted(_once(files), key=lambda f: (f.uploaded_at, f.path), reverse=True)
+
+    async def _references(self, thread_id: str, indexed: dict[str, list[FileReference]]) -> list[FileReference]:
+        """From the index, but for a conversation with a run in progress, whose files are indexed when it ends, or
+        one not indexed yet: from its messages."""
+        if thread_id in indexed and thread_id not in self._run_starts:
+            return indexed[thread_id]
+        return file_index.references(await self._thread_messages(thread_id))
 
     async def files_page(
         self, user_id: str, query: str = "", offset: int = 0, limit: int | None = None
     ) -> list[UploadedFile]:
         """The files matching `query` (by name, type, where they came from or conversation), newest first, from
-        `offset`: at most `limit`, all of them with None. Each page still reads every conversation (BACKLOG.md)."""
+        `offset`: at most `limit`, all of them with None."""
         words = query.strip().lower()
         matching = [f for f in await self.list_files(user_id) if words in _searched(f)]
         return matching[offset : None if limit is None else offset + limit]
@@ -64,11 +70,6 @@ class FilesMixin(ThreadFilesMixin):
         if file is None or data is None:
             raise FileUnavailableError("That file isn't there any more.")
         return file, data
-
-
-def _references(messages: Sequence[BaseMessage]) -> list[tuple[str, dict[str, str]]]:
-    """Each file's reference with the tool that brought it, "" for the user's (to an agent at work too)."""
-    return [("", r) for r in [*user_uploads(messages), *sent.uploads(messages)]] + tool_uploads(messages)
 
 
 def _searched(file: UploadedFile) -> str:
@@ -84,22 +85,22 @@ def _once(files: list[UploadedFile]) -> list[UploadedFile]:
     return list({f.path: f for f in reversed(files)}.values())
 
 
-def _on_disk(conversation: Conversation, references: list[tuple[str, dict[str, str]]]) -> list[UploadedFile]:
-    return [f for tool, r in references if (f := _file(conversation, tool, r)) is not None]
+def _on_disk(found: list[tuple[Conversation, list[FileReference]]]) -> list[UploadedFile]:
+    return [f for conversation, references in found for r in references if (f := _file(conversation, r))]
 
 
-def _file(conversation: Conversation, tool: str, reference: dict[str, str]) -> UploadedFile | None:
-    path = uploads.absolute(reference["path"])
+def _file(conversation: Conversation, reference: FileReference) -> UploadedFile | None:
+    path = uploads.absolute(reference.path)
     if not path.is_file():
         return None
     stat = path.stat()
     return UploadedFile(
-        path=reference["path"],
-        name=reference["name"],
-        media_type=reference["media_type"],
+        path=reference.path,
+        name=reference.name,
+        media_type=reference.media_type,
         size=stat.st_size,
         uploaded_at=datetime.fromtimestamp(stat.st_mtime, UTC).isoformat(),
         thread_id=conversation.thread_id,
         conversation=conversation.title,
-        tool=tool,
+        tool=reference.tool,
     )

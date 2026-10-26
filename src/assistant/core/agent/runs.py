@@ -12,6 +12,7 @@ from assistant.core import checkpoints, observability
 from assistant.core.agent.locking import LockingMixin
 from assistant.core.agent.search import SearchMixin
 from assistant.core.agent.session import Session
+from assistant.core.agent.thread_files import ThreadFilesMixin
 from assistant.core.context import Context
 from assistant.core.events import ApprovalRequired, Cancelled, Done, Error, Event
 from assistant.core.health import HealthLog
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 _CANCELLED_TOOL = "[cancelled by the user before it finished]"
 
 
-class RunsMixin(LockingMixin, SearchMixin):
+class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
     """Executes one graph run and translates it into events. A run can be cancelled."""
 
     async def cancel(self, thread_id: str) -> bool:
@@ -62,7 +63,7 @@ class RunsMixin(LockingMixin, SearchMixin):
 
     async def _run_with(self, session: Session, events: Callable[[], AsyncIterator[Event]]) -> AsyncIterator[Event]:
         """A run of the conversation: the graph's, or a handed-off agent's (handoffs.py). One at a time
-        per conversation, cancellable, and indexed and pruned when it ends."""
+        per conversation, cancellable, and indexed (its messages and files) and pruned when it ends."""
         async with self._thread_lock(session.thread_id):
             with self._open_run():
                 await self._mark_start(session.thread_id)
@@ -70,6 +71,7 @@ class RunsMixin(LockingMixin, SearchMixin):
                     async for event in self._cancellable(session, events):
                         yield event
                     await self._index_after_run(session.user_id, session.thread_id)
+                    await self._index_files_after_run(session.user_id, session.thread_id)
                     await checkpoints.prune(self._storage.checkpointer, session.thread_id)
                 finally:
                     self._run_starts.pop(session.thread_id, None)

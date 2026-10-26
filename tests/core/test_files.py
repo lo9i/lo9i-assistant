@@ -7,6 +7,7 @@ from assistant.core import uploads
 from assistant.core.agent import Session
 from assistant.core.agent.files import UploadedFile, _searched
 from assistant.core.attachments import TOOL_MEDIA_SENDER, Attachment, reference, tool_uploads, user_uploads
+from assistant.core.conversation import file_index
 from assistant.core.events import Dispatched
 from tests.conftest import collect
 
@@ -88,3 +89,41 @@ async def test_deleting_a_conversation_keeps_the_files_another_one_refers_to(ser
     assert (left.path, left.thread_id) == (listed.path, inbox_session.thread_id)
     await service.delete_conversation("owner", inbox_session.thread_id)
     assert not uploads.absolute(listed.path).exists()
+
+
+async def test_pages_read_the_index_kept_when_runs_end_not_the_conversations(service, monkeypatch):
+    session = await service.session("owner", "cli")
+    await collect(service.send(session, "read this", [NOTE]))
+    listed = [f.path for f in await service.list_files("owner")]
+
+    async def unread(thread_id):
+        raise AssertionError(f"read {thread_id}'s messages")
+
+    monkeypatch.setattr(service, "_thread_messages", unread)
+    assert [f.path for f in await service.files_page("owner", limit=10)] == listed
+
+
+async def test_a_conversation_with_a_run_in_progress_is_read_from_its_messages(service):
+    session = await service.session("owner", "cli")
+    await collect(service.send(session, "read this", [NOTE]))
+    await service.store.aput(("conversation_files", "owner"), session.thread_id, {"files": []})
+    service._run_starts[session.thread_id] = 0
+    assert [f.name for f in await service.list_files("owner")] == ["notes.txt"]
+
+
+async def test_conversations_from_before_the_index_are_indexed_once(service):
+    session = await service.session("owner", "cli")
+    await collect(service.send(session, "read this", [NOTE]))
+    await file_index.forget(service.store, "owner", session.thread_id)
+    assert [f.name for f in await service.list_files("owner")] == ["notes.txt"]
+    assert await service.fill_file_index("owner") == 1
+    assert await service.fill_file_index("owner") == 0
+    [indexed] = (await file_index.of_user(service.store, "owner"))[session.thread_id]
+    assert (indexed.name, indexed.tool) == ("notes.txt", "")
+
+
+async def test_a_deleted_conversations_files_leave_the_index(service):
+    session = await service.session("owner", "cli")
+    await collect(service.send(session, "read this", [NOTE]))
+    await service.delete_conversation("owner", session.thread_id)
+    assert session.thread_id not in await file_index.of_user(service.store, "owner")
