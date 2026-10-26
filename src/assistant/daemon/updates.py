@@ -10,7 +10,9 @@ has no repository; it carries the commit it was made from (`VERSION_FILE`) and i
 
 One update at a time, and the daemon never ends in the middle of one: a restart or stop waits for it as it waits
 for runs (daemon/shutdown.py), and a signal's stop waits for it too (server.py, `close` and `until_installed`),
-so the tree is left either on the new version with what it needs or back on the old one.
+so the tree is left either on the new version with what it needs or back on the old one. An update the daemon
+ended in the middle of all the same (its task cancelled outright, a crash) leaves a mark in the repository's git
+folder (`_MARK`) with the commit it came from, and the next start goes back to it (`recover`).
 """
 
 import asyncio
@@ -37,6 +39,9 @@ _GIT_SECONDS = 60
 _FORMAT = "--format=%H%x1f%s%x1f%cI"
 _NPM_PLACES = ("/opt/homebrew/bin/npm", "/usr/local/bin/npm", "/usr/bin/npm")
 _MERGE = "Downloading the update"
+# In the repository's git folder while an update is being installed: the commit it came from.
+_MARK = "lo9i-update.json"
+_UNFINISHED = "The last update didn't finish"
 
 
 @dataclass(frozen=True)
@@ -128,41 +133,94 @@ class Updates:
             self._set("idle")
         return await self.status()
 
+    async def recover(self) -> None:
+        """At start: an update the daemon ended in the middle of goes back to the commit it came from, with what
+        that one needs, and the daemon restarts on it; until then a restart or stop waits for it (`installing`)."""
+        if installed_from(self._root) != "git" or not (before := await self._unfinished()):
+            return
+        async with self._lock:
+            self._set("updating", f"{_UNFINISHED}: going back")
+            self._task = asyncio.create_task(self._back_from(before))
+
     async def _update(self, upstream: str) -> None:
         merge = Step(_MERGE, ["git", "merge", "--ff-only", "--quiet", upstream])
         try:
             before = (await _git(self._root, "rev-parse", "HEAD")).strip()
+            await self._mark(before)
             await self._run_step(merge)
         except _FailedError as e:
+            await self._unmark()
             self._failed(f"{merge.label} failed: {e}")
             return
         for done, step in enumerate(self._steps):
             try:
                 await self._run_step(step)
             except _FailedError as e:
-                await self._go_back(before, self._steps[: done + 1], f"{step.label} failed: {e}")
+                await self._failed_back(before, self._steps[: done + 1], f"{step.label} failed: {e}")
                 return
+        await self._unmark()
         logger.info("Updated to %s; restarting.", upstream)
         self._set("restarting")
         self._restart()
 
-    async def _go_back(self, before: str, ran: Sequence[Step], error: str) -> None:
+    async def _failed_back(self, before: str, ran: Sequence[Step], error: str) -> None:
+        logger.warning("The update failed (%s); going back to %s.", error, before)
+        if failed := await self._go_back(before, ran):
+            label, why = failed
+            self._failed(
+                f"{error}. {label} failed too: {why}. A restart now would run a version that isn't fully installed."
+            )
+        else:
+            self._failed(f"{error}. lo9i went back to the version it was on, which keeps running.")
+
+    async def _back_from(self, before: str) -> None:
+        """Every step runs again: which ones the unfinished update ran isn't known. The daemon restarts after, as
+        it may have started on the code the update brought."""
+        if (await _git(self._root, "rev-parse", "HEAD")).strip() == before:
+            await self._unmark()  # It ended before the new commits came.
+            self._set("idle")
+            return
+        logger.warning("%s; going back to %s.", _UNFINISHED, before)
+        if failed := await self._go_back(before, self._steps):
+            label, why = failed
+            self._failed(f"{_UNFINISHED}, and {label} failed: {why}. It's tried again at the next start.")
+            return
+        self._set("restarting")
+        self._restart()
+
+    async def _go_back(self, before: str, ran: Sequence[Step]) -> tuple[str, str] | None:
         """Back to the commit the update came from, with what it needs: the steps that ran (the one that failed
         included) run again there; those after it never changed anything. Otherwise the next restart would run
         the new commits with what the old ones needed. The tree was clean before the update (`_blocker`), so
-        whatever the steps changed in it is theirs."""
-        logger.warning("The update failed (%s); going back to %s.", error, before)
+        whatever the steps changed in it is theirs. Returns the step that failed and why, or None once it's back
+        and the mark is gone; a failure keeps the mark, so the next start tries again."""
         reset = Step("Going back to the version before", ["git", "reset", "--hard", "--quiet", before])
         for step in [reset, *(Step(f"Going back: {s.label}", s.command, s.timeout) for s in ran)]:
             try:
                 await self._run_step(step)
             except _FailedError as e:
-                self._failed(
-                    f"{error}. {step.label} failed too: {e}. A restart now would run a version that isn't fully"
-                    " installed."
-                )
-                return
-        self._failed(f"{error}. lo9i went back to the version it was on, which keeps running.")
+                return step.label, str(e)
+        await self._unmark()
+        return None
+
+    async def _mark(self, before: str) -> None:
+        mark = await self._mark_path()
+        await asyncio.to_thread(mark.write_text, json.dumps({"before": before}) + "\n")
+
+    async def _unmark(self) -> None:
+        await asyncio.to_thread((await self._mark_path()).unlink, missing_ok=True)
+
+    async def _unfinished(self) -> str:
+        """The commit the update the daemon ended in the middle of came from, or "" when none did."""
+        try:
+            text = await asyncio.to_thread((await self._mark_path()).read_text)
+            return str(json.loads(text)["before"])
+        except (OSError, ValueError, KeyError, TypeError, _FailedError):
+            return ""
+
+    async def _mark_path(self) -> Path:
+        """In the git folder, which a worktree has apart from its checkout. Raises _FailedError."""
+        return self._root / (await _git(self._root, "rev-parse", "--git-path", _MARK)).strip()
 
     async def _run_step(self, step: Step) -> None:
         self._set("updating", step.label)

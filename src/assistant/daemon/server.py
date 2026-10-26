@@ -57,6 +57,7 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         if retired := await service.retire_home(settings.owner_id):
             logger.info("Kept the home conversation %s as an archived conversation; the inbox replaces it.", retired)
         shutdown, updater = _ending(service, stop)
+        await updater.recover()
         hub = RunHub(service.bus)
         streams = DeviceStreams()
         app = create_app(service, hub, Startup(stop), shutdown, logs=logs, streams=streams, updates=updater)

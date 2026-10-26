@@ -263,3 +263,47 @@ async def test_a_step_whose_update_is_cancelled_is_killed(tmp_path):
         await step
     with pytest.raises(ProcessLookupError):
         os.kill(child, 0)
+
+
+async def test_an_update_cancelled_outright_goes_back_at_the_next_start_and_restarts(repos, tmp_path):
+    clone, other = repos
+    _commit(other, "b.txt", "Second")
+    _git(other, "push", "-q", "origin", "HEAD:main")
+    installed, started = tmp_path / "installed", tmp_path / "started"
+    steps = [
+        Step("Installing its dependencies", ["sh", "-c", f"git log -1 --format=%s >> {installed}"]),
+        # Holds the update on the new version until it's cancelled (the daemon crashing).
+        Step("Building the web app", ["sh", "-c", f"test ! -f b.txt || {{ echo up > {started}; exec sleep 30; }}"]),
+    ]
+    first = _updates(clone, _Spy(), steps)
+    await first.start()
+    await written(started)
+    assert first._task is not None
+    first._task.cancel()
+    await first.until_installed()
+    assert (clone / "b.txt").exists()
+    spy = _Spy()
+    again = _updates(clone, spy, steps)
+    await again.recover()
+    assert again.installing()
+    await again.until_installed()
+    status = await again.status()
+    assert (status.state, status.current and status.current.subject) == ("restarting", "First") and spy.restarts == 1
+    assert installed.read_text().split() == ["Second", "First"]
+    # Gone once it's back: the start after that has nothing to do.
+    spy_after = _Spy()
+    after = _updates(clone, spy_after, steps)
+    await after.recover()
+    assert not after.installing() and spy_after.restarts == 0
+
+
+async def test_an_update_that_ended_before_its_new_commits_came_only_forgets_it(repos):
+    clone, _ = repos
+    head = _git(clone, "rev-parse", "HEAD").strip()
+    mark = clone / _git(clone, "rev-parse", "--git-path", "lo9i-update.json").strip()
+    mark.write_text(json.dumps({"before": head}))
+    spy = _Spy()
+    lo9i = _updates(clone, spy)
+    await lo9i.recover()
+    await lo9i.until_installed()
+    assert (await lo9i.status()).state == "idle" and spy.restarts == 0 and not mark.exists()
