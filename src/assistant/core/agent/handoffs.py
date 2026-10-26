@@ -20,6 +20,7 @@ from assistant.core.conversation import agent_folders, handoffs, queued
 from assistant.core.conversation.agent_folders import AgentFolders, FolderError, FolderListing
 from assistant.core.conversation.handoffs import Agent, Handoff
 from assistant.core.events import Done, Error, Event
+from assistant.core.to_the_end import to_the_end
 
 __all__ = ["Agent", "AgentFolders", "FolderError", "FolderListing", "Handoff", "HandoffError", "HandoffsMixin"]
 
@@ -137,8 +138,9 @@ class HandoffsMixin(RunsMixin):
             await self._agent_finished(session, handoff, False, str(e))
             return
         except (asyncio.CancelledError, Exception) as e:
-            # Shielded: a second cancel (the reader gone too) mustn't lose what the user sent.
-            await asyncio.shield(self._keep_unanswered(session, message, steps, asking, reported, _ended(handoff, e)))
+            # To the end: a second cancel (the reader gone too) mustn't lose what the user sent, and the run ends
+            # only once it's written.
+            await to_the_end(self._keep_unanswered(session, message, steps, asking, reported, _ended(handoff, e)))
             raise
         for event in steps.end("Done"):
             yield event
@@ -167,12 +169,12 @@ class HandoffsMixin(RunsMixin):
         self, session: Session, message: HumanMessage, steps: AgentSteps, text: str, answered: bool = True
     ) -> None:
         """Written as the agent node's output: the graph reads it as a finished turn, nothing left to run.
-        Its steps go with the reply, for history; no model call sends response_metadata. Shielded: stopping
+        Its steps go with the reply, for history; no model call sends response_metadata. To the end: stopping
         the run as it's written doesn't lose it."""
         config: RunnableConfig = {"configurable": {"thread_id": session.thread_id}}
         kept = {STEPS: steps.lines} | ({} if answered else {UNANSWERED: True})
         answer = AIMessage(text, response_metadata=kept)
-        await asyncio.shield(self._graph.aupdate_state(config, {"messages": [message, answer]}, as_node="agent"))
+        await to_the_end(self._graph.aupdate_state(config, {"messages": [message, answer]}, as_node="agent"))
 
     async def _agent_finished(self, session: Session, handoff: Handoff, ok: bool, text: str) -> None:
         """The agent is done with what the user gave it, and waits for them: an `agent_finished` event, which

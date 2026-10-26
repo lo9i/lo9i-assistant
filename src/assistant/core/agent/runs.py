@@ -18,6 +18,7 @@ from assistant.core.events import ApprovalRequired, Cancelled, Done, Error, Even
 from assistant.core.health import HealthLog
 from assistant.core.skills.tracker import SkillScriptTracker
 from assistant.core.stream_events import approval_events, to_events
+from assistant.core.to_the_end import settled, to_the_end
 from assistant.core.usage.log import UsageLog
 from assistant.core.usage.meter import CHANNEL, CONVERSATION
 from assistant.core.usage.tracker import UsageTracker
@@ -70,11 +71,15 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
                 try:
                     async for event in self._cancellable(session, events):
                         yield event
-                    await self._index_after_run(session.user_id, session.thread_id)
-                    await self._index_files_after_run(session.user_id, session.thread_id)
-                    await checkpoints.prune(self._storage.checkpointer, session.thread_id)
                 finally:
+                    # Also when the reader went away: the run has ended all the same.
+                    await to_the_end(self._after_run(session))
                     self._run_starts.pop(session.thread_id, None)
+
+    async def _after_run(self, session: Session) -> None:
+        await self._index_after_run(session.user_id, session.thread_id)
+        await self._index_files_after_run(session.user_id, session.thread_id)
+        await checkpoints.prune(self._storage.checkpointer, session.thread_id)
 
     @contextlib.contextmanager
     def _open_run(self) -> Iterator[None]:
@@ -118,6 +123,8 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
         finally:
             self._active_runs.pop(session.thread_id, None)
             task.cancel()  # Stops the graph when the caller stops reading; no-op once it's done.
+            # What it writes as it winds down (a handed-off agent's turn) is part of the run.
+            await to_the_end(settled(task))
         if task.cancelled():
             await self._answer_open_tool_calls(session.thread_id)
             yield Cancelled()

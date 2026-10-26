@@ -18,7 +18,7 @@ from assistant.core.agent_tasks import workers
 from assistant.core.agent_tasks.records import TaskStore
 from assistant.core.attachments import Attachment
 from assistant.core.config import settings
-from assistant.core.conversation import queued
+from assistant.core.conversation import file_index, queued
 from assistant.core.events import Cancelled, Done, Error, TextDelta, ToolFinished, ToolStarted, UserSaid
 from assistant.core.mcp import folders, servers
 from assistant.core.mcp.servers import McpServer
@@ -518,6 +518,25 @@ async def test_a_step_taken_off_the_queue_as_the_run_stops_is_kept_for_history(t
         await reading
     await asyncio.sleep(0)
     assert reader.unread() == ["first", "second"]
+
+
+async def test_a_run_whose_reader_goes_and_that_is_cancelled_too_ends_once_what_the_user_sent_is_kept(
+    service, tmp_path
+):
+    session = await _handed(service, tmp_path)
+    run = asyncio.create_task(collect(service.send(session, "leave messages")))
+    await _taking_messages(service, session, tmp_path)
+    shot = Attachment("shot.png", "image/png", b"\x89PNG")
+    await service.message_agent("owner", session.thread_id, "see this", [shot])  # it never takes it
+    run.cancel()
+    await asyncio.sleep(0)
+    run.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await run
+    shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
+    assert shown[-1] == ("assistant", "[stopped before Claude Code replied]")
+    indexed = (await file_index.of_user(service.store, "owner"))[session.thread_id]
+    assert [f.name for f in indexed] == ["shot.png"]
 
 
 async def test_a_stopped_run_keeps_what_the_user_sent_the_agent_with_a_note(service, tmp_path):
