@@ -9,6 +9,7 @@
   import { compact } from "$lib/conversationStats";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { changeLabel, contextShare, partSize, times } from "$lib/doctor";
+  import { runQuery } from "$lib/jobs";
   import { localTime } from "$lib/health";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
@@ -133,7 +134,12 @@
           {#if cause.threads.length}
             <div class="threads">
               {#each cause.threads as t (t.thread_id)}
-                <button class="btn btn--ghost btn--sm" onclick={() => openConversation(t.thread_id)}>{t.title || "Untitled"}</button>
+                {#if t.job}
+                  <!-- A scheduled job's run: its conversation isn't listed, the Jobs page shows it. -->
+                  <a class="btn btn--ghost btn--sm" href={`${resolve("/jobs")}${runQuery(t.job, t.run_at)}`}>{t.title}</a>
+                {:else}
+                  <button class="btn btn--ghost btn--sm" onclick={() => openConversation(t.thread_id)}>{t.title || "Untitled"}</button>
+                {/if}
               {/each}
             </div>
           {/if}

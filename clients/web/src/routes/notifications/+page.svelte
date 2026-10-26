@@ -7,6 +7,7 @@
   import type { Notification } from "$lib/api/types";
   import { pagedResource, resource, useDaemon } from "$lib/daemon.svelte";
   import { localTime } from "$lib/health";
+  import { runQuery } from "$lib/jobs";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import ListEnd from "$lib/ui/ListEnd.svelte";
@@ -48,7 +49,7 @@
   }
 
   function jobLink(n: Notification): string {
-    return `${resolve("/jobs")}?job=${encodeURIComponent(n.job)}&run=${encodeURIComponent(n.run_at)}`;
+    return `${resolve("/jobs")}${runQuery(n.job, n.run_at)}`;
   }
 
   async function dismiss(n: Notification): Promise<void> {

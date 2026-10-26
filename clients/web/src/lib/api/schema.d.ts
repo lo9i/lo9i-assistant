@@ -4559,6 +4559,16 @@ export interface components {
             thread_id: string;
             /** Title */
             title: string;
+            /**
+             * Job
+             * @default
+             */
+            job: string;
+            /**
+             * Run At
+             * @default
+             */
+            run_at: string;
         };
         /** TokenReport */
         TokenReport: {

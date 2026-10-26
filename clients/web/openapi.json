@@ -9533,6 +9533,16 @@
           "title": {
             "type": "string",
             "title": "Title"
+          },
+          "job": {
+            "type": "string",
+            "title": "Job",
+            "default": ""
+          },
+          "run_at": {
+            "type": "string",
+            "title": "Run At",
+            "default": ""
           }
         },
         "type": "object",

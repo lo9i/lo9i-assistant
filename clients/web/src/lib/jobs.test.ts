@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Job } from "./api/types";
-import { every, local, summary } from "./jobs";
+import { every, local, runQuery, summary } from "./jobs";
 
 const job = (change: Partial<Job>): Job => ({
   name: "news",
@@ -46,5 +46,11 @@ describe("every", () => {
     expect(every(mail)).toBe("On each new email");
     expect(summary(mail)).toBe("on each new email · waiting for mail");
     expect(summary({ ...mail, enabled: false })).toBe("on each new email · paused");
+  });
+});
+
+describe("runQuery", () => {
+  it("opens a job's run on the Jobs page", () => {
+    expect(runQuery("daily news", "2026-10-24T09:00:00+00:00")).toBe("?job=daily%20news&run=2026-10-24T09%3A00%3A00%2B00%3A00");
   });
 });

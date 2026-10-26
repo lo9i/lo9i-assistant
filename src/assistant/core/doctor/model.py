@@ -14,6 +14,9 @@ Change = Literal["", "new", "growing"]
 class ThreadRef(BaseModel):
     thread_id: str
     title: str
+    # A scheduled job's run, which the apps open on the job (its conversation isn't listed); "" for a conversation.
+    job: str = ""
+    run_at: str = ""
 
 
 class Cause(BaseModel):

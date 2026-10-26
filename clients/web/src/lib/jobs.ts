@@ -47,3 +47,8 @@ export function local(timestamp: string, timezone: string): string {
   const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
   return `${part("weekday")} ${part("day")} ${part("month")} ${part("hour")}:${part("minute")}`;
 }
+
+/** The query of the Jobs page that opens a job's run, with its whole reply (a notification, a health check). */
+export function runQuery(job: string, runAt: string): string {
+  return `?job=${encodeURIComponent(job)}&run=${encodeURIComponent(runAt)}`;
+}

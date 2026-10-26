@@ -14,11 +14,14 @@ from assistant.core import conversations, notifications
 from assistant.core.config import settings
 from assistant.core.conversation.turn_header import header_block
 from assistant.core.conversations import Conversation
-from assistant.core.doctor import conversation_causes
+from assistant.core.doctor import conversation_causes, records
 from assistant.core.doctor.causes import Occurrence, group
 from assistant.core.doctor.changes import CONTEXT_ALERT
 from assistant.core.doctor.clock import day_of
 from assistant.core.doctor.context import CORE_TOOLS
+from assistant.core.doctor.model import ThreadRef
+from assistant.core.jobs import store as jobs
+from assistant.core.jobs.store import Job, RunRecord
 from assistant.core.logs import LOG_FILES
 from assistant.core.memory import facts, profile
 from tests.conftest import collect
@@ -191,6 +194,18 @@ async def test_a_message_without_a_reply_counts_unless_a_run_is_still_on_it(serv
     assert group("conversation", found)[0].count == 2
 
 
+async def test_a_scheduled_jobs_run_is_read_too_and_names_its_job(service):
+    at = _at(DAY, 9)
+    run = RunRecord(at.isoformat(), "failed", "", "job:daily-news:x")
+    await jobs.save(service.store, Job("daily-news", OWNER, "0 9 * * *", "UTC", "news", "", runs=[run]))
+    states = _States([_said(at, "Task: the news")])
+    found = await conversation_causes.day_occurrences(service.store, states, OWNER, DAY, running=())
+    [cause] = group("conversation", found)
+    assert cause.threads == [
+        ThreadRef(thread_id="job:daily-news:x", title="Job daily-news", job="daily-news", run_at=at.isoformat())
+    ]
+
+
 async def test_the_starting_context_is_measured_and_alerts_past_its_share_of_the_window(service, monkeypatch):
     first = await service.doctor.check(OWNER, DAY, whole_day=True)
     parts = {p.name: p for p in first.context.parts}
@@ -218,6 +233,19 @@ async def test_the_daemon_checks_each_day_once_it_ended(service):
     await service.doctor_schedule.tick(now + timedelta(hours=3))
     told = [n for n in await notifications.recent(service.store, OWNER) if n.kind == "doctor"]
     assert len(told) == 2 and told[0].title == "Health check of Sat 24 Oct"
+
+
+async def test_a_daemon_down_for_days_checks_each_of_them_oldest_first(service):
+    await service.doctor_schedule.tick(_at(NEXT, 0, 1))
+    await service.doctor_schedule.tick(_at(NEXT + timedelta(days=3), 0, 1))
+    reports = await records.reports(service.store, OWNER)
+    days = [NEXT + timedelta(days=n) for n in range(3)]
+    assert [r.day for r in reports] == [d.isoformat() for d in reversed([DAY, *days])]
+    assert all(r.whole_day for r in reports) and reports[0].compared_with == days[1].isoformat()
+    # Never further back than the reports kept.
+    await service.doctor_schedule.tick(_at(NEXT + timedelta(days=30), 0, 1))
+    reports = await records.reports(service.store, OWNER)
+    assert len(reports) == records.KEPT_DAYS and reports[0].day == (NEXT + timedelta(days=29)).isoformat()
 
 
 async def test_the_apps_check_today_in_the_background(service):

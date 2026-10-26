@@ -1,9 +1,9 @@
-"""The day's problems in the conversations, read from their checkpoints: runs that failed and tool calls left
-without results. A turn (a user message and what came after it) written that day counts once, as the worst it
-shows: its run failed, which it marks in the conversation (conversation/failed.py; the last run's error the
-checkpoint keeps when the mark couldn't be written), tool calls never got a result (a run cancelled while tools
-ran answers them, so these ended with an error), or no reply came (the run was stopped before the assistant
-answered). The turn a run is still on, or that waits for an answer, isn't counted."""
+"""The day's problems in the conversations, scheduled jobs' runs included, read from their checkpoints: runs that
+failed and tool calls left without results. A turn (a user message and what came after it) written that day counts
+once, as the worst it shows: its run failed, which it marks in the conversation (conversation/failed.py; the last
+run's error the checkpoint keeps when the mark couldn't be written), tool calls never got a result (a run cancelled
+while tools ran answers them, so these ended with an error), or no reply came (the run was stopped before the
+assistant answered). The turn a run is still on, or that waits for an answer, isn't counted."""
 
 import re
 from collections.abc import Collection, Sequence
@@ -22,6 +22,7 @@ from assistant.core.conversation.unanswered import unanswered
 from assistant.core.doctor.causes import Occurrence
 from assistant.core.doctor.clock import day_of, header_time
 from assistant.core.doctor.model import ThreadRef
+from assistant.core.jobs import store as jobs
 
 NO_REPLY = "A message got no reply: its run was stopped before it answered"
 # An exception's repr: `OperationalError('database is locked')`.
@@ -39,15 +40,28 @@ async def day_occurrences(
 ) -> list[Occurrence]:
     """`running`: the conversations a run is on now."""
     found: list[Occurrence] = []
-    for conversation in await conversations.recent(store, user_id):
-        if day_of(datetime.fromisoformat(conversation.updated_at)) < day:
-            continue
-        snapshot = await states.aget_state({"configurable": {"thread_id": conversation.thread_id}})
-        busy = conversation.thread_id in running or bool(snapshot.interrupts)
-        found += _occurrences(
-            snapshot, ThreadRef(thread_id=conversation.thread_id, title=conversation.title), day, busy
-        )
+    for thread in [*await _conversations(store, user_id, day), *await _job_runs(store, user_id, day)]:
+        snapshot = await states.aget_state({"configurable": {"thread_id": thread.thread_id}})
+        busy = thread.thread_id in running or bool(snapshot.interrupts)
+        found += _occurrences(snapshot, thread, day, busy)
     return found
+
+
+async def _conversations(store: BaseStore, user_id: str, day: date) -> list[ThreadRef]:
+    """The listed conversations written in on `day` or after."""
+    listed = await conversations.recent(store, user_id)
+    written = [c for c in listed if day_of(datetime.fromisoformat(c.updated_at)) >= day]
+    return [ThreadRef(thread_id=c.thread_id, title=c.title) for c in written]
+
+
+async def _job_runs(store: BaseStore, user_id: str, day: date) -> list[ThreadRef]:
+    """The scheduled jobs' runs started on `day` or after, each in a conversation of its own that isn't listed."""
+    runs = [(job.name, run) for job in await jobs.list_jobs(store, user_id) for run in job.runs]
+    return [
+        ThreadRef(thread_id=run.thread_id, title=f"Job {name}", job=name, run_at=run.at)
+        for name, run in runs
+        if run.thread_id and day_of(datetime.fromisoformat(run.at)) >= day
+    ]
 
 
 def _occurrences(snapshot: StateSnapshot, thread: ThreadRef, day: date, busy: bool) -> list[Occurrence]:
