@@ -190,6 +190,11 @@ group("channel plugins", () => {
     expect(pluginsOf({ skills: [], servers: [gmail] }).map(kindOf)).toEqual(["Email provider"]);
   });
 
+  it("label a coding agent, not as the skill that comes with it", () => {
+    const claude = found({ name: "claude-code", transport: "none", channel: false, skill: true, agent: "claude" });
+    expect(pluginsOf({ skills: [], servers: [claude] }).map(kindOf)).toEqual(["Coding agent · skill"]);
+  });
+
   it("may leave empty a value the daemon already has", () => {
     const known = found({ known_fields: ["BOT_TOKEN"] });
     expect(optional(known, "BOT_TOKEN")).toBe(true);

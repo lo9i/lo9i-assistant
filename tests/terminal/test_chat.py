@@ -92,8 +92,18 @@ async def test_new_conversation_clears_the_chat(app):
         await pilot.press("escape")
         await wait_for(pilot, lambda: not app._busy)
         await pilot.press("ctrl+n")
-        await wait_for(pilot, lambda: app.sub_title == "owner:new")
+        await wait_for(pilot, lambda: app.sub_title == "new conversation")
         assert len(app.query_one("#chat").children) == 0
+
+
+async def test_the_subtitle_names_the_conversation_by_its_title_once_it_has_one(app, client):
+    async with app.run_test() as pilot:
+        await pilot.press("ctrl+n")
+        await wait_for(pilot, lambda: app.sub_title == "new conversation")
+        at = "2026-10-01T09:00:00+00:00"
+        client.conversations.items.append(Conversation(app._live.session.thread_id, "Trip to Rome", at, at))
+        await client.bus.put(("conversations", {}))
+        await wait_for(pilot, lambda: app.sub_title == "Trip to Rome")
 
 
 async def test_the_app_opens_to_the_conversations_and_inbox_shows_them_again(app, client):
@@ -103,7 +113,7 @@ async def test_the_app_opens_to_the_conversations_and_inbox_shows_them_again(app
         listed = app.query_one(SystemNote).source
         assert "**plan my trip**" in listed and "/conversations opens one" in listed
         await pilot.press("ctrl+n")
-        await wait_for(pilot, lambda: app.sub_title == "owner:new")
+        await wait_for(pilot, lambda: app.sub_title == "new conversation")
         await pilot.click("#prompt")
         await pilot.press(*"/inbox", "enter")
         await wait_for(pilot, lambda: app.sub_title == "inbox" and app.query(SystemNote))
@@ -138,7 +148,7 @@ async def test_a_notification_opens_the_conversation_its_work_started_in(app, cl
         await wait_for(pilot, lambda: isinstance(app.screen, NotificationsScreen))
         await wait_for(pilot, lambda: all(n.read for n in client.notifications.items))
         await pilot.press("enter")
-        await wait_for(pilot, lambda: app.sub_title == "owner:trip")
+        await wait_for(pilot, lambda: app.sub_title == "Trip")
 
 
 async def test_a_job_notification_opens_its_run_with_the_whole_reply_and_can_be_dismissed(app, client):
@@ -168,7 +178,7 @@ async def test_a_message_the_inbox_sends_on_is_sent_where_it_went(app, client):
         await pilot.press(*"what about my taxes?", "enter")
         await wait_for(pilot, lambda: len(client.sent) == 2 and not app._busy)
         assert client.sent[1] == ("owner:taxes ← d1", [])
-        assert app.sub_title == "owner:taxes"
+        assert app.sub_title == "Taxes"
         replies = [m.source for m in app.query(AssistantMessage)]
         assert replies[-1] == "On it."
 
@@ -183,7 +193,7 @@ async def test_move_asks_in_the_inbox_and_sends_the_message_where_it_goes_now(ap
         await pilot.press(*"/move", "enter")
         await wait_for(pilot, lambda: len(client.sent) == 2 and not app._busy)
         assert client.sent == [("owner:abc moves ", []), ("owner:taxes ← d1", [])]
-        assert app.sub_title == "owner:taxes"
+        assert app.sub_title == "Taxes"
 
 
 async def test_attachment_can_be_sent_without_text(app, client, tmp_path):
@@ -238,7 +248,7 @@ async def test_new_leaves_a_running_reply_and_reports_when_it_finishes(app, clie
         await pilot.press(*"long task", "enter")
         await wait_for(pilot, lambda: app._busy)
         await pilot.press("ctrl+n")
-        await wait_for(pilot, lambda: app.sub_title == "owner:new" and not app._busy)
+        await wait_for(pilot, lambda: app.sub_title == "new conversation" and not app._busy)
         assert len(app.query_one("#chat").children) == 0
         before = len(app._notifications)
         await client.bus.put(
@@ -347,7 +357,7 @@ async def test_get_to_know_me_starts_its_own_conversation(app, client):
         await pilot.click("#prompt")
         await pilot.press(*"/get-to-know-me", "enter")
         await wait_for(pilot, lambda: bool(client.sent))
-        assert app.sub_title == "owner:new" and client.sent[0][0] == "Get to know me."
+        assert app.sub_title == "new conversation" and client.sent[0][0] == "Get to know me."
 
 
 async def test_a_plugin_the_agent_offers_is_installed_in_the_dialog(app, client):
@@ -595,7 +605,7 @@ async def test_leaving_while_an_answered_approval_runs_stops_showing_it(app, cli
         await _answer_in_b(app, pilot)
         await wait_for(pilot, lambda: app.query(AssistantMessage))
         await pilot.press(*"/new", "enter")
-        await wait_for(pilot, lambda: app.sub_title == "owner:new" and not app._busy)
+        await wait_for(pilot, lambda: app.sub_title == "new conversation" and not app._busy)
         release.set()
         await pilot.pause(0.3)
         assert not app.query(AssistantMessage)
@@ -619,7 +629,7 @@ async def test_leaving_while_the_approvals_are_read_asks_nothing_in_the_next_con
         await pilot.pause()
         await app._resume("owner:b")
         await pilot.press(*"/new", "enter")
-        await wait_for(pilot, lambda: app.sub_title == "owner:new")
+        await wait_for(pilot, lambda: app.sub_title == "new conversation")
         reading.set()
         await pilot.pause(0.3)
         assert not isinstance(app.screen, ApprovalScreen)

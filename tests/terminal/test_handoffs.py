@@ -8,16 +8,16 @@ async def test_claude_hands_the_conversation_over_and_off_takes_it_back(app, cli
     async with app.run_test() as pilot:
         await wait_for(pilot, lambda: "/claude" in app._agents)
         await pilot.press("ctrl+n")
-        await wait_for(pilot, lambda: app.sub_title == "owner:new")
+        await wait_for(pilot, lambda: app.sub_title == "new conversation")
         thread_id = app._live.session.thread_id
         await pilot.click("#prompt")
         await pilot.press(*"/claude relative", "enter")
         await wait_for(pilot, lambda: any("isn't an existing folder" in n.message for n in app._notifications))
         await pilot.press(*"/claude /tmp/repo", "enter")
-        await wait_for(pilot, lambda: app.sub_title == f"{thread_id} · talking to Claude Code in /tmp/repo")
+        await wait_for(pilot, lambda: app.sub_title == "new conversation · talking to Claude Code in /tmp/repo")
         assert client.conversations.handoffs[thread_id].folder == "/tmp/repo"
         await pilot.press(*"/claude off", "enter")
-        await wait_for(pilot, lambda: app.sub_title == thread_id)
+        await wait_for(pilot, lambda: app.sub_title == "new conversation")
 
 
 async def test_the_command_menu_offers_the_agents_command(app, client):

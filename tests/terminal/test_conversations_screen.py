@@ -25,7 +25,7 @@ async def test_arrows_and_clicks_show_a_conversation_and_enter_resumes(app, clie
         await wait_for(pilot, lambda: options.highlighted == 2)
         assert isinstance(app.screen, ConversationsScreen)
         await pilot.press("up", "enter")
-        await wait_for(pilot, lambda: app.sub_title == "owner:b")
+        await wait_for(pilot, lambda: app.sub_title == "trip b")
         assert client.active_thread == "owner:b"
 
 
@@ -67,7 +67,7 @@ async def test_a_handed_off_agents_thinking_and_tool_calls_show_again_when_resum
         await pilot.press(*"/conversations", "enter")
         await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
         await pilot.press("down", "enter")
-        await wait_for(pilot, lambda: app.sub_title == "owner:b" and app.query(ToolCall))
+        await wait_for(pilot, lambda: app.sub_title == "trip b" and app.query(ToolCall))
         chat = app.query_one("#chat")
         assert [type(w) for w in chat.children][-3:] == [ThinkingNote, ToolCall, AssistantMessage]
         assert isinstance(chat.children[0], CarriedNote)  # the quick exchange from the inbox, before it

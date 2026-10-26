@@ -459,6 +459,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations/{thread_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Conversation
+         * @description One conversation as the list shows it: its title, tags and channels. 404: it isn't listed (a new one
+         *     before its first message); `conversations` events tell when it changes.
+         */
+        get: operations["conversation_conversations__thread_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Conversation
+         * @description Deletes a conversation no client is on. 404: no such conversation; 409: a client is on
+         *     it or a reply is running.
+         */
+        delete: operations["delete_conversation_conversations__thread_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/conversations/{thread_id}/messages": {
         parameters: {
             query?: never;
@@ -576,27 +602,6 @@ export interface paths {
          */
         post: operations["resume_conversation_conversations__thread_id__resume_post"];
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/conversations/{thread_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete Conversation
-         * @description Deletes a conversation no client is on. 404: no such conversation; 409: a client is on
-         *     it or a reply is running.
-         */
-        delete: operations["delete_conversation_conversations__thread_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5365,6 +5370,68 @@ export interface operations {
             };
         };
     };
+    conversation_conversations__thread_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_conversation_conversations__thread_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     conversation_messages_conversations__thread_id__messages_get: {
         parameters: {
             query?: never;
@@ -5524,37 +5591,6 @@ export interface operations {
         };
     };
     resume_conversation_conversations__thread_id__resume_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                thread_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Ok"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_conversation_conversations__thread_id__delete: {
         parameters: {
             query?: never;
             header?: never;

@@ -612,20 +612,27 @@ class AssistantApp(App):
 
     @reports_daemon_unavailable
     async def refresh_thread(self) -> None:
-        """The conversation's id under the title, then the agent it's handed to, the skills pinned to it and
+        """The conversation's title under the app's, then the agent it's handed to, the skills pinned to it and
         the coding tasks running in the background."""
         thread_id = self._live.session.thread_id
         handoff = await self._service.conversations.agent(thread_id)
         pinned = await self._service.conversations.pinned(thread_id)
         running = await self._service.tasks.running()
         parts = [
-            "inbox" if thread_id == self._inbox_id else thread_id,
+            await self._conversation_name(thread_id),
             *([f"talking to {handoff.name} in {handoff.folder}"] if handoff else []),
             *([f"pinned: {', '.join(pinned)}"] if pinned else []),
             *(task_line(task, thread_id) for task in running),
         ]
         self.sub_title = " · ".join(parts)
         await self.refresh_context()
+
+    async def _conversation_name(self, thread_id: str) -> str:
+        """The inbox, the conversation's title, or a new one's until its first message lists it."""
+        if thread_id == self._inbox_id:
+            return "inbox"
+        conversation = await self._service.conversations.get(thread_id)
+        return conversation.title if conversation else "new conversation"
 
     @reports_daemon_unavailable
     async def refresh_context(self) -> None:

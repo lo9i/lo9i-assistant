@@ -265,6 +265,16 @@ async def test_clients_go_to_the_inbox_and_new_starts_a_conversation(client, ser
     assert await client.new_thread("owner") != inbox
 
 
+async def test_one_conversation_is_read_by_its_id_and_none_before_its_first_message(client, script):
+    session = await _new_session(client)
+    assert await client.conversations.get(session.thread_id) is None
+    await collect(client.send(session, "plan my trip"))
+    [listed] = [c for c in await client.conversations.recent() if c.thread_id == session.thread_id]
+    found = await client.conversations.get(session.thread_id)
+    # Its title may change between the reads: titling runs in the background.
+    assert found is not None and (found.thread_id, found.started_at) == (listed.thread_id, listed.started_at)
+
+
 async def test_send_with_attachment_approve_and_resume(client, script):
     script.call("bash", command="cat notes.txt || true").reply("read it")
     script.call("bash", command="rm -rf build").reply("left it")

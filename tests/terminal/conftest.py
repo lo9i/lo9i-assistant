@@ -842,6 +842,9 @@ class FakeConversations:
     async def recent(self):
         return list(self.items)
 
+    async def get(self, thread_id):
+        return next((c for c in self.items if c.thread_id == thread_id), None)
+
     async def messages(self, thread_id):
         return self.said.get(thread_id, [])
 
