@@ -187,6 +187,17 @@ async def test_a_job_names_a_skill_only_as_a_word_of_its_own(service):
     assert await plugin_loading.named("Run notes-helper and my-notes-help") == set()
 
 
+async def test_subagents_get_the_read_only_tools_of_the_plugins_the_conversation_loaded(service, script):
+    await _add(service)
+    session = await service.session("owner", "cli")
+    script.call("delegate", task="look").reply("nothing").reply("done")
+    await collect(service.send(session, "look around"))
+    assert _names(script.bound[1]) == set()
+    script.call(LOAD, plugin="notes").call("delegate", task="read the notes").reply("no notes").reply("done")
+    await collect(service.send(session, "read my notes"))
+    assert _names(script.bound[-2]) == {READ, CHART}
+
+
 async def test_a_new_epoch_that_summarizes_starts_with_no_tools_loaded(service, script, summaries):
     await _add(service)
     script.call(LOAD, plugin="notes").reply("loaded")

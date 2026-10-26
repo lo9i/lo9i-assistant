@@ -1,5 +1,6 @@
 """Subagents: a task the main agent hands off with `delegate`, worked on with a fresh context and the
-worker model, so the tool output it reads never reaches the main conversation; only its answer does.
+worker model, so the tool output it reads never reaches the main conversation; only its answer does. It gets the
+read-only tools of the plugins the conversation loaded (core/plugin_loading.py).
 
 A subagent's graph runs inside the delegate call. It shares the run's checkpointer under that call's
 namespace, so an approval inside it pauses the main run and the answer resumes it where it stopped. Its
@@ -7,7 +8,7 @@ tool calls stream live inside the delegate call, and are kept with the call's re
 (core/subagent_steps.py)."""
 
 import asyncio
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Collection, Sequence
 from dataclasses import replace
 from typing import Any
 
@@ -63,8 +64,8 @@ class SubagentRunner(Subagents):
         self._graph = graph
         self._mcp = mcp
 
-    async def run(self, task: str, context: Context, call_id: str) -> SubagentAnswer:
-        mcp_tools = self._mcp.read_only_definitions()
+    async def run(self, task: str, context: Context, call_id: str, plugins: Collection[str]) -> SubagentAnswer:
+        mcp_tools = self._read_only(plugins)
         start = SubagentState(messages=[HumanMessage(task)], mcp_tools=mcp_tools, steps=0, call_id=call_id)
         state = await self._graph.ainvoke(
             start,
@@ -72,6 +73,11 @@ class SubagentRunner(Subagents):
             context=replace(context, subagents=None),
         )
         return SubagentAnswer(answer(state["messages"]), steps(state["messages"]))
+
+    def _read_only(self, plugins: Collection[str]) -> list[dict[str, Any]]:
+        """The read-only tools of these plugins: the others' would fill every request of the task."""
+        definitions = self._mcp.read_only_definitions()
+        return [d for d in definitions if self._mcp.plugin_of(d["function"]["name"]) in plugins]
 
 
 def answer(messages: Sequence[Any]) -> str:

@@ -166,7 +166,7 @@ class McpHub(McpStarts):
         return tool.connection.server.name if tool else None
 
     def read_only_definitions(self) -> list[dict[str, Any]]:
-        """Definitions of the tools that say they only read, for subagents."""
+        """Definitions of the tools that say they only read, for subagents and Home's sections."""
         return [_definition(tool) for _, tool in sorted(self._tools.items()) if tool.read_only]
 
     def tool(self, name: str) -> McpTool | None:

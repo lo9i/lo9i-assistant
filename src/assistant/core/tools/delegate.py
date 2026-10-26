@@ -26,4 +26,5 @@ async def delegate(task: str, runtime: ToolRuntime[Context]) -> str | ToolMessag
     if context.subagents is None:
         return "Not delegated: subagents aren't available here."
     call_id = runtime.tool_call_id or ""
-    return subagent_steps.result(await context.subagents.run(task, context, call_id), call_id, "delegate")
+    plugins = runtime.state.get("loaded_plugins", [])
+    return subagent_steps.result(await context.subagents.run(task, context, call_id, plugins), call_id, "delegate")

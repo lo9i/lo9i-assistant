@@ -28,7 +28,8 @@ class PluginTools:
         return [*loading, *self._agents.definitions(), *self._mcp.definitions(loaded)]
 
     def read_only_definitions(self) -> list[dict[str, Any]]:
-        """For subagents: the task tools start and stop work, so only MCP tools that say they only read."""
+        """For subagents, which keep those of the plugins their conversation loaded: the task tools start and stop
+        work, so only MCP tools that say they only read."""
         return self._mcp.read_only_definitions()
 
     def catalog(self) -> dict[str, list[str]]:

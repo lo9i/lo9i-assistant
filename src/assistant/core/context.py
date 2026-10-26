@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import Collection
 from dataclasses import dataclass, field
 
 from langchain_core.runnables import RunnableConfig
@@ -22,8 +23,9 @@ class Subagents(ABC):
     check a Protocol."""
 
     @abstractmethod
-    async def run(self, task: str, context: "Context", call_id: str) -> SubagentAnswer:
-        """`call_id`: the delegate call's, which the subagent's tool events name."""
+    async def run(self, task: str, context: "Context", call_id: str, plugins: Collection[str]) -> SubagentAnswer:
+        """`call_id`: the delegate call's, which the subagent's tool events name. `plugins`: those the
+        conversation loaded (core/plugin_loading.py), whose read-only tools the subagent gets."""
 
 
 class McpStarts(ABC):
