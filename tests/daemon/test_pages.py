@@ -151,6 +151,23 @@ async def test_unknown_or_turned_off_pages_are_not_found(pages):
     await _until(lambda: not folders.page_socket("notes").exists())
 
 
+async def test_a_browser_opening_a_page_that_isnt_answering_gets_a_notice_that_tries_again(pages, monkeypatch):
+    from assistant.daemon import pages as page_proxy
+
+    monkeypatch.setattr(page_proxy, "FIRST_BYTE_SECONDS", 0.5)
+    browser = {"Accept": "text/html,application/xhtml+xml"}
+    async with _http(pages, await _paired(pages)) as http:
+        late = await http.get("/notes/late", headers=browser)
+        missing = await http.get("/my-notes/", headers=browser)
+        htmx = await http.get("/my-notes/", headers=browser | {"HX-Request": "true"})
+    assert (late.status_code, late.headers["content-type"]) == (504, "text/html; charset=utf-8")
+    assert "<h1>Notes isn't ready</h1>" in late.text and "location.reload()" in late.text
+    assert late.headers["content-security-policy"].startswith("frame-ancestors ")
+    assert missing.status_code == 404 and "<h1>My notes isn't ready</h1>" in missing.text
+    # A page's own script shows the text its own way.
+    assert (htmx.status_code, htmx.text) == (404, "my-notes has no page running.")
+
+
 async def test_a_page_that_exits_is_started_again(pages, monkeypatch):
     monkeypatch.setattr("assistant.core.mcp.process._FIRST_RETRY_SECONDS", 0.1)
     socket = folders.page_socket("notes")

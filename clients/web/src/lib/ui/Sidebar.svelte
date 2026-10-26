@@ -26,6 +26,7 @@
   import Sparkles from "@lucide/svelte/icons/sparkles";
   import X from "@lucide/svelte/icons/x";
   import { openList } from "$lib/chat/openList";
+  import { TINTS, tints } from "$lib/chat/tints";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { pageLabel } from "$lib/pages";
   import PluginIcon from "./PluginIcon.svelte";
@@ -122,12 +123,10 @@
     },
   ];
 
-  // Each conversation keeps the same colour, picked from its id.
-  const TINTS = ["var(--color-accent)", "#e5b931", "#3f9fe0", "#e0603f", "#a56ee0", "#2fc4b2", "#e08a2f", "#e05f9e"];
+  // Each listed conversation has a colour of its own while there are colours left (lib/chat/tints.ts).
+  const tintOf = $derived(tints.for(everything.map((e) => e.threadId)));
   function tint(id: string): string {
-    let h = 0;
-    for (const c of id ?? "") h = (h * 31 + c.charCodeAt(0)) >>> 0;
-    return TINTS[h % TINTS.length];
+    return tintOf[id] ?? TINTS[0];
   }
 </script>
 
@@ -171,7 +170,13 @@
                 style:--tint={tint(entry.threadId)}
                 class:current={entry.active && page.url.pathname === OPEN}
                 aria-current={entry.active && page.url.pathname === OPEN ? "true" : undefined}
-                onmouseenter={(e) => showTip(e, entry.title, entry.waiting ? "Waiting for your answer" : entry.running ? "Working…" : "", tint(entry.threadId))}
+                onmouseenter={(e) =>
+                  showTip(
+                    e,
+                    entry.title,
+                    entry.waiting ? "Waiting for your answer" : entry.running ? "Working…" : "",
+                    tint(entry.threadId),
+                  )}
                 onmouseleave={() => (tip = null)}
                 onfocus={(e) => showTip(e, entry.title, "", tint(entry.threadId))}
                 onblur={() => (tip = null)}
@@ -251,7 +256,10 @@
     animation: tip-in 0.12s ease;
   }
   @keyframes tip-in {
-    from { opacity: 0; transform: translate(-4px, -50%); }
+    from {
+      opacity: 0;
+      transform: translate(-4px, -50%);
+    }
   }
   .tip-title {
     display: flex;
@@ -272,6 +280,8 @@
   }
   .sidebar {
     position: sticky;
+    /* Above the page, so the quick panels it holds aren't covered by the chat. */
+    z-index: var(--z-popover);
     top: 8px;
     height: calc(100vh - 16px);
     margin: 8px 0 8px 8px;

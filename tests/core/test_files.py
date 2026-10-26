@@ -39,7 +39,9 @@ async def test_a_page_of_the_files_matching_a_search(service):
 
 
 def test_a_search_finds_an_mcp_tools_file_by_its_server_and_tool():
-    file = UploadedFile("p", "chart.png", "image/png", 1, "2026-10-25T00:00:00+00:00", "t", "Sales", "mcp__charts__draw")
+    file = UploadedFile(
+        "p", "chart.png", "image/png", 1, "2026-10-25T00:00:00+00:00", "t", "Sales", "mcp__charts__draw"
+    )
     assert _searched(file) == "chart.png image/png charts: draw sales"
 
 

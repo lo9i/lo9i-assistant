@@ -43,19 +43,19 @@
 
 {#if shown}
   <span class="wrap">
-  <span class="fuel" style="border-color: {color}" aria-label="Context {percent}%">
-    {#each Array(SEGMENTS) as _, i (i)}
-      <span class="seg" style="background: {color}; opacity: {i < filled ? 0.4 : 0.1}"></span>
-    {/each}
-    <span class="percent" style="color: {color}">{percent}%</span>
-  </span>
-  {#if info}
-    <span class="bubble" role="tooltip">
-      <span class="head">{info.heading} <b style="color: {color}">{percent}%</b></span>
-      <span class="figs">{info.figures}</span>
-      <span class="note">{info.note}</span>
+    <span class="fuel" style="border-color: {color}" aria-label="Context {percent}%">
+      {#each Array(SEGMENTS) as _, i (i)}
+        <span class="seg" style="background: {color}; opacity: {i < filled ? 0.4 : 0.1}"></span>
+      {/each}
+      <span class="percent" style="color: {color}">{percent}%</span>
     </span>
-  {/if}
+    {#if info}
+      <span class="bubble" role="tooltip">
+        <span class="head">{info.heading} <b style="color: {color}">{percent}%</b></span>
+        <span class="figs">{info.figures}</span>
+        <span class="note">{info.note}</span>
+      </span>
+    {/if}
   </span>
 {/if}
 
@@ -85,7 +85,9 @@
     opacity: 0;
     transform: translateY(4px);
     pointer-events: none;
-    transition: opacity 0.12s ease, transform 0.12s ease;
+    transition:
+      opacity 0.12s ease,
+      transform 0.12s ease;
     z-index: 50;
   }
   .wrap:hover .bubble {

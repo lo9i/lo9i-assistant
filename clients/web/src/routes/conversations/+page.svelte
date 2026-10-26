@@ -2,7 +2,6 @@
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
-  import Inbox from "@lucide/svelte/icons/inbox";
   import Plus from "@lucide/svelte/icons/plus";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import ConversationPreview from "$lib/ui/chat/ConversationPreview.svelte";
@@ -39,11 +38,6 @@
     await goto(OPEN);
   }
 
-  async function openInbox(): Promise<void> {
-    await chats.goInbox();
-    await goto(OPEN);
-  }
-
   // One open here can't be deleted while it's open: it's closed first, or the last one goes to the inbox.
   async function remove(threadId: string): Promise<void> {
     const list = listed ?? [];
@@ -67,9 +61,6 @@
 
 <TopBar title="Chat">
   {#snippet actions()}
-    <button class="btn btn--ghost" title="Quick questions, and where each message went" onclick={openInbox}
-      ><Inbox size={16} /><span class="hide-narrow">Inbox</span></button
-    >
     <button class="btn btn--primary" onclick={startNew}><Plus size={16} /><span class="hide-narrow">New conversation</span></button>
   {/snippet}
 </TopBar>

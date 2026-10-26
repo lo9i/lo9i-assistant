@@ -75,6 +75,8 @@
     overflow-y: auto;
     padding: 12px 16px 16px;
     box-shadow: var(--shadow-popover);
+    /* Solid, so the page behind doesn't bleed through. */
+    background: var(--color-bg-page);
   }
   header {
     display: flex;
