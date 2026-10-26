@@ -87,3 +87,7 @@ For the web app, run `npm run check`, `npm test` and `npm run build` in `clients
 - [`AGENTS.md`](AGENTS.md): layout, architecture rules and code rules
 - [`BACKLOG.md`](BACKLOG.md): planned work
 - [`clients/web/WEB.md`](clients/web/WEB.md): web app conventions
+
+## License
+
+[MIT](LICENSE).
