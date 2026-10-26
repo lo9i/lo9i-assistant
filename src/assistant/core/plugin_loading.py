@@ -3,9 +3,11 @@ tools, the task tools and load_tools, and the system prompt lists the plugins wi
 (conversation/prompt.py). A round of tool calls loads a plugin for the rest of the epoch when it calls
 load_tools for it, uses a skill that comes with it, installs it from offer_plugin, or calls one of its tools
 anyway (a call runs whether or not its plugin is loaded, core/graph.py::mcp_calls); an epoch starts with
-its pinned skills' plugins loaded. The graph keeps the loaded plugins and their definitions in state."""
+its pinned skills' plugins loaded, and a scheduled run's with the plugins its job names. The graph keeps the loaded
+plugins and their definitions in state."""
 
 import asyncio
+import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Annotated
 
@@ -20,6 +22,8 @@ LOAD_TOOLS = "load_tools"
 
 # Each plugin with tools, and their names without its prefix (core/mcp/hub.py::catalog).
 Catalog = Mapping[str, Sequence[str]]
+
+_MCP_TOOL = re.compile(r"mcp__(\S+?)__")
 
 _DESCRIPTION = (
     "Load a plugin's tools (see Plugin tools) when the user's request needs them. They're yours from your next "
@@ -74,3 +78,15 @@ async def skill_plugins(names: Iterable[str]) -> set[str]:
         if skill.server:
             found.add(skill.server)
     return found
+
+
+async def named(text: str) -> set[str]:
+    """The plugins a job's task names: one of its tools (mcp__<server>__<tool>), or a skill that comes with it."""
+    found = {match[1] for match in _MCP_TOOL.finditer(text)}
+    listed = await asyncio.to_thread(skills.list_skills)
+    return found | {skill.server for skill in listed if skill.server and _mentions(text, skill.name)}
+
+
+def _mentions(text: str, name: str) -> bool:
+    """`name` as a word of its own: news-digest in "Run the skill news-digest", not news in "newsletter"."""
+    return re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", text) is not None

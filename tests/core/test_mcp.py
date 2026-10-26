@@ -15,7 +15,8 @@ from mcp import Client
 from mcp.server import MCPServer
 from mcp.types import AudioContent, CallToolResult, ImageContent, TextContent, ToolAnnotations
 
-from assistant.core.agent import AssistantService, McpServer, McpServerChanges, McpServerError
+from assistant.core import plugin_loading
+from assistant.core.agent import AssistantService, McpServer, McpServerChanges, McpServerError, Session
 from assistant.core.bus import EventBus
 from assistant.core.config import settings
 from assistant.core.events import ApprovalRequired, ToolFinished
@@ -166,6 +167,24 @@ async def test_a_pinned_skills_plugin_is_loaded_from_the_epochs_start(service, s
     await service.pin_skill("owner", session.thread_id, "notes-help")
     await collect(service.send(session, "my notes"))
     assert _names(script.bound[0]) == {LOAD} and _names(script.bound[-1]) == {LOAD, READ, ADD, CHART}
+
+
+async def test_a_scheduled_run_starts_with_the_plugins_its_job_names(service, script):
+    await _add(service)
+    _notes_skill()
+    script.reply("done").reply("done").reply("done")
+    await collect(service.send(Session("owner", "worker", "job:a:1"), "Task: Run the skill notes-help"))
+    await collect(service.send(Session("owner", "worker", "job:b:1"), f"Task: call {READ} and summarize"))
+    attended = Session("owner", "cli", await service.new_thread("owner"))
+    await collect(service.send(attended, f"Task: call {READ} and summarize"))
+    assert _names(script.bound[0]) == _names(script.bound[1]) == {LOAD, READ, ADD, CHART}
+    assert _names(script.bound[2]) == {LOAD}
+
+
+async def test_a_job_names_a_skill_only_as_a_word_of_its_own(service):
+    _notes_skill()
+    assert await plugin_loading.named("Run notes-help, then mcp__mail__send") == {"notes", "mail"}
+    assert await plugin_loading.named("Run notes-helper and my-notes-help") == set()
 
 
 async def test_a_new_epoch_that_summarizes_starts_with_no_tools_loaded(service, script, summaries):

@@ -138,7 +138,8 @@ def _epoch_node(summarizer: Summarizer, mcp: McpTools, cache_minutes: float) -> 
             cast(AgentState, {**state, **trim}), runtime, thread_id, summarizer, mcp, catalog, now
         )
         if "system_prompt" in update:
-            update |= await _plugins_update(state, update, mcp, catalog)
+            named = await _named_plugins(state, runtime)
+            update |= await _plugins_update(state, update, mcp, catalog, named)
         return {**trim, **update, "last_activity": now.isoformat()}
 
     return _epoch
@@ -165,11 +166,21 @@ async def _epoch_update(
     return {}
 
 
-async def _plugins_update(state: AgentState, epoch: dict, mcp: McpTools, catalog: dict[str, list[str]]) -> dict:
-    """The plugins' tools a new epoch starts with: its pinned skills' plugins, and those it keeps."""
+async def _plugins_update(
+    state: AgentState, epoch: dict, mcp: McpTools, catalog: dict[str, list[str]], named: set[str]
+) -> dict:
+    """The plugins' tools a new epoch starts with: its pinned skills' plugins, those it keeps and those `named`."""
     pinned = await plugin_loading.skill_plugins(epoch["pinned_skills"])
-    loaded = sorted(plugin for plugin in {*_kept_plugins(state, epoch, mcp), *pinned} if plugin in catalog)
+    wanted = {*_kept_plugins(state, epoch, mcp), *pinned, *named}
+    loaded = sorted(plugin for plugin in wanted if plugin in catalog)
     return {"loaded_plugins": loaded, "mcp_tools": mcp.definitions(loaded), "plugin_tools": catalog}
+
+
+async def _named_plugins(state: AgentState, runtime: Runtime[Context]) -> set[str]:
+    """A scheduled run's: the plugins its job names in its message, so it doesn't spend a step loading them."""
+    if not runtime.context.unattended or not state["messages"]:
+        return set()
+    return await plugin_loading.named(state["messages"][-1].text)
 
 
 def _kept_plugins(state: AgentState, epoch: dict, mcp: McpTools) -> set[str]:
