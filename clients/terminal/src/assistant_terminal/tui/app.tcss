@@ -261,6 +261,11 @@ ModalScreen Markdown > MarkdownHeader:first-child {
     color: $accent;
 }
 
+.channel-setup .channel-qr {
+    width: auto;
+    height: auto;
+}
+
 .channel-setup .channel-copy {
     height: 8;
     border: round ansi_bright_black;

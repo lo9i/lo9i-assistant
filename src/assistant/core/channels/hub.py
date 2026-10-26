@@ -28,15 +28,15 @@ PROTOCOL = 2
 # How long an operation waits for the channel to confirm it.
 DELIVERY_SECONDS = 30.0
 
-SetupKind = Literal["text", "code", "copy", "action"]
+SetupKind = Literal["text", "code", "copy", "qr", "action"]
 # A channel's commands: {"command": "new", "description": "..."} each.
 Commands = list[dict[str, str]]
 
 
 @dataclass
 class SetupItem:
-    """A line the apps show for a channel: text, a code to read out, a value to copy, or a button
-    (`value` is the action it sends back)."""
+    """A line the apps show for a channel: text, a code to read out, a value to copy, a QR code to scan
+    (`value` is what it encodes; each app draws it) or a button (`value` is the action it sends back)."""
 
     kind: SetupKind
     label: str

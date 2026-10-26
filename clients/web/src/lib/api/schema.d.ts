@@ -4225,15 +4225,15 @@ export interface components {
         };
         /**
          * SetupItem
-         * @description A line the apps show for a channel: text, a code to read out, a value to copy, or a button
-         *     (`value` is the action it sends back).
+         * @description A line the apps show for a channel: text, a code to read out, a value to copy, a QR code to scan
+         *     (`value` is what it encodes; each app draws it) or a button (`value` is the action it sends back).
          */
         SetupItem: {
             /**
              * Kind
              * @enum {string}
              */
-            kind: "text" | "code" | "copy" | "action";
+            kind: "text" | "code" | "copy" | "qr" | "action";
             /** Label */
             label: string;
             /**

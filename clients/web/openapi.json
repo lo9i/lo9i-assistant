@@ -8868,6 +8868,7 @@
               "text",
               "code",
               "copy",
+              "qr",
               "action"
             ],
             "title": "Kind"
@@ -8888,7 +8889,7 @@
           "label"
         ],
         "title": "SetupItem",
-        "description": "A line the apps show for a channel: text, a code to read out, a value to copy, or a button\n(`value` is the action it sends back)."
+        "description": "A line the apps show for a channel: text, a code to read out, a value to copy, a QR code to scan\n(`value` is what it encodes; each app draws it) or a button (`value` is the action it sends back)."
       },
       "ShownCall": {
         "properties": {

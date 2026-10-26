@@ -1,6 +1,6 @@
 """A chat channel's setup, shown in its plugin's details in /plugins: whether it's connected, and what
 it shows for setting it up. Each channel sends its own items (lines, a code to read out, a value to
-copy, buttons), so this draws them without knowing any channel."""
+copy, a QR code to scan, buttons), so this draws them without knowing any channel."""
 
 from rich.text import Text
 from textual import on
@@ -12,7 +12,7 @@ from textual.widgets import Button, Static, TextArea
 from assistant.client import clipboard
 from assistant.client.daemon_client import ChannelsApi
 from assistant.core.agent import ChannelNotConnectedError, ChannelStatus, SetupItem
-from assistant_terminal.channels_text import heading, line, title
+from assistant_terminal.channels_text import heading, line, qr_lines, title
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 
@@ -85,6 +85,14 @@ def _item_widgets(item: SetupItem) -> list[Widget]:
             TextArea(item.value, read_only=True, classes="channel-copy"),
             Horizontal(_CopyButton(item), classes="channel-actions"),
         ]
+    if item.kind == "qr":
+        return _qr_widgets(item)
     if item.kind == "action":
         return []
     return [Static(line(item), markup=False)]
+
+
+def _qr_widgets(item: SetupItem) -> list[Widget]:
+    """Black on white whatever the theme: phones read a QR code best that way."""
+    code = Text("\n".join(qr_lines(item.value)), style="#000000 on #ffffff", no_wrap=True)
+    return [*([Static(item.label, markup=False)] if item.label else []), Static(code, classes="channel-qr")]

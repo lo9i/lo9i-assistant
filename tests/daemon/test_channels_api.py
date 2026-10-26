@@ -54,12 +54,19 @@ async def test_a_device_cant_use_a_channels_routes(app, service):
 
 async def test_a_channel_tells_the_apps_what_to_show(app, service):
     token = service.channels_hub.issue_token("telegram")
-    items = [{"kind": "text", "label": "Bot: @lo9i_bot", "value": ""}, {"kind": "action", "label": "New", "value": "n"}]
+    items = [
+        {"kind": "text", "label": "Bot: @lo9i_bot", "value": ""},
+        {"kind": "qr", "label": "Scan", "value": "2@AbC,dEf"},
+        {"kind": "action", "label": "New", "value": "n"},
+    ]
     async with _client(app, token) as http:
         assert (await http.put("/channels/telegram/status", json={"items": items})).status_code == 200
         assert (await http.post("/channels/telegram/deliveries/unknown", json={"error": ""})).status_code == 200
+        unknown = [{"kind": "image", "label": "", "value": "<svg/>"}]
+        assert (await http.put("/channels/telegram/status", json={"items": unknown})).status_code == 422
     telegram = next(c for c in await service.channels() if c.name == "telegram")
-    assert [(i.kind, i.label) for i in telegram.items] == [("text", "Bot: @lo9i_bot"), ("action", "New")]
+    kinds = [(i.kind, i.label, i.value) for i in telegram.items]
+    assert kinds == [("text", "Bot: @lo9i_bot", ""), ("qr", "Scan", "2@AbC,dEf"), ("action", "New", "n")]
 
 
 async def test_new_sends_the_channels_next_message_to_a_new_conversation(app, service):

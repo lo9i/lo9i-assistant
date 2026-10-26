@@ -1,7 +1,7 @@
 <script lang="ts">
   import Copy from "@lucide/svelte/icons/copy";
   import type { ChannelStatus, SetupItem } from "$lib/api/types";
-  import { lineOf, stateOf, titleOf } from "$lib/channels";
+  import { lineOf, qrOf, stateOf, titleOf } from "$lib/channels";
   import { useDaemon } from "$lib/daemon.svelte";
   import { describe } from "$lib/notices";
 
@@ -58,6 +58,15 @@
         </div>
         <pre>{item.value}</pre>
       </div>
+    {:else if item.kind === "qr"}
+      {@const qr = qrOf(item.value)}
+      <figure class="qr-box">
+        <svg viewBox="0 0 {qr.size} {qr.size}" shape-rendering="crispEdges" role="img" aria-label={item.label || "QR code"}>
+          <rect width={qr.size} height={qr.size} fill="#fff" />
+          <path d={qr.path} fill="#000" />
+        </svg>
+        {#if item.label}<figcaption class="micro-label">{item.label}</figcaption>{/if}
+      </figure>
     {/if}
   {/each}
   {#if actions.length}
@@ -107,6 +116,19 @@
     font-size: 22px;
     font-weight: 700;
     letter-spacing: 0.1em;
+  }
+  /* Black on white in both themes: phones read a QR code best that way. */
+  .qr-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+  }
+  .qr-box svg {
+    width: min(260px, 100%);
+    height: auto;
+    border-radius: var(--radius-sm);
   }
   .copy-box {
     display: flex;

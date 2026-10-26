@@ -1,6 +1,7 @@
 import { describe as group, expect, it } from "vitest";
 import type { ChannelStatus } from "./api/types";
-import { alertOptions, lineOf, stateOf, titleOf } from "./channels";
+import { encode } from "uqr";
+import { alertOptions, lineOf, qrOf, stateOf, titleOf } from "./channels";
 
 const channel = (enabled: boolean, connected: boolean): ChannelStatus => ({ name: "telegram", enabled, connected, items: [] });
 
@@ -17,6 +18,21 @@ group("channels", () => {
   it("shows a text item with its label when it has one", () => {
     expect(lineOf({ kind: "text", label: "", value: "Bot: @lo9i_bot" })).toBe("Bot: @lo9i_bot");
     expect(lineOf({ kind: "text", label: "Paired", value: "Ani" })).toBe("Paired: Ani");
+  });
+
+  it("draws a QR item's code as one path, every dark module and only those", () => {
+    const text = "https://wa.me/settings/linked_devices#2@AbCdEf,GhIjKl,MnOpQr";
+    const { size, path } = qrOf(text);
+    const { data } = encode(text, { border: 4 });
+    expect(size).toBe(data.length);
+    const covered = new Set<string>();
+    for (const [, x, y, width] of path.matchAll(/M(\d+) (\d+)h(\d+)v1h-\d+z/g)) {
+      for (let i = 0; i < Number(width); i++) covered.add(`${Number(x) + i},${y}`);
+    }
+    const dark = data.flatMap((row, y) => row.flatMap((on, x) => (on ? [`${x},${y}`] : [])));
+    expect([...covered].sort()).toEqual(dark.sort());
+    // The quiet border stays light.
+    expect(data[0].some(Boolean) || data.some((row) => row[0])).toBe(false);
   });
 
   it("offers new mail alerts on installed channels, keeping the one set", () => {

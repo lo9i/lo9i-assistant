@@ -88,13 +88,16 @@ it comes and confirm it with its result; the daemon waits for one before sending
 
 ### SetupItem
 
-`{"kind": "text" | "code" | "copy" | "action", "label": "...", "value": "..."}`
+`{"kind": "text" | "code" | "copy" | "qr" | "action", "label": "...", "value": "..."}`
 
 `label` names the item and `value` holds it.
 
 - `text`: a line, shown as `label: value`, or just `value` when `label` is empty, such as `Bot: @name` or an error.
 - `code`: a short value to read out, such as a pairing code.
 - `copy`: a longer value the user copies, such as Slack's app manifest.
+- `qr`: a QR code to scan, such as WhatsApp's for linking a device. `value` is the text it encodes, and each app
+  draws it (dark on light, which phones read best): the channel sends text, never an image, so nothing it sends
+  runs in an app. A code that changes (WhatsApp's every 20 seconds) is sent again with the status.
 - `action`: a button labelled `label`; `value` is the action id sent back in an `action` event.
 
 ## Apps
