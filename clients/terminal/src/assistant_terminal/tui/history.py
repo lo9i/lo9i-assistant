@@ -12,6 +12,7 @@ from assistant.core.agent import ShownCall, ShownMessage
 from assistant_terminal.tui.widgets import (
     AssistantMessage,
     CarriedNote,
+    ErrorMessage,
     FollowUpNote,
     PartialToolCall,
     ThinkingNote,
@@ -63,6 +64,8 @@ def _widget(message: ShownMessage, load: Loaders):
         return CarriedNote(message.text)
     if message.role == "notice":
         return FollowUpNote(message.text)
+    if message.role == "error":
+        return ErrorMessage(message.text)
     if message.partial and message.call_id:
         about = {"detail": message.detail} if message.detail else {}
         return PartialToolCall(message.text, about, message.output, partial(load.call, message.call_id))

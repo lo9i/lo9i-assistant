@@ -17,7 +17,7 @@ from langchain_core.messages.tool import ToolCall
 
 from assistant.core import subagent_steps
 from assistant.core.agent_tasks.steps import STEPS, UNANSWERED, Upload, args_of, files_of, parse
-from assistant.core.conversation import carried, ended
+from assistant.core.conversation import carried, ended, failed
 from assistant.core.conversation.dispatched import DISPATCH_ID
 from assistant.core.conversation.turn_header import is_header
 
@@ -44,7 +44,8 @@ class ShownStep:
 @dataclass
 class ShownMessage:
     # user | assistant | tool | thinking | carried (Markdown of a quick exchange from the inbox) | notice
-    # (background work that ended, which the assistant followed up on unasked)
+    # (background work that ended, which the assistant followed up on unasked) | error (what a run that failed
+    # ended with, conversation/failed.py)
     role: str
     # A tool's name for a tool.
     text: str
@@ -85,6 +86,8 @@ def _shown(message: BaseMessage, results: dict[str, ToolMessage]) -> list[ShownM
         exchange = carried.of(message)
         before = [ShownMessage("carried", carried.shown(exchange))] if exchange else []
         return [*before, ShownMessage("user", _text(message.content, skip_header=True))]
+    if (mark := failed.of(message)) is not None:
+        return [ShownMessage("error", str(mark.get("error", "")))]
     if isinstance(message, AIMessage) and (steps := message.response_metadata.get(STEPS)):
         unanswered = bool(message.response_metadata.get(UNANSWERED))
         return [_cut(m) for m in _agent_reply(steps, _text(message.content), message.id or "", unanswered)]

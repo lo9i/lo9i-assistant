@@ -1,9 +1,9 @@
 """The day's problems in the conversations, read from their checkpoints: runs that failed and tool calls left
 without results. A turn (a user message and what came after it) written that day counts once, as the worst it
-shows: its run failed with an error the checkpoint keeps (only the last run's is kept), tool calls never got a
-result (a run cancelled while tools ran answers them, so these ended with an error), or no reply came (the run
-failed, or was stopped before the assistant answered). The turn a run is still on, or that waits for an answer,
-isn't counted."""
+shows: its run failed, which it marks in the conversation (conversation/failed.py; the last run's error the
+checkpoint keeps when the mark couldn't be written), tool calls never got a result (a run cancelled while tools
+ran answers them, so these ended with an error), or no reply came (the run was stopped before the assistant
+answered). The turn a run is still on, or that waits for an answer, isn't counted."""
 
 import re
 from collections.abc import Collection, Sequence
@@ -16,13 +16,14 @@ from langgraph.store.base import BaseStore
 from langgraph.types import StateSnapshot
 
 from assistant.core import conversations
+from assistant.core.conversation import failed
 from assistant.core.conversation.turn_header import said, sent_at
 from assistant.core.conversation.unanswered import unanswered
 from assistant.core.doctor.causes import Occurrence
 from assistant.core.doctor.clock import day_of, header_time
 from assistant.core.doctor.model import ThreadRef
 
-NO_REPLY = "A message got no reply: its run failed or was stopped"
+NO_REPLY = "A message got no reply: its run was stopped before it answered"
 # An exception's repr: `OperationalError('database is locked')`.
 _REPR = re.compile(r"^(\w+)\((['\"])(.*)\2\)$", re.DOTALL)
 
@@ -66,6 +67,7 @@ def _turn(
     turn: Sequence[BaseMessage], at: datetime, thread: ThreadRef, failure: tuple[str, str] | None
 ) -> list[Occurrence]:
     """`failure`: the step the turn's run failed at and its error, when the checkpoint keeps it."""
+    failure = _marked(turn) or failure
     if failure is not None:
         step, error = failure
         return [Occurrence(f"A run failed: {error}", step, at, example=error, thread=thread)]
@@ -74,9 +76,15 @@ def _turn(
             Occurrence(f"{c['name']} never got a result: its run ended with an error", c["name"], at, thread=thread)
             for c in calls
         ]
-    if not any(isinstance(m, AIMessage) for m in turn[1:]):
+    if not any(isinstance(m, AIMessage) and failed.of(m) is None for m in turn[1:]):
         return [Occurrence(NO_REPLY, "", at, example=_said(turn[0]), thread=thread)]
     return []
+
+
+def _marked(turn: Sequence[BaseMessage]) -> tuple[str, str] | None:
+    """The step and error of the turn's run that failed, as the conversation marks it."""
+    mark = next((found for m in turn if (found := failed.of(m)) is not None), None)
+    return (str(mark.get("step", "")), str(mark.get("error", ""))) if mark else None
 
 
 def _failure(snapshot: StateSnapshot) -> tuple[str, str] | None:

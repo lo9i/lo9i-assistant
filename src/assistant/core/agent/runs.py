@@ -14,6 +14,7 @@ from assistant.core.agent.search import SearchMixin
 from assistant.core.agent.session import Session
 from assistant.core.agent.thread_files import ThreadFilesMixin
 from assistant.core.context import Context
+from assistant.core.conversation import failed
 from assistant.core.events import ApprovalRequired, Cancelled, Done, Error, Event
 from assistant.core.health import HealthLog
 from assistant.core.skills.tracker import SkillScriptTracker
@@ -163,12 +164,28 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
             for event in pending:
                 yield event
             return
-        async for event in self._stream(session, input, config):
-            yield event
-            if isinstance(event, Error):
-                return
+        try:
+            async for event in self._stream(session, input, config):
+                yield event
+                if isinstance(event, Error):
+                    return
+        except Exception as e:
+            await self._mark_failed(session.thread_id, e)
+            raise
         if not await self._pending_approvals(config):
             yield Done()
+
+    async def _mark_failed(self, thread_id: str, error: Exception) -> None:
+        """Records the failure in the conversation (conversation/failed.py), with the step the checkpoint says it
+        failed at. A mark that can't be written leaves the checkpoint's error, which the doctor reads too."""
+        config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
+        try:
+            state = await self._graph.aget_state(config)
+            step = next((t.name for t in state.tasks if t.error is not None), "")
+            mark = failed.mark(f"{type(error).__name__}: {error}", step)
+            await self._graph.aupdate_state(config, {"messages": [mark]}, as_node="agent")
+        except Exception:
+            logger.exception("Couldn't record the failed run in %s", thread_id)
 
     async def _stream(self, session: Session, input: Any, config: RunnableConfig) -> AsyncIterator[Event]:
         context = Context(

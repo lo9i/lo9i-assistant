@@ -74,6 +74,23 @@ async def test_a_handed_off_agents_thinking_and_tool_calls_show_again_when_resum
         assert app.query_one(ToolCall).title == "✓ Bash(pytest -q)"
 
 
+async def test_a_run_that_failed_shows_its_error_again_when_resumed(app, client):
+    from assistant_terminal.tui.widgets import ErrorMessage
+
+    client.conversations.items = [Conversation(f"owner:{n}", f"trip {n}", _AT, _AT) for n in ("abc", "b")]
+    client.conversations.said["owner:b"] = [
+        ShownMessage("user", "remember my goal"),
+        ShownMessage("error", "OperationalError: database is locked"),
+    ]
+    async with app.run_test() as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/conversations", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
+        await pilot.press("down", "enter")
+        await wait_for(pilot, lambda: app.sub_title == "trip b" and app.query(ErrorMessage))
+        assert "database is locked" in str(app.query_one(ErrorMessage).render())
+
+
 async def test_a_delegate_call_shows_the_subagents_steps_inside_it_when_resumed(app, client):
     from assistant_terminal.tui.widgets import ToolCall
 

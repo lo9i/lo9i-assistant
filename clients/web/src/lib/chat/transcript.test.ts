@@ -21,6 +21,14 @@ describe("transcript", () => {
     expect(addNotice(empty, "⚠️ convert: it failed").items[0]).toMatchObject({ kind: "notice", text: "⚠️ convert: it failed" });
   });
 
+  it("shows a run that failed with the error it ended with, as it showed live", () => {
+    const t = fromHistory([
+      { role: "user", text: "remember my goal", detail: "", output: "", dispatch_id: "", call_id: "", partial: false },
+      { role: "error", text: "OperationalError: database is locked", detail: "", output: "", dispatch_id: "", call_id: "", partial: false },
+    ]);
+    expect(t.items[1]).toMatchObject({ kind: "error", message: "OperationalError: database is locked" });
+  });
+
   it("streams text into one message until another event arrives", () => {
     const t = play([
       { type: "TextDelta", text: "Hel" },

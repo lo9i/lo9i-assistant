@@ -128,6 +128,8 @@ function addShown(t: Transcript, message: ShownMessage): Transcript {
   if (message.role === "thinking") return add(t, { kind: "thinking", text: message.text });
   if (message.role === "carried") return add(t, { kind: "carried", text: message.text });
   if (message.role === "notice") return add(t, { kind: "notice", text: message.text });
+  // A run that failed: what it ended with, as it showed live.
+  if (message.role === "error") return add(t, { kind: "error", message: message.text });
   if (message.role === "tool") return add(t, shownTool(message));
   return add(t, { kind: "assistant", text: message.text, dispatchId: message.dispatch_id || undefined });
 }

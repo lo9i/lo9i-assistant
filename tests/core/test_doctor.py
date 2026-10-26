@@ -151,11 +151,11 @@ async def test_a_run_that_failed_and_a_call_left_without_a_result_are_found(serv
         ("A run failed: OperationalError: database is locked", "tools", 1)
     ]
     assert [t.thread_id for t in failed[0].threads] == [session.thread_id]
-    # A later run goes on from there: the call it left shows without a result.
+    # A later run goes on from there; the failed one stays a failure, with its error, which the conversation marks.
     await collect(service.send(session, "did it save?"))
     report = await service.doctor.check(OWNER, today, whole_day=False)
     assert [(c.title, c.where) for c in report.causes if c.kind == "conversation"] == [
-        ("update_profile never got a result: its run ended with an error", "update_profile")
+        ("A run failed: OperationalError: database is locked", "tools")
     ]
 
 

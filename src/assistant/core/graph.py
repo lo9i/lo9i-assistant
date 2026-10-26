@@ -19,6 +19,7 @@ from assistant.core import plugin_loading
 from assistant.core.attachments import hydrate
 from assistant.core.config import settings
 from assistant.core.context import Context, require_store
+from assistant.core.conversation import failed
 from assistant.core.conversation.dispatch import build_classifier
 from assistant.core.conversation.dispatch_nodes import ASK, DISPATCH, SEND, dispatch_nodes
 from assistant.core.conversation.epochs import (
@@ -276,9 +277,8 @@ def mcp_calls(mcp: McpTools) -> AsyncToolCallWrapper:
 
 def _agent_node(llm: BaseChatModel, tools: Sequence[BaseTool], images_in_tool_results: bool) -> Node:
     async def _agent(state: AgentState) -> dict:
-        epoch = answered(
-            without_routed(trimmed(state["messages"], state.get("epoch_start", 0), state.get("trimmed_before", 0)))
-        )
+        kept = trimmed(state["messages"], state.get("epoch_start", 0), state.get("trimmed_before", 0))
+        epoch = answered(failed.without_marks(without_routed(kept)))
         messages = await asyncio.to_thread(hydrate, epoch, images_in_tool_results)
         bound = llm.bind_tools([*tools, *state.get("mcp_tools", [])])
         response = await bound.ainvoke([SystemMessage(state["system_prompt"]), *messages])
