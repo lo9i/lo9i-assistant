@@ -132,8 +132,13 @@ def _where(task: asyncio.Task) -> str:
 
 def _announcer(service: AssistantService) -> Announce:
     """Tells every app a restart or stop is coming (an `ending` event)."""
-    return lambda ending, waiting, taken_back: service.bus.publish(
-        "ending", ending=ending.value, waiting_for_runs=waiting, taken_back=taken_back
+    return lambda pending, taken_back: service.bus.publish(
+        "ending",
+        ending=pending.ending.value,
+        waiting_for_runs=pending.waiting_for_runs,
+        waiting_for_update=pending.waiting_for_update,
+        can_take_back=pending.can_take_back,
+        taken_back=taken_back,
     )
 
 

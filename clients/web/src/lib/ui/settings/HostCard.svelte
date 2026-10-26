@@ -2,7 +2,7 @@
   import { Download, LoaderCircle, Power, RefreshCw, RotateCcw, SearchCheck } from "@lucide/svelte";
   import type { HostStatus, UpdateStatus } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
-  import { CONFIRM, endingText, waitingText, type Ending } from "$lib/shutdown";
+  import { answerable, coming, CONFIRM, endingText, waitingText, type Coming, type Ending } from "$lib/shutdown";
   import { canInstall, updateLine, versionText } from "$lib/updates";
   import Confirm from "../Confirm.svelte";
   import Modal from "../Modal.svelte";
@@ -17,25 +17,23 @@
   let confirming = $state<Ending | "update" | null>(null);
   let checking = $state(false);
   // Set once the daemon accepted a restart or stop, from this page or anywhere (an update installed, another
-  // tab, before this page loaded); the page waits for it to come back. While it waits for runs to end, it can be
-  // taken back, or made to go ahead now by cancelling them.
-  let ending = $state<{ ending: Ending; waiting: number } | null>(null);
+  // tab, before this page loaded); the page waits for it to come back. While it waits, it can be taken back (unless
+  // an update was installed), or made to go ahead now by cancelling the runs it waits for.
+  let ending = $state<Coming | null>(null);
   // Cancel or Now was pressed and the daemon hasn't answered yet.
   let answering = $state(false);
 
   $effect(() => {
     void pending();
-    return hub.on(["ending"], (data) => {
-      ending = data.taken_back ? null : { ending: data.ending as Ending, waiting: Number(data.waiting_for_runs ?? 0) };
-    });
+    return hub.on(["ending"], (data) => (ending = coming(data)));
   });
   // How many runs it still waits for; once none, it's going ahead and the count stays.
   $effect(() => hub.on(["run_finished"], () => void pending()));
 
   async function pending(): Promise<void> {
     try {
-      const found = await client.system.ending();
-      if (found.ending) ending = { ending: found.ending as Ending, waiting: found.waiting_for_runs };
+      const found = coming(await client.system.ending());
+      if (found) ending = found;
     } catch (e) {
       notices.report(e);
     }
@@ -71,7 +69,9 @@
   async function end(kind: Ending): Promise<void> {
     try {
       const status = await (kind === "restart" ? client.system.restart() : client.system.stop());
-      ending = { ending: kind, waiting: status.waiting_for_runs };
+      ending = { ending: kind, waiting: status.waiting_for_runs, update: false, canTakeBack: true };
+      // What else it waits for (an update being installed), and whether it can be taken back.
+      void pending();
     } catch (e) {
       notices.report(e);
     }
@@ -208,14 +208,17 @@
   <!-- No way to close it: the page has nothing to show until the daemon is back, and then it reloads. While it
        waits for runs, Cancel takes it back and Now cancels them. -->
   <Modal title={ending.ending === "restart" ? "Restarting" : "Stopping"} width={440}>
-    <p class="text-label">{endingText(ending.ending, ending.waiting)}</p>
-    {#if ending.waiting}
-      <p class="text-meta">{waitingText(ending.ending)}</p>
+    {@const can = answerable(ending)}
+    <p class="text-label">{endingText(ending)}</p>
+    {#if can.cancel || can.now}
+      <p class="text-meta">{waitingText(ending)}</p>
     {/if}
     <p class="text-meta waiting"><LoaderCircle size={14} class="spin" aria-hidden="true" /> Waiting for the assistant…</p>
     {#snippet footer()}
-      {#if ending?.waiting}
+      {#if ending && answerable(ending).cancel}
         <button class="btn btn--ghost" onclick={takeBack} disabled={answering}>Cancel</button>
+      {/if}
+      {#if ending && answerable(ending).now}
         <button class="btn btn--danger" onclick={now} disabled={answering}>Now</button>
       {/if}
     {/snippet}

@@ -2281,7 +2281,8 @@ export interface paths {
         post?: never;
         /**
          * Take Back Ending
-         * @description The daemon keeps running. 409: nothing is waiting, or it already went ahead.
+         * @description The daemon keeps running. 409: nothing is waiting, it already went ahead, or it's the restart an
+         *     installed update needs (`can_take_back` is false), which can't be taken back.
          */
         delete: operations["take_back_ending_system_ending_delete"];
         options?: never;
@@ -3898,13 +3899,24 @@ export interface components {
         };
         /**
          * PendingEnding
-         * @description The restart or stop waiting for runs to end; `ending` is "" when none is.
+         * @description The restart or stop waiting for runs to end, and for an update being installed; `ending` is "" when none
+         *     is. `can_take_back` is false once an update was installed: the restart it needs can't be.
          */
         PendingEnding: {
             /** Ending */
             ending: string;
             /** Waiting For Runs */
             waiting_for_runs: number;
+            /**
+             * Waiting For Update
+             * @default false
+             */
+            waiting_for_update: boolean;
+            /**
+             * Can Take Back
+             * @default false
+             */
+            can_take_back: boolean;
         };
         /** PinnedSkills */
         PinnedSkills: {

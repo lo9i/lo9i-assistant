@@ -1,8 +1,8 @@
 from textual.widgets import Button, Markdown
 
-from assistant.protocol import Commit
+from assistant.protocol import Commit, PendingEnding
 from assistant_terminal.tui.screens import ConfirmScreen, HostScreen
-from tests.terminal.conftest import wait_for
+from tests.terminal.conftest import ending_event, wait_for
 
 
 async def test_shows_the_host_and_reads_it_again_on_refresh(app, client):
@@ -114,9 +114,21 @@ async def test_a_pending_restart_shows_with_cancel_and_now(app, client):
 
 async def test_every_restart_or_stop_announced_shows_in_the_app(app, client):
     async with app.run_test(size=(110, 40)) as pilot:
-        await client.bus.put(("ending", {"ending": "restart", "waiting_for_runs": 2}))
+        await client.bus.put(("ending", ending_event("restart", 2, taken_back=False)))
         await wait_for(pilot, lambda: "restarts once the 2 runs in progress end" in _notices(app))
         assert "reconnects when it's back" in _notices(app)
+        await client.bus.put(("ending", ending_event("restart", 0, taken_back=False, update=True)))
+        await wait_for(pilot, lambda: "restarts once the update being installed is done." in _notices(app))
+
+
+async def test_the_restart_an_installed_update_needs_offers_now_but_no_cancel(app, client):
+    client.system.pending = PendingEnding("restart", 1, can_take_back=False)
+    async with app.run_test(size=(140, 40)) as pilot:
+        screen = await _host_screen(pilot, app)
+        body = screen.query_one("#host-body", Markdown)
+        await wait_for(pilot, lambda: "### Restart pending" in body.source)
+        assert "An update was installed, so it can't be cancelled" in body.source
+        assert not screen.query_one("#take-back", Button).display and screen.query_one("#now", Button).display
 
 
 async def test_the_app_says_while_the_assistant_cant_be_reached_and_when_its_back(app, client):

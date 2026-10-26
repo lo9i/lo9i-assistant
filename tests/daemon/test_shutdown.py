@@ -63,16 +63,20 @@ async def test_a_stop_waits_for_the_runs_in_progress_then_goes_through_the_servi
 
 
 async def test_every_app_hears_a_restart_or_stop_is_coming_and_what_it_waits_for():
-    heard: list[tuple[Ending, int, bool]] = []
-    shutdown = Shutdown(_Runs(running=2), asyncio.Event(), _Manager(), lambda e, n, back: heard.append((e, n, back)))
+    heard: list[tuple[Pending, bool]] = []
+    shutdown = Shutdown(_Runs(running=2), asyncio.Event(), _Manager(), lambda p, back: heard.append((p, back)))
     shutdown.request(Ending.RESTART)
     shutdown.request(Ending.STOP)
     shutdown.take_back()
-    assert heard == [(Ending.RESTART, 2, False), (Ending.STOP, 2, False), (Ending.STOP, 0, True)]
+    assert heard == [
+        (Pending(Ending.RESTART, 2), False),
+        (Pending(Ending.STOP, 2), False),
+        (Pending(Ending.STOP, 0), True),
+    ]
     with pytest.raises(StopRefusedError):
-        Shutdown(
-            _Runs(), asyncio.Event(), _Manager(refusal="no"), lambda e, n, back: heard.append((e, n, back))
-        ).request(Ending.STOP)
+        Shutdown(_Runs(), asyncio.Event(), _Manager(refusal="no"), lambda p, back: heard.append((p, back))).request(
+            Ending.STOP
+        )
     assert len(heard) == 3
 
 
@@ -159,10 +163,12 @@ class _Update:
 
 async def test_a_restart_or_stop_waits_for_an_update_being_installed_and_for_runs_started_meanwhile():
     runs, update, stop = _Runs(), _Update(), asyncio.Event()
-    shutdown = Shutdown(runs, stop, _Manager(), update=update)
+    heard: list[Pending] = []
+    shutdown = Shutdown(runs, stop, _Manager(), lambda p, back: heard.append(p), update=update)
     shutdown.request(Ending.RESTART)
     await asyncio.sleep(0.01)
-    assert not stop.is_set() and shutdown.pending() == Pending(Ending.RESTART, 0)
+    assert not stop.is_set() and shutdown.pending() == Pending(Ending.RESTART, 0, waiting_for_update=True)
+    assert heard[-1] == Pending(Ending.RESTART, 0, waiting_for_update=True)  # told it waits for the update
     runs.running, runs.ended = 1, asyncio.Event()
     update.done.set()
     await asyncio.sleep(0.01)
@@ -178,7 +184,7 @@ async def test_the_restart_an_update_asks_for_cant_be_taken_back_but_can_go_ahea
     assert shutdown.restart_for_update() == 1
     with pytest.raises(NoEndingError, match="An update was installed"):
         shutdown.take_back("web")
-    assert shutdown.pending() == Pending(Ending.RESTART, 1)
+    assert shutdown.pending() == Pending(Ending.RESTART, 1, can_take_back=False)
     assert shutdown.now("web") == 1
     await asyncio.wait_for(stop.wait(), 1)
     assert shutdown.ending is Ending.RESTART
@@ -186,9 +192,11 @@ async def test_the_restart_an_update_asks_for_cant_be_taken_back_but_can_go_ahea
 
 async def test_a_stop_asked_for_while_an_update_installed_stays_a_stop():
     runs, manager, stop = _Runs(running=1), _Manager(), asyncio.Event()
-    shutdown = Shutdown(runs, stop, manager)
+    heard: list[Pending] = []
+    shutdown = Shutdown(runs, stop, manager, lambda p, back: heard.append(p))
     shutdown.request(Ending.STOP)
     shutdown.restart_for_update()
+    assert heard == [Pending(Ending.STOP, 1), Pending(Ending.STOP, 1, can_take_back=False)]
     runs.cancel_runs()
     await asyncio.wait_for(stop.wait(), 1)
     assert manager.stops == 1 and shutdown.ending is Ending.STOP

@@ -510,8 +510,8 @@ class FakeSystem:
     async def _end(self, ending, runs):
         self.endings.append(ending)
         if runs:
-            self.pending = PendingEnding(ending, runs)
-        await self._bus.put(("ending", {"ending": ending, "waiting_for_runs": runs, "taken_back": False}))
+            self.pending = PendingEnding(ending, runs, can_take_back=True)
+        await self._bus.put(("ending", ending_event(ending, runs, taken_back=False)))
         return ShutdownStatus(waiting_for_runs=runs)
 
     async def ending(self):
@@ -521,7 +521,7 @@ class FakeSystem:
         if not self.pending.ending:
             raise NoEndingError("No restart or stop is waiting to be taken back.")
         ending, self.pending = self.pending.ending, PendingEnding("", 0)
-        await self._bus.put(("ending", {"ending": ending, "waiting_for_runs": 0, "taken_back": True}))
+        await self._bus.put(("ending", ending_event(ending, 0, taken_back=True)))
         return self.pending
 
     async def end_now(self):
@@ -916,6 +916,17 @@ class FakeDevices:
         if device_id not in {d.id for d in self.items}:
             raise DeviceError(f"No device {device_id}.")
         self.items = [d for d in self.items if d.id != device_id]
+
+
+def ending_event(ending: str, runs: int, taken_back: bool, update: bool = False, can_take_back: bool = True) -> dict:
+    """As the daemon announces a restart or stop (daemon/server.py::_announcer)."""
+    return {
+        "ending": ending,
+        "waiting_for_runs": runs,
+        "waiting_for_update": update,
+        "can_take_back": can_take_back,
+        "taken_back": taken_back,
+    }
 
 
 class FakeFiles:

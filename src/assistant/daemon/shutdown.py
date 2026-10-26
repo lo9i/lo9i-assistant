@@ -35,10 +35,14 @@ class Ending(StrEnum):
 class Pending:
     ending: Ending
     waiting_for_runs: int
+    # An update being installed, which it waits for after the runs.
+    waiting_for_update: bool = False
+    # False once an update was installed: the restart it needs can't be taken back.
+    can_take_back: bool = True
 
 
-# Tells the apps a restart or stop is coming and how many runs it waits for, or, `taken_back`, that it won't.
-Announce = Callable[[Ending, int, bool], None]
+# Tells the apps a restart or stop is coming and what it waits for, or, `taken_back`, that it won't.
+Announce = Callable[[Pending, bool], None]
 
 
 class Runs(Protocol):
@@ -85,11 +89,11 @@ class Shutdown:
         runs: Runs,
         stop: asyncio.Event,
         manager: ServiceManager,
-        announce: Announce = lambda ending, waiting, taken_back: None,
+        announce: Announce = lambda pending, taken_back: None,
         update: Update | None = None,
     ) -> None:
-        """`announce` tells the apps a restart or stop is coming, and how many runs it waits for, or that it was
-        taken back, so every one of them can say so, not only the one that asked. `update` is the updater, whose
+        """`announce` tells the apps a restart or stop is coming, and what it waits for, or that it was taken back,
+        so every one of them can say so, not only the one that asked. `update` is the updater, whose
         update in progress it waits for too."""
         self._runs = runs
         self._stop = stop
@@ -122,7 +126,7 @@ class Shutdown:
             self._waiting = asyncio.create_task(self._when_no_runs())
         waiting = self._runs.runs_in_progress()
         logger.info("A %s was asked for by %s; it waits for %s run(s) in progress.", ending, by or "a client", waiting)
-        self._announce(ending, waiting, False)
+        self._announce_pending()
         return waiting
 
     def restart_for_update(self) -> int:
@@ -131,6 +135,7 @@ class Shutdown:
         it waits for."""
         self._installed = True
         if self._waiting is not None and not self._going_ahead and self._wanted is Ending.STOP:
+            self._announce_pending()  # It can't be taken back any more.
             return self._runs.runs_in_progress()
         return self.request(Ending.RESTART, "an update")
 
@@ -138,7 +143,9 @@ class Shutdown:
         """The restart or stop waiting for runs to end, if one is."""
         if self._waiting is None or self._going_ahead:
             return None
-        return Pending(self._wanted, self._runs.runs_in_progress())
+        return Pending(
+            self._wanted, self._runs.runs_in_progress(), self._update.installing(), can_take_back=not self._installed
+        )
 
     def take_back(self, by: str = "") -> None:
         """The daemon keeps running. Raises NoEndingError when no restart or stop is waiting."""
@@ -153,7 +160,7 @@ class Shutdown:
         waiting.cancel()
         self._waiting = None
         logger.info("The %s was taken back by %s.", self._wanted, by or "a client")
-        self._announce(self._wanted, 0, True)
+        self._announce(Pending(self._wanted, 0), True)
 
     def now(self, by: str = "") -> int:
         """Cancels the runs the restart or stop waits for, so it goes ahead now. Returns how many were cancelled.
@@ -171,6 +178,7 @@ class Shutdown:
             if not self._update.installing():
                 return
             logger.info("The %s waits for the update being installed.", self._wanted)
+            self._announce_pending()
             await self._update.until_installed()
 
     async def _when_no_runs(self) -> None:
@@ -190,6 +198,10 @@ class Shutdown:
                 self._restart_instead()
             return
         self.ending = Ending.STOP
+
+    def _announce_pending(self) -> None:
+        if (pending := self.pending()) is not None:
+            self._announce(pending, False)
 
     def _restart_instead(self) -> None:
         """A stop that failed after an update was installed: it restarts instead, so the update runs."""

@@ -1671,7 +1671,8 @@ def _add_shutdown_routes(app: FastAPI, shutdown: Any) -> None:
 
     @app.delete("/system/ending")
     async def take_back_ending(request: Request) -> PendingEnding:
-        """The daemon keeps running. 409: nothing is waiting, or it already went ahead."""
+        """The daemon keeps running. 409: nothing is waiting, it already went ahead, or it's the restart an
+        installed update needs (`can_take_back` is false), which can't be taken back."""
         try:
             shutdown.take_back(_asker(request))
         except NoEndingError as e:
@@ -1689,7 +1690,11 @@ def _add_shutdown_routes(app: FastAPI, shutdown: Any) -> None:
 
 def _pending(shutdown: Any) -> PendingEnding:
     pending = shutdown.pending()
-    return PendingEnding(pending.ending.value, pending.waiting_for_runs) if pending else PendingEnding("", 0)
+    if pending is None:
+        return PendingEnding("", 0)
+    return PendingEnding(
+        pending.ending.value, pending.waiting_for_runs, pending.waiting_for_update, pending.can_take_back
+    )
 
 
 def _asker(request: Request) -> str:

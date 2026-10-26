@@ -1,7 +1,8 @@
 """The computer the daemon runs on: system, versions and current use, as the web app's Host card. Restarts
 or stops the daemon, after asking (daemon/shutdown.py), and checks for and installs a newer version of lo9i
 (daemon/updates.py), whose progress comes as `update` events. A restart or stop waiting for runs to end shows
-here, whoever asked for it, with Cancel, which takes it back, and Now, which cancels the runs so it goes ahead."""
+here, whoever asked for it, with Cancel, which takes it back (not the restart an installed update needs), and Now,
+which cancels the runs so it goes ahead."""
 
 from typing import ClassVar
 
@@ -146,15 +147,23 @@ class HostScreen(ModalScreen[None]):
         self.query_one("#update", Button).disabled = not can_install(update)
         take_back = self.query_one("#take-back", Button)
         take_back.label = f"Cancel {pending.ending or 'restart'}"
-        take_back.display = self.query_one("#now").display = bool(pending.waiting_for_runs)
+        take_back.display = can_take_back(pending)
+        self.query_one("#now").display = bool(pending.ending and pending.waiting_for_runs)
         await self.query_one("#host-body", Markdown).update(describe(host, update, pending))
 
 
-def ending_text(does: str, waiting: int) -> str:
-    if not waiting:
-        return f"The assistant {does} now."
+def ending_text(does: str, waiting: int, update: bool = False) -> str:
+    """When it restarts or stops, as the web app says it (lib/shutdown.ts)."""
     runs = "the run in progress ends" if waiting == 1 else f"the {waiting} runs in progress end"
-    return f"The assistant {does} once {runs}."
+    waits = [*(["the update being installed is done"] if update else []), *([runs] if waiting else [])]
+    return f"The assistant {does} {f'once {" and ".join(waits)}' if waits else 'now'}."
+
+
+def can_take_back(pending: PendingEnding) -> bool:
+    """Something to take back: it waits for runs or an update, and isn't the restart an installed update needs."""
+    return (
+        bool(pending.ending) and pending.can_take_back and (pending.waiting_for_runs > 0 or pending.waiting_for_update)
+    )
 
 
 def describe(host: HostStatus, update: UpdateStatus | None = None, pending: PendingEnding | None = None) -> str:
@@ -178,9 +187,18 @@ def describe(host: HostStatus, update: UpdateStatus | None = None, pending: Pend
 
 def _pending(pending: PendingEnding) -> str:
     restart = pending.ending == "restart"
-    said = ending_text("restarts" if restart else "stops", pending.waiting_for_runs)
-    choices = f" Cancel {pending.ending} keeps it running; Now cancels the runs." if pending.waiting_for_runs else ""
-    return f"\n\n### {'Restart' if restart else 'Stop'} pending\n\n{said}{choices}"
+    does = "restarts" if restart else "stops"
+    said = ending_text(does, pending.waiting_for_runs, pending.waiting_for_update)
+    choices = [
+        *([f"Cancel {pending.ending} keeps it running."] if can_take_back(pending) else []),
+        *(
+            [f"An update was installed, so it can't be cancelled: it {does} so the update runs."]
+            if not pending.can_take_back
+            else []
+        ),
+        *(["Now cancels the runs."] if pending.waiting_for_runs else []),
+    ]
+    return f"\n\n### {'Restart' if restart else 'Stop'} pending\n\n{' '.join([said, *choices])}"
 
 
 def _updates(update: UpdateStatus) -> str:

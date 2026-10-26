@@ -331,7 +331,7 @@ class AssistantApp(App):
         if ending.get("taken_back"):
             self.notify(f"The {'restart' if restart else 'stop'} was cancelled: the assistant keeps running.")
             return
-        said = ending_text("restarts" if restart else "stops", ending["waiting_for_runs"])
+        said = ending_text("restarts" if restart else "stops", ending["waiting_for_runs"], ending["waiting_for_update"])
         back = "This app reconnects when it's back." if restart else "Start it again on the computer it runs on."
         self.notify(f"{said} {back}", timeout=15)
 

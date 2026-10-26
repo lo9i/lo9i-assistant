@@ -5098,7 +5098,7 @@
       },
       "delete": {
         "summary": "Take Back Ending",
-        "description": "The daemon keeps running. 409: nothing is waiting, or it already went ahead.",
+        "description": "The daemon keeps running. 409: nothing is waiting, it already went ahead, or it's the restart an\ninstalled update needs (`can_take_back` is false), which can't be taken back.",
         "operationId": "take_back_ending_system_ending_delete",
         "responses": {
           "200": {
@@ -8279,6 +8279,16 @@
           "waiting_for_runs": {
             "type": "integer",
             "title": "Waiting For Runs"
+          },
+          "waiting_for_update": {
+            "type": "boolean",
+            "title": "Waiting For Update",
+            "default": false
+          },
+          "can_take_back": {
+            "type": "boolean",
+            "title": "Can Take Back",
+            "default": false
           }
         },
         "type": "object",
@@ -8287,7 +8297,7 @@
           "waiting_for_runs"
         ],
         "title": "PendingEnding",
-        "description": "The restart or stop waiting for runs to end; `ending` is \"\" when none is."
+        "description": "The restart or stop waiting for runs to end, and for an update being installed; `ending` is \"\" when none\nis. `can_take_back` is false once an update was installed: the restart it needs can't be."
       },
       "PinnedSkills": {
         "properties": {

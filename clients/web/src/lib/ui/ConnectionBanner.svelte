@@ -6,7 +6,7 @@
   import WifiOff from "@lucide/svelte/icons/wifi-off";
   import { DaemonUnavailableError } from "$lib/api/errors";
   import { external, useDaemon } from "$lib/daemon.svelte";
-  import { comingText, type Ending } from "$lib/shutdown";
+  import { answerable, coming as comingOf, comingText, type Coming } from "$lib/shutdown";
 
   // Says, on every page, what the daemon is up to when the page can't simply go on: a restart or stop coming (an
   // `ending` event, whoever asked for it), the daemon away while its event stream is lost (a restart, a computer
@@ -15,14 +15,12 @@
   let { name }: { name: string } = $props();
   const { client, hub, notices } = useDaemon();
   const connection = external(hub.subscribeConnection, hub.getConnection);
-  let coming = $state<{ ending: Ending; waiting: number } | null>(null);
+  let coming = $state<Coming | null>(null);
   let newVersion = $state(false);
 
   $effect(() => {
     void pending();
-    return hub.on(["ending"], (data) => {
-      coming = data.taken_back ? null : { ending: data.ending as Ending, waiting: Number(data.waiting_for_runs ?? 0) };
-    });
+    return hub.on(["ending"], (data) => (coming = comingOf(data)));
   });
   // How many runs it still waits for; once none, it's going ahead and what's coming stays.
   $effect(() => hub.on(["run_finished"], () => void (coming && pending())));
@@ -30,14 +28,15 @@
   /** A restart or stop asked for before this page loaded, or the runs it waits for now. */
   async function pending(): Promise<void> {
     try {
-      const found = await client.system.ending();
-      if (found.ending) coming = { ending: found.ending as Ending, waiting: found.waiting_for_runs };
+      const found = comingOf(await client.system.ending());
+      if (found) coming = found;
     } catch (e) {
       // Unreachable: the banner says so already, and this is read again when the stream opens.
       if (!(e instanceof DaemonUnavailableError)) notices.report(e);
     }
   }
-  // While it waits for runs: Cancel keeps the daemon running, Now cancels the runs so it goes ahead.
+  // While it waits: Cancel keeps the daemon running (not for an installed update), Now cancels the runs so it goes
+  // ahead.
   let answering = $state(false);
   async function answer(act: () => Promise<unknown>, after: () => void): Promise<void> {
     answering = true;
@@ -89,9 +88,11 @@
 {:else if coming}
   <div class="banner surface--glass" role="status" aria-live="polite">
     <RefreshCw size={16} />
-    <span>{comingText(name, coming.ending, coming.waiting)}</span>
-    {#if coming.waiting}
+    <span>{comingText(name, coming)}</span>
+    {#if answerable(coming).cancel}
       <button class="btn btn--sm btn--ghost" onclick={takeBack} disabled={answering}>Cancel</button>
+    {/if}
+    {#if answerable(coming).now}
       <button class="btn btn--sm btn--danger" onclick={now} disabled={answering}>Now</button>
     {/if}
   </div>

@@ -90,7 +90,7 @@ class _Shutdown:
         return 2
 
     def pending(self) -> Pending | None:
-        return Pending(self.requests[-1], 2) if self.requests else None
+        return Pending(self.requests[-1], 2, waiting_for_update=True) if self.requests else None
 
     def take_back(self, by: str = "") -> None:
         if not self.requests:
@@ -128,7 +128,7 @@ async def test_a_pending_restart_is_read_made_to_go_ahead_and_taken_back(service
         with pytest.raises(NoEndingError):
             await system.end_now()
         await system.restart()
-        assert await system.ending() == PendingEnding("restart", 2)
+        assert await system.ending() == PendingEnding("restart", 2, waiting_for_update=True, can_take_back=True)
         assert await system.end_now() == 2
         assert (await system.take_back_ending()).ending == ""
         with pytest.raises(NoEndingError):

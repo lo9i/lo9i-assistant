@@ -54,10 +54,13 @@ class ShutdownStatus:
 
 @dataclass
 class PendingEnding:
-    """The restart or stop waiting for runs to end; `ending` is "" when none is."""
+    """The restart or stop waiting for runs to end, and for an update being installed; `ending` is "" when none
+    is. `can_take_back` is false once an update was installed: the restart it needs can't be."""
 
     ending: str
     waiting_for_runs: int
+    waiting_for_update: bool = False
+    can_take_back: bool = False
 
 
 class NoEndingError(Exception):

@@ -18,25 +18,50 @@ export const CONFIRM: Record<Ending, { title: string; text: string; action: stri
   },
 };
 
-/** What the page says once the daemon has accepted the request, until it's back. */
-export function endingText(ending: Ending, waitingForRuns: number): string {
-  const when = waitingForRuns === 0 ? "now" : `once ${runs(waitingForRuns)}`;
-  if (ending === "restart") return `The assistant restarts ${when}. This page reloads when it's back.`;
-  return `The assistant stops ${when}. Start it again on the computer it runs on; this page reloads when it's back.`;
+/** A restart or stop the daemon accepted, until it's back: what it waits for, and whether it can be taken back (not
+ * the restart an installed update needs). */
+export type Coming = { ending: Ending; waiting: number; update: boolean; canTakeBack: boolean };
+
+/** From GET /system/ending (null when none is waiting) or an `ending` event (null when it was taken back). */
+export function coming(data: Record<string, unknown>): Coming | null {
+  if (!data.ending || data.taken_back) return null;
+  return {
+    ending: data.ending as Ending,
+    waiting: Number(data.waiting_for_runs ?? 0),
+    update: Boolean(data.waiting_for_update),
+    canTakeBack: data.can_take_back !== false,
+  };
 }
 
-/** While it waits for runs: what Cancel and Now do. */
-export function waitingText(ending: Ending): string {
-  const does = ending === "restart" ? "restarts" : "stops";
-  return `Cancel keeps the assistant running. Now cancels the runs in progress, and it ${does} at once.`;
+/** What the page says once the daemon has accepted the request, until it's back. */
+export function endingText(c: Coming): string {
+  if (c.ending === "restart") return `The assistant restarts ${when(c)}. This page reloads when it's back.`;
+  return `The assistant stops ${when(c)}. Start it again on the computer it runs on; this page reloads when it's back.`;
+}
+
+/** While it waits: what Cancel and Now do, or why it can't be cancelled. */
+export function waitingText(c: Coming): string {
+  const does = c.ending === "restart" ? "restarts" : "stops";
+  const now = c.waiting ? ` Now cancels the runs in progress, and it ${does} at once.` : "";
+  if (c.canTakeBack) return `Cancel keeps the assistant running.${now}`;
+  return `An update was installed, so it can't be cancelled: it ${does} so the update runs.${now}`;
+}
+
+/** Whether Cancel or Now has anything to do. */
+export function answerable(c: Coming): { cancel: boolean; now: boolean } {
+  return { cancel: c.canTakeBack && (c.waiting > 0 || c.update), now: c.waiting > 0 };
+}
+
+/** On every page, once any app asked for a restart or stop: what's coming and what it waits for. */
+export function comingText(name: string, c: Coming): string {
+  return `${name} ${c.ending === "restart" ? "restarts" : "stops"} ${when(c)}.`;
+}
+
+function when(c: Coming): string {
+  const waits = [...(c.update ? ["the update being installed is done"] : []), ...(c.waiting ? [runs(c.waiting)] : [])];
+  return waits.length ? `once ${waits.join(" and ")}` : "now";
 }
 
 function runs(count: number): string {
   return count === 1 ? "the run in progress ends" : `the ${count} runs in progress end`;
-}
-
-/** On every page, once any app asked for a restart or stop: what's coming and what it waits for. */
-export function comingText(name: string, ending: Ending, waitingForRuns: number): string {
-  const does = ending === "restart" ? "restarts" : "stops";
-  return waitingForRuns === 0 ? `${name} ${does} now.` : `${name} ${does} once ${runs(waitingForRuns)}.`;
 }
