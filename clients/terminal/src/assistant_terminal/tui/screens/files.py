@@ -27,6 +27,7 @@ _EMPTY = "No files yet. Files you attach to a message, and the ones tools bring 
 
 class FilesScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"conversations"})
 
     def __init__(self, files: FilesApi) -> None:
         super().__init__()

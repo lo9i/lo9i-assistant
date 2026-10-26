@@ -26,6 +26,7 @@ class ConversationsScreen(ModalScreen[str | None]):
         # only shows the conversation, Enter resumes it.
         Binding("enter", "resume", show=False, priority=True),
     ]
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"conversations"})
 
     def __init__(self, conversations: ConversationsApi, current: str) -> None:
         super().__init__()

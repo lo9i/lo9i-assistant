@@ -18,6 +18,7 @@ from assistant_terminal.web_search_text import describe
 
 class WebSearchScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"settings"})
 
     def __init__(self, web_search: WebSearchApi) -> None:
         super().__init__()

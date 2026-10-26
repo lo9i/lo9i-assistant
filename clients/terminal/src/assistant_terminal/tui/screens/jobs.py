@@ -22,6 +22,7 @@ from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 class JobsScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"jobs"})
 
     def __init__(self, jobs: JobsApi, job: str | None = None, run: str | None = None) -> None:
         super().__init__()

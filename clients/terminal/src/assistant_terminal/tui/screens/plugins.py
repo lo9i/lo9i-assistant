@@ -48,9 +48,9 @@ _CATEGORY = "category:"
 class PluginsScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
     # The daemon events that change what it shows (AssistantApp.reload_screen): a check that found something new
-    # or kept keys (`plugins`), MCP servers installed or removed (`mcp`), a channel's setup (`channels`), the
-    # repositories listed (`settings`).
-    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"plugins", "mcp", "channels", "settings"})
+    # or kept keys (`plugins`), MCP servers installed or removed (`mcp`), skills installed or removed (`skills`), a
+    # channel's setup (`channels`), the repositories listed (`settings`).
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"plugins", "mcp", "channels", "settings", "skills"})
 
     def __init__(
         self,

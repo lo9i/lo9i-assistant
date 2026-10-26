@@ -54,6 +54,7 @@ _ACCOUNT_BUTTONS = ("#email-name", "#rename", "#default", "#edit", "#remove")
 
 class EmailScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"integrations", "settings"})
 
     def __init__(self, email: EmailApi, oauth: OAuthApi, channels: ChannelsApi, plugin: str) -> None:
         """`plugin`: the email plugin whose accounts this shows."""

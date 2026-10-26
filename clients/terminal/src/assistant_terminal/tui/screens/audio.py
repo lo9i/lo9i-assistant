@@ -36,6 +36,7 @@ _ABOUT_SPOKEN = "Spoken replies play in the web chat and come as Telegram voice 
 
 class AudioScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"settings"})
 
     def __init__(self, speech: SpeechApi) -> None:
         super().__init__()

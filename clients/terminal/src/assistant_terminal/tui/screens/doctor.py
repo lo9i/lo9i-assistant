@@ -24,7 +24,7 @@ _KNOWN = "known:"
 
 class DoctorScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
-    RELOADS_ON = ("doctor",)
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"doctor"})
 
     def __init__(self, doctor: DoctorApi) -> None:
         super().__init__()

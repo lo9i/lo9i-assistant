@@ -18,6 +18,7 @@ from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 class ChannelSetupScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"channels"})
 
     def __init__(self, channels: ChannelsApi, server: FoundServer) -> None:
         super().__init__()

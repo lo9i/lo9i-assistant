@@ -33,25 +33,24 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - A20. Telegram and Slack show only the runs their chat starts: a run the daemon starts in their conversation, like a coding task handed to its agent from a conversation or a follow-up on background work that failed (`daemon/queued.py`), shows in the apps but not in the chat, which hears only the end notice. Show runs started elsewhere in a channel's conversation the way the apps mirror them.
 - A21. An update (`daemon/updates.py`) changes lo9i's files while the old daemon still runs: from its `git merge` to the restart, which waits for the runs in progress, modules the daemon imports late and the rebuilt web app served from `daemon/webui` are the new ones, so a tab that reloads then gets the new web app against the old daemon. Build and sync into a staging copy and switch to it at the restart, or restart into the update before anything is served from it.
 - A22. On macOS a daemon started by hand while start at boot is on can't be stopped from the apps (`launchd.Beside` refuses): launchd keeps trying to start the LaunchDaemon, and stopping its tries needs an administrator. Ask for the password, as turning start at boot on does, and stop them.
-- A23. Terminal app: only the prompts and Plugins screens say which events reload them (`RELOADS_ON`); every other screen reloads on each event it's wired to, now in the background. An open Plugins screen isn't reloaded on the `skills` event. And a plugin install dialog (`offer_plugin`) answered in another app stays open, unlike approvals and questions (`tui/app.py`).
-- A24. The doctor (`core/doctor/`) measures the starting context against `EPOCH_MAX_TOKENS`, the limit the context bar uses, not the model's own window, which lo9i doesn't know for any provider. Record each model's window (from the provider's model list where it has one, or `core/llm/providers.py`) and measure against it, in the context bar too.
-- A25. A run that fails leaves no mark in history: the checkpoint keeps only the last run's error (`StateSnapshot.tasks`), so the doctor (`core/doctor/conversation_causes.py`) reads earlier failed runs only as a message without a reply, which a run stopped before it answered looks like too, and without their error. Record a failed run's end in its conversation (an `additional_kwargs` mark on a message, as `routed.py` does, which no model call sends), so the doctor and the apps can tell failed from stopped.
-- A26. The doctor doesn't read scheduled jobs' conversations (`job:<name>:<time>`, not listed): a job's run that failed is in its run record and notification, but tool calls it left without results aren't counted. And a daemon that was down for days checks only the day before (`core/doctor/schedule.py`); the days in between, whose logs may still be there, go unchecked.
+- A23. The doctor (`core/doctor/`) measures the starting context against `EPOCH_MAX_TOKENS`, the limit the context bar uses, not the model's own window, which lo9i doesn't know for any provider. Record each model's window (from the provider's model list where it has one, or `core/llm/providers.py`) and measure against it, in the context bar too.
+- A24. A run that fails leaves no mark in history: the checkpoint keeps only the last run's error (`StateSnapshot.tasks`), so the doctor (`core/doctor/conversation_causes.py`) reads earlier failed runs only as a message without a reply, which a run stopped before it answered looks like too, and without their error. Record a failed run's end in its conversation (an `additional_kwargs` mark on a message, as `routed.py` does, which no model call sends), so the doctor and the apps can tell failed from stopped.
+- A25. The doctor doesn't read scheduled jobs' conversations (`job:<name>:<time>`, not listed): a job's run that failed is in its run record and notification, but tool calls it left without results aren't counted. And a daemon that was down for days checks only the day before (`core/doctor/schedule.py`); the days in between, whose logs may still be there, go unchecked.
 
 ## MCP
 
-- A27. Requests from MCP servers: elicitation (a form for the user, through the approval surface on every channel) and sampling (the server asks the model for text; rate-limited, with a token cap). Both are refused today.
-- A28. MCP resources and prompts: per-server `list_resources`, `read_resource`, `list_prompts`, `get_prompt` tools, added only when the server supports them and the user turns them on.
-- A29. Signing in to a remote MCP server whose authorization server has no dynamic client registration: today the sign-in fails at registration (`core/mcp/oauth.py`). The Sign in dialog takes a client ID and secret of the user's own OAuth app, saved as the server's registered client so registration is skipped, and shows the redirect URI to register with it, as email does. A client metadata URL (the spec's other option) doesn't fit: the authorization server must fetch it, and the daemon is reachable only on the tailnet.
-- A30. Remote MCP servers can't report finished background work: on the 2026-07-28 protocol a streamable HTTP connection has no channel outside a request, so `notifications/lo9i/work_finished` (`core/mcp/background.py`) arrives only from local (stdio) servers. Open a `subscriptions/listen` stream to remote servers that advertise it, if the SDK lets vendor notifications through one.
-- A31. Subagents (`delegate`) get only the read-only tools of the plugins their conversation loaded (`core/subagent.py`), with no `load_tools` of their own, so a delegated task that needs a plugin the conversation didn't load can't use it. Give subagents `load_tools` if delegated tasks show they need it.
+- A26. Requests from MCP servers: elicitation (a form for the user, through the approval surface on every channel) and sampling (the server asks the model for text; rate-limited, with a token cap). Both are refused today.
+- A27. MCP resources and prompts: per-server `list_resources`, `read_resource`, `list_prompts`, `get_prompt` tools, added only when the server supports them and the user turns them on.
+- A28. Signing in to a remote MCP server whose authorization server has no dynamic client registration: today the sign-in fails at registration (`core/mcp/oauth.py`). The Sign in dialog takes a client ID and secret of the user's own OAuth app, saved as the server's registered client so registration is skipped, and shows the redirect URI to register with it, as email does. A client metadata URL (the spec's other option) doesn't fit: the authorization server must fetch it, and the daemon is reachable only on the tailnet.
+- A29. Remote MCP servers can't report finished background work: on the 2026-07-28 protocol a streamable HTTP connection has no channel outside a request, so `notifications/lo9i/work_finished` (`core/mcp/background.py`) arrives only from local (stdio) servers. Open a `subscriptions/listen` stream to remote servers that advertise it, if the SDK lets vendor notifications through one.
+- A30. Subagents (`delegate`) get only the read-only tools of the plugins their conversation loaded (`core/subagent.py`), with no `load_tools` of their own, so a delegated task that needs a plugin the conversation didn't load can't use it. Give subagents `load_tools` if delegated tasks show they need it.
 
 ## Plugins
 
-- A32. The contacts plugin (extras, `communications/contacts/contacts`) reads a CardDAV account with a user name and password (iCloud, Fastmail, Nextcloud), but Google Contacts' CardDAV takes only OAuth. Sign in with the user's own OAuth app, as email does (`core/integrations/email/oauth.py`), and give the plugin the access token.
-- A33. A plugin's token is checked only when it's first used: a wrong Claude key fails the first coding task after about three minutes of Claude Code's retries. Let a plugin declare a check that runs when its fields are saved (a command or a tool), and show its error in the install dialog.
-- A34. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen. It would also give plugins that ask for the ssh agent (`ssh_agent: true`, `core/mcp/ssh_agent.py`) the user's agent, which a LaunchDaemon has none of.
-- A35. The hosts plugin (extras, `connectivity/remote/hosts`) hasn't been tried in the web app itself: its page, terminal and reconnects were checked through the pages port and the plugin's page on their own, not in the iframe with a browser's keyboard, sleep and network changes. Try it there, on a phone too.
+- A31. The contacts plugin (extras, `communications/contacts/contacts`) reads a CardDAV account with a user name and password (iCloud, Fastmail, Nextcloud), but Google Contacts' CardDAV takes only OAuth. Sign in with the user's own OAuth app, as email does (`core/integrations/email/oauth.py`), and give the plugin the access token.
+- A32. A plugin's token is checked only when it's first used: a wrong Claude key fails the first coding task after about three minutes of Claude Code's retries. Let a plugin declare a check that runs when its fields are saved (a command or a tool), and show its error in the install dialog.
+- A33. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen. It would also give plugins that ask for the ssh agent (`ssh_agent: true`, `core/mcp/ssh_agent.py`) the user's agent, which a LaunchDaemon has none of.
+- A34. The hosts plugin (extras, `connectivity/remote/hosts`) hasn't been tried in the web app itself: its page, terminal and reconnects were checked through the pages port and the plugin's page on their own, not in the iframe with a browser's keyboard, sleep and network changes. Try it there, on a phone too.
 
 ## Context
 
@@ -61,27 +60,27 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Voice
 
-- A36. Real-time voice agent: live spoken conversation from the browser.
+- A35. Real-time voice agent: live spoken conversation from the browser.
   - A speech-to-speech model (OpenAI GPT-Live) listens and speaks. No separate speech-to-text or text-to-speech step; transcripts come from the model's own events.
   - Audio goes directly between the browser and OpenAI over WebRTC. The daemon only exchanges the connection offer and answer, and never handles audio.
   - The daemon keeps a sideband WebSocket to OpenAI for each call. When the voice model needs to act, it calls a tool; the daemon runs it through `AssistantService`, so Claude stays the brain.
   - Tool calls are logged by the model's call id, so a retried call returns the first result.
   - Needs an OpenAI key in addition to the Anthropic key. Not needed for Telegram voice notes.
-- A37. Spoken replies in Slack. Settings → Audio speaks replies in the web chat and as Telegram voice notes; Slack doesn't get them yet (upload the audio with `files.uploadV2`).
+- A36. Spoken replies in Slack. Settings → Audio speaks replies in the web chat and as Telegram voice notes; Slack doesn't get them yet (upload the audio with `files.uploadV2`).
 
 
 ## Platforms
 
-- A38. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
+- A37. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
   - Daemon connection: a named pipe or localhost with a paired device instead of the Unix socket.
   - Startup: a Task Scheduler task or a Windows service as a `daemon/startup.py` backend.
   - Clipboard: `client/clipboard/windows.py`, pasting files, images and text with PowerShell (`Get-Clipboard -Format FileDropList`, `System.Windows.Forms.Clipboard.GetImage`) and copying with `Set-Clipboard`.
   - Bash tool, data paths and `install.sh`: decide between native Windows and running under WSL.
-- A39. The agent-finished pop-up on Android. Chrome there grants the notification permission but shows notifications only from a service worker (`ServiceWorkerRegistration.showNotification`); `new Notification` throws, so the web app shows its own notice instead (`lib/agentDone.svelte.ts::systemNotice`). Needs a service worker (`src/service-worker.ts`, registered by SvelteKit) whose `notificationclick` opens the conversation.
+- A38. The agent-finished pop-up on Android. Chrome there grants the notification permission but shows notifications only from a service worker (`ServiceWorkerRegistration.showNotification`); `new Notification` throws, so the web app shows its own notice instead (`lib/agentDone.svelte.ts::systemNotice`). Needs a service worker (`src/service-worker.ts`, registered by SvelteKit) whose `notificationclick` opens the conversation.
 
 ## Languages
 
-- A40. Multi-language support. The app's own text is English only.
+- A39. Multi-language support. The app's own text is English only.
   - Interface text: terminal app, web app, and the messages Telegram and Slack adapters send (approval buttons, errors, `/new`). Text kept in per-language files, picked in Settings → General.
   - Prompts in `core/conversation/prompts/` stay in English; the model replies in the user's language.
   - Speech: the speech-to-text language and the Kokoro voice follow the chosen language.
@@ -91,8 +90,8 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 Not worth doing yet; each item says what was done and when to look at it again.
 
-- A41. Starting the hosts plugin's Herdr session on a host (extras, `connectivity/remote/hosts`, `herdr.py::_READY`) waits for its socket to answer, up to 5 seconds: Herdr 0.9 has no event or command that says a headless server is ready. Done: the assistant's commands run in a tab of their own, labeled `assistant`, with a POSIX sh (hosts 0.4.0). Revisit when Herdr adds a readiness signal (its CLI reference, `herdr status server`, events).
-- A42. Plugins repeat the code their protocol needs: Telegram and Slack each have `daemon.py` and `runner.py`, Claude Code and Copilot each have `task_folder.py`, so a protocol change means changing every copy. Done: the extras' `tests/test_shared_code.py` (run by their pre-commit hook) fails when the copies differ, and lists the differences meant to be there. Left: publish one small client per protocol on PyPI, which each plugin's `uv.lock` pins. Revisit when a third channel or agent plugin comes, or a protocol changes again.
+- A40. Starting the hosts plugin's Herdr session on a host (extras, `connectivity/remote/hosts`, `herdr.py::_READY`) waits for its socket to answer, up to 5 seconds: Herdr 0.9 has no event or command that says a headless server is ready. Done: the assistant's commands run in a tab of their own, labeled `assistant`, with a POSIX sh (hosts 0.4.0). Revisit when Herdr adds a readiness signal (its CLI reference, `herdr status server`, events).
+- A41. Plugins repeat the code their protocol needs: Telegram and Slack each have `daemon.py` and `runner.py`, Claude Code and Copilot each have `task_folder.py`, so a protocol change means changing every copy. Done: the extras' `tests/test_shared_code.py` (run by their pre-commit hook) fails when the copies differ, and lists the differences meant to be there. Left: publish one small client per protocol on PyPI, which each plugin's `uv.lock` pins. Revisit when a third channel or agent plugin comes, or a protocol changes again.
 
 ## Open questions and risks
 

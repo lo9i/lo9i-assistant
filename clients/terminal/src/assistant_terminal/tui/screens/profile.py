@@ -62,6 +62,7 @@ class ProfileScreen(ModalScreen[None]):
         Binding("escape", "dismiss", "Close"),
         Binding("delete", "remove", "Remove item"),
     ]
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"memory"})
 
     def __init__(self, memory: MemoryApi) -> None:
         super().__init__()

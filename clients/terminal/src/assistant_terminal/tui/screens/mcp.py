@@ -27,6 +27,7 @@ from assistant_terminal.tui.screens.mcp_sign_in import McpSignInScreen
 
 class McpScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"mcp"})
 
     def __init__(self, mcp: McpApi, oauth: OAuthApi, repositories: RepositoriesApi) -> None:
         super().__init__()

@@ -696,6 +696,35 @@ async def test_an_approval_answered_in_another_app_closes_the_dialog_and_shows_i
         assert client.decisions is None
 
 
+async def test_a_plugin_install_answered_in_another_app_closes_the_dialog_and_shows_its_run(app, client):
+    from dataclasses import asdict
+
+    from assistant.core.agent import Conversation, FoundServer
+    from assistant.core.events import ApprovalRequired
+    from assistant_terminal.tui.screens import RepositoryInstallScreen
+
+    at = "2030-01-01T09:00:00+00:00"
+    client.conversations.items.append(Conversation("owner:b", "notes", at, at))
+    notes = FoundServer("notes", "Keep notes", "stdio", [], False)
+    offer = {"kind": "plugin", "name": "notes", "description": notes.description, "server": asdict(notes)}
+    client.conversations.waiting["owner:b"] = [ApprovalRequired("i7", offer)]
+
+    async def answered_there():
+        yield TextDelta("Installed it.")
+        yield Done()
+
+    client.runs["r4"] = answered_there
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        await app._resume("owner:b")
+        await wait_for(pilot, lambda: isinstance(app.screen, RepositoryInstallScreen))
+        run = {"run_id": "r4", "thread_id": "owner:b", "channel": "web", "client_id": "other", "text": ""}
+        await client.bus.put(("run", run))
+        await wait_for(pilot, lambda: not isinstance(app.screen, RepositoryInstallScreen) and not app._busy)
+        await wait_for(pilot, lambda: app.query(AssistantMessage))
+        assert client.decisions is None
+
+
 async def test_a_run_started_as_the_app_starts_shows_though_it_began_before_listening(app, client):
     async def running():
         yield TextDelta("It's 4 pm.")

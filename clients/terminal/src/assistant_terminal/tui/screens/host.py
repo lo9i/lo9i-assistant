@@ -40,6 +40,7 @@ _STOP = (
 
 class HostScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"update"})
 
     def __init__(self, system: SystemApi) -> None:
         super().__init__()

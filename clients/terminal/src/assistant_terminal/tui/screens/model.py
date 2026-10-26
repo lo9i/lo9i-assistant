@@ -23,6 +23,7 @@ from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 class ModelScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"settings"})
 
     def __init__(self, model: ModelApi) -> None:
         super().__init__()

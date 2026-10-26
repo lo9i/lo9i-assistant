@@ -15,6 +15,7 @@ from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 class SessionsScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"clients"})
 
     def __init__(self, clients: ClientsApi) -> None:
         super().__init__()

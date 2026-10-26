@@ -22,6 +22,7 @@ from assistant_terminal.tui.screens.skill_edit import SkillEditScreen
 
 class SkillsScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"skills"})
 
     def __init__(self, skills: SkillsApi, repositories: RepositoriesApi) -> None:
         super().__init__()

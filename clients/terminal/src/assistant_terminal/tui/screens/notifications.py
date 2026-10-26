@@ -28,6 +28,7 @@ class NotificationsScreen(ModalScreen[str | None]):
         Binding("escape", "close", "Close"),
         Binding("enter", "open", show=False, priority=True),
     ]
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"notifications"})
 
     def __init__(self, notifications: NotificationsApi, jobs: JobsApi, doctor: DoctorApi) -> None:
         super().__init__()

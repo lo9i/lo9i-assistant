@@ -23,6 +23,7 @@ _EMPTY = "No devices paired yet. Pair a browser to use the assistant from anothe
 
 class DevicesScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"devices"})
 
     def __init__(self, devices: DevicesApi) -> None:
         super().__init__()

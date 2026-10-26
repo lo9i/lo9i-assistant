@@ -265,12 +265,12 @@ class AssistantApp(App):
             await self.screen.reload()
 
     def reload_screen(self, kind: str) -> None:
-        """The open screen reads what the event `kind` changed again, if it shows that: a screen with
-        `RELOADS_ON` names the events it shows, any other reloads on each. In the background, so the events
-        after it (a reply shown live, an approval) don't wait for it; a newer reload replaces one running."""
+        """The open screen reads what the event `kind` changed again, if it shows that: each screen that reloads
+        names the events it shows in `RELOADS_ON`. In the background, so the events after it (a reply shown live,
+        an approval) don't wait for it; a newer reload replaces one running."""
         screen = self.screen
         reload = getattr(screen, "reload", None)
-        if reload is not None and kind in getattr(screen, "RELOADS_ON", (kind,)):
+        if reload is not None and kind in getattr(screen, "RELOADS_ON", ()):
             screen.run_worker(reload, group="reload", exclusive=True)
 
     def _stop_showing_turn(self) -> None:
@@ -580,9 +580,7 @@ class AssistantApp(App):
         with its tokens typed in the dialog, and the answer only says whether it was."""
         if is_plugin_offer(request):
             plugin = offered_plugin(request)
-            installed = bool(
-                await self.push_screen_wait(RepositoryInstallScreen(self._service.repositories, offered=plugin))
-            )
+            installed = bool(await self._ask(RepositoryInstallScreen(self._service.repositories, offered=plugin)))
             if installed and isinstance(plugin, FoundServer):
                 await self._set_up(plugin)
             return {"installed": installed}
@@ -593,8 +591,9 @@ class AssistantApp(App):
             return {"done": True}
         return await self._ask(_screen_for(request))
 
-    async def _ask(self, screen: ApprovalScreen | QuestionScreen) -> dict[str, Any]:
-        """The dialog's answer; it goes when the run is answered elsewhere first (_drop_answered_elsewhere)."""
+    async def _ask[T](self, screen: Screen[T]) -> T:
+        """The dialog's answer; it goes when the run is answered elsewhere first (_drop_answered_elsewhere): an
+        approval, a question, a plugin's install or setup."""
         self._asking = screen
         try:
             return await self.push_screen_wait(screen)
@@ -604,11 +603,9 @@ class AssistantApp(App):
     async def _set_up(self, plugin: FoundServer) -> None:
         """An installed plugin's setup, in the conversation: an email plugin's accounts, a channel's pairing."""
         if plugin.email:
-            await self.push_screen_wait(
-                EmailScreen(self._service.email, self._service.oauth, self._service.channels, plugin.name)
-            )
+            await self._ask(EmailScreen(self._service.email, self._service.oauth, self._service.channels, plugin.name))
         if plugin.channel:
-            await self.push_screen_wait(ChannelSetupScreen(self._service.channels, plugin))
+            await self._ask(ChannelSetupScreen(self._service.channels, plugin))
 
     @reports_daemon_unavailable
     async def refresh_thread(self) -> None:

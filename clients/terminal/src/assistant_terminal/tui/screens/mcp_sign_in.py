@@ -19,6 +19,7 @@ from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 
 class McpSignInScreen(ModalScreen[bool]):
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"mcp"})
     """Returns True when the server is signed in."""
 
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(False)", "Close")]

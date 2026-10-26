@@ -1,8 +1,8 @@
 """Reacts to daemon events while the app is open: memory and skills reload the panel, finished jobs and
 background work, MCP servers or skills that keep failing, MCP servers whose sign-in stopped working and new plugin
-updates show a notification, integration, channel, client, job, notification feed and settings changes refresh
-an open screen that shows them (in the background), a rename updates the title, pinning or unpinning a skill
-and titling the conversation update the subtitle, runs started elsewhere in this conversation appear in the chat
+updates show a notification, changes refresh an open screen that shows them (its `RELOADS_ON`, in the
+background), a rename updates the title, pinning or unpinning a skill and titling the conversation update the
+subtitle, runs started elsewhere in this conversation appear in the chat
 live, and a conversation left with /new while its reply was running reports when it finishes."""
 
 from collections.abc import Awaitable, Callable
@@ -30,7 +30,14 @@ class LiveApp(Protocol):
 
 def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[None] | None]]:
     async def memory(_: dict[str, Any]) -> None:
+        """The panel, and /profile."""
         await app.refresh_memory()
+        app.reload_screen("memory")
+
+    async def skills(_: dict[str, Any]) -> None:
+        """The panel, and /skills and /plugins."""
+        await app.refresh_memory()
+        app.reload_screen("skills")
 
     def screen(kind: str) -> Callable[[dict[str, Any]], None]:
         return lambda _: app.reload_screen(kind)
@@ -72,7 +79,7 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
 
     return {
         "memory": memory,
-        "skills": memory,
+        "skills": skills,
         "integrations": screen("integrations"),
         "channels": screen("channels"),
         "clients": screen("clients"),
@@ -80,6 +87,7 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         "conversations": conversations,
         "notifications": screen("notifications"),
         "home": screen("home"),
+        "doctor": screen("doctor"),
         "prompts": screen("prompts"),
         "devices": screen("devices"),
         "mcp": mcp,
