@@ -123,10 +123,10 @@ class HandoffsMixin(RunsMixin):
         message is added all the same, with what the agent did and a note saying how it ended: as the
         user's message stays when the assistant's own run fails, and with it the files they sent."""
         steps = AgentSteps(handoff.name)
-        reported: asyncio.Queue[str] = asyncio.Queue()
-        asking = asyncio.create_task(self._ask_agent(session, handoff, said, reported))
+        reported = _StepReader()
+        asking = asyncio.create_task(self._ask_agent(session, handoff, said, reported.queue))
         try:
-            async for step in _steps_while(asking, reported):
+            async for step in reported.until_replied(asking):
                 for event in steps.events(step):
                     yield event
             reply = await asking
@@ -153,14 +153,14 @@ class HandoffsMixin(RunsMixin):
         message: HumanMessage,
         steps: AgentSteps,
         asking: asyncio.Task[str],
-        reported: asyncio.Queue[str],
+        reported: "_StepReader",
         note: str,
     ) -> None:
-        """Once the agent's task has wound down, with the steps it reported meanwhile: the messages the user
-        sent it that it didn't take among them (AgentTasks.converse)."""
+        """Once the agent's task has wound down, with the steps it reported and the run didn't show: the messages
+        the user sent it that it didn't take among them (AgentTasks.converse)."""
         await asyncio.wait({asking})
-        while not reported.empty():
-            steps.events(reported.get_nowait())
+        for step in reported.unread():
+            steps.events(step)
         await self._keep_turn(session, message, steps, note, answered=False)
 
     async def _keep_turn(
@@ -246,19 +246,43 @@ class _Steps:
         self._bus.publish("agent_task_progress", thread_id=self._thread_id)
 
 
-async def _steps_while(asking: asyncio.Task[str], steps: asyncio.Queue[str]) -> AsyncIterator[str]:
-    """The steps as they come, until the agent has replied. Stopping the run stops the task too."""
-    step: asyncio.Future[str] | None = None
-    try:
-        while not (asking.done() and steps.empty()):
-            step = asyncio.ensure_future(steps.get())
-            await asyncio.wait({asking, step}, return_when=asyncio.FIRST_COMPLETED)
-            if step.done():
-                yield step.result()
-            else:
-                step.cancel()
-    finally:
-        asking.cancel()
-        # Closed while waiting (the run stopped): left pending, the wait would be destroyed with the queue.
-        if step is not None:
-            step.cancel()
+class _StepReader:
+    """The steps the agent's task reports (`queue`, which _Steps fills), read as they come until it has replied.
+    Once the run stops, `unread` has the ones it didn't show, so none is missing from history: the step taken off
+    the queue just as it stopped too."""
+
+    def __init__(self) -> None:
+        self.queue: asyncio.Queue[str] = asyncio.Queue()
+        self._taking: asyncio.Future[str] | None = None
+
+    async def until_replied(self, asking: asyncio.Task[str]) -> AsyncIterator[str]:
+        """Stopping the run stops the task too."""
+        try:
+            while not (asking.done() and self.queue.empty()):
+                if (step := await self._next(asking)) is not None:
+                    yield step
+        finally:
+            asking.cancel()
+            # Closed while waiting (the run stopped): left pending, the wait would be destroyed with the queue.
+            # One that took a step keeps it for `unread`.
+            if self._taking is not None and not self._taking.done():
+                self._taking.cancel()
+
+    async def _next(self, asking: asyncio.Task[str]) -> str | None:
+        """The next step, or None when the task ended first: a wait for a step that's cancelled leaves it queued."""
+        self._taking = asyncio.ensure_future(self.queue.get())
+        await asyncio.wait({asking, self._taking}, return_when=asyncio.FIRST_COMPLETED)
+        taking, self._taking = self._taking, None
+        if taking.done():
+            return taking.result()
+        taking.cancel()
+        return None
+
+    def unread(self) -> list[str]:
+        """The steps not shown: the one taken off the queue as the run stopped, then those still queued."""
+        taken = self._taking
+        self._taking = None
+        unread = [taken.result()] if taken is not None and taken.done() and not taken.cancelled() else []
+        while not self.queue.empty():
+            unread.append(self.queue.get_nowait())
+        return unread

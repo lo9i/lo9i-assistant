@@ -13,7 +13,7 @@ from typing import cast
 import pytest
 
 from assistant.core.agent import AssistantService, FolderError, HandoffError, Session, ShownStep
-from assistant.core.agent.handoffs import _steps_while
+from assistant.core.agent.handoffs import _StepReader
 from assistant.core.agent_tasks import workers
 from assistant.core.agent_tasks.records import TaskStore
 from assistant.core.attachments import Attachment
@@ -489,16 +489,35 @@ async def test_a_job_the_user_stopped_isnt_told(service, tmp_path):
 
 async def test_steps_stopped_while_waiting_leave_no_wait_on_the_queue():
     asking: asyncio.Future[str] = asyncio.get_running_loop().create_future()
-    steps: asyncio.Queue[str] = asyncio.Queue()
-    reading = asyncio.ensure_future(anext(_steps_while(cast(asyncio.Task[str], asking), steps)))
+    reader = _StepReader()
+    reading = asyncio.ensure_future(anext(reader.until_replied(cast(asyncio.Task[str], asking))))
     await asyncio.sleep(0)
     reading.cancel()
     with pytest.raises(asyncio.CancelledError):
         await reading
     await asyncio.sleep(0)
-    steps.put_nowait("next")
+    reader.queue.put_nowait("next")
     await asyncio.sleep(0.01)
-    assert steps.qsize() == 1
+    assert reader.queue.qsize() == 1
+
+
+@pytest.mark.parametrize("turns", [0, 1])
+async def test_a_step_taken_off_the_queue_as_the_run_stops_is_kept_for_history(turns):
+    """With no turn the wait for a step is stopped before it takes one; with one, it took the first step and the
+    run stops before it's shown."""
+    asking: asyncio.Future[str] = asyncio.get_running_loop().create_future()
+    reader = _StepReader()
+    reading = asyncio.ensure_future(anext(reader.until_replied(cast(asyncio.Task[str], asking))))
+    await asyncio.sleep(0)
+    reader.queue.put_nowait("first")
+    reader.queue.put_nowait("second")
+    for _ in range(turns):
+        await asyncio.sleep(0)
+    reading.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await reading
+    await asyncio.sleep(0)
+    assert reader.unread() == ["first", "second"]
 
 
 async def test_a_stopped_run_keeps_what_the_user_sent_the_agent_with_a_note(service, tmp_path):
