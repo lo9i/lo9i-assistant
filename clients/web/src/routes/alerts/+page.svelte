@@ -59,7 +59,8 @@
   async function dismissAll(): Promise<void> {
     clearing = false;
     try {
-      await Promise.all((alerts.data ?? []).map((a) => client.alerts.dismiss(a.area, a.name)));
+      // One at a time: the health check's alerts share one record, so dismissing them at once loses some.
+      for (const a of [...(alerts.data ?? [])]) await client.alerts.dismiss(a.area, a.name);
     } catch (e) {
       notices.report(e);
     }
