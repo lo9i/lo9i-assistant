@@ -9,6 +9,7 @@ from functools import partial
 from textual.containers import VerticalScroll
 
 from assistant.core.agent import ShownCall, ShownMessage
+from assistant.core.conversation import choices
 from assistant_terminal.tui.widgets import (
     AssistantMessage,
     BriefNote,
@@ -58,7 +59,7 @@ def _widget(message: ShownMessage, load: Loaders):
     if message.role == "user":
         return UserMessage(message.text, [])
     if message.role == "assistant":
-        return AssistantMessage(message.text)
+        return AssistantMessage(choices.without_markers(message.text).strip())
     if message.role == "thinking":
         return ThinkingNote(message.text)
     if message.role == "carried":

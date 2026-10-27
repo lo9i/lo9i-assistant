@@ -1,6 +1,7 @@
 // What the chat shows: past messages, then each run's events as they arrive (like
 // src/assistant/gateways/cli/tui/turn.py). Pure functions, so the rules are testable without a page.
 import type { RunEvent, ShownCall, ShownMessage } from "../api/types";
+import { withoutMarkers } from "./choices";
 
 export type ChatItem =
   | { kind: "user"; id: number; text: string; files: string[]; channel?: string }
@@ -43,14 +44,16 @@ export function fromHistory(messages: ShownMessage[]): Transcript {
   return messages.reduce(addShown, empty);
 }
 
-/** The latest answer: assistant text after the last message or tool call, for reading aloud. */
+/** The latest answer: assistant text after the last message or tool call, for reading aloud, without the answer
+ * buttons' marker. */
 export function finalReply(t: Transcript): string {
   const last = t.items.findLastIndex((item) => item.kind !== "assistant");
-  return t.items
-    .slice(last + 1)
-    .map((item) => (item.kind === "assistant" ? item.text : ""))
-    .join("")
-    .trim();
+  return withoutMarkers(
+    t.items
+      .slice(last + 1)
+      .map((item) => (item.kind === "assistant" ? item.text : ""))
+      .join(""),
+  ).trim();
 }
 
 /** What a follow-up the assistant runs on its own follows up on (background work that ended), where the user's

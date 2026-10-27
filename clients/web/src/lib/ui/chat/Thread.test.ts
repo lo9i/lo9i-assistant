@@ -40,6 +40,22 @@ describe("Thread", () => {
     expect(body).not.toContain("user-bubble");
   });
 
+  it("shows the last reply's choices as buttons, without its marker", () => {
+    const asks: ChatItem = { kind: "assistant", id: 4, text: "Push it?\n\n<!-- choices: Yes | No -->" };
+    const { body } = render(Thread, { props: { ...props, items: [asks], onchoose: () => {} } });
+    expect(body).not.toContain("choices:");
+    expect(body).toContain('class="choices');
+    expect(body).toMatch(/>Yes<\/button>[\s\S]*>No<\/button>/);
+  });
+
+  it("shows no choices while a reply runs, nor under a reply that was answered", () => {
+    const asks: ChatItem = { kind: "assistant", id: 4, text: "Push it?\n\n<!-- choices: Yes | No -->" };
+    const answer: ChatItem = { kind: "user", id: 5, text: "Not yet", files: [] };
+    expect(render(Thread, { props: { ...props, items: [asks] } }).body).not.toContain('class="choices');
+    const answered = render(Thread, { props: { ...props, items: [asks, answer], onchoose: () => {} } });
+    expect(answered.body).not.toContain('class="choices');
+  });
+
   it("pins no message over a thread that hasn't scrolled", () => {
     const asked: ChatItem = { kind: "user", id: 3, text: "Plan the trip", files: [] };
     const { body } = render(Thread, { props: { ...props, items: [asked, reply] } });

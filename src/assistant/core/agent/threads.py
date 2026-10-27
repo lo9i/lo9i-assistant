@@ -10,7 +10,7 @@ from assistant.core.agent.session import Session
 from assistant.core.agent.thread_files import ThreadFilesMixin, referenced
 from assistant.core.channels.chat import threads as chat_threads
 from assistant.core.config import settings
-from assistant.core.conversation import ended, file_index, handoffs, moved, pinned, summaries
+from assistant.core.conversation import choices, ended, file_index, handoffs, moved, pinned, summaries
 
 # What the home conversation from before the inbox is listed as.
 _HOME_TITLE = "Home (before the inbox)"
@@ -124,7 +124,7 @@ class ThreadsMixin(ArchiveMixin, ThreadFilesMixin):
         """The text of the conversation's last assistant message."""
         state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
         replies = [m for m in state.values.get("messages", []) if isinstance(m, AIMessage)]
-        return replies[-1].text.strip() if replies else ""
+        return choices.without_markers(replies[-1].text).strip() if replies else ""
 
 
 def _delete_files(paths: list[Path], kept: list[Path]) -> None:

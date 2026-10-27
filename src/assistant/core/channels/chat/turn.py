@@ -15,6 +15,7 @@ from assistant.core.channels.chat.approvals import approval_buttons, approval_te
 from assistant.core.channels.chat.port import ChatLimits, ChatPort
 from assistant.core.channels.chat.questions import question_buttons, question_text
 from assistant.core.channels.chat.split import split_text
+from assistant.core.conversation import choices
 from assistant.core.events import (
     ApprovalRequired,
     Cancelled,
@@ -48,7 +49,7 @@ class ChatTurn:
     @property
     def final_text(self) -> str:
         """The reply after the last tool call: the answer, without text written while working."""
-        return self._final.strip()
+        return choices.without_markers(self._final).strip()
 
     async def render(self, events: AsyncIterator[Event]) -> None:
         typing = asyncio.create_task(self._keep_typing())
@@ -162,7 +163,7 @@ class _StatusMessage:
 
 class _ReplyMessage:
     """Streams text by editing one message; the final version is sent as Markdown and split if long. The
-    turn's first reply starts with `tag`."""
+    turn's first reply starts with `tag`. The answer buttons' marker never shows (conversation/choices.py)."""
 
     def __init__(self, chat: ChatPort, limits: ChatLimits, tag: str = "") -> None:
         self._chat = chat
@@ -184,14 +185,14 @@ class _ReplyMessage:
 
     async def finish(self) -> bool:
         """Send the final version. Returns whether there was any text."""
-        text = self._text.strip()
+        text = choices.without_markers(self._text).strip()
         if text:
             await self._send_final(split_text(text, self._limits.message_limit))
         self._text, self._message = "", None
         return bool(text)
 
     async def _show_draft(self) -> None:
-        draft = self._text.strip() + " …"
+        draft = choices.without_markers(self._text).strip() + " …"
         if self._message is None:
             self._message = await self._chat.send(draft)
         else:

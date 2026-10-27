@@ -102,6 +102,12 @@ async def test_the_final_text_is_the_answer_after_the_last_tool():
     assert turn.final_text == "It's sunny."
 
 
+async def test_the_answer_buttons_marker_never_shows():
+    chat, turn = await _render(TextDelta("Push it?\n\n<!-- choi"), TextDelta("ces: Yes | No -->"), Done())
+    assert [entry[2] for entry in chat.log] == ["Push it? …", "Push it? …", "Push it?"]
+    assert turn.final_text == "Push it?"
+
+
 async def test_a_long_reply_is_split_to_fit_the_channel():
     chat, _ = await _render(TextDelta("para one\n\n" + "x" * 5000 + "\n\nend"), Done())
     assert len(chat.messages) > 1 and all(len(m) <= 3500 for m in chat.messages.values())

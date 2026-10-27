@@ -12,6 +12,7 @@
   import Wrench from "@lucide/svelte/icons/wrench";
   import type { Snippet } from "svelte";
   import type { ShownCall } from "$lib/api/types";
+  import { answerable } from "$lib/chat/choices";
   import { inlineArg, pinnable, withWhole, withWholeStep, type ChatItem } from "$lib/chat/transcript";
   import { WholeCalls } from "$lib/chat/wholeCalls.svelte";
   import { markdown } from "$lib/markdown";
@@ -23,6 +24,9 @@
     onsuggest: (text: string) => void;
     /** Moves a message the inbox sent on (its record's `dispatchId`) to another conversation; only in the inbox. */
     onmove?: (dispatchId: string) => void;
+    /** Sends one of the last reply's answer buttons as the user's message. Given only while nothing runs, so the
+     * buttons show only then, and a message the user writes instead takes them away. */
+    onchoose?: (choice: string) => void;
     /** Loads a tool call from history in full when it's opened; its card shows only its start until then. */
     loadCall?: (callId: string) => Promise<ShownCall>;
     /** Loads a step inside a call from history (a delegate call's, a handed-off agent's) in full when it's opened. */
@@ -33,7 +37,7 @@
      * pinned there (the live chat). A preview reads from the top. */
     follow?: boolean;
   };
-  let { items, thinking, name, onsuggest, onmove, loadCall, loadStep, end, follow = true }: Props = $props();
+  let { items, thinking, name, onsuggest, onmove, onchoose, loadCall, loadStep, end, follow = true }: Props = $props();
   const wholes = new WholeCalls();
 
   const SUGGESTIONS = [
@@ -122,7 +126,7 @@
         </div>
       </div>
     {/if}
-    {#each items as item (item.id)}
+    {#each items as item, i (item.id)}
       {#if item.kind === "user"}
         <div class="row user" data-id={item.id}>
           <div class="bubble user-bubble">
@@ -134,15 +138,23 @@
           </div>
         </div>
       {:else if item.kind === "assistant"}
+        {@const reply = answerable(item.text)}
         <div class="row assistant">
           <div class="bubble assistant-bubble">
             <span class="badge"><Sparkles size={14} /></span>
             <!-- In the badge's corner, shown while the pointer is on the reply. -->
-            <button class="copy" class:done={copied === item.id} aria-label="Copy" title="Copy" onclick={() => copy(item.id, item.text)}>
+            <button class="copy" class:done={copied === item.id} aria-label="Copy" title="Copy" onclick={() => copy(item.id, reply.text)}>
               {#if copied === item.id}<Check size={14} />{:else}<Copy size={14} />{/if}
             </button>
-            <div class="prose">{@html markdown(item.text)}</div>
+            <div class="prose">{@html markdown(reply.text)}</div>
           </div>
+          {#if onchoose && reply.choices.length && i === items.length - 1}
+            <div class="choices">
+              {#each reply.choices as choice, j (j)}
+                <button class="btn btn--outline btn--sm" onclick={() => onchoose(choice)}>{choice}</button>
+              {/each}
+            </div>
+          {/if}
           {#if item.dispatchId && onmove}
             {@const dispatchId = item.dispatchId}
             <div class="message-footer">
@@ -421,6 +433,12 @@
   }
   .message-footer {
     display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .choices {
+    display: flex;
+    flex-wrap: wrap;
     gap: 6px;
     margin-top: 8px;
   }

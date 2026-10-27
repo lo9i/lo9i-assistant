@@ -19,6 +19,11 @@ describe("spoken replies", () => {
     t = apply(t, { type: "TextDelta", text: "It's sunny." });
     expect(finalReply(t)).toBe("It's sunny.");
   });
+
+  it("never read the answer buttons' marker", () => {
+    const t = apply(addUser(empty, "commit?", []), { type: "TextDelta", text: "Push it?\n\n<!-- choices: Yes | No -->" });
+    expect(finalReply(t)).toBe("Push it?");
+  });
 });
 
 describe("speaking part by part", () => {
