@@ -17,7 +17,7 @@ from langchain_core.messages.tool import ToolCall
 
 from assistant.core import subagent_steps
 from assistant.core.agent_tasks.steps import STEPS, UNANSWERED, Upload, args_of, files_of, parse
-from assistant.core.conversation import carried, ended, failed
+from assistant.core.conversation import briefs, carried, ended, failed
 from assistant.core.conversation.dispatched import DISPATCH_ID
 from assistant.core.conversation.turn_header import is_header
 
@@ -45,7 +45,8 @@ class ShownStep:
 class ShownMessage:
     # user | assistant | tool | thinking | carried (Markdown of a quick exchange from the inbox) | notice
     # (background work that ended, which the assistant followed up on unasked) | error (what a run that failed
-    # ended with, conversation/failed.py)
+    # ended with, conversation/failed.py) | brief (a coding task the assistant wrote for the agent it handed the
+    # conversation to, conversation/briefs.py; `agent` names it)
     role: str
     # A tool's name for a tool.
     text: str
@@ -63,6 +64,8 @@ class ShownMessage:
     # one line) and `output` leave something out, so the whole call is worth loading (`tool_call`).
     call_id: str = ""
     partial: bool = False
+    # A brief: the agent it's for.
+    agent: str = ""
 
 
 @dataclass
@@ -82,6 +85,8 @@ def shown(messages: Sequence[BaseMessage]) -> list[ShownMessage]:
 def _shown(message: BaseMessage, results: dict[str, ToolMessage]) -> list[ShownMessage]:
     if isinstance(message, HumanMessage) and (notice := ended.follow_up_notice(message)):
         return [ShownMessage("notice", notice)]
+    if isinstance(message, HumanMessage) and (agent := briefs.agent_of(message)):
+        return [ShownMessage("brief", _text(message.content, skip_header=True), agent=agent)]
     if isinstance(message, HumanMessage):
         exchange = carried.of(message)
         before = [ShownMessage("carried", carried.shown(exchange))] if exchange else []

@@ -70,8 +70,11 @@ class Conversations(Protocol):
 
 
 class Runs(Protocol):
-    def follow(self, channel: str, thread_id: str, events: AsyncIterator[Event], text: str) -> AsyncIterator[Event]:
-        """Runs `events` where every client sees it (the daemon's runs) and yields them as they come."""
+    def follow(
+        self, channel: str, thread_id: str, events: AsyncIterator[Event], text: str, brief: str = ""
+    ) -> AsyncIterator[Event]:
+        """Runs `events` where every client sees it (the daemon's runs) and yields them as they come; `brief`:
+        the agent `text` is a coding task for, as the run is announced."""
         ...
 
 
@@ -229,15 +232,17 @@ class ChannelChats:
         start: Callable[[Session], AsyncIterator[Event]],
         text: str,
         named: str = "",
+        brief: str = "",
     ) -> ChatTurn:
         """Shows the run in `thread_id`; when the inbox sent its message on, the run there instead, whose turn
         is returned. The channel has then last written in the conversation the turn ran in. `named` tags a
-        conversation that isn't saved yet; `text` does otherwise."""
+        conversation that isn't saved yet; `text` does otherwise. `brief`: the agent `text` is a coding task for,
+        written by the assistant (core/conversation/briefs.py)."""
         owner = settings.owner_id
         tag = await self._conversations.chat_tag(owner, thread_id, named or text)
         port = _Recording(chat.port, self._conversations, chat, thread_id)
         turn = ChatTurn(port, self._channels.limits(chat.channel), thread_id, tag)
-        await turn.render(self._run(chat.channel, thread_id, start, text))
+        await turn.render(self._run(chat.channel, thread_id, start, text, brief))
         if turn.dispatched:
             return await self._go_on(chat, turn.dispatched)
         await self._conversations.channel_wrote(owner, chat.channel, thread_id)
@@ -249,13 +254,18 @@ class ChannelChats:
         thread_id = dispatched.thread_id or await self._conversations.new_thread(settings.owner_id)
         send = lambda s: self._conversations.send_dispatched(s, dispatched.id)  # noqa: E731
         named = dispatched.title if dispatched.title != NEW_TITLE else dispatched.text
-        return await self._show(chat, thread_id, send, dispatched.text, named)
+        return await self._show(chat, thread_id, send, dispatched.text, named, dispatched.brief)
 
     async def _run(
-        self, channel: str, thread_id: str, start: Callable[[Session], AsyncIterator[Event]], text: str
+        self,
+        channel: str,
+        thread_id: str,
+        start: Callable[[Session], AsyncIterator[Event]],
+        text: str,
+        brief: str = "",
     ) -> AsyncIterator[Event]:
         session = Session(settings.owner_id, channel, thread_id)
-        async for event in self._runs.follow(channel, thread_id, start(session), text):
+        async for event in self._runs.follow(channel, thread_id, start(session), text, brief):
             yield event
 
     async def _waiting(

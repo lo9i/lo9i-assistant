@@ -187,7 +187,7 @@ async def _hand_with_task(where: Origin, agent: CodingAgent, repository: str, ta
     folder = str(Path(repository).expanduser())
     handoff = Handoff(agent.server, agent.command, agent.name, folder)
     await handoffs.hand(store, where.user_id, where.thread_id, handoff)
-    await queued.add(store, where.user_id, where.thread_id, Queued(where.channel, task))
+    await queued.add(store, where.user_id, where.thread_id, Queued(where.channel, task, brief=agent.name))
 
 
 def _shown_within(call_id: str, shown: list[str]) -> Report:

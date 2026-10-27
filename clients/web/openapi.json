@@ -6190,6 +6190,11 @@
             "type": "string",
             "title": "Text",
             "default": ""
+          },
+          "brief": {
+            "type": "string",
+            "title": "Brief",
+            "default": ""
           }
         },
         "type": "object",
@@ -8713,6 +8718,11 @@
             "type": "string",
             "title": "Notice",
             "default": ""
+          },
+          "brief": {
+            "type": "string",
+            "title": "Brief",
+            "default": ""
           }
         },
         "type": "object",
@@ -9038,6 +9048,11 @@
             "type": "boolean",
             "title": "Partial",
             "default": false
+          },
+          "agent": {
+            "type": "string",
+            "title": "Agent",
+            "default": ""
           }
         },
         "type": "object",

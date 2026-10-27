@@ -137,7 +137,8 @@ class ConversationsMixin(TitlesMixin):
     async def _index(self, user_id: str, thread_id: str) -> bool:
         state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
         messages = state.values.get("messages", [])
-        first = next((m for m in shown(messages) if m.role == "user"), None)
+        # A conversation a coding task was moved to starts with the task, which names it as well.
+        first = next((m for m in shown(messages) if m.role in ("user", "brief")), None)
         if first is None:
             return False
         at = state.created_at or datetime.now(UTC).isoformat()

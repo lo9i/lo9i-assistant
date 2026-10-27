@@ -29,6 +29,17 @@ describe("Thread", () => {
     expect(body).not.toContain("Go to bottom");
   });
 
+  it("shows a task for the agent collapsed under its name, apart from the user's messages", () => {
+    const brief: ChatItem = { kind: "brief", id: 4, text: "Fix the failing tests", agent: "Claude Code" };
+    const { body } = render(Thread, { props: { ...props, items: [brief, reply] } });
+    expect(body).toContain("Task for Claude Code");
+    expect(body).toContain('<details class="tool brief');
+    expect(body).not.toContain("<details open");
+    // Only a `.row.user` can be pinned over the thread.
+    expect(body).not.toContain("row user");
+    expect(body).not.toContain("user-bubble");
+  });
+
   it("pins no message over a thread that hasn't scrolled", () => {
     const asked: ChatItem = { kind: "user", id: 3, text: "Plan the trip", files: [] };
     const { body } = render(Thread, { props: { ...props, items: [asked, reply] } });

@@ -55,4 +55,5 @@ async def _moved(
 ) -> Dispatched:
     content = [{"type": "text", "text": first_message}]
     dispatch_id = await dispatched.keep(store, user_id, content, first_message, handoff)
-    return Dispatched(dispatch_id, "", title, first_message, f"→ Moved “{title}” to a new conversation.")
+    line = f"→ Moved “{title}” to a new conversation."
+    return Dispatched(dispatch_id, "", title, first_message, line, brief=handoff["name"] if handoff else "")

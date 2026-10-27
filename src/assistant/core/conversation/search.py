@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS message_search_progress (
 _SNIPPET_WORDS = 32
 # What's indexed of a message as shown: not tool calls, nor a quick exchange carried from the inbox, which
 # the inbox's own messages already are.
-_SAID = {"user", "assistant", "thinking"}
+_SAID = {"user", "assistant", "thinking", "brief"}
 
 
 @dataclass(frozen=True)

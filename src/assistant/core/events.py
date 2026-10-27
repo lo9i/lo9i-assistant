@@ -114,7 +114,9 @@ class Dispatched:
     (`move_dispatched`) comes with the id it was first sent on with. `title` names the conversation; `text`
     is what the message said, to show it; `line` is what the inbox records, which clients show for it.
     `carried` is the quick exchange in the inbox the message followed up, as Markdown, which its new
-    conversation shows before it (core/conversation/carried.py); "" for none."""
+    conversation shows before it (core/conversation/carried.py); "" for none. `brief`: for a coding task the
+    assistant moved out, the agent it's for, so clients show it as the task and not the user's message
+    (core/conversation/briefs.py); "" for the user's own."""
 
     id: str
     thread_id: str
@@ -122,6 +124,7 @@ class Dispatched:
     text: str
     line: str
     carried: str = ""
+    brief: str = ""
 
 
 @dataclass

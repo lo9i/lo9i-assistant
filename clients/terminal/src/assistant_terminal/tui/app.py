@@ -87,6 +87,7 @@ from assistant_terminal.tui.theme import NAME as THEME_NAME
 from assistant_terminal.tui.theme import THEME
 from assistant_terminal.tui.turn import TurnView
 from assistant_terminal.tui.widgets import (
+    BriefNote,
     CarriedNote,
     ConnectionNote,
     ContextFuel,
@@ -362,8 +363,11 @@ class AssistantApp(App):
             await TurnView(self._chat, self._status).render(self._service.follow_run(run["run_id"]))
 
     async def _show_started(self, run: dict[str, Any]) -> None:
-        """What the run answers: what the user wrote, from where when it wasn't this app, or a follow-up's notice."""
-        if run["text"]:
+        """What the run answers: what the user wrote, from where when it wasn't this app, a coding task the
+        assistant wrote for its agent, or a follow-up's notice."""
+        if run["text"] and run.get("brief"):
+            await self._chat.mount(BriefNote(run["text"], run["brief"]))
+        elif run["text"]:
             text = run["text"] if self._live.own(run) else f"[{run['channel']}] {run['text']}"
             await self._chat.mount(UserMessage(text, []))
         if run.get("notice"):
@@ -514,9 +518,14 @@ class AssistantApp(App):
         self.notify(f"→ {dispatched.title}. /inbox goes back.")
         if dispatched.carried:
             await self._chat.mount(CarriedNote(dispatched.carried))
-        await self._chat.mount(UserMessage(dispatched.text, []))
+        if dispatched.brief:
+            await self._chat.mount(BriefNote(dispatched.text, dispatched.brief))
+        else:
+            await self._chat.mount(UserMessage(dispatched.text, []))
         session = replace(self._live.session)
-        await self._turn(session, lambda: self._service.send_dispatched(session, dispatched.id, dispatched.text))
+        await self._turn(
+            session, lambda: self._service.send_dispatched(session, dispatched.id, dispatched.text, dispatched.brief)
+        )
 
     async def _open(self, thread_id: str) -> None:
         await self._live.resume(thread_id)

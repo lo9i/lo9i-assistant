@@ -529,6 +529,24 @@ async def test_a_follow_up_run_shows_what_it_follows_up_on_as_it_starts(app, cli
         assert "convert: it failed" in str(app.query_one(FollowUpNote).render())
 
 
+async def test_a_task_for_the_agent_shows_as_its_brief_not_as_the_users_message(app, client):
+    from assistant_terminal.tui.widgets import BriefNote
+
+    async def agent_reply():
+        yield TextDelta("Fixed the tests.")
+        yield Done()
+
+    client.runs["r3"] = agent_reply
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        thread_id = app._live.session.thread_id
+        run = {"run_id": "r3", "thread_id": thread_id, "channel": "web", "client_id": "", "text": "fix the tests"}
+        await client.bus.put(("run", run | {"notice": "", "brief": "Claude Code"}))
+        await wait_for(pilot, lambda: app.query(BriefNote) and app.query(AssistantMessage))
+        assert app.query_one(BriefNote).title == "↳ Task for Claude Code"
+        assert not app.query(UserMessage)
+
+
 async def test_a_conversation_opened_while_its_reply_runs_shows_it_from_its_start_once(app, client):
     from assistant.core.agent import ShownMessage
 

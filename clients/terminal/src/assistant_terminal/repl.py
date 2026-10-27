@@ -144,7 +144,9 @@ class Repl:
         print(f"In {dispatched.title}. /inbox goes back.")
         if dispatched.carried:
             print(f"From the inbox:\n{dispatched.carried}")
-        await self._turn(self._service.send_dispatched(self._session, dispatched.id, dispatched.text))
+        if dispatched.brief:
+            print(f"Task for {dispatched.brief}:\n{dispatched.text}")
+        await self._turn(self._service.send_dispatched(self._session, dispatched.id, dispatched.text, dispatched.brief))
 
     async def _get_to_know_me(self, _: str) -> None:
         """In a conversation of its own."""

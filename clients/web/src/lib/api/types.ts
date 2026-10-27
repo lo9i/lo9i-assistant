@@ -133,6 +133,8 @@ export type Dispatched = {
   text: string;
   line: string;
   carried?: string;
+  // A coding task the assistant moved out of the inbox: the agent it's for. It isn't the user's message.
+  brief?: string;
 };
 
 export type RunEvent =
@@ -153,7 +155,8 @@ export type RunEvent =
 
 /** A `run` bus event: a run started by any client or channel. `client_id` is empty for a channel
  * without a client (Telegram). */
-/** A `run` bus event. `notice`: for a follow-up the assistant runs on its own, what it follows up on. */
+/** A `run` bus event. `notice`: for a follow-up the assistant runs on its own, what it follows up on. `brief`: when
+ * `text` is a coding task the assistant wrote and not the user, the agent it's for. */
 export type RunAnnounced = {
   run_id: string;
   thread_id: string;
@@ -161,6 +164,7 @@ export type RunAnnounced = {
   client_id: string;
   text: string;
   notice?: string;
+  brief?: string;
 };
 
 /** A `run_finished` bus event. */

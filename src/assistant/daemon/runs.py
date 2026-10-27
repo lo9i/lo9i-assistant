@@ -26,10 +26,12 @@ class Run:
     id: str
     thread_id: str
     channel: str = ""
-    # The client that started it, what the user wrote and the notice of a follow-up, as announced (`start`).
+    # The client that started it, what the user wrote and the notice of a follow-up, as announced (`start`), and
+    # for a coding task the assistant wrote, its agent.
     client_id: str = ""
     text: str = ""
     notice: str = ""
+    brief: str = ""
     events: list[dict[str, Any]] = field(default_factory=list)
     finished: bool = False
     changed: asyncio.Condition = field(default_factory=asyncio.Condition)
@@ -49,13 +51,15 @@ class RunHub:
         client_id: str = "",
         text: str = "",
         notice: str = "",
+        brief: str = "",
     ) -> Run:
         """Start consuming a run. Other clients hear about it on the bus, so a conversation shown
         in several places (two terminals, Telegram) updates everywhere. `client_id` names the
         client that started it, which already shows it. `text` is what the user wrote; `notice`, for a
         follow-up the assistant runs on its own (core/agent/follow_ups.py), what it follows up on, which the
-        apps show where the user's message would be."""
-        run = Run(uuid4().hex, thread_id, channel=channel, client_id=client_id, text=text, notice=notice)
+        apps show where the user's message would be; `brief`, when `text` is a coding task the assistant wrote and
+        not the user (core/conversation/briefs.py), the agent it's for."""
+        run = Run(uuid4().hex, thread_id, channel=channel, client_id=client_id, text=text, notice=notice, brief=brief)
         self._runs[run.id] = run
         if self._bus is not None:
             self._bus.publish(
@@ -66,6 +70,7 @@ class RunHub:
                 client_id=client_id,
                 text=text,
                 notice=notice,
+                brief=brief,
             )
         task = asyncio.create_task(self._consume(run, events))
         self._tasks.add(task)

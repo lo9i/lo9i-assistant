@@ -6,12 +6,12 @@ import { LiveConversation, type Conversations } from "../api/live";
 import type { ApprovalRequired, Decision, Dispatched, RunAnnounced, RunEvent, RunFinished, Session, ShownConversation } from "../api/types";
 import type { NoticeBoard } from "../notices";
 import { ChatTab, type Place } from "./tab";
-import { addCarried, addNotice, addUser, apply, empty, endRun, endText, fromHistory, type Transcript } from "./transcript";
+import { addBrief, addCarried, addNotice, addUser, apply, empty, endRun, endText, fromHistory, type Transcript } from "./transcript";
 
 /** The DaemonClient calls the chat needs. */
 export interface ChatClient extends Conversations {
   send(session: Session, text: string, files: File[], signal: AbortSignal): AsyncIterable<RunEvent>;
-  sendDispatched(session: Session, dispatchId: string, text: string, signal: AbortSignal): AsyncIterable<RunEvent>;
+  sendDispatched(session: Session, dispatched: Dispatched, signal: AbortSignal): AsyncIterable<RunEvent>;
   moveDispatched(session: Session, dispatchId: string, signal: AbortSignal): AsyncIterable<RunEvent>;
   resume(session: Session, decisions: Record<string, Decision>, signal: AbortSignal): AsyncIterable<RunEvent>;
   cancel(session: Session): Promise<boolean>;
@@ -25,7 +25,7 @@ export interface ChatClient extends Conversations {
 type Start = (signal: AbortSignal) => AsyncIterable<RunEvent>;
 
 /** A run to show from its start, as its `run` event announced it or the conversation lists it in progress. */
-type Followed = Pick<RunAnnounced, "run_id" | "channel" | "client_id" | "text" | "notice">;
+type Followed = Pick<RunAnnounced, "run_id" | "channel" | "client_id" | "text" | "notice" | "brief">;
 
 /** A message waiting for the reply before it to finish. One the inbox sent on here (`dispatched`) can't be taken
  * back: the daemon keeps it as sent on. `after` is called once its own reply has finished. */
@@ -114,7 +114,10 @@ export class ChatController {
 
   async send(text: string, files: File[]): Promise<void> {
     const names = files.map((f) => f.name);
-    await this.own(text, names, (signal) => this.client.send(this.live.session, text, files, signal));
+    await this.own(
+      (t) => addUser(t, text, names),
+      (signal) => this.client.send(this.live.session, text, files, signal),
+    );
   }
 
   /** Writes in the inbox, from wherever this is: the inbox sends the message on to its conversation, and
@@ -129,14 +132,16 @@ export class ChatController {
    * `following`, the messages queued in the inbox behind it; `started` is called once its run has. While a run goes
    * on here, it waits in the queue for it to finish, and `started` is called at once. */
   async sendDispatched(dispatched: Dispatched, started: () => void = () => {}, following: Queued[] = []): Promise<void> {
-    const { id, text, carried } = dispatched;
+    const { text, carried, brief } = dispatched;
     if (this.ownRun !== null || this.mirrors.size > 0) {
       this.set({ queued: [...this.state.queued, { text, files: [], dispatched }, ...following] });
       return started();
     }
     this.set({ queued: [...this.state.queued, ...following] });
     if (carried) this.set({ transcript: addCarried(this.state.transcript, carried) });
-    await this.own(text, [], (signal) => this.client.sendDispatched(this.live.session, id, text, signal), started);
+    // A coding task the assistant moved out of the inbox is its brief for the agent, not the user's message.
+    const shown = (t: Transcript) => (brief ? addBrief(t, text, brief) : addUser(t, text, []));
+    await this.own(shown, (signal) => this.client.sendDispatched(this.live.session, dispatched, signal), started);
   }
 
   /** Sends `text` and `files` once nothing runs here, after the messages queued before it; at once when nothing does.
@@ -163,10 +168,10 @@ export class ChatController {
    * this conversation goes there. */
   onDispatched: ((dispatched: Dispatched) => Promise<ChatController | null>) | null = null;
 
-  /** This page's own run of a message, from `start`. */
-  private async own(text: string, files: string[], start: Start, started: () => void = () => {}): Promise<void> {
+  /** This page's own run of a message, shown with `shown`, from `start`. */
+  private async own(shown: (t: Transcript) => Transcript, start: Start, started: () => void = () => {}): Promise<void> {
     if (this.ownRun !== null) return;
-    this.set({ transcript: addUser(this.state.transcript, text, files) });
+    this.set({ transcript: shown(this.state.transcript) });
     await this.ownTurn(start, started);
   }
 
@@ -362,10 +367,11 @@ export class ChatController {
   }
 
   /** What a run answers, where the user's message would be: what they wrote, from where when it wasn't this page,
-   * or the notice of a follow-up. */
+   * a coding task the assistant wrote for its agent, or the notice of a follow-up. */
   private showStarted(run: Followed): void {
     const channel = run.client_id === this.client.clientId ? undefined : run.channel;
-    if (run.text) this.set({ transcript: addUser(this.state.transcript, run.text, [], channel) });
+    if (run.text && run.brief) this.set({ transcript: addBrief(this.state.transcript, run.text, run.brief) });
+    else if (run.text) this.set({ transcript: addUser(this.state.transcript, run.text, [], channel) });
     if (run.notice) this.set({ transcript: addNotice(this.state.transcript, run.notice) });
   }
 

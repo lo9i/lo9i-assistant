@@ -11,8 +11,9 @@ from assistant.core.usage.log import TokenReport, UsageReport
 
 __all__ = ["ConversationStats", "TokenReport", "UsageMixin", "UsageReport"]
 
-# What counts as a message in a conversation's stats: what the user and the assistant said, not tool calls.
-_MESSAGE_ROLES = ("user", "assistant")
+# What counts as a message in a conversation's stats: what the user and the assistant said (a coding task it wrote
+# for its agent too), not tool calls.
+_MESSAGE_ROLES = ("user", "assistant", "brief")
 
 
 @dataclass(frozen=True)

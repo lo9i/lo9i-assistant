@@ -1213,7 +1213,7 @@ class FakeClient:
             yield dispatched
         yield Done()
 
-    async def send_dispatched(self, session, dispatch_id, text):
+    async def send_dispatched(self, session, dispatch_id, text, brief=""):
         self.sent.append((f"{session.thread_id} ← {dispatch_id}", []))
         yield TextDelta("On it.")
         yield Done()

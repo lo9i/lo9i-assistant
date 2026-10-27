@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { ApiError } from "../api/errors";
-import type { ApprovalRequired, Decision, RunEvent, RunInProgress, Session } from "../api/types";
+import type { ApprovalRequired, Decision, Dispatched, RunEvent, RunInProgress, Session } from "../api/types";
 import { NoticeBoard } from "../notices";
 import { ChatController, type ChatClient } from "./controller";
 import { ChatTab } from "./tab";
@@ -27,7 +27,7 @@ class FakeDaemon implements ChatClient {
     live: async (threadId: string) => {
       this.loading.push(threadId);
       await this.slowHistory;
-      const messages = [{ role: "user", text: "earlier", detail: "", output: "", dispatch_id: "", call_id: "", partial: false }];
+      const messages = [{ role: "user", text: "earlier", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "" }];
       return { messages, runs: this.inProgress.get(threadId) ?? [] };
     },
     approvals: async (threadId: string) => this.waiting.get(threadId) ?? [],
@@ -49,8 +49,8 @@ class FakeDaemon implements ChatClient {
     this.sent.push(`${session.thread_id}: ${text}`);
     return this.play(signal);
   };
-  sendDispatched = (session: Session, id: string, text: string, signal: AbortSignal) => {
-    this.sent.push(`${session.thread_id}: ${text} (${id})`);
+  sendDispatched = (session: Session, dispatched: Dispatched, signal: AbortSignal) => {
+    this.sent.push(`${session.thread_id}: ${dispatched.text} (${dispatched.id})`);
     return this.play(signal);
   };
   moveDispatched = (session: Session, id: string, signal: AbortSignal) => {
@@ -98,6 +98,7 @@ const inProgress = (run_id: string, text: string, client_id = "me"): RunInProgre
   client_id,
   text,
   notice: "",
+  brief: "",
 });
 
 const texts = (chat: ChatController) => chat.getSnapshot().transcript.items.map((i) => ("text" in i ? i.text : i.kind));
@@ -286,6 +287,33 @@ describe("ChatController", () => {
     await chat.move("d1");
     expect(daemon.sent).toEqual(["inbox: move d1", "t1: flights? (d1)"]);
     expect(chat.getSnapshot().threadId).toBe("t1");
+  });
+
+  it("shows a task the assistant wrote for its agent as its brief, not as the user's message", async () => {
+    const daemon = new FakeDaemon();
+    daemon.runs = [[{ type: "TextDelta", text: "Fixed." }, { type: "Done" }]];
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    await chat.mirror({ run_id: "r", thread_id: "t1", channel: "web", client_id: "", text: "fix it", brief: "Claude Code" });
+    expect(chat.getSnapshot().transcript.items.map((i) => i.kind)).toEqual(["user", "brief", "assistant"]);
+    expect(chat.getSnapshot().transcript.items[1]).toMatchObject({ text: "fix it", agent: "Claude Code" });
+  });
+
+  it("sends a task the assistant moved out of the inbox as its brief for the agent", async () => {
+    const daemon = new FakeDaemon();
+    const moved = {
+      type: "Dispatched",
+      id: "d1",
+      thread_id: "",
+      title: "Fix",
+      text: "fix it",
+      line: "→ Moved.",
+      brief: "Claude Code",
+    } as const;
+    daemon.runs = [[moved, { type: "Done" }], [{ type: "Done" }]];
+    const chat = await ChatController.open(daemon, "web", null, board);
+    await chat.send("fix the tests with claude", []);
+    expect(daemon.sent).toEqual(["inbox: fix the tests with claude", "t2: fix it (d1)"]);
+    expect(chat.getSnapshot().transcript.items.map((i) => i.kind)).toEqual(["brief"]);
   });
 
   it("shows a run started elsewhere, not its own", async () => {

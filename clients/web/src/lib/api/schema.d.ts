@@ -2835,6 +2835,11 @@ export interface components {
              * @default
              */
             text: string;
+            /**
+             * Brief
+             * @default
+             */
+            brief: string;
         };
         /**
          * DoctorPage
@@ -4136,6 +4141,11 @@ export interface components {
              * @default
              */
             notice: string;
+            /**
+             * Brief
+             * @default
+             */
+            brief: string;
         };
         /** RunRecord */
         RunRecord: {
@@ -4321,6 +4331,11 @@ export interface components {
              * @default false
              */
             partial: boolean;
+            /**
+             * Agent
+             * @default
+             */
+            agent: string;
         };
         /**
          * ShownStep

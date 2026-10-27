@@ -20,6 +20,7 @@ import type {
   ConversationStats,
   Decision,
   Device,
+  Dispatched,
   EmailAccount,
   EmailProvider,
   EmailSettings,
@@ -775,6 +776,12 @@ export class SystemGroup {
     return this.transport.request("DELETE", "/system/startup");
   }
 
+  /** Installs an out-of-date start at boot again (`outdated`), behind macOS's password dialog; a daemon it started
+   * restarts once no run is in progress. */
+  reinstallStartup(): Promise<StartupStatus> {
+    return this.transport.request("POST", "/system/startup/reinstall");
+  }
+
   /** The daemon restarts once no run is in progress. */
   restart(): Promise<ShutdownStatus> {
     return this.transport.request("POST", "/system/restart");
@@ -1011,12 +1018,13 @@ export class DaemonClient {
     yield* this.followRun(run.run_id, signal);
   }
 
-  /** Sends a message the inbox sent on (a Dispatched event) in `session`'s conversation, as it was written. */
-  async *sendDispatched(session: Session, dispatchId: string, text: string, signal: AbortSignal): AsyncGenerator<RunEvent> {
-    const body = { channel: session.channel, text };
+  /** Sends a message the inbox sent on (a Dispatched event) in `session`'s conversation, as it was written. Its
+   * text, and for a coding task its agent, are announced with the run, so other clients show it. */
+  async *sendDispatched(session: Session, dispatched: Dispatched, signal: AbortSignal): AsyncGenerator<RunEvent> {
+    const body = { channel: session.channel, text: dispatched.text, brief: dispatched.brief ?? "" };
     const run = await this.transport.request<Schemas["RunStarted"]>(
       "POST",
-      `${thread(session)}/dispatched/${encodeURIComponent(dispatchId)}`,
+      `${thread(session)}/dispatched/${encodeURIComponent(dispatched.id)}`,
       body,
     );
     yield* this.followRun(run.run_id, signal);

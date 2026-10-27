@@ -4,6 +4,8 @@ import type { RunEvent, ShownCall, ShownMessage } from "../api/types";
 
 export type ChatItem =
   | { kind: "user"; id: number; text: string; files: string[]; channel?: string }
+  // A coding task the assistant wrote for the agent (`agent`) it handed the conversation to: not the user's.
+  | { kind: "brief"; id: number; text: string; agent: string }
   // `dispatchId`: the inbox's record of a message it sent on, which can be moved.
   | { kind: "assistant"; id: number; text: string; dispatchId?: string }
   | { kind: "thinking"; id: number; text: string }
@@ -66,6 +68,16 @@ export function addUser(t: Transcript, text: string, files: string[], channel?: 
   return add({ ...t, streaming: null }, { kind: "user", text, files, channel });
 }
 
+/** A coding task the assistant wrote for `agent`, sent where the user's message would be. */
+export function addBrief(t: Transcript, text: string, agent: string): Transcript {
+  return add({ ...t, streaming: null }, { kind: "brief", text, agent });
+}
+
+/** Only what the user wrote is pinned over the thread as what the reply below answers: never a brief. */
+export function pinnable(item: ChatItem): item is Extract<ChatItem, { kind: "user" }> {
+  return item.kind === "user";
+}
+
 /** Adds one run event. ApprovalRequired isn't shown here; the page asks for a decision. */
 export function apply(t: Transcript, event: RunEvent): Transcript {
   if (event.type === "TextDelta") return addText(t, event.text);
@@ -125,6 +137,7 @@ function add(t: Transcript, item: NewItem): Transcript {
 
 function addShown(t: Transcript, message: ShownMessage): Transcript {
   if (message.role === "user") return add(t, { kind: "user", ...splitAttachments(message.text) });
+  if (message.role === "brief") return add(t, { kind: "brief", text: message.text, agent: message.agent });
   if (message.role === "thinking") return add(t, { kind: "thinking", text: message.text });
   if (message.role === "carried") return add(t, { kind: "carried", text: message.text });
   if (message.role === "notice") return add(t, { kind: "notice", text: message.text });

@@ -16,6 +16,8 @@ class Queued:
     # The message; for a follow-up, what ended, as the user was told.
     text: str
     follow_up: bool = False
+    # A coding task, which the assistant wrote and not the user (core/conversation/briefs.py): its agent's name.
+    brief: str = ""
 
 
 def _namespace(user_id: str) -> tuple[str, ...]:
@@ -24,7 +26,7 @@ def _namespace(user_id: str) -> tuple[str, ...]:
 
 async def add(store: BaseStore, user_id: str, thread_id: str, queued: Queued) -> None:
     item = await store.aget(_namespace(user_id), thread_id)
-    added = {"channel": queued.channel, "text": queued.text, "follow_up": queued.follow_up}
+    added = {"channel": queued.channel, "text": queued.text, "follow_up": queued.follow_up, "brief": queued.brief}
     waiting = [*(item.value["messages"] if item else []), added]
     await store.aput(_namespace(user_id), thread_id, {"messages": waiting})
 
@@ -39,7 +41,7 @@ async def take(store: BaseStore, user_id: str, thread_id: str) -> Queued | None:
         await store.aput(_namespace(user_id), thread_id, {"messages": rest})
     else:
         await store.adelete(_namespace(user_id), thread_id)
-    return Queued(first["channel"], first["text"], bool(first.get("follow_up")))
+    return Queued(first["channel"], first["text"], bool(first.get("follow_up")), str(first.get("brief") or ""))
 
 
 async def threads(store: BaseStore, user_id: str) -> list[str]:

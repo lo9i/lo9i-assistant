@@ -32,7 +32,7 @@
   );
   const items = $derived(fromHistory(messages.data ?? []).items);
   const counts = $derived({
-    messages: items.filter((i) => i.kind === "user" || i.kind === "assistant").length,
+    messages: items.filter((i) => i.kind === "user" || i.kind === "assistant" || i.kind === "brief").length,
     tools: items.filter((i) => i.kind === "tool").length,
   });
 

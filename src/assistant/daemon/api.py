@@ -424,8 +424,10 @@ class RunStarted(BaseModel):
 
 class Dispatching(BaseModel):
     channel: str
-    # What the message said, announced with the run so other clients show it.
+    # What the message said, announced with the run so other clients show it, and for a coding task the assistant
+    # moved out of the inbox, the agent it's for (the Dispatched event's `brief`).
     text: str = ""
+    brief: str = ""
 
 
 class Moving(BaseModel):
@@ -438,10 +440,12 @@ class RunInProgress(BaseModel):
     run_id: str
     thread_id: str
     channel: str
-    # As announced in its `run` event: the client that started it, what the user wrote, the notice of a follow-up.
+    # As announced in its `run` event: the client that started it, what the user wrote, the notice of a follow-up,
+    # and for a coding task the assistant wrote instead, the agent it's for.
     client_id: str = ""
     text: str = ""
     notice: str = ""
+    brief: str = ""
 
     @classmethod
     def of(cls, run: Run) -> "RunInProgress":
@@ -452,6 +456,7 @@ class RunInProgress(BaseModel):
             client_id=run.client_id,
             text=run.text,
             notice=run.notice,
+            brief=run.brief,
         )
 
 
@@ -665,7 +670,8 @@ def _add_run_routes(
         session = Session(settings.owner_id, body.channel, thread_id)
         client_id = _client_id(request)
         clients.on_thread(client_id, thread_id)
-        run = hub.start(thread_id, service.send_dispatched(session, dispatch_id), body.channel, client_id, body.text)
+        events = service.send_dispatched(session, dispatch_id)
+        run = hub.start(thread_id, events, body.channel, client_id, body.text, brief=body.brief)
         return RunStarted(run_id=run.id)
 
     @app.post("/threads/{thread_id}/moves")

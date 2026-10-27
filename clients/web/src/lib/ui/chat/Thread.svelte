@@ -1,6 +1,7 @@
 <script lang="ts">
   import Brain from "@lucide/svelte/icons/brain";
   import Check from "@lucide/svelte/icons/check";
+  import ClipboardList from "@lucide/svelte/icons/clipboard-list";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Copy from "@lucide/svelte/icons/copy";
   import Forward from "@lucide/svelte/icons/forward";
@@ -11,7 +12,7 @@
   import Wrench from "@lucide/svelte/icons/wrench";
   import type { Snippet } from "svelte";
   import type { ShownCall } from "$lib/api/types";
-  import { inlineArg, withWhole, withWholeStep, type ChatItem } from "$lib/chat/transcript";
+  import { inlineArg, pinnable, withWhole, withWholeStep, type ChatItem } from "$lib/chat/transcript";
   import { WholeCalls } from "$lib/chat/wholeCalls.svelte";
   import { markdown } from "$lib/markdown";
 
@@ -32,7 +33,6 @@
      * pinned there (the live chat). A preview reads from the top. */
     follow?: boolean;
   };
-  type UserItem = Extract<ChatItem, { kind: "user" }>;
   let { items, thinking, name, onsuggest, onmove, loadCall, loadStep, end, follow = true }: Props = $props();
   const wholes = new WholeCalls();
 
@@ -51,9 +51,10 @@
   // Where the copy of the user's message sits, from the thread's top (`.asked`'s top).
   const PINNED_TOP = 8;
   // The last user message whose start has scrolled up past where its copy sits: what's at the top answers it, so
-  // its copy shows there, as an editor's sticky scroll shows the function being read.
+  // its copy shows there, as an editor's sticky scroll shows the function being read. Only what the user wrote (a
+  // `.row.user`); a task the assistant wrote for its agent never is.
   let askedId = $state<number | null>(null);
-  const asked = $derived(items.find((item): item is UserItem => item.kind === "user" && item.id === askedId));
+  const asked = $derived(items.filter(pinnable).find((item) => item.id === askedId));
 
   function below(el: HTMLElement): number {
     return el.scrollHeight - el.scrollTop - el.clientHeight;
@@ -161,6 +162,17 @@
             <span class="chevron"><ChevronRight size={12} /></span>
           </summary>
           <p class="thought-text">{item.text}</p>
+        </details>
+      {:else if item.kind === "brief"}
+        <!-- The assistant wrote it, not the user: collapsed, apart from the user's bubbles, and never pinned. -->
+        <details class="tool brief">
+          <summary>
+            <ClipboardList size={12} />
+            <span>Task for {item.agent}</span>
+            <span class="detail preview">{item.text.split("\n")[0]}</span>
+            <span class="chevron"><ChevronRight size={12} /></span>
+          </summary>
+          <div class="prose brief-text">{@html markdown(item.text)}</div>
         </details>
       {:else if item.kind === "carried"}
         <details class="tool thought">
@@ -496,7 +508,8 @@
     border-left: 0;
   }
   .tool[open] > .thought-text,
-  .tool[open] > .carried {
+  .tool[open] > .carried,
+  .tool[open] > .brief-text {
     padding: 10px 12px;
   }
   .tool[open] > .whole-note {
@@ -514,6 +527,9 @@
     font-family: inherit;
     font-style: italic;
   }
+  .brief .detail {
+    font-family: inherit;
+  }
   .thought[open] .preview {
     display: none;
   }
@@ -522,7 +538,8 @@
     align-items: center;
     gap: 6px;
   }
-  .carried {
+  .carried,
+  .brief-text {
     margin-top: 8px;
     max-width: min(800px, 80vw);
   }

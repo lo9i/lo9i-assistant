@@ -49,4 +49,6 @@ class QueuedMessages:
             follow_up = self._service.follow_up(session, waiting.text)
             self._hub.start(thread_id, follow_up, waiting.channel, notice=waiting.text)
             return
-        self._hub.start(thread_id, self._service.send(session, waiting.text), waiting.channel, text=waiting.text)
+        # A coding task is the assistant's: the apps show it as one, not as the user's message.
+        sent = self._service.send(session, waiting.text, brief=waiting.brief)
+        self._hub.start(thread_id, sent, waiting.channel, text=waiting.text, brief=waiting.brief)

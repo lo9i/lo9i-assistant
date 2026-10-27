@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../api/errors";
-import type { ApprovalRequired, RunEvent, Session } from "../api/types";
+import type { ApprovalRequired, Dispatched, RunEvent, Session } from "../api/types";
 import { NoticeBoard } from "../notices";
 import type { ChatClient } from "./controller";
 import { OpenChats } from "./openChats";
@@ -40,8 +40,8 @@ class Daemon {
         this.sent.push(`${session.thread_id}: ${text}`);
         return play();
       },
-      sendDispatched: (session: Session, id: string) => {
-        this.sent.push(`${session.thread_id}: ${id}`);
+      sendDispatched: (session: Session, dispatched: Dispatched) => {
+        this.sent.push(`${session.thread_id}: ${dispatched.id}`);
         return play();
       },
       moveDispatched: (session: Session, id: string) => {

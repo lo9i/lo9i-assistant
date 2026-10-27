@@ -88,7 +88,7 @@ ThinkingNote .thinking-text {
     color: ansi_bright_black;
 }
 
-CarriedNote {
+CarriedNote, BriefNote {
     margin: 1 0 0 0;
     padding: 0;
     border: none;
@@ -96,7 +96,7 @@ CarriedNote {
     color: ansi_bright_black;
 }
 
-CarriedNote .carried-text {
+CarriedNote .carried-text, BriefNote .brief-text {
     padding: 0 0 0 2;
     background: transparent;
 }

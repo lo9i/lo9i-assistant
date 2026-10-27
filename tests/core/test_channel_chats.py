@@ -27,12 +27,14 @@ class _Runs:
 
     def __init__(self, say: str = "", quiet_in: str = "") -> None:
         self.texts: list[str] = []
+        self.briefs: list[str] = []
         self._say = say
         # A conversation whose runs say nothing: the inbox, which sends a message on without a reply.
         self._quiet_in = quiet_in
 
-    async def follow(self, channel, thread_id, events: AsyncIterator[Event], text: str):
+    async def follow(self, channel, thread_id, events: AsyncIterator[Event], text: str, brief: str = ""):
         self.texts.append(text)
+        self.briefs.append(brief)
         if self._say and thread_id != self._quiet_in:
             yield TextDelta(self._say)
         async for event in events:

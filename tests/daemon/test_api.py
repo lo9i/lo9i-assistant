@@ -475,6 +475,7 @@ async def test_a_conversation_opens_with_its_messages_and_the_runs_in_progress_t
             "client_id": "",
             "text": "and now?",
             "notice": "",
+            "brief": "",
         }
     ]
 

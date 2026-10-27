@@ -63,6 +63,14 @@ class CarriedNote(Collapsible):
         super().__init__(Markdown(text, classes="carried-text"), title="↳ From the inbox", collapsed=True)
 
 
+class BriefNote(Collapsible):
+    """A coding task the assistant wrote for the agent it handed the conversation to: not the user's message, so
+    collapsed under "Task for <agent>" instead of shown as theirs."""
+
+    def __init__(self, text: str, agent: str) -> None:
+        super().__init__(Markdown(text, classes="brief-text"), title=f"↳ Task for {agent}", collapsed=True)
+
+
 class FollowUpNote(Static):
     """Background work that ended, which the assistant followed up on without a message from the user."""
 

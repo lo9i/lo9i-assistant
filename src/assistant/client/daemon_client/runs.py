@@ -25,10 +25,12 @@ class RunsMixin(ChatBase):
         async for event in self._follow(run["run_id"]):
             yield event
 
-    async def send_dispatched(self, session: Session, dispatch_id: str, text: str) -> AsyncIterator[Event]:
+    async def send_dispatched(
+        self, session: Session, dispatch_id: str, text: str, brief: str = ""
+    ) -> AsyncIterator[Event]:
         """Sends a message the inbox sent on (a Dispatched event) in `session`'s conversation, as it was
-        written."""
-        body = {"channel": session.channel, "text": text}
+        written. Its text, and for a coding task its agent (`brief`), are announced with the run."""
+        body = {"channel": session.channel, "text": text, "brief": brief}
         run = await self._transport.request("POST", f"/threads/{session.thread_id}/dispatched/{dispatch_id}", json=body)
         async for event in self._follow(run["run_id"]):
             yield event

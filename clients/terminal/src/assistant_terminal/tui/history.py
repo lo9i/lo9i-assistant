@@ -11,6 +11,7 @@ from textual.containers import VerticalScroll
 from assistant.core.agent import ShownCall, ShownMessage
 from assistant_terminal.tui.widgets import (
     AssistantMessage,
+    BriefNote,
     CarriedNote,
     ErrorMessage,
     FollowUpNote,
@@ -62,6 +63,8 @@ def _widget(message: ShownMessage, load: Loaders):
         return ThinkingNote(message.text)
     if message.role == "carried":
         return CarriedNote(message.text)
+    if message.role == "brief":
+        return BriefNote(message.text, message.agent)
     if message.role == "notice":
         return FollowUpNote(message.text)
     if message.role == "error":
