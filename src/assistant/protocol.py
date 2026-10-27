@@ -1,7 +1,7 @@
 """How events and status objects travel between the daemon and its clients: plain JSON dicts
 with a "type" field naming the event class."""
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from assistant.core import events
@@ -55,12 +55,13 @@ class ShutdownStatus:
 @dataclass
 class PendingEnding:
     """The restart or stop waiting for runs to end, and for an update being installed; `ending` is "" when none
-    is. `can_take_back` is false once an update was installed: the restart it needs can't be."""
+    is. `can_take_back` is false when something needs it, which `needed_by` says ("An update was installed")."""
 
     ending: str
     waiting_for_runs: int
     waiting_for_update: bool = False
     can_take_back: bool = False
+    needed_by: str = ""
 
 
 class NoEndingError(Exception):
@@ -78,6 +79,9 @@ class StartupStatus:
     platform: str = "macos"
     # False on Linux while lingering is off: the service then runs only while the user is logged in.
     starts_without_login: bool = True
+    # Why what's installed isn't what turning it on installs now (an older LaunchDaemon); empty when it is. Installing
+    # it again (POST /system/startup/reinstall) brings it up to date.
+    outdated: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -98,6 +102,8 @@ class HostStatus:
     disk_total: int
     uptime_seconds: int
     load_average: list[float]
+    # Why the daemon can't be stopped from the apps now; "" when it can.
+    stop_refusal: str = ""
 
 
 class StartupError(Exception):

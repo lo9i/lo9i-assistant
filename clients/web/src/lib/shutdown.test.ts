@@ -6,6 +6,7 @@ const runs = (ending: "restart" | "stop", waiting: number, more: Partial<Coming>
   waiting,
   update: false,
   canTakeBack: true,
+  neededBy: "",
   ...more,
 });
 
@@ -13,9 +14,14 @@ describe("coming", () => {
   it("reads a pending ending or an event, and nothing once taken back", () => {
     expect(coming({ ending: "", waiting_for_runs: 0 })).toBeNull();
     expect(coming({ ending: "restart", waiting_for_runs: 1, taken_back: true })).toBeNull();
-    expect(coming({ ending: "restart", waiting_for_runs: 1, waiting_for_update: true, can_take_back: false })).toEqual(
-      runs("restart", 1, { update: true, canTakeBack: false }),
-    );
+    const installed = {
+      ending: "restart",
+      waiting_for_runs: 1,
+      waiting_for_update: true,
+      can_take_back: false,
+      needed_by: "An update was installed",
+    };
+    expect(coming(installed)).toEqual(runs("restart", 1, { update: true, canTakeBack: false, neededBy: "An update was installed" }));
   });
 });
 
@@ -53,9 +59,9 @@ describe("waitingText and answerable", () => {
   });
 
   it("offers no Cancel for the restart an installed update needs", () => {
-    const update = runs("restart", 1, { canTakeBack: false });
+    const update = runs("restart", 1, { canTakeBack: false, neededBy: "Start at boot was installed again" });
     expect(waitingText(update)).toBe(
-      "An update was installed, so it can't be cancelled: it restarts so the update runs. Now cancels the runs in progress, and it restarts at once.",
+      "Start at boot was installed again, so it can't be cancelled. Now cancels the runs in progress, and it restarts at once.",
     );
     expect(answerable(update)).toEqual({ cancel: false, now: true });
   });

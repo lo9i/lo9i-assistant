@@ -4976,7 +4976,7 @@
     "/system/host": {
       "get": {
         "summary": "Host Status",
-        "description": "The computer the daemon runs on: system, versions, CPU, memory, disk, uptime and load.",
+        "description": "The computer the daemon runs on: system, versions, CPU, memory, disk, uptime and load, and why the\ndaemon can't be stopped from the apps now, if it can't.",
         "operationId": "host_status_system_host_get",
         "responses": {
           "200": {
@@ -5028,6 +5028,25 @@
       "delete": {
         "summary": "Disable Startup",
         "operationId": "disable_startup_system_startup_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartupStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/startup/reinstall": {
+      "post": {
+        "summary": "Reinstall Startup",
+        "description": "Installs start at boot again, bringing an out-of-date one up to date (`outdated`). A daemon it started\nrestarts once no run is in progress, which can't be taken back. 400: it's off, or the password was refused.",
+        "operationId": "reinstall_startup_system_startup_reinstall_post",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -5098,7 +5117,7 @@
       },
       "delete": {
         "summary": "Take Back Ending",
-        "description": "The daemon keeps running. 409: nothing is waiting, it already went ahead, or it's the restart an\ninstalled update needs (`can_take_back` is false), which can't be taken back.",
+        "description": "The daemon keeps running. 409: nothing is waiting, it already went ahead, or something needs it (an\nupdate installed, start at boot installed again: `can_take_back` is false), so it can't be taken back.",
         "operationId": "take_back_ending_system_ending_delete",
         "responses": {
           "200": {
@@ -7072,6 +7091,11 @@
             },
             "type": "array",
             "title": "Load Average"
+          },
+          "stop_refusal": {
+            "type": "string",
+            "title": "Stop Refusal",
+            "default": ""
           }
         },
         "type": "object",
@@ -8294,6 +8318,11 @@
             "type": "boolean",
             "title": "Can Take Back",
             "default": false
+          },
+          "needed_by": {
+            "type": "string",
+            "title": "Needed By",
+            "default": ""
           }
         },
         "type": "object",
@@ -8302,7 +8331,7 @@
           "waiting_for_runs"
         ],
         "title": "PendingEnding",
-        "description": "The restart or stop waiting for runs to end, and for an update being installed; `ending` is \"\" when none\nis. `can_take_back` is false once an update was installed: the restart it needs can't be."
+        "description": "The restart or stop waiting for runs to end, and for an update being installed; `ending` is \"\" when none\nis. `can_take_back` is false when something needs it, which `needed_by` says (\"An update was installed\")."
       },
       "PinnedSkills": {
         "properties": {
@@ -9523,6 +9552,13 @@
             "type": "boolean",
             "title": "Starts Without Login",
             "default": true
+          },
+          "outdated": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Outdated"
           }
         },
         "type": "object",

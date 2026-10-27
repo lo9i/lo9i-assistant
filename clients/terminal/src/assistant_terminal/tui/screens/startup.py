@@ -1,5 +1,6 @@
 """Start at boot: turn it on or off from the app. macOS uses LaunchDaemons, Linux a systemd user
-service (lo9i-assistant); the text explains the one this daemon's system uses."""
+service (lo9i-assistant); the text explains the one this daemon's system uses. One installed by an older
+version says how it differs, and Install again replaces it."""
 
 from typing import ClassVar
 
@@ -48,6 +49,7 @@ class StartupScreen(ModalScreen[None]):
             with Horizontal(id="startup-buttons"):
                 yield Button("Enable", variant="success", id="enable")
                 yield Button("Disable", variant="error", id="disable")
+                yield Button("Install again", variant="primary", id="reinstall")
                 yield Button("Close", id="close")
 
     @reports_daemon_unavailable
@@ -59,7 +61,21 @@ class StartupScreen(ModalScreen[None]):
         if event.button.id == "close":
             self.dismiss()
             return
+        if event.button.id == "reinstall":
+            await self._reinstall()
+            return
         await self._change(enable=event.button.id == "enable")
+
+    async def _reinstall(self) -> None:
+        self._message = "Waiting for the macOS password dialog…"
+        await self._show(await self._system.startup_status())
+        try:
+            status = await self._system.reinstall_startup()
+            self._message = _reinstalled(status)
+        except StartupError as e:
+            self._message = f"**{e}**"
+            status = await self._system.startup_status()
+        await self._refresh(status)
 
     async def _change(self, enable: bool) -> None:
         current = await self._system.startup_status()
@@ -78,6 +94,7 @@ class StartupScreen(ModalScreen[None]):
         supported = status.platform != "unsupported"
         self.query_one("#enable").display = supported and not status.enabled
         self.query_one("#disable").display = supported and status.enabled
+        self.query_one("#reinstall").display = status.enabled and bool(status.outdated)
         await self._show(status)
 
     async def _show(self, status: StartupStatus) -> None:
@@ -85,7 +102,16 @@ class StartupScreen(ModalScreen[None]):
         text = f"## Start at boot: {state}\n\n{_ABOUT.get(status.platform, _ABOUT['unsupported'])}"
         if status.platform == "linux" and not status.starts_without_login:
             text += f"\n\n{_NO_LINGER}"
+        if status.enabled and status.outdated:
+            reasons = "\n".join(f"- {why}" for why in status.outdated)
+            text += f"\n\n**It was installed by an older version.** Install again fixes this:\n\n{reasons}"
         await self.query_one("#startup-body", Markdown).update(f"{text}\n\n{self._message}" if self._message else text)
+
+
+def _reinstalled(status: StartupStatus) -> str:
+    if status.managed:
+        return "Installed again. The assistant restarts once the runs in progress end."
+    return "Installed again. The assistant restarts under macOS in a few seconds."
 
 
 def _done(enabled: bool, status: StartupStatus) -> str:

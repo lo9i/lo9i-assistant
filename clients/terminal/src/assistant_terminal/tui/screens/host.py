@@ -150,6 +150,8 @@ class HostScreen(ModalScreen[None]):
         take_back.label = f"Cancel {pending.ending or 'restart'}"
         take_back.display = can_take_back(pending)
         self.query_one("#now").display = bool(pending.ending and pending.waiting_for_runs)
+        stop = self.query_one("#stop", Button)
+        stop.disabled, stop.tooltip = bool(host.stop_refusal), host.stop_refusal or None
         await self.query_one("#host-body", Markdown).update(describe(host, update, pending))
 
 
@@ -161,7 +163,7 @@ def ending_text(does: str, waiting: int, update: bool = False) -> str:
 
 
 def can_take_back(pending: PendingEnding) -> bool:
-    """Something to take back: it waits for runs or an update, and isn't the restart an installed update needs."""
+    """Something to take back: it waits for runs or an update, and nothing needs it (an update installed)."""
     return (
         bool(pending.ending) and pending.can_take_back and (pending.waiting_for_runs > 0 or pending.waiting_for_update)
     )
@@ -183,6 +185,8 @@ def describe(host: HostStatus, update: UpdateStatus | None = None, pending: Pend
     if host.load_average:
         rows.append(("Load avg", " / ".join(f"{load:.2f}" for load in host.load_average)))
     table = "## Host\n\n| | |\n|---|---|\n" + "\n".join(f"| {term} | {value} |" for term, value in rows)
+    if host.stop_refusal:
+        table += f"\n\nStop: {host.stop_refusal}"
     return table + (_updates(update) if update else "") + (_pending(pending) if pending and pending.ending else "")
 
 
@@ -193,7 +197,7 @@ def _pending(pending: PendingEnding) -> str:
     choices = [
         *([f"Cancel {pending.ending} keeps it running."] if can_take_back(pending) else []),
         *(
-            [f"An update was installed, so it can't be cancelled: it {does} so the update runs."]
+            [f"{pending.needed_by or 'Something needs it'}, so it can't be cancelled."]
             if not pending.can_take_back
             else []
         ),

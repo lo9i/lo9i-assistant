@@ -58,3 +58,17 @@ async def test_unsupported_systems_offer_no_buttons(app, client):
         screen = await _open(pilot, app)
         await wait_for(pilot, lambda: "has neither" in screen.query_one("#startup-body", Markdown).source)
         assert not screen.query_one("#enable").display and not screen.query_one("#disable").display
+
+
+async def test_an_out_of_date_start_at_boot_says_how_and_is_installed_again(app, client):
+    from dataclasses import replace
+
+    old = "macOS starts the assistant again whatever its exit, so it can't be stopped from the app."
+    client.system.state = replace(client.system.state, enabled=True, managed=True, outdated=[old])
+    async with app.run_test(size=(110, 40)) as pilot:
+        screen = await _open(pilot, app)
+        body = screen.query_one("#startup-body", Markdown)
+        await wait_for(pilot, lambda: "installed by an older version" in body.source and old in body.source)
+        screen.query_one("#reinstall", Button).press()
+        await wait_for(pilot, lambda: "restarts once the runs in progress end" in body.source)
+        assert client.system.reinstalled == 1 and not screen.query_one("#reinstall").display

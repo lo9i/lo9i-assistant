@@ -1,10 +1,14 @@
 """Start at boot, for the API: LaunchDaemons on macOS (launchd.py), a systemd user service on Linux
 (systemd.py). After enabling, a daemon that wasn't started that way steps aside, so the one the
-system starts takes over."""
+system starts takes over. What's installed can be out of date (an older LaunchDaemon, `StartupStatus.outdated`):
+installing it again replaces it, and a daemon it started exits once no run is in progress, for the system to start
+it from the new one (`Shutdown.relaunch`)."""
 
 import asyncio
+import os
 import shutil
 import sys
+from collections.abc import Callable
 from typing import Protocol
 
 from assistant.daemon import launchd, systemd
@@ -23,10 +27,19 @@ class Backend(Protocol):
 
     async def disable(self) -> StartupStatus: ...
 
+    async def install_for_relaunch(self, pid: int) -> None:
+        """Installs it again while the daemon `pid` it started runs; the system loads it once that one exits."""
+        ...
+
+
+# Has the daemon exit once no run is in progress, for its service manager to start it again; says what needs it.
+Relaunch = Callable[[str], object]
+
 
 class Startup:
-    def __init__(self, stop: asyncio.Event) -> None:
+    def __init__(self, stop: asyncio.Event, relaunch: Relaunch = lambda needed_by: None) -> None:
         self._stop = stop
+        self._relaunch = relaunch
         self._backend = _backend()
 
     def status(self) -> StartupStatus:
@@ -42,6 +55,17 @@ class Startup:
 
     async def disable(self) -> StartupStatus:
         return await self._require().disable()
+
+    async def reinstall(self) -> StartupStatus:
+        """Installs start at boot again, as turning it on now would. Raises StartupError when it's off."""
+        backend = self._require()
+        if not backend.status().enabled:
+            raise StartupError("Start at boot is off. Turn it on instead.")
+        if not backend.status().managed:
+            return await self.enable()
+        await backend.install_for_relaunch(os.getpid())
+        self._relaunch("Start at boot was installed again")
+        return backend.status()
 
     def _require(self) -> Backend:
         if self._backend is None:

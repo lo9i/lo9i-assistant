@@ -5,7 +5,9 @@ waits it's pending (GET /system/ending): it can be taken back, or made to go ahe
 a run that never ends (a stuck job) can't hold it forever. It waits for an update being installed too
 (daemon/updates.py), which no one can cancel: stopped in the middle, the daemon would come back on new code with
 what the old one needed. The restart an update asks for once it's installed can't be taken back either: the new
-code is in the tree, and the old code still running would load its modules from there.
+code is in the tree, and the old code still running would load its modules from there. Nor can the relaunch start at
+boot installed again asks for (daemon/startup.py): the daemon exits instead of restarting in place, so its service
+manager starts it from the new settings.
 
 A restart stops the daemon cleanly and starts the process again in place (`exec_again`), keeping its pid, log
 and supervisor, so it's the same however the daemon was started. Stopping depends on what started it
@@ -29,6 +31,9 @@ logger = logging.getLogger(__name__)
 class Ending(StrEnum):
     RESTART = "restart"
     STOP = "stop"
+    # A restart its service manager does: the daemon exits cleanly and is started from the manager's new settings.
+    # Announced as a restart; never asked for as such.
+    RELAUNCH = "relaunch"
 
 
 @dataclass(frozen=True)
@@ -37,8 +42,12 @@ class Pending:
     waiting_for_runs: int
     # An update being installed, which it waits for after the runs.
     waiting_for_update: bool = False
-    # False once an update was installed: the restart it needs can't be taken back.
-    can_take_back: bool = True
+    # What needs it, when it can't be taken back ("An update was installed"); "" when it can.
+    needed_by: str = ""
+
+    @property
+    def can_take_back(self) -> bool:
+        return not self.needed_by
 
 
 # Tells the apps a restart or stop is coming and what it waits for, or, `taken_back`, that it won't.
@@ -104,8 +113,11 @@ class Shutdown:
         self._waiting: asyncio.Task | None = None
         # No run is left: it's going ahead, and can't be taken back any more.
         self._going_ahead = False
-        # An update was installed: the daemon must end so it runs (`restart_for_update`).
-        self._installed = False
+        # What needs the daemon to end, so it can't be taken back: an update installed (`restart_for_update`), start
+        # at boot installed again (`relaunch`); "" while nothing does.
+        self._needed_by = ""
+        # The restart is its service manager's (`relaunch`): the daemon exits for it.
+        self._relaunch = False
         # How the daemon ends, once it does; None until then, and when a signal stopped it.
         self.ending: Ending | None = None
 
@@ -133,29 +145,38 @@ class Shutdown:
         """An update was installed: restarts once no run is in progress, so it runs, and can't be taken back. A
         stop asked for before stays a stop: the update runs when the daemon is started again. Returns how many runs
         it waits for."""
-        self._installed = True
+        self._needed_by = self._needed_by or "An update was installed"
         if self._waiting is not None and not self._going_ahead and self._wanted is Ending.STOP:
             self._announce_pending()  # It can't be taken back any more.
             return self._runs.runs_in_progress()
         return self.request(Ending.RESTART, "an update")
 
+    def relaunch(self, needed_by: str) -> int:
+        """The service manager has new settings for the daemon (start at boot installed again): once no run is in
+        progress it exits cleanly, for the manager to start it from them, and it can't be taken back. Returns how
+        many runs it waits for."""
+        self._needed_by, self._relaunch = needed_by, True
+        return self.request(Ending.RESTART, needed_by.lower())
+
+    def stop_refusal(self) -> str | None:
+        """Why the daemon can't be stopped from the apps now, or None when it can."""
+        return self._manager.stop_refusal()
+
     def pending(self) -> Pending | None:
         """The restart or stop waiting for runs to end, if one is."""
         if self._waiting is None or self._going_ahead:
             return None
-        return Pending(
-            self._wanted, self._runs.runs_in_progress(), self._update.installing(), can_take_back=not self._installed
-        )
+        return Pending(self._wanted, self._runs.runs_in_progress(), self._update.installing(), self._needed_by)
 
     def take_back(self, by: str = "") -> None:
         """The daemon keeps running. Raises NoEndingError when no restart or stop is waiting."""
         waiting = self._waiting
         if waiting is None or self._going_ahead:
             raise NoEndingError("No restart or stop is waiting to be taken back.")
-        if self._installed:
+        if self._needed_by:
             raise NoEndingError(
-                f"An update was installed, so the {self._wanted} can't be taken back: the assistant runs it once"
-                " the runs in progress end. Now cancels them."
+                f"{self._needed_by}, so the {self._wanted} can't be taken back: it goes ahead once the runs in"
+                " progress end. Now cancels them."
             )
         waiting.cancel()
         self._waiting = None
@@ -186,7 +207,7 @@ class Shutdown:
         self._going_ahead = True
         logger.info("No run in progress: the %s goes ahead.", self._wanted)
         if self._wanted is Ending.RESTART:
-            self.ending = Ending.RESTART
+            self.ending = Ending.RELAUNCH if self._relaunch else Ending.RESTART
             self._stop.set()
             return
         try:
@@ -194,7 +215,7 @@ class Shutdown:
         except Exception:
             logger.exception("Couldn't stop the daemon")
             self._waiting, self._going_ahead = None, False
-            if self._installed:
+            if self._needed_by:
                 self._restart_instead()
             return
         self.ending = Ending.STOP

@@ -41,6 +41,7 @@ from assistant.protocol import (
     Commit,
     NoEndingError,
     PendingEnding,
+    StartupError,
     StartupStatus,
     StopRefusedError,
     UpdateError,
@@ -75,6 +76,9 @@ class _Startup:
     def status(self) -> StartupStatus:
         return StartupStatus(enabled=False, managed=False, includes_ollama=False)
 
+    async def reinstall(self) -> StartupStatus:
+        raise StartupError("Start at boot is off. Turn it on instead.")
+
 
 class _Shutdown:
     def __init__(self, refusal: str | None = None) -> None:
@@ -91,6 +95,9 @@ class _Shutdown:
 
     def pending(self) -> Pending | None:
         return Pending(self.requests[-1], 2, waiting_for_update=True) if self.requests else None
+
+    def stop_refusal(self) -> str | None:
+        return self._refusal
 
     def take_back(self, by: str = "") -> None:
         if not self.requests:
@@ -139,6 +146,15 @@ async def test_a_stop_the_service_manager_would_undo_is_refused_with_its_reason(
     async with _system(service, _Shutdown(refusal="macOS would start it again")) as system:
         with pytest.raises(StopRefusedError, match="macOS would start it again"):
             await system.stop()
+        # Said before Stop is pressed: the host says why it can't be.
+        assert (await system.host()).stop_refusal == "macOS would start it again"
+
+
+async def test_installing_start_at_boot_again_says_why_it_cant(service):
+    transport = httpx.ASGITransport(app=trusted(create_app(service, RunHub(), _Startup())))
+    async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}) as h:
+        with pytest.raises(StartupError, match="Turn it on instead"):
+            await DaemonClient(h).system.reinstall_startup()
 
 
 class _Updates:

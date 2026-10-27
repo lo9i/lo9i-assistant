@@ -60,7 +60,8 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         await updater.recover()
         hub = RunHub(service.bus)
         streams = DeviceStreams()
-        app = create_app(service, hub, Startup(stop), shutdown, logs=logs, streams=streams, updates=updater)
+        startup = Startup(stop, shutdown.relaunch)
+        app = create_app(service, hub, startup, shutdown, logs=logs, streams=streams, updates=updater)
         servers = _listeners(app, socket_path)
         page_servers = [HttpServer(create_pages_app(service, streams), at) for at in pages.listeners()]
         if not _bound([*servers, *page_servers]):
@@ -139,6 +140,7 @@ def _announcer(service: AssistantService) -> Announce:
         waiting_for_runs=pending.waiting_for_runs,
         waiting_for_update=pending.waiting_for_update,
         can_take_back=pending.can_take_back,
+        needed_by=pending.needed_by,
         taken_back=taken_back,
     )
 
@@ -283,10 +285,14 @@ def run() -> None:
 
 
 def end(ending: Ending | None) -> None:
-    """Restarts in place, or exits: cleanly when stopped, so launchd leaves it stopped (launchd.py)."""
+    """Restarts in place, or exits: cleanly when stopped, so launchd leaves it stopped (launchd.py), and when its
+    service manager starts it again from new settings (a relaunch)."""
     if ending is Ending.RESTART:
         logger.info("Restarting the daemon.")
         exec_again()
+    if ending is Ending.RELAUNCH:
+        logger.info("Exiting, so the service manager starts the daemon from its new settings.")
+        return
     if ending is None:
         # Not a clean stop, so launchd and systemd try again and this one takes over once the other exits.
         sys.exit(os.EX_TEMPFAIL)

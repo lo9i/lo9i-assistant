@@ -2,13 +2,14 @@
 on and off. systemctl and loginctl are faked; nothing is installed."""
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 
 import pytest
 
 from assistant.daemon import startup, systemd
-from assistant.protocol import StartupError
+from assistant.protocol import StartupError, StartupStatus
 
 
 @pytest.fixture
@@ -92,3 +93,42 @@ async def test_stopping_asks_systemd_to_stop_the_service_without_waiting(command
     assert commands == [("systemctl", "--user", "stop", "--no-block", "lo9i-assistant")]
     # systemd stops it with SIGTERM; exiting on its own, it would be started again.
     assert not stop.is_set()
+
+
+class _Backend:
+    """A start at boot that's on, started by it or not; records what installing it again did."""
+
+    def __init__(self, managed: bool, enabled: bool = True) -> None:
+        self.managed, self.enabled = managed, enabled
+        self.done: list[str] = []
+
+    def status(self) -> StartupStatus:
+        return StartupStatus(enabled=self.enabled, managed=self.managed, includes_ollama=False)
+
+    async def enable(self) -> StartupStatus:
+        self.done.append("enable")
+        return self.status()
+
+    async def disable(self) -> StartupStatus:
+        return self.status()
+
+    async def install_for_relaunch(self, pid: int) -> None:
+        self.done.append(f"relaunch after {pid}")
+
+
+async def test_installing_again_relaunches_a_daemon_it_started_once_its_runs_end(monkeypatch):
+    backend, asked = _Backend(managed=True), []
+    monkeypatch.setattr(startup, "_backend", lambda: backend)
+    await startup.Startup(asyncio.Event(), asked.append).reinstall()
+    assert backend.done == [f"relaunch after {os.getpid()}"] and asked == ["Start at boot was installed again"]
+
+
+async def test_installing_again_beside_it_installs_as_turning_it_on_and_off_it_refuses(monkeypatch):
+    backend = _Backend(managed=False)
+    monkeypatch.setattr(startup, "_backend", lambda: backend)
+    stop = asyncio.Event()
+    await startup.Startup(stop).reinstall()
+    assert backend.done == ["enable"]
+    backend.enabled = False
+    with pytest.raises(StartupError, match="Turn it on instead"):
+        await startup.Startup(stop).reinstall()

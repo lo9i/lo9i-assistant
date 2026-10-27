@@ -52,15 +52,13 @@ async def test_restart_and_stop_ask_first(app, client):
         assert client.system.endings == ["restart", "stop"]
 
 
-async def test_a_refused_stop_says_why(app, client):
-    client.system.stop_refusal = "macOS would start the assistant again at once."
-    async with app.run_test(size=(110, 40)) as pilot:
+async def test_a_stop_the_service_manager_would_undo_says_why_before_its_pressed(app, client):
+    client.system.stop_refusal = "Start at boot is on, so macOS would start the assistant again at once."
+    async with app.run_test(size=(140, 40)) as pilot:
         screen = await _host_screen(pilot, app)
-        screen.query_one("#stop", Button).press()
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
-        await pilot.press("y")
-        await wait_for(pilot, lambda: "macOS would start the assistant again" in _notices(app))
-        assert client.system.endings == []
+        body = screen.query_one("#host-body", Markdown)
+        await wait_for(pilot, lambda: "Stop: Start at boot is on" in body.source)
+        assert screen.query_one("#stop", Button).disabled and client.system.endings == []
 
 
 async def test_checks_for_an_update_lists_whats_new_and_installs_it_after_asking(app, client):
@@ -122,7 +120,7 @@ async def test_every_restart_or_stop_announced_shows_in_the_app(app, client):
 
 
 async def test_the_restart_an_installed_update_needs_offers_now_but_no_cancel(app, client):
-    client.system.pending = PendingEnding("restart", 1, can_take_back=False)
+    client.system.pending = PendingEnding("restart", 1, can_take_back=False, needed_by="An update was installed")
     async with app.run_test(size=(140, 40)) as pilot:
         screen = await _host_screen(pilot, app)
         body = screen.query_one("#host-body", Markdown)

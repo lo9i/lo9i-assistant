@@ -69,7 +69,7 @@
   async function end(kind: Ending): Promise<void> {
     try {
       const status = await (kind === "restart" ? client.system.restart() : client.system.stop());
-      ending = { ending: kind, waiting: status.waiting_for_runs, update: false, canTakeBack: true };
+      ending = { ending: kind, waiting: status.waiting_for_runs, update: false, canTakeBack: true, neededBy: "" };
       // What else it waits for (an update being installed), and whether it can be taken back.
       void pending();
     } catch (e) {
@@ -184,8 +184,14 @@
         </button>
       {/if}
       <button class="btn btn--sm" onclick={() => (confirming = "restart")}><RotateCcw size={14} /> Restart</button>
-      <button class="btn btn--sm btn--danger" onclick={() => (confirming = "stop")}><Power size={14} /> Stop</button>
+      <button
+        class="btn btn--sm btn--danger"
+        onclick={() => (confirming = "stop")}
+        disabled={!!h.stop_refusal}
+        title={h.stop_refusal || undefined}><Power size={14} /> Stop</button
+      >
     </div>
+    {#if h.stop_refusal}<p class="text-caption">{h.stop_refusal}</p>{/if}
   {/if}
 </SettingsCard>
 

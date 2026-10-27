@@ -184,10 +184,28 @@ async def test_the_restart_an_update_asks_for_cant_be_taken_back_but_can_go_ahea
     assert shutdown.restart_for_update() == 1
     with pytest.raises(NoEndingError, match="An update was installed"):
         shutdown.take_back("web")
-    assert shutdown.pending() == Pending(Ending.RESTART, 1, can_take_back=False)
+    assert shutdown.pending() == Pending(Ending.RESTART, 1, needed_by="An update was installed")
     assert shutdown.now("web") == 1
     await asyncio.wait_for(stop.wait(), 1)
     assert shutdown.ending is Ending.RESTART
+
+
+async def test_a_relaunch_waits_for_runs_cant_be_taken_back_and_exits_for_the_service_manager():
+    runs, stop = _Runs(running=1), asyncio.Event()
+    shutdown = Shutdown(runs, stop, _Manager())
+    assert shutdown.relaunch("Start at boot was installed again") == 1
+    assert shutdown.pending() == Pending(Ending.RESTART, 1, needed_by="Start at boot was installed again")
+    with pytest.raises(NoEndingError, match="Start at boot was installed again, so the restart can't be taken back"):
+        shutdown.take_back()
+    runs.cancel_runs()
+    await asyncio.wait_for(stop.wait(), 1)
+    assert shutdown.ending is Ending.RELAUNCH
+
+
+def test_the_stop_refusal_is_the_service_managers():
+    assert Shutdown(_Runs(), asyncio.Event(), _Manager(refusal="macOS would start it again")).stop_refusal() == (
+        "macOS would start it again"
+    )
 
 
 async def test_a_stop_asked_for_while_an_update_installed_stays_a_stop():
@@ -196,7 +214,7 @@ async def test_a_stop_asked_for_while_an_update_installed_stays_a_stop():
     shutdown = Shutdown(runs, stop, manager, lambda p, back: heard.append(p))
     shutdown.request(Ending.STOP)
     shutdown.restart_for_update()
-    assert heard == [Pending(Ending.STOP, 1), Pending(Ending.STOP, 1, can_take_back=False)]
+    assert heard == [Pending(Ending.STOP, 1), Pending(Ending.STOP, 1, needed_by="An update was installed")]
     runs.cancel_runs()
     await asyncio.wait_for(stop.wait(), 1)
     assert manager.stops == 1 and shutdown.ending is Ending.STOP

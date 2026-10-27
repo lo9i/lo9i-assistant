@@ -3,6 +3,10 @@ user, from boot, without anyone logging in.
 
 Installing needs administrator rights once; macOS shows its standard password dialog. launchd starts the
 daemon again when it crashes, but not when it stops cleanly, so it can be stopped from the app.
+
+A LaunchDaemon installed by an older version differs from the one turning it on installs now (where the daemon's
+output goes, whether it can be stopped from the app): its status says how (`outdated`), and installing it again
+replaces it. The daemon it runs is replaced once it exits (`install_for_relaunch`), so its runs end first.
 """
 
 import asyncio
@@ -35,7 +39,17 @@ _KEEP_ALIVE = {"SuccessfulExit": False}
 LEGACY_OUTPUT = Path("~/.lo9i/daemon.log")
 
 
-__all__ = ["Beside", "Service", "StartupError", "disable", "enable", "move_legacy_output", "status"]
+__all__ = [
+    "Beside",
+    "Service",
+    "StartupError",
+    "disable",
+    "enable",
+    "install_for_relaunch",
+    "move_legacy_output",
+    "outdated",
+    "status",
+]
 
 
 class Service:
@@ -76,7 +90,52 @@ def status() -> StartupStatus:
         managed=os.environ.get(MANAGED_ENV) == "1",
         includes_ollama=_plist_path(OLLAMA_LABEL).exists(),
         platform="macos",
+        outdated=outdated(),
     )
+
+
+def outdated() -> list[str]:
+    """How the installed LaunchDaemon differs from the one turning start at boot on installs now; empty when it
+    doesn't, or none is installed or it can't be read."""
+    try:
+        installed = plistlib.loads(_plist_path(DAEMON_LABEL).read_bytes())
+    except (OSError, plistlib.InvalidFileException):
+        return []
+    wanted = plistlib.loads(daemon_plist())
+    return [why(installed) for key, why in _DIFFERENCES if installed.get(key) != wanted.get(key)]
+
+
+# What an older LaunchDaemon may differ in, and what that does.
+_DIFFERENCES = [
+    (
+        "KeepAlive",
+        lambda _: "macOS starts the assistant again whatever its exit, so it can't be stopped from the app.",
+    ),
+    (
+        "StandardOutPath",
+        lambda installed: (
+            f"It sends the daemon's output to {installed.get('StandardOutPath', 'nowhere')}, which"
+            " Settings → Logs doesn't show."
+        ),
+    ),
+    (
+        "ProgramArguments",
+        lambda installed: (
+            f"It starts the assistant with {' '.join(installed.get('ProgramArguments', []))}, not"
+            " the Python it runs on now."
+        ),
+    ),
+]
+
+
+async def install_for_relaunch(pid: int) -> None:
+    """Installs the LaunchDaemon again while the daemon `pid` it runs keeps running: macOS loads the new one once
+    that daemon has exited. The commands run apart from the daemon, which launchd stops with everything it
+    started."""
+    output_path().parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as tmp:
+        staged = _stage(Path(tmp), DAEMON_LABEL, daemon_plist())
+        await _run_as_admin(relaunch_commands(DAEMON_LABEL, staged, pid))
 
 
 async def enable() -> StartupStatus:
@@ -166,14 +225,38 @@ def install_commands(label: str, staged: Path) -> str:
     )
 
 
+def relaunch_commands(label: str, staged: Path, pid: int) -> str:
+    """The plist in place now; the job loaded again in the background once `pid` has exited."""
+    target = shlex.quote(str(_plist_path(label)))
+    reload = (
+        f"while kill -0 {pid} 2>/dev/null; do sleep 1; done; "
+        f"launchctl bootout system/{label} 2>/dev/null; launchctl bootstrap system {target}"
+    )
+    return " && ".join(
+        [
+            f"cp {shlex.quote(str(staged))} {target}",
+            f"chown root:wheel {target}",
+            f"chmod 644 {target}",
+            f"({reload}) >/dev/null 2>&1 &",
+        ]
+    )
+
+
 def uninstall_commands(label: str) -> str:
     return f"launchctl bootout system/{label} 2>/dev/null; rm -f {shlex.quote(str(_plist_path(label)))}"
 
 
 async def _run_as_admin(script: str) -> None:
     applescript = f'do shell script "{_applescript_escape(script)}" with administrator privileges'
+    # A session of its own: launchd stops a LaunchDaemon's daemon with everything it started, and what this runs
+    # may need to outlast it (`install_for_relaunch`).
     proc = await asyncio.create_subprocess_exec(
-        "osascript", "-e", applescript, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+        "osascript",
+        "-e",
+        applescript,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        start_new_session=True,
     )
     _, stderr = await proc.communicate()
     if proc.returncode != 0:

@@ -3,7 +3,7 @@
 import contextlib
 import json
 from collections.abc import AsyncGenerator, Awaitable, Mapping
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from functools import partial
 from pathlib import Path
 from typing import Annotated, Any
@@ -539,7 +539,7 @@ def create_app(
     _add_dispatch_routes(app, service)
     _add_model_routes(app, service)
     _add_usage_routes(app, service)
-    _add_host_route(app)
+    _add_host_route(app, shutdown)
     if startup is not None:
         _add_startup_routes(app, startup)
     if shutdown is not None:
@@ -1625,11 +1625,13 @@ def _add_usage_routes(app: FastAPI, service: AssistantService) -> None:
         return await service.token_report(days)
 
 
-def _add_host_route(app: FastAPI) -> None:
+def _add_host_route(app: FastAPI, shutdown: Any | None) -> None:
     @app.get("/system/host")
     async def host_status() -> HostStatus:
-        """The computer the daemon runs on: system, versions, CPU, memory, disk, uptime and load."""
-        return await host.status()
+        """The computer the daemon runs on: system, versions, CPU, memory, disk, uptime and load, and why the
+        daemon can't be stopped from the apps now, if it can't."""
+        refusal = shutdown.stop_refusal() if shutdown is not None else None
+        return replace(await host.status(), stop_refusal=refusal or "")
 
 
 def _add_startup_routes(app: FastAPI, startup: Any) -> None:
@@ -1650,6 +1652,15 @@ def _add_startup_routes(app: FastAPI, startup: Any) -> None:
     async def disable_startup() -> StartupStatus:
         try:
             return await startup.disable()
+        except StartupError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.post("/system/startup/reinstall")
+    async def reinstall_startup() -> StartupStatus:
+        """Installs start at boot again, bringing an out-of-date one up to date (`outdated`). A daemon it started
+        restarts once no run is in progress, which can't be taken back. 400: it's off, or the password was refused."""
+        try:
+            return await startup.reinstall()
         except StartupError as e:
             raise HTTPException(400, str(e)) from e
 
@@ -1677,8 +1688,8 @@ def _add_shutdown_routes(app: FastAPI, shutdown: Any) -> None:
 
     @app.delete("/system/ending")
     async def take_back_ending(request: Request) -> PendingEnding:
-        """The daemon keeps running. 409: nothing is waiting, it already went ahead, or it's the restart an
-        installed update needs (`can_take_back` is false), which can't be taken back."""
+        """The daemon keeps running. 409: nothing is waiting, it already went ahead, or something needs it (an
+        update installed, start at boot installed again: `can_take_back` is false), so it can't be taken back."""
         try:
             shutdown.take_back(_asker(request))
         except NoEndingError as e:
@@ -1699,7 +1710,11 @@ def _pending(shutdown: Any) -> PendingEnding:
     if pending is None:
         return PendingEnding("", 0)
     return PendingEnding(
-        pending.ending.value, pending.waiting_for_runs, pending.waiting_for_update, pending.can_take_back
+        pending.ending.value,
+        pending.waiting_for_runs,
+        pending.waiting_for_update,
+        pending.can_take_back,
+        pending.needed_by,
     )
 
 

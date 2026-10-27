@@ -40,6 +40,11 @@ class SystemApi:
     async def disable_startup(self) -> StartupStatus:
         return await self._change_startup("DELETE")
 
+    async def reinstall_startup(self) -> StartupStatus:
+        """Installs an out-of-date start at boot again (`outdated`), asking macOS for the password. A daemon it
+        started restarts once no run is in progress. Raises StartupError."""
+        return await self._change_startup("POST", "/system/startup/reinstall")
+
     async def restart(self) -> ShutdownStatus:
         """The daemon restarts once no run is in progress."""
         return ShutdownStatus(**await self._transport.request("POST", "/system/restart"))
@@ -78,10 +83,8 @@ class SystemApi:
         data = await self._transport.request("POST", "/system/update", errors={409: UpdateError}, timeout=_FETCH)
         return _update(data)
 
-    async def _change_startup(self, method: str) -> StartupStatus:
-        data = await self._transport.request(
-            method, "/system/startup", errors={400: StartupError}, timeout=_PASSWORD_DIALOG
-        )
+    async def _change_startup(self, method: str, path: str = "/system/startup") -> StartupStatus:
+        data = await self._transport.request(method, path, errors={400: StartupError}, timeout=_PASSWORD_DIALOG)
         return StartupStatus(**data)
 
 

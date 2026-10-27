@@ -70,6 +70,11 @@ async def enable() -> StartupStatus:
     return status()
 
 
+async def install_for_relaunch(pid: int) -> None:
+    """Never offered: a systemd service's status says nothing is out of date."""
+    raise StartupError("Turn start at boot off and on to install it again.")
+
+
 async def disable() -> StartupStatus:
     """Disable and remove the service. A daemon it started keeps running until stopped or the
     computer restarts. Raises StartupError."""

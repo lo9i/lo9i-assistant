@@ -19,8 +19,8 @@ export const CONFIRM: Record<Ending, { title: string; text: string; action: stri
 };
 
 /** A restart or stop the daemon accepted, until it's back: what it waits for, and whether it can be taken back (not
- * the restart an installed update needs). */
-export type Coming = { ending: Ending; waiting: number; update: boolean; canTakeBack: boolean };
+ * when something needs it, which `neededBy` says: an update installed, start at boot installed again). */
+export type Coming = { ending: Ending; waiting: number; update: boolean; canTakeBack: boolean; neededBy: string };
 
 /** From GET /system/ending (null when none is waiting) or an `ending` event (null when it was taken back). */
 export function coming(data: Record<string, unknown>): Coming | null {
@@ -30,6 +30,7 @@ export function coming(data: Record<string, unknown>): Coming | null {
     waiting: Number(data.waiting_for_runs ?? 0),
     update: Boolean(data.waiting_for_update),
     canTakeBack: data.can_take_back !== false,
+    neededBy: typeof data.needed_by === "string" ? data.needed_by : "",
   };
 }
 
@@ -44,7 +45,7 @@ export function waitingText(c: Coming): string {
   const does = c.ending === "restart" ? "restarts" : "stops";
   const now = c.waiting ? ` Now cancels the runs in progress, and it ${does} at once.` : "";
   if (c.canTakeBack) return `Cancel keeps the assistant running.${now}`;
-  return `An update was installed, so it can't be cancelled: it ${does} so the update runs.${now}`;
+  return `${c.neededBy || "Something needs it"}, so it can't be cancelled.${now}`;
 }
 
 /** Whether Cancel or Now has anything to do. */

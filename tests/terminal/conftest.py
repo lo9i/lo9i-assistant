@@ -455,6 +455,7 @@ class FakeSystem:
         self.updates_started = 0
         self.state = StartupStatus(enabled=False, managed=False, includes_ollama=False)
         self.cancel_password = False
+        self.reinstalled = 0
         # macos, linux or unsupported; on linux, whether lingering is on.
         self.platform = "macos"
         self.lingering = True
@@ -486,6 +487,7 @@ class FakeSystem:
             100 * 1024**3,
             90_060,
             [0.09, 0.09, 0.04],
+            self.stop_refusal,
         )
 
     async def enable_startup(self):
@@ -497,6 +499,11 @@ class FakeSystem:
 
     async def disable_startup(self):
         self.state = StartupStatus(False, False, False, self.platform, self.lingering)
+        return self.state
+
+    async def reinstall_startup(self):
+        self.reinstalled += 1
+        self.state = replace(self.state, outdated=[])
         return self.state
 
     async def restart(self):

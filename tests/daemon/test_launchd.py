@@ -71,3 +71,31 @@ def test_output_going_anywhere_else_stays(tmp_path):
     _start(tmp_path, tmp_path / "elsewhere.log")
     assert (tmp_path / "elsewhere.log").read_text() == "before\nafter False\n"
     assert not (tmp_path / ".lo9i" / "logs" / "output.log").exists()
+
+
+def _installed(monkeypatch, tmp_path, plist: dict) -> None:
+    monkeypatch.setattr(launchd, "_PLIST_DIR", tmp_path)
+    (tmp_path / f"{launchd.DAEMON_LABEL}.plist").write_bytes(plistlib.dumps(plist))
+
+
+def test_a_launch_daemon_installed_by_an_older_version_says_how_it_differs(monkeypatch, tmp_path):
+    old = plistlib.loads(launchd.daemon_plist()) | {"KeepAlive": True, "StandardOutPath": "/Users/me/.lo9i/daemon.log"}
+    _installed(monkeypatch, tmp_path, old)
+    reasons = launchd.status().outdated
+    assert len(reasons) == 2
+    assert "can't be stopped from the app" in reasons[0] and "/Users/me/.lo9i/daemon.log" in reasons[1]
+
+
+def test_the_launch_daemon_installed_now_is_up_to_date(monkeypatch, tmp_path):
+    _installed(monkeypatch, tmp_path, plistlib.loads(launchd.daemon_plist()))
+    assert launchd.status().outdated == []
+    monkeypatch.setattr(launchd, "_PLIST_DIR", tmp_path / "none")
+    assert launchd.status().outdated == []
+
+
+def test_installing_again_under_a_running_daemon_reloads_it_once_that_one_exits():
+    commands = launchd.relaunch_commands("com.lo9i.assistant", Path("/tmp/with space/a.plist"), 4242)
+    assert commands.startswith("cp '/tmp/with space/a.plist' /Library/LaunchDaemons/com.lo9i.assistant.plist")
+    background = commands[commands.index("(while") :]
+    assert background.startswith("(while kill -0 4242 2>/dev/null; do sleep 1; done; launchctl bootout")
+    assert background.index("bootout") < background.index("bootstrap system") and background.endswith("&")

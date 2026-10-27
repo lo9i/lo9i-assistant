@@ -49,6 +49,25 @@
     }
   }
 
+  /** An out-of-date start at boot installed as turning it on installs it now. */
+  async function reinstall(): Promise<void> {
+    if (changing !== null) return;
+    changing = true;
+    message = "Waiting for the macOS password dialog…";
+    try {
+      const status = await client.system.reinstallStartup();
+      loaded.data = status;
+      message = status.managed
+        ? "Installed again. The assistant restarts once the runs in progress end."
+        : "Installed again. The assistant restarts under macOS in a few seconds.";
+    } catch (e) {
+      message = describe(e);
+      loaded.reload();
+    } finally {
+      changing = null;
+    }
+  }
+
   function done(enabled: boolean, s: StartupStatus): string {
     if (!enabled) return `Turned off. The daemon keeps running until you restart ${computer} or stop it.`;
     const system = s.platform === "macos" ? "macOS" : "systemd";
@@ -83,6 +102,15 @@
       </p>
     {/if}
     {#if s.enabled && s.includes_ollama}<p class="text-meta">Ollama starts with it.</p>{/if}
+    {#if s.enabled && s.outdated?.length}
+      <div class="outdated">
+        <p class="text-meta"><strong>It was installed by an older version.</strong> Installing it again fixes this:</p>
+        <ul class="text-caption">
+          {#each s.outdated as why (why)}<li>{why}</li>{/each}
+        </ul>
+        <button class="btn btn--sm btn--primary" onclick={reinstall} disabled={changing !== null}>Install again</button>
+      </div>
+    {/if}
     {#if message}<p class="text-meta">{message}</p>{/if}
   {/if}
 </SettingsCard>
@@ -100,5 +128,15 @@
   }
   p {
     margin: 0;
+  }
+  .outdated {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .outdated ul {
+    margin: 0;
+    padding-left: 20px;
   }
 </style>

@@ -2201,7 +2201,8 @@ export interface paths {
         };
         /**
          * Host Status
-         * @description The computer the daemon runs on: system, versions, CPU, memory, disk, uptime and load.
+         * @description The computer the daemon runs on: system, versions, CPU, memory, disk, uptime and load, and why the
+         *     daemon can't be stopped from the apps now, if it can't.
          */
         get: operations["host_status_system_host_get"];
         put?: never;
@@ -2226,6 +2227,27 @@ export interface paths {
         post: operations["enable_startup_system_startup_post"];
         /** Disable Startup */
         delete: operations["disable_startup_system_startup_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/startup/reinstall": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reinstall Startup
+         * @description Installs start at boot again, bringing an out-of-date one up to date (`outdated`). A daemon it started
+         *     restarts once no run is in progress, which can't be taken back. 400: it's off, or the password was refused.
+         */
+        post: operations["reinstall_startup_system_startup_reinstall_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2281,8 +2303,8 @@ export interface paths {
         post?: never;
         /**
          * Take Back Ending
-         * @description The daemon keeps running. 409: nothing is waiting, it already went ahead, or it's the restart an
-         *     installed update needs (`can_take_back` is false), which can't be taken back.
+         * @description The daemon keeps running. 409: nothing is waiting, it already went ahead, or something needs it (an
+         *     update installed, start at boot installed again: `can_take_back` is false), so it can't be taken back.
          */
         delete: operations["take_back_ending_system_ending_delete"];
         options?: never;
@@ -3330,6 +3352,11 @@ export interface components {
             uptime_seconds: number;
             /** Load Average */
             load_average: number[];
+            /**
+             * Stop Refusal
+             * @default
+             */
+            stop_refusal: string;
         };
         /** InstalledFromRepository */
         InstalledFromRepository: {
@@ -3905,7 +3932,7 @@ export interface components {
         /**
          * PendingEnding
          * @description The restart or stop waiting for runs to end, and for an update being installed; `ending` is "" when none
-         *     is. `can_take_back` is false once an update was installed: the restart it needs can't be.
+         *     is. `can_take_back` is false when something needs it, which `needed_by` says ("An update was installed").
          */
         PendingEnding: {
             /** Ending */
@@ -3922,6 +3949,11 @@ export interface components {
              * @default false
              */
             can_take_back: boolean;
+            /**
+             * Needed By
+             * @default
+             */
+            needed_by: string;
         };
         /** PinnedSkills */
         PinnedSkills: {
@@ -4567,6 +4599,8 @@ export interface components {
              * @default true
              */
             starts_without_login: boolean;
+            /** Outdated */
+            outdated?: string[];
         };
         /** ThreadCreated */
         ThreadCreated: {
@@ -8788,6 +8822,26 @@ export interface operations {
         };
     };
     disable_startup_system_startup_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartupStatus"];
+                };
+            };
+        };
+    };
+    reinstall_startup_system_startup_reinstall_post: {
         parameters: {
             query?: never;
             header?: never;
