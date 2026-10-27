@@ -18,6 +18,8 @@ from assistant.core.health import HealthLog
 from assistant.core.home.builder import SectionBuilder
 from assistant.core.home.refresh import HomeRefresh
 from assistant.core.home.schedule import HomeSchedule
+from assistant.core.llm.choice import ModelChoice
+from assistant.core.llm.windows import ContextWindows
 from assistant.core.mcp.hub import McpHub
 from assistant.core.mcp.pages import McpPages
 from assistant.core.memory.indexer import MemoryIndexer
@@ -109,6 +111,10 @@ class ServiceBase:
     _no_runs: asyncio.Event
     # While set, new runs are refused with it: an update installs (`hold_runs`, core/agent/runs.py).
     _held: str
+    # The model in use (core/agent/model.py), and each model's context window, what a conversation's context is
+    # measured against (core/llm/windows.py).
+    _model: ModelChoice
+    _windows: ContextWindows
 
     async def _servers_changed(self) -> None:
         """Bring MCP connections, coding agents, pages and channels in line with the saved servers. A server's skill

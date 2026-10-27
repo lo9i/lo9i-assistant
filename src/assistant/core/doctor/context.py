@@ -1,7 +1,8 @@
 """The context a new conversation starts with: its system prompt, built as an epoch builds it (core/conversation/
 prompt.py), part by part, and the tool definitions every request carries (the core tools, and what plugins add
 before any is loaded), counted as the daemon estimates tokens (core/usage/tokens.py). It's measured against the
-window the chat's context bar measures a conversation against: where an epoch is summarized (EPOCH_MAX_TOKENS)."""
+model's context window, as the chat's context bar measures a conversation (core/llm/windows.py; EPOCH_MAX_TOKENS
+when the provider doesn't say)."""
 
 import json
 from collections.abc import Collection
@@ -48,13 +49,14 @@ class PluginTools(Protocol):
     def definitions(self, loaded: Collection[str]) -> list[dict[str, Any]]: ...
 
 
-async def starting_context(store: BaseStore, user_id: str, plugins: PluginTools) -> StartingContext:
+async def starting_context(store: BaseStore, user_id: str, plugins: PluginTools, window: int) -> StartingContext:
+    """`window`: the model's context window (core/llm/windows.py)."""
     sizes: dict[str, int] = {}
     for part, text in await _prompt(store, user_id, plugins):
         sizes[_LABELS[part]] = sizes.get(_LABELS[part], 0) + estimate_text(text)
     sizes[CORE_TOOLS] = _tokens([convert_to_openai_tool(t) for t in offered_tools(settings.toolsets)])
     sizes[PLUGIN_TOOLS] = _tokens(plugins.definitions(()))
-    tokens, window = sum(sizes.values()), settings.epoch_max_tokens
+    tokens = sum(sizes.values())
     return StartingContext(
         tokens=tokens,
         window=window,

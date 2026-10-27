@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from collections.abc import Callable, Collection
+from collections.abc import Awaitable, Callable, Collection
 from datetime import UTC, date, datetime
 
 from langgraph.store.base import BaseStore
@@ -27,13 +27,16 @@ class Doctor:
         states: Callable[[], ConversationStates],
         running: Callable[[], Collection[str]],
         plugins: PluginTools,
+        window: Callable[[], Awaitable[int]],
     ) -> None:
-        """`states`: the graph in use, which changes with the model. `running`: the conversations a run is on."""
+        """`states`: the graph in use, which changes with the model. `running`: the conversations a run is on.
+        `window`: the model's context window, which the starting context is measured against."""
         self._store = store
         self._bus = bus
         self._states = states
         self._running = running
         self._plugins = plugins
+        self._window = window
         # The check the apps asked for, while it runs.
         self._checking: asyncio.Task | None = None
 
@@ -114,7 +117,7 @@ class Doctor:
         found = await self._causes(user_id, day)
         known = {k.id for k in await records.known(self._store, user_id)}
         causes, gone = changes.compared([c for c in found if c.id not in known], previous)
-        context = await starting_context(self._store, user_id, self._plugins)
+        context = await starting_context(self._store, user_id, self._plugins, await self._window())
         same_day = await records.of_day(self._store, user_id, day)
         return DoctorReport(
             day=day.isoformat(),

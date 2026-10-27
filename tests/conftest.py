@@ -26,6 +26,7 @@ from assistant.core.conversation.digest import DigestInput, MemoryDigest
 from assistant.core.conversation.dispatch import QUICK, Candidate, Pick
 from assistant.core.conversation.titles import Titled
 from assistant.core.home.model import SectionContent
+from assistant.core.llm import windows
 from assistant.core.memory.embedder import EmbeddingError
 
 
@@ -59,6 +60,15 @@ def isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     for key in ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"):
         monkeypatch.delenv(key, raising=False)
     return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def model_windows(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    """No provider is asked for a model's context window (tests are offline): none is known, unless a test puts a
+    lookup here, by provider."""
+    lookups: dict[str, Any] = {}
+    monkeypatch.setattr(windows, "_LOOKUPS", lookups)
+    return lookups
 
 
 class Dispatcher:

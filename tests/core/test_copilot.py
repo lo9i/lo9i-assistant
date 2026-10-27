@@ -173,3 +173,24 @@ async def test_the_accounts_chat_models_are_listed_from_its_host():
     assert listed == [("claude-opus-5.5", "Claude Opus 5.5"), ("gpt-5", "GPT-5")]
     with pytest.raises(CopilotAuthError, match="rejected"):
         await copilot.list_models("gh-wrong", transport=httpx.MockTransport(handler))
+
+
+async def test_a_models_context_window_comes_from_copilots_model_list():
+    fake = _Copilot()
+    limits = {"max_context_window_tokens": 200_000, "max_prompt_tokens": 168_000}
+    models = {
+        "data": [
+            {"id": "claude-opus-5.5", "capabilities": {"type": "chat", "limits": limits}},
+            {"id": "gpt-5", "capabilities": {"type": "chat", "limits": {"max_prompt_tokens": 128_000}}},
+            {"id": "old", "capabilities": {"type": "chat"}},
+        ]
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return fake.handler(request) if str(request.url) == _EXCHANGE else httpx.Response(200, json=models)
+
+    transport = httpx.MockTransport(handler)
+    assert await copilot.context_window("gh-right", "claude-opus-5.5", transport) == 200_000
+    assert await copilot.context_window("gh-right", "gpt-5", transport) == 128_000
+    assert await copilot.context_window("gh-right", "old", transport) is None
+    assert await copilot.context_window("gh-right", "missing", transport) is None

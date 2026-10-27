@@ -76,4 +76,4 @@ class UsageMixin(ConversationsMixin):
             used = await self.agent_tasks.context(handoff.server, thread_id, handoff.folder)
             return (used.tokens, used.window, handoff.name) if used else (0, 0, handoff.name)
         state = (await self._graph.aget_state({"configurable": {"thread_id": thread_id}})).values
-        return (estimate_tokens(state) if state.get("messages") else 0), settings.epoch_max_tokens, ""
+        return (estimate_tokens(state) if state.get("messages") else 0), await self._windows.of(self._model), ""

@@ -60,8 +60,6 @@ class ModelStatus:
 
 
 class ModelMixin(ServiceBase):
-    _model: ModelChoice
-
     def model_providers(self) -> list[ModelProvider]:
         """Every provider, saying whether its package is installed yet."""
         return [replace(p, installed=packages.installed(p)) for p in PROVIDERS]
@@ -85,6 +83,7 @@ class ModelMixin(ServiceBase):
         await _check(new, TokenMeter(self._storage.usage, "check"))
         await choice.save(self._storage.store, self.secrets, new)
         self._use_model(new)
+        await self._windows.of(new)  # Learned now, with the values just checked.
         await self.mcp.reload()  # plugins using the model's login get the new one (core/mcp/logins.py)
         return _status(new, saved=True)
 

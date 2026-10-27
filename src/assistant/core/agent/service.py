@@ -56,6 +56,7 @@ from assistant.core.home.refresh import HomeRefresh
 from assistant.core.home.schedule import HomeSchedule
 from assistant.core.llm import choice
 from assistant.core.llm.choice import ModelChoice
+from assistant.core.llm.windows import ContextWindows
 from assistant.core.mcp import folders, logins
 from assistant.core.mcp import install as plugin_install
 from assistant.core.mcp import keys as plugin_keys
@@ -143,8 +144,14 @@ class AssistantService(
         )
         self.home_refresh = HomeRefresh(storage.store, bus, lambda: self._home_builder, self._plugin_tools)
         self.home_schedule = HomeSchedule(storage.store, self.home_refresh, settings.owner_id)
+        self._windows = ContextWindows(storage.store)
         self.doctor = Doctor(
-            storage.store, bus, lambda: self._graph, lambda: self._active_runs.keys(), self._plugin_tools
+            storage.store,
+            bus,
+            lambda: self._graph,
+            lambda: self._active_runs.keys(),
+            self._plugin_tools,
+            lambda: self._windows.of(self._model),
         )
         self.doctor_schedule = DoctorSchedule(storage.store, self.doctor, settings.owner_id)
         self.pages = McpPages(storage.store, environments, secrets)

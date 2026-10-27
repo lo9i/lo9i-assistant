@@ -71,6 +71,22 @@ def chat_model(
 async def list_models(github_token: str, transport: httpx.AsyncBaseTransport | None = None) -> list[tuple[str, str]]:
     """The chat models this account can pick, as (id, name), in Copilot's order. Raises
     CopilotAuthError when the token is refused or Copilot can't be reached."""
+    models = await _models(github_token, transport)
+    return [(str(m["id"]), str(m.get("name") or m["id"])) for m in models if _pickable(m)]
+
+
+async def context_window(
+    github_token: str, model: str, transport: httpx.AsyncBaseTransport | None = None
+) -> int | None:
+    """How many tokens `model` takes in, as Copilot's model list says; None when it doesn't. Raises
+    CopilotAuthError as list_models does."""
+    found = next((m for m in await _models(github_token, transport) if m.get("id") == model), None)
+    limits = ((found or {}).get("capabilities") or {}).get("limits") or {}
+    tokens = limits.get("max_context_window_tokens") or limits.get("max_prompt_tokens")
+    return int(tokens) if tokens else None
+
+
+async def _models(github_token: str, transport: httpx.AsyncBaseTransport | None) -> list[dict]:
     tokens = CopilotTokens(github_token, httpx.AsyncClient(transport=transport))
     async with httpx.AsyncClient(transport=transport, auth=CopilotAuth(tokens), headers=HEADERS) as http:
         try:
@@ -79,7 +95,7 @@ async def list_models(github_token: str, transport: httpx.AsyncBaseTransport | N
             raise CopilotAuthError(f"Couldn't reach Copilot for its models: {e}") from e
     if response.status_code != 200:
         raise CopilotAuthError(f"Copilot didn't list its models ({response.status_code}).")
-    return [(str(m["id"]), str(m.get("name") or m["id"])) for m in response.json().get("data", []) if _pickable(m)]
+    return list(response.json().get("data", []))
 
 
 def _pickable(model: dict) -> bool:
