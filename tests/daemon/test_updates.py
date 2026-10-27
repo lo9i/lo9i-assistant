@@ -50,8 +50,22 @@ class _Spy:
         self.announced += 1
 
 
-def _updates(clone: Path, spy: _Spy, steps: list[Step] | None = None) -> Updates:
-    return Updates(clone, steps or [], spy.restart, spy.announce)
+class _Runs:
+    """Records when runs were held off and let through again, with the commit the clone was at."""
+
+    def __init__(self, clone: Path) -> None:
+        self.clone = clone
+        self.done: list[tuple[str, str]] = []
+
+    async def hold_runs(self, reason: str) -> None:
+        self.done.append(("held", _git(self.clone, "log", "-1", "--format=%s").strip()))
+
+    def release_runs(self) -> None:
+        self.done.append(("released", _git(self.clone, "log", "-1", "--format=%s").strip()))
+
+
+def _updates(clone: Path, spy: _Spy, steps: list[Step] | None = None, runs: _Runs | None = None) -> Updates:
+    return Updates(clone, steps or [], spy.restart, spy.announce, runs)
 
 
 async def _until_done(lo9i: Updates) -> None:
@@ -307,3 +321,25 @@ async def test_an_update_that_ended_before_its_new_commits_came_only_forgets_it(
     await lo9i.recover()
     await lo9i.until_installed()
     assert (await lo9i.status()).state == "idle" and spy.restarts == 0 and not mark.exists()
+
+
+async def test_runs_are_held_off_before_anything_changes_and_until_the_restart(repos):
+    clone, other = repos
+    _commit(other, "b.txt", "Second")
+    _git(other, "push", "-q", "origin", "HEAD:main")
+    runs = _Runs(clone)
+    lo9i = _updates(clone, _Spy(), runs=runs)
+    await lo9i.start()
+    await _until_done(lo9i)
+    assert runs.done == [("held", "First")]  # still held: the restart comes next
+
+
+async def test_an_update_that_fails_lets_the_runs_held_off_go_on(repos):
+    clone, other = repos
+    _commit(other, "b.txt", "Second")
+    _git(other, "push", "-q", "origin", "HEAD:main")
+    runs = _Runs(clone)
+    lo9i = _updates(clone, _Spy(), [Step("Installing its dependencies", ["sh", "-c", "exit 1"])], runs)
+    await lo9i.start()
+    await _until_done(lo9i)
+    assert runs.done == [("held", "First"), ("released", "First")]

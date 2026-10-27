@@ -172,6 +172,7 @@ class AssistantService(
         self._open_runs = 0
         self._no_runs = asyncio.Event()
         self._no_runs.set()
+        self._held = ""
 
     @property
     def store(self):

@@ -155,6 +155,7 @@ def _ending(service: AssistantService, stop: asyncio.Event) -> tuple[Shutdown, U
         # Bound when called: the shutdown below exists by the time an update is installed.
         restart=lambda: shutdown.restart_for_update(),
         announce=lambda: service.bus.publish("update"),
+        runs=service,
     )
     shutdown = Shutdown(service, stop, managers.current(), _announcer(service), updater)
     return shutdown, updater

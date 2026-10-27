@@ -1,9 +1,11 @@
 """Sending messages, tool calls, approvals and conversations shared across channels."""
 
+import asyncio
+
 from langchain_core.messages import ToolMessage
 
-from assistant.core.events import MOVED_ON, ApprovalRequired, Done, ToolFinished, ToolStarted
-from tests.conftest import collect
+from assistant.core.events import MOVED_ON, ApprovalRequired, Done, Error, ToolFinished, ToolStarted
+from tests.conftest import collect, written
 
 
 async def test_safe_bash_runs_without_approval(service, script):
@@ -89,3 +91,19 @@ async def test_unattended_runs_deny_instead_of_asking(service, script):
     events = await collect(service.send(await service.session("u", "worker"), "clean up"))
     assert not any(isinstance(e, ApprovalRequired) for e in events)
     assert events[1].output.startswith(UNATTENDED_DENIAL)
+
+
+async def test_runs_are_held_off_once_none_is_in_progress_until_released(service, script, tmp_path):
+    script.call("bash", command="echo up > a.started; until [ -f a ]; do sleep 0.02; done").reply("done").reply("hi")
+    session = await service.session("u", "cli")
+    running = asyncio.create_task(collect(service.send(session, "wait")))
+    await written(tmp_path / "workspace" / "a.started")
+    holding = asyncio.create_task(service.hold_runs("lo9i is installing an update."))
+    await asyncio.sleep(0.05)
+    assert not holding.done()  # it waits for the run in progress
+    (tmp_path / "workspace" / "a").touch()
+    await running
+    await asyncio.wait_for(holding, 5)
+    assert await collect(service.send(session, "hello")) == [Error("lo9i is installing an update.")]
+    service.release_runs()
+    assert isinstance((await collect(service.send(session, "hello")))[-1], Done)

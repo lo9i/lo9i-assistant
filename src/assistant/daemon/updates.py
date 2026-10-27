@@ -8,7 +8,11 @@ back to the commit it came from and installs what that one needs again. A clone 
 commits its upstream doesn't have, isn't touched: the update says why instead. A copy scripts/deploy.sh made
 has no repository; it carries the commit it was made from (`VERSION_FILE`) and is updated by deploying again.
 
-One update at a time, and the daemon never ends in the middle of one: a restart or stop waits for it as it waits
+An update waits for the runs in progress to end before it changes anything, and holds new ones off until the
+daemon restarts on it: a run started meanwhile would run the old code against the new files (a module imported late,
+the rebuilt web app served to a tab that reloads). Those are refused with a message to send them again once it's
+back; if the update fails, they're let through again. One update at a time, and the daemon never ends in the middle
+of one: a restart or stop waits for it as it waits
 for runs (daemon/shutdown.py), and a signal's stop waits for it too (server.py, `close` and `until_installed`),
 so the tree is left either on the new version with what it needs or back on the old one. An update the daemon
 ended in the middle of all the same (its task cancelled outright, a crash) leaves a mark in the repository's git
@@ -24,6 +28,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Protocol
 
 from assistant.core import uv
 from assistant.protocol import Commit, UpdateError, UpdateStatus
@@ -42,6 +47,9 @@ _MERGE = "Downloading the update"
 # In the repository's git folder while an update is being installed: the commit it came from.
 _MARK = "lo9i-update.json"
 _UNFINISHED = "The last update didn't finish"
+_WAITING = "Waiting for the runs in progress to end"
+# What a message sent while an update installs gets back.
+_HELD = "lo9i is installing an update and restarts in a moment. Send this again once it's back."
 
 
 @dataclass(frozen=True)
@@ -57,6 +65,22 @@ class _FailedError(Exception):
     pass
 
 
+class Runs(Protocol):
+    """The service's runs (core/agent/runs.py), held off while an update installs."""
+
+    async def hold_runs(self, reason: str) -> None: ...
+
+    def release_runs(self) -> None: ...
+
+
+class _NoRuns:
+    async def hold_runs(self, reason: str) -> None:
+        return
+
+    def release_runs(self) -> None:
+        return
+
+
 @dataclass(frozen=True)
 class _Checked:
     upstream: str
@@ -67,14 +91,20 @@ class _Checked:
 
 class Updates:
     def __init__(
-        self, root: Path, steps: Sequence[Step], restart: Callable[[], object], announce: Callable[[], None]
+        self,
+        root: Path,
+        steps: Sequence[Step],
+        restart: Callable[[], object],
+        announce: Callable[[], None],
+        runs: Runs | None = None,
     ) -> None:
         """`steps` install what the new commits need; `restart` restarts the daemon once no run is in
-        progress; `announce` tells the apps the status changed."""
+        progress; `announce` tells the apps the status changed; `runs` are held off while it installs."""
         self._root = root
         self._steps = steps
         self._restart = restart
         self._announce = announce
+        self._runs = runs or _NoRuns()
         self._checked: _Checked | None = None
         self._state, self._step, self._error = "idle", "", ""
         self._task: asyncio.Task | None = None
@@ -109,7 +139,7 @@ class Updates:
             if not status.behind:
                 raise UpdateError("lo9i is up to date.")
             # Before the lock is let go, so the next start or check sees it.
-            self._set("updating", _MERGE)
+            self._set("updating", _WAITING)
             self._task = asyncio.create_task(self._update(status.upstream))
         return await self.status()
 
@@ -143,6 +173,8 @@ class Updates:
             self._task = asyncio.create_task(self._back_from(before))
 
     async def _update(self, upstream: str) -> None:
+        """Runs stay held off once it's installed, until the restart."""
+        await self._held()
         merge = Step(_MERGE, ["git", "merge", "--ff-only", "--quiet", upstream])
         try:
             before = (await _git(self._root, "rev-parse", "HEAD")).strip()
@@ -180,6 +212,7 @@ class Updates:
             await self._unmark()  # It ended before the new commits came.
             self._set("idle")
             return
+        await self._held()
         logger.warning("%s; going back to %s.", _UNFINISHED, before)
         if failed := await self._go_back(before, self._steps):
             label, why = failed
@@ -187,6 +220,11 @@ class Updates:
             return
         self._set("restarting")
         self._restart()
+
+    async def _held(self) -> None:
+        """Once the runs in progress have ended; new ones are held off from then on."""
+        self._set("updating", _WAITING)
+        await self._runs.hold_runs(_HELD)
 
     async def _go_back(self, before: str, ran: Sequence[Step]) -> tuple[str, str] | None:
         """Back to the commit the update came from, with what it needs: the steps that ran (the one that failed
@@ -227,7 +265,9 @@ class Updates:
         await _run(self._root, step.command, step.timeout)
 
     def _failed(self, error: str) -> None:
+        """The runs held off go on: nothing restarts."""
         logger.warning("The update failed: %s", error)
+        self._runs.release_runs()
         self._set("failed", error=error)
 
     async def _fetch(self) -> _Checked:

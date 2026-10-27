@@ -54,6 +54,17 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
             task.cancel()
         return len(running)
 
+    async def hold_runs(self, reason: str) -> None:
+        """Returns once no run is in progress, and from then on refuses new ones with `reason` (an Error event)
+        until `release_runs`: an update installs (daemon/updates.py), and a run started meanwhile would run the
+        old code against the new files."""
+        while self._open_runs:
+            await self._no_runs.wait()
+        self._held = reason
+
+    def release_runs(self) -> None:
+        self._held = ""
+
     async def until_no_runs(self) -> None:
         """Returns once no conversation has a run in progress, each one's cleanup done (a cancelled run's open tool
         calls answered, the conversation indexed and pruned), so the service can be closed after."""
@@ -67,6 +78,11 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
         """A run of the conversation: the graph's, or a handed-off agent's (handoffs.py). One at a time
         per conversation, cancellable, and indexed (its messages and files) and pruned when it ends."""
         async with self._thread_lock(session.thread_id):
+            # Checked with the lock held, right before counting the run: one waiting for the lock when runs were
+            # held is refused too.
+            if self._held:
+                yield Error(self._held)
+                return
             with self._open_run():
                 await self._mark_start(session.thread_id)
                 try:

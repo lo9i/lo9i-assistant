@@ -107,6 +107,8 @@ class ServiceBase:
     # (core/agent/runs.py).
     _open_runs: int
     _no_runs: asyncio.Event
+    # While set, new runs are refused with it: an update installs (`hold_runs`, core/agent/runs.py).
+    _held: str
 
     async def _servers_changed(self) -> None:
         """Bring MCP connections, coding agents, pages and channels in line with the saved servers. A server's skill
