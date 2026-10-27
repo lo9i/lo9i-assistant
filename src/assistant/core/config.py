@@ -1,6 +1,21 @@
+import os
+from pathlib import Path
 from typing import Literal
+from zoneinfo import available_timezones
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def system_timezone() -> str:
+    """The computer's time zone (TZ, else the /etc/localtime link), or UTC when it can't be read."""
+    name = os.environ.get("TZ", "").lstrip(":")
+    if not name:
+        try:
+            name = Path("/etc/localtime").resolve().as_posix().split("zoneinfo/", 1)[1]
+        except (OSError, IndexError):
+            name = ""
+    return name if name in available_timezones() else "UTC"
 
 
 class Settings(BaseSettings):
@@ -66,8 +81,8 @@ class Settings(BaseSettings):
     # one <name>.md each, used instead of the built-in ones.
     prompts_dir: str = "~/.lo9i/prompts"
 
-    # Time zone for the date and time in each message's turn header.
-    timezone: str = "UTC"
+    # Time zone for the date and time in each message's turn header. Unset: the computer's own.
+    timezone: str = Field(default_factory=lambda: system_timezone())
 
     # Speech to text (faster-whisper on the CPU). Detection is limited to STT_LANGUAGES.
     # Models: tiny, base, small, medium, large-v3-turbo. Downloaded on first use.
