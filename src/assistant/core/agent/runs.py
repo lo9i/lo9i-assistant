@@ -1,7 +1,7 @@
 import asyncio
 import contextlib
 import logging
-from collections.abc import AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator, Sequence
 from typing import Any, cast
 
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
@@ -15,7 +15,7 @@ from assistant.core.agent.session import Session
 from assistant.core.agent.thread_files import ThreadFilesMixin
 from assistant.core.context import Context
 from assistant.core.conversation import failed
-from assistant.core.events import ApprovalRequired, Cancelled, Done, Error, Event
+from assistant.core.events import ApprovalRequired, Cancelled, Done, Error, Event, declined
 from assistant.core.health import HealthLog
 from assistant.core.skills.tracker import SkillScriptTracker
 from assistant.core.stream_events import approval_events, to_events
@@ -158,14 +158,9 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
 
     async def _run_events(self, session: Session, input: Any) -> AsyncIterator[Event]:
         config = _run_config(session, self._storage.usage, self._health)
-        pending = await self._pending_approvals(config)
-        # A new message can't be sent while tool calls wait for approval.
-        if pending and not isinstance(input, Command):
-            for event in pending:
-                yield event
-            return
         try:
-            async for event in self._stream(session, input, config):
+            declining = self._declining(session, config, input)
+            async for event in _until_error(declining, lambda: self._stream(session, input, config)):
                 yield event
                 if isinstance(event, Error):
                     return
@@ -174,6 +169,15 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
             raise
         if not await self._pending_approvals(config):
             yield Done()
+
+    async def _declining(self, session: Session, config: RunnableConfig, input: Any) -> AsyncIterator[Event]:
+        """A new message while the run waits for an answer: what it waits for is declined (an approval rejected, a
+        question skipped), and its tool calls finish with that, stopping before the model reads them, so the new
+        message is the next thing it answers. Nothing for the answer itself (a Command)."""
+        while not isinstance(input, Command) and (pending := await self._pending_approvals(config)):
+            answers = {a.interrupt_id: declined(a.request) for a in pending}
+            async for event in self._stream(session, Command(resume=answers), config, stop_before=("agent",)):
+                yield event
 
     async def _mark_failed(self, thread_id: str, error: Exception) -> None:
         """Records the failure in the conversation (conversation/failed.py), with the step the checkpoint says it
@@ -187,7 +191,9 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
         except Exception:
             logger.exception("Couldn't record the failed run in %s", thread_id)
 
-    async def _stream(self, session: Session, input: Any, config: RunnableConfig) -> AsyncIterator[Event]:
+    async def _stream(
+        self, session: Session, input: Any, config: RunnableConfig, stop_before: Sequence[str] = ()
+    ) -> AsyncIterator[Event]:
         context = Context(
             user_id=session.user_id,
             channel=session.channel,
@@ -202,7 +208,12 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
             mcp=self.mcp,
         )
         async for namespace, mode, data in self._graph.astream(
-            input, config, context=context, stream_mode=["messages", "updates", "custom"], subgraphs=True
+            input,
+            config,
+            context=context,
+            stream_mode=["messages", "updates", "custom"],
+            subgraphs=True,
+            interrupt_before=list(stop_before) or None,
         ):
             # astream types its items as `dict | Any`; with subgraphs=True they're (namespace, mode, data).
             for event in to_events(cast(tuple[str, ...], namespace), mode, data):
@@ -211,6 +222,16 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
     async def _pending_approvals(self, config: RunnableConfig) -> list[ApprovalRequired]:
         state = await self._graph.aget_state(config)
         return approval_events(state.interrupts)
+
+
+async def _until_error(first: AsyncIterator[Event], then: Callable[[], AsyncIterator[Event]]) -> AsyncIterator[Event]:
+    """`first`'s events, then `then`'s, unless `first` ended with an error."""
+    async for event in first:
+        yield event
+        if isinstance(event, Error):
+            return
+    async for event in then():
+        yield event
 
 
 def _open_calls(values: dict[str, Any]) -> list[dict[str, Any]]:

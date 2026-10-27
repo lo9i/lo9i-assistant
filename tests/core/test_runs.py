@@ -1,6 +1,8 @@
 """Sending messages, tool calls, approvals and conversations shared across channels."""
 
-from assistant.core.events import ApprovalRequired, Done, ToolFinished, ToolStarted
+from langchain_core.messages import ToolMessage
+
+from assistant.core.events import MOVED_ON, ApprovalRequired, Done, ToolFinished, ToolStarted
 from tests.conftest import collect
 
 
@@ -24,12 +26,27 @@ async def test_dangerous_bash_waits_for_approval_and_rejection_reaches_the_model
     assert isinstance(events[-1], Done)
 
 
-async def test_new_message_while_approval_pending_repeats_the_approval(service, script):
-    script.call("bash", command="rm -rf build")
+async def test_a_new_message_while_an_approval_waits_rejects_it_and_is_answered(service, script):
+    script.call("bash", command="rm -rf build").reply("Hello!")
     session = await service.session("u", "cli")
     await collect(service.send(session, "clean up"))
-    again = await collect(service.send(session, "hello?"))
-    assert len(again) == 1 and isinstance(again[0], ApprovalRequired)
+    events = await collect(service.send(session, "hello?"))
+    rejected = f"The user rejected this ({MOVED_ON})."
+    assert events[0] == ToolFinished("bash", rejected) and isinstance(events[-1], Done)
+    assert not any(isinstance(e, ApprovalRequired) for e in events)
+    # The model reads the rejection and the new message together, in one call.
+    assert len(script.requests) == 2
+    last = script.requests[-1]
+    assert isinstance(last[-2], ToolMessage) and last[-2].text == rejected and "hello?" in last[-1].text
+    assert await service.pending_approvals(session.thread_id) == []
+
+
+async def test_a_question_waiting_is_skipped_when_a_new_message_comes(service, script):
+    script.call("ask_user", question="Which?", options=["A", "B"]).reply("Sure.")
+    session = await service.session("u", "cli")
+    await collect(service.send(session, "pick one"))
+    events = await collect(service.send(session, "never mind"))
+    assert isinstance(events[0], ToolFinished) and events[0].name == "ask_user" and isinstance(events[-1], Done)
 
 
 async def test_bash_runs_in_the_workspace_without_app_secrets(service, script, monkeypatch, isolated_settings):

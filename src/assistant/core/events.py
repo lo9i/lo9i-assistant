@@ -81,6 +81,22 @@ def is_plugin_setup(request: dict[str, Any]) -> bool:
     return request.get("kind") == PLUGIN_SETUP
 
 
+# Why an approval was rejected when the user wrote again instead of answering it.
+MOVED_ON = "the user sent a new message instead of answering"
+
+
+def declined(request: dict[str, Any]) -> dict[str, Any]:
+    """The answer to `request` when the user moved on without answering it (sent a new message): an approval
+    rejected, a question skipped, a plugin not installed, a setup closed."""
+    if is_question(request):
+        return {"choices": None}
+    if is_plugin_offer(request):
+        return {"installed": False}
+    if is_plugin_setup(request):
+        return {"done": True}
+    return {"approved": False, "reason": MOVED_ON}
+
+
 @dataclass
 class Transcribed:
     """A voice message was transcribed; gateways show it so the user can catch mistakes."""
