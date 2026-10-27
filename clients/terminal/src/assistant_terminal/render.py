@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
 
+from assistant.core.conversation import choices
 from assistant.core.events import (
     ApprovalRequired,
     Cancelled,
@@ -63,10 +64,14 @@ class _Printer:
     def __init__(self) -> None:
         # What's streaming: "text", "thinking" or "" for nothing.
         self._streaming = ""
+        # The streaming reply's text, without the answer buttons' marker.
+        self._reply = choices.Streamed()
 
     def print(self, event: Event) -> None:
         if isinstance(event, TextDelta):
-            self._stream("text", f"{code(GRAY)}{_BULLET}", code(GRAY), event.text)
+            if self._streaming != "text":
+                self._reply = choices.Streamed()
+            self._stream("text", f"{code(GRAY)}{_BULLET}", code(GRAY), self._reply.add(event.text))
             return
         if isinstance(event, Thinking):
             self._stream("thinking", f"{code(DIM)}✻ ", code(DIM), event.text)

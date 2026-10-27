@@ -233,6 +233,21 @@ async def test_live_events_update_the_app(app, client):
         assert "[cli] what day is it?" in str(app.query(UserMessage).first().render())
 
 
+async def test_the_answer_buttons_marker_never_shows(app, client):
+    async def other_terminal_run():
+        yield TextDelta("Push it?\n\n<!-- choi")
+        yield TextDelta("ces: Yes | No -->")
+        yield Done()
+
+    async with app.run_test() as pilot:
+        run = {"thread_id": "owner:abc", "channel": "cli", "text": "commit it", "run_id": "r1", "client_id": "other"}
+        client.runs["r1"] = other_terminal_run
+        await client.bus.put(("run", run))
+        await wait_for(pilot, lambda: len(app.query(AssistantMessage)) == 1)
+        await pilot.pause()
+        assert app.query_one(AssistantMessage).source.strip() == "Push it?"
+
+
 async def test_new_leaves_a_running_reply_and_reports_when_it_finishes(app, client):
     import asyncio
 

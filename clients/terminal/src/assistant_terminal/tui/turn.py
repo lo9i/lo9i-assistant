@@ -8,6 +8,7 @@ from textual.containers import VerticalScroll
 from textual.widgets import Markdown
 from textual.widgets.markdown import MarkdownStream
 
+from assistant.core.conversation import choices
 from assistant.core.events import (
     ApprovalRequired,
     Cancelled,
@@ -41,6 +42,8 @@ class TurnView:
         self._chat = chat
         self._status = status
         self._stream: MarkdownStream | None = None
+        # The streaming reply's text, without the answer buttons' marker.
+        self._shown = choices.Streamed()
         # Tool results carry only the tool name, so match them to calls in order. A subagent's calls
         # are matched within their delegate call, keyed by its id.
         self._pending: dict[str, list[ToolCall]] = defaultdict(list)
@@ -99,8 +102,10 @@ class TurnView:
             message = AssistantMessage()
             await self._chat.mount(message)
             self._stream = Markdown.get_stream(message)
+            self._shown = choices.Streamed()
             self._status.clear()
-        await self._stream.write(text)
+        if shown := self._shown.add(text):
+            await self._stream.write(shown)
 
     async def _thinking(self, text: str) -> None:
         """Thinking streams: an event right after another continues it."""

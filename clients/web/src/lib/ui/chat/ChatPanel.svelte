@@ -266,6 +266,7 @@
     name={name.data || "the assistant"}
     onsuggest={(text) => (draft.text = text)}
     onmove={inInbox ? (dispatchId) => chats.move(dispatchId) : undefined}
+    onchoose={snapshot.current.busy || snapshot.current.mirroring ? undefined : (choice) => send(choice, [])}
     loadCall={(callId) => client.conversations.toolCall(threadId, callId)}
     loadStep={(callId, index) => client.conversations.toolCallStep(threadId, callId, index)}
   />

@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from langchain_core.messages import AIMessage
 
 from assistant.core.agent.base import ServiceBase
+from assistant.core.conversation import choices
 from assistant.core.jobs import schedule as cron
 from assistant.core.jobs import store
 from assistant.core.jobs.store import Job, JobError, RunRecord
@@ -40,7 +41,7 @@ class JobsMixin(ServiceBase):
     async def _last_reply(self, thread_id: str) -> str:
         state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
         replies = [m for m in state.values.get("messages", []) if isinstance(m, AIMessage)]
-        return replies[-1].text.strip() if replies else ""
+        return choices.without_markers(replies[-1].text).strip() if replies else ""
 
     async def delete_job(self, user_id: str, name: str) -> None:
         """Raises JobError if it doesn't exist."""

@@ -8,7 +8,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
-from assistant.core.conversation import prompts
+from assistant.core.conversation import choices, prompts
 from assistant.core.conversation.turn_header import note_block, said
 
 # The key in a user message's additional_kwargs.
@@ -27,7 +27,7 @@ def lines(messages: Sequence[BaseMessage], chars: int) -> list[Line]:
     for message in messages:
         if isinstance(message, HumanMessage) and (text := said(message)):
             found.append({"role": "user", "text": _shortened(text, chars)})
-        elif isinstance(message, AIMessage) and (text := message.text.strip()):
+        elif isinstance(message, AIMessage) and (text := choices.without_markers(message.text).strip()):
             found.append({"role": "assistant", "text": _shortened(text, chars)})
     return found
 
