@@ -1,11 +1,13 @@
 <script lang="ts">
   import { resolve } from "$app/paths";
   import Bell from "@lucide/svelte/icons/bell";
+  import BellOff from "@lucide/svelte/icons/bell-off";
   import CircleCheck from "@lucide/svelte/icons/circle-check";
   import type { Alert } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { doctorProblem } from "$lib/doctor";
   import { localTime } from "$lib/health";
+  import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
@@ -14,6 +16,7 @@
   // the list.
   const alerts = resource((c) => c.alerts.list(), ["mcp", "skills", "doctor"]);
   let picked = $state<string | null>(null);
+  let clearing = $state(false);
   // Until one is picked: the newest.
   const alert = $derived(alerts.data?.find((a) => key(a) === picked) ?? alerts.data?.[0]);
 
@@ -53,9 +56,34 @@
       notices.report(e);
     }
   }
+  async function dismissAll(): Promise<void> {
+    clearing = false;
+    try {
+      await Promise.all((alerts.data ?? []).map((a) => client.alerts.dismiss(a.area, a.name)));
+    } catch (e) {
+      notices.report(e);
+    }
+  }
 </script>
 
-<TopBar title="Alerts" />
+<TopBar title="Alerts">
+  {#snippet actions()}
+    {#if alerts.data?.length}
+      <button class="btn btn--ghost" onclick={() => (clearing = true)}
+        ><BellOff size={16} /><span class="hide-narrow">Dismiss all</span></button
+      >
+    {/if}
+  {/snippet}
+</TopBar>
+
+{#if clearing}
+  <Confirm
+    title="Dismiss every alert?"
+    text="They come back if the problem happens again."
+    action="Dismiss all"
+    onanswer={(yes) => (yes ? dismissAll() : (clearing = false))}
+  />
+{/if}
 
 <div class="screen">
   <section class="table-card surface--glass">
