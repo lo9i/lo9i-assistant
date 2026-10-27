@@ -52,7 +52,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 ## Context
 
 - H1. Better epoch summaries: quote user messages verbatim, keep ids and paths exactly, and let `search_memory` search tool outputs too (it covers only what the user and the assistant wrote).
-- H2. The core tools' definitions are about 6k tokens of every request (26 tools, ~13.6k characters; the largest `schedule_job`, `save_skill`, `search_email`, `update_profile`, `move_to_conversation`, `delegate`). Load groups of them on demand like plugins' tools (`core/plugin_loading.py`): email (`search_email`, `read_email`, `send_email`, `set_up_email`, ~2.4k characters), jobs (`schedule_job`, `update_job`, `list_jobs`, `delete_job`, ~2.5k) and skill writing (`save_skill`, `delete_skill`, ~1.2k), named in the Plugin tools list and loaded with `load_tools`: about 2.5–3k tokens saved per conversation, for an extra step the first time one is used. Then shorten the longest descriptions, moving their guidance into skills where the model reads it only when needed (another 0.5–1k).
+- H2. The groups of core tools load on demand now (email, jobs, skill writing; `core/tools/registry.py::tool_groups`); the longest descriptions are still long (`update_profile`, `move_to_conversation`, `delegate`, `remember`, and in their groups `schedule_job`, `save_skill`, `search_email`). Shorten them, moving their guidance into skills the model reads only when needed (about 0.5–1k tokens).
 
 ## Voice
 

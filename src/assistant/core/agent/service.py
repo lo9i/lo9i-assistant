@@ -76,6 +76,7 @@ from assistant.core.secret_store import SecretBox
 from assistant.core.speech.kokoro import KokoroSynthesizer
 from assistant.core.speech.whisper import FasterWhisperTranscriber
 from assistant.core.storage import Storage, open_storage
+from assistant.core.tools.registry import tool_groups
 
 
 class AssistantService(
@@ -137,7 +138,9 @@ class AssistantService(
         self.agent_tasks = AgentTasks(storage.store, secrets, environments, lambda: logins.of_model(self._model))
         self._task_reports = TaskReports(storage.store)
         self.task_ends = TaskEnds(self.agent_tasks, self._task_reports, bus, background)
-        self._plugin_tools = PluginTools(self.mcp, AgentTools(self.agent_tasks, self._task_reports))
+        self._plugin_tools = PluginTools(
+            self.mcp, AgentTools(self.agent_tasks, self._task_reports), tool_groups(settings.toolsets)
+        )
         self.home_refresh = HomeRefresh(storage.store, bus, lambda: self._home_builder, self._plugin_tools)
         self.home_schedule = HomeSchedule(storage.store, self.home_refresh, settings.owner_id)
         self.doctor = Doctor(

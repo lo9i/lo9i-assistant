@@ -24,7 +24,7 @@ _HEADINGS: dict[JobState, str] = {
 }
 
 
-@register("jobs")
+@register("jobs", group="jobs")
 @tool
 async def schedule_job(
     name: str,
@@ -58,7 +58,7 @@ async def schedule_job(
     return f"Scheduled {name}: {_timing(job, now)}."
 
 
-@register("jobs")
+@register("jobs", group="jobs")
 @tool
 async def update_job(
     name: str,
@@ -85,7 +85,7 @@ async def update_job(
     return f"Updated {name} ({job.state}): {_timing(job, now)}."
 
 
-@register("jobs")
+@register("jobs", group="jobs")
 @tool
 async def delete_job(name: str, runtime: ToolRuntime[Context]) -> str:
     """Delete a scheduled job."""
@@ -93,7 +93,7 @@ async def delete_job(name: str, runtime: ToolRuntime[Context]) -> str:
     return f"Deleted {name}." if deleted else f"No job named {name}."
 
 
-@register("jobs", subagents=True)
+@register("jobs", subagents=True, group="jobs")
 @tool
 async def list_jobs(runtime: ToolRuntime[Context], state: ListedState = "all") -> str:
     """List scheduled jobs in three groups: active (will run), paused (turned off; won't run until

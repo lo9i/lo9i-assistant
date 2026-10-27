@@ -80,9 +80,11 @@ async def skill_plugins(names: Iterable[str]) -> set[str]:
     return found
 
 
-async def named(text: str) -> set[str]:
-    """The plugins a job's task names: one of its tools (mcp__<server>__<tool>), or a skill that comes with it."""
+async def named(text: str, catalog: Catalog) -> set[str]:
+    """The plugins and groups a job's task names: one of their tools (mcp__<server>__<tool>, or a group's tool by its
+    name, like send_email), or a skill that comes with a plugin."""
     found = {match[1] for match in _MCP_TOOL.finditer(text)}
+    found |= {plugin for plugin, tools in catalog.items() if any(_mentions(text, tool) for tool in tools)}
     listed = await asyncio.to_thread(skills.list_skills)
     return found | {skill.server for skill in listed if skill.server and _mentions(text, skill.name)}
 

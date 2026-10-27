@@ -15,7 +15,7 @@ from assistant.core.tools.approval import ask
 from assistant.core.tools.registry import register
 
 
-@register("skills")
+@register("skills", group="skill-writing")
 @tool
 async def save_skill(
     name: str,
@@ -57,7 +57,7 @@ async def use_skill(name: str) -> str:
     return f"# Skill: {skill.name}\n\n{render_skill(skill)}{loaded if skill.server else ''}"
 
 
-@register("skills")
+@register("skills", group="skill-writing")
 @tool
 async def delete_skill(name: str, runtime: ToolRuntime[Context]) -> str:
     """Delete a skill. The user approves it first."""

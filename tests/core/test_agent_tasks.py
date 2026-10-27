@@ -12,6 +12,7 @@ from assistant.core.context import UNATTENDED_CHANNEL
 from assistant.core.conversation.queued import Queued
 from assistant.core.events import ApprovalRequired, Dispatched, ToolFinished, ToolStarted
 from assistant.core.mcp import folders
+from assistant.core.plugin_loading import LOAD_TOOLS
 from tests.conftest import collect
 from tests.core.test_handoffs import agent_plugin
 
@@ -37,7 +38,8 @@ async def _call(service: AssistantService, name: str, **args) -> str:
 
 
 def _offered(service: AssistantService) -> list[str]:
-    return [d["function"]["name"] for d in service._plugin_tools.definitions(())]
+    """What an epoch offers besides load_tools, which the assistant's own groups bring anyway."""
+    return [d["function"]["name"] for d in service._plugin_tools.definitions(()) if d["function"]["name"] != LOAD_TOOLS]
 
 
 async def test_the_task_tools_come_with_an_agent_plugin_and_name_its_agents(service):
@@ -74,9 +76,27 @@ async def test_in_a_side_conversation_the_conversation_is_handed_to_the_agent_wi
     assert next(e for e in events if isinstance(e, ToolFinished)).output.startswith("This conversation is now handed")
     handoff = await service.conversation_agent("owner", session.thread_id)
     assert handoff is not None and handoff.folder == str(tmp_path)
-    assert await service.next_queued("owner", session.thread_id) == Queued("web", "finish")
+    assert await service.next_queued("owner", session.thread_id) == Queued("web", "finish", brief="Claude Code")
     assert await service.next_queued("owner", session.thread_id) is None
     assert await service.agent_tasks.recent() == []
+
+
+async def test_the_task_handed_with_a_conversation_shows_as_the_agents_brief_not_the_users(service, script, tmp_path):
+    await service.add_mcp_server(agent_plugin(trusted=True))
+    script.call("start_task", agent="claude-code", repository=str(tmp_path), task="finish").reply("Handed.")
+    session = await side(service, "web")
+    await collect(service.send(session, "fix the tests with claude"))
+    task = await service.next_queued("owner", session.thread_id)
+    assert task is not None
+    await collect(service.send(session, task.text, brief=task.brief))
+    await collect(service.send(session, "thanks"))
+    shown = [(m.role, m.text, m.agent) for m in await service.conversation_messages(session.thread_id)]
+    said = [m for m in shown if m[0] in ("user", "brief")]
+    assert said == [
+        ("user", "fix the tests with claude", ""),
+        ("brief", "finish", "Claude Code"),
+        ("user", "thanks", ""),
+    ]
 
 
 async def test_handing_a_side_conversation_to_an_untrusted_agent_asks_first(service, script, tmp_path):
@@ -127,14 +147,14 @@ async def test_in_the_inbox_a_task_moves_to_a_new_conversation_handed_to_its_age
     assert not any(isinstance(e, ApprovalRequired) for e in events)
     assert next(e for e in events if isinstance(e, ToolFinished)).output.startswith("Moved this task")
     moved = next(e for e in events if isinstance(e, Dispatched))
-    assert (moved.thread_id, moved.title, moved.text) == ("", "Fix the tests", "finish")
+    assert (moved.thread_id, moved.title, moved.text, moved.brief) == ("", "Fix the tests", "finish", "Claude Code")
     assert await service.agent_tasks.recent() == []
     new = Session("owner", "web", await service.new_thread("owner"))
     await collect(service.send_dispatched(new, moved.id))
     handoff = await service.conversation_agent("owner", new.thread_id)
     assert handoff is not None and handoff.folder == str(tmp_path)
-    shown = [m.text for m in await service.conversation_messages(new.thread_id)]
-    assert shown[0] == "finish"
+    first = (await service.conversation_messages(new.thread_id))[0]
+    assert (first.role, first.text, first.agent) == ("brief", "finish", "Claude Code")
 
 
 async def test_a_task_whose_folder_went_away_goes_to_the_assistant_instead(service, script, tmp_path):

@@ -42,6 +42,7 @@ from assistant.core.llm.choice import ModelChoice, prompt_cache_minutes
 from assistant.core.llm.providers import IMAGES_IN_TOOL_RESULTS
 from assistant.core.storage import Storage
 from assistant.core.tools import tools_for
+from assistant.core.tools.registry import offered_tools
 from assistant.core.usage.meter import TokenMeter
 
 Node = Callable[..., Awaitable[dict]]
@@ -111,7 +112,9 @@ def build_graph(storage: Storage, choice: ModelChoice, summarizer: Summarizer, m
     builder = StateGraph(AgentState, context_schema=Context)
     builder.add_node("epoch", _epoch_node(summarizer, mcp, prompt_cache_minutes(choice)))
     llm = metered(build_llm(choice, choice.model), TokenMeter(storage.usage, "reply"))
-    builder.add_node("agent", _agent_node(llm, tools, choice.provider in IMAGES_IN_TOOL_RESULTS))
+    # The groups loaded on demand come with the plugins' tools (core/plugin_tools.py); every tool runs.
+    offered = offered_tools(settings.toolsets)
+    builder.add_node("agent", _agent_node(llm, offered, choice.provider in IMAGES_IN_TOOL_RESULTS))
     builder.add_node("tools", ToolNode(tools, awrap_tool_call=mcp_calls(mcp)))
     builder.add_node("installed", _loaded_node(mcp))
     dispatch = dispatch_nodes(build_classifier(choice, storage.usage), then="epoch")
@@ -139,7 +142,7 @@ def _epoch_node(summarizer: Summarizer, mcp: McpTools, cache_minutes: float) -> 
             cast(AgentState, {**state, **trim}), runtime, thread_id, summarizer, mcp, catalog, now
         )
         if "system_prompt" in update:
-            named = await _named_plugins(state, runtime)
+            named = await _named_plugins(state, runtime, catalog)
             update |= await _plugins_update(state, update, mcp, catalog, named)
         return {**trim, **update, "last_activity": now.isoformat()}
 
@@ -177,11 +180,11 @@ async def _plugins_update(
     return {"loaded_plugins": loaded, "mcp_tools": mcp.definitions(loaded), "plugin_tools": catalog}
 
 
-async def _named_plugins(state: AgentState, runtime: Runtime[Context]) -> set[str]:
+async def _named_plugins(state: AgentState, runtime: Runtime[Context], catalog: dict[str, list[str]]) -> set[str]:
     """A scheduled run's: the plugins its job names in its message, so it doesn't spend a step loading them."""
     if not runtime.context.unattended or not state["messages"]:
         return set()
-    return await plugin_loading.named(state["messages"][-1].text)
+    return await plugin_loading.named(state["messages"][-1].text, catalog)
 
 
 def _kept_plugins(state: AgentState, epoch: dict, mcp: McpTools) -> set[str]:

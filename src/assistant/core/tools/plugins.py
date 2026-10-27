@@ -78,7 +78,7 @@ def _request(plugin: Any) -> dict[str, Any]:
     return {"kind": PLUGIN_OFFER, "name": plugin.name, "description": plugin.description, kind: asdict(plugin)}
 
 
-@register("email")
+@register("email", group="email")
 @tool
 async def set_up_email(runtime: ToolRuntime[Context]) -> str:
     """Set up the user's email when no account is connected (or they want one with another

@@ -119,7 +119,7 @@ async def test_an_added_server_is_listed_from_the_next_message_and_its_tools_loa
     await _add(service)
     script.call(LOAD, plugin="notes").call(READ).reply("done")
     events = await _say(service, "read my notes")
-    assert _names(script.bound[0]) == set() and _names(script.bound[1]) == {LOAD}
+    assert _names(script.bound[0]) == _names(script.bound[1]) == {LOAD}  # the assistant's own groups are loadable
     assert "- notes: add_note, chart, read_notes" in script.requests[1][0].text
     assert _names(script.bound[2]) == _names(script.bound[3]) == {LOAD, READ, ADD, CHART}
     assert ToolFinished(READ, "no notes") in events
@@ -183,8 +183,10 @@ async def test_a_scheduled_run_starts_with_the_plugins_its_job_names(service, sc
 
 async def test_a_job_names_a_skill_only_as_a_word_of_its_own(service):
     _notes_skill()
-    assert await plugin_loading.named("Run notes-help, then mcp__mail__send") == {"notes", "mail"}
-    assert await plugin_loading.named("Run notes-helper and my-notes-help") == set()
+    catalog = {"jobs": ["list_jobs"]}
+    assert await plugin_loading.named("Run notes-help, then mcp__mail__send", catalog) == {"notes", "mail"}
+    assert await plugin_loading.named("Run notes-helper and my-notes-help", catalog) == set()
+    assert await plugin_loading.named("Call list_jobs and tidy up", catalog) == {"jobs"}
 
 
 async def test_subagents_get_the_read_only_tools_of_the_plugins_the_conversation_loaded(service, script):
@@ -249,7 +251,7 @@ async def test_a_server_installed_from_an_offer_brings_its_tools_to_the_same_run
     await service.add_mcp_server(McpServer(name="notes", command="notes-server", source=EXTRAS))
     events = await collect(service.resume(session, {offer.interrupt_id: {"installed": True}}))
     assert events[0] == ToolFinished("offer_plugin", "notes is installed. Its tools are available now.")
-    assert _names(script.bound[0]) == set() and _names(script.bound[1]) == {LOAD, READ, ADD, CHART}
+    assert _names(script.bound[0]) == {LOAD} and _names(script.bound[1]) == {LOAD, READ, ADD, CHART}
     assert "- notes: add_note, chart, read_notes" in script.requests[1][0].text
     assert ToolFinished(READ, "no notes") in events
     assert summaries.inputs == []  # a new epoch at the same point: nothing summarized
@@ -328,7 +330,7 @@ async def test_removed_servers_lose_their_tools(service, script):
     await service.remove_mcp_server("notes")
     script.reply("ok")
     await _say(service, "hi")
-    assert _names(script.bound[-1]) == set()
+    assert _names(script.bound[-1]) == {LOAD} and "- notes:" not in script.requests[-1][0].text
 
 
 def test_hidden_tag_characters_are_stripped_but_flags_kept():

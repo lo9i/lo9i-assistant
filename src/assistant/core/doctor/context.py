@@ -15,7 +15,7 @@ from assistant.core.conversation import prompt_edits
 from assistant.core.conversation.prompt import PromptPart, prompt_parts
 from assistant.core.doctor.model import ContextPart, StartingContext
 from assistant.core.identity import load_name
-from assistant.core.tools.registry import tools_for
+from assistant.core.tools.registry import offered_tools
 from assistant.core.usage.tokens import estimate_text
 
 # A starting context past this share of the window alerts: little is left for the conversation itself.
@@ -52,7 +52,7 @@ async def starting_context(store: BaseStore, user_id: str, plugins: PluginTools)
     sizes: dict[str, int] = {}
     for part, text in await _prompt(store, user_id, plugins):
         sizes[_LABELS[part]] = sizes.get(_LABELS[part], 0) + estimate_text(text)
-    sizes[CORE_TOOLS] = _tokens([convert_to_openai_tool(t) for t in tools_for(settings.toolsets)])
+    sizes[CORE_TOOLS] = _tokens([convert_to_openai_tool(t) for t in offered_tools(settings.toolsets)])
     sizes[PLUGIN_TOOLS] = _tokens(plugins.definitions(()))
     tokens, window = sum(sizes.values()), settings.epoch_max_tokens
     return StartingContext(
