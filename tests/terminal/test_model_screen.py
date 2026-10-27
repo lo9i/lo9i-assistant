@@ -63,6 +63,19 @@ async def test_each_provider_asks_for_its_own_fields(app, client):
         await wait_for(pilot, lambda: client.model.saved == ("groq", {"api_key": "gsk"}, "llama", "llama"))
 
 
+async def test_anthropics_prompt_cache_is_picked_from_a_list(app, client):
+    async with app.run_test(size=(110, 50)) as pilot:
+        screen = await _open(pilot, app)
+        await wait_for(pilot, lambda: bool(screen.query("#model-fields Select")))
+        cache = screen.query_one("#model-fields Select", Select)
+        assert cache.value == "5 minutes"
+        cache.value = "1 hour"
+        _fields(screen)[0].value = "sk-ant"
+        screen.query_one("#save", Button).press()
+        await wait_for(pilot, lambda: client.model.saved is not None)
+        assert client.model.saved[1] == {"api_key": "sk-ant", "prompt_cache": "1 hour"}
+
+
 async def test_the_confidence_to_continue_a_conversation_is_set(app, client):
     async with app.run_test(size=(110, 50)) as pilot:
         screen = await _open(pilot, app)

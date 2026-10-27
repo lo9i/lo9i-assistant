@@ -31,8 +31,8 @@ class ModelScreen(ModalScreen[None]):
         self._providers: dict[str, ModelProvider] = {}
         self._status: ModelStatus | None = None
         self._message = ""
-        # The shown provider's field inputs, by field key.
-        self._inputs: dict[str, Input] = {}
+        # The shown provider's field inputs, by field key: a list to pick from for a field with options.
+        self._inputs: dict[str, Input | Select[str]] = {}
 
     def compose(self) -> ComposeResult:
         with Vertical(id="model"):
@@ -107,7 +107,7 @@ class ModelScreen(ModalScreen[None]):
             else "Testing the models…"
         )
         await self._show()
-        values = {key: field.value.strip() for key, field in self._inputs.items()}
+        values = {key: _value(field) for key, field in self._inputs.items()}
         main, worker = (self.query_one(f"#model-{n}", Input).value.strip() for n in ("main", "worker"))
         try:
             self._status = await self._model.set(self._provider(), values, main, worker)
@@ -159,12 +159,23 @@ class ModelScreen(ModalScreen[None]):
         return value if isinstance(value, str) else ""
 
 
-def _field_input(field: ProviderField, status: ModelStatus | None) -> Input:
-    """An input for a provider's field, with the current value when it isn't secret."""
+def _field_input(field: ProviderField, status: ModelStatus | None) -> Input | Select[str]:
+    """An input for a provider's field, with the current value when it isn't secret; a list to pick from when
+    the field has options, the first picked until another is."""
+    if field.options:
+        picked = status.values.get(field.key, "") if status is not None else ""
+        value = picked if picked in field.options else field.options[0]
+        return Select[str]([(o, o) for o in field.options], value=value, allow_blank=False, prompt=field.label)
     saved = status is not None and field.key in status.secrets_set
     hint = " (saved; leave empty to keep it)" if saved else "" if field.required else " (optional)"
     value = status.values.get(field.key, "") if status is not None and not field.secret else ""
     return Input(value, placeholder=f"{field.label}{hint}", password=field.secret)
+
+
+def _value(field: Input | Select[str]) -> str:
+    if isinstance(field, Input):
+        return field.value.strip()
+    return field.value if isinstance(field.value, str) else ""
 
 
 def _help(provider: ModelProvider) -> str:

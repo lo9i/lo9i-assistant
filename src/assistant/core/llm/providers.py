@@ -18,6 +18,11 @@ CACHE_MINUTES = 5.0
 # OpenAI's own API keeps prompts in its extended retention by default, which "typically keeps entries available
 # for around 30 minutes"; servers that only speak its API (Ollama, vLLM) keep theirs as above.
 OPENAI_CACHE_MINUTES = 30.0
+# Anthropic's prompt cache: 5 minutes, or an hour, whose writes cost twice the input price instead of 1.25 times, so
+# a conversation picked up again within the hour reads it back instead of writing it all again.
+PROMPT_CACHE = "prompt_cache"
+CACHE_FIVE_MINUTES = "5 minutes"
+CACHE_ONE_HOUR = "1 hour"
 # Providers whose API takes images inside tool results. Others get images from tools in a message
 # after the results (core/attachments.py): OpenAI-style APIs accept images only in user messages.
 IMAGES_IN_TOOL_RESULTS = frozenset({"anthropic"})
@@ -31,6 +36,8 @@ class ProviderField:
     secret: bool = False
     required: bool = True
     help: str = ""
+    # The values it takes, picked from a list; the first when none is picked. Empty: typed freely.
+    options: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -112,7 +119,17 @@ NATIVE_PROVIDERS = [
     ModelProvider(
         "anthropic",
         "Anthropic",
-        [_key(help="Create one at https://console.anthropic.com/settings/keys.")],
+        [
+            _key(help="Create one at https://console.anthropic.com/settings/keys."),
+            ProviderField(
+                PROMPT_CACHE,
+                "Prompt cache",
+                required=False,
+                options=(CACHE_FIVE_MINUTES, CACHE_ONE_HOUR),
+                help="How long a conversation stays cached after its last reply. 1 hour costs twice the input price"
+                " to write instead of 1.25 times, and saves writing it all again when you reply after a pause.",
+            ),
+        ],
         "claude-opus-5-5",
         "claude-sonnet-5-5",
     ),

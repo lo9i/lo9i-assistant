@@ -4013,6 +4013,11 @@ export interface components {
              * @default
              */
             help: string;
+            /**
+             * Options
+             * @default []
+             */
+            options: string[];
         };
         /** Removed */
         Removed: {

@@ -8479,6 +8479,14 @@
             "type": "string",
             "title": "Help",
             "default": ""
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Options",
+            "default": []
           }
         },
         "type": "object",

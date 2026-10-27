@@ -25,7 +25,7 @@ from pydantic import BaseModel, SecretStr
 from assistant.core.config import settings
 from assistant.core.llm import connections, copilot
 from assistant.core.llm.choice import ModelChoice
-from assistant.core.llm.providers import provider
+from assistant.core.llm.providers import CACHE_ONE_HOUR, PROMPT_CACHE, provider
 
 
 def build_llm(choice: ModelChoice, model: str) -> BaseChatModel:
@@ -66,7 +66,7 @@ def build_structured(
 def _anthropic(choice: ModelChoice, model: str) -> BaseChatModel:
     # Top-level cache_control: the API caches the whole prefix (tools, system, history)
     # up to the last block, and the next call reads it back.
-    model_kwargs: dict = {"cache_control": {"type": "ephemeral"}}
+    model_kwargs: dict = {"cache_control": _cache_control(choice)}
     betas = []
     if settings.server_fallbacks:
         model_kwargs["fallbacks"] = "default"
@@ -85,6 +85,13 @@ def _anthropic(choice: ModelChoice, model: str) -> BaseChatModel:
             "api_key": choice.values.get("api_key") or None,
         }
     )
+
+
+def _cache_control(choice: ModelChoice) -> dict[str, str]:
+    """Five minutes unless the choice asks for an hour (Settings → Model)."""
+    if choice.values.get(PROMPT_CACHE) == CACHE_ONE_HOUR:
+        return {"type": "ephemeral", "ttl": "1h"}
+    return {"type": "ephemeral"}
 
 
 def _openai(choice: ModelChoice, model: str) -> BaseChatModel:

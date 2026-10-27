@@ -5,7 +5,8 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Tool
 from langchain_openai import ChatOpenAI
 
 from assistant.core.llm import build_llm
-from assistant.core.llm.choice import ModelChoice
+from assistant.core.llm.choice import ModelChoice, prompt_cache_minutes
+from assistant.core.llm.providers import CACHE_ONE_HOUR, PROMPT_CACHE
 
 
 def test_anthropic_requests_enable_caching_and_fallbacks(monkeypatch):
@@ -13,6 +14,13 @@ def test_anthropic_requests_enable_caching_and_fallbacks(monkeypatch):
     payload = _anthropic()._get_request_payload([SystemMessage("s"), HumanMessage("hi")])
     assert payload["cache_control"] == {"type": "ephemeral"}
     assert payload["fallbacks"] == "default" and payload["betas"] == ["server-side-fallback-2026-07-01"]
+
+
+def test_anthropic_caches_for_an_hour_when_chosen(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
+    payload = _anthropic({PROMPT_CACHE: CACHE_ONE_HOUR})._get_request_payload([HumanMessage("hi")])
+    assert payload["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
+    assert prompt_cache_minutes(ModelChoice("anthropic", "m", "w", {PROMPT_CACHE: CACHE_ONE_HOUR})) == 60
 
 
 def _history():
@@ -41,8 +49,9 @@ def test_stored_messages_convert_for_openai(monkeypatch):
     assert assistant["content"] == [{"type": "text", "text": "Let me check."}]
 
 
-def _anthropic() -> ChatAnthropic:
-    model = build_llm(ModelChoice("anthropic", "claude-opus-5-5", "claude-opus-5-5"), "claude-opus-5-5")
+def _anthropic(values: dict[str, str] | None = None) -> ChatAnthropic:
+    choice = ModelChoice("anthropic", "claude-opus-5-5", "claude-opus-5-5", values or {})
+    model = build_llm(choice, "claude-opus-5-5")
     assert isinstance(model, ChatAnthropic)
     return model
 

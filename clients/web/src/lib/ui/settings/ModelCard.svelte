@@ -137,7 +137,15 @@
         {#each provider.fields as f (f.key)}
           <label class="fields">
             <span class="text-label">{f.label}</span>
-            {#if f.secret}
+            {#if f.options?.length}
+              <select
+                class="input"
+                aria-label={f.label}
+                bind:value={() => form.values[f.key] || f.options[0], (v) => (form.values[f.key] = v)}
+              >
+                {#each f.options as o (o)}<option value={o}>{o}</option>{/each}
+              </select>
+            {:else if f.secret}
               <SecretInput
                 label={f.label}
                 placeholder={placeholder(f.key, f.label, f.required)}

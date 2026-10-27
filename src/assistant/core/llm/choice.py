@@ -13,7 +13,15 @@ from langgraph.store.base import BaseStore
 
 from assistant.core import secret_store
 from assistant.core.config import settings
-from assistant.core.llm.providers import CACHE_MINUTES, OPENAI_CACHE_MINUTES, PROVIDERS, ModelProvider, provider
+from assistant.core.llm.providers import (
+    CACHE_MINUTES,
+    CACHE_ONE_HOUR,
+    OPENAI_CACHE_MINUTES,
+    PROMPT_CACHE,
+    PROVIDERS,
+    ModelProvider,
+    provider,
+)
 from assistant.core.secret_store import SecretBox, SecretError
 
 __all__ = ["PROVIDERS", "ModelChoice", "ModelProvider", "provider"]
@@ -95,6 +103,8 @@ def prompt_cache_minutes(choice: ModelChoice) -> float:
     """How long the chosen model's prompt cache lasts after its last use (core/conversation/trim.py)."""
     if choice.provider == "openai" and not choice.values.get("base_url"):
         return OPENAI_CACHE_MINUTES
+    if choice.provider == "anthropic" and choice.values.get(PROMPT_CACHE) == CACHE_ONE_HOUR:
+        return 60.0
     found = provider(choice.provider)
     return found.prompt_cache_minutes if found else CACHE_MINUTES
 
