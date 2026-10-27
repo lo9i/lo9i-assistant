@@ -82,7 +82,9 @@ async def test_the_days_log_records_are_grouped_by_cause(service):
     assert set(causes) == {"ConnectionError: attempt 3 failed", "Poll failed (retry 5)"}
     failing = causes["ConnectionError: attempt 3 failed"]
     assert (failing.count, failing.level, failing.where) == (3, "ERROR", "assistant/core/mcp/hub.py in _connect")
-    assert failing.first == _at(DAY, 9).isoformat() and failing.last == _at(DAY, 11).isoformat()
+    # The same instants, in whichever time zone the records are read in.
+    assert datetime.fromisoformat(failing.first) == _at(DAY, 9)
+    assert datetime.fromisoformat(failing.last) == _at(DAY, 11)
     assert "Couldn't connect to notes" in failing.example
     polling = causes["Poll failed (retry 5)"]
     assert (polling.count, polling.level, polling.where) == (1, "WARNING", "assistant.core.channels.telegram")
