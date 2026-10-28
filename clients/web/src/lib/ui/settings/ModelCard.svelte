@@ -80,16 +80,6 @@
     loaded.reload();
   }
 
-  async function useEnv(): Promise<void> {
-    try {
-      await client.model.reset();
-      message = "Using the model from .env.";
-    } catch (e) {
-      message = describe(e);
-    }
-    loaded.reload();
-  }
-
   function providerName(id: string): string {
     return providers.data?.find((p) => p.id === id)?.name ?? id;
   }
@@ -185,9 +175,6 @@
       {/if}
       <div class="row">
         <button class="btn btn--primary" type="submit" disabled={testing}>Save and test</button>
-        {#if s.source === "app"}
-          <button class="btn btn--neutral" type="button" disabled={testing} onclick={useEnv}>Use .env instead</button>
-        {/if}
       </div>
     </form>
   {/if}
