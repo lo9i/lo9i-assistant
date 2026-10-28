@@ -1,8 +1,34 @@
 import { describe, expect, it } from "vitest";
 import type { HomeSection } from "./api/types";
-import { dayOf, itemWhen, moved, updatedLabel, whileVisible, withSection, withoutSection } from "./home";
+import { SHOWN_ITEMS, dayOf, isWide, itemWhen, linked, moved, updatedLabel, whileVisible, withSection, withoutSection } from "./home";
 
 const section = (id: string, title = id): HomeSection => ({ id, title, prompt: `${title} today.`, plugins: [] });
+
+describe("an item's link", () => {
+  it("is its url, and its subtitle is left as it is", () => {
+    expect(linked({ subtitle: "366 points · 110 comments", url: "https://example.com/cnc" })).toEqual({
+      subtitle: "366 points · 110 comments",
+      url: "https://example.com/cnc",
+    });
+  });
+
+  it("is taken out of the subtitle when it was written there, with its separator", () => {
+    const item = { subtitle: "629 points · 139 comments · https://news.ycombinator.com/item?id=1", url: "" };
+    expect(linked(item)).toEqual({ subtitle: "629 points · 139 comments", url: "https://news.ycombinator.com/item?id=1" });
+    expect(linked({ subtitle: "https://a.example/x", url: "" })).toEqual({ subtitle: "", url: "https://a.example/x" });
+  });
+
+  it("is none for an item without an address", () => {
+    expect(linked({ subtitle: "T2 E7, Ace of Spades", url: "" })).toEqual({ subtitle: "T2 E7, Ace of Spades", url: "" });
+  });
+});
+
+describe("a card's width", () => {
+  it("is two columns only for a card with more items than it shows", () => {
+    expect(isWide(Array(SHOWN_ITEMS).fill({}))).toBe(false);
+    expect(isWide(Array(SHOWN_ITEMS + 1).fill({}))).toBe(true);
+  });
+});
 
 describe("when an item is", () => {
   const today = "2026-10-22";

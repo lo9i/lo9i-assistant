@@ -204,9 +204,13 @@
     max-width: 1600px;
     margin: 0 auto;
   }
+  /* Its width is what the cards ask about to take two columns (SectionCard); dense fills the hole a wide card
+   leaves at the end of a row with the cards after it. */
   .grid {
+    container: home-grid / inline-size;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+    grid-auto-flow: dense;
     gap: 16px;
     align-items: start;
   }
