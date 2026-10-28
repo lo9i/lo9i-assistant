@@ -1,5 +1,5 @@
 <script lang="ts">
-  // A small bar chart of one value per day, in orange.
+  // A small bar chart of one value per day, in teal.
   let { points, label }: { points: { day: string; value: number }[]; label: string } = $props();
 
   const W = 300;
@@ -25,8 +25,8 @@
     display: block;
   }
   .bar {
-    fill: color-mix(in srgb, #f97316 15%, transparent);
-    stroke: #f97316;
+    fill: color-mix(in srgb, #6fb3b5 15%, transparent);
+    stroke: #6fb3b5;
     stroke-width: 2;
     stroke-linejoin: round;
   }
