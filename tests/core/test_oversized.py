@@ -1,8 +1,8 @@
 """A model call refused as too large (HTTP 413, or past the context window) is recovered once: the conversation is
 compacted to its last turn and its files and long tool results left out, then the call is made again. Refused
 again, the run fails with a plain message. Images are sent scaled down, and old ones left out like old tool results.
-A subagent's or Home section's call is made again with its tool results left out, and a summary is written in
-halves."""
+A subagent's or Home section's call is made again with its tool results left out, and a summary or a memory
+digest is written in halves."""
 
 import base64
 from io import BytesIO
@@ -17,7 +17,9 @@ from PIL import Image
 
 from assistant.core import images
 from assistant.core.attachments import Attachment, hydrate, reference
+from assistant.core.conversation import digest as digest_module
 from assistant.core.conversation import summary as summary_module
+from assistant.core.conversation.digest import DigestInput, MemoryDigest, build_digester
 from assistant.core.conversation.oversized import ConversationTooLargeError, within_size
 from assistant.core.conversation.summary import build_summarizer
 from assistant.core.conversation.transcript import halves
@@ -25,6 +27,8 @@ from assistant.core.conversation.trim import trimmed
 from assistant.core.events import Error
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.errors import too_large
+from assistant.core.memory.facts import Fact
+from assistant.core.memory.profile import Profile
 from assistant.core.subagent import TOO_LARGE
 from tests.conftest import collect
 
@@ -210,3 +214,41 @@ async def test_a_short_transcript_refused_as_too_large_isnt_split(service, scrip
 def test_a_transcript_splits_between_messages_nearest_its_middle():
     assert halves("USER: one\n\nASSISTANT: two\n\nUSER: three") == ("USER: one\n\nASSISTANT: two", "USER: three")
     assert halves("abcdef") == ("abc", "def")
+
+
+class _HalvingModel:
+    """Refuses a prompt with both halves of the transcript; digests each half on its own."""
+
+    def __init__(self) -> None:
+        self.prompts: list[str] = []
+
+    async def ainvoke(self, messages: list[BaseMessage]) -> MemoryDigest:
+        prompt = messages[0].text
+        self.prompts.append(prompt)
+        if "a" * 3000 in prompt and "b" * 3000 in prompt:
+            raise _entity_too_large()
+        first = "a" * 3000 in prompt
+        return MemoryDigest(
+            episode_summary="talked about a" if first else "talked about b",
+            profile=Profile(goals=["run"] if first else ["run", "swim"]),
+            new_facts=["likes a", "likes x"] if first else ["likes b"],
+            outdated_fact_ids=["f1"] if first else ["found-1"],
+        )
+
+
+async def test_a_digest_refused_as_too_large_is_made_in_halves(monkeypatch):
+    model = _HalvingModel()
+    monkeypatch.setattr(digest_module, "build_structured", lambda choice, model_name, schema, meter: model)
+    digest = build_digester(ModelChoice("anthropic", "m", "w"), cast(Any, None))
+    facts = [Fact("f1", "likes c"), Fact("f2", "lives in Rosario")]
+    data = DigestInput("met before", Profile(), facts, "USER: " + "a" * 3000 + "\n\nUSER: " + "b" * 3000)
+    joined = await digest(data)
+    second_prompt = model.prompts[-1]
+    assert "met before" in second_prompt and "talked about a" in second_prompt
+    assert "[found-0] likes a" in second_prompt and "f1" not in second_prompt and "[f2]" in second_prompt
+    assert joined == MemoryDigest(
+        episode_summary="talked about a\n\ntalked about b",
+        profile=Profile(goals=["run", "swim"]),
+        new_facts=["likes a", "likes b"],
+        outdated_fact_ids=["f1"],
+    )

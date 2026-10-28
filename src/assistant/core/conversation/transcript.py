@@ -8,6 +8,9 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMe
 
 _MAX_TOOL_OUTPUT = 2000
 _BREAK = "\n\n"
+# Shorter than this, a transcript the model refuses as too large isn't split again: its window is smaller than any
+# summary or digest needs, or the refusal is about something else.
+MIN_HALVED_CHARS = 4000
 
 
 def render(messages: Sequence[BaseMessage]) -> str:
