@@ -31,6 +31,7 @@ CATEGORY_ICONS = {
     "communications/email": "mail",
     "communications/phone": "phone",
     "connectivity/remote": "server",
+    "media/news": "newspaper",
     "media/video": "video",
     "other/general": "puzzle",
     "productivity/calendar": "calendar",

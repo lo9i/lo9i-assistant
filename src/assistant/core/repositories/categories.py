@@ -19,6 +19,7 @@ CATEGORIES = (
     "communications/email",
     "communications/phone",
     "connectivity/remote",
+    "media/news",
     "media/video",
     "other/general",
     "productivity/calendar",
