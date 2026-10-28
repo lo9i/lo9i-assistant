@@ -5,11 +5,12 @@ import type { OpenChats } from "$lib/chat/openChats";
 import type { NoticeBoard } from "$lib/notices";
 
 /** Shows `threadId` in Chat, beside the conversations open there; for the inbox, which Chat never shows, the list of
- * conversations instead. */
+ * conversations instead, and for one that was deleted, a note, staying on the page. */
 export async function openConversation(chats: Pick<OpenChats, "show">, notices: NoticeBoard, threadId: string): Promise<void> {
   try {
     const shown = await chats.show(threadId);
-    await goto(resolve(shown ? "/conversations/open" : "/conversations"));
+    if (shown === "gone") return notices.notify("That conversation was deleted.", "warning");
+    await goto(resolve(shown === "shown" ? "/conversations/open" : "/conversations"));
   } catch (e) {
     notices.report(e);
   }

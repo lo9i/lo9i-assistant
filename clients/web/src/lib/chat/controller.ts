@@ -19,6 +19,7 @@ export interface ChatClient extends Conversations {
   conversations: {
     live(threadId: string): Promise<ShownConversation>;
     approvals(threadId: string): Promise<ApprovalRequired[]>;
+    route(text: string): Promise<string>;
   };
 }
 
@@ -61,6 +62,9 @@ export class ChatController {
   // The conversation's history loading: a run announced meanwhile shows after it, unless it's among its runs.
   private loading: Promise<unknown> = Promise.resolve();
   private decide: ((decision: Decision) => void) | null = null;
+  // A new conversation Chat opened for no topic (a new tab, one gone): its first message goes on in the
+  // conversation it's about, if any, as one written in the inbox would.
+  private fresh: string | null = null;
 
   private constructor(
     private readonly client: ChatClient,
@@ -90,7 +94,7 @@ export class ChatController {
   }
 
   /** Opens on `earlier` in Chat, which never shows the inbox: on a new conversation instead when there's none, it's
-   * gone or it's the inbox. */
+   * gone or it's the inbox, whose first message goes on in the conversation it's about, as the inbox would send it. */
   static async openInChat(
     client: ChatClient,
     channel: string,
@@ -100,7 +104,22 @@ export class ChatController {
   ): Promise<ChatController> {
     const inboxId = await client.inboxThread();
     const threadId = await rejoin(client, earlier, inboxId);
-    if (threadId === inboxId) return await ChatController.started(client, channel, inboxId, notices, tab);
+    if (threadId !== inboxId) return await ChatController.opened(client, channel, threadId, inboxId, notices, tab, "chat");
+    const chat = await ChatController.started(client, channel, inboxId, notices, tab);
+    chat.fresh = chat.state.threadId;
+    return chat;
+  }
+
+  /** Opens on `threadId` in Chat, beside the ones open already. Throws ApiError (404) when it's gone. */
+  static async openExisting(
+    client: ChatClient,
+    channel: string,
+    threadId: string,
+    inboxId: string,
+    notices: NoticeBoard,
+    tab = new ChatTab(),
+  ): Promise<ChatController> {
+    await client.resumeThread(threadId);
     return await ChatController.opened(client, channel, threadId, inboxId, notices, tab, "chat");
   }
 
@@ -149,6 +168,9 @@ export class ChatController {
   getSnapshot = (): ChatSnapshot => this.state;
 
   async send(text: string, files: File[]): Promise<void> {
+    const routes = this.fresh === this.state.threadId && text.trim() !== "";
+    this.fresh = null;
+    if (routes) return await this.routed(text, files);
     const names = files.map((f) => f.name);
     await this.own(
       (t) => addUser(t, text, names),
@@ -203,6 +225,46 @@ export class ChatController {
   /** The chat a message the inbox sent on goes to, which sends it there (null when it can't be shown); without one,
    * this conversation goes there. */
   onDispatched: ((dispatched: Dispatched) => Promise<ChatController | null>) | null = null;
+
+  /** The open chat on the conversation a first message goes on in, which sends it there; with none (or null), this
+   * conversation goes there. */
+  onRouted: ((threadId: string) => Promise<ChatController | null>) | null = null;
+
+  /** Sends a fresh conversation's first message where it goes: on in the conversation it's about, or here. Busy
+   * while that's picked. */
+  private async routed(text: string, files: File[]): Promise<void> {
+    const place = await this.placeFor(text);
+    const there = place ? await this.goTo(place) : this;
+    await there.send(text, files);
+  }
+
+  /** Where `text` goes; here ("") when that can't be found out, so the message is never lost. */
+  private async placeFor(text: string): Promise<string> {
+    this.handingOn = true;
+    this.showing();
+    try {
+      return await this.client.conversations.route(text);
+    } catch (error) {
+      this.report(error);
+      return "";
+    } finally {
+      this.handingOn = false;
+      this.showing();
+    }
+  }
+
+  /** The chat on `threadId`: the open one on it, or this one, moved there; this one, where it is, when it can't. */
+  private async goTo(threadId: string): Promise<ChatController> {
+    const open = await this.onRouted?.(threadId);
+    if (open) return open;
+    try {
+      await this.live.resume(threadId);
+      await this.showHistory();
+    } catch (error) {
+      this.report(error);
+    }
+    return this;
+  }
 
   /** This page's own run of a message, shown with `shown`, from `start`. */
   private async own(shown: (t: Transcript) => Transcript, start: Start, started: () => void = () => {}): Promise<void> {

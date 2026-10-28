@@ -6,6 +6,7 @@
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import ConversationPreview from "$lib/ui/chat/ConversationPreview.svelte";
   import ConversationsTable from "$lib/ui/chat/ConversationsTable.svelte";
+  import { openConversation } from "$lib/ui/openConversation";
   import TopBar from "$lib/ui/TopBar.svelte";
 
   // What Chat opens to: every conversation, newest activity first.
@@ -34,8 +35,7 @@
   const sessions = $derived((clients.data ?? []).filter((c) => c.thread_id && c.thread_id === selected));
 
   async function continueWith(threadId: string): Promise<void> {
-    await chats.show(threadId);
-    await goto(OPEN);
+    await openConversation(chats, notices, threadId);
   }
 
   // One open here can't be deleted while it's open: it's closed first, or the last one goes to a new conversation.

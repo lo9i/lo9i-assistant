@@ -90,9 +90,11 @@ class Dispatcher:
 @pytest.fixture(autouse=True)
 def inbox_answers(monkeypatch: pytest.MonkeyPatch) -> Dispatcher:
     """Every message in the inbox is a quick question the inbox answers, so tests of the agent can talk
-    there (`service.session`); the `dispatch` fixture routes them instead."""
+    there (`service.session`); the `dispatch` fixture routes them instead. A new conversation's first message
+    (core/conversation/first_message.py) is picked by the same."""
     dispatcher = Dispatcher(Pick(QUICK, 1.0, ""))
     monkeypatch.setattr(graph_module, "build_classifier", lambda choice, usage: dispatcher)
+    monkeypatch.setattr(model_module, "build_classifier", lambda choice, usage: dispatcher)
     return dispatcher
 
 

@@ -2,6 +2,7 @@
 // its own, so the daemon keeps every one of them open and their replies run in parallel. One is shown at a
 // time; the sidebar lists them all. None of them is ever the inbox: it routes each message to its conversation
 // (core/inbox.py) and isn't one to read, so Chat never shows it.
+import { ApiError } from "../api/errors";
 import type { ApprovalRequired, Decision, Dispatched } from "../api/types";
 import type { NoticeBoard } from "../notices";
 import { ChatController, type ChatClient, type ChatSnapshot } from "./controller";
@@ -11,6 +12,9 @@ import { ChatTab } from "./tab";
 export type ClientFor = (part: string | null) => ChatClient;
 
 export type OpenChat = { key: string; chat: ChatController };
+
+/** What showing a conversation did: shown, or nothing, for the inbox (Chat never shows it) or one that's gone. */
+export type Shown = "shown" | "inbox" | "gone";
 
 export type OpenChatsSnapshot = {
   chats: { key: string; state: ChatSnapshot }[];
@@ -94,19 +98,36 @@ export class OpenChats {
     return this.open[0].chat.getSnapshot().inboxId;
   }
 
-  /** Shows `threadId`: the open conversation that is on it, or opens it beside the others. Returns false, showing
-   * nothing, for the inbox. */
-  async show(threadId: string): Promise<boolean> {
-    if (threadId === this.inboxId) return false;
-    await this.shown(threadId);
-    return true;
+  /** Shows `threadId`: the open conversation that is on it, or opens it beside the others; nothing for the inbox or
+   * one that's gone. */
+  async show(threadId: string): Promise<Shown> {
+    if (threadId === this.inboxId) return "inbox";
+    try {
+      await this.shown(threadId);
+      return "shown";
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return "gone";
+      throw e;
+    }
   }
 
+  /** Throws ApiError (404) for one that's gone. */
   private async shown(threadId: string): Promise<ChatController> {
     const open = this.open.find((o) => o.chat.getSnapshot().threadId === threadId);
-    if (!open) return await this.add((client) => ChatController.openInChat(client, this.channel, threadId, this.notices, this.tab));
+    if (!open)
+      return await this.add((client) => ChatController.openExisting(client, this.channel, threadId, this.inboxId, this.notices, this.tab));
     this.activate(open.key);
     return open.chat;
+  }
+
+  /** A fresh conversation's first message goes on in `threadId`: shows the other open one on it, if any, and closes
+   * `from`, which nothing was written in. */
+  private async routedTo(from: OpenChat, threadId: string): Promise<ChatController | null> {
+    const there = this.open.find((o) => o !== from && o.chat.getSnapshot().threadId === threadId);
+    if (!there) return null;
+    this.activate(there.key);
+    await this.close(from.key);
+    return there.chat;
   }
 
   /** The inbox sent a message on: where it went opens beside the others, or a new one, shown, for the inbox to
@@ -178,6 +199,7 @@ export class OpenChats {
 
   private follow(open: OpenChat): void {
     open.chat.onDispatched = (dispatched) => this.whereSent(dispatched);
+    open.chat.onRouted = (threadId) => this.routedTo(open, threadId);
     this.unsubscribe.set(
       open.key,
       open.chat.subscribe(() => this.changed()),

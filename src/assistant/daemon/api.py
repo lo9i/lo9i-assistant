@@ -436,6 +436,16 @@ class Moving(BaseModel):
     id: str = ""
 
 
+class Routing(BaseModel):
+    # The first message of a new conversation, as the user wrote it.
+    text: str
+
+
+class Routed(BaseModel):
+    # The conversation it continues; empty for the new one.
+    thread_id: str
+
+
 class RunInProgress(BaseModel):
     run_id: str
     thread_id: str
@@ -682,6 +692,12 @@ def _add_run_routes(
         events = service.move_dispatched(session, body.id or None)
         run = hub.start(thread_id, events, body.channel, _client_id(request))
         return RunStarted(run_id=run.id)
+
+    @app.post("/routes")
+    async def route_first_message(body: Routing) -> Routed:
+        """Where the first message of a conversation opened for no topic goes: on in the conversation it's about,
+        or in the new one. Nothing is sent; the client sends it there."""
+        return Routed(thread_id=await service.route_first_message(settings.owner_id, body.text))
 
     @app.post("/threads/{thread_id}/approvals")
     async def approve(thread_id: str, body: Approvals, request: Request) -> RunStarted:

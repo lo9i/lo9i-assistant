@@ -13,7 +13,7 @@ import httpx
 import pytest
 
 from assistant.client.daemon_client import DaemonClient
-from assistant.core import notifications
+from assistant.core import conversations, notifications
 from assistant.core.agent import (
     ConversationError,
     HomeSection,
@@ -26,7 +26,9 @@ from assistant.core.agent import (
 )
 from assistant.core.attachments import Attachment
 from assistant.core.config import settings
+from assistant.core.conversation.dispatch import Pick
 from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
+from assistant.core.conversations import Conversation
 from assistant.core.events import ApprovalRequired, Cancelled, Dispatched, Done, ToolFinished
 from assistant.core.home import results
 from assistant.core.internet import brave_key
@@ -321,6 +323,17 @@ async def test_the_inbox_sends_a_message_on_and_the_client_sends_it_where_it_wen
     assert await client.model.set_dispatch(DispatchSetting(0.5)) == DispatchSetting(0.5)
     with pytest.raises(DispatchSettingError):
         await client.model.set_dispatch(DispatchSetting(2))
+
+
+async def test_a_new_conversations_first_message_is_routed_without_being_sent(dispatch, app, service):
+    record = Conversation("t1", "Trip to Rome", "2026-10-01", "2026-10-01", tags=["rome"])
+    await conversations.save(service.store, "owner", record)
+    dispatch.picks.append(Pick("t1", 0.95, ""))
+    headers = {CLIENT_HEADER: "test", CLIENT_ID_HEADER: "me"}
+    transport = httpx.ASGITransport(app=trusted(app))
+    async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1", headers=headers) as http:
+        assert (await http.post("/routes", json={"text": "flights to Rome"})).json() == {"thread_id": "t1"}
+        assert (await http.post("/routes", json={"text": "plan my week"})).json() == {"thread_id": ""}
 
 
 async def test_home_is_shown_refreshed_and_its_sections_edited(client, service):

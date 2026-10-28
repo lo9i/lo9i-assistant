@@ -23,6 +23,9 @@ class FakeDaemon implements ChatClient {
   slowHistory: Promise<void> | null = null;
   loading: string[] = [];
   followed: string[] = [];
+  // Where `route` sends a first message; "" for where it was written.
+  routes = new Map<string, string>();
+  routed: string[] = [];
   conversations = {
     live: async (threadId: string) => {
       this.loading.push(threadId);
@@ -31,6 +34,10 @@ class FakeDaemon implements ChatClient {
       return { messages, runs: this.inProgress.get(threadId) ?? [] };
     },
     approvals: async (threadId: string) => this.waiting.get(threadId) ?? [],
+    route: async (text: string) => {
+      this.routed.push(text);
+      return this.routes.get(text) ?? "";
+    },
   };
 
   sent: string[] = [];
@@ -134,6 +141,39 @@ describe("ChatController", () => {
     }
     const chat = await ChatController.openInChat(daemon, "web", "t1", new NoticeBoard());
     expect(chat.getSnapshot().threadId).toBe("t1");
+  });
+
+  it("sends the first message of a conversation opened for none where it goes, and later ones here", async () => {
+    const daemon = new FakeDaemon();
+    daemon.routes.set("flights?", "t1");
+    const chat = await ChatController.openInChat(daemon, "web", null, board);
+    await chat.send("flights?", []);
+    expect(chat.getSnapshot().threadId).toBe("t1");
+    await chat.send("and hotels?", []);
+    expect(daemon.routed).toEqual(["flights?"]);
+    expect(daemon.sent).toEqual(["t1: flights?", "t1: and hotels?"]);
+  });
+
+  it("keeps the first message where it was written when it goes nowhere else, when it's only files, or when the conversation was picked", async () => {
+    const daemon = new FakeDaemon();
+    const fresh = await ChatController.openInChat(daemon, "web", null, board);
+    await fresh.send("plan my week", []);
+    const files = await ChatController.openInChat(daemon, "web", null, board);
+    await files.send("", [new File(["hi"], "notes.txt")]);
+    const picked = await ChatController.openNew(daemon, "web", board);
+    await picked.send("flights?", []);
+    expect(daemon.routed).toEqual(["plan my week"]);
+    expect(daemon.sent).toEqual(["t2: plan my week", "t2: ", "t2: flights?"]);
+  });
+
+  it("sends the first message here when where it goes can't be found out", async () => {
+    const daemon = new FakeDaemon();
+    daemon.conversations.route = async () => {
+      throw new ApiError(500, "no model");
+    };
+    const chat = await ChatController.openInChat(daemon, "web", null, board);
+    await chat.send("flights?", []);
+    expect(daemon.sent).toEqual(["t2: flights?"]);
   });
 
   it("goes back to the inbox with its history", async () => {

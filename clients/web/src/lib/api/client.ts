@@ -121,6 +121,11 @@ export class ConversationsGroup {
     return this.transport.request("GET", path);
   }
 
+  /** The conversation the first message of a new one, `text`, continues; "" for the new one. Sends nothing. */
+  async route(text: string): Promise<string> {
+    return (await this.transport.request<Schemas["Routed"]>("POST", "/routes", { text })).thread_id;
+  }
+
   /** Its messages, tokens and tool calls, and when it started and was last written in; all zero for a new one. */
   stats(threadId: string): Promise<ConversationStats> {
     return this.transport.request("GET", `/conversations/${encodeURIComponent(threadId)}/stats`);

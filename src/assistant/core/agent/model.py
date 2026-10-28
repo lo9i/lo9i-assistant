@@ -12,6 +12,7 @@ from langgraph.store.base import BaseStore
 
 from assistant.core.agent.base import ServiceBase
 from assistant.core.conversation.digest import build_digester
+from assistant.core.conversation.dispatch import build_classifier
 from assistant.core.conversation.summary import build_summarizer
 from assistant.core.conversation.titles import build_titler
 from assistant.core.graph import build_graph
@@ -125,6 +126,7 @@ class ModelMixin(ServiceBase):
             self._storage, model, build_summarizer(model, self._storage.usage), self._plugin_tools
         )
         self._subagents = build_subagents(self._storage, model, self._plugin_tools)
+        self._classify = build_classifier(model, self._storage.usage)
         self._home_builder = build_section_builder(self._storage, model, self._plugin_tools)
 
 

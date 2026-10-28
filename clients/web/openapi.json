@@ -576,6 +576,45 @@
         }
       }
     },
+    "/routes": {
+      "post": {
+        "summary": "Route First Message",
+        "description": "Where the first message of a conversation opened for no topic goes: on in the conversation it's about,\nor in the new one. Nothing is sent; the client sends it there.",
+        "operationId": "route_first_message_routes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Routing"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Routed"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/threads/{thread_id}/approvals": {
       "post": {
         "summary": "Approve",
@@ -8718,6 +8757,32 @@
         },
         "type": "object",
         "title": "Revoked"
+      },
+      "Routed": {
+        "properties": {
+          "thread_id": {
+            "type": "string",
+            "title": "Thread Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "thread_id"
+        ],
+        "title": "Routed"
+      },
+      "Routing": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "Routing"
       },
       "RunInProgress": {
         "properties": {

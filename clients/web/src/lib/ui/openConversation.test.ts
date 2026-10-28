@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Shown } from "$lib/chat/openChats";
 import { NoticeBoard } from "$lib/notices";
 
 const goto = vi.fn();
@@ -11,10 +12,17 @@ describe("openConversation", () => {
   beforeEach(() => goto.mockClear());
 
   it("opens a conversation in Chat, and goes to the list for the inbox, which Chat never shows", async () => {
-    const chats = { show: async (threadId: string) => threadId !== "inbox" };
+    const chats = { show: async (threadId: string) => (threadId === "inbox" ? "inbox" : "shown") as Shown };
     await openConversation(chats, new NoticeBoard(), "t1");
     await openConversation(chats, new NoticeBoard(), "inbox");
     expect(goto.mock.calls).toEqual([["/app/conversations/open"], ["/app/conversations"]]);
+  });
+
+  it("says a conversation that was deleted is gone, staying on the page", async () => {
+    const notices = new NoticeBoard();
+    await openConversation({ show: async () => "gone" as Shown }, notices, "t1");
+    expect(goto).not.toHaveBeenCalled();
+    expect(notices.getSnapshot().map((n) => n.text)).toEqual(["That conversation was deleted."]);
   });
 });
 

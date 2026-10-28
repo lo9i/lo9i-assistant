@@ -16,6 +16,8 @@ class Daemon {
   left: string[] = [];
   // What each conversation's run stopped for and waits on.
   waiting = new Map<string, ApprovalRequired[]>();
+  // Where a new conversation's first message goes; "" for where it was written.
+  routes = new Map<string, string>();
   private next = 10;
 
   clientFor = (part: string | null): ChatClient => {
@@ -53,6 +55,7 @@ class Daemon {
       conversations: {
         live: async () => ({ messages: [], runs: [] }),
         approvals: async (threadId: string) => this.waiting.get(threadId) ?? [],
+        route: async (text: string) => this.routes.get(text) ?? "",
       },
     };
   };
@@ -92,15 +95,36 @@ describe("OpenChats", () => {
     expect(threads(await open(daemon, ["gone", "inbox", "t1"]))).toEqual(["t10", "t11", "t1"]);
   });
 
-  it("shows nothing for the inbox, which Chat never shows", async () => {
+  it("shows nothing for the inbox, which Chat never shows, nor for a conversation that's gone", async () => {
     const daemon = new Daemon();
     daemon.saved.add("inbox");
     const chats = await open(daemon, ["t1"]);
     expect(chats.inboxId).toBe("inbox");
-    expect(await chats.show("inbox")).toBe(false);
+    expect(await chats.show("inbox")).toBe("inbox");
+    expect(await chats.show("deleted")).toBe("gone");
     expect(threads(chats)).toEqual(["t1"]);
-    expect(await chats.show("t2")).toBe(true);
+    expect(await chats.show("t2")).toBe("shown");
     expect(threads(chats)).toEqual(["t1", "t2"]);
+  });
+
+  it("sends a fresh conversation's first message to the open one it continues, closing the fresh one", async () => {
+    const daemon = new Daemon();
+    daemon.routes.set("flights?", "t1");
+    const chats = await open(daemon, ["t1", "gone"], 1);
+    expect(threads(chats)).toEqual(["t1", "t10"]);
+    await chats.current.send("flights?", []);
+    expect(threads(chats)).toEqual(["t1"]);
+    expect(chats.current.getSnapshot().threadId).toBe("t1");
+    expect(daemon.sent).toEqual(["t1: flights?"]);
+  });
+
+  it("moves a fresh conversation to the one its first message continues when that isn't open", async () => {
+    const daemon = new Daemon();
+    daemon.routes.set("flights?", "t2");
+    const chats = await open(daemon, []);
+    await chats.current.send("flights?", []);
+    expect(threads(chats)).toEqual(["t2"]);
+    expect(daemon.sent).toEqual(["t2: flights?"]);
   });
 
   it("starts a new conversation beside the others and shows it", async () => {

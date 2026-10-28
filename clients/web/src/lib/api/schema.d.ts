@@ -349,6 +349,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/routes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Route First Message
+         * @description Where the first message of a conversation opened for no topic goes: on in the conversation it's about,
+         *     or in the new one. Nothing is sent; the client sends it there.
+         */
+        post: operations["route_first_message_routes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/threads/{thread_id}/approvals": {
         parameters: {
             query?: never;
@@ -4150,6 +4171,16 @@ export interface components {
              */
             ok: boolean;
         };
+        /** Routed */
+        Routed: {
+            /** Thread Id */
+            thread_id: string;
+        };
+        /** Routing */
+        Routing: {
+            /** Text */
+            text: string;
+        };
         /** RunInProgress */
         RunInProgress: {
             /** Run Id */
@@ -5263,6 +5294,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    route_first_message_routes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Routing"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Routed"];
                 };
             };
             /** @description Validation Error */

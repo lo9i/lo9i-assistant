@@ -30,11 +30,12 @@
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { pageLabel } from "$lib/pages";
   import PluginIcon from "./PluginIcon.svelte";
+  import { openConversation } from "./openConversation";
   import { sidebar } from "$lib/sidebar.svelte";
 
   let { name }: { name: string } = $props();
 
-  const { chats } = useDaemon();
+  const { chats, notices } = useDaemon();
   // MCP servers that come with a web page, shown in an iframe (routes/pages/[name]).
   const servers = resource((c) => c.mcp.servers(), ["mcp"]);
   const pages = $derived((servers.data ?? []).filter((s) => s.page && s.enabled));
@@ -62,8 +63,8 @@
     ]),
   );
   async function show(item: { key: string | null; threadId: string }): Promise<void> {
-    if (item.key === null) await chats.show(item.threadId);
-    else chats.activate(item.key);
+    if (item.key === null) return await openConversation(chats, notices, item.threadId);
+    chats.activate(item.key);
     await goto(OPEN);
   }
 

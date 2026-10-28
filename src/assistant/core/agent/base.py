@@ -8,6 +8,7 @@ from assistant.core.bus import EventBus
 from assistant.core.channels.hub import ChannelHub
 from assistant.core.channels.processes import ChannelProcesses
 from assistant.core.conversation.digest import Digester
+from assistant.core.conversation.dispatch import Classifier
 from assistant.core.conversation.meanings import ConversationIndexer, SimilarConversations
 from assistant.core.conversation.memory_writer import MemoryWriter
 from assistant.core.conversation.titles import Titler
@@ -78,6 +79,8 @@ class ServiceBase:
     _graph: Graph
     # Runs delegated tasks; rebuilt with the graph when the model changes.
     _subagents: SubagentRunner
+    # Picks where a message goes (core/conversation/dispatch.py) outside the graph; rebuilt with it.
+    _classify: Classifier
     # Builds Home's sections in the background (core/home/), with the builder of the model in use. Requests start
     # its refreshes; the daemon doesn't run it as a task.
     home_refresh: HomeRefresh
