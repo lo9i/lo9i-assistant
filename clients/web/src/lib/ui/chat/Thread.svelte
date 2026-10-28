@@ -442,6 +442,13 @@
     gap: 6px;
     margin-top: 8px;
   }
+  .choices .btn {
+    border-color: #7aa7d9;
+    color: #7aa7d9;
+  }
+  .choices .btn:hover {
+    background: rgba(122, 167, 217, 0.12);
+  }
   .round {
     display: grid;
     place-items: center;
