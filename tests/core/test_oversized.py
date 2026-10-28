@@ -252,3 +252,22 @@ async def test_a_digest_refused_as_too_large_is_made_in_halves(monkeypatch):
         new_facts=["likes a", "likes b"],
         outdated_fact_ids=["f1"],
     )
+
+
+async def test_a_digest_over_the_limits_is_asked_again_with_the_error(monkeypatch):
+    class _Model:
+        def __init__(self):
+            self.prompts: list[str] = []
+
+        async def ainvoke(self, messages):
+            self.prompts.append(messages[0].text)
+            if len(self.prompts) == 1:
+                Profile(how_to_reply=[str(i) for i in range(9)])
+            return MemoryDigest(episode_summary="s", profile=Profile(), new_facts=[], outdated_fact_ids=[])
+
+    model = _Model()
+    monkeypatch.setattr(digest_module, "build_structured", lambda choice, model_name, schema, meter: model)
+    digest = build_digester(ModelChoice("anthropic", "m", "w"), cast(Any, None))
+    result = await digest(DigestInput("", Profile(), [], "USER: hi"))
+    assert result.episode_summary == "s"
+    assert "rejected" in model.prompts[1] and "too_long" in model.prompts[1]

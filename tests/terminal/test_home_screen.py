@@ -34,6 +34,18 @@ def test_a_section_says_what_it_found_or_why_it_has_nothing():
     assert describe(HomeCard(section=section, result=empty), TODAY) == "_Nothing today._"
 
 
+def test_an_item_with_an_address_links_its_title_instead_of_showing_it():
+    section = HomeSection(id="hn", title="Hacker News", prompt="x")
+    items = [
+        HomeItem(title="CNC", subtitle="366 points", url="https://example.com/cnc"),
+        HomeItem(title="Stone", subtitle="12 points · https://news.ycombinator.com/item?id=1"),
+    ]
+    result = SectionResult(section_id="hn", title="Hacker News", status="ok", items=items, at="x")
+    text = describe(HomeCard(section=section, result=result), TODAY)
+    assert "- [**CNC**](https://example.com/cnc) · 366 points" in text
+    assert "- [**Stone**](https://news.ycombinator.com/item?id=1) · 12 points\n" in text + "\n"
+
+
 def test_when_home_was_updated():
     now = datetime(2026, 10, 24, 12, 0, tzinfo=timezone(timedelta(hours=-3)))
     assert updated("2026-10-24T13:32:00+00:00", now) == "Updated 10:32"

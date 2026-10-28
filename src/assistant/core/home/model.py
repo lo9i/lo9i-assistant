@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 
 _DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _TIME = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+_URL = re.compile(r"^https?://\S+$")
 
 
 class HomeItem(BaseModel):
@@ -18,6 +19,11 @@ class HomeItem(BaseModel):
     subtitle: str = Field(default="", description="One short line more, or empty: where, which episode, how much.")
     date: str = Field(default="", description="Its day as YYYY-MM-DD, or empty when it has none.")
     time: str = Field(default="", description="Its time of day as HH:MM, 24-hour, or empty when it has none.")
+    url: str = Field(
+        default="",
+        description="The full http(s) address that opens it (the story, the event's page) when one was found, "
+        "or empty. Only here, never in the title or subtitle.",
+    )
 
     @field_validator("date")
     @classmethod
@@ -33,6 +39,13 @@ class HomeItem(BaseModel):
     def _a_time(cls, value: str) -> str:
         if value and not _TIME.match(value):
             raise ValueError(f"{value!r} isn't a time as HH:MM")
+        return value
+
+    @field_validator("url")
+    @classmethod
+    def _a_link(cls, value: str) -> str:
+        if value and not _URL.match(value):
+            raise ValueError(f"{value!r} isn't an http(s) address")
         return value
 
 

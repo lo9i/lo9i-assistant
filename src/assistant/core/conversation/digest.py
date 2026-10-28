@@ -10,7 +10,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
 
 from langchain_core.messages import HumanMessage
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from assistant.core.conversation import prompts
 from assistant.core.conversation.transcript import MIN_HALVED_CHARS, halves
@@ -51,7 +51,15 @@ def build_digester(choice: ModelChoice, usage: UsageLog) -> Digester:
     llm = build_structured(choice, choice.worker_model, MemoryDigest, TokenMeter(usage, "memory"))
 
     async def _digest(data: DigestInput) -> MemoryDigest:
-        return MemoryDigest.model_validate(await llm.ainvoke([HumanMessage(_prompt(data))]))
+        prompt = _prompt(data)
+        try:
+            return MemoryDigest.model_validate(await llm.ainvoke([HumanMessage(prompt)]))
+        except ValidationError as e:
+            # The model broke a limit (most often a profile section over MAX_ITEMS): asked once more with the error.
+            retry = (
+                f"{prompt}\n\nYour previous answer was rejected:\n{e}\nFix it: merge or drop items to fit the limits."
+            )
+            return MemoryDigest.model_validate(await llm.ainvoke([HumanMessage(retry)]))
 
     return _in_halves(_digest)
 

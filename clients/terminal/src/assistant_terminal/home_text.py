@@ -1,9 +1,13 @@
 """Home (core/home/) as text, for the /home screen: when each item is, a section's last result, and when the
 page was last updated, as the web app's Home page shows them (lib/home.ts)."""
 
+import re
 from datetime import date, datetime
 
 from assistant.core.agent import HomeCard, HomeItem
+
+# An address written in the subtitle, with the separator before it, for results built before items had a url.
+_URL_IN_TEXT = re.compile(r"\s*(?:[·|,;-]\s*)?(https?://\S+)")
 
 
 def item_when(item: HomeItem, today: date) -> str:
@@ -39,8 +43,18 @@ def describe(card: HomeCard, today: date) -> str:
 
 def _item(item: HomeItem, today: date) -> str:
     when = item_when(item, today)
-    parts = [f"**{item.title}**", *([item.subtitle] if item.subtitle else []), *([when] if when else [])]
+    subtitle, url = _linked(item)
+    title = f"[**{item.title}**]({url})" if url else f"**{item.title}**"
+    parts = [title, *([subtitle] if subtitle else []), *([when] if when else [])]
     return f"- {' · '.join(parts)}"
+
+
+def _linked(item: HomeItem) -> tuple[str, str]:
+    """The subtitle without the addresses written in it, and the item's address: its url, or the first one the
+    subtitle had."""
+    found = _URL_IN_TEXT.search(item.subtitle)
+    subtitle = _URL_IN_TEXT.sub("", item.subtitle).strip()
+    return subtitle, item.url or (found.group(1) if found else "")
 
 
 def _problem(status: str, error: str) -> str:

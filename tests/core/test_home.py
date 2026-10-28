@@ -181,6 +181,12 @@ async def test_an_answer_that_doesnt_fit_the_format_fails_the_section(service, f
     assert result is not None and result.status == "failed" and "isn't a time as HH:MM" in result.error
 
 
+def test_an_item_links_only_to_a_web_address():
+    assert HomeItem(title="CNC", url="https://news.ycombinator.com/item?id=1").url.startswith("https://")
+    with pytest.raises(ValueError, match="isn't an http"):
+        HomeItem(title="CNC", url="javascript:alert(1)")
+
+
 async def test_a_refresh_within_ten_minutes_of_the_last_does_nothing_unless_forced(service, formats):
     await _install_calendar(service)
     await _only(service, "Agenda")

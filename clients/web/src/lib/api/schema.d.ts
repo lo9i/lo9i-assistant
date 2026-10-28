@@ -3292,6 +3292,12 @@ export interface components {
              * @default
              */
             time: string;
+            /**
+             * Url
+             * @description The full http(s) address that opens it (the story, the event's page) when one was found, or empty. Only here, never in the title or subtitle.
+             * @default
+             */
+            url: string;
         };
         /** HomePage */
         HomePage: {
