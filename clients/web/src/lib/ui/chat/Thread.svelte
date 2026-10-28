@@ -133,7 +133,7 @@
             {#if item.channel}<span class="micro-label">{item.channel}</span>{/if}
             {#if item.text}<p>{item.text}</p>{/if}
             {#each item.files as file (file)}
-              <span class="file"><Paperclip size={12} color="var(--color-accent)" />{file}</span>
+              <span class="file"><Paperclip size={12} color="#7aa7d9" />{file}</span>
             {/each}
           </div>
         </div>
@@ -372,7 +372,7 @@
     display: flex;
     width: fit-content;
     padding: 1px 4px;
-    border: 1px solid var(--color-accent);
+    border: 1px solid #7aa7d9;
     border-radius: var(--radius-sm, 6px);
     align-items: center;
     gap: 4px;
