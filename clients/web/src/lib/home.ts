@@ -4,6 +4,8 @@ import type { HomeItem, HomeSection } from "./api/types";
 import { local } from "./jobs";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** The widest a card can be: the columns Home has room for at its widest (MAX_COLUMNS in core/home/model.py). */
+export const MAX_COLUMNS = 4;
 /** The items a card shows before More, so a long list doesn't make its card tower over the others. */
 export const SHOWN_ITEMS = 5;
 // An address written in the subtitle, with the separator before it, for results built before items had a url.
@@ -45,6 +47,18 @@ export function isWide(items: unknown[]): boolean {
   return items.length > SHOWN_ITEMS;
 }
 
+/** The columns a card spans where the page has them: the width the user gave it, or two for a busy one. */
+export function cardColumns(section: Pick<HomeSection, "columns">, items: unknown[]): number {
+  return section.columns || (isWide(items) ? 2 : 1);
+}
+
+/** The columns a card dragged to `width` pixels snaps to, in a grid of `column`-pixel columns `gap` apart, with
+ * `available` of them. */
+export function snappedColumns(width: number, column: number, gap: number, available: number): number {
+  const columns = Math.round((width + gap) / (column + gap));
+  return Math.max(1, Math.min(columns, available, MAX_COLUMNS));
+}
+
 /** "Updated 10:32" today, "Updated Wed 21 Oct 18:05" before; "" before the first refresh. */
 export function updatedLabel(at: string, now: Date, timezone = Intl.DateTimeFormat().resolvedOptions().timeZone): string {
   if (!at) return "";
@@ -61,6 +75,11 @@ export function withSection(sections: HomeSection[], edited: HomeSection): HomeS
 
 export function withoutSection(sections: HomeSection[], id: string): HomeSection[] {
   return sections.filter((s) => s.id !== id);
+}
+
+/** The section with its card `columns` wide. */
+export function withColumns(sections: HomeSection[], id: string, columns: number): HomeSection[] {
+  return sections.map((s) => (s.id === id ? { ...s, columns } : s));
 }
 
 /** The section moved one place up (-1) or down (1); unchanged at either end. */

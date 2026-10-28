@@ -57,6 +57,7 @@ def _cleaned(section: HomeSection) -> HomeSection:
         title=" ".join(section.title.split()),
         prompt=section.prompt.strip(),
         plugins=plugins,
+        columns=section.columns,
     )
 
 

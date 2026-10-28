@@ -3341,6 +3341,11 @@ export interface components {
              * @default []
              */
             plugins: string[];
+            /**
+             * Columns
+             * @default 0
+             */
+            columns: number;
         };
         /** HomeSections */
         HomeSections: {

@@ -97,6 +97,22 @@ async def test_a_section_is_added_with_its_plugins_and_a_refusal_keeps_it_open(a
         await wait_for(pilot, lambda: "Not built yet" in home.query_one("#home-body", Markdown).source)
 
 
+async def test_editing_a_section_keeps_the_width_its_card_was_given(app, client):
+    client.home.sections[0] = client.home.sections[0].model_copy(update={"columns": 2})
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/home", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, HomeScreen))
+        home = app.screen
+        await pilot.pause()
+        home.query_one("#edit", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, HomeSectionScreen))
+        app.screen.query_one("#home-section-name", Input).value = "Agenda"
+        app.screen.query_one("#save", Button).press()
+        await wait_for(pilot, lambda: app.screen is home)
+        assert [(s.title, s.columns) for s in client.home.sections] == [("Agenda", 2)]
+
+
 async def test_sections_are_moved_removed_and_reset(app, client):
     client.home.sections.append(HomeSection(id="notes", title="Notes", prompt="x"))
     async with app.run_test(size=(140, 44)) as pilot:

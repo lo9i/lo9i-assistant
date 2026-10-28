@@ -8,7 +8,7 @@
   import { DaemonUnavailableError } from "$lib/api/errors";
   import type { HomePage, HomeSection } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
-  import { dayOf, moved, updatedLabel, whileVisible, withSection, withoutSection } from "$lib/home";
+  import { dayOf, moved, updatedLabel, whileVisible, withColumns, withSection, withoutSection } from "$lib/home";
   import { HomeSaves } from "$lib/homeSaves.svelte";
   import { describe } from "$lib/notices";
   import { installedIcon } from "$lib/pluginIcons";
@@ -30,6 +30,8 @@
   const refreshing = $derived(home.data?.refreshing ?? false);
   // Moving, removing and saving a section build on the list last asked for, so quick clicks add up.
   const saves = new HomeSaves(async (next) => show(await client.home.saveSections(next)));
+  // Each card's width as last asked for, so a resized card doesn't spring back while its save is on its way.
+  const widths = $derived(new Map(saves.latest(sections).map((s) => [s.id, s.columns])));
 
   // The clock the labels read, moved on every minute so "Updated" and the days stay right.
   let now = $state(new Date());
@@ -153,6 +155,7 @@
       {#each home.data.cards as card, i (card.section.id)}
         <SectionCard
           {card}
+          columns={widths.get(card.section.id) ?? card.section.columns}
           icon={installedIcon(servers.data, card.section.plugins[0] ?? "")}
           {today}
           {refreshing}
@@ -161,6 +164,7 @@
           onedit={() => edit(card.section)}
           ondelete={() => (removing = card.section)}
           onmove={(by) => change((latest) => moved(latest, card.section.id ?? "", by))}
+          onresize={(columns) => change((latest) => withColumns(latest, card.section.id ?? "", columns))}
         />
       {/each}
     </div>
@@ -204,7 +208,7 @@
     max-width: 1600px;
     margin: 0 auto;
   }
-  /* Its width is what the cards ask about to take two columns (SectionCard); dense fills the hole a wide card
+  /* Its width is what the cards ask about to span their columns (SectionCard); dense fills the hole a wide card
    leaves at the end of a row with the cards after it. */
   .grid {
     container: home-grid / inline-size;

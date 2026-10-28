@@ -21,7 +21,7 @@ from assistant.core.config import settings
 from assistant.core.home import results
 from assistant.core.home.builder import LIMIT_REACHED, MAX_STEPS
 from assistant.core.home.clock import within
-from assistant.core.home.model import SectionContent
+from assistant.core.home.model import MAX_COLUMNS, SectionContent
 from assistant.core.home.refresh import FRESH_MINUTES
 from assistant.core.mcp import hub as hub_module
 from assistant.core.mcp import servers
@@ -234,6 +234,18 @@ async def test_saving_builds_new_and_changed_sections_and_forgets_removed_ones(s
     page = await service.home("owner")
     assert [c.section.title for c in page.cards] == ["My day", "Trips"] and page.cards[1].section.id
     assert set(await results.load(service.store, "owner")) == {"agenda", page.cards[1].section.id}
+
+
+async def test_a_cards_width_is_saved_with_its_section_without_building_it_again(service, formats):
+    await _install_calendar(service)
+    await _only(service, "Agenda")
+    built = len(formats.requests)
+    agenda = (await service.home("owner")).cards[0].section
+    page = await service.save_home_sections("owner", [agenda.model_copy(update={"columns": 3})])
+    await service.home_refresh.wait("owner")
+    assert page.cards[0].section.columns == 3 and len(formats.requests) == built
+    with pytest.raises(ValueError):
+        HomeSection(title="A", prompt="x", columns=MAX_COLUMNS + 1)
 
 
 @pytest.mark.parametrize(

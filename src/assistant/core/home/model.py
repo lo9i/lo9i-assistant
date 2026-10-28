@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field, field_validator
 
 _DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _TIME = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+# The widest a card can be: the columns the web app's Home has room for at its widest.
+MAX_COLUMNS = 4
 _URL = re.compile(r"^https?://\S+$")
 
 
@@ -66,6 +68,9 @@ class HomeSection(BaseModel):
     prompt: str
     # The plugins whose tools it reads; empty for every plugin's.
     plugins: list[str] = []
+    # How many of the page's columns its card spans where the page has them: 0 for the apps to choose (two for a
+    # busy one), up to MAX_COLUMNS.
+    columns: int = Field(default=0, ge=0, le=MAX_COLUMNS)
 
 
 # ok: built. unavailable: none of its plugins is installed and on, so it wasn't built. failed: building it failed;

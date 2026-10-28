@@ -7054,6 +7054,13 @@
             "type": "array",
             "title": "Plugins",
             "default": []
+          },
+          "columns": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 0.0,
+            "title": "Columns",
+            "default": 0
           }
         },
         "type": "object",

@@ -66,7 +66,13 @@ class HomeSectionScreen(ModalScreen[str | None]):
             await message.update("**Give it a title and say what to show.**")
             return
         plugins = list(self.query_one("#home-section-plugins", SelectionList).selected)
-        section = HomeSection(id=self._section.id if self._section else "", title=title, prompt=prompt, plugins=plugins)
+        section = HomeSection(
+            id=self._section.id if self._section else "",
+            title=title,
+            prompt=prompt,
+            plugins=plugins,
+            columns=self._section.columns if self._section else 0,
+        )
         if problem := await self._save(section):
             await message.update(f"**{problem}**")
             return

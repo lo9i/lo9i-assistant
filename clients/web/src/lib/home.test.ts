@@ -1,8 +1,22 @@
 import { describe, expect, it } from "vitest";
 import type { HomeSection } from "./api/types";
-import { SHOWN_ITEMS, dayOf, isWide, itemWhen, linked, moved, updatedLabel, whileVisible, withSection, withoutSection } from "./home";
+import {
+  SHOWN_ITEMS,
+  cardColumns,
+  dayOf,
+  isWide,
+  itemWhen,
+  linked,
+  moved,
+  snappedColumns,
+  updatedLabel,
+  whileVisible,
+  withColumns,
+  withSection,
+  withoutSection,
+} from "./home";
 
-const section = (id: string, title = id): HomeSection => ({ id, title, prompt: `${title} today.`, plugins: [] });
+const section = (id: string, title = id): HomeSection => ({ id, title, prompt: `${title} today.`, plugins: [], columns: 0 });
 
 describe("an item's link", () => {
   it("is its url, and its subtitle is left as it is", () => {
@@ -24,9 +38,30 @@ describe("an item's link", () => {
 });
 
 describe("a card's width", () => {
+  const busy = Array(SHOWN_ITEMS + 1).fill({});
+
   it("is two columns only for a card with more items than it shows", () => {
     expect(isWide(Array(SHOWN_ITEMS).fill({}))).toBe(false);
-    expect(isWide(Array(SHOWN_ITEMS + 1).fill({}))).toBe(true);
+    expect(isWide(busy)).toBe(true);
+    expect(cardColumns({ columns: 0 }, [])).toBe(1);
+    expect(cardColumns({ columns: 0 }, busy)).toBe(2);
+  });
+
+  it("is the one the user gave it, busy or not", () => {
+    expect(cardColumns({ columns: 3 }, [])).toBe(3);
+    expect(cardColumns({ columns: 1 }, busy)).toBe(1);
+  });
+
+  it("snaps to the nearest column the page has while it's dragged", () => {
+    expect(snappedColumns(320, 320, 16, 4)).toBe(1);
+    expect(snappedColumns(560, 320, 16, 4)).toBe(2);
+    expect(snappedColumns(1000, 320, 16, 4)).toBe(3);
+    expect(snappedColumns(1000, 320, 16, 2)).toBe(2);
+    expect(snappedColumns(40, 320, 16, 4)).toBe(1);
+  });
+
+  it("is saved with its section", () => {
+    expect(withColumns([section("a"), section("b")], "b", 2).map((s) => s.columns)).toEqual([0, 2]);
   });
 });
 

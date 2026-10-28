@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { HomeSection } from "$lib/api/types";
+  import { MAX_COLUMNS } from "$lib/home";
   import Modal from "../Modal.svelte";
 
   type Props = {
@@ -20,6 +21,9 @@
   let prompt = $state(section?.prompt ?? "");
   // svelte-ignore state_referenced_locally
   let picked = $state<string[]>([...(section?.plugins ?? [])]);
+  // svelte-ignore state_referenced_locally
+  let columns = $state(section?.columns ?? 0);
+  const widths = Array.from({ length: MAX_COLUMNS }, (_, i) => i + 1);
   // A plugin the section names that isn't installed stays listed, so saving doesn't drop it unseen.
   const choices = $derived([...new Set([...plugins, ...picked])].sort());
 
@@ -28,7 +32,7 @@
   }
 
   function save(): void {
-    onsave({ id: section?.id ?? "", title, prompt, plugins: picked });
+    onsave({ id: section?.id ?? "", title, prompt, plugins: picked, columns });
   }
 </script>
 
@@ -63,6 +67,16 @@
       <p class="text-meta">None picked: it may read every plugin. It only uses tools that read, never ones that change things.</p>
     {/if}
   </fieldset>
+  <label class="field">
+    <span class="micro-label">Width</span>
+    <select class="input" bind:value={columns}>
+      <option value={0}>Automatic: two columns when it has more than it shows at once</option>
+      {#each widths as n (n)}
+        <option value={n}>{n === 1 ? "1 column" : `${n} columns`}</option>
+      {/each}
+    </select>
+    <span class="text-caption">On a narrower screen it takes as many as there are. Dragging the card's right edge sets it too.</span>
+  </label>
   {#if error}<p class="error-text">{error}</p>{/if}
   {#snippet footer()}
     <button class="btn btn--ghost btn--sm" onclick={onclose}>Cancel</button>
