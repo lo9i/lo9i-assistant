@@ -25,8 +25,8 @@
   --z-toast: 102;
 
   --color-bg-page: #0b0d12;
-  --color-bg-card: rgba(23, 22, 24, 0.68);
-  --color-bg-card-hover: rgba(31, 30, 33, 0.82);
+  --color-bg-card: rgba(22, 28, 29, 0.68);
+  --color-bg-card-hover: rgba(30, 38, 39, 0.82);
   --color-border: rgba(255, 255, 255, 0.14);
   --color-divider: rgba(255, 255, 255, 0.22);
   --color-text-primary: #ffffff;
@@ -42,12 +42,12 @@
   --color-bg-hover-ghost: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
   --surface-raised-bg: #16181f;
 
-  --surface-glass-bg: rgba(26, 25, 27, 0.58);
+  --surface-glass-bg: rgba(25, 32, 33, 0.58);
   --surface-glass-border: rgba(255, 255, 255, 0.08);
   --surface-glass-blur: blur(20px) saturate(160%) brightness(1.05);
   --surface-glass-shadow: none;
-  --surface-popover-bg: rgba(26, 25, 27, 0.58);
-  --surface-modal-bg: rgba(26, 25, 27, 0.85);
+  --surface-popover-bg: rgba(25, 32, 33, 0.58);
+  --surface-modal-bg: rgba(25, 32, 33, 0.85);
   --scrim-bg: color-mix(in srgb, #000 34%, transparent);
   --scrim-blur: blur(8px) saturate(125%);
   --shadow-popover: 0 10px 28px -16px rgba(0, 0, 0, 0.6);
