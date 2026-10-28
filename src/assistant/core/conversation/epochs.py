@@ -118,10 +118,12 @@ async def compact(
     summarizer: Summarizer,
     now: datetime,
     plugin_tools: Mapping[str, Sequence[str]],
+    keep_turns: int | None = None,
 ) -> dict[str, Any]:
-    """Archive the older part of the epoch and start a new one. Returns a state update."""
+    """Archive the older part of the epoch and start a new one with its last `keep_turns` user turns (by default
+    EPOCH_KEEP_TURNS, or the last one after an idle gap). Returns a state update."""
     start = state.get("epoch_start", 0)
-    keep = 1 if is_idle(state, now) else settings.epoch_keep_turns
+    keep = keep_turns or (1 if is_idle(state, now) else settings.epoch_keep_turns)
     cut = cut_index(state["messages"], start, keep)
     if cut <= start:
         return {}

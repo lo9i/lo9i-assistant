@@ -6,9 +6,9 @@ import hashlib
 import math
 import re
 from collections import deque
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
@@ -138,10 +138,12 @@ def embedder(monkeypatch: pytest.MonkeyPatch) -> FakeEmbedder:
 
 
 class ScriptedModel(GenericFakeChatModel):
-    """Answers with the queued replies, records every request and the tools bound for it."""
+    """Answers with the queued replies, records every request and the tools bound for it. A queued error is raised
+    by the call whose turn it is instead."""
 
     requests: list[list[BaseMessage]] = Field(default_factory=list)
     bound: list[list[Any]] = Field(default_factory=list)
+    replies: deque[AIMessage | Exception] = Field(default_factory=deque)
 
     def bind_tools(self, tools: Any, **kwargs: Any) -> "ScriptedModel":
         self.bound.append(list(tools))
@@ -149,6 +151,9 @@ class ScriptedModel(GenericFakeChatModel):
 
     async def ainvoke(self, messages: Any, *args: Any, **kwargs: Any) -> Any:
         self.requests.append(list(messages))
+        if self.replies and isinstance(error := self.replies[0], Exception):
+            self.replies.popleft()
+            raise error
         return await super().ainvoke(messages, *args, **kwargs)
 
 
@@ -156,7 +161,7 @@ class Script:
     """The replies the fake model gives, in order, and the requests it received."""
 
     def __init__(self) -> None:
-        self._replies: deque[AIMessage] = deque()
+        self._replies: deque[AIMessage | Exception] = deque()
         self.requests: list[list[BaseMessage]] = []
         # The tools bound for each request.
         self.bound: list[list[Any]] = []
@@ -169,14 +174,21 @@ class Script:
         call_id = f"call-{len(self._replies)}"
         return self.reply(tool_calls=[{"name": tool, "args": args, "id": call_id}])
 
-    def _next(self):
+    def refuse(self, error: Exception) -> "Script":
+        """The model call whose turn it is raises `error`."""
+        self._replies.append(error)
+        return self
+
+    def _next(self) -> Iterator[AIMessage]:
         while True:
-            yield self._replies.popleft() if self._replies else AIMessage(content="ok")
+            # A queued error is taken by the call before it gets here (ScriptedModel.ainvoke).
+            yield cast(AIMessage, self._replies.popleft()) if self._replies else AIMessage(content="ok")
 
     def model(self) -> ScriptedModel:
         model = ScriptedModel(messages=self._next(), disable_streaming=True)
         model.requests = self.requests
         model.bound = self.bound
+        model.replies = self._replies
         return model
 
 

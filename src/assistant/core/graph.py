@@ -33,12 +33,14 @@ from assistant.core.conversation.epochs import (
     reopen,
     usage_anchor,
 )
+from assistant.core.conversation.oversized import ConversationTooLargeError, shrink, shrunk_already
 from assistant.core.conversation.routed import without_routed
 from assistant.core.conversation.summary import Summarizer
 from assistant.core.conversation.trim import trim_update, trimmed
 from assistant.core.conversation.unanswered import answered
 from assistant.core.llm import build_llm, metered
 from assistant.core.llm.choice import ModelChoice, prompt_cache_minutes
+from assistant.core.llm.errors import too_large
 from assistant.core.llm.providers import IMAGES_IN_TOOL_RESULTS
 from assistant.core.storage import Storage
 from assistant.core.tools import tools_for
@@ -84,6 +86,10 @@ class AgentState(MessagesState):
     loaded_plugins: list[str]
     # Each plugin with tools and their names, as this epoch's system prompt lists them.
     plugin_tools: dict[str, list[str]]
+    # The last model call was refused as too large, and how many messages there were when the conversation was
+    # last shrunk for it (conversation/oversized.py), so it's shrunk once before a call is given up on.
+    request_too_large: bool
+    shrunk_at: int
 
 
 Graph = CompiledStateGraph[AgentState, Context, AgentState, AgentState]
@@ -117,14 +123,16 @@ def build_graph(storage: Storage, choice: ModelChoice, summarizer: Summarizer, m
     builder.add_node("agent", _agent_node(llm, offered, choice.provider in IMAGES_IN_TOOL_RESULTS))
     builder.add_node("tools", ToolNode(tools, awrap_tool_call=mcp_calls(mcp)))
     builder.add_node("installed", _loaded_node(mcp))
+    builder.add_node("shrink", _shrink_node(summarizer, mcp))
     dispatch = dispatch_nodes(build_classifier(choice, storage.usage), then="epoch")
     builder.add_node(DISPATCH, dispatch[DISPATCH], destinations=("epoch", ASK, SEND))
     builder.add_node(ASK, dispatch[ASK], destinations=(SEND,))
     builder.add_node(SEND, dispatch[SEND], destinations=(END,))
     builder.add_edge(START, DISPATCH)
     builder.add_edge("epoch", "agent")
-    builder.add_conditional_edges("agent", each_tool_call("tools"), ["tools", END])
+    builder.add_conditional_edges("agent", _after_agent(each_tool_call("tools")), ["tools", "shrink", END])
     builder.add_edge("tools", "installed")
+    builder.add_edge("shrink", "agent")
     builder.add_edge("installed", "agent")
     return builder.compile(checkpointer=storage.checkpointer, store=storage.store)
 
@@ -261,6 +269,32 @@ def each_tool_call(node: str) -> Callable[[MessagesState], str | list[Send]]:
     return _route
 
 
+def _after_agent(route: Callable[[MessagesState], str | list[Send]]) -> Callable[[AgentState], str | list[Send]]:
+    """A call refused as too large goes to be shrunk and made again; any other, its tool calls or the end."""
+
+    def _route(state: AgentState) -> str | list[Send]:
+        return "shrink" if state.get("request_too_large") else route(state)
+
+    return _route
+
+
+def _shrink_node(summarizer: Summarizer, mcp: McpTools) -> Node:
+    """Shrinks the conversation after a model call refused as too large (conversation/oversized.py). A new epoch
+    keeps the plugins loaded: the run is in the middle of its work."""
+
+    async def _shrink(state: AgentState, runtime: Runtime[Context], config: RunnableConfig) -> dict:
+        user_id, store = runtime.context.user_id, require_store(runtime.store)
+        thread_id = config.get("configurable", {})["thread_id"]
+        catalog = mcp.catalog()
+        update = await shrink(state, store, user_id, thread_id, summarizer, datetime.now(UTC), catalog)
+        if "system_prompt" in update:
+            loaded = [plugin for plugin in state.get("loaded_plugins", []) if plugin in catalog]
+            update |= {"loaded_plugins": loaded, "mcp_tools": mcp.definitions(loaded), "plugin_tools": catalog}
+        return {**update, "request_too_large": False, "shrunk_at": len(state["messages"])}
+
+    return _shrink
+
+
 def mcp_calls(mcp: McpTools) -> AsyncToolCallWrapper:
     """Runs calls to plugins' tools, which the tool node doesn't know: they're looked up when called,
     so a tool that was turned off or whose plugin went away stops working at once."""
@@ -284,7 +318,10 @@ def _agent_node(llm: BaseChatModel, tools: Sequence[BaseTool], images_in_tool_re
         epoch = answered(failed.without_marks(without_routed(kept)))
         messages = await asyncio.to_thread(hydrate, epoch, images_in_tool_results)
         bound = llm.bind_tools([*tools, *state.get("mcp_tools", [])])
-        response = await bound.ainvoke([SystemMessage(state["system_prompt"]), *messages])
+        try:
+            response = await bound.ainvoke([SystemMessage(state["system_prompt"]), *messages])
+        except Exception as e:
+            return _refused(state, e)
         return {
             "messages": [response],
             "usage_anchor": usage_anchor(response, len(state["messages"]) + 1),
@@ -292,3 +329,12 @@ def _agent_node(llm: BaseChatModel, tools: Sequence[BaseTool], images_in_tool_re
         }
 
     return _agent
+
+
+def _refused(state: AgentState, error: Exception) -> dict:
+    """A call refused as too large asks for the conversation to be shrunk, once; any other error stops the run."""
+    if not too_large(error):
+        raise error
+    if shrunk_already(state):
+        raise ConversationTooLargeError() from error
+    return {"request_too_large": True}

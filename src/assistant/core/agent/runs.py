@@ -15,6 +15,7 @@ from assistant.core.agent.session import Session
 from assistant.core.agent.thread_files import ThreadFilesMixin
 from assistant.core.context import Context
 from assistant.core.conversation import failed
+from assistant.core.conversation.oversized import ConversationTooLargeError
 from assistant.core.events import ApprovalRequired, Cancelled, Done, Error, Event, declined
 from assistant.core.health import HealthLog
 from assistant.core.skills.tracker import SkillScriptTracker
@@ -155,7 +156,7 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
         except Exception as e:
             # The apps show only the message; the log keeps where it came from.
             logger.exception("A run in %s failed", thread_id)
-            events.put_nowait(Error(f"{type(e).__name__}: {e}"))
+            events.put_nowait(Error(_shown(e)))
 
     async def pending_approvals(self, thread_id: str) -> list[ApprovalRequired]:
         """The approvals the conversation's run stopped for, still waiting for an answer."""
@@ -202,7 +203,7 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
         try:
             state = await self._graph.aget_state(config)
             step = next((t.name for t in state.tasks if t.error is not None), "")
-            mark = failed.mark(f"{type(error).__name__}: {error}", step)
+            mark = failed.mark(_shown(error), step)
             await self._graph.aupdate_state(config, {"messages": [mark]}, as_node="agent")
         except Exception:
             logger.exception("Couldn't record the failed run in %s", thread_id)
@@ -238,6 +239,13 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
     async def _pending_approvals(self, config: RunnableConfig) -> list[ApprovalRequired]:
         state = await self._graph.aget_state(config)
         return approval_events(state.interrupts)
+
+
+def _shown(error: Exception) -> str:
+    """The error as the apps show it: an error written for the user as it is, any other with its type."""
+    if isinstance(error, ConversationTooLargeError):
+        return str(error)
+    return f"{type(error).__name__}: {error}"
 
 
 async def _until_error(first: AsyncIterator[Event], then: Callable[[], AsyncIterator[Event]]) -> AsyncIterator[Event]:

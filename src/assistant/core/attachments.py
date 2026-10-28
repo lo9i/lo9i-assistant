@@ -6,7 +6,7 @@ Request form: `hydrate` replaces each reference with the file's content before t
 A file the model can't read (a video, an archive) is sent as a note with where it was saved, to
 open with bash; an agent a conversation is handed to gets every file's path. Hydration is
 deterministic, so every turn renders earlier messages identically and the prompt
-cache and thinking blocks stay valid.
+cache and thinking blocks stay valid. Images go scaled down (core/images.py); the file keeps its size.
 
 Tool results keep their references (images from MCP tools) in the message's `artifact`, which
 LangChain never sends to the model: the tool node accepts only its own block types as content.
@@ -17,11 +17,13 @@ message after the results, built for the request and never saved.
 import base64
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
 
-from assistant.core import uploads
+from assistant.core import images, uploads
 
 Block = dict[str, Any]
 
@@ -29,6 +31,8 @@ Block = dict[str, Any]
 # user speaking (core/llm/copilot.py).
 TOOL_MEDIA_SENDER = "tool_results"
 _TOOL_MEDIA_INTRO = "[Images from the tool results above]"
+# Images fitted for the model (core/images.py) kept in memory, so each call of a run doesn't fit them again.
+_FITTED_IMAGES = 64
 
 
 @dataclass
@@ -93,6 +97,13 @@ def _moved_note(block: Block) -> Block:
 def carries_files(message: BaseMessage) -> bool:
     """A tool result whose artifact refers to saved files, which `hydrate` adds to the request."""
     return bool(_tool_references(message))
+
+
+def carries_user_files(message: BaseMessage) -> bool:
+    """A user's message that refers to saved files, which `hydrate` adds to the request."""
+    if not isinstance(message, HumanMessage) or not isinstance(message.content, list):
+        return False
+    return any(map(is_reference, message.content))
 
 
 def _tool_references(message: BaseMessage) -> list[Block]:
@@ -168,21 +179,48 @@ def _stored_references(message: BaseMessage) -> list[Any]:
     return _tool_references(message)
 
 
+def left_out(message: HumanMessage) -> HumanMessage:
+    """The user's message with each file it refers to replaced by a note saying where it's saved, sent once
+    its files are old (conversation/trim.py) or the request was too large (conversation/oversized.py)."""
+    if not isinstance(message.content, list):
+        return message
+    content = [_left_out_note(r) if (r := _reference(block)) else block for block in message.content]
+    return message.model_copy(update={"content": content})
+
+
+def _left_out_note(reference: dict[str, str]) -> Block:
+    where = uploads.absolute(reference["path"])
+    return _text(f"[File {reference['name']} left out to save space; saved at {where}]")
+
+
 def _hydrate_block(block: Any) -> list[Any]:
     reference = _reference(block)
     if reference is None:
         return [block]
-    data = uploads.load(reference["path"])
-    if data is None:
-        return [_text(f"[Uploaded file {reference['name']} is no longer available]")]
-    attachment = Attachment(name=reference["name"], media_type=reference["media_type"], data=data)
     where = uploads.absolute(reference["path"])
+    if not where.is_file():
+        return [_text(f"[Uploaded file {reference['name']} is no longer available]")]
+    attachment = _loaded(reference, where)
     try:
         convert = _converter_for(attachment)
     except ValueError:
         # A file the model can't take (a video, a spreadsheet): it can open it with bash.
         return [_text(f"[File {attachment.name} ({attachment.media_type}) saved at {where}; open it with bash]")]
     return [_text(f"[Uploaded file {attachment.name}, saved at {where}]"), convert(attachment)]
+
+
+def _loaded(reference: dict[str, str], where: Path) -> Attachment:
+    name, media_type = reference["name"], reference["media_type"]
+    if media_type.startswith("image/"):
+        data, media_type = _fitted_image(where, media_type)
+        return Attachment(name=name, media_type=media_type, data=data)
+    return Attachment(name=name, media_type=media_type, data=where.read_bytes())
+
+
+@lru_cache(maxsize=_FITTED_IMAGES)
+def _fitted_image(where: Path, media_type: str) -> tuple[bytes, str]:
+    """By path: an upload never changes, each is saved in a folder of its own (core/uploads.py)."""
+    return images.fit(where.read_bytes(), media_type)
 
 
 def _converter_for(attachment: Attachment) -> Callable[[Attachment], Block]:
