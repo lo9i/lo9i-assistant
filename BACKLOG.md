@@ -53,7 +53,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 - H1. Better epoch summaries: quote user messages verbatim, keep ids and paths exactly, and let `search_memory` search tool outputs too (it covers only what the user and the assistant wrote).
 - H2. The groups of core tools load on demand now (email, jobs, skill writing; `core/tools/registry.py::tool_groups`); the longest descriptions are still long (`update_profile`, `move_to_conversation`, `delegate`, `remember`, and in their groups `schedule_job`, `save_skill`, `search_email`). Shorten them, moving their guidance into skills the model reads only when needed (about 0.5–1k tokens).
-- H3. Only the conversation's own model call recovers from a request refused as too large (`core/conversation/oversized.py`: compacted, its files left out, made once more). A subagent (`core/subagent.py`), a Home section (`core/home/builder.py`) or the summarizer itself fails as before; a subagent whose tools return many screenshots is the likely one. Give them the same recovery: leave out their older tool results and files, and try once more.
+- H3. The memory digest (`core/conversation/digest.py`) sends an archived part's whole transcript in one call, like the summarizer did; a model that refuses it as too large leaves the part pending, failing again at every start (`memory_writer.py`). Digest it in halves as the summary is (`summary.py::_in_halves`): the second half with the profile and facts the first one's digest left, the two episode summaries joined.
 
 ## Voice
 

@@ -1,6 +1,8 @@
 """A model call refused as too large (HTTP 413, or past the context window) is recovered once: the conversation is
 compacted to its last turn and its files and long tool results left out, then the call is made again. Refused
-again, the run fails with a plain message. Images are sent scaled down, and old ones left out like old tool results."""
+again, the run fails with a plain message. Images are sent scaled down, and old ones left out like old tool results.
+A subagent's or Home section's call is made again with its tool results left out, and a summary is written in
+halves."""
 
 import base64
 from io import BytesIO
@@ -8,16 +10,22 @@ from typing import Any, cast
 
 import httpx2
 import openai
+import pytest
 from langchain_core.exceptions import ContextOverflowError
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from PIL import Image
 
 from assistant.core import images
 from assistant.core.attachments import Attachment, hydrate, reference
-from assistant.core.conversation.oversized import ConversationTooLargeError
+from assistant.core.conversation import summary as summary_module
+from assistant.core.conversation.oversized import ConversationTooLargeError, within_size
+from assistant.core.conversation.summary import build_summarizer
+from assistant.core.conversation.transcript import halves
 from assistant.core.conversation.trim import trimmed
 from assistant.core.events import Error
+from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.errors import too_large
+from assistant.core.subagent import TOO_LARGE
 from tests.conftest import collect
 
 _LONG = "python3 -c \"print('x' * 3000)\""
@@ -142,3 +150,63 @@ def test_small_images_and_files_pillow_cant_read_are_sent_as_they_are():
     assert images.fit(small, "image/png") == (small, "image/png")
     svg = b"<svg xmlns='http://www.w3.org/2000/svg'/>"
     assert images.fit(svg, "image/svg+xml") == (svg, "image/svg+xml")
+
+
+async def test_a_subagent_refused_as_too_large_goes_on_with_its_results_left_out(service, script):
+    script.call("delegate", task="read the page")
+    script.call("bash", command=_LONG).refuse(_entity_too_large()).call("bash", command="echo more")
+    script.reply("The page is all x.").reply("Done.")
+    events = await collect(service.send(await service.session("u", "cli"), "go"))
+    assert not any(isinstance(e, Error) for e in events)
+    later = script.requests[-2]
+    results = [m.text for m in later if isinstance(m, ToolMessage)]
+    assert results[0].startswith("[Left out to save space") and results[1] == "exit code: 0\nmore\n"
+    final = [m.text for m in script.requests[-1] if isinstance(m, ToolMessage)]
+    assert final == ["The page is all x."]
+
+
+async def test_a_subagent_refused_again_answers_that_it_stopped(service, script):
+    script.call("delegate", task="read the page")
+    script.call("bash", command=_LONG).refuse(_entity_too_large()).refuse(_entity_too_large())
+    script.reply("Done.")
+    events = await collect(service.send(await service.session("u", "cli"), "go"))
+    assert not any(isinstance(e, Error) for e in events)
+    assert [m.text for m in script.requests[-1] if isinstance(m, ToolMessage)] == [TOO_LARGE]
+
+
+async def test_within_size_raises_other_errors_and_leaves_nothing_more_to_leave_out():
+    async def refuse(messages: list[BaseMessage]) -> str:
+        raise _entity_too_large()
+
+    with pytest.raises(openai.APIStatusError):
+        await within_size(refuse, [HumanMessage("task")], 1)
+
+    async def fail(messages: list[BaseMessage]) -> str:
+        raise RuntimeError("down")
+
+    with pytest.raises(RuntimeError):
+        await within_size(fail, [HumanMessage("task")], 0)
+
+
+async def test_a_transcript_refused_as_too_large_is_summarized_in_halves(service, script, monkeypatch):
+    monkeypatch.setattr(summary_module, "build_llm", lambda choice, model: script.model())
+    summarize = build_summarizer(ModelChoice("anthropic", "m", "w"), service._storage.usage)
+    first, second = "USER: " + "a" * 3000, "USER: " + "b" * 3000
+    script.refuse(_entity_too_large()).reply("about a").reply("about a and b")
+    assert await summarize("", f"{first}\n\n{second}") == "about a and b"
+    halves_sent = [request[0].text for request in script.requests[1:]]
+    assert first in halves_sent[0] and second not in halves_sent[0]
+    assert "about a" in halves_sent[1] and second in halves_sent[1] and first not in halves_sent[1]
+
+
+async def test_a_short_transcript_refused_as_too_large_isnt_split(service, script, monkeypatch):
+    monkeypatch.setattr(summary_module, "build_llm", lambda choice, model: script.model())
+    summarize = build_summarizer(ModelChoice("anthropic", "m", "w"), service._storage.usage)
+    script.refuse(_entity_too_large())
+    with pytest.raises(openai.APIStatusError):
+        await summarize("", "USER: hi\n\nASSISTANT: hello")
+
+
+def test_a_transcript_splits_between_messages_nearest_its_middle():
+    assert halves("USER: one\n\nASSISTANT: two\n\nUSER: three") == ("USER: one\n\nASSISTANT: two", "USER: three")
+    assert halves("abcdef") == ("abc", "def")

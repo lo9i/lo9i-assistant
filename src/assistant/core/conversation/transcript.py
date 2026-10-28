@@ -7,10 +7,19 @@ from typing import Any
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 
 _MAX_TOOL_OUTPUT = 2000
+_BREAK = "\n\n"
 
 
 def render(messages: Sequence[BaseMessage]) -> str:
-    return "\n\n".join(text for text in map(_render_message, messages) if text)
+    return _BREAK.join(text for text in map(_render_message, messages) if text)
+
+
+def halves(transcript: str) -> tuple[str, str]:
+    """The transcript in two, at the break between messages nearest its middle, or at the middle when it's one."""
+    middle = len(transcript) // 2
+    breaks = [i for i in (transcript.rfind(_BREAK, 0, middle), transcript.find(_BREAK, middle)) if i > 0]
+    cut = min(breaks, key=lambda i: abs(i - middle)) if breaks else middle
+    return transcript[:cut], transcript[cut:].removeprefix(_BREAK)
 
 
 def _render_message(message: BaseMessage) -> str:

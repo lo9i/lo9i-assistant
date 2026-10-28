@@ -5,7 +5,8 @@ read-only tools of the plugins the conversation loaded (core/plugin_loading.py).
 A subagent's graph runs inside the delegate call. It shares the run's checkpointer under that call's
 namespace, so an approval inside it pauses the main run and the answer resumes it where it stopped. Its
 tool calls stream live inside the delegate call, and are kept with the call's result for history
-(core/subagent_steps.py)."""
+(core/subagent_steps.py). A call refused as too large is made again with its tool results and files left out
+(core/conversation/oversized.py); refused again, the task ends with an answer saying so."""
 
 import asyncio
 from collections.abc import Awaitable, Callable, Collection, Sequence
@@ -13,7 +14,7 @@ from dataclasses import replace
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import BaseTool
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, MessagesState, StateGraph
@@ -26,10 +27,12 @@ from assistant.core.attachments import hydrate
 from assistant.core.config import settings
 from assistant.core.context import Context, Subagents
 from assistant.core.conversation import prompts
+from assistant.core.conversation.oversized import within_size
 from assistant.core.events import ToolFinished, ToolStarted
 from assistant.core.graph import McpTools, Node, each_tool_call, mcp_calls
 from assistant.core.llm import build_llm, metered
 from assistant.core.llm.choice import ModelChoice
+from assistant.core.llm.errors import too_large
 from assistant.core.llm.providers import IMAGES_IN_TOOL_RESULTS
 from assistant.core.mcp.sanitize import MCP_PREFIX
 from assistant.core.storage import Storage
@@ -40,6 +43,10 @@ from assistant.core.usage.meter import TokenMeter
 # The result of a tool call made after the subagent's limits ran out.
 LIMIT_REACHED = "[not run: this task's step limit was reached. Answer now with what you found.]"
 NO_ANSWER = "The subagent stopped at its step limit without an answer."
+TOO_LARGE = (
+    "The subagent stopped: the model refused its request as too large, even with its tool results and files left "
+    "out. Split the task into smaller ones, or do it yourself."
+)
 
 # Node names differ from the main graph's, so the subagent's text never streams as the reply
 # (core/stream_events.py reads the "agent" node's).
@@ -52,6 +59,8 @@ class SubagentState(MessagesState):
     steps: int
     # The delegate call this subagent works for, named by its tool events.
     call_id: str
+    # Before which tool results and files are sent as stubs: the end, once a call was refused as too large.
+    trimmed_before: int
 
 
 SubagentGraph = CompiledStateGraph[SubagentState, Context, SubagentState, SubagentState]
@@ -66,7 +75,9 @@ class SubagentRunner(Subagents):
 
     async def run(self, task: str, context: Context, call_id: str, plugins: Collection[str]) -> SubagentAnswer:
         mcp_tools = self._read_only(plugins)
-        start = SubagentState(messages=[HumanMessage(task)], mcp_tools=mcp_tools, steps=0, call_id=call_id)
+        start = SubagentState(
+            messages=[HumanMessage(task)], mcp_tools=mcp_tools, steps=0, call_id=call_id, trimmed_before=0
+        )
         state = await self._graph.ainvoke(
             start,
             {"recursion_limit": 2 * settings.subagent_max_steps + 5},
@@ -106,14 +117,30 @@ def build_subagents(storage: Storage, choice: ModelChoice, mcp: McpTools) -> Sub
 
 def _agent_node(llm: BaseChatModel, tools: Sequence[BaseTool], images_in_tool_results: bool) -> Node:
     async def _agent(state: SubagentState) -> dict:
-        messages = await asyncio.to_thread(hydrate, state["messages"], images_in_tool_results)
         bound = llm.bind_tools([*tools, *state["mcp_tools"]])
-        response = await bound.ainvoke([SystemMessage(prompts.load("subagent")), *messages])
+
+        async def _call(messages: list[BaseMessage]) -> BaseMessage:
+            hydrated = await asyncio.to_thread(hydrate, messages, images_in_tool_results)
+            return await bound.ainvoke([SystemMessage(prompts.load("subagent")), *hydrated])
+
+        response, before = await _within_size(_call, state)
         if isinstance(response, AIMessage):
             _report_calls(response, state["call_id"])
-        return {"messages": [response], "steps": state["steps"] + 1}
+        return {"messages": [response], "steps": state["steps"] + 1, "trimmed_before": before}
 
     return _agent
+
+
+async def _within_size(
+    call: Callable[[list[BaseMessage]], Awaitable[BaseMessage]], state: SubagentState
+) -> tuple[BaseMessage, int]:
+    """Still too large with every result left out, the answer says so, which ends the task."""
+    try:
+        return await within_size(call, state["messages"], state.get("trimmed_before", 0))
+    except Exception as e:
+        if not too_large(e):
+            raise
+        return AIMessage(TOO_LARGE), len(state["messages"])
 
 
 def _report_calls(response: AIMessage, call_id: str) -> None:

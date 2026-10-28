@@ -1,12 +1,15 @@
-"""Home: each section built by the worker model from its plugins' read-only tools, answered in one format and
-validated, kept between refreshes and refreshed by the daemon at the start of the day and while a client shows it;
-a section without its plugin, or that fails, says so without stopping the others. The plugin runs in-process."""
+"""Home: each section built by the worker model from its plugins' read-only tools (a call refused as too large made
+again with the tool results left out), answered in one format and validated, kept between refreshes and refreshed
+by the daemon at the start of the day and while a client shows it; a section without its plugin, or that fails,
+says so without stopping the others. The plugin runs in-process."""
 
 import asyncio
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import httpx2
+import openai
 import pytest
 from langchain_core.messages import ToolMessage
 from mcp import Client
@@ -133,6 +136,20 @@ async def test_the_gathering_stops_at_its_step_limit(service, script):
     await _only(service, "Agenda")
     assert [m.text for m in script.requests[MAX_STEPS] if isinstance(m, ToolMessage)][-1] == LIMIT_REACHED
     assert len(script.requests) == MAX_STEPS + 1
+
+
+async def test_a_call_refused_as_too_large_is_made_again(service, script, formats):
+    await _install_calendar(service)
+    request = httpx2.Request("POST", "https://api.githubcopilot.com/chat/completions")
+    refused = openai.APIStatusError(
+        "Request Entity Too Large", response=httpx2.Response(413, request=request), body=None
+    )
+    script.call(LIST).refuse(refused).reply("Standup.")
+    formats.answers.append(SectionContent(items=[HomeItem(title="Standup")]))
+    await _only(service, "Agenda")
+    assert script.requests[1] == script.requests[2]
+    result = (await service.home("owner")).cards[0].result
+    assert result is not None and result.status == "ok"
 
 
 async def test_a_section_without_its_plugin_says_so_without_calling_the_model(service, script):

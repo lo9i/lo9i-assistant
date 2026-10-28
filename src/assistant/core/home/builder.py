@@ -4,7 +4,8 @@ put in the section's format (model.py).
 Two steps, so every provider can do it: a small graph like a subagent's (core/subagent.py) gathers with the
 tools and says what it found, then the structured model (core/llm/build_structured) writes that as items, which
 pydantic validates. Only read-only tools are offered, and only those run, so building Home never changes
-anything and never waits for an approval."""
+anything and never waits for an approval. A call refused as too large is made again with the tool results left
+out (core/conversation/oversized.py)."""
 
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import datetime
@@ -23,6 +24,7 @@ from langgraph.types import Send
 from assistant.core.config import settings
 from assistant.core.context import UNATTENDED_CHANNEL, Context
 from assistant.core.conversation import prompts
+from assistant.core.conversation.oversized import within_size
 from assistant.core.graph import McpTools, Node, each_tool_call, mcp_calls
 from assistant.core.home.model import HomeSection, SectionContent
 from assistant.core.llm import build_llm, build_structured, metered
@@ -42,6 +44,8 @@ class _GatherState(MessagesState):
     # The read-only tools of the section's plugins.
     tools: list[dict[str, Any]]
     steps: int
+    # Before which tool results are sent as stubs: the end, once a call was refused as too large.
+    trimmed_before: int
 
 
 _Gather = CompiledStateGraph[_GatherState, Context, _GatherState, _GatherState]
@@ -57,7 +61,7 @@ class SectionBuilder:
     ) -> SectionContent:
         """Raises what the model calls raise, and a validation error for an answer that doesn't fit the format."""
         task = _task(section, now)
-        start = _GatherState(messages=[HumanMessage(task)], tools=tools, steps=0)
+        start = _GatherState(messages=[HumanMessage(task)], tools=tools, steps=0, trimmed_before=0)
         state = await self._gather.ainvoke(
             start, {"recursion_limit": 2 * MAX_STEPS + 5}, context=Context(user_id, UNATTENDED_CHANNEL)
         )
@@ -91,8 +95,12 @@ def _answer(messages: Sequence[BaseMessage]) -> str:
 def _agent_node(llm: BaseChatModel) -> Node:
     async def _agent(state: _GatherState) -> dict:
         bound = llm.bind_tools(state["tools"])
-        response = await bound.ainvoke([SystemMessage(prompts.load("home")), *state["messages"]])
-        return {"messages": [response], "steps": state["steps"] + 1}
+
+        async def _call(messages: list[BaseMessage]) -> BaseMessage:
+            return await bound.ainvoke([SystemMessage(prompts.load("home")), *messages])
+
+        response, before = await within_size(_call, state["messages"], state["trimmed_before"])
+        return {"messages": [response], "steps": state["steps"] + 1, "trimmed_before": before}
 
     return _agent
 
