@@ -445,9 +445,10 @@
   .choices .btn {
     border-color: #7aa7d9;
     color: #7aa7d9;
+    background: rgba(122, 167, 217, 0.08);
   }
   .choices .btn:hover {
-    background: rgba(122, 167, 217, 0.12);
+    background: rgba(122, 167, 217, 0.16);
   }
   .round {
     display: grid;
