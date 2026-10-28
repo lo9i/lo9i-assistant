@@ -1,10 +1,24 @@
 # lo9i assistant
 
-A personal AI assistant built on LangGraph. A daemon owns all state and runs the agent. You reach it from a terminal app, a web app, and chat channels installed as plugins (Telegram, Slack), and one conversation continues across them.
+**Your own AI assistant, running on your computer.** Chat with it from Telegram, WhatsApp, Slack, the web or the terminal, and it handles your email, calendar, bills, servers and code. It remembers you across all of them.
 
-It remembers you (a profile, facts and past episodes), runs shell commands, searches and reads the web, sends and reads email, runs scheduled jobs, and uses tools from MCP servers. Risky actions ask for your approval first.
+Works with an Anthropic key, any OpenAI-compatible API (including Ollama), or **just a GitHub Copilot subscription**.
 
-Website: [lo9i.com.ar](https://lo9i.com.ar/)
+![lo9i web app](https://lo9i.com.ar/img/web-delegate.webp)
+
+Website: [lo9i.com.ar](https://lo9i.com.ar/) · MIT licensed
+
+## What it can do
+
+- **One assistant everywhere:** terminal app, web app, Telegram, Slack and WhatsApp; a conversation continues across them
+- **Memory:** a profile of you, saved facts and past conversations
+- **Email and calendar:** read, search and send mail, new-mail alerts, CalDAV and macOS calendars
+- **Life admin:** bills and due dates, a movie/TV watchlist with downloads, YouTube videos and transcripts
+- **Your servers:** run commands on your Linux hosts in a shared terminal, with SSH tunnels
+- **Coding:** hand tasks to Claude Code, or to the *factory*, where several models debate the spec and plan before an agent builds it on a branch
+- **Scheduled jobs:** "every morning, send me what's due this week"
+- **Safe by default:** risky actions ask for your approval first; secrets stay in the daemon
+- **Extensible:** everything is a plugin, built on MCP
 
 ## Quick install
 
@@ -58,7 +72,13 @@ Type `/` in the terminal app to list every command. You can also ask the assista
 
 The web app is served by the daemon at http://127.0.0.1:8765/app/. A browser must be paired with a one-time code from `/devices` before it can use the assistant. For access from other computers, set the `HTTPS_*` settings in `.env`.
 
-## Running on another computer
+## Plugins
+
+Plugins live in [lo9i-assistant-extras](https://github.com/lo9i/lo9i-assistant-extras) and install from the app (`/plugins`, or Settings → Plugins). To write your own, see [`docs/agent-plugins.md`](docs/agent-plugins.md) and [`docs/channel-plugins.md`](docs/channel-plugins.md). New plugins are welcome.
+
+## For developers
+
+### Running on another computer
 
 From your development machine:
 
@@ -70,11 +90,11 @@ It builds the web app, copies the working tree to `~/lo9i-assistant` on the host
 
 On Linux the daemon runs as the systemd user service `lo9i-assistant`, the same service `/startup` turns on. It starts at boot without anyone logging in only while lingering is on for that user (`sudo loginctl enable-linger <user>`, once). Its log is `~/.lo9i/logs/daemon.log`, as on macOS; a crash before logging starts is in `journalctl --user-unit lo9i-assistant`, which the Logs page shows as `output`.
 
-## Data
+### Data
 
 Everything the assistant keeps is in `~/.lo9i`: the database (`lo9i.db`), uploads, speech models, the bash workspace, skills and the daemon socket.
 
-## Development
+### Development
 
 ```bash
 uv run ruff format && uv run ruff check && uv run pyright
