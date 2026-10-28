@@ -96,7 +96,7 @@
   const NAV: Item[] = [
     { href: resolve("/home"), label: "Home", Icon: House },
     // The open conversations show under Chat. Its count is those waiting for an answer, for when that list is hidden
-    // (the sidebar collapsed, a phone); the inbox too, which that list leaves out.
+    // (the sidebar collapsed, a phone).
     {
       href: CHAT,
       label: "Chat",

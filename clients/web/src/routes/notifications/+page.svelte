@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import BellOff from "@lucide/svelte/icons/bell-off";
   import ListChecks from "@lucide/svelte/icons/list-checks";
@@ -13,6 +12,7 @@
   import ListEnd from "$lib/ui/ListEnd.svelte";
   import { installedIcon } from "$lib/pluginIcons";
   import PluginIcon from "$lib/ui/PluginIcon.svelte";
+  import { openConversation } from "$lib/ui/openConversation";
   import TopBar from "$lib/ui/TopBar.svelte";
 
   // Scheduled jobs' results and background work that ended (core/notifications.py), apart from any
@@ -37,15 +37,6 @@
 
   function kind(n: Notification): string {
     return n.kind === "job" ? "Scheduled job" : n.kind === "doctor" ? "Health check" : "Background work";
-  }
-
-  async function openConversation(n: Notification): Promise<void> {
-    try {
-      await chats.show(n.thread_id);
-      await goto(resolve("/conversations/open"));
-    } catch (e) {
-      notices.report(e);
-    }
   }
 
   function jobLink(n: Notification): string {
@@ -137,8 +128,11 @@
         </dl>
         <p class="text">{shown.text}</p>
         <div class="actions">
-          {#if shown.thread_id}
-            <button class="btn btn--neutral btn--sm" onclick={() => openConversation(shown)}>Open its conversation</button>
+          <!-- Work started in the inbox has no conversation to open: Chat never shows the inbox. -->
+          {#if shown.thread_id && shown.thread_id !== chats.inboxId}
+            <button class="btn btn--neutral btn--sm" onclick={() => openConversation(chats, notices, shown.thread_id)}
+              >Open its conversation</button
+            >
           {:else if shown.job}
             <a class="btn btn--neutral btn--sm" href={jobLink(shown)}>Open the job</a>
           {:else if shown.kind === "doctor"}

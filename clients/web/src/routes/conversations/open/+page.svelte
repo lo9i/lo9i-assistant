@@ -5,32 +5,35 @@
   import Plus from "@lucide/svelte/icons/plus";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import ChatPanel from "$lib/ui/chat/ChatPanel.svelte";
+  import { leaveInbox } from "$lib/ui/openConversation";
   import TopBar from "$lib/ui/TopBar.svelte";
 
   const { chats } = useDaemon();
   // The conversation shown; the others open beside it are in the sidebar, every one in Chat's list.
   const snapshot = external(chats.subscribe, () => chats.current.getSnapshot());
+  // Chat never shows the inbox: should it come to it all the same, the page gives way to the list.
   const inInbox = $derived(snapshot.current.threadId === snapshot.current.inboxId);
+  $effect(() => void leaveInbox(snapshot.current));
   const conversations = resource((c) => c.conversations.list(), ["conversations"]);
-  const title = $derived(
-    inInbox ? "Inbox" : conversations.data?.find((c) => c.thread_id === snapshot.current.threadId)?.title || "New conversation",
-  );
+  const title = $derived(conversations.data?.find((c) => c.thread_id === snapshot.current.threadId)?.title || "New conversation");
 
   async function startNew(): Promise<void> {
     await chats.startNew();
   }
 </script>
 
-<TopBar {title}>
-  {#snippet actions()}
-    <button class="btn btn--ghost" title="Every conversation, newest first" onclick={() => goto(resolve("/conversations"))}
-      ><List size={16} /><span class="hide-narrow">All conversations</span></button
-    >
-    <button class="btn btn--primary" onclick={startNew}><Plus size={16} /><span class="hide-narrow">New conversation</span></button>
-  {/snippet}
-</TopBar>
+{#if !inInbox}
+  <TopBar {title}>
+    {#snippet actions()}
+      <button class="btn btn--ghost" title="Every conversation, newest first" onclick={() => goto(resolve("/conversations"))}
+        ><List size={16} /><span class="hide-narrow">All conversations</span></button
+      >
+      <button class="btn btn--primary" onclick={startNew}><Plus size={16} /><span class="hide-narrow">New conversation</span></button>
+    {/snippet}
+  </TopBar>
 
-<div class="screen"><ChatPanel /></div>
+  <div class="screen"><ChatPanel /></div>
+{/if}
 
 <style>
   .screen {

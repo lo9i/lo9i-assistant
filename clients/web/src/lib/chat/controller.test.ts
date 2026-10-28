@@ -124,6 +124,18 @@ describe("ChatController", () => {
     }
   });
 
+  it("opens a new conversation in Chat instead of the inbox: none before, one gone, or the inbox itself", async () => {
+    const daemon = new FakeDaemon();
+    daemon.saved.add("inbox");
+    for (const earlier of [null, "never-written", "inbox"]) {
+      const chat = await ChatController.openInChat(daemon, "web", earlier, new NoticeBoard());
+      expect(chat.getSnapshot()).toMatchObject({ threadId: "t2", inboxId: "inbox" });
+      expect(texts(chat)).toEqual([]);
+    }
+    const chat = await ChatController.openInChat(daemon, "web", "t1", new NoticeBoard());
+    expect(chat.getSnapshot().threadId).toBe("t1");
+  });
+
   it("goes back to the inbox with its history", async () => {
     const chat = await ChatController.open(new FakeDaemon(), "web", "t1", board);
     await chat.startNew();

@@ -17,7 +17,11 @@ export type OpenItem = {
 };
 
 /** `working` are the conversations with a reply or a task running anywhere. */
-export function openList(open: OpenChatsSnapshot, conversations: Conversation[], working: string[]): OpenItem[] {
+export function openList(
+  open: Pick<OpenChatsSnapshot, "chats" | "activeKey">,
+  conversations: Conversation[],
+  working: string[],
+): OpenItem[] {
   const busy = new Set(working);
   const titled = (threadId: string) => conversations.find((c) => c.thread_id === threadId)?.title || "New conversation";
   const opened = open.chats

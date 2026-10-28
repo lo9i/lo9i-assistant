@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
   import CircleCheck from "@lucide/svelte/icons/circle-check";
@@ -12,6 +11,7 @@
   import { runQuery } from "$lib/jobs";
   import { localTime } from "$lib/health";
   import EmptyState from "$lib/ui/EmptyState.svelte";
+  import { openConversation } from "$lib/ui/openConversation";
   import TopBar from "$lib/ui/TopBar.svelte";
   import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
 
@@ -31,13 +31,6 @@
     } catch (e) {
       notices.report(e);
     }
-  }
-
-  async function openConversation(threadId: string): Promise<void> {
-    await act(async () => {
-      await chats.show(threadId);
-      await goto(resolve("/conversations/open"));
-    });
   }
 
   function kind(c: Cause): string {
@@ -138,7 +131,9 @@
                   <!-- A scheduled job's run: its conversation isn't listed, the Jobs page shows it. -->
                   <a class="btn btn--ghost btn--sm" href={`${resolve("/jobs")}${runQuery(t.job, t.run_at)}`}>{t.title}</a>
                 {:else}
-                  <button class="btn btn--ghost btn--sm" onclick={() => openConversation(t.thread_id)}>{t.title || "Untitled"}</button>
+                  <button class="btn btn--ghost btn--sm" onclick={() => openConversation(chats, notices, t.thread_id)}
+                    >{t.title || "Untitled"}</button
+                  >
                 {/if}
               {/each}
             </div>

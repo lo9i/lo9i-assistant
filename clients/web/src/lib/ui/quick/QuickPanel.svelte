@@ -7,7 +7,7 @@
   import { openConversation } from "../openConversation";
 
   // The panel above the quick buttons: what was asked (`children`), the reply, and the conversation the
-  // inbox sent the message on to, to open in Chat.
+  // inbox sent the message on to, to open in Chat; a quick answer in the inbox has none to open.
   let {
     title,
     chat,
@@ -31,7 +31,7 @@
 
   async function open(): Promise<void> {
     onclose();
-    await openConversation(chats, notices, chat.threadId, chat.inboxId);
+    await openConversation(chats, notices, chat.threadId);
   }
 </script>
 
@@ -49,9 +49,9 @@
   {/if}
   {#if reply}
     <p class="reply">{reply}</p>
-    {#if !chat.busy}
+    {#if !chat.busy && !inInbox}
       <button class="btn btn--ghost btn--sm open" onclick={open}>
-        {inInbox ? "Open the inbox" : "Open the conversation"}
+        Open the conversation
         <ArrowUpRight size={12} />
       </button>
     {/if}

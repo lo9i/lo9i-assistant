@@ -20,7 +20,6 @@ class Daemon {
 
   clientFor = (part: string | null): ChatClient => {
     const id = part ?? "me";
-    const empty = async function* (): AsyncGenerator<RunEvent> {};
     const play = async function* (this: Daemon): AsyncGenerator<RunEvent> {
       yield* this.runs.shift() ?? [];
     }.bind(this);
@@ -48,7 +47,7 @@ class Daemon {
         this.sent.push(`${session.thread_id}: move ${id}`);
         return play();
       },
-      resume: empty,
+      resume: () => play(),
       followRunBatches: async function* (): AsyncGenerator<RunEvent[]> {},
       cancel: async () => true,
       conversations: {
@@ -86,11 +85,22 @@ describe("OpenChats", () => {
     expect(chats.saved()).toEqual({ threads: ["t1", "t2"], active: 1 });
   });
 
-  it("opens the inbox when nothing was open, and keeps one of two that both came back as the inbox", async () => {
-    expect(threads(await open(new Daemon(), []))).toEqual(["inbox"]);
+  it("never opens the inbox: a new conversation when nothing was open, for one gone, and for the inbox", async () => {
+    expect(threads(await open(new Daemon(), []))).toEqual(["t10"]);
     const daemon = new Daemon();
-    expect(threads(await open(daemon, ["gone", "lost"]))).toEqual(["inbox"]);
-    expect(daemon.left).toEqual(["inbox"]);
+    daemon.saved.add("inbox");
+    expect(threads(await open(daemon, ["gone", "inbox", "t1"]))).toEqual(["t10", "t11", "t1"]);
+  });
+
+  it("shows nothing for the inbox, which Chat never shows", async () => {
+    const daemon = new Daemon();
+    daemon.saved.add("inbox");
+    const chats = await open(daemon, ["t1"]);
+    expect(chats.inboxId).toBe("inbox");
+    expect(await chats.show("inbox")).toBe(false);
+    expect(threads(chats)).toEqual(["t1"]);
+    expect(await chats.show("t2")).toBe(true);
+    expect(threads(chats)).toEqual(["t1", "t2"]);
   });
 
   it("starts a new conversation beside the others and shows it", async () => {
@@ -110,94 +120,48 @@ describe("OpenChats", () => {
     expect(chats.current.getSnapshot().threadId).toBe("t1");
   });
 
-  it("goes to the open inbox, or opens it beside the others", async () => {
-    const chats = await open(new Daemon(), ["inbox", "t1"], 1);
-    await chats.goInbox();
-    expect(threads(chats)).toEqual(["inbox", "t1"]);
-    expect(chats.current.getSnapshot().threadId).toBe("inbox");
-    const alone = await open(new Daemon(), ["t1"]);
-    await alone.goInbox();
-    expect(threads(alone)).toEqual(["t1", "inbox"]);
-    expect(alone.current.getSnapshot().threadId).toBe("inbox");
-  });
-
-  it("writes a message from the inbox and opens where it went", async () => {
+  it("moves a message in the inbox without showing it, asking over Chat, and opens where it goes", async () => {
     const daemon = new Daemon();
     const chats = await open(daemon, ["t2"]);
+    const question: ApprovalRequired = { type: "ApprovalRequired", interrupt_id: "q1", request: { kind: "question" } };
     daemon.runs = [
-      [
-        { type: "Dispatched", id: "d1", thread_id: "", title: "New conversation", text: "plan", line: "→ Started a new conversation." },
-        { type: "Done" },
-      ],
-    ];
-    await chats.write("plan", []);
-    expect(threads(chats)).toEqual(["t2", "inbox", "t10"]);
-    expect(chats.current.getSnapshot().threadId).toBe("t10");
-    expect(daemon.sent).toEqual(["inbox: plan", "t10: d1"]);
-  });
-
-  it("opens where the inbox sent a message on beside it, and sends it there", async () => {
-    const daemon = new Daemon();
-    const chats = await open(daemon, []);
-    daemon.runs = [
-      [
-        { type: "Dispatched", id: "d1", thread_id: "t1", title: "Trip", text: "flights?", line: "→ Continued in “Trip”." },
-        { type: "Done" },
-      ],
-    ];
-    await chats.current.send("flights?", []);
-    expect(threads(chats)).toEqual(["inbox", "t1"]);
-    expect(chats.current.getSnapshot().threadId).toBe("t1");
-    expect(daemon.sent).toEqual(["inbox: flights?", "t1: d1"]);
-  });
-
-  it("keeps the inbox busy until the run where its message went has started there, not after", async () => {
-    const daemon = new Daemon();
-    const chats = await open(daemon, []);
-    const inbox = chats.current;
-    daemon.runs = [
-      [{ type: "Dispatched", id: "d1", thread_id: "t1", title: "Trip", text: "flights?", line: "→ Continued in “Trip”." }],
-      [{ type: "TextDelta", text: "Two flights." }],
-    ];
-    const seen: [boolean, boolean][] = [];
-    chats.subscribe(() => {
-      const [first, second] = chats.all().map((c) => c.getSnapshot().busy);
-      if (second !== undefined) seen.push([first, second]);
-    });
-    await inbox.send("flights?", []);
-    expect(seen.find(([inboxBusy]) => !inboxBusy)).toEqual([false, true]);
-  });
-
-  it("sends a message the inbox sent on to an open conversation once what it asks is answered, queued meanwhile", async () => {
-    const daemon = new Daemon();
-    daemon.waiting.set("t1", [approval("i1")]);
-    const chats = await open(daemon, ["inbox", "t1"], 0);
-    const [inbox, trip] = chats.all();
-    await settled();
-    expect(trip.getSnapshot().approval).not.toBeNull();
-    daemon.runs = [[{ type: "Dispatched", id: "d1", thread_id: "t1", title: "Trip", text: "flights?", line: "→ Continued in “Trip”." }]];
-    await inbox.send("flights?", []);
-    expect(chats.current).toBe(trip);
-    expect(trip.getSnapshot().queued).toMatchObject([{ text: "flights?" }]);
-    expect(daemon.sent).toEqual(["inbox: flights?"]);
-    trip.answer({ approved: true, reason: null });
-    await settled();
-    expect(daemon.sent).toEqual(["inbox: flights?", "t1: d1"]);
-    expect(trip.getSnapshot().queued).toEqual([]);
-  });
-
-  it("moves a message from the inbox, showing the inbox first, and opens where it goes", async () => {
-    const daemon = new Daemon();
-    const chats = await open(daemon, ["t2"]);
-    daemon.runs = [
+      [question],
       [
         { type: "Dispatched", id: "d1", thread_id: "t1", title: "Trip", text: "flights?", line: "→ Moved “flights?” to “Trip”." },
         { type: "Done" },
       ],
     ];
-    await chats.move("");
-    expect(threads(chats)).toEqual(["t2", "inbox", "t1"]);
+    const moving = chats.move("");
+    await settled();
+    expect(chats.getSnapshot().moving).toEqual(question);
+    expect(threads(chats)).toEqual(["t2"]);
+    chats.answerMove({ choices: ["Trip"] });
+    await moving;
+    expect(chats.getSnapshot().moving).toBeNull();
+    expect(threads(chats)).toEqual(["t2", "t1"]);
+    expect(chats.current.getSnapshot().threadId).toBe("t1");
     expect(daemon.sent).toEqual(["inbox: move ", "t1: d1"]);
+    expect(daemon.left).toEqual(["inbox"]);
+  });
+
+  it("sends a moved message to an open conversation once what it asks is answered, queued meanwhile", async () => {
+    const daemon = new Daemon();
+    daemon.waiting.set("t1", [approval("i1")]);
+    const chats = await open(daemon, ["t2", "t1"], 0);
+    const trip = chats.all()[1];
+    await settled();
+    expect(trip.getSnapshot().approval).not.toBeNull();
+    daemon.runs = [
+      [{ type: "Dispatched", id: "d1", thread_id: "t1", title: "Trip", text: "flights?", line: "→ Moved “flights?” to “Trip”." }],
+    ];
+    await chats.move("");
+    expect(chats.current).toBe(trip);
+    expect(trip.getSnapshot().queued).toMatchObject([{ text: "flights?" }]);
+    expect(daemon.sent).toEqual(["inbox: move "]);
+    trip.answer({ approved: true, reason: null });
+    await settled();
+    expect(daemon.sent).toEqual(["inbox: move ", "t1: d1"]);
+    expect(trip.getSnapshot().queued).toEqual([]);
   });
 
   it("closes one and leaves it in the daemon, shows the next, and keeps the last", async () => {

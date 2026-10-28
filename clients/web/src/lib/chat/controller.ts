@@ -86,6 +86,38 @@ export class ChatController {
   ): Promise<ChatController> {
     const inboxId = await client.inboxThread();
     const threadId = await rejoin(client, earlier, inboxId);
+    return await ChatController.opened(client, channel, threadId, inboxId, notices, tab, place);
+  }
+
+  /** Opens on `earlier` in Chat, which never shows the inbox: on a new conversation instead when there's none, it's
+   * gone or it's the inbox. */
+  static async openInChat(
+    client: ChatClient,
+    channel: string,
+    earlier: string | null,
+    notices: NoticeBoard,
+    tab = new ChatTab(),
+  ): Promise<ChatController> {
+    const inboxId = await client.inboxThread();
+    const threadId = await rejoin(client, earlier, inboxId);
+    if (threadId === inboxId) return await ChatController.started(client, channel, inboxId, notices, tab);
+    return await ChatController.opened(client, channel, threadId, inboxId, notices, tab, "chat");
+  }
+
+  /** Opens on a new conversation, beside the ones open already. */
+  static async openNew(client: ChatClient, channel: string, notices: NoticeBoard, tab = new ChatTab()): Promise<ChatController> {
+    return await ChatController.started(client, channel, await client.inboxThread(), notices, tab);
+  }
+
+  private static async opened(
+    client: ChatClient,
+    channel: string,
+    threadId: string,
+    inboxId: string,
+    notices: NoticeBoard,
+    tab: ChatTab,
+    place: Place,
+  ): Promise<ChatController> {
     const live = new LiveConversation(client, { channel, thread_id: threadId });
     const chat = new ChatController(client, live, notices, empty, inboxId, tab, place);
     try {
@@ -98,9 +130,13 @@ export class ChatController {
     return chat;
   }
 
-  /** Opens on a new conversation, beside the ones open already. */
-  static async openNew(client: ChatClient, channel: string, notices: NoticeBoard, tab = new ChatTab()): Promise<ChatController> {
-    const inboxId = await client.inboxThread();
+  private static async started(
+    client: ChatClient,
+    channel: string,
+    inboxId: string,
+    notices: NoticeBoard,
+    tab: ChatTab,
+  ): Promise<ChatController> {
     const live = new LiveConversation(client, { channel, thread_id: await client.newThread() });
     return new ChatController(client, live, notices, empty, inboxId, tab, "chat");
   }

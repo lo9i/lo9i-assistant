@@ -15,7 +15,7 @@
   const current = $derived(open.current.chats.find((c) => c.key === open.current.activeKey)?.state.threadId ?? null);
   const openThreads = $derived(open.current.chats.map((c) => c.state.threadId));
   const conversations = resource((c) => c.conversations.list(), ["conversations"]);
-  // The inbox has an entry of its own above the list.
+  // Never the inbox: it routes messages, it isn't a conversation to read.
   const listed = $derived(conversations.data?.filter((c) => !c.inbox));
   const clients = resource((c) => c.clients.list(), ["clients"]);
   const devices = resource((c) => c.devices.list(), ["devices"]);
@@ -38,14 +38,14 @@
     await goto(OPEN);
   }
 
-  // One open here can't be deleted while it's open: it's closed first, or the last one goes to the inbox.
+  // One open here can't be deleted while it's open: it's closed first, or the last one goes to a new conversation.
   async function remove(threadId: string): Promise<void> {
     const list = listed ?? [];
     const next = list[list.findIndex((c) => c.thread_id === threadId) + 1] ?? list.find((c) => c.thread_id !== threadId);
     try {
       const opened = open.current.chats.find((c) => c.state.threadId === threadId);
       if (opened && open.current.chats.length > 1) await chats.close(opened.key);
-      else if (opened) await chats.current.goInbox();
+      else if (opened) await chats.current.startNew();
       await client.conversations.delete(threadId);
       picked = next?.thread_id ?? null;
     } catch (e) {

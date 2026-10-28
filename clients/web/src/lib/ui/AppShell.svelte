@@ -43,12 +43,13 @@
       notices.notify(`Job ${job.name}: ${job.status}`, job.status === "ok" ? "info" : "warning");
     }),
   );
-  // Work started in a conversation opens it; a scheduled job's run is no conversation to open.
+  // Work started in a conversation opens it; a scheduled job's run is no conversation to open, nor the inbox, which
+  // Chat never shows.
   $effect(() =>
     hub.on(["background_ended"], (data) => {
       const ended = data as BackgroundEnded;
       const open =
-        ended.channel === UNATTENDED
+        ended.channel === UNATTENDED || ended.thread_id === chats.inboxId
           ? undefined
           : { label: "Open its conversation", run: () => void openConversation(chats, notices, ended.thread_id) };
       notices.notify(ended.text, ended.ok ? "info" : "warning", open);

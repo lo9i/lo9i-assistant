@@ -38,6 +38,8 @@
   const { client, notices, chats } = useDaemon();
   // The open conversation shown; the sidebar picks it.
   const snapshot = external(chats.subscribe, () => chats.current.getSnapshot());
+  // What the inbox asks while /move runs there, which Chat doesn't show.
+  const open = external(chats.subscribe, chats.getSnapshot);
   // A snapshot comes with every update of the transcript; what's loaded for the conversation is loaded again only
   // when it's another one.
   const threadId = $derived(snapshot.current.threadId);
@@ -55,7 +57,6 @@
   // Drags enter and leave every element they pass over; the chat is under a drag while this is above 0.
   let dragging = $state(0);
   const streaming = $derived(snapshot.current.transcript.streaming !== null);
-  const inInbox = $derived(threadId === snapshot.current.inboxId);
   // The agent the conversation is handed to is working on its last message: what's typed goes to it meanwhile.
   const agentWorking = $derived(!!handoff.data && (snapshot.current.busy || snapshot.current.mirroring));
 
@@ -177,10 +178,8 @@
     }
   }
 
-  /** The inbox sends every message on, so in it the agent gets a new conversation. */
   async function handTo(agent: Agent, folder: string): Promise<void> {
     try {
-      if (inInbox) await chats.startNew();
       const to = await client.conversations.handTo(chats.current.getSnapshot().threadId, agent.command, folder);
       notices.notify(`${to.name} answers from your next message, working in ${to.folder}. /${agent.command} off goes back.`);
     } catch (e) {
@@ -206,8 +205,6 @@
     switch (name) {
       case "/new":
         return void chats.startNew();
-      case "/inbox":
-        return void chats.goInbox();
       case "/notifications":
         return void goto(resolve("/notifications"));
       case "/move":
@@ -265,7 +262,6 @@
     thinking={(snapshot.current.busy || snapshot.current.mirroring) && !streaming && !toolRunning(snapshot.current.transcript)}
     name={name.data || "the assistant"}
     onsuggest={(text) => (draft.text = text)}
-    onmove={inInbox ? (dispatchId) => chats.move(dispatchId) : undefined}
     onchoose={snapshot.current.busy || snapshot.current.mirroring ? undefined : (choice) => send(choice, [])}
     loadCall={(callId) => client.conversations.toolCall(threadId, callId)}
     loadStep={(callId, index) => client.conversations.toolCallStep(threadId, callId, index)}
@@ -312,6 +308,8 @@
 
 {#if snapshot.current.approval}
   <ApprovalModal approval={snapshot.current.approval} onanswer={(d) => chats.current.answer(d)} />
+{:else if open.current.moving}
+  <ApprovalModal approval={open.current.moving} onanswer={(d) => chats.answerMove(d)} />
 {/if}
 {#if help}<HelpModal onclose={() => (help = false)} {extra} />{/if}
 {#if picking}<AgentFolderModal agentName={picking.name} onpick={picked} />{/if}

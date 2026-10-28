@@ -8,7 +8,6 @@ export type Command = { name: string; usage: string; description: string };
 export const COMMANDS: Command[] = [
   { name: "/new", usage: "/new", description: "Start a new conversation" },
   { name: "/conversations", usage: "/conversations", description: "Your conversations, newest first, to open one" },
-  { name: "/inbox", usage: "/inbox", description: "Back to the inbox: the next message goes where it belongs" },
   { name: "/move", usage: "/move", description: "Move the last message the inbox sent on to another conversation" },
   { name: "/notifications", usage: "/notifications", description: "Job results and background work that ended" },
   { name: "/attach", usage: "/attach", description: "Attach files to the next message" },
