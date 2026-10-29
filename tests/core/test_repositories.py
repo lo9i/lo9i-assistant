@@ -19,7 +19,7 @@ from assistant.core.agent import (
     SkillError,
 )
 from assistant.core.mcp import data_key, folders, install, keys, servers
-from assistant.core.repositories import check, checkout
+from assistant.core.repositories import categories, check, checkout
 from assistant.core.repositories.icons import PluginIcon
 from assistant.core.repositories.source import Source
 from assistant.core.skills import install as skill_install
@@ -709,7 +709,7 @@ async def test_a_listing_kept_in_an_older_format_is_read_again_at_the_same_commi
     await service.browse_repository(URL)
     item = await service.store.aget(("repository_listings",), URL)
     assert item is not None
-    old = {k: v for k, v in item.value.items() if k != "format"}
+    old = {k: v for k, v in item.value.items() if k != "reader"}
     old["servers"] = [{k: v for k, v in s.items() if k not in ("icon", "ssh_agent")} for s in old["servers"]]
     await service.store.aput(("repository_listings",), URL, old)
     REMOTE["head"] = None
@@ -718,6 +718,19 @@ async def test_a_listing_kept_in_an_older_format_is_read_again_at_the_same_commi
     contents = await service.browse_repository(URL)
     assert REMOTE["downloads"] == 2
     assert next(s for s in contents.servers if s.name == "hello").icon == PluginIcon(name="puzzle")
+
+
+async def test_a_listing_an_older_lo9i_read_is_read_again_at_the_same_commit(service, repo, monkeypatch):
+    """One that didn't know a category left its plugins out: the same commit is read again once it's known."""
+    _write(repo / "productivity" / "documents" / "drive", {"server.yaml": "command: drive-mcp"})
+    known = categories.CATEGORIES
+    monkeypatch.setattr(categories, "CATEGORIES", tuple(c for c in known if c != "productivity/documents"))
+    assert "drive" not in {s.name for s in (await service.browse_repository(URL)).servers}
+    monkeypatch.setattr(categories, "CATEGORIES", known)
+    assert "drive" in {s.name for s in (await service.browse_repository(URL)).servers}
+    assert REMOTE["downloads"] == 2
+    await service.browse_repository(URL)
+    assert REMOTE["downloads"] == 2
 
 
 async def test_an_unreachable_repository_shows_the_kept_listing(service, repo):
