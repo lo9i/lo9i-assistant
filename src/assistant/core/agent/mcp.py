@@ -1,16 +1,18 @@
-"""MCP servers from any client: adding one after a look at its tools, signing in to a remote one,
-choosing which tools the agent gets, trusting it or not, and removing it. Env values, headers and
-sign-ins never leave the daemon."""
+"""MCP servers from any client: adding one after a look at its tools, signing in to a remote one or with a
+plugin's own OAuth app, choosing which tools the agent gets, trusting it or not, and removing it. Env values,
+headers and sign-ins never leave the daemon."""
 
 import asyncio
 from dataclasses import dataclass, field, fields, replace
 
 from assistant.core.agent.base import ServiceBase
 from assistant.core.integrations.email import accounts as email_accounts
-from assistant.core.mcp import data_key, install, keys, servers
+from assistant.core.mcp import data_key, install, keys, plugin_oauth, servers
 from assistant.core.mcp.hub import McpHub, McpProbe, McpToolInfo
+from assistant.core.mcp.plugin_oauth import PluginSignIn
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.mcp.sign_in import McpSignIn
+from assistant.core.oauth import new_state
 from assistant.core.repositories import listed
 from assistant.core.repositories.icons import PluginIcon
 from assistant.core.repositories.listed import KeptKeys
@@ -64,6 +66,10 @@ class McpServerStatus:
     failing: bool = False
     # What the apps show beside it; empty for one added by hand (core/repositories/icons.py).
     icon: PluginIcon = field(default_factory=PluginIcon)
+    # The provider a plugin signs in to in its setup (core/mcp/plugin_oauth.py), and the account it's signed in
+    # with; "" when it doesn't sign in, or isn't signed in.
+    oauth: str = ""
+    signed_in_as: str = ""
 
 
 @dataclass
@@ -118,6 +124,37 @@ class McpMixin(ServiceBase):
         await self.mcp.finish_sign_in(started, code)
         return await self._mcp_status(await servers.load(self._storage.store, started.server))
 
+    async def start_plugin_sign_in(self, name: str, client_id: str, client_secret: str, redirect_uri: str) -> str:
+        """The provider's sign-in page for a plugin that signs in with the user's own OAuth app; an empty client ID
+        signs in again with the app it signed in with. The browser comes back to `redirect_uri` (the web app's
+        /app/oauth), which calls finish_sign_in. Raises McpServerError."""
+        server = await servers.load(self._storage.store, name)
+        if not client_id.strip() and (saved := await plugin_oauth.login(self._storage.store, self.secrets, name)):
+            client_id, client_secret = saved.client_id, saved.client_secret
+        sign_in = plugin_oauth.new_sign_in(server, client_id, client_secret, redirect_uri)
+        state = new_state()
+        self._sign_ins.add(state, sign_in)
+        return plugin_oauth.authorization_url(sign_in, state)
+
+    async def _finish_plugin_sign_in(self, sign_in: PluginSignIn, code: str) -> McpServerStatus:
+        """Raises SignInError, or McpServerError when the plugin went or stopped signing in meanwhile. Its
+        processes start again with the sign-in."""
+        login = await plugin_oauth.exchange(sign_in, code)
+        server = await keys.fill(
+            self._storage.store, self.secrets, await servers.load(self._storage.store, sign_in.plugin)
+        )
+        if plugin_oauth.ENV not in server.keys:
+            raise McpServerError(f"{server.name} doesn't sign in to anything any more.")
+        return await self._save_mcp_server(replace(server, env={**server.env, plugin_oauth.ENV: login.to_env()}))
+
+    async def sign_out_plugin(self, name: str) -> McpServerStatus:
+        """Forget a plugin's sign-in; its processes start again without it. Raises McpServerError for an unknown
+        plugin."""
+        server = await servers.load(self._storage.store, name)
+        await keys.forget(self._storage.store, self.secrets, name, plugin_oauth.ENV)
+        await self._servers_changed()
+        return await self._mcp_status(server)
+
     async def remove_mcp_server(self, name: str, delete_data: bool = False) -> KeptKeys | None:
         """Its data stays, for installing it again, unless `delete_data`. A plugin's keys stay too, and
         what's kept is returned for the user to keep or delete (forget_keys); one added by hand has
@@ -157,10 +194,12 @@ class McpMixin(ServiceBase):
         return await self._mcp_status(server)
 
     async def _mcp_status(self, server: McpServer) -> McpServerStatus:
-        return await mcp_status(self.mcp, server)
+        return await mcp_status(
+            self.mcp, server, await plugin_oauth.signed_in_as(self._storage.store, self.secrets, server)
+        )
 
 
-async def mcp_status(hub: McpHub, server: McpServer) -> McpServerStatus:
+async def mcp_status(hub: McpHub, server: McpServer, signed_in_as: str = "") -> McpServerStatus:
     status, error, tools = hub.state(server.name)
     health = await hub.health(server.name)
     return McpServerStatus(
@@ -187,4 +226,6 @@ async def mcp_status(hub: McpHub, server: McpServer) -> McpServerStatus:
         failed_at=health.at,
         failing=health.failing,
         icon=PluginIcon(**server.icon),
+        oauth=server.oauth_provider,
+        signed_in_as=signed_in_as,
     )

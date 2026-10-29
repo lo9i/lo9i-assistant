@@ -61,6 +61,9 @@ class McpServer:
     ssh_agent: bool = False
     # Its processes get a key of its own for encrypting its data (core/mcp/data_key.py).
     data_key: bool = False
+    # The provider it signs in to and the scopes it asks for (core/mcp/plugin_oauth.py); "" when it doesn't.
+    oauth_provider: str = ""
+    oauth_scopes: list[str] = field(default_factory=list)
     # A coding agent it brings (docs/agent-plugins.md): the apps' command that hands a conversation to it
     # (/claude), its name, and the worker the daemon runs for each of its tasks (core/agent_tasks/).
     agent_command: str = ""

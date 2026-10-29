@@ -675,6 +675,19 @@ class FakeMcp:
         name, _ = self.signing_in
         self.items[name].status, self.items[name].error = "connected", ""
 
+    async def start_plugin_sign_in(self, name, redirect_uri, client_id="", client_secret=""):
+        if not client_id and not self.items[name].signed_in_as:
+            raise McpServerError("Enter your OAuth app's client ID.")
+        self.plugin_signing_in = (name, redirect_uri, client_id, client_secret)
+        return f"https://accounts.google.com/o/oauth2/v2/auth?state=p1&redirect_uri={redirect_uri}"
+
+    def finish_plugin_sign_in(self) -> None:
+        self.items[self.plugin_signing_in[0]].signed_in_as = "me@gmail.com"
+
+    async def sign_out_plugin(self, name):
+        self.items[name].signed_in_as = ""
+        return self.items[name]
+
     async def add(self, server):
         self.added.append(server)
         self.items[server.name] = _mcp_status(server.name, server.trusted)
@@ -1088,6 +1101,10 @@ class FakeOAuth:
             self._mcp.finish_sign_in()
             name = self._mcp.signing_in[0]
             return SignedIn("mcp", name, name)
+        if state == "p1":
+            self._mcp.finish_plugin_sign_in()
+            name = self._mcp.plugin_signing_in[0]
+            return SignedIn("plugin", name, name)
         raise SignInError("This sign-in has expired or was already used.")
 
 

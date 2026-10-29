@@ -807,6 +807,37 @@ async def test_mcp_servers_through_the_client(client, service, monkeypatch, isol
         await client.mcp.remove("notes")
 
 
+async def test_a_plugins_sign_in_through_the_client(client, service):
+    from urllib.parse import parse_qs, urlparse
+
+    from assistant.core.agent import McpServer, McpServerError
+    from assistant.core.mcp import keys, plugin_oauth
+
+    drive = McpServer(
+        "drive",
+        command="drive-mcp",
+        env={plugin_oauth.ENV: ""},
+        source="https://example.com/extras.git",
+        keys=[plugin_oauth.ENV],
+        oauth_provider="google",
+        oauth_scopes=["https://www.googleapis.com/auth/drive"],
+    )
+    await keys.save(service.store, service.secrets, drive)
+    redirect = "http://localhost:8765/app/oauth"
+    page = await client.mcp.start_plugin_sign_in("drive", redirect, "client-1", "secret-1")
+    query = parse_qs(urlparse(page).query)
+    assert query["client_id"] == ["client-1"] and query["redirect_uri"] == [redirect]
+    [status] = await client.mcp.servers()
+    assert (status.oauth, status.signed_in_as) == ("google", "")
+    assert (await client.mcp.sign_out_plugin("drive")).signed_in_as == ""
+    with pytest.raises(McpServerError, match="client ID"):
+        await client.mcp.start_plugin_sign_in("drive", redirect)
+    with pytest.raises(McpServerError, match="No plugin named"):
+        await client.mcp.start_plugin_sign_in("nope", redirect, "client-1")
+    with pytest.raises(McpServerError, match="No MCP server named"):
+        await client.mcp.sign_out_plugin("nope")
+
+
 async def test_the_model_through_the_client(client, monkeypatch):
     from langchain_core.messages import AIMessage
 

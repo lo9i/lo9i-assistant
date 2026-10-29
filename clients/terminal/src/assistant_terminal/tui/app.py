@@ -75,6 +75,7 @@ from assistant_terminal.tui.screens import (
     McpScreen,
     ModelScreen,
     NotificationsScreen,
+    PluginSignInScreen,
     PluginsScreen,
     ProfileScreen,
     PromptsScreen,
@@ -629,7 +630,10 @@ class AssistantApp(App):
             self._asking = None
 
     async def _set_up(self, plugin: FoundServer) -> None:
-        """An installed plugin's setup, in the conversation: an email plugin's accounts, a channel's pairing."""
+        """An installed plugin's setup, in the conversation: an email plugin's accounts, a channel's pairing, signing
+        in."""
+        if plugin.oauth:
+            await self._ask(PluginSignInScreen(self._service.mcp, self._service.oauth, plugin.name, plugin.oauth))
         if plugin.email:
             await self._ask(EmailScreen(self._service.email, self._service.oauth, self._service.channels, plugin.name))
         if plugin.channel:

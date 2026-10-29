@@ -1275,7 +1275,7 @@ export interface paths {
         put?: never;
         /**
          * Finish Sign In
-         * @description The last step of a sign-in (an email account, a remote MCP server). Open to unpaired
+         * @description The last step of a sign-in (an email account, a remote MCP server, a plugin). Open to unpaired
          *     browsers: the one-time state is the proof (the web app's /app/oauth page may be opened on
          *     the daemon's own computer, before pairing). 400: expired state, refused code, or a server
          *     that won't work with the tokens.
@@ -1507,6 +1507,32 @@ export interface paths {
          */
         post: operations["start_mcp_sign_in_mcp_servers__name__sign_in_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plugins/{name}/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Plugin Sign In
+         * @description The provider's sign-in page for a plugin that signs in with the user's own OAuth app (`oauth:` in its
+         *     server.yaml); the browser comes back to `redirect_uri`, which finishes it (/oauth/finish). 404: no such
+         *     plugin. 400: it doesn't sign in, or no client ID.
+         */
+        post: operations["start_plugin_sign_in_plugins__name__sign_in_post"];
+        /**
+         * Sign Out Plugin
+         * @description Forget the plugin's sign-in. 404: no such plugin.
+         */
+        delete: operations["sign_out_plugin_plugins__name__sign_in_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3269,6 +3295,11 @@ export interface components {
              * @default false
              */
             ssh_agent: boolean;
+            /**
+             * Oauth
+             * @default
+             */
+            oauth: string;
             icon?: components["schemas"]["PluginIcon"];
         };
         /**
@@ -3854,6 +3885,16 @@ export interface components {
              */
             failing: boolean;
             icon?: components["schemas"]["PluginIcon"];
+            /**
+             * Oauth
+             * @default
+             */
+            oauth: string;
+            /**
+             * Signed In As
+             * @default
+             */
+            signed_in_as: string;
         };
         /** McpSignInStart */
         McpSignInStart: {
@@ -4149,6 +4190,21 @@ export interface components {
              * @default false
              */
             mono: boolean;
+        };
+        /** PluginSignInStart */
+        PluginSignInStart: {
+            /**
+             * Client Id
+             * @default
+             */
+            client_id: string;
+            /**
+             * Client Secret
+             * @default
+             */
+            client_secret: string;
+            /** Redirect Uri */
+            redirect_uri: string;
         };
         /** PluginUpdate */
         PluginUpdate: {
@@ -4598,7 +4654,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "email" | "mcp";
+            kind: "email" | "mcp" | "plugin";
             /** Id */
             id: string;
             /** Name */
@@ -7716,6 +7772,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SignInPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_plugin_sign_in_plugins__name__sign_in_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginSignInStart"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignInPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sign_out_plugin_plugins__name__sign_in_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["McpServerStatus"];
                 };
             };
             /** @description Validation Error */

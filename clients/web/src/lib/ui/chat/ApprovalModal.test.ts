@@ -38,6 +38,7 @@ describe("ApprovalModal for a plugin's setup", () => {
       category: "communications/email",
       model_login: "",
       ssh_agent: false,
+      oauth: "",
       agent: "",
       installed: true,
       version: "1.0.0",

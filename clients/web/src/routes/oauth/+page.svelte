@@ -1,6 +1,6 @@
 <script lang="ts">
-  // Where the provider sends the browser back after a sign-in: an email account (Google, Microsoft) or a
-  // remote MCP server. It hands the code to the daemon with the one-time state, which proves it: it works
+  // Where the provider sends the browser back after a sign-in: an email account (Google, Microsoft), a
+  // remote MCP server, or a plugin that signs in with the user's own OAuth app. It hands the code to the daemon with the one-time state, which proves it: it works
   // in a browser that isn't paired, such as one on the assistant's own computer opened from the terminal
   // app. The layout shows it on its own.
   import { onMount } from "svelte";
@@ -30,7 +30,8 @@
     }
     try {
       signedIn = await new DaemonClient(new HttpTransport()).oauth.finish(state, code);
-      message = signedIn.kind === "email" ? t("oauth.email", { name: signedIn.name }) : t("oauth.server", { name: signedIn.name });
+      const texts = { email: "oauth.email", mcp: "oauth.server", plugin: "oauth.plugin" } as const;
+      message = t(texts[signedIn.kind], { name: signedIn.name });
     } catch (e) {
       message = describe(e);
     }
@@ -40,7 +41,7 @@
 
 <main class="oauth">
   <p class:error-text={!signedIn && finished}>{message}</p>
-  {#if signedIn?.kind === "email"}
+  {#if signedIn?.kind === "email" || signedIn?.kind === "plugin"}
     <a class="btn btn--neutral" href={resolve("/plugins")}>{t("home.openPlugins")}</a>
   {:else if signedIn}
     <a class="btn btn--neutral" href={resolve("/mcp") + `?s=${encodeURIComponent(signedIn.id)}`}>{t("oauth.openMcp")}</a>

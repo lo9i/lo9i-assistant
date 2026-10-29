@@ -70,11 +70,23 @@ async def put(store: BaseStore, box: SecretBox, name: str, keys: Keys) -> None:
         {k: v or kept.env.get(k, "") for k, v in keys.env.items()},
         {k: v or kept.headers.get(k, "") for k, v in keys.headers.items()},
     )
-    if not merged.names:
+    await _write(store, box, name, merged)
+
+
+async def forget(store: BaseStore, box: SecretBox, name: str, key: str) -> None:
+    """Drop one key's saved value, which `put` keeps when it's given empty: a plugin signing out
+    (plugin_oauth.py)."""
+    kept = await get(store, box, name)
+    left = Keys({k: v for k, v in kept.env.items() if k != key}, {k: v for k, v in kept.headers.items() if k != key})
+    await _write(store, box, name, left)
+
+
+async def _write(store: BaseStore, box: SecretBox, name: str, keys: Keys) -> None:
+    if not keys.names:
         await delete(store, name)
         return
-    await secret_store.put(store, box, _ref(name), json.dumps({"env": merged.env, "headers": merged.headers}))
-    await store.aput(_NAMESPACE, name, {"names": merged.names})
+    await secret_store.put(store, box, _ref(name), json.dumps({"env": keys.env, "headers": keys.headers}))
+    await store.aput(_NAMESPACE, name, {"names": keys.names})
 
 
 async def get(store: BaseStore, box: SecretBox, name: str) -> Keys:
