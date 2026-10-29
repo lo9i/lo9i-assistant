@@ -297,7 +297,7 @@
     <WorkingStatus {threadId} />
     <ConversationStats {threadId} />
     {#if handoff.data}
-      <AgentStatus handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")} />
+      <AgentStatus handoff={handoff.data} working={agentWorking} onback={() => agentCommand(`/${handoff.data?.command}`, "off")} />
     {:else}
       <ModelStatus />
     {/if}
