@@ -135,7 +135,7 @@
   /* Columns rather than a grid: a short section sits right under the one above it, instead of leaving
      the space a long neighbor takes in its row. */
   .grid {
-    columns: min(360px, 100%);
+    column-width: 360px;
     column-gap: 16px;
     /* The last section's margin, so the page's gap alone separates what follows. */
     margin-bottom: -16px;
