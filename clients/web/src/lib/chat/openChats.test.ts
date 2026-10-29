@@ -73,14 +73,16 @@ const waiting = (chats: OpenChats) =>
     .map((item) => item.threadId);
 const settled = () => new Promise((resolve) => setTimeout(resolve, 0));
 const threads = (chats: OpenChats) => chats.all().map((c) => c.getSnapshot().threadId);
-const open = (daemon: Daemon, saved: string[], active = 0) => OpenChats.open(daemon.clientFor, "web", saved, active, new NoticeBoard());
+const shown = (chats: OpenChats) => chats.current?.getSnapshot().threadId ?? null;
+const open = (daemon: Daemon, saved: (string | null)[], active = 0) =>
+  OpenChats.open(daemon.clientFor, "web", saved, active, new NoticeBoard());
 
 describe("OpenChats", () => {
   it("reopens the conversations open before a reload, each under a client of its own", async () => {
     const daemon = new Daemon();
     const chats = await open(daemon, ["t1", "t2"], 1);
     expect(threads(chats)).toEqual(["t1", "t2"]);
-    expect(chats.current.getSnapshot().threadId).toBe("t2");
+    expect(shown(chats)).toBe("t2");
     const [own, part] = [...daemon.on.entries()];
     expect(own).toEqual(["me", "t1"]);
     expect(part[0]).not.toBe("me");
@@ -88,8 +90,8 @@ describe("OpenChats", () => {
     expect(chats.saved()).toEqual({ threads: ["t1", "t2"], active: 1 });
   });
 
-  it("never opens the inbox: a new conversation when nothing was open, for one gone, and for the inbox", async () => {
-    expect(threads(await open(new Daemon(), []))).toEqual(["t10"]);
+  it("never opens the inbox: a new conversation for a new tab, for one gone, and for the inbox", async () => {
+    expect(threads(await open(new Daemon(), [null]))).toEqual(["t10"]);
     const daemon = new Daemon();
     daemon.saved.add("inbox");
     expect(threads(await open(daemon, ["gone", "inbox", "t1"]))).toEqual(["t10", "t11", "t1"]);
@@ -112,17 +114,17 @@ describe("OpenChats", () => {
     daemon.routes.set("flights?", "t1");
     const chats = await open(daemon, ["t1", "gone"], 1);
     expect(threads(chats)).toEqual(["t1", "t10"]);
-    await chats.current.send("flights?", []);
+    await chats.current?.send("flights?", []);
     expect(threads(chats)).toEqual(["t1"]);
-    expect(chats.current.getSnapshot().threadId).toBe("t1");
+    expect(shown(chats)).toBe("t1");
     expect(daemon.sent).toEqual(["t1: flights?"]);
   });
 
   it("moves a fresh conversation to the one its first message continues when that isn't open", async () => {
     const daemon = new Daemon();
     daemon.routes.set("flights?", "t2");
-    const chats = await open(daemon, []);
-    await chats.current.send("flights?", []);
+    const chats = await open(daemon, [null]);
+    await chats.current?.send("flights?", []);
     expect(threads(chats)).toEqual(["t2"]);
     expect(daemon.sent).toEqual(["t2: flights?"]);
   });
@@ -138,10 +140,10 @@ describe("OpenChats", () => {
     const chats = await open(new Daemon(), ["t1", "t2"]);
     await chats.show("t2");
     expect(threads(chats)).toEqual(["t1", "t2"]);
-    expect(chats.current.getSnapshot().threadId).toBe("t2");
+    expect(shown(chats)).toBe("t2");
     await chats.startNew();
     await chats.show("t1");
-    expect(chats.current.getSnapshot().threadId).toBe("t1");
+    expect(shown(chats)).toBe("t1");
   });
 
   it("moves a message in the inbox without showing it, asking over Chat, and opens where it goes", async () => {
@@ -163,7 +165,7 @@ describe("OpenChats", () => {
     await moving;
     expect(chats.getSnapshot().moving).toBeNull();
     expect(threads(chats)).toEqual(["t2", "t1"]);
-    expect(chats.current.getSnapshot().threadId).toBe("t1");
+    expect(shown(chats)).toBe("t1");
     expect(daemon.sent).toEqual(["inbox: move ", "t1: d1"]);
     expect(daemon.left).toEqual(["inbox"]);
   });
@@ -188,7 +190,7 @@ describe("OpenChats", () => {
     expect(trip.getSnapshot().queued).toEqual([]);
   });
 
-  it("closes one and leaves it in the daemon, shows the next, and keeps the last", async () => {
+  it("closes one and leaves it in the daemon, shows the next, and closes the last too", async () => {
     const daemon = new Daemon();
     const chats = await open(daemon, ["t1", "t2"], 0);
     const [first, second] = chats.getSnapshot().chats.map((c) => c.key);
@@ -197,7 +199,35 @@ describe("OpenChats", () => {
     expect(threads(chats)).toEqual(["t2"]);
     expect(chats.getSnapshot().activeKey).toBe(second);
     await chats.close(second);
-    expect(threads(chats)).toEqual(["t2"]);
+    expect(daemon.left).toEqual(["t1", "t2"]);
+    expect(threads(chats)).toEqual([]);
+    expect(chats.current).toBeNull();
+    expect(chats.getSnapshot().activeKey).toBeNull();
+    expect(chats.saved()).toEqual({ threads: [], active: -1 });
+  });
+
+  it("starts or shows a conversation again after the last one closed", async () => {
+    const daemon = new Daemon();
+    const chats = await open(daemon, ["t1"]);
+    await chats.close(chats.getSnapshot().chats[0].key);
+    expect(chats.inboxId).toBe("inbox");
+    expect(await chats.show("inbox")).toBe("inbox");
+    const started = await chats.startNew();
+    expect(chats.current).toBe(started);
+    expect(await chats.show("t2")).toBe("shown");
+    expect(threads(chats)).toEqual(["t10", "t2"]);
+    expect(shown(chats)).toBe("t2");
+  });
+
+  it("reopens none when none was open before a reload, knowing the inbox all the same", async () => {
+    const daemon = new Daemon();
+    const chats = await open(daemon, [], 0);
+    expect(threads(chats)).toEqual([]);
+    expect(chats.current).toBeNull();
+    expect(chats.getSnapshot().activeKey).toBeNull();
+    expect(chats.inboxId).toBe("inbox");
+    expect(await chats.show("t1")).toBe("shown");
+    expect(shown(chats)).toBe("t1");
   });
 
   it("marks an open conversation not shown that waits for an answer, on opening and when a run there stops for one", async () => {
@@ -205,7 +235,7 @@ describe("OpenChats", () => {
     daemon.waiting.set("t2", [approval("i1")]);
     const chats = await open(daemon, ["t1", "t2"], 0);
     await settled();
-    expect(chats.current.getSnapshot().threadId).toBe("t1");
+    expect(shown(chats)).toBe("t1");
     expect(waiting(chats)).toEqual(["t2"]);
     daemon.saved.add("t3");
     await chats.show("t3");

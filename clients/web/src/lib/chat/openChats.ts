@@ -1,6 +1,6 @@
 // The conversations this browser tab has open side by side, each a ChatController under a client id of
 // its own, so the daemon keeps every one of them open and their replies run in parallel. One is shown at a
-// time; the sidebar lists them all. None of them is ever the inbox: it routes each message to its conversation
+// time; the sidebar lists them all. There can be none: Chat then shows the list of conversations. None of them is ever the inbox: it routes each message to its conversation
 // (core/inbox.py) and isn't one to read, so Chat never shows it.
 import { ApiError } from "../api/errors";
 import type { ApprovalRequired, Decision, Dispatched } from "../api/types";
@@ -19,7 +19,8 @@ export type Shown = "shown" | "inbox" | "gone";
 
 export type OpenChatsSnapshot = {
   chats: { key: string; state: ChatSnapshot }[];
-  activeKey: string;
+  // The one shown; null with none open.
+  activeKey: string | null;
   // What the inbox asks while /move runs there (which conversation the message goes to instead).
   moving: ApprovalRequired | null;
 };
@@ -37,33 +38,36 @@ export class OpenChats {
     private readonly notices: NoticeBoard,
     private readonly tab: ChatTab,
     private open: OpenChat[],
-    private activeKey: string,
+    private activeKey: string | null,
+    /** The inbox's id, which no open conversation is on. */
+    readonly inboxId: string,
   ) {
     this.snapshot = this.build();
     open.forEach((o) => this.follow(o));
   }
 
   /** Reopens `threads`, the conversations open before a reload (the first under the tab's own client id),
-   * showing the one at `active`. With none, opens a new one, as for one that's gone or was the inbox. Each is one
-   * of `tab`'s chats. */
+   * showing the one at `active`; a new one for null, as for one that's gone or was the inbox. With none, opens none.
+   * Each is one of `tab`'s chats. */
   static async open(
     clientFor: ClientFor,
     channel: string,
-    threads: string[],
+    threads: (string | null)[],
     active: number,
     notices: NoticeBoard,
     tab = new ChatTab(),
   ): Promise<OpenChats> {
-    const wanted = threads.length ? threads : [null];
     const opened = await Promise.all(
-      wanted.map(async (threadId, i) => {
+      threads.map(async (threadId, i) => {
         const key = i === 0 ? "" : newKey();
         return { key, chat: await ChatController.openInChat(clientFor(key || null), channel, threadId, notices, tab) };
       }),
     );
     const open = withoutRepeats(opened);
     const shown = opened[active] && open.includes(opened[active]) ? opened[active] : open[0];
-    return new OpenChats(clientFor, channel, notices, tab, open, shown.key);
+    // Each chat learned the inbox's id on opening; with none, the tab's own client asks, which no chat is on.
+    const inboxId = open[0]?.chat.getSnapshot().inboxId ?? (await clientFor(null).inboxThread());
+    return new OpenChats(clientFor, channel, notices, tab, open, shown?.key ?? null, inboxId);
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -73,16 +77,16 @@ export class OpenChats {
 
   getSnapshot = (): OpenChatsSnapshot => this.snapshot;
 
-  /** The conversation shown. */
-  get current(): ChatController {
-    return (this.open.find((o) => o.key === this.activeKey) ?? this.open[0]).chat;
+  /** The conversation shown; null with none open. */
+  get current(): ChatController | null {
+    return (this.open.find((o) => o.key === this.activeKey) ?? this.open[0])?.chat ?? null;
   }
 
   all(): ChatController[] {
     return this.open.map((o) => o.chat);
   }
 
-  /** The conversations open, as their ids, and which one is shown; what a reload reopens. */
+  /** The conversations open, as their ids, and which one is shown (-1 with none); what a reload reopens. */
   saved(): { threads: string[]; active: number } {
     const threads = this.open.map((o) => o.chat.getSnapshot().threadId);
     return { threads, active: this.open.findIndex((o) => o.key === this.activeKey) };
@@ -92,11 +96,6 @@ export class OpenChats {
     if (key === this.activeKey || !this.open.some((o) => o.key === key)) return;
     this.activeKey = key;
     this.changed();
-  }
-
-  /** The inbox's id, which no open conversation is on. */
-  get inboxId(): string {
-    return this.open[0].chat.getSnapshot().inboxId;
   }
 
   /** Shows `threadId`: the open conversation that is on it, or opens it beside the others; nothing for the inbox or
@@ -170,14 +169,15 @@ export class OpenChats {
     return await this.add((client) => ChatController.openNew(client, this.channel, this.notices, this.tab));
   }
 
-  /** Closes an open conversation; the last one stays. A reply still running keeps going in the daemon. */
+  /** Closes an open conversation, showing the next one, or none after the last. A reply still running keeps going
+   * in the daemon. */
   async close(key: string): Promise<void> {
     const index = this.open.findIndex((o) => o.key === key);
-    if (index < 0 || this.open.length === 1) return;
+    if (index < 0) return;
     const [closed] = this.open.splice(index, 1);
     this.unsubscribe.get(key)?.();
     this.unsubscribe.delete(key);
-    if (this.activeKey === key) this.activeKey = this.open[Math.min(index, this.open.length - 1)].key;
+    if (this.activeKey === key) this.activeKey = this.open[Math.min(index, this.open.length - 1)]?.key ?? null;
     this.changed();
     if (await closed.chat.leave()) this.notices.notify(t("controller.closedRunning"));
   }

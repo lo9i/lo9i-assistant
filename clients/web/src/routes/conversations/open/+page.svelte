@@ -11,19 +11,19 @@
 
   const { chats } = useDaemon();
   // The conversation shown; the others open beside it are in the sidebar, every one in Chat's list.
-  const snapshot = external(chats.subscribe, () => chats.current.getSnapshot());
-  // Chat never shows the inbox: should it come to it all the same, the page gives way to the list.
-  const inInbox = $derived(snapshot.current.threadId === snapshot.current.inboxId);
+  const snapshot = external(chats.subscribe, () => chats.current?.getSnapshot() ?? null);
+  // Chat never shows the inbox: should it come to it all the same, or with none open, the page gives way to the list.
+  const shown = $derived(snapshot.current !== null && snapshot.current.threadId !== snapshot.current.inboxId);
   $effect(() => void leaveInbox(snapshot.current));
   const conversations = resource((c) => c.conversations.list(), ["conversations"]);
-  const title = $derived(conversations.data?.find((c) => c.thread_id === snapshot.current.threadId)?.title || t("nav.newConversation"));
+  const title = $derived(conversations.data?.find((c) => c.thread_id === snapshot.current?.threadId)?.title || t("nav.newConversation"));
 
   async function startNew(): Promise<void> {
     await chats.startNew();
   }
 </script>
 
-{#if !inInbox}
+{#if shown}
   <TopBar {title}>
     {#snippet actions()}
       <button class="btn btn--ghost" title={t("conversations.allHint")} onclick={() => goto(resolve("/conversations"))}

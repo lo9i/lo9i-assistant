@@ -186,7 +186,7 @@
                 <span>{entry.title}</span>
                 {#if entry.waiting}<i class="waiting" aria-label={t("nav.waiting")}></i>{/if}
               </button>
-              {#if entry.key !== null && open.current.chats.length > 1}
+              {#if entry.key !== null}
                 {@const key = entry.key}
                 <button
                   class="close"

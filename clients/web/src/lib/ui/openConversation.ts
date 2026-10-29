@@ -17,10 +17,10 @@ export async function openConversation(chats: Pick<OpenChats, "show">, notices: 
   }
 }
 
-/** Takes a page about to show `chat` on the inbox to the list of conversations, in its place in history, so going
- * back doesn't come to it again. Returns whether it did. */
-export function leaveInbox(chat: Pick<ChatSnapshot, "threadId" | "inboxId">): boolean {
-  if (chat.threadId !== chat.inboxId) return false;
+/** Takes a page about to show `chat` on the inbox, or no chat (none is open), to the list of conversations, in its
+ * place in history, so going back doesn't come to it again. Returns whether it did. */
+export function leaveInbox(chat: Pick<ChatSnapshot, "threadId" | "inboxId"> | null): boolean {
+  if (chat !== null && chat.threadId !== chat.inboxId) return false;
   void goto(resolve("/conversations"), { replaceState: true });
   return true;
 }

@@ -37,8 +37,15 @@
   };
 
   const { client, notices, chats } = useDaemon();
-  // The open conversation shown; the sidebar picks it.
-  const snapshot = external(chats.subscribe, () => chats.current.getSnapshot());
+  // The open conversation shown; the sidebar picks it. The page shows this panel only while one is open: when the
+  // last one closes, it keeps the one it had until the page takes it away.
+  let kept: ChatController | null = null;
+  function shown(): ChatController {
+    kept = chats.current ?? kept;
+    if (kept === null) throw new Error("ChatPanel shown with no open conversation");
+    return kept;
+  }
+  const snapshot = external(chats.subscribe, () => shown().getSnapshot());
   // What the inbox asks while /move runs there, which Chat doesn't show.
   const open = external(chats.subscribe, chats.getSnapshot);
   // A snapshot comes with every update of the transcript; what's loaded for the conversation is loaded again only
@@ -69,7 +76,7 @@
   /** Sends, then reads the answer aloud when Settings → Audio says so. */
   async function send(text: string, files: File[]): Promise<void> {
     player.stop();
-    const chat = chats.current;
+    const chat = shown();
     await chat.send(text, files);
     await speak(chat, files);
   }
@@ -95,10 +102,10 @@
   // Messages written while a reply runs wait in the conversation's queue, each going out when the one before
   // finishes; so do the ones the inbox sends on to it meanwhile.
   function enqueue(text: string, files: File[]): void {
-    chats.current.queue(text, files, (chat) => speak(chat, files));
+    shown().queue(text, files, (chat) => speak(chat, files));
   }
   function unqueue(index: number): void {
-    const item = chats.current.unqueue(index);
+    const item = shown().unqueue(index);
     if (item && !draft.text.trim()) {
       draft.text = item.text;
       draft.files = item.files;
@@ -181,7 +188,7 @@
 
   async function handTo(agent: Agent, folder: string): Promise<void> {
     try {
-      const to = await client.conversations.handTo(chats.current.getSnapshot().threadId, agent.command, folder);
+      const to = await client.conversations.handTo(threadId, agent.command, folder);
       notices.notify(t("chat.handedTo", { agent: to.name, folder: to.folder, command: agent.command }));
     } catch (e) {
       notices.report(e);
@@ -292,7 +299,7 @@
     running={snapshot.current.busy || snapshot.current.mirroring}
     onsend={send}
     onqueue={enqueue}
-    onstop={() => chats.current.stop()}
+    onstop={() => shown().stop()}
     oncommand={command}
     {extra}
     steering={agentWorking && handoff.data ? { agent: handoff.data.name, onsteer: steer } : null}
@@ -312,7 +319,7 @@
 </section>
 
 {#if snapshot.current.approval}
-  <ApprovalModal approval={snapshot.current.approval} onanswer={(d) => chats.current.answer(d)} />
+  <ApprovalModal approval={snapshot.current.approval} onanswer={(d) => shown().answer(d)} />
 {:else if open.current.moving}
   <ApprovalModal approval={open.current.moving} onanswer={(d) => chats.answerMove(d)} />
 {/if}

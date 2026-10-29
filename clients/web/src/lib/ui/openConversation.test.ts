@@ -34,6 +34,11 @@ describe("leaveInbox", () => {
     expect(goto.mock.calls).toEqual([["/app/conversations", { replaceState: true }]]);
   });
 
+  it("replaces a page about to show no conversation, none being open, with the list", () => {
+    expect(leaveInbox(null)).toBe(true);
+    expect(goto.mock.calls).toEqual([["/app/conversations", { replaceState: true }]]);
+  });
+
   it("stays on any other conversation", () => {
     expect(leaveInbox({ threadId: "t1", inboxId: "inbox" })).toBe(false);
     expect(goto).not.toHaveBeenCalled();

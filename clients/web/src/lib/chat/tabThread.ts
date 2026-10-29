@@ -22,16 +22,16 @@ export function saveThread(threadId: string, lane: Lane = "chat"): void {
   }
 }
 
-/** The chat's open conversations and which one was shown; before there were several, the one it was on. */
-export function savedOpen(): { threads: string[]; active: number } {
+/** The chat's open conversations and which one was shown, none if none were; before there were several, the one it
+ * was on. A tab with nothing kept gets null, a new conversation. */
+export function savedOpen(): { threads: (string | null)[]; active: number } {
   try {
     const saved = JSON.parse(sessionStorage.getItem(OPEN) ?? "null") as { threads: string[]; active: number } | null;
     if (saved && Array.isArray(saved.threads)) return saved;
   } catch {
     // Not kept, or not readable; see above.
   }
-  const one = savedThread();
-  return { threads: one ? [one] : [], active: 0 };
+  return { threads: [savedThread()], active: 0 };
 }
 
 export function saveOpen(open: { threads: string[]; active: number }): void {
