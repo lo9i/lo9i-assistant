@@ -43,6 +43,29 @@ async def test_the_pages_own_routes_are_answered_with_the_page(service, tmp_path
         assert (await http.get("/app/app.js")).text == "console.log(1)"
 
 
+async def test_a_missing_file_of_the_build_is_missing_not_the_page(service, tmp_path):
+    # A tab on an older build asks for its own files, which a new build removed: run as a script, the page breaks it.
+    (tmp_path / "index.html").write_text("<title>lo9i</title>")
+    (tmp_path / "_app" / "immutable").mkdir(parents=True)
+    (tmp_path / "_app" / "immutable" / "start.new.js").write_text("export {}")
+    async with _http(create_app(service, RunHub(), web_ui=tmp_path)) as http:
+        assert (await http.get("/app/_app/immutable/start.old.js")).status_code == 404
+        assert (await http.get("/app/_app/version.json")).status_code == 404
+        assert (await http.get("/app/_app/immutable/start.new.js")).text == "export {}"
+
+
+async def test_a_reload_always_asks_for_the_page_and_the_builds_named_files_are_kept(service, tmp_path):
+    (tmp_path / "index.html").write_text("<title>lo9i</title>")
+    (tmp_path / "_app" / "immutable").mkdir(parents=True)
+    (tmp_path / "_app" / "immutable" / "start.abc.js").write_text("export {}")
+    (tmp_path / "_app" / "version.json").write_text('{"version":"1"}')
+    async with _http(create_app(service, RunHub(), web_ui=tmp_path)) as http:
+        for page in ("/app/", "/app/jobs", "/app/_app/version.json"):
+            assert (await http.get(page)).headers["cache-control"] == "no-cache"
+        kept = (await http.get("/app/_app/immutable/start.abc.js")).headers["cache-control"]
+        assert kept == "public, max-age=31536000, immutable"
+
+
 async def test_an_unbuilt_page_says_how_to_build_it(service, tmp_path):
     async with _http(create_app(service, RunHub(), web_ui=tmp_path / "missing")) as http:
         response = await http.get("/app/")

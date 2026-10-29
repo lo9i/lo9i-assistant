@@ -10,8 +10,8 @@
 
   // Says, on every page, what the daemon is up to when the page can't simply go on: a restart or stop coming (an
   // `ending` event, whoever asked for it), the daemon away while its event stream is lost (a restart, a computer
-  // that slept), and a new version of this page once it's back (an update installed: the build this tab runs is
-  // no longer the one the daemon serves). The pages load again by themselves when the stream opens again.
+  // that slept), and a new version of this page (an update installed, the web app built again: the build this tab
+  // runs is no longer the one the daemon serves). The pages load again by themselves when the stream opens again.
   let { name }: { name: string } = $props();
   const { client, hub, notices } = useDaemon();
   const connection = external(hub.subscribeConnection, hub.getConnection);
@@ -61,12 +61,17 @@
       () => {},
     );
 
+  // Asks for the build's version.json, which a new build replaces: no polling, once per reconnection (an update
+  // restarts the daemon) and when the daemon says the web app was built again (`web_build`).
+  function checkVersion(): void {
+    void updated.check().then((changed) => (newVersion = changed));
+  }
+  $effect(() => hub.on(["web_build"], checkVersion));
   $effect(() =>
     hub.onReconnect(() => {
       coming = null;
       void pending();
-      // Asks for the build's version.json, which an update replaces: no polling, once per reconnection.
-      void updated.check().then((changed) => (newVersion = changed));
+      checkVersion();
     }),
   );
 </script>

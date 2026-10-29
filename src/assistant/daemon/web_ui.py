@@ -14,6 +14,13 @@ from starlette.types import Scope
 PREFIX = "/app"
 # Where `npm run build` in clients/web/ writes the page.
 BUILD_DIR = Path(__file__).parent / "webui"
+# The build's own files (its scripts, styles, version.json), each a file or missing, never the page.
+_BUILD_FILES = "_app/"
+# Those named after their content: a new build names them anew, so a browser keeps them as long as it likes.
+_IMMUTABLE = "_app/immutable/"
+_KEEP = "public, max-age=31536000, immutable"
+# Everything else (the page, version.json) is asked again each time, so a reload always gets the build served now.
+_ASK_AGAIN = "no-cache"
 
 
 def add_web_ui(app: FastAPI, directory: Path) -> None:
@@ -37,10 +44,17 @@ class _SinglePageApp(StaticFiles):
     reloading a page or opening a link to it works."""
 
     async def get_response(self, path: str, scope: Scope) -> Response:
+        response = await self._file_or_page(path, scope)
+        response.headers["cache-control"] = _KEEP if path.startswith(_IMMUTABLE) else _ASK_AGAIN
+        return response
+
+    async def _file_or_page(self, path: str, scope: Scope) -> Response:
         try:
             return await super().get_response(path, scope)
         except HTTPException as e:
-            if e.status_code != 404:
+            # A tab on an older build asks for that build's files, which a new build removed: a 404 tells it so
+            # (SvelteKit then loads the new build), where the page would be run as a script.
+            if e.status_code != 404 or path.startswith(_BUILD_FILES):
                 raise
             return await super().get_response("index.html", scope)
 
