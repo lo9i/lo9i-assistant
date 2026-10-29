@@ -54,6 +54,8 @@ def _work(folder: Path, task: dict) -> tuple[bool, str]:
         return False, "the agent gave up"
     if prompt == "session":
         return True, f"Session {task['session']}"
+    if prompt == "where are uploads":
+        return True, os.environ["LO9I_UPLOADS"]
     if prompt == "work a while":
         while not (repository / "release").exists():
             time.sleep(0.02)

@@ -29,7 +29,10 @@ agent:
   args: []
 ```
 
-The worker runs with the plugin's env and field values, its login, and `TZ`, in the plugin's folder.
+The worker runs with the plugin's env and field values, its login, `TZ`, and `LO9I_UPLOADS`, in the plugin's
+folder. `LO9I_UPLOADS` is the folder where the files the user sends the agent are saved: a message names them
+by their full paths there, outside the repository, so an agent that only opens files in its folder must be let
+into it (Copilot's `--add-dir`).
 `{dir}`, `{data}`, `{bin}`, `{uv}`, `{python}` work in `worker` and `args` as in an MCP command.
 
 ## The task folder

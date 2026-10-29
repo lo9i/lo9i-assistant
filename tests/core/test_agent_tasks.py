@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator
 
 import pytest
 
+from assistant.core import uploads
 from assistant.core.agent import AssistantService, Session
 from assistant.core.agent_tasks.service import AgentTaskError
 from assistant.core.context import UNATTENDED_CHANNEL
@@ -127,6 +128,14 @@ async def test_status_shows_steps_and_stop_stops_a_running_task(service, tmp_pat
     assert "isn't running" in await _call(service, "stop_task", task_id=running.id)
     listed = await _call(service, "list_tasks")
     assert listed.index(running.id) < listed.index(done.id) and "(Claude Code)" in listed
+
+
+async def test_the_worker_is_told_where_the_files_sent_to_it_are(service, tmp_path, isolated_settings):
+    await service.add_mcp_server(agent_plugin(trusted=True))
+    task = await service.agent_tasks.start("claude-code", str(tmp_path), "where are uploads")
+    found = await service.agent_tasks.wait(task.id, 30)
+    assert found.state.outcome.text == str(uploads.absolute(""))
+    assert found.state.outcome.text.startswith(str(isolated_settings))
 
 
 async def test_unknown_agents_folders_and_tasks_are_said_so(service, tmp_path):

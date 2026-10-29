@@ -10,6 +10,7 @@ from typing import Any
 from langgraph.store.base import BaseStore
 from mcp.client.stdio import get_default_environment
 
+from assistant.core import uploads
 from assistant.core.agent_tasks import sent, workers
 from assistant.core.agent_tasks.records import Context, Task, TaskState, TaskStore, lost
 from assistant.core.agent_tasks.sessions import Sessions
@@ -24,6 +25,9 @@ from assistant.core.secret_store import SecretBox
 
 # The longest a status call waits for a task to finish.
 MAX_WAIT_SECONDS = 600
+
+# Where the files the user sends an agent are saved, given to its worker (docs/agent-plugins.md).
+UPLOADS_ENV = "LO9I_UPLOADS"
 
 
 class AgentTaskError(Exception):
@@ -207,15 +211,18 @@ class AgentTasks:
         return task
 
     async def _launch(self, server: McpServer, tasks: TaskStore, task: Task) -> None:
-        """The worker runs with the plugin's env, keys and data key, its login (core/mcp/logins.py) and the time zone,
-        in the plugin's folder, from its own environment."""
+        """The worker runs with the plugin's env, keys and data key, its login (core/mcp/logins.py), the time zone and
+        the uploads folder, in the plugin's folder, from its own environment."""
         own = await data_key.with_key(self._store, self._secrets, await keys.fill(self._store, self._secrets, server))
         filled = ssh_agent.with_agent(logins.with_login(own, self._shared()))
         try:
             await self._environments.ensure(server.name, server.agent_worker)
         except McpServerError as e:
             raise AgentTaskError(str(e)) from e
-        env = get_default_environment() | {"TZ": settings.timezone} | filled.env
+        # The files the user sends the agent are saved there (core/agent/messaging.py::_to_agent): an agent that
+        # checks the paths it opens is let into it.
+        shared = {"TZ": settings.timezone, UPLOADS_ENV: str(uploads.absolute(""))}
+        env = get_default_environment() | shared | filled.env
         code = folders.code(server.name)
         command = [server.agent_worker, *server.agent_args]
         await asyncio.to_thread(workers.start, command, tasks.folder(task.id), env, code if code.is_dir() else None)
