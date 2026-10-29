@@ -49,9 +49,8 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - A30. A plugin's token is checked only when it's first used: a wrong Claude key fails the first coding task after about three minutes of Claude Code's retries. Let a plugin declare a check that runs when its fields are saved (a command or a tool), and show its error in the install dialog.
 - A31. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen. It would also give plugins that ask for the ssh agent (`ssh_agent: true`, `core/mcp/ssh_agent.py`) the user's agent, which a LaunchDaemon has none of.
 - A32. The hosts plugin (extras, `connectivity/remote/hosts`) hasn't been tried in the web app itself: its page, terminal and reconnects were checked through the pages port and the plugin's page on their own, not in the iframe with a browser's keyboard, sleep and network changes. Try it there, on a phone too.
-- A41. A maps plugin: look up places and addresses, routes and travel times (driving, walking, transit), for example through OpenStreetMap (Nominatim, OSRM) with no key. Hermes has this as its `maps` skill.
-- A42. YouTube summaries: summarize a video from its transcript (the youtube plugin, `media/video/youtube`, already downloads transcripts), and optionally the new uploads of followed channels in the watchlist.
-- A43. Google Drive, Docs and Sheets: search and read Drive files, and create and edit Docs and Sheets, signing in with the user's own OAuth app as email does (`core/integrations/email/oauth.py`).
+- A33. YouTube summaries: summarize a video from its transcript (the youtube plugin, `media/video/youtube`, already downloads transcripts), and optionally the new uploads of followed channels in the watchlist.
+- A34. Google Drive, Docs and Sheets: search and read Drive files, and create and edit Docs and Sheets, signing in with the user's own OAuth app as email does (`core/integrations/email/oauth.py`).
 
 ## Context
 
@@ -60,27 +59,27 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Voice
 
-- A33. Real-time voice agent: live spoken conversation from the browser.
+- A35. Real-time voice agent: live spoken conversation from the browser.
   - A speech-to-speech model (OpenAI GPT-Live) listens and speaks. No separate speech-to-text or text-to-speech step; transcripts come from the model's own events.
   - Audio goes directly between the browser and OpenAI over WebRTC. The daemon only exchanges the connection offer and answer, and never handles audio.
   - The daemon keeps a sideband WebSocket to OpenAI for each call. When the voice model needs to act, it calls a tool; the daemon runs it through `AssistantService`, so Claude stays the brain.
   - Tool calls are logged by the model's call id, so a retried call returns the first result.
   - Needs an OpenAI key in addition to the Anthropic key. Not needed for Telegram voice notes.
-- A34. Spoken replies in Slack. Settings → Audio speaks replies in the web chat and as Telegram voice notes; Slack doesn't get them yet (upload the audio with `files.uploadV2`).
-- A35. A voice message that is the first message of a conversation the web app's Chat opened for no topic (a new tab) stays in that conversation: routing reads only typed text (`POST /routes`, `ChatController.routed`), while the inbox routes a voice note by what it said. Transcribe it first, or let `/routes` take the recording, so it goes on in the conversation it's about too.
+- A36. Spoken replies in Slack. Settings → Audio speaks replies in the web chat and as Telegram voice notes; Slack doesn't get them yet (upload the audio with `files.uploadV2`).
+- A37. A voice message that is the first message of a conversation the web app's Chat opened for no topic (a new tab) stays in that conversation: routing reads only typed text (`POST /routes`, `ChatController.routed`), while the inbox routes a voice note by what it said. Transcribe it first, or let `/routes` take the recording, so it goes on in the conversation it's about too.
 
 ## Platforms
 
-- A36. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
+- A38. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
   - Daemon connection: a named pipe or localhost with a paired device instead of the Unix socket.
   - Startup: a Task Scheduler task or a Windows service as a `daemon/startup.py` backend.
   - Clipboard: `client/clipboard/windows.py`, pasting files, images and text with PowerShell (`Get-Clipboard -Format FileDropList`, `System.Windows.Forms.Clipboard.GetImage`) and copying with `Set-Clipboard`.
   - Bash tool, data paths and `install.sh`: decide between native Windows and running under WSL.
-- A37. The agent-finished pop-up on Android. Chrome there grants the notification permission but shows notifications only from a service worker (`ServiceWorkerRegistration.showNotification`); `new Notification` throws, so the web app shows its own notice instead (`lib/agentDone.svelte.ts::systemNotice`). Needs a service worker (`src/service-worker.ts`, registered by SvelteKit) whose `notificationclick` opens the conversation.
+- A39. The agent-finished pop-up on Android. Chrome there grants the notification permission but shows notifications only from a service worker (`ServiceWorkerRegistration.showNotification`); `new Notification` throws, so the web app shows its own notice instead (`lib/agentDone.svelte.ts::systemNotice`). Needs a service worker (`src/service-worker.ts`, registered by SvelteKit) whose `notificationclick` opens the conversation.
 
 ## Languages
 
-- A38. Multi-language support. The app's own text is English only.
+- A40. Multi-language support. The app's own text is English only.
   - Interface text: terminal app, web app, and the messages Telegram and Slack adapters send (approval buttons, errors, `/new`). Text kept in per-language files, picked in Settings → General.
   - Prompts in `core/conversation/prompts/` stay in English; the model replies in the user's language.
   - Speech: the speech-to-text language and the Kokoro voice follow the chosen language.
@@ -90,8 +89,8 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 Not worth doing yet; each item says what was done and when to look at it again.
 
-- A39. Starting the hosts plugin's Herdr session on a host (extras, `connectivity/remote/hosts`, `herdr.py::_READY`) waits for its socket to answer, up to 5 seconds: Herdr 0.9 has no event or command that says a headless server is ready. Done: the assistant's commands run in a tab of their own, labeled `assistant`, with a POSIX sh (hosts 0.4.0). Revisit when Herdr adds a readiness signal (its CLI reference, `herdr status server`, events).
-- A40. Plugins repeat the code their protocol needs: Telegram and Slack each have `daemon.py` and `runner.py`, Claude Code and Copilot each have `task_folder.py`, so a protocol change means changing every copy. Done: the extras' `tests/test_shared_code.py` (run by their pre-commit hook) fails when the copies differ, and lists the differences meant to be there. Left: publish one small client per protocol on PyPI, which each plugin's `uv.lock` pins. Revisit when a third channel or agent plugin comes, or a protocol changes again.
+- A41. Starting the hosts plugin's Herdr session on a host (extras, `connectivity/remote/hosts`, `herdr.py::_READY`) waits for its socket to answer, up to 5 seconds: Herdr 0.9 has no event or command that says a headless server is ready. Done: the assistant's commands run in a tab of their own, labeled `assistant`, with a POSIX sh (hosts 0.4.0). Revisit when Herdr adds a readiness signal (its CLI reference, `herdr status server`, events).
+- A42. Plugins repeat the code their protocol needs: Telegram and Slack each have `daemon.py` and `runner.py`, Claude Code and Copilot each have `task_folder.py`, so a protocol change means changing every copy. Done: the extras' `tests/test_shared_code.py` (run by their pre-commit hook) fails when the copies differ, and lists the differences meant to be there. Left: publish one small client per protocol on PyPI, which each plugin's `uv.lock` pins. Revisit when a third channel or agent plugin comes, or a protocol changes again.
 
 ## Open questions and risks
 

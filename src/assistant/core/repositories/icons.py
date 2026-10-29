@@ -35,6 +35,7 @@ CATEGORY_ICONS = {
     "media/video": "video",
     "other/general": "puzzle",
     "productivity/calendar": "calendar",
+    "productivity/maps": "map",
     "software/factory": "factory",
 }
 _SVG_NS = "{http://www.w3.org/2000/svg}"
