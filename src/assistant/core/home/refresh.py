@@ -11,6 +11,7 @@ from collections.abc import Callable, Collection
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
+import openai
 from langgraph.store.base import BaseStore
 
 from assistant.core.bus import EventBus
@@ -109,7 +110,7 @@ class HomeRefresh:
             async with asyncio.timeout(SECTION_SECONDS):
                 content = await self._builder().build(user_id, section, tools, now)
         except Exception as e:
-            logger.warning("Couldn't build the Home section %s: %s", section.title, e, exc_info=True)
+            logger.warning("Couldn't build the Home section %s: %s", section.title, e, exc_info=not _expected(e))
             return await self._failed(user_id, section, _reason(e), now, page)
         return SectionResult(
             section_id=section.id,
@@ -163,8 +164,22 @@ def _unavailable(section: HomeSection, installed: list[McpServer], now: datetime
     )
 
 
+_UNREACHABLE = (openai.APIConnectionError, openai.APITimeoutError, openai.InternalServerError)
+
+
+def _expected(error: Exception) -> bool:
+    """Model limits and outages, which need no traceback in the log."""
+    cause = error.__cause__ or error
+    return isinstance(error, TimeoutError) or isinstance(cause, (openai.RateLimitError, *_UNREACHABLE))
+
+
 def _reason(error: Exception) -> str:
     if isinstance(error, TimeoutError):
         return f"It took more than {SECTION_SECONDS // 60} minutes."
+    cause = error.__cause__ or error
+    if isinstance(cause, openai.RateLimitError):
+        return "The model's usage limit was reached; it will try again on the next refresh."
+    if isinstance(cause, _UNREACHABLE):
+        return "The model couldn't be reached; it will try again on the next refresh."
     text = str(error).strip() or type(error).__name__
     return text if len(text) <= 300 else text[:300] + "…"
