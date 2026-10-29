@@ -8,9 +8,9 @@
 
   const stats = resource((c) => c.conversations.stats(threadId), ["run_finished", "handoffs"]);
   const shown = $derived(
-    stats.data && !stats.error && stats.data.thread_id === threadId && stats.data.context_limit > 0 ? stats.data : null,
+    stats.data && !stats.error && stats.data.thread_id === threadId ? stats.data : null,
   );
-  const ratio = $derived(shown ? Math.min(1, shown.context_tokens / shown.context_limit) : 0);
+  const ratio = $derived(shown && shown.context_limit > 0 ? Math.min(1, shown.context_tokens / shown.context_limit) : 0);
   const SEGMENTS = 24;
   const filled = $derived(Math.round(ratio * SEGMENTS));
   const percent = $derived(Math.round(ratio * 100));
@@ -33,7 +33,9 @@
     if (!shown) return null;
     return {
       heading: shown.context_agent ? `${shown.context_agent}'s context` : "Context",
-      figures: `${compact(shown.context_tokens)} / ${compact(shown.context_limit)} tokens`,
+      figures: !shown.context_limit
+        ? "Not known until its first answer."
+        : `${compact(shown.context_tokens)} / ${compact(shown.context_limit)} tokens`,
       note: shown.context_agent
         ? "As of its last answer. It compacts older messages as it nears full."
         : "Older messages are summarized when it's full.",
