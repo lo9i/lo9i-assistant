@@ -26,7 +26,10 @@ src/assistant/
     repositories/  installing skills and MCP servers from git repositories: download, copy, install record
     jobs/        scheduled jobs (cron) and their records
     home/        Home, the web app's landing page: sections (the user's instructions), each built by the worker
-                 model from its plugins' read-only tools into one format of items, the last results kept in the Store
+                 model from its plugins' read-only tools into one format of items, the last results kept in the Store;
+                 a few built-in ones built by code instead, without the model (coded.py)
+    copilot_quota/  the Copilot plan's allowance, read from GitHub without the model every few hours (a supervised
+                 daemon task): Home's Copilot card, and a WhatsApp alert once below 20% and once out, per period
     doctor/      the daily health check: the day's log records and failed runs grouped by cause, the starting
                  context's size, each against the day before; no model call
     mcp/         MCP servers: settings (Store), connections (hub), their tools as LangChain tools,

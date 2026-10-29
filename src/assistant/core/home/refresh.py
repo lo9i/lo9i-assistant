@@ -7,7 +7,7 @@ time; sections the user just changed are built after it."""
 
 import asyncio
 import logging
-from collections.abc import Callable, Collection
+from collections.abc import Callable, Collection, Mapping
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
@@ -18,6 +18,7 @@ from assistant.core.bus import EventBus
 from assistant.core.home import results, sections
 from assistant.core.home.builder import SectionBuilder
 from assistant.core.home.clock import within
+from assistant.core.home.coded import CodedSection
 from assistant.core.home.model import HomeCard, HomePage, HomeSection, SectionResult
 from assistant.core.mcp import servers
 from assistant.core.mcp.sanitize import tool_name
@@ -38,13 +39,20 @@ class ReadOnlyTools(Protocol):
 
 class HomeRefresh:
     def __init__(
-        self, store: BaseStore, bus: EventBus, builder: Callable[[], SectionBuilder], tools: ReadOnlyTools
+        self,
+        store: BaseStore,
+        bus: EventBus,
+        builder: Callable[[], SectionBuilder],
+        tools: ReadOnlyTools,
+        coded: Mapping[str, CodedSection],
     ) -> None:
-        """`builder` gives the section builder of the model in use, which changes when the user picks another."""
+        """`builder` gives the section builder of the model in use, which changes when the user picks another.
+        `coded`: the sections built by code, by id (coded.py)."""
         self._store = store
         self._bus = bus
         self._builder = builder
         self._tools = tools
+        self._coded = coded
         # The refresh running for each user.
         self._running: dict[str, asyncio.Task] = {}
 
@@ -97,7 +105,9 @@ class HomeRefresh:
         """Never raises: a section that fails says so and keeps the items it had."""
         now = datetime.now(UTC)
         tools = _tools_of(section, self._tools.read_only_definitions())
-        if not tools:
+        if (coded := self._coded.get(section.id)) is not None:
+            result = await self._built_by_code(user_id, section, coded, now)
+        elif not tools:
             result = _unavailable(section, installed, now)
         else:
             result = await self._built(user_id, section, tools, now, _page(section, installed))
@@ -122,6 +132,23 @@ class HomeRefresh:
             items=content.items,
             note=content.note,
             page=page,
+            at=now.isoformat(),
+        )
+
+    async def _built_by_code(
+        self, user_id: str, section: HomeSection, coded: CodedSection, now: datetime
+    ) -> SectionResult:
+        try:
+            content = await coded.build()
+        except Exception as e:
+            logger.warning("Couldn't build the Home section %s: %s", section.title, e, exc_info=True)
+            return await self._failed(user_id, section, _reason(e), now, "")
+        return SectionResult(
+            section_id=section.id,
+            title=section.title,
+            status="ok",
+            items=content.items,
+            note=content.note,
             at=now.isoformat(),
         )
 

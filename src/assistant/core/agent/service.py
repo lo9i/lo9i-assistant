@@ -49,9 +49,12 @@ from assistant.core.config import settings
 from assistant.core.conversation import prompt_edits
 from assistant.core.conversation.meanings import ConversationIndexer, SimilarConversations
 from assistant.core.conversation.memory_writer import MemoryWriter
+from assistant.core.copilot_quota.section import CopilotSection
+from assistant.core.copilot_quota.watch import CopilotWatch
 from assistant.core.doctor.doctor import Doctor
 from assistant.core.doctor.schedule import DoctorSchedule
 from assistant.core.health import HealthLog
+from assistant.core.home import sections as home_sections
 from assistant.core.home.refresh import HomeRefresh
 from assistant.core.home.schedule import HomeSchedule
 from assistant.core.llm import choice
@@ -142,8 +145,16 @@ class AssistantService(
         self._plugin_tools = PluginTools(
             self.mcp, AgentTools(self.agent_tasks, self._task_reports), tool_groups(settings.toolsets)
         )
-        self.home_refresh = HomeRefresh(storage.store, bus, lambda: self._home_builder, self._plugin_tools)
+        coded = {home_sections.COPILOT: CopilotSection(storage.store, lambda: self._model)}
+        self.home_refresh = HomeRefresh(storage.store, bus, lambda: self._home_builder, self._plugin_tools, coded)
         self.home_schedule = HomeSchedule(storage.store, self.home_refresh, settings.owner_id)
+        self.copilot_watch = CopilotWatch(
+            storage.store,
+            self.outbox,
+            lambda: self._model,
+            lambda: self.home_refresh.refresh(settings.owner_id, only=[home_sections.COPILOT]),
+            settings.owner_id,
+        )
         self._windows = ContextWindows(storage.store)
         self.doctor = Doctor(
             storage.store,

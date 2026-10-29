@@ -12,6 +12,7 @@ from assistant.core.conversation.dispatch import Classifier
 from assistant.core.conversation.meanings import ConversationIndexer, SimilarConversations
 from assistant.core.conversation.memory_writer import MemoryWriter
 from assistant.core.conversation.titles import Titler
+from assistant.core.copilot_quota.watch import CopilotWatch
 from assistant.core.doctor.doctor import Doctor
 from assistant.core.doctor.schedule import DoctorSchedule
 from assistant.core.graph import Graph
@@ -86,6 +87,9 @@ class ServiceBase:
     home_refresh: HomeRefresh
     # Refreshes Home at the start of the day and while a client shows it. The daemon runs it as a supervised task.
     home_schedule: HomeSchedule
+    # Checks the Copilot plan's allowance without the model, for Home and alerts. The daemon runs it as a supervised
+    # task.
+    copilot_watch: CopilotWatch
     # Checks the daemon's health (core/doctor/); requests start a check of today in the background.
     doctor: Doctor
     # Checks each day once it ended. The daemon runs it as a supervised task.

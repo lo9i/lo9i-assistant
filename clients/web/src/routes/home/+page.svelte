@@ -193,7 +193,7 @@
 {#if resetting}
   <Confirm
     title="Go back to the built-in sections?"
-    text="Your sections are replaced by Calendario, Watchlist and Gastos."
+    text="Your sections are replaced by Calendario, Watchlist, Gastos and Copilot."
     action="Reset"
     onanswer={(yes) => (yes ? reset() : (resetting = false))}
   />
