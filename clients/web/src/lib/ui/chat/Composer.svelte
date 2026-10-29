@@ -215,7 +215,7 @@
       {/each}
     </div>
   {/if}
-  <div class="composer" class:multiline={text.includes("\n") || text.length > 80}>
+  <div class="composer" class:multiline={text.includes("\n") || text.length > 80} class:working={steering !== null}>
     <button class="lead" aria-label="Attach files" title="Attach files" onclick={() => picker?.click()}>
       <Paperclip size={16} />
     </button>
@@ -297,6 +297,11 @@
   .composer:focus-within {
     border-color: var(--color-accent);
   }
+  /* While the agent the conversation is handed to works, as its name in the status bar (AgentStatus). */
+  .composer.working,
+  .composer.working:focus-within {
+    border-color: var(--color-agent-working);
+  }
   .lead {
     display: grid;
     place-items: center;
@@ -344,7 +349,7 @@
     background: transparent;
     font-size: 0.92rem;
     line-height: 1.4;
-    padding: 6px 4px;
+    padding: 4px;
     max-height: 140px;
     field-sizing: content;
   }

@@ -31,6 +31,6 @@
     transition: color 0.2s ease;
   }
   .name.working {
-    color: #e68d77;
+    color: var(--color-agent-working);
   }
 </style>

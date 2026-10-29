@@ -21,4 +21,10 @@ describe("Composer while the agent works", () => {
   it("offers nothing to send with neither text nor files", () => {
     expect(composer("", [])).not.toContain('aria-label="Send to Claude Code"');
   });
+
+  it("marks the box as the agent's while it works, and not otherwise", () => {
+    expect(composer("", [])).toMatch(/class="composer[^"]*working/);
+    const props = { busy: false, running: false, onsend: () => {}, onstop: () => {}, oncommand: () => {}, text: "", files: [] };
+    expect(render(Composer, { props }).body).not.toMatch(/class="composer[^"]*working/);
+  });
 });
