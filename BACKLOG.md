@@ -25,7 +25,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - A17. Home places its cards with `grid-auto-flow: dense` (`clients/web/src/routes/home/+page.svelte`), so a narrow card after a wide one moves up into the hole the wide one left at the end of a row: the page can show the cards in another order than the saved one, and Move up and Move down then seem to move a card past one it isn't next to on screen. Place wide cards where they fit without reordering (pack the order into rows, widening the last card of a row to fill it), or say on the card where it goes.
 - A18. Home's sections built by code (`core/home/coded.py`, the Copilot card) open in the same editor as the others, whose What to show and Plugins do nothing for them (the text says so). Say on the section that it's built by code and let the editor change only its title and width.
 - A19. The Copilot allowance alerts go only to WhatsApp (`core/copilot_quota/watch.py::CHANNEL`); while it isn't connected an alert waits, and without the plugin it's never sent. Send it on the channels the user picks, or every connected one, and add it to the notifications feed.
-- A46. Importing skills from other agents (`core/skills/imports/`) leaves out: Claude Code's commands (`~/.claude/commands/`, a project's `.claude/commands/`) and its plugins' skills, and Codex's admin skills (`/etc/codex/skills`); the question at install is asked only when install.sh runs in a terminal, so a host installed over ssh without one never hears it (the apps' `/import-skills` still lists them), and the plain REPL has no `/import-skills`; and a project skill whose text names the project's own `scripts/` files is refused as using files it doesn't have. Add what's worth it.
+- A45. Importing skills from other agents (`core/skills/imports/`) leaves out: Claude Code's commands (`~/.claude/commands/`, a project's `.claude/commands/`) and its plugins' skills, and Codex's admin skills (`/etc/codex/skills`); the question at install is asked only when install.sh runs in a terminal, so a host installed over ssh without one never hears it (the apps' `/import-skills` still lists them), and the plain REPL has no `/import-skills`; and a project skill whose text names the project's own `scripts/` files is refused as using files it doesn't have. Add what's worth it.
 
 ## Daemon
 
@@ -48,12 +48,11 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Plugins
 
-- A31. The contacts plugin (extras, `communications/contacts/contacts`) reads a CardDAV account with a user name and password (iCloud, Fastmail, Nextcloud), but Google Contacts' CardDAV takes only OAuth. Sign in with the user's own OAuth app, as email does (`core/integrations/email/oauth.py`), and give the plugin the access token.
+- A31. The contacts plugin (extras, `communications/contacts/contacts`) reads a CardDAV account with a user name and password (iCloud, Fastmail, Nextcloud), but Google Contacts' CardDAV takes only OAuth. Plugins can sign in with the user's own OAuth app now (`oauth:` in server.yaml, `core/mcp/plugin_oauth.py`, as the google-drive plugin does): declare it with Google's contacts scope and use the login in `LO9I_OAUTH` for CardDAV.
 - A32. A plugin's token is checked only when it's first used: a wrong Claude key fails the first coding task after about three minutes of Claude Code's retries. Let a plugin declare a check that runs when its fields are saved (a command or a tool), and show its error in the install dialog.
 - A33. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen. It would also give plugins that ask for the ssh agent (`ssh_agent: true`, `core/mcp/ssh_agent.py`) the user's agent, which a LaunchDaemon has none of.
 - A34. The hosts plugin (extras, `connectivity/remote/hosts`) hasn't been tried in the web app itself: its page, terminal and reconnects were checked through the pages port and the plugin's page on their own, not in the iframe with a browser's keyboard, sleep and network changes. Try it there, on a phone too.
 - A35. YouTube summaries: summarize a video from its transcript (the youtube plugin, `media/video/youtube`, already downloads transcripts), and optionally the new uploads of followed channels in the watchlist.
-- A36. Google Drive, Docs and Sheets: search and read Drive files, and create and edit Docs and Sheets, signing in with the user's own OAuth app as email does (`core/integrations/email/oauth.py`).
 
 ## Context
 
@@ -62,27 +61,27 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Voice
 
-- A37. Real-time voice agent: live spoken conversation from the browser.
+- A36. Real-time voice agent: live spoken conversation from the browser.
   - A speech-to-speech model (OpenAI GPT-Live) listens and speaks. No separate speech-to-text or text-to-speech step; transcripts come from the model's own events.
   - Audio goes directly between the browser and OpenAI over WebRTC. The daemon only exchanges the connection offer and answer, and never handles audio.
   - The daemon keeps a sideband WebSocket to OpenAI for each call. When the voice model needs to act, it calls a tool; the daemon runs it through `AssistantService`, so Claude stays the brain.
   - Tool calls are logged by the model's call id, so a retried call returns the first result.
   - Needs an OpenAI key in addition to the Anthropic key. Not needed for Telegram voice notes.
-- A38. Spoken replies in Slack. Settings → Audio speaks replies in the web chat and as Telegram voice notes; Slack doesn't get them yet (upload the audio with `files.uploadV2`).
-- A39. A voice message that is the first message of a conversation the web app's Chat opened for no topic (a new tab) stays in that conversation: routing reads only typed text (`POST /routes`, `ChatController.routed`), while the inbox routes a voice note by what it said. Transcribe it first, or let `/routes` take the recording, so it goes on in the conversation it's about too.
+- A37. Spoken replies in Slack. Settings → Audio speaks replies in the web chat and as Telegram voice notes; Slack doesn't get them yet (upload the audio with `files.uploadV2`).
+- A38. A voice message that is the first message of a conversation the web app's Chat opened for no topic (a new tab) stays in that conversation: routing reads only typed text (`POST /routes`, `ChatController.routed`), while the inbox routes a voice note by what it said. Transcribe it first, or let `/routes` take the recording, so it goes on in the conversation it's about too.
 
 ## Platforms
 
-- A40. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
+- A39. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
   - Daemon connection: a named pipe or localhost with a paired device instead of the Unix socket.
   - Startup: a Task Scheduler task or a Windows service as a `daemon/startup.py` backend.
   - Clipboard: `client/clipboard/windows.py`, pasting files, images and text with PowerShell (`Get-Clipboard -Format FileDropList`, `System.Windows.Forms.Clipboard.GetImage`) and copying with `Set-Clipboard`.
   - Bash tool, data paths and `install.sh`: decide between native Windows and running under WSL.
-- A41. The agent-finished pop-up on Android. Chrome there grants the notification permission but shows notifications only from a service worker (`ServiceWorkerRegistration.showNotification`); `new Notification` throws, so the web app shows its own notice instead (`lib/agentDone.svelte.ts::systemNotice`). Needs a service worker (`src/service-worker.ts`, registered by SvelteKit) whose `notificationclick` opens the conversation.
+- A40. The agent-finished pop-up on Android. Chrome there grants the notification permission but shows notifications only from a service worker (`ServiceWorkerRegistration.showNotification`); `new Notification` throws, so the web app shows its own notice instead (`lib/agentDone.svelte.ts::systemNotice`). Needs a service worker (`src/service-worker.ts`, registered by SvelteKit) whose `notificationclick` opens the conversation.
 
 ## Languages
 
-- A42. Languages, follow-ups. The apps' own text is in English and Spanish (`core/language.py`, Settings → General, `/language`; `core/i18n/`, `clients/web/src/lib/locales/`, `assistant_terminal/locales/`); left:
+- A41. Languages, follow-ups. The apps' own text is in English and Spanish (`core/language.py`, Settings → General, `/language`; `core/i18n/`, `clients/web/src/lib/locales/`, `assistant_terminal/locales/`); left:
   - Text the daemon writes for people is English whatever the language: errors raised in core and shown as they come (HTTP error details, tool and plugin errors), notifications' and alerts' titles and texts, the health check's causes and context parts, background work's end notices, plugin fields' and model providers' labels and help, and built-in Home sections' titles. Give the code that writes them the chosen texts (`i18n.chosen`), as the chat channels' (`core/channels/chat/`), the new-mail alerts and the Copilot card do. The web app's "auto" follows the browser, which the daemon doesn't know, so text it writes for the apps would follow the saved choice only.
   - The chat channel plugins' own text (their setup items, pairing replies; in the extras) is English.
   - The terminal app makes its key bindings and some labels when its modules are imported (`assistant_terminal/i18n.py`), so `/language` changes them from the next start; the plain REPL (pipes) has no `/language`.
@@ -92,10 +91,10 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 Not worth doing yet; each item says what was done and when to look at it again.
 
-- A43. Starting the hosts plugin's Herdr session on a host (extras, `connectivity/remote/hosts`, `herdr.py::_READY`) waits for its socket to answer, up to 5 seconds: Herdr 0.9 has no event or command that says a headless server is ready. Done: the assistant's commands run in a tab of their own, labeled `assistant`, with a POSIX sh (hosts 0.4.0). Revisit when Herdr adds a readiness signal (its CLI reference, `herdr status server`, events).
-- A44. Plugins repeat the code their protocol needs: Telegram and Slack each have `daemon.py` and `runner.py`, Claude Code and Copilot each have `task_folder.py`, so a protocol change means changing every copy. Done: the extras' `tests/test_shared_code.py` (run by their pre-commit hook) fails when the copies differ, and lists the differences meant to be there. Left: publish one small client per protocol on PyPI, which each plugin's `uv.lock` pins. Revisit when a third channel or agent plugin comes, or a protocol changes again.
+- A42. Starting the hosts plugin's Herdr session on a host (extras, `connectivity/remote/hosts`, `herdr.py::_READY`) waits for its socket to answer, up to 5 seconds: Herdr 0.9 has no event or command that says a headless server is ready. Done: the assistant's commands run in a tab of their own, labeled `assistant`, with a POSIX sh (hosts 0.4.0). Revisit when Herdr adds a readiness signal (its CLI reference, `herdr status server`, events).
+- A43. Plugins repeat the code their protocol needs: Telegram and Slack each have `daemon.py` and `runner.py`, Claude Code and Copilot each have `task_folder.py`, so a protocol change means changing every copy. Done: the extras' `tests/test_shared_code.py` (run by their pre-commit hook) fails when the copies differ, and lists the differences meant to be there. Left: publish one small client per protocol on PyPI, which each plugin's `uv.lock` pins. Revisit when a third channel or agent plugin comes, or a protocol changes again.
 
-- A45. Try NVIDIA Nemotron 3.5 Transcribe (open, 40 languages incl. Spanish, speaker labels, translation, questions about a recording, term hints in the prompt, up to 1 h of audio) in place of faster-whisper, or as a plugin for long recordings such as meetings or YouTube videos without captions. Today it's 30B (4B active) and only runs on a large NVIDIA GPU via vLLM; hosted APIs (DeepInfra, Baseten) send audio to a third party. Revisit when its quantized versions and NeMo-Speech.cpp ship and it runs on a Mac. https://huggingface.co/blog/nvidia/nemotron-transcribe-granary
+- A44. Try NVIDIA Nemotron 3.5 Transcribe (open, 40 languages incl. Spanish, speaker labels, translation, questions about a recording, term hints in the prompt, up to 1 h of audio) in place of faster-whisper, or as a plugin for long recordings such as meetings or YouTube videos without captions. Today it's 30B (4B active) and only runs on a large NVIDIA GPU via vLLM; hosted APIs (DeepInfra, Baseten) send audio to a third party. Revisit when its quantized versions and NeMo-Speech.cpp ship and it runs on a Mac. https://huggingface.co/blog/nvidia/nemotron-transcribe-granary
 
 ## Open questions and risks
 
