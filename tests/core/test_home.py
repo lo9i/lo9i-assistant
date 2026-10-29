@@ -187,6 +187,13 @@ def test_an_item_links_only_to_a_web_address():
         HomeItem(title="CNC", url="javascript:alert(1)")
 
 
+def test_an_item_is_placed_on_its_plugins_page_only_by_a_path_in_it():
+    assert HomeItem(title="Severance", page_path="titles/12").page_path == "titles/12"
+    for outside in ("../hosts/", "titles/../../x", "/titles/12", "https://evil.example", "titles/12?x=<b>"):
+        with pytest.raises(ValueError, match="isn't a path on a plugin's page"):
+            HomeItem(title="Severance", page_path=outside)
+
+
 async def test_a_refresh_within_ten_minutes_of_the_last_does_nothing_unless_forced(service, formats):
     await _install_calendar(service)
     await _only(service, "Agenda")

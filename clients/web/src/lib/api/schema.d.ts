@@ -3400,6 +3400,12 @@ export interface components {
              * @default
              */
             url: string;
+            /**
+             * Page Path
+             * @description Where it is on its plugin's page, exactly as a tool gave it as its page_path (like titles/12), or empty. Never made up.
+             * @default
+             */
+            page_path: string;
         };
         /** HomePage */
         HomePage: {

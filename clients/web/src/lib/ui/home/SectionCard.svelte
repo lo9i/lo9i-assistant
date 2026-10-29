@@ -8,7 +8,7 @@
   import type { HomeCard, PluginIcon as Icon } from "$lib/api/types";
   import { MAX_COLUMNS as MAX, cardColumns, itemWhen, linked, snappedColumns } from "$lib/home";
   import { t } from "$lib/i18n.svelte";
-  import { pageLabel } from "$lib/pages";
+  import { pageHref, pageLabel } from "$lib/pages";
   import PluginIcon from "../PluginIcon.svelte";
 
   type Props = {
@@ -130,6 +130,9 @@
             <span class="what">
               {#if url}
                 <a class="title" href={url} target="_blank" rel="noopener noreferrer">{item.title}</a>
+              {:else if item.page_path && result.page}
+                <!-- Its place on the plugin's page, in the app. -->
+                <a class="title" href={pageHref(resolve("/pages/[name]", { name: result.page }), item.page_path)}>{item.title}</a>
               {:else}
                 <span class="title">{item.title}</span>
               {/if}

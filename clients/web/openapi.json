@@ -7250,6 +7250,12 @@
             "title": "Url",
             "description": "The full http(s) address that opens it (the story, the event's page) when one was found, or empty. Only here, never in the title or subtitle.",
             "default": ""
+          },
+          "page_path": {
+            "type": "string",
+            "title": "Page Path",
+            "description": "Where it is on its plugin's page, exactly as a tool gave it as its page_path (like titles/12), or empty. Never made up.",
+            "default": ""
           }
         },
         "type": "object",

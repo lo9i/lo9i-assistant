@@ -13,11 +13,21 @@ export function pagesOrigin(location: Location): string {
   return `${location.protocol}//${host}:${port}`;
 }
 
+// A place on a page, as the daemon checks a Home item's page_path (src/assistant/core/home/model.py).
+const PAGE_PATH = /^[A-Za-z0-9][A-Za-z0-9_\-./]{0,199}$/;
+
 /** Where a server's page is, seen from the web app at `location`, with the app's theme when given: a page can't
- * read the app's, so it's told in its address and, when it changes, by `themeMessage`. */
-export function pageUrl(name: string, location: Location, theme?: ResolvedTheme): string {
+ * read the app's, so it's told in its address and, when it changes, by `themeMessage`. `path` is a place on the page
+ * (a Home item's `page_path`, like titles/12); one that would leave the page is ignored. */
+export function pageUrl(name: string, location: Location, theme?: ResolvedTheme, path = ""): string {
   const query = theme ? `?theme=${theme}` : "";
-  return `${pagesOrigin(location)}/${encodeURIComponent(name)}/${query}`;
+  const place = PAGE_PATH.test(path) && !path.split("/").includes("..") ? path.split("/").map(encodeURIComponent).join("/") : "";
+  return `${pagesOrigin(location)}/${encodeURIComponent(name)}/${place}${query}`;
+}
+
+/** The web app's address of a server's page, opened at `path` when given (`pageUrl`). */
+export function pageHref(base: string, path = ""): string {
+  return path ? `${base}?path=${encodeURIComponent(path)}` : base;
 }
 
 /** What the page's frame is sent when the app's theme changes (the extras' pages' theme.js applies it). */

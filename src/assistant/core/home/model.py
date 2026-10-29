@@ -12,6 +12,8 @@ _TIME = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 # The widest a card can be: the columns the web app's Home has room for at its widest.
 MAX_COLUMNS = 4
 _URL = re.compile(r"^https?://\S+$")
+# A place on a plugin's page: a relative path in it, like titles/12.
+_PAGE_PATH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_\-./]{0,199}$")
 
 
 class HomeItem(BaseModel):
@@ -25,6 +27,11 @@ class HomeItem(BaseModel):
         default="",
         description="The full http(s) address that opens it (the story, the event's page) when one was found, "
         "or empty. Only here, never in the title or subtitle.",
+    )
+    page_path: str = Field(
+        default="",
+        description="Where it is on its plugin's page, exactly as a tool gave it as its page_path (like titles/12), "
+        "or empty. Never made up.",
     )
 
     @field_validator("date")
@@ -48,6 +55,14 @@ class HomeItem(BaseModel):
     def _a_link(cls, value: str) -> str:
         if value and not _URL.match(value):
             raise ValueError(f"{value!r} isn't an http(s) address")
+        return value
+
+    @field_validator("page_path")
+    @classmethod
+    def _a_place(cls, value: str) -> str:
+        """A path within the page: never another site, nor out of the page's folder."""
+        if value and (not _PAGE_PATH.match(value) or ".." in value.split("/")):
+            raise ValueError(f"{value!r} isn't a path on a plugin's page")
         return value
 
 

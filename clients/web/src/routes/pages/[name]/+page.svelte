@@ -10,6 +10,8 @@
 
   const servers = resource((c) => c.mcp.servers(), ["mcp"]);
   const name = $derived(page.params.name ?? "");
+  // Where on the page to open it: a Home item's place (`?path=titles/12`).
+  const path = $derived(page.url.searchParams.get("path") ?? "");
   const server = $derived(servers.data?.find((s) => s.name === name && s.page));
   // The page is told the app's theme in its address once; a change after goes to it as a message, so the
   // frame isn't loaded again.
@@ -18,6 +20,7 @@
       name,
       window.location,
       untrack(() => theme.resolved),
+      path,
     ),
   );
   let frame = $state<HTMLIFrameElement | null>(null);
