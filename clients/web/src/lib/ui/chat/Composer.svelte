@@ -28,6 +28,8 @@
     /** The agent the conversation is handed to works on the last message: what's typed and attached goes to it meanwhile. */
     onqueue?: (text: string, files: File[]) => void;
     steering?: { agent: string; onsteer: (text: string, files: File[]) => void } | null;
+    /** The conversation is handed to an agent (/claude), working or not. */
+    handedOff?: boolean;
   };
   let {
     busy,
@@ -40,6 +42,7 @@
     sent = [],
     extra = [],
     steering = null,
+    handedOff = false,
     onqueue,
   }: Props = $props();
   // The sent message shown (an index into `sent`), and what was being typed before Up.
@@ -215,7 +218,7 @@
       {/each}
     </div>
   {/if}
-  <div class="composer" class:multiline={text.includes("\n") || text.length > 80} class:working={steering !== null}>
+  <div class="composer" class:multiline={text.includes("\n") || text.length > 80} class:agent={handedOff}>
     <button class="lead" aria-label="Attach files" title="Attach files" onclick={() => picker?.click()}>
       <Paperclip size={16} />
     </button>
@@ -297,10 +300,10 @@
   .composer:focus-within {
     border-color: var(--color-accent);
   }
-  /* While the agent the conversation is handed to works, as its name in the status bar (AgentStatus). */
-  .composer.working,
-  .composer.working:focus-within {
-    border-color: var(--color-agent-working);
+  /* While the conversation is handed to an agent, as its name in the status bar (AgentStatus). */
+  .composer.agent,
+  .composer.agent:focus-within {
+    border-color: var(--color-agent);
   }
   .lead {
     display: grid;

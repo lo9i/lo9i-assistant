@@ -292,12 +292,13 @@
     oncommand={command}
     {extra}
     steering={agentWorking && handoff.data ? { agent: handoff.data.name, onsteer: steer } : null}
+    handedOff={!!handoff.data}
   />
   <StatusBar>
     <WorkingStatus {threadId} />
     <ConversationStats {threadId} />
     {#if handoff.data}
-      <AgentStatus handoff={handoff.data} working={agentWorking} onback={() => agentCommand(`/${handoff.data?.command}`, "off")} />
+      <AgentStatus handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")} />
     {:else}
       <ModelStatus />
     {/if}

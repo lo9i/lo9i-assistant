@@ -22,9 +22,9 @@ describe("Composer while the agent works", () => {
     expect(composer("", [])).not.toContain('aria-label="Send to Claude Code"');
   });
 
-  it("marks the box as the agent's while it works, and not otherwise", () => {
-    expect(composer("", [])).toMatch(/class="composer[^"]*working/);
-    const props = { busy: false, running: false, onsend: () => {}, onstop: () => {}, oncommand: () => {}, text: "", files: [] };
-    expect(render(Composer, { props }).body).not.toMatch(/class="composer[^"]*working/);
+  it("marks the box as the agent's while the conversation is handed to it, idle or working", () => {
+    const idle = { busy: false, running: false, onsend: () => {}, onstop: () => {}, oncommand: () => {}, text: "", files: [] };
+    expect(render(Composer, { props: { ...idle, handedOff: true } }).body).toMatch(/class="composer[^"]*agent/);
+    expect(render(Composer, { props: idle }).body).not.toMatch(/class="composer[^"]*agent/);
   });
 });

@@ -33,8 +33,8 @@
   --color-text-muted: #b6b9c0;
   --color-text-faint: #84878f;
   --color-accent: #30d158;
-  /* Claude's orange: what a coding agent the conversation is handed to is marked with while it works. */
-  --color-agent-working: #e68d77;
+  /* Claude's orange: what marks a conversation handed to a coding agent (/claude). */
+  --color-agent: #e68d77;
   --color-success: #63d42e;
   --color-warn: #ffce1f;
   --color-danger: #ff5f5f;
