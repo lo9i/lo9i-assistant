@@ -8,6 +8,7 @@
   import ConversationPreview from "$lib/ui/chat/ConversationPreview.svelte";
   import ConversationsTable from "$lib/ui/chat/ConversationsTable.svelte";
   import { openConversation } from "$lib/ui/openConversation";
+  import OpenSwitcher from "$lib/ui/chat/OpenSwitcher.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
   // What Chat opens to: every conversation, newest activity first.
@@ -61,6 +62,7 @@
 
 <TopBar title={t("nav.chat")}>
   {#snippet actions()}
+    <OpenSwitcher />
     <button class="btn btn--primary" onclick={startNew}
       ><Plus size={16} /><span class="hide-narrow">{t("nav.newConversation")}</span></button
     >

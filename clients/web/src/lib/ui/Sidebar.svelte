@@ -25,18 +25,16 @@
   import Settings from "@lucide/svelte/icons/settings";
   import Sparkles from "@lucide/svelte/icons/sparkles";
   import X from "@lucide/svelte/icons/x";
-  import { openList } from "$lib/chat/openList";
-  import { TINTS, tints } from "$lib/chat/tints";
-  import { external, resource, useDaemon } from "$lib/daemon.svelte";
+  import { resource, useDaemon } from "$lib/daemon.svelte";
   import { t, type Key } from "$lib/i18n.svelte";
   import { pageLabel } from "$lib/pages";
   import PluginIcon from "./PluginIcon.svelte";
-  import { openConversation } from "./openConversation";
+  import { OPEN_PAGE, openNow } from "./openNow.svelte";
   import { sidebar } from "$lib/sidebar.svelte";
 
   let { name }: { name: string } = $props();
 
-  const { chats, notices } = useDaemon();
+  const { chats } = useDaemon();
   // MCP servers that come with a web page, shown in an iframe (routes/pages/[name]).
   const servers = resource((c) => c.mcp.servers(), ["mcp"]);
   const pages = $derived((servers.data ?? []).filter((s) => s.page && s.enabled));
@@ -52,22 +50,9 @@
   // Chat is the list of conversations. Under it: the ones open in this tab, side by side, and any other with
   // a reply or a coding task running, whoever started it. Open one to show it; the others keep going.
   const CHAT = resolve("/conversations");
-  const OPEN = resolve("/conversations/open");
-  const conversations = resource((c) => c.conversations.list(), ["conversations"]);
-  const runs = resource((c) => c.runs.inProgress(), ["run", "run_finished"]);
-  const tasks = resource((c) => c.tasks.running(), ["agent_task_progress", "agent_task_reports", "background_ended"]);
-  const open = external(chats.subscribe, chats.getSnapshot);
-  const everything = $derived(
-    openList(open.current, conversations.data ?? [], [
-      ...(runs.data ?? []).map((r) => r.thread_id),
-      ...(tasks.data ?? []).map((t) => t.thread_id),
-    ]),
-  );
-  async function show(item: { key: string | null; threadId: string }): Promise<void> {
-    if (item.key === null) return await openConversation(chats, notices, item.threadId);
-    chats.activate(item.key);
-    await goto(OPEN);
-  }
+  const OPEN = OPEN_PAGE;
+  const open = openNow();
+  const everything = $derived(open.items);
 
   async function startNew(): Promise<void> {
     await chats.startNew();
@@ -105,7 +90,7 @@
       Icon: MessageCircle,
       add: { label: "nav.newConversation", run: startNew },
       exact: true,
-      count: () => open.current.chats.filter((c) => c.state.approval !== null).length,
+      count: () => open.waiting,
       counted: "nav.waitingCount",
     },
     { href: resolve("/files"), label: "nav.files", Icon: Files },
@@ -125,11 +110,7 @@
     },
   ];
 
-  // Each listed conversation has a colour of its own while there are colours left (lib/chat/tints.ts).
-  const tintOf = $derived(tints.for(everything.map((e) => e.threadId)));
-  function tint(id: string): string {
-    return tintOf[id] ?? TINTS[0];
-  }
+  const tint = (id: string): string => open.tint(id);
 </script>
 
 <aside class="sidebar">
@@ -179,7 +160,7 @@
                 onmouseleave={() => (tip = null)}
                 onfocus={(e) => showTip(e, entry.title, "", tint(entry.threadId))}
                 onblur={() => (tip = null)}
-                onclick={() => show(entry)}
+                onclick={() => open.show(entry)}
               >
                 {#if entry.running}<LoaderCircle size={14} class="spin" aria-label={t("nav.working")} />
                 {:else}<MessageSquare size={14} />{/if}
@@ -192,7 +173,7 @@
                   class="close"
                   aria-label={t("nav.closeConversation", { title: entry.title })}
                   title={t("common.close")}
-                  onclick={() => chats.close(key)}><X size={14} /></button
+                  onclick={() => open.close(key)}><X size={14} /></button
                 >
               {/if}
             </li>

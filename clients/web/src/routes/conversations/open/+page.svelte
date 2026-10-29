@@ -6,6 +6,7 @@
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
   import ChatPanel from "$lib/ui/chat/ChatPanel.svelte";
+  import OpenSwitcher from "$lib/ui/chat/OpenSwitcher.svelte";
   import { leaveInbox } from "$lib/ui/openConversation";
   import TopBar from "$lib/ui/TopBar.svelte";
 
@@ -26,6 +27,7 @@
 {#if shown}
   <TopBar {title}>
     {#snippet actions()}
+      <OpenSwitcher />
       <button class="btn btn--ghost" title={t("conversations.allHint")} onclick={() => goto(resolve("/conversations"))}
         ><List size={16} /><span class="hide-narrow">{t("conversations.all")}</span></button
       >

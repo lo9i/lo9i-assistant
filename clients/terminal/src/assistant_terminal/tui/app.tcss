@@ -201,7 +201,7 @@ ProfileScreen, WebSearchScreen, EmailScreen, EmailRecipientsScreen, ChannelSetup
     align: center middle;
 }
 
-#profile, #web-search, #email, #email-recipients, #home-section, #channel-setup-dialog, #startup, #host, #mcp-add, #mcp-secrets-dialog, #mcp-sign-in, #plugin-sign-in, #model, #audio, #skill-edit, #repository-install {
+#profile, #web-search, #email, #email-recipients, #home-section, #channel-setup-dialog, #startup, #host, #mcp-add, #mcp-secrets-dialog, #mcp-sign-in, #plugin-sign-in, #open-conversations, #model, #audio, #skill-edit, #repository-install {
     width: 80%;
     max-width: 100;
     height: auto;
@@ -220,12 +220,12 @@ ModalScreen Markdown > MarkdownHeader:first-child {
     margin-top: 0;
 }
 
-#profile-buttons, #web-search-buttons, #home-section-buttons, #email-buttons, #email-recipients-buttons, #channel-setup-buttons, #startup-buttons, #host-buttons, #mcp-add-buttons, #mcp-secrets-buttons, #mcp-sign-in-buttons, #plugin-sign-in-buttons, #model-buttons, #audio-buttons, #skill-edit-buttons, #repository-buttons {
+#profile-buttons, #web-search-buttons, #home-section-buttons, #email-buttons, #email-recipients-buttons, #channel-setup-buttons, #startup-buttons, #host-buttons, #mcp-add-buttons, #mcp-secrets-buttons, #mcp-sign-in-buttons, #plugin-sign-in-buttons, #open-conversations-buttons, #model-buttons, #audio-buttons, #skill-edit-buttons, #repository-buttons {
     height: auto;
     margin-top: 1;
 }
 
-#profile-buttons Button, #web-search-buttons Button, #home-section-buttons Button, #email-buttons Button, #email-recipients-buttons Button, #channel-setup-buttons Button, #startup-buttons Button, #host-buttons Button, #mcp-add-buttons Button, #mcp-secrets-buttons Button, #mcp-sign-in-buttons Button, #plugin-sign-in-buttons Button, #model-buttons Button, #audio-buttons Button, #skill-edit-buttons Button, #repository-buttons Button {
+#profile-buttons Button, #web-search-buttons Button, #home-section-buttons Button, #email-buttons Button, #email-recipients-buttons Button, #channel-setup-buttons Button, #startup-buttons Button, #host-buttons Button, #mcp-add-buttons Button, #mcp-secrets-buttons Button, #mcp-sign-in-buttons Button, #plugin-sign-in-buttons Button, #open-conversations-buttons Button, #model-buttons Button, #audio-buttons Button, #skill-edit-buttons Button, #repository-buttons Button {
     margin-right: 2;
 }
 
@@ -478,26 +478,26 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     margin: 0;
 }
 
-#skills-title, #jobs-title, #conversations-title, #devices-title, #keys-title, #home-title, #doctor-title, #files-title, #mcp-title, #plugins-title, #notifications-title, #prompts-title {
+#skills-title, #jobs-title, #conversations-title, #devices-title, #keys-title, #home-title, #doctor-title, #files-title, #mcp-title, #plugins-title, #notifications-title, #prompts-title, #open-conversations-title {
     height: auto;
     text-style: bold;
     margin-bottom: 1;
 }
 
-#skills-empty, #jobs-empty, #conversations-empty, #mcp-empty, #plugins-empty, #notifications-empty {
+#skills-empty, #jobs-empty, #conversations-empty, #mcp-empty, #plugins-empty, #notifications-empty, #open-conversations-empty {
     display: none;
     height: auto;
 }
 
-#skills.empty, #jobs.empty, #conversations.empty, #mcp.empty, #plugins.empty, #notifications.empty {
+#skills.empty, #jobs.empty, #conversations.empty, #mcp.empty, #plugins.empty, #notifications.empty, #open-conversations.empty {
     height: auto;
 }
 
-#skills.empty #skills-main, #jobs.empty #jobs-main, #conversations.empty #conversations-main, #mcp.empty #mcp-main, #plugins.empty #plugins-main, #notifications.empty #notifications-list {
+#skills.empty #skills-main, #jobs.empty #jobs-main, #conversations.empty #conversations-main, #mcp.empty #mcp-main, #plugins.empty #plugins-main, #notifications.empty #notifications-list, #open-conversations.empty #open-conversations-list {
     display: none;
 }
 
-#skills.empty #skills-empty, #jobs.empty #jobs-empty, #conversations.empty #conversations-empty, #mcp.empty #mcp-empty, #plugins.empty #plugins-empty, #notifications.empty #notifications-empty {
+#skills.empty #skills-empty, #jobs.empty #jobs-empty, #conversations.empty #conversations-empty, #mcp.empty #mcp-empty, #plugins.empty #plugins-empty, #notifications.empty #notifications-empty, #open-conversations.empty #open-conversations-empty {
     display: block;
 }
 
@@ -741,4 +741,10 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     overflow-y: auto;
     margin-bottom: 1;
     color: $warning;
+}
+
+#open-conversations-list {
+    height: auto;
+    max-height: 20;
+    margin-bottom: 1;
 }

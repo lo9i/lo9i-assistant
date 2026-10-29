@@ -58,6 +58,14 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         """The conversation's pinned skills or the agent it's handed to changed."""
         await app.refresh_thread()
 
+    def tasks(kind: str) -> Callable[[dict[str, Any]], Awaitable[None]]:
+        async def changed(_: dict[str, Any]) -> None:
+            """A coding task's progress or end: the subtitle's line, and the open conversations."""
+            await app.refresh_thread()
+            app.reload_screen(kind)
+
+        return changed
+
     async def conversations(_: dict[str, Any]) -> None:
         """A conversation was listed, titled or deleted: the subtitle's title, and /conversations."""
         await app.refresh_thread()
@@ -68,9 +76,16 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         app.show_ending(data)
         await app.reload_host()
 
+    def run(data: dict[str, Any]) -> None:
+        """A reply started: shown live when it's in this conversation, and in the open conversations."""
+        app.mirror_run(data)
+        app.reload_screen("run")
+
     async def run_finished(data: dict[str, Any]) -> None:
-        """A reply ended: what /host waits for, and how full the conversation's context is now."""
+        """A reply ended: what /host waits for, how full the conversation's context is now, and the open
+        conversations."""
         app.run_finished(data)
+        app.reload_screen("run_finished")
         await app.refresh_context()
         await app.reload_host()
 
@@ -97,14 +112,14 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         "plugins": plugins,
         "pinned_skills": thread,
         "handoffs": thread,
-        "agent_task_progress": thread,
-        "agent_task_reports": thread,
+        "agent_task_progress": tasks("agent_task_progress"),
+        "agent_task_reports": tasks("agent_task_reports"),
         "job": app.show_job,
         "background_ended": app.show_background_ended,
         "failing": app.show_failing,
         "signed_out": app.show_signed_out,
         "update": screen("update"),
         "ending": ending,
-        "run": app.mirror_run,
+        "run": run,
         "run_finished": run_finished,
     }

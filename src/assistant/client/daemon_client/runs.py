@@ -54,6 +54,10 @@ class RunsMixin(ChatBase):
         with Cancelled. Returns whether a run was in progress."""
         return (await self._transport.request("POST", f"/threads/{session.thread_id}/cancel"))["cancelled"]
 
+    async def runs_in_progress(self) -> list[dict[str, Any]]:
+        """The replies in progress in any conversation, oldest first, as the `run` events announce them."""
+        return await self._transport.request("GET", "/runs")
+
     def follow_run(self, run_id: str) -> AsyncIterator[Event]:
         """A run started elsewhere (another channel), from its first event."""
         return self._follow(run_id)

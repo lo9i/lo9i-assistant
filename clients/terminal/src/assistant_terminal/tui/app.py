@@ -75,6 +75,7 @@ from assistant_terminal.tui.screens import (
     McpScreen,
     ModelScreen,
     NotificationsScreen,
+    OpenConversationsScreen,
     PluginSignInScreen,
     PluginsScreen,
     ProfileScreen,
@@ -122,6 +123,7 @@ class AssistantApp(App):
     TITLE = _DEFAULT_TITLE
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding("ctrl+n", "new_thread", t("New conversation")),
+        Binding("ctrl+o", "open_conversations", t("Open conversations")),
         # Not ctrl+b: that is the prefix key of tmux and herdr.
         Binding("f2", "toggle_memory", t("Memory panel")),
         Binding("f3", "toggle_recording", t("Record voice")),
@@ -145,6 +147,8 @@ class AssistantApp(App):
         self._live = LiveConversation(service, session, service.clients.own_id)
         # The app starts on the inbox (main.py); a message there goes where it belongs.
         self._inbox_id = session.thread_id
+        # The conversations shown here, in the order they were first shown, to switch between (Ctrl+O); never the inbox.
+        self._opened: list[str] = []
         self._history = history
         self._preferences = preferences
         # The turn this app runs in the conversation shown (_turn_here), while one runs.
@@ -168,6 +172,7 @@ class AssistantApp(App):
             "/inbox": self._command_inbox,
             "/move": self._command_move,
             "/conversations": self._command_conversations,
+            "/open": self._command_open,
             "/notifications": self._command_notifications,
             "/attach": self._command_attach,
             "/mcp": self._command_mcp,
@@ -642,8 +647,10 @@ class AssistantApp(App):
     @reports_daemon_unavailable
     async def refresh_thread(self) -> None:
         """The conversation's title under the app's, then the agent it's handed to, the skills pinned to it and
-        the coding tasks running in the background."""
+        the coding tasks running in the background. The conversation shown joins the open ones (Ctrl+O)."""
         thread_id = self._live.session.thread_id
+        if thread_id != self._inbox_id and thread_id not in self._opened:
+            self._opened.append(thread_id)
         handoff = await self._service.conversations.agent(thread_id)
         pinned = await self._service.conversations.pinned(thread_id)
         running = await self._service.tasks.running()
@@ -793,6 +800,16 @@ class AssistantApp(App):
     async def _command_conversations(self, _: str) -> None:
         screen = ConversationsScreen(self._service.conversations, self._live.session.thread_id)
         self.push_screen(screen, self._resume)
+
+    async def _command_open(self, _: str) -> None:
+        screen = OpenConversationsScreen(
+            self._service, self._opened, self._live.session.thread_id, self._inbox_id, self._opened.remove
+        )
+        self.push_screen(screen, self._resume)
+
+    @reports_daemon_unavailable
+    async def action_open_conversations(self) -> None:
+        await self._command_open("")
 
     async def _command_notifications(self, _: str) -> None:
         screen = NotificationsScreen(self._service.notifications, self._service.jobs, self._service.doctor)
@@ -953,7 +970,13 @@ class AssistantApp(App):
         await self._send(GET_TO_KNOW_ME, [])
 
     async def _command_help(self, _: str) -> None:
-        keys = [t("F2 memory panel"), t("F3 record voice"), t("Ctrl+N new conversation"), t("Ctrl+Q quit")]
+        keys = [
+            t("F2 memory panel"),
+            t("F3 record voice"),
+            t("Ctrl+N new conversation"),
+            t("Ctrl+O open conversations"),
+            t("Ctrl+Q quit"),
+        ]
         body = "\n".join(help_lines(self._agent_commands))
         commands, keys_label = t("Commands"), t("Keys:")
         await self._chat.mount(SystemNote(f"## {commands}\n\n```\n{body}\n```\n\n**{keys_label}** {', '.join(keys)}"))

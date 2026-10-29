@@ -1326,6 +1326,9 @@ class FakeClient:
     def follow_run(self, run_id):
         return self.runs[run_id]()
 
+    async def runs_in_progress(self):
+        return [run for runs in self.conversations.in_progress.values() for run in runs]
+
 
 @pytest.fixture
 def client():
