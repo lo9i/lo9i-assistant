@@ -49,10 +49,10 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - A30. A plugin's token is checked only when it's first used: a wrong Claude key fails the first coding task after about three minutes of Claude Code's retries. Let a plugin declare a check that runs when its fields are saved (a command or a tool), and show its error in the install dialog.
 - A31. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen. It would also give plugins that ask for the ssh agent (`ssh_agent: true`, `core/mcp/ssh_agent.py`) the user's agent, which a LaunchDaemon has none of.
 - A32. The hosts plugin (extras, `connectivity/remote/hosts`) hasn't been tried in the web app itself: its page, terminal and reconnects were checked through the pages port and the plugin's page on their own, not in the iframe with a browser's keyboard, sleep and network changes. Try it there, on a phone too.
-
 - A41. A maps plugin: look up places and addresses, routes and travel times (driving, walking, transit), for example through OpenStreetMap (Nominatim, OSRM) with no key. Hermes has this as its `maps` skill.
 - A42. YouTube summaries: summarize a video from its transcript (the youtube plugin, `media/video/youtube`, already downloads transcripts), and optionally the new uploads of followed channels in the watchlist.
 - A43. Google Drive, Docs and Sheets: search and read Drive files, and create and edit Docs and Sheets, signing in with the user's own OAuth app as email does (`core/integrations/email/oauth.py`).
+
 ## Context
 
 - H1. Better epoch summaries: quote user messages verbatim, keep ids and paths exactly, and let `search_memory` search tool outputs too (it covers only what the user and the assistant wrote).
