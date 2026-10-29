@@ -110,7 +110,10 @@ class HomeRefresh:
             async with asyncio.timeout(SECTION_SECONDS):
                 content = await self._builder().build(user_id, section, tools, now)
         except Exception as e:
-            logger.warning("Couldn't build the Home section %s: %s", section.title, e, exc_info=not _expected(e))
+            if _expected(e):  # a model limit or outage, not a fault: kept out of the health check
+                logger.info("Couldn't build the Home section %s: %s", section.title, e)
+            else:
+                logger.warning("Couldn't build the Home section %s: %s", section.title, e, exc_info=True)
             return await self._failed(user_id, section, _reason(e), now, page)
         return SectionResult(
             section_id=section.id,
