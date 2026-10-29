@@ -3730,6 +3730,11 @@ export interface components {
             read_only: boolean;
             /** Selected */
             selected: boolean;
+            /**
+             * Asks First
+             * @default false
+             */
+            asks_first: boolean;
         };
         /**
          * Me

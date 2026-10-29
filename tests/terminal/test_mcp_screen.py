@@ -2,7 +2,7 @@ from dataclasses import replace
 
 from textual.widgets import Button, Input, Markdown, OptionList, Select, SelectionList, TextArea
 
-from assistant_terminal.mcp_text import describe, parse_command, parse_pairs, selection, summary
+from assistant_terminal.mcp_text import describe, parse_command, parse_pairs, selection, summary, tool_label
 from assistant_terminal.tui.screens import ConfirmScreen, McpScreen
 from assistant_terminal.tui.screens.mcp_add import McpAddScreen
 from assistant_terminal.tui.screens.mcp_sign_in import McpSignInScreen
@@ -141,6 +141,14 @@ def test_a_failing_server_is_marked_and_its_last_failure_shown():
     assert "**Failed 3 times in a row.**" in describe(server) and "add_note: disk full" in describe(server)
     server.failures, server.failing = 0, False
     assert summary(server) == "notes · connected" and "Failed" not in describe(server)
+
+
+def test_tools_that_ask_first_are_marked_and_trust_says_they_still_ask():
+    server = _mcp_status("notes", trusted=True)
+    assert "Trusted: its tools run without asking." in describe(server)
+    server.tools[1].asks_first = True
+    assert tool_label(server.tools[1]) == "add_note (asks first): Add a note."
+    assert "without asking, but those marked (asks first)" in describe(server)
 
 
 async def test_a_lost_sign_in_shows_a_notification(app, client):

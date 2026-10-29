@@ -19,7 +19,7 @@ from assistant.core.agent import (
     SkillError,
 )
 from assistant.core.mcp import data_key, folders, install, keys, servers
-from assistant.core.repositories import check, checkout
+from assistant.core.repositories import check, checkout, formats
 from assistant.core.repositories.icons import PluginIcon
 from assistant.core.repositories.source import Source
 from assistant.core.skills import install as skill_install
@@ -340,7 +340,10 @@ async def test_a_server_with_an_environment_needs_uv(service, repo, monkeypatch)
 
 
 async def test_a_server_in_a_newer_format_than_the_daemon_reads_isnt_found(service, repo):
-    _write(repo / "other" / "general" / "ledger", {"server.yaml": _IN_ENVIRONMENT.replace("format: 2", "format: 5")})
+    _write(
+        repo / "other" / "general" / "ledger",
+        {"server.yaml": _IN_ENVIRONMENT.replace("format: 2", f"format: {formats.CURRENT + 1}")},
+    )
     assert "ledger" not in [s.name for s in (await service.browse_repository(URL)).servers]
 
 
@@ -595,6 +598,35 @@ async def test_a_data_key_needs_format_4_and_true_or_false(service, repo):
     problems = await _problems(service)
     assert "it asks for a data_key, which needs format: 4" in problems
     assert "its data_key must be true or false" in problems
+
+
+_ASKER = """
+command: "{python}"
+args: ["{dir}/server.py"]
+trusted: true
+format: 5
+approve: [download]
+"""
+
+
+async def test_a_plugin_names_the_tools_that_ask_first_and_an_update_replaces_them(service, repo):
+    folder = repo / "other" / "general" / "asker"
+    _write(folder, {"server.yaml": _ASKER, "server.py": _SERVER})
+    await service.install_from_repository(URL, [], [ServerValues("asker")])
+    server = await servers.load(service.store, "asker")
+    assert server.trusted and server.approve == ["download"] and server.asks_first("download")
+    assert not server.asks_first("add_title")
+    _write(folder, {"server.yaml": _ASKER.replace("[download]", "[download, add_*]")})
+    await service.update_mcp_server_from_repository("asker")
+    assert (await servers.load(service.store, "asker")).approve == ["download", "add_*"]
+
+
+async def test_tools_that_ask_first_need_format_5_and_a_list(service, repo):
+    _write(repo / "other" / "general" / "old", {"server.yaml": _ASKER.replace("format: 5", "format: 4")})
+    _write(repo / "other" / "general" / "odd", {"server.yaml": _ASKER.replace("[download]", "download")})
+    problems = await _problems(service)
+    assert "it has tools that ask first (approve:), which needs format: 5" in problems
+    assert "its approve must be a list of tool names" in problems
 
 
 async def test_a_channel_is_in_communications(service, repo):

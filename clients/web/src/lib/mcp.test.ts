@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { McpServerStatus, McpToolInfo } from "./api/types";
-import { selectionFor, parseArgs, parsePairs, statusLabel, withTools } from "./mcp";
+import { selectionFor, parseArgs, parsePairs, statusLabel, trustText, withTools } from "./mcp";
 
-const tool = (name: string): McpToolInfo => ({ name, description: "", read_only: false, selected: true });
+const tool = (name: string, asks_first = false): McpToolInfo => ({ name, description: "", read_only: false, selected: true, asks_first });
 
 describe("parsePairs", () => {
   it("reads env and header lines", () => {
@@ -49,5 +49,14 @@ describe("withTools", () => {
     const server = (name: string, transport: string, channel: boolean) => ({ name, transport, channel }) as McpServerStatus;
     const servers = [server("notes", "stdio", false), server("telegram", "none", true), server("slack", "stdio", true)];
     expect(withTools(servers).map((s) => s.name)).toEqual(["notes", "slack"]);
+  });
+});
+
+describe("trustText", () => {
+  it("says which tools of a trusted server still ask", () => {
+    const server = (trusted: boolean, tools: McpToolInfo[]) => ({ trusted, tools }) as McpServerStatus;
+    expect(trustText(server(true, [tool("read")]))).toBe("Its tools run without asking.");
+    expect(trustText(server(true, [tool("read"), tool("download", true)]))).toContain("but those marked asks first");
+    expect(trustText(server(false, [tool("download", true)]))).toContain("asks for approval first");
   });
 });

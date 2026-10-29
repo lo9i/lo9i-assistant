@@ -40,6 +40,14 @@ export function withTools(servers: McpServerStatus[]): McpServerStatus[] {
   return servers.filter((s) => s.transport !== "none");
 }
 
+/** What trusting the server means for its tools: a trusted server's tools run without asking, but those its
+ *  plugin says ask first (core/mcp/servers.py's `approve`). */
+export function trustText(server: McpServerStatus): string {
+  if (!server.trusted) return "Every tool not marked read-only asks for approval first.";
+  if (server.tools.some((t) => t.asks_first)) return "Its tools run without asking, but those marked asks first.";
+  return "Its tools run without asking.";
+}
+
 const LABELS: Record<string, string> = {
   needs_sign_in: "needs you to sign in",
   // A local server stopped until the agent uses it (core/mcp/on_demand.py).

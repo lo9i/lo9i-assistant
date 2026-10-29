@@ -27,6 +27,7 @@
           <span class="name">
             <code>{tool.name}</code>
             {#if tool.read_only}<span class="pill">read-only</span>{/if}
+            {#if tool.asks_first}<span class="pill">asks first</span>{/if}
           </span>
         </label>
         {#if tool.description}<p class="text-caption">{tool.description}</p>{/if}

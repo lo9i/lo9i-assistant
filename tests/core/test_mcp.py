@@ -288,6 +288,33 @@ async def test_trusted_servers_and_read_only_tools_run_without_approval(service,
     assert notes == ["eggs"]
 
 
+async def test_tools_a_plugin_says_ask_first_need_approval_on_a_trusted_server(service, script, notes):
+    await _add(service, trusted=True, approve=["add_*", "chart"])
+    script.call(ADD, text="tea").call(READ).reply("done")
+    session = await service.session("owner", "cli")
+    approval = next(e for e in await collect(service.send(session, "note tea")) if isinstance(e, ApprovalRequired))
+    assert approval.request["tool"] == ADD and approval.request["reason"].startswith("notes asks for approval")
+    events = await collect(service.resume(session, {approval.interrupt_id: {"approved": True}}))
+    # The rest of the server stays trusted.
+    assert not any(isinstance(e, ApprovalRequired) for e in events) and notes == ["tea"]
+    # One that claims to be read-only isn't, so subagents and Home don't get it.
+    status = (await service.mcp_servers())[0]
+    assert {(t.name, t.read_only, t.asks_first) for t in status.tools} == {
+        ("read_notes", True, False),
+        ("add_note", False, True),
+        ("chart", False, True),
+    }
+    assert _names(service.mcp.read_only_definitions()) == {READ}
+
+
+async def test_tools_that_ask_first_are_denied_in_unattended_runs(service, script, notes):
+    await _add(service, trusted=True, approve=["add_note"])
+    script.call(ADD, text="jam").reply("couldn't")
+    events = await _say(service, "note jam", channel="worker")
+    assert next(e for e in events if isinstance(e, ToolFinished)).output.startswith(UNATTENDED_DENIAL)
+    assert notes == []
+
+
 async def test_unattended_runs_deny_write_tools(service, script, notes):
     await _add(service)
     script.call(ADD, text="bread").reply("couldn't")

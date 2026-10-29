@@ -12,7 +12,7 @@
   import type { McpServerStatus } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { failures } from "$lib/health";
-  import { STATUS_TONES, selectionFor, statusLabel, withTools } from "$lib/mcp";
+  import { STATUS_TONES, selectionFor, statusLabel, trustText, withTools } from "$lib/mcp";
   import { redirectUri } from "$lib/oauth";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
@@ -174,7 +174,7 @@
           <div>
             <span>Trusted</span>
             <p class="text-caption">
-              {server.trusted ? "Its tools run without asking." : "Every tool not marked read-only asks for approval first."}
+              {trustText(server)}
             </p>
           </div>
           <Toggle

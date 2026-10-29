@@ -1,4 +1,5 @@
-"""MCP tools as LangChain tools: approval on untrusted servers, a retry only where it's safe, and
+"""MCP tools as LangChain tools: approval on untrusted servers and for the tools a plugin says ask first,
+a retry only where it's safe, and
 results cleaned and cut to size. Images and audio in results are saved, not put in the checkpoint
 (core/mcp/media.py)."""
 
@@ -49,6 +50,8 @@ class McpTool(BaseTool):
     # claim can at most skip approval for that tool.
     read_only: bool = False
     trusted: bool = False
+    # Its plugin asks for approval before each call, trusted or not (McpServer.approve).
+    asks_first: bool = False
 
     def _run(self, *args: Any, **kwargs: Any) -> Output:
         raise NotImplementedError("MCP tools only run async.")
@@ -60,15 +63,23 @@ class McpTool(BaseTool):
         return await self._call(arguments)
 
     def _approve(self, arguments: dict[str, Any]) -> str | None:
-        if self.trusted or self.read_only:
+        reason = self._approval_reason()
+        if reason is None:
             return None
-        server = self.connection.server.name
         request = {
             "tool": self.name,
             "command": json.dumps(arguments, indent=2, ensure_ascii=False),
-            "reason": f"{server} isn't a trusted MCP server and this tool can change things",
+            "reason": reason,
         }
         return ask(request, get_runtime(Context).context)
+
+    def _approval_reason(self) -> str | None:
+        server = self.connection.server.name
+        if self.asks_first:
+            return f"{server} asks for approval each time this tool runs"
+        if self.trusted or self.read_only:
+            return None
+        return f"{server} isn't a trusted MCP server and this tool can change things"
 
     async def _call(self, arguments: dict[str, Any]) -> Output:
         server = self.connection.server.name

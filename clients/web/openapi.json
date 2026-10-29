@@ -7907,6 +7907,11 @@
           "selected": {
             "type": "boolean",
             "title": "Selected"
+          },
+          "asks_first": {
+            "type": "boolean",
+            "title": "Asks First",
+            "default": false
           }
         },
         "type": "object",

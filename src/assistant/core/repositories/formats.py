@@ -6,7 +6,9 @@ repository, so it isn't listed, offered, installed or updated here until lo9i is
 # 2: `{bin}`, the scripts of the plugin's own environment (core/mcp/environment.py).
 # 3: an agent's `worker`, run by the daemon for each task (docs/agent-plugins.md).
 # 4: `data_key`, a key of the plugin's own for encrypting its data (core/mcp/data_key.py).
-CURRENT = 4
+# 5: `approve`, tools that ask the user before each call even on a trusted server (core/mcp/servers.py): a
+#    daemon that didn't know it would run them without asking.
+CURRENT = 5
 
 
 def parse(value: object) -> int:
