@@ -265,6 +265,7 @@
     onchoose={snapshot.current.busy || snapshot.current.mirroring ? undefined : (choice) => send(choice, [])}
     loadCall={(callId) => client.conversations.toolCall(threadId, callId)}
     loadStep={(callId, index) => client.conversations.toolCallStep(threadId, callId, index)}
+    findable
   />
   {#if snapshot.current.queued.length}
     <ul class="queued" aria-label="Queued messages">

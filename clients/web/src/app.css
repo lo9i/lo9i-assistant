@@ -492,6 +492,17 @@ kbd {
   margin-bottom: 10px;
 }
 
+/* Finding in a conversation (FindBar.svelte): every match in the theme's teal, the current one stronger. Highlights
+   are named for the whole page, so they can't be styled in the component. */
+::highlight(find-match) {
+  background-color: color-mix(in srgb, var(--glow) 45%, transparent);
+  color: var(--color-text-primary);
+}
+::highlight(find-current) {
+  background-color: var(--glow);
+  color: #0b0d12;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

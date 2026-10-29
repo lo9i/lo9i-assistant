@@ -24,6 +24,14 @@ describe("Thread", () => {
     expect(body).toContain("message-footer");
   });
 
+  it("marks the messages' text for finding, and shows no find bar until Cmd+F", () => {
+    const asked: ChatItem = { kind: "user", id: 3, text: "Plan the trip", files: [] };
+    const { body } = render(Thread, { props: { ...props, items: [asked, reply], findable: true } });
+    expect(body).toMatch(/user-bubble[^>]*data-findable/);
+    expect(body).toMatch(/class="prose[^>]*data-findable/);
+    expect(body).not.toContain("Find in conversation");
+  });
+
   it("opens at the newest message with no Go to bottom link", () => {
     const { body } = render(Thread, { props: { ...props, items: [reply, routed] } });
     expect(body).not.toContain("Go to bottom");

@@ -10,12 +10,14 @@
   import Sparkles from "@lucide/svelte/icons/sparkles";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import Wrench from "@lucide/svelte/icons/wrench";
-  import type { Snippet } from "svelte";
+  import { tick, type Snippet } from "svelte";
   import type { ShownCall } from "$lib/api/types";
   import { answerable } from "$lib/chat/choices";
+  import { isFindKey, onMac } from "$lib/chat/find";
   import { inlineArg, pinnable, withWhole, withWholeStep, type ChatItem } from "$lib/chat/transcript";
   import { WholeCalls } from "$lib/chat/wholeCalls.svelte";
   import { markdown } from "$lib/markdown";
+  import FindBar from "./FindBar.svelte";
 
   type Props = {
     items: ChatItem[];
@@ -36,8 +38,10 @@
     /** Keep the newest message in view as content arrives, and the user's message the content at the top answers
      * pinned there (the live chat). A preview reads from the top. */
     follow?: boolean;
+    /** Cmd+F (Ctrl+F) finds in the messages instead of the browser: on a conversation's page, not in a preview. */
+    findable?: boolean;
   };
-  let { items, thinking, name, onsuggest, onmove, onchoose, loadCall, loadStep, end, follow = true }: Props = $props();
+  let { items, thinking, name, onsuggest, onmove, onchoose, loadCall, loadStep, end, follow = true, findable = false }: Props = $props();
   const wholes = new WholeCalls();
 
   const SUGGESTIONS = [
@@ -52,6 +56,8 @@
   // Scrolled up from the newest message, far enough that the live chat offers to go back down.
   let away = $state(false);
   let copied = $state<number | null>(null);
+  let finding = $state(false);
+  let findBar = $state<ReturnType<typeof FindBar>>();
   // Where the copy of the user's message sits, from the thread's top (`.asked`'s top).
   const PINNED_TOP = 8;
   // The last user message whose start has scrolled up past where its copy sits: what's at the top answers it, so
@@ -105,12 +111,22 @@
     scroller?.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
   }
 
+  function keydown(e: KeyboardEvent): void {
+    if (!findable || !isFindKey(e, onMac(navigator.platform))) return;
+    e.preventDefault();
+    finding = true;
+    // Opened by this press, the bar isn't there yet; pressed again, its text is selected to type anew.
+    void tick().then(() => findBar?.focus());
+  }
+
   async function copy(id: number, text: string): Promise<void> {
     await navigator.clipboard.writeText(text);
     copied = id;
     setTimeout(() => (copied = copied === id ? null : copied), 1500);
   }
 </script>
+
+<svelte:window onkeydown={keydown} />
 
 <div class="frame">
   <div class="thread" bind:this={scroller} bind:clientHeight={height} onscroll={measure}>
@@ -129,7 +145,7 @@
     {#each items as item, i (item.id)}
       {#if item.kind === "user"}
         <div class="row user" data-id={item.id}>
-          <div class="bubble user-bubble">
+          <div class="bubble user-bubble" data-findable>
             {#if item.channel}<span class="micro-label">{item.channel}</span>{/if}
             {#if item.text}<p>{item.text}</p>{/if}
             {#each item.files as file (file)}
@@ -146,7 +162,7 @@
             <button class="copy" class:done={copied === item.id} aria-label="Copy" title="Copy" onclick={() => copy(item.id, reply.text)}>
               {#if copied === item.id}<Check size={14} />{:else}<Copy size={14} />{/if}
             </button>
-            <div class="prose">{@html markdown(reply.text)}</div>
+            <div class="prose" data-findable>{@html markdown(reply.text)}</div>
           </div>
           {#if onchoose && reply.choices.length && i === items.length - 1}
             <div class="choices">
@@ -173,7 +189,7 @@
             <span class="detail preview">{item.text.split("\n")[0]}</span>
             <span class="chevron"><ChevronRight size={12} /></span>
           </summary>
-          <p class="thought-text">{item.text}</p>
+          <p class="thought-text" data-findable>{item.text}</p>
         </details>
       {:else if item.kind === "brief"}
         <!-- The assistant wrote it, not the user: collapsed, apart from the user's bubbles, and never pinned. -->
@@ -184,7 +200,7 @@
             <span class="detail preview">{item.text.split("\n")[0]}</span>
             <span class="chevron"><ChevronRight size={12} /></span>
           </summary>
-          <div class="prose brief-text">{@html markdown(item.text)}</div>
+          <div class="prose brief-text" data-findable>{@html markdown(item.text)}</div>
         </details>
       {:else if item.kind === "carried"}
         <details class="tool thought">
@@ -193,7 +209,7 @@
             <span>From the inbox</span>
             <span class="chevron"><ChevronRight size={12} /></span>
           </summary>
-          <div class="prose carried">{@html markdown(item.text)}</div>
+          <div class="prose carried" data-findable>{@html markdown(item.text)}</div>
         </details>
       {:else if item.kind === "tool"}
         {@const whole = wholes.get(item.callId)}
@@ -244,13 +260,13 @@
           {#if whole?.state === "failed"}<p class="text-caption whole-note">Couldn't load the whole call.</p>{/if}
         </details>
       {:else if item.kind === "notice"}
-        <p class="text-caption notice"><Inbox size={12} />{item.text}</p>
+        <p class="text-caption notice" data-findable><Inbox size={12} />{item.text}</p>
       {:else if item.kind === "transcript"}
-        <p class="text-caption">Heard ({item.language}): {item.text}</p>
+        <p class="text-caption" data-findable>Heard ({item.language}): {item.text}</p>
       {:else if item.kind === "error"}
         <div class="notice-warn">
           <TriangleAlert size={16} />
-          <div>
+          <div data-findable>
             <strong>Something went wrong</strong>
             <p class="text-meta">{item.message}</p>
           </div>
@@ -266,8 +282,11 @@
   </div>
   <!-- Over the thread's top, like an editor's sticky scroll: what the reply below answers. Its own row stays as it
        is, so following the newest content never moves. -->
+  {#if finding}
+    <FindBar bind:this={findBar} root={scroller} content={items} onclose={() => (finding = false)} />
+  {/if}
   {#if asked}
-    <button class="asked" title="Go to your message" onclick={toAsked}>
+    <button class="asked" class:under-find={finding} title="Go to your message" onclick={toAsked}>
       <span class="asked-text">{asked.text || asked.files.join(", ")}</span>
     </button>
   {/if}
@@ -319,6 +338,10 @@
     line-height: 1.55;
     text-align: left;
     cursor: pointer;
+  }
+  /* The find bar takes the thread's top right corner. */
+  .asked.under-find {
+    top: 56px;
   }
   .asked-text {
     display: -webkit-box;
