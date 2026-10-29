@@ -161,6 +161,8 @@ def _detail(skill: Skill, summary: SkillSummary | None) -> str:
         text += f"\n\n**Comes with the {skill.server} MCP server**: updated with it."
     elif skill.source:
         text += f"\n\n**Installed from** {skill.source}"
+    if skill.imported_from:
+        text += f"\n\n**Imported from** {skill.imported_from}: /import-skills updates it when it changes there"
     return text
 
 

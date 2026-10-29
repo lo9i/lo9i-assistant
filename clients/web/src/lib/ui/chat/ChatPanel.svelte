@@ -221,6 +221,8 @@
         return void goto(resolve("/mcp"));
       case "/skills":
         return void goto(resolve("/skills"));
+      case "/import-skills":
+        return void goto(`${resolve("/skills")}#import`);
       case "/usage":
         return void goto(resolve("/usage"));
       case "/profile":

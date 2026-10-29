@@ -73,6 +73,7 @@ from assistant.core.agent import (
     UsageReport,
     WebSearchStatus,
 )
+from assistant.core.agent.skill_imports import Importable, Importables, ImportOutcome
 from assistant.core.agent.skills import FoundSkill, SkillSummary
 from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
 from assistant.core.doctor.model import Cause, ContextPart, DoctorPage, DoctorReport, KnownCause, StartingContext
@@ -111,6 +112,42 @@ class FakeSkills:
         }
         # Failures in a row, the last one, when, and whether it's failing, by skill.
         self.failures: dict[str, tuple[int, str, str, bool]] = {}
+        # Claude Code's and Codex's skills, and the imports asked for: (ids, replace).
+        self.importables = [
+            Importable(
+                "/h/.claude/skills/pdf",
+                "claude",
+                "Claude Code",
+                "skills",
+                "",
+                "pdf",
+                "Fill PDF forms",
+                [],
+                "new",
+                "pdf",
+            ),
+            Importable(
+                "/h/.agents/skills/edit",
+                "codex",
+                "Codex",
+                "skills",
+                "",
+                "edit",
+                "Edit files",
+                [],
+                "new",
+                "edit",
+                needs_agent=["It uses a coding agent's tools: Edit."],
+            ),
+        ]
+        self.imports: list[tuple[list[str], bool]] = []
+
+    async def importable(self):
+        return Importables(self.importables, ["/h/.claude/CLAUDE.md"])
+
+    async def import_skills(self, ids, replace=False):
+        self.imports.append((list(ids), replace))
+        return [ImportOutcome(i, "imported", i.rsplit("/", 1)[-1]) for i in ids]
 
     async def list(self):
         return [

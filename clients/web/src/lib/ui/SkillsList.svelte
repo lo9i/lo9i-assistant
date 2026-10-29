@@ -121,6 +121,8 @@
                     <dd>the {skill.data.server} MCP server, which updates and removes it</dd>
                   {:else if skill.data.source}<dt class="micro-label">Installed from</dt>
                     <dd>{skill.data.source}</dd>{/if}
+                  {#if skill.data.imported_from}<dt class="micro-label">Imported from</dt>
+                    <dd>{skill.data.imported_from}</dd>{/if}
                 </dl>
                 <div class="actions">
                   <button class="btn btn--neutral btn--sm" onclick={startEditing}><Pencil size={14} />Edit</button>

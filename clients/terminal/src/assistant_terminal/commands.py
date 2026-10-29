@@ -30,6 +30,7 @@ COMMANDS = [
     Command("/attach", "/attach <path>", "Attach a file to the next message"),
     Command("/plugins", "/plugins", "Install, update and remove plugins from the extras"),
     Command("/skills", "/skills", "Browse, install and delete skills"),
+    Command("/import-skills", "/import-skills", "Import Claude Code's and Codex's skills"),
     Command("/files", "/files", "Files you sent in your conversations"),
     Command("/jobs", "/jobs", "Scheduled jobs"),
     Command("/usage", "/usage", "Tool and skill usage"),

@@ -17,6 +17,7 @@ export const COMMANDS: Command[] = [
   { name: "/mcp", usage: "/mcp", description: "MCP servers and their tools" },
   { name: "/plugins", usage: "/plugins", description: "Install, update and remove plugins from the extras" },
   { name: "/skills", usage: "/skills", description: "Browse, install and delete skills" },
+  { name: "/import-skills", usage: "/import-skills", description: "Import Claude Code's and Codex's skills" },
   { name: "/usage", usage: "/usage", description: "Tool and skill usage" },
   { name: "/audio", usage: "/audio", description: "Speech to text, microphone and spoken replies" },
   { name: "/websearch", usage: "/websearch", description: "Web search: the Brave Search API key" },

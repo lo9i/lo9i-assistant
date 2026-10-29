@@ -1350,6 +1350,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/skill-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Importable Skills
+         * @description Claude Code's and Codex's skills on this computer, each with whether it was imported or changed since.
+         */
+        get: operations["importable_skills_skill_imports_get"];
+        put?: never;
+        /**
+         * Import Skills
+         * @description Import the skills the user picked; one imported before is updated. Each says how it went.
+         */
+        post: operations["import_skills_skill_imports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/jobs": {
         parameters: {
             query?: never;
@@ -3416,6 +3440,62 @@ export interface components {
              */
             stop_refusal: string;
         };
+        /** ImportOutcome */
+        ImportOutcome: {
+            /** Id */
+            id: string;
+            /** Action */
+            action: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** Importable */
+        Importable: {
+            /** Id */
+            id: string;
+            /** Agent */
+            agent: string;
+            /** Agent Name */
+            agent_name: string;
+            /** Kind */
+            kind: string;
+            /** Project */
+            project: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Files */
+            files: string[];
+            /** State */
+            state: string;
+            /** Name Here */
+            name_here: string;
+            /**
+             * Renamed
+             * @default
+             */
+            renamed: string;
+            /** Needs Agent */
+            needs_agent?: string[];
+            /** Problems */
+            problems?: string[];
+        };
+        /** Importables */
+        Importables: {
+            /** Skills */
+            skills: components["schemas"]["Importable"][];
+            /** Suggestions */
+            suggestions: string[];
+        };
         /** InstalledFromRepository */
         InstalledFromRepository: {
             /** Skills */
@@ -4529,6 +4609,11 @@ export interface components {
             /** Platforms */
             platforms?: string[];
             icon?: components["schemas"]["PluginIcon"];
+            /**
+             * Imported From
+             * @default
+             */
+            imported_from: string;
         };
         /** SkillChange */
         SkillChange: {
@@ -4536,6 +4621,16 @@ export interface components {
             description: string;
             /** Instructions */
             instructions: string;
+        };
+        /** SkillImport */
+        SkillImport: {
+            /** Ids */
+            ids: string[];
+            /**
+             * Replace
+             * @default false
+             */
+            replace: boolean;
         };
         /** SkillSummary */
         SkillSummary: {
@@ -7226,6 +7321,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Skill"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    importable_skills_skill_imports_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Importables"];
+                };
+            };
+        };
+    };
+    import_skills_skill_imports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillImport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOutcome"][];
                 };
             };
             /** @description Validation Error */

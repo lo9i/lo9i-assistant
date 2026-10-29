@@ -8,6 +8,8 @@
 # - Installs uv when it's missing, the Python dependencies, and the web app when npm is there.
 # - The first time, asks for the model provider and its key and writes .env (only on this
 #   computer). Without a terminal to ask in, it writes .env from .env.example and stops.
+# - Once, when Claude Code or Codex have skills on this computer, asks whether to import them into the
+#   assistant's (all, pick or skip; src/assistant/core/skills/imports/setup.py). Without a terminal it doesn't ask.
 # - On Linux with systemd, runs the daemon as the systemd user service lo9i-assistant, the one
 #   /startup in the app controls. Elsewhere, says how to start it.
 # - Run it again to update: it pulls, reinstalls and restarts.
@@ -116,6 +118,14 @@ system_timezone() {
   echo "${zone:-UTC}"
 }
 
+# --- Skills from other agents ---------------------------------------------------------------
+
+# Asks once, and only when there's a terminal to ask in and skills to import.
+ask_skill_imports() {
+  { : </dev/tty; } 2>/dev/null || return 0
+  .venv/bin/python -m assistant.core.skills.imports.setup </dev/tty
+}
+
 # --- Starting -------------------------------------------------------------------------------
 
 has_systemd() {
@@ -165,6 +175,7 @@ main() {
   # --inexact keeps the model providers' packages the daemon installed when they were chosen.
   uv sync --frozen --inexact --quiet
   build_web_ui ci
+  ask_skill_imports
   has_systemd && start_service
   next_steps
 }

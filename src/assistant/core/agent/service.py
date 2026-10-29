@@ -30,6 +30,7 @@ from assistant.core.agent.prompts import PromptsMixin
 from assistant.core.agent.repositories import RepositoriesMixin
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.sign_ins import SignInsMixin
+from assistant.core.agent.skill_imports import SkillImportsMixin
 from assistant.core.agent.skills import SkillsMixin
 from assistant.core.agent.speech import SpeechMixin
 from assistant.core.agent.tasks import TasksMixin
@@ -109,6 +110,7 @@ class AssistantService(
     DispatchMixin,
     WebSearchMixin,
     SkillsMixin,
+    SkillImportsMixin,
     PinnedSkillsMixin,
     JobsMixin,
     UsageMixin,

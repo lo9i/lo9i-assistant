@@ -18,7 +18,7 @@ def test_the_groups_and_what_every_request_offers():
     assert groups == {
         "email": ["read_email", "search_email", "send_email", "set_up_email"],
         "jobs": ["delete_job", "list_jobs", "schedule_job", "update_job"],
-        "skill-writing": ["delete_skill", "save_skill"],
+        "skill-writing": ["delete_skill", "import_skills", "list_importable_skills", "save_skill"],
     }
     assert {"use_skill", "offer_plugin"} <= {t.name for t in offered_tools(["skills"])}
 

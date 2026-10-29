@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SkillImports from "$lib/ui/SkillImports.svelte";
   import SkillsList from "$lib/ui/SkillsList.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
   import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
@@ -10,6 +11,7 @@
 <div class="shell">
   <SettingsTabs active="skills" />
   <SkillsList />
+  <SkillImports />
 </div>
 
 <style>
