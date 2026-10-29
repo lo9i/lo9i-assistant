@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { HomeSection } from "./api/types";
 import {
-  SHOWN_ITEMS,
+  BUSY_ITEMS,
   cardColumns,
   dayOf,
   isWide,
@@ -38,10 +38,10 @@ describe("an item's link", () => {
 });
 
 describe("a card's width", () => {
-  const busy = Array(SHOWN_ITEMS + 1).fill({});
+  const busy = Array(BUSY_ITEMS + 1).fill({});
 
-  it("is two columns only for a card with more items than it shows", () => {
-    expect(isWide(Array(SHOWN_ITEMS).fill({}))).toBe(false);
+  it("is two columns only for a busy card", () => {
+    expect(isWide(Array(BUSY_ITEMS).fill({}))).toBe(false);
     expect(isWide(busy)).toBe(true);
     expect(cardColumns({ columns: 0 }, [])).toBe(1);
     expect(cardColumns({ columns: 0 }, busy)).toBe(2);

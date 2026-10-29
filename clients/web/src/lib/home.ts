@@ -6,8 +6,8 @@ import { local } from "./jobs";
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** The widest a card can be: the columns Home has room for at its widest (MAX_COLUMNS in core/home/model.py). */
 export const MAX_COLUMNS = 4;
-/** The items a card shows before More, so a long list doesn't make its card tower over the others. */
-export const SHOWN_ITEMS = 5;
+/** More items than this make a busy card: two columns wide, its list scrolling past about this many. */
+export const BUSY_ITEMS = 5;
 // An address written in the subtitle, with the separator before it, for results built before items had a url.
 const URL_IN_TEXT = /\s*(?:[·|,;-]\s*)?(https?:\/\/\S+)/g;
 
@@ -42,9 +42,9 @@ export function linked(item: Pick<HomeItem, "subtitle" | "url">): { subtitle: st
   return { subtitle, url: item.url || (found[0]?.[1] ?? "") };
 }
 
-/** A card with more items than it shows at once is a busy one, worth two columns where the page has them. */
+/** A busy card is worth two columns where the page has them. */
 export function isWide(items: unknown[]): boolean {
-  return items.length > SHOWN_ITEMS;
+  return items.length > BUSY_ITEMS;
 }
 
 /** The columns a card spans where the page has them: the width the user gave it, or two for a busy one. */

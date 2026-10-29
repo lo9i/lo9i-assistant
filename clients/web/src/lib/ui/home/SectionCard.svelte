@@ -6,7 +6,7 @@
   import Pencil from "@lucide/svelte/icons/pencil";
   import Trash from "@lucide/svelte/icons/trash-2";
   import type { HomeCard, PluginIcon as Icon } from "$lib/api/types";
-  import { MAX_COLUMNS as MAX, SHOWN_ITEMS, cardColumns, itemWhen, linked, snappedColumns } from "$lib/home";
+  import { MAX_COLUMNS as MAX, cardColumns, itemWhen, linked, snappedColumns } from "$lib/home";
   import { pageLabel } from "$lib/pages";
   import PluginIcon from "../PluginIcon.svelte";
 
@@ -29,9 +29,6 @@
   let { card, columns, icon = null, today, refreshing, first, last, onedit, ondelete, onmove, onresize }: Props = $props();
   const result = $derived(card.result);
   const items = $derived(result?.items ?? []);
-  // More shows the rest in place.
-  let unfolded = $state(false);
-  const shown = $derived(unfolded ? items : items.slice(0, SHOWN_ITEMS));
   const timed = $derived(items.some((item) => itemWhen(item, today)));
 
   let element = $state<HTMLElement>();
@@ -118,7 +115,7 @@
     {/if}
     {#if items.length}
       <ul class:stale={result.status === "failed"} class:timed>
-        {#each shown as item, i (i)}
+        {#each items as item, i (i)}
           {@const { subtitle, url } = linked(item)}
           <li>
             {#if timed}<span class="when">{itemWhen(item, today)}</span>{/if}
@@ -133,11 +130,6 @@
           </li>
         {/each}
       </ul>
-      {#if items.length > SHOWN_ITEMS}
-        <button class="btn btn--ghost btn--sm more" onclick={() => (unfolded = !unfolded)}>
-          {unfolded ? "Less" : `${items.length - SHOWN_ITEMS} more`}
-        </button>
-      {/if}
     {:else if result.status === "ok" && !result.note}
       <p class="text-meta">Nothing to show.</p>
     {/if}
@@ -260,11 +252,14 @@
     }
   }
   /* One column of times as wide as the longest ("Tomorrow 21:00"), so the titles line up; none when no item has
-   a time. */
+   a time. A long list scrolls past about five items, so its card doesn't tower over the others. */
   ul {
     list-style: none;
     margin: 0;
-    padding: 0;
+    padding: 0 4px 0 0;
+    max-height: 18rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     display: grid;
     grid-template-columns: 1fr;
     column-gap: 16px;
@@ -310,9 +305,6 @@
   a.title:hover,
   a.title:focus-visible {
     text-decoration: underline;
-  }
-  .more {
-    align-self: flex-start;
   }
   p {
     margin: 0;
