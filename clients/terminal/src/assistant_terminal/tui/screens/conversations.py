@@ -15,13 +15,14 @@ from textual.widgets.option_list import Option
 from assistant.client.daemon_client import ConversationsApi
 from assistant.core.agent import Conversation, ConversationError
 from assistant_terminal.conversations_text import listed_title, preview, when
+from assistant_terminal.i18n import t
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 
 class ConversationsScreen(ModalScreen[str | None]):
     BINDINGS: ClassVar[list[BindingType]] = [
-        Binding("escape", "close", "Close"),
+        Binding("escape", "close", t("Close")),
         # Priority, so it runs before the list's own Enter, which also fires on a click: a click
         # only shows the conversation, Enter resumes it.
         Binding("enter", "resume", show=False, priority=True),
@@ -37,17 +38,17 @@ class ConversationsScreen(ModalScreen[str | None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="conversations"):
-            yield Static("Conversations", id="conversations-title")
-            yield Static("No conversations yet.", id="conversations-empty")
+            yield Static(t("Conversations"), id="conversations-title")
+            yield Static(t("No conversations yet."), id="conversations-empty")
             with Horizontal(id="conversations-main"):
                 yield OptionList(id="conversations-list")
                 yield Static(classes="divider")
                 with VerticalScroll(id="conversations-detail"):
                     yield Markdown(id="conversation-body")
             with Horizontal(id="conversations-buttons"):
-                yield Button("Open", variant="success", id="resume")
-                yield Button("Delete", variant="error", id="delete")
-                yield Button("Close", id="close")
+                yield Button(t("Open"), variant="success", id="resume")
+                yield Button(t("Delete"), variant="error", id="delete")
+                yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
@@ -98,18 +99,18 @@ class ConversationsScreen(ModalScreen[str | None]):
     @work
     @reports_daemon_unavailable
     async def _confirm_delete(self, thread_id: str) -> None:
-        question = (
+        question = t(
             "Delete this conversation? Its messages and the files sent in it are deleted; "
             "what the assistant learned from it stays in memory."
         )
-        if not await self.app.push_screen_wait(ConfirmScreen(question, "Delete")):
+        if not await self.app.push_screen_wait(ConfirmScreen(question, t("Delete"))):
             return
         try:
             await self._conversations.delete(thread_id)
         except ConversationError as e:
             self.notify(str(e), severity="error")
         else:
-            self.notify("Deleted the conversation.")
+            self.notify(t("Deleted the conversation."))
         await self.reload()
 
     async def _show(self, thread_id: str) -> None:
@@ -119,6 +120,6 @@ class ConversationsScreen(ModalScreen[str | None]):
         self.query_one("#resume", Button).disabled = current
         delete = self.query_one("#delete", Button)
         delete.disabled = current
-        delete.tooltip = "You're on this conversation: /new first, then delete it." if current else None
+        delete.tooltip = t("You're on this conversation: /new first, then delete it.") if current else None
         messages = await self._conversations.messages(thread_id)
         await self.query_one("#conversation-body", Markdown).update(preview(conversation, messages))

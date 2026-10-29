@@ -3,6 +3,7 @@
   import AgentDoneCard from "$lib/ui/settings/AgentDoneCard.svelte";
   import AssistantCard from "$lib/ui/settings/AssistantCard.svelte";
   import EmailCard from "$lib/ui/settings/EmailCard.svelte";
+  import LanguageCard from "$lib/ui/settings/LanguageCard.svelte";
   import HostCard from "$lib/ui/settings/HostCard.svelte";
   import KeptKeysCard from "$lib/ui/settings/KeptKeysCard.svelte";
   import MicrophoneCard from "$lib/ui/settings/MicrophoneCard.svelte";
@@ -15,24 +16,25 @@
   import WebSearchCard from "$lib/ui/settings/WebSearchCard.svelte";
   import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
+  import { t, type Key } from "$lib/i18n.svelte";
   import { theme, type ThemePreference } from "$lib/theme.svelte";
 
   const TABS = ["general", "model", "prompt", "audio", "system"];
-  const THEMES: Array<[ThemePreference, string]> = [
-    ["dark", "Dark"],
-    ["light", "Light"],
-    ["system", "System"],
+  const THEMES: Array<[ThemePreference, Key]> = [
+    ["dark", "settings.dark"],
+    ["light", "settings.light"],
+    ["system", "settings.system"],
   ];
   const tab = $derived(TABS.find((t) => t === page.url.searchParams.get("tab")) ?? "general");
 </script>
 
-<TopBar title="Settings" />
+<TopBar title={t("nav.settings")} />
 
 <div class="shell">
   <div class="bar">
     <SettingsTabs active={tab} />
     <!-- Kept in this browser. -->
-    <div class="tabs" role="radiogroup" aria-label="Theme" title="Theme, kept in this browser">
+    <div class="tabs" role="radiogroup" aria-label={t("settings.theme")} title={t("settings.themeHint")}>
       {#each THEMES as [value, label] (value)}
         <button
           role="radio"
@@ -40,16 +42,17 @@
           class:active={theme.preference === value}
           onclick={() => theme.set(value)}
         >
-          {label}
+          {t(label)}
         </button>
       {/each}
     </div>
   </div>
   {#if tab === "general"}
-    <!-- Two balanced columns: assistant and agent notices; startup, search, email. -->
+    <!-- Two balanced columns: assistant, language and agent notices; startup, search, email. -->
     <div class="grid">
       <div class="stack">
         <AssistantCard />
+        <LanguageCard />
         <AgentDoneCard />
       </div>
       <div class="stack">

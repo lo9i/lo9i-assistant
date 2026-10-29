@@ -2,6 +2,7 @@
 // something working in it (a reply, a coding task), whoever started it. Never the inbox: it isn't a
 // conversation of its own, and Chat's page opens it.
 import type { Conversation } from "../api/types";
+import { t } from "../i18n.svelte";
 import type { OpenChatsSnapshot } from "./openChats";
 
 export type OpenItem = {
@@ -23,7 +24,7 @@ export function openList(
   working: string[],
 ): OpenItem[] {
   const busy = new Set(working);
-  const titled = (threadId: string) => conversations.find((c) => c.thread_id === threadId)?.title || "New conversation";
+  const titled = (threadId: string) => conversations.find((c) => c.thread_id === threadId)?.title || t("nav.newConversation");
   const opened = open.chats
     .filter(({ state }) => state.threadId !== state.inboxId)
     .map(({ key, state }) => ({

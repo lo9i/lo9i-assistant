@@ -18,6 +18,7 @@ from assistant.core.agent.follow_ups import FollowUpsMixin
 from assistant.core.agent.home import HomeMixin
 from assistant.core.agent.identity import IdentityMixin
 from assistant.core.agent.jobs import JobsMixin
+from assistant.core.agent.language import LanguageMixin
 from assistant.core.agent.locking import LockingMixin
 from assistant.core.agent.log_level import LogLevelMixin
 from assistant.core.agent.mcp import McpMixin
@@ -106,6 +107,7 @@ class AssistantService(
     PromptsMixin,
     SpeechMixin,
     LogLevelMixin,
+    LanguageMixin,
     DispatchMixin,
     WebSearchMixin,
     SkillsMixin,
@@ -166,7 +168,9 @@ class AssistantService(
         )
         self.doctor_schedule = DoctorSchedule(storage.store, self.doctor, settings.owner_id)
         self.pages = McpPages(storage.store, environments, secrets)
-        self.channels_hub = ChannelHub(self.outbox, self.approvals, bus, self.assistant_name, self.channel_commands)
+        self.channels_hub = ChannelHub(
+            self.outbox, self.approvals, bus, self.assistant_name, self.channel_commands, self.texts
+        )
         self.channel_processes = ChannelProcesses(storage.store, self.channels_hub, environments, secrets)
         embedder = E5Embedder()
         self.memory_index = MemoryIndexer(storage.store, storage.vectors, embedder, bus)

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from assistant.core.channels.chat.port import Buttons
+from assistant.core.i18n import Texts
 
 _PICK, _TOGGLE, _DONE = "qp", "qt", "qd"
 
@@ -21,12 +22,12 @@ class Press:
     answers: bool
 
 
-def question_text(request: dict[str, Any]) -> str:
-    hint = "\n\nPick any, then Done." if request.get("multiple") else ""
+def question_text(t: Texts, request: dict[str, Any]) -> str:
+    hint = "\n\n" + t("Pick any, then Done.") if request.get("multiple") else ""
     return f"{request.get('question', '')}{hint}"
 
 
-def question_buttons(interrupt_id: str, request: dict[str, Any], picked: int = 0) -> Buttons:
+def question_buttons(t: Texts, interrupt_id: str, request: dict[str, Any], picked: int = 0) -> Buttons:
     options = list(request.get("options", []))
     if not request.get("multiple"):
         return [(option, f"{_PICK}:{interrupt_id}:{i}") for i, option in enumerate(options)]
@@ -34,7 +35,7 @@ def question_buttons(interrupt_id: str, request: dict[str, Any], picked: int = 0
         (f"{'☑' if picked >> i & 1 else '☐'} {option}", f"{_TOGGLE}:{interrupt_id}:{picked:x}:{i}")
         for i, option in enumerate(options)
     ]
-    return [*toggles, ("✅ Done", f"{_DONE}:{interrupt_id}:{picked:x}")]
+    return [*toggles, (t("✅ Done"), f"{_DONE}:{interrupt_id}:{picked:x}")]
 
 
 def parse_press(data: str) -> Press | None:
@@ -57,5 +58,5 @@ def choices(request: dict[str, Any], picked: int) -> list[str]:
     return [option for i, option in enumerate(request.get("options", [])) if picked >> i & 1]
 
 
-def answered_text(picked: list[str]) -> str:
-    return f"Picked: {', '.join(picked)}." if picked else "Picked none."
+def answered_text(t: Texts, picked: list[str]) -> str:
+    return t("Picked: {picked}.", picked=", ".join(picked)) if picked else t("Picked none.")

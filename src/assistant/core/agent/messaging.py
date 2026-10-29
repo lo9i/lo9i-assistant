@@ -33,7 +33,7 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
         (core/conversation/briefs.py)."""
         voice = [a for a in attachments if is_voice(a)]
         try:
-            speech = await preferences.load(self._storage.store)
+            speech = await preferences.in_use(self._storage.store)
             transcripts, voice_blocks = await transcribe_voice(self._transcriber, voice, speech)
             content = await asyncio.to_thread(to_content, text, [a for a in attachments if not is_voice(a)])
         except (TranscriptionError, ValueError) as e:

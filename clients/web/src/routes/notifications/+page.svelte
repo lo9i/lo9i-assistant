@@ -6,6 +6,7 @@
   import type { Notification } from "$lib/api/types";
   import { pagedResource, resource, useDaemon } from "$lib/daemon.svelte";
   import { localTime } from "$lib/health";
+  import { t } from "$lib/i18n.svelte";
   import { runQuery } from "$lib/jobs";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
@@ -36,7 +37,11 @@
   });
 
   function kind(n: Notification): string {
-    return n.kind === "job" ? "Scheduled job" : n.kind === "doctor" ? "Health check" : "Background work";
+    return n.kind === "job"
+      ? t("notificationsPage.job")
+      : n.kind === "doctor"
+        ? t("alerts.healthCheck")
+        : t("notificationsPage.background");
   }
 
   function jobLink(n: Notification): string {
@@ -61,11 +66,11 @@
   }
 </script>
 
-<TopBar title="Notifications">
+<TopBar title={t("nav.notifications")}>
   {#snippet actions()}
     {#if notifications.items.length}
       <button class="btn btn--ghost" onclick={() => (clearing = true)}
-        ><BellOff size={16} /><span class="hide-narrow">Clear all</span></button
+        ><BellOff size={16} /><span class="hide-narrow">{t("notificationsPage.clearAll")}</span></button
       >
     {/if}
   {/snippet}
@@ -75,8 +80,8 @@
   <section class="table-card surface--glass">
     <header class="toolbar">
       <div>
-        <h2 class="text-heading">What finished</h2>
-        <p class="text-meta">Scheduled jobs' results, background work that ended and health checks. Click one to see it on the right.</p>
+        <h2 class="text-heading">{t("notificationsPage.title")}</h2>
+        <p class="text-meta">{t("notificationsPage.hint")}</p>
       </div>
       {#if notifications.loaded}<span class="pill">{notifications.items.length}{notifications.done ? "" : "+"}</span>{/if}
     </header>
@@ -84,14 +89,15 @@
       {#if notifications.error && !notifications.items.length}
         <p class="error-text pad">{notifications.error}</p>
       {:else if notifications.loaded && !notifications.items.length}
-        <EmptyState
-          icon={ListChecks}
-          title="Nothing yet"
-          text="When a scheduled job runs or background work ends (a coding task, a download), it shows up here."
-        />
+        <EmptyState icon={ListChecks} title={t("notificationsPage.none")} text={t("notificationsPage.noneHint")} />
       {:else if shown}
         <table class="data-table">
-          <thead><tr><th>About</th><th>What happened</th><th class="hide-narrow">When</th></tr></thead>
+          <thead
+            ><tr
+              ><th>{t("notificationsPage.about")}</th><th>{t("notificationsPage.what")}</th><th class="hide-narrow">{t("alerts.when")}</th
+              ></tr
+            ></thead
+          >
           <tbody>
             {#each notifications.items as n (n.id)}
               <tr class:selected={n.id === shown.id} class:failed={!n.ok} onclick={() => (picked = n.id)}>
@@ -118,12 +124,14 @@
       <section class="details surface--glass">
         <header>
           <h2 class="text-heading">{shown.title}</h2>
-          <span class="pill" class:pill--danger={!shown.ok}>{shown.ok ? "done" : "needs a look"}</span>
+          <span class="pill" class:pill--danger={!shown.ok}
+            >{shown.ok ? t("notificationsPage.done") : t("notificationsPage.needsLook")}</span
+          >
         </header>
         <dl>
-          <dt class="micro-label">Kind</dt>
+          <dt class="micro-label">{t("alerts.kind")}</dt>
           <dd>{kind(shown)}</dd>
-          <dt class="micro-label">When</dt>
+          <dt class="micro-label">{t("alerts.when")}</dt>
           <dd>{localTime(shown.at)}</dd>
         </dl>
         <p class="text">{shown.text}</p>
@@ -131,19 +139,19 @@
           <!-- Work started in the inbox has no conversation to open: Chat never shows the inbox. -->
           {#if shown.thread_id && shown.thread_id !== chats.inboxId}
             <button class="btn btn--neutral btn--sm" onclick={() => openConversation(chats, notices, shown.thread_id)}
-              >Open its conversation</button
+              >{t("app.openItsConversation")}</button
             >
           {:else if shown.job}
-            <a class="btn btn--neutral btn--sm" href={jobLink(shown)}>Open the job</a>
+            <a class="btn btn--neutral btn--sm" href={jobLink(shown)}>{t("notificationsPage.openJob")}</a>
           {:else if shown.kind === "doctor"}
-            <a class="btn btn--neutral btn--sm" href={resolve("/doctor")}>Open the health check</a>
+            <a class="btn btn--neutral btn--sm" href={resolve("/doctor")}>{t("notificationsPage.openHealth")}</a>
           {/if}
-          <button class="btn btn--ghost btn--sm" onclick={() => dismiss(shown)}>Dismiss</button>
+          <button class="btn btn--ghost btn--sm" onclick={() => dismiss(shown)}>{t("common.dismiss")}</button>
         </div>
       </section>
     {:else}
       <section class="details surface--glass">
-        <EmptyState icon={ListChecks} title="No notification selected" text="Job results and finished background work show here." />
+        <EmptyState icon={ListChecks} title={t("notificationsPage.noneSelected")} text={t("notificationsPage.noneSelectedHint")} />
       </section>
     {/if}
   </div>
@@ -151,9 +159,9 @@
 
 {#if clearing}
   <Confirm
-    title="Clear every notification?"
-    text="The jobs and the work they're about aren't touched."
-    action="Clear all"
+    title={t("notificationsPage.clearTitle")}
+    text={t("notificationsPage.clearText")}
+    action={t("notificationsPage.clearAll")}
     onanswer={(yes) => (yes ? clear() : (clearing = false))}
   />
 {/if}

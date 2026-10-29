@@ -2,6 +2,18 @@
 // items), so nothing here knows a particular channel.
 import { encode } from "uqr";
 import type { ChannelStatus, SetupItem } from "./api/types";
+import { t, type Key } from "./i18n.svelte";
+
+const STATES: Record<ReturnType<typeof stateOf>, Key> = {
+  Off: "channelSetup.off",
+  Connected: "channelSetup.connected",
+  "Not connected": "channelSetup.notConnected",
+};
+
+/** A channel's state as shown. */
+export function stateLabel(state: ReturnType<typeof stateOf>): string {
+  return t(STATES[state]);
+}
 
 /** "Off" when turned off in the MCP servers page, else whether its process is connected. */
 export function stateOf(channel: ChannelStatus): "Off" | "Connected" | "Not connected" {
@@ -43,5 +55,5 @@ function darkRuns(row: boolean[]): Array<[number, number]> {
  *  set stays offered after its channel is removed, so the account still shows it. */
 export function alertOptions(channels: string[], current: string): Array<{ value: string; label: string }> {
   const names = current === "" || channels.includes(current) ? channels : [...channels, current];
-  return [{ value: "", label: "Don't announce" }, ...names.map((name) => ({ value: name, label: titleOf(name) }))];
+  return [{ value: "", label: t("channelSetup.dontAnnounce") }, ...names.map((name) => ({ value: name, label: titleOf(name) }))];
 }

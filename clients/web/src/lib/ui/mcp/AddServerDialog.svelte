@@ -2,6 +2,7 @@
   import type { McpServerSettings, McpToolInfo } from "$lib/api/types";
   import { useDaemon } from "$lib/daemon.svelte";
   import { parseArgs, parsePairs, selectionFor } from "$lib/mcp";
+  import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
   import Modal from "../Modal.svelte";
   import ToolChecklist from "./ToolChecklist.svelte";
@@ -57,7 +58,7 @@
       const probe = await client.mcp.probe(settings());
       tools = probe.tools;
       signIn = probe.sign_in;
-      chosen = new Set(tools.map((t) => t.name));
+      chosen = new Set(tools.map((tool) => tool.name));
     });
 
   const add = () =>
@@ -73,38 +74,33 @@
   }
 </script>
 
-<Modal
-  title="Add an MCP server"
-  description="Its tools become available to the assistant from your next message."
-  width={600}
-  onclose={() => onclose()}
->
-  <div class="kinds" role="radiogroup" aria-label="Kind of server">
-    <label><input type="radio" bind:group={kind} value="stdio" onchange={edited} /> Local command</label>
-    <label><input type="radio" bind:group={kind} value="http" onchange={edited} /> Remote URL</label>
+<Modal title={t("mcpAdd.title")} description={t("mcpAdd.description")} width={600} onclose={() => onclose()}>
+  <div class="kinds" role="radiogroup" aria-label={t("mcpAdd.kind")}>
+    <label><input type="radio" bind:group={kind} value="stdio" onchange={edited} /> {t("mcpAdd.local")}</label>
+    <label><input type="radio" bind:group={kind} value="http" onchange={edited} /> {t("mcpAdd.remote")}</label>
   </div>
   <label class="field">
-    <span class="micro-label">Name</span>
+    <span class="micro-label">{t("mcpAdd.name")}</span>
     <input class="input" bind:value={name} placeholder="github" autocomplete="off" />
-    <span class="text-caption">Lowercase letters, digits, - or _. Tools show up as mcp__name__tool.</span>
+    <span class="text-caption">{t("mcpAdd.nameHint")}</span>
   </label>
   {#if kind === "stdio"}
     <label class="field">
-      <span class="micro-label">Command</span>
+      <span class="micro-label">{t("mcpAdd.command")}</span>
       <input class="input" bind:value={command} oninput={edited} placeholder="npx" autocomplete="off" />
     </label>
     <label class="field">
-      <span class="micro-label">Arguments</span>
+      <span class="micro-label">{t("mcpAdd.arguments")}</span>
       <textarea
         class="input"
         rows="2"
         bind:value={args}
         oninput={edited}
         placeholder="-y @modelcontextprotocol/server-filesystem /Users/me/notes"></textarea>
-      <span class="text-caption">On one line separated by spaces, or one per line.</span>
+      <span class="text-caption">{t("mcpAdd.argumentsHint")}</span>
     </label>
     <label class="field">
-      <span class="micro-label">Environment (secret)</span>
+      <span class="micro-label">{t("mcpAdd.environment")}</span>
       <textarea
         class="input secret"
         rows="2"
@@ -113,7 +109,7 @@
         placeholder="API_KEY=…"
         autocomplete="off"
         spellcheck="false"></textarea>
-      <span class="text-caption">KEY=value, one per line. Stays in the daemon; only the names are shown later.</span>
+      <span class="text-caption">{t("mcpAdd.environmentHint")}</span>
     </label>
   {:else}
     <label class="field">
@@ -121,7 +117,7 @@
       <input class="input" bind:value={url} oninput={edited} placeholder="https://example.com/mcp" autocomplete="off" />
     </label>
     <label class="field">
-      <span class="micro-label">Headers (secret)</span>
+      <span class="micro-label">{t("mcpAdd.headers")}</span>
       <textarea
         class="input secret"
         rows="2"
@@ -130,28 +126,28 @@
         placeholder="Authorization: Bearer …"
         autocomplete="off"
         spellcheck="false"></textarea>
-      <span class="text-caption">Name: value, one per line. Stays in the daemon; only the names are shown later.</span>
+      <span class="text-caption">{t("mcpAdd.headersHint")}</span>
     </label>
   {/if}
   <label class="check">
     <input type="checkbox" bind:checked={trusted} />
-    <span>Trust this server <span class="text-caption">(otherwise every tool not marked read-only asks for approval)</span></span>
+    <span>{t("mcpAdd.trust")} <span class="text-caption">{t("mcpAdd.trustHint")}</span></span>
   </label>
   {#if signIn}
-    <p class="text-caption">It asks you to sign in. Add it, then choose Sign in: its tools show up once you have.</p>
+    <p class="text-caption">{t("mcpAdd.signIn")}</p>
   {:else if tools}
     <div class="field">
-      <span class="micro-label">Tools the assistant gets</span>
+      <span class="micro-label">{t("mcpAdd.tools")}</span>
       <ToolChecklist {tools} {chosen} onchange={(c) => (chosen = c)} />
     </div>
   {/if}
   {#if error}<p class="error-text">{error}</p>{/if}
   {#snippet footer()}
-    <button class="btn btn--ghost" onclick={() => onclose()}>Cancel</button>
+    <button class="btn btn--ghost" onclick={() => onclose()}>{t("common.cancel")}</button>
     {#if tools}
-      <button class="btn btn--primary" disabled={busy} onclick={add}>{busy ? "Adding…" : "Add"}</button>
+      <button class="btn btn--primary" disabled={busy} onclick={add}>{busy ? t("mcpAdd.adding") : t("repositories.add")}</button>
     {:else}
-      <button class="btn btn--primary" disabled={busy} onclick={look}>{busy ? "Connecting…" : "Look at tools"}</button>
+      <button class="btn btn--primary" disabled={busy} onclick={look}>{busy ? t("mcpAdd.connecting") : t("mcpAdd.look")}</button>
     {/if}
   {/snippet}
 </Modal>

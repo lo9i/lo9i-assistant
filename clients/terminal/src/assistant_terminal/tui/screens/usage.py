@@ -10,12 +10,13 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown
 
 from assistant.client.daemon_client import UsageApi
+from assistant_terminal.i18n import t
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.usage_text import describe
 
 
 class UsageScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
 
     def __init__(self, usage: UsageApi) -> None:
         super().__init__()
@@ -26,9 +27,9 @@ class UsageScreen(ModalScreen[None]):
             with VerticalScroll(id="usage-scroll"):
                 yield Markdown(id="usage-body")
             with Horizontal(id="usage-buttons"):
-                yield Button("7 days", id="days-7")
-                yield Button("30 days", id="days-30")
-                yield Button("Close", id="close")
+                yield Button(t("7 days"), id="days-7")
+                yield Button(t("30 days"), id="days-30")
+                yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:

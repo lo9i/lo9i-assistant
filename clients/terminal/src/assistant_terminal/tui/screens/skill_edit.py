@@ -12,11 +12,12 @@ from textual.widgets import Button, Input, Markdown, Static, TextArea
 
 from assistant.client.daemon_client import SkillsApi
 from assistant.core.agent import Skill, SkillError
+from assistant_terminal.i18n import t
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 
 class SkillEditScreen(ModalScreen[bool]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(False)", "Cancel")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(False)", t("Cancel"))]
 
     def __init__(self, skills: SkillsApi, skill: Skill) -> None:
         super().__init__()
@@ -25,13 +26,15 @@ class SkillEditScreen(ModalScreen[bool]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="skill-edit"):
-            yield Static(f"Edit the skill {self._skill.name}", id="skill-edit-title")
-            yield Input(self._skill.description, placeholder="When to use it, in one line", id="skill-edit-description")
+            yield Static(t("Edit the skill {name}", name=self._skill.name), id="skill-edit-title")
+            yield Input(
+                self._skill.description, placeholder=t("When to use it, in one line"), id="skill-edit-description"
+            )
             yield TextArea(self._skill.instructions, id="skill-edit-instructions")
             yield Markdown(id="skill-edit-message")
             with Horizontal(id="skill-edit-buttons"):
-                yield Button("Save", variant="success", id="save")
-                yield Button("Cancel", id="cancel")
+                yield Button(t("Save"), variant="success", id="save")
+                yield Button(t("Cancel"), id="cancel")
 
     @on(Button.Pressed, "#cancel")
     def _cancel(self) -> None:

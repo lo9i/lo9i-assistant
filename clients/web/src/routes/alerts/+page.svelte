@@ -7,6 +7,7 @@
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { doctorProblem } from "$lib/doctor";
   import { localTime } from "$lib/health";
+  import { t } from "$lib/i18n.svelte";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
@@ -30,18 +31,18 @@
   }
 
   function kind(a: Alert): string {
-    return a.area === "mcp" ? "MCP server" : a.area === "skill" ? "Skill" : "Health check";
+    return a.area === "mcp" ? t("plugins.kinds.server") : a.area === "skill" ? t("plugins.kinds.skill") : t("alerts.healthCheck");
   }
 
   /** Failures in a row, that a remote server waits for the user to sign in again, or the health check's change. */
   function problem(a: Alert): string {
     if (a.area === "doctor") return doctorProblem(a);
-    return a.kind === "signed_out" ? "Sign in again" : `${a.failures} in a row`;
+    return a.kind === "signed_out" ? t("alerts.signInAgain") : t("alerts.inARow", { count: a.failures });
   }
 
   function pill(a: Alert): string {
-    if (a.area === "doctor") return a.kind === "context" ? "large" : a.kind;
-    return a.kind === "signed_out" ? "signed out" : "failing";
+    if (a.area === "doctor") return a.kind === "context" ? t("alerts.large") : a.kind === "new" ? t("alerts.new") : t("alerts.growing");
+    return a.kind === "signed_out" ? t("alerts.signedOut") : t("skills.failing");
   }
 
   function href(a: Alert): string {
@@ -67,11 +68,11 @@
   }
 </script>
 
-<TopBar title="Alerts">
+<TopBar title={t("nav.alerts")}>
   {#snippet actions()}
     {#if alerts.data?.length}
       <button class="btn btn--ghost" onclick={() => (clearing = true)}
-        ><BellOff size={16} /><span class="hide-narrow">Dismiss all</span></button
+        ><BellOff size={16} /><span class="hide-narrow">{t("alerts.dismissAll")}</span></button
       >
     {/if}
   {/snippet}
@@ -79,9 +80,9 @@
 
 {#if clearing}
   <Confirm
-    title="Dismiss every alert?"
-    text="They come back if the problem happens again."
-    action="Dismiss all"
+    title={t("alerts.dismissAllTitle")}
+    text={t("alerts.dismissAllText")}
+    action={t("alerts.dismissAll")}
     onanswer={(yes) => (yes ? dismissAll() : (clearing = false))}
   />
 {/if}
@@ -90,11 +91,8 @@
   <section class="table-card surface--glass">
     <header class="toolbar">
       <div>
-        <h2 class="text-heading">Needs attention</h2>
-        <p class="text-meta">
-          MCP servers and skills that keep failing or need you to sign in again, and what the health check found new or growing. Click one
-          to see it on the right.
-        </p>
+        <h2 class="text-heading">{t("alerts.title")}</h2>
+        <p class="text-meta">{t("alerts.hint")}</p>
       </div>
       {#if alerts.data}<span class="pill">{alerts.data.length}</span>{/if}
     </header>
@@ -102,14 +100,16 @@
       {#if alerts.error}
         <p class="error-text pad">{alerts.error}</p>
       {:else if alerts.data?.length === 0}
-        <EmptyState
-          icon={CircleCheck}
-          title="Nothing needs attention"
-          text="MCP servers and skills that keep failing, and servers that need you to sign in again, show up here."
-        />
+        <EmptyState icon={CircleCheck} title={t("alerts.nothing")} text={t("alerts.nothingHint")} />
       {:else if alerts.data && alert}
         <table class="data-table">
-          <thead><tr><th>Name</th><th class="hide-narrow">Kind</th><th>Problem</th><th class="hide-narrow">When</th></tr></thead>
+          <thead
+            ><tr
+              ><th>{t("alerts.name")}</th><th class="hide-narrow">{t("alerts.kind")}</th><th>{t("alerts.problem")}</th><th
+                class="hide-narrow">{t("alerts.when")}</th
+              ></tr
+            ></thead
+          >
           <tbody>
             {#each alerts.data as a (key(a))}
               <tr class:selected={key(a) === key(alert)} onclick={() => (picked = key(a))}>
@@ -133,26 +133,22 @@
           <span class="pill pill--danger">{pill(alert)}</span>
         </header>
         <dl>
-          <dt class="micro-label">Kind</dt>
+          <dt class="micro-label">{t("alerts.kind")}</dt>
           <dd>{kind(alert)}</dd>
-          <dt class="micro-label">Problem</dt>
+          <dt class="micro-label">{t("alerts.problem")}</dt>
           <dd>{problem(alert)}</dd>
-          <dt class="micro-label">When</dt>
+          <dt class="micro-label">{t("alerts.when")}</dt>
           <dd>{localTime(alert.at)}</dd>
         </dl>
         <pre class="error">{alert.error}</pre>
         <div class="actions">
-          <a class="btn btn--neutral btn--sm" href={href(alert)}>Open</a>
-          <button class="btn btn--ghost btn--sm" onclick={() => dismiss(alert)}>Dismiss</button>
+          <a class="btn btn--neutral btn--sm" href={href(alert)}>{t("common.open")}</a>
+          <button class="btn btn--ghost btn--sm" onclick={() => dismiss(alert)}>{t("common.dismiss")}</button>
         </div>
       </section>
     {:else}
       <section class="details surface--glass">
-        <EmptyState
-          icon={Bell}
-          title="No alert selected"
-          text="Alerts show here when something keeps failing or needs you to sign in again."
-        />
+        <EmptyState icon={Bell} title={t("alerts.noneSelected")} text={t("alerts.noneSelectedHint")} />
       </section>
     {/if}
   </div>

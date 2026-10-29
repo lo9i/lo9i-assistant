@@ -6,6 +6,7 @@
   import { matching, messageSearch } from "$lib/chat/search";
   import { resource } from "$lib/daemon.svelte";
   import { duration } from "$lib/duration";
+  import { formatDate, t } from "$lib/i18n.svelte";
   import EmptyState from "../EmptyState.svelte";
   import SearchField from "../SearchField.svelte";
 
@@ -36,44 +37,44 @@
 
   function when(iso: string): string {
     const date = new Date(iso);
-    const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    if (date.toDateString() === new Date().toDateString()) return `Today ${time}`;
-    return `${date.toLocaleDateString([], { month: "short", day: "numeric" })} ${time}`;
+    const time = formatDate(date, { hour: "2-digit", minute: "2-digit" });
+    if (date.toDateString() === new Date().toDateString()) return t("conversations.today", { time });
+    return `${formatDate(date, { month: "short", day: "numeric" })} ${time}`;
   }
 </script>
 
 <section class="table-card surface--glass">
   <header class="toolbar">
     <div>
-      <h2 class="text-heading">Conversations</h2>
-      <p class="text-meta">Newest first. Click one to read it on the right; double-click to continue it.</p>
+      <h2 class="text-heading">{t("conversations.title")}</h2>
+      <p class="text-meta">{t("conversations.hint")}</p>
     </div>
-    <SearchField bind:value={query} label="Search conversations" />
+    <SearchField bind:value={query} label={t("conversations.search")} />
   </header>
-  {#if containing.error}<p class="error-text pad">Couldn't search what was said: {containing.error}</p>{/if}
+  {#if containing.error}<p class="error-text pad">{t("conversations.searchFailed", { error: containing.error })}</p>{/if}
   <div class="scroll">
     {#if error}
       <p class="error-text pad">{error}</p>
     {:else if conversations?.length === 0}
-      <EmptyState
-        icon={MessagesSquare}
-        title="No conversations yet"
-        text="Write a message above: it starts one, or goes on in the one it's about."
-      />
+      <EmptyState icon={MessagesSquare} title={t("conversations.noneYet")} text={t("conversations.noneYetHint")} />
     {:else if conversations}
       <table class="data-table">
         <thead>
           <tr>
-            <th>Title</th><th>Channel</th><th>Started</th><th>Duration</th><th class="continue" aria-label="Continue"></th>
+            <th>{t("conversations.columnTitle")}</th><th>{t("conversations.channel")}</th><th>{t("conversations.started")}</th><th
+              >{t("conversations.duration")}</th
+            ><th class="continue" aria-label={t("conversations.continue")}></th>
           </tr>
         </thead>
         <tbody>
           {#each shown as c (c.thread_id)}
             <tr class:selected={c.thread_id === selected} onclick={() => onselect(c.thread_id)} ondblclick={() => oncontinue(c.thread_id)}>
               <td>
-                <button class="title" onclick={(e) => (e.stopPropagation(), onselect(c.thread_id))}>{c.title || "Untitled"}</button>
-                {#if c.archived}<span class="pill" title="Kept to read; new messages aren't routed to it">Archived</span>{/if}
-                {#if open.includes(c.thread_id)}<span class="pill pill--accent">Open</span>{/if}
+                <button class="title" onclick={(e) => (e.stopPropagation(), onselect(c.thread_id))}
+                  >{c.title || t("common.untitled")}</button
+                >
+                {#if c.archived}<span class="pill" title={t("conversations.archivedHint")}>{t("conversations.archived")}</span>{/if}
+                {#if open.includes(c.thread_id)}<span class="pill pill--accent">{t("conversations.open")}</span>{/if}
                 {#if c.tags?.length}<p class="tags text-caption">{c.tags.join(" · ")}</p>{/if}
               </td>
               <td>
@@ -86,8 +87,8 @@
               <td class="continue">
                 <button
                   class="btn btn--icon"
-                  aria-label="Continue this conversation"
-                  title="Continue this conversation"
+                  aria-label={t("conversations.continueThis")}
+                  title={t("conversations.continueThis")}
                   onclick={(e) => (e.stopPropagation(), oncontinue(c.thread_id))}
                 >
                   <Play size={16} />
@@ -95,7 +96,7 @@
               </td>
             </tr>
           {:else}
-            <tr><td colspan="5" class="text-meta">No matches.</td></tr>
+            <tr><td colspan="5" class="text-meta">{t("common.noMatches")}</td></tr>
           {/each}
         </tbody>
       </table>

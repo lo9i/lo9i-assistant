@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { StartupStatus } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { t, type Key } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
   import SettingsCard from "../Card.svelte";
   import Toggle from "../Toggle.svelte";
@@ -13,19 +14,11 @@
   let changing = $state<boolean | null>(null);
   const s = $derived(loaded.data);
 
-  const NOTES: Record<string, string[]> = {
-    macos: [
-      "macOS asks for your administrator password once. It runs as your user, without anyone logging in.",
-      "A sleeping or powered-off Mac runs nothing; missed jobs catch up within 6 hours, and Notifications says when one ran late or was missed.",
-      "With FileVault on, after a restart nothing runs until someone logs in once.",
-    ],
-    linux: [
-      "It runs as a systemd user service (lo9i-assistant), as your user. Its log is in Settings → Logs; output from before it starts logging is in journalctl --user -u lo9i-assistant.",
-      "A powered-off or suspended computer runs nothing; missed jobs catch up within 6 hours, and Notifications says when one ran late or was missed.",
-      "Ollama isn't included: its Linux installer runs it as a service of its own.",
-    ],
+  const NOTES: Record<string, Key[]> = {
+    macos: ["startup.macPassword", "startup.macSleep", "startup.macFileVault"],
+    linux: ["startup.linuxService", "startup.linuxSleep", "startup.linuxOllama"],
   };
-  const computer = $derived(s?.platform === "macos" ? "the Mac" : "the computer");
+  const computer = $derived(s?.platform === "macos" ? t("startup.theMac") : t("startup.theComputer"));
 
   async function change(enable: boolean): Promise<void> {
     if (changing !== null) return;
@@ -38,7 +31,7 @@
   }
 
   async function ask(enable: boolean): Promise<void> {
-    message = s?.platform === "macos" ? "Waiting for the macOS password dialog…" : "Working…";
+    message = s?.platform === "macos" ? t("startup.waitingPassword") : t("nav.working");
     try {
       const status = await (enable ? client.system.enableStartup() : client.system.disableStartup());
       loaded.data = status;
@@ -53,13 +46,11 @@
   async function reinstall(): Promise<void> {
     if (changing !== null) return;
     changing = true;
-    message = "Waiting for the macOS password dialog…";
+    message = t("startup.waitingPassword");
     try {
       const status = await client.system.reinstallStartup();
       loaded.data = status;
-      message = status.managed
-        ? "Installed again. The assistant restarts once the runs in progress end."
-        : "Installed again. The assistant restarts under macOS in a few seconds.";
+      message = status.managed ? t("startup.reinstalledManaged") : t("startup.reinstalled");
     } catch (e) {
       message = describe(e);
       loaded.reload();
@@ -69,46 +60,42 @@
   }
 
   function done(enabled: boolean, s: StartupStatus): string {
-    if (!enabled) return `Turned off. The daemon keeps running until you restart ${computer} or stop it.`;
+    if (!enabled) return t("startup.turnedOff", { computer });
     const system = s.platform === "macos" ? "macOS" : "systemd";
-    return s.managed ? "Turned on." : `Turned on. The assistant restarts under ${system} in a few seconds.`;
+    return s.managed ? t("startup.turnedOn") : t("startup.turnedOnRestarts", { system });
   }
 </script>
 
-<SettingsCard
-  id="startup"
-  title="Start at boot"
-  sub="Run the assistant from the moment {computer} starts, so jobs and Telegram keep working."
->
+<SettingsCard id="startup" title={t("startup.title")} sub={t("startup.sub", { computer })}>
   {#snippet status()}
     {#if s}
       {#if s.platform !== "unsupported"}
-        <Toggle checked={changing ?? s.enabled} label="Start at boot" disabled={changing !== null} onchange={change} />
+        <Toggle checked={changing ?? s.enabled} label={t("startup.title")} disabled={changing !== null} onchange={change} />
       {/if}
     {/if}
   {/snippet}
   {#if s === undefined}
-    <p class="text-meta">{loaded.error ?? "Loading…"}</p>
+    <p class="text-meta">{loaded.error ?? t("common.loading")}</p>
   {:else if s.platform === "unsupported"}
-    <p class="text-meta">Start at boot works on macOS and on Linux with systemd. This system has neither.</p>
+    <p class="text-meta">{t("startup.unsupported")}</p>
   {:else}
     <ul class="callout text-caption">
-      {#each NOTES[s.platform] ?? [] as note (note)}<li>{note}</li>{/each}
+      {#each NOTES[s.platform] ?? [] as note (note)}<li>{t(note)}</li>{/each}
     </ul>
     {#if s.platform === "linux" && !s.starts_without_login}
       <p class="text-meta">
-        <strong>Without lingering, it runs only while you're logged in.</strong> To start it at boot without logging in, an administrator
-        runs this once on the computer: <code>sudo loginctl enable-linger $USER</code>
+        <strong>{t("startup.lingering")}</strong>
+        {t("startup.lingeringHint")} <code>sudo loginctl enable-linger $USER</code>
       </p>
     {/if}
-    {#if s.enabled && s.includes_ollama}<p class="text-meta">Ollama starts with it.</p>{/if}
+    {#if s.enabled && s.includes_ollama}<p class="text-meta">{t("startup.ollama")}</p>{/if}
     {#if s.enabled && s.outdated?.length}
       <div class="outdated">
-        <p class="text-meta"><strong>It was installed by an older version.</strong> Installing it again fixes this:</p>
+        <p class="text-meta"><strong>{t("startup.outdated")}</strong> {t("startup.outdatedHint")}</p>
         <ul class="text-caption">
           {#each s.outdated as why (why)}<li>{why}</li>{/each}
         </ul>
-        <button class="btn btn--sm btn--primary" onclick={reinstall} disabled={changing !== null}>Install again</button>
+        <button class="btn btn--sm btn--primary" onclick={reinstall} disabled={changing !== null}>{t("startup.installAgain")}</button>
       </div>
     {/if}
     {#if message}<p class="text-meta">{message}</p>{/if}

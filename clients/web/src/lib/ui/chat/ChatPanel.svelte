@@ -12,6 +12,7 @@
   import { finalReply, toolRunning } from "$lib/chat/transcript";
   import type { ChatController } from "$lib/chat/controller";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import { Player, speaksReply } from "$lib/speech";
   import type { Agent } from "$lib/api/types";
   import AgentStatus from "./AgentStatus.svelte";
@@ -128,33 +129,33 @@
     e.preventDefault();
     const { files, folders } = droppedFiles(e.dataTransfer);
     draft.files = [...draft.files, ...files];
-    if (folders) notices.notify("Folders can't be attached; drop the files in them instead.", "warning");
+    if (folders) notices.notify(t("chat.noFolders"), "warning");
   }
 
   async function rename(value: string): Promise<void> {
-    if (!value) return notices.notify("Usage: /name <name>", "warning");
+    if (!value) return notices.notify(t("chat.usage", { usage: "/name <name>" }), "warning");
     try {
-      notices.notify(`Renamed to ${await client.identity.rename(value)}.`);
+      notices.notify(t("chat.renamed", { name: await client.identity.rename(value) }));
     } catch (e) {
       notices.report(e);
     }
   }
 
   async function pin(skill: string): Promise<void> {
-    if (!skill) return notices.notify("Usage: /pin <skill>", "warning");
+    if (!skill) return notices.notify(t("chat.usage", { usage: "/pin <skill>" }), "warning");
     try {
       await client.conversations.pin(threadId, skill);
-      notices.notify(`Pinned ${skill} to this conversation. It takes effect from your next message.`);
+      notices.notify(t("chat.pinned", { skill }));
     } catch (e) {
       notices.report(e);
     }
   }
 
   async function unpin(skill: string): Promise<void> {
-    if (!skill) return notices.notify("Usage: /unpin <skill>", "warning");
+    if (!skill) return notices.notify(t("chat.usage", { usage: "/unpin <skill>" }), "warning");
     try {
       await client.conversations.unpin(threadId, skill);
-      notices.notify(`Unpinned ${skill}. It takes effect from your next message.`);
+      notices.notify(t("chat.unpinned", { skill }));
     } catch (e) {
       notices.report(e);
     }
@@ -167,7 +168,7 @@
     if (arg === "off") {
       try {
         await client.conversations.takeBack(threadId);
-        notices.notify("The assistant answers again from your next message.");
+        notices.notify(t("chat.takenBack"));
       } catch (e) {
         notices.report(e);
       }
@@ -181,7 +182,7 @@
   async function handTo(agent: Agent, folder: string): Promise<void> {
     try {
       const to = await client.conversations.handTo(chats.current.getSnapshot().threadId, agent.command, folder);
-      notices.notify(`${to.name} answers from your next message, working in ${to.folder}. /${agent.command} off goes back.`);
+      notices.notify(t("chat.handedTo", { agent: to.name, folder: to.folder, command: agent.command }));
     } catch (e) {
       notices.report(e);
     }
@@ -237,7 +238,7 @@
         help = true;
         return;
       default:
-        notices.notify(`Unknown command ${name}. Type / to see the commands.`, "warning");
+        notices.notify(t("chat.unknownCommand", { name }), "warning");
     }
   }
 </script>
@@ -251,7 +252,7 @@
 <section
   class="chat surface--glass"
   class:dragging={dragging > 0}
-  aria-label="Conversation"
+  aria-label={t("chat.conversation")}
   ondragenter={dragenter}
   ondragover={dragover}
   ondragleave={() => (dragging = Math.max(0, dragging - 1))}
@@ -260,7 +261,7 @@
   <Thread
     items={snapshot.current.transcript.items}
     thinking={(snapshot.current.busy || snapshot.current.mirroring) && !streaming && !toolRunning(snapshot.current.transcript)}
-    name={name.data || "the assistant"}
+    name={name.data || t("chat.theAssistant")}
     onsuggest={(text) => (draft.text = text)}
     onchoose={snapshot.current.busy || snapshot.current.mirroring ? undefined : (choice) => send(choice, [])}
     loadCall={(callId) => client.conversations.toolCall(threadId, callId)}
@@ -268,13 +269,13 @@
     findable
   />
   {#if snapshot.current.queued.length}
-    <ul class="queued" aria-label="Queued messages">
+    <ul class="queued" aria-label={t("chat.queued")}>
       {#each snapshot.current.queued as item, i (i)}
         <li>
           <Clock size={12} /><span>{item.text || item.files.map((f) => f.name).join(", ")}</span>
           <!-- One the inbox sent on here can't be taken back: it was already written. -->
           {#if !item.dispatched}
-            <button aria-label="Take back" title="Take back to edit" onclick={() => unqueue(i)}><X size={12} /></button>
+            <button aria-label={t("chat.takeBack")} title={t("chat.takeBackHint")} onclick={() => unqueue(i)}><X size={12} /></button>
           {/if}
         </li>
       {/each}
@@ -305,7 +306,7 @@
     {/if}
     <span class="fuel-end"><ContextFuel {threadId} /></span>
   </StatusBar>
-  {#if dragging > 0}<div class="drop-hint" aria-hidden="true">Drop files to attach them</div>{/if}
+  {#if dragging > 0}<div class="drop-hint" aria-hidden="true">{t("chat.dropHint")}</div>{/if}
 </section>
 
 {#if snapshot.current.approval}

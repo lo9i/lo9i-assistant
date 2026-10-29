@@ -3,6 +3,7 @@
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import type { UploadedFile } from "$lib/api/types";
   import { useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
 
   // A file from the user's conversations: shown when the browser can (images inline; PDFs, plain text, audio and video
@@ -34,12 +35,12 @@
   {#if image}<img class="preview" src={url} alt={file.name} />{/if}
   <div class="actions">
     {#if viewable && !image}
-      <a class="btn btn--neutral btn--sm" href={url} target="_blank" rel="noreferrer"><ExternalLink size={14} />Open</a>
+      <a class="btn btn--neutral btn--sm" href={url} target="_blank" rel="noreferrer"><ExternalLink size={14} />{t("common.open")}</a>
     {/if}
-    <a class="btn btn--primary btn--sm" href={url} download={file.name}><Download size={14} />Download</a>
+    <a class="btn btn--primary btn--sm" href={url} download={file.name}><Download size={14} />{t("common.download")}</a>
   </div>
 {:else}
-  <p class="text-meta">Loading…</p>
+  <p class="text-meta">{t("common.loading")}</p>
 {/if}
 
 <style>

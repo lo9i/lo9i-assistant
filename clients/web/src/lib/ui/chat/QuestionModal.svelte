@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ApprovalRequired, Decision } from "$lib/api/types";
+  import { t } from "$lib/i18n.svelte";
   import Modal from "../Modal.svelte";
 
   // A question with options from the agent (ask_user): a button per option for one choice,
@@ -17,7 +18,7 @@
   const skip = () => onanswer({ choices: null });
 </script>
 
-<Modal title={request.question ?? "Pick one"} description={request.multiple ? "Pick any, then Done." : undefined} onclose={skip}>
+<Modal title={request.question ?? t("chat.pickOne")} description={request.multiple ? t("chat.pickAny") : undefined} onclose={skip}>
   <div class="options">
     {#each options as option (option)}
       {#if request.multiple}
@@ -31,9 +32,9 @@
     {/each}
   </div>
   {#snippet footer()}
-    <button class="btn btn--ghost" onclick={skip}>Skip</button>
+    <button class="btn btn--ghost" onclick={skip}>{t("chat.skip")}</button>
     {#if request.multiple}
-      <button class="btn btn--primary" onclick={done}>Done</button>
+      <button class="btn btn--primary" onclick={done}>{t("common.done")}</button>
     {/if}
   {/snippet}
 </Modal>

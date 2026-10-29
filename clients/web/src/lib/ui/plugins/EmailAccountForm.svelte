@@ -2,15 +2,16 @@
   import SecretInput from "../SecretInput.svelte";
   import type { EmailAccount, EmailProvider, EmailSettings } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { t, type Key } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
   import { redirectUri } from "$lib/oauth";
 
-  const FIELDS: Array<{ key: Exclude<keyof EmailSettings, "port" | "imap_port" | "label">; label: string; type?: string }> = [
-    { key: "host", label: "SMTP host" },
-    { key: "username", label: "User name (usually your address)" },
-    { key: "password", label: "App password (or account password, if your provider allows it)", type: "password" },
-    { key: "sender", label: "Send as (your address)" },
-    { key: "imap_host", label: "IMAP host, to read mail (TLS on port 993; leave empty to only send)" },
+  const FIELDS: Array<{ key: Exclude<keyof EmailSettings, "port" | "imap_port" | "label">; label: Key; type?: string }> = [
+    { key: "host", label: "email.smtpHost" },
+    { key: "username", label: "email.username" },
+    { key: "password", label: "email.password", type: "password" },
+    { key: "sender", label: "email.sender" },
+    { key: "imap_host", label: "email.imapHost" },
   ];
 
   type Props = {
@@ -78,7 +79,7 @@
       const body = { provider: provider.oauth, client_id: clientId, client_secret: clientSecret, redirect_uri: redirect };
       const url = await client.email.startSignIn({ ...body, address, label, account_id: account?.id ?? "", plugin });
       window.open(url, "_blank", "noopener");
-      message = `Finish signing in on the ${providerName} page that opened; the account shows up here once it's done.`;
+      message = t("email.finishSignIn", { provider: providerName });
     } catch (err) {
       message = describe(err);
     } finally {
@@ -101,8 +102,8 @@
 
 <div class="fields">
   {#if providers.length > 1}
-    <select class="input" bind:value={choice} aria-label="How to connect">
-      <option value="" disabled>Choose how to connect</option>
+    <select class="input" bind:value={choice} aria-label={t("email.howToConnect")}>
+      <option value="" disabled>{t("email.chooseHow")}</option>
       {#each providers as p (p.id)}
         <option value={p.id}>{p.name}</option>
       {/each}
@@ -111,55 +112,55 @@
   {#if provider}
     <p class="text-label">
       {provider.password_help}
-      {#if provider.password_url}<a href={provider.password_url} target="_blank" rel="noreferrer">Create it here</a>.{/if}
+      {#if provider.password_url}<a href={provider.password_url} target="_blank" rel="noreferrer">{t("email.createHere")}</a>.{/if}
     </p>
   {/if}
   {#if provider?.oauth}
     <form class="fields" onsubmit={signIn}>
-      <input class="input" placeholder="Name for this account, like Work (optional)" aria-label="Account name" bind:value={label} />
-      <input class="input" type="email" placeholder="Your email address" aria-label="Your email address" bind:value={address} />
+      <input class="input" placeholder={t("email.accountNamePlaceholder")} aria-label={t("email.accountName")} bind:value={label} />
+      <input class="input" type="email" placeholder={t("email.address")} aria-label={t("email.address")} bind:value={address} />
       <div class="fields">
-        <span class="text-caption">Redirect URI to register with your OAuth app</span>
+        <span class="text-caption">{t("email.redirect")}</span>
         <code class="uri">{redirect}</code>
       </div>
       <input
         class="input"
-        placeholder={again ? "Client ID (leave empty to keep the saved one)" : "Client ID"}
-        aria-label="Client ID"
+        placeholder={again ? t("email.clientIdKeep") : t("email.clientId")}
+        aria-label={t("email.clientId")}
         bind:value={clientId}
       />
       <SecretInput
-        label="Client secret"
-        placeholder={again ? "Client secret (leave empty to keep the saved one)" : "Client secret"}
+        label={t("email.clientSecret")}
+        placeholder={again ? t("email.clientSecretKeep") : t("email.clientSecret")}
         bind:value={clientSecret}
       />
       <div class="row">
         <button class="btn btn--primary" type="submit" disabled={saving || !address.includes("@") || (!clientId.trim() && !again)}
-          >{saving ? "Opening…" : `Sign in with ${providerName}`}</button
+          >{saving ? t("email.opening") : t("email.signInWith", { provider: providerName })}</button
         >
-        {#if oncancel}<button class="btn btn--ghost" type="button" onclick={oncancel}>Cancel</button>{/if}
+        {#if oncancel}<button class="btn btn--ghost" type="button" onclick={oncancel}>{t("common.cancel")}</button>{/if}
       </div>
     </form>
   {:else if provider?.supported}
     <form class="fields" onsubmit={save}>
-      <input class="input" placeholder="Name for this account, like Work (optional)" aria-label="Account name" bind:value={label} />
+      <input class="input" placeholder={t("email.accountNamePlaceholder")} aria-label={t("email.accountName")} bind:value={label} />
       {#if !byHand}
-        <input class="input" type="email" placeholder="Your email address" aria-label="Your email address" bind:value={address} />
-        <SecretInput label="App password" placeholder="App password" bind:value={form.password} />
+        <input class="input" type="email" placeholder={t("email.address")} aria-label={t("email.address")} bind:value={address} />
+        <SecretInput label={t("email.appPassword")} placeholder={t("email.appPassword")} bind:value={form.password} />
       {:else}
         {#each FIELDS as f (f.key)}
           {#if f.type === "password"}
-            <SecretInput label={f.label} placeholder={f.label} bind:value={form[f.key]} />
+            <SecretInput label={t(f.label)} placeholder={t(f.label)} bind:value={form[f.key]} />
           {:else}
-            <input class="input" placeholder={f.label} aria-label={f.label} bind:value={form[f.key]} />
+            <input class="input" placeholder={t(f.label)} aria-label={t(f.label)} bind:value={form[f.key]} />
           {/if}
         {/each}
-        <input class="input" type="number" placeholder="Port (587, or 465)" aria-label="Port" bind:value={form.port} />
+        <input class="input" type="number" placeholder={t("email.portPlaceholder")} aria-label={t("email.port")} bind:value={form.port} />
       {/if}
-      {#if account}<p class="text-caption">Leave the password empty to keep the saved one.</p>{/if}
+      {#if account}<p class="text-caption">{t("email.keepPassword")}</p>{/if}
       <div class="row">
-        <button class="btn btn--primary" type="submit" disabled={saving}>{saving ? "Checking…" : "Connect"}</button>
-        {#if oncancel}<button class="btn btn--ghost" type="button" onclick={oncancel}>Cancel</button>{/if}
+        <button class="btn btn--primary" type="submit" disabled={saving}>{saving ? t("webSearch.checking") : t("email.connect")}</button>
+        {#if oncancel}<button class="btn btn--ghost" type="button" onclick={oncancel}>{t("common.cancel")}</button>{/if}
       </div>
     </form>
   {/if}

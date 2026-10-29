@@ -4,10 +4,11 @@
   import Paperclip from "@lucide/svelte/icons/paperclip";
   import Square from "@lucide/svelte/icons/square";
   import X from "@lucide/svelte/icons/x";
-  import { offered, parse, takesArgument, type Command } from "$lib/chat/commands";
+  import { commandText, offered, parse, takesArgument, type Command } from "$lib/chat/commands";
   import { onEdgeLine, step } from "$lib/chat/history";
   import { pastedFiles } from "$lib/chat/pasted";
   import { useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import { Recorder } from "$lib/microphone.svelte";
 
   type Props = {
@@ -146,7 +147,7 @@
   /** A voice message is sent as soon as recording stops, with any text and files waiting in the box. */
   async function sendRecording(): Promise<void> {
     const voice = await recorder.stop();
-    if (busy) return notices.notify("Wait for the reply to finish, then record again.", "warning");
+    if (busy) return notices.notify(t("composer.waitToRecord"), "warning");
     onsend(text.trim(), [...files, voice]);
     type("");
     files = [];
@@ -188,7 +189,7 @@
 
 <div class="dock">
   {#if menu.length}
-    <ul class="menu" role="listbox" aria-label="Commands" bind:this={list}>
+    <ul class="menu" role="listbox" aria-label={t("composer.commands")} bind:this={list}>
       {#each menu as command (command.name)}
         <li
           role="option"
@@ -200,7 +201,7 @@
           }}
         >
           <code>{command.usage}</code>
-          <span class="text-caption">{command.description}</span>
+          <span class="text-caption">{commandText(command)}</span>
         </li>
       {/each}
     </ul>
@@ -211,7 +212,7 @@
         <div class="chip">
           {#if previews[i]}<img src={previews[i]} alt="" />{:else}<span class="doc"><Paperclip size={14} /></span>{/if}
           <span class="chip-name">{file.name}</span>
-          <button aria-label="Remove {file.name}" onclick={() => (files = files.filter((_, j) => j !== i))}>
+          <button aria-label={t("composer.remove", { name: file.name })} onclick={() => (files = files.filter((_, j) => j !== i))}>
             <X size={12} />
           </button>
         </div>
@@ -219,7 +220,7 @@
     </div>
   {/if}
   <div class="composer" class:multiline={text.includes("\n") || text.length > 80} class:agent={handedOff}>
-    <button class="lead" aria-label="Attach files" title="Attach files" onclick={() => picker?.click()}>
+    <button class="lead" aria-label={t("composer.attach")} title={t("composer.attach")} onclick={() => picker?.click()}>
       <Paperclip size={16} />
     </button>
     <input
@@ -234,17 +235,17 @@
     />
     {#if recorder.recording}
       <div class="recording" role="status">
-        <span class="dot"></span>Recording {elapsed}
-        <button class="lead" aria-label="Cancel recording" title="Cancel" onclick={() => recorder.cancel()}><X size={16} /></button>
+        <span class="dot"></span>{t("composer.recording", { elapsed })}
+        <button class="lead" aria-label={t("composer.cancelRecording")} title={t("common.cancel")} onclick={() => recorder.cancel()}
+          ><X size={16} /></button
+        >
       </div>
     {:else}
       <!-- svelte-ignore a11y_autofocus -->
       <textarea
         bind:this={box}
         value={text}
-        placeholder={steering
-          ? `Message ${steering.agent} while it works · Enter to send`
-          : "Message · Enter to send, Shift+Enter for a new line, / for commands"}
+        placeholder={steering ? t("composer.steerPlaceholder", { agent: steering.agent }) : t("composer.placeholder")}
         rows={1}
         oninput={(e) => type(e.currentTarget.value)}
         {onkeydown}
@@ -252,25 +253,32 @@
         autofocus></textarea>
     {/if}
     {#if recorder.recording}
-      <button class="send" aria-label="Send voice message" title="Send voice message" onclick={sendRecording}>
+      <button class="send" aria-label={t("composer.sendVoice")} title={t("composer.sendVoice")} onclick={sendRecording}>
         <ArrowUp size={14} />
       </button>
     {:else if running}
       {#if steering && hasMessage}
-        <button class="send" aria-label="Send to {steering.agent}" title="Send to {steering.agent} while it works" onclick={submit}>
+        <button
+          class="send"
+          aria-label={t("composer.sendTo", { agent: steering.agent })}
+          title={t("composer.sendToWhileWorking", { agent: steering.agent })}
+          onclick={submit}
+        >
           <ArrowUp size={14} />
         </button>
       {:else if hasMessage && onqueue}
-        <button class="send" aria-label="Queue message" title="Send when the reply finishes" onclick={submit}>
+        <button class="send" aria-label={t("composer.queue")} title={t("composer.queueHint")} onclick={submit}>
           <ArrowUp size={14} />
         </button>
       {/if}
-      <button class="send" aria-label="Stop" title="Stop (Esc)" onclick={onstop}><Square size={12} fill="currentColor" /></button>
+      <button class="send" aria-label={t("composer.stop")} title={t("composer.stopHint")} onclick={onstop}
+        ><Square size={12} fill="currentColor" /></button
+      >
     {:else}
-      <button class="lead" aria-label="Record a voice message" title="Record a voice message" onclick={record}>
+      <button class="lead" aria-label={t("composer.record")} title={t("composer.record")} onclick={record}>
         <Mic size={16} />
       </button>
-      <button class="send" aria-label="Send" onclick={submit} disabled={!hasMessage}>
+      <button class="send" aria-label={t("composer.send")} onclick={submit} disabled={!hasMessage}>
         <ArrowUp size={14} />
       </button>
     {/if}

@@ -6,6 +6,7 @@ answer."""
 from rich.text import Text
 
 from assistant.core.agent import ConversationStats
+from assistant_terminal.i18n import decimal, t
 
 SEGMENTS = 16
 _ACCENT, _YELLOW, _RED = "cyan", "#e5b931", "#e5534b"
@@ -26,16 +27,16 @@ def fuel(stats: ConversationStats) -> Text:
 
 def detail(stats: ConversationStats) -> str:
     """What the figures are, as the web app's hover says."""
-    figures = f"{compact(stats.context_tokens)} / {compact(stats.context_limit)} tokens"
+    figures = t("{used} / {limit} tokens", used=compact(stats.context_tokens), limit=compact(stats.context_limit))
     if stats.context_agent:
-        return f"{stats.context_agent}'s context: {figures}, as of its last answer."
-    return f"Context: {figures}. Older messages are summarized when it's full."
+        return t("{agent}'s context: {figures}, as of its last answer.", agent=stats.context_agent, figures=figures)
+    return t("Context: {figures}. Older messages are summarized when it's full.", figures=figures)
 
 
 def compact(tokens: int) -> str:
     """1.2k, 45k, 1.3M."""
     if tokens >= 1_000_000:
-        return f"{tokens / 1_000_000:.1f}M"
+        return f"{decimal(tokens / 1_000_000)}M"
     if tokens >= 10_000:
         return f"{round(tokens / 1000)}k"
-    return f"{tokens / 1000:.1f}k" if tokens >= 1000 else str(tokens)
+    return f"{decimal(tokens / 1000)}k" if tokens >= 1000 else str(tokens)

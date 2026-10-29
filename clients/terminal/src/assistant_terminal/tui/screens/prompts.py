@@ -18,12 +18,13 @@ from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import PromptsApi
 from assistant.core.agent import PromptEditError, PromptSection, UnknownPromptError
+from assistant_terminal.i18n import t
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 
 class PromptsScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "close", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "close", t("Close"))]
     # The daemon events that change what it shows (AssistantApp.reload_screen).
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"prompts"})
 
@@ -37,7 +38,7 @@ class PromptsScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="prompts"):
-            yield Static("System prompt", id="prompts-title")
+            yield Static(t("System prompt"), id="prompts-title")
             with Horizontal(id="prompts-main"):
                 yield OptionList(id="prompts-list")
                 yield Static(classes="divider")
@@ -46,10 +47,10 @@ class PromptsScreen(ModalScreen[None]):
                     yield Static(id="prompt-changes", markup=False)
                     yield TextArea(id="prompt-text")
             with Horizontal(id="prompts-buttons"):
-                yield Button("Save", variant="success", id="save")
-                yield Button("Keep my edit", id="keep")
-                yield Button("Reset to built-in", id="reset")
-                yield Button("Close", id="close")
+                yield Button(t("Save"), variant="success", id="save")
+                yield Button(t("Keep my edit"), id="keep")
+                yield Button(t("Reset to built-in"), id="reset")
+                yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
@@ -88,13 +89,15 @@ class PromptsScreen(ModalScreen[None]):
         if self._selected is not None:
             text = self.query_one("#prompt-text", TextArea).text
             saving = self._prompts.save(self._selected, text)
-            await self._change(self._selected, saving, "saved. It applies from your next message in each conversation.")
+            await self._change(
+                self._selected, saving, t("saved. It applies from your next message in each conversation.")
+            )
 
     @on(Button.Pressed, "#keep")
     @reports_daemon_unavailable
     async def _keep(self) -> None:
         if self._selected is not None:
-            await self._change(self._selected, self._prompts.keep(self._selected), "your edit stays as it is.")
+            await self._change(self._selected, self._prompts.keep(self._selected), t("your edit stays as it is."))
 
     @on(Button.Pressed, "#reset")
     def _reset(self) -> None:
@@ -109,15 +112,17 @@ class PromptsScreen(ModalScreen[None]):
     @work
     @reports_daemon_unavailable
     async def _confirm_reset(self, section: PromptSection) -> None:
-        question = f"Reset {section.title}? Your edit is deleted and the assistant uses the built-in text again."
-        if await self.app.push_screen_wait(ConfirmScreen(question, "Reset")):
-            await self._change(section.name, self._prompts.reset(section.name), "back to the built-in text.")
+        question = t(
+            "Reset {title}? Your edit is deleted and the assistant uses the built-in text again.", title=section.title
+        )
+        if await self.app.push_screen_wait(ConfirmScreen(question, t("Reset"))):
+            await self._change(section.name, self._prompts.reset(section.name), t("back to the built-in text."))
 
     @work
     async def _close(self) -> None:
         unsaved = ", ".join(self._shown[name].title for name in self._drafts if name in self._shown)
-        question = f"Close without saving your changes to {unsaved}?"
-        if not unsaved or await self.app.push_screen_wait(ConfirmScreen(question, "Close")):
+        question = t("Close without saving your changes to {sections}?", sections=unsaved)
+        if not unsaved or await self.app.push_screen_wait(ConfirmScreen(question, t("Close"))):
             self.dismiss()
 
     async def _change(self, name: str, change: Awaitable[PromptSection], done: str) -> None:
@@ -149,14 +154,15 @@ class PromptsScreen(ModalScreen[None]):
 def _changes(section: PromptSection) -> str:
     if not section.built_in_changes:
         return ""
-    return (
+    changed = t(
         "The built-in text changed since you edited it; your edit is still what the assistant uses. Take what you "
-        f"want into it and save, keep it as it is, or reset.\n{section.built_in_changes}"
+        "want into it and save, keep it as it is, or reset."
     )
+    return f"{changed}\n{section.built_in_changes}"
 
 
 def _about(section: PromptSection) -> str:
-    state = "Edited." if section.edited else "The built-in text."
+    state = t("Edited.") if section.edited else t("The built-in text.")
     if section.problem:
-        state = f"{section.problem} The assistant uses the built-in text until you reset or save it."
+        state = f"{section.problem} " + t("The assistant uses the built-in text until you reset or save it.")
     return f"{section.description}\n{state}"

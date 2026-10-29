@@ -1,6 +1,7 @@
 // Home (core/home/): when each item is, its link, how much of a card shows, when the page was last updated, and the
 // sections as the editor changes them.
 import type { HomeItem, HomeSection } from "./api/types";
+import { language, t } from "./i18n.svelte";
 import { local } from "./jobs";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -20,16 +21,18 @@ export function dayOf(date: Date, timezone = Intl.DateTimeFormat().resolvedOptio
 export function itemWhen(item: Pick<HomeItem, "date" | "time">, today: string): string {
   const time = item.time ?? "";
   const date = item.date ?? "";
-  if (!date || date === today) return time || (date ? "Today" : "");
+  if (!date || date === today) return time || (date ? t("home.today") : "");
   const day = dayName(date, today);
   return time ? `${day} ${time}` : day;
 }
 
 function dayName(date: string, today: string): string {
   const days = Math.round((Date.parse(date) - Date.parse(today)) / DAY_MS);
-  if (days === 1) return "Tomorrow";
-  if (days === -1) return "Yesterday";
-  return new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "2-digit", month: "short", timeZone: "UTC" })
+  if (days === 1) return t("home.tomorrow");
+  if (days === -1) return t("home.yesterday");
+  // English as the app writes dates, the day before the month.
+  const locale = language.locale === "en" ? "en-GB" : language.locale;
+  return new Intl.DateTimeFormat(locale, { weekday: "short", day: "2-digit", month: "short", timeZone: "UTC" })
     .format(new Date(date))
     .replace(",", "");
 }
@@ -64,7 +67,7 @@ export function updatedLabel(at: string, now: Date, timezone = Intl.DateTimeForm
   if (!at) return "";
   const shown = local(at, timezone);
   const sameDay = dayOf(new Date(at), timezone) === dayOf(now, timezone);
-  return `Updated ${sameDay ? shown.slice(-5) : shown}`;
+  return t("home.updated", { when: sameDay ? shown.slice(-5) : shown });
 }
 
 /** The sections with `edited` in place of the one with its id, or added at the end when it's new (no id yet). */

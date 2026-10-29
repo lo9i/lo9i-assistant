@@ -9,11 +9,16 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Static
 
+from assistant_terminal.i18n import t
+
 
 class ConfirmScreen(ModalScreen[bool]):
     """Returns True when the user confirms."""
 
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("y", "confirm", "Confirm"), Binding("escape", "cancel", "Cancel")]
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding("y", "confirm", t("Confirm")),
+        Binding("escape", "cancel", t("Cancel")),
+    ]
 
     def __init__(self, question: str, action: str) -> None:
         super().__init__()
@@ -25,7 +30,7 @@ class ConfirmScreen(ModalScreen[bool]):
             yield Static(self._question, id="confirm-question", markup=False)
             with Horizontal(id="confirm-buttons"):
                 yield Button(f"{self._action} (y)", variant="error", id="confirm-yes")
-                yield Button("Cancel (esc)", id="confirm-no")
+                yield Button(t("Cancel (esc)"), id="confirm-no")
 
     def on_mount(self) -> None:
         self.query_one("#confirm-no", Button).focus()
@@ -44,7 +49,7 @@ class ConfirmWithOptionScreen(ModalScreen[bool | None]):
     """Like ConfirmScreen, with a checkbox, unchecked at first. Returns None when cancelled, else
     whether the box was checked."""
 
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "cancel", "Cancel")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "cancel", t("Cancel"))]
 
     def __init__(self, question: str, action: str, option: str) -> None:
         super().__init__()
@@ -56,7 +61,7 @@ class ConfirmWithOptionScreen(ModalScreen[bool | None]):
             yield Checkbox(self._option, value=False, id="confirm-option")
             with Horizontal(id="confirm-buttons"):
                 yield Button(self._action, variant="error", id="confirm-yes")
-                yield Button("Cancel (esc)", id="confirm-no")
+                yield Button(t("Cancel (esc)"), id="confirm-no")
 
     def on_mount(self) -> None:
         self.query_one("#confirm-no", Button).focus()

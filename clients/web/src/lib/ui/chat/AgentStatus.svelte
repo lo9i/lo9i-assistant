@@ -2,6 +2,7 @@
   import Bot from "@lucide/svelte/icons/bot";
   import type { Snippet } from "svelte";
   import type { Handoff } from "$lib/api/types";
+  import { t } from "$lib/i18n.svelte";
 
   // In the status bar: the agent this conversation is handed to (/claude), whose replies come from it, not the
   // assistant. Named where the assistant's model is otherwise, so it's plain who answers. `children` (its context)
@@ -10,11 +11,11 @@
   let { handoff, onback, children }: Props = $props();
 </script>
 
-<div class="agent" title="{handoff.name} in {handoff.folder}">
+<div class="agent" title={t("chat.agentIn", { agent: handoff.name, folder: handoff.folder })}>
   <Bot size={13} aria-hidden="true" />
   <span class="name">{handoff.name}</span>
   {@render children?.()}
-  <button type="button" class="btn btn--ghost btn--sm" onclick={onback}>Back to the assistant</button>
+  <button type="button" class="btn btn--ghost btn--sm" onclick={onback}>{t("chat.backToAssistant")}</button>
 </div>
 
 <style>

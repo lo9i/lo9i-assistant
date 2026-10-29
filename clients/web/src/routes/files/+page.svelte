@@ -4,6 +4,7 @@
   import FileIcon from "@lucide/svelte/icons/file";
   import Files from "@lucide/svelte/icons/files";
   import { pagedResource } from "$lib/daemon.svelte";
+  import { formatDate, formatNumber, t } from "$lib/i18n.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import FilePreview from "$lib/ui/FilePreview.svelte";
   import ListEnd from "$lib/ui/ListEnd.svelte";
@@ -32,33 +33,32 @@
   // The user, or the tool whose result brought it (an MCP tool as "server: tool").
   function source(f: UploadedFile): string {
     const [, server, tool] = f.tool.match(/^mcp__(.+?)__(.+)$/) ?? [];
-    return server ? `${server}: ${tool}` : f.tool || "You";
+    return server ? `${server}: ${tool}` : f.tool || t("files.you");
   }
 
   function when(iso: string): string {
-    return new Date(iso).toLocaleString([], { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    return formatDate(iso, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   }
 
   function size(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    const one = (n: number) => formatNumber(n, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    if (bytes < 1024 * 1024) return `${one(bytes / 1024)} KB`;
+    return `${one(bytes / (1024 * 1024))} MB`;
   }
 </script>
 
-<TopBar title="Files" />
+<TopBar title={t("nav.files")} />
 
 <div class="screen">
   <section class="table-card surface--glass">
     <header class="toolbar">
       <div>
-        <h2 class="text-heading">Conversation files</h2>
-        <p class="text-meta">
-          Files you sent and files tools brought (email attachments, images), newest first. Click one to see or download it on the right.
-        </p>
+        <h2 class="text-heading">{t("files.title")}</h2>
+        <p class="text-meta">{t("files.hint")}</p>
       </div>
       <div class="tools">
-        <SearchField bind:value={query} label="Search files" />
+        <SearchField bind:value={query} label={t("files.search")} />
         {#if files.loaded}<span class="pill">{files.items.length}{files.done ? "" : "+"}</span>{/if}
       </div>
     </header>
@@ -67,20 +67,20 @@
         <p class="error-text pad">{files.error}</p>
       {:else if files.loaded && !files.items.length}
         {#if searched}
-          <p class="text-meta pad">No files match “{searched}”.</p>
+          <p class="text-meta pad">{t("files.noMatch", { query: searched })}</p>
         {:else}
-          <EmptyState icon={Files} title="No files yet" text="Files you attach to a message, and the ones tools bring in, show up here." />
+          <EmptyState icon={Files} title={t("files.none")} text={t("files.noneHint")} />
         {/if}
       {:else if file}
         <table class="data-table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th class="hide-narrow">Type</th>
-              <th>Size</th>
-              <th class="hide-narrow">From</th>
-              <th class="hide-narrow">Conversation</th>
-              <th>Added</th>
+              <th>{t("alerts.name")}</th>
+              <th class="hide-narrow">{t("files.type")}</th>
+              <th>{t("files.size")}</th>
+              <th class="hide-narrow">{t("devices.from")}</th>
+              <th class="hide-narrow">{t("tokens.conversation")}</th>
+              <th>{t("files.added")}</th>
             </tr>
           </thead>
           <tbody>
@@ -90,7 +90,7 @@
                 <td class="text-label hide-narrow">{f.media_type}</td>
                 <td class="text-label">{size(f.size)}</td>
                 <td class="text-label hide-narrow">{source(f)}</td>
-                <td class="text-label hide-narrow">{f.conversation || "Untitled"}</td>
+                <td class="text-label hide-narrow">{f.conversation || t("common.untitled")}</td>
                 <td class="text-label">{when(f.uploaded_at)}</td>
               </tr>
             {/each}
@@ -108,22 +108,22 @@
           <h2 class="text-heading">{file.name}</h2>
         </header>
         <dl>
-          <dt class="micro-label">Type</dt>
+          <dt class="micro-label">{t("files.type")}</dt>
           <dd>{file.media_type}</dd>
-          <dt class="micro-label">Size</dt>
+          <dt class="micro-label">{t("files.size")}</dt>
           <dd>{size(file.size)}</dd>
-          <dt class="micro-label">From</dt>
+          <dt class="micro-label">{t("devices.from")}</dt>
           <dd>{source(file)}</dd>
-          <dt class="micro-label">Added</dt>
+          <dt class="micro-label">{t("files.added")}</dt>
           <dd>{when(file.uploaded_at)}</dd>
-          <dt class="micro-label">Conversation</dt>
-          <dd><a href="{resolve('/conversations')}?c={file.thread_id}">{file.conversation || "Untitled"}</a></dd>
+          <dt class="micro-label">{t("tokens.conversation")}</dt>
+          <dd><a href="{resolve('/conversations')}?c={file.thread_id}">{file.conversation || t("common.untitled")}</a></dd>
         </dl>
         <FilePreview {file} />
       </section>
     {:else}
       <section class="details surface--glass">
-        <EmptyState icon={FileIcon} title="No file selected" text="Pick one from the table." />
+        <EmptyState icon={FileIcon} title={t("files.noneSelected")} text={t("files.pickOne")} />
       </section>
     {/if}
   </div>

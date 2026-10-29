@@ -1,5 +1,6 @@
 <script lang="ts">
   import { useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import { describeKept, keptKeys } from "$lib/keptKeys.svelte";
   import Modal from "../Modal.svelte";
 
@@ -13,7 +14,7 @@
     if (!kept || !remove) return;
     try {
       await client.repositories.forgetKeys(kept);
-      notices.notify(`Deleted the keys of ${kept.plugin}.`);
+      notices.notify(t("keptKeys.deletedKeys", { plugin: kept.plugin }));
     } catch (e) {
       notices.report(e);
     }
@@ -21,16 +22,17 @@
 </script>
 
 {#if keptKeys.pending}
-  <Modal title="Keep the keys of {keptKeys.pending.plugin}?" width={460} onclose={() => answer(false)}>
+  <Modal title={t("keptKeys.keepTitle", { plugin: keptKeys.pending.plugin })} width={460} onclose={() => answer(false)}>
     <p class="text-label">
-      {describeKept(keptKeys.pending)}
-      {keptKeys.pending.keys.length + (keptKeys.pending.repository ? 1 : 0) > 1 ? "are" : "is"} kept encrypted on this computer. Kept keys are
-      used when you install it again, so you don't type them again.
+      {t("keptKeys.keptText", {
+        what: describeKept(keptKeys.pending),
+        count: keptKeys.pending.keys.length + (keptKeys.pending.repository ? 1 : 0),
+      })}
     </p>
     {#snippet footer()}
-      <button class="btn btn--danger" onclick={() => answer(true)}>Delete</button>
+      <button class="btn btn--danger" onclick={() => answer(true)}>{t("common.delete")}</button>
       <!-- svelte-ignore a11y_autofocus -->
-      <button class="btn btn--primary" onclick={() => answer(false)} autofocus>Keep</button>
+      <button class="btn btn--primary" onclick={() => answer(false)} autofocus>{t("keptKeys.keep")}</button>
     {/snippet}
   </Modal>
 {/if}

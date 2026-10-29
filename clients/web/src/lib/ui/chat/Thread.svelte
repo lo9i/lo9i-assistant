@@ -16,6 +16,7 @@
   import { isFindKey, onMac } from "$lib/chat/find";
   import { inlineArg, pinnable, withWhole, withWholeStep, type ChatItem } from "$lib/chat/transcript";
   import { WholeCalls } from "$lib/chat/wholeCalls.svelte";
+  import { t, type Key } from "$lib/i18n.svelte";
   import { markdown } from "$lib/markdown";
   import FindBar from "./FindBar.svelte";
 
@@ -44,11 +45,7 @@
   let { items, thinking, name, onsuggest, onmove, onchoose, loadCall, loadStep, end, follow = true, findable = false }: Props = $props();
   const wholes = new WholeCalls();
 
-  const SUGGESTIONS = [
-    "What do you remember about me?",
-    "Every weekday at 8:00, send me a short summary of the news",
-    "Search the web for this week's top AI announcements",
-  ];
+  const SUGGESTIONS: Key[] = ["thread.suggestMemory", "thread.suggestNews", "thread.suggestSearch"];
 
   let scroller = $state<HTMLElement>();
   let height = $state(0);
@@ -133,11 +130,11 @@
     {#if items.length === 0 && !thinking}
       <div class="empty">
         <span class="empty-icon"><Sparkles size={28} /></span>
-        <h2>How can {name} help?</h2>
-        <p class="text-label">Ask anything, attach a file or a screenshot, or type / for commands.</p>
+        <h2>{t("thread.howCanHelp", { name })}</h2>
+        <p class="text-label">{t("thread.askAnything")}</p>
         <div class="suggestions">
           {#each SUGGESTIONS as suggestion (suggestion)}
-            <button onclick={() => onsuggest(suggestion)}>{suggestion}</button>
+            <button onclick={() => onsuggest(t(suggestion))}>{t(suggestion)}</button>
           {/each}
         </div>
       </div>
@@ -159,7 +156,13 @@
           <div class="bubble assistant-bubble">
             <span class="badge"><Sparkles size={14} /></span>
             <!-- In the badge's corner, shown while the pointer is on the reply. -->
-            <button class="copy" class:done={copied === item.id} aria-label="Copy" title="Copy" onclick={() => copy(item.id, reply.text)}>
+            <button
+              class="copy"
+              class:done={copied === item.id}
+              aria-label={t("thread.copy")}
+              title={t("thread.copy")}
+              onclick={() => copy(item.id, reply.text)}
+            >
               {#if copied === item.id}<Check size={14} />{:else}<Copy size={14} />{/if}
             </button>
             <div class="prose" data-findable>{@html markdown(reply.text)}</div>
@@ -174,7 +177,7 @@
           {#if item.dispatchId && onmove}
             {@const dispatchId = item.dispatchId}
             <div class="message-footer">
-              <button class="round" aria-label="Move" title="Move to another conversation" onclick={() => onmove(dispatchId)}>
+              <button class="round" aria-label={t("thread.move")} title={t("thread.moveHint")} onclick={() => onmove(dispatchId)}>
                 <Forward size={14} />
               </button>
             </div>
@@ -184,7 +187,7 @@
         <details class="tool thought">
           <summary>
             <Brain size={12} />
-            <span>Thinking</span>
+            <span>{t("thread.thinking")}</span>
             <!-- Open, the whole text shows below, so the preview would repeat its first line. -->
             <span class="detail preview">{item.text.split("\n")[0]}</span>
             <span class="chevron"><ChevronRight size={12} /></span>
@@ -196,7 +199,7 @@
         <details class="tool brief">
           <summary>
             <ClipboardList size={12} />
-            <span>Task for {item.agent}</span>
+            <span>{t("thread.taskFor", { agent: item.agent })}</span>
             <span class="detail preview">{item.text.split("\n")[0]}</span>
             <span class="chevron"><ChevronRight size={12} /></span>
           </summary>
@@ -206,7 +209,7 @@
         <details class="tool thought">
           <summary>
             <Inbox size={12} />
-            <span>From the inbox</span>
+            <span>{t("thread.fromInbox")}</span>
             <span class="chevron"><ChevronRight size={12} /></span>
           </summary>
           <div class="prose carried" data-findable>{@html markdown(item.text)}</div>
@@ -221,8 +224,8 @@
             <span>{call.name}</span>
             {#if arg}<span class="detail" title={arg}>{arg}</span>{/if}
             {#if call.state === "running"}<span class="dots"><i></i><i></i><i></i></span>{/if}
-            {#if call.state === "cancelled"}<span class="stopped">stopped</span>{/if}
-            {#if call.steps?.length}<span class="steps-count">{call.steps.length} {call.steps.length === 1 ? "step" : "steps"}</span>{/if}
+            {#if call.state === "cancelled"}<span class="stopped">{t("thread.stoppedTag")}</span>{/if}
+            {#if call.steps?.length}<span class="steps-count">{t("thread.steps", { count: call.steps.length })}</span>{/if}
             {#if call.args || call.output || call.steps?.length}<span class="chevron"><ChevronRight size={12} /></span>{/if}
           </summary>
           {#if call.args && Object.keys(call.args).length && !arg}<pre>{JSON.stringify(call.args, null, 2)}</pre>{/if}
@@ -242,41 +245,41 @@
                     <span>{step.name}</span>
                     {#if stepArg}<span class="detail" title={stepArg}>{stepArg}</span>{/if}
                     {#if step.state === "running"}<span class="dots"><i></i><i></i><i></i></span>{/if}
-                    {#if step.state === "cancelled"}<span class="stopped">stopped</span>{/if}
+                    {#if step.state === "cancelled"}<span class="stopped">{t("thread.stoppedTag")}</span>{/if}
                     <span class="chevron"><ChevronRight size={12} /></span>
                   </summary>
                   <!-- A note a handed-off agent reports is a line of text, with no arguments. -->
                   {#if step.args && Object.keys(step.args).length && !stepArg}<pre>{JSON.stringify(step.args, null, 2)}</pre>{/if}
                   {#if stepArg}<pre class="command">{stepArg}</pre>{/if}
                   {#if step.output}<pre>{step.output}</pre>{/if}
-                  {#if wholeStep?.state === "loading"}<p class="text-caption whole-note">Loading the whole step…</p>{/if}
-                  {#if wholeStep?.state === "failed"}<p class="text-caption whole-note">Couldn't load the whole step.</p>{/if}
+                  {#if wholeStep?.state === "loading"}<p class="text-caption whole-note">{t("thread.loadingStep")}</p>{/if}
+                  {#if wholeStep?.state === "failed"}<p class="text-caption whole-note">{t("thread.stepFailed")}</p>{/if}
                 </details>
               {/each}
             </div>
           {/if}
           {#if call.output}<pre>{call.output}</pre>{/if}
-          {#if whole?.state === "loading"}<p class="text-caption whole-note">Loading the whole call…</p>{/if}
-          {#if whole?.state === "failed"}<p class="text-caption whole-note">Couldn't load the whole call.</p>{/if}
+          {#if whole?.state === "loading"}<p class="text-caption whole-note">{t("thread.loadingCall")}</p>{/if}
+          {#if whole?.state === "failed"}<p class="text-caption whole-note">{t("thread.callFailed")}</p>{/if}
         </details>
       {:else if item.kind === "notice"}
         <p class="text-caption notice" data-findable><Inbox size={12} />{item.text}</p>
       {:else if item.kind === "transcript"}
-        <p class="text-caption" data-findable>Heard ({item.language}): {item.text}</p>
+        <p class="text-caption" data-findable>{t("thread.heard", { language: item.language, text: item.text })}</p>
       {:else if item.kind === "error"}
         <div class="notice-warn">
           <TriangleAlert size={16} />
           <div data-findable>
-            <strong>Something went wrong</strong>
+            <strong>{t("thread.somethingWrong")}</strong>
             <p class="text-meta">{item.message}</p>
           </div>
         </div>
       {:else if item.kind === "stopped"}
-        <p class="text-caption">Stopped.</p>
+        <p class="text-caption">{t("thread.stopped")}</p>
       {/if}
     {/each}
     {#if thinking}
-      <div class="thinking">Thinking <span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="thinking">{t("thread.thinking")} <span class="dots"><i></i><i></i><i></i></span></div>
     {/if}
     {#if end}{@render end()}{/if}
   </div>
@@ -286,13 +289,13 @@
     <FindBar bind:this={findBar} root={scroller} content={items} onclose={() => (finding = false)} />
   {/if}
   {#if asked}
-    <button class="asked" class:under-find={finding} title="Go to your message" onclick={toAsked}>
+    <button class="asked" class:under-find={finding} title={t("thread.goToMessage")} onclick={toAsked}>
       <span class="asked-text">{asked.text || asked.files.join(", ")}</span>
     </button>
   {/if}
   <!-- Over the thread's foot, just above the composer, so showing it never moves the messages. -->
   {#if follow && away}
-    <button class="to-bottom" onclick={toBottom}>↓ Go to bottom</button>
+    <button class="to-bottom" onclick={toBottom}>↓ {t("thread.goToBottom")}</button>
   {/if}
 </div>
 

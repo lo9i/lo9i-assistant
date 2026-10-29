@@ -6,6 +6,7 @@
   import WifiOff from "@lucide/svelte/icons/wifi-off";
   import { DaemonUnavailableError } from "$lib/api/errors";
   import { external, useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import { answerable, coming as comingOf, comingText, type Coming } from "$lib/shutdown";
 
   // Says, on every page, what the daemon is up to when the page can't simply go on: a restart or stop coming (an
@@ -80,13 +81,13 @@
   <div class="banner surface--glass" role="status" aria-live="polite">
     {#if coming?.ending === "stop"}
       <Power size={16} />
-      <span><strong>{name} was stopped.</strong> Start it again on the computer it runs on; this page reconnects then.</span>
+      <span><strong>{t("banner.stopped", { name })}</strong> {t("banner.stoppedHint")}</span>
     {:else if coming}
       <RefreshCw size={16} />
-      <span><strong>{name} is restarting.</strong> Reconnecting…</span>
+      <span><strong>{t("banner.restarting", { name })}</strong> {t("banner.reconnecting")}</span>
     {:else}
       <WifiOff size={16} />
-      <span><strong>Can't reach {name} right now.</strong> It may be restarting. Reconnecting…</span>
+      <span><strong>{t("banner.unreachable", { name })}</strong> {t("banner.unreachableHint")}</span>
     {/if}
     <span class="spin"><LoaderCircle size={16} /></span>
   </div>
@@ -95,17 +96,17 @@
     <RefreshCw size={16} />
     <span>{comingText(name, coming)}</span>
     {#if answerable(coming).cancel}
-      <button class="btn btn--sm btn--ghost" onclick={takeBack} disabled={answering}>Cancel</button>
+      <button class="btn btn--sm btn--ghost" onclick={takeBack} disabled={answering}>{t("common.cancel")}</button>
     {/if}
     {#if answerable(coming).now}
-      <button class="btn btn--sm btn--danger" onclick={now} disabled={answering}>Now</button>
+      <button class="btn btn--sm btn--danger" onclick={now} disabled={answering}>{t("banner.now")}</button>
     {/if}
   </div>
 {:else if newVersion}
   <div class="banner surface--glass fresh" role="status" aria-live="polite">
     <RefreshCw size={16} />
-    <span><strong>A new version of {name} is ready.</strong> Reload to use it.</span>
-    <button class="btn btn--sm btn--primary" onclick={() => location.reload()}>Reload</button>
+    <span><strong>{t("banner.newVersion", { name })}</strong> {t("banner.reloadToUse")}</span>
+    <button class="btn btn--sm btn--primary" onclick={() => location.reload()}>{t("banner.reload")}</button>
   </div>
 {/if}
 

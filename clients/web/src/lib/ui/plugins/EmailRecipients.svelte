@@ -1,5 +1,6 @@
 <script lang="ts">
   import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
 
   // Who the assistant emails without asking, from any account (Settings → General → Email).
@@ -15,20 +16,20 @@
   async function save(): Promise<void> {
     try {
       await client.email.setRecipients(recipients.split(","));
-      saved = "Saved.";
+      saved = t("email.saved");
     } catch (e) {
       saved = describe(e);
     }
   }
 </script>
 
-<section class="recipients" aria-label="Allowed recipients">
-  <h3 class="micro-label">Allowed recipients</h3>
+<section class="recipients" aria-label={t("email.allowed")}>
+  <h3 class="micro-label">{t("email.allowed")}</h3>
   <label class="fields">
-    <span class="text-label">Sends without asking, from any account, to your accounts and:</span>
+    <span class="text-label">{t("email.allowedHint")}</span>
     <div class="row">
-      <input class="input" bind:value={recipients} placeholder="Addresses, comma-separated" aria-label="Allowed recipients" />
-      <button class="btn btn--neutral btn--sm" onclick={save}>Save</button>
+      <input class="input" bind:value={recipients} placeholder={t("email.addresses")} aria-label={t("email.allowed")} />
+      <button class="btn btn--neutral btn--sm" onclick={save}>{t("common.save")}</button>
     </div>
     {#if saved}<span class="text-meta">{saved}</span>{/if}
   </label>

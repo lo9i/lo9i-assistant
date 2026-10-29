@@ -1,6 +1,7 @@
 <script lang="ts">
   import { compact } from "$lib/conversationStats";
   import { resource } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
 
   // In the status bar: how full the conversation's context is. At the limit, older messages are summarized. While
   // the conversation is handed to an agent (/claude), the agent's context, as of its last answer.
@@ -30,20 +31,18 @@
   const info = $derived.by(() => {
     if (!shown) return null;
     return {
-      heading: shown.context_agent ? `${shown.context_agent}'s context` : "Context",
+      heading: shown.context_agent ? t("fuel.agentContext", { agent: shown.context_agent }) : t("fuel.context"),
       figures: !shown.context_limit
-        ? "Not known until its first answer."
-        : `${compact(shown.context_tokens)} / ${compact(shown.context_limit)} tokens`,
-      note: shown.context_agent
-        ? "As of its last answer. It compacts older messages as it nears full."
-        : "Older messages are summarized when it's full.",
+        ? t("fuel.unknown")
+        : t("fuel.figures", { used: compact(shown.context_tokens), limit: compact(shown.context_limit) }),
+      note: shown.context_agent ? t("fuel.agentNote") : t("fuel.note"),
     };
   });
 </script>
 
 {#if shown}
   <span class="wrap">
-    <span class="fuel" style="border-color: {color}" aria-label="Context {percent}%">
+    <span class="fuel" style="border-color: {color}" aria-label={t("fuel.label", { percent })}>
       {#each Array(SEGMENTS) as _, i (i)}
         <span class="seg" style="background: {color}; opacity: {i < filled ? 0.4 : 0.1}"></span>
       {/each}

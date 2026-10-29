@@ -2,6 +2,7 @@
   import Coins from "@lucide/svelte/icons/coins";
   import type { TokenReport, TokenRow } from "$lib/api/types";
   import { resource } from "$lib/daemon.svelte";
+  import { formatNumber, t, type Key } from "$lib/i18n.svelte";
   import EmptyState from "./EmptyState.svelte";
   import TokenLine from "./TokenLine.svelte";
   import TokenBars from "./TokenBars.svelte";
@@ -13,21 +14,21 @@
   let { days }: { days: number } = $props();
 
   type Group = "by_model" | "by_purpose" | "by_conversation" | "by_job" | "by_skill" | "by_tool" | "by_channel" | "by_day";
-  const GROUPS: { id: Group; label: string; column: string }[] = [
-    { id: "by_model", label: "Model", column: "Model" },
-    { id: "by_purpose", label: "Purpose", column: "Purpose" },
-    { id: "by_conversation", label: "Conversation", column: "Conversation" },
-    { id: "by_job", label: "Job", column: "Job" },
-    { id: "by_skill", label: "Skill", column: "Skill in use" },
-    { id: "by_tool", label: "Tool", column: "Tool" },
-    { id: "by_channel", label: "Channel", column: "Channel" },
-    { id: "by_day", label: "Day", column: "Day" },
+  const GROUPS: { id: Group; label: Key; column: Key }[] = [
+    { id: "by_model", label: "tokens.model", column: "tokens.model" },
+    { id: "by_purpose", label: "tokens.purpose", column: "tokens.purpose" },
+    { id: "by_conversation", label: "tokens.conversation", column: "tokens.conversation" },
+    { id: "by_job", label: "tokens.job", column: "tokens.job" },
+    { id: "by_skill", label: "tokens.skill", column: "tokens.skillInUse" },
+    { id: "by_tool", label: "tokens.tool", column: "tokens.tool" },
+    { id: "by_channel", label: "tokens.channel", column: "tokens.channel" },
+    { id: "by_day", label: "tokens.day", column: "tokens.day" },
   ];
-  const PURPOSES: Record<string, string> = {
-    reply: "Replies",
-    summary: "Summaries (compaction, archiving)",
-    title: "Conversation titles",
-    check: "Model checks",
+  const PURPOSES: Record<string, Key> = {
+    reply: "tokens.replies",
+    summary: "tokens.summaries",
+    title: "tokens.titles",
+    check: "tokens.checks",
   };
 
   // Output and cost each have a colour of their own, so the tiles read apart at a glance.
@@ -38,13 +39,17 @@
   const report = resource((c) => c.usage.tokens(days), ["run_finished"]);
   const total = $derived(report.data?.total);
   const rows = $derived<TokenRow[]>((report.data as TokenReport | undefined)?.[group] ?? []);
-  const column = $derived(GROUPS.find((g) => g.id === group)?.column ?? "");
+  const column = $derived.by(() => {
+    const found = GROUPS.find((g) => g.id === group);
+    return found ? t(found.column) : "";
+  });
   // Tools' share of a call can't be priced: which cache price applied to it isn't known.
   const priced = $derived(group !== "by_tool");
 
   function count(tokens: number): string {
-    if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
-    return tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k` : String(tokens);
+    const one = (n: number) => formatNumber(n, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    if (tokens >= 1_000_000) return `${one(tokens / 1_000_000)}M`;
+    return tokens >= 1000 ? `${one(tokens / 1000)}k` : String(tokens);
   }
 
   // One point per day of the period, days without calls at 0.
@@ -65,11 +70,11 @@
   const costSeries = $derived(series("cost"));
 
   function money(dollars: number | null | undefined): string {
-    return dollars == null ? "No price" : `$${dollars.toFixed(2)}`;
+    return dollars == null ? t("tokens.noPrice") : formatNumber(dollars, { style: "currency", currency: "USD" });
   }
 
   function name(row: TokenRow): string {
-    if (group === "by_purpose") return PURPOSES[row.name] ?? row.name;
+    if (group === "by_purpose") return row.name in PURPOSES ? t(PURPOSES[row.name]) : row.name;
     return row.label || row.name;
   }
 </script>
@@ -79,71 +84,75 @@
 {:else if total}
   <div class="tiles">
     <div class="tile surface--glass">
-      <span class="tile-head"><Activity size={18} class="tile-icon" aria-hidden="true" />Model calls</span>
+      <span class="tile-head"><Activity size={18} class="tile-icon" aria-hidden="true" />{t("tokens.modelCalls")}</span>
       <div class="tile-body">
-        <span class="big">{total.calls.toLocaleString()}</span>
-        <div class="chart"><TokenBars points={callSeries} label="Model calls per day" /></div>
+        <span class="big">{formatNumber(total.calls)}</span>
+        <div class="chart"><TokenBars points={callSeries} label={t("tokens.modelCallsPerDay")} /></div>
       </div>
-      <span class="text-caption">{report.data?.estimated_calls ? `${report.data.estimated_calls} estimated` : `last ${days} days`}</span>
+      <span class="text-caption"
+        >{report.data?.estimated_calls
+          ? t("tokens.estimated", { count: report.data.estimated_calls })
+          : t("tokens.lastDays", { days })}</span
+      >
     </div>
     <div class="tile surface--glass">
-      <span class="tile-head"><ArrowDownToLine size={18} class="tile-icon" aria-hidden="true" />Input tokens</span>
+      <span class="tile-head"><ArrowDownToLine size={18} class="tile-icon" aria-hidden="true" />{t("tokens.inputTokens")}</span>
       <div class="tile-body">
         <span class="big">{count(total.input_tokens)}</span>
-        <div class="chart"><TokenLine points={inputSeries} label="Input tokens per day" /></div>
+        <div class="chart"><TokenLine points={inputSeries} label={t("tokens.inputPerDay")} /></div>
       </div>
       <span class="text-caption">
-        {total.input_tokens ? Math.round((100 * total.cache_read_tokens) / total.input_tokens) : 0}% from the cache
+        {t("tokens.fromCachePercent", {
+          percent: total.input_tokens ? Math.round((100 * total.cache_read_tokens) / total.input_tokens) : 0,
+        })}
       </span>
     </div>
     <div class="tile surface--glass" style:--tile-color={OUTPUT_COLOR}>
-      <span class="tile-head"><ArrowUpFromLine size={18} class="tile-icon" aria-hidden="true" />Output tokens</span>
+      <span class="tile-head"><ArrowUpFromLine size={18} class="tile-icon" aria-hidden="true" />{t("tokens.outputTokens")}</span>
       <div class="tile-body">
         <span class="big">{count(total.output_tokens)}</span>
-        <div class="chart"><TokenLine points={outputSeries} label="Output tokens per day" color={OUTPUT_COLOR} /></div>
+        <div class="chart"><TokenLine points={outputSeries} label={t("tokens.outputPerDay")} color={OUTPUT_COLOR} /></div>
       </div>
-      <span class="text-caption">replies and tool calls</span>
+      <span class="text-caption">{t("tokens.outputHint")}</span>
     </div>
     <div class="tile surface--glass" style:--tile-color={COST_COLOR}>
-      <span class="tile-head"><CircleDollarSign size={18} class="tile-icon" aria-hidden="true" />Cost</span>
+      <span class="tile-head"><CircleDollarSign size={18} class="tile-icon" aria-hidden="true" />{t("tokens.cost")}</span>
       <div class="tile-body">
         <span class="big">{money(total.cost)}</span>
-        <div class="chart"><TokenLine points={costSeries} label="Cost per day" color={COST_COLOR} /></div>
+        <div class="chart"><TokenLine points={costSeries} label={t("tokens.costPerDay")} color={COST_COLOR} /></div>
       </div>
-      <span class="text-caption">models with a known price</span>
+      <span class="text-caption">{t("tokens.costHint")}</span>
     </div>
   </div>
 
   <section class="table-card surface--glass">
     <header class="toolbar">
       <div>
-        <h2 class="text-heading">Tokens</h2>
+        <h2 class="text-heading">{t("tokens.title")}</h2>
         <p class="text-meta">
-          {group === "by_tool"
-            ? "What each tool's results and calls took. A result counts once, in the call right after the tool ran."
-            : group === "by_skill"
-              ? "Everything the calls cost while a skill was in use."
-              : `What the model calls took in the last ${days} days.`}
+          {group === "by_tool" ? t("tokens.byToolHint") : group === "by_skill" ? t("tokens.bySkillHint") : t("tokens.hint", { days })}
         </p>
       </div>
-      <div class="tabs" role="radiogroup" aria-label="Group by">
+      <div class="tabs" role="radiogroup" aria-label={t("tokens.groupBy")}>
         {#each GROUPS as g (g.id)}
-          <button role="radio" aria-checked={g.id === group} class:active={g.id === group} onclick={() => (group = g.id)}>{g.label}</button>
+          <button role="radio" aria-checked={g.id === group} class:active={g.id === group} onclick={() => (group = g.id)}
+            >{t(g.label)}</button
+          >
         {/each}
       </div>
     </header>
     {#if rows.length === 0}
-      <EmptyState icon={Coins} title="Nothing here yet" text="No model calls in this group in the last {days} days." />
+      <EmptyState icon={Coins} title={t("tokens.nothingYet")} text={t("tokens.nothingYetHint", { days })} />
     {:else}
       <table class="data-table">
         <thead>
           <tr>
             <th>{column}</th>
-            <th class="num">Calls</th>
-            <th class="num">Input</th>
-            {#if priced}<th class="num">From cache</th>{/if}
-            <th class="num">Output</th>
-            {#if priced}<th class="num">Cost</th>{/if}
+            <th class="num">{t("tokens.calls")}</th>
+            <th class="num">{t("tokens.input")}</th>
+            {#if priced}<th class="num">{t("tokens.fromCache")}</th>{/if}
+            <th class="num">{t("tokens.output")}</th>
+            {#if priced}<th class="num">{t("tokens.cost")}</th>{/if}
           </tr>
         </thead>
         <tbody>
@@ -162,7 +171,7 @@
     {/if}
   </section>
 {:else}
-  <p class="text-meta">Loading…</p>
+  <p class="text-meta">{t("common.loading")}</p>
 {/if}
 
 <style>

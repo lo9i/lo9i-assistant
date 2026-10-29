@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { formatNumber } from "$lib/i18n.svelte";
+
   // A small line chart of one value per day, in `color` (the accent when left out).
   let {
     points,
@@ -21,7 +23,7 @@
   {/if}
   {#each points as p, i (p.day)}
     <rect x={coords[i][0] - W / points.length / 2} y="0" width={W / points.length} height={H} fill="transparent">
-      <title>{p.day}: {p.value.toLocaleString()}</title>
+      <title>{p.day}: {formatNumber(p.value)}</title>
     </rect>
   {/each}
 </svg>

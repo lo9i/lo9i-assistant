@@ -37,11 +37,19 @@ describe("PromptCard", () => {
     loaded.data = [persona("You are Lo9i."), operating];
   });
 
+  it("shows a section it doesn't know with the daemon's description", () => {
+    loaded.data = [{ ...operating, name: "other", title: "Other", description: "Something new." }];
+    const { body } = render(PromptCard);
+    expect(body).toContain("Other");
+    expect(body).toContain("Something new.");
+  });
+
   it("shows the first section's text in the editor, marked as edited, with its reset", () => {
     const { body } = render(PromptCard);
     expect(body).toContain("Persona");
     expect(body).toContain("Operating instructions");
-    expect(body).toContain("Who it is.");
+    // The daemon's sections it knows are described in the language shown.
+    expect(body).toContain("Who the assistant is and how it behaves.");
     expect(body).toMatch(/<textarea[^>]*>You are Lo9i\.<\/textarea>/);
     expect(body).toContain("Edited");
     expect(body).toContain("Reset to default");

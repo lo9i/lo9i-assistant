@@ -23,6 +23,7 @@ from assistant.core.events import (
     Transcribed,
     UserSaid,
 )
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.widgets import (
     AssistantMessage,
     ErrorMessage,
@@ -34,7 +35,7 @@ from assistant_terminal.tui.widgets import (
     UserMessage,
 )
 
-_STOP_HINT = "esc to stop"
+_STOP_HINT = translatable("esc to stop")
 
 
 class TurnView:
@@ -55,7 +56,7 @@ class TurnView:
     async def render(self, events: AsyncIterator[Event]) -> list[ApprovalRequired]:
         """Show the events and return the approvals the run is waiting on."""
         approvals: list[ApprovalRequired] = []
-        self._status.show("Thinking", _STOP_HINT)
+        self._status.show(t("Thinking"), t(_STOP_HINT))
         try:
             async for event in events:
                 if isinstance(event, ApprovalRequired):
@@ -125,7 +126,7 @@ class TurnView:
         self._pending[name].append(call)
         self._calls[call_id] = call
         await self._chat.mount(call)
-        self._status.show(f"Running {name}", _STOP_HINT)
+        self._status.show(t("Running {name}", name=name), t(_STOP_HINT))
 
     async def _step_started(self, within: str, name: str, args: dict[str, Any]) -> None:
         if (call := self._calls.get(within)) is None:
@@ -133,7 +134,7 @@ class TurnView:
         step = ToolCall(name, args)
         self._steps[within, name].append(step)
         await call.add_step(step)
-        self._status.show(f"Running {name}", _STOP_HINT)
+        self._status.show(t("Running {name}", name=name), t(_STOP_HINT))
 
     def _step_finished(self, within: str, name: str, output: str) -> None:
         if self._steps[within, name]:
@@ -149,4 +150,4 @@ class TurnView:
     def _tool_finished(self, name: str, output: str) -> None:
         if self._pending[name]:
             self._pending[name].pop(0).finish(output)
-        self._status.show("Thinking", _STOP_HINT)
+        self._status.show(t("Thinking"), t(_STOP_HINT))

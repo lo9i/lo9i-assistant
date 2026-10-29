@@ -6,6 +6,7 @@
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import X from "@lucide/svelte/icons/x";
   import { external } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import type { Notice, NoticeBoard } from "$lib/notices";
 
   const SHOW_MS = 8000;
@@ -36,7 +37,7 @@
           <button class="btn btn--ghost btn--sm action" onclick={() => (notices.dismiss(notice.id), action.run())}>{action.label}</button>
         {/if}
       </div>
-      <button class="dismiss" aria-label="Dismiss" onclick={() => notices.dismiss(notice.id)}><X size={16} /></button>
+      <button class="dismiss" aria-label={t("common.dismiss")} onclick={() => notices.dismiss(notice.id)}><X size={16} /></button>
     </div>
   {/each}
 </div>

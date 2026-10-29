@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { HomeSection } from "$lib/api/types";
   import { MAX_COLUMNS } from "$lib/home";
+  import { t } from "$lib/i18n.svelte";
   import Modal from "../Modal.svelte";
 
   type Props = {
@@ -37,50 +38,50 @@
 </script>
 
 <Modal
-  title={section ? `Edit ${section.title}` : "New section"}
-  description="The assistant reads your plugins with what this says and shows what it finds as a list."
+  title={section ? t("home.editTitle", { title: section.title }) : t("home.newSection")}
+  description={t("home.editorDescription")}
   width={600}
   {onclose}
 >
   <label class="field">
-    <span class="micro-label">Title</span>
-    <input class="input" bind:value={title} placeholder="Calendar" />
+    <span class="micro-label">{t("home.title")}</span>
+    <input class="input" bind:value={title} placeholder={t("home.titlePlaceholder")} />
   </label>
   <label class="field">
-    <span class="micro-label">What to show</span>
-    <textarea class="input" rows="7" bind:value={prompt} placeholder="Today's events from all my calendars, by start time."></textarea>
+    <span class="micro-label">{t("home.what")}</span>
+    <textarea class="input" rows="7" bind:value={prompt} placeholder={t("home.whatPlaceholder")}></textarea>
   </label>
   <fieldset class="field">
-    <legend class="micro-label">Plugins it reads</legend>
+    <legend class="micro-label">{t("home.plugins")}</legend>
     {#if choices.length === 0}
-      <p class="text-meta">No plugin with tools is installed yet. Install one in Plugins.</p>
+      <p class="text-meta">{t("home.noPlugins")}</p>
     {:else}
       <div class="plugins">
         {#each choices as name (name)}
           <label class="plugin">
             <input type="checkbox" checked={picked.includes(name)} onchange={(e) => toggle(name, e.currentTarget.checked)} />
             {name}
-            {#if !plugins.includes(name)}<span class="text-caption">not installed</span>{/if}
+            {#if !plugins.includes(name)}<span class="text-caption">{t("home.notInstalled")}</span>{/if}
           </label>
         {/each}
       </div>
-      <p class="text-meta">None picked: it may read every plugin. It only uses tools that read, never ones that change things.</p>
+      <p class="text-meta">{t("home.nonePicked")}</p>
     {/if}
   </fieldset>
   <label class="field">
-    <span class="micro-label">Width</span>
+    <span class="micro-label">{t("home.width")}</span>
     <select class="input" bind:value={columns}>
-      <option value={0}>Automatic: two columns when it has more than it shows at once</option>
+      <option value={0}>{t("home.automatic")}</option>
       {#each widths as n (n)}
-        <option value={n}>{n === 1 ? "1 column" : `${n} columns`}</option>
+        <option value={n}>{t("home.columns", { count: n })}</option>
       {/each}
     </select>
-    <span class="text-caption">On a narrower screen it takes as many as there are. Dragging the card's right edge sets it too.</span>
+    <span class="text-caption">{t("home.widthHint")}</span>
   </label>
   {#if error}<p class="error-text">{error}</p>{/if}
   {#snippet footer()}
-    <button class="btn btn--ghost btn--sm" onclick={onclose}>Cancel</button>
-    <button class="btn btn--primary btn--sm" disabled={!title.trim() || !prompt.trim()} onclick={save}>Save</button>
+    <button class="btn btn--ghost btn--sm" onclick={onclose}>{t("common.cancel")}</button>
+    <button class="btn btn--primary btn--sm" disabled={!title.trim() || !prompt.trim()} onclick={save}>{t("common.save")}</button>
   {/snippet}
 </Modal>
 

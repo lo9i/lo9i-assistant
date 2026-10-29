@@ -4834,6 +4834,61 @@
         }
       }
     },
+    "/settings/language": {
+      "get": {
+        "summary": "Language",
+        "operationId": "language_settings_language_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LanguageSetting"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Language",
+        "description": "400: an unknown language.",
+        "operationId": "set_language_settings_language_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LanguageChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LanguageSetting"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/settings/model/providers": {
       "get": {
         "summary": "Model Providers",
@@ -7406,6 +7461,19 @@
         "title": "KnownCause",
         "description": "Recurring noise that isn't a problem: left out of every report from then on."
       },
+      "LanguageChange": {
+        "properties": {
+          "language": {
+            "type": "string",
+            "title": "Language"
+          }
+        },
+        "type": "object",
+        "required": [
+          "language"
+        ],
+        "title": "LanguageChange"
+      },
       "LanguageOption": {
         "properties": {
           "code": {
@@ -7423,6 +7491,24 @@
           "name"
         ],
         "title": "LanguageOption"
+      },
+      "LanguageSetting": {
+        "properties": {
+          "language": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "en",
+              "es"
+            ],
+            "title": "Language"
+          }
+        },
+        "type": "object",
+        "required": [
+          "language"
+        ],
+        "title": "LanguageSetting"
       },
       "LogEntry": {
         "properties": {

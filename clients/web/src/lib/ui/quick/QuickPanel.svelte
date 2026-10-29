@@ -4,6 +4,7 @@
   import type { Snippet } from "svelte";
   import type { ChatSnapshot } from "$lib/chat/controller";
   import { useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import { openConversation } from "../openConversation";
 
   // The panel above the quick buttons: what was asked (`children`), the reply, and the conversation the
@@ -38,20 +39,20 @@
 <section class="bubble surface--glass" aria-live="polite">
   <header>
     <span class="micro-label">{title}</span>
-    <button class="icon" aria-label="Close" title="Close" onclick={onclose}><X size={14} /></button>
+    <button class="icon" aria-label={t("common.close")} title={t("common.close")} onclick={onclose}><X size={14} /></button>
   </header>
   {@render children?.()}
   {#if chat.busy}
     <p class="status">
-      {reply ? "Replying…" : "Thinking…"}
-      <button class="btn btn--ghost btn--sm" onclick={onstop}>Stop</button>
+      {reply ? t("quick.replying") : t("quick.thinking")}
+      <button class="btn btn--ghost btn--sm" onclick={onstop}>{t("quick.stop")}</button>
     </p>
   {/if}
   {#if reply}
     <p class="reply">{reply}</p>
     {#if !chat.busy && !inInbox}
       <button class="btn btn--ghost btn--sm open" onclick={open}>
-        Open the conversation
+        {t("quick.openConversation")}
         <ArrowUpRight size={12} />
       </button>
     {/if}

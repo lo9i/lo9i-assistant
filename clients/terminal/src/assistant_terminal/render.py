@@ -22,6 +22,7 @@ from assistant.core.events import (
     Transcribed,
     UserSaid,
 )
+from assistant_terminal.i18n import t
 from assistant_terminal.spinner import Spinner
 from assistant_terminal.style import BOLD, DIM, GRAY, RED, RESET, code, paint
 
@@ -43,7 +44,7 @@ async def render(events: AsyncIterator[Event]) -> Shown:
     printer = _Printer()
     shown = Shown()
     spinner = Spinner()
-    spinner.start("Thinking")
+    spinner.start(t("Thinking"))
     async for event in events:
         spinner.stop()
         if isinstance(event, ApprovalRequired):
@@ -54,7 +55,7 @@ async def render(events: AsyncIterator[Event]) -> Shown:
             shown.dispatched = event
         # While text streams, the text itself shows progress. Otherwise the agent is thinking or running a tool.
         if not isinstance(event, TextDelta):
-            spinner.start(f"Running {event.name}" if isinstance(event, ToolStarted) else "Thinking")
+            spinner.start(t("Running {name}", name=event.name) if isinstance(event, ToolStarted) else t("Thinking"))
     spinner.stop()
     printer.end_text()
     return shown
@@ -87,16 +88,16 @@ class _Printer:
             case ToolFinished(_, output):
                 _write(paint(DIM, _result(output)) + "\n")
             case Transcribed(text, language):
-                _write(paint(DIM, f"{_INDENT}🎤 heard ({language}): {text}") + "\n")
+                _write(paint(DIM, _INDENT + t("🎤 heard ({language}): {text}", language=language, text=text)) + "\n")
             case UserSaid(text, files):
                 attached = "".join(f"  📎 {name}\n" for name in files)
                 _write(f"\n{paint(BOLD, '> ' + text)}\n{attached}")
             case Dispatched(line=line):
                 _write(f"{_BULLET}{line}\n")
             case Error(message):
-                _write(paint(RED, f"\n{_BULLET}Error: {message}") + "\n")
+                _write(paint(RED, f"\n{_BULLET}" + t("Error: {message}", message=message)) + "\n")
             case Cancelled():
-                _write(paint(DIM, f"\n{_BULLET}Stopped.") + "\n")
+                _write(paint(DIM, f"\n{_BULLET}" + t("Stopped.")) + "\n")
             case Done():
                 pass
 
@@ -121,10 +122,10 @@ def _describe(args: dict[str, Any]) -> str:
 
 
 def _result(output: str, indent: str = _INDENT) -> str:
-    lines = output.strip().splitlines() or ["(no output)"]
+    lines = output.strip().splitlines() or [t("(no output)")]
     shown = lines[:_RESULT_LINES]
     if len(lines) > _RESULT_LINES:
-        shown.append(f"… +{len(lines) - _RESULT_LINES} lines")
+        shown.append("… " + t("+{count} lines", count=len(lines) - _RESULT_LINES))
     first, *rest = shown
     return "\n".join([f"{indent}⎿  {first}", *(f"{indent}   {line}" for line in rest)])
 

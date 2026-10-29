@@ -2,6 +2,7 @@
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import { duration } from "$lib/duration";
   import { resource } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
 
   // In the status bar: the coding agents working in this conversation, and for how long. Their steps show in the
   // thread.
@@ -20,7 +21,7 @@
 {#each here as task (task.id)}
   <span class="working">
     <LoaderCircle size={13} class="spin" aria-hidden="true" />
-    <span><strong>{task.agent}</strong> is working · {duration(task.started_at, now)}</span>
+    <span><strong>{task.agent}</strong> {t("chat.isWorking", { since: duration(task.started_at, now) })}</span>
   </span>
 {/each}
 

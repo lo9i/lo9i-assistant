@@ -12,6 +12,7 @@ from textual.widgets import Button, Markdown, TextArea
 
 from assistant.client.daemon_client import McpApi
 from assistant.core.agent import McpServerChanges, McpServerError, McpServerStatus
+from assistant_terminal.i18n import t
 from assistant_terminal.mcp_text import parse_pairs
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
@@ -19,7 +20,7 @@ from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 class McpSecretsScreen(ModalScreen[bool]):
     """Returns True when the secrets were replaced."""
 
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(False)", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(False)", t("Close"))]
 
     def __init__(self, mcp: McpApi, server: McpServerStatus) -> None:
         super().__init__()
@@ -28,19 +29,27 @@ class McpSecretsScreen(ModalScreen[bool]):
         self._local = bool(server.command)
 
     def compose(self) -> ComposeResult:
-        kind, example = ("env values", "KEY=value") if self._local else ("headers", "Name: value")
-        names = ", ".join(self._server.env_keys if self._local else self._server.header_keys) or "none"
+        names = ", ".join(self._server.env_keys if self._local else self._server.header_keys) or t("none")
+        title = (
+            t("Replace the env values of {server}", server=self._server.name)
+            if self._local
+            else t("Replace the headers of {server}", server=self._server.name)
+        )
+        how = (
+            t("Type all of them, one KEY=value per line; this replaces the current ones.")
+            if self._local
+            else t("Type all of them, one Name: value per line; this replaces the current ones.")
+        )
         with Vertical(id="mcp-secrets-dialog"):
             yield Markdown(
-                f"## Replace the {kind} of {self._server.name}\n\nNow set: {names}. "
-                f"Type all of them, one {example} per line; this replaces the current ones.",
+                f"## {title}\n\n" + t("Now set: {names}.", names=names) + f" {how}",
                 id="mcp-secrets-intro",
             )
             yield TextArea(id="mcp-secrets-text")
             yield Markdown(id="mcp-secrets-message")
             with Horizontal(id="mcp-secrets-buttons"):
-                yield Button("Save", variant="success", id="save")
-                yield Button("Cancel", id="cancel")
+                yield Button(t("Save"), variant="success", id="save")
+                yield Button(t("Cancel"), id="cancel")
 
     @on(Button.Pressed, "#cancel")
     def _cancel(self) -> None:

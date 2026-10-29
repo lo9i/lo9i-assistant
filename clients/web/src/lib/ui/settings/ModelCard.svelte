@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import type { ModelChange, ModelOption, ModelProvider } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
   import SettingsCard from "../Card.svelte";
   import SecretInput from "../SecretInput.svelte";
@@ -20,7 +21,8 @@
   let options = $state<ModelOption[]>([]);
   // Sorted by name; a model in use that the provider no longer lists stays offered, so it shows.
   function choices(current: string): ModelOption[] {
-    const known = options.some((m) => m.id === current) || !current ? [] : [{ id: current, name: `${current} (not listed)` }];
+    const known =
+      options.some((m) => m.id === current) || !current ? [] : [{ id: current, name: t("model.notListed", { model: current }) }];
     return [...options, ...known].sort((a, b) => a.name.localeCompare(b.name));
   }
   let listing = $state("");
@@ -61,16 +63,16 @@
 
   /** Saved secrets are never sent back: an empty field keeps them. */
   function placeholder(key: string, label: string, required: boolean): string {
-    if (current && s?.secrets_set.includes(key)) return "Saved — leave empty to keep it";
-    return required ? label : `${label} (optional)`;
+    if (current && s?.secrets_set.includes(key)) return t("model.savedSecret");
+    return required ? label : t("model.optional", { label });
   }
 
   async function save(): Promise<void> {
     testing = true;
-    message = provider && !provider.installed ? `Installing ${provider.package}, then testing the models…` : "Testing the models…";
+    message = provider && !provider.installed ? t("model.installing", { package: provider.package }) : t("model.testing");
     try {
       await client.model.set(form);
-      message = "Saved ✓ Both models answered. New messages use them.";
+      message = t("model.saved");
       providers.reload();
     } catch (e) {
       message = describe(e);
@@ -96,16 +98,16 @@
   {/if}
 {/snippet}
 
-<SettingsCard id="model" title="Model" sub="Which AI model the assistant uses. Set here, it overrides .env.">
+<SettingsCard id="model" title={t("model.title")} sub={t("model.sub")}>
   {#snippet status()}
     {#if s}
       <span class="pill" class:pill--accent={s.source === "app"}
-        >{providerName(s.provider)} · {s.source === "app" ? "set here" : "from .env"}</span
+        >{providerName(s.provider)} · {s.source === "app" ? t("model.setHere") : t("model.fromEnv")}</span
       >
     {/if}
   {/snippet}
   {#if s === undefined}
-    <p class="text-meta">{loaded.error ?? "Loading…"}</p>
+    <p class="text-meta">{loaded.error ?? t("common.loading")}</p>
   {:else}
     <form
       class="fields"
@@ -115,8 +117,8 @@
       }}
     >
       <label class="fields">
-        <span class="text-label">Provider</span>
-        <select class="input" value={form.provider} aria-label="Provider" onchange={(e) => choose(e.currentTarget.value)}>
+        <span class="text-label">{t("model.provider")}</span>
+        <select class="input" value={form.provider} aria-label={t("model.provider")} onchange={(e) => choose(e.currentTarget.value)}>
           {#each providers.data ?? [] as p (p.id)}
             <option value={p.id}>{p.name}</option>
           {/each}
@@ -155,26 +157,26 @@
           </label>
         {/each}
         {#if !provider.installed}
-          <span class="text-caption">Saving installs <code>{provider.package}</code> first, which can take a few minutes.</span>
+          <span class="text-caption">{t("model.installsBefore")} <code>{provider.package}</code> {t("model.installsAfter")}</span>
         {/if}
       {/if}
       <div class="row">
         <label class="fields grow">
-          <span class="text-label">Main model</span>
-          {@render modelField("Main model", "model")}
+          <span class="text-label">{t("model.main")}</span>
+          {@render modelField(t("model.main"), "model")}
         </label>
         <label class="fields grow">
-          <span class="text-label">Worker model (summaries, titles)</span>
-          {@render modelField("Worker model", "worker_model")}
+          <span class="text-label">{t("model.workerHint")}</span>
+          {@render modelField(t("model.worker"), "worker_model")}
         </label>
       </div>
       {#if options.length}
-        <span class="text-caption">{options.length} models available with this key.</span>
+        <span class="text-caption">{t("model.available", { count: options.length })}</span>
       {:else if listing}
-        <span class="text-caption">Couldn't list the models: {listing}</span>
+        <span class="text-caption">{t("model.listFailed", { error: listing })}</span>
       {/if}
       <div class="row">
-        <button class="btn btn--primary" type="submit" disabled={testing}>Save and test</button>
+        <button class="btn btn--primary" type="submit" disabled={testing}>{t("model.saveAndTest")}</button>
       </div>
     </form>
   {/if}

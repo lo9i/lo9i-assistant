@@ -12,12 +12,13 @@ from textual.widgets import Button, Input, Markdown
 
 from assistant.client.daemon_client import WebSearchApi
 from assistant.core.agent import InvalidSearchKeyError, WebSearchStatus
+from assistant_terminal.i18n import t
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.web_search_text import describe
 
 
 class WebSearchScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"settings"})
 
     def __init__(self, web_search: WebSearchApi) -> None:
@@ -28,11 +29,11 @@ class WebSearchScreen(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="web-search"):
             yield Markdown(id="web-search-body")
-            yield Input(placeholder="Brave Search API key", password=True, id="web-search-key")
+            yield Input(placeholder=t("Brave Search API key"), password=True, id="web-search-key")
             with Horizontal(id="web-search-buttons"):
-                yield Button("Save", variant="success", id="save")
-                yield Button("Remove key", variant="error", id="remove")
-                yield Button("Close", id="close")
+                yield Button(t("Save"), variant="success", id="save")
+                yield Button(t("Remove key"), variant="error", id="remove")
+                yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:

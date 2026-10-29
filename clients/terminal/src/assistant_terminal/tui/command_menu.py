@@ -85,6 +85,6 @@ class _CommandRow(Widget):
         """Descriptions are dimmed, except on the highlighted row, where dim text is hard to read."""
         highlighted = self.has_class("highlighted")
         text = Text(f" {self._command.usage.ljust(_WIDTH)}   ")
-        text.append(self._command.description, style="" if highlighted else "dim")
+        text.append(self._command.text, style="" if highlighted else "dim")
         text.align("left", self.size.width)
         return text

@@ -2134,6 +2134,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings/language": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Language */
+        get: operations["language_settings_language_get"];
+        /**
+         * Set Language
+         * @description 400: an unknown language.
+         */
+        put: operations["set_language_settings_language_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/settings/model/providers": {
         parameters: {
             query?: never;
@@ -3511,12 +3532,25 @@ export interface components {
             /** At */
             at: string;
         };
+        /** LanguageChange */
+        LanguageChange: {
+            /** Language */
+            language: string;
+        };
         /** LanguageOption */
         LanguageOption: {
             /** Code */
             code: string;
             /** Name */
             name: string;
+        };
+        /** LanguageSetting */
+        LanguageSetting: {
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "auto" | "en" | "es";
         };
         /**
          * LogEntry
@@ -8692,6 +8726,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DispatchSetting"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    language_settings_language_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LanguageSetting"];
+                };
+            };
+        };
+    };
+    set_language_settings_language_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LanguageChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LanguageSetting"];
                 };
             };
             /** @description Validation Error */

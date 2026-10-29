@@ -1,6 +1,7 @@
 <script lang="ts">
   import Plus from "@lucide/svelte/icons/plus";
   import { resource } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import EmailAccountForm from "./EmailAccountForm.svelte";
   import EmailAccountRow from "./EmailAccountRow.svelte";
 
@@ -18,7 +19,7 @@
 <section class="accounts" aria-label={title}>
   <h3 class="micro-label">{title}</h3>
   {#if accounts.data === undefined}
-    <p class="text-meta">{accounts.error ?? "Loading…"}</p>
+    <p class="text-meta">{accounts.error ?? t("common.loading")}</p>
   {:else}
     {#if mine.length}
       <div class="list">
@@ -27,7 +28,7 @@
         {/each}
       </div>
     {:else if !adding}
-      <p class="text-meta">No account yet. Connect one so the assistant can send and read mail for you.</p>
+      <p class="text-meta">{t("email.noAccount")}</p>
     {/if}
     {#if adding}
       <EmailAccountForm
@@ -40,7 +41,7 @@
         oncancel={() => (adding = false)}
       />
     {:else}
-      <div><button class="btn btn--neutral btn--sm" onclick={() => (adding = true)}><Plus size={14} />Add an account</button></div>
+      <div><button class="btn btn--neutral btn--sm" onclick={() => (adding = true)}><Plus size={14} />{t("email.addAccount")}</button></div>
     {/if}
   {/if}
 </section>

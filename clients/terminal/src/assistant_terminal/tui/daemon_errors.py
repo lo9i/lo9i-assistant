@@ -10,6 +10,7 @@ from textual.app import App
 from textual.widget import Widget
 
 from assistant.client import DaemonUnavailableError
+from assistant_terminal.i18n import t
 
 
 def reports_daemon_unavailable[Owner: (Widget, App), **P](
@@ -20,6 +21,6 @@ def reports_daemon_unavailable[Owner: (Widget, App), **P](
         try:
             await handler(owner, *args, **kwargs)
         except DaemonUnavailableError as e:
-            owner.notify(str(e), title="Daemon unavailable", severity="error", timeout=10)
+            owner.notify(str(e), title=t("Daemon unavailable"), severity="error", timeout=10)
 
     return _handler

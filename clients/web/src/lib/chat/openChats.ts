@@ -4,6 +4,7 @@
 // (core/inbox.py) and isn't one to read, so Chat never shows it.
 import { ApiError } from "../api/errors";
 import type { ApprovalRequired, Decision, Dispatched } from "../api/types";
+import { t } from "../i18n.svelte";
 import type { NoticeBoard } from "../notices";
 import { ChatController, type ChatClient, type ChatSnapshot } from "./controller";
 import { ChatTab } from "./tab";
@@ -178,7 +179,7 @@ export class OpenChats {
     this.unsubscribe.delete(key);
     if (this.activeKey === key) this.activeKey = this.open[Math.min(index, this.open.length - 1)].key;
     this.changed();
-    if (await closed.chat.leave()) this.notices.notify("Closed. Its reply keeps running; you'll find it in Chat.");
+    if (await closed.chat.leave()) this.notices.notify(t("controller.closedRunning"));
   }
 
   /** Stop showing every run; the daemon keeps them going. */

@@ -14,5 +14,7 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
     environment: "node",
+    // Text in English, whatever the computer's language, as the tests expect it.
+    setupFiles: ["src/lib/locales/english.ts"],
   },
 });

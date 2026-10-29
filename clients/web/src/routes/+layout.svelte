@@ -14,6 +14,7 @@
   import { savedOpen, savedThread } from "$lib/chat/tabThread";
   import type { Daemon } from "$lib/daemon.svelte";
   import { describe, NoticeBoard } from "$lib/notices";
+  import { language, t } from "$lib/i18n.svelte";
   import { theme } from "$lib/theme.svelte";
   import AppShell from "$lib/ui/AppShell.svelte";
   import PairPage from "$lib/ui/PairPage.svelte";
@@ -52,6 +53,7 @@
   let retrying = $state(false);
 
   onMount(() => theme.apply());
+  onMount(() => language.use(language.choice));
 
   onMount(() => {
     if (standalone) return;
@@ -147,9 +149,9 @@
     {#if error}
       <p>{error}</p>
       {#if retrying}
-        <p class="text-meta trying"><span class="spinner"></span>Trying again…</p>
+        <p class="text-meta trying"><span class="spinner"></span>{t("app.tryingAgain")}</p>
       {:else}
-        <button class="btn btn--neutral" onclick={() => start()}>Try again</button>
+        <button class="btn btn--neutral" onclick={() => start()}>{t("app.tryAgain")}</button>
       {/if}
     {:else}
       <div class="spinner"></div>

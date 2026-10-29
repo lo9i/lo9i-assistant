@@ -82,11 +82,11 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Languages
 
-- A42. Multi-language support. The app's own text is English only.
-  - Interface text: terminal app, web app, and the messages Telegram and Slack adapters send (approval buttons, errors, `/new`). Text kept in per-language files, picked in Settings → General.
-  - Prompts in `core/conversation/prompts/` stay in English; the model replies in the user's language.
-  - Speech: the speech-to-text language and the Kokoro voice follow the chosen language.
-  - Dates and times in the apps use the language's format.
+- A42. Languages, follow-ups. The apps' own text is in English and Spanish (`core/language.py`, Settings → General, `/language`; `core/i18n/`, `clients/web/src/lib/locales/`, `assistant_terminal/locales/`); left:
+  - Text the daemon writes for people is English whatever the language: errors raised in core and shown as they come (HTTP error details, tool and plugin errors), notifications' and alerts' titles and texts, the health check's causes and context parts, background work's end notices, plugin fields' and model providers' labels and help, and built-in Home sections' titles. Give the code that writes them the chosen texts (`i18n.chosen`), as the chat channels' (`core/channels/chat/`), the new-mail alerts and the Copilot card do. The web app's "auto" follows the browser, which the daemon doesn't know, so text it writes for the apps would follow the saved choice only.
+  - The chat channel plugins' own text (their setup items, pairing replies; in the extras) is English.
+  - The terminal app makes its key bindings and some labels when its modules are imported (`assistant_terminal/i18n.py`), so `/language` changes them from the next start; the plain REPL (pipes) has no `/language`.
+  - A third language means a table per place (`core/i18n/<code>.json`, the terminal's `locales/<code>.json`, the web app's `locales/<code>.json`), the code in `core/language.py`, and the cron library's locale for the terminal app (`jobs_text.py::_CRON_LOCALES`).
 
 ## To revisit
 

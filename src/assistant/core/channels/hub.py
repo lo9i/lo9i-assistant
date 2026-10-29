@@ -20,6 +20,7 @@ from assistant.core.bus import EventBus
 from assistant.core.channels.chat.approvals import job_approval_buttons, job_approval_text
 from assistant.core.channels.chat.port import OWN_CHAT, ChatLimits, RemoteChat
 from assistant.core.channels.chat.split import split_text
+from assistant.core.i18n import Texts
 from assistant.core.outbox import DeliveryError, Outbox
 
 # The channel protocol this daemon speaks (docs/channel-plugins.md). A plugin declares the one its process
@@ -79,13 +80,16 @@ class ChannelHub:
         bus: EventBus,
         assistant_name: Callable[[], Awaitable[str]],
         commands: Callable[[], Awaitable[Commands]],
+        texts: Callable[[], Awaitable[Texts]],
     ) -> None:
-        """`commands`: what the channels offer (core/channels/chat/commands.py)."""
+        """`commands`: what the channels offer (core/channels/chat/commands.py), in the language chosen, which
+        `texts` gives the text of a job's approval in."""
         self._outbox = outbox
         self._approvals = approvals
         self._bus = bus
         self._assistant_name = assistant_name
         self._commands = commands
+        self._texts = texts
         self._tokens: dict[str, str] = {}
         self._streams: dict[str, _Stream] = {}
         self._items: dict[str, list[SetupItem]] = {}
@@ -105,6 +109,9 @@ class ChannelHub:
 
     def channel_for(self, token: str) -> str | None:
         return self._tokens.get(token)
+
+    async def texts(self) -> Texts:
+        return await self._texts()
 
     def connected(self, channel: str) -> bool:
         return channel in self._streams
@@ -149,7 +156,7 @@ class ChannelHub:
 
     async def run(self, stop: asyncio.Event) -> None:
         """Tell the channels when the assistant is renamed (Telegram renames its bot) and when their
-        commands change (an agent plugin installed or removed)."""
+        commands change (an agent plugin installed or removed, the language changed)."""
         changes = asyncio.create_task(self._follow_changes())
         try:
             await stop.wait()
@@ -181,7 +188,8 @@ class ChannelHub:
             if event.kind == "settings" and (new := await self._assistant_name()) != name:
                 name = new
                 self._broadcast(ChannelEvent("renamed", {"assistant_name": name}))
-            if event.kind == "mcp" and (offered := await self._commands()) != commands:
+            # An agent plugin installed or removed, or the language changed.
+            if event.kind in ("mcp", "settings") and (offered := await self._commands()) != commands:
                 commands = offered
                 self._broadcast(ChannelEvent("commands", {"commands": commands}))
 
@@ -252,4 +260,5 @@ class _Forwarder:
 
     async def forward(self, interrupt_id: str, title: str, request: dict[str, Any]) -> None:
         chat = RemoteChat(self._hub, self._channel, OWN_CHAT)
-        await chat.send(job_approval_text(title, request), buttons=job_approval_buttons(interrupt_id))
+        t = await self._hub.texts()
+        await chat.send(job_approval_text(t, title, request), buttons=job_approval_buttons(t, interrupt_id))

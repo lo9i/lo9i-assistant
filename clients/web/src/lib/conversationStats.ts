@@ -2,13 +2,14 @@
 import type { ConversationStats } from "./api/types";
 import { ago } from "./duration";
 import { localTime } from "./health";
+import { formatNumber, t } from "./i18n.svelte";
 
 /** Like "24 messages · 182k tokens · 37 tools · 2 h ago". */
 export function statsLine(stats: ConversationStats, now: string): string {
   const parts = [
-    counted(stats.messages, "message"),
-    `${compact(stats.input_tokens + stats.output_tokens)} tokens`,
-    counted(stats.tool_calls, "tool"),
+    t("stats.messages", { count: stats.messages }),
+    t("stats.tokens", { tokens: compact(stats.input_tokens + stats.output_tokens) }),
+    t("stats.tools", { count: stats.tool_calls }),
   ];
   if (stats.last_activity) parts.push(ago(stats.last_activity, now));
   return parts.join(" · ");
@@ -17,28 +18,21 @@ export function statsLine(stats: ConversationStats, now: string): string {
 /** One line per figure, for the line's tooltip. */
 export function statsDetail(stats: ConversationStats, timezone = Intl.DateTimeFormat().resolvedOptions().timeZone): string {
   const lines = [
-    `Input tokens: ${exact(stats.input_tokens)}`,
-    `Output tokens: ${exact(stats.output_tokens)}`,
-    `Cache read tokens: ${exact(stats.cache_read_tokens)}`,
-    `Model calls: ${exact(stats.model_calls)}`,
-    `Tool calls: ${exact(stats.tool_calls)}`,
+    t("stats.inputTokens", { count: formatNumber(stats.input_tokens) }),
+    t("stats.outputTokens", { count: formatNumber(stats.output_tokens) }),
+    t("stats.cacheReadTokens", { count: formatNumber(stats.cache_read_tokens) }),
+    t("stats.modelCalls", { count: formatNumber(stats.model_calls) }),
+    t("stats.toolCalls", { count: formatNumber(stats.tool_calls) }),
   ];
-  if (stats.started_at) lines.push(`Started: ${localTime(stats.started_at, timezone)}`);
-  if (stats.last_activity) lines.push(`Last activity: ${localTime(stats.last_activity, timezone)}`);
+  if (stats.started_at) lines.push(t("stats.started", { when: localTime(stats.started_at, timezone) }));
+  if (stats.last_activity) lines.push(t("stats.lastActivity", { when: localTime(stats.last_activity, timezone) }));
   return lines.join("\n");
 }
 
-/** Like "950", "4.2k", "182k", "1.3M". */
+/** Like "950", "4.2k", "182k", "1.3M"; in Spanish "4,2k". */
 export function compact(tokens: number): string {
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
+  const one = (n: number) => formatNumber(n, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  if (tokens >= 1_000_000) return `${one(tokens / 1_000_000)}M`;
   if (tokens >= 10_000) return `${Math.round(tokens / 1000)}k`;
-  return tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k` : String(tokens);
-}
-
-function counted(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? "" : "s"}`;
-}
-
-function exact(count: number): string {
-  return count.toLocaleString("en-US");
+  return tokens >= 1000 ? `${one(tokens / 1000)}k` : String(tokens);
 }

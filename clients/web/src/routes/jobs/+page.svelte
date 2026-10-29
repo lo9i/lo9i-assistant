@@ -6,6 +6,7 @@
   import type { Job } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { every, local, state as jobState, timing } from "$lib/jobs";
+  import { t, type Key } from "$lib/i18n.svelte";
   import { markdown } from "$lib/markdown";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
@@ -33,9 +34,15 @@
     "needs attention": "var(--color-warn)",
   };
 
+  const STATUSES: Record<string, Key> = { ok: "jobsPage.ok", failed: "jobsPage.failed", "needs attention": "jobsPage.needsAttention" };
+
+  /** A run's status as shown. */
+  function status(value: string): string {
+    return value in STATUSES ? t(STATUSES[value]) : value;
+  }
+
   function last(j: Job): string {
-    const run = j.runs?.at(-1);
-    return run ? run.status : "not run yet";
+    return j.runs?.at(-1)?.status ?? "";
   }
 
   // The job of the opened run while it has that run. A string, so the reply is fetched again only when the run
@@ -71,25 +78,31 @@
   }
 </script>
 
-<TopBar title="Jobs" />
+<TopBar title={t("jobsPage.title")} />
 
 <div class="screen" class:idle={!job}>
   <section class="table-card surface--glass">
     <header class="toolbar">
       <div>
-        <h2 class="text-heading">Scheduled jobs</h2>
-        <p class="text-meta">Click one to see its runs on the right.</p>
+        <h2 class="text-heading">{t("commands.jobs")}</h2>
+        <p class="text-meta">{t("jobsPage.hint")}</p>
       </div>
-      <SearchField bind:value={query} label="Search jobs" />
+      <SearchField bind:value={query} label={t("jobsPage.search")} />
     </header>
     <div class="scroll">
       {#if jobs.error}
         <p class="error-text pad">{jobs.error}</p>
       {:else if jobs.data?.length === 0}
-        <EmptyState icon={CalendarClock} title="No jobs yet" text="Ask the assistant to schedule one, like a morning news summary." />
+        <EmptyState icon={CalendarClock} title={t("jobsPage.none")} text={t("jobsPage.noneHint")} />
       {:else if jobs.data && job}
         <table class="data-table">
-          <thead><tr><th>Job</th><th class="hide-narrow">Schedule</th><th>State</th><th class="hide-narrow">Last run</th></tr></thead>
+          <thead
+            ><tr
+              ><th>{t("tokens.job")}</th><th class="hide-narrow">{t("jobsPage.schedule")}</th><th>{t("jobsPage.state")}</th><th
+                class="hide-narrow">{t("jobsPage.lastRun")}</th
+              ></tr
+            ></thead
+          >
           <tbody>
             {#each shown as j (j.name)}
               <tr class:selected={j.name === job.name} onclick={() => pick(j.name)}>
@@ -102,12 +115,12 @@
                 </td>
                 <td class="hide-narrow">
                   <span class="state">
-                    <span class="status-dot" style:--tone={TONES[last(j)]}></span>{last(j)}
+                    <span class="status-dot" style:--tone={TONES[last(j)]}></span>{last(j) ? status(last(j)) : t("jobsPage.notRunYet")}
                   </span>
                 </td>
               </tr>
             {:else}
-              <tr><td colspan="4" class="text-meta">No matches.</td></tr>
+              <tr><td colspan="4" class="text-meta">{t("common.noMatches")}</td></tr>
             {/each}
           </tbody>
         </table>
@@ -122,27 +135,29 @@
           <h2 class="text-heading">{job.name}</h2>
           <Toggle
             checked={job.enabled}
-            label={job.enabled ? "Pause" : "Resume"}
+            label={job.enabled ? t("jobsPage.pause") : t("jobsPage.resume")}
             onchange={(on) => change(() => client.jobs.setEnabled(job.name, on))}
           />
         </header>
         <div class="prose task">{@html markdown(job.task)}</div>
         <dl>
-          <dt class="micro-label">Schedule</dt>
+          <dt class="micro-label">{t("jobsPage.schedule")}</dt>
           <dd>{every(job)}<span class="text-caption">{timing(job)}</span></dd>
-          <dt class="micro-label">State</dt>
+          <dt class="micro-label">{t("jobsPage.state")}</dt>
           <dd>{jobState(job)}</dd>
-          <dt class="micro-label">Last run</dt>
-          <dd>{last(job)}</dd>
+          <dt class="micro-label">{t("jobsPage.lastRun")}</dt>
+          <dd>{last(job) ? status(last(job)) : t("jobsPage.notRunYet")}</dd>
         </dl>
-        <button class="btn btn--danger btn--sm delete" onclick={() => (confirming = true)}><Trash2 size={14} />Delete job</button>
+        <button class="btn btn--danger btn--sm delete" onclick={() => (confirming = true)}
+          ><Trash2 size={14} />{t("jobsPage.delete")}</button
+        >
       </section>
       <section class="runs-card surface--glass">
-        <h3 class="micro-label">Recent runs</h3>
-        <p class="text-caption hint">Click a run to read its whole reply.</p>
+        <h3 class="micro-label">{t("jobsPage.recentRuns")}</h3>
+        <p class="text-caption hint">{t("jobsPage.runsHint")}</p>
         <div class="runs-scroll">
           {#if runs.length === 0}
-            <EmptyState icon={History} title="Not run yet" text="Runs show up here after the job's first run." />
+            <EmptyState icon={History} title={t("jobsPage.notRunYetTitle")} text={t("jobsPage.notRunYetHint")} />
           {:else}
             <ul class="runs">
               {#each runs as run (run.at)}
@@ -150,7 +165,7 @@
                   <span class="status-dot" style:--tone={TONES[run.status]}></span>
                   <div>
                     <button class="run-button" aria-expanded={run.at === opened} onclick={() => toggle(run.at)}>
-                      {local(run.at, job.timezone)} · <strong>{run.status}</strong>
+                      {local(run.at, job.timezone)} · <strong>{status(run.status)}</strong>
                     </button>
                     {#if run.at === opened && reply?.at === run.at}
                       <div class="prose reply">{@html markdown(reply.text)}</div>
@@ -166,7 +181,7 @@
       </section>
     {:else}
       <section class="placeholder surface--glass">
-        <EmptyState icon={CalendarClock} title="No job selected" text="Pick one from the table to see its runs here." />
+        <EmptyState icon={CalendarClock} title={t("jobsPage.noneSelected")} text={t("jobsPage.noneSelectedHint")} />
       </section>
     {/if}
   </div>
@@ -174,9 +189,9 @@
 
 {#if confirming && job}
   <Confirm
-    title="Delete {job.name}?"
-    text="The job stops running and its history is removed."
-    action="Delete"
+    title={t("skills.deleteTitle", { name: job.name })}
+    text={t("jobsPage.deleteText")}
+    action={t("common.delete")}
     onanswer={(yes) => {
       confirming = false;
       if (yes) change(() => client.jobs.delete(job.name));

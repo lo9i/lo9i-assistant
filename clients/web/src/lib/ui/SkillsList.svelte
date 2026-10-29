@@ -9,6 +9,7 @@
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { markdown } from "$lib/markdown";
   import { failures } from "$lib/health";
+  import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
   import Confirm from "./Confirm.svelte";
   import EmptyState from "./EmptyState.svelte";
@@ -37,7 +38,7 @@
   async function updateInstalled(name: string): Promise<void> {
     try {
       await client.skills.updateInstalled(name);
-      notices.notify(`Updated ${name} from the extras.`);
+      notices.notify(t("skills.updated", { name }));
     } catch (e) {
       notices.report(e);
     }
@@ -48,29 +49,21 @@
     try {
       await client.skills.update(editing, description, instructions);
       editing = null;
-      notices.notify("Saved. The assistant uses it from now on.");
+      notices.notify(t("skills.saved"));
     } catch (e) {
       error = describe(e);
     }
   }
 </script>
 
-<SettingsCard
-  id="skills"
-  title="Saved skills"
-  sub="Reusable instructions the assistant saved or you installed. It picks one when a task matches."
->
+<SettingsCard id="skills" title={t("skills.title")} sub={t("skills.sub")}>
   {#snippet status()}
     {#if skills.data}<span class="pill">{skills.data.length}</span>{/if}
   {/snippet}
   {#if skills.data === undefined}
-    <p class="text-meta">{skills.error ?? "Loading…"}</p>
+    <p class="text-meta">{skills.error ?? t("common.loading")}</p>
   {:else if skills.data.length === 0}
-    <EmptyState
-      icon={Wand}
-      title="No skills yet"
-      text="Ask the assistant to save how to do something as a skill, or install one from Plugins."
-    />
+    <EmptyState icon={Wand} title={t("skills.none")} text={t("skills.noneHint")} />
   {:else}
     <div class="list">
       {#each skills.data as s (s.name)}
@@ -80,9 +73,10 @@
             <span class="text">
               <strong
                 >{s.name}
-                {#if s.problems?.length}<span class="pill pill--warn">has problems</span>
-                {:else if s.failing}<span class="pill pill--danger">failing</span>{/if}
-                {#if s.plugin}<span class="pill" title="Added by a plugin">plugin {s.plugin}</span>{/if}</strong
+                {#if s.problems?.length}<span class="pill pill--warn">{t("skills.hasProblems")}</span>
+                {:else if s.failing}<span class="pill pill--danger">{t("skills.failing")}</span>{/if}
+                {#if s.plugin}<span class="pill" title={t("skills.addedByPlugin")}>{t("skills.pluginTag", { plugin: s.plugin })}</span
+                  >{/if}</strong
               >
               <span class="text-meta">{s.description}</span>
             </span>
@@ -92,19 +86,19 @@
             <div class="body">
               {#if editing === s.name}
                 <label class="field">
-                  <span class="micro-label">Description</span>
-                  <input class="input" bind:value={description} placeholder="When to use it, in one line" />
+                  <span class="micro-label">{t("skills.description")}</span>
+                  <input class="input" bind:value={description} placeholder={t("skills.descriptionPlaceholder")} />
                 </label>
                 <label class="field">
-                  <span class="micro-label">Instructions</span>
+                  <span class="micro-label">{t("skills.instructions")}</span>
                   <textarea class="input" rows="12" bind:value={instructions}></textarea>
                 </label>
                 {#if error}<p class="error-text">{error}</p>{/if}
                 <div class="actions">
                   <button class="btn btn--primary btn--sm" disabled={!description.trim() || !instructions.trim()} onclick={save}
-                    >Save</button
+                    >{t("common.save")}</button
                   >
-                  <button class="btn btn--ghost btn--sm" onclick={() => (editing = null)}>Cancel</button>
+                  <button class="btn btn--ghost btn--sm" onclick={() => (editing = null)}>{t("common.cancel")}</button>
                 </div>
               {:else}
                 {@const files = skill.data.files ?? []}
@@ -112,26 +106,30 @@
                 {#if s.failures}<p class="error-text">{failures(s)}</p>{/if}
                 <div class="prose">{@html markdown(skill.data.instructions)}</div>
                 <dl>
-                  <dt class="micro-label">Added by</dt>
-                  <dd>{skill.data.plugin ? `the ${skill.data.plugin} plugin` : "you or the assistant, here"}</dd>
-                  {#if files.length}<dt class="micro-label">Files</dt>
+                  <dt class="micro-label">{t("skills.addedBy")}</dt>
+                  <dd>{skill.data.plugin ? t("skills.thePlugin", { plugin: skill.data.plugin }) : t("skills.youOrAssistant")}</dd>
+                  {#if files.length}<dt class="micro-label">{t("skills.files")}</dt>
                     <dd>{files.join(", ")}</dd>{/if}
                   {#if skill.data.server}
-                    <dt class="micro-label">Comes with</dt>
-                    <dd>the {skill.data.server} MCP server, which updates and removes it</dd>
-                  {:else if skill.data.source}<dt class="micro-label">Installed from</dt>
+                    <dt class="micro-label">{t("skills.comesWith")}</dt>
+                    <dd>{t("skills.comesWithServer", { server: skill.data.server })}</dd>
+                  {:else if skill.data.source}<dt class="micro-label">{t("skills.installedFrom")}</dt>
                     <dd>{skill.data.source}</dd>{/if}
                 </dl>
                 <div class="actions">
-                  <button class="btn btn--neutral btn--sm" onclick={startEditing}><Pencil size={14} />Edit</button>
+                  <button class="btn btn--neutral btn--sm" onclick={startEditing}><Pencil size={14} />{t("common.edit")}</button>
                   {#if skill.data.source && !skill.data.server}
-                    <button class="btn btn--neutral btn--sm" onclick={() => updateInstalled(s.name)}><RefreshCw size={14} />Update</button>
+                    <button class="btn btn--neutral btn--sm" onclick={() => updateInstalled(s.name)}
+                      ><RefreshCw size={14} />{t("common.update")}</button
+                    >
                   {/if}
                   <!-- What a plugin installed goes with the plugin, in Settings → Plugins. -->
                   {#if skill.data.plugin}
-                    <span class="text-caption">To delete it, remove the {skill.data.plugin} plugin in Settings → Plugins.</span>
+                    <span class="text-caption">{t("skills.deleteWithPlugin", { plugin: skill.data.plugin })}</span>
                   {:else}
-                    <button class="btn btn--danger btn--sm" onclick={() => (confirming = s.name)}><Trash2 size={14} />Delete</button>
+                    <button class="btn btn--danger btn--sm" onclick={() => (confirming = s.name)}
+                      ><Trash2 size={14} />{t("common.delete")}</button
+                    >
                   {/if}
                 </div>
               {/if}
@@ -145,9 +143,9 @@
 
 {#if confirming}
   <Confirm
-    title="Delete {confirming}?"
-    text="The assistant won't be able to use this skill any more."
-    action="Delete"
+    title={t("skills.deleteTitle", { name: confirming })}
+    text={t("skills.deleteText")}
+    action={t("common.delete")}
     onanswer={(yes) => {
       if (yes && confirming) client.skills.delete(confirming).then((kept) => keptKeys.ask(kept), notices.report);
       confirming = null;

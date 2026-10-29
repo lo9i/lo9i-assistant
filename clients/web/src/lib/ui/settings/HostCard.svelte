@@ -2,7 +2,8 @@
   import { Download, LoaderCircle, Power, RefreshCw, RotateCcw, SearchCheck } from "@lucide/svelte";
   import type { HostStatus, UpdateStatus } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
-  import { answerable, coming, CONFIRM, endingText, waitingText, type Coming, type Ending } from "$lib/shutdown";
+  import { formatNumber, t } from "$lib/i18n.svelte";
+  import { answerable, coming, confirmation, endingText, waitingText, type Coming, type Ending } from "$lib/shutdown";
   import { canInstall, updateLine, versionText } from "$lib/updates";
   import Confirm from "../Confirm.svelte";
   import Modal from "../Modal.svelte";
@@ -109,43 +110,45 @@
   }
 
   function size(bytes: number): string {
-    return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+    return `${formatNumber(bytes / 1024 ** 3, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} GB`;
   }
 
   function usage(used: number, total: number): string {
-    return `${size(used)} / ${size(total)} (${((used / total) * 100).toFixed(1)}%)`;
+    const percent = formatNumber(used / total, { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    return `${size(used)} / ${size(total)} (${percent})`;
   }
 
   function uptime(seconds: number): string {
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    return days ? `${days}d ${hours}h ${minutes}m` : `${hours}h ${minutes}m`;
+    return days ? t("host.uptimeDays", { days, hours, minutes }) : t("host.uptime", { hours, minutes });
   }
 
   function rows(h: HostStatus): Array<[string, string]> {
     const rows: Array<[string, string]> = [
-      ["OS", h.os],
-      ["Arch", h.arch],
-      ["Host", h.hostname],
+      [t("host.os"), h.os],
+      [t("host.arch"), h.arch],
+      [t("host.host"), h.hostname],
       ["Python", h.python],
       ["lo9i", update.data ? `v${h.version} · ${versionText(update.data.current)}` : `v${h.version}`],
-      ["CPU", `${h.cpu_cores} cores · ${Math.round(h.cpu_percent)}%`],
-      ["Memory", usage(h.memory_used, h.memory_total)],
-      ["Disk", usage(h.disk_used, h.disk_total)],
-      ["Uptime", uptime(h.uptime_seconds)],
+      ["CPU", t("host.cpu", { cores: h.cpu_cores, percent: Math.round(h.cpu_percent) })],
+      [t("host.memory"), usage(h.memory_used, h.memory_total)],
+      [t("host.disk"), usage(h.disk_used, h.disk_total)],
+      [t("host.uptimeLabel"), uptime(h.uptime_seconds)],
     ];
-    if (h.load_average.length) rows.push(["Load avg", h.load_average.map((l) => l.toFixed(2)).join(" / ")]);
+    const load = h.load_average.map((l) => formatNumber(l, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    if (h.load_average.length) rows.push([t("host.load"), load.join(" / ")]);
     return rows;
   }
 </script>
 
-<SettingsCard id="host" title="Host" sub="The computer the assistant runs on.">
+<SettingsCard id="host" title={t("host.title")} sub={t("host.sub")}>
   {#snippet status()}
-    <button class="btn btn--sm" onclick={loaded.reload}><RefreshCw size={14} /> Refresh</button>
+    <button class="btn btn--sm" onclick={loaded.reload}><RefreshCw size={14} /> {t("common.refresh")}</button>
   {/snippet}
   {#if h === undefined}
-    <p class="text-meta">{loaded.error ?? "Loading…"}</p>
+    <p class="text-meta">{loaded.error ?? t("common.loading")}</p>
   {:else}
     <dl>
       {#each rows(h) as [term, value] (term)}
@@ -158,7 +161,7 @@
     {#if update.data}
       {@const u = update.data}
       <section class="update">
-        <p class="micro-label">Updates</p>
+        <p class="micro-label">{t("host.updates")}</p>
         <p class="text-label" class:error-text={u.state === "failed"}>
           {#if busy(u)}<LoaderCircle size={14} class="spin" aria-hidden="true" />{/if}
           {updateLine(u)}
@@ -175,20 +178,22 @@
     <div class="actions">
       {#if update.data?.installed_from === "git"}
         <button class="btn btn--sm" onclick={check} disabled={busy(update.data)}>
-          <SearchCheck size={14} /> Check for updates
+          <SearchCheck size={14} />
+          {t("host.check")}
         </button>
       {/if}
       {#if update.data && canInstall(update.data)}
         <button class="btn btn--sm btn--primary" onclick={() => (confirming = "update")} disabled={busy(update.data)}>
-          <Download size={14} /> Update and restart
+          <Download size={14} />
+          {t("host.updateAndRestart")}
         </button>
       {/if}
-      <button class="btn btn--sm" onclick={() => (confirming = "restart")}><RotateCcw size={14} /> Restart</button>
+      <button class="btn btn--sm" onclick={() => (confirming = "restart")}><RotateCcw size={14} /> {t("shutdown.restart")}</button>
       <button
         class="btn btn--sm btn--danger"
         onclick={() => (confirming = "stop")}
         disabled={!!h.stop_refusal}
-        title={h.stop_refusal || undefined}><Power size={14} /> Stop</button
+        title={h.stop_refusal || undefined}><Power size={14} /> {t("shutdown.stop")}</button
       >
     </div>
     {#if h.stop_refusal}<p class="text-caption">{h.stop_refusal}</p>{/if}
@@ -197,9 +202,9 @@
 
 {#if confirming === "update"}
   <Confirm
-    title="Update the assistant?"
-    text="It downloads the new version, installs what it needs and restarts once the runs in progress end. This page reloads when it's back."
-    action="Update"
+    title={t("host.updateTitle")}
+    text={t("host.updateText")}
+    action={t("common.update")}
     onanswer={(yes) => {
       confirming = null;
       if (yes) void install();
@@ -207,25 +212,25 @@
   />
 {:else if confirming}
   {@const kind = confirming}
-  <Confirm {...CONFIRM[kind]} onanswer={(yes) => answer(kind, yes)} />
+  <Confirm {...confirmation(kind)} onanswer={(yes) => answer(kind, yes)} />
 {/if}
 
 {#if ending}
   <!-- No way to close it: the page has nothing to show until the daemon is back, and then it reloads. While it
        waits for runs, Cancel takes it back and Now cancels them. -->
-  <Modal title={ending.ending === "restart" ? "Restarting" : "Stopping"} width={440}>
+  <Modal title={ending.ending === "restart" ? t("host.restarting") : t("host.stopping")} width={440}>
     {@const can = answerable(ending)}
     <p class="text-label">{endingText(ending)}</p>
     {#if can.cancel || can.now}
       <p class="text-meta">{waitingText(ending)}</p>
     {/if}
-    <p class="text-meta waiting"><LoaderCircle size={14} class="spin" aria-hidden="true" /> Waiting for the assistant…</p>
+    <p class="text-meta waiting"><LoaderCircle size={14} class="spin" aria-hidden="true" /> {t("host.waiting")}</p>
     {#snippet footer()}
       {#if ending && answerable(ending).cancel}
-        <button class="btn btn--ghost" onclick={takeBack} disabled={answering}>Cancel</button>
+        <button class="btn btn--ghost" onclick={takeBack} disabled={answering}>{t("common.cancel")}</button>
       {/if}
       {#if ending && answerable(ending).now}
-        <button class="btn btn--danger" onclick={now} disabled={answering}>Now</button>
+        <button class="btn btn--danger" onclick={now} disabled={answering}>{t("banner.now")}</button>
       {/if}
     {/snippet}
   </Modal>

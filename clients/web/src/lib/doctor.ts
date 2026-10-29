@@ -1,16 +1,17 @@
 // The daemon's health checks (core/doctor/), as the Health page and the alerts show them.
 import type { Alert, Cause, ContextPart, StartingContext } from "./api/types";
 import { compact } from "./conversationStats";
+import { t } from "./i18n.svelte";
 
 /** "New", "Growing" or "", against the day before. */
 export function changeLabel(cause: Cause): string {
-  return cause.change === "new" ? "New" : cause.change === "growing" ? "Growing" : "";
+  return cause.change === "new" ? t("doctor.new") : cause.change === "growing" ? t("doctor.growing") : "";
 }
 
 /** Like "3 times" or "3 times (1 the day before)". */
 export function times(cause: Cause): string {
-  const count = cause.count === 1 ? "Once" : `${cause.count} times`;
-  return cause.change === "growing" ? `${count} (${cause.before} the day before)` : count;
+  const count = t("doctor.times", { count: cause.count });
+  return cause.change === "growing" ? t("doctor.timesBefore", { count, before: cause.before }) : count;
 }
 
 /** The share of the window the starting context takes, like "18%". */
@@ -28,7 +29,7 @@ export function partSize(part: ContextPart): string {
 
 /** What a health check's alert is about, for the Alerts page. */
 export function doctorProblem(alert: Alert): string {
-  if (alert.kind === "context") return "Starting context large";
-  const count = alert.failures === 1 ? "once" : `${alert.failures} times`;
-  return `${alert.kind === "new" ? "New" : "Growing"}, ${count}`;
+  if (alert.kind === "context") return t("doctor.contextLarge");
+  const count = t("doctor.timesLower", { count: alert.failures });
+  return `${alert.kind === "new" ? t("doctor.new") : t("doctor.growing")}, ${count}`;
 }

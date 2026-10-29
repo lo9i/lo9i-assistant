@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { FoundServer } from "$lib/api/types";
   import { resource } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import ChannelSetup from "./ChannelSetup.svelte";
   import EmailAccounts from "./EmailAccounts.svelte";
 
@@ -15,6 +16,6 @@
 {#if channel}
   <ChannelSetup {channel} />
 {:else if server.channel}
-  <p class="text-meta">Starting {server.name}… its setup shows here once it's running.</p>
+  <p class="text-meta">{t("pluginSetup.starting", { name: server.name })}</p>
 {/if}
-{#if server.email}<EmailAccounts plugin={server.name} title="Accounts" />{/if}
+{#if server.email}<EmailAccounts plugin={server.name} title={t("email.accounts")} />{/if}

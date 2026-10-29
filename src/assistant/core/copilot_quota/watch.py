@@ -16,6 +16,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 from langgraph.store.base import BaseStore
 
+from assistant.core import i18n
 from assistant.core.conversation import sent as sent_messages
 from assistant.core.copilot_quota import alerts, records
 from assistant.core.copilot_quota.quota import QuotaCheckError, fetch
@@ -81,7 +82,7 @@ class CopilotWatch:
         if check is None or check.quota is None or CHANNEL not in self._outbox.channels:
             return
         sent = await records.sent(self._store)
-        alert = alerts.due(check.quota, sent)
+        alert = alerts.due(await i18n.chosen(self._store), check.quota, sent)
         if alert is None:
             return
         try:

@@ -1,5 +1,6 @@
 <script lang="ts">
   import Search from "@lucide/svelte/icons/search";
+  import { t } from "$lib/i18n.svelte";
 
   /** `label` names what is searched, for screen readers ("Search jobs"). */
   let { value = $bindable(""), label }: { value?: string; label: string } = $props();
@@ -7,7 +8,7 @@
 
 <label class="search">
   <Search size={16} />
-  <input placeholder="Search" aria-label={label} bind:value />
+  <input placeholder={t("common.search")} aria-label={label} bind:value />
 </label>
 
 <style>

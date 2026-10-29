@@ -2,6 +2,7 @@
   import Play from "@lucide/svelte/icons/play";
   import { agentDone, allowPopups, chime, popupsAllowed, systemNotice } from "$lib/agentDone.svelte";
   import { useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import SettingsCard from "../Card.svelte";
   import Toggle from "../Toggle.svelte";
 
@@ -20,32 +21,28 @@
   function tryIt(): void {
     if (preference.sound) chime();
     if (!preference.popup) return;
-    if (!systemNotice("Claude Code finished", "This is how it looks.", () => {}))
-      notices.notify("Claude Code finished: this is how it looks.", "info");
+    const title = t("agentDone.finished", { agent: "Claude Code" });
+    if (!systemNotice(title, t("agentDoneCard.sample"), () => {})) notices.notify(`${title}: ${t("agentDoneCard.sample")}`, "info");
   }
 </script>
 
-<SettingsCard
-  id="agent-done"
-  title="When an agent finishes"
-  sub="Once Claude Code is done with what you asked and waits for you, on this browser."
->
+<SettingsCard id="agent-done" title={t("agentDoneCard.title")} sub={t("agentDoneCard.sub")}>
   <div class="switch">
-    <span class="text-label">Play a sound</span>
-    <Toggle checked={preference.sound} label="Play a sound when an agent finishes" onchange={(on) => agentDone.set({ sound: on })} />
+    <span class="text-label">{t("agentDoneCard.sound")}</span>
+    <Toggle checked={preference.sound} label={t("agentDoneCard.soundLabel")} onchange={(on) => agentDone.set({ sound: on })} />
   </div>
   <div class="switch">
-    <span class="text-label">Show a pop-up</span>
-    <Toggle checked={preference.popup} label="Show a pop-up when an agent finishes" onchange={changePopup} />
+    <span class="text-label">{t("agentDoneCard.popup")}</span>
+    <Toggle checked={preference.popup} label={t("agentDoneCard.popupLabel")} onchange={changePopup} />
   </div>
   {#if preference.popup && (blocked || !popupsAllowed())}
     <span class="text-caption">
-      The browser doesn't show this page's notifications, so it shows here only while the page is open in front.
+      {t("agentDoneCard.blocked")}
     </span>
   {/if}
   <div>
     <button class="btn btn--neutral btn--sm" disabled={!preference.sound && !preference.popup} onclick={tryIt}>
-      <Play size={14} />Try
+      <Play size={14} />{t("agentDoneCard.try")}
     </button>
   </div>
 </SettingsCard>

@@ -15,19 +15,17 @@ from textual.widgets import Button, Input, Markdown, OptionList, Select
 from assistant.client.daemon_client import MemoryApi
 from assistant.core.agent import MemoryEditError, MemorySnapshot
 from assistant.core.memory.profile import MAX_ITEMS
+from assistant_terminal.i18n import t, translatable
+from assistant_terminal.profile_text import section_label
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
-_ABOUT = "Always in the assistant's mind. Changes apply from the next conversation."
-_KEYS = "Enter on an item edits it, Delete removes it. Type below and press Enter to add one."
-_SAVED_ABOUT = "Noted by the assistant in conversations. Enter on one edits it, Delete deletes it."
+_ABOUT = translatable("Always in the assistant's mind. Changes apply from the next conversation.")
+_KEYS = translatable("Enter on an item edits it, Delete removes it. Type below and press Enter to add one.")
+_SAVED_ABOUT = translatable("Noted by the assistant in conversations. Enter on one edits it, Delete deletes it.")
 # The sections after the profile's, by their value in the section list.
 _FACTS, _EPISODES = "saved:facts", "saved:episodes"
-_SAVED_LABELS = {_FACTS: "Saved facts", _EPISODES: "Conversation summaries"}
-
-
-def _label(section: str) -> str:
-    return section.replace("_", " ").capitalize()
+_SAVED_LABELS = {_FACTS: translatable("Saved facts"), _EPISODES: translatable("Conversation summaries")}
 
 
 class _Saved:
@@ -59,8 +57,8 @@ class _Saved:
 
 class ProfileScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [
-        Binding("escape", "dismiss", "Close"),
-        Binding("delete", "remove", "Remove item"),
+        Binding("escape", "dismiss", t("Close")),
+        Binding("delete", "remove", t("Remove item")),
     ]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"memory"})
 
@@ -76,20 +74,20 @@ class ProfileScreen(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="profile"):
             yield Markdown(id="profile-body")
-            yield Select[str]([], prompt="Section", id="profile-section")
+            yield Select[str]([], prompt=t("Section"), id="profile-section")
             yield OptionList(id="profile-items")
             yield Input(id="profile-input")
             with Horizontal(id="profile-buttons"):
-                yield Button("Remove item", variant="error", id="remove")
-                yield Button("Close", id="close")
+                yield Button(t("Remove item"), variant="error", id="remove")
+                yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
         self._snapshot = await self._memory.snapshot()
         await self._saved.load()
         sections = self.query_one("#profile-section", Select)
-        profile = [(_label(s), s) for s in self._snapshot.profile_sections]
-        sections.set_options([*profile, *((label, key) for key, label in _SAVED_LABELS.items())])
+        profile = [(section_label(s), s) for s in self._snapshot.profile_sections]
+        sections.set_options([*profile, *((t(label), key) for key, label in _SAVED_LABELS.items())])
         if self._snapshot.profile_sections:
             sections.value = self._snapshot.profile_sections[0]
         await self._show()
@@ -122,7 +120,7 @@ class ProfileScreen(ModalScreen[None]):
         self._editing = event.option_index
         prompt = self.query_one("#profile-input", Input)
         prompt.value = self._items[event.option_index]
-        prompt.placeholder = "Edit the item; an empty one is removed"
+        prompt.placeholder = t("Edit the item; an empty one is removed")
         prompt.focus()
 
     @on(Input.Submitted, "#profile-input")
@@ -137,7 +135,7 @@ class ProfileScreen(ModalScreen[None]):
         elif not text:
             return
         elif len(items) >= MAX_ITEMS:
-            self._message = f"This section is full ({MAX_ITEMS} items). Edit or remove one to make room."
+            self._message = t("This section is full ({count} items). Edit or remove one to make room.", count=MAX_ITEMS)
             await self._show()
             return
         else:
@@ -159,7 +157,7 @@ class ProfileScreen(ModalScreen[None]):
     async def _submit_saved(self, section: str, event: Input.Submitted) -> None:
         """Nothing is added here: the assistant saves these. Empty text would leave an empty memory."""
         if self._editing is None or not event.value.strip():
-            self._message = "Pick one to edit it. Delete deletes it."
+            self._message = t("Pick one to edit it. Delete deletes it.")
             await self._show()
             return
         try:
@@ -173,7 +171,7 @@ class ProfileScreen(ModalScreen[None]):
     @reports_daemon_unavailable
     async def _confirm_delete(self, section: str, index: int) -> None:
         text = self._items[index]
-        if not await self.app.push_screen_wait(ConfirmScreen(f"Delete “{text}”?", "Delete")):
+        if not await self.app.push_screen_wait(ConfirmScreen(t("Delete “{text}”?", text=text), t("Delete"))):
             return
         try:
             await self._saved.delete(section, index)
@@ -205,10 +203,12 @@ class ProfileScreen(ModalScreen[None]):
         options.display = bool(items)
         prompt = self.query_one("#profile-input", Input)
         if self._section in _SAVED_LABELS:
-            prompt.placeholder = "Enter on one above edits it here"
-            lines = [f"## {_SAVED_LABELS[self._section]}", _SAVED_ABOUT, f"{len(items)} saved.", self._message]
+            prompt.placeholder = t("Enter on one above edits it here")
+            saved = t("{count} saved.", count=len(items))
+            lines = [f"## {t(_SAVED_LABELS[self._section])}", t(_SAVED_ABOUT), saved, self._message]
         else:
-            prompt.placeholder = f"Add to {_label(self._section or 'the profile').lower()}"
-            count = f"{len(items)} of {MAX_ITEMS} items." if self._section else ""
-            lines = ["## Profile", _ABOUT, f"{count} {_KEYS}".strip(), self._message]
+            section = section_label(self._section).lower() if self._section else t("the profile")
+            prompt.placeholder = t("Add to {section}", section=section)
+            count = t("{count} of {max} items.", count=len(items), max=MAX_ITEMS) if self._section else ""
+            lines = ["## " + t("Profile"), t(_ABOUT), f"{count} {t(_KEYS)}".strip(), self._message]
         await self.query_one("#profile-body", Markdown).update("\n\n".join(line for line in lines if line))

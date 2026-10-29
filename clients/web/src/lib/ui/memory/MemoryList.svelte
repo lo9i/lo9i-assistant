@@ -2,6 +2,7 @@
   import Pencil from "@lucide/svelte/icons/pencil";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import type UserRound from "@lucide/svelte/icons/user-round";
+  import { t } from "$lib/i18n.svelte";
   import { matching, type MemoryItem } from "$lib/memory";
   import { pageOf } from "$lib/paging";
   import Confirm from "../Confirm.svelte";
@@ -69,12 +70,12 @@
     <span class="icon"><Icon size={16} /></span>
     <h3 class="micro-label">{title}</h3>
     <span class="pill">{items.length}</span>
-    {#if items.length > PAGE}<SearchField bind:value={query} label="Search {title.toLowerCase()}" />{/if}
+    {#if items.length > PAGE}<SearchField bind:value={query} label={t("memory.search", { title: title.toLowerCase() })} />{/if}
   </header>
   {#if !items.length}
-    <p class="text-caption">None yet.</p>
+    <p class="text-caption">{t("memory.noneYet")}</p>
   {:else if !found.length}
-    <p class="text-caption">Nothing matches.</p>
+    <p class="text-caption">{t("memory.nothingMatches")}</p>
   {:else}
     <ul>
       {#each pageOf(found, page, PAGE) as item (item.id)}
@@ -87,13 +88,21 @@
               bind:value={draft}
               onkeydown={(e) => onEditKey(e, item)}
               onblur={() => finishEdit(item)}
-              aria-label="Edit {noun}"
+              aria-label={t("memory.editNoun", { noun })}
               autofocus></textarea>
           {:else}
             <span class="text">{item.text}<span class="text-caption when">{item.when}</span></span>
             <span class="tools">
-              <button class="tool" aria-label="Edit" title="Edit" disabled={busy} onclick={() => edit(item)}><Pencil size={14} /></button>
-              <button class="tool" aria-label="Delete" title="Delete" disabled={busy} onclick={() => (deleting = item)}>
+              <button class="tool" aria-label={t("common.edit")} title={t("common.edit")} disabled={busy} onclick={() => edit(item)}
+                ><Pencil size={14} /></button
+              >
+              <button
+                class="tool"
+                aria-label={t("common.delete")}
+                title={t("common.delete")}
+                disabled={busy}
+                onclick={() => (deleting = item)}
+              >
                 <Trash2 size={14} />
               </button>
             </span>
@@ -107,9 +116,9 @@
 
 {#if deleting}
   <Confirm
-    title="Delete this {noun}?"
-    text="The assistant forgets it from its next conversation: “{deleting.text}”"
-    action="Delete"
+    title={t("memory.deleteTitle", { noun })}
+    text={t("memory.deleteText", { text: deleting.text })}
+    action={t("common.delete")}
     onanswer={answerDelete}
   />
 {/if}

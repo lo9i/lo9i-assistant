@@ -4,6 +4,7 @@
 import { ApiError } from "../api/errors";
 import { LiveConversation, type Conversations } from "../api/live";
 import type { ApprovalRequired, Decision, Dispatched, RunAnnounced, RunEvent, RunFinished, Session, ShownConversation } from "../api/types";
+import { t } from "../i18n.svelte";
 import type { NoticeBoard } from "../notices";
 import { ChatTab, type Place } from "./tab";
 import { addBrief, addCarried, addNotice, addUser, apply, empty, endRun, endText, fromHistory, type Transcript } from "./transcript";
@@ -338,7 +339,7 @@ export class ChatController {
       this.set({ inboxId: this.live.session.thread_id });
       await this.showHistory();
       void this.answerPending();
-      if (stillRunning) this.notify("In the inbox. The previous reply keeps running.");
+      if (stillRunning) this.notify(t("controller.inInbox"));
     });
   }
 
@@ -347,11 +348,7 @@ export class ChatController {
       const stillRunning = this.stopShowing();
       await this.live.startNew(stillRunning);
       this.set({ threadId: this.live.session.thread_id, transcript: empty });
-      this.notify(
-        stillRunning
-          ? "Started a new conversation. The previous reply keeps running; you'll be notified when it's done."
-          : "Started a new conversation.",
-      );
+      this.notify(stillRunning ? t("controller.startedNewRunning") : t("controller.startedNew"));
     });
   }
 
@@ -363,7 +360,7 @@ export class ChatController {
       this.stopShowing();
       await this.showHistory();
       void this.answerPending();
-      this.notify("Resumed the conversation." + (stillRunning ? " The previous reply keeps running." : ""));
+      this.notify(stillRunning ? t("controller.resumedRunning") : t("controller.resumed"));
     });
   }
 
@@ -381,7 +378,7 @@ export class ChatController {
     if (run.thread_id === this.live.session.thread_id) void this.answerPending();
     if (!this.live.leftRunFinished(run)) return;
     const excerpt = run.reply.length > EXCERPT ? run.reply.slice(0, EXCERPT) + "…" : run.reply;
-    this.notify(`Previous conversation finished: ${excerpt || run.status}`, run.status === "ok" ? "info" : "warning");
+    this.notify(t("controller.previousFinished", { reply: excerpt || run.status }), run.status === "ok" ? "info" : "warning");
   }
 
   /** Stop showing every run, for good; the daemon keeps them going. */

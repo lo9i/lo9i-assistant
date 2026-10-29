@@ -1,6 +1,8 @@
+import { t } from "./i18n.svelte";
+
 /** A name for this browser in the list of paired devices, like "Firefox on Linux". */
 export function deviceName(userAgent: string): string {
-  return `${browser(userAgent)} on ${system(userAgent)}`;
+  return t("devices.browserOn", { browser: browser(userAgent), system: system(userAgent) });
 }
 
 function browser(ua: string): string {
@@ -8,7 +10,7 @@ function browser(ua: string): string {
   if (ua.includes("Edg/")) return "Edge";
   if (ua.includes("Chrome/")) return "Chrome";
   if (ua.includes("Safari/")) return "Safari";
-  return "Browser";
+  return t("devices.browser");
 }
 
 function system(ua: string): string {
@@ -17,5 +19,5 @@ function system(ua: string): string {
   if (ua.includes("Mac OS X")) return "macOS";
   if (ua.includes("Windows")) return "Windows";
   if (ua.includes("Linux")) return "Linux";
-  return "an unknown system";
+  return t("devices.unknownSystem");
 }

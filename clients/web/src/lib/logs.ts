@@ -1,5 +1,6 @@
 // The Logs page's picks and how a followed log's events change what it shows.
 import type { LogEntry, LogEvent } from "./api/types";
+import { t, type Key } from "./i18n.svelte";
 
 export const LINES = [50, 100, 200, 500];
 export const DEFAULT_LINES = 100;
@@ -19,9 +20,17 @@ export function tone(level: string): "warn" | "danger" | "" {
   return level === "ERROR" || level === "CRITICAL" ? "danger" : "";
 }
 
+const LEVELS: Record<string, Key> = {
+  DEBUG: "logs.debug",
+  INFO: "logs.info",
+  WARNING: "logs.warning",
+  ERROR: "logs.error",
+  CRITICAL: "logs.critical",
+};
+
 /** "WARNING" → "Warning". */
 export function levelLabel(level: string): string {
-  return level.charAt(0) + level.slice(1).toLowerCase();
+  return level in LEVELS ? t(LEVELS[level]) : level.charAt(0) + level.slice(1).toLowerCase();
 }
 
 /** One entry as it is written in the file; output that isn't a record has no time, level or logger. */

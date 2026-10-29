@@ -7,6 +7,7 @@
   import Trash from "@lucide/svelte/icons/trash-2";
   import type { HomeCard, PluginIcon as Icon } from "$lib/api/types";
   import { MAX_COLUMNS as MAX, cardColumns, itemWhen, linked, snappedColumns } from "$lib/home";
+  import { t } from "$lib/i18n.svelte";
   import { pageLabel } from "$lib/pages";
   import PluginIcon from "../PluginIcon.svelte";
 
@@ -86,32 +87,39 @@
       {#if icon}<span class="plugin-icon"><PluginIcon {icon} size={18} /></span>{/if}{card.section.title}
     </h2>
     <div class="tools">
-      <button class="btn btn--icon" title="Move up" aria-label="Move up" disabled={first} onclick={() => onmove(-1)}
+      <button class="btn btn--icon" title={t("home.moveUp")} aria-label={t("home.moveUp")} disabled={first} onclick={() => onmove(-1)}
         ><ArrowUp size={16} /></button
       >
-      <button class="btn btn--icon" title="Move down" aria-label="Move down" disabled={last} onclick={() => onmove(1)}
+      <button class="btn btn--icon" title={t("home.moveDown")} aria-label={t("home.moveDown")} disabled={last} onclick={() => onmove(1)}
         ><ArrowDown size={16} /></button
       >
-      <button class="btn btn--icon" title="Edit" aria-label="Edit {card.section.title}" onclick={onedit}><Pencil size={16} /></button>
-      <button class="btn btn--icon" title="Remove" aria-label="Remove {card.section.title}" onclick={ondelete}><Trash size={16} /></button>
+      <button class="btn btn--icon" title={t("common.edit")} aria-label={t("home.editName", { title: card.section.title })} onclick={onedit}
+        ><Pencil size={16} /></button
+      >
+      <button
+        class="btn btn--icon"
+        title={t("common.remove")}
+        aria-label={t("home.removeName", { title: card.section.title })}
+        onclick={ondelete}><Trash size={16} /></button
+      >
       {#if result?.page}
         <a
           class="btn btn--icon"
           href={resolve("/pages/[name]", { name: result.page })}
-          title="Open {pageLabel(result.page)}"
-          aria-label="Open {pageLabel(result.page)}"><ExternalLink size={16} /></a
+          title={t("home.openPage", { page: pageLabel(result.page) })}
+          aria-label={t("home.openPage", { page: pageLabel(result.page) })}><ExternalLink size={16} /></a
         >
       {/if}
     </div>
   </header>
 
   {#if !result}
-    <p class="text-meta">{refreshing ? "Building…" : "Not built yet. Refresh to build it."}</p>
+    <p class="text-meta">{refreshing ? t("home.building") : t("home.notBuilt")}</p>
   {:else if result.status === "unavailable"}
-    <p class="text-meta">{result.error} <a href={resolve("/plugins")}>Open Plugins</a></p>
+    <p class="text-meta">{result.error} <a href={resolve("/plugins")}>{t("home.openPlugins")}</a></p>
   {:else}
     {#if result.status === "failed"}
-      <p class="error-text small">Couldn't update it: {result.error}</p>
+      <p class="error-text small">{t("home.couldntUpdate", { error: result.error })}</p>
     {/if}
     {#if items.length}
       <ul class:stale={result.status === "failed"} class:timed>
@@ -131,7 +139,7 @@
         {/each}
       </ul>
     {:else if result.status === "ok" && !result.note}
-      <p class="text-meta">Nothing to show.</p>
+      <p class="text-meta">{t("home.nothing")}</p>
     {/if}
     {#if result.note}<p class="text-meta">{result.note}</p>{/if}
   {/if}
@@ -142,11 +150,11 @@
     class:dragging={dragged !== null}
     role="separator"
     aria-orientation="vertical"
-    aria-label="Width of {card.section.title}, in columns"
+    aria-label={t("home.widthOf", { title: card.section.title })}
     aria-valuemin={1}
     aria-valuemax={MAX}
     aria-valuenow={span}
-    title="Drag to make it wider or narrower"
+    title={t("home.dragHint")}
     tabindex="0"
     onpointerdown={startDrag}
     onpointermove={drag}

@@ -8,11 +8,13 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, OptionList, SelectionList, Static
 
+from assistant_terminal.i18n import t
+
 
 class QuestionScreen(ModalScreen[dict[str, Any]]):
     """Returns {"choices": [picked options]}, or {"choices": None} when skipped."""
 
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "skip", "Skip")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "skip", t("Skip"))]
 
     def __init__(self, request: dict[str, Any]) -> None:
         super().__init__()
@@ -24,14 +26,14 @@ class QuestionScreen(ModalScreen[dict[str, Any]]):
         with Vertical(id="question"):
             yield Static(self._question, id="question-text", markup=False)
             if self._multiple:
-                yield Static("Space picks or unpicks, Enter on Done answers.", classes="hint")
+                yield Static(t("Space picks or unpicks, Enter on Done answers."), classes="hint")
                 yield SelectionList[str](*[(o, o) for o in self._options], id="question-options")
             else:
                 yield OptionList(*self._options, id="question-options")
             with Horizontal(id="question-buttons"):
                 if self._multiple:
-                    yield Button("Done", variant="success", id="done")
-                yield Button("Skip (esc)", id="skip")
+                    yield Button(t("Done"), variant="success", id="done")
+                yield Button(t("Skip (esc)"), id="skip")
 
     def on_mount(self) -> None:
         self.query_one("#question-options").focus()

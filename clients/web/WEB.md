@@ -34,3 +34,14 @@ Chat (`src/routes/conversations/+page.svelte`) is this layout with a message box
 a column, the box first, then the list and details in a row (`.lists`) that takes the rest.
 
 Settings-style forms (connecting a service, preferences) stay as cards in the settings page grid.
+
+## Text and languages
+
+The app's own text is in English and Spanish (`src/lib/i18n.svelte.ts`). No text a user reads is written in a
+component: each is a key in `src/lib/locales/en.json` and `es.json`, shown with `t("area.key", { name: value })`.
+Keys are typed from `en.json`, so `npm run check` fails on one that doesn't exist; `src/lib/i18n.test.ts` fails when
+a key is in one file and not the other, or their placeholders differ. A text with a count is an object of plural
+forms (`one`, `other`), picked by `count`. A list of labels keeps keys (`Key`) and calls `t` where it renders, so
+the page follows a language change at once. Dates, numbers and lists go through `formatDate`, `formatNumber`,
+`formatList` and `languageName`, never `toLocaleString()` or a fixed locale. Text the daemon sends (errors, plugin
+descriptions, notifications) shows as it comes.

@@ -13,6 +13,8 @@ from textual.widgets import Collapsible, Markdown, Static
 from assistant.client.errors import DaemonUnavailableError
 from assistant.core.agent import ConversationError, ConversationStats, MemorySnapshot, ShownCall
 from assistant_terminal.context_text import detail, fuel
+from assistant_terminal.i18n import t
+from assistant_terminal.profile_text import section_label
 
 _FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
@@ -25,7 +27,7 @@ class UserMessage(Static):
 
 class TranscriptNote(Static):
     def __init__(self, text: str, language: str) -> None:
-        super().__init__(f"🎤 heard ({language}): {escape(text or '(no speech)')}")
+        super().__init__(t("🎤 heard ({language}): {text}", language=language, text=escape(text or t("(no speech)"))))
 
 
 class ThinkingNote(Collapsible):
@@ -50,7 +52,7 @@ class ThinkingNote(Collapsible):
 
     def _heading(self, collapsed: bool) -> str:
         if not collapsed:
-            return "✻ Thinking"
+            return "✻ " + t("Thinking")
         first = self._text.strip().splitlines()[0] if self._text.strip() else ""
         return f"✻ {first if len(first) <= self._PREVIEW else first[: self._PREVIEW] + '…'}"
 
@@ -60,7 +62,7 @@ class CarriedNote(Collapsible):
     collapsed under "From the inbox"."""
 
     def __init__(self, text: str) -> None:
-        super().__init__(Markdown(text, classes="carried-text"), title="↳ From the inbox", collapsed=True)
+        super().__init__(Markdown(text, classes="carried-text"), title="↳ " + t("From the inbox"), collapsed=True)
 
 
 class BriefNote(Collapsible):
@@ -68,7 +70,9 @@ class BriefNote(Collapsible):
     collapsed under "Task for <agent>" instead of shown as theirs."""
 
     def __init__(self, text: str, agent: str) -> None:
-        super().__init__(Markdown(text, classes="brief-text"), title=f"↳ Task for {agent}", collapsed=True)
+        super().__init__(
+            Markdown(text, classes="brief-text"), title="↳ " + t("Task for {agent}", agent=agent), collapsed=True
+        )
 
 
 class FollowUpNote(Static):
@@ -89,7 +93,7 @@ class StoppedNote(Static):
     """The user stopped the reply (Esc)."""
 
     def __init__(self) -> None:
-        super().__init__("■ Stopped.")
+        super().__init__("■ " + t("Stopped."))
 
 
 class AssistantMessage(Markdown):
@@ -102,7 +106,7 @@ class SystemNote(Markdown):
 
 class ErrorMessage(Static):
     def __init__(self, message: str) -> None:
-        super().__init__(f"⏺ Error: {escape(message)}")
+        super().__init__("⏺ " + t("Error: {message}", message=escape(message)))
 
 
 class ToolCall(Collapsible):
@@ -119,14 +123,15 @@ class ToolCall(Collapsible):
     async def add_step(self, step: "ToolCall") -> None:
         self._steps += 1
         await self.query_one(Collapsible.Contents).mount(step, before=self._result)
-        self.title = f"⏺ {self._call} · {self._steps} {'step' if self._steps == 1 else 'steps'}"
+        steps = t("1 step") if self._steps == 1 else t("{count} steps", count=self._steps)
+        self.title = f"⏺ {self._call} · {steps}"
 
     def finish(self, output: str) -> None:
-        self._result.update(output.strip() or "(no output)")
+        self._result.update(output.strip() or t("(no output)"))
         self.title = self.title.replace("⏺", "✓", 1)
 
     def cancel(self) -> None:
-        self._result.update("(cancelled)")
+        self._result.update(t("(cancelled)"))
         self.title = self.title.replace("⏺", "✗", 1)
 
 
@@ -145,16 +150,16 @@ class PartialToolCall(ToolCall):
 
     @work(exclusive=True)
     async def _load_whole(self) -> None:
-        self._result.update(self._noted("Loading the whole call…"))
+        self._result.update(self._noted(t("Loading the whole call…")))
         try:
             whole = await self._load()
         except (ConversationError, DaemonUnavailableError):
-            self._result.update(self._noted("Couldn't load the whole call."))
+            self._result.update(self._noted(t("Couldn't load the whole call.")))
             return
         self._whole = True
         self._call = f"{self._name}({_describe(whole.args)})" if whole.args else self._name
         self.title = f"✓ {self._call}"
-        self._result.update(whole.output.strip() or "(no output)")
+        self._result.update(whole.output.strip() or t("(no output)"))
 
     def _noted(self, note: str) -> str:
         return "\n\n".join(filter(None, [self._preview, note]))
@@ -179,12 +184,10 @@ class MouseStatus(Static):
 
     def show(self, active: bool, pending: bool | None = None) -> None:
         self.active = active
-        after = f" ({_on_off(pending)} after restart)" if pending is not None and pending != active else ""
-        self.update(f"mouse {_on_off(active)}{after}")
-
-
-def _on_off(on: bool) -> str:
-    return "on" if on else "off"
+        after = ""
+        if pending is not None and pending != active:
+            after = " " + (t("(on after restart)") if pending else t("(off after restart)"))
+        self.update((t("mouse on") if active else t("mouse off")) + after)
 
 
 class ConnectionNote(Static):
@@ -192,7 +195,9 @@ class ConnectionNote(Static):
     as the web app's banner does, and that it's back."""
 
     def __init__(self) -> None:
-        super().__init__("⚠ Can't reach the assistant right now. It may be restarting. Reconnecting…", id="connection")
+        super().__init__(
+            "⚠ " + t("Can't reach the assistant right now. It may be restarting. Reconnecting…"), id="connection"
+        )
         self.display = False
 
     def lost(self) -> None:
@@ -201,7 +206,7 @@ class ConnectionNote(Static):
     def back(self) -> None:
         if self.display:
             self.display = False
-            self.app.notify("Connected to the assistant again.")
+            self.app.notify(t("Connected to the assistant again."))
 
 
 class StatusLine(Static):
@@ -245,15 +250,13 @@ class MemoryPanel(VerticalScroll):
 
 
 def _render_snapshot(snapshot: MemorySnapshot) -> str:
-    profile = [
-        f"[b]{name.replace('_', ' ').capitalize()}[/b]: {escape('; '.join(items))}"
-        for name, items in snapshot.profile.items()
-    ]
+    profile = [f"[b]{section_label(name)}[/b]: {escape('; '.join(items))}" for name, items in snapshot.profile.items()]
     sections = [
-        ("Profile", profile),
-        ("Skills", [f"• {escape(s)}" for s in snapshot.skills]),
+        (t("Profile"), profile),
+        (t("Skills"), [f"• {escape(s)}" for s in snapshot.skills]),
     ]
-    return "\n\n".join(f"[b]{title}[/b]\n" + ("\n".join(lines) or "[dim](empty)[/]") for title, lines in sections)
+    empty = "[dim]" + t("(empty)") + "[/]"
+    return "\n\n".join(f"[b]{title}[/b]\n" + ("\n".join(lines) or empty) for title, lines in sections)
 
 
 def _describe(args: dict[str, Any]) -> str:

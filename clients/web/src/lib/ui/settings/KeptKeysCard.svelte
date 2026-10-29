@@ -1,5 +1,6 @@
 <script lang="ts">
   import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import { describeKept, keptName } from "$lib/keptKeys.svelte";
   import type { KeptKeys } from "$lib/api/types";
   import Confirm from "../Confirm.svelte";
@@ -14,7 +15,11 @@
   async function remove(entry: KeptKeys): Promise<void> {
     try {
       await client.repositories.forgetKeys(entry);
-      notices.notify(`Deleted ${entry.plugin ? `the keys of ${entry.plugin}` : `the token for ${entry.repository_name}`}.`);
+      notices.notify(
+        entry.plugin
+          ? t("keptKeys.deletedKeys", { plugin: entry.plugin })
+          : t("keptKeys.deletedToken", { repository: entry.repository_name }),
+      );
     } catch (e) {
       notices.report(e);
     }
@@ -22,23 +27,23 @@
   }
 </script>
 
-<SettingsCard id="kept-keys" title="Kept keys" sub="What removed plugins left, encrypted on the assistant's computer.">
+<SettingsCard id="kept-keys" title={t("keptKeys.title")} sub={t("keptKeys.sub")}>
   {#snippet status()}
-    <span class="pill">{kept.data === undefined ? "…" : kept.data.length || "None"}</span>
+    <span class="pill">{kept.data === undefined ? "…" : kept.data.length || t("keptKeys.none")}</span>
   {/snippet}
   {#if kept.data === undefined}
-    <p class="text-meta">{kept.error ?? "Loading…"}</p>
+    <p class="text-meta">{kept.error ?? t("common.loading")}</p>
   {:else if !kept.data.length}
-    <p class="text-meta">Nothing kept. Removing a plugin asks whether to keep its keys for installing it again.</p>
+    <p class="text-meta">{t("keptKeys.nothing")}</p>
   {:else}
     <ul class="list">
       {#each kept.data as entry (entry.plugin + entry.repository)}
         <li>
           <div class="text">
             <strong>{keptName(entry)}</strong>
-            <span class="text-meta">{entry.plugin ? describeKept(entry) : "No installed plugin needs it."}</span>
+            <span class="text-meta">{entry.plugin ? describeKept(entry) : t("keptKeys.unneeded")}</span>
           </div>
-          <button class="btn btn--danger btn--sm" onclick={() => (deleting = entry)}>Delete</button>
+          <button class="btn btn--danger btn--sm" onclick={() => (deleting = entry)}>{t("common.delete")}</button>
         </li>
       {/each}
     </ul>
@@ -48,9 +53,11 @@
 {#if deleting}
   {@const entry = deleting}
   <Confirm
-    title="Delete {entry.plugin ? `the keys of ${entry.plugin}` : `the token for ${entry.repository_name}`}?"
-    text={entry.plugin ? "Installing it again will ask for them again." : "Adding the repository again will ask for a token again."}
-    action="Delete"
+    title={entry.plugin
+      ? t("keptKeys.deleteKeysTitle", { plugin: entry.plugin })
+      : t("keptKeys.deleteTokenTitle", { repository: entry.repository_name })}
+    text={entry.plugin ? t("keptKeys.deleteKeysText") : t("keptKeys.deleteTokenText")}
+    action={t("common.delete")}
     onanswer={(yes) => {
       // Before clearing `deleting`: `entry` is derived from it, so it would read null after.
       if (yes) void remove(entry);

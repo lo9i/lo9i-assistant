@@ -5,27 +5,29 @@ from zoneinfo import ZoneInfo
 
 from assistant.core.agent import Device, PairingCode
 from assistant.core.config import settings
+from assistant_terminal.i18n import short_date, t
 
 
 def describe(device: Device) -> str:
     """Markdown: the device, when it was paired and last used, and from where."""
-    return (
-        f"### {device.name}\n\n"
-        f"Last used {_local(device.last_used_at)} from {device.last_ip or 'an unknown address'}\n\n"
-        f"Paired {_local(device.created_at)}"
+    used = t(
+        "Last used {when} from {address}",
+        when=_local(device.last_used_at),
+        address=device.last_ip or t("an unknown address"),
     )
+    return f"### {device.name}\n\n{used}\n\n" + t("Paired {when}", when=_local(device.created_at))
 
 
 def pairing(code: PairingCode) -> str:
     """Markdown: what to do with a new code on the other device."""
-    where = f"https://{settings.https_host}/app/" if settings.https_host else "the assistant's web address"
+    where = f"https://{settings.https_host}/app/" if settings.https_host else t("the assistant's web address")
     return (
-        f"### Pair a browser\n\n"
-        f"On the other device, open {where} and enter this code:\n\n"
+        f"### {t('Pair a browser')}\n\n"
+        f"{t('On the other device, open {where} and enter this code:', where=where)}\n\n"
         f"**{code.code}**\n\n"
-        f"It works once, until {_local(code.expires_at)}."
+        f"{t('It works once, until {until}.', until=_local(code.expires_at))}"
     )
 
 
 def _local(timestamp: str) -> str:
-    return datetime.fromisoformat(timestamp).astimezone(ZoneInfo(settings.timezone)).strftime("%a %d %b %H:%M")
+    return short_date(datetime.fromisoformat(timestamp).astimezone(ZoneInfo(settings.timezone)))

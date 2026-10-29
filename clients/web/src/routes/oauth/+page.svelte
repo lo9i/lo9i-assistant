@@ -9,9 +9,11 @@
   import { DaemonClient } from "$lib/api/client";
   import { HttpTransport } from "$lib/api/transport";
   import type { SignedIn } from "$lib/api/types";
+  import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
 
-  let message = $state("Finishing the sign-in…");
+  let message = $state(t("oauth.finishing"));
+  let finished = $state(false);
   let signedIn = $state<SignedIn | null>(null);
 
   onMount(() => void finish());
@@ -22,27 +24,26 @@
     const state = params.get("state");
     const code = params.get("code");
     if (refused || !state || !code) {
-      message = `The sign-in didn't finish: ${refused ?? "the provider sent no code back"}. Start it again from the app.`;
+      finished = true;
+      message = t("oauth.didntFinish", { reason: refused ?? t("oauth.noCode") });
       return;
     }
     try {
       signedIn = await new DaemonClient(new HttpTransport()).oauth.finish(state, code);
-      message =
-        signedIn.kind === "email"
-          ? `Signed in: ${signedIn.name} can send and read mail. You can close this tab.`
-          : `Signed in to ${signedIn.name}: the assistant gets its tools from your next message. You can close this tab.`;
+      message = signedIn.kind === "email" ? t("oauth.email", { name: signedIn.name }) : t("oauth.server", { name: signedIn.name });
     } catch (e) {
       message = describe(e);
     }
+    finished = true;
   }
 </script>
 
 <main class="oauth">
-  <p class:error-text={!signedIn && !message.startsWith("Finishing")}>{message}</p>
+  <p class:error-text={!signedIn && finished}>{message}</p>
   {#if signedIn?.kind === "email"}
-    <a class="btn btn--neutral" href={resolve("/plugins")}>Open Plugins</a>
+    <a class="btn btn--neutral" href={resolve("/plugins")}>{t("home.openPlugins")}</a>
   {:else if signedIn}
-    <a class="btn btn--neutral" href={resolve("/mcp") + `?s=${encodeURIComponent(signedIn.id)}`}>Open MCP servers</a>
+    <a class="btn btn--neutral" href={resolve("/mcp") + `?s=${encodeURIComponent(signedIn.id)}`}>{t("oauth.openMcp")}</a>
   {/if}
 </main>
 

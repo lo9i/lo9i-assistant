@@ -22,38 +22,41 @@ from textual.widgets import Button, Input, Markdown, Select
 from assistant.client.daemon_client import ChannelsApi, EmailApi, OAuthApi
 from assistant.core.agent import EmailAccount, EmailError, EmailProvider, SignInError
 from assistant_terminal.channels_text import title
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.sign_in_text import MISSING_CODE, PASTE_HINT, REDIRECT, returned, signing_message
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
-_INTRO = """## Add an email account
-
-The assistant sends from your account and reads your mail through the provider's servers. Connect
-more than one (personal, work) and pick which is the default."""
+_INTRO_TITLE = translatable("Add an email account")
+_INTRO = translatable(
+    "The assistant sends from your account and reads your mail through the provider's servers. Connect more than "
+    "one (personal, work) and pick which is the default."
+)
 
 _NEW = "new"
 # id: (placeholder, secret)
 _FIELDS = {
-    "email-label": ("Name for this account, like Work (optional)", False),
-    "email-address": ("Your email address", False),
-    "email-host": ("SMTP host", False),
-    "email-port": ("Port (587, or 465)", False),
-    "email-user": ("User name (usually your address)", False),
-    "email-password": ("App password", True),
-    "email-sender": ("Send as (your address)", False),
-    "email-imap": ("IMAP host, to read mail (TLS on port 993; leave empty to only send)", False),
-    "email-client-id": ("Your OAuth app's client ID", False),
-    "email-client-secret": ("Your OAuth app's client secret", True),
+    "email-label": (translatable("Name for this account, like Work (optional)"), False),
+    "email-address": (translatable("Your email address"), False),
+    "email-host": (translatable("SMTP host"), False),
+    "email-port": (translatable("Port (587, or 465)"), False),
+    "email-user": (translatable("User name (usually your address)"), False),
+    "email-password": (translatable("App password"), True),
+    "email-sender": (translatable("Send as (your address)"), False),
+    "email-imap": (translatable("IMAP host, to read mail (TLS on port 993; leave empty to only send)"), False),
+    "email-client-id": (translatable("Your OAuth app's client ID"), False),
+    "email-client-secret": (translatable("Your OAuth app's client secret"), True),
     "email-returned": (PASTE_HINT, False),
 }
 _PRESET_FIELDS = {"email-label", "email-address", "email-password"}
 _OAUTH_FIELDS = {"email-label", "email-address", "email-client-id", "email-client-secret"}
 _SERVER_FIELDS = set(_FIELDS) - {"email-address", "email-client-id", "email-client-secret", "email-returned"}
-_NO_ALERTS = ("Don't announce new mail", "")
+_NO_ALERTS = (translatable("Don't announce new mail"), "")
+_ADD = translatable("Add an account")
 _ACCOUNT_BUTTONS = ("#email-name", "#rename", "#default", "#edit", "#remove")
 
 
 class EmailScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"integrations", "settings"})
 
     def __init__(self, email: EmailApi, oauth: OAuthApi, channels: ChannelsApi, plugin: str) -> None:
@@ -79,22 +82,22 @@ class EmailScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="email"):
-            yield Select[str]([("Add an account", _NEW)], allow_blank=False, value=_NEW, id="email-account")
+            yield Select[str]([(t(_ADD), _NEW)], allow_blank=False, value=_NEW, id="email-account")
             yield Markdown(id="email-body")
-            yield Select[str]([], prompt="Choose your provider", id="email-provider")
+            yield Select[str]([], prompt=t("Choose your provider"), id="email-provider")
             yield Markdown(id="email-help")
             for field_id, (placeholder, secret) in _FIELDS.items():
-                yield Input(placeholder=placeholder, password=secret, id=field_id)
-            yield Input(placeholder="Account name, like Work", id="email-name")
-            yield Select[str]([_NO_ALERTS], allow_blank=False, value="", id="email-alerts")
+                yield Input(placeholder=t(placeholder), password=secret, id=field_id)
+            yield Input(placeholder=t("Account name, like Work"), id="email-name")
+            yield Select[str]([(t(_NO_ALERTS[0]), "")], allow_blank=False, value="", id="email-alerts")
             with Horizontal(id="email-buttons"):
-                yield Button("Connect", variant="success", id="connect")
-                yield Button("Finish", variant="success", id="finish")
-                yield Button("Rename", id="rename")
-                yield Button("Make default", id="default")
-                yield Button("Change sign-in", id="edit")
-                yield Button("Remove", variant="error", id="remove")
-                yield Button("Close", id="close")
+                yield Button(t("Connect"), variant="success", id="connect")
+                yield Button(t("Finish"), variant="success", id="finish")
+                yield Button(t("Rename"), id="rename")
+                yield Button(t("Make default"), id="default")
+                yield Button(t("Change sign-in"), id="edit")
+                yield Button(t("Remove"), variant="error", id="remove")
+                yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
@@ -113,7 +116,7 @@ class EmailScreen(ModalScreen[None]):
             new = next((a for a in accounts if a.id not in known), None)
             if new is not None or self._editing:
                 self._signing = self._editing = False
-                self._message = "Signed in ✓ The account can send and read mail."
+                self._message = t("Signed in ✓ The account can send and read mail.")
                 self._reset_form()
                 await self._load(select=new.id if new else self._selected)
                 return
@@ -163,7 +166,7 @@ class EmailScreen(ModalScreen[None]):
                 saved = await self._email.update(account.id, *settings)
             else:
                 saved = await self._email.add(*settings, plugin=self._plugin)
-            self._message = "Connected ✓ The login worked."
+            self._message = t("Connected ✓ The login worked.")
         except (EmailError, ValueError) as e:
             self._message = f"**{e}**"
             await self._refresh()
@@ -193,7 +196,7 @@ class EmailScreen(ModalScreen[None]):
             return
         opened = webbrowser.open(url)
         self._signing = True
-        self._message = signing_message(url, opened, "the account shows up here")
+        self._message = signing_message(url, opened, t("the account shows up here"))
         await self._refresh()
 
     @on(Button.Pressed, "#finish")
@@ -210,7 +213,7 @@ class EmailScreen(ModalScreen[None]):
             self._message = f"**{e}**"
             await self._refresh()
             return
-        self._message = "Signed in ✓ The account can send and read mail."
+        self._message = t("Signed in ✓ The account can send and read mail.")
         self._signing = self._editing = False
         self._reset_form()
         await self._load(select=saved.id)
@@ -243,7 +246,7 @@ class EmailScreen(ModalScreen[None]):
         account = self._account()
         if account is not None:
             await self._email.remove(account.id)
-            self._message = f"Removed {account.label}."
+            self._message = t("Removed {name}.", name=account.label)
             await self._load(select=None)
 
     async def _change(self, call) -> None:
@@ -263,7 +266,7 @@ class EmailScreen(ModalScreen[None]):
         ids = {a.id for a in self._accounts}
         default = self._accounts[0].id if self._accounts else _NEW
         self._selected = select if select in ids or select == _NEW else default
-        options = [(_option(a), a.id) for a in self._accounts] + [("Add an account", _NEW)]
+        options = [(_option(a), a.id) for a in self._accounts] + [(t(_ADD), _NEW)]
         picker = self.query_one("#email-account", Select)
         with picker.prevent(Select.Changed):
             picker.set_options(options)
@@ -315,7 +318,7 @@ class EmailScreen(ModalScreen[None]):
         self.query_one("#connect").display = bool(shown)
         self.query_one("#finish").display = self._signing
         oauth = self._providers.get(self._choice or "")
-        self.query_one("#connect", Button).label = "Sign in" if oauth is not None and oauth.oauth else "Connect"
+        self.query_one("#connect", Button).label = t("Sign in") if oauth is not None and oauth.oauth else t("Connect")
         self.query_one("#email-account").display = bool(self._accounts)
         for widget_id in _ACCOUNT_BUTTONS:
             self.query_one(widget_id).display = account is not None and not self._editing
@@ -343,11 +346,14 @@ class EmailScreen(ModalScreen[None]):
 def _alert_options(channels: list[str], current: str) -> list[tuple[str, str]]:
     """None, or an installed channel; the one set stays offered after its channel is removed."""
     names = channels if current in ("", *channels) else [*channels, current]
-    return [_NO_ALERTS, *[(f"Announce new mail on {title(name)}", name) for name in names]]
+    return [
+        (t(_NO_ALERTS[0]), ""),
+        *[(t("Announce new mail on {channel}", channel=title(name)), name) for name in names],
+    ]
 
 
 def _option(account: EmailAccount) -> str:
-    default = " (default)" if account.default else ""
+    default = t(" (default)") if account.default else ""
     attention = " ⚠" if account.status != "ok" else ""
     return f"{account.label} <{account.sender}>{default}{attention}"
 
@@ -362,31 +368,40 @@ def _form_fields(choice: str | None, providers: dict[str, EmailProvider]) -> set
 
 
 def _help(provider: EmailProvider | None, editing: bool) -> str:
-    keep = "\n\nLeave the password empty to keep the saved one." if editing else ""
+    keep = "\n\n" + t("Leave the password empty to keep the saved one.") if editing else ""
     if provider is None:
         return ""
     if provider.oauth:
-        keep = "\n\nLeave the client ID and secret empty to keep the saved ones." if editing else ""
-        where = f"\n\nSet it up at {provider.password_url}" if provider.password_url else ""
-        return f"{provider.password_help}{where}\n\nRedirect URI to register: `{REDIRECT}`{keep}"
-    link = f"\n\nCreate it at {provider.password_url}" if provider.password_url else ""
+        keep = "\n\n" + t("Leave the client ID and secret empty to keep the saved ones.") if editing else ""
+        where = "\n\n" + t("Set it up at {url}", url=provider.password_url) if provider.password_url else ""
+        redirect = t("Redirect URI to register: {uri}", uri=f"`{REDIRECT}`")
+        return f"{provider.password_help}{where}\n\n{redirect}{keep}"
+    link = "\n\n" + t("Create it at {url}", url=provider.password_url) if provider.password_url else ""
     return provider.password_help + link + keep
 
 
 def _describe(account: EmailAccount | None, recipients: list[str], editing: bool, message: str) -> str:
     if account is None:
-        return _INTRO + (f"\n\n{message}" if message else "")
+        return f"## {t(_INTRO_TITLE)}\n\n{t(_INTRO)}" + (f"\n\n{message}" if message else "")
     if editing:
-        text = f"## Change the sign-in of {account.label}\n\nChoose the provider and sign in again."
+        text = "## " + t("Change the sign-in of {account}", account=account.label)
+        text += "\n\n" + t("Choose the provider and sign in again.")
         return text + (f"\n\n{message}" if message else "")
-    allowed = ", ".join(["your accounts", *recipients])
-    reads = f"Reads mail from: {account.imap_host}" if account.imap_host else "Reading mail: off (no IMAP server)"
+    allowed = ", ".join([t("your accounts"), *recipients])
+    reads = (
+        t("Reads mail from: {host}", host=account.imap_host)
+        if account.imap_host
+        else t("Reading mail: off (no IMAP server)")
+    )
     lines = [
-        f"## Email: {account.label} <{account.sender}>" + (" · default" if account.default else ""),
-        f"Server: {account.host}:{account.port}",
+        "## "
+        + t("Email: {account} <{address}>", account=account.label, address=account.sender)
+        + (" · " + t("default") if account.default else ""),
+        t("Server: {server}", server=f"{account.host}:{account.port}"),
         reads,
-        f"Sends without asking, from any account, to: {allowed}",
+        t("Sends without asking, from any account, to: {allowed}", allowed=allowed),
     ]
     if account.status != "ok":
-        lines.insert(1, f"**Needs signing in again:** {account.problem} Use Change sign-in.")
+        again = t("Needs signing in again:")
+        lines.insert(1, f"**{again}** {account.problem} " + t("Use Change sign-in."))
     return "\n\n".join([*lines, message] if message else lines)

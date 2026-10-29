@@ -4,6 +4,7 @@
   import SquareTerminal from "@lucide/svelte/icons/square-terminal";
   import { resolve } from "$app/paths";
   import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { formatDate, t } from "$lib/i18n.svelte";
   import { clientLabel, conversationLabel, deviceLabel } from "$lib/sessions";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
@@ -15,30 +16,30 @@
   const ICONS = { web: Globe, cli: SquareTerminal };
 </script>
 
-<TopBar title="Active sessions" />
+<TopBar title={t("nav.sessions")} />
 
 <div class="shell">
   <section class="surface--glass card">
     <header class="toolbar">
       <div>
-        <h2 class="text-heading">Connected clients</h2>
-        <p class="text-meta">Each terminal and browser tab has its own conversation. Click a device or conversation to open it.</p>
+        <h2 class="text-heading">{t("sessionsPage.title")}</h2>
+        <p class="text-meta">{t("sessionsPage.hint")}</p>
       </div>
       {#if clients.data}<span class="pill">{clients.data.length}</span>{/if}
     </header>
     {#if clients.error}
       <p class="error-text pad">{clients.error}</p>
     {:else if clients.data?.length === 0}
-      <EmptyState icon={MonitorSmartphone} title="No clients" text="Clients show up here while they're connected." />
+      <EmptyState icon={MonitorSmartphone} title={t("sessionsPage.none")} text={t("sessionsPage.noneHint")} />
     {:else if clients.data}
       <table class="data-table">
         <thead>
           <tr>
-            <th>Client</th>
-            <th>Device</th>
-            <th>Conversation</th>
-            <th class="hide-narrow">Connection</th>
-            <th class="hide-narrow">Connected since</th>
+            <th>{t("sessionsPage.client")}</th>
+            <th>{t("sessionsPage.device")}</th>
+            <th>{t("tokens.conversation")}</th>
+            <th class="hide-narrow">{t("sessionsPage.connection")}</th>
+            <th class="hide-narrow">{t("sessionsPage.since")}</th>
           </tr>
         </thead>
         <tbody>
@@ -47,7 +48,7 @@
             <tr>
               <td>
                 <span class="client"><Icon size={16} />{clientLabel(c)}</span>
-                {#if c.id === client.clientId}<span class="pill pill--accent">This tab</span>{/if}
+                {#if c.id === client.clientId}<span class="pill pill--accent">{t("sessionsPage.thisTab")}</span>{/if}
               </td>
               <td>
                 {#if c.device_id}
@@ -64,7 +65,7 @@
                 {/if}
               </td>
               <td class="text-label hide-narrow">{c.transport}</td>
-              <td class="text-label hide-narrow">{new Date(c.connected_at).toLocaleString()}</td>
+              <td class="text-label hide-narrow">{formatDate(c.connected_at, { dateStyle: "medium", timeStyle: "short" })}</td>
             </tr>
           {/each}
         </tbody>

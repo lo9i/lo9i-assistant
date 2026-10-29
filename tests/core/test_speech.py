@@ -57,6 +57,17 @@ async def test_voice_messages_use_the_settings_chosen_in_the_app(service, script
     assert transcriber.calls == [("base", ["en", "pt"], 5)]
 
 
+async def test_voice_messages_are_heard_in_the_apps_language_first_once_picked(service, script, monkeypatch):
+    transcriber = FakeTranscriber()
+    monkeypatch.setattr(service, "_transcriber", transcriber)
+    await service.set_speech("base", ["en", "pt"])
+    await service.set_language("es")
+    script.reply("ok")
+    await collect(service.send(await service.session("owner", "cli"), "", [VOICE]))
+    assert transcriber.calls == [("base", ["es", "en", "pt"], 5)]
+    assert (await service.speech_settings()).languages == ["en", "pt"]  # as the user saved them
+
+
 async def test_fast_transcription_keeps_one_candidate(service, script, monkeypatch):
     transcriber = FakeTranscriber()
     monkeypatch.setattr(service, "_transcriber", transcriber)

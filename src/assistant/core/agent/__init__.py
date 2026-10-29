@@ -2,8 +2,8 @@
 
 The service is a facade (`service.py`) composed of mixins, one per concern:
 threads, channel threads, files, memory, channels, email, mcp, sign-ins, alerts, doctor, notifications, home,
-follow-ups, tasks, repositories, model, identity, prompts, speech, log level, web search, skills, pinned skills, jobs,
-usage, messaging, runs and locking.
+follow-ups, tasks, repositories, model, identity, prompts, speech, log level, language, web search, skills, pinned
+skills, jobs, usage, messaging, runs and locking.
 """
 
 from assistant.core.agent.alerts import Alert, AlertArea
@@ -17,6 +17,7 @@ from assistant.core.agent.handoffs import Agent, AgentFolders, FolderError, Fold
 from assistant.core.agent.home import HomeCard, HomeItem, HomePage, HomeSection, HomeSectionsError, SectionResult
 from assistant.core.agent.identity import InvalidNameError
 from assistant.core.agent.jobs import Job, JobError, RunRecord
+from assistant.core.agent.language import Language, LanguageError
 from assistant.core.agent.mcp import (
     McpProbe,
     McpServer,
@@ -97,6 +98,8 @@ __all__ = [
     "JobError",
     "KeptKeys",
     "KnownCause",
+    "Language",
+    "LanguageError",
     "McpProbe",
     "McpServer",
     "McpServerChanges",

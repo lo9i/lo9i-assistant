@@ -29,7 +29,7 @@ class ToolMedia:
             return {"type": "text", "text": f"[{content.type} from the tool that couldn't be read]"}
         if isinstance(content, ImageContent):
             return await asyncio.to_thread(reference, attachment)
-        speech = await preferences.load(self._store)
+        speech = await preferences.in_use(self._store)
         return await transcribe_tool_audio(self._transcriber, attachment, speech)
 
 

@@ -12,6 +12,7 @@
   import Users from "@lucide/svelte/icons/users";
   import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
   import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
   import MemoryList from "$lib/ui/memory/MemoryList.svelte";
   import ProfileSection from "$lib/ui/memory/ProfileSection.svelte";
@@ -59,10 +60,10 @@
 </script>
 
 <!-- A settings tab of its own page. -->
-<TopBar title="Settings">
+<TopBar title={t("nav.settings")}>
   {#snippet actions()}
     <button class="btn btn--primary" onclick={() => startGetToKnowYou(chats)}
-      ><Sparkles size={16} /><span class="hide-narrow">Get to know me</span></button
+      ><Sparkles size={16} /><span class="hide-narrow">{t("memoryPage.getToKnowMe")}</span></button
     >
   {/snippet}
 </TopBar>
@@ -84,24 +85,24 @@
     </div>
   {/if}
   <header class="intro">
-    <h2 class="text-heading">Saved along the way</h2>
-    <p class="text-meta">What the assistant noted in conversations. The newest facts are in its mind; it searches the rest.</p>
+    <h2 class="text-heading">{t("memoryPage.saved")}</h2>
+    <p class="text-meta">{t("memoryPage.savedHint")}</p>
   </header>
   {#if facts.error || episodes.error}
     <p class="error-text">{facts.error ?? episodes.error}</p>
   {:else}
     <div class="lists">
       <MemoryList
-        title="Facts"
-        noun="fact"
+        title={t("memoryPage.facts")}
+        noun={t("memoryPage.fact")}
         items={factItems}
         Icon={Lightbulb}
         onedit={(id, text) => change(() => client.memory.editFact(id, text))}
         ondelete={(id) => change(() => client.memory.deleteFact(id))}
       />
       <MemoryList
-        title="Conversation summaries"
-        noun="summary"
+        title={t("memoryPage.summaries")}
+        noun={t("memoryPage.summary")}
         items={episodeItems}
         Icon={BookOpen}
         onedit={(id, text) => change(() => client.memory.editEpisode(id, text))}

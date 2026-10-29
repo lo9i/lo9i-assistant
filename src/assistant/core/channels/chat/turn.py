@@ -28,6 +28,7 @@ from assistant.core.events import (
     Transcribed,
     is_question,
 )
+from assistant.core.i18n import Texts
 from assistant.core.outbox import DeliveryError
 
 _TYPING_SECONDS = 4.0
@@ -35,8 +36,9 @@ _DESCRIPTION = 80
 
 
 class ChatTurn:
-    def __init__(self, chat: ChatPort, limits: ChatLimits, thread_id: str = "", tag: str = "") -> None:
+    def __init__(self, chat: ChatPort, limits: ChatLimits, t: Texts, thread_id: str = "", tag: str = "") -> None:
         self._chat = chat
+        self._t = t
         self._limits = limits
         self._status = _StatusMessage(chat, limits)
         self._reply = _ReplyMessage(chat, limits, f"[{tag}] " if tag else "")
@@ -76,21 +78,23 @@ class ChatTurn:
                 await self._after_reply()
                 await self._ask(interrupt_id, request)
             case Transcribed(text, language):
-                await self._chat.send(f"🎤 I heard ({language}): {text or '(no speech)'}")
+                heard = text or self._t("(no speech)")
+                await self._chat.send(self._t("🎤 I heard ({language}): {text}", language=language, text=heard))
             case Dispatched():
                 self.dispatched = event
             case Error(message):
                 await self._chat.send(f"⚠️ {message}")
             case Cancelled():
-                await self._chat.send("⏹ Stopped.")
+                await self._chat.send(self._t("⏹ Stopped."))
             case _:
                 pass
 
     async def _ask(self, interrupt_id: str, request: dict[str, Any]) -> None:
         if is_question(request):
-            await self._chat.send(question_text(request), buttons=question_buttons(interrupt_id, request))
+            buttons = question_buttons(self._t, interrupt_id, request)
+            await self._chat.send(question_text(self._t, request), buttons=buttons)
         else:
-            await self._chat.send(approval_text(request), buttons=approval_buttons(interrupt_id))
+            await self._chat.send(approval_text(self._t, request), buttons=approval_buttons(self._t, interrupt_id))
 
     async def _after_reply(self) -> None:
         """Finish any reply in progress. Tool calls after it go in a new status message, below it."""

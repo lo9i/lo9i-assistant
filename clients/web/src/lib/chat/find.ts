@@ -1,5 +1,6 @@
 // Finding text in the open conversation (Cmd+F / Ctrl+F), as a browser's find bar does: every match, case
 // aside, one of them the current one. The whole history is on the page, so the page's text is the conversation's.
+import { t } from "$lib/i18n.svelte";
 
 /** Where a match is in a run of texts: each end as [which text, offset in it], the end one past its last letter. */
 export type Span = { start: [number, number]; end: [number, number] };
@@ -63,6 +64,6 @@ export function nearest(tops: readonly number[], top: number): number {
 /** "3 of 12", or why there's nothing to step through. */
 export function counter(current: number, count: number, query: string): string {
   if (!query) return "";
-  if (count === 0) return "No results";
-  return `${current + 1} of ${count}`;
+  if (count === 0) return t("find.noResults");
+  return t("find.counter", { current: current + 1, count });
 }
