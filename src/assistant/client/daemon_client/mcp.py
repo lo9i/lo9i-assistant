@@ -24,7 +24,8 @@ _DOWNLOAD = httpx.Timeout(150)
 
 
 class McpApi:
-    """MCP servers: look at a server's tools, add it, sign in to it, choose its tools, trust it, remove it."""
+    """MCP servers: look at a server's tools, add it, sign in to it, choose its tools, trust it, remove it; and
+    signing in a plugin with the user's own OAuth app."""
 
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
@@ -47,6 +48,20 @@ class McpApi:
             "POST", f"/mcp/servers/{name}/sign-in", json=body, errors=_ERRORS, timeout=_CONNECT_TIMEOUT
         )
         return data["url"]
+
+    async def start_plugin_sign_in(
+        self, name: str, redirect_uri: str, client_id: str = "", client_secret: str = ""
+    ) -> str:
+        """The provider's sign-in page for a plugin that signs in with the user's own OAuth app; an empty client ID
+        signs in again with the app it signed in with. The browser comes back to `redirect_uri`, the web app's
+        /app/oauth, which finishes it (`client.oauth`). Raises McpServerError."""
+        body = {"redirect_uri": redirect_uri, "client_id": client_id, "client_secret": client_secret}
+        data = await self._transport.request("POST", f"/plugins/{name}/sign-in", json=body, errors=_ERRORS)
+        return data["url"]
+
+    async def sign_out_plugin(self, name: str) -> McpServerStatus:
+        """Forget the plugin's sign-in. Raises McpServerError."""
+        return status_from_json(await self._transport.request("DELETE", f"/plugins/{name}/sign-in", errors=_ERRORS))
 
     async def add(self, server: McpServer) -> McpServerStatus:
         data = await self._transport.request("POST", "/mcp/servers", json=_settings(server), errors=_ERRORS)

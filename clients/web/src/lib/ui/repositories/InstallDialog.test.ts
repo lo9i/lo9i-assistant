@@ -22,6 +22,7 @@ const telegram: FoundServer = {
   category: "communications/chat",
   model_login: "",
   ssh_agent: false,
+  oauth: "",
   agent: "",
   email: false,
 };

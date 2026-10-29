@@ -43,6 +43,9 @@ code from it. In its commands, arguments and env values:
     data_key: true                 # optional, format 4: a random key of its own, made when it's installed and
                                    # kept encrypted by lo9i (also when it's removed, with its data), that its
                                    # processes get in LO9I_DATA_KEY to encrypt what they keep in {data} (data_key.py)
+    oauth:                         # optional, format 5: the user signs in with their own OAuth app in its setup, and
+      provider: google             # its processes get the sign-in in LO9I_OAUTH (plugin_oauth.py)
+      scopes: [https://www.googleapis.com/auth/drive]
     agent:                         # optional: a coding agent (docs/agent-plugins.md, core/agent_tasks/)
       command: claude              # /claude <folder> hands a conversation to it, /claude off back
       name: Claude Code
@@ -75,7 +78,7 @@ import yaml
 from langgraph.store.base import BaseStore
 
 from assistant.core.integrations.email import providers as email_providers
-from assistant.core.mcp import data_key, environment, folders, keys, logins, servers, ssh_agent
+from assistant.core.mcp import data_key, environment, folders, keys, logins, plugin_oauth, servers, ssh_agent
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.repositories import categories, formats, icons, platforms
 from assistant.core.repositories import source as folder_source
@@ -143,6 +146,8 @@ class FoundServer:
     agent: str = ""
     # Its processes get the user's ssh agent (core/mcp/ssh_agent.py), for the install dialogs to say.
     ssh_agent: bool = False
+    # The provider it signs in to in its setup, like "google" (core/mcp/plugin_oauth.py); "" when it doesn't.
+    oauth: str = ""
     # What the apps show beside it (repositories/icons.py).
     icon: icons.PluginIcon = field(default_factory=icons.PluginIcon)
 
@@ -165,6 +170,8 @@ class Candidate:
         uv and the daemon can't find it."""
         given = {f.key: values.get(f.key, "") for f in self.found.fields}
         t = self.template
+        # Its sign-in is one of its keys too, given empty here so the one saved is kept (plugin_oauth.py).
+        given |= {plugin_oauth.ENV: ""} if t.oauth_provider else {}
         fill = _filler(t.name)
         filled = replace(
             t,
@@ -401,6 +408,10 @@ def _parse(data: dict[str, Any], name: str, root: Path, folder: Path) -> Candida
         raise ValueError("its agent section has a worker, which needs format: 3")
     if version < 4 and template.data_key:
         raise ValueError("it asks for a data_key, which needs format: 4")
+    if version < 5 and template.oauth_provider:
+        raise ValueError("it signs in with oauth:, which needs format: 5")
+    if template.oauth_provider and template.url:
+        raise ValueError("it signs in with oauth:, which is for plugins that run on this computer, not a url")
     return Candidate(found, template, folder, folder.relative_to(root).as_posix(), systems, version)
 
 
@@ -425,8 +436,15 @@ def _template(data: dict[str, Any], name: str) -> McpServer:
         model_login=logins.parse(data.get("model_login")),
         ssh_agent=ssh_agent.parse(data.get("ssh_agent")),
         data_key=data_key.parse(data.get("data_key")),
+        **_oauth(data.get("oauth")),
         **_agent(data.get("agent")),
     )
+
+
+def _oauth(value: object) -> dict[str, Any]:
+    """Raises ValueError for an `oauth:` section that can't be used."""
+    provider, scopes = plugin_oauth.parse(value)
+    return {"oauth_provider": provider, "oauth_scopes": scopes}
 
 
 def _found(data: dict[str, Any], template: McpServer, folder: Path, category_folder: str) -> FoundServer:
@@ -449,6 +467,7 @@ def _found(data: dict[str, Any], template: McpServer, folder: Path, category_fol
         model_login=template.model_login,
         agent=template.agent_command,
         ssh_agent=template.ssh_agent,
+        oauth=template.oauth_provider,
         icon=icons.or_category(icons.parse(data.get("icon"), folder), category),
     )
 

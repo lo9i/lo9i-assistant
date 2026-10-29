@@ -39,6 +39,7 @@ from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen, ConfirmWithOptionScreen
 from assistant_terminal.tui.screens.email import EmailScreen
 from assistant_terminal.tui.screens.kept_keys import ask_about_keys
+from assistant_terminal.tui.screens.plugin_sign_in import PluginSignInScreen
 from assistant_terminal.tui.screens.plugin_updates import PluginUpdatesScreen
 from assistant_terminal.tui.screens.repositories import RepositoriesScreen
 from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
@@ -93,6 +94,7 @@ class PluginsScreen(ModalScreen[None]):
                 yield Button(t("Update"), id="update")
                 yield Button(t("Remove"), variant="error", id="remove")
                 yield Button(t("Accounts"), id="email-accounts")
+                yield Button(t("Sign in"), id="plugin-sign-in")
                 yield Button(t("Repositories"), id="repositories")
                 yield Button(t("Refresh"), id="refresh")
                 yield Button(t("Daily update checks"), id="checks")
@@ -184,6 +186,13 @@ class PluginsScreen(ModalScreen[None]):
         plugin = self._current()
         if plugin is not None:
             self.app.push_screen(EmailScreen(self._email, self._oauth, self._channels, plugin.name))
+
+    @on(Button.Pressed, "#plugin-sign-in")
+    def _plugin_sign_in(self) -> None:
+        """A plugin's sign-in with the user's own OAuth app."""
+        plugin = self._current()
+        if plugin is not None and plugin.server is not None and plugin.server.oauth:
+            self.app.push_screen(PluginSignInScreen(self._mcp, self._oauth, plugin.name, plugin.server.oauth))
 
     @on(Button.Pressed, "#close")
     def _close(self) -> None:
@@ -306,6 +315,8 @@ class PluginsScreen(ModalScreen[None]):
         self.query_one("#update").display = plugin is not None and updatable(plugin)
         email = installed and plugin is not None and plugin.server is not None and plugin.server.email
         self.query_one("#email-accounts").display = email
+        signs_in = installed and plugin is not None and plugin.server is not None and bool(plugin.server.oauth)
+        self.query_one("#plugin-sign-in").display = signs_in
         await self._show_setup(plugin)
         if plugin is not None:
             await self.query_one("#plugin-body", Markdown).update(describe(plugin))

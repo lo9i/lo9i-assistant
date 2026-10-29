@@ -1,10 +1,13 @@
-"""Sign-ins with OAuth waiting for the browser to come back: email accounts and remote MCP servers.
+"""Sign-ins with OAuth waiting for the browser to come back: email accounts, remote MCP servers and plugins that
+sign in (core/mcp/plugin_oauth.py).
 
 The provider sends the browser back to the web app's /app/oauth page, which posts the code with the
 one-time `state` to the daemon. The state is the proof, so the page works in a browser that isn't
 paired. Kept in memory: a restart only means signing in again.
 """
 
+import base64
+import hashlib
 import secrets
 import time
 from typing import Protocol
@@ -50,3 +53,9 @@ def new_state() -> str:
 def expiry() -> float:
     """When a sign-in started now is forgotten."""
     return time.time() + PENDING_SECONDS
+
+
+def challenge(verifier: str) -> str:
+    """PKCE's S256 code challenge for a verifier."""
+    digest = hashlib.sha256(verifier.encode()).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode()

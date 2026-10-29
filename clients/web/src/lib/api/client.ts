@@ -52,6 +52,7 @@ import type {
   Page,
   PairingCode,
   PendingEnding,
+  PluginSignInStart,
   PluginUpdate,
   PluginUpdateChecks,
   PromptSection,
@@ -553,6 +554,19 @@ export class McpGroup {
   async startSignIn(name: string, redirectUri: string): Promise<string> {
     const path = `/mcp/servers/${encodeURIComponent(name)}/sign-in`;
     return (await this.transport.request<{ url: string }>("POST", path, { redirect_uri: redirectUri })).url;
+  }
+
+  /** The provider's sign-in page for a plugin that signs in with the user's own OAuth app (`oauth` in its
+   * FoundServer); the browser comes back to `redirect_uri`, the /oauth page. An empty client ID signs in again with
+   * the app it signed in with. Throws ApiError (400) when it doesn't sign in or there's no client ID. */
+  async startPluginSignIn(name: string, body: PluginSignInStart): Promise<string> {
+    const path = `/plugins/${encodeURIComponent(name)}/sign-in`;
+    return (await this.transport.request<{ url: string }>("POST", path, body)).url;
+  }
+
+  /** Forgets the plugin's sign-in. */
+  signOutPlugin(name: string): Promise<McpServerStatus> {
+    return this.transport.request("DELETE", `/plugins/${encodeURIComponent(name)}/sign-in`);
   }
 
   /** Throws ApiError (400) for invalid settings or a name in use. */

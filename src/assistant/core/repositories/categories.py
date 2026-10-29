@@ -23,6 +23,7 @@ CATEGORIES = (
     "media/video",
     "other/general",
     "productivity/calendar",
+    "productivity/documents",
     "productivity/maps",
     "software/factory",
 )

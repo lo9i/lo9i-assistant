@@ -170,6 +170,7 @@ _CATEGORY_PARTS = {
     "communications": translatable("Communications"),
     "connectivity": translatable("Connectivity"),
     "contacts": translatable("Contacts"),
+    "documents": translatable("Documents"),
     "email": translatable("Email"),
     "factory": translatable("Factory"),
     "finance": translatable("Finance"),

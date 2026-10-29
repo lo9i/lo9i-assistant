@@ -240,6 +240,15 @@ class McpSignInStart(BaseModel):
     redirect_uri: str
 
 
+class PluginSignInStart(BaseModel):
+    # The user's OAuth app; the secret is typed in the dialog and stays in the daemon. An empty client ID signs
+    # in again with the app the plugin signed in with.
+    client_id: str = ""
+    client_secret: str = ""
+    # Where the provider sends the browser back: the web app's /app/oauth page.
+    redirect_uri: str
+
+
 class EmailRecipients(BaseModel):
     addresses: list[str]
 
@@ -1273,7 +1282,7 @@ async def _email[T](call: Awaitable[T]) -> T:
 def _add_sign_in_routes(app: FastAPI, service: AssistantService) -> None:
     @app.post("/oauth/finish")
     async def finish_sign_in(body: SignInCode) -> SignedIn:
-        """The last step of a sign-in (an email account, a remote MCP server). Open to unpaired
+        """The last step of a sign-in (an email account, a remote MCP server, a plugin). Open to unpaired
         browsers: the one-time state is the proof (the web app's /app/oauth page may be opened on
         the daemon's own computer, before pairing). 400: expired state, refused code, or a server
         that won't work with the tokens."""
@@ -1459,6 +1468,28 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
             return SignInPage(url=await service.start_mcp_sign_in(name, body.redirect_uri))
         except McpServerError as e:
             raise HTTPException(400, str(e)) from e
+
+    @app.post("/plugins/{name}/sign-in")
+    async def start_plugin_sign_in(name: str, body: PluginSignInStart) -> SignInPage:
+        """The provider's sign-in page for a plugin that signs in with the user's own OAuth app (`oauth:` in its
+        server.yaml); the browser comes back to `redirect_uri`, which finishes it (/oauth/finish). 404: no such
+        plugin. 400: it doesn't sign in, or no client ID."""
+        if name not in {s.name for s in await service.mcp_servers()}:
+            raise HTTPException(404, f"No plugin named {name}.")
+        try:
+            return SignInPage(
+                url=await service.start_plugin_sign_in(name, body.client_id, body.client_secret, body.redirect_uri)
+            )
+        except McpServerError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.delete("/plugins/{name}/sign-in")
+    async def sign_out_plugin(name: str) -> McpServerStatus:
+        """Forget the plugin's sign-in. 404: no such plugin."""
+        try:
+            return await service.sign_out_plugin(name)
+        except McpServerError as e:
+            raise HTTPException(404, str(e)) from e
 
     @app.post("/mcp/servers/{name}/update")
     async def update_mcp_server_from_repository(name: str) -> McpServerStatus:

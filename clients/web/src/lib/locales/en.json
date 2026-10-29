@@ -71,6 +71,7 @@
     "communications": "Communications",
     "connectivity": "Connectivity",
     "contacts": "Contacts",
+    "documents": "Documents",
     "email": "Email",
     "factory": "Factory",
     "finance": "Finance",
@@ -829,7 +830,8 @@
     "noCode": "the provider sent no code back",
     "email": "Signed in: {name} can send and read mail. You can close this tab.",
     "server": "Signed in to {name}: the assistant gets its tools from your next message. You can close this tab.",
-    "openMcp": "Open MCP servers"
+    "openMcp": "Open MCP servers",
+    "plugin": "Signed in: {name} can use your account from your next message. You can close this tab."
   },
   "pager": {
     "pages": "Pages",
@@ -855,6 +857,15 @@
   },
   "pluginSetup": {
     "starting": "Starting {name}… its setup shows here once it's running."
+  },
+  "pluginSignIn": {
+    "title": "Sign in to {provider}",
+    "notSignedIn": "Not signed in yet: {name}'s tools work once you sign in to {provider}.",
+    "signedInAs": "Signed in to {provider} as {account}.",
+    "help": "It signs in with an OAuth app of your own: in your Google Cloud project, create an OAuth client ID of type Web application with the redirect URI below, and paste its client ID and secret.",
+    "finish": "Finish signing in on the {provider} page that opened; it shows as signed in here once it's done.",
+    "signInAgain": "Sign in again",
+    "signOut": "Sign out"
   },
   "pluginUpdates": {
     "switchHint": "Checks the extras once a day for newer versions of your plugins, and keeps the list of plugins the assistant can offer you current. Off: the extras are read only when you open Plugins.",

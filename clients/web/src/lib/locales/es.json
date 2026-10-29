@@ -71,6 +71,7 @@
     "communications": "Comunicaciones",
     "connectivity": "Conectividad",
     "contacts": "Contactos",
+    "documents": "Documentos",
     "email": "Correo",
     "factory": "Fábrica",
     "finance": "Finanzas",
@@ -829,7 +830,8 @@
     "noCode": "el proveedor no devolvió ningún código",
     "email": "Sesión iniciada: {name} puede enviar y leer correo. Puedes cerrar esta pestaña.",
     "server": "Sesión iniciada en {name}: el asistente recibe sus herramientas desde tu próximo mensaje. Puedes cerrar esta pestaña.",
-    "openMcp": "Abrir servidores MCP"
+    "openMcp": "Abrir servidores MCP",
+    "plugin": "Sesión iniciada: {name} puede usar tu cuenta desde tu próximo mensaje. Puedes cerrar esta pestaña."
   },
   "pager": {
     "pages": "Páginas",
@@ -855,6 +857,15 @@
   },
   "pluginSetup": {
     "starting": "Iniciando {name}… su configuración aparece aquí cuando esté en marcha."
+  },
+  "pluginSignIn": {
+    "title": "Iniciar sesión en {provider}",
+    "notSignedIn": "Todavía sin iniciar sesión: las herramientas de {name} funcionan cuando inicies sesión en {provider}.",
+    "signedInAs": "Sesión iniciada en {provider} como {account}.",
+    "help": "Inicia sesión con una app OAuth tuya: en tu proyecto de Google Cloud, crea un ID de cliente OAuth de tipo Aplicación web con el URI de redirección de abajo, y pega su ID y su secreto de cliente.",
+    "finish": "Termina de iniciar sesión en la página de {provider} que se abrió; aquí aparece la sesión iniciada cuando termine.",
+    "signInAgain": "Iniciar sesión de nuevo",
+    "signOut": "Cerrar sesión"
   },
   "pluginUpdates": {
     "switchHint": "Revisa los extras una vez al día en busca de versiones nuevas de tus plugins, y mantiene al día la lista de plugins que el asistente puede ofrecerte. Apagado: los extras se leen solo cuando abres Plugins.",

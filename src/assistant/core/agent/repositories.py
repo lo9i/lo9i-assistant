@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from assistant.core.agent.base import ServiceBase
 from assistant.core.agent.mcp import McpServerStatus, mcp_status
+from assistant.core.mcp import plugin_oauth
 from assistant.core.mcp.install import FoundServer, ServerField, ServerValues
 from assistant.core.repositories import contents, listed, updates
 from assistant.core.repositories.contents import RepositoryContents
@@ -53,7 +54,11 @@ class RepositoriesMixin(ServiceBase):
             self.bus.publish("skills")
         if installed.servers:
             await self._servers_changed()
-        return InstalledFromRepository(installed.skills, [await mcp_status(self.mcp, s) for s in installed.servers])
+        statuses = [
+            await mcp_status(self.mcp, s, await plugin_oauth.signed_in_as(store, self.secrets, s))
+            for s in installed.servers
+        ]
+        return InstalledFromRepository(installed.skills, statuses)
 
     async def repositories(self) -> list[Repository]:
         return await listed.listed(self._storage.store)

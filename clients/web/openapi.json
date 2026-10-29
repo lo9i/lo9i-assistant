@@ -2868,7 +2868,7 @@
     "/oauth/finish": {
       "post": {
         "summary": "Finish Sign In",
-        "description": "The last step of a sign-in (an email account, a remote MCP server). Open to unpaired\nbrowsers: the one-time state is the proof (the web app's /app/oauth page may be opened on\nthe daemon's own computer, before pairing). 400: expired state, refused code, or a server\nthat won't work with the tokens.",
+        "description": "The last step of a sign-in (an email account, a remote MCP server, a plugin). Open to unpaired\nbrowsers: the one-time state is the proof (the web app's /app/oauth page may be opened on\nthe daemon's own computer, before pairing). 400: expired state, refused code, or a server\nthat won't work with the tokens.",
         "operationId": "finish_sign_in_oauth_finish_post",
         "requestBody": {
           "content": {
@@ -3535,6 +3535,94 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SignInPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plugins/{name}/sign-in": {
+      "post": {
+        "summary": "Start Plugin Sign In",
+        "description": "The provider's sign-in page for a plugin that signs in with the user's own OAuth app (`oauth:` in its\nserver.yaml); the browser comes back to `redirect_uri`, which finishes it (/oauth/finish). 404: no such\nplugin. 400: it doesn't sign in, or no client ID.",
+        "operationId": "start_plugin_sign_in_plugins__name__sign_in_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PluginSignInStart"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Sign Out Plugin",
+        "description": "Forget the plugin's sign-in. 404: no such plugin.",
+        "operationId": "sign_out_plugin_plugins__name__sign_in_delete",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpServerStatus"
                 }
               }
             }
@@ -6980,6 +7068,11 @@
             "title": "Ssh Agent",
             "default": false
           },
+          "oauth": {
+            "type": "string",
+            "title": "Oauth",
+            "default": ""
+          },
           "icon": {
             "$ref": "#/components/schemas/PluginIcon"
           }
@@ -8189,6 +8282,16 @@
           },
           "icon": {
             "$ref": "#/components/schemas/PluginIcon"
+          },
+          "oauth": {
+            "type": "string",
+            "title": "Oauth",
+            "default": ""
+          },
+          "signed_in_as": {
+            "type": "string",
+            "title": "Signed In As",
+            "default": ""
           }
         },
         "type": "object",
@@ -8755,6 +8858,29 @@
         },
         "type": "object",
         "title": "PluginIcon"
+      },
+      "PluginSignInStart": {
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "title": "Client Id",
+            "default": ""
+          },
+          "client_secret": {
+            "type": "string",
+            "title": "Client Secret",
+            "default": ""
+          },
+          "redirect_uri": {
+            "type": "string",
+            "title": "Redirect Uri"
+          }
+        },
+        "type": "object",
+        "required": [
+          "redirect_uri"
+        ],
+        "title": "PluginSignInStart"
       },
       "PluginUpdate": {
         "properties": {
@@ -9584,7 +9710,8 @@
             "type": "string",
             "enum": [
               "email",
-              "mcp"
+              "mcp",
+              "plugin"
             ],
             "title": "Kind"
           },

@@ -5,6 +5,7 @@ import {
   categoryLabel,
   emptyHint,
   fromRepositories,
+  hasSetup,
   kindOf,
   missingField,
   optional,
@@ -45,6 +46,7 @@ const contents: RepositoryContents = {
       category: "other/general",
       model_login: "",
       ssh_agent: false,
+      oauth: "",
       agent: "",
       email: false,
     },
@@ -105,6 +107,7 @@ group("versionOf", () => {
             category: "other/general",
             model_login: "",
             ssh_agent: false,
+            oauth: "",
             agent: "",
             email: false,
           },
@@ -137,6 +140,7 @@ group("updatable", () => {
           category: "other/general",
           model_login: "",
           ssh_agent: false,
+          oauth: "",
           agent: "",
           email: false,
         },
@@ -172,6 +176,7 @@ const found = (over: Partial<FoundServer>): FoundServer => ({
   category: "other/general",
   model_login: "",
   ssh_agent: false,
+  oauth: "",
   agent: "",
   email: false,
   ...over,
@@ -195,6 +200,13 @@ group("channel plugins", () => {
     expect(pluginsOf({ skills: [], servers: [claude] }).map(kindOf)).toEqual(["Coding agent · skill"]);
   });
 
+  it("have a setup, as email plugins and plugins that sign in do", () => {
+    expect(hasSetup(found({}))).toBe(true);
+    expect(hasSetup(found({ channel: false, email: true }))).toBe(true);
+    expect(hasSetup(found({ channel: false, transport: "stdio", oauth: "google" }))).toBe(true);
+    expect(hasSetup(found({ channel: false, transport: "stdio" }))).toBe(false);
+  });
+
   it("may leave empty a value the daemon already has", () => {
     const known = found({ known_fields: ["BOT_TOKEN"] });
     expect(optional(known, "BOT_TOKEN")).toBe(true);
@@ -211,6 +223,7 @@ group("emptyHint and sharedLogin", () => {
     known_fields: [],
     model_login: "copilot",
     ssh_agent: false,
+    oauth: "",
   });
   it("says a field may be left empty", () => {
     expect(optional(coder, "CLAUDE_TOKEN")).toBe(true);

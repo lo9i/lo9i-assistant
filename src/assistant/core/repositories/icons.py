@@ -35,6 +35,7 @@ CATEGORY_ICONS = {
     "media/video": "video",
     "other/general": "puzzle",
     "productivity/calendar": "calendar",
+    "productivity/documents": "file-text",
     "productivity/maps": "map",
     "software/factory": "factory",
 }

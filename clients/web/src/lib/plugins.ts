@@ -75,9 +75,9 @@ export function kindOf(p: Plugin): string {
   return kind;
 }
 
-/** Whether an installed plugin has a setup to go through: email accounts, or a channel's pairing. */
+/** Whether an installed plugin has a setup to go through: email accounts, a channel's pairing, or signing in. */
 export function hasSetup(server: FoundServer): boolean {
-  return Boolean(server.email || server.channel);
+  return Boolean(server.email || server.channel || server.oauth);
 }
 
 /** Where it runs: a remote MCP server runs elsewhere; a local one or a channel on the computer the assistant runs on. */

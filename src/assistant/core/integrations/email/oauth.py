@@ -7,8 +7,6 @@ scopes) and gives its client id and secret. The provider sends the browser back 
 the account's secret, encrypted like a password; access tokens are refreshed when they expire.
 """
 
-import base64
-import hashlib
 import json
 import secrets
 import time
@@ -18,7 +16,7 @@ from urllib.parse import urlencode
 import httpx
 
 from assistant.core.integrations.email.errors import EmailError
-from assistant.core.oauth import expiry
+from assistant.core.oauth import challenge, expiry
 
 _TIMEOUT = 20
 # Refreshed this long before it expires, so a token never runs out mid-connection.
@@ -114,7 +112,7 @@ def authorization_url(sign_in: SignIn, state: str) -> str:
         "redirect_uri": sign_in.redirect_uri,
         "scope": provider.scopes,
         "state": state,
-        "code_challenge": _challenge(sign_in.verifier),
+        "code_challenge": challenge(sign_in.verifier),
         "code_challenge_method": "S256",
         "login_hint": sign_in.address,
         **dict(provider.extra),
@@ -193,8 +191,3 @@ def _with_access(tokens: Tokens, answer: dict) -> Tokens:
     tokens.access_token = answer["access_token"]
     tokens.expires_at = time.time() + float(answer.get("expires_in", 3600))
     return tokens
-
-
-def _challenge(verifier: str) -> str:
-    digest = hashlib.sha256(verifier.encode()).digest()
-    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
