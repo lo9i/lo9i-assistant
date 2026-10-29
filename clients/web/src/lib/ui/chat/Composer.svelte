@@ -306,7 +306,7 @@
     align-items: flex-end;
   }
   .composer:focus-within {
-    border-color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--glow) 70%, transparent);
   }
   /* While the conversation is handed to an agent, as its name in the status bar (AgentStatus). */
   .composer.agent,
