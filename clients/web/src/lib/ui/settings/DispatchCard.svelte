@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { DispatchSetting } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
   import SettingsCard from "../Card.svelte";
 
@@ -22,28 +23,24 @@
   }
 </script>
 
-<SettingsCard
-  id="dispatch"
-  title="Routing messages"
-  sub="A message you write outside a conversation goes on in the one it's about, or starts a new one. Quick questions are answered in the inbox."
->
+<SettingsCard id="dispatch" title={t("dispatch.title")} sub={t("dispatch.sub")}>
   {#if s === undefined}
-    <p class="text-meta">{loaded.error ?? "Loading…"}</p>
+    <p class="text-meta">{loaded.error ?? t("common.loading")}</p>
   {:else}
     <label class="row">
-      <span class="text-label">Continue a conversation from</span>
+      <span class="text-label">{t("dispatch.from")}</span>
       <input
         type="range"
         min="0.5"
         max="1"
         step="0.05"
         value={s.confidence}
-        aria-label="How sure the model has to be to continue a conversation"
+        aria-label={t("dispatch.label")}
         onchange={(e) => save({ confidence: Number(e.currentTarget.value) })}
       />
       <span class="value">{Math.round(s.confidence * 100)}%</span>
     </label>
-    <p class="text-meta">When the model is less sure than this that a message continues a conversation, it starts a new one.</p>
+    <p class="text-meta">{t("dispatch.hint")}</p>
   {/if}
   {#if error}<p class="error-text">{error}</p>{/if}
 </SettingsCard>

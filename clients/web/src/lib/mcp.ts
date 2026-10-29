@@ -1,5 +1,6 @@
 // Turning what the MCP dialogs take as text into what the daemon expects.
 import type { McpServerStatus, McpToolInfo } from "./api/types";
+import { t, type Key } from "./i18n.svelte";
 
 /** `KEY=value` lines (env) or `Name: value` lines (headers) as a map. Blank lines are skipped.
  * Throws an Error naming the first line without the separator. */
@@ -8,7 +9,7 @@ export function parsePairs(text: string, separator: "=" | ":"): Record<string, s
   for (const line of text.split("\n").map((l) => l.trim())) {
     if (!line) continue;
     const at = line.indexOf(separator);
-    if (at <= 0) throw new Error(`"${line}" needs a name, ${separator === "=" ? "=" : ":"} and a value.`);
+    if (at <= 0) throw new Error(t("mcp.needsPair", { line, separator }));
     pairs[line.slice(0, at).trim()] = line.slice(at + 1).trim();
   }
   return pairs;
@@ -40,15 +41,19 @@ export function withTools(servers: McpServerStatus[]): McpServerStatus[] {
   return servers.filter((s) => s.transport !== "none");
 }
 
-const LABELS: Record<string, string> = {
-  needs_sign_in: "needs you to sign in",
+const LABELS: Record<string, Key> = {
+  connected: "mcp.connected",
+  connecting: "mcp.connecting",
+  failed: "mcp.failed",
+  off: "mcp.off",
+  needs_sign_in: "mcp.needsSignIn",
   // A local server stopped until the agent uses it (core/mcp/on_demand.py).
-  idle: "starts when used",
+  idle: "mcp.idle",
 };
 
 /** A server's status as the page shows it: the daemon's word, or what it means when that's unclear. */
 export function statusLabel(status: string): string {
-  return LABELS[status] ?? status;
+  return status in LABELS ? t(LABELS[status]) : status;
 }
 
 export const STATUS_TONES: Record<string, string | undefined> = {

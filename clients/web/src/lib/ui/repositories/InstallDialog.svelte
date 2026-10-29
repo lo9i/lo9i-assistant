@@ -3,6 +3,7 @@
   import { untrack } from "svelte";
   import type { FoundServer, FoundSkill, Offered } from "$lib/api/types";
   import { useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
   import { emptyHint, missingField, optional, sharedLogin, sshAgentNote } from "$lib/plugins";
   import Modal from "../Modal.svelte";
@@ -65,7 +66,7 @@
   function missing(): string {
     for (const s of found?.servers ?? []) {
       const label = servers.has(s.name) ? missingField(s, values[s.name]) : null;
-      if (label) return `${s.name} needs ${label}.`;
+      if (label) return t("install.needs", { name: s.name, field: label });
     }
     return "";
   }
@@ -96,12 +97,12 @@
   }
 
   function kind(s: FoundServer): string {
-    if (s.transport === "none") return s.email ? "Email provider" : "Channel";
-    const parts = [s.transport === "http" ? "remote" : "local"];
-    if (s.channel) parts.push("a chat channel");
-    if (s.skill) parts.push("with its skill");
-    if (s.page) parts.push("with a web page");
-    return `MCP server, ${parts.join(", ")}`;
+    if (s.transport === "none") return s.email ? t("plugins.kinds.email") : t("plugins.kinds.channel");
+    const parts = [s.transport === "http" ? t("install.remote") : t("install.local")];
+    if (s.channel) parts.push(t("install.chatChannel"));
+    if (s.skill) parts.push(t("install.withSkill"));
+    if (s.page) parts.push(t("install.withPage"));
+    return t("install.server", { parts: parts.join(", ") });
   }
 
   /** "t.me/BotFather" for a help link: the address without its scheme reads better. */
@@ -137,27 +138,31 @@
           autocomplete="off"
         />
       {/if}
-      {#if f.help}<span class="text-caption">Get it at <a href={f.help} target="_blank" rel="noreferrer">{shortLink(f.help)}</a></span>{/if}
+      {#if f.help}<span class="text-caption"
+          >{t("install.getItAt")} <a href={f.help} target="_blank" rel="noreferrer">{shortLink(f.help)}</a></span
+        >{/if}
     </label>
   {/each}
 {/snippet}
 
 <Modal
-  title={only ? `Install ${only.name}` : "Install a plugin"}
-  description={only
-    ? only.description
-    : "MCP servers, chat channels and skills from the assistant's extras. What you install runs on the computer running the assistant."}
+  title={only ? t("install.title", { name: only.name }) : t("install.titleAny")}
+  description={only ? only.description : t("install.description")}
   width={600}
   onclose={() => onclose()}
 >
   {#if onlyServer}
     <div class="form">{@render fields(onlyServer)}</div>
   {:else if onlySkill}
-    {#if onlySkill.files.length}<p class="text-caption flush">Files: {onlySkill.files.join(", ")}</p>{/if}
-  {:else if found === null && !error}<p class="text-meta">Looking at the extras…</p>
+    {#if onlySkill.files.length}<p class="text-caption flush">{t("install.files", { files: onlySkill.files.join(", ") })}</p>{/if}
+  {:else if found === null && !error}<p class="text-meta">{t("install.looking")}</p>
   {:else if found && found.skills.length + found.servers.length === 0}
     <p class="text-meta">
-      Everything the extras offer{shownKind === "server" ? " as MCP servers" : shownKind === "skill" ? " as skills" : ""} is installed already.
+      {shownKind === "server"
+        ? t("install.allServersInstalled")
+        : shownKind === "skill"
+          ? t("install.allSkillsInstalled")
+          : t("install.allInstalled")}
     </p>
   {:else if found}
     <ul>
@@ -169,10 +174,10 @@
               checked={skills.has(skill.name)}
               onchange={(e) => (skills = toggled(skills, skill.name, e.currentTarget.checked))}
             />
-            <span class="pill">skill</span><code>{skill.name}</code>
+            <span class="pill">{t("plugins.kinds.skill").toLowerCase()}</span><code>{skill.name}</code>
           </label>
           <p class="text-caption">{skill.description}</p>
-          {#if skill.files.length}<p class="text-caption">Files: {skill.files.join(", ")}</p>{/if}
+          {#if skill.files.length}<p class="text-caption">{t("install.files", { files: skill.files.join(", ") })}</p>{/if}
         </li>
       {/each}
       {#each found.servers as server (server.name)}
@@ -195,13 +200,13 @@
   {/if}
   {#if error}<p class="error-text">{error}</p>{/if}
   {#snippet footer()}
-    <button class="btn btn--ghost" onclick={() => onclose()}>Cancel</button>
+    <button class="btn btn--ghost" onclick={() => onclose()}>{t("common.cancel")}</button>
     {#if found}
       <button class="btn btn--primary" disabled={busy || skills.size + servers.size === 0} onclick={install}
-        >{busy ? "Installing…" : "Install"}</button
+        >{busy ? t("install.installing") : t("install.install")}</button
       >
     {:else if error}
-      <button class="btn btn--primary" disabled={busy} onclick={look}>Try again</button>
+      <button class="btn btn--primary" disabled={busy} onclick={look}>{t("app.tryAgain")}</button>
     {/if}
   {/snippet}
 </Modal>

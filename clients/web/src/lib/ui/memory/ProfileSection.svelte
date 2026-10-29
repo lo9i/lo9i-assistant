@@ -3,6 +3,7 @@
   import Plus from "@lucide/svelte/icons/plus";
   import X from "@lucide/svelte/icons/x";
   import type UserRound from "@lucide/svelte/icons/user-round";
+  import { t } from "$lib/i18n.svelte";
   import { sectionLabel } from "$lib/memory";
 
   // As in core/memory/profile.py: every item is in every system prompt, so a section stays short.
@@ -60,12 +61,20 @@
         <li>
           {#if editing === i}
             <!-- svelte-ignore a11y_autofocus -->
-            <input class="input" bind:value={draft} onkeydown={onEditKey} onblur={finishEdit} aria-label="Edit item" autofocus />
+            <input class="input" bind:value={draft} onkeydown={onEditKey} onblur={finishEdit} aria-label={t("memory.editItem")} autofocus />
           {:else}
             <span class="text">{item}</span>
             <span class="tools">
-              <button class="tool" aria-label="Edit" title="Edit" disabled={busy} onclick={() => edit(i)}><Pencil size={14} /></button>
-              <button class="tool" aria-label="Remove" title="Remove" disabled={busy} onclick={() => save(items.filter((_, j) => j !== i))}>
+              <button class="tool" aria-label={t("common.edit")} title={t("common.edit")} disabled={busy} onclick={() => edit(i)}
+                ><Pencil size={14} /></button
+              >
+              <button
+                class="tool"
+                aria-label={t("common.remove")}
+                title={t("common.remove")}
+                disabled={busy}
+                onclick={() => save(items.filter((_, j) => j !== i))}
+              >
                 <X size={14} />
               </button>
             </span>
@@ -85,13 +94,15 @@
       <input
         class="input"
         bind:value={adding}
-        placeholder="Add to {sectionLabel(name).toLowerCase()}"
-        aria-label="Add to {sectionLabel(name)}"
+        placeholder={t("memory.addTo", { section: sectionLabel(name).toLowerCase() })}
+        aria-label={t("memory.addTo", { section: sectionLabel(name) })}
       />
-      <button class="btn btn--ghost btn--sm" aria-label="Add" title="Add" disabled={busy || !adding.trim()}><Plus size={16} /></button>
+      <button class="btn btn--ghost btn--sm" aria-label={t("memory.add")} title={t("memory.add")} disabled={busy || !adding.trim()}
+        ><Plus size={16} /></button
+      >
     </form>
   {:else}
-    <p class="text-caption">Full. Edit or remove an item to make room.</p>
+    <p class="text-caption">{t("memory.full")}</p>
   {/if}
 </section>
 

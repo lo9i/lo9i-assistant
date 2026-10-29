@@ -1,5 +1,6 @@
 <script lang="ts">
   import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
   import SettingsCard from "../Card.svelte";
 
@@ -15,22 +16,24 @@
   async function save(e: SubmitEvent): Promise<void> {
     e.preventDefault();
     try {
-      message = `Saved: ${await client.identity.rename(name)}. It applies from the next message.`;
+      message = t("assistant.saved", { name: await client.identity.rename(name) });
     } catch (err) {
       message = describe(err);
     }
   }
 </script>
 
-<SettingsCard id="assistant" title="Assistant" sub="What it calls itself.">
+<SettingsCard id="assistant" title={t("assistant.title")} sub={t("assistant.sub")}>
   <form class="setting" onsubmit={save}>
     <div class="label">
-      <span class="text-label">Name</span>
-      <span class="text-caption">The Telegram bot's display name follows it.</span>
+      <span class="text-label">{t("assistant.name")}</span>
+      <span class="text-caption">{t("assistant.nameHint")}</span>
     </div>
     <div class="control">
-      <input class="input" bind:value={name} placeholder="Name" aria-label="Name" />
-      <button class="btn btn--primary btn--sm" type="submit" disabled={!name.trim() || name.trim() === current.data}>Save</button>
+      <input class="input" bind:value={name} placeholder={t("assistant.name")} aria-label={t("assistant.name")} />
+      <button class="btn btn--primary btn--sm" type="submit" disabled={!name.trim() || name.trim() === current.data}
+        >{t("common.save")}</button
+      >
     </div>
   </form>
   {#if message}<p class="text-meta">{message}</p>{/if}

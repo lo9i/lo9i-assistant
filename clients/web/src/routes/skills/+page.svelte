@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { t } from "$lib/i18n.svelte";
   import SkillsList from "$lib/ui/SkillsList.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
   import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
 </script>
 
 <!-- A settings tab of its own page. Skills from the extras are installed in Settings → Plugins. -->
-<TopBar title="Settings" />
+<TopBar title={t("nav.settings")} />
 
 <div class="shell">
   <SettingsTabs active="skills" />

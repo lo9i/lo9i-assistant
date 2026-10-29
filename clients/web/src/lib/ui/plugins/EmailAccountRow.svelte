@@ -4,6 +4,7 @@
   import type { EmailAccount } from "$lib/api/types";
   import { alertOptions } from "$lib/channels";
   import { useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
   import Confirm from "../Confirm.svelte";
   import EmailAccountForm from "./EmailAccountForm.svelte";
@@ -27,7 +28,7 @@
     try {
       await client.email.rename(account.id, name);
       renaming = false;
-      message = "Renamed.";
+      message = t("email.renamed");
     } catch (e) {
       message = describe(e);
     }
@@ -51,8 +52,8 @@
       <span class="text-meta">{account.sender}</span>
     </span>
     <span class="pills">
-      {#if account.status !== "ok"}<span class="pill pill--warn">Needs sign-in</span>{/if}
-      {#if account.default}<span class="pill pill--accent">Default</span>{/if}
+      {#if account.status !== "ok"}<span class="pill pill--warn">{t("email.needsSignIn")}</span>{/if}
+      {#if account.default}<span class="pill pill--accent">{t("email.default")}</span>{/if}
     </span>
     <span class="chevron" class:turned={expanded}><ChevronRight size={18} /></span>
   </button>
@@ -65,25 +66,25 @@
           {account}
           onsaved={() => {
             editing = false;
-            message = "Connected ✓ The login worked.";
+            message = t("email.connected");
           }}
           oncancel={() => (editing = false)}
         />
       {:else}
         <dl>
-          <dt class="micro-label">Server</dt>
+          <dt class="micro-label">{t("email.server")}</dt>
           <dd>{account.host}:{account.port}</dd>
-          <dt class="micro-label">Reading</dt>
-          <dd>{account.imap_host ? `Reads mail from ${account.imap_host}` : "Sending only"}</dd>
+          <dt class="micro-label">{t("email.reading")}</dt>
+          <dd>{account.imap_host ? t("email.readsFrom", { host: account.imap_host }) : t("email.sendingOnly")}</dd>
         </dl>
         {#if account.imap_host}
           <label class="fields">
-            <span class="text-label">New mail alerts</span>
+            <span class="text-label">{t("email.alerts")}</span>
             <select
               class="input"
               value={account.new_mail_alerts}
-              aria-label="New mail alerts for {account.label}"
-              onchange={(e) => act(() => client.email.setNewMailAlerts(account.id, e.currentTarget.value), "Saved.")}
+              aria-label={t("email.alertsFor", { account: account.label })}
+              onchange={(e) => act(() => client.email.setNewMailAlerts(account.id, e.currentTarget.value), t("email.saved"))}
             >
               {#each alerts as a (a.value)}
                 <option value={a.value}>{a.label}</option>
@@ -99,9 +100,14 @@
               void rename();
             }}
           >
-            <input class="input" bind:value={name} placeholder="Account name, like Work" aria-label="Name for {account.label}" />
-            <button class="btn btn--primary" type="submit">Save name</button>
-            <button class="btn btn--ghost" type="button" onclick={() => (renaming = false)}>Cancel</button>
+            <input
+              class="input"
+              bind:value={name}
+              placeholder={t("email.renamePlaceholder")}
+              aria-label={t("email.nameFor", { account: account.label })}
+            />
+            <button class="btn btn--primary" type="submit">{t("email.saveName")}</button>
+            <button class="btn btn--ghost" type="button" onclick={() => (renaming = false)}>{t("common.cancel")}</button>
           </form>
         {/if}
         <div class="row">
@@ -111,16 +117,16 @@
               onclick={() => {
                 name = account.label;
                 renaming = true;
-              }}>Rename</button
+              }}>{t("email.rename")}</button
             >
           {/if}
           {#if !account.default}
             <button class="btn btn--neutral btn--sm" onclick={() => act(() => client.email.makeDefault(account.id), "")}
-              >Make default</button
+              >{t("email.makeDefault")}</button
             >
           {/if}
-          <button class="btn btn--neutral btn--sm" onclick={() => (editing = true)}>Change sign-in</button>
-          <button class="btn btn--danger btn--sm" onclick={() => (confirming = true)}>Remove</button>
+          <button class="btn btn--neutral btn--sm" onclick={() => (editing = true)}>{t("email.changeSignIn")}</button>
+          <button class="btn btn--danger btn--sm" onclick={() => (confirming = true)}>{t("common.remove")}</button>
         </div>
       {/if}
       {#if message}<p class="text-meta">{message}</p>{/if}
@@ -130,9 +136,9 @@
 
 {#if confirming}
   <Confirm
-    title="Remove {account.label}?"
-    text="The assistant stops sending and reading mail with {account.sender}. Its saved password is deleted."
-    action="Remove"
+    title={t("email.removeTitle", { account: account.label })}
+    text={t("email.removeText", { address: account.sender })}
+    action={t("common.remove")}
     onanswer={(yes) => {
       confirming = false;
       if (yes) void act(() => client.email.remove(account.id), "");

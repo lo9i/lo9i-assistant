@@ -92,6 +92,7 @@ export type LogPage = Schemas["LogPage"];
 export type LogOptions = Schemas["LogOptions"];
 export type LogFileInfo = Schemas["LogFileInfo"];
 export type LogLevelSetting = Schemas["LogLevelSetting"];
+export type LanguageSetting = Schemas["LanguageSetting"];
 export type PromptSection = Schemas["PromptSection"];
 /** What a log shows: entries at `level` or above ("" for all) from `component` ("" for all), the latest `lines`. */
 /** Which part of a list the daemon pages (files, notifications) to load: from `offset`, at most `limit`, which the

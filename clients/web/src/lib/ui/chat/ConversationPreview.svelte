@@ -6,6 +6,7 @@
   import type { ConnectedClient, Conversation, Device } from "$lib/api/types";
   import { fromHistory } from "$lib/chat/transcript";
   import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { formatDate, t } from "$lib/i18n.svelte";
   import { clientLabel, deviceLabel } from "$lib/sessions";
   import Confirm from "../Confirm.svelte";
   import EmptyState from "../EmptyState.svelte";
@@ -37,7 +38,7 @@
   });
 
   function when(iso: string): string {
-    return new Date(iso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+    return formatDate(iso, { dateStyle: "medium", timeStyle: "short" });
   }
 </script>
 
@@ -45,21 +46,21 @@
   {#if conversation}
     <section class="details surface--glass">
       <header>
-        <h2 class="text-heading">{conversation.title || "Untitled"}</h2>
-        {#if open}<span class="pill pill--accent">Open</span>{/if}
+        <h2 class="text-heading">{conversation.title || t("common.untitled")}</h2>
+        {#if open}<span class="pill pill--accent">{t("conversations.open")}</span>{/if}
       </header>
       <dl>
-        <dt class="micro-label">ID</dt>
+        <dt class="micro-label">{t("conversations.id")}</dt>
         <dd class="id">{conversation.thread_id}</dd>
-        <dt class="micro-label">Started</dt>
+        <dt class="micro-label">{t("conversations.started")}</dt>
         <dd>{when(conversation.started_at)}</dd>
-        <dt class="micro-label">Last message</dt>
+        <dt class="micro-label">{t("conversations.lastMessage")}</dt>
         <dd>{when(conversation.updated_at)}</dd>
-        <dt class="micro-label">Messages</dt>
+        <dt class="micro-label">{t("conversations.messages")}</dt>
         <dd>{messages.data ? counts.messages : "…"}</dd>
-        <dt class="micro-label">Tool calls</dt>
+        <dt class="micro-label">{t("conversations.toolCalls")}</dt>
         <dd>{messages.data ? counts.tools : "…"}</dd>
-        <dt class="micro-label">Open in</dt>
+        <dt class="micro-label">{t("conversations.openIn")}</dt>
         <dd>
           {#each sessions as s (`${s.id}-${s.connected_at}`)}
             <span class="session">
@@ -71,18 +72,18 @@
               {/if}
             </span>
           {:else}
-            <span class="text-caption">No session</span>
+            <span class="text-caption">{t("conversations.noSession")}</span>
           {/each}
         </dd>
       </dl>
       <div class="actions">
         <button class="btn btn--primary btn--sm" onclick={() => oncontinue(conversation.thread_id)}>
-          <Play size={14} />Continue
+          <Play size={14} />{t("conversations.continue")}
         </button>
         <button
           class="btn btn--danger btn--sm"
-          aria-label="Delete conversation"
-          title="Delete conversation"
+          aria-label={t("conversations.delete")}
+          title={t("conversations.delete")}
           onclick={() => (confirming = true)}
         >
           <Trash2 size={14} />
@@ -91,9 +92,9 @@
     </section>
     {#if confirming}
       <Confirm
-        title="Delete this conversation?"
-        text="Its messages and the files sent in it are deleted. What the assistant learned from it stays in memory."
-        action="Delete"
+        title={t("conversations.deleteTitle")}
+        text={t("conversations.deleteText")}
+        action={t("common.delete")}
         onanswer={(yes) => {
           confirming = false;
           if (yes) ondelete(conversation.thread_id);
@@ -101,7 +102,7 @@
       />
     {/if}
     <section class="messages surface--glass">
-      <h3 class="micro-label">Messages</h3>
+      <h3 class="micro-label">{t("conversations.messages")}</h3>
       {#if messages.error}
         <p class="error-text">{messages.error}</p>
       {:else}
@@ -119,7 +120,7 @@
           >
             {#snippet end()}
               <button class="btn btn--primary reply" onclick={() => oncontinue(conversation.thread_id)}>
-                <Play size={14} />Continue
+                <Play size={14} />{t("conversations.continue")}
               </button>
             {/snippet}
           </Thread>
@@ -128,7 +129,7 @@
     </section>
   {:else}
     <section class="messages surface--glass">
-      <EmptyState icon={MessageSquare} title="No conversation selected" text="Pick one from the table to read it here." />
+      <EmptyState icon={MessageSquare} title={t("conversations.noneSelected")} text={t("conversations.pickOne")} />
     </section>
   {/if}
 </div>

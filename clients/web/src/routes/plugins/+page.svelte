@@ -7,6 +7,7 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import type { FoundServer } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { formatList, t } from "$lib/i18n.svelte";
   import {
     type Plugin,
     byCategory,
@@ -101,12 +102,12 @@
         p.kind === "server"
           ? client.repositories.install([], [{ name: p.name, values: {} }], url)
           : client.repositories.install([p.name], [], url),
-      `Installed ${p.name}. The assistant uses it from your next message.`,
+      t("pluginsPage.installed", { names: p.name }),
     );
   }
 
   const updateOne = (p: Plugin) => (p.kind === "server" ? client.mcp.updateFromRepository(p.name) : client.skills.updateInstalled(p.name));
-  const update = (p: Plugin) => act(() => updateOne(p), `Updated ${p.name}.`);
+  const update = (p: Plugin) => act(() => updateOne(p), t("pluginsPage.updated", { names: p.name }));
   // Installed plugins the extras have a newer version of, for the Updates table.
   const newer = $derived((all ?? []).filter(hasNewer));
 
@@ -123,18 +124,18 @@
       (e) => notices.report(e),
     );
     busy = false;
-    if (updated.length) notices.notify(`Updated ${updated.join(", ")}.`);
+    if (updated.length) notices.notify(t("pluginsPage.updated", { names: formatList(updated) }));
     listing.reload();
   }
   const remove = (p: Plugin, deleteData: boolean) =>
     act(
       async () => keptKeys.ask(await (p.kind === "server" ? client.mcp.remove(p.name, deleteData) : client.skills.delete(p.name))),
-      `Removed ${p.name}.`,
+      t("pluginsPage.removed", { name: p.name }),
     );
 </script>
 
 <!-- A settings tab of its own page: the list and details need the full height. -->
-<TopBar title="Settings" />
+<TopBar title={t("nav.settings")} />
 
 <div class="tabs-bar"><SettingsTabs active="plugins" /><PluginUpdatesSwitch /></div>
 
@@ -144,21 +145,19 @@
     <section class="table-card surface--glass">
       <header class="toolbar">
         <div>
-          <h2 class="text-heading">Plugins</h2>
-          <p class="text-meta">
-            MCP servers, chat channels and skills from the official extras and your repositories. Click one to see it on the right.
-          </p>
+          <h2 class="text-heading">{t("settings.tabs.plugins")}</h2>
+          <p class="text-meta">{t("pluginsPage.hint")}</p>
         </div>
         <div class="tools">
-          <SearchField bind:value={query} label="Search plugins" />
+          <SearchField bind:value={query} label={t("pluginsPage.search")} />
           {#if all}<span class="pill">{all.length}</span>{/if}
           <RepositoryCheck {check} checked={listing.data?.checked ?? ""} />
-          <button class="btn btn--ghost btn--sm" title="Repositories plugins are listed from" onclick={() => (managing = true)}
-            ><GitBranch size={14} />Repositories</button
+          <button class="btn btn--ghost btn--sm" title={t("pluginsPage.repositoriesHint")} onclick={() => (managing = true)}
+            ><GitBranch size={14} />{t("repositories.title")}</button
           >
           <button
             class="btn btn--ghost btn--sm"
-            title="Check the repositories for a newer version"
+            title={t("pluginsPage.checkHint")}
             disabled={check === "checking"}
             onclick={() => void checkNow()}><RefreshCw size={14} /></button
           >
@@ -168,14 +167,20 @@
         {#if listing.error}
           <p class="error-text pad">{listing.error}</p>
         {:else if all === undefined}
-          <p class="text-meta pad">Looking at the repositories…</p>
+          <p class="text-meta pad">{t("pluginsPage.looking")}</p>
         {:else}
           {#each listing.data?.errors ?? [] as error (error)}<p class="error-text pad">{error}</p>{/each}
           {#if all.length === 0}
-            <EmptyState icon={Puzzle} title="No plugins" text="The repositories offer none yet." />
+            <EmptyState icon={Puzzle} title={t("pluginsPage.none")} text={t("pluginsPage.noneHint")} />
           {:else}
             <table class="data-table">
-              <thead><tr><th>Plugin</th><th class="hide-narrow">Kind</th><th>Version</th><th>State</th></tr></thead>
+              <thead
+                ><tr
+                  ><th>{t("pluginUpdates.plugin")}</th><th class="hide-narrow">{t("alerts.kind")}</th><th>{t("pluginsPage.version")}</th><th
+                    >{t("jobsPage.state")}</th
+                  ></tr
+                ></thead
+              >
               <tbody>
                 {#each shown as group (group.category)}
                   <tr class="category"><th colspan="4" class="micro-label">{categoryLabel(group.category)}</th></tr>
@@ -193,14 +198,14 @@
                       <td>
                         <span class="state"
                           ><span class="status-dot" style:--tone={p.installed ? "var(--color-success)" : undefined}></span>{p.installed
-                            ? "Installed"
-                            : "Not installed"}</span
+                            ? t("pluginsPage.isInstalled")
+                            : t("pluginsPage.notInstalled")}</span
                         >
                       </td>
                     </tr>
                   {/each}
                 {:else}
-                  <tr><td colspan="4" class="text-meta">No matches.</td></tr>
+                  <tr><td colspan="4" class="text-meta">{t("common.noMatches")}</td></tr>
                 {/each}
               </tbody>
             </table>
@@ -218,41 +223,43 @@
         </header>
         {#if describe(plugin)}<p>{describe(plugin)}</p>{/if}
         <dl>
-          <dt class="micro-label">Source</dt>
-          <dd>{plugin.repository.official ? "Official: the assistant's extras" : `${plugin.repository.name}, not official`}</dd>
-          <dt class="micro-label">Category</dt>
+          <dt class="micro-label">{t("pluginsPage.source")}</dt>
+          <dd>
+            {plugin.repository.official ? t("pluginsPage.officialSource") : t("pluginsPage.notOfficial", { name: plugin.repository.name })}
+          </dd>
+          <dt class="micro-label">{t("pluginsPage.category")}</dt>
           <dd>{categoryLabel(categoryOf(plugin))}</dd>
-          <dt class="micro-label">Kind</dt>
+          <dt class="micro-label">{t("alerts.kind")}</dt>
           <dd>{kindOf(plugin)}</dd>
-          <dt class="micro-label">Version</dt>
+          <dt class="micro-label">{t("pluginsPage.version")}</dt>
           <dd>{versionOf(plugin)}</dd>
           {#if plugin.kind === "server"}
-            <dt class="micro-label">Runs</dt>
+            <dt class="micro-label">{t("pluginsPage.runs")}</dt>
             <dd>{runsOf(plugin.server)}</dd>
             {#if plugin.server.fields.length}
-              <dt class="micro-label">Asks for</dt>
+              <dt class="micro-label">{t("pluginsPage.asksFor")}</dt>
               <dd>{plugin.server.fields.map((f) => f.label).join(", ")}</dd>
             {/if}
           {:else if plugin.skill.files.length}
-            <dt class="micro-label">Files</dt>
+            <dt class="micro-label">{t("skills.files")}</dt>
             <dd>{plugin.skill.files.join(", ")}</dd>
           {/if}
-          <dt class="micro-label">State</dt>
-          <dd>{plugin.installed ? "Installed" : "Not installed"}</dd>
+          <dt class="micro-label">{t("jobsPage.state")}</dt>
+          <dd>{plugin.installed ? t("pluginsPage.isInstalled") : t("pluginsPage.notInstalled")}</dd>
         </dl>
         <div class="actions">
           {#if plugin.installed}
             {#if updatable(plugin)}
               <button class="btn btn--neutral btn--sm" disabled={busy} onclick={() => plugin && update(plugin)}
-                ><RefreshCw size={14} />Update</button
+                ><RefreshCw size={14} />{t("common.update")}</button
               >
             {/if}
             <button class="btn btn--danger btn--sm" disabled={busy} onclick={() => (removing = plugin ?? null)}
-              ><Trash2 size={14} />Remove</button
+              ><Trash2 size={14} />{t("common.remove")}</button
             >
           {:else}
             <button class="btn btn--primary btn--sm" disabled={busy} onclick={() => plugin && install(plugin)}
-              ><Download size={14} />Install</button
+              ><Download size={14} />{t("install.install")}</button
             >
           {/if}
         </div>
@@ -268,7 +275,7 @@
     url={asking.url || undefined}
     onclose={(installed) => {
       asking = null;
-      if (installed) notices.notify(`Installed ${installed.join(", ")}. The assistant uses it from your next message.`);
+      if (installed) notices.notify(t("pluginsPage.installed", { names: formatList(installed) }));
       listing.reload();
     }}
   />
@@ -286,12 +293,10 @@
 {#if removing}
   {@const p = removing}
   <Confirm
-    title="Remove {p.name}?"
-    text={p.kind === "server"
-      ? "Its tools, skill and page go. Its data stays, for installing it again, unless you delete it too."
-      : "The assistant won't be able to use this skill any more."}
-    action="Remove"
-    option={p.kind === "server" ? "Also delete its data (can't be undone)" : undefined}
+    title={t("repositories.removeTitle", { name: p.name })}
+    text={p.kind === "server" ? t("pluginsPage.removeText") : t("skills.deleteText")}
+    action={t("common.remove")}
+    option={p.kind === "server" ? t("pluginsPage.deleteData") : undefined}
     onanswer={(yes, deleteData) => {
       // `p` follows `removing`: read it before clearing that.
       const plugin = p;

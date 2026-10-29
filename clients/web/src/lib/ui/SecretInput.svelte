@@ -1,6 +1,7 @@
 <script lang="ts">
   import Eye from "@lucide/svelte/icons/eye";
   import EyeOff from "@lucide/svelte/icons/eye-off";
+  import { t } from "$lib/i18n.svelte";
 
   // A secret field (an API key, a token) with a button that shows what was typed, to check it.
   // No fallback for `value`: a form's field not filled in yet binds undefined, which Svelte refuses
@@ -26,8 +27,8 @@
     type="button"
     class="btn btn--icon reveal"
     style="--btn-icon-size: 32px"
-    aria-label={shown ? `Hide ${label}` : `Show ${label}`}
-    title={shown ? "Hide" : "Show"}
+    aria-label={shown ? t("secret.hideLabel", { label }) : t("secret.showLabel", { label })}
+    title={shown ? t("secret.hide") : t("secret.show")}
     aria-pressed={shown}
     onclick={() => (shown = !shown)}
   >

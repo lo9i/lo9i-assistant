@@ -1,5 +1,6 @@
 <script lang="ts">
   import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import Toggle from "../Toggle.svelte";
 
   // Daily checks of the extras, next to the Plugins page's tabs. They find newer versions of the
@@ -19,12 +20,9 @@
 </script>
 
 {#if checks.data !== undefined}
-  <div
-    class="switch"
-    title="Checks the extras once a day for newer versions of your plugins, and keeps the list of plugins the assistant can offer you current. Off: the extras are read only when you open Plugins."
-  >
-    <span class="text-label">Check for updates daily</span>
-    <Toggle checked={checks.data.enabled} label="Check for plugin updates daily" onchange={change} />
+  <div class="switch" title={t("pluginUpdates.switchHint")}>
+    <span class="text-label">{t("pluginUpdates.daily")}</span>
+    <Toggle checked={checks.data.enabled} label={t("pluginUpdates.dailyLabel")} onchange={change} />
   </div>
 {/if}
 

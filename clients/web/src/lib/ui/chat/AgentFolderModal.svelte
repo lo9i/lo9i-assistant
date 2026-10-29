@@ -4,6 +4,7 @@
   import { folderView, type FolderChoice } from "$lib/agentFolders";
   import type { AgentFolders, FolderListing } from "$lib/api/types";
   import { useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import Modal from "../Modal.svelte";
 
   // /claude alone: the folder the agent works in, picked instead of typed. The workspace, the folders
@@ -40,7 +41,7 @@
   const close = () => onpick(null);
 </script>
 
-<Modal title="Where should {agentName} work?" description={view.description} onclose={close}>
+<Modal title={t("folders.title", { agent: agentName })} description={view.description} onclose={close}>
   <div class="options">
     {#each view.choices as choice (choice.path + choice.label)}
       <button class="btn btn--neutral option" onclick={() => choose(choice)}>
@@ -49,17 +50,17 @@
         {#if choice.detail}<span class="text-meta path">{choice.detail}</span>{/if}
       </button>
     {/each}
-    {#if view.empty}<p class="text-meta">No folders inside.</p>{/if}
+    {#if view.empty}<p class="text-meta">{t("folders.empty")}</p>{/if}
   </div>
   {#if listing}
     {@const here = listing.path}
     <label class="hidden-toggle text-meta">
       <input type="checkbox" bind:checked={showHidden} onchange={() => browse(here)} />
-      Show hidden folders
+      {t("folders.showHidden")}
     </label>
   {/if}
   {#snippet footer()}
-    <button class="btn btn--ghost" onclick={close}>Cancel</button>
+    <button class="btn btn--ghost" onclick={close}>{t("common.cancel")}</button>
     {#if view.primary}
       {@const primary = view.primary}
       <button class="btn btn--primary" onclick={() => choose(primary)}>{primary.label}</button>

@@ -6,6 +6,7 @@
   import type { LogEntry, LogFileInfo, LogQuery } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { ALL, DEFAULT_LINES, LINES, applyLogEvent, fileSize, levelLabel, logLine, tone } from "$lib/logs";
+  import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Toggle from "$lib/ui/Toggle.svelte";
@@ -100,35 +101,35 @@
 {/snippet}
 
 <!-- A settings tab of its own page. -->
-<TopBar title="Settings" />
+<TopBar title={t("nav.settings")} />
 
 <div class="shell">
   <SettingsTabs active="logs" />
-  <section class="filters surface--glass" aria-label="Filters">
+  <section class="filters surface--glass" aria-label={t("logsPage.filters")}>
     {#if options.error}
       <p class="error-text">{options.error}</p>
     {:else if options.data}
       {@const o = options.data}
       {@render row(
-        "File",
+        t("logsPage.file"),
         o.files.map((f) => ({ id: f.name, label: f.file_name })),
         file,
         (id) => (file = id),
       )}
       {@render row(
-        "Level",
-        [{ id: ALL, label: "All" }, ...o.levels.map((l) => ({ id: l, label: levelLabel(l) }))],
+        t("logsPage.level"),
+        [{ id: ALL, label: t("logsPage.all") }, ...o.levels.map((l) => ({ id: l, label: levelLabel(l) }))],
         level,
         (id) => (level = id),
       )}
       {@render row(
-        "Component",
-        [{ id: ALL, label: "All" }, ...o.components.map((c) => ({ id: c, label: c }))],
+        t("logsPage.component"),
+        [{ id: ALL, label: t("logsPage.all") }, ...o.components.map((c) => ({ id: c, label: c }))],
         component,
         (id) => (component = id),
       )}
       {@render row(
-        "Lines",
+        t("logsPage.lines"),
         LINES.map((n) => ({ id: String(n), label: String(n) })),
         String(lines),
         (id) => (lines = Number(id)),
@@ -142,27 +143,27 @@
         <h2 class="file">{fileName}</h2>
         <p class="text-meta">
           {options.data?.files.find((f) => f.name === file)?.description ?? ""}
-          {#if level !== ALL}At {levelLabel(level).toLowerCase()} or above.{/if}
-          {#if follow}Following live.{/if}
+          {#if level !== ALL}{t("logsPage.atLevel", { level: levelLabel(level).toLowerCase() })}{/if}
+          {#if follow}{t("logsPage.following")}{/if}
         </p>
       </div>
       <div class="actions">
-        {#if shown}<span class="pill" title={shown.path}>{shown.size === null ? "journal" : fileSize(shown.size)}</span>{/if}
+        {#if shown}<span class="pill" title={shown.path}>{shown.size === null ? t("logsPage.journal") : fileSize(shown.size)}</span>{/if}
         {#if options.data}<LogLevelSelect levels={options.data.levels} />{/if}
         <label class="follow">
-          <span class="micro-label">Auto-refresh</span>
-          <Toggle checked={follow} label="Auto-refresh: follow the log live" onchange={(on) => (follow = on)} />
+          <span class="micro-label">{t("logsPage.autoRefresh")}</span>
+          <Toggle checked={follow} label={t("logsPage.autoRefreshLabel")} onchange={(on) => (follow = on)} />
         </label>
-        <button class="btn btn--outline btn--sm" onclick={() => refreshes++} disabled={loading} title="Load the log again">
+        <button class="btn btn--outline btn--sm" onclick={() => refreshes++} disabled={loading} title={t("logsPage.reload")}>
           <RefreshCw size={16} />
-          <span class="hide-narrow">Refresh</span>
+          <span class="hide-narrow">{t("common.refresh")}</span>
         </button>
       </div>
     </header>
     {#if error}
       <p class="error-text pad">{error}</p>
     {:else if entries.length === 0 && !loading}
-      <EmptyState icon={ScrollText} title="Nothing here" text="Nothing logged matches these filters." />
+      <EmptyState icon={ScrollText} title={t("logsPage.nothing")} text={t("logsPage.nothingHint")} />
     {:else}
       <div class="lines" bind:this={body} onscroll={scrolled} role="log" aria-live={follow ? "polite" : "off"}>
         {#each entries as entry, i (i)}

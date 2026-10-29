@@ -4,6 +4,7 @@
   import X from "@lucide/svelte/icons/x";
   import { onDestroy, untrack } from "svelte";
   import { counter, locate, nearest, step } from "$lib/chat/find";
+  import { t } from "$lib/i18n.svelte";
 
   type Props = {
     /** What scrolls the messages; their text to search is in its `[data-findable]` elements. */
@@ -133,18 +134,18 @@
     bind:this={input}
     bind:value={query}
     onkeydown={keydown}
-    placeholder="Find in conversation"
-    aria-label="Find in conversation"
+    placeholder={t("find.placeholder")}
+    aria-label={t("find.placeholder")}
     spellcheck="false"
   />
   <span class="count" aria-live="polite">{counter(current, matches.length, query)}</span>
-  <button aria-label="Previous match" title="Previous (Shift+Enter)" disabled={matches.length === 0} onclick={() => go(-1)}>
+  <button aria-label={t("find.previous")} title={t("find.previousHint")} disabled={matches.length === 0} onclick={() => go(-1)}>
     <ChevronUp size={16} />
   </button>
-  <button aria-label="Next match" title="Next (Enter)" disabled={matches.length === 0} onclick={() => go(1)}>
+  <button aria-label={t("find.next")} title={t("find.nextHint")} disabled={matches.length === 0} onclick={() => go(1)}>
     <ChevronDown size={16} />
   </button>
-  <button aria-label="Close" title="Close (Esc)" onclick={onclose}><X size={16} /></button>
+  <button aria-label={t("common.close")} title={t("find.closeHint")} onclick={onclose}><X size={16} /></button>
 </div>
 
 <style>

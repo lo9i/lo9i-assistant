@@ -2,36 +2,39 @@
 // and /quit have no meaning in a browser; /settings opens the settings page.
 
 import type { Agent } from "$lib/api/types";
+import { t, type Key, type Values } from "$lib/i18n.svelte";
 
-export type Command = { name: string; usage: string; description: string };
+/** `description` is a text's key, shown with `values` (commandText). */
+export type Command = { name: string; usage: string; description: Key; values?: Values };
 
 export const COMMANDS: Command[] = [
-  { name: "/new", usage: "/new", description: "Start a new conversation" },
-  { name: "/conversations", usage: "/conversations", description: "Your conversations, newest first, to open one" },
-  { name: "/move", usage: "/move", description: "Move the last message the inbox sent on to another conversation" },
-  { name: "/notifications", usage: "/notifications", description: "Job results and background work that ended" },
-  { name: "/attach", usage: "/attach", description: "Attach files to the next message" },
-  { name: "/sessions", usage: "/sessions", description: "Clients connected to the daemon" },
-  { name: "/jobs", usage: "/jobs", description: "Scheduled jobs" },
-  { name: "/settings", usage: "/settings", description: "Name, appearance, model, start at boot, web search and audio" },
-  { name: "/mcp", usage: "/mcp", description: "MCP servers and their tools" },
-  { name: "/plugins", usage: "/plugins", description: "Install, update and remove plugins from the extras" },
-  { name: "/skills", usage: "/skills", description: "Browse, install and delete skills" },
-  { name: "/usage", usage: "/usage", description: "Tool and skill usage" },
-  { name: "/audio", usage: "/audio", description: "Speech to text, microphone and spoken replies" },
-  { name: "/websearch", usage: "/websearch", description: "Web search: the Brave Search API key" },
-  { name: "/startup", usage: "/startup", description: "Start the assistant at boot" },
-  { name: "/name", usage: "/name <name>", description: "Rename the assistant" },
-  {
-    name: "/pin",
-    usage: "/pin <skill>",
-    description: "Keep a skill's instructions on for this conversation",
-  },
-  { name: "/unpin", usage: "/unpin <skill>", description: "Turn a pinned skill off for this conversation" },
-  { name: "/profile", usage: "/profile", description: "What the assistant knows about you: add, edit and remove" },
-  { name: "/get-to-know-me", usage: "/get-to-know-me", description: "Let the assistant get to know you" },
-  { name: "/help", usage: "/help", description: "Show commands and keys" },
+  { name: "/new", usage: "/new", description: "commands.new" },
+  { name: "/conversations", usage: "/conversations", description: "commands.conversations" },
+  { name: "/move", usage: "/move", description: "commands.move" },
+  { name: "/notifications", usage: "/notifications", description: "commands.notifications" },
+  { name: "/attach", usage: "/attach", description: "commands.attach" },
+  { name: "/sessions", usage: "/sessions", description: "commands.sessions" },
+  { name: "/jobs", usage: "/jobs", description: "commands.jobs" },
+  { name: "/settings", usage: "/settings", description: "commands.settings" },
+  { name: "/mcp", usage: "/mcp", description: "commands.mcp" },
+  { name: "/plugins", usage: "/plugins", description: "commands.plugins" },
+  { name: "/skills", usage: "/skills", description: "commands.skills" },
+  { name: "/usage", usage: "/usage", description: "commands.usage" },
+  { name: "/audio", usage: "/audio", description: "commands.audio" },
+  { name: "/websearch", usage: "/websearch", description: "commands.websearch" },
+  { name: "/startup", usage: "/startup", description: "commands.startup" },
+  { name: "/name", usage: "/name <name>", description: "commands.name" },
+  { name: "/pin", usage: "/pin <skill>", description: "commands.pin" },
+  { name: "/unpin", usage: "/unpin <skill>", description: "commands.unpin" },
+  { name: "/profile", usage: "/profile", description: "commands.profile" },
+  { name: "/get-to-know-me", usage: "/get-to-know-me", description: "commands.getToKnowMe" },
+  { name: "/help", usage: "/help", description: "commands.help" },
 ];
+
+/** What a command does, in the language shown. */
+export function commandText(command: Command): string {
+  return t(command.description, command.values);
+}
 
 export function takesArgument(command: Command): boolean {
   return command.usage !== command.name;
@@ -44,7 +47,8 @@ export function agentCommands(agents: Agent[]): Command[] {
     .map((a) => ({
       name: `/${a.command}`,
       usage: `/${a.command} [folder] | off`,
-      description: `Talk to ${a.name} directly, in a folder (alone it lets you pick one); off goes back to the assistant`,
+      description: "commands.agent",
+      values: { agent: a.name },
     }));
 }
 

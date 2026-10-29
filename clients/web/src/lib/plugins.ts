@@ -1,4 +1,5 @@
 import type { FoundServer, FoundSkill, Offered, PluginIcon, Repository, RepositoryPlugins } from "./api/types";
+import { t, type Key } from "./i18n.svelte";
 
 /** The assistant's extras, official, when a listing's repository isn't named: an empty url installs from them. */
 const EXTRAS: Repository = { url: "", name: "the assistant's extras", official: true, private: false };
@@ -53,25 +54,25 @@ export function iconOf(p: Plugin): PluginIcon | undefined {
 
 /** "Official" for the extras' plugins; the repository's name for the others. */
 export function sourceOf(p: Plugin): string {
-  return p.repository.official ? "Official" : p.repository.name;
+  return p.repository.official ? t("plugins.official") : p.repository.name;
 }
 
 /** "MCP server · channel · skill · page", "Channel" (a chat channel without tools), "Email provider", "Coding agent · skill", or "Skill". */
 export function kindOf(p: Plugin): string {
-  if (p.kind === "skill") return "Skill";
-  const parts: Array<[string, boolean | undefined]> = [
-    ["MCP server", p.server.transport !== "none"],
-    ["channel", p.server.channel],
-    ["email provider", p.server.email],
-    ["coding agent", Boolean(p.server.agent)],
-    ["skill", p.server.skill],
-    ["page", p.server.page],
+  if (p.kind === "skill") return t("plugins.kinds.skill");
+  const parts: Array<[Key, boolean | undefined]> = [
+    ["plugins.kinds.server", p.server.transport !== "none"],
+    ["plugins.kinds.channel", p.server.channel],
+    ["plugins.kinds.email", p.server.email],
+    ["plugins.kinds.agent", Boolean(p.server.agent)],
+    ["plugins.kinds.skill", p.server.skill],
+    ["plugins.kinds.page", p.server.page],
   ];
   const kind = parts
     .filter(([, has]) => has)
-    .map(([part]) => part)
+    .map(([part], i) => (i === 0 ? t(part) : t(part).toLowerCase()))
     .join(" · ");
-  return kind.charAt(0).toUpperCase() + kind.slice(1);
+  return kind;
 }
 
 /** Whether an installed plugin has a setup to go through: email accounts, or a channel's pairing. */
@@ -81,7 +82,7 @@ export function hasSetup(server: FoundServer): boolean {
 
 /** Where it runs: a remote MCP server runs elsewhere; a local one or a channel on the computer the assistant runs on. */
 export function runsOf(server: FoundServer): string {
-  return server.transport === "http" ? "Remotely" : "On the assistant's computer";
+  return server.transport === "http" ? t("plugins.remotely") : t("plugins.locally");
 }
 
 /** A field the daemon already has a value for (from before channels were plugins) may be left empty. */
@@ -91,20 +92,18 @@ export function optional(server: FoundServer, key: string): boolean {
 
 /** What an empty field says: the value saved before stays, or it may be left empty. */
 export function emptyHint(server: FoundServer, key: string): string {
-  if ((server.known_fields ?? []).includes(key)) return "Leave empty to keep the one already saved";
-  return optional(server, key) ? "Optional" : "";
+  if ((server.known_fields ?? []).includes(key)) return t("plugins.keepSaved");
+  return optional(server, key) ? t("plugins.optional") : "";
 }
 
 /** What an install dialog says about a login of the assistant's the plugin uses instead of its own. */
 export function sharedLogin(server: FoundServer): string {
-  return server.model_login === "copilot"
-    ? "It uses your GitHub Copilot login from Settings → Model while the model is GitHub Copilot."
-    : "";
+  return server.model_login === "copilot" ? t("plugins.copilotLogin") : "";
 }
 
 /** What an install dialog says about a plugin that uses the user's ssh agent (its keys reach any host it connects to). */
 export function sshAgentNote(server: FoundServer): string {
-  return server.ssh_agent ? "It uses your ssh agent, so it can sign in with the keys the agent holds." : "";
+  return server.ssh_agent ? t("plugins.sshAgent") : "";
 }
 
 /** The first required field left empty, to say so before installing; null when all are there. */
@@ -156,9 +155,35 @@ export function groupOf(category: string): string {
 export function categoryLabel(category: string): string {
   return category
     .split("/")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .map((part) => (part in CATEGORY_PARTS ? t(CATEGORY_PARTS[part]) : part.charAt(0).toUpperCase() + part.slice(1)))
     .join(" / ");
 }
+
+// The parts of the daemon's fixed list of categories (src/assistant/core/repositories/categories.py).
+const CATEGORY_PARTS: Record<string, Key> = {
+  agents: "categories.agents",
+  apps: "categories.apps",
+  assistant: "categories.assistant",
+  calendar: "categories.calendar",
+  chat: "categories.chat",
+  communications: "categories.communications",
+  connectivity: "categories.connectivity",
+  contacts: "categories.contacts",
+  email: "categories.email",
+  factory: "categories.factory",
+  finance: "categories.finance",
+  general: "categories.general",
+  maps: "categories.maps",
+  media: "categories.media",
+  modes: "categories.modes",
+  news: "categories.news",
+  other: "categories.other",
+  phone: "categories.phone",
+  productivity: "categories.productivity",
+  remote: "categories.remote",
+  software: "categories.software",
+  video: "categories.video",
+};
 
 /** The plugins grouped by their category's group, in alphabetical order with "other" last, keeping their order within a group. */
 export function byCategory(plugins: Plugin[]): Array<{ category: string; plugins: Plugin[] }> {

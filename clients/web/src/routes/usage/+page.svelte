@@ -2,6 +2,7 @@
   import ChartColumn from "@lucide/svelte/icons/chart-column";
   import type { ToolUsage } from "$lib/api/types";
   import { resource } from "$lib/daemon.svelte";
+  import { formatDate, formatNumber, t, type Key } from "$lib/i18n.svelte";
   import { pageOf } from "$lib/paging";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Pager from "$lib/ui/Pager.svelte";
@@ -12,12 +13,12 @@
   type Kind = "tool" | "skill";
   type Filter = "all" | Kind;
   const PERIODS = [7, 30, 90];
-  const FILTERS: { id: Filter; label: string }[] = [
-    { id: "all", label: "All" },
-    { id: "tool", label: "Tools" },
-    { id: "skill", label: "Skills" },
+  const FILTERS: { id: Filter; label: Key }[] = [
+    { id: "all", label: "usagePage.all" },
+    { id: "tool", label: "usagePage.tools" },
+    { id: "skill", label: "usagePage.skills" },
   ];
-  const KINDS: Record<Kind, string> = { tool: "Tool", skill: "Skill" };
+  const KINDS: Record<Kind, Key> = { tool: "tokens.tool", skill: "tokens.skill" };
   const PAGE_SIZE = 20;
 
   let days = $state(7);
@@ -46,15 +47,17 @@
   });
 
   function seconds(ms: number): string {
-    return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
+    return ms < 1000 ? `${ms} ms` : `${formatNumber(ms / 1000, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} s`;
   }
 </script>
 
-<TopBar title="Usage">
+<TopBar title={t("nav.usage")}>
   {#snippet actions()}
-    <div class="tabs" role="radiogroup" aria-label="Period">
+    <div class="tabs" role="radiogroup" aria-label={t("usagePage.period")}>
       {#each PERIODS as d (d)}
-        <button role="radio" aria-checked={d === days} class:active={d === days} onclick={() => (days = d)}>{d} days</button>
+        <button role="radio" aria-checked={d === days} class:active={d === days} onclick={() => (days = d)}
+          >{t("usagePage.days", { days: d })}</button
+        >
       {/each}
     </div>
   {/snippet}
@@ -65,15 +68,15 @@
   <section class="table-card surface--glass">
     <header class="toolbar">
       <div>
-        <h2 class="text-heading">Tool and skill calls</h2>
-        <p class="text-meta">How often the assistant used each one in the last {days} days.</p>
+        <h2 class="text-heading">{t("usagePage.title")}</h2>
+        <p class="text-meta">{t("usagePage.hint", { days })}</p>
       </div>
       <div class="controls">
-        <SearchField bind:value={query} label="Search tools and skills" />
-        <div class="tabs" role="radiogroup" aria-label="Show">
+        <SearchField bind:value={query} label={t("usagePage.search")} />
+        <div class="tabs" role="radiogroup" aria-label={t("usagePage.show")}>
           {#each FILTERS as f (f.id)}
             <button role="radio" aria-checked={f.id === filter} class:active={f.id === filter} onclick={() => (filter = f.id)}>
-              {f.label}
+              {t(f.label)}
             </button>
           {/each}
         </div>
@@ -83,9 +86,9 @@
     {#if report.error}
       <p class="error-text pad">{report.error}</p>
     {:else if rows?.length === 0 && query.trim()}
-      <EmptyState icon={ChartColumn} title="No matches" text="Nothing used in the last {days} days matches “{query.trim()}”." />
+      <EmptyState icon={ChartColumn} title={t("usagePage.noMatches")} text={t("usagePage.noMatchesHint", { days, query: query.trim() })} />
     {:else if rows?.length === 0}
-      <EmptyState icon={ChartColumn} title="Not used yet" text="Nothing in the last {days} days." />
+      <EmptyState icon={ChartColumn} title={t("usagePage.notUsed")} text={t("usagePage.notUsedHint", { days })} />
     {:else if rows && shown}
       <table class="data-table">
         <colgroup>
@@ -99,25 +102,25 @@
         </colgroup>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th class="num">Calls</th>
-            <th class="num">Errors</th>
-            <th class="num">Denied</th>
-            <th class="num">Avg time</th>
-            <th class="when hide-narrow">Last used</th>
+            <th>{t("alerts.name")}</th>
+            <th>{t("files.type")}</th>
+            <th class="num">{t("tokens.calls")}</th>
+            <th class="num">{t("usagePage.errors")}</th>
+            <th class="num">{t("usagePage.denied")}</th>
+            <th class="num">{t("usagePage.avgTime")}</th>
+            <th class="when hide-narrow">{t("devices.lastUsed")}</th>
           </tr>
         </thead>
         <tbody>
           {#each shown as r (`${r.kind}-${r.name}`)}
             <tr>
               <td class="name">{r.name}</td>
-              <td><span class="pill">{KINDS[r.kind]}</span></td>
+              <td><span class="pill">{t(KINDS[r.kind])}</span></td>
               <td class="num">{r.calls}</td>
               <td class="num">{r.errors}</td>
               <td class="num">{r.denied}</td>
               <td class="num">{seconds(r.avg_ms)}</td>
-              <td class="when text-label hide-narrow">{new Date(r.last_used).toLocaleString()}</td>
+              <td class="when text-label hide-narrow">{formatDate(r.last_used, { dateStyle: "medium", timeStyle: "short" })}</td>
             </tr>
           {/each}
         </tbody>

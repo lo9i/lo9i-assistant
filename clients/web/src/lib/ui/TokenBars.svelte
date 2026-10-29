@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { formatNumber } from "$lib/i18n.svelte";
+
   // A small bar chart of one value per day, in teal.
   let { points, label }: { points: { day: string; value: number }[]; label: string } = $props();
 
@@ -13,7 +15,7 @@
     {@const h = (p.value / max) * (H - 5)}
     <rect x={i * slot + slot * 0.15} y={H - 1 - h} width={slot * 0.7} height={h} class="bar" vector-effect="non-scaling-stroke" />
     <rect x={i * slot} y="0" width={slot} height={H} fill="transparent">
-      <title>{p.day}: {p.value.toLocaleString()}</title>
+      <title>{p.day}: {formatNumber(p.value)}</title>
     </rect>
   {/each}
 </svg>

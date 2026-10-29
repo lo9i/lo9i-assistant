@@ -10,6 +10,8 @@
   import { changeLabel, contextShare, partSize, times } from "$lib/doctor";
   import { runQuery } from "$lib/jobs";
   import { localTime } from "$lib/health";
+  import { formatDate, t } from "$lib/i18n.svelte";
+  import { levelLabel } from "$lib/logs";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import { openConversation } from "$lib/ui/openConversation";
   import TopBar from "$lib/ui/TopBar.svelte";
@@ -34,20 +36,20 @@
   }
 
   function kind(c: Cause): string {
-    return c.kind === "log" ? `Log, ${c.level.toLowerCase()}` : "Conversation";
+    return c.kind === "log" ? t("doctorPage.logLevel", { level: levelLabel(c.level).toLowerCase() }) : t("tokens.conversation");
   }
 
   function checked(): string {
     if (!report) return "";
-    const day = new Date(`${report.day}T12:00:00`).toDateString();
-    const span = report.whole_day ? `${day}, the whole day` : `${day} so far`;
-    const compared = report.compared_with ? `compared with ${report.compared_with}` : "nothing earlier to compare with";
-    return `${span}, checked ${localTime(report.at)}; ${compared}.`;
+    const day = formatDate(`${report.day}T12:00:00`, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+    const span = report.whole_day ? t("doctorPage.wholeDay", { day }) : t("doctorPage.soFar", { day });
+    const compared = report.compared_with ? t("doctorPage.comparedWith", { day: report.compared_with }) : t("doctorPage.nothingToCompare");
+    return t("doctorPage.checked", { span, when: localTime(report.at), compared });
   }
 </script>
 
 <!-- A settings tab of its own page. -->
-<TopBar title="Settings" />
+<TopBar title={t("nav.settings")} />
 
 <div class="shell">
   <SettingsTabs active="doctor" />
@@ -55,9 +57,10 @@
     <section class="table-card surface--glass">
       <header class="toolbar">
         <div>
-          <h2 class="text-heading">Health check</h2>
+          <h2 class="text-heading">{t("alerts.healthCheck")}</h2>
           <p class="text-meta">
-            {report ? checked() : "The daemon checks each day once it ends."} Click a cause to see it on the right.
+            {report ? checked() : t("doctorPage.daily")}
+            {t("doctorPage.clickCause")}
           </p>
         </div>
         <div class="actions">
@@ -66,10 +69,10 @@
             class="btn btn--primary btn--sm"
             disabled={doctor.data?.checking}
             onclick={() => act(() => client.doctor.check())}
-            title="Check today so far"
+            title={t("doctorPage.checkTodayHint")}
           >
             <RefreshCw size={16} />
-            <span class="hide-narrow">{doctor.data?.checking ? "Checking…" : "Check now"}</span>
+            <span class="hide-narrow">{doctor.data?.checking ? t("webSearch.checking") : t("doctorPage.checkNow")}</span>
           </button>
         </div>
       </header>
@@ -77,13 +80,17 @@
         {#if doctor.error}
           <p class="error-text pad">{doctor.error}</p>
         {:else if doctor.data && !report}
-          <EmptyState icon={Stethoscope} title="Not checked yet" text="Check now checks today so far." />
+          <EmptyState icon={Stethoscope} title={t("doctorPage.notChecked")} text={t("doctorPage.notCheckedHint")} />
         {:else if report && report.causes.length === 0}
-          <EmptyState icon={CircleCheck} title="Nothing wrong" text="No warnings or errors in the log, and no run failed." />
+          <EmptyState icon={CircleCheck} title={t("doctorPage.nothingWrong")} text={t("doctorPage.nothingWrongHint")} />
         {:else if report && cause}
           <table class="data-table">
             <thead>
-              <tr><th>Cause</th><th class="hide-narrow">Kind</th><th>How often</th><th class="hide-narrow">Last</th></tr>
+              <tr
+                ><th>{t("doctorPage.cause")}</th><th class="hide-narrow">{t("alerts.kind")}</th><th>{t("doctorPage.howOften")}</th><th
+                  class="hide-narrow">{t("doctorPage.last")}</th
+                ></tr
+              >
             </thead>
             <tbody>
               {#each report.causes as c (c.id)}
@@ -113,26 +120,26 @@
             {#if cause.change}<span class="pill pill--danger">{changeLabel(cause)}</span>{/if}
           </header>
           <dl>
-            <dt class="micro-label">Kind</dt>
+            <dt class="micro-label">{t("alerts.kind")}</dt>
             <dd>{kind(cause)}</dd>
-            {#if cause.where}<dt class="micro-label">Where</dt>
+            {#if cause.where}<dt class="micro-label">{t("doctorPage.where")}</dt>
               <dd class="mono">{cause.where}</dd>{/if}
-            <dt class="micro-label">How often</dt>
+            <dt class="micro-label">{t("doctorPage.howOften")}</dt>
             <dd>{times(cause)}</dd>
-            <dt class="micro-label">First</dt>
+            <dt class="micro-label">{t("doctorPage.first")}</dt>
             <dd>{localTime(cause.first)}</dd>
-            <dt class="micro-label">Last</dt>
+            <dt class="micro-label">{t("doctorPage.last")}</dt>
             <dd>{localTime(cause.last)}</dd>
           </dl>
           {#if cause.threads.length}
             <div class="threads">
-              {#each cause.threads as t (t.thread_id)}
-                {#if t.job}
+              {#each cause.threads as thread (thread.thread_id)}
+                {#if thread.job}
                   <!-- A scheduled job's run: its conversation isn't listed, the Jobs page shows it. -->
-                  <a class="btn btn--ghost btn--sm" href={`${resolve("/jobs")}${runQuery(t.job, t.run_at)}`}>{t.title}</a>
+                  <a class="btn btn--ghost btn--sm" href={`${resolve("/jobs")}${runQuery(thread.job, thread.run_at)}`}>{thread.title}</a>
                 {:else}
-                  <button class="btn btn--ghost btn--sm" onclick={() => openConversation(chats, notices, t.thread_id)}
-                    >{t.title || "Untitled"}</button
+                  <button class="btn btn--ghost btn--sm" onclick={() => openConversation(chats, notices, thread.thread_id)}
+                    >{thread.title || t("common.untitled")}</button
                   >
                 {/if}
               {/each}
@@ -142,8 +149,8 @@
           <div class="actions">
             <button
               class="btn btn--neutral btn--sm"
-              title="It's noise: leave it out of every check from now on"
-              onclick={() => act(() => client.doctor.markKnown(cause.id))}>Mark as known</button
+              title={t("doctorPage.markKnownHint")}
+              onclick={() => act(() => client.doctor.markKnown(cause.id))}>{t("doctorPage.markKnown")}</button
             >
           </div>
         </section>
@@ -152,12 +159,11 @@
       {#if report}
         <section class="details surface--glass">
           <header>
-            <h2 class="text-heading">Starting context</h2>
+            <h2 class="text-heading">{t("doctorPage.startingContext")}</h2>
             <span class="pill" class:pill--danger={report.context.too_large}>{contextShare(report.context)}</span>
           </header>
           <p class="text-meta">
-            What a new conversation starts with: {compact(report.context.tokens)} of the {compact(report.context.window)}
-            tokens its context bar measures against.
+            {t("doctorPage.contextText", { tokens: compact(report.context.tokens), window: compact(report.context.window) })}
           </p>
           <dl>
             {#each report.context.parts as part (part.name)}
@@ -170,7 +176,7 @@
 
       {#if report?.gone.length}
         <section class="details surface--glass">
-          <h2 class="text-heading">Gone since {report.compared_with}</h2>
+          <h2 class="text-heading">{t("doctorPage.gone", { day: report.compared_with })}</h2>
           <ul>
             {#each report.gone as g (g.id)}<li>{g.title}</li>{/each}
           </ul>
@@ -179,13 +185,15 @@
 
       {#if doctor.data?.known.length}
         <section class="details surface--glass">
-          <h2 class="text-heading">Known noise</h2>
-          <p class="text-meta">Left out of every check. Not noise shows it again from the next check.</p>
+          <h2 class="text-heading">{t("doctorPage.known")}</h2>
+          <p class="text-meta">{t("doctorPage.knownHint")}</p>
           <ul class="known">
             {#each doctor.data.known as k (k.id)}
               <li>
                 <span>{k.title}</span>
-                <button class="btn btn--ghost btn--sm" onclick={() => act(() => client.doctor.forgetKnown(k.id))}>Not noise</button>
+                <button class="btn btn--ghost btn--sm" onclick={() => act(() => client.doctor.forgetKnown(k.id))}
+                  >{t("doctorPage.notNoise")}</button
+                >
               </li>
             {/each}
           </ul>

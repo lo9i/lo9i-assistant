@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "$lib/i18n.svelte";
   import Modal from "./Modal.svelte";
 
   // `option`: a checkbox, unchecked at first, whose state comes with the answer.
@@ -14,7 +15,7 @@
   {/if}
   {#snippet footer()}
     <!-- svelte-ignore a11y_autofocus -->
-    <button class="btn btn--ghost" onclick={() => onanswer(false, false)} autofocus>Cancel</button>
+    <button class="btn btn--ghost" onclick={() => onanswer(false, false)} autofocus>{t("common.cancel")}</button>
     <button class="btn btn--danger" onclick={() => onanswer(true, checked)}>{action}</button>
   {/snippet}
 </Modal>

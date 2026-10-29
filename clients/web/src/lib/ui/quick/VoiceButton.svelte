@@ -5,6 +5,7 @@
   import Volume2 from "@lucide/svelte/icons/volume-2";
   import { finalReply } from "$lib/chat/transcript";
   import { external, useDaemon } from "$lib/daemon.svelte";
+  import { t, type Key } from "$lib/i18n.svelte";
   import { Recorder } from "$lib/microphone.svelte";
   import { Player } from "$lib/speech";
   import { clock, phase, type Phase } from "$lib/voice";
@@ -27,11 +28,11 @@
 
   const current = $derived(phase({ recording: recorder.recording, busy: snapshot.current.busy, preparingSpeech, speaking }));
   const reply = $derived(finalReply(snapshot.current.transcript));
-  const LABELS: Record<Phase, string> = {
-    idle: "Talk to the assistant",
-    listening: "Send",
-    thinking: "Stop",
-    speaking: "Stop speaking",
+  const LABELS: Record<Phase, Key> = {
+    idle: "quick.talk",
+    listening: "quick.send",
+    thinking: "quick.stop",
+    speaking: "quick.stopSpeaking",
   };
 
   $effect(() => {
@@ -108,21 +109,21 @@
 
 {#if quickPanel.open === "voice"}
   <QuickPanel
-    title="Voice"
+    title={t("quick.voice")}
     chat={snapshot.current}
     reply={current === "listening" ? "" : reply}
-    hint={current === "listening" ? "" : "Tap the button and ask for something."}
+    hint={current === "listening" ? "" : t("quick.voiceHint")}
     onstop={() => void stopThinking()}
     onclose={close}
   >
     {#if current === "listening"}
       <p class="status">
-        <span class="dot"></span>Listening {clock(now - recorder.startedAt)}. Tap to send, Esc to cancel.
+        <span class="dot"></span>{t("quick.listening", { elapsed: clock(now - recorder.startedAt) })}
       </p>
     {/if}
   </QuickPanel>
 {/if}
-<FloatingButton label={LABELS[current]} tone={current} onclick={press}>
+<FloatingButton label={t(LABELS[current])} tone={current} onclick={press}>
   {#if current === "listening"}
     <Send size={18} />
   {:else if current === "thinking"}

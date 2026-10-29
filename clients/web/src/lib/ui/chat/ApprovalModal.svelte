@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ApprovalRequired, Decision } from "$lib/api/types";
+  import { t } from "$lib/i18n.svelte";
   import Modal from "../Modal.svelte";
   import PluginOfferModal from "./PluginOfferModal.svelte";
   import PluginSetupModal from "./PluginSetupModal.svelte";
@@ -19,18 +20,16 @@
 {:else if request.kind === "plugin_setup" && request.server}
   <PluginSetupModal server={request.server} ondone={() => onanswer({ done: true })} />
 {:else}
-  <Modal title="Approve {String(request.tool ?? 'this action')}?" description={request.reason ? String(request.reason) : undefined}>
+  <Modal
+    title={request.tool ? t("chat.approveTool", { tool: String(request.tool) }) : t("chat.approveAction")}
+    description={request.reason ? String(request.reason) : undefined}
+  >
     <pre>{request.command ?? JSON.stringify(request, null, 2)}</pre>
-    <input
-      class="input"
-      placeholder="Reason, if you reject (optional)"
-      bind:value={reason}
-      onkeydown={(e) => e.key === "Enter" && reject()}
-    />
+    <input class="input" placeholder={t("chat.rejectReason")} bind:value={reason} onkeydown={(e) => e.key === "Enter" && reject()} />
     {#snippet footer()}
-      <button class="btn btn--danger" onclick={reject}>Reject</button>
+      <button class="btn btn--danger" onclick={reject}>{t("chat.reject")}</button>
       <!-- svelte-ignore a11y_autofocus -->
-      <button class="btn btn--primary" onclick={() => onanswer({ approved: true, reason: null })} autofocus>Approve</button>
+      <button class="btn btn--primary" onclick={() => onanswer({ approved: true, reason: null })} autofocus>{t("chat.approve")}</button>
     {/snippet}
   </Modal>
 {/if}

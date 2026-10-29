@@ -9,6 +9,7 @@
   import type { HomePage, HomeSection } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { dayOf, moved, updatedLabel, whileVisible, withColumns, withSection, withoutSection } from "$lib/home";
+  import { t } from "$lib/i18n.svelte";
   import { HomeSaves } from "$lib/homeSaves.svelte";
   import { describe } from "$lib/notices";
   import { installedIcon } from "$lib/pluginIcons";
@@ -127,13 +128,14 @@
   }
 </script>
 
-<TopBar title="Home">
+<TopBar title={t("nav.home")}>
   {#snippet actions()}
     {#if home.data?.updated_at}<span class="text-meta hide-narrow">{updatedLabel(home.data.updated_at, now)}</span>{/if}
-    <button class="btn btn--ghost" onclick={() => edit(null)}><Plus size={16} /><span class="hide-narrow">Add section</span></button>
+    <button class="btn btn--ghost" onclick={() => edit(null)}><Plus size={16} /><span class="hide-narrow">{t("homePage.add")}</span></button
+    >
     <button class="btn btn--primary" disabled={refreshing} onclick={refresh}>
       <span class="icon" class:spinning={refreshing}><RefreshCw size={16} /></span><span class="hide-narrow"
-        >{refreshing ? "Refreshing…" : "Refresh"}</span
+        >{refreshing ? t("homePage.refreshing") : t("common.refresh")}</span
       >
     </button>
   {/snippet}
@@ -142,13 +144,13 @@
 <div class="screen">
   {#if home.error && !home.data}
     <section class="surface--glass">
-      <EmptyState icon={CircleAlert} title="Home couldn't load" text={home.error} />
+      <EmptyState icon={CircleAlert} title={t("homePage.couldntLoad")} text={home.error} />
     </section>
   {:else if home.data === undefined}
-    <p class="text-meta">Loading…</p>
+    <p class="text-meta">{t("common.loading")}</p>
   {:else if home.data.cards.length === 0}
     <section class="surface--glass">
-      <EmptyState icon={House} title="No sections" text="Add a section: say what to show, and the assistant builds it from your plugins." />
+      <EmptyState icon={House} title={t("homePage.none")} text={t("homePage.noneHint")} />
     </section>
   {:else}
     <div class="grid">
@@ -170,9 +172,8 @@
     </div>
   {/if}
   <footer class="text-meta">
-    Each section is an instruction the assistant follows with your plugins' tools that only read. Home refreshes when you open it, at most
-    every ten minutes.
-    <button class="btn btn--ghost btn--sm" onclick={() => (resetting = true)}><RotateCcw size={14} />Use the built-in sections</button>
+    {t("homePage.footer")}
+    <button class="btn btn--ghost btn--sm" onclick={() => (resetting = true)}><RotateCcw size={14} />{t("homePage.builtIn")}</button>
   </footer>
 </div>
 
@@ -183,18 +184,18 @@
 {#if removing}
   {@const section = removing}
   <Confirm
-    title="Remove {section.title}?"
-    text="It goes from Home. The plugin and its data aren't touched."
-    action="Remove"
+    title={t("homePage.removeTitle", { title: section.title })}
+    text={t("homePage.removeText")}
+    action={t("common.remove")}
     onanswer={(yes) => (yes ? remove(section) : (removing = null))}
   />
 {/if}
 
 {#if resetting}
   <Confirm
-    title="Go back to the built-in sections?"
-    text="Your sections are replaced by Calendario, Watchlist, Gastos and Copilot."
-    action="Reset"
+    title={t("homePage.resetTitle")}
+    text={t("homePage.resetText")}
+    action={t("prompt.resetAction")}
     onanswer={(yes) => (yes ? reset() : (resetting = false))}
   />
 {/if}

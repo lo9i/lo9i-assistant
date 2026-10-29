@@ -1,5 +1,6 @@
 // Short messages shown in the corner: what just happened, and errors from any page.
 import { ApiError, DaemonUnavailableError } from "./api/errors";
+import { t } from "./i18n.svelte";
 
 /** What a notice offers to do about it, such as opening the conversation it's about. */
 export type NoticeAction = { label: string; run: () => void };
@@ -37,12 +38,9 @@ export class NoticeBoard {
   }
 }
 
-/** What a call says when the daemon can't be reached: most often it's restarting. */
-export const UNREACHABLE = "Can't reach the assistant right now. It may be restarting; try again in a moment.";
-
-/** What went wrong with a daemon call, for showing it. */
+/** What went wrong with a daemon call, for showing it. When the daemon can't be reached, most often it's restarting. */
 export function describe(error: unknown): string {
-  if (error instanceof DaemonUnavailableError) return UNREACHABLE;
+  if (error instanceof DaemonUnavailableError) return t("app.unreachable");
   if (error instanceof ApiError) return error.detail;
   return String(error);
 }

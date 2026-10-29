@@ -1,5 +1,6 @@
 <script lang="ts">
   import { resource } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
 
   // In the status bar: the model the assistant answers with, the worker model in its tooltip. Loaded again when
   // settings change; hidden when it can't be loaded.
@@ -7,7 +8,9 @@
 </script>
 
 {#if model.data && !model.error}
-  <span class="model" title="Provider: {model.data.provider} · worker: {model.data.worker_model}">{model.data.model}</span>
+  <span class="model" title={t("chat.modelTip", { provider: model.data.provider, worker: model.data.worker_model })}
+    >{model.data.model}</span
+  >
 {/if}
 
 <style>

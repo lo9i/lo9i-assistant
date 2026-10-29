@@ -3,6 +3,7 @@
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import { type Plugin, keyOf, kindOf } from "$lib/plugins";
   import type { UpdateStep } from "$lib/pluginUpdates";
+  import { t } from "$lib/i18n.svelte";
 
   // Installed plugins with a newer version in the extras: update the ones picked, or all of them. `steps` is
   // each row's progress while they update (updateEach), shown in a column of its own.
@@ -39,28 +40,35 @@
 <section class="table-card surface--glass updates">
   <header class="toolbar">
     <div>
-      <h2 class="text-heading">Updates</h2>
-      <p class="text-meta">Newer versions in the extras. Uncheck the ones to leave as they are.</p>
+      <h2 class="text-heading">{t("host.updates")}</h2>
+      <p class="text-meta">{t("pluginUpdates.hint")}</p>
     </div>
     <div class="tools">
       <span class="pill">{plugins.length}</span>
       <button class="btn btn--neutral btn--sm" disabled={busy || !picked.length || all} onclick={() => onupdate(picked)}
-        >Update selected ({picked.length})</button
+        >{t("pluginUpdates.selected", { count: picked.length })}</button
       >
-      <button class="btn btn--primary btn--sm" disabled={busy} onclick={() => onupdate(plugins)}><RefreshCw size={14} />Update all</button>
+      <button class="btn btn--primary btn--sm" disabled={busy} onclick={() => onupdate(plugins)}
+        ><RefreshCw size={14} />{t("pluginUpdates.all")}</button
+      >
     </div>
   </header>
   <table class="data-table">
     <thead>
       <tr>
         <th class="check"
-          ><input type="checkbox" aria-label="Pick all" checked={all} onchange={(e) => toggleAll(e.currentTarget.checked)} /></th
+          ><input
+            type="checkbox"
+            aria-label={t("pluginUpdates.pickAll")}
+            checked={all}
+            onchange={(e) => toggleAll(e.currentTarget.checked)}
+          /></th
         >
-        <th>Plugin</th>
-        <th class="hide-narrow">Kind</th>
-        <th>Installed</th>
-        <th>New</th>
-        {#if progress}<th class="step">Update</th>{/if}
+        <th>{t("pluginUpdates.plugin")}</th>
+        <th class="hide-narrow">{t("pluginUpdates.kind")}</th>
+        <th>{t("pluginUpdates.installed")}</th>
+        <th>{t("pluginUpdates.new")}</th>
+        {#if progress}<th class="step">{t("common.update")}</th>{/if}
       </tr>
     </thead>
     <tbody>
@@ -70,7 +78,7 @@
           <td class="check"
             ><input
               type="checkbox"
-              aria-label="Update {p.name}"
+              aria-label={t("pluginUpdates.update", { name: p.name })}
               checked={!skipped.has(keyOf(p))}
               onchange={(e) => toggle(p, e.currentTarget.checked)}
             /></td
@@ -83,13 +91,13 @@
             {@const step = steps[keyOf(p)]}
             <td class="step">
               {#if step === "updating"}
-                <span class="bar" role="progressbar" aria-label="Updating {p.name}"></span>
+                <span class="bar" role="progressbar" aria-label={t("pluginUpdates.updating", { name: p.name })}></span>
               {:else if step === "waiting"}
-                <span class="text-meta">Waiting</span>
+                <span class="text-meta">{t("pluginUpdates.waiting")}</span>
               {:else if step === "updated"}
-                <span class="done"><Check size={14} aria-hidden="true" />Updated</span>
+                <span class="done"><Check size={14} aria-hidden="true" />{t("pluginUpdates.updated")}</span>
               {:else if step === "failed"}
-                <span class="failed">Failed</span>
+                <span class="failed">{t("pluginUpdates.failed")}</span>
               {/if}
             </td>
           {/if}

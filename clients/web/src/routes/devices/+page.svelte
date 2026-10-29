@@ -7,6 +7,7 @@
   import Link from "@lucide/svelte/icons/link";
   import type { Device, PairingCode } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { formatDate, t } from "$lib/i18n.svelte";
   import Confirm from "$lib/ui/Confirm.svelte";
   import { clientLabel, conversationLabel } from "$lib/sessions";
   import EmptyState from "$lib/ui/EmptyState.svelte";
@@ -35,7 +36,7 @@
   }
 
   function when(iso: string): string {
-    return new Date(iso).toLocaleString([], { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    return formatDate(iso, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   }
 
   async function pair(): Promise<void> {
@@ -64,9 +65,9 @@
   }
 </script>
 
-<TopBar title="Devices">
+<TopBar title={t("nav.devices")}>
   {#snippet actions()}
-    <button class="btn btn--primary" onclick={pair}><Link size={16} /><span class="hide-narrow">Pair a browser</span></button>
+    <button class="btn btn--primary" onclick={pair}><Link size={16} /><span class="hide-narrow">{t("nav.pairBrowser")}</span></button>
   {/snippet}
 </TopBar>
 
@@ -74,8 +75,8 @@
   <section class="table-card surface--glass">
     <header class="toolbar">
       <div>
-        <h2 class="text-heading">Paired browsers</h2>
-        <p class="text-meta">Browsers allowed to use the assistant over the network. Click one to see it on the right.</p>
+        <h2 class="text-heading">{t("devices.title")}</h2>
+        <p class="text-meta">{t("devices.hint")}</p>
       </div>
       {#if devices.data}<span class="pill">{devices.data.length}</span>{/if}
     </header>
@@ -83,16 +84,16 @@
       {#if devices.error}
         <p class="error-text pad">{devices.error}</p>
       {:else if devices.data?.length === 0}
-        <EmptyState icon={Laptop} title="No browsers paired" text="Pair a browser to use the assistant from another device." />
+        <EmptyState icon={Laptop} title={t("devices.none")} text={t("devices.noneHint")} />
       {:else if devices.data && device}
         <table class="data-table">
           <thead>
             <tr>
-              <th>Browser</th>
-              <th>Sessions</th>
-              <th>Last used</th>
-              <th class="hide-narrow">From</th>
-              <th class="hide-narrow">Paired</th>
+              <th>{t("devices.browserColumn")}</th>
+              <th>{t("devices.sessions")}</th>
+              <th>{t("devices.lastUsed")}</th>
+              <th class="hide-narrow">{t("devices.from")}</th>
+              <th class="hide-narrow">{t("devices.paired")}</th>
             </tr>
           </thead>
           <tbody>
@@ -100,7 +101,7 @@
               <tr class:selected={d.id === device.id} onclick={() => (picked = d.id)}>
                 <td>
                   <button class="row-button" onclick={() => (picked = d.id)}>{d.name}</button>
-                  {#if isMe(d)}<span class="pill pill--accent">This browser</span>{/if}
+                  {#if isMe(d)}<span class="pill pill--accent">{t("devices.thisBrowser")}</span>{/if}
                 </td>
                 <td class="text-label">{sessionCount(d) || "—"}</td>
                 <td class="text-label">{when(d.last_used_at)}</td>
@@ -118,30 +119,30 @@
     {#if code}
       <section class="details pairing surface--glass">
         <header>
-          <h2 class="text-heading">Pairing code</h2>
-          <button class="btn btn--ghost btn--sm" onclick={() => (code = null)}>Hide</button>
+          <h2 class="text-heading">{t("devices.code")}</h2>
+          <button class="btn btn--ghost btn--sm" onclick={() => (code = null)}>{t("secret.hide")}</button>
         </header>
-        <p>On the other device, open this page's address and enter:</p>
+        <p>{t("devices.codeHint")}</p>
         <code class="code">{code.code}</code>
-        <p class="text-caption">It works once, until {when(code.expires_at)}.</p>
+        <p class="text-caption">{t("devices.codeOnce", { until: when(code.expires_at) })}</p>
       </section>
     {/if}
     {#if device}
       <section class="details surface--glass">
         <header>
           <h2 class="text-heading">{device.name}</h2>
-          {#if isMe(device)}<span class="pill pill--accent">This browser</span>{/if}
+          {#if isMe(device)}<span class="pill pill--accent">{t("devices.thisBrowser")}</span>{/if}
         </header>
         <dl>
-          <dt class="micro-label">Last used</dt>
+          <dt class="micro-label">{t("devices.lastUsed")}</dt>
           <dd>{when(device.last_used_at)}</dd>
-          <dt class="micro-label">From</dt>
-          <dd>{device.last_ip || "Unknown address"}</dd>
-          <dt class="micro-label">Paired</dt>
+          <dt class="micro-label">{t("devices.from")}</dt>
+          <dd>{device.last_ip || t("devices.unknownAddress")}</dd>
+          <dt class="micro-label">{t("devices.paired")}</dt>
           <dd>{when(device.created_at)}</dd>
         </dl>
         <div class="sessions">
-          <h3 class="micro-label">Open sessions</h3>
+          <h3 class="micro-label">{t("devices.openSessions")}</h3>
           {#each sessions as c (`${c.id}-${c.connected_at}`)}
             <p>
               {clientLabel(c)} ·
@@ -152,16 +153,16 @@
               {/if}
             </p>
           {:else}
-            <p class="text-caption">None right now.</p>
+            <p class="text-caption">{t("devices.noneNow")}</p>
           {/each}
         </div>
         <button class="btn btn--danger btn--sm revoke" onclick={() => (revoking = device)}>
-          {isMe(device) ? "Log out" : "Revoke"}
+          {isMe(device) ? t("devices.logOut") : t("devices.revoke")}
         </button>
       </section>
     {:else if !code}
       <section class="details surface--glass">
-        <EmptyState icon={KeyRound} title="No browser selected" text="Pick one from the table, or pair a new one." />
+        <EmptyState icon={KeyRound} title={t("devices.noneSelected")} text={t("devices.noneSelectedHint")} />
       </section>
     {/if}
   </div>
@@ -170,9 +171,9 @@
 {#if revoking}
   {@const d = revoking}
   <Confirm
-    title={isMe(d) ? "Log out of this browser?" : `Revoke ${d.name}?`}
-    text="It will need a new code to use the assistant again."
-    action={isMe(d) ? "Log out" : "Revoke"}
+    title={isMe(d) ? t("devices.logOutTitle") : t("devices.revokeTitle", { name: d.name })}
+    text={t("devices.revokeText")}
+    action={isMe(d) ? t("devices.logOut") : t("devices.revoke")}
     onanswer={(yes) => {
       // `d` follows `revoking`: read it before clearing that.
       const device = d;

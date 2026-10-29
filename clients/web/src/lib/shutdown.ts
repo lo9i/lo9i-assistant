@@ -1,22 +1,16 @@
 // Restarting or stopping the daemon from the Host card (src/assistant/daemon/shutdown.py). Either waits for
 // the runs in progress to end; the page reloads once the daemon is back.
+import { formatList, t } from "./i18n.svelte";
 
 export type Ending = "restart" | "stop";
 
-export const CONFIRM: Record<Ending, { title: string; text: string; action: string }> = {
-  restart: {
-    title: "Restart the assistant?",
-    text: "It stops and starts again once the runs in progress end. This page reloads when it's back.",
-    action: "Restart",
-  },
-  stop: {
-    title: "Stop the assistant?",
-    text:
-      "Jobs, chat channels and the apps stop working until it's started again on the computer it runs on " +
-      "(opening the terminal app there starts it). It waits for the runs in progress to end.",
-    action: "Stop",
-  },
-};
+/** What the Host card asks before a restart or stop. */
+export function confirmation(ending: Ending): { title: string; text: string; action: string } {
+  if (ending === "restart") {
+    return { title: t("shutdown.restartTitle"), text: t("shutdown.restartText"), action: t("shutdown.restart") };
+  }
+  return { title: t("shutdown.stopTitle"), text: t("shutdown.stopText"), action: t("shutdown.stop") };
+}
 
 /** A restart or stop the daemon accepted, until it's back: what it waits for, and whether it can be taken back (not
  * when something needs it, which `neededBy` says: an update installed, start at boot installed again). */
@@ -36,16 +30,14 @@ export function coming(data: Record<string, unknown>): Coming | null {
 
 /** What the page says once the daemon has accepted the request, until it's back. */
 export function endingText(c: Coming): string {
-  if (c.ending === "restart") return `The assistant restarts ${when(c)}. This page reloads when it's back.`;
-  return `The assistant stops ${when(c)}. Start it again on the computer it runs on; this page reloads when it's back.`;
+  return c.ending === "restart" ? t("shutdown.restarting", { when: when(c) }) : t("shutdown.stopping", { when: when(c) });
 }
 
 /** While it waits: what Cancel and Now do, or why it can't be cancelled. */
 export function waitingText(c: Coming): string {
-  const does = c.ending === "restart" ? "restarts" : "stops";
-  const now = c.waiting ? ` Now cancels the runs in progress, and it ${does} at once.` : "";
-  if (c.canTakeBack) return `Cancel keeps the assistant running.${now}`;
-  return `${c.neededBy || "Something needs it"}, so it can't be cancelled.${now}`;
+  const now = c.waiting ? " " + (c.ending === "restart" ? t("shutdown.nowRestarts") : t("shutdown.nowStops")) : "";
+  if (c.canTakeBack) return t("shutdown.cancelKeeps") + now;
+  return t("shutdown.cantCancel", { neededBy: c.neededBy || t("shutdown.somethingNeedsIt") }) + now;
 }
 
 /** Whether Cancel or Now has anything to do. */
@@ -55,14 +47,11 @@ export function answerable(c: Coming): { cancel: boolean; now: boolean } {
 
 /** On every page, once any app asked for a restart or stop: what's coming and what it waits for. */
 export function comingText(name: string, c: Coming): string {
-  return `${name} ${c.ending === "restart" ? "restarts" : "stops"} ${when(c)}.`;
+  const values = { name, when: when(c) };
+  return c.ending === "restart" ? t("shutdown.nameRestarts", values) : t("shutdown.nameStops", values);
 }
 
 function when(c: Coming): string {
-  const waits = [...(c.update ? ["the update being installed is done"] : []), ...(c.waiting ? [runs(c.waiting)] : [])];
-  return waits.length ? `once ${waits.join(" and ")}` : "now";
-}
-
-function runs(count: number): string {
-  return count === 1 ? "the run in progress ends" : `the ${count} runs in progress end`;
+  const waits = [...(c.update ? [t("shutdown.updateDone")] : []), ...(c.waiting ? [t("shutdown.runsEnd", { count: c.waiting })] : [])];
+  return waits.length ? t("shutdown.once", { waits: formatList(waits) }) : t("shutdown.now");
 }

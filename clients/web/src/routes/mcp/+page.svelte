@@ -12,6 +12,7 @@
   import type { McpServerStatus } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { failures } from "$lib/health";
+  import { t } from "$lib/i18n.svelte";
   import { STATUS_TONES, selectionFor, statusLabel, withTools } from "$lib/mcp";
   import { redirectUri } from "$lib/oauth";
   import Confirm from "$lib/ui/Confirm.svelte";
@@ -37,11 +38,11 @@
   let chosen = $state(new Set<string>());
   const savedKey = $derived(
     `${server?.name}:${(server?.tools ?? [])
-      .filter((t) => t.selected)
-      .map((t) => t.name)
+      .filter((tool) => tool.selected)
+      .map((tool) => tool.name)
       .join(",")}`,
   );
-  const saved = $derived(new Set(server?.tools.filter((t) => t.selected).map((t) => t.name)));
+  const saved = $derived(new Set(server?.tools.filter((tool) => tool.selected).map((tool) => tool.name)));
   $effect(() => {
     void savedKey;
     chosen = new Set(untrack(() => saved));
@@ -49,7 +50,7 @@
   const dirty = $derived(chosen.size !== saved.size || [...chosen].some((n) => !saved.has(n)));
 
   function selected(s: McpServerStatus): string {
-    return s.tools.length ? `${s.tools.filter((t) => t.selected).length} of ${s.tools.length}` : "–";
+    return s.tools.length ? t("mcp.of", { selected: s.tools.filter((tool) => tool.selected).length, total: s.tools.length }) : "–";
   }
 
   function change(action: () => Promise<unknown>): void {
@@ -59,7 +60,7 @@
   function updateFromRepository(name: string): void {
     change(async () => {
       await client.mcp.updateFromRepository(name);
-      notices.notify(`Updated ${name} from the extras.`);
+      notices.notify(t("mcp.updated", { name }));
     });
   }
 
@@ -67,22 +68,23 @@
   function signIn(name: string): void {
     change(async () => {
       window.open(await client.mcp.startSignIn(name, redirectUri()), "_blank", "noopener");
-      notices.notify(`Finish signing in on the page that opened; ${name} connects here once it's done.`);
+      notices.notify(t("mcp.finishSignIn", { name }));
     });
   }
 
   function saveTools(s: McpServerStatus): void {
     change(async () => {
       await client.mcp.change(s.name, selectionFor(s.tools, chosen));
-      notices.notify("Saved. The assistant gets these tools from your next message.");
+      notices.notify(t("mcp.toolsSaved"));
     });
   }
 </script>
 
 <!-- A settings tab of its own page: the list and details need the full height. -->
-<TopBar title="Settings">
+<TopBar title={t("nav.settings")}>
   {#snippet actions()}
-    <button class="btn btn--primary" onclick={() => (adding = true)}><Plus size={16} /><span class="hide-narrow">Add a server</span></button
+    <button class="btn btn--primary" onclick={() => (adding = true)}
+      ><Plus size={16} /><span class="hide-narrow">{t("mcp.add")}</span></button
     >
   {/snippet}
 </TopBar>
@@ -93,8 +95,8 @@
   <section class="table-card surface--glass">
     <header class="toolbar">
       <div>
-        <h2 class="text-heading">Servers</h2>
-        <p class="text-meta">Tools the assistant gets from MCP servers. Click one to see it on the right.</p>
+        <h2 class="text-heading">{t("mcp.servers")}</h2>
+        <p class="text-meta">{t("mcp.hint")}</p>
       </div>
       {#if servers.data}<span class="pill">{servers.data.length}</span>{/if}
     </header>
@@ -102,26 +104,26 @@
       {#if servers.error}
         <p class="error-text pad">{servers.error}</p>
       {:else if servers.data?.length === 0}
-        <EmptyState icon={Blocks} title="No MCP servers" text="Add one to give the assistant its tools, like GitHub or a database." />
+        <EmptyState icon={Blocks} title={t("mcp.none")} text={t("mcp.noneHint")} />
       {:else if servers.data && server}
         <table class="data-table">
           <thead
             ><tr
-              ><th>Server</th><th class="hide-narrow">Kind</th><th class="hide-narrow">Added by</th><th class="hide-narrow">Tools</th><th
-                >Status</th
-              ></tr
+              ><th>{t("mcp.server")}</th><th class="hide-narrow">{t("alerts.kind")}</th><th class="hide-narrow">{t("mcp.addedBy")}</th><th
+                class="hide-narrow">{t("mcp.tools")}</th
+              ><th>{t("mcp.status")}</th></tr
             ></thead
           >
           <tbody>
             {#each servers.data as s (s.name)}
               <tr class:selected={s.name === server.name} onclick={() => (picked = s.name)}>
                 <td><button class="row-button" onclick={() => (picked = s.name)}>{s.name}</button></td>
-                <td class="hide-narrow">{s.transport === "stdio" ? "Local command" : "Remote URL"}</td>
-                <td class="hide-narrow">{s.plugin ? `Plugin ${s.plugin}` : "You"}</td>
+                <td class="hide-narrow">{s.transport === "stdio" ? t("mcpAdd.local") : t("mcpAdd.remote")}</td>
+                <td class="hide-narrow">{s.plugin ? t("mcp.pluginName", { plugin: s.plugin }) : t("mcp.you")}</td>
                 <td class="hide-narrow">{selected(s)}</td>
                 <td>
                   <span class="state"><span class="status-dot" style:--tone={STATUS_TONES[s.status]}></span>{statusLabel(s.status)}</span>
-                  {#if s.failing}<span class="pill pill--danger">failing</span>{/if}
+                  {#if s.failing}<span class="pill pill--danger">{t("skills.failing")}</span>{/if}
                 </td>
               </tr>
             {/each}
@@ -138,80 +140,81 @@
           <h2 class="text-heading">{server.name}</h2>
           <Toggle
             checked={server.enabled}
-            label={server.enabled ? "Turn off" : "Turn on"}
+            label={server.enabled ? t("mcp.turnOff") : t("mcp.turnOn")}
             onchange={(on) => change(() => client.mcp.change(server.name, { enabled: on }))}
           />
         </header>
         {#if server.error}<p class="error-text">{server.error}</p>{/if}
         <dl>
-          <dt class="micro-label">Status</dt>
+          <dt class="micro-label">{t("mcp.status")}</dt>
           <dd>{statusLabel(server.status)}</dd>
-          {#if server.failures}<dt class="micro-label">Failures</dt>
+          {#if server.failures}<dt class="micro-label">{t("mcp.failures")}</dt>
             <dd>{failures(server)}</dd>{/if}
           {#if server.transport === "stdio"}
-            <dt class="micro-label">Command</dt>
+            <dt class="micro-label">{t("mcp.command")}</dt>
             <dd><code>{[server.command, ...server.args].join(" ")}</code></dd>
-            <dt class="micro-label">Environment</dt>
-            <dd>{server.env_keys.join(", ") || "none"}</dd>
+            <dt class="micro-label">{t("mcp.environment")}</dt>
+            <dd>{server.env_keys.join(", ") || t("mcp.nothing")}</dd>
           {:else}
             <dt class="micro-label">URL</dt>
             <dd><code>{server.url}</code></dd>
-            <dt class="micro-label">Headers</dt>
-            <dd>{server.header_keys.join(", ") || "none"}</dd>
+            <dt class="micro-label">{t("mcp.headers")}</dt>
+            <dd>{server.header_keys.join(", ") || t("mcp.nothing")}</dd>
           {/if}
-          <dt class="micro-label">Added by</dt>
-          <dd>{server.plugin ? `The ${server.plugin} plugin` : "You, by hand"}</dd>
+          <dt class="micro-label">{t("mcp.addedBy")}</dt>
+          <dd>{server.plugin ? t("mcp.thePlugin", { plugin: server.plugin }) : t("mcp.byHand")}</dd>
           {#if server.source}
-            <dt class="micro-label">Installed from</dt>
+            <dt class="micro-label">{t("mcp.installedFrom")}</dt>
             <dd>{server.source}</dd>
           {/if}
           {#if server.channel}
-            <dt class="micro-label">Channel</dt>
-            <dd>Set it up in <a href={resolve("/plugins")}>Plugins</a></dd>
+            <dt class="micro-label">{t("mcp.channel")}</dt>
+            <dd>{t("mcp.setUpIn")} <a href={resolve("/plugins")}>Plugins</a></dd>
           {/if}
         </dl>
         <div class="trust">
           <div>
-            <span>Trusted</span>
+            <span>{t("mcp.trusted")}</span>
             <p class="text-caption">
-              {server.trusted ? "Its tools run without asking." : "Every tool not marked read-only asks for approval first."}
+              {server.trusted ? t("mcp.trustedYes") : t("mcp.trustedNo")}
             </p>
           </div>
           <Toggle
             checked={server.trusted}
-            label={server.trusted ? "Stop trusting" : "Trust"}
+            label={server.trusted ? t("mcp.stopTrusting") : t("mcp.trust")}
             onchange={(on) => change(() => client.mcp.change(server.name, { trusted: on }))}
           />
         </div>
         <div class="actions">
           {#if server.status === "needs_sign_in"}
-            <button class="btn btn--primary btn--sm" onclick={() => signIn(server.name)}><LogIn size={14} />Sign in</button>
+            <button class="btn btn--primary btn--sm" onclick={() => signIn(server.name)}><LogIn size={14} />{t("mcp.signIn")}</button>
           {/if}
           <button class="btn btn--neutral btn--sm" onclick={() => (secrets = server.transport === "stdio" ? "env" : "headers")}>
-            {server.transport === "stdio" ? "Change environment" : "Change headers"}
+            {server.transport === "stdio" ? t("mcp.changeEnv") : t("mcp.changeHeaders")}
           </button>
           {#if server.source}
-            <button class="btn btn--neutral btn--sm" onclick={() => updateFromRepository(server.name)}><RefreshCw size={14} />Update</button
+            <button class="btn btn--neutral btn--sm" onclick={() => updateFromRepository(server.name)}
+              ><RefreshCw size={14} />{t("common.update")}</button
             >
           {/if}
           <!-- What a plugin installed goes with the plugin, in Settings → Plugins. -->
           {#if server.plugin}
-            <span class="text-caption">To remove it, remove the {server.plugin} plugin in Settings → Plugins.</span>
+            <span class="text-caption">{t("mcp.removeWithPlugin", { plugin: server.plugin })}</span>
           {:else}
-            <button class="btn btn--danger btn--sm" onclick={() => (removing = true)}><Trash2 size={14} />Remove</button>
+            <button class="btn btn--danger btn--sm" onclick={() => (removing = true)}><Trash2 size={14} />{t("common.remove")}</button>
           {/if}
         </div>
       </section>
       <section class="tools-card surface--glass">
         <header>
-          <h3 class="micro-label">Tools</h3>
-          {#if dirty}<button class="btn btn--primary btn--sm" onclick={() => saveTools(server)}>Save</button>{/if}
+          <h3 class="micro-label">{t("mcp.tools")}</h3>
+          {#if dirty}<button class="btn btn--primary btn--sm" onclick={() => saveTools(server)}>{t("common.save")}</button>{/if}
         </header>
         <div class="tools-scroll">
           {#if server.status === "needs_sign_in"}
-            <EmptyState icon={LogIn} title="Sign in" text="It asks you to sign in. Its tools show up here once you have." />
+            <EmptyState icon={LogIn} title={t("mcp.signIn")} text={t("mcp.signInHint")} />
           {:else if server.tools.length === 0}
-            <EmptyState icon={Wrench} title="Not connected" text="Its tools show up here once it connects." />
+            <EmptyState icon={Wrench} title={t("mcp.notConnected")} text={t("mcp.notConnectedHint")} />
           {:else}
             <ToolChecklist tools={server.tools} {chosen} onchange={(c) => (chosen = c)} />
           {/if}
@@ -219,7 +222,7 @@
       </section>
     {:else}
       <section class="tools-card surface--glass">
-        <EmptyState icon={Blocks} title="No server selected" text="Pick one from the table to see it here." />
+        <EmptyState icon={Blocks} title={t("mcp.noneSelected")} text={t("mcp.noneSelectedHint")} />
       </section>
     {/if}
   </div>
@@ -240,9 +243,9 @@
 
 {#if removing && server}
   <Confirm
-    title="Remove {server.name}?"
-    text="The assistant loses its tools from your next message, and its settings are deleted."
-    action="Remove"
+    title={t("repositories.removeTitle", { name: server.name })}
+    text={t("mcp.removeText")}
+    action={t("common.remove")}
     onanswer={(yes) => {
       removing = false;
       if (yes) change(async () => keptKeys.ask(await client.mcp.remove(server.name)));

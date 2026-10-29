@@ -4,6 +4,7 @@
   import { page } from "$app/state";
   import Plus from "@lucide/svelte/icons/plus";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import ConversationPreview from "$lib/ui/chat/ConversationPreview.svelte";
   import ConversationsTable from "$lib/ui/chat/ConversationsTable.svelte";
   import { openConversation } from "$lib/ui/openConversation";
@@ -59,9 +60,11 @@
   }
 </script>
 
-<TopBar title="Chat">
+<TopBar title={t("nav.chat")}>
   {#snippet actions()}
-    <button class="btn btn--primary" onclick={startNew}><Plus size={16} /><span class="hide-narrow">New conversation</span></button>
+    <button class="btn btn--primary" onclick={startNew}
+      ><Plus size={16} /><span class="hide-narrow">{t("nav.newConversation")}</span></button
+    >
   {/snippet}
 </TopBar>
 

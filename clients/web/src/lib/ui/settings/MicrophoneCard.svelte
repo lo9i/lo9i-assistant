@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { microphones, preferredMicrophone, setPreferredMicrophone } from "$lib/microphone.svelte";
+  import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
   import SettingsCard from "../Card.svelte";
 
@@ -22,7 +23,7 @@
   async function allow(): Promise<void> {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((t) => t.stop());
+      stream.getTracks().forEach((track) => track.stop());
       error = "";
     } catch (e) {
       error = describe(e);
@@ -38,25 +39,25 @@
   });
 </script>
 
-<SettingsCard id="microphone" title="Microphone" sub="For voice messages from the chat box in this browser.">
+<SettingsCard id="microphone" title={t("microphone.title")} sub={t("microphone.sub")}>
   {#if !supported}
-    <p class="text-meta">This browser can't record here. Recording needs HTTPS or localhost.</p>
+    <p class="text-meta">{t("microphone.unsupported")}</p>
   {:else}
     {#if !named}
       <div class="row">
-        <button class="btn btn--neutral" onclick={allow}>Allow microphone</button>
-        <span class="text-caption">The browser asks once. Then the microphones show by name.</span>
+        <button class="btn btn--neutral" onclick={allow}>{t("microphone.allow")}</button>
+        <span class="text-caption">{t("microphone.allowHint")}</span>
       </div>
     {/if}
     <label class="field">
-      <span class="micro-label">Input</span>
-      <select class="input" bind:value={chosen} onchange={() => setPreferredMicrophone(chosen)} aria-label="Microphone">
-        <option value="">Browser default</option>
+      <span class="micro-label">{t("microphone.input")}</span>
+      <select class="input" bind:value={chosen} onchange={() => setPreferredMicrophone(chosen)} aria-label={t("microphone.title")}>
+        <option value="">{t("microphone.default")}</option>
         {#each devices.filter((d) => d.deviceId && d.deviceId !== "default") as d, i (d.deviceId)}
-          <option value={d.deviceId}>{d.label || `Microphone ${i + 1}`}</option>
+          <option value={d.deviceId}>{d.label || t("microphone.numbered", { number: i + 1 })}</option>
         {/each}
       </select>
-      <span class="text-caption">Kept in this browser only. Press the microphone in the chat box to record.</span>
+      <span class="text-caption">{t("microphone.hint")}</span>
     </label>
   {/if}
   {#if error}<p class="error-text">{error}</p>{/if}

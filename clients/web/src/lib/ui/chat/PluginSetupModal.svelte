@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { FoundServer } from "$lib/api/types";
+  import { t } from "$lib/i18n.svelte";
   import Modal from "../Modal.svelte";
   import PluginSetup from "../plugins/PluginSetup.svelte";
 
@@ -7,9 +8,9 @@
   let { server, ondone }: { server: FoundServer; ondone: () => void } = $props();
 </script>
 
-<Modal title="Set up {server.name}" description={server.description} width={600} onclose={ondone}>
+<Modal title={t("chat.setUp", { name: server.name })} description={server.description} width={600} onclose={ondone}>
   <PluginSetup {server} />
   {#snippet footer()}
-    <button class="btn btn--primary" onclick={ondone}>Done</button>
+    <button class="btn btn--primary" onclick={ondone}>{t("common.done")}</button>
   {/snippet}
 </Modal>

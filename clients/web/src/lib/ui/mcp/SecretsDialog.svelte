@@ -1,6 +1,7 @@
 <script lang="ts">
   import { useDaemon } from "$lib/daemon.svelte";
   import { parsePairs } from "$lib/mcp";
+  import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
   import Modal from "../Modal.svelte";
 
@@ -22,24 +23,20 @@
   }
 </script>
 
-<Modal
-  title={isEnv ? `Environment of ${server}` : `Headers of ${server}`}
-  description="Replaces all of them. The server reconnects with the new values."
-  {onclose}
->
+<Modal title={isEnv ? t("mcpAdd.envOf", { server }) : t("mcpAdd.headersOf", { server })} description={t("mcpAdd.replaces")} {onclose}>
   <textarea
     class="input"
     rows="4"
     bind:value={text}
     placeholder={isEnv ? "API_KEY=…" : "Authorization: Bearer …"}
-    aria-label={isEnv ? "Environment" : "Headers"}
+    aria-label={isEnv ? t("mcpAdd.environmentLabel") : t("mcpAdd.headersLabel")}
     autocomplete="off"
     spellcheck="false"></textarea>
-  <p class="text-caption">{isEnv ? "KEY=value" : "Name: value"}, one per line. Leave it empty to remove them all.</p>
+  <p class="text-caption">{isEnv ? t("mcpAdd.envLines") : t("mcpAdd.headerLines")}</p>
   {#if error}<p class="error-text">{error}</p>{/if}
   {#snippet footer()}
-    <button class="btn btn--ghost" onclick={onclose}>Cancel</button>
-    <button class="btn btn--primary" onclick={save}>Save</button>
+    <button class="btn btn--ghost" onclick={onclose}>{t("common.cancel")}</button>
+    <button class="btn btn--primary" onclick={save}>{t("common.save")}</button>
   {/snippet}
 </Modal>
 

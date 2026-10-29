@@ -6,6 +6,7 @@
   import { saveOpen, saveThread } from "$lib/chat/tabThread";
   import { external, provideDaemon, resource, type Daemon } from "$lib/daemon.svelte";
   import { failingNotice, signedOutNotice } from "$lib/health";
+  import { language, t } from "$lib/i18n.svelte";
   import { openConversation } from "$lib/ui/openConversation";
   import { sidebar } from "$lib/sidebar.svelte";
   import ConnectionBanner from "./ConnectionBanner.svelte";
@@ -24,6 +25,11 @@
   // svelte-ignore state_referenced_locally
   const { chats, voice, text, hub, notices } = daemon;
   const name = resource((client) => client.identity.name(), ["settings"]);
+  // The language chosen in any app; until the daemon answers, the one this browser last had.
+  const chosenLanguage = resource((client) => client.language.get(), ["settings"]);
+  $effect(() => {
+    if (chosenLanguage.data) language.use(chosenLanguage.data.language);
+  });
   const open = external(chats.subscribe, chats.getSnapshot);
   const voiceThreadId = external(voice.subscribe, () => voice.getSnapshot().threadId);
   const textThreadId = external(text.subscribe, () => text.getSnapshot().threadId);
@@ -40,7 +46,7 @@
   $effect(() =>
     hub.on(["job"], (data) => {
       const job = data as JobFinished;
-      notices.notify(`Job ${job.name}: ${job.status}`, job.status === "ok" ? "info" : "warning");
+      notices.notify(t("app.jobFinished", { name: job.name, status: job.status }), job.status === "ok" ? "info" : "warning");
     }),
   );
   // Work started in a conversation opens it; a scheduled job's run is no conversation to open, nor the inbox, which
@@ -51,7 +57,7 @@
       const open =
         ended.channel === UNATTENDED || ended.thread_id === chats.inboxId
           ? undefined
-          : { label: "Open its conversation", run: () => void openConversation(chats, notices, ended.thread_id) };
+          : { label: t("app.openItsConversation"), run: () => void openConversation(chats, notices, ended.thread_id) };
       notices.notify(ended.text, ended.ok ? "info" : "warning", open);
     }),
   );

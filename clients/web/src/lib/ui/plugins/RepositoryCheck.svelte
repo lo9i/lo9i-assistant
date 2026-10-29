@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ago } from "$lib/duration";
   import type { CheckState } from "$lib/pluginUpdates";
+  import { formatDate, t } from "$lib/i18n.svelte";
 
   // Beside the Plugins toolbar: the list shown is the one kept from the last check, while the repositories are
   // checked again in the background. Quiet either way: a check that fails leaves that list.
@@ -14,13 +15,15 @@
 </script>
 
 {#if check === "checking"}
-  <span class="text-caption check"><span class="spinner"></span>Checking for updates…</span>
+  <span class="text-caption check"><span class="spinner"></span>{t("pluginUpdates.checking")}</span>
 {:else if check === "failed"}
-  <span class="text-caption check" title="The repositories couldn't be reached; this is the list from the last check."
-    >Couldn't check for updates{checked ? ` · checked ${ago(checked, now)}` : ""}</span
+  <span class="text-caption check" title={t("pluginUpdates.checkFailedHint")}
+    >{t("pluginUpdates.checkFailed")}{checked ? t("pluginUpdates.checkedAgo", { ago: ago(checked, now) }) : ""}</span
   >
 {:else if checked}
-  <span class="text-caption check" title={new Date(checked).toLocaleString()}>Checked {ago(checked, now)}</span>
+  <span class="text-caption check" title={formatDate(checked, { dateStyle: "medium", timeStyle: "short" })}
+    >{t("pluginUpdates.checked", { ago: ago(checked, now) })}</span
+  >
 {/if}
 
 <style>

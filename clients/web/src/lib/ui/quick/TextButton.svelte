@@ -3,6 +3,7 @@
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import { finalReply } from "$lib/chat/transcript";
   import { external, useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import ApprovalModal from "../chat/ApprovalModal.svelte";
   import FloatingButton from "./FloatingButton.svelte";
   import QuickPanel from "./QuickPanel.svelte";
@@ -67,10 +68,10 @@
 
 {#if open}
   <QuickPanel
-    title="Message"
+    title={t("quick.message")}
     chat={snapshot.current}
     {reply}
-    hint="Ask for something; it goes to the right conversation."
+    hint={t("quick.messageHint")}
     onstop={() => void chat.stop()}
     onclose={close}
   >
@@ -78,14 +79,14 @@
       bind:this={input}
       bind:value={draft}
       class="input"
-      placeholder="Type a short message"
-      aria-label="Message to the assistant"
+      placeholder={t("quick.placeholder")}
+      aria-label={t("quick.messageLabel")}
       disabled={busy}
       onkeydown={onKeydown}
     />
   </QuickPanel>
 {/if}
-<FloatingButton label={busy ? "Stop" : "Type to the assistant"} tone={busy ? "thinking" : ""} onclick={press}>
+<FloatingButton label={busy ? t("quick.stop") : t("quick.type")} tone={busy ? "thinking" : ""} onclick={press}>
   {#if busy}
     <LoaderCircle size={18} class="spin" />
   {:else}

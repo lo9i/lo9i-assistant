@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import X from "@lucide/svelte/icons/x";
+  import { t } from "$lib/i18n.svelte";
 
   type Props = {
     title: string;
@@ -44,7 +45,7 @@
         {#if description}<p class="text-label">{description}</p>{/if}
       </div>
       {#if onclose}
-        <button class="btn btn--icon" style="--btn-icon-size: 32px" aria-label="Close" onclick={onclose}>
+        <button class="btn btn--icon" style="--btn-icon-size: 32px" aria-label={t("common.close")} onclick={onclose}>
           <X size={18} />
         </button>
       {/if}

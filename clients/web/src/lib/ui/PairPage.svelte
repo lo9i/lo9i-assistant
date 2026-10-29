@@ -2,6 +2,7 @@
   // Shown instead of the app while this browser isn't paired: every request needs a paired device.
   import type { DaemonClient } from "$lib/api/client";
   import { deviceName } from "$lib/deviceName";
+  import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
 
   let { client }: { client: DaemonClient } = $props();
@@ -25,23 +26,23 @@
 </script>
 
 <main class="pair">
-  <h1 class="text-heading">Pair this browser</h1>
+  <h1 class="text-heading">{t("pair.title")}</h1>
   <p class="text-label">
-    On a device that already uses the assistant, create a code: <code>/devices</code> in the terminal app, or the Devices page in a paired browser.
-    Then enter it here.
+    {t("pair.howBefore")} <code>/devices</code>
+    {t("pair.howAfter")}
   </p>
   <form onsubmit={pair}>
     <input
       class="input"
       bind:value={code}
-      placeholder="Code, like K7QM-2XPD"
-      aria-label="Pairing code"
+      placeholder={t("pair.codePlaceholder")}
+      aria-label={t("pair.code")}
       autocomplete="one-time-code"
       autocapitalize="characters"
       spellcheck="false"
     />
-    <input class="input" bind:value={name} placeholder="Name for this device" aria-label="Device name" />
-    <div><button class="btn btn--primary" type="submit" disabled={busy || !code.trim()}>Pair</button></div>
+    <input class="input" bind:value={name} placeholder={t("pair.namePlaceholder")} aria-label={t("pair.name")} />
+    <div><button class="btn btn--primary" type="submit" disabled={busy || !code.trim()}>{t("pair.pair")}</button></div>
   </form>
   {#if error}<p class="error-text">{error}</p>{/if}
 </main>

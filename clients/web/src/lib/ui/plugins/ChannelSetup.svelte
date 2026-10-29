@@ -1,8 +1,9 @@
 <script lang="ts">
   import Copy from "@lucide/svelte/icons/copy";
   import type { ChannelStatus, SetupItem } from "$lib/api/types";
-  import { lineOf, qrOf, stateOf, titleOf } from "$lib/channels";
+  import { lineOf, qrOf, stateLabel, stateOf, titleOf } from "$lib/channels";
   import { useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
 
   // A chat channel's setup, in its plugin's details. Each channel sends what to show for setting it up
@@ -27,19 +28,19 @@
   async function copy(item: SetupItem): Promise<void> {
     try {
       await navigator.clipboard.writeText(item.value);
-      notices.notify(`Copied ${item.label ? item.label.toLowerCase() : "it"}.`);
+      notices.notify(item.label ? t("channelSetup.copiedLabel", { label: item.label.toLowerCase() }) : t("channelSetup.copied"));
     } catch (e) {
       notices.report(e);
     }
   }
 </script>
 
-<section class="channel" aria-label="{titleOf(channel.name)} setup">
+<section class="channel" aria-label={t("channelSetup.label", { name: titleOf(channel.name) })}>
   <header>
-    <h3 class="micro-label">Setup</h3>
+    <h3 class="micro-label">{t("channelSetup.setup")}</h3>
     <span class="pill" class:pill--accent={connection === "Connected"}>
       <span class="status-dot" style:--tone={TONES[connection]}></span>
-      {connection}
+      {stateLabel(connection)}
     </span>
   </header>
   {#each channel.items as item, i (i)}
@@ -54,14 +55,14 @@
       <div class="copy-box">
         <div class="copy-head">
           <span class="micro-label">{item.label}</span>
-          <button class="btn btn--neutral btn--sm" type="button" onclick={() => copy(item)}><Copy size={14} />Copy</button>
+          <button class="btn btn--neutral btn--sm" type="button" onclick={() => copy(item)}><Copy size={14} />{t("thread.copy")}</button>
         </div>
         <pre>{item.value}</pre>
       </div>
     {:else if item.kind === "qr"}
       {@const qr = qrOf(item.value)}
       <figure class="qr-box">
-        <svg viewBox="0 0 {qr.size} {qr.size}" shape-rendering="crispEdges" role="img" aria-label={item.label || "QR code"}>
+        <svg viewBox="0 0 {qr.size} {qr.size}" shape-rendering="crispEdges" role="img" aria-label={item.label || t("channelSetup.qr")}>
           <rect width={qr.size} height={qr.size} fill="#fff" />
           <path d={qr.path} fill="#000" />
         </svg>
@@ -75,7 +76,7 @@
         <button
           class="btn btn--neutral btn--sm"
           disabled={!channel.connected}
-          title={channel.connected ? undefined : `${titleOf(channel.name)} isn't connected`}
+          title={channel.connected ? undefined : t("channelSetup.notConnectedName", { name: titleOf(channel.name) })}
           onclick={() => press(item)}>{item.label}</button
         >
       {/each}

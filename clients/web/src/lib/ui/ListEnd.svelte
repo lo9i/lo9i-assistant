@@ -1,4 +1,5 @@
 <script lang="ts" generics="T">
+  import { t } from "$lib/i18n.svelte";
   import type { PagedList } from "$lib/pagedList.svelte";
 
   // After a paged list's last item: in sight, it loads the next page, and says so while it does.
@@ -20,10 +21,10 @@
 {#if list.error}
   <p class="end error-text">
     {list.error}
-    <button class="btn btn--ghost btn--sm" onclick={() => list.reload()}>Try again</button>
+    <button class="btn btn--ghost btn--sm" onclick={() => list.reload()}>{t("app.tryAgain")}</button>
   </p>
 {:else if !list.done}
-  <p class="end text-meta" bind:this={end}>{list.loading ? "Loading more…" : ""}</p>
+  <p class="end text-meta" bind:this={end}>{list.loading ? t("common.loadingMore") : ""}</p>
 {/if}
 
 <style>

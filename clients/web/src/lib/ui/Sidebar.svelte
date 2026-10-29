@@ -28,6 +28,7 @@
   import { openList } from "$lib/chat/openList";
   import { TINTS, tints } from "$lib/chat/tints";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
+  import { t, type Key } from "$lib/i18n.svelte";
   import { pageLabel } from "$lib/pages";
   import PluginIcon from "./PluginIcon.svelte";
   import { openConversation } from "./openConversation";
@@ -73,7 +74,7 @@
     await goto(OPEN);
   }
 
-  type Add = { label: string; run: () => Promise<void> };
+  type Add = { label: Key; run: () => Promise<void> };
 
   // The devices page opens a pairing code when it sees ?pair.
   async function pairBrowser(): Promise<void> {
@@ -82,12 +83,12 @@
 
   type Item = {
     href: string;
-    label: string;
+    label: Key;
     Icon: typeof Plus;
     add?: Add;
     count?: () => number;
     // What the count counts, for screen readers; "new" when not given.
-    counted?: string;
+    counted?: Key;
     also?: string[];
     // Active only on this exact path, for a page with pages under it that have their own item.
     exact?: boolean;
@@ -95,29 +96,29 @@
   const ALERTS = resolve("/alerts");
   const NOTIFICATIONS = resolve("/notifications");
   const NAV: Item[] = [
-    { href: resolve("/home"), label: "Home", Icon: House },
+    { href: resolve("/home"), label: "nav.home", Icon: House },
     // The open conversations show under Chat. Its count is those waiting for an answer, for when that list is hidden
     // (the sidebar collapsed, a phone).
     {
       href: CHAT,
-      label: "Chat",
+      label: "nav.chat",
       Icon: MessageCircle,
-      add: { label: "New conversation", run: startNew },
+      add: { label: "nav.newConversation", run: startNew },
       exact: true,
       count: () => open.current.chats.filter((c) => c.state.approval !== null).length,
-      counted: "waiting for your answer",
+      counted: "nav.waitingCount",
     },
-    { href: resolve("/files"), label: "Files", Icon: Files },
-    { href: resolve("/usage"), label: "Usage", Icon: ChartColumn },
-    { href: resolve("/sessions"), label: "Active sessions", Icon: MonitorSmartphone },
-    { href: resolve("/jobs"), label: "Scheduled", Icon: CalendarClock },
-    { href: resolve("/devices"), label: "Devices", Icon: Laptop, add: { label: "Pair a browser", run: pairBrowser } },
-    { href: NOTIFICATIONS, label: "Notifications", Icon: ListChecks, count: () => unread },
+    { href: resolve("/files"), label: "nav.files", Icon: Files },
+    { href: resolve("/usage"), label: "nav.usage", Icon: ChartColumn },
+    { href: resolve("/sessions"), label: "nav.sessions", Icon: MonitorSmartphone },
+    { href: resolve("/jobs"), label: "nav.jobs", Icon: CalendarClock },
+    { href: resolve("/devices"), label: "nav.devices", Icon: Laptop, add: { label: "nav.pairBrowser", run: pairBrowser } },
+    { href: NOTIFICATIONS, label: "nav.notifications", Icon: ListChecks, count: () => unread },
     // About you, Skills, Plugins, MCP servers, Logs and Health are settings tabs with pages of their own; plugin updates
     // show here.
     {
       href: resolve("/settings"),
-      label: "Settings",
+      label: "nav.settings",
       Icon: Settings,
       also: [resolve("/memory"), resolve("/skills"), resolve("/plugins"), resolve("/mcp"), resolve("/logs"), resolve("/doctor")],
       count: () => updates.data?.length ?? 0,
@@ -137,33 +138,35 @@
     <span class="brand-name label">{name}</span>
     <button
       class="collapse"
-      aria-label={sidebar.collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      title="Toggle sidebar (⌘B)"
+      aria-label={sidebar.collapsed ? t("nav.expand") : t("nav.collapse")}
+      title={t("nav.toggle")}
       onclick={() => sidebar.toggle()}
     >
       <ChevronLeft size={18} />
     </button>
   </div>
-  <nav aria-label="Pages">
+  <nav aria-label={t("nav.pages")}>
     {#each NAV as item (item.href)}
       {@const active = item.exact
         ? page.url.pathname === item.href
         : [item.href, ...(item.also ?? [])].some((href) => page.url.pathname.startsWith(href))}
       <div class="nav-row">
-        <a href={item.href} class="nav-item" aria-current={active ? "page" : undefined} title={item.label}>
+        <a href={item.href} class="nav-item" aria-current={active ? "page" : undefined} title={t(item.label)}>
           <item.Icon size={20} />
-          <span class="label">{item.label}</span>
-          {#if item.count?.()}<span class="count" aria-label="{item.count()} {item.counted ?? 'new'}">{item.count()}</span>{/if}
+          <span class="label">{t(item.label)}</span>
+          {#if item.count?.()}<span class="count" aria-label={t(item.counted ?? "nav.newCount", { count: item.count() })}
+              >{item.count()}</span
+            >{/if}
         </a>
         {#if item.add}
           {@const add = item.add}
-          <button class="add" aria-label={add.label} title={add.label} onclick={() => add.run()}>
+          <button class="add" aria-label={t(add.label)} title={t(add.label)} onclick={() => add.run()}>
             <Plus size={16} />
           </button>
         {/if}
       </div>
       {#if item.href === CHAT && everything.length}
-        <ul class="open" aria-label="Open conversations">
+        <ul class="open" aria-label={t("nav.openConversations")}>
           {#each everything as entry (entry.key ?? entry.threadId)}
             <li class="branch">
               <button
@@ -172,26 +175,24 @@
                 class:current={entry.active && page.url.pathname === OPEN}
                 aria-current={entry.active && page.url.pathname === OPEN ? "true" : undefined}
                 onmouseenter={(e) =>
-                  showTip(
-                    e,
-                    entry.title,
-                    entry.waiting ? "Waiting for your answer" : entry.running ? "Working…" : "",
-                    tint(entry.threadId),
-                  )}
+                  showTip(e, entry.title, entry.waiting ? t("nav.waiting") : entry.running ? t("nav.working") : "", tint(entry.threadId))}
                 onmouseleave={() => (tip = null)}
                 onfocus={(e) => showTip(e, entry.title, "", tint(entry.threadId))}
                 onblur={() => (tip = null)}
                 onclick={() => show(entry)}
               >
-                {#if entry.running}<LoaderCircle size={14} class="spin" aria-label="working" />
+                {#if entry.running}<LoaderCircle size={14} class="spin" aria-label={t("nav.working")} />
                 {:else}<MessageSquare size={14} />{/if}
                 <span>{entry.title}</span>
-                {#if entry.waiting}<i class="waiting" aria-label="waiting for your answer"></i>{/if}
+                {#if entry.waiting}<i class="waiting" aria-label={t("nav.waiting")}></i>{/if}
               </button>
               {#if entry.key !== null && open.current.chats.length > 1}
                 {@const key = entry.key}
-                <button class="close" aria-label="Close {entry.title}" title="Close" onclick={() => chats.close(key)}
-                  ><X size={14} /></button
+                <button
+                  class="close"
+                  aria-label={t("nav.closeConversation", { title: entry.title })}
+                  title={t("common.close")}
+                  onclick={() => chats.close(key)}><X size={14} /></button
                 >
               {/if}
             </li>
@@ -218,11 +219,13 @@
         href={ALERTS}
         class="bar-item"
         aria-current={page.url.pathname.startsWith(ALERTS) ? "page" : undefined}
-        aria-label="Alerts"
-        title="Alerts"
+        aria-label={t("nav.alerts")}
+        title={t("nav.alerts")}
       >
         <Bell size={18} />
-        {#if alerts.data?.length}<span class="count" aria-label="{alerts.data.length} new">{alerts.data.length}</span>{/if}
+        {#if alerts.data?.length}<span class="count" aria-label={t("nav.newCount", { count: alerts.data.length })}
+            >{alerts.data.length}</span
+          >{/if}
       </a>
       <TextButton />
       <VoiceButton />

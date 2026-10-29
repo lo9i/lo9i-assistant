@@ -2,6 +2,7 @@
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import type { PromptSection } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { t, type Key } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
   import { canSave, draftOf, promptState } from "$lib/prompts";
   import Confirm from "../Confirm.svelte";
@@ -17,6 +18,15 @@
   let confirming = $state(false);
   let error = $state("");
 
+  // The daemon names the sections in English; the ones it has, in the language shown.
+  const ABOUT: Record<string, [Key, Key]> = {
+    persona: ["prompt.personaTitle", "prompt.personaText"],
+    operating: ["prompt.operatingTitle", "prompt.operatingText"],
+    channels: ["prompt.channelsTitle", "prompt.channelsText"],
+  };
+  const titleOf = (s: PromptSection) => (s.name in ABOUT ? t(ABOUT[s.name][0]) : s.title);
+  const descriptionOf = (s: PromptSection) => (s.name in ABOUT ? t(ABOUT[s.name][1]) : s.description);
+
   const section = $derived(loaded.data?.find((s) => s.name === picked) ?? loaded.data?.[0]);
   const draft = $derived(section ? draftOf(section, drafts) : "");
   const textState = $derived(section ? promptState(section, draft) : "built-in");
@@ -30,7 +40,7 @@
   async function save(name: string, text: string): Promise<void> {
     try {
       settle(await client.prompts.save(name, text));
-      notices.notify("Saved. It applies from your next message in each conversation.");
+      notices.notify(t("prompt.saved"));
     } catch (e) {
       error = describe(e);
     }
@@ -39,7 +49,7 @@
   async function keep(name: string): Promise<void> {
     try {
       settle(await client.prompts.keep(name));
-      notices.notify("Your edit stays as it is.");
+      notices.notify(t("prompt.kept"));
     } catch (e) {
       error = describe(e);
     }
@@ -48,29 +58,25 @@
   async function reset(name: string): Promise<void> {
     try {
       settle(await client.prompts.reset(name));
-      notices.notify("Back to the built-in text, from your next message.");
+      notices.notify(t("prompt.wasReset"));
     } catch (e) {
       error = describe(e);
     }
   }
 </script>
 
-<SettingsCard
-  id="prompt"
-  title="System prompt"
-  sub="The instructions the assistant's system prompt starts with. Memory, skills and accounts follow them. An edit applies from your next message in each conversation."
->
+<SettingsCard id="prompt" title={t("prompt.title")} sub={t("prompt.sub")}>
   {#snippet status()}
     {#if section}
-      {#if textState === "unsaved"}<span class="pill pill--warn">Unsaved changes</span>
-      {:else if textState === "edited"}<span class="pill pill--accent">Edited</span>
-      {:else}<span class="pill">Built-in</span>{/if}
+      {#if textState === "unsaved"}<span class="pill pill--warn">{t("prompt.unsaved")}</span>
+      {:else if textState === "edited"}<span class="pill pill--accent">{t("prompt.edited")}</span>
+      {:else}<span class="pill">{t("prompt.builtIn")}</span>{/if}
     {/if}
   {/snippet}
   {#if loaded.data === undefined || section === undefined}
-    <p class="text-meta">{loaded.error ?? "Loading…"}</p>
+    <p class="text-meta">{loaded.error ?? t("common.loading")}</p>
   {:else}
-    <div class="tabs" role="radiogroup" aria-label="Section">
+    <div class="tabs" role="radiogroup" aria-label={t("prompt.section")}>
       {#each loaded.data as s (s.name)}
         <button
           role="radio"
@@ -78,22 +84,22 @@
           class:active={s.name === section.name}
           onclick={() => ((picked = s.name), (error = ""))}
         >
-          {s.title}{#if s.edited || drafts[s.name] !== undefined}<span class="dot" aria-label="changed"></span>{/if}
+          {titleOf(s)}{#if s.edited || drafts[s.name] !== undefined}<span class="dot" aria-label={t("prompt.changed")}></span>{/if}
         </button>
       {/each}
     </div>
-    <p class="text-meta">{section.description}</p>
+    <p class="text-meta">{descriptionOf(section)}</p>
     {#if section.problem}
-      <p class="error-text">{section.problem} The assistant uses the built-in text below until you reset or save it.</p>
+      <p class="error-text">{section.problem} {t("prompt.problem")}</p>
     {/if}
     {#if section.built_in_changes}
       <!-- An update changed the built-in text this edit hides: what changed, to take into the edit or not. -->
       <div class="notice-warn changes">
-        <p class="text-label">The built-in text changed since you edited it. Your edit is still what the assistant uses.</p>
+        <p class="text-label">{t("prompt.changedSince")}</p>
         <pre>{section.built_in_changes}</pre>
-        <p class="text-meta">Take what you want into your edit and save it, keep your edit as it is, or reset to the new built-in text.</p>
+        <p class="text-meta">{t("prompt.changedHint")}</p>
         <div class="actions">
-          <button class="btn btn--neutral btn--sm" onclick={() => keep(section.name)}>Keep my edit</button>
+          <button class="btn btn--neutral btn--sm" onclick={() => keep(section.name)}>{t("prompt.keepMine")}</button>
         </div>
       </div>
     {/if}
@@ -101,17 +107,19 @@
       class="input"
       rows="18"
       spellcheck="false"
-      aria-label={section.title}
+      aria-label={titleOf(section)}
       value={draft}
       oninput={(e) => (drafts[section.name] = e.currentTarget.value)}></textarea>
     {#if error}<p class="error-text">{error}</p>{/if}
     <div class="actions">
-      <button class="btn btn--primary btn--sm" disabled={!canSave(section, draft)} onclick={() => save(section.name, draft)}>Save</button>
+      <button class="btn btn--primary btn--sm" disabled={!canSave(section, draft)} onclick={() => save(section.name, draft)}
+        >{t("common.save")}</button
+      >
       {#if textState === "unsaved"}
-        <button class="btn btn--ghost btn--sm" onclick={() => delete drafts[section.name]}>Discard changes</button>
+        <button class="btn btn--ghost btn--sm" onclick={() => delete drafts[section.name]}>{t("prompt.discard")}</button>
       {/if}
       {#if section.edited}
-        <button class="btn btn--neutral btn--sm" onclick={() => (confirming = true)}><RotateCcw size={14} />Reset to default</button>
+        <button class="btn btn--neutral btn--sm" onclick={() => (confirming = true)}><RotateCcw size={14} />{t("prompt.reset")}</button>
       {/if}
     </div>
   {/if}
@@ -120,9 +128,9 @@
 {#if confirming && section}
   {@const name = section.name}
   <Confirm
-    title="Reset {section.title}?"
-    text="Your edit is deleted and the assistant uses the built-in text again."
-    action="Reset"
+    title={t("prompt.resetTitle", { title: titleOf(section) })}
+    text={t("prompt.resetText")}
+    action={t("prompt.resetAction")}
     onanswer={(yes) => {
       confirming = false;
       if (yes) void reset(name);

@@ -33,6 +33,7 @@ import type {
   InstalledFromRepository,
   Job,
   KeptKeys,
+  LanguageSetting,
   LogEvent,
   LogLevelSetting,
   LogOptions,
@@ -838,6 +839,20 @@ export class SystemGroup {
   }
 }
 
+export class LanguageGroup {
+  constructor(private readonly transport: Transport) {}
+
+  /** The language of the apps' own text: auto follows this browser's. */
+  get(): Promise<LanguageSetting> {
+    return this.transport.request("GET", "/settings/language");
+  }
+
+  /** Throws ApiError (400) for an unknown language. */
+  set(language: LanguageSetting["language"]): Promise<LanguageSetting> {
+    return this.transport.request("PUT", "/settings/language", { language });
+  }
+}
+
 export class LogsGroup {
   constructor(private readonly transport: Transport) {}
 
@@ -964,6 +979,7 @@ export class DaemonClient {
   readonly auth: AuthGroup;
   readonly devices: DevicesGroup;
   readonly logs: LogsGroup;
+  readonly language: LanguageGroup;
 
   constructor(private readonly transport: Transport) {
     this.conversations = new ConversationsGroup(transport);
@@ -993,6 +1009,7 @@ export class DaemonClient {
     this.auth = new AuthGroup(transport);
     this.devices = new DevicesGroup(transport);
     this.logs = new LogsGroup(transport);
+    this.language = new LanguageGroup(transport);
   }
 
   /** How the daemon names this client in the runs it announces. */

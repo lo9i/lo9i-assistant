@@ -1,29 +1,30 @@
 <script lang="ts">
-  import { COMMANDS, type Command } from "$lib/chat/commands";
+  import { COMMANDS, commandText, type Command } from "$lib/chat/commands";
+  import { t, type Key } from "$lib/i18n.svelte";
   import Modal from "../Modal.svelte";
 
   // `extra`: the commands installed plugins add, such as /claude.
   let { onclose, extra = [] }: { onclose: () => void; extra?: Command[] } = $props();
 
-  const KEYS = [
-    ["Enter", "Send"],
-    ["Shift+Enter", "New line"],
-    ["↑ / ↓", "Your earlier messages in this conversation"],
-    ["Esc", "Stop the reply"],
-    ["Tab", "Complete a command"],
-    ["⌘B", "Collapse the sidebar"],
-    ["Paste", "Attach a copied screenshot or image"],
+  const KEYS: Array<[string, Key]> = [
+    ["Enter", "help.send"],
+    ["Shift+Enter", "help.newLine"],
+    ["↑ / ↓", "help.earlier"],
+    ["Esc", "help.stop"],
+    ["Tab", "help.complete"],
+    ["⌘B", "help.collapse"],
+    ["Paste", "help.paste"],
   ];
 </script>
 
-<Modal title="Commands and keys" width={580} {onclose}>
+<Modal title={t("help.title")} width={580} {onclose}>
   <table class="help">
     <tbody>
       {#each [...COMMANDS, ...extra] as c (c.name)}
-        <tr><td><code>{c.usage}</code></td><td>{c.description}</td></tr>
+        <tr><td><code>{c.usage}</code></td><td>{commandText(c)}</td></tr>
       {/each}
       {#each KEYS as [key, what] (key)}
-        <tr><td><kbd>{key}</kbd></td><td>{what}</td></tr>
+        <tr><td><kbd>{key === "Paste" ? t("help.pasteKey") : key}</kbd></td><td>{t(what)}</td></tr>
       {/each}
     </tbody>
   </table>

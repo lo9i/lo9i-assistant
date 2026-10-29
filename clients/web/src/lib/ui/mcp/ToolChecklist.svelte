@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { McpToolInfo } from "$lib/api/types";
+  import { t } from "$lib/i18n.svelte";
 
   type Props = { tools: McpToolInfo[]; chosen: Set<string>; onchange: (chosen: Set<string>) => void };
   let { tools, chosen, onchange }: Props = $props();
@@ -13,11 +14,13 @@
 </script>
 
 {#if tools.length === 0}
-  <p class="text-meta">This server has no tools.</p>
+  <p class="text-meta">{t("mcpAdd.noTools")}</p>
 {:else}
   <div class="all">
-    <button class="btn btn--ghost btn--sm" type="button" onclick={() => onchange(new Set(tools.map((t) => t.name)))}>All</button>
-    <button class="btn btn--ghost btn--sm" type="button" onclick={() => onchange(new Set())}>None</button>
+    <button class="btn btn--ghost btn--sm" type="button" onclick={() => onchange(new Set(tools.map((tool) => tool.name)))}
+      >{t("mcpAdd.all")}</button
+    >
+    <button class="btn btn--ghost btn--sm" type="button" onclick={() => onchange(new Set())}>{t("mcpAdd.none")}</button>
   </div>
   <ul>
     {#each tools as tool (tool.name)}
@@ -26,7 +29,7 @@
           <input type="checkbox" checked={chosen.has(tool.name)} onchange={(e) => toggle(tool.name, e.currentTarget.checked)} />
           <span class="name">
             <code>{tool.name}</code>
-            {#if tool.read_only}<span class="pill">read-only</span>{/if}
+            {#if tool.read_only}<span class="pill">{t("mcpAdd.readOnly")}</span>{/if}
           </span>
         </label>
         {#if tool.description}<p class="text-caption">{tool.description}</p>{/if}

@@ -2,6 +2,7 @@ import { goto } from "$app/navigation";
 import { resolve } from "$app/paths";
 import type { ChatSnapshot } from "$lib/chat/controller";
 import type { OpenChats } from "$lib/chat/openChats";
+import { t } from "$lib/i18n.svelte";
 import type { NoticeBoard } from "$lib/notices";
 
 /** Shows `threadId` in Chat, beside the conversations open there; for the inbox, which Chat never shows, the list of
@@ -9,7 +10,7 @@ import type { NoticeBoard } from "$lib/notices";
 export async function openConversation(chats: Pick<OpenChats, "show">, notices: NoticeBoard, threadId: string): Promise<void> {
   try {
     const shown = await chats.show(threadId);
-    if (shown === "gone") return notices.notify("That conversation was deleted.", "warning");
+    if (shown === "gone") return notices.notify(t("controller.deleted"), "warning");
     await goto(resolve(shown === "shown" ? "/conversations/open" : "/conversations"));
   } catch (e) {
     notices.report(e);

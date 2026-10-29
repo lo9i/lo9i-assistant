@@ -1,6 +1,7 @@
 <script lang="ts">
   import SecretInput from "../SecretInput.svelte";
   import { resource, useDaemon } from "$lib/daemon.svelte";
+  import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
   import SettingsCard from "../Card.svelte";
 
@@ -32,25 +33,22 @@
   }
 </script>
 
-<SettingsCard
-  id="web-search"
-  title="Web search"
-  sub="Public engines and free search services often block or limit automated searches. A Brave Search API key makes search reliable."
->
+<SettingsCard id="web-search" title={t("webSearch.title")} sub={t("webSearch.sub")}>
   {#snippet status()}
     <span class="pill" class:pill--accent={s?.brave_key_set}>
-      {s?.brave_key_set ? "Brave Search API" : "Free services"}
+      {s?.brave_key_set ? "Brave Search API" : t("webSearch.free")}
     </span>
   {/snippet}
   {#if s === undefined}
-    <p class="text-meta">{loaded.error ?? "Loading…"}</p>
+    <p class="text-meta">{loaded.error ?? t("common.loading")}</p>
   {:else if !s.brave_key_set}
     <ol class="steps">
       <li>
-        Open <a href="https://brave.com/search/api/" target="_blank" rel="noreferrer">brave.com/search/api</a> and sign up for the free plan.
+        {t("webSearch.open")} <a href="https://brave.com/search/api/" target="_blank" rel="noreferrer">brave.com/search/api</a>
+        {t("webSearch.signUp")}
       </li>
-      <li>In the dashboard, open <strong>API Keys</strong> and copy the key.</li>
-      <li>Paste it here. It's checked with one search, then kept encrypted on the assistant's computer.</li>
+      <li>{t("webSearch.dashboard")} <strong>API Keys</strong> {t("webSearch.copy")}</li>
+      <li>{t("webSearch.paste")}</li>
     </ol>
     <form
       class="row"
@@ -59,13 +57,13 @@
         void save();
       }}
     >
-      <SecretInput bind:value={key} placeholder="API key" label="Brave Search API key" />
-      <button class="btn btn--primary" type="submit" disabled={saving}>{saving ? "Checking…" : "Save"}</button>
+      <SecretInput bind:value={key} placeholder={t("webSearch.apiKey")} label={t("webSearch.keyLabel")} />
+      <button class="btn btn--primary" type="submit" disabled={saving}>{saving ? t("webSearch.checking") : t("common.save")}</button>
     </form>
   {:else}
-    <p class="text-meta">Searches use Brave. When Brave fails, they use public engines and free search services.</p>
+    <p class="text-meta">{t("webSearch.usesBrave")}</p>
     <div class="row">
-      <button class="btn btn--danger" onclick={() => act(() => client.webSearch.removeBraveKey())}>Remove key</button>
+      <button class="btn btn--danger" onclick={() => act(() => client.webSearch.removeBraveKey())}>{t("webSearch.remove")}</button>
     </div>
   {/if}
   {#if error}<p class="error-text">{error}</p>{/if}
