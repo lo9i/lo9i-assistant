@@ -18,15 +18,16 @@ from assistant.client.daemon_client import FilesApi
 from assistant.client.files import save_download
 from assistant.core.agent import FileUnavailableError, UploadedFile
 from assistant_terminal.files_text import describe
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.paging import Pages
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.paged_list import PagedOptionList
 
-_EMPTY = "No files yet. Files you attach to a message, and the ones tools bring in, show up here."
+_EMPTY = translatable("No files yet. Files you attach to a message, and the ones tools bring in, show up here.")
 
 
 class FilesScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"conversations"})
 
     def __init__(self, files: FilesApi) -> None:
@@ -37,16 +38,16 @@ class FilesScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="files"):
-            yield Static("Files", id="files-title")
+            yield Static(t("Files"), id="files-title")
             with Horizontal(id="files-main"):
                 yield PagedOptionList(self._pages, lambda f: Option(f.name, id=f.path), id="files-list")
                 yield Static(classes="divider")
                 with VerticalScroll(id="files-detail"):
                     yield Markdown(id="file-body")
             with Horizontal(id="files-buttons"):
-                yield Button("Open", id="open")
-                yield Button("Save to Downloads", variant="success", id="save")
-                yield Button("Close", id="close")
+                yield Button(t("Open"), id="open")
+                yield Button(t("Save to Downloads"), variant="success", id="save")
+                yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
@@ -60,7 +61,7 @@ class FilesScreen(ModalScreen[None]):
         if self._selected not in self._shown:
             self._selected = files[0].path if files else None
         if self._selected is None:
-            await self._body(_EMPTY)
+            await self._body(t(_EMPTY))
             return
         options.highlighted = options.get_option_index(self._selected)
         await self._body(describe(self._shown[self._selected]))
@@ -83,7 +84,7 @@ class FilesScreen(ModalScreen[None]):
     async def _save(self) -> None:
         saved = await self._download()
         if saved is not None:
-            self.notify(f"Saved to {saved}.")
+            self.notify(t("Saved to {path}.", path=saved))
 
     @on(Button.Pressed, "#open")
     @reports_daemon_unavailable
@@ -91,7 +92,7 @@ class FilesScreen(ModalScreen[None]):
         """Saved to Downloads first, then opened with the app this computer uses for it."""
         saved = await self._download()
         if saved is not None and not webbrowser.open(saved.as_uri()):
-            self.notify(f"Saved to {saved}, but nothing here opens it.", severity="warning")
+            self.notify(t("Saved to {path}, but nothing here opens it.", path=saved), severity="warning")
 
     async def _download(self) -> Path | None:
         file = self._shown.get(self._selected or "")

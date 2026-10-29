@@ -13,6 +13,7 @@ from assistant.client import clipboard
 from assistant.client.daemon_client import ChannelsApi
 from assistant.core.agent import ChannelNotConnectedError, ChannelStatus, SetupItem
 from assistant_terminal.channels_text import heading, line, qr_lines, title
+from assistant_terminal.i18n import t
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 
@@ -27,8 +28,10 @@ class _ActionButton(Button):
 
 class _CopyButton(Button):
     def __init__(self, item: SetupItem) -> None:
-        super().__init__(f"Copy {item.label}" if item.label else "Copy", classes="channel-copy-button")
-        self.copy_name, self.copy_value = item.label or "it", item.value
+        super().__init__(
+            t("Copy {label}", label=item.label) if item.label else t("Copy"), classes="channel-copy-button"
+        )
+        self.copy_name, self.copy_value = item.label, item.value
 
 
 class ChannelSetup(Vertical):
@@ -49,7 +52,10 @@ class ChannelSetup(Vertical):
         try:
             await self._channels.press(button.channel, button.channel_action)
         except ChannelNotConnectedError:
-            self.notify(f"{title(button.channel)} isn't connected, so it can't do that now.", severity="warning")
+            self.notify(
+                t("{channel} isn't connected, so it can't do that now.", channel=title(button.channel)),
+                severity="warning",
+            )
 
     @on(Button.Pressed, ".channel-copy-button")
     async def _copy(self, event: Button.Pressed) -> None:
@@ -61,7 +67,10 @@ class ChannelSetup(Vertical):
         event.stop()
         self.app.copy_to_clipboard(button.copy_value)
         copied = await clipboard.copy(button.copy_value)
-        self.notify(f"Copied {button.copy_name}." if copied else "Sent it to your terminal's clipboard.")
+        if not copied:
+            self.notify(t("Sent it to your terminal's clipboard."))
+        else:
+            self.notify(t("Copied {name}.", name=button.copy_name) if button.copy_name else t("Copied it."))
 
 
 def _channel_widgets(channel: ChannelStatus) -> list[Widget]:

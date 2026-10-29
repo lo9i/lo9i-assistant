@@ -15,6 +15,7 @@ from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import DoctorApi, JobsApi, NotificationsApi
 from assistant.core.agent import Notification
+from assistant_terminal.i18n import t
 from assistant_terminal.notifications_text import notification_line
 from assistant_terminal.paging import Pages
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
@@ -25,7 +26,7 @@ from assistant_terminal.tui.screens.jobs import JobsScreen
 
 class NotificationsScreen(ModalScreen[str | None]):
     BINDINGS: ClassVar[list[BindingType]] = [
-        Binding("escape", "close", "Close"),
+        Binding("escape", "close", t("Close")),
         Binding("enter", "open", show=False, priority=True),
     ]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"notifications"})
@@ -40,14 +41,14 @@ class NotificationsScreen(ModalScreen[str | None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="notifications"):
-            yield Static("Notifications", id="notifications-title")
-            yield Static("No notifications.", id="notifications-empty")
+            yield Static(t("Notifications"), id="notifications-title")
+            yield Static(t("No notifications."), id="notifications-empty")
             yield PagedOptionList(self._pages, lambda n: Option(notification_line(n), id=n.id), id="notifications-list")
             with Horizontal(id="notifications-buttons"):
-                yield Button("Open its conversation", variant="success", id="open")
-                yield Button("Dismiss", id="dismiss")
-                yield Button("Clear all", variant="error", id="clear")
-                yield Button("Close", id="close")
+                yield Button(t("Open its conversation"), variant="success", id="open")
+                yield Button(t("Dismiss"), id="dismiss")
+                yield Button(t("Clear all"), variant="error", id="clear")
+                yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
@@ -117,10 +118,10 @@ class NotificationsScreen(ModalScreen[str | None]):
         opening = self.query_one("#open", Button)
         opening.label = _opening(notification)
         opening.disabled = not (notification.thread_id or notification.job or notification.kind == "doctor")
-        opening.tooltip = None if not opening.disabled else "It has nothing to open."
+        opening.tooltip = None if not opening.disabled else t("It has nothing to open.")
 
 
 def _opening(notification: Notification) -> str:
     if notification.job:
-        return "Open the job"
-    return "Open the health check" if notification.kind == "doctor" else "Open its conversation"
+        return t("Open the job")
+    return t("Open the health check") if notification.kind == "doctor" else t("Open its conversation")

@@ -38,6 +38,7 @@ from assistant.core.agent import (
     Job,
     JobError,
     KeptKeys,
+    LanguageError,
     McpProbe,
     McpServerError,
     McpServerStatus,
@@ -95,6 +96,7 @@ from assistant.protocol import (
     UpdateError,
     UpdateStatus,
 )
+from assistant_terminal import i18n
 from assistant_terminal.history import History
 from assistant_terminal.preferences import Preferences
 
@@ -812,6 +814,20 @@ class FakeIdentity:
         return self.current
 
 
+class FakeLanguage:
+    def __init__(self):
+        self.current = "auto"
+
+    async def get(self):
+        return self.current
+
+    async def set(self, language):
+        if language not in ("auto", "en", "es"):
+            raise LanguageError(f"Unknown language: {language}. Choose one of: auto, en, es.")
+        self.current = language
+        return language
+
+
 class FakeTasks:
     def __init__(self):
         self.tasks = []
@@ -1164,6 +1180,7 @@ class FakeClient:
         self.runs = {}
         self.active_thread = "owner:abc"
         self.identity = FakeIdentity()
+        self.language = FakeLanguage()
         self.skills = FakeSkills()
         self.jobs = FakeJobs()
         self.memory = FakeMemory(self.skills)
@@ -1259,6 +1276,14 @@ class FakeClient:
 @pytest.fixture
 def client():
     return FakeClient()
+
+
+@pytest.fixture(autouse=True)
+def english():
+    """The app's text in English, as the tests expect it; a test that picks another language leaves it after."""
+    i18n.use("en")
+    yield
+    i18n.use("en")
 
 
 @pytest.fixture

@@ -23,23 +23,27 @@ from assistant.protocol import (
     UpdateError,
     UpdateStatus,
 )
+from assistant_terminal.i18n import decimal, t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
-_RESTART = "Restart the assistant? It stops and starts again once the runs in progress end."
-_UPDATE = (
+_RESTART = translatable("Restart the assistant? It stops and starts again once the runs in progress end.")
+_UPDATE = translatable(
     "Update the assistant? It downloads the new version, installs what it needs and restarts once the runs in "
     "progress end."
 )
-_NOW = "Cancel the runs in progress so the assistant {does} now? Their replies stop where they are."
-_STOP = (
+_NOW_RESTART = translatable(
+    "Cancel the runs in progress so the assistant restarts now? Their replies stop where they are."
+)
+_NOW_STOP = translatable("Cancel the runs in progress so the assistant stops now? Their replies stop where they are.")
+_STOP = translatable(
     "Stop the assistant? Jobs, chat channels and the apps stop working until it's started again on the "
     "computer it runs on (opening the terminal app there starts it). It waits for the runs in progress to end."
 )
 
 
 class HostScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"update"})
 
     def __init__(self, system: SystemApi) -> None:
@@ -48,16 +52,16 @@ class HostScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="host"):
-            yield Markdown("## Host\n\nLoading…", id="host-body")
+            yield Markdown("## " + t("Host") + "\n\n" + t("Loading…"), id="host-body")
             with Horizontal(id="host-buttons"):
-                yield Button("Refresh", variant="primary", id="refresh")
-                yield Button("Check for updates", id="check")
-                yield Button("Update", variant="success", id="update", disabled=True)
-                yield Button("Restart", variant="warning", id="restart")
-                yield Button("Stop", variant="error", id="stop")
-                yield Button("Cancel restart", id="take-back")
-                yield Button("Now", variant="error", id="now")
-                yield Button("Close", id="close")
+                yield Button(t("Refresh"), variant="primary", id="refresh")
+                yield Button(t("Check for updates"), id="check")
+                yield Button(t("Update"), variant="success", id="update", disabled=True)
+                yield Button(t("Restart"), variant="warning", id="restart")
+                yield Button(t("Stop"), variant="error", id="stop")
+                yield Button(t("Cancel restart"), id="take-back")
+                yield Button(t("Now"), variant="error", id="now")
+                yield Button(t("Close"), id="close")
 
     async def on_mount(self) -> None:
         await self._refresh()
@@ -74,7 +78,7 @@ class HostScreen(ModalScreen[None]):
     @work
     @reports_daemon_unavailable
     async def _restart(self) -> None:
-        if not await self.app.push_screen_wait(ConfirmScreen(_RESTART, "Restart")):
+        if not await self.app.push_screen_wait(ConfirmScreen(t(_RESTART), t("Restart"))):
             return
         # The daemon tells every app it's coming (an `ending` event, AssistantApp.show_ending).
         await self._system.restart()
@@ -83,7 +87,7 @@ class HostScreen(ModalScreen[None]):
     @work
     @reports_daemon_unavailable
     async def _stop(self) -> None:
-        if not await self.app.push_screen_wait(ConfirmScreen(_STOP, "Stop")):
+        if not await self.app.push_screen_wait(ConfirmScreen(t(_STOP), t("Stop"))):
             return
         try:
             await self._system.stop()
@@ -104,8 +108,8 @@ class HostScreen(ModalScreen[None]):
     @reports_daemon_unavailable
     async def _now(self) -> None:
         pending = await self._system.ending()
-        does = "restarts" if pending.ending == "restart" else "stops"
-        if not pending.ending or not await self.app.push_screen_wait(ConfirmScreen(_NOW.format(does=does), "Now")):
+        question = t(_NOW_RESTART) if pending.ending == "restart" else t(_NOW_STOP)
+        if not pending.ending or not await self.app.push_screen_wait(ConfirmScreen(question, t("Now"))):
             return
         try:
             await self._system.end_now()
@@ -126,7 +130,7 @@ class HostScreen(ModalScreen[None]):
     @work
     @reports_daemon_unavailable
     async def _update(self) -> None:
-        if not await self.app.push_screen_wait(ConfirmScreen(_UPDATE, "Update")):
+        if not await self.app.push_screen_wait(ConfirmScreen(t(_UPDATE), t("Update"))):
             return
         try:
             await self._show(await self._system.update())
@@ -147,7 +151,7 @@ class HostScreen(ModalScreen[None]):
         # Before the text: once it says what's new, Update works.
         self.query_one("#update", Button).disabled = not can_install(update)
         take_back = self.query_one("#take-back", Button)
-        take_back.label = f"Cancel {pending.ending or 'restart'}"
+        take_back.label = t("Cancel stop") if pending.ending == "stop" else t("Cancel restart")
         take_back.display = can_take_back(pending)
         self.query_one("#now").display = bool(pending.ending and pending.waiting_for_runs)
         stop = self.query_one("#stop", Button)
@@ -156,10 +160,15 @@ class HostScreen(ModalScreen[None]):
 
 
 def ending_text(does: str, waiting: int, update: bool = False) -> str:
-    """When it restarts or stops, as the web app says it (lib/shutdown.ts)."""
-    runs = "the run in progress ends" if waiting == 1 else f"the {waiting} runs in progress end"
-    waits = [*(["the update being installed is done"] if update else []), *([runs] if waiting else [])]
-    return f"The assistant {does} {f'once {" and ".join(waits)}' if waits else 'now'}."
+    """When it restarts or stops (`does` is "restarts" or "stops"), as the web app says it (lib/shutdown.ts)."""
+    runs = t("the run in progress ends") if waiting == 1 else t("the {count} runs in progress end", count=waiting)
+    waits = [*([t("the update being installed is done")] if update else []), *([runs] if waiting else [])]
+    when = t("once {waits}", waits=t(" and ").join(waits)) if waits else t("now")
+    return (
+        t("The assistant restarts {when}.", when=when)
+        if does == "restarts"
+        else t("The assistant stops {when}.", when=when)
+    )
 
 
 def can_take_back(pending: PendingEnding) -> bool:
@@ -172,67 +181,70 @@ def can_take_back(pending: PendingEnding) -> bool:
 def describe(host: HostStatus, update: UpdateStatus | None = None, pending: PendingEnding | None = None) -> str:
     version = f"v{host.version} · {version_text(update.current)}" if update else f"v{host.version}"
     rows = [
-        ("OS", host.os),
-        ("Arch", host.arch),
-        ("Host", host.hostname),
+        (t("OS"), host.os),
+        (t("Arch"), host.arch),
+        (t("Host"), host.hostname),
         ("Python", host.python),
         ("lo9i", version),
-        ("CPU", f"{host.cpu_cores} cores · {round(host.cpu_percent)}%"),
-        ("Memory", _usage(host.memory_used, host.memory_total)),
-        ("Disk", _usage(host.disk_used, host.disk_total)),
-        ("Uptime", _uptime(host.uptime_seconds)),
+        ("CPU", t("{cores} cores · {percent}%", cores=host.cpu_cores, percent=round(host.cpu_percent))),
+        (t("Memory"), _usage(host.memory_used, host.memory_total)),
+        (t("Disk"), _usage(host.disk_used, host.disk_total)),
+        (t("Uptime"), _uptime(host.uptime_seconds)),
     ]
     if host.load_average:
-        rows.append(("Load avg", " / ".join(f"{load:.2f}" for load in host.load_average)))
-    table = "## Host\n\n| | |\n|---|---|\n" + "\n".join(f"| {term} | {value} |" for term, value in rows)
+        rows.append((t("Load avg"), " / ".join(f"{load:.2f}" for load in host.load_average)))
+    table = "## " + t("Host") + "\n\n| | |\n|---|---|\n" + "\n".join(f"| {term} | {value} |" for term, value in rows)
     if host.stop_refusal:
-        table += f"\n\nStop: {host.stop_refusal}"
+        table += "\n\n" + t("Stop: {reason}", reason=host.stop_refusal)
     return table + (_updates(update) if update else "") + (_pending(pending) if pending and pending.ending else "")
 
 
 def _pending(pending: PendingEnding) -> str:
     restart = pending.ending == "restart"
-    does = "restarts" if restart else "stops"
-    said = ending_text(does, pending.waiting_for_runs, pending.waiting_for_update)
+    said = ending_text("restarts" if restart else "stops", pending.waiting_for_runs, pending.waiting_for_update)
+    cancel = t("Cancel restart keeps it running.") if restart else t("Cancel stop keeps it running.")
     choices = [
-        *([f"Cancel {pending.ending} keeps it running."] if can_take_back(pending) else []),
+        *([cancel] if can_take_back(pending) else []),
         *(
-            [f"{pending.needed_by or 'Something needs it'}, so it can't be cancelled."]
+            [t("{needed_by}, so it can't be cancelled.", needed_by=pending.needed_by or t("Something needs it"))]
             if not pending.can_take_back
             else []
         ),
-        *(["Now cancels the runs."] if pending.waiting_for_runs else []),
+        *([t("Now cancels the runs.")] if pending.waiting_for_runs else []),
     ]
-    return f"\n\n### {'Restart' if restart else 'Stop'} pending\n\n{' '.join([said, *choices])}"
+    heading = t("Restart pending") if restart else t("Stop pending")
+    return f"\n\n### {heading}\n\n{' '.join([said, *choices])}"
 
 
 def _updates(update: UpdateStatus) -> str:
     new = "".join(f"\n- `{c.sha[:7]}` {c.subject}" for c in update.new) if update.state != "restarting" else ""
-    return f"\n\n### Updates\n\n{update_line(update)}\n{new}"
+    return "\n\n### " + t("Updates") + f"\n\n{update_line(update)}\n{new}"
 
 
 def version_text(commit: Commit | None) -> str:
     """The commit and its day, as the web app's Host card says it (lib/updates.ts)."""
-    return f"{commit.sha[:7]} · {commit.date[:10]}" if commit else "unknown"
+    return f"{commit.sha[:7]} · {commit.date[:10]}" if commit else t("unknown")
 
 
 def update_line(update: UpdateStatus) -> str:
     """Where the update stands, as the web app's Host card says it (lib/updates.ts)."""
     if update.state == "checking":
-        return "Checking for updates…"
+        return t("Checking for updates…")
     if update.state == "updating":
         return f"{update.step}…"
     if update.state == "restarting":
-        return "Installed. Restarting once the runs in progress end…"
+        return t("Installed. Restarting once the runs in progress end…")
     if update.state == "failed":
         return update.error
     if update.reason:
         return update.reason
     if not update.checked_at:
-        return "Not checked yet."
+        return t("Not checked yet.")
     if not update.behind:
-        return f"Up to date with {update.upstream}."
-    return f"{update.behind} new {'change' if update.behind == 1 else 'changes'} on {update.upstream}."
+        return t("Up to date with {upstream}.", upstream=update.upstream)
+    if update.behind == 1:
+        return t("1 new change on {upstream}.", upstream=update.upstream)
+    return t("{count} new changes on {upstream}.", count=update.behind, upstream=update.upstream)
 
 
 def can_install(update: UpdateStatus) -> bool:
@@ -240,10 +252,11 @@ def can_install(update: UpdateStatus) -> bool:
 
 
 def _usage(used: int, total: int) -> str:
-    return f"{used / 1024**3:.1f} GB / {total / 1024**3:.1f} GB ({used / total * 100:.1f}%)"
+    return f"{decimal(used / 1024**3)} GB / {decimal(total / 1024**3)} GB ({decimal(used / total * 100)}%)"
 
 
 def _uptime(seconds: int) -> str:
     days, rest = divmod(seconds, 86400)
     hours, minutes = rest // 3600, rest % 3600 // 60
-    return f"{days}d {hours}h {minutes}m" if days else f"{hours}h {minutes}m"
+    values = {"days": days, "hours": hours, "minutes": minutes}
+    return t("{days}d {hours}h {minutes}m", **values) if days else t("{hours}h {minutes}m", **values)

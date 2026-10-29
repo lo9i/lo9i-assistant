@@ -19,6 +19,7 @@ from textual.widgets.option_list import Option
 from assistant.client.daemon_client import HomeApi
 from assistant.core.agent import HomePage, HomeSection, HomeSectionsError
 from assistant_terminal.home_text import describe, updated
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 from assistant_terminal.tui.screens.home_section import HomeSectionScreen
@@ -26,11 +27,11 @@ from assistant_terminal.tui.screens.home_section import HomeSectionScreen
 # The plugins with tools, which a section may read.
 type Plugins = Callable[[], Awaitable[list[str]]]
 
-_EMPTY = "No sections. Add one, or reset to the built-in ones."
+_EMPTY = translatable("No sections. Add one, or reset to the built-in ones.")
 
 
 class HomeScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"home"})
 
     def __init__(self, home: HomeApi, plugins: Plugins) -> None:
@@ -42,21 +43,21 @@ class HomeScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="home"):
-            yield Static("Home", id="home-title")
+            yield Static(t("Home"), id="home-title")
             with Horizontal(id="home-main"):
                 yield OptionList(id="home-list")
                 yield Static(classes="divider")
                 with VerticalScroll(id="home-detail"):
                     yield Markdown(id="home-body")
             with Horizontal(id="home-buttons"):
-                yield Button("Refresh", variant="primary", id="refresh")
-                yield Button("Add", id="add")
-                yield Button("Edit", id="edit")
-                yield Button("Up", id="up")
-                yield Button("Down", id="down")
-                yield Button("Remove", variant="error", id="remove")
-                yield Button("Reset", id="reset")
-                yield Button("Close", id="close")
+                yield Button(t("Refresh"), variant="primary", id="refresh")
+                yield Button(t("Add"), id="add")
+                yield Button(t("Edit"), id="edit")
+                yield Button(t("Up"), id="up")
+                yield Button(t("Down"), id="down")
+                yield Button(t("Remove"), variant="error", id="remove")
+                yield Button(t("Reset"), id="reset")
+                yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
@@ -85,15 +86,15 @@ class HomeScreen(ModalScreen[None]):
         for button in ("#edit", "#up", "#down", "#remove"):
             self.query_one(button).display = bool(ids)
         refreshing = self.query_one("#refresh", Button)
-        refreshing.disabled, refreshing.label = page.refreshing, "Refreshing…" if page.refreshing else "Refresh"
+        refreshing.disabled, refreshing.label = page.refreshing, t("Refreshing…") if page.refreshing else t("Refresh")
         await self._body()
 
     async def _body(self) -> None:
         page, now = self._page, datetime.now().astimezone()
         card = next((c for c in page.cards if c.section.id == self._selected), None) if page else None
-        title = " · ".join(filter(None, ["Home", updated(page.updated_at, now) if page else ""]))
+        title = " · ".join(filter(None, [t("Home"), updated(page.updated_at, now) if page else ""]))
         self.query_one("#home-title", Static).update(title)
-        await self.query_one("#home-body", Markdown).update(describe(card, now.date()) if card else _EMPTY)
+        await self.query_one("#home-body", Markdown).update(describe(card, now.date()) if card else t(_EMPTY))
 
     async def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
         self._selected = event.option.id or ""
@@ -124,11 +125,11 @@ class HomeScreen(ModalScreen[None]):
     def _remove(self) -> None:
         section = self._section()
         if section is not None:
-            self._confirm(f"Remove {section.title} from Home?", "Remove", self._without(section))
+            self._confirm(t("Remove {title} from Home?", title=section.title), t("Remove"), self._without(section))
 
     @on(Button.Pressed, "#reset")
     def _reset(self) -> None:
-        self._confirm("Reset Home to the built-in sections? Yours are removed.", "Reset", None)
+        self._confirm(t("Reset Home to the built-in sections? Yours are removed."), t("Reset"), None)
 
     @on(Button.Pressed, "#close")
     def _close(self) -> None:

@@ -13,18 +13,20 @@ from textual.widgets import Button, Input, Markdown, SelectionList
 
 from assistant.client.daemon_client import RepositoriesApi
 from assistant.core.agent import FoundServer, FoundSkill, RepositoryContents, RepositoryError, ServerField, ServerValues
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
-_INTRO = """## Install a plugin
-
-MCP servers, chat channels and skills from the assistant's extras. What you install runs on the
-computer running the assistant."""
+_TITLE = translatable("Install a plugin")
+_INTRO = translatable(
+    "MCP servers, chat channels and skills from the assistant's extras. What you install runs on the computer "
+    "running the assistant."
+)
 
 _SKILL, _SERVER = "skill:", "server:"
 
 
 class RepositoryInstallScreen(ModalScreen[list[str]]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss([])", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss([])", t("Close"))]
 
     def __init__(
         self,
@@ -48,13 +50,13 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
 
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="repository-install"):
-            yield Markdown(_offer_intro(self._offer) if self._offer else _INTRO)
+            yield Markdown(_offer_intro(self._offer) if self._offer else f"## {t(_TITLE)}\n\n{t(_INTRO)}")
             yield Markdown(id="repository-message")
             yield SelectionList[str](id="repository-found")
             yield Vertical(id="repository-fields")
             with Horizontal(id="repository-buttons"):
-                yield Button("Install", variant="success", id="install")
-                yield Button("Cancel", id="cancel")
+                yield Button(t("Install"), variant="success", id="install")
+                yield Button(t("Cancel"), id="cancel")
 
     async def on_mount(self) -> None:
         self._show_choice(False)
@@ -72,7 +74,7 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
 
     @reports_daemon_unavailable
     async def _browse(self) -> None:
-        await self._say("Looking at the extras…")
+        await self._say(t("Looking at the extras…"))
         try:
             contents = await self._repositories.browse(self._url)
         except RepositoryError as e:
@@ -117,7 +119,7 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
         found = self.query_one("#repository-found", SelectionList)
         found.clear_options()
         if not contents.skills and not contents.servers:
-            await self._say("Everything the extras offer here is installed already.")
+            await self._say(t("Everything the extras offer here is installed already."))
             return
         only_one = len(contents.skills) + len(contents.servers) == 1
         found.add_options([(_skill_label(s), _SKILL + s.name, only_one) for s in contents.skills])
@@ -149,40 +151,50 @@ def _guide(contents: RepositoryContents) -> str:
     """What to do: a single plugin's steps for what it asks for, numbered, when it has them."""
     one = contents.servers[0] if len(contents.servers) == 1 and not contents.skills else None
     if one is None or not (one.steps or one.model_login or one.ssh_agent):
-        return "Check what to install. Servers ask for their values below, then Install."
-    shared = [_SHARED_LOGIN] if one.model_login == "copilot" else []
-    agent = [_SSH_AGENT] if one.ssh_agent else []
+        return t("Check what to install. Servers ask for their values below, then Install.")
+    shared = [t(_SHARED_LOGIN)] if one.model_login == "copilot" else []
+    agent = [t(_SSH_AGENT)] if one.ssh_agent else []
     return "\n\n".join([*shared, *agent, "\n".join(f"{i}. {step}" for i, step in enumerate(one.steps, 1))]).strip()
 
 
 def _offer_intro(plugin: FoundServer | FoundSkill) -> str:
-    return f"## Install {plugin.name}\n\nThe assistant offers it: {plugin.description}"
+    return (
+        "## "
+        + t("Install {name}", name=plugin.name)
+        + "\n\n"
+        + t("The assistant offers it: {description}", description=plugin.description)
+    )
 
 
 # For a field the daemon already has a value for, from before channels were plugins.
-_KNOWN_HINT = "leave empty to keep the one you set before"
+_KNOWN_HINT = translatable("leave empty to keep the one you set before")
 # A plugin that uses the assistant's Copilot login (core/mcp/logins.py).
-_SHARED_LOGIN = "It uses your GitHub Copilot login from /model while the model is GitHub Copilot."
+_SHARED_LOGIN = translatable("It uses your GitHub Copilot login from /model while the model is GitHub Copilot.")
 # A plugin whose processes get the user's ssh agent (core/mcp/ssh_agent.py).
-_SSH_AGENT = "It uses your ssh agent, so it can sign in with the keys the agent holds."
+_SSH_AGENT = translatable("It uses your ssh agent, so it can sign in with the keys the agent holds.")
 
 
 def _field_input(server: FoundServer, field: ServerField) -> Input:
-    known = [_KNOWN_HINT] if field.key in server.known_fields else []
-    hints = [*([field.help] if field.help else []), *known, *(["optional"] if field.optional else [])]
+    known = [t(_KNOWN_HINT)] if field.key in server.known_fields else []
+    hints = [*([field.help] if field.help else []), *known, *([t("optional")] if field.optional else [])]
     hint = f" ({'; '.join(hints)})" if hints else ""
     return Input(placeholder=f"{server.name}: {field.label}{hint}", password=field.secret)
 
 
 def _skill_label(skill: FoundSkill) -> str:
-    files = f", {len(skill.files)} files" if skill.files else ""
-    return f"Skill {skill.name}{files}: {skill.description}"
+    files = ", " + t("{count} files", count=len(skill.files)) if skill.files else ""
+    return t("Skill {name}", name=skill.name) + f"{files}: {skill.description}"
 
 
 def _server_label(server: FoundServer) -> str:
     if server.transport == "none":
-        return f"{'Email provider' if server.email else 'Channel'} {server.name}: {server.description}"
-    extras = ["remote" if server.transport == "http" else "local"]
-    pairs = (("a chat channel", server.channel), ("with its skill", server.skill), ("with a web page", server.page))
+        kind = t("Email provider {name}", name=server.name) if server.email else t("Channel {name}", name=server.name)
+        return f"{kind}: {server.description}"
+    extras = [t("remote") if server.transport == "http" else t("local")]
+    pairs = (
+        (t("a chat channel"), server.channel),
+        (t("with its skill"), server.skill),
+        (t("with a web page"), server.page),
+    )
     extras += [e for e, has in pairs if has]
-    return f"MCP server {server.name} ({', '.join(extras)}): {server.description}"
+    return t("MCP server {name}", name=server.name) + f" ({', '.join(extras)}): {server.description}"

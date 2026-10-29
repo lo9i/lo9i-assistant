@@ -5,6 +5,7 @@ from collections.abc import Callable
 from typing import Protocol
 
 from assistant.core.agent import PluginUpdate
+from assistant_terminal.i18n import t
 
 
 class UpdatesSource(Protocol):
@@ -28,5 +29,8 @@ class PluginUpdates:
 def notice(updates: list[PluginUpdate]) -> str:
     if len(updates) == 1:
         u = updates[0]
-        return f"Plugin update: {u.name} {u.installed_version or '-'} → {u.version}. See /plugins."
-    return f"{len(updates)} plugin updates: {', '.join(u.name for u in updates)}. See /plugins."
+        versions = f"{u.installed_version or '-'} → {u.version}"
+        return t("Plugin update: {name} {versions}. See /plugins.", name=u.name, versions=versions)
+    return t(
+        "{count} plugin updates: {names}. See /plugins.", count=len(updates), names=", ".join(u.name for u in updates)
+    )

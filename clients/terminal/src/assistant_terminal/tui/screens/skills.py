@@ -14,6 +14,7 @@ from textual.widgets.option_list import Option
 from assistant.client.daemon_client import RepositoriesApi, SkillsApi
 from assistant.core.agent import Skill, SkillError, SkillSummary
 from assistant_terminal.health_text import failures_line, label
+from assistant_terminal.i18n import t
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 from assistant_terminal.tui.screens.kept_keys import ask_about_keys
@@ -21,7 +22,7 @@ from assistant_terminal.tui.screens.skill_edit import SkillEditScreen
 
 
 class SkillsScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"skills"})
 
     def __init__(self, skills: SkillsApi, repositories: RepositoriesApi) -> None:
@@ -36,10 +37,12 @@ class SkillsScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="skills"):
-            yield Static("Skills", id="skills-title")
+            yield Static(t("Skills"), id="skills-title")
             yield Static(
-                "No skills yet. Ask the assistant to save one, for example: “save a skill for my daily news digest”, "
-                "or install one from the assistant's extras with /plugins.",
+                t(
+                    "No skills yet. Ask the assistant to save one, for example: “save a skill for my daily news "
+                    "digest”, or install one from the assistant's extras with /plugins."
+                ),
                 id="skills-empty",
             )
             with Horizontal(id="skills-main"):
@@ -48,10 +51,10 @@ class SkillsScreen(ModalScreen[None]):
                 with VerticalScroll(id="skills-detail"):
                     yield Markdown(id="skill-body")
             with Horizontal(id="skills-buttons"):
-                yield Button("Edit", id="edit")
-                yield Button("Update", id="update")
-                yield Button("Delete", variant="error", id="delete")
-                yield Button("Close", id="close")
+                yield Button(t("Edit"), id="edit")
+                yield Button(t("Update"), id="update")
+                yield Button(t("Delete"), variant="error", id="delete")
+                yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
@@ -93,7 +96,7 @@ class SkillsScreen(ModalScreen[None]):
     @reports_daemon_unavailable
     async def _edit(self) -> None:
         if self._skill is not None and await self.app.push_screen_wait(SkillEditScreen(self._skills, self._skill)):
-            self.notify(f"Saved skill {self._skill.name}.")
+            self.notify(t("Saved skill {name}.", name=self._skill.name))
             await self.reload()
 
     @on(Button.Pressed, "#update")
@@ -103,7 +106,7 @@ class SkillsScreen(ModalScreen[None]):
             return
         try:
             await self._skills.update_installed(self._selected)
-            self.notify(f"Updated {self._selected} from the extras.")
+            self.notify(t("Updated {name} from the extras.", name=self._selected))
         except SkillError as e:
             self.notify(str(e), severity="error")
         await self.reload()
@@ -116,11 +119,11 @@ class SkillsScreen(ModalScreen[None]):
     @work
     @reports_daemon_unavailable
     async def _confirm_delete(self, name: str) -> None:
-        if not await self.app.push_screen_wait(ConfirmScreen(f"Delete the skill {name}?", "Delete")):
+        if not await self.app.push_screen_wait(ConfirmScreen(t("Delete the skill {name}?", name=name), t("Delete"))):
             return
         try:
             kept = await self._skills.delete(name)
-            self.notify(f"Deleted skill {name}.")
+            self.notify(t("Deleted skill {name}.", name=name))
         except SkillError as e:
             self.notify(str(e), severity="error")
             kept = None
@@ -145,27 +148,27 @@ class SkillsScreen(ModalScreen[None]):
 
 
 def _state(summary: SkillSummary) -> str:
-    origin = f" · plugin {summary.plugin}" if summary.plugin else ""
-    return origin + (" · has problems" if summary.problems else label(summary.failing))
+    origin = " · " + t("plugin {plugin}", plugin=summary.plugin) if summary.plugin else ""
+    return origin + (" · " + t("has problems") if summary.problems else label(summary.failing))
 
 
 def _detail(skill: Skill, summary: SkillSummary | None) -> str:
     text = f"### {skill.name}\n\n{skill.description}{_health(skill, summary)}\n\n---\n\n{skill.instructions}"
-    origin = f"the {skill.plugin} plugin" if skill.plugin else "you or the assistant, here"
-    text += f"\n\n---\n\n**Added by** {origin}"
+    origin = t("the {plugin} plugin", plugin=skill.plugin) if skill.plugin else t("you or the assistant, here")
+    text += "\n\n---\n\n**" + t("Added by") + f"** {origin}"
     if skill.files:
-        text += "\n\n**Files:** " + ", ".join(f"`{path}`" for path in skill.files)
+        text += "\n\n**" + t("Files:") + "** " + ", ".join(f"`{path}`" for path in skill.files)
     if skill.plugin:
-        text += f"\n\nTo delete it, remove the {skill.plugin} plugin in /plugins."
+        text += "\n\n" + t("To delete it, remove the {plugin} plugin in /plugins.", plugin=skill.plugin)
     if skill.server:
-        text += f"\n\n**Comes with the {skill.server} MCP server**: updated with it."
+        text += "\n\n**" + t("Comes with the {server} MCP server", server=skill.server) + "**: " + t("updated with it.")
     elif skill.source:
-        text += f"\n\n**Installed from** {skill.source}"
+        text += "\n\n**" + t("Installed from") + f"** {skill.source}"
     return text
 
 
 def _health(skill: Skill, summary: SkillSummary | None) -> str:
-    parts = [f"**Problem:** {problem}" for problem in skill.problems]
+    parts = ["**" + t("Problem:") + f"** {problem}" for problem in skill.problems]
     if summary is not None and (failures := failures_line(summary.failures, summary.failure, summary.failed_at)):
         parts.append(failures)
     return "".join(f"\n\n{part}" for part in parts)

@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 from assistant.core.agent import FoundServer, FoundSkill, Repository, RepositoryContents, RepositoryPlugins
 from assistant.core.repositories.known import EXTRAS
+from assistant_terminal.i18n import t, translatable
 
 _EXTRAS = Repository(EXTRAS, "lo9i/lo9i-assistant-extras", True)
 
@@ -45,14 +46,14 @@ class Plugin:
         """ "MCP server · channel · skill · page", "Channel" (a chat channel without tools), "Email
         provider", "Coding agent · skill", or "Skill"."""
         if self.server is None:
-            return "Skill"
+            return t("Skill")
         parts = [
-            ("MCP server", self.server.transport != "none"),
-            ("channel", self.server.channel),
-            ("email provider", self.server.email),
-            ("coding agent", bool(self.server.agent)),
-            ("skill", self.server.skill),
-            ("page", self.server.page),
+            (t("MCP server"), self.server.transport != "none"),
+            (t("channel"), self.server.channel),
+            (t("email provider"), self.server.email),
+            (t("coding agent"), bool(self.server.agent)),
+            (t("skill"), self.server.skill),
+            (t("page"), self.server.page),
         ]
         kind = " · ".join(part for part, has in parts if has)
         return kind[:1].upper() + kind[1:]
@@ -87,7 +88,8 @@ def has_newer(plugin: Plugin) -> bool:
 def update_label(plugin: Plugin) -> str:
     """ "expenses  0.2.2 → 0.3.0", for the list of updates."""
     found = plugin.server or plugin.skill
-    installed, available = (found.installed_version or "none", found.version) if found else ("none", "")
+    none = t("none")
+    installed, available = (found.installed_version or none, found.version) if found else (none, "")
     return f"{plugin.name}  {installed} → {available}"
 
 
@@ -116,25 +118,32 @@ def last_checked(read: list[RepositoryPlugins]) -> str:
 def checked_line(checked: str, checking: bool, failed: bool, now: datetime) -> str:
     """Beside the list, which is the one kept from the last check while the repositories are checked again."""
     if checking:
-        return "Checking for updates…"
-    when = f"checked {_ago(datetime.fromisoformat(checked), now)}" if checked else ""
+        return t("Checking for updates…")
+    when = t("checked {ago}", ago=_ago(datetime.fromisoformat(checked), now)) if checked else ""
     if failed:
-        return "Couldn't check for updates" + (f" · {when}" if when else "")
-    return when.capitalize()
+        return t("Couldn't check for updates") + (f" · {when}" if when else "")
+    return when[:1].upper() + when[1:]
+
+
+_UNITS = (
+    (24 * 60, translatable("{count} day ago"), translatable("{count} days ago")),
+    (60, translatable("{count} hour ago"), translatable("{count} hours ago")),
+    (1, translatable("{count} minute ago"), translatable("{count} minutes ago")),
+)
 
 
 def _ago(then: datetime, now: datetime) -> str:
     minutes = int((now - (then if then.tzinfo else then.replace(tzinfo=UTC))).total_seconds() // 60)
-    for size, unit in ((24 * 60, "day"), (60, "hour"), (1, "minute")):
+    for size, one, many in _UNITS:
         if minutes >= size:
             count = minutes // size
-            return f"{count} {unit}{'s' if count > 1 else ''} ago"
-    return "just now"
+            return t(many if count > 1 else one, count=count)
+    return t("just now")
 
 
 def source(plugin: Plugin) -> str:
     """ "Official" for the extras' plugins; the repository's name for the others."""
-    return "Official" if plugin.repository.official else f"{plugin.repository.name} (not official)"
+    return t("Official") if plugin.repository.official else t("{name} (not official)", name=plugin.repository.name)
 
 
 def by_category(shown: list[Plugin]) -> list[tuple[str, list[Plugin]]]:
@@ -146,7 +155,36 @@ def by_category(shown: list[Plugin]) -> list[tuple[str, list[Plugin]]]:
 
 def category_label(category: str) -> str:
     """ "communications/email" → "Communications / Email"; a group alone, "communications" → "Communications"."""
-    return " / ".join(part.capitalize() for part in category.split("/"))
+    return " / ".join(
+        t(_CATEGORY_PARTS[part]) if part in _CATEGORY_PARTS else part.capitalize() for part in category.split("/")
+    )
+
+
+# The parts of the daemon's fixed list of categories (core/repositories/categories.py).
+_CATEGORY_PARTS = {
+    "agents": translatable("Agents"),
+    "apps": translatable("Apps"),
+    "assistant": translatable("Assistant"),
+    "calendar": translatable("Calendar"),
+    "chat": translatable("Chat"),
+    "communications": translatable("Communications"),
+    "connectivity": translatable("Connectivity"),
+    "contacts": translatable("Contacts"),
+    "email": translatable("Email"),
+    "factory": translatable("Factory"),
+    "finance": translatable("Finance"),
+    "general": translatable("General"),
+    "maps": translatable("Maps"),
+    "media": translatable("Media"),
+    "modes": translatable("Modes"),
+    "news": translatable("News"),
+    "other": translatable("Other"),
+    "phone": translatable("Phone"),
+    "productivity": translatable("Productivity"),
+    "remote": translatable("Remote"),
+    "software": translatable("Software"),
+    "video": translatable("Video"),
+}
 
 
 def label(plugin: Plugin) -> str:
@@ -166,22 +204,23 @@ def describe(plugin: Plugin) -> str:
     lines = [
         f"## {plugin.name}",
         plugin.description,
-        f"Source: {source(plugin)}",
-        f"Category: {category_label(plugin.category)}",
-        f"Kind: {plugin.kind}",
-        f"Version: {version(plugin)}",
+        t("Source: {source}", source=source(plugin)),
+        t("Category: {category}", category=category_label(plugin.category)),
+        t("Kind: {kind}", kind=plugin.kind),
+        t("Version: {version}", version=version(plugin)),
     ]
     if plugin.server is not None:
-        lines.append(f"Runs: {'remotely' if plugin.server.transport == 'http' else "on the assistant's computer"}")
+        remote = plugin.server.transport == "http"
+        lines.append(t("Runs: remotely") if remote else t("Runs: on the assistant's computer"))
         if plugin.server.fields:
-            lines.append(f"Asks for: {', '.join(f.label for f in plugin.server.fields)}")
+            lines.append(t("Asks for: {fields}", fields=", ".join(f.label for f in plugin.server.fields)))
         if plugin.server.page:
-            lines.append("Its page shows in the sidebar of the web app.")
+            lines.append(t("Its page shows in the sidebar of the web app."))
         if plugin.server.channel:
-            lines.append("Once it's installed, its setup shows here.")
+            lines.append(t("Once it's installed, its setup shows here."))
         if plugin.server.email:
-            lines.append("Once it's installed, connect its accounts with Accounts.")
+            lines.append(t("Once it's installed, connect its accounts with Accounts."))
     elif plugin.skill is not None and plugin.skill.files:
-        lines.append(f"Files: {', '.join(plugin.skill.files)}")
-    lines.append(f"State: {'installed' if plugin.installed else 'not installed'}")
+        lines.append(t("Files: {files}", files=", ".join(plugin.skill.files)))
+    lines.append(t("State: installed") if plugin.installed else t("State: not installed"))
     return "\n\n".join(line for line in lines if line)

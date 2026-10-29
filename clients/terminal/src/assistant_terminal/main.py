@@ -9,14 +9,15 @@ from pathlib import Path
 from assistant.client import DaemonClient, DaemonUnavailableError, connect
 from assistant.core.agent import Session
 from assistant.core.config import settings
+from assistant_terminal import i18n
 from assistant_terminal.history import History
+from assistant_terminal.i18n import t
 from assistant_terminal.preferences import Preferences
-from assistant_terminal.repl import Repl
-from assistant_terminal.tui.app import AssistantApp
 
 
 async def _chat() -> None:
     async with connect() as client:
+        i18n.use(await client.language.get())
         # Every terminal opens on the inbox, which routes each message to its conversation; /new starts one,
         # /conversations opens one.
         session = Session(settings.owner_id, "cli", await client.inbox_thread(settings.owner_id))
@@ -24,6 +25,10 @@ async def _chat() -> None:
 
 
 async def _open(client: DaemonClient, session: Session) -> None:
+    # Imported once the language is set: their key bindings and labels are made in it at import (i18n.py).
+    from assistant_terminal.repl import Repl
+    from assistant_terminal.tui.app import AssistantApp
+
     if sys.stdin.isatty() and sys.stdout.isatty():
         history = History(Path(settings.cli_history_path).expanduser(), settings.cli_history_limit)
         preferences = Preferences(Path(settings.cli_preferences_path).expanduser())
@@ -34,8 +39,13 @@ async def _open(client: DaemonClient, session: Session) -> None:
 
 async def _restart() -> None:
     async with connect() as client:
+        i18n.use(await client.language.get())
         waiting = (await client.system.restart()).waiting_for_runs
-    print(f"The daemon restarts once the {waiting} runs in progress end." if waiting else "The daemon restarts now.")
+    print(
+        t("The daemon restarts once the {count} runs in progress end.", count=waiting)
+        if waiting
+        else t("The daemon restarts now.")
+    )
 
 
 def run() -> None:

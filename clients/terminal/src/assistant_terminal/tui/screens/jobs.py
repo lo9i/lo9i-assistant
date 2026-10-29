@@ -15,13 +15,14 @@ from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import JobsApi
 from assistant.core.agent import Job, JobError
+from assistant_terminal.i18n import t
 from assistant_terminal.jobs_text import describe, with_reply
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 
 class JobsScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"jobs"})
 
     def __init__(self, jobs: JobsApi, job: str | None = None, run: str | None = None) -> None:
@@ -34,9 +35,9 @@ class JobsScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="jobs"):
-            yield Static("Scheduled jobs", id="jobs-title")
+            yield Static(t("Scheduled jobs"), id="jobs-title")
             yield Static(
-                "No scheduled jobs. Ask the assistant for one, for example: “every day at 9 send me a news digest”.",
+                t("No scheduled jobs. Ask the assistant for one, for example: “every day at 9 send me a news digest”."),
                 id="jobs-empty",
             )
             with Horizontal(id="jobs-main"):
@@ -45,10 +46,10 @@ class JobsScreen(ModalScreen[None]):
                 with VerticalScroll(id="jobs-detail"):
                     yield Markdown(id="job-body")
             with Horizontal(id="jobs-buttons"):
-                yield Button("Last reply", id="reply")
-                yield Button("Pause", id="toggle")
-                yield Button("Delete", variant="error", id="delete")
-                yield Button("Close", id="close")
+                yield Button(t("Last reply"), id="reply")
+                yield Button(t("Pause"), id="toggle")
+                yield Button(t("Delete"), variant="error", id="delete")
+                yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
@@ -108,10 +109,10 @@ class JobsScreen(ModalScreen[None]):
     @work
     @reports_daemon_unavailable
     async def _confirm_delete(self, name: str) -> None:
-        if not await self.app.push_screen_wait(ConfirmScreen(f"Delete the job {name}?", "Delete")):
+        if not await self.app.push_screen_wait(ConfirmScreen(t("Delete the job {name}?", name=name), t("Delete"))):
             return
         if await self._change(lambda: self._jobs.delete(name)):
-            self.notify(f"Deleted job {name}.")
+            self.notify(t("Deleted job {name}.", name=name))
 
     async def _change(self, action: Callable[[], Awaitable[object]]) -> bool:
         """Runs a change and shows the result. False (with the reason shown) when it wasn't possible."""
@@ -127,7 +128,7 @@ class JobsScreen(ModalScreen[None]):
     async def _show(self, name: str) -> None:
         self._selected = name
         job = self._shown[name]
-        self.query_one("#toggle", Button).label = "Pause" if job.enabled else "Resume"
+        self.query_one("#toggle", Button).label = t("Pause") if job.enabled else t("Resume")
         self.query_one("#reply", Button).disabled = not job.runs
         await self.query_one("#job-body", Markdown).update(await self._text(job))
 

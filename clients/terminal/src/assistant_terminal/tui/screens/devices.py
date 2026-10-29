@@ -15,14 +15,15 @@ from assistant.client import clipboard
 from assistant.client.daemon_client import DevicesApi
 from assistant.core.agent import Device, DeviceError, PairingCode
 from assistant_terminal.devices_text import describe, pairing
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
-_EMPTY = "No devices paired yet. Pair a browser to use the assistant from another computer."
+_EMPTY = translatable("No devices paired yet. Pair a browser to use the assistant from another computer.")
 
 
 class DevicesScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"devices"})
 
     def __init__(self, devices: DevicesApi) -> None:
@@ -35,17 +36,17 @@ class DevicesScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="devices"):
-            yield Static("Devices", id="devices-title")
+            yield Static(t("Devices"), id="devices-title")
             with Horizontal(id="devices-main"):
                 yield OptionList(id="devices-list")
                 yield Static(classes="divider")
                 with VerticalScroll(id="devices-detail"):
                     yield Markdown(id="device-body")
             with Horizontal(id="devices-buttons"):
-                yield Button("Pair a browser", variant="success", id="pair")
-                yield Button("Copy code", id="copy")
-                yield Button("Revoke", variant="error", id="revoke")
-                yield Button("Close", id="close")
+                yield Button(t("Pair a browser"), variant="success", id="pair")
+                yield Button(t("Copy code"), id="copy")
+                yield Button(t("Revoke"), variant="error", id="revoke")
+                yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
@@ -63,7 +64,7 @@ class DevicesScreen(ModalScreen[None]):
         if self._selected not in self._shown:
             self._selected = devices[0].id if devices else None
         if self._selected is None:
-            await self._body(_EMPTY)
+            await self._body(t(_EMPTY))
             return
         options.highlighted = list(self._shown).index(self._selected)
         await self._body(describe(self._shown[self._selected]))
@@ -90,7 +91,10 @@ class DevicesScreen(ModalScreen[None]):
             return
         self.app.copy_to_clipboard(self._code.code)
         copied = await clipboard.copy(self._code.code)
-        self.notify(f"Copied {self._code.code}." if copied else f"Sent {self._code.code} to your terminal's clipboard.")
+        code = self._code.code
+        self.notify(
+            t("Copied {name}.", name=code) if copied else t("Sent {code} to your terminal's clipboard.", code=code)
+        )
 
     @on(Button.Pressed, "#revoke")
     def _revoke(self) -> None:
@@ -105,8 +109,8 @@ class DevicesScreen(ModalScreen[None]):
     @work
     @reports_daemon_unavailable
     async def _confirm_revoke(self, device: Device) -> None:
-        question = f"Revoke {device.name}? It will need a new code to use the assistant again."
-        if not await self.app.push_screen_wait(ConfirmScreen(question, "Revoke")):
+        question = t("Revoke {name}? It will need a new code to use the assistant again.", name=device.name)
+        if not await self.app.push_screen_wait(ConfirmScreen(question, t("Revoke"))):
             return
         try:
             await self._devices.revoke(device.id)

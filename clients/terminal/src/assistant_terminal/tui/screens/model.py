@@ -18,11 +18,12 @@ from textual.widgets import Button, Input, Label, Markdown, Select
 from assistant.client.daemon_client import ModelApi
 from assistant.core.agent import ModelProvider, ModelSettingsError, ModelStatus, ProviderField
 from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
+from assistant_terminal.i18n import t
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 
 class ModelScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"settings"})
 
     def __init__(self, model: ModelApi) -> None:
@@ -37,19 +38,19 @@ class ModelScreen(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="model"):
             yield Markdown(id="model-body")
-            yield Select[str]([], prompt="Provider", id="model-provider")
+            yield Select[str]([], prompt=t("Provider"), id="model-provider")
             yield Markdown(id="model-help")
             yield Vertical(id="model-fields")
-            yield Input(placeholder="Main model", id="model-main")
-            yield Input(placeholder="Worker model (summaries, titles)", id="model-worker")
+            yield Input(placeholder=t("Main model"), id="model-main")
+            yield Input(placeholder=t("Worker model (summaries, titles)"), id="model-worker")
             with Horizontal(id="model-buttons"):
-                yield Button("Save and test", variant="success", id="save")
-                yield Button("Use .env instead", id="reset")
-                yield Button("Close", id="close")
+                yield Button(t("Save and test"), variant="success", id="save")
+                yield Button(t("Use .env instead"), id="reset")
+                yield Button(t("Close"), id="close")
             with Horizontal(id="model-dispatch"):
-                yield Label("Continue a conversation from")
-                yield Input(placeholder="Confidence (0 to 1)", id="dispatch-confidence")
-                yield Button("Save", id="dispatch-save")
+                yield Label(t("Continue a conversation from"))
+                yield Input(placeholder=t("Confidence (0 to 1)"), id="dispatch-confidence")
+                yield Button(t("Save"), id="dispatch-save")
             yield Label("", id="dispatch-message")
 
     @reports_daemon_unavailable
@@ -78,11 +79,11 @@ class ModelScreen(ModalScreen[None]):
         try:
             setting = DispatchSetting(float(typed))
             self._show_dispatch(await self._model.set_dispatch(setting))
-            message.update("Saved. It applies from your next message.")
+            message.update(t("Saved. It applies from your next message."))
         except DispatchSettingError as e:
             message.update(str(e))
         except ValueError:
-            message.update("The confidence is a number from 0 to 1, like 0.7.")
+            message.update(t("The confidence is a number from 0 to 1, like 0.7."))
 
     def _show_dispatch(self, setting: DispatchSetting) -> None:
         self.query_one("#dispatch-confidence", Input).value = f"{setting.confidence:g}"
@@ -102,16 +103,16 @@ class ModelScreen(ModalScreen[None]):
         provider = self._providers.get(self._provider())
         installing = provider is not None and not provider.installed
         self._message = (
-            f"Installing {provider.package}, then testing the models…"
+            t("Installing {package}, then testing the models…", package=provider.package)
             if installing and provider
-            else "Testing the models…"
+            else t("Testing the models…")
         )
         await self._show()
         values = {key: _value(field) for key, field in self._inputs.items()}
         main, worker = (self.query_one(f"#model-{n}", Input).value.strip() for n in ("main", "worker"))
         try:
             self._status = await self._model.set(self._provider(), values, main, worker)
-            self._message = "Saved ✓ Both models answered. The assistant uses them from now on."
+            self._message = t("Saved ✓ Both models answered. The assistant uses them from now on.")
             self._providers = {p.id: p for p in await self._model.providers()}
             await self._show_provider(self._status.provider)
         except ModelSettingsError as e:
@@ -122,7 +123,7 @@ class ModelScreen(ModalScreen[None]):
     @reports_daemon_unavailable
     async def _reset(self) -> None:
         self._status = await self._model.reset()
-        self._message = "Using the model from .env again."
+        self._message = t("Using the model from .env again.")
         select = self.query_one("#model-provider", Select)
         select.value = self._status.provider
         await self._show_provider(self._status.provider)
@@ -148,8 +149,11 @@ class ModelScreen(ModalScreen[None]):
             return
         self.query_one("#reset").display = status.source == "app"
         name = self._providers[status.provider].name if status.provider in self._providers else status.provider
-        source = "set here" if status.source == "app" else "from .env"
-        lines = [f"## Model: {name} ({source})", f"Main: `{status.model}` · Worker: `{status.worker_model}`"]
+        source = t("set here") if status.source == "app" else t("from .env")
+        lines = [
+            "## " + t("Model: {name} ({source})", name=name, source=source),
+            t("Main: {main} · Worker: {worker}", main=f"`{status.model}`", worker=f"`{status.worker_model}`"),
+        ]
         if self._message:
             lines.append(self._message)
         await self.query_one("#model-body", Markdown).update("\n\n".join(lines))
@@ -167,7 +171,7 @@ def _field_input(field: ProviderField, status: ModelStatus | None) -> Input | Se
         value = picked if picked in field.options else field.options[0]
         return Select[str]([(o, o) for o in field.options], value=value, allow_blank=False, prompt=field.label)
     saved = status is not None and field.key in status.secrets_set
-    hint = " (saved; leave empty to keep it)" if saved else "" if field.required else " (optional)"
+    hint = t(" (saved; leave empty to keep it)") if saved else "" if field.required else t(" (optional)")
     value = status.values.get(field.key, "") if status is not None and not field.secret else ""
     return Input(value, placeholder=f"{field.label}{hint}", password=field.secret)
 
@@ -183,5 +187,7 @@ def _help(provider: ModelProvider) -> str:
     if provider.help:
         lines.insert(0, provider.help)
     if not provider.installed:
-        lines.append(f"Saving installs `{provider.package}` first, which can take a few minutes.")
+        lines.append(
+            t("Saving installs {package} first, which can take a few minutes.", package=f"`{provider.package}`")
+        )
     return "\n\n".join(lines)

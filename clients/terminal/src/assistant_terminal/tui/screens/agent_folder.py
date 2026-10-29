@@ -14,6 +14,7 @@ from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import ConversationsApi
 from assistant.core.agent import AgentFolders, FolderError
+from assistant_terminal.i18n import t
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 # Option ids: what Enter does with the option.
@@ -22,7 +23,7 @@ _BROWSE = "browse:"
 
 
 class AgentFolderScreen(ModalScreen[str | None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "close", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "close", t("Close"))]
 
     def __init__(self, conversations: ConversationsApi, agent_name: str) -> None:
         super().__init__()
@@ -34,12 +35,12 @@ class AgentFolderScreen(ModalScreen[str | None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="agent-folder"):
-            yield Static(f"Where should {self._agent_name} work?", id="agent-folder-title", markup=False)
+            yield Static(t("Where should {agent} work?", agent=self._agent_name), id="agent-folder-title", markup=False)
             yield Static(id="agent-folder-path", markup=False)
             yield OptionList(id="agent-folder-options")
             with Horizontal(id="agent-folder-buttons"):
-                yield Button("Show hidden", id="hidden")
-                yield Button("Close (esc)", id="close")
+                yield Button(t("Show hidden"), id="hidden")
+                yield Button(t("Close (esc)"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
@@ -59,7 +60,7 @@ class AgentFolderScreen(ModalScreen[str | None]):
             self.action_close()
             return
         self._hidden = not self._hidden
-        event.button.label = "Hide hidden" if self._hidden else "Show hidden"
+        event.button.label = t("Hide hidden") if self._hidden else t("Show hidden")
         if self._browsing is not None:
             await self._browse(self._browsing)
 
@@ -67,10 +68,10 @@ class AgentFolderScreen(ModalScreen[str | None]):
         self.dismiss(None)
 
     def _show_offered(self, folders: AgentFolders) -> None:
-        options = [Option(f"Workspace  {_shown(folders.workspace)}", id=_PICK + folders.workspace)]
+        options = [Option(t("Workspace") + f"  {_shown(folders.workspace)}", id=_PICK + folders.workspace)]
         options += [Option(_shown(f), id=_PICK + f) for f in folders.recent]
-        options.append(Option("Browse…", id=_BROWSE + folders.home))
-        self.query_one("#agent-folder-path", Static).update("Workspace, a folder used before, or browse.")
+        options.append(Option(t("Browse…"), id=_BROWSE + folders.home))
+        self.query_one("#agent-folder-path", Static).update(t("Workspace, a folder used before, or browse."))
         self._fill(options)
 
     async def _browse(self, path: str) -> None:
@@ -80,9 +81,9 @@ class AgentFolderScreen(ModalScreen[str | None]):
             self.notify(str(e), severity="error")
             return
         self._browsing = listing.path
-        options = [Option("Use this folder", id=_PICK + listing.path)]
+        options = [Option(t("Use this folder"), id=_PICK + listing.path)]
         if listing.parent is not None:
-            options.append(Option(".. up", id=_BROWSE + listing.parent))
+            options.append(Option(t(".. up"), id=_BROWSE + listing.parent))
         options += [Option(f"{Path(c).name}/", id=_BROWSE + c) for c in listing.children]
         self.query_one("#agent-folder-path", Static).update(_shown(listing.path))
         self._fill(options)

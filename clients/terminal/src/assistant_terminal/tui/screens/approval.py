@@ -9,11 +9,16 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Static
 
+from assistant_terminal.i18n import t
+
 
 class ApprovalScreen(ModalScreen[dict[str, Any]]):
     """Returns {"approved": bool, "reason": str | None}."""
 
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("y", "approve", "Approve"), Binding("escape", "reject", "Reject")]
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding("y", "approve", t("Approve")),
+        Binding("escape", "reject", t("Reject")),
+    ]
 
     def __init__(self, request: dict[str, Any]) -> None:
         super().__init__()
@@ -22,12 +27,12 @@ class ApprovalScreen(ModalScreen[dict[str, Any]]):
     def compose(self) -> ComposeResult:
         with Vertical(id="approval"):
             tool, reason = escape(str(self._request.get("tool"))), escape(str(self._request.get("reason")))
-            yield Static(f"[b]Approve {tool}?[/b]  [dim]{reason}[/dim]")
+            yield Static(f"[b]{t('Approve {tool}?', tool=tool)}[/b]  [dim]{reason}[/dim]")
             yield Static(str(self._request.get("command", self._request)), id="approval-command", markup=False)
-            yield Input(placeholder="Reason, if you reject (optional)", id="approval-reason")
+            yield Input(placeholder=t("Reason, if you reject (optional)"), id="approval-reason")
             with Horizontal(id="approval-buttons"):
-                yield Button("Approve (y)", variant="success", id="approve")
-                yield Button("Reject (esc)", variant="error", id="reject")
+                yield Button(t("Approve (y)"), variant="success", id="approve")
+                yield Button(t("Reject (esc)"), variant="error", id="reject")
 
     def on_mount(self) -> None:
         self.query_one("#approve", Button).focus()

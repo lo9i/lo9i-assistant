@@ -13,29 +13,57 @@ from textual.widgets import Button, Markdown, Select, SelectionList, Static
 
 from assistant.client.daemon_client import SpeechApi
 from assistant.core.agent import SpeechSettingsError, SpeechStatus, SpokenReplies
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 _MODEL_NOTES = {
-    "tiny": "fastest, least accurate",
-    "base": "fast",
-    "small": "balanced",
-    "medium": "slower, more accurate",
-    "large-v3-turbo": "most accurate, slowest",
+    "tiny": translatable("fastest, least accurate"),
+    "base": translatable("fast"),
+    "small": translatable("balanced"),
+    "medium": translatable("slower, more accurate"),
+    "large-v3-turbo": translatable("most accurate, slowest"),
 }
 _DECODINGS = [
-    ("Accurate: weighs 5 candidate sentences", "accurate"),
-    ("Fast: the likeliest word each time, about twice as fast", "fast"),
+    (translatable("Accurate: weighs 5 candidate sentences"), "accurate"),
+    (translatable("Fast: the likeliest word each time, about twice as fast"), "fast"),
 ]
 _SPOKEN = [
-    ("Don't speak replies", "off"),
-    ("Speak replies to voice messages", "voice"),
-    ("Speak every reply", "always"),
+    (translatable("Don't speak replies"), "off"),
+    (translatable("Speak replies to voice messages"), "voice"),
+    (translatable("Speak every reply"), "always"),
 ]
-_ABOUT_SPOKEN = "Spoken replies play in the web chat and come as Telegram voice notes; this app doesn't play them."
+_ABOUT_SPOKEN = translatable(
+    "Spoken replies play in the web chat and come as Telegram voice notes; this app doesn't play them. Until you "
+    "pick a voice, it follows the apps' language (/language)."
+)
+# The languages voice messages are told apart in (core/speech/preferences.py), by their code.
+_LANGUAGES = {
+    "en": translatable("English"),
+    "es": translatable("Spanish"),
+    "pt": translatable("Portuguese"),
+    "fr": translatable("French"),
+    "de": translatable("German"),
+    "it": translatable("Italian"),
+    "nl": translatable("Dutch"),
+    "ca": translatable("Catalan"),
+    "pl": translatable("Polish"),
+    "ru": translatable("Russian"),
+    "uk": translatable("Ukrainian"),
+    "tr": translatable("Turkish"),
+    "ar": translatable("Arabic"),
+    "hi": translatable("Hindi"),
+    "ja": translatable("Japanese"),
+    "ko": translatable("Korean"),
+    "zh": translatable("Chinese"),
+}
+
+
+def _language(code: str, name: str) -> str:
+    return t(_LANGUAGES[code]) if code in _LANGUAGES else name
 
 
 class AudioScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"settings"})
 
     def __init__(self, speech: SpeechApi) -> None:
@@ -46,31 +74,40 @@ class AudioScreen(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="audio"):
             yield Markdown(id="audio-body")
-            yield Static("Speech to text", classes="audio-heading")
-            yield Select[str]([], prompt="Model", allow_blank=True, id="audio-model")
-            yield Select[str](_DECODINGS, allow_blank=False, value="accurate", id="audio-decoding")
-            yield Static("Languages voice messages are detected as (fewer, fewer mistakes):", classes="audio-note")
+            yield Static(t("Speech to text"), classes="audio-heading")
+            yield Select[str]([], prompt=t("Model"), allow_blank=True, id="audio-model")
+            yield Select[str](
+                [(t(label), value) for label, value in _DECODINGS],
+                allow_blank=False,
+                value="accurate",
+                id="audio-decoding",
+            )
+            yield Static(t("Languages voice messages are detected as (fewer, fewer mistakes):"), classes="audio-note")
             yield SelectionList[str](id="audio-languages")
-            yield Button("Save speech to text", variant="success", id="save-stt")
-            yield Static("Spoken replies", classes="audio-heading")
-            yield Select[str](_SPOKEN, allow_blank=False, value="off", id="audio-spoken")
-            yield Select[str]([], prompt="Voice", allow_blank=True, id="audio-voice")
-            yield Static(_ABOUT_SPOKEN, classes="audio-note")
-            yield Button("Save spoken replies", variant="success", id="save-replies")
+            yield Button(t("Save speech to text"), variant="success", id="save-stt")
+            yield Static(t("Spoken replies"), classes="audio-heading")
+            yield Select[str](
+                [(t(label), value) for label, value in _SPOKEN], allow_blank=False, value="off", id="audio-spoken"
+            )
+            yield Select[str]([], prompt=t("Voice"), allow_blank=True, id="audio-voice")
+            yield Static(t(_ABOUT_SPOKEN), classes="audio-note")
+            yield Button(t("Save spoken replies"), variant="success", id="save-replies")
             with Horizontal(id="audio-buttons"):
-                yield Button("Close", id="close")
+                yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
         status = await self._speech.settings()
         self.query_one("#audio-model", Select).set_options(
-            [(f"{m} ({_MODEL_NOTES.get(m, '')})", m) for m in status.models]
+            [(f"{m} ({t(_MODEL_NOTES[m]) if m in _MODEL_NOTES else ''})", m) for m in status.models]
         )
         self.query_one("#audio-voice", Select).set_options(
             [(f"{v.name} · {v.language}", v.id) for v in status.voice_options]
         )
         languages = self.query_one("#audio-languages", SelectionList)
-        languages.add_options([(o.name, o.code, o.code in status.languages) for o in status.language_options])
+        languages.add_options(
+            [(_language(o.code, o.name), o.code, o.code in status.languages) for o in status.language_options]
+        )
         self._fill(status)
         await self._show(status)
 
@@ -91,7 +128,7 @@ class AudioScreen(ModalScreen[None]):
         languages = list(self.query_one("#audio-languages", SelectionList).selected)
         try:
             status = await self._speech.change(str(model), languages, "fast" if decoding == "fast" else "accurate")
-            self._message = "Saved. Used from the next voice message."
+            self._message = t("Saved. Used from the next voice message.")
         except SpeechSettingsError as e:
             status, self._message = await self._speech.settings(), f"**{e}**"
         await self._show(status)
@@ -104,7 +141,7 @@ class AudioScreen(ModalScreen[None]):
         mode: SpokenReplies = "voice" if spoken == "voice" else "always" if spoken == "always" else "off"
         try:
             status = await self._speech.change_replies(mode, voice if isinstance(voice, str) else "")
-            self._message = "Saved."
+            self._message = t("Saved.")
         except SpeechSettingsError as e:
             status, self._message = await self._speech.settings(), f"**{e}**"
         await self._show(status)
@@ -116,13 +153,18 @@ class AudioScreen(ModalScreen[None]):
         self.query_one("#audio-voice", Select).value = status.voice
 
     async def _show(self, status: SpeechStatus) -> None:
-        names = {o.code: o.name for o in status.language_options}
+        names = {o.code: _language(o.code, o.name) for o in status.language_options}
         languages = ", ".join(names.get(code, code) for code in status.languages)
-        decoding = "fast" if status.decoding == "fast" else "accurate"
-        spoken = dict((value, label) for label, value in _SPOKEN)[status.spoken_replies]
+        decoding = t("fast") if status.decoding == "fast" else t("accurate")
+        spoken = t(dict((value, label) for label, value in _SPOKEN)[status.spoken_replies])
         lines = [
-            "## Audio",
-            f"Voice messages: `{status.model}`, {decoding}, detected as {languages}.",
+            "## " + t("Audio"),
+            t(
+                "Voice messages: {model}, {decoding}, detected as {languages}.",
+                model=f"`{status.model}`",
+                decoding=decoding,
+                languages=languages,
+            ),
             f"{spoken}.",
         ]
         if self._message:

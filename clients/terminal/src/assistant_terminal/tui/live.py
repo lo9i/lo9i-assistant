@@ -1,9 +1,9 @@
 """Reacts to daemon events while the app is open: memory and skills reload the panel, finished jobs and
 background work, MCP servers or skills that keep failing, MCP servers whose sign-in stopped working and new plugin
 updates show a notification, changes refresh an open screen that shows them (its `RELOADS_ON`, in the
-background), a rename updates the title, pinning or unpinning a skill and titling the conversation update the
-subtitle, runs started elsewhere in this conversation appear in the chat
-live, and a conversation left with /new while its reply was running reports when it finishes."""
+background), a rename updates the title, a new language is used for what shows after it, pinning or unpinning a
+skill and titling the conversation update the subtitle, runs started elsewhere in this conversation appear in the
+chat live, and a conversation left with /new while its reply was running reports when it finishes."""
 
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
@@ -13,6 +13,7 @@ class LiveApp(Protocol):
     def refresh_memory(self) -> Awaitable[None]: ...
     def reload_screen(self, kind: str) -> None: ...
     def refresh_title(self) -> Awaitable[None]: ...
+    def refresh_language(self) -> Awaitable[None]: ...
     def refresh_thread(self) -> Awaitable[None]: ...
     def refresh_agents(self) -> Awaitable[None]: ...
     def refresh_plugin_updates(self) -> Awaitable[None]: ...
@@ -43,6 +44,7 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         return lambda _: app.reload_screen(kind)
 
     async def settings(_: dict[str, Any]) -> None:
+        await app.refresh_language()
         await app.refresh_title()
         await app.refresh_plugin_updates()
         app.reload_screen("settings")

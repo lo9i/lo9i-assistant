@@ -4,6 +4,7 @@ channel says what to show for setting it up (its items); nothing here knows a pa
 import segno
 
 from assistant.core.agent import ChannelStatus, SetupItem
+from assistant_terminal.i18n import t
 
 # Two rows of modules in each line of text: (top dark, bottom dark) → the character drawn dark on light.
 _HALVES = {(True, True): "█", (True, False): "▀", (False, True): "▄", (False, False): " "}
@@ -13,8 +14,8 @@ _QUIET = 2
 
 def state(channel: ChannelStatus) -> str:
     if not channel.enabled:
-        return "off"
-    return "connected ✓" if channel.connected else "not connected"
+        return t("off")
+    return t("connected ✓") if channel.connected else t("not connected")
 
 
 def title(name: str) -> str:
@@ -53,9 +54,9 @@ def _markdown(item: SetupItem) -> str:
     if item.kind == "copy":
         return f"{item.label}:\n\n```\n{item.value}\n```"
     if item.kind == "action":
-        return f"Button: {item.label} (press it in the full-screen app, in /plugins)"
+        return t("Button: {label} (press it in the full-screen app, in /plugins)", label=item.label)
     if item.kind == "qr":
         # The REPL's colours follow the terminal's, and a QR code drawn light on dark doesn't scan.
         named = f": {item.label}" if item.label else ""
-        return f"QR code{named} (scan it in the full-screen app, in /plugins)"
+        return t("QR code{named} (scan it in the full-screen app, in /plugins)", named=named)
     return line(item)

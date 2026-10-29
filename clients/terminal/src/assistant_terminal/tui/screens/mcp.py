@@ -16,6 +16,7 @@ from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import McpApi, OAuthApi, RepositoriesApi
 from assistant.core.agent import McpServerChanges, McpServerError, McpServerStatus
+from assistant_terminal.i18n import t
 from assistant_terminal.mcp_text import describe, selection, shown, summary, tool_label
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
@@ -26,7 +27,7 @@ from assistant_terminal.tui.screens.mcp_sign_in import McpSignInScreen
 
 
 class McpScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"mcp"})
 
     def __init__(self, mcp: McpApi, oauth: OAuthApi, repositories: RepositoriesApi) -> None:
@@ -40,8 +41,8 @@ class McpScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="mcp"):
-            yield Static("MCP servers", id="mcp-title")
-            yield Static("No MCP servers. Add one to give the assistant its tools.", id="mcp-empty")
+            yield Static(t("MCP servers"), id="mcp-title")
+            yield Static(t("No MCP servers. Add one to give the assistant its tools."), id="mcp-empty")
             with Horizontal(id="mcp-main"):
                 yield OptionList(id="mcp-list")
                 yield Static(classes="divider")
@@ -49,15 +50,15 @@ class McpScreen(ModalScreen[None]):
                     yield Markdown(id="mcp-body")
                     yield SelectionList[str](id="mcp-tools")
             with Horizontal(id="mcp-buttons"):
-                yield Button("Sign in", variant="success", id="sign-in")
-                yield Button("Add", variant="success", id="add")
-                yield Button("Save tools", id="save-tools")
-                yield Button("Trust", id="trust")
-                yield Button("Turn off", id="toggle")
-                yield Button("Secrets", id="secrets")
-                yield Button("Update", id="update")
-                yield Button("Remove", variant="error", id="remove")
-                yield Button("Close", id="close")
+                yield Button(t("Sign in"), variant="success", id="sign-in")
+                yield Button(t("Add"), variant="success", id="add")
+                yield Button(t("Save tools"), id="save-tools")
+                yield Button(t("Trust"), id="trust")
+                yield Button(t("Turn off"), id="toggle")
+                yield Button(t("Secrets"), id="secrets")
+                yield Button(t("Update"), id="update")
+                yield Button(t("Remove"), variant="error", id="remove")
+                yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
@@ -104,7 +105,7 @@ class McpScreen(ModalScreen[None]):
     async def _sign_in(self) -> None:
         server = self._current()
         if server is not None and await self.app.push_screen_wait(McpSignInScreen(self._mcp, self._oauth, server.name)):
-            self.notify(f"Signed in to {server.name}.")
+            self.notify(t("Signed in to {name}.", name=server.name))
             await self.reload()
 
     @on(Button.Pressed, "#update")
@@ -112,7 +113,9 @@ class McpScreen(ModalScreen[None]):
     async def _update(self) -> None:
         server = self._current()
         if server is not None:
-            await self._run(lambda: self._mcp.update_from_repository(server.name), f"Updated {server.name}.")
+            await self._run(
+                lambda: self._mcp.update_from_repository(server.name), t("Updated {name}.", name=server.name)
+            )
 
     @on(Button.Pressed, "#save-tools")
     @reports_daemon_unavailable
@@ -121,7 +124,7 @@ class McpScreen(ModalScreen[None]):
         if server is not None:
             selected = set(self.query_one("#mcp-tools", SelectionList).selected)
             include, exclude = selection(server.tools, selected)
-            await self._change(server.name, McpServerChanges(include=include, exclude=exclude), "Saved the tools.")
+            await self._change(server.name, McpServerChanges(include=include, exclude=exclude), t("Saved the tools."))
 
     @on(Button.Pressed, "#trust")
     @reports_daemon_unavailable
@@ -150,11 +153,13 @@ class McpScreen(ModalScreen[None]):
     @reports_daemon_unavailable
     async def _remove(self) -> None:
         server = self._current()
-        if server is None or not await self.app.push_screen_wait(ConfirmScreen(f"Remove {server.name}?", "Remove")):
+        if server is None or not await self.app.push_screen_wait(
+            ConfirmScreen(t("Remove {name}?", name=server.name), t("Remove"))
+        ):
             return
         try:
             kept = await self._mcp.remove(server.name)
-            self.notify(f"Removed {server.name}.")
+            self.notify(t("Removed {name}.", name=server.name))
         except McpServerError as e:
             self.notify(str(e), severity="error")
             kept = None
@@ -180,8 +185,8 @@ class McpScreen(ModalScreen[None]):
     async def _show(self, name: str) -> None:
         self._selected = name
         server = self._shown[name]
-        self.query_one("#trust", Button).label = "Don't trust" if server.trusted else "Trust"
-        self.query_one("#toggle", Button).label = "Turn off" if server.enabled else "Turn on"
+        self.query_one("#trust", Button).label = t("Don't trust") if server.trusted else t("Trust")
+        self.query_one("#toggle", Button).label = t("Turn off") if server.enabled else t("Turn on")
         tools = self.query_one("#mcp-tools", SelectionList)
         tools.clear_options()
         tools.add_options([(tool_label(t), t.name, t.selected) for t in server.tools])

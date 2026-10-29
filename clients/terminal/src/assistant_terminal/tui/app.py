@@ -27,6 +27,7 @@ from assistant.core.agent import (
     FoundServer,
     HandoffError,
     InvalidNameError,
+    LanguageError,
     Session,
     SkillError,
 )
@@ -38,9 +39,12 @@ from assistant.core.events import (
     is_plugin_setup,
     is_question,
 )
+from assistant_terminal import i18n
 from assistant_terminal.commands import GET_TO_KNOW_ME, Command, agent_commands, help_lines
 from assistant_terminal.conversations_text import listed_title, when
 from assistant_terminal.history import History
+from assistant_terminal.i18n import t
+from assistant_terminal.jobs_text import status as job_status
 from assistant_terminal.preferences import Preferences
 from assistant_terminal.tasks_text import task_line
 from assistant_terminal.tui.attachments import AttachmentBar
@@ -99,8 +103,8 @@ from assistant_terminal.tui.widgets import (
     UserMessage,
 )
 
-_PLACEHOLDER = "Message the assistant   (type / for commands)"
-_PLACEHOLDER_WITH_MIC = "Message the assistant   (type / for commands, F3 to record)"
+_PLACEHOLDER = t("Message the assistant   (type / for commands)")
+_PLACEHOLDER_WITH_MIC = t("Message the assistant   (type / for commands, F3 to record)")
 _MIN_RECORDING_SECONDS = 0.5
 # The title when the user hasn't named the assistant.
 _DEFAULT_TITLE = "lo9i assistant"
@@ -115,15 +119,15 @@ class AssistantApp(App):
     ENABLE_COMMAND_PALETTE = False
     TITLE = _DEFAULT_TITLE
     BINDINGS: ClassVar[list[BindingType]] = [
-        Binding("ctrl+n", "new_thread", "New conversation"),
+        Binding("ctrl+n", "new_thread", t("New conversation")),
         # Not ctrl+b: that is the prefix key of tmux and herdr.
-        Binding("f2", "toggle_memory", "Memory panel"),
-        Binding("f3", "toggle_recording", "Record voice"),
+        Binding("f2", "toggle_memory", t("Memory panel")),
+        Binding("f3", "toggle_recording", t("Record voice")),
         # Priority, so it runs before the message box's own Ctrl+V, which pastes only text copied
         # inside the app.
-        Binding("ctrl+v", "paste", "Paste", show=False, priority=True),
-        Binding("ctrl+q", "quit", "Quit"),
-        Binding("escape", "stop", "Stop", show=False),
+        Binding("ctrl+v", "paste", t("Paste"), show=False, priority=True),
+        Binding("ctrl+q", "quit", t("Quit")),
+        Binding("escape", "stop", t("Stop"), show=False),
         # Priority, so it runs before the message box's own Backspace; only when the box is empty.
         Binding("backspace", "remove_attachment", show=False, priority=True),
         Binding("tab", "complete_command", show=False, priority=True),
@@ -184,6 +188,7 @@ class AssistantApp(App):
             "/keys": self._command_keys,
             "/home": self._command_home,
             "/name": self._command_name,
+            "/language": self._command_language,
             "/prompt": self._command_prompt,
             "/pin": self._command_pin,
             "/unpin": self._command_unpin,
@@ -311,33 +316,45 @@ class AssistantApp(App):
             return
         excerpt = run["reply"][:160] + ("…" if len(run["reply"]) > 160 else "")
         severity = "information" if run["status"] == "ok" else "warning"
-        self.notify(f"Previous conversation finished: {excerpt or run['status']}", severity=severity, timeout=10)
+        self.notify(
+            t("Previous conversation finished: {reply}", reply=excerpt or run["status"]), severity=severity, timeout=10
+        )
 
     def show_job(self, job: dict[str, Any]) -> None:
         severity = "information" if job["status"] == "ok" else "warning"
-        self.notify(f"Job {job['name']}: {job['status']}", severity=severity)
+        self.notify(t("Job {name}: {status}", name=job["name"], status=job_status(job["status"])), severity=severity)
 
     def show_background_ended(self, ended: dict[str, Any]) -> None:
         """A toast can't be opened: /notifications opens the conversation it ended in."""
-        text = f"{ended['text']} (/notifications opens it)"
+        text = t("{text} (/notifications opens it)", text=ended["text"])
         self.notify(text, severity="information" if ended["ok"] else "warning", timeout=10)
 
     def show_failing(self, failing: dict[str, Any]) -> None:
-        what, where = ("MCP server", "/mcp") if failing["area"] == "mcp" else ("skill", "/skills")
-        self.notify(f"The {what} {failing['name']} keeps failing: {failing['error']}. See {where}.", severity="warning")
+        values = {"name": failing["name"], "error": failing["error"]}
+        if failing["area"] == "mcp":
+            self.notify(t("The MCP server {name} keeps failing: {error}. See /mcp.", **values), severity="warning")
+        else:
+            self.notify(t("The skill {name} keeps failing: {error}. See /skills.", **values), severity="warning")
 
     def show_ending(self, ending: dict[str, Any]) -> None:
         """Any app asked for a restart or stop, or took one back, or an update was installed (daemon/shutdown.py)."""
         restart = ending["ending"] == "restart"
         if ending.get("taken_back"):
-            self.notify(f"The {'restart' if restart else 'stop'} was cancelled: the assistant keeps running.")
+            self.notify(
+                t("The restart was cancelled: the assistant keeps running.")
+                if restart
+                else t("The stop was cancelled: the assistant keeps running.")
+            )
             return
         said = ending_text("restarts" if restart else "stops", ending["waiting_for_runs"], ending["waiting_for_update"])
-        back = "This app reconnects when it's back." if restart else "Start it again on the computer it runs on."
+        back = t("This app reconnects when it's back.") if restart else t("Start it again on the computer it runs on.")
         self.notify(f"{said} {back}", timeout=15)
 
     def show_signed_out(self, signed_out: dict[str, Any]) -> None:
-        self.notify(f"The MCP server {signed_out['name']} needs you to sign in again. See /mcp.", severity="warning")
+        self.notify(
+            t("The MCP server {name} needs you to sign in again. See /mcp.", name=signed_out["name"]),
+            severity="warning",
+        )
 
     def mirror_run(self, run: dict[str, Any]) -> None:
         """Show a run started elsewhere in this conversation (another client or channel) as it happens."""
@@ -473,7 +490,7 @@ class AssistantApp(App):
     async def _send(self, text: str, attachments: list[Attachment]) -> bool:
         """Returns False when a reply is still running, so nothing was sent."""
         if self._busy:
-            self.notify("The assistant is still working on the last message.", severity="warning")
+            self.notify(t("The assistant is still working on the last message."), severity="warning")
             return False
         await self._chat.query(f".{_LIST_NOTE}").remove()
         await self._chat.mount(UserMessage(text or _attachment_label(attachments), [a.name for a in attachments]))
@@ -492,7 +509,7 @@ class AssistantApp(App):
                 await self._turn(session, lambda: self._service.send(session, text, attachments))
             except DaemonUnavailableError as e:
                 self._status.clear()
-                self.notify(f"{e} Your message may not have been answered.", severity="error", timeout=10)
+                self.notify(f"{e} " + t("Your message may not have been answered."), severity="error", timeout=10)
 
     async def _turn(self, session: Session, start: Callable[[], AsyncIterator[Event]]) -> None:
         """Runs the turn from `start` in `session`'s conversation (a copy: the app's own changes when it moves to
@@ -515,7 +532,7 @@ class AssistantApp(App):
             await self._live.start_new()
             await self._chat.remove_children()
             await self.refresh_thread()
-        self.notify(f"→ {dispatched.title}. /inbox goes back.")
+        self.notify(t("→ {title}. /inbox goes back.", title=dispatched.title))
         if dispatched.carried:
             await self._chat.mount(CarriedNote(dispatched.carried))
         if dispatched.brief:
@@ -626,8 +643,8 @@ class AssistantApp(App):
         running = await self._service.tasks.running()
         parts = [
             await self._conversation_name(thread_id),
-            *([f"talking to {handoff.name} in {handoff.folder}"] if handoff else []),
-            *([f"pinned: {', '.join(pinned)}"] if pinned else []),
+            *([t("talking to {agent} in {folder}", agent=handoff.name, folder=handoff.folder)] if handoff else []),
+            *([t("pinned: {skills}", skills=", ".join(pinned))] if pinned else []),
             *(task_line(task, thread_id) for task in running),
         ]
         self.sub_title = " · ".join(parts)
@@ -636,9 +653,9 @@ class AssistantApp(App):
     async def _conversation_name(self, thread_id: str) -> str:
         """The inbox, the conversation's title, or a new one's until its first message lists it."""
         if thread_id == self._inbox_id:
-            return "inbox"
+            return t("inbox")
         conversation = await self._service.conversations.get(thread_id)
-        return conversation.title if conversation else "new conversation"
+        return conversation.title if conversation else t("new conversation")
 
     @reports_daemon_unavailable
     async def refresh_context(self) -> None:
@@ -657,6 +674,11 @@ class AssistantApp(App):
             f"/{a.command}": a for a in agents if any(c.name == f"/{a.command}" for c in self._agent_commands)
         }
         self.query_one(CommandMenu).set_extra(self._agent_commands)
+
+    @reports_daemon_unavailable
+    async def refresh_language(self) -> None:
+        """What shows after uses it; key bindings and labels made at start keep theirs until the next one."""
+        i18n.use(await self._service.language.get())
 
     @reports_daemon_unavailable
     async def refresh_title(self) -> None:
@@ -687,20 +709,20 @@ class AssistantApp(App):
             await self._finish_recording()
             return
         if self._busy:
-            self.notify("Wait for the current reply first.", severity="warning")
+            self.notify(t("Wait for the current reply first."), severity="warning")
             return
         try:
             self._recorder.start()
         except RecordingUnavailableError as e:
             self.notify(str(e), severity="error")
             return
-        self._status.show("Recording, F3 to send")
+        self._status.show(t("Recording, F3 to send"))
 
     async def _finish_recording(self) -> None:
         audio, seconds = self._recorder.stop()
         self._status.clear()
         if seconds < _MIN_RECORDING_SECONDS:
-            self.notify("Recording too short, nothing sent.", severity="warning")
+            self.notify(t("Recording too short, nothing sent."), severity="warning")
             return
         await self._send("", [Attachment(name="recording.wav", media_type="audio/wav", data=audio)])
 
@@ -714,8 +736,11 @@ class AssistantApp(App):
         await self._live.start_new(leave_running=still_running)
         await self.refresh_thread()
         await self._chat.remove_children()
-        previous = " The previous reply keeps running; you'll be notified when it's done." if still_running else ""
-        self.notify(f"Started a new conversation.{previous}")
+        self.notify(
+            t("Started a new conversation. The previous reply keeps running; you'll be notified when it's done.")
+            if still_running
+            else t("Started a new conversation.")
+        )
 
     async def _command_inbox(self, _: str) -> None:
         """Back to the inbox, shown as the list of conversations rather than its own messages."""
@@ -727,8 +752,9 @@ class AssistantApp(App):
         await self._show_conversations()
         await self._follow_in_progress()
         self.notify(
-            "In the inbox: the next message goes where it belongs."
-            + (" The previous reply keeps running." if still_running else "")
+            t("In the inbox: the next message goes where it belongs. The previous reply keeps running.")
+            if still_running
+            else t("In the inbox: the next message goes where it belongs.")
         )
 
     @reports_daemon_unavailable
@@ -742,7 +768,7 @@ class AssistantApp(App):
     async def _command_move(self, _: str) -> None:
         """Asks in the inbox where the last message it sent on goes instead, and goes there."""
         if self._busy:
-            self.notify("The assistant is still working on the last message.", severity="warning")
+            self.notify(t("The assistant is still working on the last message."), severity="warning")
             return
         if self._live.session.thread_id != self._inbox_id:
             await self._command_inbox("")
@@ -779,7 +805,11 @@ class AssistantApp(App):
         self._stop_showing_turn()
         await self.refresh_thread()
         await self._show_history(thread_id)
-        self.notify("Resumed the conversation." + (" The previous reply keeps running." if still_running else ""))
+        self.notify(
+            t("Resumed the conversation. The previous reply keeps running.")
+            if still_running
+            else t("Resumed the conversation.")
+        )
         self._answer_pending()
 
     async def action_paste(self) -> None:
@@ -812,57 +842,81 @@ class AssistantApp(App):
     async def _command_mouse(self, arg: str) -> None:
         """/mouse toggles; /mouse on or off sets it. Saved for the next start either way."""
         if arg not in ("", "on", "off"):
-            self.notify("Use /mouse, /mouse on or /mouse off.", severity="warning")
+            self.notify(t("Use /mouse, /mouse on or /mouse off."), severity="warning")
             return
         on = not self._preferences.mouse if not arg else arg == "on"
         self._preferences.set_mouse(on)
         status = self.query_one(MouseStatus)
-        state = "on" if on else "off"
         if switch_mouse(self, on):
             status.show(on)
-            self.notify(f"Mouse {state}.")
+            self.notify(t("Mouse on.") if on else t("Mouse off."))
         else:
             status.show(status.active, pending=on)
-            self.notify(f"Mouse {state} from the next start. Restart the app to apply it.", severity="warning")
+            later = (
+                t("Mouse on from the next start. Restart the app to apply it.")
+                if on
+                else t("Mouse off from the next start. Restart the app to apply it.")
+            )
+            self.notify(later, severity="warning")
 
     async def _command_name(self, arg: str) -> None:
         if not arg:
             name = await self._service.identity.name()
-            self.notify(f"The assistant is called {name}." if name else "The assistant has no name yet: /name <name>.")
+            self.notify(
+                t("The assistant is called {name}.", name=name)
+                if name
+                else t("The assistant has no name yet: /name <name>.")
+            )
             return
         try:
             name = await self._service.identity.rename(arg)
         except InvalidNameError as e:
             self.notify(str(e), severity="error")
             return
-        self.notify(f"Renamed to {name}. It takes effect from your next message.")
+        self.notify(t("Renamed to {name}. It takes effect from your next message.", name=name))
+
+    async def _command_language(self, arg: str) -> None:
+        """/language says the one in use and the choices; /language es sets it, for every app."""
+        if not arg:
+            chosen = await self._service.language.get()
+            self.notify(t("The apps' language is {language}. Choose auto, en or es: /language es.", language=chosen))
+            return
+        try:
+            chosen = await self._service.language.set(arg)
+        except LanguageError as e:
+            self.notify(str(e), severity="error")
+            return
+        i18n.use(chosen)
+        self.notify(t("Language set to {language}. Restart the app for its keys and labels.", language=chosen))
 
     async def _command_pin(self, arg: str) -> None:
         thread_id = self._live.session.thread_id
         if not arg:
             pinned = await self._service.conversations.pinned(thread_id)
-            self.notify(f"Pinned: {', '.join(pinned)}." if pinned else "No skills pinned: /pin <skill>.")
+            self.notify(
+                t("Pinned: {skills}.", skills=", ".join(pinned)) if pinned else t("No skills pinned: /pin <skill>.")
+            )
             return
         try:
             await self._service.conversations.pin(thread_id, arg)
         except SkillError as e:
             self.notify(str(e), severity="error")
             return
-        self.notify(f"Pinned {arg} to this conversation. It takes effect from your next message.")
+        self.notify(t("Pinned {skill} to this conversation. It takes effect from your next message.", skill=arg))
 
     async def _command_unpin(self, arg: str) -> None:
         if not arg:
-            self.notify("Which skill? /unpin <skill>.", severity="warning")
+            self.notify(t("Which skill? /unpin <skill>."), severity="warning")
             return
         await self._service.conversations.unpin(self._live.session.thread_id, arg)
-        self.notify(f"Unpinned {arg}. It takes effect from your next message.")
+        self.notify(t("Unpinned {skill}. It takes effect from your next message.", skill=arg))
 
     async def _command_agent(self, name: str, arg: str) -> None:
         """`/claude <folder>` hands the conversation to the agent, `/claude off` back; alone it picks the folder."""
         agent = self._agents[name]
         if arg == "off":
             await self._service.conversations.take_back(self._live.session.thread_id)
-            self.notify("The assistant answers again from your next message.")
+            self.notify(t("The assistant answers again from your next message."))
             await self.refresh_thread()
         elif not arg:
             screen = AgentFolderScreen(self._service.conversations, agent.name)
@@ -882,7 +936,9 @@ class AssistantApp(App):
         except HandoffError as e:
             self.notify(str(e), severity="error")
             return
-        self.notify(f"{handoff.name} answers from your next message, working in {handoff.folder}.")
+        self.notify(
+            t("{agent} answers from your next message, working in {folder}.", agent=handoff.name, folder=handoff.folder)
+        )
         await self.refresh_thread()
 
     async def _command_get_to_know_me(self, _: str) -> None:
@@ -891,9 +947,10 @@ class AssistantApp(App):
         await self._send(GET_TO_KNOW_ME, [])
 
     async def _command_help(self, _: str) -> None:
-        keys = ["F2 memory panel", "F3 record voice", "Ctrl+N new conversation", "Ctrl+Q quit"]
+        keys = [t("F2 memory panel"), t("F3 record voice"), t("Ctrl+N new conversation"), t("Ctrl+Q quit")]
         body = "\n".join(help_lines(self._agent_commands))
-        await self._chat.mount(SystemNote(f"## Commands\n\n```\n{body}\n```\n\n**Keys:** {', '.join(keys)}"))
+        commands, keys_label = t("Commands"), t("Keys:")
+        await self._chat.mount(SystemNote(f"## {commands}\n\n```\n{body}\n```\n\n**{keys_label}** {', '.join(keys)}"))
 
     async def _command_plugins(self, _: str) -> None:
         self.push_screen(
@@ -974,7 +1031,7 @@ class AssistantApp(App):
 
 
 def _attachment_label(attachments: list[Attachment]) -> str:
-    return "🎤 voice message" if any(a.media_type.startswith("audio/") for a in attachments) else "(attachment)"
+    return t("🎤 voice message") if any(a.media_type.startswith("audio/") for a in attachments) else t("(attachment)")
 
 
 def _screen_for(request: dict[str, Any]) -> ApprovalScreen | QuestionScreen:
@@ -987,8 +1044,10 @@ def _screen_for(request: dict[str, Any]) -> ApprovalScreen | QuestionScreen:
 def _conversations_note(listed: list[Conversation]) -> str:
     """Markdown: the conversations by title and when, and how to go on."""
     lines = [f"- **{listed_title(c)}** · {when(c)}" for c in listed]
-    hint = (
+    hint = t(
         "Write a message: it goes on in the conversation it's about, or starts a new one. "
         "/conversations opens one, /new starts one, /notifications shows what finished."
     )
-    return "\n".join(["### Conversations", *lines, "", hint]) if lines else f"### No conversations yet\n\n{hint}"
+    if not lines:
+        return "### " + t("No conversations yet") + f"\n\n{hint}"
+    return "\n".join(["### " + t("Conversations"), *lines, "", hint])

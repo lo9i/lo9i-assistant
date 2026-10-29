@@ -12,12 +12,13 @@ from textual.widgets import Button, Static
 
 from assistant.client.daemon_client import RepositoriesApi
 from assistant.core.agent import KeptKeys
+from assistant_terminal.i18n import t
 
 
 class KeptKeysScreen(ModalScreen[bool]):
     """Returns True to delete them."""
 
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "keep", "Keep")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "keep", t("Keep"))]
 
     def __init__(self, kept: KeptKeys) -> None:
         super().__init__()
@@ -27,8 +28,8 @@ class KeptKeysScreen(ModalScreen[bool]):
         with Vertical(id="confirm"):
             yield Static(question(self._kept), id="confirm-question", markup=False)
             with Horizontal(id="confirm-buttons"):
-                yield Button("Keep (esc)", variant="primary", id="keep")
-                yield Button("Delete", variant="error", id="delete")
+                yield Button(t("Keep (esc)"), variant="primary", id="keep")
+                yield Button(t("Delete"), variant="error", id="delete")
 
     def on_mount(self) -> None:
         self.query_one("#keep", Button).focus()
@@ -41,12 +42,17 @@ class KeptKeysScreen(ModalScreen[bool]):
 
 
 def question(kept: KeptKeys) -> str:
-    parts = [*kept.keys, *([f"the token for {kept.repository_name}"] if kept.repository else [])]
-    named = f"{', '.join(parts[:-1])} and {parts[-1]}" if len(parts) > 1 else parts[0]
-    return (
-        f"Keep the keys of {kept.plugin}? {named} {'are' if len(parts) > 1 else 'is'} kept encrypted on this"
-        " computer, and used when you install it again."
+    parts = [
+        *kept.keys,
+        *([t("the token for {repository}", repository=kept.repository_name)] if kept.repository else []),
+    ]
+    named = f"{', '.join(parts[:-1])}{t(' and ')}{parts[-1]}" if len(parts) > 1 else parts[0]
+    kept_text = (
+        t("{named} are kept encrypted on this computer, and used when you install it again.", named=named)
+        if len(parts) > 1
+        else t("{named} is kept encrypted on this computer, and used when you install it again.", named=named)
     )
+    return t("Keep the keys of {plugin}?", plugin=kept.plugin) + f" {kept_text}"
 
 
 async def ask_about_keys(screen: Screen, repositories: RepositoriesApi, kept: KeptKeys | None) -> None:
@@ -54,4 +60,4 @@ async def ask_about_keys(screen: Screen, repositories: RepositoriesApi, kept: Ke
     if kept is None or not await screen.app.push_screen_wait(KeptKeysScreen(kept)):
         return
     await repositories.forget_keys(kept)
-    screen.notify(f"Deleted the keys of {kept.plugin}.")
+    screen.notify(t("Deleted the keys of {plugin}.", plugin=kept.plugin))

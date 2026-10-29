@@ -5,6 +5,7 @@ from textual.containers import Horizontal
 from textual.widgets import Static
 
 from assistant.core.attachments import Attachment
+from assistant_terminal.i18n import decimal
 
 
 class AttachmentBar(Horizontal):
@@ -49,4 +50,4 @@ def _size(count: int) -> str:
         return f"{count} B"
     if count < 1024 * 1024:
         return f"{count / 1024:.0f} KB"
-    return f"{count / (1024 * 1024):.1f} MB"
+    return f"{decimal(count / (1024 * 1024))} MB"

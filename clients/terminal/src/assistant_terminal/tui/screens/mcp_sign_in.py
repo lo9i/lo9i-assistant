@@ -14,6 +14,7 @@ from textual.widgets import Button, Input, Markdown
 
 from assistant.client.daemon_client import McpApi, OAuthApi
 from assistant.core.agent import McpServerError, SignInError
+from assistant_terminal.i18n import t
 from assistant_terminal.sign_in_text import MISSING_CODE, PASTE_HINT, REDIRECT, returned, signing_message
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
@@ -22,7 +23,7 @@ class McpSignInScreen(ModalScreen[bool]):
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"mcp"})
     """Returns True when the server is signed in."""
 
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(False)", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(False)", t("Close"))]
 
     def __init__(self, mcp: McpApi, oauth: OAuthApi, name: str) -> None:
         super().__init__()
@@ -33,12 +34,16 @@ class McpSignInScreen(ModalScreen[bool]):
     def compose(self) -> ComposeResult:
         with Vertical(id="mcp-sign-in"):
             yield Markdown(
-                f"## Sign in to {self._server}\n\nAsking {self._server} for its sign-in page…", id="mcp-sign-in-body"
+                "## "
+                + t("Sign in to {server}", server=self._server)
+                + "\n\n"
+                + t("Asking {server} for its sign-in page…", server=self._server),
+                id="mcp-sign-in-body",
             )
             yield Input(placeholder=PASTE_HINT, id="mcp-returned")
             with Horizontal(id="mcp-sign-in-buttons"):
-                yield Button("Finish", variant="success", id="finish")
-                yield Button("Close", id="close")
+                yield Button(t("Finish"), variant="success", id="finish")
+                yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
@@ -48,7 +53,7 @@ class McpSignInScreen(ModalScreen[bool]):
             await self._say(f"**{e}**")
             return
         opened = webbrowser.open(url)
-        await self._say(signing_message(url, opened, "this closes by itself"))
+        await self._say(signing_message(url, opened, t("this closes by itself")))
 
     @reports_daemon_unavailable
     async def reload(self) -> None:
@@ -76,4 +81,6 @@ class McpSignInScreen(ModalScreen[bool]):
         self.dismiss(True)
 
     async def _say(self, text: str) -> None:
-        await self.query_one("#mcp-sign-in-body", Markdown).update(f"## Sign in to {self._server}\n\n{text}")
+        await self.query_one("#mcp-sign-in-body", Markdown).update(
+            "## " + t("Sign in to {server}", server=self._server) + f"\n\n{text}"
+        )

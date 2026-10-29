@@ -15,12 +15,13 @@ from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import RepositoriesApi
 from assistant.core.agent import Repository, RepositoryError
+from assistant_terminal.i18n import t
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 
 class RepositoriesScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
 
     def __init__(self, repositories: RepositoriesApi) -> None:
         super().__init__()
@@ -29,20 +30,22 @@ class RepositoriesScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="repositories"):
-            yield Static("Repositories Plugins lists plugins from. Only the assistant's extras are official.")
+            yield Static(t("Repositories Plugins lists plugins from. Only the assistant's extras are official."))
             yield OptionList(id="repositories-list")
-            yield Input(placeholder="https://github.com/you/your-plugins", id="repository-url")
-            yield Input(placeholder="Token, for a private repository", password=True, id="repository-token")
+            yield Input(placeholder=t("https://github.com/you/your-plugins"), id="repository-url")
+            yield Input(placeholder=t("Token, for a private repository"), password=True, id="repository-token")
             yield Static(
-                "Git repositories by their https:// address. For a private one, a token that can read its contents"
-                " (on GitHub, a fine-grained token with Contents: read). What you install from one runs on this"
-                " computer.",
+                t(
+                    "Git repositories by their https:// address. For a private one, a token that can read its contents"
+                    " (on GitHub, a fine-grained token with Contents: read). What you install from one runs on this"
+                    " computer."
+                ),
                 classes="hint",
             )
             with Horizontal(id="repositories-buttons"):
-                yield Button("Add", variant="success", id="add")
-                yield Button("Remove", variant="error", id="remove")
-                yield Button("Close (esc)", id="close")
+                yield Button(t("Add"), variant="success", id="add")
+                yield Button(t("Remove"), variant="error", id="remove")
+                yield Button(t("Close (esc)"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
@@ -72,14 +75,14 @@ class RepositoriesScreen(ModalScreen[None]):
         field, token = self.query_one("#repository-url", Input), self.query_one("#repository-token", Input)
         if not field.value.strip():
             return
-        self.notify("Reading the repository…")
+        self.notify(t("Reading the repository…"))
         try:
             added = await self._repositories.add(field.value, token.value.strip())
         except RepositoryError as e:
             self.notify(str(e), severity="error", timeout=10)
             return
         field.value = token.value = ""
-        self.notify(f"Added {added.name}. Its plugins show in Plugins.")
+        self.notify(t("Added {name}. Its plugins show in Plugins.", name=added.name))
         await self._list()
 
     @on(Button.Pressed, "#remove")
@@ -89,10 +92,12 @@ class RepositoriesScreen(ModalScreen[None]):
         repository = self._highlighted()
         if repository is None or repository.official:
             return
-        question = f"Remove {repository.name}? Plugins installed from it stay installed and keep updating from it."
+        question = t(
+            "Remove {name}? Plugins installed from it stay installed and keep updating from it.", name=repository.name
+        )
         if repository.private:
-            question += " Its token stays until you remove the last of them."
-        if not await self.app.push_screen_wait(ConfirmScreen(question, "Remove")):
+            question += " " + t("Its token stays until you remove the last of them.")
+        if not await self.app.push_screen_wait(ConfirmScreen(question, t("Remove"))):
             return
         try:
             await self._repositories.remove(repository.url)
@@ -107,7 +112,7 @@ class RepositoriesScreen(ModalScreen[None]):
 
 def _label(repository: Repository) -> str:
     return (
-        f"{repository.name}  [b]Official[/b]"
+        f"{repository.name}  [b]{t('Official')}[/b]"
         if repository.official
         else f"{repository.name}  [dim]{repository.url}[/dim]"
     )

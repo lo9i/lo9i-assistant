@@ -14,26 +14,32 @@ from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import RepositoriesApi
 from assistant.core.agent import KeptKeys
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
-_EMPTY = "Nothing kept. Removing a plugin asks whether to keep its keys for installing it again."
+_EMPTY = translatable("Nothing kept. Removing a plugin asks whether to keep its keys for installing it again.")
 
 
 def name(kept: KeptKeys) -> str:
     """Its plugin, or the repository whose token is left."""
-    return kept.plugin or f"Token for {kept.repository_name}"
+    return kept.plugin or t("Token for {repository}", repository=kept.repository_name)
 
 
 def describe(kept: KeptKeys) -> str:
     if not kept.plugin:
-        return f"The token for **{kept.repository_name}** ({kept.repository}). No installed plugin needs it."
+        return t(
+            "The token for {repository} ({url}). No installed plugin needs it.",
+            repository=f"**{kept.repository_name}**",
+            url=kept.repository,
+        )
     keys = "\n".join(f"- `{key}`" for key in kept.keys)
-    return f"The keys **{kept.plugin}** was given, used again when it's installed again:\n\n{keys}"
+    given = t("The keys {plugin} was given, used again when it's installed again:", plugin=f"**{kept.plugin}**")
+    return f"{given}\n\n{keys}"
 
 
 class KeptKeysListScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"mcp", "plugins"})
 
     def __init__(self, repositories: RepositoriesApi) -> None:
@@ -43,15 +49,15 @@ class KeptKeysListScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="keys"):
-            yield Static("Kept keys", id="keys-title")
+            yield Static(t("Kept keys"), id="keys-title")
             with Horizontal(id="keys-main"):
                 yield OptionList(id="keys-list")
                 yield Static(classes="divider")
                 with VerticalScroll(id="keys-detail"):
                     yield Markdown(id="keys-body")
             with Horizontal(id="keys-buttons"):
-                yield Button("Delete", variant="error", id="delete")
-                yield Button("Close", id="close")
+                yield Button(t("Delete"), variant="error", id="delete")
+                yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
@@ -85,12 +91,18 @@ class KeptKeysListScreen(ModalScreen[None]):
     @work
     @reports_daemon_unavailable
     async def _confirm_delete(self, kept: KeptKeys) -> None:
-        what = f"the keys of {kept.plugin}" if kept.plugin else f"the token for {kept.repository_name}"
-        again = "Installing it again will ask for them again." if kept.plugin else "Adding it again asks for one."
-        if not await self.app.push_screen_wait(ConfirmScreen(f"Delete {what}? {again}", "Delete")):
+        what = (
+            t("the keys of {plugin}", plugin=kept.plugin)
+            if kept.plugin
+            else t("the token for {repository}", repository=kept.repository_name)
+        )
+        again = t("Installing it again will ask for them again.") if kept.plugin else t("Adding it again asks for one.")
+        if not await self.app.push_screen_wait(
+            ConfirmScreen(t("Delete {what}?", what=what) + f" {again}", t("Delete"))
+        ):
             return
         await self._repositories.forget_keys(kept)
-        self.notify(f"Deleted {what}.")
+        self.notify(t("Deleted {what}.", what=what))
         await self.reload()
 
     def _selected(self) -> KeptKeys | None:
@@ -98,4 +110,4 @@ class KeptKeysListScreen(ModalScreen[None]):
         return self._shown[index] if index is not None and index < len(self._shown) else None
 
     async def _show(self, kept: KeptKeys | None) -> None:
-        await self.query_one("#keys-body", Markdown).update(describe(kept) if kept else _EMPTY)
+        await self.query_one("#keys-body", Markdown).update(describe(kept) if kept else t(_EMPTY))

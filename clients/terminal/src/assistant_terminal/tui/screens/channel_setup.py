@@ -12,12 +12,13 @@ from textual.widgets import Button, Markdown
 
 from assistant.client.daemon_client import ChannelsApi
 from assistant.core.agent import FoundServer
+from assistant_terminal.i18n import t
 from assistant_terminal.tui.channel_setup import ChannelSetup
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 
 class ChannelSetupScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"channels"})
 
     def __init__(self, channels: ChannelsApi, server: FoundServer) -> None:
@@ -26,10 +27,10 @@ class ChannelSetupScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="channel-setup-dialog"):
-            yield Markdown(f"## Set up {self._server.name}\n\n{self._server.description}")
+            yield Markdown("## " + t("Set up {name}", name=self._server.name) + f"\n\n{self._server.description}")
             yield Vertical(id="channel-setup-box")
             with Horizontal(id="channel-setup-buttons"):
-                yield Button("Done", variant="success", id="done")
+                yield Button(t("Done"), variant="success", id="done")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
@@ -42,7 +43,9 @@ class ChannelSetupScreen(ModalScreen[None]):
         await box.remove_children()
         channel = next((c for c in await self._channels.list() if c.name == self._server.name), None)
         if channel is None:
-            await box.mount(Markdown(f"Starting {self._server.name}… its setup shows here once it's running."))
+            await box.mount(
+                Markdown(t("Starting {name}… its setup shows here once it's running.", name=self._server.name))
+            )
             return
         await box.mount(ChannelSetup(self._channels, channel))
 

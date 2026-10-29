@@ -9,13 +9,14 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, SelectionList, Static
 
+from assistant_terminal.i18n import t
 from assistant_terminal.plugins_text import Plugin, update_label
 
 
 class PluginUpdatesScreen(ModalScreen[list[Plugin] | None]):
     """Returns the plugins to update, None when cancelled."""
 
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "cancel", "Cancel")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "cancel", t("Cancel"))]
 
     def __init__(self, newer: list[Plugin]) -> None:
         super().__init__()
@@ -23,13 +24,13 @@ class PluginUpdatesScreen(ModalScreen[list[Plugin] | None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="plugin-updates"):
-            yield Static(f"Updates: {len(self._newer)} plugins have a newer version in the extras.")
-            yield Static("Space unpicks the ones to leave as they are.", classes="hint")
+            yield Static(t("Updates: {count} plugins have a newer version in the extras.", count=len(self._newer)))
+            yield Static(t("Space unpicks the ones to leave as they are."), classes="hint")
             yield SelectionList[str](*[(update_label(p), p.key, True) for p in self._newer], id="plugin-updates-list")
             with Horizontal(id="plugin-updates-buttons"):
-                yield Button("Update selected", variant="success", id="update-selected")
-                yield Button("Update all", id="update-all")
-                yield Button("Cancel (esc)", id="cancel")
+                yield Button(t("Update selected"), variant="success", id="update-selected")
+                yield Button(t("Update all"), id="update-all")
+                yield Button(t("Cancel (esc)"), id="cancel")
 
     def on_mount(self) -> None:
         self.query_one("#plugin-updates-list").focus()
