@@ -45,6 +45,11 @@ class ConversationsApi:
         """Newest activity first."""
         return [Conversation(**c) for c in await self._transport.request("GET", "/conversations")]
 
+    async def containing(self, text: str) -> list[str]:
+        """The ids of the conversations whose messages hold every word of `text`, each as the start of a word."""
+        found = await self._transport.request("GET", "/conversations/containing", params={"q": text})
+        return found["thread_ids"]
+
     async def get(self, thread_id: str) -> Conversation | None:
         """One conversation as `recent` lists it; None while it isn't listed (a new one before its first message)."""
         try:

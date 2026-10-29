@@ -40,6 +40,21 @@ async def test_queries_with_punctuation_or_search_keywords_are_plain_words(servi
     assert await _search(service, "?!") == []
 
 
+async def test_conversations_are_found_by_the_starts_of_their_messages_words(service):
+    news = await service.session("owner", "cli")
+    await _say(service, "add a Hacker News plugin", news)
+    trip = Session("owner", "cli", await service.new_thread("owner"))
+    await _say(service, "plan the trip to Málaga", trip)
+    assert await service.conversations_containing("owner", "hack") == [news.thread_id]
+    assert await service.conversations_containing("owner", "news hacker") == [news.thread_id]
+    assert await service.conversations_containing("owner", "malaga") == [trip.thread_id]
+    assert await service.conversations_containing("owner", "hacker trip") == []  # every word, in one message
+    assert await service.conversations_containing("owner", 'pl" OR (NEAR*') == []
+    assert sorted(await service.conversations_containing("owner", "pl")) == sorted([news.thread_id, trip.thread_id])
+    assert await service.conversations_containing("owner", "?!") == []
+    assert await service.conversations_containing("someone else", "hack") == []
+
+
 async def test_messages_not_yet_indexed_are_caught_up(service):
     session = await service.session("owner", "cli")
     await _say(service, "the wifi password is on the fridge", session)

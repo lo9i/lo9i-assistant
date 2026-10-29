@@ -98,6 +98,12 @@ export class ConversationsGroup {
     return this.transport.request("GET", "/conversations");
   }
 
+  /** The ids of the conversations whose messages hold every word of `text`, each as the start of a word. */
+  async containing(text: string): Promise<string[]> {
+    const path = `/conversations/containing?q=${encodeURIComponent(text)}`;
+    return (await this.transport.request<Schemas["ConversationsContaining"]>("GET", path)).thread_ids;
+  }
+
   messages(threadId: string): Promise<ShownMessage[]> {
     return this.transport.request("GET", `/conversations/${encodeURIComponent(threadId)}/messages`);
   }

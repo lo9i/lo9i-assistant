@@ -104,6 +104,16 @@ class MessageIndex:
         async with self._conn.execute(sql, (match, user_id, limit)) as cursor:
             return [Found(*row) for row in await cursor.fetchall()]
 
+    async def threads_with(self, user_id: str, text: str) -> list[str]:
+        """The conversations with a message holding every word of `text`, each as the start of a word, so a
+        search box finds them as it's typed ("hack" finds "Hacker News")."""
+        match = _match_all_prefixes(text)
+        if not match:
+            return []
+        sql = "SELECT DISTINCT thread_id FROM message_search WHERE message_search MATCH ? AND user_id = ?"
+        async with self._conn.execute(sql, (match, user_id)) as cursor:
+            return [thread_id for (thread_id,) in await cursor.fetchall()]
+
     async def first_user_messages(self, user_id: str, thread_ids: Sequence[str]) -> dict[str, str]:
         """Each conversation's first user message, as indexed; one not indexed yet is left out."""
         if not thread_ids:
@@ -144,3 +154,8 @@ def _rows(messages: Sequence[BaseMessage], start: int) -> list[_Row]:
 def _match(query: str) -> str:
     """Each word quoted, so punctuation and FTS5 keywords (AND, NEAR) in the query are plain words."""
     return " OR ".join(f'"{word}"' for word in re.findall(r"\w+", query))
+
+
+def _match_all_prefixes(text: str) -> str:
+    """Every word as a quoted prefix, which FTS5 joins with AND."""
+    return " ".join(f'"{word}"*' for word in re.findall(r"\w+", text))

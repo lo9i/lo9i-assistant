@@ -293,6 +293,13 @@ async def test_one_conversation_is_read_by_its_id_and_none_before_its_first_mess
     assert found is not None and (found.thread_id, found.started_at) == (listed.thread_id, listed.started_at)
 
 
+async def test_conversations_are_found_by_what_was_said_in_them(client):
+    session = await _new_session(client)
+    await collect(client.send(session, "add a Hacker News plugin"))
+    assert await client.conversations.containing("hacker") == [session.thread_id]
+    assert await client.conversations.containing("e-mail AND (") == []
+
+
 async def test_send_with_attachment_approve_and_resume(client, script):
     script.call("bash", command="cat notes.txt || true").reply("read it")
     script.call("bash", command="rm -rf build").reply("left it")

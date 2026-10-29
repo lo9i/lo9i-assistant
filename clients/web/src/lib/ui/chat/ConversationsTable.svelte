@@ -3,6 +3,8 @@
   import Play from "@lucide/svelte/icons/play";
   import type { Conversation } from "$lib/api/types";
   import { newestFirst } from "$lib/chat/order";
+  import { matching, messageSearch } from "$lib/chat/search";
+  import { resource } from "$lib/daemon.svelte";
   import { duration } from "$lib/duration";
   import EmptyState from "../EmptyState.svelte";
   import SearchField from "../SearchField.svelte";
@@ -21,8 +23,16 @@
   };
   let { conversations, error, selected, open, onselect, oncontinue }: Props = $props();
   let query = $state("");
+  // Titles match as it's typed; the daemon searches what was said once typing pauses.
+  let searched = $state("");
+  $effect(() => {
+    const words = messageSearch(query);
+    const timer = setTimeout(() => (searched = words), 250);
+    return () => clearTimeout(timer);
+  });
+  const containing = resource((c) => (searched ? c.conversations.containing(searched) : Promise.resolve([])), ["conversations"]);
 
-  const shown = $derived((conversations ?? []).filter((c) => c.title.toLowerCase().includes(query.trim().toLowerCase())).sort(newestFirst));
+  const shown = $derived(matching(conversations ?? [], query, containing.data ?? []).sort(newestFirst));
 
   function when(iso: string): string {
     const date = new Date(iso);
@@ -40,6 +50,7 @@
     </div>
     <SearchField bind:value={query} label="Search conversations" />
   </header>
+  {#if containing.error}<p class="error-text pad">Couldn't search what was said: {containing.error}</p>{/if}
   <div class="scroll">
     {#if error}
       <p class="error-text pad">{error}</p>

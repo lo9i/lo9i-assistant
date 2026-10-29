@@ -27,6 +27,15 @@ describe("ConversationsGroup.messageAgent", () => {
   });
 });
 
+describe("ConversationsGroup.containing", () => {
+  it("asks for the words as they were typed and answers the ids", async () => {
+    const { transport, request } = recording();
+    request.mockResolvedValue({ thread_ids: ["owner:a"] });
+    expect(await new ConversationsGroup(transport).containing('hacker "news" & co')).toEqual(["owner:a"]);
+    expect(request.mock.calls[0].slice(0, 2)).toEqual(["GET", "/conversations/containing?q=hacker%20%22news%22%20%26%20co"]);
+  });
+});
+
 describe("ConversationsGroup.childFolders", () => {
   it("leaves hidden folders out unless asked for them", async () => {
     const { transport, request } = recording();

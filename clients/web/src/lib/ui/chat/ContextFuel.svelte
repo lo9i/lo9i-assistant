@@ -7,9 +7,7 @@
   let { threadId }: { threadId: string } = $props();
 
   const stats = resource((c) => c.conversations.stats(threadId), ["run_finished", "handoffs"]);
-  const shown = $derived(
-    stats.data && !stats.error && stats.data.thread_id === threadId ? stats.data : null,
-  );
+  const shown = $derived(stats.data && !stats.error && stats.data.thread_id === threadId ? stats.data : null);
   const ratio = $derived(shown && shown.context_limit > 0 ? Math.min(1, shown.context_tokens / shown.context_limit) : 0);
   const SEGMENTS = 24;
   const filled = $derived(Math.round(ratio * SEGMENTS));

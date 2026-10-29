@@ -480,6 +480,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations/containing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Conversations Containing
+         * @description The ids of the conversations whose messages hold every word of `q`, each as the start of a word, in no
+         *     order: what a search box adds to the titles it matches.
+         */
+        get: operations["conversations_containing_conversations_containing_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/conversations/{thread_id}": {
         parameters: {
             query?: never;
@@ -2834,6 +2855,11 @@ export interface components {
              * @default
              */
             context_agent: string;
+        };
+        /** ConversationsContaining */
+        ConversationsContaining: {
+            /** Thread Ids */
+            thread_ids: string[];
         };
         /** DeliveryResult */
         DeliveryResult: {
@@ -5517,6 +5543,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Conversation"][];
+                };
+            };
+        };
+    };
+    conversations_containing_conversations_containing_get: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationsContaining"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

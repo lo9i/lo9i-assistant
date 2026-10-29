@@ -16,6 +16,10 @@ class SearchMixin(ConversationsMixin):
             added += await self._index_thread(user_id, thread_id)
         return added
 
+    async def conversations_containing(self, user_id: str, text: str) -> list[str]:
+        """The ids of the conversations whose messages hold every word of `text`, each as a word's start."""
+        return await self._storage.search.threads_with(user_id, text)
+
     async def _index_after_run(self, user_id: str, thread_id: str) -> None:
         """A failure leaves the conversation as it is; its messages are indexed after its next run."""
         try:

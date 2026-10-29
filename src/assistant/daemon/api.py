@@ -446,6 +446,10 @@ class Routed(BaseModel):
     thread_id: str
 
 
+class ConversationsContaining(BaseModel):
+    thread_ids: list[str]
+
+
 class RunInProgress(BaseModel):
     run_id: str
     thread_id: str
@@ -737,6 +741,13 @@ def _add_conversation_routes(app: FastAPI, service: AssistantService, clients: C
     @app.get("/conversations")
     async def conversation_list() -> list[Conversation]:
         return await service.list_conversations(settings.owner_id)
+
+    # Before /conversations/{thread_id}, which would take "containing" as an id.
+    @app.get("/conversations/containing")
+    async def conversations_containing(q: str) -> ConversationsContaining:
+        """The ids of the conversations whose messages hold every word of `q`, each as the start of a word, in no
+        order: what a search box adds to the titles it matches."""
+        return ConversationsContaining(thread_ids=await service.conversations_containing(settings.owner_id, q))
 
     @app.get("/conversations/{thread_id}")
     async def conversation(thread_id: str) -> Conversation:

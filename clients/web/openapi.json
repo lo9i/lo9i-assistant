@@ -833,6 +833,46 @@
         }
       }
     },
+    "/conversations/containing": {
+      "get": {
+        "summary": "Conversations Containing",
+        "description": "The ids of the conversations whose messages hold every word of `q`, each as the start of a word, in no\norder: what a search box adds to the titles it matches.",
+        "operationId": "conversations_containing_conversations_containing_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationsContaining"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/conversations/{thread_id}": {
       "get": {
         "summary": "Conversation",
@@ -6177,6 +6217,22 @@
         ],
         "title": "ConversationStats",
         "description": "`input_tokens` counts the cache reads too. The times are None for a conversation not in the list\n(a new one before its first message). The context is the assistant's or, while the conversation is handed\nto an agent, that agent's (`context_agent` its name), as of its last answer; 0 when it's not known."
+      },
+      "ConversationsContaining": {
+        "properties": {
+          "thread_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Thread Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "thread_ids"
+        ],
+        "title": "ConversationsContaining"
       },
       "DeliveryResult": {
         "properties": {
