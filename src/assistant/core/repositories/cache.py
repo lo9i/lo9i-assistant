@@ -9,13 +9,21 @@ from typing import Any
 from langgraph.store.base import BaseStore
 
 from assistant.core.mcp.install import FoundServer, ServerField
+from assistant.core.repositories import categories, formats
 from assistant.core.repositories.icons import PluginIcon
 from assistant.core.skills.install import FoundSkill
 
 _NAMESPACE = ("repository_listings",)
 # What a listing holds. Raised whenever a plugin's record gains a field read from the repository (its icon, its
-# ssh_agent), so a listing kept before is read again instead of giving the new field its default.
-_FORMAT = 2
+# ssh_agent, its oauth), so a listing kept before is read again instead of giving the new field its default.
+_FORMAT = 3
+
+
+def _reader() -> str:
+    """What read a listing: its format, and the plugin format and categories this lo9i knows. A listing read by
+    another (an older lo9i, which left out the plugins in a category or format it didn't know) is read again, even
+    at the same commit."""
+    return f"{_FORMAT}/{formats.CURRENT}/{','.join(categories.CATEGORIES)}"
 
 
 @dataclass(frozen=True)
@@ -35,8 +43,8 @@ async def load(store: BaseStore, url: str) -> Listing | None:
         return None
     data = item.value
     skills, servers = [_skill(s) for s in data["skills"]], [_server(s) for s in data["servers"]]
-    # One of an older format keeps no commit: it's shown while the repository can't be reached, never reused once it is.
-    commit = data["commit"] if data.get("format") == _FORMAT else ""
+    # One another lo9i read keeps no commit: it's shown while the repository can't be reached, never reused once it is.
+    commit = data["commit"] if data.get("reader") == _reader() else ""
     return Listing(commit, skills, servers, data.get("problems", []), data.get("checked", ""))
 
 
@@ -44,7 +52,7 @@ async def save(store: BaseStore, url: str, listing: Listing) -> None:
     skills = [asdict(replace(s, installed=False, installed_version="")) for s in listing.skills]
     servers = [asdict(replace(s, installed=False, installed_version="")) for s in listing.servers]
     value = {
-        "format": _FORMAT,
+        "reader": _reader(),
         "commit": listing.commit,
         "skills": skills,
         "servers": servers,
