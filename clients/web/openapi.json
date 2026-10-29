@@ -3091,6 +3091,66 @@
         }
       }
     },
+    "/skill-imports": {
+      "get": {
+        "summary": "Importable Skills",
+        "description": "Claude Code's and Codex's skills on this computer, each with whether it was imported or changed since.",
+        "operationId": "importable_skills_skill_imports_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Importables"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Import Skills",
+        "description": "Import the skills the user picked; one imported before is updated. Each says how it went.",
+        "operationId": "import_skills_skill_imports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ImportOutcome"
+                  },
+                  "type": "array",
+                  "title": "Response Import Skills Skill Imports Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/jobs": {
       "get": {
         "summary": "Jobs",
@@ -7280,6 +7340,138 @@
         "title": "HostStatus",
         "description": "The computer the daemon runs on. Sizes in bytes, percentages 0-100, `load_average` over 1, 5 and\n15 minutes (empty where the system has none)."
       },
+      "ImportOutcome": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "action"
+        ],
+        "title": "ImportOutcome"
+      },
+      "Importable": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "agent": {
+            "type": "string",
+            "title": "Agent"
+          },
+          "agent_name": {
+            "type": "string",
+            "title": "Agent Name"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "project": {
+            "type": "string",
+            "title": "Project"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "files": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Files"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "name_here": {
+            "type": "string",
+            "title": "Name Here"
+          },
+          "renamed": {
+            "type": "string",
+            "title": "Renamed",
+            "default": ""
+          },
+          "needs_agent": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Needs Agent"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Problems"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "agent",
+          "agent_name",
+          "kind",
+          "project",
+          "name",
+          "description",
+          "files",
+          "state",
+          "name_here"
+        ],
+        "title": "Importable"
+      },
+      "Importables": {
+        "properties": {
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/Importable"
+            },
+            "type": "array",
+            "title": "Skills"
+          },
+          "suggestions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Suggestions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "skills",
+          "suggestions"
+        ],
+        "title": "Importables"
+      },
       "InstalledFromRepository": {
         "properties": {
           "skills": {
@@ -9492,6 +9684,11 @@
           },
           "icon": {
             "$ref": "#/components/schemas/PluginIcon"
+          },
+          "imported_from": {
+            "type": "string",
+            "title": "Imported From",
+            "default": ""
           }
         },
         "type": "object",
@@ -9519,6 +9716,27 @@
           "instructions"
         ],
         "title": "SkillChange"
+      },
+      "SkillImport": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ids"
+          },
+          "replace": {
+            "type": "boolean",
+            "title": "Replace",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "ids"
+        ],
+        "title": "SkillImport"
       },
       "SkillSummary": {
         "properties": {

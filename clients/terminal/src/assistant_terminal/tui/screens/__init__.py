@@ -28,6 +28,7 @@ from assistant_terminal.tui.screens.prompts import PromptsScreen
 from assistant_terminal.tui.screens.question import QuestionScreen
 from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 from assistant_terminal.tui.screens.sessions import SessionsScreen
+from assistant_terminal.tui.screens.skill_imports import SkillImportsScreen
 from assistant_terminal.tui.screens.skills import SkillsScreen
 from assistant_terminal.tui.screens.startup import StartupScreen
 from assistant_terminal.tui.screens.usage import UsageScreen
@@ -59,6 +60,7 @@ __all__ = [
     "QuestionScreen",
     "RepositoryInstallScreen",
     "SessionsScreen",
+    "SkillImportsScreen",
     "SkillsScreen",
     "StartupScreen",
     "UsageScreen",

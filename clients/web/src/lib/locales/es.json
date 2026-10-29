@@ -141,6 +141,7 @@
     "mcp": "Servidores MCP y sus herramientas",
     "plugins": "Instalar, actualizar y quitar plugins de los extras",
     "skills": "Explorar, instalar y borrar habilidades",
+    "importSkills": "Importar las habilidades de Claude Code y Codex",
     "usage": "Uso de herramientas y habilidades",
     "audio": "Voz a texto, micrófono y respuestas habladas",
     "websearch": "Búsqueda web: la clave de la API de Brave Search",
@@ -1075,7 +1076,34 @@
     "installedFrom": "Instalada desde",
     "deleteWithPlugin": "Para borrarla, quita el plugin {plugin} en Ajustes → Plugins.",
     "deleteTitle": "¿Borrar {name}?",
-    "deleteText": "El asistente ya no podrá usar esta habilidad."
+    "deleteText": "El asistente ya no podrá usar esta habilidad.",
+    "importedFrom": "Importada de"
+  },
+  "skillImports": {
+    "title": "Habilidades de otros agentes",
+    "sub": "Las habilidades de Claude Code y Codex en esta computadora y en los proyectos que pasaste a un agente. Elige las que quieres copiar a las habilidades del asistente.",
+    "looking": "Buscando…",
+    "none": "No se encontró ninguna",
+    "noneHint": "Claude Code guarda las habilidades en ~/.claude/skills y en .claude/skills de cada proyecto; Codex en ~/.codex/skills, ~/.agents/skills y ~/.codex/prompts.",
+    "forAgent": "funciona mejor con un agente de código",
+    "willBe": "Se llamará {renamed}.",
+    "import": "Importar",
+    "importCount": "Importar {count}",
+    "pickNew": "Elegir las nuevas",
+    "replace": "Reemplazar las habilidades con el mismo nombre",
+    "replaceHint": "Reemplazar una habilidad tuya con el mismo nombre en lugar de agregar el nombre del agente",
+    "imported": {
+      "one": "Se importó {count} habilidad. El asistente la usa desde ahora.",
+      "other": "Se importaron {count} habilidades. El asistente las usa desde ahora."
+    },
+    "suggestions": "No se importan: {files}. Son instrucciones para un agente de código; pide al asistente que lea una y guarde lo útil como habilidad.",
+    "stateImported": "importada como {name}",
+    "stateChanged": "cambió desde que se importó como {name}",
+    "outcome": "{source}: {action} como {name}",
+    "outcomeNote": "{source}: {action} como {name} ({note})",
+    "outcomeFailed": "{source}: {note}",
+    "actionImported": "importada",
+    "actionUpdated": "actualizada"
   },
   "speech": {
     "tiny": "el más rápido, el menos preciso",

@@ -1,7 +1,7 @@
-from textual.widgets import Button, Markdown, OptionList
+from textual.widgets import Button, Checkbox, Markdown, OptionList, SelectionList, Static
 
 from assistant.core.agent import Skill
-from assistant_terminal.tui.screens import ConfirmScreen, SkillsScreen, UsageScreen
+from assistant_terminal.tui.screens import ConfirmScreen, SkillImportsScreen, SkillsScreen, UsageScreen
 from tests.terminal.conftest import wait_for
 
 
@@ -129,3 +129,17 @@ async def test_a_skill_installed_from_the_extras_is_updated_here(app, client):
         await wait_for(pilot, lambda: f"Installed from** {EXTRAS}" in body())
         screen.query_one("#update", Button).press()
         await wait_for(pilot, lambda: getattr(client.skills, "updated", None) == "expenses")
+
+
+async def test_import_skills_lists_other_agents_skills_and_imports_the_picked_ones(app, client):
+    async with app.run_test(size=(120, 40)) as pilot:
+        screen = await _open(pilot, app, "/import-skills", SkillImportsScreen)
+        options = screen.query_one("#skill-imports-list", SelectionList)
+        await wait_for(pilot, lambda: options.option_count == 2)
+        assert str(options.get_option_at_index(1).prompt) == "edit (Codex) · for a coding agent"
+        assert "CLAUDE.md" in str(screen.query_one("#skill-imports-suggestions", Static).render())
+        assert options.selected == []
+        options.select("/h/.agents/skills/edit")
+        screen.query_one("#replace", Checkbox).value = True
+        screen.query_one("#import", Button).press()
+        await wait_for(pilot, lambda: client.skills.imports == [(["/h/.agents/skills/edit"], True)])

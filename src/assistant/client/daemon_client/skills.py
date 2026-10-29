@@ -1,15 +1,17 @@
+from collections.abc import Sequence
+
 from assistant.client.daemon_client.kept import kept_keys
 from assistant.client.daemon_client.repositories import DOWNLOAD_TIMEOUT
 from assistant.client.daemon_client.transport import Transport
-from assistant.core.agent import KeptKeys, Skill, SkillError
+from assistant.core.agent import Importable, Importables, ImportOutcome, KeptKeys, Skill, SkillError
 from assistant.core.agent.skills import SkillSummary
 
 _NOT_FOUND = {404: SkillError}
 
 
 class SkillsApi:
-    """Browsing, editing, updating and deleting skills. Built-in skills can only be read. Installing is
-    `client.repositories`."""
+    """Browsing, editing, updating and deleting skills, and importing other coding agents'. Built-in skills can
+    only be read. Installing is `client.repositories`."""
 
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
@@ -40,3 +42,14 @@ class SkillsApi:
             "POST", f"/skills/{name}/update", errors={**_NOT_FOUND, 400: SkillError}, timeout=DOWNLOAD_TIMEOUT
         )
         return Skill(**data)
+
+    async def importable(self) -> Importables:
+        """Claude Code's and Codex's skills on the daemon's computer, each with whether it was imported or changed
+        since."""
+        data = await self._transport.request("GET", "/skill-imports")
+        return Importables([Importable(**i) for i in data["skills"]], data["suggestions"])
+
+    async def import_skills(self, ids: Sequence[str], replace: bool = False) -> Sequence[ImportOutcome]:
+        """Import the skills picked by id, updating those imported before; each outcome says how it went."""
+        data = await self._transport.request("POST", "/skill-imports", json={"ids": [*ids], "replace": replace})
+        return [ImportOutcome(**o) for o in data]

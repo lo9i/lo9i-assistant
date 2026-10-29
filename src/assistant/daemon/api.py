@@ -42,6 +42,8 @@ from assistant.core.agent import (
     HomePage,
     HomeSection,
     HomeSectionsError,
+    Importables,
+    ImportOutcome,
     InstalledFromRepository,
     InvalidNameError,
     InvalidSearchKeyError,
@@ -313,6 +315,13 @@ class SkillChange(BaseModel):
     instructions: str
 
 
+class SkillImport(BaseModel):
+    # Importable.id of each skill the user picked.
+    ids: list[str]
+    # A skill with the same name is replaced instead of the import getting another name.
+    replace: bool = False
+
+
 class RepositoryAddress(BaseModel):
     # The apps leave it out: plugins come from the assistant's own extras.
     url: str = EXTRAS
@@ -550,6 +559,7 @@ def create_app(
     _add_email_routes(app, service)
     _add_sign_in_routes(app, service)
     _add_skill_routes(app, service)
+    _add_skill_import_routes(app, service)
     _add_job_routes(app, service)
     _add_mcp_routes(app, service)
     _add_alert_routes(app, service)
@@ -1271,6 +1281,18 @@ def _add_sign_in_routes(app: FastAPI, service: AssistantService) -> None:
             return await service.finish_sign_in(body.state, body.code)
         except (SignInError, EmailError, McpServerError) as e:
             raise HTTPException(400, str(e)) from e
+
+
+def _add_skill_import_routes(app: FastAPI, service: AssistantService) -> None:
+    @app.get("/skill-imports")
+    async def importable_skills() -> Importables:
+        """Claude Code's and Codex's skills on this computer, each with whether it was imported or changed since."""
+        return await service.importable_skills(settings.owner_id)
+
+    @app.post("/skill-imports")
+    async def import_skills(body: SkillImport) -> list[ImportOutcome]:
+        """Import the skills the user picked; one imported before is updated. Each says how it went."""
+        return await service.import_skills(settings.owner_id, body.ids, body.replace)
 
 
 def _add_skill_routes(app: FastAPI, service: AssistantService) -> None:

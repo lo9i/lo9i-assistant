@@ -19,6 +19,7 @@ export const COMMANDS: Command[] = [
   { name: "/mcp", usage: "/mcp", description: "commands.mcp" },
   { name: "/plugins", usage: "/plugins", description: "commands.plugins" },
   { name: "/skills", usage: "/skills", description: "commands.skills" },
+  { name: "/import-skills", usage: "/import-skills", description: "commands.importSkills" },
   { name: "/usage", usage: "/usage", description: "commands.usage" },
   { name: "/audio", usage: "/audio", description: "commands.audio" },
   { name: "/websearch", usage: "/websearch", description: "commands.websearch" },

@@ -623,6 +623,31 @@ async def test_facts_and_episodes_are_edited_and_deleted(client, service):
     assert await client.memory.facts() == [] and await client.memory.episodes() == []
 
 
+async def test_skills_from_other_agents_are_listed_and_imported(client, service, tmp_path, monkeypatch):
+    from assistant.core.config import settings
+    from assistant.core.conversation import agent_folders
+
+    home, project = tmp_path / "home", tmp_path / "project"
+    for folder, name in (
+        (home / ".claude" / "skills" / "pdf", "pdf"),
+        (project / ".agents" / "skills" / "ship", "ship"),
+    ):
+        folder.mkdir(parents=True)
+        (folder / "SKILL.md").write_text(f"---\nname: {name}\ndescription: The {name} skill\n---\n\nDo it.\n")
+    monkeypatch.setenv("HOME", str(home))
+    await agent_folders.remember(service.store, settings.owner_id, project)
+
+    found = await client.skills.importable()
+    assert [(i.name, i.agent_name, i.project, i.state) for i in found.skills] == [
+        ("pdf", "Claude Code", "", "new"),
+        ("ship", "Codex", str(project), "new"),
+    ]
+    outcomes = await client.skills.import_skills([found.skills[1].id, str(tmp_path / "gone")])
+    assert [(o.action, o.name) for o in outcomes] == [("imported", "ship"), ("failed", "")]
+    assert [s.name for s in await client.skills.list()] == ["ship"]
+    assert [i.state for i in (await client.skills.importable()).skills] == ["new", "imported"]
+
+
 async def test_skills_are_pinned_to_a_conversation(client, isolated_settings, monkeypatch):
     from assistant.core.agent import SkillError
     from assistant.core.config import settings

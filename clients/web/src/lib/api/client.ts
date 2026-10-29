@@ -70,6 +70,8 @@ import type {
   ShownMessage,
   ShutdownStatus,
   SignedIn,
+  Importables,
+  ImportOutcome,
   Skill,
   SkillSummary,
   SpeechStatus,
@@ -710,6 +712,16 @@ export class SkillsGroup {
   /** Install the skill again from its repository, replacing changes made here. */
   updateInstalled(name: string): Promise<Skill> {
     return this.transport.request("POST", `/skills/${encodeURIComponent(name)}/update`);
+  }
+
+  /** Claude Code's and Codex's skills on the daemon's computer, each with whether it was imported or changed since. */
+  importable(): Promise<Importables> {
+    return this.transport.request("GET", "/skill-imports");
+  }
+
+  /** Import the skills picked by id, updating those imported before; each outcome says how it went. */
+  importSkills(ids: string[], replace = false): Promise<ImportOutcome[]> {
+    return this.transport.request("POST", "/skill-imports", { ids, replace });
   }
 }
 

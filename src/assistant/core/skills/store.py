@@ -10,6 +10,7 @@ from assistant.core.repositories import categories, folders, icons, platforms
 from assistant.core.repositories import source as skill_source
 from assistant.core.skills import files as skill_files
 from assistant.core.skills.errors import SkillError as SkillError
+from assistant.core.skills.imports import records as import_records
 
 # Ships with the app: how to set the assistant up, from each client. Tools point to it when
 # something isn't set up.
@@ -48,6 +49,8 @@ class Skill:
     platforms: list[str] = field(default_factory=list)
     # `icon:` in its SKILL.md (repositories/icons.py); empty when it declares none.
     icon: icons.PluginIcon = field(default_factory=icons.PluginIcon)
+    # The Claude Code or Codex skill it was imported from (skills/imports/); "" when it wasn't.
+    imported_from: str = ""
 
 
 def list_skills() -> list[Skill]:
@@ -102,11 +105,16 @@ def save(name: str, description: str, instructions: str, files: dict[str, str] |
     check_content(name, instructions, files)
     path = _path(name)
     path.parent.mkdir(parents=True, exist_ok=True)
-    header = yaml.safe_dump({"name": name, "description": description.strip()}, allow_unicode=True).strip()
-    path.write_text(f"---\n{header}\n---\n\n{instructions.strip()}\n", encoding="utf-8")
+    path.write_text(text(name, description, instructions), encoding="utf-8")
     if files is not None:
         skill_files.replace(path.parent, files)
     return load(name)
+
+
+def text(name: str, description: str, instructions: str) -> str:
+    """A SKILL.md with only the fields the assistant writes: its name and description, then the instructions."""
+    header = yaml.safe_dump({"name": name, "description": description.strip()}, allow_unicode=True).strip()
+    return f"---\n{header}\n---\n\n{instructions.strip()}\n"
 
 
 def put(name: str, source_folder: Path, source: skill_source.Source, only: list[str] | None = None) -> Skill:
@@ -152,13 +160,14 @@ def read(skill_folder: Path, default_name: str | None = None) -> Skill | None:
     path = skill_folder / skill_files.INSTRUCTIONS
     if not path.is_file():
         return None
-    meta, body, header_problems = _parse(path.read_text(encoding="utf-8"))
+    meta, body, header_problems = parse(path.read_text(encoding="utf-8"))
     description = str(meta.get("description") or "")
     files = skill_files.listed(skill_folder)
     source = skill_source.read(skill_folder)
     category, category_problems = _category(meta)
     systems, platform_problems = _platforms(meta)
     icon, icon_problems = _icon(meta, skill_folder)
+    imported = import_records.read(skill_folder)
     return Skill(
         str(meta.get("name") or default_name or skill_folder.name),
         description,
@@ -173,6 +182,7 @@ def read(skill_folder: Path, default_name: str | None = None) -> Skill | None:
         category,
         systems,
         icon,
+        imported.path if imported else "",
     )
 
 
@@ -206,7 +216,7 @@ def _plugin(source: skill_source.Source | None, name: str) -> str:
     return source.server or name
 
 
-def _parse(text: str) -> tuple[dict, str, list[str]]:
+def parse(text: str) -> tuple[dict, str, list[str]]:
     """The SKILL.md header's fields, the instructions, and what's wrong with the header. A broken
     header leaves the skill listed with the problem, instead of breaking every skill list."""
     match = _FRONTMATTER.match(text)

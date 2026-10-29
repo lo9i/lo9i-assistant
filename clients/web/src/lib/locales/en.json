@@ -141,6 +141,7 @@
     "mcp": "MCP servers and their tools",
     "plugins": "Install, update and remove plugins from the extras",
     "skills": "Browse, install and delete skills",
+    "importSkills": "Import Claude Code's and Codex's skills",
     "usage": "Tool and skill usage",
     "audio": "Speech to text, microphone and spoken replies",
     "websearch": "Web search: the Brave Search API key",
@@ -1075,7 +1076,34 @@
     "installedFrom": "Installed from",
     "deleteWithPlugin": "To delete it, remove the {plugin} plugin in Settings → Plugins.",
     "deleteTitle": "Delete {name}?",
-    "deleteText": "The assistant won't be able to use this skill any more."
+    "deleteText": "The assistant won't be able to use this skill any more.",
+    "importedFrom": "Imported from"
+  },
+  "skillImports": {
+    "title": "Skills from other agents",
+    "sub": "Claude Code's and Codex's skills on this computer, and in the projects you handed to an agent. Pick the ones to copy into the assistant's skills.",
+    "looking": "Looking…",
+    "none": "None found",
+    "noneHint": "Claude Code keeps skills in ~/.claude/skills and a project's .claude/skills; Codex in ~/.codex/skills, ~/.agents/skills and ~/.codex/prompts.",
+    "forAgent": "works best handed to a coding agent",
+    "willBe": "Will be {renamed}.",
+    "import": "Import",
+    "importCount": "Import {count}",
+    "pickNew": "Pick new",
+    "replace": "Replace skills with the same name",
+    "replaceHint": "Replace a skill of yours with the same name instead of adding the agent's name",
+    "imported": {
+      "one": "Imported {count} skill. The assistant uses it from now on.",
+      "other": "Imported {count} skills. The assistant uses them from now on."
+    },
+    "suggestions": "Not imported: {files}. They're instructions for a coding agent; ask the assistant to read one and save what's useful as a skill.",
+    "stateImported": "imported as {name}",
+    "stateChanged": "changed since imported as {name}",
+    "outcome": "{source}: {action} as {name}",
+    "outcomeNote": "{source}: {action} as {name} ({note})",
+    "outcomeFailed": "{source}: {note}",
+    "actionImported": "imported",
+    "actionUpdated": "updated"
   },
   "speech": {
     "tiny": "fastest, least accurate",

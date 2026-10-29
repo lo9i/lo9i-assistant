@@ -115,6 +115,8 @@
                     <dd>{t("skills.comesWithServer", { server: skill.data.server })}</dd>
                   {:else if skill.data.source}<dt class="micro-label">{t("skills.installedFrom")}</dt>
                     <dd>{skill.data.source}</dd>{/if}
+                  {#if skill.data.imported_from}<dt class="micro-label">{t("skills.importedFrom")}</dt>
+                    <dd>{skill.data.imported_from}</dd>{/if}
                 </dl>
                 <div class="actions">
                   <button class="btn btn--neutral btn--sm" onclick={startEditing}><Pencil size={14} />{t("common.edit")}</button>

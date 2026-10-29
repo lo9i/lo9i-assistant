@@ -3,6 +3,7 @@ Hidden names (starting with a dot) never come along: `.git` stays out, and the i
 (`source.py`) is written by the assistant."""
 
 import shutil
+from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 
 from assistant.core.repositories import source as folder_source
@@ -31,14 +32,23 @@ def subfolders(folder: Path) -> list[Path]:
 
 def put(source_folder: Path, target: Path, source: Source, only: list[str] | None = None) -> None:
     """Replace `target` with a copy of `source_folder` (or just the files in `only`) and record where
-    it came from. Built next to the target and swapped in, so a failed copy leaves the old folder as
-    it was."""
+    it came from."""
+
+    def fill(staging: Path) -> None:
+        copy_files(source_folder, staging, only)
+        folder_source.write(staging, source)
+
+    build(target, fill)
+
+
+def build(target: Path, fill: Callable[[Path], None]) -> None:
+    """Replace `target` with the folder `fill` writes. Built next to the target and swapped in, so a
+    failure leaves the old folder as it was."""
     staging = target.with_name(f".{target.name}.installing")
     shutil.rmtree(staging, ignore_errors=True)
     staging.mkdir(parents=True)
     try:
-        _copy(source_folder, staging, only)
-        folder_source.write(staging, source)
+        fill(staging)
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise
@@ -46,15 +56,23 @@ def put(source_folder: Path, target: Path, source: Source, only: list[str] | Non
     staging.rename(target)
 
 
-def _copy(source: Path, folder: Path, only: list[str] | None) -> None:
-    paths = [p for p in sorted(source.rglob("*")) if p.is_file() and not p.is_symlink()]
-    paths = [p for p in paths if valid_path(rel := p.relative_to(source).as_posix()) and (only is None or rel in only)]
+def copy_files(source: Path, folder: Path, only: list[str] | None = None) -> None:
+    """Copy `source`'s regular, visible files (or those in `only`) into `folder`. Raises RepositoryError
+    past MAX_FILES or MAX_BYTES."""
+    paths = files_in(source)
+    paths = [p for p in paths if only is None or p.relative_to(source).as_posix() in only]
     if len(paths) > MAX_FILES or sum(p.stat().st_size for p in paths) > MAX_BYTES:
         raise RepositoryError(f"{source.name} has more than {MAX_FILES} files or {MAX_BYTES // 1_000_000} MB.")
     for path in paths:
         target = folder / path.relative_to(source)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, target)
+
+
+def files_in(source: Path) -> list[Path]:
+    """The regular, visible files in a folder and the folders inside it, sorted; links never count."""
+    paths = [p for p in sorted(source.rglob("*")) if p.is_file() and not p.is_symlink()]
+    return [p for p in paths if valid_path(p.relative_to(source).as_posix())]
 
 
 def _visible(path: Path) -> bool:

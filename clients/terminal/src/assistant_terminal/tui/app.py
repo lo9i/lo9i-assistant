@@ -81,6 +81,7 @@ from assistant_terminal.tui.screens import (
     QuestionScreen,
     RepositoryInstallScreen,
     SessionsScreen,
+    SkillImportsScreen,
     SkillsScreen,
     StartupScreen,
     UsageScreen,
@@ -176,6 +177,7 @@ class AssistantApp(App):
             "/startup": self._command_startup,
             "/host": self._command_host,
             "/skills": self._command_skills,
+            "/import-skills": self._command_import_skills,
             "/plugins": self._command_plugins,
             "/jobs": self._command_jobs,
             "/devices": self._command_devices,
@@ -966,6 +968,9 @@ class AssistantApp(App):
 
     async def _command_skills(self, _: str) -> None:
         self.push_screen(SkillsScreen(self._service.skills, self._service.repositories))
+
+    async def _command_import_skills(self, _: str) -> None:
+        self.push_screen(SkillImportsScreen(self._service.skills))
 
     async def _command_prompt(self, _: str) -> None:
         self.push_screen(PromptsScreen(self._service.prompts))
