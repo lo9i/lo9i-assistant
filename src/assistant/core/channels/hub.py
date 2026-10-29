@@ -3,12 +3,14 @@
 A channel process holds one event stream open (`attach`), giving its chat limits. Every chat operation
 (send, edit, typing, voice; core/channels/chat/port.py) goes down the stream and waits for the channel
 to confirm it (`operate`), so the sender learns whether it really happened and the id of the message it
-sent. While the stream is open, the channel is registered in the outbox and in remote approvals, so
-`send_message` and scheduled jobs reach it. The channel also tells what the apps show for it
-(`set_status`), and gets the buttons pressed there (`act`).
+sent. An operation for a channel that's away (its process restarting after an update) waits for it to come
+back, so a turn in progress goes on showing in its chat once it's back. While the stream is open, the
+channel is registered in the outbox and in remote approvals, so `send_message` and scheduled jobs reach it.
+The channel also tells what the apps show for it (`set_status`), and gets the buttons pressed there (`act`).
 """
 
 import asyncio
+import contextlib
 import secrets
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from dataclasses import dataclass, field
@@ -28,6 +30,9 @@ from assistant.core.outbox import DeliveryError, Outbox
 PROTOCOL = 2
 # How long an operation waits for the channel to confirm it.
 DELIVERY_SECONDS = 30.0
+# How long an operation waits for a channel that's away to connect again: its process restarting (a plugin
+# update, a crash) takes a few seconds, a first start that builds its environment longer.
+RECONNECT_SECONDS = 120.0
 
 SetupKind = Literal["text", "code", "copy", "qr", "action"]
 # A channel's commands: {"command": "new", "description": "..."} each.
@@ -63,6 +68,10 @@ class ChannelNotConnectedError(Exception):
     """The channel's process isn't connected."""
 
 
+class _GoneError(Exception):
+    """The stream an operation went down ended before the channel confirmed it."""
+
+
 @dataclass
 class _Stream:
     limits: ChatLimits
@@ -93,8 +102,10 @@ class ChannelHub:
         self._tokens: dict[str, str] = {}
         self._streams: dict[str, _Stream] = {}
         self._items: dict[str, list[SetupItem]] = {}
-        # Operations waiting for their channel to confirm them: id -> (channel, (error, message id)).
-        self._deliveries: dict[str, tuple[str, asyncio.Future[tuple[str, str]]]] = {}
+        # Operations waiting for their channel to confirm them: id -> (the stream it went down, (error, message id)).
+        self._deliveries: dict[str, tuple[_Stream, asyncio.Future[tuple[str, str]]]] = {}
+        # Set when a channel connects, then replaced: what operations waiting for one to come back wait on.
+        self._arrived = asyncio.Event()
 
     def issue_token(self, channel: str) -> str:
         """A new token for the channel's process, replacing the one it had."""
@@ -144,7 +155,7 @@ class ChannelHub:
     def confirm(self, delivery_id: str, error: str, message: str = "") -> bool:
         """The channel's answer to an operation: what went wrong, or the id of the message it sent. False
         when nothing waits for it any more."""
-        _, waiting = self._deliveries.get(delivery_id, ("", None))
+        _, waiting = self._deliveries.get(delivery_id, (None, None))
         if waiting is None or waiting.done():
             return False
         waiting.set_result((error, message))
@@ -165,15 +176,27 @@ class ChannelHub:
 
     async def operate(self, channel: str, kind: str, data: dict[str, Any]) -> str:
         """Have the channel carry out a chat operation and wait until it says it did. Returns the id of
-        the message it sent ("" for other operations). Raises DeliveryError."""
+        the message it sent ("" for other operations). While the channel is away, waits up to
+        RECONNECT_SECONDS for it to connect again, and sends the operation again then if it went away before
+        confirming it: a message it sent just before going may then show twice, which beats a turn that stops
+        showing. Raises DeliveryError."""
+        deadline = asyncio.get_running_loop().time() + RECONNECT_SECONDS
+        while True:
+            stream = self._streams.get(channel)
+            if stream is not None:
+                with contextlib.suppress(_GoneError):
+                    return await self._deliver(channel, stream, kind, data)
+            if not await self._back(channel, deadline):
+                raise DeliveryError(f"{channel} isn't connected.")
+
+    async def _deliver(self, channel: str, stream: _Stream, kind: str, data: dict[str, Any]) -> str:
+        """Raises _GoneError when the stream ends before the channel confirms it, DeliveryError otherwise."""
         delivery_id = uuid4().hex
         waiting: asyncio.Future[tuple[str, str]] = asyncio.get_running_loop().create_future()
-        self._deliveries[delivery_id] = (channel, waiting)
+        self._deliveries[delivery_id] = (stream, waiting)
         try:
-            self._push(channel, ChannelEvent(kind, {"id": delivery_id, **data}))
+            stream.events.put_nowait(ChannelEvent(kind, {"id": delivery_id, **data}))
             error, message = await asyncio.wait_for(waiting, DELIVERY_SECONDS)
-        except ChannelNotConnectedError as e:
-            raise DeliveryError(f"{channel} isn't connected.") from e
         except TimeoutError as e:
             raise DeliveryError(f"{channel} didn't confirm the delivery in time.") from e
         finally:
@@ -181,6 +204,16 @@ class ChannelHub:
         if error:
             raise DeliveryError(error)
         return message
+
+    async def _back(self, channel: str, deadline: float) -> bool:
+        """Waits until the channel is connected; False when it isn't by the deadline."""
+        loop = asyncio.get_running_loop()
+        while not self.connected(channel):
+            if (left := deadline - loop.time()) <= 0:
+                return False
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self._arrived.wait(), left)
+        return True
 
     async def _follow_changes(self) -> None:
         name, commands = await self._assistant_name(), await self._commands()
@@ -196,9 +229,12 @@ class ChannelHub:
     def _open(self, channel: str, limits: ChatLimits) -> _Stream:
         if (previous := self._streams.get(channel)) is not None:
             previous.ended.set()
+            self._fail_deliveries(previous)
         stream = self._streams[channel] = _Stream(limits)
         self._outbox.register(channel, _Sender(self, channel))
         self._approvals.register(channel, _Forwarder(self, channel))
+        self._arrived.set()
+        self._arrived = asyncio.Event()
         self._bus.publish("channels")
         return stream
 
@@ -209,10 +245,15 @@ class ChannelHub:
         self._items.pop(channel, None)
         self._outbox.unregister(channel)
         self._approvals.unregister(channel)
-        for name, waiting in self._deliveries.values():
-            if name == channel and not waiting.done():
-                waiting.set_result((f"{channel} disconnected before confirming the delivery.", ""))
+        self._fail_deliveries(stream)
         self._bus.publish("channels")
+
+    def _fail_deliveries(self, stream: _Stream) -> None:
+        """The operations that went down a stream that ended, unconfirmed: they're sent again once the channel is
+        back."""
+        for sent_down, waiting in self._deliveries.values():
+            if sent_down is stream and not waiting.done():
+                waiting.set_exception(_GoneError())
 
     def _push(self, channel: str, event: ChannelEvent) -> None:
         stream = self._streams.get(channel)

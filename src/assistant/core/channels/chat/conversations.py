@@ -344,7 +344,8 @@ class _Pressed:
 
 
 async def _logged(work: Coroutine[Any, Any, None]) -> None:
-    """A channel that goes away mid-turn stops showing it; the run goes on, and the apps show it."""
+    """A channel that goes away mid-turn and doesn't come back in time (core/channels/hub.py, RECONNECT_SECONDS)
+    stops showing it; the run goes on, and the apps show it."""
     try:
         await work
     except DeliveryError as e:

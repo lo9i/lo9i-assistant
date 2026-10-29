@@ -109,19 +109,50 @@ async def test_a_job_approval_goes_to_the_channel_and_its_answer_back():
     assert await asking == {"approved": True, "reason": ""}
 
 
-async def test_a_channel_that_disconnects_is_unregistered_and_its_deliveries_fail():
+async def test_a_channel_that_disconnects_is_unregistered_and_its_deliveries_fail(monkeypatch):
+    monkeypatch.setattr(hub_module, "RECONNECT_SECONDS", 0.05)
     hub, outbox, approvals, _ = _hub()
     stream = await _attached(hub, "telegram")
     hub.set_status("telegram", [SetupItem("text", "Bot: @lo9i_bot")])
     sending = asyncio.create_task(outbox.send("telegram", "hi"))
     await anext(stream)
     await stream.aclose()
-    with pytest.raises(DeliveryError, match="disconnected"):
+    with pytest.raises(DeliveryError, match="telegram isn't connected"):
         await sending
     assert (outbox.channels, approvals.available, hub.connected("telegram")) == ([], False, False)
     assert hub.items("telegram") == []
     with pytest.raises(ChannelNotConnectedError):
         hub.act("telegram", "new-pairing-code")
+
+
+async def test_an_operation_waits_for_a_channel_that_went_away_and_is_sent_again_once_its_back():
+    hub, *_ = _hub()
+    first = await _attached(hub, "telegram")
+    sending = asyncio.create_task(hub.operate("telegram", "send", {"chat": "42", "text": "hi"}))
+    assert (await anext(first)).data["text"] == "hi"
+    await first.aclose()  # gone before confirming it: its process restarts
+    await asyncio.sleep(0.05)
+    assert not sending.done()
+    editing = asyncio.create_task(hub.operate("telegram", "edit", {"chat": "42", "message": "7", "text": "hi!"}))
+    second = await _attached(hub, "telegram")
+    arrived = {event.kind: event for event in (await anext(second), await anext(second))}
+    resent, edit = arrived["send"], arrived["edit"]
+    assert (resent.data["text"], edit.data["text"]) == ("hi", "hi!")
+    hub.confirm(resent.data["id"], "", "1002")
+    hub.confirm(edit.data["id"], "")
+    assert (await sending, await editing) == ("1002", "")
+
+
+async def test_a_new_stream_sends_again_what_the_one_it_replaced_left_unconfirmed():
+    hub, *_ = _hub()
+    first = await _attached(hub, "telegram")
+    sending = asyncio.create_task(hub.operate("telegram", "typing", {"chat": "42"}))
+    await anext(first)
+    second = await _attached(hub, "telegram")
+    again = await anext(second)
+    assert again.kind == "typing"
+    hub.confirm(again.data["id"], "")
+    assert await sending == ""
 
 
 async def test_a_second_stream_replaces_the_first():

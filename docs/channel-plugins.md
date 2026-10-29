@@ -85,6 +85,8 @@ background work, a scheduled job's approval): every paired Telegram account, the
 `send` there confirms is kept with the conversation that sent it, and a reply naming it in any chat
 (`reply_to`) goes on there; when it went to several paired Telegram accounts, return the last one's. Run each operation as
 it comes and confirm it with its result; the daemon waits for one before sending the next of a turn.
+An operation sent down a stream that ends before it's confirmed is sent again on the next stream, so a process
+that restarts may get the operation it was carrying out when it stopped once more.
 
 ### SetupItem
 
