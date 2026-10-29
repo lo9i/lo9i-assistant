@@ -18,6 +18,7 @@ from assistant.core.agent import AssistantService
 from assistant.core.config import settings
 from assistant.core.conversation import sent
 from assistant.core.hidden_text import strip_hidden
+from assistant.core.i18n import Texts
 from assistant.core.integrations.email import accounts, imap
 from assistant.core.integrations.email.accounts import EmailConfig, EmailError
 from assistant.core.integrations.email.imap import Mailbox, MailSummary
@@ -115,7 +116,7 @@ class MailWatcher:
                 await self._scheduler.run_for_mail(job, mails)
 
     async def _alert(self, channel: str, label: str, mails: list[MailSummary]) -> None:
-        text = _alert_text(mails, label)
+        text = _alert_text(await self._service.texts(), mails, label)
         try:
             await self._service.outbox.send(channel, text)
         except DeliveryError as e:
@@ -141,10 +142,13 @@ class MailWatcher:
         await self._service.store.aput(_NAMESPACE, _account(config), value)
 
 
-def _alert_text(mails: list[MailSummary], label: str) -> str:
-    lines = [f"• {m.sender}: {m.subject or '(no subject)'}" for m in mails]
-    heading = "📧 New email" if len(mails) == 1 else f"📧 {len(mails)} new emails"
-    return strip_hidden("\n".join([f"{heading} in {label}", *lines]))
+def _alert_text(t: Texts, mails: list[MailSummary], label: str) -> str:
+    lines = [f"• {m.sender}: {m.subject or t('(no subject)')}" for m in mails]
+    if len(mails) == 1:
+        heading = t("📧 New email in {account}", account=label)
+    else:
+        heading = t("📧 {count} new emails in {account}", count=len(mails), account=label)
+    return strip_hidden("\n".join([heading, *lines]))
 
 
 def _account(config: EmailConfig) -> str:

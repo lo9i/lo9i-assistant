@@ -5,13 +5,17 @@ The daemon sends them in the stream's `hello`, and again as `commands` when they
 from collections.abc import Sequence
 
 from assistant.core.conversation.handoffs import Agent
-
-FIXED = [{"command": "new", "description": "Start a new conversation with your next message"}]
-
-
-def listed(agents: Sequence[Agent]) -> list[dict[str, str]]:
-    return [*FIXED, *({"command": a.command, "description": _description(a)} for a in agents)]
+from assistant.core.i18n import Texts
 
 
-def _description(agent: Agent) -> str:
-    return f"Hand this conversation to {agent.name}: /{agent.command} <folder>, /{agent.command} off"
+def listed(t: Texts, agents: Sequence[Agent]) -> list[dict[str, str]]:
+    new = {"command": "new", "description": t("Start a new conversation with your next message")}
+    return [new, *({"command": a.command, "description": _description(t, a)} for a in agents)]
+
+
+def _description(t: Texts, agent: Agent) -> str:
+    return t(
+        "Hand this conversation to {agent}: /{command} <folder>, /{command} off",
+        agent=agent.name,
+        command=agent.command,
+    )

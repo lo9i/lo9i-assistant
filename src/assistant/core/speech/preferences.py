@@ -1,13 +1,16 @@
 """Speech settings chosen in the app (Settings → Audio), stored as one Store record. Until the user
 changes them, speech to text comes from .env (STT_MODEL, STT_LANGUAGES, STT_DECODING) and replies aren't
-spoken."""
+spoken. Once the user picks the apps' language (core/language.py), speech follows it: voice messages are
+heard in it first, and replies are spoken in its voice unless the user picked one."""
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from typing import Literal
 
 from langgraph.store.base import BaseStore
 
+from assistant.core import language
 from assistant.core.config import settings
+from assistant.core.language import Language
 from assistant.core.speech.voices import default_voice, voice
 
 _NAMESPACE = ("settings",)
@@ -74,10 +77,24 @@ class SpeechSettings:
         """Whether a reply is spoken, given whether the user's message was a voice message."""
         return self.spoken_replies == "always" or (self.spoken_replies == "voice" and after_voice_message)
 
+    def following(self, chosen: Language) -> "SpeechSettings":
+        """As used with the apps' language: first among the languages voice messages are told apart in (the one
+        a message is taken to be in when detection can't tell, and the one the default voice speaks). Auto
+        leaves them as they are."""
+        if chosen == "auto":
+            return self
+        return replace(self, languages=[chosen, *(code for code in self.languages if code != chosen)])
+
 
 async def load(store: BaseStore) -> SpeechSettings:
+    """As the user saved them."""
     item = await store.aget(_NAMESPACE, _KEY)
     return SpeechSettings(**item.value) if item else SpeechSettings()
+
+
+async def in_use(store: BaseStore) -> SpeechSettings:
+    """As voice messages are heard and replies spoken: following the apps' language."""
+    return (await load(store)).following(await language.load(store))
 
 
 async def save(store: BaseStore, speech: SpeechSettings) -> None:

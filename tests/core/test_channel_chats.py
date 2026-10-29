@@ -188,6 +188,8 @@ async def test_new_sends_the_next_message_to_a_new_conversation(dispatch, chats,
     assert len(dispatch.inputs) == 1
     assert await chats.command("telegram", "start") == GREETING
     assert await chats.command("telegram", "pin") == "Unknown command /pin."
+    await service.set_language("es")
+    assert await chats.command("telegram", "new") == "Tu próximo mensaje empieza una conversación nueva."
 
 
 async def test_a_coding_task_moves_to_a_new_conversation_handed_to_its_agent(

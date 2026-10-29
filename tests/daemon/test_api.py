@@ -20,6 +20,7 @@ from assistant.core.agent import (
     HomeSectionsError,
     InvalidNameError,
     InvalidSearchKeyError,
+    LanguageError,
     Session,
     ShownStep,
     SpeechSettingsError,
@@ -227,6 +228,14 @@ async def test_host_describes_the_computer_the_daemon_runs_on(client):
     assert host.hostname and host.cpu_cores > 0 and 0 <= host.cpu_percent <= 100
     assert 0 < host.memory_used <= host.memory_total and 0 < host.disk_used <= host.disk_total
     assert host.uptime_seconds > 0 and host.version
+
+
+async def test_the_language_is_auto_until_picked_and_unknown_ones_are_refused(client):
+    assert await client.language.get() == "auto"
+    assert await client.language.set("es") == "es"
+    assert await client.language.get() == "es"
+    with pytest.raises(LanguageError, match="Unknown language"):
+        await client.language.set("fr")
 
 
 async def test_every_json_response_has_a_typed_schema(service):

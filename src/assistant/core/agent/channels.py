@@ -3,6 +3,7 @@ connected, what it shows for setting it up, and its buttons."""
 
 from dataclasses import dataclass
 
+from assistant.core import i18n
 from assistant.core.agent.base import ServiceBase
 from assistant.core.channels.chat import commands
 from assistant.core.channels.hub import ChannelNotConnectedError, SetupItem, protocol_problem
@@ -42,7 +43,8 @@ class ChannelsMixin(ServiceBase):
 
     async def channel_commands(self) -> list[dict[str, str]]:
         """What the channels offer: /new and each agent's command (core/channels/chat/commands.py)."""
-        return commands.listed(await handoffs.agents(self._storage.store))
+        store = self._storage.store
+        return commands.listed(await i18n.chosen(store), await handoffs.agents(store))
 
     def press_channel_action(self, name: str, action: str) -> None:
         """A setup button pressed in an app. Raises ChannelNotConnectedError."""

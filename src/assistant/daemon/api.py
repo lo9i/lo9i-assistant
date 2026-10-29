@@ -48,6 +48,8 @@ from assistant.core.agent import (
     Job,
     JobError,
     KeptKeys,
+    Language,
+    LanguageError,
     McpProbe,
     McpServer,
     McpServerChanges,
@@ -281,6 +283,16 @@ class LogLevelSetting(BaseModel):
 class LogLevelChange(BaseModel):
     # Checked by the service, which says what the choices are.
     level: str
+
+
+class LanguageSetting(BaseModel):
+    # auto follows each browser's language in the web app, and is English elsewhere.
+    language: Language
+
+
+class LanguageChange(BaseModel):
+    # Checked by the service, which says what the choices are.
+    language: str
 
 
 class PromptText(BaseModel):
@@ -551,6 +563,7 @@ def create_app(
     _add_speech_routes(app, service)
     _add_log_level_routes(app, service)
     _add_dispatch_routes(app, service)
+    _add_language_routes(app, service)
     _add_model_routes(app, service)
     _add_usage_routes(app, service)
     _add_host_route(app, shutdown)
@@ -1820,6 +1833,22 @@ def _add_log_level_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return LogLevelSetting(level=await service.set_log_level(body.level))
         except LogLevelError as e:
+            raise HTTPException(400, str(e)) from e
+
+
+def _add_language_routes(app: FastAPI, service: AssistantService) -> None:
+    """The language of the apps' own text (core/language.py)."""
+
+    @app.get("/settings/language")
+    async def language() -> LanguageSetting:
+        return LanguageSetting(language=await service.language())
+
+    @app.put("/settings/language")
+    async def set_language(body: LanguageChange) -> LanguageSetting:
+        """400: an unknown language."""
+        try:
+            return LanguageSetting(language=await service.set_language(body.language))
+        except LanguageError as e:
             raise HTTPException(400, str(e)) from e
 
 

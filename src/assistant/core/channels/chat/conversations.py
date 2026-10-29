@@ -30,12 +30,13 @@ from assistant.core.channels.chat.turn import ChatTurn
 from assistant.core.config import settings
 from assistant.core.conversation.dispatch_nodes import NEW_TITLE
 from assistant.core.events import ApprovalRequired, Dispatched, Event, is_question
+from assistant.core.i18n import Texts, translatable
 from assistant.core.outbox import DeliveryError
 from assistant.core.speech.synthesizer import SynthesisError
 
 logger = logging.getLogger(__name__)
 
-GREETING = (
+GREETING = translatable(
     "Hi! Send me a message, a voice note, a photo or a document. Each topic gets a conversation of its own: "
     "a new message goes on in the one it's about, or starts one, and replying to one of my messages goes on "
     "in its conversation. /new starts a new conversation with your next message."
@@ -60,6 +61,7 @@ class Conversations(Protocol):
     def send_dispatched(self, session: Session, dispatch_id: str) -> AsyncIterator[Event]: ...
     def resume(self, session: Session, decisions: dict[str, dict[str, Any]]) -> AsyncIterator[Event]: ...
     async def pending_approvals(self, thread_id: str) -> list[ApprovalRequired]: ...
+    async def texts(self) -> Texts: ...
     async def conversation_agent(self, user_id: str, thread_id: str) -> Handoff | None: ...
     async def speaks_reply(self, after_voice_message: bool) -> bool: ...
     async def speak(self, text: str, audio_format: AudioFormat = "wav", voice: str = "") -> bytes: ...
@@ -107,7 +109,7 @@ class ChannelChats:
         """Runs the message and shows it in `chat`, then speaks the reply when Settings → Audio says so.
         `voice`: the user's message was a voice note. `reply_to`: the id of the message it replies to;
         `message`: its own id, kept with the conversation it goes to."""
-        where = _Chat(self._channels, channel, chat)
+        where = _Chat(self._channels, channel, chat, await self._conversations.texts())
         thread_id = await self._thread_for(where, reply_to)
         turn = await self._show(where, thread_id, lambda s: self._conversations.send(s, text, attachments), text)
         if message:
@@ -116,7 +118,7 @@ class ChannelChats:
 
     async def press(self, channel: str, chat: str, message: str, text: str, data: str) -> None:
         """A button pressed on `message`, whose text is `text`."""
-        where = _Chat(self._channels, channel, chat)
+        where = _Chat(self._channels, channel, chat, await self._conversations.texts())
         thread_id = await self._conversations.chat_message_thread(settings.owner_id, channel, chat, message)
         thread_id = thread_id or await self._conversations.channel_thread(settings.owner_id, channel)
         await self._press(where, _Pressed(message, text, data, thread_id))
@@ -130,18 +132,19 @@ class ChannelChats:
 
     async def command(self, channel: str, command: str, text: str = "") -> str:
         """/new, /start or an agent's command with what follows it, and what to answer."""
+        t = await self._conversations.texts()
         match command:
             case "new":
                 await self._conversations.channel_wants_new(settings.owner_id, channel)
-                return "Your next message starts a new conversation."
+                return t("Your next message starts a new conversation.")
             case "start":
-                return GREETING
+                return t(GREETING)
         agent = next((a for a in await self._conversations.agents() if a.command == command), None)
         if agent is None:
-            return f"Unknown command /{command}."
-        return await self._agent_command(channel, agent, text.strip())
+            return t("Unknown command /{command}.", command=command)
+        return await self._agent_command(t, channel, agent, text.strip())
 
-    async def _agent_command(self, channel: str, agent: Agent, folder: str) -> str:
+    async def _agent_command(self, t: Texts, channel: str, agent: Agent, folder: str) -> str:
         """`/claude <folder>` hands the conversation the channel last wrote in to the agent (a new one when that
         was the inbox), and the channel's messages go on there until `/claude off` takes it back; alone it
         says how, with the folders used before (a chat has no folder picker)."""
@@ -149,9 +152,9 @@ class ChannelChats:
         thread_id = await self._conversations.channel_thread(owner, channel)
         if folder == "off":
             await self._conversations.take_back_conversation(owner, thread_id)
-            return "The assistant answers again from your next message."
+            return t("The assistant answers again from your next message.")
         if not folder:
-            return await self._how_to_hand(agent)
+            return await self._how_to_hand(t, agent)
         if thread_id == await self._conversations.inbox_thread(owner):
             thread_id = await self._conversations.new_thread(owner)
         try:
@@ -159,14 +162,18 @@ class ChannelChats:
         except HandoffError as e:
             return str(e)
         await self._conversations.channel_wrote(owner, channel, thread_id)
-        back = f"/{agent.command} off brings the assistant back."
-        return f"{handoff.name} answers from your next message, working in {handoff.folder}. {back}"
+        return t(
+            "{agent} answers from your next message, working in {folder}. /{command} off brings the assistant back.",
+            agent=handoff.name,
+            folder=handoff.folder,
+            command=agent.command,
+        )
 
-    async def _how_to_hand(self, agent: Agent) -> str:
+    async def _how_to_hand(self, t: Texts, agent: Agent) -> str:
         offered = await self._conversations.agent_folders(settings.owner_id)
         folders = [offered.workspace, *offered.recent]
         listed = "\n".join(f"/{agent.command} {folder}" for folder in folders)
-        return f"Give {agent.name} a folder to work in, its full path:\n{listed}"
+        return t("Give {agent} a folder to work in, its full path:", agent=agent.name) + f"\n{listed}"
 
     async def _press(self, chat: "_Chat", pressed: "_Pressed") -> None:
         place = chat.channel.capitalize()
@@ -179,7 +186,7 @@ class ChannelChats:
 
     async def _answer_approval(self, chat: "_Chat", pressed: "_Pressed", interrupt_id: str, answer: dict) -> None:
         await chat.port.edit(pressed.message, pressed.text)
-        await chat.port.send("Approved." if answer["approved"] else "Rejected.")
+        await chat.port.send(chat.t("Approved.") if answer["approved"] else chat.t("Rejected."))
         await self._resume(chat, pressed.thread_id, {interrupt_id: answer})
 
     async def _answer_question(self, chat: "_Chat", pressed: "_Pressed", press: Press) -> None:
@@ -187,27 +194,29 @@ class ChannelChats:
         request = await self._waiting(pressed.thread_id, press.interrupt_id, is_question)
         if request is None:
             await chat.port.edit(pressed.message, pressed.text)
-            await chat.port.send("This question isn't waiting for an answer any more.")
+            await chat.port.send(chat.t("This question isn't waiting for an answer any more."))
             return
-        text = question_text(request)
+        text = question_text(chat.t, request)
         if not press.answers:
-            buttons = question_buttons(press.interrupt_id, request, press.picked)
+            buttons = question_buttons(chat.t, press.interrupt_id, request, press.picked)
             await chat.port.edit(pressed.message, text, buttons=buttons)
             return
         picked = choices(request, press.picked)
         await chat.port.edit(pressed.message, text)
-        await chat.port.send(answered_text(picked))
+        await chat.port.send(answered_text(chat.t, picked))
         await self._resume(chat, pressed.thread_id, {press.interrupt_id: {"choices": picked}})
 
     async def _answer_job(self, chat: "_Chat", pressed: "_Pressed", interrupt_id: str, answer: dict) -> None:
         """A scheduled job's request: the job's run continues on its own, nothing to show here."""
         await chat.port.edit(pressed.message, pressed.text)
         if not self._jobs.answer(interrupt_id, answer):
-            await chat.port.send("This request isn't waiting any more: the job's run already went on without it.")
+            await chat.port.send(
+                chat.t("This request isn't waiting any more: the job's run already went on without it.")
+            )
         elif answer["approved"]:
-            await chat.port.send("Approved. The job goes on.")
+            await chat.port.send(chat.t("Approved. The job goes on."))
         else:
-            await chat.port.send("Rejected. The job goes on without it.")
+            await chat.port.send(chat.t("Rejected. The job goes on without it."))
 
     async def _thread_for(self, chat: "_Chat", reply_to: str) -> str:
         """Where a message goes: the conversation of the message it replies to; a new one after /new; the
@@ -241,7 +250,7 @@ class ChannelChats:
         owner = settings.owner_id
         tag = await self._conversations.chat_tag(owner, thread_id, named or text)
         port = _Recording(chat.port, self._conversations, chat, thread_id)
-        turn = ChatTurn(port, self._channels.limits(chat.channel), thread_id, tag)
+        turn = ChatTurn(port, self._channels.limits(chat.channel), chat.t, thread_id, tag)
         await turn.render(self._run(chat.channel, thread_id, start, text, brief))
         if turn.dispatched:
             return await self._go_on(chat, turn.dispatched)
@@ -289,10 +298,12 @@ class ChannelChats:
 
 
 class _Chat:
-    def __init__(self, channels: Channels, channel: str, chat: str) -> None:
+    def __init__(self, channels: Channels, channel: str, chat: str, t: Texts) -> None:
         self.channel = channel
         self.id = chat
         self.port: ChatPort = RemoteChat(channels, channel, chat)
+        # The text shown there, in the language chosen.
+        self.t = t
 
 
 class _Recording:

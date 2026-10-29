@@ -24,8 +24,10 @@ from assistant.core.events import (
     ToolStarted,
     Transcribed,
 )
+from assistant.core.i18n import texts
 
 LIMITS = ChatLimits(edit_seconds=0, draft_limit=3500, message_limit=3500)
+EN = texts("en")
 _QUESTION = {"kind": "question", "question": "Which sources?", "options": ["Google", "GitHub", "X"], "multiple": True}
 
 
@@ -61,7 +63,7 @@ async def _render(*events, tag: str = "") -> tuple[FakeChat, ChatTurn]:
             yield event
 
     chat = FakeChat()
-    turn = ChatTurn(chat, LIMITS, "t1", tag)
+    turn = ChatTurn(chat, LIMITS, EN, "t1", tag)
     await turn.render(stream())
     return chat, turn
 
@@ -116,7 +118,7 @@ async def test_a_long_reply_is_split_to_fit_the_channel():
 async def test_a_question_shows_its_buttons():
     chat, _ = await _render(ApprovalRequired("q1", _QUESTION), Done())
     [question] = [entry for entry in chat.log if entry[0] == "send"]
-    assert (question[2], question[4]) == (question_text(_QUESTION), question_buttons("q1", _QUESTION))
+    assert (question[2], question[4]) == (question_text(EN, _QUESTION), question_buttons(EN, "q1", _QUESTION))
 
 
 async def test_the_first_reply_is_tagged_with_its_conversation():
@@ -128,24 +130,30 @@ async def test_the_first_reply_is_tagged_with_its_conversation():
 
 
 def test_toggles_carry_the_picks_and_done_answers_with_them():
-    first = parse_press(question_buttons("q1", _QUESTION)[2][1])  # tick X
+    first = parse_press(question_buttons(EN, "q1", _QUESTION)[2][1])  # tick X
     assert first is not None and not first.answers
-    buttons = question_buttons("q1", _QUESTION, first.picked)
+    buttons = question_buttons(EN, "q1", _QUESTION, first.picked)
     assert [label for label, _ in buttons] == ["☐ Google", "☐ GitHub", "☑ X", "✅ Done"]
     second = parse_press(buttons[0][1])  # tick Google
     assert second is not None
-    done = parse_press(question_buttons("q1", _QUESTION, second.picked)[-1][1])
+    done = parse_press(question_buttons(EN, "q1", _QUESTION, second.picked)[-1][1])
     assert done is not None and done.answers and choices(_QUESTION, done.picked) == ["Google", "X"]
-    assert answered_text(choices(_QUESTION, done.picked)) == "Picked: Google, X."
+    assert answered_text(EN, choices(_QUESTION, done.picked)) == "Picked: Google, X."
     one = {**_QUESTION, "multiple": False}
-    assert question_buttons("q1", one)[0] == ("Google", "qp:q1:0")
+    assert question_buttons(EN, "q1", one)[0] == ("Google", "qp:q1:0")
     assert parse_press("a:i1") is None and parse_press("qp:q1:x") is None and parse_press("qt:q1") is None
+
+
+def test_buttons_and_answers_are_in_the_language_chosen():
+    spanish = texts("es")
+    assert question_buttons(spanish, "q1", _QUESTION)[-1][0] == "✅ Listo"
+    assert answered_text(spanish, ["X"]) == "Elegido: X."
 
 
 def test_buttons_are_told_apart_by_their_data():
     assert parse_decision("a:abc", "Telegram") == ("abc", {"approved": True, "reason": ""})
     assert parse_decision("r:abc", "Telegram") == ("abc", {"approved": False, "reason": "rejected in Telegram"})
-    assert [data for _, data in job_approval_buttons("i1")] == ["ja:i1", "jr:i1"]
+    assert [data for _, data in job_approval_buttons(EN, "i1")] == ["ja:i1", "jr:i1"]
     assert parse_job_decision("jr:i1", "Slack") == ("i1", {"approved": False, "reason": "rejected in Slack"})
     assert parse_job_decision("a:i1", "Telegram") is None and parse_decision("ja:i1", "Telegram") is None
 

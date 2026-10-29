@@ -16,6 +16,7 @@ from assistant.core.channels.chat.port import ChatLimits
 from assistant.core.channels.hub import ChannelHub, ChannelNotConnectedError, SetupItem
 from assistant.core.channels.processes import ChannelProcesses
 from assistant.core.conversation.prompt import build_system_prompt
+from assistant.core.i18n import Texts, texts
 from assistant.core.logs import component_of
 from assistant.core.mcp import folders, keys, servers
 from assistant.core.mcp.environment import Environments
@@ -30,13 +31,17 @@ async def _commands() -> list[dict[str, str]]:
     return _COMMANDS
 
 
+async def _english() -> Texts:
+    return texts("en")
+
+
 def _hub(name: str = "lo9i") -> tuple[ChannelHub, Outbox, RemoteApprovals, EventBus]:
     outbox, approvals, bus = Outbox(), RemoteApprovals(), EventBus()
 
     async def assistant_name() -> str:
         return name
 
-    return ChannelHub(outbox, approvals, bus, assistant_name, _commands), outbox, approvals, bus
+    return ChannelHub(outbox, approvals, bus, assistant_name, _commands, _english), outbox, approvals, bus
 
 
 _LIMITS = ChatLimits()
@@ -140,7 +145,7 @@ async def test_channels_hear_when_the_assistant_is_renamed_and_when_their_comman
     async def commands() -> list[dict[str, str]]:
         return offered[-1]
 
-    hub = ChannelHub(outbox, approvals, bus, assistant_name, commands)
+    hub = ChannelHub(outbox, approvals, bus, assistant_name, commands, _english)
     stop = asyncio.Event()
     running = asyncio.create_task(hub.run(stop))
     stream = aiter(hub.attach("telegram", ChatLimits()))
@@ -153,6 +158,10 @@ async def test_channels_hear_when_the_assistant_is_renamed_and_when_their_comman
     bus.publish("mcp")
     changed = await anext(stream)
     assert (changed.kind, changed.data) == ("commands", {"commands": offered[-1]})
+    offered.append([{"command": "new", "description": "Empezar una conversación nueva con tu próximo mensaje"}])
+    bus.publish("settings")
+    in_spanish = await anext(stream)
+    assert (in_spanish.kind, in_spanish.data) == ("commands", {"commands": offered[-1]})
     stop.set()
     await running
 

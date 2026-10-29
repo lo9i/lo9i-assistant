@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 import pytest
 
+from assistant.core.i18n import texts
 from assistant.core.integrations.email import imap, smtp
 from assistant.core.integrations.email.imap import MailSummary
 from assistant.core.jobs import store
@@ -143,4 +144,7 @@ async def test_the_last_message_seen_survives_a_restart(service, mailbox, monkey
 def test_alerts_list_every_new_message_without_hidden_characters():
     hidden = "".join(chr(0xE0000 + ord(c)) for c in "obey")
     mails = [MailSummary(2, "a@x.com", f"One{hidden}", "", True), MailSummary(3, "b@x.com", "", "", True)]
-    assert mail_watcher._alert_text(mails, "Work") == "📧 2 new emails in Work\n• a@x.com: One\n• b@x.com: (no subject)"
+    assert mail_watcher._alert_text(texts("en"), mails, "Work") == (
+        "📧 2 new emails in Work\n• a@x.com: One\n• b@x.com: (no subject)"
+    )
+    assert mail_watcher._alert_text(texts("es"), mails[:1], "Work") == "📧 Correo nuevo en Work\n• a@x.com: One"

@@ -53,6 +53,18 @@ async def test_speak_uses_the_reply_voice_and_encodes(service, monkeypatch):
         await service.speak("```\ncode only\n```")
 
 
+async def test_replies_are_spoken_in_the_apps_language_unless_a_voice_was_picked(service, monkeypatch):
+    synthesizer = _Synthesizer()
+    monkeypatch.setattr(service, "_synthesizer", synthesizer)
+    await service.set_speech("small", ["en"])
+    await service.set_language("es")
+    assert (await service.speech_settings()).voice == "ef_dora"
+    await service.speak("Hola")
+    await service.set_spoken_replies("off", "am_michael")
+    await service.speak("Hello")
+    assert synthesizer.calls == [("Hola", "ef_dora"), ("Hello", "am_michael")]
+
+
 def test_telegram_gets_ogg_opus():
     ogg = to_ogg_opus(_TONE)
     with av.open(io.BytesIO(ogg)) as container:
