@@ -91,6 +91,10 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         await app.refresh_context()
         await app.reload_host()
 
+    async def agent_context(_: dict[str, Any]) -> None:
+        """The agent a conversation is handed to said how full its context is now, while it works."""
+        await app.refresh_context()
+
     async def mcp(_: dict[str, Any]) -> None:
         """Plugins changed: an agent's command may have come or gone."""
         await app.refresh_agents()
@@ -116,6 +120,7 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         "handoffs": thread,
         "agent_task_progress": tasks("agent_task_progress"),
         "agent_task_reports": tasks("agent_task_reports"),
+        "agent_context": agent_context,
         "job": app.show_job,
         "background_ended": app.show_background_ended,
         "failing": app.show_failing,

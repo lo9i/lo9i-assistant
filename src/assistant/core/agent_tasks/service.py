@@ -15,7 +15,7 @@ from assistant.core.agent_tasks import sent, workers
 from assistant.core.agent_tasks.records import Context, Task, TaskState, TaskStore, lost
 from assistant.core.agent_tasks.sessions import Sessions
 from assistant.core.agent_tasks.steps import Upload
-from assistant.core.agent_tasks.waiting import Report, at_most, until_ended
+from assistant.core.agent_tasks.waiting import Measured, Report, at_most, until_ended
 from assistant.core.config import settings
 from assistant.core.mcp import data_key, folders, keys, logins, servers, ssh_agent
 from assistant.core.mcp.environment import Environments
@@ -133,8 +133,8 @@ class AgentTasks:
         await self._tell(task_id, {"kind": "interrupt"})
 
     async def context(self, agent: str, conversation: str, folder: str) -> Context | None:
-        """How full the agent's context is in the conversation's session in `folder`, as of its last answer.
-        None before one, when its worker doesn't say, or for an agent that's gone."""
+        """How full the agent's context is in the conversation's session in `folder`, as its latest task last said,
+        while it runs too. None before it says, when its worker doesn't, or for an agent that's gone."""
         server = self._agents.get(agent)
         if server is None:
             return None
@@ -151,26 +151,31 @@ class AgentTasks:
             return ""
         return last.id
 
-    async def converse(self, agent: str, conversation: str, folder: str, message: str, report: Report) -> str:
+    async def converse(
+        self, agent: str, conversation: str, folder: str, message: str, report: Report, measured: Measured
+    ) -> str:
         """Answers `message` in `folder`, continuing what was said in this conversation there, and returns
         the reply. `report` gets each step as the worker writes it, and a `user` step for each message sent
         to the task that it ended without taking, however it ended, so the conversation keeps what the user
-        sent. After a task that's done they're answered next, in the same session. Cancelling stops the
-        task. Raises AgentTaskError when it can't start or ends without a reply."""
+        sent; `measured` hears each time the agent says how full its context is now (`context`). After a task
+        that's done they're answered next, in the same session. Cancelling stops the task. Raises
+        AgentTaskError when it can't start or ends without a reply."""
         server, where = self._agent(agent), str(_existing_folder(folder))
         task = await self._next_in_conversation(server, conversation, where, message)
         while True:
-            state, left = await self._answered(_tasks(server), task.id, report)
+            state, left = await self._answered(_tasks(server), task.id, report, measured)
             if state.status != "done" or not left:
                 return _reply(state)
             task = await self._next_in_conversation(server, conversation, where, "\n\n".join(m["text"] for m in left))
 
-    async def _answered(self, tasks: TaskStore, task_id: str, report: Report) -> tuple[TaskState, list[dict[str, Any]]]:
+    async def _answered(
+        self, tasks: TaskStore, task_id: str, report: Report, measured: Measured
+    ) -> tuple[TaskState, list[dict[str, Any]]]:
         """The task's state once it ends, and the messages it ended without taking; stopping the wait stops
         the task, and the steps it wrote that weren't read yet and its untaken messages are reported all the same."""
         followed = _Followed(_as_sent(tasks, task_id, report))
         try:
-            state = await until_ended(tasks, task_id, followed)
+            state = await until_ended(tasks, task_id, followed, measured)
         except BaseException:
             await _stop(tasks, task_id)
             await followed.rest(tasks, task_id)

@@ -53,11 +53,15 @@ describe("ContextFuel", () => {
     expect(at(100000)).toContain('style="color: color-mix(in oklab, #e5534b 100%, #e5b931)"');
   });
 
-  it("is empty before the agent's first answer and hidden for another conversation", () => {
+  it("shows a dash, not 0%, before the agent says how full its context is, and is hidden for another conversation", () => {
     loaded.data = { ...stats, context_tokens: 0, context_limit: 0, context_agent: "Claude Code" };
     const { body } = render(ContextFuel, { props: { threadId: "t1" } });
-    expect(body).toContain(">0%</span>");
+    expect(body).toMatch(/<span class="percent[^"]*" style="[^"]*">–<\/span>/);
+    expect(body).not.toContain("0%");
+    expect(body).toContain('aria-label="Context not known yet"');
     expect(body).toContain("Not known until its first answer.");
+    loaded.data = { ...stats, context_tokens: 0 };
+    expect(render(ContextFuel, { props: { threadId: "t1" } }).body).not.toContain("0%");
     loaded.data = stats;
     expect(render(ContextFuel, { props: { threadId: "t2" } }).body).not.toContain("fuel");
   });

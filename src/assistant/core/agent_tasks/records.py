@@ -5,8 +5,8 @@
 - progress.log: what the agent is doing, one JSON step per line (docs/agent-plugins.md), with the words
   of its text and thinking as they're written. The worker appends to it.
 - result.json: how it ended. The worker writes it last.
-- context.json: how full the agent's context was once it answered, when the worker can say. The worker
-  writes it just before result.json.
+- context.json: how full the agent's context is, when the worker can say. The worker writes it whole as it
+  works, and again just before result.json.
 - stopped: the user stopped it. The daemon writes it.
 - conversation: the conversation handed to the agent that the task answers in (AgentTasks.converse). The
   daemon writes it before the worker starts.
@@ -19,6 +19,7 @@ which of them exist and whether its worker is still alive. These run blocking fi
 calls them in a thread.
 """
 
+import contextlib
 import json
 import logging
 import os
@@ -143,13 +144,20 @@ class TaskStore:
         return TaskState(task, self._status(task, outcome, alive), outcome, progress)
 
     def context(self, task_id: str) -> Context | None:
-        """How full the agent's context was when the task ended or, while it runs, when the task it follows
-        up on did. None when the worker didn't say."""
+        """How full the agent's context is as the task last said, while it runs too; before it says, as the
+        task it follows up on last did. None when the worker didn't say."""
         task = self.get(task_id)
         for answered in (task.id, task.follow_up_of):
             if answered and (context := _read_context(self.folder(answered) / _CONTEXT)) is not None:
                 return context
         return None
+
+    def context_written(self, task_id: str) -> int:
+        """When the task last said how full the agent's context is (its file's mtime in ns); 0 before it did."""
+        path = self.folder(task_id) / _CONTEXT
+        with contextlib.suppress(FileNotFoundError):
+            return path.stat().st_mtime_ns
+        return 0
 
     def pid(self, task_id: str) -> int | None:
         path = self.folder(task_id) / _PID
