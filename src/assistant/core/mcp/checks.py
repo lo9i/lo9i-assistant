@@ -1,6 +1,7 @@
 """A plugin's check of the values it was given: `check:` in its server.yaml. It runs when they're saved, before they
-are (installing the plugin, or changing its env or headers on the MCP page), so a wrong key shows in the dialog it
-was typed in instead of failing the plugin's first use (a coding task, after minutes of retries).
+are (installing the plugin, changing its settings in Plugins or its env or headers on the MCP page, signing it in),
+so a wrong key shows in the dialog it was typed in instead of failing the plugin's first use (a coding task, after
+minutes of retries).
 
     check:
       command: "{bin}/my-check"    # run with the plugin's env, keys and logins, in its folder: exit 0 when the
@@ -17,6 +18,7 @@ import asyncio
 import contextlib
 import os
 import signal
+from collections.abc import Collection
 from dataclasses import replace
 from typing import Any
 
@@ -75,24 +77,25 @@ class PluginChecks:
         self._environments = environments
         self._factory = factory
 
-    async def run(self, server: McpServer) -> None:
+    async def run(self, server: McpServer, cleared: Collection[str] = ()) -> None:
         """Passes when the server has no check or its check says its values work. Raises CheckFailedError when they
-        don't, or McpServerError when the check can't run."""
+        don't, or McpServerError when the check can't run. `cleared`: keys the user emptied, which it runs without
+        instead of with their saved values (keys.save's `cleared`)."""
         if not (server.check_command or server.check_tool):
             return
-        ready = await self._ready(server)
+        ready = await self._ready(server, cleared)
         reason = await (self._command(ready) if server.check_command else self._tool(ready))
         if reason is not None:
             raise CheckFailedError(f"{server.name}: {reason}")
 
-    async def _ready(self, server: McpServer) -> McpServer:
+    async def _ready(self, server: McpServer, cleared: Collection[str]) -> McpServer:
         """The server as its processes would get it once saved: the values given, its saved keys for those left
-        empty (keys.put keeps them), its data key and lo9i's logins."""
+        empty but cleared (keys.put keeps them), its data key and lo9i's logins."""
         saved = await keys.get(self._store, self._secrets, server.name)
         own = replace(
             server,
-            env={k: v or saved.env.get(k, "") for k, v in server.env.items()},
-            headers={k: v or saved.headers.get(k, "") for k, v in server.headers.items()},
+            env={k: v or ("" if k in cleared else saved.env.get(k, "")) for k, v in server.env.items()},
+            headers={k: v or ("" if k in cleared else saved.headers.get(k, "")) for k, v in server.headers.items()},
         )
         keyed = await data_key.with_key(self._store, self._secrets, own)
         return ssh_agent.with_agent(logins.with_login(keyed, self._shared()))

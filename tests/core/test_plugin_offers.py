@@ -143,6 +143,27 @@ async def test_the_setup_opens_in_the_conversation_and_tells_what_it_left(servic
     assert events[0].output == "The user closed gmail's setup. Its email accounts: me@gmail.com."
 
 
+async def test_the_setup_opens_a_plugins_settings_when_its_installed_version_has_fields(service, script, extras):
+    from assistant.core.events import is_plugin_setup
+
+    weather = FoundServer("weather", "Weather", "stdio", [], False, installed=True)
+    await cache.save(service.store, EXTRAS, cache.Listing("c1", [_NOTES], [_TELEGRAM, weather]))
+    record = McpServer("weather", command="weather-mcp", env={"WEATHER_KEY": ""}, source=EXTRAS)
+    await servers.save(service.store, record)
+    script.call("open_plugin_setup", name="weather").reply("ok")
+    events = await collect(service.send(await service.session("owner", "web"), "change my weather key"))
+    assert events[1].output.startswith("weather has nothing to set up here.")
+    # Installed with a field of its own (its keys), it has settings to open.
+    await servers.save(service.store, McpServer("weather", command="weather-mcp", source=EXTRAS, keys=["WEATHER_KEY"]))
+    script.call("open_plugin_setup", name="weather").reply("ok")
+    session = await service.session("owner", "web")
+    events = await collect(service.send(session, "change my weather key"))
+    setup = next(e for e in events if isinstance(e, ApprovalRequired))
+    assert is_plugin_setup(setup.request)
+    events = await collect(service.resume(session, {setup.interrupt_id: {"done": True}}))
+    assert events[0].output == "The user closed weather's setup. Settings they saved apply now."
+
+
 async def test_the_setup_needs_an_installed_plugin_with_something_to_set_up(service, script, extras):
     script.call("open_plugin_setup", name="telegram").reply("ok")
     events = await collect(service.send(await service.session("owner", "web"), "pair telegram"))

@@ -1717,6 +1717,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/plugins/{name}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plugin Settings
+         * @description The plugin's fields with their values, a secret one only saying whether it's set. 404: no such plugin.
+         *     400: added by hand, or its installed folder can't be read.
+         */
+        get: operations["plugin_settings_plugins__name__settings_get"];
+        /**
+         * Change Plugin Settings
+         * @description Give its fields new values; its check runs first and nothing is saved when it refuses them, and its
+         *     processes start again with them. 404: no such plugin. 400: an unknown field, a required one left empty, or
+         *     what its check says.
+         */
+        put: operations["change_plugin_settings_plugins__name__settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/mcp/servers/{name}/update": {
         parameters: {
             query?: never;
@@ -4286,6 +4313,11 @@ export interface components {
              * @default
              */
             signed_in_as: string;
+            /**
+             * Settings
+             * @default false
+             */
+            settings: boolean;
         };
         /** McpSignInStart */
         McpSignInStart: {
@@ -4569,6 +4601,41 @@ export interface components {
             /** Skills */
             skills: string[];
         };
+        /**
+         * PluginFieldValue
+         * @description A field as the apps show it in the plugin's settings.
+         */
+        PluginFieldValue: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Secret
+             * @default false
+             */
+            secret: boolean;
+            /**
+             * Help
+             * @default
+             */
+            help: string;
+            /**
+             * Optional
+             * @default false
+             */
+            optional: boolean;
+            /**
+             * Value
+             * @default
+             */
+            value: string;
+            /**
+             * Set
+             * @default false
+             */
+            set: boolean;
+        };
         /** PluginIcon */
         PluginIcon: {
             /**
@@ -4586,6 +4653,33 @@ export interface components {
              * @default false
              */
             mono: boolean;
+        };
+        /** PluginSettings */
+        PluginSettings: {
+            /** Name */
+            name: string;
+            /** Fields */
+            fields: components["schemas"]["PluginFieldValue"][];
+            /**
+             * Check
+             * @default false
+             */
+            check: boolean;
+        };
+        /** PluginSettingsChange */
+        PluginSettingsChange: {
+            /**
+             * Values
+             * @default {}
+             */
+            values: {
+                [key: string]: string;
+            };
+            /**
+             * Clear
+             * @default []
+             */
+            clear: string[];
         };
         /** PluginSignInStart */
         PluginSignInStart: {
@@ -8634,6 +8728,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["McpServerStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plugin_settings_plugins__name__settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginSettings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_plugin_settings_plugins__name__settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginSettingsChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginSettings"];
                 };
             };
             /** @description Validation Error */

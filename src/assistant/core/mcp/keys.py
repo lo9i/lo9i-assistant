@@ -8,6 +8,7 @@ When a plugin is removed its keys stay until the user says to delete them, so in
 can leave its fields empty and keep them (`given`)."""
 
 import json
+from collections.abc import Collection
 from dataclasses import dataclass, field, replace
 
 from langgraph.store.base import BaseStore
@@ -51,11 +52,12 @@ def split(server: McpServer) -> tuple[McpServer, Keys]:
     return blank, keys
 
 
-async def save(store: BaseStore, box: SecretBox, server: McpServer) -> None:
-    """The server's record, and its keys encrypted. A key given empty keeps its saved value."""
+async def save(store: BaseStore, box: SecretBox, server: McpServer, cleared: Collection[str] = ()) -> None:
+    """The server's record, and its keys encrypted. A key given empty keeps its saved value, unless it's one of
+    `cleared` (a plugin's settings, where the user emptied it)."""
     servers.validate(server)
     blank, keys = split(server)
-    await put(store, box, server.name, keys)
+    await put(store, box, server.name, keys, cleared)
     await servers.save(store, blank)
 
 
@@ -63,12 +65,12 @@ async def fill_all(store: BaseStore, box: SecretBox, found: list[McpServer]) -> 
     return [await fill(store, box, s) for s in found]
 
 
-async def put(store: BaseStore, box: SecretBox, name: str, keys: Keys) -> None:
-    """Saves them, keeping a saved value for each one given empty."""
+async def put(store: BaseStore, box: SecretBox, name: str, keys: Keys, cleared: Collection[str] = ()) -> None:
+    """Saves them, keeping a saved value for each one given empty but those `cleared`."""
     kept = await get(store, box, name)
     merged = Keys(
-        {k: v or kept.env.get(k, "") for k, v in keys.env.items()},
-        {k: v or kept.headers.get(k, "") for k, v in keys.headers.items()},
+        {k: v or ("" if k in cleared else kept.env.get(k, "")) for k, v in keys.env.items()},
+        {k: v or ("" if k in cleared else kept.headers.get(k, "")) for k, v in keys.headers.items()},
     )
     await _write(store, box, name, merged)
 

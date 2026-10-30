@@ -127,6 +127,14 @@ class PluginSignInScreen(ModalScreen[None]):
     def _close(self) -> None:
         self.dismiss()
 
+    async def refused(self, name: str, error: str) -> bool:
+        """The plugin's check refused the account it signed in with in the browser; whether it's this screen's
+        plugin, which says so."""
+        if name != self._plugin:
+            return False
+        await self._say(f"**{error}**")
+        return True
+
     async def _say(self, text: str) -> None:
         self._message = text
         await self._show()

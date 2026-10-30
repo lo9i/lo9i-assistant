@@ -12,6 +12,7 @@ import pytest
 from assistant.core.agent import McpServerError, ServerValues, SignInError
 from assistant.core.events import ApprovalRequired, is_plugin_setup
 from assistant.core.mcp import keys, plugin_oauth, servers
+from assistant.core.mcp.checks import CheckFailedError
 from assistant.core.mcp.install import FoundServer
 from assistant.core.mcp.servers import McpServer
 from assistant.core.repositories import cache
@@ -163,6 +164,33 @@ async def test_the_sign_in_stays_through_updates_and_removal_and_goes_when_signi
     assert (status.signed_in_as, await _login(service)) == ("", None)
     # Its other keys stay.
     assert (await keys.get(service.store, service.secrets, "drive")).env == {"DRIVE_FOLDER": "Work"}
+
+
+# Refuses an account it can't read with; at install, before any sign-in, it lets the values through.
+_ACCOUNT_CHECK = """
+import os, sys
+if "refresh-bad" in os.environ.get("LO9I_OAUTH", ""):
+    print("Google refused the account: turn on the CardDAV API.")
+    sys.exit(1)
+"""
+
+
+async def test_its_check_runs_after_it_signs_in_and_a_refused_account_isnt_kept(service, repo, google):  # noqa: F811
+    checked = _DRIVE + 'check:\n  command: "{python}"\n  args: ["{dir}/check.py"]\n'
+    files = {"server.yaml": checked, "server.py": "", "check.py": _ACCOUNT_CHECK}
+    _write(repo / "productivity" / "documents" / "drive", files)
+    await service.install_from_repository(URL, [], [ServerValues("drive")])
+    google["answer"] = {"access_token": "a", "refresh_token": "refresh-bad"}
+    after = service.bus.last_id
+    with pytest.raises(CheckFailedError, match=r"^The sign-in wasn't kept\. drive: Google refused the account"):
+        await _signed_in(service)
+    assert await _login(service) is None
+    # The apps waiting for the browser hear it too.
+    told = [e.data for e in service.bus._history if e.id > after and e.kind == "sign_in_refused"]
+    assert [t["name"] for t in told] == ["drive"] and "turn on the CardDAV API" in told[0]["error"]
+    google["answer"] = {}
+    await _signed_in(service)
+    assert (await _status(service)).signed_in_as == "me@x.com"
 
 
 async def test_only_a_plugin_that_signs_in_can(service, drive, repo):  # noqa: F811

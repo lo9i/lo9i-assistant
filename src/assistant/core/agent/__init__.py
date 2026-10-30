@@ -51,6 +51,7 @@ from assistant.core.agent.mcp import (
 from assistant.core.agent.memory import Episode, Fact, MemoryEditError, MemoryNotFoundError
 from assistant.core.agent.model import ModelOption, ModelProvider, ModelSettingsError, ModelStatus, ProviderField
 from assistant.core.agent.notifications import Notification
+from assistant.core.agent.plugin_settings import PluginFieldValue, PluginSettings
 from assistant.core.agent.prompts import PromptEditError, PromptSection, UnknownPromptError
 from assistant.core.agent.repositories import (
     FoundServer,
@@ -152,7 +153,9 @@ __all__ = [
     "Notification",
     "OutsideFolderError",
     "PairingCode",
+    "PluginFieldValue",
     "PluginIcon",
+    "PluginSettings",
     "PluginUpdate",
     "PromptEditError",
     "PromptSection",

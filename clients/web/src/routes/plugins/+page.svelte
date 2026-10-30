@@ -4,6 +4,7 @@
   import GitBranch from "@lucide/svelte/icons/git-branch";
   import Puzzle from "@lucide/svelte/icons/puzzle";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
+  import SlidersHorizontal from "@lucide/svelte/icons/sliders-horizontal";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import type { FoundServer } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
@@ -32,6 +33,7 @@
   import PluginUpdatesSwitch from "$lib/ui/settings/PluginUpdatesSwitch.svelte";
   import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
   import InstallDialog from "$lib/ui/repositories/InstallDialog.svelte";
+  import PluginSettingsDialog from "$lib/ui/plugins/PluginSettingsDialog.svelte";
   import PluginSetup from "$lib/ui/plugins/PluginSetup.svelte";
   import PluginUpdates from "$lib/ui/plugins/PluginUpdates.svelte";
   import RepositoryCheck from "$lib/ui/plugins/RepositoryCheck.svelte";
@@ -73,6 +75,11 @@
   // A plugin that asks for values, while its dialog is open.
   let asking = $state<{ server: FoundServer; url: string } | null>(null);
   let removing = $state<Plugin | null>(null);
+  // An installed plugin whose settings dialog is open. Installed plugins with fields of their own, as installed (the
+  // listing says what the repository's version asks for).
+  let configuring = $state<string | null>(null);
+  const installedServers = resource((c) => c.mcp.servers(), ["mcp"]);
+  const hasSettings = (p: Plugin) => p.installed && !!installedServers.data?.find((s) => s.name === p.name)?.settings;
   let busy = $state(false);
   // Until one is picked: the first in the list.
   const plugin = $derived(all?.find((p) => keyOf(p) === picked) ?? shown[0]?.plugins[0]);
@@ -249,6 +256,11 @@
         </dl>
         <div class="actions">
           {#if plugin.installed}
+            {#if plugin.kind === "server" && hasSettings(plugin)}
+              <button class="btn btn--neutral btn--sm" disabled={busy} onclick={() => (configuring = plugin?.name ?? null)}
+                ><SlidersHorizontal size={14} />{t("pluginSettings.open")}</button
+              >
+            {/if}
             {#if updatable(plugin)}
               <button class="btn btn--neutral btn--sm" disabled={busy} onclick={() => plugin && update(plugin)}
                 ><RefreshCw size={14} />{t("common.update")}</button
@@ -277,6 +289,17 @@
       asking = null;
       if (installed) notices.notify(t("pluginsPage.installed", { names: formatList(installed) }));
       listing.reload();
+    }}
+  />
+{/if}
+
+{#if configuring}
+  {@const name = configuring}
+  <PluginSettingsDialog
+    plugin={name}
+    onclose={(saved) => {
+      configuring = null;
+      if (saved) notices.notify(t("pluginSettings.saved", { name }));
     }}
   />
 {/if}
@@ -462,6 +485,7 @@
   }
   .actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
   }
   @media (max-width: 900px) {

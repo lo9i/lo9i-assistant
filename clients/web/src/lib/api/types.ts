@@ -22,6 +22,9 @@ export type EmailSettings = Schemas["EmailSettings"];
 export type EmailProvider = Schemas["EmailProvider"];
 export type EmailSignIn = Schemas["EmailSignIn"];
 export type PluginSignInStart = Schemas["PluginSignInStart"];
+export type PluginSettings = Schemas["PluginSettings"];
+export type PluginFieldValue = Schemas["PluginFieldValue"];
+export type PluginSettingsChange = Schemas["PluginSettingsChange"];
 export type ModelStatus = Schemas["ModelStatus"];
 export type ModelProvider = Schemas["ModelProvider"];
 export type ModelChange = Schemas["ModelChange"];
@@ -211,3 +214,7 @@ export type Failing = { area: "mcp" | "skill"; name: string; error: string };
 
 /** A `signed_out` bus event: a remote MCP server's sign-in stopped working (core/health.py). */
 export type SignedOut = { name: string; error: string };
+
+/** A `sign_in_refused` bus event: a plugin's check refused the account it signed in with, and the sign-in wasn't
+ * kept (core/agent/mcp.py). */
+export type SignInRefused = { name: string; error: string };

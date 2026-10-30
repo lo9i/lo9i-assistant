@@ -238,7 +238,7 @@
 {/if}
 
 {#if secrets && server}
-  <SecretsDialog server={server.name} kind={secrets} onclose={() => (secrets = null)} />
+  <SecretsDialog server={server.name} kind={secrets} plugin={!!server.source} onclose={() => (secrets = null)} />
 {/if}
 
 {#if removing && server}

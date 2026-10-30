@@ -21,7 +21,8 @@ code from it. In its commands, arguments and env values:
     command: "{python}"            # or url: https://… for a remote server
     args: ["{dir}/server.py"]
     env: {CALDAV_URL: https://caldav.icloud.com}
-    fields:                        # asked for when it's installed: env values, or headers for a URL
+    fields:                        # asked for when it's installed, changed in its settings (plugin_settings.py):
+                                   # env values, or headers for a URL
       - {key: DAV_USER, label: Apple ID}
       - {key: DAV_PASSWORD, label: App-specific password, secret: true, help: https://account.apple.com}
       - {key: DAV_CALENDAR, label: Calendar name, optional: true}   # may be left empty
@@ -348,6 +349,19 @@ def installed_icon(name: str) -> icons.PluginIcon | None:
         return icons.or_category(icons.parse(data.get("icon"), folder), category)
     except (yaml.YAMLError, TypeError, ValueError, McpServerError):
         return None
+
+
+def installed_fields(name: str) -> list[ServerField]:
+    """The fields the server installed here asks for, as its installed server.yaml declares them. Raises
+    McpServerError when it wasn't installed from a repository or its server.yaml can't be read."""
+    manifest = folders.code(name) / SERVER_FILE
+    try:
+        data = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
+        return [_field(f) for f in data.get("fields", [])]
+    except FileNotFoundError as e:
+        raise McpServerError(f"{name} wasn't installed from a repository, so it has no settings of its own.") from e
+    except (OSError, yaml.YAMLError, TypeError, KeyError, ValueError, AttributeError) as e:
+        raise McpServerError(f"Couldn't read {name}'s settings from its installed folder: {e}") from e
 
 
 def uninstall(name: str) -> None:

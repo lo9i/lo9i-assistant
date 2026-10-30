@@ -39,6 +39,7 @@ from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen, ConfirmWithOptionScreen
 from assistant_terminal.tui.screens.email import EmailScreen
 from assistant_terminal.tui.screens.kept_keys import ask_about_keys
+from assistant_terminal.tui.screens.plugin_settings import PluginSettingsScreen
 from assistant_terminal.tui.screens.plugin_sign_in import PluginSignInScreen
 from assistant_terminal.tui.screens.plugin_updates import PluginUpdatesScreen
 from assistant_terminal.tui.screens.repositories import RepositoriesScreen
@@ -73,6 +74,8 @@ class PluginsScreen(ModalScreen[None]):
         self._checked = ""
         # The repositories' errors told, so each is told once while it lasts.
         self._told: set[str] = set()
+        # Installed plugins with fields of their own, as installed: the ones Settings opens for.
+        self._with_settings: set[str] = set()
 
     def compose(self) -> ComposeResult:
         with Vertical(id="plugins"):
@@ -91,6 +94,7 @@ class PluginsScreen(ModalScreen[None]):
             with Horizontal(id="plugins-buttons"):
                 yield Button(t("Updates"), variant="primary", id="updates")
                 yield Button(t("Install"), variant="success", id="install")
+                yield Button(t("Settings"), id="plugin-settings")
                 yield Button(t("Update"), id="update")
                 yield Button(t("Remove"), variant="error", id="remove")
                 yield Button(t("Accounts"), id="email-accounts")
@@ -122,6 +126,7 @@ class PluginsScreen(ModalScreen[None]):
     @reports_daemon_unavailable
     async def _load(self) -> None:
         """As the repositories offered it when last checked; installed or not is read fresh."""
+        self._with_settings = {s.name for s in await self._mcp.servers() if s.settings}
         await self._apply(await self._repositories.plugins(cached=True))
 
     @work(exclusive=True, group="check")
@@ -186,6 +191,14 @@ class PluginsScreen(ModalScreen[None]):
         plugin = self._current()
         if plugin is not None:
             self.app.push_screen(EmailScreen(self._email, self._oauth, self._channels, plugin.name))
+
+    @on(Button.Pressed, "#plugin-settings")
+    @work
+    async def _plugin_settings(self) -> None:
+        """An installed plugin's fields, to change what it was given."""
+        plugin = self._current()
+        if plugin is not None and await self.app.push_screen_wait(PluginSettingsScreen(self._mcp, plugin.name)):
+            self.notify(t("Saved {name}'s settings.", name=plugin.name))
 
     @on(Button.Pressed, "#plugin-sign-in")
     def _plugin_sign_in(self) -> None:
@@ -315,6 +328,9 @@ class PluginsScreen(ModalScreen[None]):
         self.query_one("#update").display = plugin is not None and updatable(plugin)
         email = installed and plugin is not None and plugin.server is not None and plugin.server.email
         self.query_one("#email-accounts").display = email
+        self.query_one("#plugin-settings").display = (
+            installed and plugin is not None and plugin.name in self._with_settings
+        )
         signs_in = installed and plugin is not None and plugin.server is not None and bool(plugin.server.oauth)
         self.query_one("#plugin-sign-in").display = signs_in
         await self._show_setup(plugin)

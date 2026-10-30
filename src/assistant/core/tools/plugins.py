@@ -2,7 +2,8 @@
 user asked for. Only the user installs it, in an app's dialog that takes any tokens it needs, so
 they never pass through the chat or the model; the run waits for that like it waits for an approval
 (core/events.py::PLUGIN_OFFER). Right after, the app goes on to the plugin's setup (its email
-accounts, a channel's pairing, signing in), which open_plugin_setup opens again later (PLUGIN_SETUP). Chat
+accounts, a channel's pairing, signing in), which open_plugin_setup opens again later (PLUGIN_SETUP), with its
+settings (the values its fields were given). Chat
 channels can't show either, so there the agent points the user to the app instead."""
 
 from dataclasses import asdict
@@ -16,8 +17,9 @@ from langgraph.types import interrupt
 from assistant.core.context import Context, require_secrets, require_store
 from assistant.core.events import PLUGIN_OFFER, PLUGIN_SETUP, QUESTION
 from assistant.core.integrations.email import accounts as email_accounts
-from assistant.core.mcp import plugin_oauth
+from assistant.core.mcp import plugin_oauth, plugin_settings, servers
 from assistant.core.mcp.install import FoundServer, ServerValues
+from assistant.core.mcp.servers import McpServerError
 from assistant.core.repositories import contents, offers
 from assistant.core.repositories.errors import RepositoryError
 from assistant.core.repositories.known import EXTRAS
@@ -58,8 +60,9 @@ async def offer_plugin(name: str, runtime: ToolRuntime[Context]) -> str:
 @tool
 async def open_plugin_setup(name: str, runtime: ToolRuntime[Context]) -> str:
     """Open an installed plugin's setup right here in the conversation: an email plugin's accounts
-    (add one, change a sign-in), a chat channel's pairing, a plugin's sign-in (Google). Use it instead of
-    sending the user to Plugins. The user's passwords and tokens are typed in the app, never in the chat."""
+    (add one, change a sign-in), a chat channel's pairing, a plugin's sign-in (Google), and its settings
+    (a new token, another account for what it asked for when installed). Use it instead of sending the
+    user to Plugins. The user's passwords and tokens are typed in the app, never in the chat."""
     store = require_store(runtime.store)
     try:
         plugin = await offers.find(store, name)
@@ -67,7 +70,7 @@ async def open_plugin_setup(name: str, runtime: ToolRuntime[Context]) -> str:
         return f"The extras can't be read right now: {e}"
     if not isinstance(plugin, FoundServer) or not plugin.installed:
         return f"{name} isn't an installed plugin. Offer it with offer_plugin first."
-    if not _has_setup(plugin):
+    if not await _has_setup(store, plugin):
         return f"{name} has nothing to set up here.{await _next_steps(plugin, runtime.context)}"
     if runtime.context.channel not in _APPS:
         return f"Not opened: {runtime.context.channel} can't show it. Ask the user to open {name} in {_IN_THE_APP}."
@@ -127,9 +130,14 @@ def _runs_nothing(plugin: FoundServer) -> bool:
     return plugin.transport == "none" and not (plugin.page or plugin.channel or plugin.skill)
 
 
-def _has_setup(plugin: FoundServer) -> bool:
-    """Email accounts, a channel's pairing, or signing in."""
-    return bool(plugin.email or plugin.channel or plugin.oauth)
+async def _has_setup(store: BaseStore, plugin: FoundServer) -> bool:
+    """Email accounts, a channel's pairing, signing in, or settings: fields of its own, as installed."""
+    if plugin.email or plugin.channel or plugin.oauth:
+        return True
+    try:
+        return plugin_settings.has_settings(await servers.load(store, plugin.name))
+    except McpServerError:
+        return False
 
 
 async def _setup_state(store: BaseStore, box: SecretBox, plugin: FoundServer) -> str:
@@ -140,11 +148,13 @@ async def _setup_state(store: BaseStore, box: SecretBox, plugin: FoundServer) ->
         if login is None:
             return f"The user closed {plugin.name}'s setup without signing in to {provider}."
         return f"The user closed {plugin.name}'s setup, signed in to {provider} as {login.account or 'their account'}."
-    if not plugin.email:
+    if plugin.email:
+        mine = [a.handle for a in await email_accounts.plugin_accounts(store, plugin.name)]
+        listed = ", ".join(mine) if mine else "none yet"
+        return f"The user closed {plugin.name}'s setup. Its email accounts: {listed}."
+    if plugin.channel:
         return f"The user closed {plugin.name}'s setup. Ask them whether pairing worked if it matters."
-    mine = [a.handle for a in await email_accounts.plugin_accounts(store, plugin.name)]
-    listed = ", ".join(mine) if mine else "none yet"
-    return f"The user closed {plugin.name}'s setup. Its email accounts: {listed}."
+    return f"The user closed {plugin.name}'s setup. Settings they saved apply now."
 
 
 async def _next_steps(plugin: Any, context: Context) -> str:

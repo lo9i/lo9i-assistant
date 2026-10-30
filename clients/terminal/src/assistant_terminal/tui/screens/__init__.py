@@ -24,6 +24,7 @@ from assistant_terminal.tui.screens.mcp import McpScreen
 from assistant_terminal.tui.screens.model import ModelScreen
 from assistant_terminal.tui.screens.notifications import NotificationsScreen
 from assistant_terminal.tui.screens.open_conversations import OpenConversationsScreen
+from assistant_terminal.tui.screens.plugin_settings import PluginSettingsScreen
 from assistant_terminal.tui.screens.plugin_sign_in import PluginSignInScreen
 from assistant_terminal.tui.screens.plugins import PluginsScreen
 from assistant_terminal.tui.screens.profile import ProfileScreen
@@ -59,6 +60,7 @@ __all__ = [
     "ModelScreen",
     "NotificationsScreen",
     "OpenConversationsScreen",
+    "PluginSettingsScreen",
     "PluginSignInScreen",
     "PluginsScreen",
     "ProfileScreen",

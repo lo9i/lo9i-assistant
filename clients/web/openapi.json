@@ -4136,6 +4136,94 @@
         }
       }
     },
+    "/plugins/{name}/settings": {
+      "get": {
+        "summary": "Plugin Settings",
+        "description": "The plugin's fields with their values, a secret one only saying whether it's set. 404: no such plugin.\n400: added by hand, or its installed folder can't be read.",
+        "operationId": "plugin_settings_plugins__name__settings_get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginSettings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Change Plugin Settings",
+        "description": "Give its fields new values; its check runs first and nothing is saved when it refuses them, and its\nprocesses start again with them. 404: no such plugin. 400: an unknown field, a required one left empty, or\nwhat its check says.",
+        "operationId": "change_plugin_settings_plugins__name__settings_put",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PluginSettingsChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginSettings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/mcp/servers/{name}/update": {
       "post": {
         "summary": "Update Mcp Server From Repository",
@@ -9272,6 +9360,11 @@
             "type": "string",
             "title": "Signed In As",
             "default": ""
+          },
+          "settings": {
+            "type": "boolean",
+            "title": "Settings",
+            "default": false
           }
         },
         "type": "object",
@@ -9823,6 +9916,50 @@
         ],
         "title": "PinnedSkills"
       },
+      "PluginFieldValue": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "secret": {
+            "type": "boolean",
+            "title": "Secret",
+            "default": false
+          },
+          "help": {
+            "type": "string",
+            "title": "Help",
+            "default": ""
+          },
+          "optional": {
+            "type": "boolean",
+            "title": "Optional",
+            "default": false
+          },
+          "value": {
+            "type": "string",
+            "title": "Value",
+            "default": ""
+          },
+          "set": {
+            "type": "boolean",
+            "title": "Set",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "PluginFieldValue",
+        "description": "A field as the apps show it in the plugin's settings."
+      },
       "PluginIcon": {
         "properties": {
           "name": {
@@ -9843,6 +9980,54 @@
         },
         "type": "object",
         "title": "PluginIcon"
+      },
+      "PluginSettings": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/PluginFieldValue"
+            },
+            "type": "array",
+            "title": "Fields"
+          },
+          "check": {
+            "type": "boolean",
+            "title": "Check",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "fields"
+        ],
+        "title": "PluginSettings"
+      },
+      "PluginSettingsChange": {
+        "properties": {
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Values",
+            "default": {}
+          },
+          "clear": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Clear",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "PluginSettingsChange"
       },
       "PluginSignInStart": {
         "properties": {

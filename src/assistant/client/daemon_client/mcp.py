@@ -13,7 +13,9 @@ from assistant.core.agent import (
     McpServerError,
     McpServerStatus,
     McpToolInfo,
+    PluginFieldValue,
     PluginIcon,
+    PluginSettings,
 )
 
 _ERRORS = {400: McpServerError, 404: McpServerError}
@@ -24,8 +26,8 @@ _DOWNLOAD = httpx.Timeout(150)
 
 
 class McpApi:
-    """MCP servers: look at a server's tools, add it, sign in to it, choose its tools, trust it, remove it; and
-    signing in a plugin with the user's own OAuth app."""
+    """MCP servers: look at a server's tools, add it, sign in to it, choose its tools, trust it, remove it; and a
+    plugin's settings and signing it in with the user's own OAuth app."""
 
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
@@ -63,6 +65,19 @@ class McpApi:
         """Forget the plugin's sign-in. Raises McpServerError."""
         return status_from_json(await self._transport.request("DELETE", f"/plugins/{name}/sign-in", errors=_ERRORS))
 
+    async def plugin_settings(self, name: str) -> PluginSettings:
+        """The plugin's fields with their values; a secret one only says whether it's set. Raises McpServerError."""
+        return _plugin_settings(await self._transport.request("GET", f"/plugins/{name}/settings", errors=_ERRORS))
+
+    async def change_plugin_settings(
+        self, name: str, values: dict[str, str], clear: list[str] | None = None
+    ) -> PluginSettings:
+        """New values for its fields; one left out keeps its value, and so does a secret one given empty unless it's
+        in `clear`. Raises McpServerError, CheckFailedError's text included when its check refuses them."""
+        body = {"values": values, "clear": clear or []}
+        data = await self._transport.request("PUT", f"/plugins/{name}/settings", json=body, errors=_ERRORS)
+        return _plugin_settings(data)
+
     async def add(self, server: McpServer) -> McpServerStatus:
         data = await self._transport.request("POST", "/mcp/servers", json=_settings(server), errors=_ERRORS)
         return status_from_json(data)
@@ -96,3 +111,7 @@ def _settings(server: McpServer) -> dict[str, Any]:
 def status_from_json(data: dict[str, Any]) -> McpServerStatus:
     tools = [McpToolInfo(**t) for t in data["tools"]]
     return McpServerStatus(**{**data, "tools": tools, "icon": PluginIcon(**data.get("icon", {}))})
+
+
+def _plugin_settings(data: dict[str, Any]) -> PluginSettings:
+    return PluginSettings(**{**data, "fields": [PluginFieldValue(**f) for f in data["fields"]]})

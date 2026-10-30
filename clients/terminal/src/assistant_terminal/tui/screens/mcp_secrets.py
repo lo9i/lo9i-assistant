@@ -1,5 +1,6 @@
-"""Replacing an MCP server's env values (local) or headers (remote). The current values are never
-shown: the daemon doesn't send them."""
+"""Changing an MCP server's env values (local) or headers (remote). The current values are never shown: the daemon
+doesn't send them. One added by hand takes them as typed; a plugin's go over the ones it has, so what its server.yaml
+sets stays."""
 
 from typing import ClassVar
 
@@ -35,11 +36,7 @@ class McpSecretsScreen(ModalScreen[bool]):
             if self._local
             else t("Replace the headers of {server}", server=self._server.name)
         )
-        how = (
-            t("Type all of them, one KEY=value per line; this replaces the current ones.")
-            if self._local
-            else t("Type all of them, one Name: value per line; this replaces the current ones.")
-        )
+        how = _how(self._local, bool(self._server.source))
         with Vertical(id="mcp-secrets-dialog"):
             yield Markdown(
                 f"## {title}\n\n" + t("Now set: {names}.", names=names) + f" {how}",
@@ -67,3 +64,17 @@ class McpSecretsScreen(ModalScreen[bool]):
             await self.query_one("#mcp-secrets-message", Markdown).update(f"**{e}**")
             return
         self.dismiss(True)
+
+
+def _how(local: bool, plugin: bool) -> str:
+    if plugin:
+        return (
+            t("One KEY=value per line; they replace the ones with the same name, and the rest stay.")
+            if local
+            else t("One Name: value per line; they replace the ones with the same name, and the rest stay.")
+        )
+    return (
+        t("Type all of them, one KEY=value per line; this replaces the current ones.")
+        if local
+        else t("Type all of them, one Name: value per line; this replaces the current ones.")
+    )

@@ -7,7 +7,8 @@ from dataclasses import dataclass, field, fields, replace
 
 from assistant.core.agent.base import ServiceBase
 from assistant.core.integrations.email import accounts as email_accounts
-from assistant.core.mcp import data_key, install, keys, plugin_oauth, servers
+from assistant.core.mcp import data_key, install, keys, plugin_oauth, plugin_settings, servers
+from assistant.core.mcp.checks import CheckFailedError
 from assistant.core.mcp.hub import McpHub, McpProbe, McpToolInfo
 from assistant.core.mcp.plugin_oauth import PluginSignIn
 from assistant.core.mcp.servers import McpServer, McpServerError
@@ -70,6 +71,8 @@ class McpServerStatus:
     # with; "" when it doesn't sign in, or isn't signed in.
     oauth: str = ""
     signed_in_as: str = ""
+    # A plugin with fields of its own, which its settings change (core/mcp/plugin_settings.py).
+    settings: bool = False
 
 
 @dataclass
@@ -107,7 +110,7 @@ class McpMixin(ServiceBase):
         check says new env or header values don't work."""
         server = await keys.fill(self._storage.store, self.secrets, await servers.load(self._storage.store, name))
         values = {f.name: v for f in fields(changes) if (v := getattr(changes, f.name)) is not None}
-        changed = replace(server, **values)
+        changed = replace(server, **(values | _merged(server, changes)))
         if changes.env is not None or changes.headers is not None:
             # Its plugin's check says before they're saved whether the new values work (core/mcp/checks.py).
             await self._plugin_checks.run(changed)
@@ -142,7 +145,8 @@ class McpMixin(ServiceBase):
         return plugin_oauth.authorization_url(sign_in, state)
 
     async def _finish_plugin_sign_in(self, sign_in: PluginSignIn, code: str) -> McpServerStatus:
-        """Raises SignInError, or McpServerError when the plugin went or stopped signing in meanwhile. Its
+        """Raises SignInError, McpServerError when the plugin went or stopped signing in meanwhile, or
+        CheckFailedError when its check says the account doesn't work for it, and the sign-in isn't kept. Its
         processes start again with the sign-in."""
         login = await plugin_oauth.exchange(sign_in, code)
         server = await keys.fill(
@@ -150,7 +154,16 @@ class McpMixin(ServiceBase):
         )
         if plugin_oauth.ENV not in server.keys:
             raise McpServerError(f"{server.name} doesn't sign in to anything any more.")
-        return await self._save_mcp_server(replace(server, env={**server.env, plugin_oauth.ENV: login.to_env()}))
+        signed_in = replace(server, env={**server.env, plugin_oauth.ENV: login.to_env()})
+        # Its check says now whether the account works for it, not its first use (core/mcp/checks.py).
+        try:
+            await self._plugin_checks.run(signed_in)
+        except CheckFailedError as e:
+            refused = CheckFailedError(f"The sign-in wasn't kept. {e}")
+            # The browser's page says so; an app waiting for the sign-in hears it too.
+            self.bus.publish("sign_in_refused", name=server.name, error=str(refused))
+            raise refused from e
+        return await self._save_mcp_server(signed_in)
 
     async def sign_out_plugin(self, name: str) -> McpServerStatus:
         """Forget a plugin's sign-in; its processes start again without it. Raises McpServerError for an unknown
@@ -204,6 +217,15 @@ class McpMixin(ServiceBase):
         )
 
 
+def _merged(server: McpServer, changes: McpServerChanges) -> dict[str, dict[str, str]]:
+    """A plugin's env or headers given on the MCP page go over the ones it has, so the values its server.yaml sets
+    stay; one added by hand takes them as given, all of them being the user's."""
+    if not server.source:
+        return {}
+    given = {"env": changes.env, "headers": changes.headers}
+    return {name: {**getattr(server, name), **value} for name, value in given.items() if value is not None}
+
+
 async def mcp_status(hub: McpHub, server: McpServer, signed_in_as: str = "") -> McpServerStatus:
     status, error, tools = hub.state(server.name)
     health = await hub.health(server.name)
@@ -233,4 +255,5 @@ async def mcp_status(hub: McpHub, server: McpServer, signed_in_as: str = "") -> 
         icon=PluginIcon(**server.icon),
         oauth=server.oauth_provider,
         signed_in_as=signed_in_as,
+        settings=plugin_settings.has_settings(server),
     )

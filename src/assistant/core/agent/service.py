@@ -29,6 +29,7 @@ from assistant.core.agent.messaging import MessagingMixin
 from assistant.core.agent.model import ModelMixin, usable_choice
 from assistant.core.agent.notifications import NotificationsMixin
 from assistant.core.agent.pinned import PinnedSkillsMixin
+from assistant.core.agent.plugin_settings import PluginSettingsMixin
 from assistant.core.agent.prompts import PromptsMixin
 from assistant.core.agent.repositories import RepositoriesMixin
 from assistant.core.agent.runs import RunsMixin
@@ -99,6 +100,7 @@ class AssistantService(
     SignInsMixin,
     EmailMixin,
     ChannelsMixin,
+    PluginSettingsMixin,
     McpMixin,
     AlertsMixin,
     DoctorMixin,

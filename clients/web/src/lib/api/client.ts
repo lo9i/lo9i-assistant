@@ -58,6 +58,8 @@ import type {
   Page,
   PairingCode,
   PendingEnding,
+  PluginSettings,
+  PluginSettingsChange,
   PluginSignInStart,
   PluginUpdate,
   PluginUpdateChecks,
@@ -620,6 +622,18 @@ export class McpGroup {
   async startPluginSignIn(name: string, body: PluginSignInStart): Promise<string> {
     const path = `/plugins/${encodeURIComponent(name)}/sign-in`;
     return (await this.transport.request<{ url: string }>("POST", path, body)).url;
+  }
+
+  /** An installed plugin's fields with their values; a secret one only says whether it's set. Throws ApiError (400)
+   * for a server added by hand. */
+  pluginSettings(name: string): Promise<PluginSettings> {
+    return this.transport.request("GET", `/plugins/${encodeURIComponent(name)}/settings`);
+  }
+
+  /** New values for its fields: one left out keeps its value, and so does a secret one given empty unless it's in
+   * `clear`. Its check runs first: throws ApiError (400) with what it says when it refuses them, saving nothing. */
+  changePluginSettings(name: string, change: PluginSettingsChange): Promise<PluginSettings> {
+    return this.transport.request("PUT", `/plugins/${encodeURIComponent(name)}/settings`, change);
   }
 
   /** Forgets the plugin's sign-in. */

@@ -454,6 +454,28 @@ async def test_the_agent_opens_a_plugins_setup_in_the_conversation(app, client):
         assert client.decisions == {"i1": {"done": True}}
 
 
+async def test_a_plugins_setup_opened_later_offers_its_settings_first(app, client):
+    from dataclasses import asdict, replace
+
+    from assistant.core.agent import FoundServer
+    from assistant_terminal.tui.screens import PluginSettingsScreen
+    from tests.terminal.conftest import _mcp_status
+
+    calendar = FoundServer("calendar", "Calendar", "stdio", [], False, installed=True)
+    client.mcp.items["calendar"] = replace(_mcp_status("calendar", source="x"), settings=True)
+    client.waiting_for = {"kind": "plugin_setup", "name": "calendar", "server": asdict(calendar)}
+    async with app.run_test(size=(120, 44)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"change my calendar password", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, PluginSettingsScreen))
+        await wait_for(pilot, lambda: bool(app.screen.query("#plugin-field-CAL_PASSWORD")))
+        app.screen.query_one("#plugin-field-CAL_PASSWORD", Input).value = "new"
+        app.screen.query_one("#save", Button).press()
+        await wait_for(pilot, lambda: not app._busy)
+        assert client.mcp.saved_settings == ("calendar", {"CAL_PASSWORD": "new"}, [])
+        assert client.decisions == {"i1": {"done": True}}
+
+
 async def test_a_handed_off_agents_steps_show_as_lines_inside_its_call(app, client, monkeypatch):
     async def send(session, text, attachments=()):
         yield ToolStarted("Claude Code", {"folder": "/repo"}, id="h1")
