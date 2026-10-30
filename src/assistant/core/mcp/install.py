@@ -52,6 +52,9 @@ code from it. In its commands, arguments and env values:
     oauth:                         # optional, format 5: the user signs in with their own OAuth app in its setup, and
       provider: google             # its processes get the sign-in in LO9I_OAUTH (plugin_oauth.py)
       scopes: [https://www.googleapis.com/auth/drive]
+    check:                         # optional: checks the values it was given before they're saved, so a wrong key
+      command: "{bin}/my-check"    # shows in the install dialog (checks.py); or `tool: check_account`, a tool of
+                                   # its MCP server that the agent never gets
     agent:                         # optional: a coding agent (docs/agent-plugins.md, core/agent_tasks/)
       command: claude              # /claude <folder> hands a conversation to it, /claude off back
       name: Claude Code
@@ -85,6 +88,7 @@ from langgraph.store.base import BaseStore
 
 from assistant.core.integrations.email import providers as email_providers
 from assistant.core.mcp import (
+    checks,
     data_key,
     environment,
     folders,
@@ -166,6 +170,8 @@ class FoundServer:
     oauth: str = ""
     # The named subagent it brings, like "researcher" (core/mcp/subagents.py); "" for none.
     subagent: str = ""
+    # It checks the values it's given when they're saved (core/mcp/checks.py), for the install dialogs to say.
+    check: bool = False
     # What the apps show beside it (repositories/icons.py).
     icon: icons.PluginIcon = field(default_factory=icons.PluginIcon)
 
@@ -203,6 +209,8 @@ class Candidate:
             channel_args=[fill(a) for a in t.channel_args],
             agent_worker=fill(t.agent_worker),
             agent_args=[fill(a) for a in t.agent_args],
+            check_command=fill(t.check_command),
+            check_args=[fill(a) for a in t.check_args],
             source=url,
             keys=sorted(given),
             icon=asdict(self.found.icon),
@@ -434,6 +442,8 @@ def _parse(data: dict[str, Any], name: str, root: Path, folder: Path) -> Candida
         raise ValueError("it signs in with oauth:, which is for plugins that run on this computer, not a url")
     if version < 7 and template.approve:
         raise ValueError("it has tools that ask first (approve:), which needs format: 7")
+    if template.check_tool and not template.is_mcp:
+        raise ValueError("its check is a tool, which needs an MCP server (command or url)")
     return Candidate(found, template, folder, folder.relative_to(root).as_posix(), systems, version)
 
 
@@ -461,6 +471,7 @@ def _template(data: dict[str, Any], name: str) -> McpServer:
         data_key=data_key.parse(data.get("data_key")),
         **_oauth(data.get("oauth")),
         **_agent(data.get("agent")),
+        **checks.parse(data.get("check")),
     )
 
 
@@ -500,6 +511,7 @@ def _found(data: dict[str, Any], template: McpServer, folder: Path, category_fol
         ssh_agent=template.ssh_agent,
         oauth=template.oauth_provider,
         subagent=template.subagent_name,
+        check=bool(template.check_command or template.check_tool),
         icon=icons.or_category(icons.parse(data.get("icon"), folder), category),
     )
 
@@ -530,6 +542,8 @@ def _commands(server: McpServer) -> list[str]:
         *server.channel_args,
         server.agent_worker,
         *server.agent_args,
+        server.check_command,
+        *server.check_args,
     ]
 
 

@@ -621,6 +621,8 @@
     "allSkillsInstalled": "Todo lo que los extras ofrecen como habilidades ya está instalado.",
     "allInstalled": "Todo lo que ofrecen los extras ya está instalado.",
     "installing": "Instalando…",
+    "checking": "Instalando y comprobando…",
+    "checks": "Comprueba lo que ingreses antes de instalarse, y avisa aquí si algo no funciona.",
     "install": "Instalar"
   },
   "jobs": {

@@ -3,6 +3,7 @@ one download. Everything is checked before anything is written. What it offers i
 downloaded again when the repository has a newer commit (cache.py)."""
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -14,7 +15,7 @@ from assistant.core.integrations.email import accounts as email_accounts
 from assistant.core.mcp import data_key, keys, servers
 from assistant.core.mcp import install as server_install
 from assistant.core.mcp.install import FoundServer, ServerValues
-from assistant.core.mcp.servers import McpServer
+from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.repositories import cache
 from assistant.core.repositories import checkout as git
 from assistant.core.repositories.cache import Listing
@@ -100,6 +101,10 @@ async def _download(url: str, token: str) -> Listing:
     return Listing(commit, [c.found() for c in skills.values()], [c.found for c in found_servers.values()], problems)
 
 
+# Runs a server's check of the values it was given (core/mcp/checks.py); raises McpServerError when they don't work.
+Check = Callable[[McpServer], Awaitable[None]]
+
+
 async def install(
     store: BaseStore,
     box: SecretBox,
@@ -107,26 +112,48 @@ async def install(
     skills: list[str],
     wanted: list[ServerValues],
     token: str = "",
+    check: Check | None = None,
 ) -> Installed:
-    """A field left empty takes the key kept from an earlier install. Raises RepositoryError,
-    SkillError or McpServerError, saying what's wrong."""
+    """A field left empty takes the key kept from an earlier install. Each server's `check` runs before anything
+    is saved; when one fails, the servers this installed are taken out again and nothing is. Raises
+    RepositoryError, SkillError or McpServerError, saying what's wrong."""
     if not skills and not wanted:
         raise RepositoryError("Pick at least one skill or MCP server to install.")
     wanted = [await legacy.fill(store, w) for w in wanted]
     wanted = [ServerValues(w.name, await keys.given(store, box, w.name, w.values)) for w in wanted]
+    before = {s.name for s in await servers.load_all(store)}
     async with git.checkout(url, token) as (root, commit):
         found_skills, (found_servers, _) = await asyncio.to_thread(_find, root, url)
         await asyncio.to_thread(skill_install.check, skills, found_skills, url)
         await server_install.check(store, wanted, found_servers, url)
-        installed = [await asyncio.to_thread(skill_install.install, found_skills[n], url, commit) for n in skills]
         new = [await server_install.install(found_servers[w.name], w.values, url, commit) for w in wanted]
+        await _checked(store, box, new, check, before)
+        installed = [await asyncio.to_thread(skill_install.install, found_skills[n], url, commit) for n in skills]
     for server in new:
-        await data_key.ensure(store, box, server)
         await keys.save(store, box, server)
         await legacy.hand_over(store, server.name)
         if any(p.get("custom") for p in server.email_providers):
             await email_accounts.adopt_hand_entered(store, server.name)
     return Installed(installed, new)
+
+
+async def _checked(
+    store: BaseStore, box: SecretBox, new: list[McpServer], check: Check | None, before: set[str]
+) -> None:
+    """Raises McpServerError when a server's check says its values don't work, after taking out the code of those
+    that weren't installed before. Their data keys are made first, since their checks run with them; like their
+    data folders, they stay for installing them again."""
+    for server in new:
+        await data_key.ensure(store, box, server)
+    try:
+        for server in new:
+            if check is not None:
+                await check(server)
+    except McpServerError:
+        for server in new:
+            if server.name not in before:
+                await asyncio.to_thread(server_install.uninstall, server.name)
+        raise
 
 
 def _find(

@@ -48,6 +48,7 @@ const contents: RepositoryContents = {
       ssh_agent: false,
       oauth: "",
       subagent: "",
+      check: false,
       agent: "",
       email: false,
     },
@@ -110,6 +111,7 @@ group("versionOf", () => {
             ssh_agent: false,
             oauth: "",
             subagent: "",
+            check: false,
             agent: "",
             email: false,
           },
@@ -144,6 +146,7 @@ group("updatable", () => {
           ssh_agent: false,
           oauth: "",
           subagent: "",
+          check: false,
           agent: "",
           email: false,
         },
@@ -181,6 +184,7 @@ const found = (over: Partial<FoundServer>): FoundServer => ({
   ssh_agent: false,
   oauth: "",
   subagent: "",
+  check: false,
   agent: "",
   email: false,
   ...over,
@@ -234,6 +238,7 @@ group("emptyHint and sharedLogin", () => {
     ssh_agent: false,
     oauth: "",
     subagent: "",
+    check: false,
   });
   it("says a field may be left empty", () => {
     expect(optional(coder, "CLAUDE_TOKEN")).toBe(true);

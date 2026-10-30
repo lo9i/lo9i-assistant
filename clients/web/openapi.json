@@ -7938,6 +7938,11 @@
             "title": "Subagent",
             "default": ""
           },
+          "check": {
+            "type": "boolean",
+            "title": "Check",
+            "default": false
+          },
           "icon": {
             "$ref": "#/components/schemas/PluginIcon"
           }

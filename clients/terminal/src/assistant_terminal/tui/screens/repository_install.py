@@ -107,6 +107,8 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
     async def _install(self) -> None:
         skills, servers = self._chosen(_SKILL), self._chosen(_SERVER)
         wanted = [ServerValues(name, {k: i.value.strip() for k, i in self._inputs[name].items()}) for name in servers]
+        if any(self._servers[name].check for name in servers):
+            await self._say(t("Installing and checking…"))
         try:
             await self._repositories.install(skills, wanted, self._url)
         except RepositoryError as e:
@@ -150,11 +152,14 @@ class RepositoryInstallScreen(ModalScreen[list[str]]):
 def _guide(contents: RepositoryContents) -> str:
     """What to do: a single plugin's steps for what it asks for, numbered, when it has them."""
     one = contents.servers[0] if len(contents.servers) == 1 and not contents.skills else None
-    if one is None or not (one.steps or one.model_login or one.ssh_agent):
+    checks = one is not None and one.check and bool(one.fields)
+    if one is None or not (one.steps or one.model_login or one.ssh_agent or checks):
         return t("Check what to install. Servers ask for their values below, then Install.")
     shared = [t(_SHARED_LOGIN)] if one.model_login == "copilot" else []
     agent = [t(_SSH_AGENT)] if one.ssh_agent else []
-    return "\n\n".join([*shared, *agent, "\n".join(f"{i}. {step}" for i, step in enumerate(one.steps, 1))]).strip()
+    checked = [t(_CHECKS)] if checks else []
+    steps = "\n".join(f"{i}. {step}" for i, step in enumerate(one.steps, 1))
+    return "\n\n".join([*shared, *agent, *checked, steps]).strip()
 
 
 def _offer_intro(plugin: FoundServer | FoundSkill) -> str:
@@ -172,6 +177,8 @@ _KNOWN_HINT = translatable("leave empty to keep the one you set before")
 _SHARED_LOGIN = translatable("It uses your GitHub Copilot login from /model while the model is GitHub Copilot.")
 # A plugin whose processes get the user's ssh agent (core/mcp/ssh_agent.py).
 _SSH_AGENT = translatable("It uses your ssh agent, so it can sign in with the keys the agent holds.")
+# A plugin that checks the values it's given before it's installed (core/mcp/checks.py).
+_CHECKS = translatable("It checks what you enter before it's installed, and says here if something doesn't work.")
 
 
 def _field_input(server: FoundServer, field: ServerField) -> Input:

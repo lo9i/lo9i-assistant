@@ -46,10 +46,11 @@ class RepositoriesMixin(ServiceBase):
     async def install_from_repository(
         self, url: str, skills: list[str], servers: list[ServerValues]
     ) -> InstalledFromRepository:
-        """Raises RepositoryError, SkillError or McpServerError, saying what's wrong."""
+        """Raises RepositoryError, SkillError or McpServerError, saying what's wrong: CheckFailedError when a
+        server's check says the values it was given don't work (core/mcp/checks.py)."""
         store = self._storage.store
         token = await listed.token(store, self.secrets, url)
-        installed = await contents.install(store, self.secrets, url, skills, servers, token)
+        installed = await contents.install(store, self.secrets, url, skills, servers, token, self._plugin_checks.run)
         if installed.skills:
             self.bus.publish("skills")
         if installed.servers:

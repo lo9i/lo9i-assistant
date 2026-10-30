@@ -40,6 +40,7 @@ describe("ApprovalModal for a plugin's setup", () => {
       ssh_agent: false,
       oauth: "",
       subagent: "",
+      check: false,
       agent: "",
       installed: true,
       version: "1.0.0",

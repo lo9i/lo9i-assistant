@@ -21,6 +21,7 @@ const server = (name: string): FoundServer => ({
   ssh_agent: false,
   oauth: "",
   subagent: "",
+  check: false,
   agent: "",
   email: false,
 });
