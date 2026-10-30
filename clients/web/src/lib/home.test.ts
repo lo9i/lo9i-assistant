@@ -20,7 +20,7 @@ import {
   withoutSection,
 } from "./home";
 
-const section = (id: string, title = id): HomeSection => ({ id, title, prompt: `${title} today.`, plugins: [], columns: 0 });
+const section = (id: string, title = id): HomeSection => ({ id, title, prompt: `${title} today.`, plugins: [], columns: 0, coded: false });
 
 describe("an item's link", () => {
   it("is its url, and its subtitle is left as it is", () => {

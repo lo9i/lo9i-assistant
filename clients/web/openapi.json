@@ -8202,6 +8202,11 @@
             "minimum": 0.0,
             "title": "Columns",
             "default": 0
+          },
+          "coded": {
+            "type": "boolean",
+            "title": "Coded",
+            "default": false
           }
         },
         "type": "object",

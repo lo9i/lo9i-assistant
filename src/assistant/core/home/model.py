@@ -86,6 +86,9 @@ class HomeSection(BaseModel):
     # How many of the page's columns its card spans where the page has them: 0 for the apps to choose (two for a
     # busy one), up to MAX_COLUMNS.
     columns: int = Field(default=0, ge=0, le=MAX_COLUMNS)
+    # Built by code (coded.py), not by the model: `prompt` says what it shows, and only its title and width change.
+    # The daemon sets it, whatever an app sends.
+    coded: bool = False
 
 
 # ok: built. unavailable: none of its plugins is installed and on, so it wasn't built. failed: building it failed;

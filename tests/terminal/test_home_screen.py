@@ -2,7 +2,7 @@
 
 from datetime import date, datetime, timedelta, timezone
 
-from textual.widgets import Button, Input, Markdown, SelectionList, TextArea
+from textual.widgets import Button, Input, Markdown, SelectionList, Static, TextArea
 
 from assistant.core.agent import HomeCard, HomeItem, HomeSection, SectionResult
 from assistant_terminal.home_text import describe, item_when, updated
@@ -111,6 +111,27 @@ async def test_editing_a_section_keeps_the_width_its_card_was_given(app, client)
         app.screen.query_one("#save", Button).press()
         await wait_for(pilot, lambda: app.screen is home)
         assert [(s.title, s.columns) for s in client.home.sections] == [("Agenda", 2)]
+
+
+async def test_a_section_built_by_code_says_so_and_changes_only_its_title(app, client):
+    copilot = HomeSection(id="copilot", title="Copilot", prompt="The Copilot plan.", columns=2, coded=True)
+    client.home.sections[0] = copilot
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/home", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, HomeScreen))
+        home = app.screen
+        await pilot.pause()
+        home.query_one("#edit", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, HomeSectionScreen))
+        editor = app.screen
+        assert not editor.query("#home-section-prompt") and not editor.query("#home-section-plugins")
+        assert "built by lo9i's code" in str(editor.query_one("#home-section-note", Static).render()).lower()
+        editor.query_one("#home-section-name", Input).value = "Copilot plan"
+        editor.query_one("#save", Button).press()
+        await wait_for(pilot, lambda: app.screen is home)
+        [saved] = client.home.sections
+        assert (saved.title, saved.prompt, saved.columns, saved.coded) == ("Copilot plan", "The Copilot plan.", 2, True)
 
 
 async def test_sections_are_moved_removed_and_reset(app, client):

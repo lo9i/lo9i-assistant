@@ -107,7 +107,7 @@ export function withoutSection(sections: HomeSection[], id: string): HomeSection
  * (a section built by code). */
 export function withConversations(sections: HomeSection[], title: string): HomeSection[] {
   if (sections.some((s) => s.id === CONVERSATIONS)) return sections;
-  return [...sections, { id: CONVERSATIONS, title, prompt: title, plugins: [], columns: 0 }];
+  return [...sections, { id: CONVERSATIONS, title, prompt: title, plugins: [], columns: 0, coded: true }];
 }
 
 /** The section with its card `columns` wide. */

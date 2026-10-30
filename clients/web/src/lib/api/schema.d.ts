@@ -3778,6 +3778,11 @@ export interface components {
              * @default 0
              */
             columns: number;
+            /**
+             * Coded
+             * @default false
+             */
+            coded: boolean;
         };
         /** HomeSections */
         HomeSections: {

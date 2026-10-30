@@ -550,6 +550,8 @@
     "titlePlaceholder": "Calendario",
     "what": "Qué mostrar",
     "whatPlaceholder": "Los eventos de hoy de todos mis calendarios, por hora de inicio.",
+    "shows": "Qué muestra",
+    "builtByCode": "Lo arma el código de lo9i, no el modelo: aquí solo se pueden cambiar su título y su ancho.",
     "plugins": "Plugins que lee",
     "noPlugins": "Todavía no hay plugins con herramientas instalados. Instala uno en Plugins.",
     "notInstalled": "no instalado",
