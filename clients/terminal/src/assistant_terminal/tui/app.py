@@ -78,6 +78,7 @@ from assistant_terminal.tui.screens import (
     ModelScreen,
     NotificationsScreen,
     OpenConversationsScreen,
+    PluginSettingsScreen,
     PluginSignInScreen,
     PluginsScreen,
     ProfileScreen,
@@ -648,7 +649,7 @@ class AssistantApp(App):
         if is_plugin_setup(request):
             plugin = offered_plugin(request)
             if isinstance(plugin, FoundServer):
-                await self._set_up(plugin)
+                await self._set_up(plugin, settings=True)
             return {"done": True}
         return await self._ask(_screen_for(request))
 
@@ -661,15 +662,25 @@ class AssistantApp(App):
         finally:
             self._asking = None
 
-    async def _set_up(self, plugin: FoundServer) -> None:
+    async def _set_up(self, plugin: FoundServer, settings: bool = False) -> None:
         """An installed plugin's setup, in the conversation: an email plugin's accounts, a channel's pairing, signing
-        in."""
+        in. Opened later (open_plugin_setup, `settings`), its settings first when the version installed has fields of
+        its own; right after it's installed they were just typed."""
+        if settings and await self._has_settings(plugin.name):
+            await self._ask_settings(plugin.name)
         if plugin.oauth:
             await self._ask(PluginSignInScreen(self._service.mcp, self._service.oauth, plugin.name, plugin.oauth))
         if plugin.email:
             await self._ask(EmailScreen(self._service.email, self._service.oauth, self._service.channels, plugin.name))
         if plugin.channel:
             await self._ask(ChannelSetupScreen(self._service.channels, plugin))
+
+    async def _ask_settings(self, name: str) -> None:
+        if await self._ask(PluginSettingsScreen(self._service.mcp, name)):
+            self.notify(t("Saved {name}'s settings.", name=name))
+
+    async def _has_settings(self, name: str) -> bool:
+        return any(s.name == name and s.settings for s in await self._service.mcp.servers())
 
     @reports_daemon_unavailable
     async def refresh_thread(self) -> None:

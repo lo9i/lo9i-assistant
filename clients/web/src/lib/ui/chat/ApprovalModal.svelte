@@ -18,7 +18,7 @@
 {:else if request.kind === "plugin"}
   <PluginOfferModal offer={approval} {onanswer} />
 {:else if request.kind === "plugin_setup" && request.server}
-  <PluginSetupModal server={request.server} ondone={() => onanswer({ done: true })} />
+  <PluginSetupModal server={request.server} settings ondone={() => onanswer({ done: true })} />
 {:else}
   <Modal
     title={request.tool ? t("chat.approveTool", { tool: String(request.tool) }) : t("chat.approveAction")}

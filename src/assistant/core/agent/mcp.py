@@ -7,7 +7,7 @@ from dataclasses import dataclass, field, fields, replace
 
 from assistant.core.agent.base import ServiceBase
 from assistant.core.integrations.email import accounts as email_accounts
-from assistant.core.mcp import data_key, install, keys, plugin_oauth, servers
+from assistant.core.mcp import data_key, install, keys, plugin_oauth, plugin_settings, servers
 from assistant.core.mcp.checks import CheckFailedError
 from assistant.core.mcp.hub import McpHub, McpProbe, McpToolInfo
 from assistant.core.mcp.plugin_oauth import PluginSignIn
@@ -255,5 +255,5 @@ async def mcp_status(hub: McpHub, server: McpServer, signed_in_as: str = "") -> 
         icon=PluginIcon(**server.icon),
         oauth=server.oauth_provider,
         signed_in_as=signed_in_as,
-        settings=bool(server.source and set(server.keys) - {plugin_oauth.ENV}),
+        settings=plugin_settings.has_settings(server),
     )

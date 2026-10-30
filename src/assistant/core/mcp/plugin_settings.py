@@ -7,6 +7,7 @@ secret given empty keeps the saved one, unless the user clears it; any other fie
 
 from dataclasses import dataclass, replace
 
+from assistant.core.mcp import plugin_oauth
 from assistant.core.mcp.install import ServerField
 from assistant.core.mcp.servers import McpServer, McpServerError
 
@@ -40,6 +41,12 @@ class SettingsChange:
 
     server: McpServer
     cleared: frozenset[str]
+
+
+def has_settings(server: McpServer) -> bool:
+    """It was installed from a repository with fields of its own; its sign-in (plugin_oauth.py) is a key but no
+    field."""
+    return bool(server.source and set(server.keys) - {plugin_oauth.ENV})
 
 
 def shown(server: McpServer, fields: list[ServerField]) -> PluginSettings:
