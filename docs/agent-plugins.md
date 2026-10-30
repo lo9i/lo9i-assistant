@@ -74,9 +74,16 @@ it started would end on it).
 | `{"kind": "message", "text"}` | Passes it on to the agent, which takes it between its steps, and writes a `user` step with the file's name (without `.json`) as its `id`. The daemon also writes `said` and `files` (what the user wrote and the files they sent, which `text` names with where they're saved): they're its own, for showing the step as the user sent it (`core/agent_tasks/sent.py`); a worker leaves them alone. |
 | `{"kind": "interrupt"}` | Stops the agent's step in progress; the task stays running and waits for the next message. |
 
+An agent that gets to a message only later (Claude Code takes what it's sent once it's done with the turn in
+progress) marks its `user` step `"waiting": true`, and writes a `taken` step with the message's id once the
+agent gets to it. A `user` step without `waiting` counts as taken.
+
 The task ends once the agent has answered every message it was sent. Messages left in `inbox/` without a
 `user` step when it ends (sent just as it finished) go to the agent next, as a follow-up in the same
-session, in the same run.
+session, in the same run. When the user stops the run, the messages the agent hadn't taken (left in
+`inbox/` without a `user` step, or with a `waiting` one and no `taken` step) go to it next, together as
+one message following up the stopped task in its session, as a run of their own once the stopped one ends
+(`core/conversation/queued.py`); the conversation stays handed to the agent.
 
 ## Steps
 
@@ -91,7 +98,8 @@ Each line of `progress.log` is a JSON object with a `kind`; fields that are empt
 | `result` | `tool`, `text`, `id` | A tool call's result: the call it ends, its output, shortened. |
 | `text_delta` | `text` | Words of a text as they're written. The whole text follows as a `text` step. |
 | `thinking_delta` | `text` | Words of a thinking as they're written. The whole thinking follows as a `thinking` step. |
-| `user` | `text`, `id` | A message the user sent while it worked, passed on to the agent; `id` is its file in `inbox/`. |
+| `user` | `text`, `id`, `waiting` | A message the user sent while it worked, passed on to the agent; `id` is its file in `inbox/`. `waiting`: the agent gets to it only later (above). |
+| `taken` | `id` | The agent got to a message whose `user` step was `waiting`. Not shown. |
 
 `within` on any step is the id of the tool call whose subagent took it. In a conversation handed to the
 agent, the daemon shows text as the reply, thinking apart, and each tool call with its result

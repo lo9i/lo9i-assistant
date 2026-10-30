@@ -25,6 +25,9 @@ STEPS = "agent_steps"
 UNANSWERED = "agent_unanswered"
 # An upload's reference (path, name, media_type), as `attachments.reference` keeps it.
 Upload = dict[str, str]
+# The step a worker writes once the agent takes a message it passed on with a `user` step marked `waiting`: the
+# agent was working and gets to it only later (docs/agent-plugins.md).
+TAKEN = "taken"
 
 
 # The words of a text or a thinking as they're written, before the whole of it comes as one step.
@@ -50,6 +53,9 @@ class AgentSteps:
     def events(self, message: str) -> list[Event]:
         step = parse(message)
         kind = step.get("kind", "")
+        if kind == TAKEN:
+            # Only says when the agent got to a message already shown: nothing to show or keep.
+            return []
         if kind not in _DELTAS:
             self.lines.append(message)
         events = self._events(step, files_of(message))
@@ -171,6 +177,12 @@ def files_of(message: str) -> list[Upload]:
     if not isinstance(files, list):
         return []
     return [f for f in files if isinstance(f, dict) and {"path", "name", "media_type"} <= f.keys()]
+
+
+def waiting(step: dict[str, str]) -> bool:
+    """A `user` step for a message the agent takes only later, which a `taken` step then says (`parse` keeps
+    every field as a string)."""
+    return step.get("kind") == "user" and step.get("waiting") == str(True)
 
 
 def parse(message: str) -> dict[str, str]:

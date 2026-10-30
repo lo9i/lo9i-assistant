@@ -30,7 +30,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from assistant.core.agent_tasks.steps import parse, streamed
+from assistant.core.agent_tasks.steps import TAKEN, parse, streamed, waiting
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +89,15 @@ class TaskState:
     outcome: Outcome | None
     # The last steps in progress.log, as written, without the words streamed before their whole block.
     progress: list[str]
+
+
+@dataclass(frozen=True)
+class Untaken:
+    """A message sent to a task that its agent didn't take, as the daemon wrote it in the inbox."""
+
+    message: dict[str, Any]
+    # Its worker passed it on, so a `user` step shows it; the agent hadn't got to it.
+    passed_on: bool
 
 
 class TaskStore:
@@ -172,13 +181,20 @@ class TaskStore:
             return None
         return json.loads(path.read_text())
 
-    def untaken(self, task_id: str) -> list[dict[str, Any]]:
-        """The messages its worker ended without taking, oldest first."""
+    def untaken(self, task_id: str) -> list[Untaken]:
+        """The messages sent to it that its agent didn't take, oldest first: those its worker never passed on, and
+        those it passed on while the agent was working that it hadn't got to (a `user` step marked `waiting` with
+        no `taken` step after)."""
         folder = self.folder(task_id)
-        taken = {step.get("id") for step in map(parse, _tail(folder / _PROGRESS, None)) if step.get("kind") == "user"}
-        sent = [path for path in sorted((folder / _INBOX).glob("*.json")) if path.stem not in taken]
-        messages = [json.loads(path.read_text()) for path in sent]
-        return [message for message in messages if message.get("kind") == "message"]
+        steps = [parse(line) for line in _tail(folder / _PROGRESS, None)]
+        passed = {step.get("id"): waiting(step) for step in steps if step.get("kind") == "user"}
+        taken = {step.get("id") for step in steps if step.get("kind") == TAKEN}
+        left = [
+            Untaken(json.loads(path.read_text()), path.stem in passed)
+            for path in sorted((folder / _INBOX).glob("*.json"))
+            if passed.get(path.stem, True) and path.stem not in taken
+        ]
+        return [untaken for untaken in left if untaken.message.get("kind") == "message"]
 
     def progress_after(self, task_id: str, seen: int) -> list[str]:
         """The task's progress lines after the first `seen`, for following it as it goes."""

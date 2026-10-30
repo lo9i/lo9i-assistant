@@ -23,6 +23,8 @@ from assistant.core.events import Cancelled, Done, Error, Held, TextDelta, ToolF
 from assistant.core.mcp import folders, servers
 from assistant.core.mcp.servers import McpServer
 from assistant.daemon.managers import ByHand
+from assistant.daemon.queued import QueuedMessages
+from assistant.daemon.runs import RunHub
 from assistant.daemon.shutdown import Ending, Shutdown
 from tests.conftest import collect
 
@@ -636,3 +638,92 @@ async def test_a_message_kept_for_an_agent_taken_back_meanwhile_goes_to_the_assi
     [kept] = await service.held_runs("owner")
     assert isinstance((await collect(service.run_held(session, kept)))[-1], Done)
     assert asked() == [] and "fix the tests" in script.requests[0][-1].text
+
+
+async def _stopped_with(service, session, tmp_path, *messages: tuple[str, list[Attachment]]) -> str:
+    """Stops the conversation's run once the agent at work (`hold messages`) has seen `messages` sent to it, and
+    returns its task."""
+    run = asyncio.create_task(collect(service.send(session, "hold messages")))
+    task = await _taking_messages(service, session, tmp_path)
+    for text, files in messages:
+        await service.message_agent("owner", session.thread_id, text, files)
+    passed_on = sum(not text.startswith("unread") for text, _ in messages)
+    async with asyncio.timeout(10):
+        while sum(s["kind"] == "user" for s in _progress(task)) < passed_on:
+            await asyncio.sleep(0.02)
+    assert await service.cancel(session.thread_id)
+    assert isinstance((await run)[-1], Cancelled)
+    return task
+
+
+async def test_stopped_with_a_message_it_hadnt_got_to_the_agent_resumes_its_session_with_it(service, script, tmp_path):
+    session = await _handed(service, tmp_path)
+    task = await _stopped_with(service, session, tmp_path, ("skip the slow tests", []))
+    after = service.bus.last_id
+    stop = asyncio.Event()
+    sending = asyncio.create_task(QueuedMessages(service, RunHub(service.bus)).run(stop))
+    async with asyncio.timeout(10):
+        async for event in service.bus.subscribe(after):
+            if event.kind == "agent_finished":
+                break
+    stop.set()
+    await sending
+    assert await service.conversation_agent("owner", session.thread_id) is not None  # still Claude Code's
+    first, resumed = asked()
+    assert (resumed["prompt"], resumed["follow_up_of"], resumed["session"]) == (
+        "skip the slow tests",
+        task,
+        first["session"],
+    )
+    assert script.requests == []  # the assistant's model wasn't asked
+    shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
+    assert shown[-2:] == [("user", "skip the slow tests"), ("assistant", f"Done in {tmp_path}: skip the slow tests")]
+    assert await service.queued_threads("owner") == []
+
+
+async def test_stopped_with_several_messages_waiting_they_go_to_the_agent_as_one_message_in_order(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    shot = Attachment("shot.png", "image/png", b"\x89PNG")
+    task = await _stopped_with(
+        service,
+        session,
+        tmp_path,
+        ("skip the slow tests", [shot]),
+        ("take a look at the docs", []),  # it got to this one
+        ("unread: and run the linter", []),  # sent as it stopped: never passed on
+    )
+    waiting = await service.next_queued("owner", session.thread_id)
+    assert waiting is not None and await service.next_queued("owner", session.thread_id) is None  # one message
+    assert waiting.text == "skip the slow tests\n\nunread: and run the linter"
+    assert [f["name"] for f in waiting.files] == ["shot.png"]
+    shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
+    assert shown[-4:] == [  # the stopped turn keeps every message it was sent
+        ("user", "skip the slow tests\n[attachment shot.png]"),
+        ("user", "take a look at the docs"),
+        ("user", "unread: and run the linter"),
+        ("assistant", "[stopped before Claude Code replied]"),
+    ]
+    events = await collect(service.send(session, waiting.text, brief=waiting.brief, saved=waiting.files))
+    assert events[-1] == Done()
+    resumed = asked()[-1]
+    assert resumed["follow_up_of"] == task
+    said, files_note = resumed["prompt"].split("\n\nFiles sent with this message, saved on this computer:\n")
+    assert said == "skip the slow tests\n\nunread: and run the linter" and files_note.endswith("(shot.png)")
+    shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
+    assert shown[-2] == ("user", "[attachment shot.png]\nskip the slow tests\n\nunread: and run the linter")
+
+
+async def test_stopped_with_nothing_waiting_it_just_stops(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    await _stopped_with(service, session, tmp_path, ("take a look at the docs", []))
+    assert await service.queued_threads("owner") == []
+    assert len(asked()) == 1
+    assert await service.conversation_agent("owner", session.thread_id) is not None
+
+
+async def test_a_deleted_conversation_sends_nothing_it_had_waiting(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    await _stopped_with(service, session, tmp_path, ("skip the slow tests", []))
+    assert await service.queued_threads("owner") == [session.thread_id]
+    await service.delete_conversation("owner", session.thread_id)
+    assert await service.queued_threads("owner") == []

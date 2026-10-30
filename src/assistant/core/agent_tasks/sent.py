@@ -38,6 +38,17 @@ def user_step(sent: dict[str, Any]) -> str:
     return as_sent(json.dumps({"kind": "user", "text": sent.get("text", "")}), sent)
 
 
+def said(messages: Sequence[dict[str, Any]]) -> str:
+    """What the user wrote in `messages`, in order, as one message: the text the agent got where the daemon didn't
+    keep what they wrote."""
+    return "\n\n".join(part for m in messages if (part := str(m.get("said", m.get("text", ""))).strip()))
+
+
+def files(messages: Sequence[dict[str, Any]]) -> list[Upload]:
+    """The files the user sent with `messages`, in order."""
+    return [upload for m in messages for upload in m.get("files", [])]
+
+
 def uploads(messages: Sequence[BaseMessage]) -> list[Upload]:
     """The files the user sent handed-off agents while they worked, kept with their replies' steps."""
     return [
