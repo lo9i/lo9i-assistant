@@ -2,6 +2,7 @@
   import Clock from "@lucide/svelte/icons/clock";
   import FolderTreeIcon from "@lucide/svelte/icons/folder-tree";
   import X from "@lucide/svelte/icons/x";
+  import { untrack } from "svelte";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { draft } from "$lib/chat/draft.svelte";
@@ -88,6 +89,16 @@
 
   // Each conversation keeps its own unsent text and files.
   const box = $derived(draft.of(threadId));
+  // Its folder panel is its own: opening another column's leaves this one as it is.
+  const panel = $derived(handoff.data ? folderPanel : homePanel);
+  const panelOpen = $derived(panel.isOpen(threadId));
+  $effect(() => {
+    const shown = threadId;
+    untrack(() => {
+      folderPanel.keep(shown);
+      homePanel.keep(shown);
+    });
+  });
 
   /** Sends, then reads the answer aloud when Settings → Audio says so. */
   async function send(text: string, files: File[]): Promise<void> {
@@ -334,9 +345,9 @@
           <button
             type="button"
             class="btn btn--ghost btn--sm"
-            aria-pressed={folderPanel.open}
-            title={folderPanel.open ? t("handedFolder.hide") : t("handedFolder.show")}
-            onclick={() => folderPanel.toggle()}><FolderTreeIcon size={13} />{t("handedFolder.title")}</button
+            aria-pressed={panelOpen}
+            title={panelOpen ? t("handedFolder.hide") : t("handedFolder.show")}
+            onclick={() => panel.toggle(threadId)}><FolderTreeIcon size={13} />{t("handedFolder.title")}</button
           >
         </AgentStatus>
       {:else}
@@ -344,17 +355,17 @@
         <button
           type="button"
           class="btn btn--ghost btn--sm home-folder"
-          aria-pressed={homePanel.open}
-          title={homePanel.open ? t("handedFolder.hideHome") : t("handedFolder.showHome")}
-          onclick={() => homePanel.toggle()}><FolderTreeIcon size={13} />{t("handedFolder.title")}</button
+          aria-pressed={panelOpen}
+          title={panelOpen ? t("handedFolder.hideHome") : t("handedFolder.showHome")}
+          onclick={() => panel.toggle(threadId)}><FolderTreeIcon size={13} />{t("handedFolder.title")}</button
         >
       {/if}
       <span class="fuel-end"><ContextFuel {threadId} /></span>
     </StatusBar>
     {#if dragging > 0}<div class="drop-hint" aria-hidden="true">{t("chat.dropHint")}</div>{/if}
   </section>
-  {#if handoff.data ? folderPanel.open : homePanel.open}
-    <HandedFolder {threadId} handoff={handoff.data ?? null} onclose={() => (handoff.data ? folderPanel : homePanel).toggle()} />
+  {#if panelOpen}
+    <HandedFolder {threadId} handoff={handoff.data ?? null} onclose={() => panel.toggle(threadId)} />
   {/if}
 </div>
 

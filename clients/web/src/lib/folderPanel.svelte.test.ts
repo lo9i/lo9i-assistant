@@ -17,20 +17,35 @@ describe("folder panels", () => {
 
   it("show the handed folder at first and the home folder only once asked", async () => {
     const { folderPanel, homePanel, stored } = await loaded({});
-    expect([folderPanel.open, homePanel.open]).toEqual([true, false]);
-    homePanel.toggle();
-    expect(homePanel.open).toBe(true);
+    expect([folderPanel.isOpen("a"), homePanel.isOpen("a")]).toEqual([true, false]);
+    homePanel.toggle("a");
+    expect(homePanel.isOpen("a")).toBe(true);
     expect(stored.get("lo9i.homePanel")).toBe("open");
     expect(stored.has("lo9i.folderPanel")).toBe(false);
   });
 
   it("keep what each was left at", async () => {
     const { folderPanel, homePanel } = await loaded({ "lo9i.folderPanel": "closed", "lo9i.homePanel": "open" });
-    expect([folderPanel.open, homePanel.open]).toEqual([false, true]);
+    expect([folderPanel.isOpen("a"), homePanel.isOpen("a")]).toEqual([false, true]);
   });
 
   it("start hidden on a narrow screen", async () => {
     const { folderPanel, homePanel } = await loaded({ "lo9i.homePanel": "open" }, true);
-    expect([folderPanel.open, homePanel.open]).toEqual([false, false]);
+    expect([folderPanel.isOpen("a"), homePanel.isOpen("a")]).toEqual([false, false]);
+  });
+
+  it("open beside one conversation only, the others shown as they were", async () => {
+    const { homePanel } = await loaded({});
+    homePanel.keep("a");
+    homePanel.keep("b");
+    homePanel.toggle("a");
+    expect([homePanel.isOpen("a"), homePanel.isOpen("b")]).toEqual([true, false]);
+  });
+
+  it("show a conversation shown for the first time as the panel was last left", async () => {
+    const { homePanel } = await loaded({});
+    homePanel.keep("a");
+    homePanel.toggle("a");
+    expect(homePanel.isOpen("c")).toBe(true);
   });
 });
