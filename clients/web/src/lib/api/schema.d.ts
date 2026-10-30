@@ -2982,6 +2982,16 @@ export interface components {
              * @default
              */
             text: string;
+            /**
+             * Chat
+             * @default
+             */
+            chat: string;
+            /**
+             * Reply To
+             * @default
+             */
+            reply_to: string;
         };
         /** ChannelItems */
         ChannelItems: {

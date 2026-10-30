@@ -187,10 +187,14 @@ class ChannelPress(BaseModel):
 
 
 class ChannelCommand(BaseModel):
-    # Without its slash: new, start, or an agent's (claude).
+    # Without its slash: clear, start, pin, unpin, or an agent's (claude).
     command: str
-    # What follows it: an agent's folder, or off.
+    # What follows it: a skill's name, an agent's folder, or off.
     text: str = ""
+    # The chat it was sent in and the message it replies to, when the channel has one: /pin and /unpin then change
+    # that message's conversation.
+    chat: str = ""
+    reply_to: str = ""
 
 
 class CommandReply(BaseModel):
@@ -1248,7 +1252,7 @@ def _add_channel_chat_routes(app: FastAPI, service: AssistantService, chats: Cha
     @app.post("/channels/{name}/commands")
     async def channel_command(name: str, body: ChannelCommand, request: Request) -> CommandReply:
         _require_channel(request, name)
-        return CommandReply(text=await chats.command(name, body.command, body.text))
+        return CommandReply(text=await chats.command(name, body.command, body.text, body.chat, body.reply_to))
 
 
 def _require_channel(request: Request, name: str) -> None:

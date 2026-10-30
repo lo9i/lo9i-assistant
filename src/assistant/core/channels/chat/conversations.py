@@ -54,7 +54,8 @@ class Conversations(Protocol):
     async def channel_thread(self, user_id: str, channel: str) -> str: ...
     async def channel_wrote(self, user_id: str, channel: str, thread_id: str) -> None: ...
     async def channel_wants_new(self, user_id: str, channel: str) -> None: ...
-    async def channel_takes_new(self, user_id: str, channel: str) -> bool: ...
+    async def channel_new_thread(self, user_id: str, channel: str) -> str | None: ...
+    async def channel_takes_new(self, user_id: str, channel: str) -> str | None: ...
     async def chat_message_thread(self, user_id: str, channel: str, chat: str, message: str) -> str | None: ...
     async def chat_messages_in(
         self, user_id: str, channel: str, chat: str, messages: list[str], thread_id: str
@@ -160,8 +161,10 @@ class ChannelChats:
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
-    async def command(self, channel: str, command: str, text: str = "") -> str:
-        """/clear, /start, /pin, /unpin or an agent's command with what follows it, and what to answer."""
+    async def command(self, channel: str, command: str, text: str = "", chat: str = "", reply_to: str = "") -> str:
+        """/clear, /start, /pin, /unpin or an agent's command with what follows it, and what to answer. `chat` and
+        `reply_to`: where it was sent and the message it replies to, when the channel has one (Telegram does, a Slack
+        slash command doesn't)."""
         t = await self._conversations.texts()
         match command:
             case "clear":
@@ -170,7 +173,8 @@ class ChannelChats:
             case "start":
                 return t(GREETING)
             case "pin" | "unpin":
-                return await self._pin_command(t, channel, command, text.strip())
+                thread_id = await self._pinned_in(channel, chat, reply_to)
+                return await self._pin_command(t, thread_id, command, text.strip())
         agent = next((a for a in await self._conversations.agents() if a.command == command), None)
         if agent is None:
             return t("Unknown command /{command}.", command=command)
@@ -207,18 +211,27 @@ class ChannelChats:
         listed = "\n".join(f"/{agent.command} {folder}" for folder in folders)
         return t("Give {agent} a folder to work in, its full path:", agent=agent.name) + f"\n{listed}"
 
-    async def _pin_command(self, t: Texts, channel: str, command: str, skill: str) -> str:
-        """`/pin <skill>` and `/unpin <skill>` change the skills pinned to the conversation the channel last wrote
-        in, from its next message there (core/conversation/pinned.py); `/pin` alone lists them. Not the inbox's:
-        it sends messages on, so a pin there would hold for quick answers only."""
+    async def _pinned_in(self, channel: str, chat: str, reply_to: str) -> str:
+        """The conversation /pin and /unpin change: the one of the message they reply to; after /clear, the new one
+        the next message starts; else the one the channel last wrote in."""
+        owner, conversations = settings.owner_id, self._conversations
+        if chat and reply_to and (replied := await conversations.chat_message_thread(owner, channel, chat, reply_to)):
+            return replied
+        if (new := await conversations.channel_new_thread(owner, channel)) is not None:
+            return new
+        return await conversations.channel_thread(owner, channel)
+
+    async def _pin_command(self, t: Texts, thread_id: str, command: str, skill: str) -> str:
+        """`/pin <skill>` and `/unpin <skill>` change the skills pinned to `thread_id`, from its next message there
+        (core/conversation/pinned.py); `/pin` alone lists them. Not the inbox's: it sends messages on, so a pin
+        there would hold for quick answers only."""
         owner = settings.owner_id
-        thread_id = await self._conversations.channel_thread(owner, channel)
         if thread_id == await self._conversations.inbox_thread(owner):
             return t(
                 "Skills are pinned to a conversation, and your last message was answered in the inbox. "
                 "Reply to one of my messages in the conversation you want, then pin."
             )
-        tag = await self._conversations.chat_tag(owner, thread_id)
+        tag = await self._conversations.chat_tag(owner, thread_id) or t("the new conversation")
         if command == "unpin":
             return await self._unpin(t, thread_id, tag, skill)
         return await self._pin(t, thread_id, tag, skill)
@@ -291,8 +304,8 @@ class ChannelChats:
         owner, conversations = settings.owner_id, self._conversations
         if reply_to and (replied := await conversations.chat_message_thread(owner, chat.channel, chat.id, reply_to)):
             return replied
-        if await conversations.channel_takes_new(owner, chat.channel):
-            return await conversations.new_thread(owner)
+        if (new := await conversations.channel_takes_new(owner, chat.channel)) is not None:
+            return new
         last = await conversations.channel_thread(owner, chat.channel)
         if await conversations.conversation_agent(owner, last) is not None:
             return last
