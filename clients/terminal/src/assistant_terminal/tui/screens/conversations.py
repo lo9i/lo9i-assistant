@@ -1,6 +1,6 @@
 """The conversations, newest activity first, the inbox among them: pick one to see how it ended, then open
 or delete it. Returns the chosen conversation's thread id, or None. The conversation this app is on can't
-be deleted from here: /new moves off it first."""
+be deleted from here: /clear moves off it first."""
 
 from typing import ClassVar
 
@@ -120,6 +120,6 @@ class ConversationsScreen(ModalScreen[str | None]):
         self.query_one("#resume", Button).disabled = current
         delete = self.query_one("#delete", Button)
         delete.disabled = current
-        delete.tooltip = t("You're on this conversation: /new first, then delete it.") if current else None
+        delete.tooltip = t("You're on this conversation: /clear first, then delete it.") if current else None
         messages = await self._conversations.messages(thread_id)
         await self.query_one("#conversation-body", Markdown).update(preview(conversation, messages))

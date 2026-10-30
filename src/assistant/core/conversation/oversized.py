@@ -26,7 +26,7 @@ class ConversationTooLargeError(Exception):
     def __init__(self) -> None:
         super().__init__(
             "The model refused the request as too large, even with this conversation compacted and its files left "
-            "out. Send a shorter message, or start a new conversation with /new."
+            "out. Send a shorter message, or start a new conversation with /clear."
         )
 
 

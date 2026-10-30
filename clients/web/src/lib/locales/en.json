@@ -132,7 +132,7 @@
     "dropHint": "Drop files to attach them"
   },
   "commands": {
-    "new": "Start a new conversation",
+    "clear": "Start a new conversation",
     "conversations": "Your conversations, newest first, to open one",
     "move": "Move the last message the inbox sent on to another conversation",
     "notifications": "Job results and background work that ended",

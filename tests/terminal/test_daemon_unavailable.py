@@ -48,6 +48,6 @@ async def test_a_command_reports_it(app, client):
     client.new_thread = _unavailable
     async with app.run_test() as pilot:
         await pilot.click("#prompt")
-        await pilot.press(*"/new", "enter")
+        await pilot.press(*"/clear", "enter")
         await wait_for(pilot, lambda: _reported(app))
         assert app.is_running

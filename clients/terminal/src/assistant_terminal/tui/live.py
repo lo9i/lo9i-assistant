@@ -4,7 +4,7 @@ updates show a notification, changes refresh an open screen that shows them (its
 background), a rename updates the title, a new language is used for what shows after it, pinning or unpinning a
 skill and titling the conversation update the subtitle, runs started elsewhere in this conversation appear in the
 chat live, a message written in the inbox while an update installed goes where the daemon sent it on after it, and a
-conversation left with /new while its reply was running reports when it finishes."""
+conversation left with /clear while its reply was running reports when it finishes."""
 
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol

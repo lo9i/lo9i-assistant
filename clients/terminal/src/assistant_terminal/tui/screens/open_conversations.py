@@ -46,7 +46,9 @@ class OpenConversationsScreen(ModalScreen[str | None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="open-conversations"):
             yield Static(t("Open conversations"), id="open-conversations-title")
-            yield Static(t("None open yet: /conversations opens one, /new starts one."), id="open-conversations-empty")
+            yield Static(
+                t("None open yet: /conversations opens one, /clear starts one."), id="open-conversations-empty"
+            )
             yield OptionList(id="open-conversations-list")
             with Horizontal(id="open-conversations-buttons"):
                 yield Button(t("Show"), variant="success", id="switch")
@@ -93,7 +95,7 @@ class OpenConversationsScreen(ModalScreen[str | None]):
         if item is None:
             return
         if item.current:
-            self.notify(t("This one is shown: switch to another first, or /new."), severity="warning")
+            self.notify(t("This one is shown: switch to another first, or /clear."), severity="warning")
             return
         if not item.opened:
             self.notify(t("It isn't open here: it shows while something works in it."), severity="warning")

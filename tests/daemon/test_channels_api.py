@@ -72,7 +72,7 @@ async def test_a_channel_tells_the_apps_what_to_show(app, service):
 async def test_new_sends_the_channels_next_message_to_a_new_conversation(app, service):
     token = service.channels_hub.issue_token("telegram")
     async with _client(app, token) as http:
-        reply = await http.post("/channels/telegram/commands", json={"command": "new"})
+        reply = await http.post("/channels/telegram/commands", json={"command": "clear"})
         assert reply.json() == {"text": "Your next message starts a new conversation."}
         assert await service.channel_takes_new("owner", "telegram")
         reply = await http.post("/channels/telegram/commands", json={"command": "home"})

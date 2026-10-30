@@ -1,7 +1,7 @@
 """Which conversation each message in a channel's chat belongs to, so replying to one continues it, and a
-channel's /new, which sends its next message to a new conversation instead of the inbox. The messages are
+channel's /clear, which sends its next message to a new conversation instead of the inbox. The messages are
 kept per chat, the latest _KEPT, in one Store record under ("channel_messages", user_id, channel) keyed by
-the chat's id; /new under ("channel_new", user_id).
+the chat's id; /clear under ("channel_new", user_id).
 
 Messages the assistant starts (send_message, the end of background work) go to the user's own chat
 (OWN_CHAT), whose real id the daemon doesn't know: they're kept under it, and a reply in any chat looks
@@ -54,7 +54,7 @@ async def want_new(store: BaseStore, user_id: str, channel: str) -> None:
 
 
 async def take_new(store: BaseStore, user_id: str, channel: str) -> bool:
-    """Whether the channel's /new waits for its next message; it no longer does."""
+    """Whether the channel's /clear waits for its next message; it no longer does."""
     if await store.aget(_new(user_id), channel) is None:
         return False
     await store.adelete(_new(user_id), channel)

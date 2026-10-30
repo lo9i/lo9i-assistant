@@ -1,6 +1,6 @@
 """What a channel's chat does with what the user sends there. A new message goes to the inbox, which
 routes it to the conversation it continues or a new one (core/conversation/dispatch_nodes.py); a reply to a
-message goes on in that message's conversation; after /new, the next message starts a new conversation;
+message goes on in that message's conversation; after /clear, the next message starts a new conversation;
 while the conversation the channel last wrote in is handed to a coding agent, messages go on there; /pin and
 /unpin change the skills pinned to it. A button
 answers what its message's run waits for. Each run is shown in the chat it came from (turn.py), through the
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 GREETING = translatable(
     "Hi! Send me a message, a voice note, a photo or a document. Each topic gets a conversation of its own: "
     "a new message goes on in the one it's about, or starts one, and replying to one of my messages goes on "
-    "in its conversation. /new starts a new conversation with your next message."
+    "in its conversation. /clear starts a new conversation with your next message."
 )
 
 
@@ -161,10 +161,10 @@ class ChannelChats:
         task.add_done_callback(self._tasks.discard)
 
     async def command(self, channel: str, command: str, text: str = "") -> str:
-        """/new, /start, /pin, /unpin or an agent's command with what follows it, and what to answer."""
+        """/clear, /start, /pin, /unpin or an agent's command with what follows it, and what to answer."""
         t = await self._conversations.texts()
         match command:
-            case "new":
+            case "clear":
                 await self._conversations.channel_wants_new(settings.owner_id, channel)
                 return t("Your next message starts a new conversation.")
             case "start":
@@ -286,7 +286,7 @@ class ChannelChats:
             await chat.port.send(chat.t("Rejected. The job goes on without it."))
 
     async def _thread_for(self, chat: "_Chat", reply_to: str) -> str:
-        """Where a message goes: the conversation of the message it replies to; a new one after /new; the
+        """Where a message goes: the conversation of the message it replies to; a new one after /clear; the
         conversation the channel last wrote in while it's handed to a coding agent; else the inbox."""
         owner, conversations = settings.owner_id, self._conversations
         if reply_to and (replied := await conversations.chat_message_thread(owner, chat.channel, chat.id, reply_to)):

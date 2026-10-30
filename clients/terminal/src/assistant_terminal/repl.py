@@ -46,7 +46,7 @@ class Repl:
         self._attachments: list[Attachment] = []
         self._commands: dict[str, Callable[[str], Awaitable[None]]] = {
             "/help": self._help,
-            "/new": self._new,
+            "/clear": self._clear,
             "/inbox": self._inbox,
             "/move": self._move,
             "/conversations": self._conversations,
@@ -107,7 +107,7 @@ class Repl:
         if not folder:
             return
         if self._session.thread_id == self._inbox_id:
-            await self._new("")  # the inbox sends every message on, so the agent gets a new conversation
+            await self._clear("")  # the inbox sends every message on, so the agent gets a new conversation
         try:
             handoff = await self._service.conversations.hand_to(self._session.thread_id, agent.command, folder)
         except HandoffError as e:
@@ -155,14 +155,14 @@ class Repl:
 
     async def _get_to_know_me(self, _: str) -> None:
         """In a conversation of its own."""
-        await self._new("")
+        await self._clear("")
         await self._chat(GET_TO_KNOW_ME)
 
     async def _help(self, _: str) -> None:
         extra = agent_commands(await self._service.conversations.agents())
         print(t("Commands:") + "\n" + "\n".join(f"  {line}" for line in help_lines(extra)))
 
-    async def _new(self, _: str) -> None:
+    async def _clear(self, _: str) -> None:
         self._session.thread_id = await self._service.new_thread(self._session.user_id)
         print(t("New conversation {id}. /inbox goes back.", id=self._session.thread_id))
 

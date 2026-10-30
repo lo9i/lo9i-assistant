@@ -24,7 +24,7 @@ from assistant.core.mcp.install import ServerValues
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.outbox import DeliveryError, Outbox
 
-_COMMANDS = [{"command": "new", "description": "Start a new conversation with your next message"}]
+_COMMANDS = [{"command": "clear", "description": "Start a new conversation with your next message"}]
 
 
 async def _commands() -> list[dict[str, str]]:
@@ -202,7 +202,7 @@ async def test_channels_hear_when_the_assistant_is_renamed_and_when_their_comman
     bus.publish("mcp")
     changed = await anext(stream)
     assert (changed.kind, changed.data) == ("commands", {"commands": offered[-1]})
-    offered.append([{"command": "new", "description": "Empezar una conversación nueva con tu próximo mensaje"}])
+    offered.append([{"command": "clear", "description": "Empezar una conversación nueva con tu próximo mensaje"}])
     bus.publish("settings")
     in_spanish = await anext(stream)
     assert (in_spanish.kind, in_spanish.data) == ("commands", {"commands": offered[-1]})

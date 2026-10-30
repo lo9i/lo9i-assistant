@@ -18,7 +18,7 @@ from assistant_terminal.preferences import Preferences
 async def _chat() -> None:
     async with connect() as client:
         i18n.use(await client.language.get())
-        # Every terminal opens on the inbox, which routes each message to its conversation; /new starts one,
+        # Every terminal opens on the inbox, which routes each message to its conversation; /clear starts one,
         # /conversations opens one.
         session = Session(settings.owner_id, "cli", await client.inbox_thread(settings.owner_id))
         await _open(client, session)

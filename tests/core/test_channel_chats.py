@@ -1,5 +1,5 @@
 """What a channel's chat does with what the user sends: a new message goes to the inbox, which routes it,
-a reply goes on in its message's conversation, /new starts a new one; each run is shown in the chat it came
+a reply goes on in its message's conversation, /clear starts a new one; each run is shown in the chat it came
 from with its conversation's tag, and buttons answer what their message's run waits for."""
 
 import asyncio
@@ -188,7 +188,7 @@ async def test_replying_to_a_message_goes_on_in_its_conversation(dispatch, chann
 
 
 async def test_new_sends_the_next_message_to_a_new_conversation(dispatch, chats, channel, script, service):
-    assert await chats.command("telegram", "new") == "Your next message starts a new conversation."
+    assert await chats.command("telegram", "clear") == "Your next message starts a new conversation."
     script.reply("Hi.")
     await chats.message("telegram", "42", "a fresh start", [], voice=False)
     assert dispatch.inputs == []
@@ -200,7 +200,7 @@ async def test_new_sends_the_next_message_to_a_new_conversation(dispatch, chats,
     assert await chats.command("telegram", "start") == GREETING
     assert await chats.command("telegram", "archive") == "Unknown command /archive."
     await service.set_language("es")
-    assert await chats.command("telegram", "new") == "Tu próximo mensaje empieza una conversación nueva."
+    assert await chats.command("telegram", "clear") == "Tu próximo mensaje empieza una conversación nueva."
 
 
 async def test_a_coding_task_moves_to_a_new_conversation_handed_to_its_agent(
@@ -276,7 +276,7 @@ async def test_pin_and_unpin_change_the_skills_of_the_channels_conversation(chat
 
 
 async def test_an_agents_command_hands_the_channels_conversation_to_it_and_back(chats, service, script, tmp_path):
-    assert [c["command"] for c in await service.channel_commands()] == ["new", "pin", "unpin"]
+    assert [c["command"] for c in await service.channel_commands()] == ["clear", "pin", "unpin"]
     await service.add_mcp_server(agent_plugin())
     assert (await service.channel_commands())[-1]["command"] == "claude"
     asked = await chats.command("telegram", "claude", "")

@@ -224,7 +224,7 @@ async def test_live_events_update_the_app(app, client):
         def memory() -> str:
             return str(app.query_one("#memory-body").render())
 
-        client.memory.profile = {"work": ["programmer"]}  # e.g. an archive finishing after /new
+        client.memory.profile = {"work": ["programmer"]}  # e.g. an archive finishing after /clear
         await client.bus.put(("memory", {}))
         await wait_for(pilot, lambda: "programmer" in memory())
 
@@ -724,7 +724,7 @@ async def test_leaving_while_an_answered_approval_runs_stops_showing_it(app, cli
         await pilot.pause()
         await _answer_in_b(app, pilot)
         await wait_for(pilot, lambda: app.query(AssistantMessage))
-        await pilot.press(*"/new", "enter")
+        await pilot.press(*"/clear", "enter")
         await wait_for(pilot, lambda: app.sub_title == "new conversation" and not app._busy)
         release.set()
         await pilot.pause(0.3)
@@ -748,7 +748,7 @@ async def test_leaving_while_the_approvals_are_read_asks_nothing_in_the_next_con
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
         await app._resume("owner:b")
-        await pilot.press(*"/new", "enter")
+        await pilot.press(*"/clear", "enter")
         await wait_for(pilot, lambda: app.sub_title == "new conversation")
         reading.set()
         await pilot.pause(0.3)

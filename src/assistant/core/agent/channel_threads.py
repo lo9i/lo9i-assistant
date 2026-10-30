@@ -1,5 +1,5 @@
 """Conversations for chat channels (Telegram, Slack), which have no client to hold one: a new message goes
-to the inbox, which routes it; a reply to a message goes on in that message's conversation; /new sends the
+to the inbox, which routes it; a reply to a message goes on in that message's conversation; /clear sends the
 next message to a new conversation (core/channels/chat/threads.py). Each reply is tagged with a short name
 of its conversation, so the user sees where it went."""
 
@@ -25,11 +25,11 @@ class ChannelThreadsMixin(ThreadsMixin):
         await threads.record(self._storage.store, user_id, channel, chat, messages, thread_id)
 
     async def channel_wants_new(self, user_id: str, channel: str) -> None:
-        """The channel's /new: its next message starts a new conversation."""
+        """The channel's /clear: its next message starts a new conversation."""
         await threads.want_new(self._storage.store, user_id, channel)
 
     async def channel_takes_new(self, user_id: str, channel: str) -> bool:
-        """Whether the channel's /new waits for this message; it no longer does."""
+        """Whether the channel's /clear waits for this message; it no longer does."""
         return await threads.take_new(self._storage.store, user_id, channel)
 
     async def chat_tag(self, user_id: str, thread_id: str, text: str = "") -> str:

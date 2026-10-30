@@ -28,7 +28,7 @@ class Command:
 GET_TO_KNOW_ME = "Get to know me."
 
 COMMANDS = [
-    Command("/new", "/new", translatable("Start a new conversation")),
+    Command("/clear", "/clear", translatable("Start a new conversation")),
     Command("/conversations", "/conversations", translatable("Your conversations, newest first, to open one")),
     Command("/open", "/open", translatable("The conversations open here and any other working, to switch (Ctrl+O)")),
     Command("/inbox", "/inbox", translatable("Back to the inbox: the next message goes where it belongs")),

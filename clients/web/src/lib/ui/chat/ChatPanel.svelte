@@ -214,7 +214,7 @@
       return;
     }
     switch (name) {
-      case "/new":
+      case "/clear":
         return void chats.startNew();
       case "/notifications":
         return void goto(resolve("/notifications"));

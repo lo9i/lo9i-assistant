@@ -136,7 +136,7 @@ async def compact(
 async def archive(
     state: Mapping[str, Any], store: BaseStore, user_id: str, thread_id: str, now: datetime, after: int = 0
 ) -> bool:
-    """Leave the rest of a conversation that is being left (/new) to be digested into an episode
+    """Leave the rest of a conversation that is being left (/clear) to be digested into an episode
     and memory, from message `after` on when that's past the epoch start (it was archived before,
     then resumed). Skips fewer than EPISODE_MIN_TURNS user turns. Returns whether it archived."""
     messages = state.get("messages", [])

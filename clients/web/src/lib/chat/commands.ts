@@ -8,7 +8,7 @@ import { t, type Key, type Values } from "$lib/i18n.svelte";
 export type Command = { name: string; usage: string; description: Key; values?: Values };
 
 export const COMMANDS: Command[] = [
-  { name: "/new", usage: "/new", description: "commands.new" },
+  { name: "/clear", usage: "/clear", description: "commands.clear" },
   { name: "/conversations", usage: "/conversations", description: "commands.conversations" },
   { name: "/move", usage: "/move", description: "commands.move" },
   { name: "/notifications", usage: "/notifications", description: "commands.notifications" },

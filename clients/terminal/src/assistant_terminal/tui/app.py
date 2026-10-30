@@ -170,7 +170,7 @@ class AssistantApp(App):
         self._agents: dict[str, Agent] = {}
         self._plugin_updates = PluginUpdates(service.repositories, lambda text: self.notify(text, timeout=10))
         self._commands: dict[str, Callable[[str], Awaitable[None]]] = {
-            "/new": self._command_new,
+            "/clear": self._command_clear,
             "/inbox": self._command_inbox,
             "/move": self._command_move,
             "/conversations": self._command_conversations,
@@ -728,7 +728,7 @@ class AssistantApp(App):
 
     @reports_daemon_unavailable
     async def action_new_thread(self) -> None:
-        await self._command_new("")
+        await self._command_clear("")
 
     def action_toggle_memory(self) -> None:
         self.query_one(MemoryPanel).toggle_class("hidden")
@@ -759,7 +759,7 @@ class AssistantApp(App):
     def _status(self) -> StatusLine:
         return self.query_one("#status", StatusLine)
 
-    async def _command_new(self, _: str) -> None:
+    async def _command_clear(self, _: str) -> None:
         still_running = self._busy
         self._stop_showing_turn()
         await self._live.start_new(leave_running=still_running)
@@ -969,7 +969,7 @@ class AssistantApp(App):
         if folder is None:
             return
         if self._live.session.thread_id == self._inbox_id:
-            await self._command_new("")
+            await self._command_clear("")
         try:
             handoff = await self._service.conversations.hand_to(self._live.session.thread_id, agent.command, folder)
         except HandoffError as e:
@@ -982,7 +982,7 @@ class AssistantApp(App):
 
     async def _command_get_to_know_me(self, _: str) -> None:
         """In a conversation of its own."""
-        await self._command_new("")
+        await self._command_clear("")
         await self._send(GET_TO_KNOW_ME, [])
 
     async def _command_help(self, _: str) -> None:
@@ -1094,7 +1094,7 @@ def _conversations_note(listed: list[Conversation]) -> str:
     lines = [f"- **{listed_title(c)}** · {when(c)}" for c in listed]
     hint = t(
         "Write a message: it goes on in the conversation it's about, or starts a new one. "
-        "/conversations opens one, /new starts one, /notifications shows what finished."
+        "/conversations opens one, /clear starts one, /notifications shows what finished."
     )
     if not lines:
         return "### " + t("No conversations yet") + f"\n\n{hint}"

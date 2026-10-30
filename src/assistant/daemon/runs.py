@@ -116,7 +116,7 @@ class RunHub:
             asyncio.get_running_loop().call_later(_KEEP_SECONDS, self._runs.pop, run.id, None)
 
     def _announce_finished(self, run: Run) -> None:
-        """Lets clients that stopped watching (for example after /new) know the run is done."""
+        """Lets clients that stopped watching (for example after /clear) know the run is done."""
         if self._bus is None:
             return
         reply = "".join(e["text"] for e in run.events if e["type"] == TextDelta.__name__).strip()

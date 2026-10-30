@@ -9,8 +9,8 @@ Where things are:
 
 - Terminal app: slash commands typed in the message box. Typing `/` lists them.
 - Web UI: http://127.0.0.1:8765/app/ in a browser on the computer running the assistant; from other devices, its HTTPS address (`HTTPS_HOST` and `HTTPS_PORT` in its `.env`), after pairing the browser once with a code from `/devices`. Settings is in the sidebar, with the tabs General, About you, Audio, Plugins, MCP servers and Skills.
-- Telegram: only chatting, `/new` (start a new conversation) and `/start`. Nothing can be set up from Telegram; send the user to the terminal app or the web UI.
-- Slack: only chatting in the app's DM, and `/new` (start a new conversation). Nothing can be set up from Slack; send the user to the terminal app or the web UI.
+- Telegram: only chatting, `/clear` (start a new conversation) and `/start`. Nothing can be set up from Telegram; send the user to the terminal app or the web UI.
+- Slack: only chatting in the app's DM, and `/clear` (start a new conversation). Nothing can be set up from Slack; send the user to the terminal app or the web UI.
 
 ## The model (provider and its keys)
 
