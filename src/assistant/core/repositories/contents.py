@@ -11,6 +11,7 @@ from pathlib import Path
 from langgraph.store.base import BaseStore
 
 from assistant.core.channels import legacy
+from assistant.core.i18n import said
 from assistant.core.integrations.email import accounts as email_accounts
 from assistant.core.mcp import data_key, keys, servers
 from assistant.core.mcp import install as server_install
@@ -40,6 +41,11 @@ class RepositoryContents:
 class Installed:
     skills: list[Skill]
     servers: list[McpServer]
+
+
+def in_language(found: RepositoryContents, language: str) -> RepositoryContents:
+    """With its servers' text in `language` where their server.yaml translates it (install.in_language)."""
+    return replace(found, servers=[server_install.in_language(s, language) for s in found.servers])
 
 
 async def browse(store: BaseStore, url: str, token: str = "") -> RepositoryContents:
@@ -96,7 +102,10 @@ async def _download(url: str, token: str) -> Listing:
         skills, (found_servers, problems) = await asyncio.to_thread(_find, root, url)
     if not skills and not found_servers and not problems:
         raise RepositoryError(
-            "No skills or MCP servers there: a skill is a folder with a SKILL.md, a server a folder with a server.yaml."
+            said(
+                "No skills or MCP servers there: a skill is a folder with a SKILL.md, a server a folder with a "
+                "server.yaml."
+            )
         )
     return Listing(commit, [c.found() for c in skills.values()], [c.found for c in found_servers.values()], problems)
 
@@ -118,7 +127,7 @@ async def install(
     is saved; when one fails, the servers this installed are taken out again and nothing is. Raises
     RepositoryError, SkillError or McpServerError, saying what's wrong."""
     if not skills and not wanted:
-        raise RepositoryError("Pick at least one skill or MCP server to install.")
+        raise RepositoryError(said("Pick at least one skill or MCP server to install."))
     wanted = [await legacy.fill(store, w) for w in wanted]
     wanted = [ServerValues(w.name, await keys.given(store, box, w.name, w.values)) for w in wanted]
     before = {s.name for s in await servers.load_all(store)}

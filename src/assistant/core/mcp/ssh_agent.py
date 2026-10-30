@@ -7,6 +7,7 @@ none, so nothing is added there."""
 import os
 from dataclasses import replace
 
+from assistant.core.i18n import said
 from assistant.core.mcp.servers import McpServer
 
 ENV = "SSH_AUTH_SOCK"
@@ -17,7 +18,7 @@ def parse(value: object) -> bool:
     if value is None:
         return False
     if not isinstance(value, bool):
-        raise ValueError("its ssh_agent must be true or false")
+        raise ValueError(said("its ssh_agent must be true or false"))
     return value
 
 

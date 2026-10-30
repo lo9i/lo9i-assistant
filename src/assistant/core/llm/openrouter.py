@@ -18,6 +18,7 @@ from openrouter import OpenRouter
 from openrouter.utils import BackoffStrategy, RetryConfig
 from pydantic import SecretStr
 
+from assistant.core.i18n import said
 from assistant.core.llm import connections
 
 API = "https://openrouter.ai/api/v1"
@@ -115,7 +116,9 @@ async def _models(transport: httpx.AsyncBaseTransport | None) -> list[dict]:
         try:
             response = await http.get(f"{API}/models", timeout=_TIMEOUT)
         except httpx.HTTPError as e:
-            raise OpenRouterError(f"Couldn't reach OpenRouter for its models: {e}") from e
+            raise OpenRouterError(said("Couldn't reach OpenRouter for its models: {error}", error=e)) from e
     if response.status_code != 200:
-        raise OpenRouterError(f"OpenRouter didn't list its models ({response.status_code}).")
+        raise OpenRouterError(
+            said("OpenRouter didn't list its models ({status_code}).", status_code=response.status_code)
+        )
     return response.json().get("data", [])

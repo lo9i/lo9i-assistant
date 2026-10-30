@@ -14,12 +14,12 @@ from textual.widgets.selection_list import Selection
 
 from assistant.client.daemon_client import SkillsApi
 from assistant.core.agent import Importable, ImportOutcome
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 
 class SkillImportsScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"skills"})
 
     def __init__(self, skills: SkillsApi) -> None:

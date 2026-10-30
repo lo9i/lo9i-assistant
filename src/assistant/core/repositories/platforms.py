@@ -5,6 +5,8 @@ agent doesn't offer it, and it can't be installed or updated there."""
 
 import sys
 
+from assistant.core.i18n import said
+
 PLATFORMS = ("linux", "macos")
 # sys.platform's names for them.
 _SYSTEMS = {"darwin": "macos", "linux": "linux"}
@@ -20,10 +22,16 @@ def parse(value: object) -> list[str]:
     if value is None:
         return []
     if not isinstance(value, str | list):
-        raise ValueError("its platforms must be a name or a list of names")
+        raise ValueError(said("its platforms must be a name or a list of names"))
     names = [value] if isinstance(value, str) else [str(n) for n in value]
     if unknown := sorted(set(names) - set(PLATFORMS)):
-        raise ValueError(f"its platforms {', '.join(unknown)} aren't any of {', '.join(PLATFORMS)}")
+        raise ValueError(
+            said(
+                "its platforms {unknown} aren't any of {platforms}",
+                unknown=", ".join(unknown),
+                platforms=", ".join(PLATFORMS),
+            )
+        )
     return names
 
 

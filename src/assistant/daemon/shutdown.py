@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
+from assistant.core.i18n import said
 from assistant.protocol import NoEndingError, StopRefusedError
 
 logger = logging.getLogger(__name__)
@@ -145,7 +146,7 @@ class Shutdown:
         """An update was installed: restarts once no run is in progress, so it runs, and can't be taken back. A
         stop asked for before stays a stop: the update runs when the daemon is started again. Returns how many runs
         it waits for."""
-        self._needed_by = self._needed_by or "An update was installed"
+        self._needed_by = self._needed_by or said("An update was installed")
         if self._waiting is not None and not self._going_ahead and self._wanted is Ending.STOP:
             self._announce_pending()  # It can't be taken back any more.
             return self._runs.runs_in_progress()
@@ -172,22 +173,32 @@ class Shutdown:
         """The daemon keeps running. Raises NoEndingError when no restart or stop is waiting."""
         waiting = self._waiting
         if waiting is None or self._going_ahead:
-            raise NoEndingError("No restart or stop is waiting to be taken back.")
+            raise NoEndingError(said("No restart or stop is waiting to be taken back."))
         if self._needed_by:
-            raise NoEndingError(
-                f"{self._needed_by}, so the {self._wanted} can't be taken back: it goes ahead once the runs in"
-                " progress end. Now cancels them."
-            )
+            raise NoEndingError(self._not_taken_back())
         waiting.cancel()
         self._waiting = None
         logger.info("The %s was taken back by %s.", self._wanted, by or "a client")
         self._announce(Pending(self._wanted, 0), True)
 
+    def _not_taken_back(self) -> str:
+        if self._wanted is Ending.STOP:
+            return said(
+                "{needed_by}, so the stop can't be taken back: it goes ahead once the runs in progress end. Now "
+                "cancels them.",
+                needed_by=self._needed_by,
+            )
+        return said(
+            "{needed_by}, so the restart can't be taken back: it goes ahead once the runs in progress end. Now "
+            "cancels them.",
+            needed_by=self._needed_by,
+        )
+
     def now(self, by: str = "") -> int:
         """Cancels the runs the restart or stop waits for, so it goes ahead now. Returns how many were cancelled.
         Raises NoEndingError when none is waiting."""
         if self.pending() is None:
-            raise NoEndingError("No restart or stop is waiting for runs.")
+            raise NoEndingError(said("No restart or stop is waiting for runs."))
         cancelled = self._runs.cancel_runs()
         logger.info("%s cancelled %s run(s) so the %s goes ahead now.", by or "A client", cancelled, self._wanted)
         return cancelled

@@ -41,7 +41,7 @@ _NO_LINGER = translatable(
 
 
 class StartupScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
 
     def __init__(self, system: SystemApi) -> None:
         super().__init__()

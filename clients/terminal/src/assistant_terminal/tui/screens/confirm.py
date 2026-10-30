@@ -9,15 +9,15 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Static
 
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 
 
 class ConfirmScreen(ModalScreen[bool]):
     """Returns True when the user confirms."""
 
     BINDINGS: ClassVar[list[BindingType]] = [
-        Binding("y", "confirm", t("Confirm")),
-        Binding("escape", "cancel", t("Cancel")),
+        Binding("y", "confirm", translatable("Confirm")),
+        Binding("escape", "cancel", translatable("Cancel")),
     ]
 
     def __init__(self, question: str, action: str) -> None:
@@ -49,7 +49,7 @@ class ConfirmWithOptionScreen(ModalScreen[bool | None]):
     """Like ConfirmScreen, with a checkbox, unchecked at first. Returns None when cancelled, else
     whether the box was checked."""
 
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "cancel", t("Cancel"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "cancel", translatable("Cancel"))]
 
     def __init__(self, question: str, action: str, option: str) -> None:
         super().__init__()

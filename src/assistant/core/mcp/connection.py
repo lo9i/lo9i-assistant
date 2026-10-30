@@ -24,6 +24,7 @@ from mcp.types import CallToolResult, Implementation, TextContent, Tool, ToolLis
 from assistant.core.background import Origin
 from assistant.core.config import settings
 from assistant.core.health import HealthLog
+from assistant.core.i18n import message, said
 from assistant.core.mcp.background import BackgroundWork, WorkFinished, WorkStarted, origin_meta
 from assistant.core.mcp.oauth import McpAuth, SignInNeededError, needs_sign_in
 from assistant.core.mcp.on_demand import OnDemand
@@ -155,14 +156,14 @@ class McpConnection:
     async def _failed(self, error: Exception) -> None:
         logger.warning("MCP server %s: %s", self.server.name, describe(error))
         self._set(ConnectionState("failed", describe(error), self._known_tools()))
-        await self._health.failed("mcp", self.server.name, f"Couldn't connect: {describe(error)}")
+        await self._health.failed("mcp", self.server.name, said("Couldn't connect: {error}", error=describe(error)))
         self._attempt_failed.set()
 
     async def _wait_for_sign_in(self, error: SignInNeededError, stop: asyncio.Event) -> None:
         """Until stopped: a sign-in restarts the connection (McpHub.restart)."""
-        self._set(ConnectionState("needs_sign_in", str(error)))
+        self._set(ConnectionState("needs_sign_in", message(error)))
         if error.lost:
-            await self._health.signed_out(self.server.name, str(error))
+            await self._health.signed_out(self.server.name, message(error))
         await stop.wait()
 
     async def call(
@@ -176,10 +177,12 @@ class McpConnection:
                 await self._wake()
                 result = await self._call(tool, arguments, progress, origin)
         except Exception as e:
-            await self._health.failed("mcp", self.server.name, f"{tool}: {describe(e)}")
+            await self._health.failed("mcp", self.server.name, said("{tool}: {error}", tool=tool, error=describe(e)))
             raise
         if result.is_error:
-            await self._health.failed("mcp", self.server.name, f"{tool}: {_error_text(result)}")
+            await self._health.failed(
+                "mcp", self.server.name, said("{tool}: {error}", tool=tool, error=_error_text(result))
+            )
         else:
             await self._health.succeeded("mcp", self.server.name)
         return result
@@ -324,10 +327,10 @@ async def _wait(stop: asyncio.Event, seconds: float) -> None:
 
 def _error_text(result: CallToolResult) -> str:
     text = " ".join(block.text for block in result.content if isinstance(block, TextContent))
-    return text or "the tool reported an error"
+    return text or said("the tool reported an error")
 
 
 def describe(error: BaseException) -> str:
     if isinstance(error, BaseExceptionGroup) and error.exceptions:
         return describe(error.exceptions[0])
-    return str(error) or type(error).__name__
+    return message(error) or type(error).__name__

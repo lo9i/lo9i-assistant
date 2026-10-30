@@ -16,7 +16,7 @@ from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import McpApi, OAuthApi, RepositoriesApi
 from assistant.core.agent import McpServerChanges, McpServerError, McpServerStatus
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.mcp_text import describe, selection, shown, summary, tool_label
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
@@ -27,7 +27,7 @@ from assistant_terminal.tui.screens.mcp_sign_in import McpSignInScreen
 
 
 class McpScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"mcp"})
 
     def __init__(self, mcp: McpApi, oauth: OAuthApi, repositories: RepositoriesApi) -> None:

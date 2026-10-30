@@ -14,17 +14,17 @@ from textual.widgets import Button, OptionList, Static
 from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import DaemonClient
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.open_text import OpenItem, line, open_list
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 
 class OpenConversationsScreen(ModalScreen[str | None]):
     BINDINGS: ClassVar[list[BindingType]] = [
-        Binding("escape", "dismiss(None)", t("Close")),
+        Binding("escape", "dismiss(None)", translatable("Close")),
         # Priority, so it runs before the list's own Enter.
         Binding("enter", "switch", show=False, priority=True),
-        Binding("delete,x", "close_conversation", t("Close it"), show=False),
+        Binding("delete,x", "close_conversation", translatable("Close it"), show=False),
     ]
     # A conversation titled or deleted, a reply or a coding task starting or ending anywhere.
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset(

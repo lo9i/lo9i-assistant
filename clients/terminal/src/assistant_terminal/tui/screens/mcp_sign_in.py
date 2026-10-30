@@ -14,8 +14,8 @@ from textual.widgets import Button, Input, Markdown
 
 from assistant.client.daemon_client import McpApi, OAuthApi
 from assistant.core.agent import McpServerError, SignInError
-from assistant_terminal.i18n import t
-from assistant_terminal.sign_in_text import MISSING_CODE, PASTE_HINT, REDIRECT, returned, signing_message
+from assistant_terminal.i18n import t, translatable
+from assistant_terminal.sign_in_text import REDIRECT, missing_code, paste_hint, returned, signing_message
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 
@@ -23,7 +23,7 @@ class McpSignInScreen(ModalScreen[bool]):
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"mcp"})
     """Returns True when the server is signed in."""
 
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(False)", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(False)", translatable("Close"))]
 
     def __init__(self, mcp: McpApi, oauth: OAuthApi, name: str) -> None:
         super().__init__()
@@ -40,7 +40,7 @@ class McpSignInScreen(ModalScreen[bool]):
                 + t("Asking {server} for its sign-in page…", server=self._server),
                 id="mcp-sign-in-body",
             )
-            yield Input(placeholder=PASTE_HINT, id="mcp-returned")
+            yield Input(placeholder=paste_hint(), id="mcp-returned")
             with Horizontal(id="mcp-sign-in-buttons"):
                 yield Button(t("Finish"), variant="success", id="finish")
                 yield Button(t("Close"), id="close")
@@ -71,7 +71,7 @@ class McpSignInScreen(ModalScreen[bool]):
     async def _finish(self) -> None:
         state, code = returned(self.query_one("#mcp-returned", Input).value)
         if not state or not code:
-            await self._say(MISSING_CODE)
+            await self._say(missing_code())
             return
         try:
             await self._oauth.finish(state, code)

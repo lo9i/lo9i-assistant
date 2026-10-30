@@ -11,6 +11,7 @@ from assistant.core.handed_folder import changes, contents, paths
 from assistant.core.handed_folder.changes import FolderChanges
 from assistant.core.handed_folder.contents import FolderContents, FolderEntry
 from assistant.core.handed_folder.paths import HandedFolderError, MissingPathError
+from assistant.core.i18n import message
 
 
 @dataclass(frozen=True)
@@ -48,7 +49,7 @@ async def _listing(root: Path, path: str, found: FolderChanges) -> ListedFolder:
     try:
         return ListedFolder(path, await _listed(root, path, found))
     except HandedFolderError as e:
-        return ListedFolder(path, error=str(e))
+        return ListedFolder(path, error=message(e))
 
 
 async def _listed(root: Path, path: str, found: FolderChanges) -> FolderContents:

@@ -11,6 +11,8 @@ from pathlib import Path
 from cryptography.fernet import Fernet, InvalidToken
 from langgraph.store.base import BaseStore
 
+from assistant.core.i18n import said
+
 _NAMESPACE = ("secrets",)
 
 
@@ -37,7 +39,7 @@ class SecretBox:
         try:
             return self._fernet.decrypt(token.encode()).decode()
         except InvalidToken as e:
-            raise SecretError("The secret can't be read with this key file.") from e
+            raise SecretError(said("The secret can't be read with this key file.")) from e
 
 
 async def put(store: BaseStore, box: SecretBox, ref: str, value: str) -> None:

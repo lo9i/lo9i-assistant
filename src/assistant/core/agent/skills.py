@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 
 from assistant.core.agent.base import ServiceBase
 from assistant.core.health import Health
+from assistant.core.i18n import said
 from assistant.core.repositories import listed
 from assistant.core.repositories.listed import KeptKeys
 from assistant.core.skills import install, store
@@ -45,7 +46,7 @@ class SkillsMixin(ServiceBase):
         """Change a saved skill. Raises SkillError for an unknown or built-in skill, or empty text."""
         await self.get_skill(name)
         if not description.strip() or not instructions.strip():
-            raise SkillError("A skill needs a description and instructions.")
+            raise SkillError(said("A skill needs a description and instructions."))
         skill = await asyncio.to_thread(store.save, name, description, instructions)
         self.bus.publish("skills")
         return skill

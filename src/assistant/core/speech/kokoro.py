@@ -11,6 +11,7 @@ import httpx
 from kokoro_onnx import Kokoro
 
 from assistant.core.config import settings
+from assistant.core.i18n import said
 from assistant.core.speech.synthesizer import Speech, SynthesisError
 from assistant.core.speech.voices import voice
 
@@ -28,13 +29,13 @@ class KokoroSynthesizer:
     async def synthesize(self, text: str, voice_id: str) -> Speech:
         chosen = voice(voice_id)
         if chosen is None:
-            raise SynthesisError(f"Unknown voice {voice_id!r}.")
+            raise SynthesisError(said("Unknown voice {voice_id!r}.", voice_id=voice_id))
         async with self._lock:
             try:
                 kokoro = await self._load()
                 samples, rate = await asyncio.to_thread(kokoro.create, text, voice=chosen.id, lang=chosen.lang)
             except (httpx.HTTPError, OSError, RuntimeError, ValueError) as e:
-                raise SynthesisError(f"Couldn't speak the reply: {e}") from e
+                raise SynthesisError(said("Couldn't speak the reply: {error}", error=e)) from e
         return Speech(samples, rate)
 
     async def _load(self) -> Kokoro:

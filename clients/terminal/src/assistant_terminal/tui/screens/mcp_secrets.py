@@ -13,7 +13,7 @@ from textual.widgets import Button, Markdown, TextArea
 
 from assistant.client.daemon_client import McpApi
 from assistant.core.agent import McpServerChanges, McpServerError, McpServerStatus
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.mcp_text import parse_pairs
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
@@ -21,7 +21,7 @@ from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 class McpSecretsScreen(ModalScreen[bool]):
     """Returns True when the secrets were replaced."""
 
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(False)", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(False)", translatable("Close"))]
 
     def __init__(self, mcp: McpApi, server: McpServerStatus) -> None:
         super().__init__()

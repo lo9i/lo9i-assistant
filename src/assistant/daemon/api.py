@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import quote
 
-from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
@@ -111,6 +112,7 @@ from assistant.core.config import settings
 from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
 from assistant.core.conversation.held import from_app
 from assistant.core.events import ApprovalRequired
+from assistant.core.i18n import Said, Texts, holds_said, message, said
 from assistant.core.logs import (
     MAX_LINES,
     LogEntry,
@@ -124,6 +126,7 @@ from assistant.core.logs import (
     log_options,
 )
 from assistant.core.memory.profile import MAX_ITEMS, Section
+from assistant.core.repositories import contents, listed
 from assistant.core.repositories.known import EXTRAS
 from assistant.daemon import host
 from assistant.daemon.auth import (
@@ -145,6 +148,7 @@ from assistant.protocol import (
     CLIENT_HEADER,
     CLIENT_ID_HEADER,
     END,
+    LANGUAGE_HEADER,
     ConnectedClient,
     HostStatus,
     NoEndingError,
@@ -606,6 +610,7 @@ def create_app(
     _require_client_header(app)
     _require_known_host(app)
     _add_security_headers(app)
+    _answer_errors_in_language(app, service)
     clients = ClientRegistry(
         service.bus, leave=partial(service.leave_thread, settings.owner_id), gone=service.unwatch_home
     )
@@ -674,6 +679,27 @@ def _require_client_header(app: FastAPI) -> None:
         return await call_next(request)
 
 
+def _answer_errors_in_language(app: FastAPI, service: AssistantService) -> None:
+    """An error's detail written with `said` (core/i18n) goes in the language of the app that asked."""
+    app.state.service = service
+
+    @app.exception_handler(HTTPException)
+    async def in_language(request: Request, error: HTTPException) -> Response:
+        if isinstance(error.detail, Said):
+            error.detail = (await _answering(request)).shown(error.detail)
+        return await http_exception_handler(request, error)
+
+
+async def _answering(request: Request) -> Texts:
+    """The core's text in the language of the app that asked (`LANGUAGE_HEADER`): a route whose answer has text
+    written with `said` in it (a skill's problems, a provider's fields) returns `texts.within(answer)`."""
+    service: AssistantService = request.app.state.service
+    return await service.texts(request.headers.get(LANGUAGE_HEADER))
+
+
+_Answering = Annotated[Texts, Depends(_answering)]
+
+
 def _require_known_host(app: FastAPI) -> None:
     """Rejects network requests that name a host other than localhost or HTTPS_HOST. A site that
     points its domain at the daemon's address is same-origin with it, so the client header alone
@@ -712,7 +738,9 @@ def _add_client_routes(
         the last id it received and gets what it missed. The runs the client follows
         (`PUT /events/runs/<id>`) come down it too."""
         start = resume_point(service.bus.last_id, request.headers.get("last-event-id"), after)
-        events = follows.events(_stream_key(request), _bus_events(service, start, clients, _client(request)))
+        events = follows.events(
+            _stream_key(request), _bus_events(service, start, clients, _client(request), request.headers)
+        )
         return EventSourceResponse(streams.guard(events, device_of(request)), ping=15)
 
     @app.get("/clients")
@@ -729,7 +757,7 @@ def _add_run_follow_routes(app: FastAPI, hub: RunHub, follows: StreamFollows) ->
         _require_stream(request)
         run = hub.get(body.run_id)
         if run is None:
-            raise HTTPException(404, "Unknown or expired run")
+            raise HTTPException(404, said("Unknown or expired run"))
         follows.follow(_stream_key(request), follow_id, run_source(hub, follow_id, run, body.after))
         return Ok()
 
@@ -852,7 +880,7 @@ def _add_run_routes(
     async def run_events(run_id: str, request: Request, after: int = 0) -> EventSourceResponse:
         run = hub.get(run_id)
         if run is None:
-            raise HTTPException(404, "Unknown or expired run")
+            raise HTTPException(404, said("Unknown or expired run"))
         start = int(request.headers.get("last-event-id") or after)
         return EventSourceResponse(streams.guard(_sse(hub.follow(run, start)), device_of(request)))
 
@@ -876,7 +904,7 @@ def _add_conversation_routes(app: FastAPI, service: AssistantService, clients: C
         try:
             return await service.conversation(settings.owner_id, thread_id)
         except ConversationError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
 
     @app.get("/conversations/{thread_id}/messages")
     async def conversation_messages(thread_id: str) -> list[ShownMessage]:
@@ -889,7 +917,7 @@ def _add_conversation_routes(app: FastAPI, service: AssistantService, clients: C
         try:
             return await service.conversation_tool_call(thread_id, call_id)
         except ConversationError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
 
     @app.get("/conversations/{thread_id}/tool-calls/{call_id}/steps/{index}")
     async def conversation_tool_call_step(thread_id: str, call_id: str, index: int) -> ShownCall:
@@ -899,7 +927,7 @@ def _add_conversation_routes(app: FastAPI, service: AssistantService, clients: C
         try:
             return await service.conversation_tool_call_step(thread_id, call_id, index)
         except ConversationError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
 
     @app.get("/conversations/{thread_id}/stats")
     async def conversation_stats(thread_id: str) -> ConversationStats:
@@ -919,7 +947,7 @@ def _add_conversation_routes(app: FastAPI, service: AssistantService, clients: C
         try:
             await service.require_conversation(settings.owner_id, thread_id)
         except ConversationError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
         clients.on_thread(_client_id(request), thread_id)
         return Ok()
 
@@ -931,9 +959,9 @@ def _add_conversation_routes(app: FastAPI, service: AssistantService, clients: C
         try:
             await service.delete_conversation(settings.owner_id, thread_id)
         except ConversationBusyError as e:
-            raise HTTPException(409, str(e)) from e
+            raise HTTPException(409, message(e)) from e
         except ConversationError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
         return Ok()
 
 
@@ -957,7 +985,7 @@ def _add_handoff_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return await service.child_folders(path, hidden)
         except FolderError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.get("/conversations/{thread_id}/agent")
     async def conversation_agent(thread_id: str) -> ConversationAgent:
@@ -969,7 +997,7 @@ def _add_handoff_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             handoff = await service.hand_conversation(settings.owner_id, thread_id, body.command, body.folder)
         except HandoffError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
         return ConversationAgent(handoff=handoff)
 
     @app.delete("/conversations/{thread_id}/agent")
@@ -987,12 +1015,12 @@ def _add_handoff_routes(app: FastAPI, service: AssistantService) -> None:
         last one; it takes it between its steps. 400: neither text nor files. 409: it isn't working, or can't
         take messages while it works."""
         if not text.strip() and not files:
-            raise HTTPException(400, "Write a message or attach a file.")
+            raise HTTPException(400, said("Write a message or attach a file."))
         attachments = [await _attachment(f) for f in files or []]
         try:
             await service.message_agent(settings.owner_id, thread_id, text, attachments)
         except HandoffError as e:
-            raise HTTPException(409, str(e)) from e
+            raise HTTPException(409, message(e)) from e
         return Ok()
 
     @app.post("/conversations/{thread_id}/agent/interrupt")
@@ -1001,7 +1029,7 @@ def _add_handoff_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             await service.interrupt_agent(settings.owner_id, thread_id)
         except HandoffError as e:
-            raise HTTPException(409, str(e)) from e
+            raise HTTPException(409, message(e)) from e
         return Ok()
 
 
@@ -1040,9 +1068,9 @@ async def _memory_call[T](call: Awaitable[T]) -> T:
     try:
         return await call
     except MemoryNotFoundError as e:
-        raise HTTPException(404, str(e)) from e
+        raise HTTPException(404, message(e)) from e
     except MemoryEditError as e:
-        raise HTTPException(400, str(e)) from e
+        raise HTTPException(400, message(e)) from e
 
 
 def _add_pinned_skill_routes(app: FastAPI, service: AssistantService) -> None:
@@ -1058,7 +1086,7 @@ def _add_pinned_skill_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return PinnedSkills(skills=await service.pin_skill(settings.owner_id, thread_id, name))
         except SkillError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
 
     @app.delete("/conversations/{thread_id}/pinned/{name}")
     async def unpin_skill(thread_id: str, name: str) -> PinnedSkills:
@@ -1068,9 +1096,11 @@ def _add_pinned_skill_routes(app: FastAPI, service: AssistantService) -> None:
 def _refuse_if_open(clients: ClientRegistry, thread_id: str, caller: str) -> None:
     on_it = clients.on(thread_id)
     if caller in on_it:
-        raise HTTPException(409, "You're on this conversation. Start a new one first, then delete it.")
+        raise HTTPException(409, said("You're on this conversation. Start a new one first, then delete it."))
     if on_it:
-        raise HTTPException(409, "It's open in another window or app. Move that one to another conversation first.")
+        raise HTTPException(
+            409, said("It's open in another window or app. Move that one to another conversation first.")
+        )
 
 
 # A page of a list the apps load as it's scrolled (Files, Notifications). Without one, the whole list, as
@@ -1116,11 +1146,13 @@ def _add_handed_folder_routes(app: FastAPI, service: AssistantService) -> None:
         return await _handed_folder(service.handed_folder_changes(settings.owner_id, thread_id))
 
     @app.get("/conversations/{thread_id}/agent/folder/refresh")
-    async def refresh_handed_folder(thread_id: str, path: Annotated[list[str], Query()]) -> FolderRefresh:
+    async def refresh_handed_folder(
+        thread_id: str, path: Annotated[list[str], Query()], texts: _Answering
+    ) -> FolderRefresh:
         """Each folder in `path` (repeated, "" for the folder itself) as `/folder` lists it, and what git says changed,
         git asked once: the panel's refresh, with every open folder. A folder that can't be read (gone since, a path
         it doesn't show) says why in its `error` instead of failing the rest."""
-        return await _handed_folder(service.refresh_handed_folder(settings.owner_id, thread_id, path))
+        return texts.within(await _handed_folder(service.refresh_handed_folder(settings.owner_id, thread_id, path)))
 
     @app.get("/folders/home")
     async def home_folder_contents(path: str = "") -> FolderContents:
@@ -1153,11 +1185,11 @@ async def _handed_folder[T](reading: Awaitable[T]) -> T:
     try:
         return await reading
     except (NotHandedError, MissingPathError) as e:
-        raise HTTPException(404, str(e)) from e
+        raise HTTPException(404, message(e)) from e
     except DeletingOffError as e:
-        raise HTTPException(403, str(e)) from e
+        raise HTTPException(403, message(e)) from e
     except HandedFolderError as e:
-        raise HTTPException(400, str(e)) from e
+        raise HTTPException(400, message(e)) from e
 
 
 def _add_file_routes(app: FastAPI, service: AssistantService) -> None:
@@ -1174,7 +1206,7 @@ def _add_file_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             file, data = await service.file_content(settings.owner_id, path)
         except FileUnavailableError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
         disposition = f"inline; filename*=UTF-8''{quote(file.name)}"
         return Response(data, media_type=file.media_type, headers={"Content-Disposition": disposition})
 
@@ -1189,7 +1221,7 @@ def _add_web_search_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return await service.set_brave_key(body.key)
         except InvalidSearchKeyError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.delete("/integrations/web-search/brave-key")
     async def remove_brave_key() -> WebSearchStatus:
@@ -1207,11 +1239,11 @@ def _add_channel_routes(app: FastAPI, service: AssistantService) -> None:
     async def press_channel_action(name: str, action: str, request: Request) -> Ok:
         """409: the channel isn't connected."""
         if channel_of(request) is not None:
-            raise HTTPException(403, "Only the apps press a channel's buttons.")
+            raise HTTPException(403, said("Only the apps press a channel's buttons."))
         try:
             service.press_channel_action(name, action)
         except ChannelNotConnectedError as e:
-            raise HTTPException(409, str(e)) from e
+            raise HTTPException(409, message(e)) from e
         return Ok()
 
 
@@ -1289,8 +1321,8 @@ def _require_channel(request: Request, name: str) -> None:
 
 def _add_model_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/settings/model/providers")
-    async def model_providers() -> list[ModelProvider]:
-        return service.model_providers()
+    async def model_providers(texts: _Answering) -> list[ModelProvider]:
+        return texts.within(service.model_providers())
 
     @app.get("/settings/model")
     async def model_status() -> ModelStatus:
@@ -1302,7 +1334,7 @@ def _add_model_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return await service.set_model(body.provider, body.values, body.model, body.worker_model)
         except ModelSettingsError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.post("/settings/model/available")
     async def available_models(body: ModelValues) -> list[ModelOption]:
@@ -1311,7 +1343,7 @@ def _add_model_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return await service.available_models(body.provider, body.values)
         except ModelSettingsError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.delete("/settings/model")
     async def reset_model() -> ModelStatus:
@@ -1329,14 +1361,14 @@ def _add_speech_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return await service.set_speech(body.model, body.languages, body.decoding)
         except SpeechSettingsError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.put("/settings/speech/replies")
     async def set_spoken_replies(body: SpokenRepliesChange) -> SpeechStatus:
         try:
             return await service.set_spoken_replies(body.spoken_replies, body.voice)
         except SpeechSettingsError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.post("/speech", response_class=Response, responses=_WAV)
     async def speak(body: SpeakRequest) -> Response:
@@ -1344,7 +1376,7 @@ def _add_speech_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return Response(await service.speak(body.text, "wav", body.voice), media_type="audio/wav")
         except SynthesisError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
 
 def _add_email_routes(app: FastAPI, service: AssistantService) -> None:
@@ -1442,9 +1474,9 @@ async def _email[T](call: Awaitable[T]) -> T:
     try:
         return await call
     except EmailAccountNotFoundError as e:
-        raise HTTPException(404, str(e)) from e
+        raise HTTPException(404, message(e)) from e
     except EmailError as e:
-        raise HTTPException(400, str(e)) from e
+        raise HTTPException(400, message(e)) from e
 
 
 def _add_sign_in_routes(app: FastAPI, service: AssistantService) -> None:
@@ -1457,57 +1489,57 @@ def _add_sign_in_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return await service.finish_sign_in(body.state, body.code)
         except (SignInError, EmailError, McpServerError) as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
 
 def _add_skill_import_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/skill-imports")
-    async def importable_skills() -> Importables:
+    async def importable_skills(texts: _Answering) -> Importables:
         """Claude Code's and Codex's skills on this computer, each with whether it was imported or changed since."""
-        return await service.importable_skills(settings.owner_id)
+        return texts.within(await service.importable_skills(settings.owner_id))
 
     @app.post("/skill-imports")
-    async def import_skills(body: SkillImport) -> list[ImportOutcome]:
+    async def import_skills(body: SkillImport, texts: _Answering) -> list[ImportOutcome]:
         """Import the skills the user picked; one imported before is updated. Each says how it went."""
-        return await service.import_skills(settings.owner_id, body.ids, body.replace)
+        return texts.within(await service.import_skills(settings.owner_id, body.ids, body.replace))
 
 
 def _add_skill_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/skills")
-    async def skills() -> list[SkillSummary]:
-        return await service.list_skills()
+    async def skills(texts: _Answering) -> list[SkillSummary]:
+        return texts.within(await service.list_skills())
 
     @app.get("/skills/{name}")
-    async def skill(name: str) -> Skill:
+    async def skill(name: str, texts: _Answering) -> Skill:
         try:
-            return await service.get_skill(name)
+            return texts.within(await service.get_skill(name))
         except SkillError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
 
     @app.put("/skills/{name}")
-    async def update_skill(name: str, body: SkillChange) -> Skill:
+    async def update_skill(name: str, body: SkillChange, texts: _Answering) -> Skill:
         """404: no such skill. 400: built in, or the text is empty."""
         try:
             await service.get_skill(name)
         except SkillError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
         try:
-            return await service.update_skill(name, body.description, body.instructions)
+            return texts.within(await service.update_skill(name, body.description, body.instructions))
         except SkillError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.post("/skills/{name}/update")
-    async def update_installed_skill(name: str) -> Skill:
+    async def update_installed_skill(name: str, texts: _Answering) -> Skill:
         """Install the skill again from its repository. 404: no such skill. 400: not installed, or
         the repository can't be read."""
         try:
             await service.get_skill(name)
         except SkillError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
         try:
-            return await service.update_installed_skill(name)
+            return texts.within(await service.update_installed_skill(name))
         except (SkillError, RepositoryError) as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.delete("/skills/{name}")
     async def delete_skill(name: str) -> Removed:
@@ -1515,11 +1547,11 @@ def _add_skill_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             await service.get_skill(name)
         except SkillError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
         try:
             return Removed(kept=await service.delete_skill(name))
         except SkillError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
 
 def _add_repository_routes(app: FastAPI, service: AssistantService) -> None:
@@ -1548,7 +1580,7 @@ def _add_repository_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return await service.add_repository(body.url, body.token)
         except RepositoryError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.post("/repositories/remove")
     async def remove_repository(body: RepositoryUrl) -> Ok:
@@ -1556,7 +1588,7 @@ def _add_repository_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             await service.remove_repository(body.url)
         except RepositoryError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
         return Ok()
 
     @app.get("/plugins/keys")
@@ -1573,34 +1605,35 @@ def _add_repository_routes(app: FastAPI, service: AssistantService) -> None:
         return Ok()
 
     @app.get("/repositories/plugins")
-    async def repository_plugins(cached: bool = False) -> list[RepositoryPlugins]:
+    async def repository_plugins(texts: _Answering, cached: bool = False) -> list[RepositoryPlugins]:
         """What every listed repository offers; one that can't be read has an error instead.
         `cached=true` answers from the listings kept from the last read, reaching only a repository
         never read; a read that finds something new publishes `plugins`."""
-        return await service.repository_plugins(cached)
+        plugins = await service.repository_plugins(cached)
+        return texts.within([listed.in_language(p, texts.language) for p in plugins])
 
     @app.post("/repositories/browse")
-    async def browse_repository(body: RepositoryAddress) -> RepositoryContents:
+    async def browse_repository(body: RepositoryAddress, texts: _Answering) -> RepositoryContents:
         """The skills and MCP servers a git repository offers. 400: it can't be read or has none."""
         try:
-            return await service.browse_repository(body.url)
+            return texts.within(contents.in_language(await service.browse_repository(body.url), texts.language))
         except RepositoryError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.post("/repositories/install")
-    async def install_from_repository(body: RepositoryInstall) -> InstalledFromRepository:
+    async def install_from_repository(body: RepositoryInstall, texts: _Answering) -> InstalledFromRepository:
         """400: the repository can't be read, lacks something picked, a name is taken, or a field is empty."""
         wanted = [ServerValues(s.name, s.values) for s in body.servers]
         try:
-            return await service.install_from_repository(body.url, body.skills, wanted)
+            return texts.within(await service.install_from_repository(body.url, body.skills, wanted))
         except (RepositoryError, SkillError, McpServerError) as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
 
 def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/mcp/servers")
-    async def mcp_servers() -> list[McpServerStatus]:
-        return await service.mcp_servers()
+    async def mcp_servers(texts: _Answering) -> list[McpServerStatus]:
+        return texts.within(await service.mcp_servers())
 
     @app.post("/mcp/probe")
     async def probe_mcp_server(body: McpServerSettings) -> McpProbe:
@@ -1609,21 +1642,21 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return await service.probe_mcp_server(body.server())
         except McpServerError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.post("/mcp/servers")
-    async def add_mcp_server(body: McpServerSettings) -> McpServerStatus:
+    async def add_mcp_server(body: McpServerSettings, texts: _Answering) -> McpServerStatus:
         try:
-            return await service.add_mcp_server(body.server())
+            return texts.within(await service.add_mcp_server(body.server()))
         except McpServerError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.patch("/mcp/servers/{name}")
-    async def change_mcp_server(name: str, body: McpServerChange) -> McpServerStatus:
+    async def change_mcp_server(name: str, body: McpServerChange, texts: _Answering) -> McpServerStatus:
         try:
-            return await service.update_mcp_server(name, McpServerChanges(**body.model_dump()))
+            return texts.within(await service.update_mcp_server(name, McpServerChanges(**body.model_dump())))
         except McpServerError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.post("/mcp/servers/{name}/sign-in")
     async def start_mcp_sign_in(name: str, body: McpSignInStart) -> SignInPage:
@@ -1631,11 +1664,11 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
         (/oauth/finish). 404: no such server. 400: a local server, one that can't be reached or
         doesn't ask to sign in."""
         if name not in {s.name for s in await service.mcp_servers()}:
-            raise HTTPException(404, f"No MCP server named {name}.")
+            raise HTTPException(404, said("No MCP server named {name}.", name=name))
         try:
             return SignInPage(url=await service.start_mcp_sign_in(name, body.redirect_uri))
         except McpServerError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.post("/plugins/{name}/sign-in")
     async def start_plugin_sign_in(name: str, body: PluginSignInStart) -> SignInPage:
@@ -1643,24 +1676,24 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
         server.yaml); the browser comes back to `redirect_uri`, which finishes it (/oauth/finish). 404: no such
         plugin. 400: it doesn't sign in, or no client ID."""
         if name not in {s.name for s in await service.mcp_servers()}:
-            raise HTTPException(404, f"No plugin named {name}.")
+            raise HTTPException(404, said("No plugin named {name}.", name=name))
         try:
             return SignInPage(
                 url=await service.start_plugin_sign_in(name, body.client_id, body.client_secret, body.redirect_uri)
             )
         except McpServerError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.get("/plugins/{name}/settings")
     async def plugin_settings(name: str) -> PluginSettings:
         """The plugin's fields with their values, a secret one only saying whether it's set. 404: no such plugin.
         400: added by hand, or its installed folder can't be read."""
         if name not in {s.name for s in await service.mcp_servers()}:
-            raise HTTPException(404, f"No plugin named {name}.")
+            raise HTTPException(404, said("No plugin named {name}.", name=name))
         try:
             return await service.plugin_settings(name)
         except McpServerError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.put("/plugins/{name}/settings")
     async def change_plugin_settings(name: str, body: PluginSettingsChange) -> PluginSettings:
@@ -1668,30 +1701,30 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
         processes start again with them. 404: no such plugin. 400: an unknown field, a required one left empty, or
         what its check says."""
         if name not in {s.name for s in await service.mcp_servers()}:
-            raise HTTPException(404, f"No plugin named {name}.")
+            raise HTTPException(404, said("No plugin named {name}.", name=name))
         try:
             return await service.change_plugin_settings(name, body.values, body.clear)
         except McpServerError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.delete("/plugins/{name}/sign-in")
-    async def sign_out_plugin(name: str) -> McpServerStatus:
+    async def sign_out_plugin(name: str, texts: _Answering) -> McpServerStatus:
         """Forget the plugin's sign-in. 404: no such plugin."""
         try:
-            return await service.sign_out_plugin(name)
+            return texts.within(await service.sign_out_plugin(name))
         except McpServerError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
 
     @app.post("/mcp/servers/{name}/update")
-    async def update_mcp_server_from_repository(name: str) -> McpServerStatus:
+    async def update_mcp_server_from_repository(name: str, texts: _Answering) -> McpServerStatus:
         """Install the server again from its repository. 404: no such server. 400: not installed
         from one, the repository can't be read, or the new version needs a value not given yet."""
         if name not in {s.name for s in await service.mcp_servers()}:
-            raise HTTPException(404, f"No MCP server named {name}.")
+            raise HTTPException(404, said("No MCP server named {name}.", name=name))
         try:
-            return await service.update_mcp_server_from_repository(name)
+            return texts.within(await service.update_mcp_server_from_repository(name))
         except (McpServerError, RepositoryError) as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.delete("/mcp/servers/{name}")
     async def remove_mcp_server(name: str, delete_data: bool = False) -> Removed:
@@ -1700,7 +1733,7 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return Removed(kept=await service.remove_mcp_server(name, delete_data))
         except McpServerError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
 
 
 def _add_alert_routes(app: FastAPI, service: AssistantService) -> None:
@@ -1733,14 +1766,14 @@ def _add_doctor_routes(app: FastAPI, service: AssistantService) -> None:
     async def mark_known(cause_id: str) -> DoctorPage:
         """The cause is noise: left out from now on. 404: the latest check didn't find it."""
         if not await service.mark_known(settings.owner_id, cause_id):
-            raise HTTPException(404, f"The latest check found no cause {cause_id}.")
+            raise HTTPException(404, said("The latest check found no cause {cause}.", cause=cause_id))
         return await service.doctor_page(settings.owner_id)
 
     @app.delete("/doctor/known/{cause_id}")
     async def forget_known(cause_id: str) -> DoctorPage:
         """The cause shows again from the next check. 404: it wasn't marked."""
         if not await service.forget_known(settings.owner_id, cause_id):
-            raise HTTPException(404, f"No known cause {cause_id}.")
+            raise HTTPException(404, said("No known cause {cause}.", cause=cause_id))
         return await service.doctor_page(settings.owner_id)
 
 
@@ -1761,7 +1794,7 @@ def _add_notification_routes(app: FastAPI, service: AssistantService) -> None:
     async def dismiss_notification(notification_id: str) -> Ok:
         """404: no such notification."""
         if not await service.dismiss_notification(settings.owner_id, notification_id):
-            raise HTTPException(404, f"No notification {notification_id}.")
+            raise HTTPException(404, said("No notification {notification}.", notification=notification_id))
         return Ok()
 
     @app.delete("/notifications")
@@ -1801,7 +1834,7 @@ def _add_home_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return await service.save_home_sections(settings.owner_id, body.sections)
         except HomeSectionsError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.delete("/home/sections")
     async def reset_home_sections() -> HomePage:
@@ -1819,9 +1852,9 @@ def _add_home_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return HomePins(threads=await service.pin_to_home(settings.owner_id, thread_id))
         except ConversationError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
         except HomePinError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.delete("/home/pins/{thread_id}")
     async def unpin_from_home(thread_id: str) -> HomePins:
@@ -1845,7 +1878,7 @@ def _add_job_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return await service.set_job_enabled(settings.owner_id, name, body.enabled)
         except JobError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.get("/jobs/{name}/reply")
     async def job_run_reply(name: str, at: str) -> JobRunReply:
@@ -1853,14 +1886,14 @@ def _add_job_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return JobRunReply(text=await service.job_run_reply(settings.owner_id, name, at))
         except JobError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
 
     @app.delete("/jobs/{name}")
     async def delete_job(name: str) -> Ok:
         try:
             await service.delete_job(settings.owner_id, name)
         except JobError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
         return Ok()
 
 
@@ -1874,7 +1907,7 @@ def _add_identity_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return AssistantName(name=await service.rename_assistant(body.name))
         except InvalidNameError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
 
 def _add_prompt_routes(app: FastAPI, service: AssistantService) -> None:
@@ -1882,8 +1915,8 @@ def _add_prompt_routes(app: FastAPI, service: AssistantService) -> None:
     user message in each conversation."""
 
     @app.get("/settings/prompts")
-    async def prompt_sections() -> list[PromptSection]:
-        return await service.prompt_sections()
+    async def prompt_sections(texts: _Answering) -> list[PromptSection]:
+        return texts.within(await service.prompt_sections())
 
     @app.put("/settings/prompts/{name}")
     async def save_prompt(name: str, body: PromptText) -> PromptSection:
@@ -1891,9 +1924,9 @@ def _add_prompt_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return await service.save_prompt(name, body.text)
         except UnknownPromptError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
         except PromptEditError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.post("/settings/prompts/{name}/kept")
     async def keep_prompt(name: str) -> PromptSection:
@@ -1902,9 +1935,9 @@ def _add_prompt_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return await service.keep_prompt(name)
         except UnknownPromptError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
         except PromptEditError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.delete("/settings/prompts/{name}")
     async def reset_prompt(name: str) -> PromptSection:
@@ -1912,9 +1945,9 @@ def _add_prompt_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return await service.reset_prompt(name)
         except UnknownPromptError as e:
-            raise HTTPException(404, str(e)) from e
+            raise HTTPException(404, message(e)) from e
         except PromptEditError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
 
 def _add_usage_routes(app: FastAPI, service: AssistantService) -> None:
@@ -1930,42 +1963,42 @@ def _add_usage_routes(app: FastAPI, service: AssistantService) -> None:
 
 def _add_host_route(app: FastAPI, shutdown: Any | None) -> None:
     @app.get("/system/host")
-    async def host_status() -> HostStatus:
+    async def host_status(texts: _Answering) -> HostStatus:
         """The computer the daemon runs on: system, versions, CPU, memory, disk, uptime and load, and why the
         daemon can't be stopped from the apps now, if it can't."""
         refusal = shutdown.stop_refusal() if shutdown is not None else None
-        return replace(await host.status(), stop_refusal=refusal or "")
+        return replace(await host.status(), stop_refusal=texts.shown(refusal or ""))
 
 
 def _add_startup_routes(app: FastAPI, startup: Any) -> None:
     """Start at boot (daemon/startup.py). `startup` offers status(), enable() and disable()."""
 
     @app.get("/system/startup")
-    async def startup_status() -> StartupStatus:
-        return startup.status()
+    async def startup_status(texts: _Answering) -> StartupStatus:
+        return texts.within(startup.status())
 
     @app.post("/system/startup")
-    async def enable_startup() -> StartupStatus:
+    async def enable_startup(texts: _Answering) -> StartupStatus:
         try:
-            return await startup.enable()
+            return texts.within(await startup.enable())
         except StartupError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.delete("/system/startup")
-    async def disable_startup() -> StartupStatus:
+    async def disable_startup(texts: _Answering) -> StartupStatus:
         try:
-            return await startup.disable()
+            return texts.within(await startup.disable())
         except StartupError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
     @app.post("/system/startup/reinstall")
-    async def reinstall_startup() -> StartupStatus:
+    async def reinstall_startup(texts: _Answering) -> StartupStatus:
         """Installs start at boot again, bringing an out-of-date one up to date (`outdated`). A daemon it started
         restarts once no run is in progress, which can't be taken back. 400: it's off, or the password was refused."""
         try:
-            return await startup.reinstall()
+            return texts.within(await startup.reinstall())
         except StartupError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
 
 def _add_shutdown_routes(app: FastAPI, shutdown: Any) -> None:
@@ -1982,22 +2015,22 @@ def _add_shutdown_routes(app: FastAPI, shutdown: Any) -> None:
         try:
             return ShutdownStatus(waiting_for_runs=shutdown.request(Ending.STOP, _asker(request)))
         except StopRefusedError as e:
-            raise HTTPException(409, str(e)) from e
+            raise HTTPException(409, message(e)) from e
 
     @app.get("/system/ending")
-    async def pending_ending() -> PendingEnding:
+    async def pending_ending(texts: _Answering) -> PendingEnding:
         """The restart or stop waiting for runs to end; `ending` is "" when none is."""
-        return _pending(shutdown)
+        return texts.within(_pending(shutdown))
 
     @app.delete("/system/ending")
-    async def take_back_ending(request: Request) -> PendingEnding:
+    async def take_back_ending(request: Request, texts: _Answering) -> PendingEnding:
         """The daemon keeps running. 409: nothing is waiting, it already went ahead, or something needs it (an
         update installed, start at boot installed again: `can_take_back` is false), so it can't be taken back."""
         try:
             shutdown.take_back(_asker(request))
         except NoEndingError as e:
-            raise HTTPException(409, str(e)) from e
-        return _pending(shutdown)
+            raise HTTPException(409, message(e)) from e
+        return texts.within(_pending(shutdown))
 
     @app.post("/system/ending/now")
     async def end_now(request: Request) -> CancelledRuns:
@@ -2005,7 +2038,7 @@ def _add_shutdown_routes(app: FastAPI, shutdown: Any) -> None:
         try:
             return CancelledRuns(cancelled=shutdown.now(_asker(request)))
         except NoEndingError as e:
-            raise HTTPException(409, str(e)) from e
+            raise HTTPException(409, message(e)) from e
 
 
 def _pending(shutdown: Any) -> PendingEnding:
@@ -2033,23 +2066,23 @@ def _add_update_routes(app: FastAPI, updates: Any) -> None:
     check() and start(). An `update` event tells the apps each change of its state."""
 
     @app.get("/system/update")
-    async def update_status() -> UpdateStatus:
+    async def update_status(texts: _Answering) -> UpdateStatus:
         """As of the last check; doesn't reach the repository."""
-        return await updates.status()
+        return texts.within(await updates.status())
 
     @app.post("/system/update/check")
-    async def check_for_update() -> UpdateStatus:
+    async def check_for_update(texts: _Answering) -> UpdateStatus:
         """Fetches the repository and says what's new."""
-        return await updates.check()
+        return texts.within(await updates.check())
 
     @app.post("/system/update")
-    async def install_update() -> UpdateStatus:
+    async def install_update(texts: _Answering) -> UpdateStatus:
         """Starts installing what's new; the daemon restarts once it's installed and no run is in progress. 409:
         nothing to install, or it can't be installed here, with why."""
         try:
-            return await updates.start()
+            return texts.within(await updates.start())
         except UpdateError as e:
-            raise HTTPException(409, str(e)) from e
+            raise HTTPException(409, message(e)) from e
 
 
 def _add_log_routes(
@@ -2115,7 +2148,7 @@ def _add_log_level_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return LogLevelSetting(level=await service.set_log_level(body.level))
         except LogLevelError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
 
 def _add_language_routes(app: FastAPI, service: AssistantService) -> None:
@@ -2131,7 +2164,7 @@ def _add_language_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return LanguageSetting(language=await service.set_language(body.language))
         except LanguageError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
 
 def _add_dispatch_routes(app: FastAPI, service: AssistantService) -> None:
@@ -2147,12 +2180,12 @@ def _add_dispatch_routes(app: FastAPI, service: AssistantService) -> None:
         try:
             return await service.set_dispatch_setting(body)
         except DispatchSettingError as e:
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
 
 
 def _log_source(logs: Mapping[str, LogSource], name: str) -> LogSource:
     if name not in logs:
-        raise HTTPException(404, f"No log named {name}")
+        raise HTTPException(404, said("No log named {name}.", name=name))
     return logs[name]
 
 
@@ -2160,7 +2193,7 @@ def _log_query(level: LogLevel | None, component: str, lines: int) -> LogQuery:
     try:
         return LogQuery(level or "", component, lines)
     except LogQueryError as e:
-        raise HTTPException(400, str(e)) from e
+        raise HTTPException(400, message(e)) from e
 
 
 async def _log_events(entries: AsyncGenerator[LogPage | LogEntry]):
@@ -2187,13 +2220,21 @@ async def _sse(events):
 
 
 async def _bus_events(
-    service: AssistantService, after: int, clients: ClientRegistry, client: tuple[str, str, str, str]
+    service: AssistantService,
+    after: int,
+    clients: ClientRegistry,
+    client: tuple[str, str, str, str],
+    headers: Mapping[str, str],
 ):
-    """The client is listed as connected for as long as it reads the stream."""
+    """The client is listed as connected for as long as it reads the stream. Text written with `said` in an event
+    (what a restart waits for) goes in the language of the app reading it, as the language is then."""
     key = clients.add(*client)
     try:
         async for event in service.bus.subscribe(after):
-            yield {"id": str(event.id), "event": event.kind, "data": json.dumps(event.data)}
+            data = event.data
+            if holds_said(data):
+                data = (await service.texts(headers.get(LANGUAGE_HEADER))).within(data)
+            yield {"id": str(event.id), "event": event.kind, "data": json.dumps(data)}
     finally:
         clients.remove(key)
 

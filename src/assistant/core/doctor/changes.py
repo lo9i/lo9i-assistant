@@ -3,6 +3,7 @@ and how each part of the starting context grew. And what the doctor tells: the n
 alerts of its report."""
 
 from assistant.core.doctor.model import Cause, DoctorAlert, DoctorReport, StartingContext
+from assistant.core.i18n import Texts
 
 GROWING_TIMES = 2
 # What the alert of the starting context is named, beside the causes' ids.
@@ -30,24 +31,33 @@ def compared_context(context: StartingContext, previous: DoctorReport | None) ->
     return context.model_copy(update={"parts": parts})
 
 
-def alerts(report: DoctorReport) -> list[DoctorAlert]:
-    found = [_cause_alert(c, report) for c in report.causes if c.change and c.id not in report.dismissed]
+def alerts(report: DoctorReport, t: Texts) -> list[DoctorAlert]:
+    found = [_cause_alert(c, report, t) for c in report.causes if c.change and c.id not in report.dismissed]
     if report.context.too_large and CONTEXT_ALERT not in report.dismissed:
-        found.append(_context_alert(report))
+        found.append(_context_alert(report, t))
     return found
 
 
-def notification_text(report: DoctorReport) -> str:
+def notification_text(report: DoctorReport, t: Texts) -> str:
     logs = [c for c in report.causes if c.kind == "log"]
     talks = [c for c in report.causes if c.kind == "conversation"]
     lines = [
-        _found("In the logs", logs, [c for c in report.gone if c.kind == "log"]),
-        _found("In the conversations", talks, [c for c in report.gone if c.kind == "conversation"]),
-        f"The starting context is {context_share(report.context)} of the window.",
+        _found(t("In the logs"), logs, [c for c in report.gone if c.kind == "log"], t),
+        _found(t("In the conversations"), talks, [c for c in report.gone if c.kind == "conversation"], t),
+        t("The starting context is {share} of the window.", share=context_share(report.context)),
     ]
     if report.known:
-        lines.append(f"{_count(report.known, 'known cause')} left out.")
+        lines.append(
+            t("1 known cause left out.")
+            if report.known == 1
+            else t("{count} known causes left out.", count=report.known)
+        )
     return " ".join(lines)
+
+
+def named(context: StartingContext, t: Texts) -> StartingContext:
+    """With its parts named in the language of `t`."""
+    return context.model_copy(update={"parts": [p.model_copy(update={"name": t(p.name)}) for p in context.parts]})
 
 
 def context_share(context: StartingContext) -> str:
@@ -68,23 +78,33 @@ def _against(cause: Cause, before: Cause | None) -> Cause:
     return cause.model_copy(update={"change": "growing" if growing else "", "before": before.count})
 
 
-def _found(where: str, causes: list[Cause], gone: list[Cause]) -> str:
+def _found(where: str, causes: list[Cause], gone: list[Cause], t: Texts) -> str:
     if not causes:
-        text = f"{where}: nothing wrong"
+        text = t("{where}: nothing wrong", where=where)
     else:
-        counts = [(sum(c.change == k for c in causes), k) for k in ("new", "growing")]
-        changes = [f"{n} {k}" for n, k in counts if n]
-        text = f"{where}: {_count(len(causes), 'cause')}" + (f" ({', '.join(changes)})" if changes else "")
-    return text + (f", {len(gone)} gone." if gone else ".")
+        new, growing = (sum(c.change == k for c in causes) for k in ("new", "growing"))
+        changes = [
+            *([t("{count} new", count=new)] if new else []),
+            *([t("{count} growing", count=growing)] if growing else []),
+        ]
+        counted = t("1 cause") if len(causes) == 1 else t("{count} causes", count=len(causes))
+        text = f"{where}: {counted}" + (f" ({', '.join(changes)})" if changes else "")
+    return text + (t(", {count} gone.", count=len(gone)) if gone else ".")
 
 
-def _cause_alert(cause: Cause, report: DoctorReport) -> DoctorAlert:
-    times = _count(cause.count, "time")
+def _cause_alert(cause: Cause, report: DoctorReport, t: Texts) -> DoctorAlert:
+    times = t("once") if cause.count == 1 else t("{count} times", count=cause.count)
     if cause.change == "new":
-        text = f"New since {report.compared_with}: {times} on {report.day}."
+        text = t("New since {before}: {times} on {day}.", before=report.compared_with, times=times, day=report.day)
     else:
-        text = f"{times} on {report.day}, {cause.before} on {report.compared_with}."
-    place = f" At {cause.where}." if cause.where else ""
+        text = t(
+            "{times} on {day}, {count} on {before}.",
+            times=times,
+            day=report.day,
+            count=cause.before,
+            before=report.compared_with,
+        )
+    place = t(" At {where}.", where=cause.where) if cause.where else ""
     return DoctorAlert(
         name=cause.id,
         kind=cause.change or "new",
@@ -95,21 +115,24 @@ def _cause_alert(cause: Cause, report: DoctorReport) -> DoctorAlert:
     )
 
 
-def _context_alert(report: DoctorReport) -> DoctorAlert:
+def _context_alert(report: DoctorReport, t: Texts) -> DoctorAlert:
     context = report.context
-    text = (
-        f"A new conversation starts with {_tokens(context.tokens)} tokens, {context_share(context)} of the "
-        f"{_tokens(context.window)} window."
+    text = t(
+        "A new conversation starts with {tokens} tokens, {share} of the {window} window.",
+        tokens=_tokens(context.tokens),
+        share=context_share(context),
+        window=_tokens(context.window),
     )
-    if grew := grew_most(context):
-        text += f" Grew most since {report.compared_with}: {grew}."
+    if grew := grew_most(named(context, t)):
+        text += t(" Grew most since {before}: {grew}.", before=report.compared_with, grew=grew)
     return DoctorAlert(
-        name=CONTEXT_ALERT, kind="context", title="The starting context is large", text=text, count=0, at=report.at
+        name=CONTEXT_ALERT,
+        kind="context",
+        title=t("The starting context is large"),
+        text=text,
+        count=0,
+        at=report.at,
     )
-
-
-def _count(n: int, what: str) -> str:
-    return f"{n} {what}" + ("" if n == 1 else "s")
 
 
 def _tokens(n: int) -> str:

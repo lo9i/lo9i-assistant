@@ -22,6 +22,7 @@ from pathlib import Path
 
 from assistant.core.conversation import prompts
 from assistant.core.conversation.prompts import UnreadableEditError
+from assistant.core.i18n import message, said
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +76,7 @@ async def section(name: str) -> PromptSection:
     try:
         text = await asyncio.to_thread(prompts.edited, name) or default
     except UnreadableEditError as e:
-        return PromptSection(name, title, description, default, default, True, str(e))
+        return PromptSection(name, title, description, default, default, True, message(e))
     edited = text != default
     changes = await asyncio.to_thread(_changes_since_edit, name, default) if edited else ""
     return PromptSection(name, title, description, text, default, edited, built_in_changes=changes)
@@ -87,7 +88,7 @@ async def save(name: str, text: str) -> PromptSection:
     _about(name)
     text = text.strip()
     if not text:
-        raise PromptEditError("The text can't be empty. Reset it to use the built-in one.")
+        raise PromptEditError(said("The text can't be empty. Reset it to use the built-in one."))
     if text == prompts.default(name):
         return await reset(name)
     await _changing(name, asyncio.to_thread(_write, prompts.edit_path(name), text))
@@ -161,7 +162,9 @@ async def _changing(name: str, change: Awaitable[None]) -> None:
     try:
         await change
     except OSError as e:
-        raise PromptEditError(f"Can't change {prompts.edit_path(name)}: {e.strerror or e}.") from e
+        raise PromptEditError(
+            said("Can't change {path}: {error}.", path=prompts.edit_path(name), error=e.strerror or e)
+        ) from e
 
 
 async def current() -> dict[str, str]:
@@ -177,7 +180,11 @@ def digest(texts: Mapping[str, str]) -> str:
 
 def _about(name: str) -> tuple[str, str]:
     if name not in _ABOUT:
-        raise UnknownPromptError(f"No editable prompt named {name}. Choose one of: {', '.join(prompts.EDITABLE)}.")
+        raise UnknownPromptError(
+            said(
+                "No editable prompt named {name}. Choose one of: {names}.", name=name, names=", ".join(prompts.EDITABLE)
+            )
+        )
     return _ABOUT[name]
 
 

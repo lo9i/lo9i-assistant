@@ -7,6 +7,7 @@ model settings: changing them reconnects the servers that use it (McpHub.reload)
 from collections.abc import Callable
 from dataclasses import replace
 
+from assistant.core.i18n import said
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.mcp.servers import McpServer
 
@@ -21,7 +22,7 @@ def parse(value: object) -> str:
     """The login a server.yaml asks for, or "" for none. Raises ValueError for an unknown one."""
     name = str(value or "")
     if name and name not in ENV:
-        raise ValueError(f"its model_login {name!r} isn't one of {', '.join(ENV)}")
+        raise ValueError(said("its model_login {name!r} isn't one of {logins}", name=name, logins=", ".join(ENV)))
     return name
 
 

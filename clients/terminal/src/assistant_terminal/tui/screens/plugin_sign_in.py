@@ -15,15 +15,15 @@ from textual.widgets import Button, Input, Markdown
 
 from assistant.client.daemon_client import McpApi, OAuthApi
 from assistant.core.agent import McpServerError, SignInError
-from assistant_terminal.i18n import t
-from assistant_terminal.sign_in_text import MISSING_CODE, PASTE_HINT, REDIRECT, returned, signing_message
+from assistant_terminal.i18n import t, translatable
+from assistant_terminal.sign_in_text import REDIRECT, missing_code, paste_hint, returned, signing_message
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 _PROVIDERS = {"google": "Google"}
 
 
 class PluginSignInScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     # A sign-in finished in the browser saves the plugin again, which the daemon reports as `mcp`.
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"mcp"})
 
@@ -40,7 +40,7 @@ class PluginSignInScreen(ModalScreen[None]):
             yield Markdown(id="plugin-sign-in-body")
             yield Input(placeholder=t("Your OAuth app's client ID"), id="plugin-client-id")
             yield Input(placeholder=t("Your OAuth app's client secret"), password=True, id="plugin-client-secret")
-            yield Input(placeholder=PASTE_HINT, id="plugin-returned")
+            yield Input(placeholder=paste_hint(), id="plugin-returned")
             with Horizontal(id="plugin-sign-in-buttons"):
                 yield Button(t("Sign in"), variant="primary", id="sign-in")
                 yield Button(t("Finish"), variant="success", id="finish")
@@ -103,7 +103,7 @@ class PluginSignInScreen(ModalScreen[None]):
     async def _finish(self) -> None:
         state, code = returned(self.query_one("#plugin-returned", Input).value)
         if not state or not code:
-            await self._say(MISSING_CODE)
+            await self._say(missing_code())
             return
         try:
             await self._oauth.finish(state, code)

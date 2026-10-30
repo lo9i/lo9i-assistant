@@ -8,6 +8,8 @@ import math
 import httpx
 from pydantic import BaseModel, ValidationError
 
+from assistant.core.i18n import said
+
 _URL = "https://api.github.com/copilot_internal/user"
 # GitHub answers this for known editors.
 _EDITOR_VERSION = "vscode/1.95.0"
@@ -67,22 +69,24 @@ async def fetch(github_token: str, transport: httpx.AsyncBaseTransport | None = 
         try:
             response = await http.get(_URL, headers=headers)
         except httpx.HTTPError as e:
-            raise QuotaCheckError(f"Couldn't reach GitHub: {e}") from e
+            raise QuotaCheckError(said("Couldn't reach GitHub: {error}", error=e)) from e
     if response.status_code == 401:
-        raise QuotaCheckError("GitHub rejected the Copilot token: it's wrong or was revoked.")
+        raise QuotaCheckError(said("GitHub rejected the Copilot token: it's wrong or was revoked."))
     if response.status_code != 200:
-        raise QuotaCheckError(f"GitHub didn't say the allowance (HTTP {response.status_code}).")
+        raise QuotaCheckError(
+            said("GitHub didn't say the allowance (HTTP {status_code}).", status_code=response.status_code)
+        )
     try:
         return parse(response.json())
     except ValueError as e:
-        raise QuotaCheckError(f"GitHub's answer isn't JSON: {e}") from e
+        raise QuotaCheckError(said("GitHub's answer isn't JSON: {error}", error=e)) from e
 
 
 def parse(data: object) -> CopilotQuota:
     """Raises QuotaCheckError for an answer without the plan's quotas."""
     snapshots = data.get("quota_snapshots") if isinstance(data, dict) else None
     if not isinstance(data, dict) or not isinstance(snapshots, dict):
-        raise QuotaCheckError("GitHub answered without the plan's quotas.")
+        raise QuotaCheckError(said("GitHub answered without the plan's quotas."))
     try:
         return CopilotQuota(
             plan=str(data.get("copilot_plan") or ""),
@@ -92,7 +96,7 @@ def parse(data: object) -> CopilotQuota:
             completions=_quota(snapshots.get("completions")),
         )
     except ValidationError as e:
-        raise QuotaCheckError(f"GitHub's quotas didn't read as expected: {e}") from e
+        raise QuotaCheckError(said("GitHub's quotas didn't read as expected: {error}", error=e)) from e
 
 
 def _quota(value: object) -> Quota | None:

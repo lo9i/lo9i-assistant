@@ -15,7 +15,7 @@ from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import DoctorApi, JobsApi, NotificationsApi
 from assistant.core.agent import Notification
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.notifications_text import notification_line
 from assistant_terminal.paging import Pages
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
@@ -26,7 +26,7 @@ from assistant_terminal.tui.screens.jobs import JobsScreen
 
 class NotificationsScreen(ModalScreen[str | None]):
     BINDINGS: ClassVar[list[BindingType]] = [
-        Binding("escape", "close", t("Close")),
+        Binding("escape", "close", translatable("Close")),
         Binding("enter", "open", show=False, priority=True),
     ]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"notifications"})

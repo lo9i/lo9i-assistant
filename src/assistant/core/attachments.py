@@ -24,6 +24,7 @@ from typing import Any
 from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
 
 from assistant.core import images, uploads
+from assistant.core.i18n import said
 
 Block = dict[str, Any]
 
@@ -231,7 +232,11 @@ def _converter_for(attachment: Attachment) -> Callable[[Attachment], Block]:
     for matches, convert in _CONVERTERS:
         if matches(attachment.media_type):
             return convert
-    raise ValueError(f"Unsupported attachment type: {attachment.media_type} ({attachment.name})")
+    raise ValueError(
+        said(
+            "Unsupported attachment type: {media_type} ({name})", media_type=attachment.media_type, name=attachment.name
+        )
+    )
 
 
 def _text(text: str) -> Block:

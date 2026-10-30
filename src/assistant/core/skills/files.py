@@ -5,6 +5,7 @@ install record there (`repositories/source.py`)."""
 import shutil
 from pathlib import Path
 
+from assistant.core.i18n import said
 from assistant.core.repositories.folders import MAX_BYTES, MAX_FILES, valid_path
 from assistant.core.skills.errors import SkillError
 
@@ -15,9 +16,17 @@ def check(files: dict[str, str]) -> None:
     """Raises SkillError for a path outside the folder, a hidden or reserved name, or too much."""
     for path in files:
         if not valid_path(path) or path == INSTRUCTIONS:
-            raise SkillError(f"{path!r} isn't a valid skill file path. Use a relative path like scripts/report.py.")
+            raise SkillError(
+                said("{path!r} isn't a valid skill file path. Use a relative path like scripts/report.py.", path=path)
+            )
     if len(files) > MAX_FILES or sum(len(content.encode()) for content in files.values()) > MAX_BYTES:
-        raise SkillError(f"A skill can have at most {MAX_FILES} files and {MAX_BYTES // 1_000_000} MB.")
+        raise SkillError(
+            said(
+                "A skill can have at most {files} files and {megabytes} MB.",
+                files=MAX_FILES,
+                megabytes=MAX_BYTES // 1000000,
+            )
+        )
 
 
 def listed(folder: Path) -> list[str]:

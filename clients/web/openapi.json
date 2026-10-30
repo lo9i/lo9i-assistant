@@ -8189,6 +8189,14 @@
           },
           "icon": {
             "$ref": "#/components/schemas/PluginIcon"
+          },
+          "translations": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Translations"
           }
         },
         "type": "object",

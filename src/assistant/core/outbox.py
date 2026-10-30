@@ -7,6 +7,8 @@ and core never imports an adapter.
 
 from typing import Protocol
 
+from assistant.core.i18n import said
+
 
 class DeliveryError(Exception):
     """The message couldn't be delivered. The text says why."""
@@ -40,5 +42,9 @@ class Outbox:
         sender = self._senders.get(channel)
         if sender is None:
             available = ", ".join(self.channels) or "none"
-            raise DeliveryError(f"Can't send on {channel} right now (available: {available}).")
+            raise DeliveryError(
+                said(
+                    "Can't send on {channel} right now (available: {available}).", channel=channel, available=available
+                )
+            )
         return await sender.send(text)

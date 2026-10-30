@@ -12,6 +12,7 @@ from assistant.core.channels.chat import threads as chat_threads
 from assistant.core.config import settings
 from assistant.core.conversation import choices, ended, file_index, handoffs, moved, pinned, queued, summaries
 from assistant.core.home import pins as home_pins
+from assistant.core.i18n import said
 
 # What the home conversation from before the inbox is listed as.
 _HOME_TITLE = "Home (before the inbox)"
@@ -80,7 +81,7 @@ class ThreadsMixin(ArchiveMixin, ThreadFilesMixin):
     async def require_conversation(self, user_id: str, thread_id: str) -> None:
         """Raises ConversationError unless the conversation exists, before a client resumes it."""
         if await conversations.load(self._storage.store, user_id, thread_id) is None:
-            raise ConversationError(f"No conversation {thread_id}.")
+            raise ConversationError(said("No conversation {thread_id}.", thread_id=thread_id))
 
     async def delete_conversation(self, user_id: str, thread_id: str) -> None:
         """Delete the conversation: its messages, its place in the list and in search, and the files
@@ -90,9 +91,9 @@ class ThreadsMixin(ArchiveMixin, ThreadFilesMixin):
         ConversationBusyError while a reply is running."""
         listed = await conversations.load(self._storage.store, user_id, thread_id)
         if listed is None:
-            raise ConversationError(f"No conversation {thread_id}.")
+            raise ConversationError(said("No conversation {thread_id}.", thread_id=thread_id))
         if thread_id in self._active_runs:
-            raise ConversationBusyError("A reply is still running in this conversation. Stop it first.")
+            raise ConversationBusyError(said("A reply is still running in this conversation. Stop it first."))
         async with self._thread_lock(thread_id):
             messages = await self._thread_messages(thread_id)
             await self._storage.checkpointer.adelete_thread(thread_id)

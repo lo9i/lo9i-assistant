@@ -15,6 +15,7 @@ from urllib.parse import urlencode
 
 import httpx
 
+from assistant.core.i18n import said
 from assistant.core.integrations.email.errors import EmailError
 from assistant.core.oauth import challenge, expiry
 
@@ -126,7 +127,7 @@ def new_sign_in(
     """Raises EmailError for an unknown provider or missing values."""
     provider_for(provider)
     if not client_id.strip() or not redirect_uri.strip() or "@" not in address:
-        raise EmailError("Enter the email address and your OAuth app's client ID.")
+        raise EmailError(said("Enter the email address and your OAuth app's client ID."))
     verifier = secrets.token_urlsafe(64)
     return SignIn(
         provider,
@@ -151,7 +152,7 @@ async def exchange(sign_in: SignIn, code: str) -> Tokens:
     }
     answer = await _token_request(sign_in.provider, sign_in.client_id, sign_in.client_secret, data)
     if not answer.get("refresh_token"):
-        raise EmailError(f"{provider_for(sign_in.provider).name} gave no refresh token; sign in again.")
+        raise EmailError(said("{name} gave no refresh token; sign in again.", name=provider_for(sign_in.provider).name))
     tokens = Tokens(sign_in.provider, sign_in.client_id, sign_in.client_secret, answer["refresh_token"])
     return _with_access(tokens, answer)
 
@@ -168,7 +169,9 @@ async def refresh(tokens: Tokens) -> Tokens:
 def provider_for(provider_id: str) -> OAuthProvider:
     provider = PROVIDERS.get(provider_id)
     if provider is None:
-        raise EmailError(f"Signing in with {provider_id} isn't supported: Google or Microsoft.")
+        raise EmailError(
+            said("Signing in with {provider_id} isn't supported: Google or Microsoft.", provider_id=provider_id)
+        )
     return provider
 
 
@@ -179,11 +182,11 @@ async def _token_request(provider_id: str, client_id: str, client_secret: str, d
         async with httpx.AsyncClient(timeout=_TIMEOUT) as http:
             response = await http.post(provider.token_url, data=form)
     except httpx.HTTPError as e:
-        raise EmailError(f"Couldn't reach {provider.name} to sign in: {e}") from e
+        raise EmailError(said("Couldn't reach {name} to sign in: {error}", name=provider.name, error=e)) from e
     answer = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
     if response.status_code != 200 or "access_token" not in answer:
         reason = answer.get("error_description") or answer.get("error") or f"HTTP {response.status_code}"
-        raise EmailError(f"{provider.name} refused the sign-in: {reason}")
+        raise EmailError(said("{name} refused the sign-in: {reason}", name=provider.name, reason=reason))
     return answer
 
 

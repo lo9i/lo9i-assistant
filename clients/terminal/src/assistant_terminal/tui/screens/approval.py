@@ -9,15 +9,15 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Static
 
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 
 
 class ApprovalScreen(ModalScreen[dict[str, Any]]):
     """Returns {"approved": bool, "reason": str | None}."""
 
     BINDINGS: ClassVar[list[BindingType]] = [
-        Binding("y", "approve", t("Approve")),
-        Binding("escape", "reject", t("Reject")),
+        Binding("y", "approve", translatable("Approve")),
+        Binding("escape", "reject", translatable("Reject")),
     ]
 
     def __init__(self, request: dict[str, Any]) -> None:

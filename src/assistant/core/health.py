@@ -14,6 +14,7 @@ from typing import Literal
 
 from langgraph.store.base import BaseStore
 
+from assistant.core import i18n
 from assistant.core.bus import EventBus
 
 # Failures in a row before the user is told: fewer would alert on a model's typo or a blip.
@@ -57,9 +58,10 @@ class HealthLog:
         self._lock = asyncio.Lock()
 
     async def failed(self, area: Area, name: str, error: str) -> None:
+        """`error` written with `said` is kept in the language chosen (core/i18n)."""
+        error = await self._kept(error)
         async with self._lock:
             previous = await self.get(area, name)
-            error = error.strip()[-_ERROR_CHARS:]
             health = replace(previous, failures=previous.failures + 1, error=error, at=datetime.now(UTC).isoformat())
             await self._store.aput(_NAMESPACES[area], name, asdict(health))
         if health.failures == FAILING_AFTER:
@@ -75,14 +77,18 @@ class HealthLog:
 
     async def signed_out(self, name: str, error: str) -> None:
         """An MCP server's sign-in stopped working. Alerts once, until it's signed in again."""
+        error = await self._kept(error)
         async with self._lock:
             previous = await self.get("mcp", name)
             if previous.signed_out:
                 return
             now = datetime.now(UTC).isoformat()
-            health = replace(previous, error=error.strip()[-_ERROR_CHARS:], at=now, dismissed=False, signed_out=True)
+            health = replace(previous, error=error, at=now, dismissed=False, signed_out=True)
             await self._store.aput(_NAMESPACES["mcp"], name, asdict(health))
         self._bus.publish("signed_out", name=name, error=health.error)
+
+    async def _kept(self, error: str) -> str:
+        return (await i18n.chosen(self._store)).shown(error).strip()[-_ERROR_CHARS:]
 
     async def signed_in(self, name: str) -> None:
         """An MCP server connected: a lost sign-in is back. Writes only when it was lost."""

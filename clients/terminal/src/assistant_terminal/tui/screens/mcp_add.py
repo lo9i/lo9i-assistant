@@ -30,7 +30,7 @@ _LOCAL, _REMOTE = "local", "remote"
 class McpAddScreen(ModalScreen[bool]):
     """Returns True when a server was added."""
 
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(False)", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(False)", translatable("Close"))]
 
     def __init__(self, mcp: McpApi) -> None:
         super().__init__()

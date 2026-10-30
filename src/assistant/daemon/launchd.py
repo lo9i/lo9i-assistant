@@ -20,6 +20,7 @@ import tempfile
 from pathlib import Path
 
 from assistant.core.config import settings
+from assistant.core.i18n import said
 from assistant.core.logs import output_path
 from assistant.daemon import output
 from assistant.protocol import StartupError, StartupStatus
@@ -59,7 +60,7 @@ class Service:
     def stop_refusal(self) -> str | None:
         if os.environ.get(STAYS_STOPPED_ENV) == "1":
             return None
-        return (
+        return said(
             "macOS would start the assistant again at once: start at boot was turned on before it could be "
             "stopped from the app. Turn start at boot off and on again to allow it."
         )
@@ -75,7 +76,7 @@ class Beside:
     def stop_refusal(self) -> str | None:
         if not status().enabled:
             return None
-        return (
+        return said(
             "Start at boot is on, so macOS would start the assistant again at once. Turn start at boot off to stop "
             "it, or restart it instead."
         )
@@ -109,20 +110,20 @@ def outdated() -> list[str]:
 _DIFFERENCES = [
     (
         "KeepAlive",
-        lambda _: "macOS starts the assistant again whatever its exit, so it can't be stopped from the app.",
+        lambda _: said("macOS starts the assistant again whatever its exit, so it can't be stopped from the app."),
     ),
     (
         "StandardOutPath",
-        lambda installed: (
-            f"It sends the daemon's output to {installed.get('StandardOutPath', 'nowhere')}, which"
-            " Settings → Logs doesn't show."
+        lambda installed: said(
+            "It sends the daemon's output to {path}, which Settings → Logs doesn't show.",
+            path=installed.get("StandardOutPath", "nowhere"),
         ),
     ),
     (
         "ProgramArguments",
-        lambda installed: (
-            f"It starts the assistant with {' '.join(installed.get('ProgramArguments', []))}, not"
-            " the Python it runs on now."
+        lambda installed: said(
+            "It starts the assistant with {command}, not the Python it runs on now.",
+            command=" ".join(installed.get("ProgramArguments", [])),
         ),
     ),
 ]

@@ -12,12 +12,12 @@ from textual.widgets import Button, Input, Markdown, Static, TextArea
 
 from assistant.client.daemon_client import SkillsApi
 from assistant.core.agent import Skill, SkillError
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 
 class SkillEditScreen(ModalScreen[bool]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(False)", t("Cancel"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(False)", translatable("Cancel"))]
 
     def __init__(self, skills: SkillsApi, skill: Skill) -> None:
         super().__init__()

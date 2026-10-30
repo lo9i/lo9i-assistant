@@ -14,6 +14,7 @@ from cryptography.fernet import Fernet
 from langgraph.store.base import BaseStore
 
 from assistant.core import secret_store
+from assistant.core.i18n import said
 from assistant.core.mcp.servers import McpServer
 from assistant.core.secret_store import SecretBox
 
@@ -25,7 +26,7 @@ def parse(value: object) -> bool:
     if value is None:
         return False
     if not isinstance(value, bool):
-        raise ValueError("its data_key must be true or false")
+        raise ValueError(said("its data_key must be true or false"))
     return value
 
 

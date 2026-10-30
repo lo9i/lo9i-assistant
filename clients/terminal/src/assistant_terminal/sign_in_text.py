@@ -8,8 +8,14 @@ from assistant_terminal.i18n import t
 
 # The daemon's web app on this computer: providers allow http for localhost.
 REDIRECT = f"http://localhost:{settings.daemon_port}/app/oauth"
-PASTE_HINT = t("Paste the address your browser ended on, if it didn't finish by itself")
-MISSING_CODE = "**" + t("Paste the whole address your browser ended on: it has `code=` and `state=` in it.") + "**"
+
+
+def paste_hint() -> str:
+    return t("Paste the address your browser ended on, if it didn't finish by itself")
+
+
+def missing_code() -> str:
+    return "**" + t("Paste the whole address your browser ended on: it has `code=` and `state=` in it.") + "**"
 
 
 def signing_message(url: str, opened: bool, shows_up: str) -> str:

@@ -11,6 +11,7 @@ from importlib.resources import files
 from pathlib import Path
 
 from assistant.core.config import settings
+from assistant.core.i18n import said
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ def edited(name: str) -> str:
     try:
         return path.read_text(encoding="utf-8").strip() if path.is_file() else ""
     except (OSError, UnicodeDecodeError) as e:
-        raise UnreadableEditError(f"Can't read {path}: {e}.") from e
+        raise UnreadableEditError(said("Can't read {path}: {error}.", path=path, error=e)) from e
 
 
 def base_path(name: str) -> Path:

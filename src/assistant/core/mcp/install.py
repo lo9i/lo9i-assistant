@@ -68,6 +68,11 @@ code from it. In its commands, arguments and env values:
                                    # (repositories/icons.py); its category's icon if absent
     steps:                         # optional: how to get what it asks for, shown when installing
       - In your provider's settings, create an app password.
+    translations:                  # optional: its description, steps and fields in the apps' other languages
+      es:                          # (core/language.py), shown in the one the app shows; English where it lacks one
+        description: Envía y lee correo
+        steps: [En los ajustes de tu proveedor, crea una contraseña de aplicación.]
+        fields: {SMTP_PASSWORD: {label: Contraseña de aplicación, help: https://…}}
     email:                         # optional: email providers it offers (core/integrations/email/providers.py)
       - {id: gmail, name: Gmail, host: smtp.gmail.com, port: 587, imap_host: imap.gmail.com,
          password_help: Gmail needs an app password., password_url: https://myaccount.google.com/apppasswords}
@@ -87,6 +92,7 @@ from typing import Any
 import yaml
 from langgraph.store.base import BaseStore
 
+from assistant.core.i18n import message, said
 from assistant.core.integrations.email import providers as email_providers
 from assistant.core.mcp import (
     checks,
@@ -175,6 +181,9 @@ class FoundServer:
     check: bool = False
     # What the apps show beside it (repositories/icons.py).
     icon: icons.PluginIcon = field(default_factory=icons.PluginIcon)
+    # Its text in the apps' other languages (`translations:`), by language: description, steps, and each field's
+    # label and help by its key. The API shows it in the app's language (`in_language`).
+    translations: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -217,7 +226,9 @@ class Candidate:
             icon=asdict(self.found.icon),
         )
         if any("{uv}" in text for text in _commands(filled)) or (self.needs_environment and find_uv() is None):
-            raise McpServerError(f"{t.name} runs with uv, and the assistant can't find uv on this computer.")
+            raise McpServerError(
+                said("{name} runs with uv, and the assistant can't find uv on this computer.", name=t.name)
+            )
         return filled
 
     @property
@@ -249,7 +260,7 @@ def find(root: Path, url: str) -> tuple[dict[str, Candidate], list[str]]:
         try:
             candidate = _candidate(root, folder, default_name(url) if folder == root else folder.name)
         except RepositoryError as e:
-            problems.append(str(e))
+            problems.append(message(e))
             continue
         if candidate is not None and candidate.usable_here:
             found.append(candidate)
@@ -262,15 +273,17 @@ async def check(store: BaseStore, wanted: list[ServerValues], found: dict[str, C
     for item in wanted:
         candidate = found.get(item.name)
         if candidate is None:
-            raise McpServerError(f"The repository has no MCP server named {item.name}.")
+            raise McpServerError(said("The repository has no MCP server named {name}.", name=item.name))
         if item.name in existing and existing[item.name].source != url:
             raise McpServerError(
-                f"There's already an MCP server named {item.name}. Remove it first to install this one."
+                said("There's already an MCP server named {name}. Remove it first to install this one.", name=item.name)
             )
         if (missing := _missing(candidate, item.values)) is not None:
-            raise McpServerError(f"{item.name} needs {missing.label}.")
+            raise McpServerError(said("{name} needs {label}.", name=item.name, label=missing.label))
         if candidate.found.skill and await asyncio.to_thread(_skill_taken, item.name):
-            raise McpServerError(f"{item.name} comes with a skill, and you already have a skill named {item.name}.")
+            raise McpServerError(
+                said("{name} comes with a skill, and you already have a skill named {name}.", name=item.name)
+            )
 
 
 async def install(candidate: Candidate, values: dict[str, str], url: str, commit: str) -> McpServer:
@@ -293,12 +306,20 @@ async def update(store: BaseStore, box: SecretBox, name: str, tokens: dict[str, 
     current = await keys.fill(store, box, await servers.load(store, name))
     source = await asyncio.to_thread(folder_source.read, folders.code(name))
     if not current.source or source is None:
-        raise McpServerError(f"{name} wasn't installed from a repository, so there's nothing to update it from.")
+        raise McpServerError(
+            said("{name} wasn't installed from a repository, so there's nothing to update it from.", name=name)
+        )
     async with checkout(source.url, (tokens or {}).get(source.url, "")) as (root, commit):
         candidate = await asyncio.to_thread(_find_at, root, source.url, source.path, name)
         values = current.headers if current.url else current.env
         if (missing := _missing(candidate, values)) is not None:
-            raise McpServerError(f"The new version of {name} needs {missing.label}: remove it and install it again.")
+            raise McpServerError(
+                said(
+                    "The new version of {name} needs {label}: remove it and install it again.",
+                    name=name,
+                    label=missing.label,
+                )
+            )
         new = await install(candidate, values, source.url, commit)
     kept = replace(
         new, enabled=current.enabled, trusted=current.trusted, include=current.include, exclude=current.exclude
@@ -351,17 +372,24 @@ def installed_icon(name: str) -> icons.PluginIcon | None:
         return None
 
 
-def installed_fields(name: str) -> list[ServerField]:
-    """The fields the server installed here asks for, as its installed server.yaml declares them. Raises
-    McpServerError when it wasn't installed from a repository or its server.yaml can't be read."""
+def installed_fields(name: str, language: str) -> list[ServerField]:
+    """The fields the server installed here asks for, as its installed server.yaml declares them, in `language`
+    where it translates them. Raises McpServerError when it wasn't installed from a repository or its server.yaml
+    can't be read."""
     manifest = folders.code(name) / SERVER_FILE
     try:
         data = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
-        return [_field(f) for f in data.get("fields", [])]
+        fields = [_field(f) for f in data.get("fields", [])]
+        texts = _translations(data.get("translations")).get(language)
+        return _fields_in(fields, texts) if texts else fields
     except FileNotFoundError as e:
-        raise McpServerError(f"{name} wasn't installed from a repository, so it has no settings of its own.") from e
+        raise McpServerError(
+            said("{name} wasn't installed from a repository, so it has no settings of its own.", name=name)
+        ) from e
     except (OSError, yaml.YAMLError, TypeError, KeyError, ValueError, AttributeError) as e:
-        raise McpServerError(f"Couldn't read {name}'s settings from its installed folder: {e}") from e
+        raise McpServerError(
+            said("Couldn't read {name}'s settings from its installed folder: {error}", name=name, error=e)
+        ) from e
 
 
 def uninstall(name: str) -> None:
@@ -407,13 +435,17 @@ def _find_at(root: Path, url: str, path: str, name: str) -> Candidate:
     candidate = _candidate(root, root / path, name)
     if candidate is not None and candidate.found.name == name:
         if not platforms.runs_here(candidate.platforms):
-            raise McpServerError(f"The new version of {name} doesn't run on {platforms.current()}.")
+            raise McpServerError(
+                said("The new version of {name} doesn't run on {system}.", name=name, system=platforms.current())
+            )
         if not formats.readable(candidate.format):
-            raise McpServerError(f"The new version of {name} needs a newer lo9i: update the assistant first.")
+            raise McpServerError(
+                said("The new version of {name} needs a newer lo9i: update the assistant first.", name=name)
+            )
         return candidate
     moved = find(root, url)[0].get(name)
     if moved is None:
-        raise McpServerError(f"The repository doesn't have {name} any more.")
+        raise McpServerError(said("The repository doesn't have {name} any more.", name=name))
     return moved
 
 
@@ -431,7 +463,7 @@ def _candidate(root: Path, folder: Path, name: str) -> Candidate | None:
     try:
         return _parse(yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}, name, root, folder)
     except (yaml.YAMLError, TypeError, ValueError, McpServerError) as e:
-        raise RepositoryError(f"{where} can't be used: {e}") from e
+        raise RepositoryError(said("{where} can't be used: {error}", where=where, error=e)) from e
 
 
 def _parse(data: dict[str, Any], name: str, root: Path, folder: Path) -> Candidate:
@@ -439,25 +471,27 @@ def _parse(data: dict[str, Any], name: str, root: Path, folder: Path) -> Candida
     servers.validate(template)
     found = _found(data, template, folder, categories.of_folder(root, folder))
     if "libraries" in data:
-        raise ValueError("it uses libraries:, which lo9i doesn't install: a plugin has all its code in its folder")
+        raise ValueError(
+            said("it uses libraries:, which lo9i doesn't install: a plugin has all its code in its folder")
+        )
     systems = platforms.parse(data.get("platforms"))
     version = formats.parse(data.get("format"))
     if version < 2 and any(environment.PLACEHOLDER in text for text in _commands(template)):
-        raise ValueError(f"it uses {environment.PLACEHOLDER}, which needs format: 2")
+        raise ValueError(said("it uses {placeholder}, which needs format: 2", placeholder=environment.PLACEHOLDER))
     if version < 3 and template.agent_worker:
-        raise ValueError("its agent section has a worker, which needs format: 3")
+        raise ValueError(said("its agent section has a worker, which needs format: 3"))
     if version < 4 and template.data_key:
-        raise ValueError("it asks for a data_key, which needs format: 4")
+        raise ValueError(said("it asks for a data_key, which needs format: 4"))
     if version < 5 and template.oauth_provider:
-        raise ValueError("it signs in with oauth:, which needs format: 5")
+        raise ValueError(said("it signs in with oauth:, which needs format: 5"))
     if version < 6 and template.subagent_name:
-        raise ValueError("it brings a subagent, which needs format: 6")
+        raise ValueError(said("it brings a subagent, which needs format: 6"))
     if template.oauth_provider and template.url:
-        raise ValueError("it signs in with oauth:, which is for plugins that run on this computer, not a url")
+        raise ValueError(said("it signs in with oauth:, which is for plugins that run on this computer, not a url"))
     if version < 7 and template.approve:
-        raise ValueError("it has tools that ask first (approve:), which needs format: 7")
+        raise ValueError(said("it has tools that ask first (approve:), which needs format: 7"))
     if template.check_tool and not template.is_mcp:
-        raise ValueError("its check is a tool, which needs an MCP server (command or url)")
+        raise ValueError(said("its check is a tool, which needs an MCP server (command or url)"))
     return Candidate(found, template, folder, folder.relative_to(root).as_posix(), systems, version)
 
 
@@ -499,7 +533,7 @@ def _tool_patterns(value: object) -> list[str]:
     """Raises ValueError for anything but a list of tool names: a lone name is refused, not read letter by
     letter, since a tool left out of `approve` would run without asking."""
     if not isinstance(value, list) or not all(isinstance(t, str) and t.strip() for t in value):
-        raise ValueError("its approve must be a list of tool names")
+        raise ValueError(said("its approve must be a list of tool names"))
     return [t.strip() for t in value]
 
 
@@ -527,7 +561,49 @@ def _found(data: dict[str, Any], template: McpServer, folder: Path, category_fol
         subagent=template.subagent_name,
         check=bool(template.check_command or template.check_tool),
         icon=icons.or_category(icons.parse(data.get("icon"), folder), category),
+        translations=_translations(data.get("translations")),
     )
+
+
+def in_language(server: FoundServer, language: str) -> FoundServer:
+    """With its description, steps and fields as its server.yaml says them in `language`, English where it
+    doesn't."""
+    texts = server.translations.get(language)
+    if not texts:
+        return server
+    return replace(
+        server,
+        description=texts["description"] or server.description,
+        steps=texts["steps"] or server.steps,
+        fields=_fields_in(server.fields, texts),
+    )
+
+
+def _fields_in(fields: list[ServerField], texts: dict[str, Any]) -> list[ServerField]:
+    shown = [(f, texts["fields"].get(f.key, {})) for f in fields]
+    return [replace(f, label=text.get("label") or f.label, help=text.get("help") or f.help) for f, text in shown]
+
+
+def _translations(value: object) -> dict[str, dict[str, Any]]:
+    """Raises ValueError for a `translations:` section that can't be used."""
+    if value is None:
+        return {}
+    if not isinstance(value, dict) or not all(isinstance(texts, dict) for texts in value.values()):
+        raise ValueError(said("its translations must be a section per language, like es:"))
+    return {str(language): _translation(texts) for language, texts in value.items()}
+
+
+def _translation(texts: dict[str, Any]) -> dict[str, Any]:
+    fields, steps = texts.get("fields") or {}, texts.get("steps") or []
+    if not isinstance(fields, dict) or not all(isinstance(f, dict) for f in fields.values()):
+        raise ValueError(said("its translations' fields must be a section per field key"))
+    if not isinstance(steps, list):
+        raise ValueError(said("its translations' steps must be a list"))
+    return {
+        "description": str(texts.get("description") or "").strip(),
+        "steps": [str(s).strip() for s in steps if str(s).strip()],
+        "fields": {str(k): {p: str(f.get(p) or "") for p in ("label", "help")} for k, f in fields.items()},
+    }
 
 
 def _category(data: dict[str, Any], template: McpServer, category_folder: str) -> str:
@@ -541,7 +617,7 @@ def _channel_protocol(value: object) -> int:
     if value is None:
         return 1
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
-        raise ValueError("its channel protocol must be a whole number from 1")
+        raise ValueError(said("its channel protocol must be a whole number from 1"))
     return value
 
 
@@ -568,9 +644,11 @@ def _check_skill(folder: Path, name: str) -> bool:
     if skill is None:
         return False
     if skill.name != name or not skills.valid_name(name):
-        raise ValueError(f"its SKILL.md must be named {name}, a skill name (lowercase letters, digits, -)")
+        raise ValueError(
+            said("its SKILL.md must be named {name}, a skill name (lowercase letters, digits, -)", name=name)
+        )
     if skill.problems:
-        raise ValueError(f"its skill has problems: {' '.join(skill.problems)}")
+        raise ValueError(said("its skill has problems: {problems}", problems=" ".join(skill.problems)))
     return True
 
 
@@ -585,7 +663,9 @@ def _agent(section: object) -> dict[str, Any]:
     if not all(parts.values()):
         raise ValueError(_AGENT_PARTS)
     if not _COMMAND.match(parts["command"]):
-        raise ValueError(f"its agent command {parts['command']!r} must be a lowercase word, like claude")
+        raise ValueError(
+            said("its agent command {command!r} must be a lowercase word, like claude", command=parts["command"])
+        )
     args = [str(a) for a in section.get("args", [])]
     return {
         "agent_command": parts["command"],
@@ -601,7 +681,7 @@ _AGENT_PARTS = "its agent section must have command, name and worker"
 def _field(data: dict[str, Any]) -> ServerField:
     key = str(data["key"])
     if not _KEY.match(key):
-        raise ValueError(f"{key!r} isn't a valid field key")
+        raise ValueError(said("{key!r} isn't a valid field key", key=key))
     label, help_url = str(data.get("label", key)), str(data.get("help", ""))
     return ServerField(key, label, bool(data.get("secret", False)), help_url, bool(data.get("optional", False)))
 

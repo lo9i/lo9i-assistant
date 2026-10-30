@@ -9,6 +9,7 @@ text) is listed, so the user sees it works best handed to a coding agent."""
 
 import re
 
+from assistant.core.i18n import said
 from assistant.core.skills import store
 
 _DESCRIPTION_LIMIT = 200
@@ -56,16 +57,16 @@ def needs_agent(meta: dict, body: str, agent_name: str) -> list[str]:
     """Why it works best handed to a coding agent; empty when the assistant can follow it as well."""
     reasons = [*_header_needs(meta, agent_name)]
     if _LOAD_COMMAND.search(body):
-        reasons.append(f"It runs commands as {agent_name} loads it (!`…`); here they're only text.")
+        reasons.append(said("It runs commands as {agent} loads it (!`…`); here they're only text.", agent=agent_name))
     tools = sorted({next(group for group in m.groups() if group) for m in _TOOL_MENTION.finditer(body)})
     if tools:
-        reasons.append(f"It uses a coding agent's tools: {', '.join(tools)}.")
+        reasons.append(said("It uses a coding agent's tools: {tools}.", tools=", ".join(tools)))
     return reasons
 
 
 def problems(skill_name: str, instructions: str, files: list[str]) -> list[str]:
     """What stops it from being imported: a name the assistant can't use, or files it uses and doesn't have."""
-    found = [] if store.valid_name(skill_name) else ["Its name has no letters or digits to name a skill with."]
+    found = [] if store.valid_name(skill_name) else [said("Its name has no letters or digits to name a skill with.")]
     return [*found, *store.problems(instructions, files)]
 
 
@@ -74,11 +75,11 @@ def _header_needs(meta: dict, agent_name: str) -> list[str]:
     tools = meta.get("allowed-tools") or meta.get("allowed_tools")
     if tools:
         listed = ", ".join(str(t) for t in tools) if isinstance(tools, list) else str(tools)
-        reasons.append(f"Its header gives it {agent_name}'s tools: {listed}.")
+        reasons.append(said("Its header gives it {agent}'s tools: {tools}.", agent=agent_name, tools=listed))
     if meta.get("context") == "fork" or meta.get("agent"):
-        reasons.append(f"It runs as a {agent_name} subagent.")
+        reasons.append(said("It runs as a {agent} subagent.", agent=agent_name))
     if meta.get("hooks"):
-        reasons.append(f"It sets {agent_name} hooks.")
+        reasons.append(said("It sets {agent} hooks.", agent=agent_name))
     return reasons
 
 

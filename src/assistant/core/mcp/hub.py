@@ -26,6 +26,7 @@ from assistant.core.bus import EventBus
 from assistant.core.context import McpStarts
 from assistant.core.health import Health, HealthLog
 from assistant.core.hidden_text import strip_hidden
+from assistant.core.i18n import said
 from assistant.core.mcp import background, data_key, keys, logins, servers, sign_in, ssh_agent, tool_cache
 from assistant.core.mcp.background import WorkFinished
 from assistant.core.mcp.connection import (
@@ -182,7 +183,7 @@ class McpHub(McpStarts):
         Raises NotConnectedError when the server isn't connected, and what McpConnection.call raises."""
         running = self._running.get(server)
         if running is None:
-            raise NotConnectedError(f"{server} isn't running. Turn it on in Plugins.")
+            raise NotConnectedError(said("{server} isn't running. Turn it on in Plugins.", server=server))
         return await running.connection.call(tool, arguments, progress)
 
     def unavailable(self, name: str) -> str:
@@ -241,13 +242,13 @@ class McpHub(McpStarts):
             if needs_sign_in(e):
                 return McpProbe([], sign_in=True)
             reason = f"no answer within {_PROBE_SECONDS}s" if isinstance(e, TimeoutError) else describe(e)
-            raise McpServerError(f"Couldn't connect to {server.name}: {reason}") from e
+            raise McpServerError(said("Couldn't connect to {name}: {reason}", name=server.name, reason=reason)) from e
         return McpProbe(_infos(server, tools))
 
     async def start_sign_in(self, server: McpServer, redirect_uri: str) -> McpSignIn:
         """Raises McpServerError for a local server, one that can't be reached or doesn't ask to sign in."""
         if not server.url:
-            raise McpServerError(f"{server.name} runs on this computer: there's nothing to sign in to.")
+            raise McpServerError(said("{name} runs on this computer: there's nothing to sign in to.", name=server.name))
         if previous := self._signing_in.pop(server.name, None):
             previous.cancel()
         started = await sign_in.start(server, self._auth, redirect_uri, self._factory)

@@ -12,6 +12,8 @@ import secrets
 import time
 from typing import Protocol
 
+from assistant.core.i18n import said
+
 # A sign-in not finished in this time is forgotten.
 PENDING_SECONDS = 600
 
@@ -39,7 +41,7 @@ class SignIns:
         """The sign-in for this state, once. Raises SignInError for an unknown or expired one."""
         sign_in = self._pending.pop(state, None)
         if sign_in is None or time.time() > sign_in.expires_at:
-            raise SignInError("This sign-in has expired or was already used. Start it again from the app.")
+            raise SignInError(said("This sign-in has expired or was already used. Start it again from the app."))
         return sign_in
 
     def _forget_expired(self, now: float) -> None:

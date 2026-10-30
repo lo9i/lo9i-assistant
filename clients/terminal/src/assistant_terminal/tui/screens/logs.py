@@ -39,7 +39,7 @@ def _level(level: str) -> str:
 
 
 class LogsScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
 
     def __init__(self, logs: LogsApi) -> None:
         super().__init__()

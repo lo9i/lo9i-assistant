@@ -11,7 +11,7 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, VerticalScroll
 from textual.screen import Screen
-from textual.widgets import Footer, Header, Input
+from textual.widgets import Header, Input
 
 from assistant.client import DaemonClient, DaemonUnavailableError, clipboard
 from assistant.client.daemon_client import offered_plugin
@@ -44,7 +44,7 @@ from assistant_terminal import i18n
 from assistant_terminal.commands import GET_TO_KNOW_ME, Command, agent_commands, help_lines
 from assistant_terminal.conversations_text import listed_title, when
 from assistant_terminal.history import History
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.jobs_text import status as job_status
 from assistant_terminal.preferences import Preferences
 from assistant_terminal.tasks_text import task_line
@@ -52,6 +52,7 @@ from assistant_terminal.tui.attachments import AttachmentBar
 from assistant_terminal.tui.command_menu import CommandMenu
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.followed import FollowedRuns
+from assistant_terminal.tui.footer import ShownFooter
 from assistant_terminal.tui.history import Loaders, show_history
 from assistant_terminal.tui.live import handlers as live_handlers
 from assistant_terminal.tui.mouse import switch_mouse
@@ -112,8 +113,6 @@ from assistant_terminal.tui.widgets import (
     UserMessage,
 )
 
-_PLACEHOLDER = t("Message the assistant   (type / for commands)")
-_PLACEHOLDER_WITH_MIC = t("Message the assistant   (type / for commands, F3 to record)")
 _MIN_RECORDING_SECONDS = 0.5
 # The title when the user hasn't named the assistant.
 _DEFAULT_TITLE = "lo9i assistant"
@@ -128,16 +127,16 @@ class AssistantApp(App):
     ENABLE_COMMAND_PALETTE = False
     TITLE = _DEFAULT_TITLE
     BINDINGS: ClassVar[list[BindingType]] = [
-        Binding("ctrl+n", "new_thread", t("New conversation")),
-        Binding("ctrl+o", "open_conversations", t("Open conversations")),
+        Binding("ctrl+n", "new_thread", translatable("New conversation")),
+        Binding("ctrl+o", "open_conversations", translatable("Open conversations")),
         # Not ctrl+b: that is the prefix key of tmux and herdr.
-        Binding("f2", "toggle_memory", t("Memory panel")),
-        Binding("f3", "toggle_recording", t("Record voice")),
+        Binding("f2", "toggle_memory", translatable("Memory panel")),
+        Binding("f3", "toggle_recording", translatable("Record voice")),
         # Priority, so it runs before the message box's own Ctrl+V, which pastes only text copied
         # inside the app.
-        Binding("ctrl+v", "paste", t("Paste"), show=False, priority=True),
-        Binding("ctrl+q", "quit", t("Quit")),
-        Binding("escape", "stop", t("Stop"), show=False),
+        Binding("ctrl+v", "paste", translatable("Paste"), show=False, priority=True),
+        Binding("ctrl+q", "quit", translatable("Quit")),
+        Binding("escape", "stop", translatable("Stop"), show=False),
         # Priority, so it runs before the message box's own Backspace; only when the box is empty.
         Binding("backspace", "remove_attachment", show=False, priority=True),
         Binding("tab", "complete_command", show=False, priority=True),
@@ -225,9 +224,9 @@ class AssistantApp(App):
         # One bordered box: the attached files, then the text being typed.
         with Horizontal(id="prompt-box"):
             yield AttachmentBar(id="attachments")
-            yield PromptInput(placeholder=_PLACEHOLDER_WITH_MIC if self._can_record else _PLACEHOLDER, id="prompt")
+            yield PromptInput(placeholder=self._placeholder(), id="prompt")
         with Horizontal(id="footer-row"):
-            yield Footer()
+            yield ShownFooter()
             yield ContextFuel()
             yield MouseStatus(self._preferences.mouse)
 
@@ -744,8 +743,17 @@ class AssistantApp(App):
 
     @reports_daemon_unavailable
     async def refresh_language(self) -> None:
-        """What shows after uses it; key bindings and labels made at start keep theirs until the next one."""
+        """What shows after uses it, the footer's key bindings and the message box's hint at once; a screen open
+        now keeps its labels until it's shown again."""
         i18n.use(await self._service.language.get())
+        self.query_one(PromptInput).placeholder = self._placeholder()
+        for screen in self.screen_stack:
+            screen.refresh_bindings()
+
+    def _placeholder(self) -> str:
+        if self._can_record:
+            return t("Message the assistant   (type / for commands, F3 to record)")
+        return t("Message the assistant   (type / for commands)")
 
     @reports_daemon_unavailable
     async def refresh_title(self) -> None:
@@ -977,8 +985,8 @@ class AssistantApp(App):
         except LanguageError as e:
             self.notify(str(e), severity="error")
             return
-        i18n.use(chosen)
-        self.notify(t("Language set to {language}. Restart the app for its keys and labels.", language=chosen))
+        await self.refresh_language()
+        self.notify(t("Language set to {language}.", language=chosen))
 
     async def _command_pin(self, arg: str) -> None:
         thread_id = self._live.session.thread_id

@@ -26,7 +26,7 @@ _SKILL, _SERVER = "skill:", "server:"
 
 
 class RepositoryInstallScreen(ModalScreen[list[str]]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss([])", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss([])", translatable("Close"))]
 
     def __init__(
         self,

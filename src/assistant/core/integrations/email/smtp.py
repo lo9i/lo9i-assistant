@@ -5,6 +5,7 @@ from email.message import EmailMessage
 import aiosmtplib
 import certifi
 
+from assistant.core.i18n import said
 from assistant.core.integrations.email.accounts import EmailConfig, EmailError
 
 _TIMEOUT = 20
@@ -18,7 +19,9 @@ async def verify(config: EmailConfig) -> None:
         await _log_in(smtp, config)
         await smtp.quit()
     except (aiosmtplib.SMTPException, OSError) as e:
-        raise EmailError(f"Couldn't log in to {config.host}:{config.port}: {e}") from e
+        raise EmailError(
+            said("Couldn't log in to {host}:{port}: {error}", host=config.host, port=config.port, error=e)
+        ) from e
 
 
 async def send(config: EmailConfig, to: list[str], subject: str, body: str) -> None:
@@ -32,7 +35,7 @@ async def send(config: EmailConfig, to: list[str], subject: str, body: str) -> N
         await smtp.send_message(message)
         await smtp.quit()
     except (aiosmtplib.SMTPException, OSError) as e:
-        raise EmailError(f"Sending failed: {e}") from e
+        raise EmailError(said("Sending failed: {error}", error=e)) from e
 
 
 async def _log_in(smtp: aiosmtplib.SMTP, config: EmailConfig) -> None:

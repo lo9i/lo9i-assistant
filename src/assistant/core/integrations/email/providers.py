@@ -6,6 +6,8 @@ preset has no servers: the user enters them (the extras' custom-email plugin).""
 from dataclasses import dataclass
 from typing import Any
 
+from assistant.core.i18n import said
+
 _OAUTH = {"", "google", "microsoft"}
 _REQUIRED = ("id", "name", "host", "imap_host")
 
@@ -38,10 +40,10 @@ def parse(section: object, plugin: str) -> list[EmailProvider]:
     if section is None:
         return []
     if not isinstance(section, list) or not all(isinstance(e, dict) for e in section):
-        raise ValueError("its email: section must be a list of providers")
+        raise ValueError(said("its email: section must be a list of providers"))
     found = [_provider(entry, plugin) for entry in section]
     if len({p.id for p in found}) != len(found):
-        raise ValueError("its email: section has two providers with the same id")
+        raise ValueError(said("its email: section has two providers with the same id"))
     return found
 
 
@@ -49,9 +51,15 @@ def _provider(entry: dict[str, Any], plugin: str) -> EmailProvider:
     custom = bool(entry.get("custom", False))
     required = ("id", "name") if custom else _REQUIRED
     if missing := [key for key in required if not str(entry.get(key) or "").strip()]:
-        raise ValueError(f"a provider in its email: section has no {', '.join(missing)}")
+        raise ValueError(said("a provider in its email: section has no {missing}", missing=", ".join(missing)))
     if (oauth := str(entry.get("oauth") or "")) not in _OAUTH:
-        raise ValueError(f"its email: provider {entry['id']} signs in with {oauth!r}, not google or microsoft")
+        raise ValueError(
+            said(
+                "its email: provider {provider} signs in with {oauth!r}, not google or microsoft",
+                provider=entry["id"],
+                oauth=oauth,
+            )
+        )
     return EmailProvider(
         str(entry["id"]),
         str(entry["name"]),

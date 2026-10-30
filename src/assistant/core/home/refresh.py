@@ -14,12 +14,14 @@ from typing import Any, Protocol
 import openai
 from langgraph.store.base import BaseStore
 
+from assistant.core import i18n
 from assistant.core.bus import EventBus
 from assistant.core.home import results, sections
 from assistant.core.home.builder import SectionBuilder
 from assistant.core.home.clock import within
 from assistant.core.home.coded import CodedSection
 from assistant.core.home.model import HomeCard, HomePage, HomeSection, SectionResult
+from assistant.core.i18n import message, said
 from assistant.core.mcp import servers
 from assistant.core.mcp.sanitize import tool_name
 from assistant.core.mcp.servers import McpServer
@@ -111,7 +113,7 @@ class HomeRefresh:
             result = _unavailable(section, installed, now)
         else:
             result = await self._built(user_id, section, tools, now, _page(section, installed))
-        await results.save(self._store, user_id, result)
+        await results.save(self._store, user_id, await self._in_language(result))
 
     async def _built(
         self, user_id: str, section: HomeSection, tools: list[dict[str, Any]], now: datetime, page: str
@@ -152,6 +154,10 @@ class HomeRefresh:
             at=now.isoformat(),
         )
 
+    async def _in_language(self, result: SectionResult) -> SectionResult:
+        """Why it failed, kept in the language chosen."""
+        return result.model_copy(update={"error": (await i18n.chosen(self._store)).shown(result.error)})
+
     async def _failed(self, user_id: str, section: HomeSection, error: str, now: datetime, page: str) -> SectionResult:
         """Keeping the items it had, which Home still shows."""
         last = (await results.load(self._store, user_id)).get(section.id)
@@ -184,11 +190,11 @@ def _unavailable(section: HomeSection, installed: list[McpServer], now: datetime
     names = {s.name for s in installed}
     missing = [p for p in section.plugins if p not in names]
     if missing:
-        error = f"Needs the {', '.join(missing)} plugin: install it or turn it on in Plugins."
+        error = said("Needs the {plugins} plugin: install it or turn it on in Plugins.", plugins=", ".join(missing))
     elif section.plugins:
-        error = f"{', '.join(section.plugins)} has no tools that only read, or isn't connected."
+        error = said("{plugins} has no tools that only read, or isn't connected.", plugins=", ".join(section.plugins))
     else:
-        error = "No plugin with tools that only read is installed."
+        error = said("No plugin with tools that only read is installed.")
     return SectionResult(
         section_id=section.id, title=section.title, status="unavailable", error=error, at=now.isoformat()
     )
@@ -205,11 +211,11 @@ def _expected(error: Exception) -> bool:
 
 def _reason(error: Exception) -> str:
     if isinstance(error, TimeoutError):
-        return f"It took more than {SECTION_SECONDS // 60} minutes."
+        return said("It took more than {minutes} minutes.", minutes=SECTION_SECONDS // 60)
     cause = error.__cause__ or error
     if isinstance(cause, openai.RateLimitError):
-        return "The model's usage limit was reached; it will try again on the next refresh."
+        return said("The model's usage limit was reached; it will try again on the next refresh.")
     if isinstance(cause, _UNREACHABLE):
-        return "The model couldn't be reached; it will try again on the next refresh."
-    text = str(error).strip() or type(error).__name__
+        return said("The model couldn't be reached; it will try again on the next refresh.")
+    text = message(error).strip() or type(error).__name__
     return text if len(text) <= 300 else text[:300] + "…"

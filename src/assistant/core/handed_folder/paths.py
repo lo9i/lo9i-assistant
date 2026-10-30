@@ -6,6 +6,7 @@ import asyncio
 from pathlib import Path, PurePosixPath
 
 from assistant.core.handed_folder import git
+from assistant.core.i18n import said
 
 # Never shown, whatever git says: a repository's insides, and folders of installed packages too big to browse.
 ALWAYS_HIDDEN = frozenset({".git", "node_modules", ".venv"})
@@ -27,7 +28,7 @@ def root(folder: str) -> Path:
     """The folder, its links followed, so paths inside it are compared with where they really are."""
     where = Path(folder).resolve()
     if not where.is_dir():
-        raise MissingPathError(f"{folder} isn't there any more.")
+        raise MissingPathError(said("{folder} isn't there any more.", folder=folder))
     return where
 
 
@@ -40,12 +41,12 @@ def inside(root: Path, relative: str) -> Path:
     """`relative` in `root` (from `root()`), its links followed. Raises OutsideFolderError for a path that
     reaches outside it, MissingPathError for one that isn't there."""
     if "\0" in relative or relative.startswith("/") or ".." in PurePosixPath(relative).parts:
-        raise OutsideFolderError(f"{relative} isn't inside the folder.")
+        raise OutsideFolderError(said("{relative} isn't inside the folder.", relative=relative))
     target = (root / relative).resolve()
     if not target.is_relative_to(root):
-        raise OutsideFolderError(f"{relative} isn't inside the folder.")
+        raise OutsideFolderError(said("{relative} isn't inside the folder.", relative=relative))
     if not target.exists():
-        raise MissingPathError(f"{relative} isn't there.")
+        raise MissingPathError(said("{relative} isn't there.", relative=relative))
     return target
 
 
@@ -56,7 +57,7 @@ async def shown(root: Path, relative: str) -> Path:
     target = await asyncio.to_thread(inside, root, relative)
     for path in {relative, target.relative_to(root).as_posix()} - {"", "."}:
         if always_hidden(path) or await git.ignored(root, [path]):
-            raise OutsideFolderError(f"{relative} isn't shown.")
+            raise OutsideFolderError(said("{relative} isn't shown.", relative=relative))
     return target
 
 

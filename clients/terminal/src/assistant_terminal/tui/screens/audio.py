@@ -63,7 +63,7 @@ def _language(code: str, name: str) -> str:
 
 
 class AudioScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"settings"})
 
     def __init__(self, speech: SpeechApi) -> None:

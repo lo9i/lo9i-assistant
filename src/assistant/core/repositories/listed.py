@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from langgraph.store.base import BaseStore
 
 from assistant.core import secret_store
+from assistant.core.i18n import message, said
 from assistant.core.mcp import keys, servers
 from assistant.core.repositories import cache, contents
 from assistant.core.repositories.checkout import check_url
@@ -44,6 +45,13 @@ class RepositoryPlugins:
     error: str = ""
 
 
+def in_language(plugins: RepositoryPlugins, language: str) -> RepositoryPlugins:
+    """With its servers' text in `language` where their server.yaml translates it."""
+    if plugins.contents is None:
+        return plugins
+    return RepositoryPlugins(plugins.repository, contents.in_language(plugins.contents, language), plugins.error)
+
+
 @dataclass(frozen=True)
 class KeptKeys:
     """What a removed plugin left kept, for the user to keep or delete: its keys' names, and the
@@ -68,7 +76,7 @@ async def add(store: BaseStore, box: SecretBox, url: str, token: str = "") -> Re
     url, token = url.strip(), token.strip()
     check_url(url)
     if any(_same(url, r.url) for r in await listed(store)):
-        raise RepositoryError(f"{name_of(url)} is listed already.")
+        raise RepositoryError(said("{name} is listed already.", name=name_of(url)))
     urls, private = await _added(store)
     kept = next((u for u in private if _same(url, u)), None)
     token = token or (await _token_of(store, box, kept) if kept else "")
@@ -85,11 +93,11 @@ async def add(store: BaseStore, box: SecretBox, url: str, token: str = "") -> Re
 async def remove(store: BaseStore, url: str) -> None:
     """Raises RepositoryError for the extras, which are built in, or a repository not listed."""
     if _same(url, EXTRAS):
-        raise RepositoryError("The assistant's extras are built in and can't be removed.")
+        raise RepositoryError(said("The assistant's extras are built in and can't be removed."))
     urls, private = await _added(store)
     found = next((u for u in urls if _same(url, u)), None)
     if found is None:
-        raise RepositoryError(f"{name_of(url)} isn't listed.")
+        raise RepositoryError(said("{name} isn't listed.", name=name_of(url)))
     if await in_use(store, found):
         # Its plugins update with its token: kept, unlisted, until the last of them is removed.
         await _save(store, [u for u in urls if u != found], private)
@@ -192,7 +200,7 @@ async def _plugins(store: BaseStore, repository: Repository, token: str, cached:
     try:
         return RepositoryPlugins(repository, await contents.browse(store, repository.url, token))
     except RepositoryError as e:
-        return RepositoryPlugins(repository, None, str(e))
+        return RepositoryPlugins(repository, None, message(e))
 
 
 def name_of(url: str) -> str:

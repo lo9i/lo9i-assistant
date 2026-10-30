@@ -3734,6 +3734,12 @@ export interface components {
              */
             check: boolean;
             icon?: components["schemas"]["PluginIcon"];
+            /** Translations */
+            translations?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
         };
         /**
          * FoundSkill

@@ -22,7 +22,7 @@ from assistant.core.bus import EventBus
 from assistant.core.channels.chat.approvals import job_approval_buttons, job_approval_text
 from assistant.core.channels.chat.port import OWN_CHAT, ChatLimits, Delivered, RemoteChat
 from assistant.core.channels.chat.split import split_text
-from assistant.core.i18n import Texts
+from assistant.core.i18n import Texts, said
 from assistant.core.outbox import DeliveryError, Outbox
 
 # The channel protocol this daemon speaks (docs/channel-plugins.md). A plugin declares the one its process
@@ -139,7 +139,11 @@ class ChannelHub:
         """The channel's events for as long as it reads them. A second stream ends the first."""
         stream = self._open(channel, limits)
         try:
-            hello = {"assistant_name": await self._assistant_name(), "commands": await self._commands()}
+            hello = {
+                "assistant_name": await self._assistant_name(),
+                "commands": await self._commands(),
+                "language": await self._language(),
+            }
             yield ChannelEvent("hello", hello)
             while not stream.ended.is_set():
                 event = await _next(stream)
@@ -166,8 +170,9 @@ class ChannelHub:
         self._push(channel, ChannelEvent("action", {"action": action}))
 
     async def run(self, stop: asyncio.Event) -> None:
-        """Tell the channels when the assistant is renamed (Telegram renames its bot) and when their
-        commands change (an agent plugin installed or removed, the language changed)."""
+        """Tell the channels when the assistant is renamed (Telegram renames its bot), when their commands change
+        (an agent plugin installed or removed, the language changed) and when the language changes, which their own
+        text follows."""
         changes = asyncio.create_task(self._follow_changes())
         try:
             await stop.wait()
@@ -187,7 +192,7 @@ class ChannelHub:
                 with contextlib.suppress(_GoneError):
                     return await self._deliver(channel, stream, kind, data)
             if not await self._back(channel, deadline):
-                raise DeliveryError(f"{channel} isn't connected.")
+                raise DeliveryError(said("{channel} isn't connected.", channel=channel))
 
     async def _deliver(self, channel: str, stream: _Stream, kind: str, data: dict[str, Any]) -> Delivered:
         """Raises _GoneError when the stream ends before the channel confirms it, DeliveryError otherwise."""
@@ -198,7 +203,7 @@ class ChannelHub:
             stream.events.put_nowait(ChannelEvent(kind, {"id": delivery_id, **data}))
             error, delivered = await asyncio.wait_for(waiting, DELIVERY_SECONDS)
         except TimeoutError as e:
-            raise DeliveryError(f"{channel} didn't confirm the delivery in time.") from e
+            raise DeliveryError(said("{channel} didn't confirm the delivery in time.", channel=channel)) from e
         finally:
             self._deliveries.pop(delivery_id, None)
         if error:
@@ -216,15 +221,23 @@ class ChannelHub:
         return True
 
     async def _follow_changes(self) -> None:
-        name, commands = await self._assistant_name(), await self._commands()
+        name, commands, language = await self._assistant_name(), await self._commands(), await self._language()
         async for event in self._bus.subscribe(self._bus.last_id):
             if event.kind == "settings" and (new := await self._assistant_name()) != name:
                 name = new
                 self._broadcast(ChannelEvent("renamed", {"assistant_name": name}))
+            if event.kind == "settings" and (chosen := await self._language()) != language:
+                language = chosen
+                self._broadcast(ChannelEvent("language", {"language": language}))
             # An agent plugin installed or removed, or the language changed.
             if event.kind in ("mcp", "settings") and (offered := await self._commands()) != commands:
                 commands = offered
                 self._broadcast(ChannelEvent("commands", {"commands": commands}))
+
+    async def _language(self) -> str:
+        """The language the channel writes its own text in (its setup, its replies): the one chosen, English for
+        auto."""
+        return (await self._texts()).language
 
     def _open(self, channel: str, limits: ChatLimits) -> _Stream:
         if (previous := self._streams.get(channel)) is not None:
@@ -258,7 +271,7 @@ class ChannelHub:
     def _push(self, channel: str, event: ChannelEvent) -> None:
         stream = self._streams.get(channel)
         if stream is None:
-            raise ChannelNotConnectedError(f"{channel} isn't connected.")
+            raise ChannelNotConnectedError(said("{channel} isn't connected.", channel=channel))
         stream.events.put_nowait(event)
 
     def _broadcast(self, event: ChannelEvent) -> None:

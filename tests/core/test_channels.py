@@ -17,6 +17,7 @@ from assistant.core.channels.hub import ChannelHub, ChannelNotConnectedError, Se
 from assistant.core.channels.processes import ChannelProcesses
 from assistant.core.conversation.prompt import build_system_prompt
 from assistant.core.i18n import Texts, texts
+from assistant.core.language import Shown
 from assistant.core.logs import component_of
 from assistant.core.mcp import folders, keys, servers
 from assistant.core.mcp.environment import Environments
@@ -51,7 +52,7 @@ async def _attached(hub: ChannelHub, channel: str, limits: ChatLimits = _LIMITS)
     """The channel's stream, past its hello."""
     stream = hub.attach(channel, limits)
     hello = await anext(stream)
-    assert hello.kind == "hello" and hello.data == {"assistant_name": "lo9i", "commands": _COMMANDS}
+    assert hello.kind == "hello" and hello.data == {"assistant_name": "lo9i", "commands": _COMMANDS, "language": "en"}
     return stream
 
 
@@ -180,7 +181,7 @@ async def test_a_second_stream_replaces_the_first():
 
 
 async def test_channels_hear_when_the_assistant_is_renamed_and_when_their_commands_change():
-    names, offered = ["lo9i"], [list(_COMMANDS)]
+    names, offered, languages = ["lo9i"], [list(_COMMANDS)], list[Shown](["en"])
     outbox, approvals, bus = Outbox(), RemoteApprovals(), EventBus()
 
     async def assistant_name() -> str:
@@ -189,7 +190,10 @@ async def test_channels_hear_when_the_assistant_is_renamed_and_when_their_comman
     async def commands() -> list[dict[str, str]]:
         return offered[-1]
 
-    hub = ChannelHub(outbox, approvals, bus, assistant_name, commands, _english)
+    async def chosen() -> Texts:
+        return texts(languages[-1])
+
+    hub = ChannelHub(outbox, approvals, bus, assistant_name, commands, chosen)
     stop = asyncio.Event()
     running = asyncio.create_task(hub.run(stop))
     stream = aiter(hub.attach("telegram", ChatLimits()))
@@ -203,7 +207,10 @@ async def test_channels_hear_when_the_assistant_is_renamed_and_when_their_comman
     changed = await anext(stream)
     assert (changed.kind, changed.data) == ("commands", {"commands": offered[-1]})
     offered.append([{"command": "clear", "description": "Empezar una conversación nueva con tu próximo mensaje"}])
+    languages.append("es")
     bus.publish("settings")
+    in_spanish = await anext(stream)
+    assert (in_spanish.kind, in_spanish.data) == ("language", {"language": "es"})
     in_spanish = await anext(stream)
     assert (in_spanish.kind, in_spanish.data) == ("commands", {"commands": offered[-1]})
     stop.set()

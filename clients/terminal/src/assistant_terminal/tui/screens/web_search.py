@@ -12,13 +12,13 @@ from textual.widgets import Button, Input, Markdown
 
 from assistant.client.daemon_client import WebSearchApi
 from assistant.core.agent import InvalidSearchKeyError, WebSearchStatus
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.web_search_text import describe
 
 
 class WebSearchScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"settings"})
 
     def __init__(self, web_search: WebSearchApi) -> None:

@@ -16,6 +16,7 @@ from assistant.core.handed_folder.diff import FileDiff
 from assistant.core.handed_folder.paths import HandedFolderError, MissingPathError, OutsideFolderError
 from assistant.core.handed_folder.preview import FilePreview
 from assistant.core.handed_folder.tree import FolderRefresh, ListedFolder
+from assistant.core.i18n import said
 
 __all__ = [
     "DeletingOffError",
@@ -97,12 +98,12 @@ class HandedFolderMixin(ServiceBase):
 
     async def _refuse_deleting_while_off(self) -> None:
         if not await self.folder_deleting():
-            raise DeletingOffError("Deleting files from the folder panel is turned off in Settings → General.")
+            raise DeletingOffError(said("Deleting files from the folder panel is turned off in Settings → General."))
 
     async def _handed_root(self, user_id: str, thread_id: str) -> Path:
         handoff = await handoffs.current(self._storage.store, user_id, thread_id)
         if handoff is None:
-            raise NotHandedError("This conversation isn't handed to an agent.")
+            raise NotHandedError(said("This conversation isn't handed to an agent."))
         return await asyncio.to_thread(paths.root, handoff.folder)
 
 

@@ -18,14 +18,16 @@ check:
 
 lo9i runs it as it runs the plugin's other processes: with the plugin's env (its fields as typed, a field left empty
 with the value saved before), its data key, sign-in (`LO9I_OAUTH`) and lo9i's logins it asks for
-(`LO9I_COPILOT_GITHUB_TOKEN`, the ssh agent), in its installed folder. Placeholders (`{bin}`, `{dir}`, `{data}`)
+(`LO9I_COPILOT_GITHUB_TOKEN`, the ssh agent), in its installed folder, and `LO9I_LANGUAGE`: the language the user
+chose for the apps' text, `en` or `es` (English for auto), to say why in. Placeholders (`{bin}`, `{dir}`, `{data}`)
 are filled in as in its other commands, and `{bin}` scripts come from its own environment, built before the check
 runs.
 
 - Exit 0 when the values work.
-- Otherwise exit non-zero and say why on stdout, in a sentence for the user: "Telegram refused the bot token. Check
-  it with @BotFather and enter it again." The apps show it as `<plugin>: <what it said>`; without anything on
-  stdout, the last line it wrote on stderr. Never print a secret.
+- Otherwise exit non-zero and say why on stdout, in a sentence for the user, in `LO9I_LANGUAGE` when the plugin has
+  it in that language: "Telegram refused the bot token. Check it with @BotFather and enter it again." The apps show
+  it as `<plugin>: <what it said>`; without anything on stdout, the last line it wrote on stderr. Never print a
+  secret.
 
 ## A tool
 
@@ -34,7 +36,8 @@ check:
   tool: check_account
 ```
 
-A tool of the plugin's MCP server, called with no arguments on a connection of its own, started with the same env.
+A tool of the plugin's MCP server, called with no arguments on a connection of its own, started with the same env
+(`LO9I_LANGUAGE` included).
 An error result (`isError`, such as a `ToolError` raised in it) refuses the values with its text; any other result
 takes them. The agent never gets the tool and the apps don't list it, so it can say things only meant for the
 user. A plugin without an MCP server (`command` or `url`) uses a command.

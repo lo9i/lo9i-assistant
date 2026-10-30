@@ -10,25 +10,26 @@ runs with the note and no message from the user.
 """
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
 from langgraph.config import get_config
 from langgraph.runtime import get_runtime
 from langgraph.store.base import BaseStore
 
-from assistant.core import conversations, inbox, notifications
+from assistant.core import conversations, i18n, inbox, notifications
 from assistant.core.bus import EventBus
 from assistant.core.channels.chat import threads as chat_threads
 from assistant.core.context import UNATTENDED_CHANNEL, Context, thread_of
 from assistant.core.conversation import ended, queued, sent
 from assistant.core.conversation.queued import Queued
+from assistant.core.i18n import Texts, translatable
 from assistant.core.outbox import DeliveryError, Outbox
 
 logger = logging.getLogger(__name__)
 
 # The feed's title for work started where there's no conversation to open: a scheduled job's run.
-_UNLISTED_TITLE = "Background work"
+_UNLISTED_TITLE = translatable("Background work")
 
 
 @dataclass(frozen=True)
@@ -78,11 +79,13 @@ class BackgroundEnds:
 
     async def deliver(self, origin: Origin, work: Ended) -> None:
         """A scheduled job's conversation is never written in again, so it gets no note, and the feed has no
-        conversation to open for it."""
+        conversation to open for it. Its notice is in the language chosen."""
+        t = await i18n.chosen(self._store)
+        work = replace(work, notice=t.shown(work.notice))
         attended = origin.channel != UNATTENDED_CHANNEL
         if attended:
             await ended.record(self._store, origin.user_id, origin.thread_id, work.key, work.note)
-        await self._notify(origin, work, attended)
+        await self._notify(origin, work, attended, t)
         self._bus.publish(
             "background_ended", thread_id=origin.thread_id, channel=origin.channel, ok=work.ok, text=work.notice
         )
@@ -91,10 +94,10 @@ class BackgroundEnds:
         if attended and (work.follow_up or not work.ok):
             await queued.add(self._store, origin.user_id, origin.thread_id, Queued(origin.channel, work.notice, True))
 
-    async def _notify(self, origin: Origin, work: Ended, attended: bool) -> None:
+    async def _notify(self, origin: Origin, work: Ended, attended: bool, t: Texts) -> None:
         """Into the feed, named after the conversation it was started in."""
         started_in = await conversations.load(self._store, origin.user_id, origin.thread_id) if attended else None
-        title = started_in.title if started_in else _UNLISTED_TITLE
+        title = started_in.title if started_in else t(_UNLISTED_TITLE)
         thread_id = started_in.thread_id if started_in else ""
         await notifications.add(
             self._store, origin.user_id, "background", title, work.notice, work.ok, thread_id, plugin=work.plugin

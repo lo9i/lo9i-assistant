@@ -6,6 +6,7 @@ import asyncio
 from dataclasses import dataclass, field, fields, replace
 
 from assistant.core.agent.base import ServiceBase
+from assistant.core.i18n import message, said
 from assistant.core.integrations.email import accounts as email_accounts
 from assistant.core.mcp import data_key, install, keys, plugin_oauth, plugin_settings, servers
 from assistant.core.mcp.checks import CheckFailedError
@@ -102,7 +103,7 @@ class McpMixin(ServiceBase):
     async def add_mcp_server(self, server: McpServer) -> McpServerStatus:
         """Raises McpServerError for invalid settings or a name in use."""
         if server.name in {s.name for s in await servers.load_all(self._storage.store)}:
-            raise McpServerError(f"There's already an MCP server named {server.name}.")
+            raise McpServerError(said("There's already an MCP server named {name}.", name=server.name))
         return await self._save_mcp_server(server)
 
     async def update_mcp_server(self, name: str, changes: McpServerChanges) -> McpServerStatus:
@@ -153,7 +154,7 @@ class McpMixin(ServiceBase):
             self._storage.store, self.secrets, await servers.load(self._storage.store, sign_in.plugin)
         )
         if plugin_oauth.ENV not in server.keys:
-            raise McpServerError(f"{server.name} doesn't sign in to anything any more.")
+            raise McpServerError(said("{name} doesn't sign in to anything any more.", name=server.name))
         signed_in = replace(server, env={**server.env, plugin_oauth.ENV: login.to_env()})
         # Its check says now whether the account works for it, not its first use (core/mcp/checks.py).
         try:
@@ -161,7 +162,7 @@ class McpMixin(ServiceBase):
         except CheckFailedError as e:
             refused = CheckFailedError(f"The sign-in wasn't kept. {e}")
             # The browser's page says so; an app waiting for the sign-in hears it too.
-            self.bus.publish("sign_in_refused", name=server.name, error=str(refused))
+            self.bus.publish("sign_in_refused", name=server.name, error=message(refused))
             raise refused from e
         return await self._save_mcp_server(signed_in)
 

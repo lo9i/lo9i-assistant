@@ -14,11 +14,12 @@ from langgraph.prebuilt import ToolRuntime
 from langgraph.store.base import BaseStore
 from langgraph.types import interrupt
 
+from assistant.core import i18n
 from assistant.core.context import Context, require_secrets, require_store
 from assistant.core.events import PLUGIN_OFFER, PLUGIN_SETUP, QUESTION
 from assistant.core.integrations.email import accounts as email_accounts
 from assistant.core.mcp import plugin_oauth, plugin_settings, servers
-from assistant.core.mcp.install import FoundServer, ServerValues
+from assistant.core.mcp.install import FoundServer, ServerValues, in_language
 from assistant.core.mcp.servers import McpServerError
 from assistant.core.repositories import contents, offers
 from assistant.core.repositories.errors import RepositoryError
@@ -52,7 +53,7 @@ async def offer_plugin(name: str, runtime: ToolRuntime[Context]) -> str:
     if runtime.context.channel not in _APPS:
         channel = runtime.context.channel
         return f"Not offered: {channel} can't show the install. Ask the user to install {name} from {_IN_THE_APP}."
-    interrupt(_request(plugin))
+    interrupt(_request(await _shown(store, plugin)))
     return f"The user didn't install {name}."
 
 
@@ -74,8 +75,16 @@ async def open_plugin_setup(name: str, runtime: ToolRuntime[Context]) -> str:
         return f"{name} has nothing to set up here.{await _next_steps(plugin, runtime.context)}"
     if runtime.context.channel not in _APPS:
         return f"Not opened: {runtime.context.channel} can't show it. Ask the user to open {name} in {_IN_THE_APP}."
-    interrupt({"kind": PLUGIN_SETUP, "name": name, "description": plugin.description, "server": asdict(plugin)})
+    shown = await _shown(store, plugin)
+    interrupt({"kind": PLUGIN_SETUP, "name": name, "description": shown.description, "server": asdict(shown)})
     return await _setup_state(store, require_secrets(runtime.context), plugin)
+
+
+async def _shown[T](store: BaseStore, plugin: T) -> T:
+    """A server's description, steps and fields in the language chosen, for the apps' dialog."""
+    if not isinstance(plugin, FoundServer):
+        return plugin
+    return in_language(plugin, (await i18n.chosen(store)).language)
 
 
 def _request(plugin: Any) -> dict[str, Any]:
@@ -104,8 +113,9 @@ async def set_up_email(runtime: ToolRuntime[Context]) -> str:
         if not _runs_nothing(plugin):
             return f"{plugin.name} runs code on this computer: offer it with offer_plugin instead."
         await contents.install(store, require_secrets(runtime.context), EXTRAS, [], [ServerValues(plugin.name)])
-    server = asdict(plugin) | {"installed": True}
-    interrupt({"kind": PLUGIN_SETUP, "name": plugin.name, "description": plugin.description, "server": server})
+    shown = await _shown(store, plugin)
+    server = asdict(shown) | {"installed": True}
+    interrupt({"kind": PLUGIN_SETUP, "name": plugin.name, "description": shown.description, "server": server})
     return await _setup_state(store, require_secrets(runtime.context), plugin)
 
 

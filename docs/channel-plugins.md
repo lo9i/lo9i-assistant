@@ -71,7 +71,8 @@ it too.
 
 | Kind | Data | What the channel does |
 |---|---|---|
-| `hello` | `{"assistant_name": "...", "commands": [{"command", "description"}, ...]}` | First event of every stream. `commands` are what the channel offers its user, without the slash: `new`, `pin`, `unpin` and each installed agent's (Telegram's command menu, Slack's manifest). |
+| `hello` | `{"assistant_name": "...", "commands": [{"command", "description"}, ...], "language": "en"}` | First event of every stream. `commands` are what the channel offers its user, without the slash: `new`, `pin`, `unpin` and each installed agent's (Telegram's command menu, Slack's manifest), their descriptions in the language chosen. `language` is the one the user chose for the apps' text, `en` or `es` (English for auto): what the channel writes itself (its setup items, its replies like a pairing confirmation) is in it. A daemon from before languages sends none: English. |
+| `language` | `{"language": "es"}` | The user chose another language: send the status again in it, and write in it from then on. The commands come again in it as `commands`. |
 | `commands` | `{"commands": [...]}` | The commands changed: an agent plugin was installed or removed. |
 | `renamed` | `{"assistant_name": "..."}` | The assistant was renamed (Telegram renames its bot). |
 | `action` | `{"action": "..."}` | The user pressed a setup button in an app (a SetupItem of kind `action`). |
@@ -94,7 +95,7 @@ that restarts may get the operation it was carrying out when it stopped once mor
 
 `{"kind": "text" | "code" | "copy" | "qr" | "action", "label": "...", "value": "..."}`
 
-`label` names the item and `value` holds it.
+`label` names the item and `value` holds it, both in the language `hello` gave.
 
 - `text`: a line, shown as `label: value`, or just `value` when `label` is empty, such as `Bot: @name` or an error.
 - `code`: a short value to read out, such as a pairing code.

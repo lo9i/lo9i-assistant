@@ -31,7 +31,7 @@ _EMPTY = translatable("No sections. Add one, or reset to the built-in ones.")
 
 
 class HomeScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"home"})
 
     def __init__(self, home: HomeApi, plugins: Plugins) -> None:

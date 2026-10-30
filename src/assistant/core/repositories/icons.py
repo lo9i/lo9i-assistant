@@ -19,6 +19,8 @@ from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
+from assistant.core.i18n import said
+
 # Big enough for a detailed logo; an icon has no use for more.
 MAX_SVG_BYTES = 32 * 1024
 CATEGORY_ICONS = {
@@ -71,7 +73,12 @@ def parse(value: object, folder: Path) -> PluginIcon:
     if declared.lower().endswith(".svg"):
         return _svg(folder, declared)
     if declared not in lucide_names():
-        raise ValueError(f"its icon {declared!r} isn't a Lucide icon (lucide.dev) or an .svg file in its folder")
+        raise ValueError(
+            said(
+                "its icon {declared!r} isn't a Lucide icon (lucide.dev) or an .svg file in its folder",
+                declared=declared,
+            )
+        )
     return PluginIcon(name=declared)
 
 
@@ -89,9 +96,11 @@ def _svg(folder: Path, name: str) -> PluginIcon:
     path = folder / name
     inside = path.resolve().is_relative_to(folder.resolve())
     if not inside or path.is_symlink() or not path.is_file():
-        raise ValueError(f"its icon {name} isn't a file in its folder")
+        raise ValueError(said("its icon {name} isn't a file in its folder", name=name))
     if path.stat().st_size > MAX_SVG_BYTES:
-        raise ValueError(f"its icon {name} is bigger than {MAX_SVG_BYTES // 1024} KB")
+        raise ValueError(
+            said("its icon {name} is bigger than {kilobytes} KB", name=name, kilobytes=MAX_SVG_BYTES // 1024)
+        )
     text = path.read_text(encoding="utf-8")
     root = _root(text, name)
     _check(root, name)
@@ -101,13 +110,13 @@ def _svg(folder: Path, name: str) -> PluginIcon:
 def _root(text: str, name: str) -> ET.Element:
     # No DOCTYPE, so no entities: nothing to expand or fetch while it's read.
     if "<!DOCTYPE" in text.upper() or "<!ENTITY" in text.upper():
-        raise ValueError(f"its icon {name} declares a DOCTYPE or entities, which an icon doesn't need")
+        raise ValueError(said("its icon {name} declares a DOCTYPE or entities, which an icon doesn't need", name=name))
     try:
         root = ET.fromstring(text)
     except ET.ParseError as e:
-        raise ValueError(f"its icon {name} isn't readable SVG: {e}") from e
+        raise ValueError(said("its icon {name} isn't readable SVG: {error}", name=name, error=e)) from e
     if root.tag != f"{_SVG_NS}svg":
-        raise ValueError(f"its icon {name} isn't an SVG (its root is {_local(root.tag)})")
+        raise ValueError(said("its icon {name} isn't an SVG (its root is {root})", name=name, root=_local(root.tag)))
     return root
 
 
@@ -116,14 +125,18 @@ def _check(root: ET.Element, name: str) -> None:
     for element in root.iter():
         tag = _local(element.tag)
         if not element.tag.startswith(_SVG_NS) or tag not in _ELEMENTS:
-            raise ValueError(f"its icon {name} has a <{tag}>, and an icon may only draw")
+            raise ValueError(said("its icon {name} has a <{tag}>, and an icon may only draw", name=name, tag=tag))
         for attribute, value in element.attrib.items():
             if _local(attribute).lower().startswith("on"):
-                raise ValueError(f"its icon {name} has an {_local(attribute)} handler")
+                raise ValueError(
+                    said("its icon {name} has an {attribute} handler", name=name, attribute=_local(attribute))
+                )
             if attribute in ("href", _XLINK_HREF) and not value.startswith("#"):
-                raise ValueError(f"its icon {name} links outside itself ({value})")
+                raise ValueError(said("its icon {name} links outside itself ({value})", name=name, value=value))
             if any(not target.startswith("#") for _, target in _URL.findall(value)):
-                raise ValueError(f"its icon {name} uses something outside itself ({value})")
+                raise ValueError(
+                    said("its icon {name} uses something outside itself ({value})", name=name, value=value)
+                )
 
 
 def _mono(root: ET.Element) -> bool:

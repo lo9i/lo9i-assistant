@@ -7,7 +7,7 @@ from datetime import UTC, date, datetime
 
 from langgraph.store.base import BaseStore
 
-from assistant.core import notifications
+from assistant.core import i18n, notifications
 from assistant.core.bus import EventBus
 from assistant.core.doctor import changes, conversation_causes, log_causes, records
 from assistant.core.doctor.causes import group
@@ -41,8 +41,10 @@ class Doctor:
         self._checking: asyncio.Task | None = None
 
     async def page(self, user_id: str) -> DoctorPage:
+        """The parts of the starting context named in the language chosen."""
+        report, t = await records.latest(self._store, user_id), await i18n.chosen(self._store)
         return DoctorPage(
-            report=await records.latest(self._store, user_id),
+            report=report.model_copy(update={"context": changes.named(report.context, t)}) if report else None,
             known=await records.known(self._store, user_id),
             checking=self._checking is not None,
         )
@@ -65,16 +67,16 @@ class Doctor:
         previous = await records.before(self._store, user_id, day)
         report = await self._report(user_id, day, whole_day, previous)
         await records.save(self._store, user_id, report)
-        ok = not changes.alerts(report)
-        await notifications.add(
-            self._store, user_id, "doctor", f"Health check of {day:%a %d %b}", changes.notification_text(report), ok
-        )
+        t = await i18n.chosen(self._store)
+        ok = not changes.alerts(report, t)
+        title = t("Health check of {day}", day=t.day(day))
+        await notifications.add(self._store, user_id, "doctor", title, changes.notification_text(report, t), ok)
         return report
 
     async def alerts(self, user_id: str) -> list[DoctorAlert]:
         """The latest report's, until dismissed."""
         report = await records.latest(self._store, user_id)
-        return changes.alerts(report) if report else []
+        return changes.alerts(report, await i18n.chosen(self._store)) if report else []
 
     async def dismiss(self, user_id: str, name: str) -> None:
         report = await records.latest(self._store, user_id)

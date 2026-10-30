@@ -23,7 +23,7 @@ _EMPTY = translatable("No devices paired yet. Pair a browser to use the assistan
 
 
 class DevicesScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"devices"})
 
     def __init__(self, devices: DevicesApi) -> None:

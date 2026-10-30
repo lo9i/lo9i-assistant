@@ -36,6 +36,9 @@ CLIENT_ID_HEADER = "X-Lo9i-Client-Id"
 # A client on a second conversation at once (the web app's voice button) sends its id, this, and a
 # name for it ("<id>/voice"). That conversation belongs to the client's connection.
 CLIENT_ID_PART = "/"
+# The language an app shows its text in, when it settles auto itself (the web app follows the browser's): the
+# daemon writes its errors in it (core/language.py::answered_in).
+LANGUAGE_HEADER = "X-Lo9i-Language"
 
 
 def event_to_dict(event: Event) -> dict[str, Any]:

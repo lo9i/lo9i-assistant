@@ -21,7 +21,7 @@ _INTRO = translatable(
 
 
 class EmailRecipientsScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
 
     def __init__(self, email: EmailApi) -> None:
         super().__init__()

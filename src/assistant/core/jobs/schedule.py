@@ -5,6 +5,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from croniter import CroniterBadCronError, croniter
 
+from assistant.core.i18n import said
+
 
 class ScheduleError(Exception):
     pass
@@ -12,7 +14,9 @@ class ScheduleError(Exception):
 
 def validate(schedule: str, timezone: str) -> None:
     if not croniter.is_valid(schedule):
-        raise ScheduleError(f"Not a valid cron schedule: {schedule!r} (e.g. '0 9 * * *' for every day at 09:00)")
+        raise ScheduleError(
+            said("Not a valid cron schedule: {schedule!r} (e.g. '0 9 * * *' for every day at 09:00)", schedule=schedule)
+        )
     zone(timezone)
 
 
@@ -20,7 +24,7 @@ def zone(timezone: str) -> ZoneInfo:
     try:
         return ZoneInfo(timezone)
     except (ZoneInfoNotFoundError, ValueError) as e:
-        raise ScheduleError(f"Unknown time zone: {timezone}") from e
+        raise ScheduleError(said("Unknown time zone: {timezone}", timezone=timezone)) from e
 
 
 def next_runs(schedule: str, timezone: str, after: datetime, count: int = 1) -> list[datetime]:
@@ -44,11 +48,11 @@ def parse_at(at: str, timezone: str, now: datetime) -> datetime:
     try:
         moment = datetime.fromisoformat(at)
     except ValueError as e:
-        raise ScheduleError(f"Not a date and time: {at!r} (e.g. 2026-09-30T14:05)") from e
+        raise ScheduleError(said("Not a date and time: {at!r} (e.g. 2026-09-30T14:05)", at=at)) from e
     if moment.tzinfo is None:
         moment = moment.replace(tzinfo=zone(timezone))
     if moment <= now:
-        raise ScheduleError(f"{at} has already passed.")
+        raise ScheduleError(said("{at} has already passed.", at=at))
     return moment
 
 

@@ -1,27 +1,40 @@
 """Connected clients: listed while their event stream is open, and the conversation each is on."""
 
 import asyncio
+import json
 
 import httpx
 from starlette.requests import Request
 
 from assistant.core.bus import EventBus
 from assistant.core.devices import Device
+from assistant.core.i18n import said
 from assistant.daemon.api import _bus_events, _client, create_app, resume_point
 from assistant.daemon.auth import trusted
 from assistant.daemon.clients import ClientRegistry
 from assistant.daemon.runs import RunHub
-from assistant.protocol import CLIENT_HEADER
+from assistant.protocol import CLIENT_HEADER, LANGUAGE_HEADER
 
 
 async def test_a_client_is_listed_while_it_reads_events(service):
     clients = ClientRegistry(service.bus, leave=lambda thread_id: None)
     service.bus.publish("memory")
-    stream = _bus_events(service, 0, clients, ("abc", "cli", "unix socket", ""))
+    stream = _bus_events(service, 0, clients, ("abc", "cli", "unix socket", ""), {})
     await anext(stream)
     assert [(c.id, c.kind, c.transport) for c in clients.list()] == [("abc", "cli", "unix socket")]
     await stream.aclose()
     assert clients.list() == []
+
+
+async def test_an_events_said_text_is_in_the_language_of_the_app_reading_it(service):
+    clients = ClientRegistry(service.bus, leave=lambda thread_id: None)
+    service.bus.publish("ending", needed_by=said("An update was installed"))
+    english = _bus_events(service, 0, clients, ("en", "cli", "unix socket", ""), {})
+    spanish = _bus_events(service, 0, clients, ("es", "web", "localhost", ""), {LANGUAGE_HEADER: "es"})
+    assert json.loads((await anext(english))["data"]) == {"needed_by": "An update was installed"}
+    assert json.loads((await anext(spanish))["data"]) == {"needed_by": "Se instaló una actualización"}
+    await english.aclose()
+    await spanish.aclose()
 
 
 async def test_connecting_and_disconnecting_is_announced():

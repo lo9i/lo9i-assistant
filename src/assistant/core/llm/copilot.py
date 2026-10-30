@@ -26,6 +26,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
 from assistant.core.attachments import TOOL_MEDIA_SENDER
+from assistant.core.i18n import said
 from assistant.core.llm import connections
 
 _EXCHANGE_URL = "https://api.github.com/copilot_internal/v2/token"
@@ -92,9 +93,11 @@ async def _models(github_token: str, transport: httpx.AsyncBaseTransport | None)
         try:
             response = await http.get(f"{DEFAULT_API}/models", timeout=_TIMEOUT)
         except httpx.HTTPError as e:
-            raise CopilotAuthError(f"Couldn't reach Copilot for its models: {e}") from e
+            raise CopilotAuthError(said("Couldn't reach Copilot for its models: {error}", error=e)) from e
     if response.status_code != 200:
-        raise CopilotAuthError(f"Copilot didn't list its models ({response.status_code}).")
+        raise CopilotAuthError(
+            said("Copilot didn't list its models ({status_code}).", status_code=response.status_code)
+        )
     return list(response.json().get("data", []))
 
 
@@ -156,7 +159,7 @@ class CopilotTokens:
 
     async def _exchange(self) -> CopilotToken:
         if not self._github_token:
-            raise CopilotAuthError("COPILOT_GITHUB_TOKEN isn't set.")
+            raise CopilotAuthError(said("COPILOT_GITHUB_TOKEN isn't set."))
         headers = {
             "Authorization": f"token {self._github_token}",
             "Accept": "application/json",
@@ -166,7 +169,7 @@ class CopilotTokens:
         try:
             response = await self._http.get(_EXCHANGE_URL, headers=headers, timeout=_TIMEOUT)
         except httpx.HTTPError as e:
-            raise CopilotAuthError(f"Couldn't reach GitHub to get a Copilot token: {e}") from e
+            raise CopilotAuthError(said("Couldn't reach GitHub to get a Copilot token: {error}", error=e)) from e
         if response.status_code != 200:
             raise CopilotAuthError(_rejection(response))
         return _token(response.json())
@@ -211,7 +214,7 @@ def _signed(request: httpx.Request, token: CopilotToken) -> httpx.Request:
 def _token(data: dict) -> CopilotToken:
     value = str(data.get("token") or "")
     if not value:
-        raise CopilotAuthError("GitHub answered without a Copilot token.")
+        raise CopilotAuthError(said("GitHub answered without a Copilot token."))
     expires_at = float(data.get("expires_at") or time.time() + 1800)
     endpoints = data.get("endpoints")
     api = str((endpoints if isinstance(endpoints, dict) else {}).get("api") or DEFAULT_API).rstrip("/")

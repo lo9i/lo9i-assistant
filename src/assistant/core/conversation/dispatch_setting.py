@@ -7,6 +7,8 @@ from dataclasses import asdict, dataclass
 
 from langgraph.store.base import BaseStore
 
+from assistant.core.i18n import said
+
 _NAMESPACE = ("settings",)
 _KEY = "dispatch"
 
@@ -34,6 +36,6 @@ async def load(store: BaseStore) -> DispatchSetting:
 async def save(store: BaseStore, setting: DispatchSetting) -> DispatchSetting:
     """Raises DispatchSettingError."""
     if not 0 <= setting.confidence <= 1:
-        raise DispatchSettingError("The confidence goes from 0 to 1.")
+        raise DispatchSettingError(said("The confidence goes from 0 to 1."))
     await store.aput(_NAMESPACE, _KEY, asdict(setting))
     return setting
