@@ -61,8 +61,12 @@ def hydrate(messages: Sequence[BaseMessage], images_in_tool_results: bool) -> li
 def reference(attachment: Attachment) -> Block:
     """Saves the file and returns the block that refers to it."""
     path = uploads.save(attachment.name, attachment.data)
-    reference = {"path": path, "name": attachment.name, "media_type": attachment.media_type}
-    return {"type": "non_standard", "value": {"upload": reference}}
+    return referring({"path": path, "name": attachment.name, "media_type": attachment.media_type})
+
+
+def referring(upload: dict[str, str]) -> Block:
+    """The block that refers to a file saved under the uploads dir (path, name, media_type)."""
+    return {"type": "non_standard", "value": {"upload": upload}}
 
 
 def _with_tool_media(message: BaseMessage) -> BaseMessage:

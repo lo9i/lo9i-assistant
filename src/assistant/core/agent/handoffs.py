@@ -11,6 +11,7 @@ from langchain_core.runnables import RunnableConfig
 from assistant.core import inbox, uploads
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
+from assistant.core.agent_tasks import sent
 from assistant.core.agent_tasks.service import AgentTaskError
 from assistant.core.agent_tasks.steps import STEPS, UNANSWERED, AgentSteps, Upload, streamed
 from assistant.core.attachments import Attachment, reference
@@ -20,6 +21,7 @@ from assistant.core.conversation import agent_folders, handoffs, held, queued
 from assistant.core.conversation.agent_folders import AgentFolders, FolderError, FolderListing
 from assistant.core.conversation.handoffs import Agent, Handoff
 from assistant.core.conversation.held import HeldRun
+from assistant.core.conversation.queued import Queued
 from assistant.core.events import Done, Error, Event
 from assistant.core.to_the_end import to_the_end
 
@@ -145,6 +147,8 @@ class HandoffsMixin(RunsMixin):
             # To the end: a second cancel (the reader gone too) mustn't lose what the user sent, and the run ends
             # only once it's written.
             await to_the_end(self._keep_unanswered(session, message, steps, asking, reported, _ended(handoff, e)))
+            if isinstance(e, asyncio.CancelledError):
+                await to_the_end(self._send_waiting_next(session, handoff))
             raise
         for event in steps.end("Done"):
             yield event
@@ -168,6 +172,15 @@ class HandoffsMixin(RunsMixin):
         for step in reported.unread():
             steps.events(step)
         await self._keep_turn(session, message, steps, note, answered=False)
+
+    async def _send_waiting_next(self, session: Session, handoff: Handoff) -> None:
+        """The run was stopped: what the user sent the agent meanwhile that it hadn't got to goes to it next, together
+        as one message continuing its session, the conversation still handed to it. The daemon sends it once this run
+        has ended (daemon/queued.py)."""
+        left = await self.agent_tasks.waiting(handoff.server, session.thread_id, handoff.folder)
+        if left:
+            waiting = Queued(session.channel, sent.said(left), files=sent.files(left))
+            await queued.add(self._storage.store, session.user_id, session.thread_id, waiting)
 
     async def _keep_turn(
         self, session: Session, message: HumanMessage, steps: AgentSteps, text: str, answered: bool = True

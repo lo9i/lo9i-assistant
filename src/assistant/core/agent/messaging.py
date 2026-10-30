@@ -12,7 +12,7 @@ from assistant.core.agent.handoffs import HandoffError, HandoffsMixin
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
 from assistant.core.agent.titles import TitlesMixin
-from assistant.core.attachments import Attachment, Block, is_reference, to_content
+from assistant.core.attachments import Attachment, Block, is_reference, referring, to_content
 from assistant.core.conversation import briefs, carried, dispatched, ended, handoffs, introduction, moved, pinned, sent
 from assistant.core.conversation.handoffs import Handoff
 from assistant.core.conversation.turn_header import header_block
@@ -26,11 +26,17 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
     """Public entry points for sending a message and answering approvals."""
 
     async def send(
-        self, session: Session, text: str, attachments: Sequence[Attachment] = (), brief: str = ""
+        self,
+        session: Session,
+        text: str,
+        attachments: Sequence[Attachment] = (),
+        brief: str = "",
+        saved: Sequence[dict[str, str]] = (),
     ) -> AsyncIterator[Event]:
         """`brief`: for a coding task the assistant wrote for the agent it handed the conversation to
         (daemon/queued.py), the agent's name, kept on the message so the apps don't show it as the user's
-        (core/conversation/briefs.py)."""
+        (core/conversation/briefs.py). `saved`: files sent with it that are already saved under the uploads dir
+        (a message kept in core/conversation/queued.py), their references, which go before `attachments`."""
         voice = [a for a in attachments if is_voice(a)]
         try:
             speech = await preferences.in_use(self._storage.store)
@@ -39,6 +45,7 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
         except (TranscriptionError, ValueError) as e:
             yield Error(str(e))
             return
+        content = [*map(referring, saved), *content]
         for transcript in transcripts:
             yield Transcribed(transcript.text, transcript.language)
         await self._note_activity(session, _title_text(text, [t.text for t in transcripts], attachments))

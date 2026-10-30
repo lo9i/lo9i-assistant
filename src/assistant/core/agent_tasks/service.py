@@ -167,22 +167,40 @@ class AgentTasks:
 
     async def _answered(self, tasks: TaskStore, task_id: str, report: Report) -> tuple[TaskState, list[dict[str, Any]]]:
         """The task's state once it ends, and the messages it ended without taking; stopping the wait stops
-        the task, and its untaken messages are reported all the same."""
+        the task, and the steps it wrote that weren't read yet and its untaken messages are reported all the same."""
+        followed = _Followed(_as_sent(tasks, task_id, report))
         try:
-            state = await until_ended(tasks, task_id, _as_sent(tasks, task_id, report))
+            state = await until_ended(tasks, task_id, followed)
         except BaseException:
             await _stop(tasks, task_id)
+            await followed.rest(tasks, task_id)
             await self._untaken(tasks, task_id, report)
             raise
         return state, await self._untaken(tasks, task_id, report)
 
     async def _untaken(self, tasks: TaskStore, task_id: str, report: Report) -> list[dict[str, Any]]:
-        """Once the task has ended: read under the lock `_tell` writes under, after which no message reaches it."""
+        """Once the task has ended: read under the lock `_tell` writes under, after which no message reaches it. Those
+        its worker never passed on are reported as `user` steps; the others already were."""
         async with self._inboxes:
             left = await asyncio.to_thread(tasks.untaken, task_id)
         for untaken in left:
-            await report(sent.user_step(untaken))
-        return left
+            if not untaken.passed_on:
+                await report(sent.user_step(untaken.message))
+        return [untaken.message for untaken in left]
+
+    async def waiting(self, agent: str, conversation: str, folder: str) -> list[dict[str, Any]]:
+        """The messages sent to the conversation's last task in `folder` that its agent hadn't taken when it ended,
+        oldest first, as written in its inbox (sent.py): [] while it runs, or for an agent that's gone."""
+        server = self._agents.get(agent)
+        if server is None:
+            return []
+        tasks, where = _tasks(server), str(Path(folder).expanduser())
+        last = await asyncio.to_thread(_sessions(server).last, conversation, where, tasks)
+        if last is None or (await asyncio.to_thread(tasks.state, last.id, 0)).status == "running":
+            return []
+        async with self._inboxes:
+            left = await asyncio.to_thread(tasks.untaken, last.id)
+        return [untaken.message for untaken in left]
 
     async def _tell(self, task_id: str, message: dict[str, Any]) -> None:
         """The check that it runs and the write are one step for `_untaken`: a task that ends in between still
@@ -289,6 +307,24 @@ def _as_sent(tasks: TaskStore, task_id: str, report: Report) -> Report:
         await report(step)
 
     return reported
+
+
+class _Followed:
+    """`report`, counting the progress lines it got, so once the task is stopped the ones written since are read
+    from its log (`rest`): the user's messages it passed on just before are among them. A line counts once it's
+    reported, so one the stop cut short is reported again."""
+
+    def __init__(self, report: Report) -> None:
+        self._report = report
+        self._seen = 0
+
+    async def __call__(self, line: str) -> None:
+        await self._report(line)
+        self._seen += 1
+
+    async def rest(self, tasks: TaskStore, task_id: str) -> None:
+        for line in await asyncio.to_thread(tasks.progress_after, task_id, self._seen):
+            await self(line)
 
 
 def _reply(state: TaskState) -> str:

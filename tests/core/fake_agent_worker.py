@@ -63,6 +63,8 @@ def _work(folder: Path, task: dict) -> tuple[bool, str]:
         time.sleep(60)
     if prompt == "take messages":
         return _take_messages(folder)
+    if prompt == "hold messages":
+        return _hold_messages(folder)
     if prompt in ("leave messages", "leave messages and fail"):
         return _leave_messages(folder, repository, prompt == "leave messages")
     if prompt.startswith("fill context "):
@@ -90,6 +92,26 @@ def _take_messages(folder: Path) -> tuple[bool, str]:
             _steps(folder, [json.dumps({"kind": "user", "text": message["text"], "id": path.stem})])
             if message["text"] == "that's all":
                 return True, f"Took {len(taken)} messages."
+        time.sleep(0.02)
+
+
+def _hold_messages(folder: Path) -> tuple[bool, str]:
+    """Passes on what the user sends while it works, as an agent that gets to it only once it's done with the step
+    in progress, which never ends: each message's `user` step is marked `waiting`. A message starting with "take"
+    it gets to at once (a `taken` step); one starting with "unread" it never passes on."""
+    signal.signal(signal.SIGUSR1, lambda *_: None)
+    (folder / "inbox").mkdir()
+    _steps(folder, [json.dumps({"kind": "text", "text": "Working."})])
+    passed: set[str] = set()
+    while True:
+        for path in sorted((folder / "inbox").glob("*.json")):
+            text = json.loads(path.read_text()).get("text", "")
+            if path.stem in passed or text.startswith("unread"):
+                continue
+            passed.add(path.stem)
+            steps = [{"kind": "user", "text": text, "id": path.stem, "waiting": True}]
+            steps += [{"kind": "taken", "id": path.stem}] if text.startswith("take") else []
+            _steps(folder, [json.dumps(step) for step in steps])
         time.sleep(0.02)
 
 
