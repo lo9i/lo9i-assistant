@@ -52,8 +52,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Context
 
-- H1. Better epoch summaries: quote user messages verbatim, keep ids and paths exactly, and let `search_memory` search tool outputs too (it covers only what the user and the assistant wrote).
-- H2. The groups of core tools load on demand now (email, jobs, skill writing; `core/tools/registry.py::tool_groups`); the longest descriptions are still long (`update_profile`, `move_to_conversation`, `delegate`, `remember`, and in their groups `schedule_job`, `save_skill`, `search_email`). Shorten them, moving their guidance into skills the model reads only when needed (about 0.5–1k tokens).
+- H1. `search_memory` finds tool outputs of past conversations (`core/conversation/search.py`, the first 20,000 characters of each) but shows only a snippet of about 32 words around the match, and the agent has no way to read the rest of that output from another conversation. Let a result carry its call and let the agent load the whole output (as the apps load a tool call, `display.tool_call`), if snippets turn out too short.
 
 ## Voice
 

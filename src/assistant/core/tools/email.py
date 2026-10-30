@@ -74,11 +74,9 @@ async def search_email(
     limit: int = 10,
     account: str = "",
 ) -> str:
-    """List messages in the user's mailbox, newest first: uid, date, sender, subject, unread.
-    Every filter is optional: `text` anywhere in the message, `sender` and `subject` (parts of
-    them), `since` a date like 2026-10-01, `unread_only`. With no filters, the newest messages.
-    `account` is the label or address of the email account to search; empty for the default.
-    Read one with read_email, its uid and the same account."""
+    """List messages, newest first (uid, date, sender, subject, unread). Optional filters: `text` anywhere,
+    parts of `sender` or `subject`, `since` (2026-10-01), `unread_only`. `account`: label or address, empty
+    for the default. Read one with read_email by uid, same account."""
     try:
         criteria = _criteria(text, sender, subject, since, unread_only)
     except ValueError:
