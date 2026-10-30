@@ -7,7 +7,8 @@ repository, so it isn't listed, offered, installed or updated here until lo9i is
 # 3: an agent's `worker`, run by the daemon for each task (docs/agent-plugins.md).
 # 4: `data_key`, a key of the plugin's own for encrypting its data (core/mcp/data_key.py).
 # 5: `oauth`, signing in with the user's own OAuth app (core/mcp/plugin_oauth.py).
-CURRENT = 5
+# 6: `subagent`, a named subagent the assistant delegates tasks to (core/mcp/subagents.py).
+CURRENT = 6
 
 
 def parse(value: object) -> int:

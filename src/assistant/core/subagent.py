@@ -1,6 +1,9 @@
 """Subagents: a task the main agent hands off with `delegate`, worked on with a fresh context and the
 worker model, so the tool output it reads never reaches the main conversation; only its answer does. It gets the
-read-only tools of the plugins the conversation loaded (core/plugin_loading.py).
+read-only tools of the plugins the conversation loaded (core/plugin_loading.py). A named subagent a plugin brings
+(core/mcp/subagents.py) works with its own instructions after the subagent prompt, on the model it names, with
+only the tools it names among those, and the read-only tools of the plugins it names too; its graph is built the
+first time it's handed a task, and again when its plugin changes it.
 
 A subagent's graph runs inside the delegate call. It shares the run's checkpointer under that call's
 namespace, so an approval inside it pauses the main run and the answer resumes it where it stopped. Its
@@ -34,7 +37,9 @@ from assistant.core.llm import build_llm, metered
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.errors import too_large
 from assistant.core.llm.providers import IMAGES_IN_TOOL_RESULTS
+from assistant.core.mcp import subagents as named
 from assistant.core.mcp.sanitize import MCP_PREFIX
+from assistant.core.mcp.subagents import NamedSubagent, UnknownSubagentError
 from assistant.core.storage import Storage
 from assistant.core.subagent_steps import SubagentAnswer, SubagentStep
 from assistant.core.tools.registry import subagent_tools
@@ -67,23 +72,58 @@ SubagentGraph = CompiledStateGraph[SubagentState, Context, SubagentState, Subage
 
 
 class SubagentRunner(Subagents):
-    """Runs delegated tasks on one compiled subagent graph."""
+    """Runs delegated tasks: the general subagent's on one graph, each named subagent's on its own."""
 
-    def __init__(self, graph: SubagentGraph, mcp: McpTools) -> None:
-        self._graph = graph
+    def __init__(self, storage: Storage, choice: ModelChoice, mcp: McpTools) -> None:
+        self._storage = storage
+        self._choice = choice
         self._mcp = mcp
+        self._graph = _compiled(
+            _llm(storage, choice, choice.worker_model), subagent_tools(settings.toolsets), choice, mcp
+        )
+        # Each named subagent's graph, with what it was built from.
+        self._named: dict[str, tuple[NamedSubagent, SubagentGraph]] = {}
 
-    async def run(self, task: str, context: Context, call_id: str, plugins: Collection[str]) -> SubagentAnswer:
+    async def named(self) -> list[NamedSubagent]:
+        return await named.installed(self._storage.store)
+
+    async def run(
+        self, task: str, context: Context, call_id: str, plugins: Collection[str], agent: str = ""
+    ) -> SubagentAnswer:
+        """Raises UnknownSubagentError for an `agent` no installed plugin brings."""
+        graph = self._graph
+        if agent:
+            subagent = await self._find(agent)
+            graph, plugins = self._graph_of(subagent), [*plugins, *subagent.plugins]
         mcp_tools = self._read_only(plugins)
         start = SubagentState(
             messages=[HumanMessage(task)], mcp_tools=mcp_tools, steps=0, call_id=call_id, trimmed_before=0
         )
-        state = await self._graph.ainvoke(
+        state = await graph.ainvoke(
             start,
             {"recursion_limit": 2 * settings.subagent_max_steps + 5},
             context=replace(context, subagents=None),
         )
         return SubagentAnswer(answer(state["messages"]), steps(state["messages"]))
+
+    async def _find(self, agent: str) -> NamedSubagent:
+        found = {s.name: s for s in await self.named()}
+        if agent not in found:
+            listed = ", ".join(found) or "none"
+            raise UnknownSubagentError(f"No subagent named {agent}. The named ones: {listed}.")
+        return found[agent]
+
+    def _graph_of(self, subagent: NamedSubagent) -> SubagentGraph:
+        kept = self._named.get(subagent.name)
+        if kept is not None and kept[0] == subagent:
+            return kept[1]
+        choice = self._choice
+        model = {"main": choice.model, "worker": choice.worker_model}.get(subagent.model, subagent.model)
+        tools = [t for t in subagent_tools(settings.toolsets) if not subagent.tools or t.name in subagent.tools]
+        prompt = f"{prompts.load('subagent')}\n\n{subagent.prompt}"
+        graph = _compiled(_llm(self._storage, choice, model), tools, choice, self._mcp, prompt)
+        self._named[subagent.name] = (subagent, graph)
+        return graph
 
     def _read_only(self, plugins: Collection[str]) -> list[dict[str, Any]]:
         """The read-only tools of these plugins: the others' would fill every request of the task."""
@@ -104,24 +144,35 @@ def steps(messages: Sequence[Any]) -> list[SubagentStep]:
 
 
 def build_subagents(storage: Storage, choice: ModelChoice, mcp: McpTools) -> SubagentRunner:
-    llm = metered(build_llm(choice, choice.worker_model), TokenMeter(storage.usage, "subagent"))
-    tools = subagent_tools(settings.toolsets)
+    return SubagentRunner(storage, choice, mcp)
+
+
+def _llm(storage: Storage, choice: ModelChoice, model: str) -> BaseChatModel:
+    return metered(build_llm(choice, model), TokenMeter(storage.usage, "subagent"))
+
+
+def _compiled(
+    llm: BaseChatModel, tools: Sequence[BaseTool], choice: ModelChoice, mcp: McpTools, prompt: str = ""
+) -> SubagentGraph:
+    """A subagent's graph; `prompt` is its system prompt, the subagent prompt when empty."""
     builder = StateGraph(SubagentState, context_schema=Context)
-    builder.add_node(_AGENT, _agent_node(llm, tools, choice.provider in IMAGES_IN_TOOL_RESULTS))
+    images = choice.provider in IMAGES_IN_TOOL_RESULTS
+    builder.add_node(_AGENT, _agent_node(llm, tools, images, prompt))
     builder.add_node(_TOOLS, ToolNode(tools, awrap_tool_call=_reported(_limited(_offered_mcp(mcp_calls(mcp))))))
     builder.add_edge(START, _AGENT)
     builder.add_conditional_edges(_AGENT, _until_limit(each_tool_call(_TOOLS)), [_TOOLS, END])
     builder.add_edge(_TOOLS, _AGENT)
-    return SubagentRunner(builder.compile(), mcp)
+    return builder.compile()
 
 
-def _agent_node(llm: BaseChatModel, tools: Sequence[BaseTool], images_in_tool_results: bool) -> Node:
+def _agent_node(llm: BaseChatModel, tools: Sequence[BaseTool], images_in_tool_results: bool, prompt: str) -> Node:
     async def _agent(state: SubagentState) -> dict:
         bound = llm.bind_tools([*tools, *state["mcp_tools"]])
 
         async def _call(messages: list[BaseMessage]) -> BaseMessage:
             hydrated = await asyncio.to_thread(hydrate, messages, images_in_tool_results)
-            return await bound.ainvoke([SystemMessage(prompts.load("subagent")), *hydrated])
+            system = prompt or prompts.load("subagent")
+            return await bound.ainvoke([SystemMessage(system), *hydrated])
 
         response, before = await _within_size(_call, state)
         if isinstance(response, AIMessage):

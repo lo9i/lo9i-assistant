@@ -65,6 +65,7 @@ export function kindOf(p: Plugin): string {
     ["plugins.kinds.channel", p.server.channel],
     ["plugins.kinds.email", p.server.email],
     ["plugins.kinds.agent", Boolean(p.server.agent)],
+    ["plugins.kinds.subagent", Boolean(p.server.subagent)],
     ["plugins.kinds.skill", p.server.skill],
     ["plugins.kinds.page", p.server.page],
   ];

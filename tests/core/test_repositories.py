@@ -19,7 +19,7 @@ from assistant.core.agent import (
     SkillError,
 )
 from assistant.core.mcp import data_key, folders, install, keys, servers
-from assistant.core.repositories import categories, check, checkout
+from assistant.core.repositories import categories, check, checkout, formats
 from assistant.core.repositories.icons import PluginIcon
 from assistant.core.repositories.source import Source
 from assistant.core.skills import install as skill_install
@@ -340,7 +340,10 @@ async def test_a_server_with_an_environment_needs_uv(service, repo, monkeypatch)
 
 
 async def test_a_server_in_a_newer_format_than_the_daemon_reads_isnt_found(service, repo):
-    _write(repo / "other" / "general" / "ledger", {"server.yaml": _IN_ENVIRONMENT.replace("format: 2", "format: 6")})
+    _write(
+        repo / "other" / "general" / "ledger",
+        {"server.yaml": _IN_ENVIRONMENT.replace("format: 2", f"format: {formats.CURRENT + 1}")},
+    )
     assert "ledger" not in [s.name for s in (await service.browse_repository(URL)).servers]
 
 

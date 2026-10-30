@@ -898,6 +898,7 @@
       "channel": "Canal",
       "email": "Proveedor de correo",
       "agent": "Agente de programación",
+      "subagent": "Subagente",
       "page": "Página"
     },
     "remotely": "En remoto",

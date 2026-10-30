@@ -7081,6 +7081,11 @@
             "title": "Oauth",
             "default": ""
           },
+          "subagent": {
+            "type": "string",
+            "title": "Subagent",
+            "default": ""
+          },
           "icon": {
             "$ref": "#/components/schemas/PluginIcon"
           }

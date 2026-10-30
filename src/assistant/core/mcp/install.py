@@ -43,6 +43,10 @@ code from it. In its commands, arguments and env values:
     data_key: true                 # optional, format 4: a random key of its own, made when it's installed and
                                    # kept encrypted by lo9i (also when it's removed, with its data), that its
                                    # processes get in LO9I_DATA_KEY to encrypt what they keep in {data} (data_key.py)
+    subagent:                      # optional, format 6: a named subagent delegate hands tasks to (subagents.py)
+      name: researcher
+      description: Researches a question across many web pages and answers with its sources.
+      prompt: prompt.md            # a file in its folder; model, tools and plugins optional
     oauth:                         # optional, format 5: the user signs in with their own OAuth app in its setup, and
       provider: google             # its processes get the sign-in in LO9I_OAUTH (plugin_oauth.py)
       scopes: [https://www.googleapis.com/auth/drive]
@@ -78,7 +82,17 @@ import yaml
 from langgraph.store.base import BaseStore
 
 from assistant.core.integrations.email import providers as email_providers
-from assistant.core.mcp import data_key, environment, folders, keys, logins, plugin_oauth, servers, ssh_agent
+from assistant.core.mcp import (
+    data_key,
+    environment,
+    folders,
+    keys,
+    logins,
+    plugin_oauth,
+    servers,
+    ssh_agent,
+    subagents,
+)
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.repositories import categories, formats, icons, platforms
 from assistant.core.repositories import source as folder_source
@@ -148,6 +162,8 @@ class FoundServer:
     ssh_agent: bool = False
     # The provider it signs in to in its setup, like "google" (core/mcp/plugin_oauth.py); "" when it doesn't.
     oauth: str = ""
+    # The named subagent it brings, like "researcher" (core/mcp/subagents.py); "" for none.
+    subagent: str = ""
     # What the apps show beside it (repositories/icons.py).
     icon: icons.PluginIcon = field(default_factory=icons.PluginIcon)
 
@@ -395,7 +411,7 @@ def _candidate(root: Path, folder: Path, name: str) -> Candidate | None:
 
 
 def _parse(data: dict[str, Any], name: str, root: Path, folder: Path) -> Candidate:
-    template = _template(data, name)
+    template = replace(_template(data, name), **subagents.parse(data.get("subagent"), folder))
     servers.validate(template)
     found = _found(data, template, folder, categories.of_folder(root, folder))
     if "libraries" in data:
@@ -410,6 +426,8 @@ def _parse(data: dict[str, Any], name: str, root: Path, folder: Path) -> Candida
         raise ValueError("it asks for a data_key, which needs format: 4")
     if version < 5 and template.oauth_provider:
         raise ValueError("it signs in with oauth:, which needs format: 5")
+    if version < 6 and template.subagent_name:
+        raise ValueError("it brings a subagent, which needs format: 6")
     if template.oauth_provider and template.url:
         raise ValueError("it signs in with oauth:, which is for plugins that run on this computer, not a url")
     return Candidate(found, template, folder, folder.relative_to(root).as_posix(), systems, version)
@@ -468,6 +486,7 @@ def _found(data: dict[str, Any], template: McpServer, folder: Path, category_fol
         agent=template.agent_command,
         ssh_agent=template.ssh_agent,
         oauth=template.oauth_provider,
+        subagent=template.subagent_name,
         icon=icons.or_category(icons.parse(data.get("icon"), folder), category),
     )
 

@@ -44,7 +44,7 @@ class Plugin:
     @property
     def kind(self) -> str:
         """ "MCP server · channel · skill · page", "Channel" (a chat channel without tools), "Email
-        provider", "Coding agent · skill", or "Skill"."""
+        provider", "Coding agent · skill", "Subagent", or "Skill"."""
         if self.server is None:
             return t("Skill")
         parts = [
@@ -52,6 +52,7 @@ class Plugin:
             (t("channel"), self.server.channel),
             (t("email provider"), self.server.email),
             (t("coding agent"), bool(self.server.agent)),
+            (t("subagent"), bool(self.server.subagent)),
             (t("skill"), self.server.skill),
             (t("page"), self.server.page),
         ]
