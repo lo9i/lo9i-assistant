@@ -919,6 +919,7 @@
       "channel": "Channel",
       "email": "Email provider",
       "agent": "Coding agent",
+      "subagent": "Subagent",
       "page": "Page"
     },
     "remotely": "Remotely",

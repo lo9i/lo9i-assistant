@@ -59,6 +59,25 @@ async def test_an_approval_goes_to_telegram_and_the_run_goes_on(service, script)
     assert job.runs[-1].status == "ok" and job.runs[-1].summary == "Cleaned up."
 
 
+async def test_an_approval_inside_a_delegated_task_goes_to_telegram_and_the_task_goes_on(service, script):
+    forwarder = _Forwarder(service, {"approved": True})
+    service.approvals.register("telegram", forwarder)
+    script.call("delegate", task="clean the build folder")
+    script.call("bash", command="rm -rf build").reply("Removed build.")
+    script.reply("Cleaned up.")
+    job = await _run(service, _due_job())
+    assert forwarder.requests[0][1]["command"] == "rm -rf build"
+    assert job.runs[-1].status == "ok" and job.runs[-1].summary == "Cleaned up."
+
+
+async def test_with_no_channel_an_approval_inside_a_delegated_task_is_denied_and_noted(service, script):
+    script.call("delegate", task="clean the build folder")
+    script.call("bash", command="rm -rf build").reply("I wasn't allowed to remove it.")
+    script.reply("Couldn't clean up.")
+    job = await _run(service, _due_job())
+    assert job.runs[-1].status == "needs attention"
+
+
 async def test_an_unanswered_approval_is_rejected_after_the_wait(service, script, monkeypatch):
     monkeypatch.setattr(settings, "job_approval_minutes", 0.002)
     service.approvals.register("telegram", _Forwarder(service, None))

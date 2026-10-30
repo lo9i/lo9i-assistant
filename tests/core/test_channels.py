@@ -12,7 +12,7 @@ from assistant.core.approvals import RemoteApprovals
 from assistant.core.bus import EventBus
 from assistant.core.channels import hub as hub_module
 from assistant.core.channels import legacy
-from assistant.core.channels.chat.port import ChatLimits
+from assistant.core.channels.chat.port import ChatLimits, Delivered
 from assistant.core.channels.hub import ChannelHub, ChannelNotConnectedError, SetupItem
 from assistant.core.channels.processes import ChannelProcesses
 from assistant.core.conversation.prompt import build_system_prompt
@@ -80,7 +80,20 @@ async def test_an_operation_returns_the_id_of_the_message_it_sent():
     stream = await _attached(hub, "telegram")
     sending = asyncio.create_task(hub.operate("telegram", "send", {"chat": "42", "text": "hi"}))
     hub.confirm((await anext(stream)).data["id"], "", "1001")
-    assert await sending == "1001"
+    assert await sending == Delivered("1001")
+
+
+async def test_a_message_to_the_users_own_chat_is_known_by_every_copy():
+    """Sent to every paired Telegram account, it has an id in each: replying to any goes on in its conversation."""
+    hub, outbox, _, _ = _hub()
+    stream = await _attached(hub, "telegram")
+    sending = asyncio.create_task(outbox.send("telegram", "stretch"))
+    hub.confirm((await anext(stream)).data["id"], "", "72", ["55", "72"])
+    assert await sending == ["55", "72"]
+    # A channel that names only the message it sent.
+    sending = asyncio.create_task(outbox.send("telegram", "again"))
+    hub.confirm((await anext(stream)).data["id"], "", "73")
+    assert await sending == ["73"]
 
 
 async def test_a_delivery_the_channel_refuses_or_doesnt_confirm_fails(monkeypatch):
@@ -140,7 +153,7 @@ async def test_an_operation_waits_for_a_channel_that_went_away_and_is_sent_again
     assert (resent.data["text"], edit.data["text"]) == ("hi", "hi!")
     hub.confirm(resent.data["id"], "", "1002")
     hub.confirm(edit.data["id"], "")
-    assert (await sending, await editing) == ("1002", "")
+    assert (await sending, await editing) == (Delivered("1002"), Delivered())
 
 
 async def test_a_new_stream_sends_again_what_the_one_it_replaced_left_unconfirmed():
@@ -152,7 +165,7 @@ async def test_a_new_stream_sends_again_what_the_one_it_replaced_left_unconfirme
     again = await anext(second)
     assert again.kind == "typing"
     hub.confirm(again.data["id"], "")
-    assert await sending == ""
+    assert await sending == Delivered()
 
 
 async def test_a_second_stream_replaces_the_first():

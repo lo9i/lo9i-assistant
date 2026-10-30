@@ -47,6 +47,7 @@ const contents: RepositoryContents = {
       model_login: "",
       ssh_agent: false,
       oauth: "",
+      subagent: "",
       agent: "",
       email: false,
     },
@@ -108,6 +109,7 @@ group("versionOf", () => {
             model_login: "",
             ssh_agent: false,
             oauth: "",
+            subagent: "",
             agent: "",
             email: false,
           },
@@ -141,6 +143,7 @@ group("updatable", () => {
           model_login: "",
           ssh_agent: false,
           oauth: "",
+          subagent: "",
           agent: "",
           email: false,
         },
@@ -177,6 +180,7 @@ const found = (over: Partial<FoundServer>): FoundServer => ({
   model_login: "",
   ssh_agent: false,
   oauth: "",
+  subagent: "",
   agent: "",
   email: false,
   ...over,
@@ -193,6 +197,11 @@ group("channel plugins", () => {
   it("label an email provider", () => {
     const gmail = found({ name: "gmail", channel: false, email: true, category: "communications/email" });
     expect(pluginsOf({ skills: [], servers: [gmail] }).map(kindOf)).toEqual(["Email provider"]);
+  });
+
+  it("label a subagent", () => {
+    const researcher = found({ name: "researcher", transport: "none", channel: false, subagent: "researcher" });
+    expect(pluginsOf({ skills: [], servers: [researcher] }).map(kindOf)).toEqual(["Subagent"]);
   });
 
   it("label a coding agent, not as the skill that comes with it", () => {
@@ -224,6 +233,7 @@ group("emptyHint and sharedLogin", () => {
     model_login: "copilot",
     ssh_agent: false,
     oauth: "",
+    subagent: "",
   });
   it("says a field may be left empty", () => {
     expect(optional(coder, "CLAUDE_TOKEN")).toBe(true);

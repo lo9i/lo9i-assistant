@@ -166,8 +166,11 @@ class ChannelItems(BaseModel):
 class DeliveryResult(BaseModel):
     # Empty when the channel carried out the operation; otherwise why it couldn't.
     error: str = ""
-    # The id of the message it sent, for a `send`.
+    # The id of the message it sent, for a `send`: the one later edits name.
     message: str = ""
+    # Every message a `send` took, when it went to several chats (the user's own chat on Telegram: a copy in each
+    # paired account), so replying to any of them goes on in its conversation; empty means just `message`.
+    messages: list[str] = []
 
 
 class ChannelPress(BaseModel):
@@ -1111,7 +1114,7 @@ def _add_channel_plugin_routes(app: FastAPI, service: AssistantService) -> None:
     @app.post("/channels/{name}/deliveries/{delivery_id}")
     async def channel_delivered(name: str, delivery_id: str, body: DeliveryResult, request: Request) -> Ok:
         _require_channel(request, name)
-        service.channels_hub.confirm(delivery_id, body.error, body.message)
+        service.channels_hub.confirm(delivery_id, body.error, body.message, body.messages)
         return Ok()
 
 

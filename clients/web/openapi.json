@@ -6587,6 +6587,14 @@
             "type": "string",
             "title": "Message",
             "default": ""
+          },
+          "messages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Messages",
+            "default": []
           }
         },
         "type": "object",
@@ -7349,6 +7357,11 @@
           "oauth": {
             "type": "string",
             "title": "Oauth",
+            "default": ""
+          },
+          "subagent": {
+            "type": "string",
+            "title": "Subagent",
             "default": ""
           },
           "icon": {

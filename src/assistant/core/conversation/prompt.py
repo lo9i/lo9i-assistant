@@ -16,7 +16,7 @@ from langgraph.store.base import BaseStore
 from assistant.core.config import settings
 from assistant.core.conversation import prompt_edits, prompts
 from assistant.core.integrations.email import accounts
-from assistant.core.mcp import servers
+from assistant.core.mcp import servers, subagents
 from assistant.core.memory import episodes, facts, profile
 from assistant.core.repositories import offers
 from assistant.core.skills import store as skills
@@ -36,6 +36,7 @@ PromptPart = Literal[
     "channels",
     "skills",
     "plugin_tools",
+    "subagents",
     "pinned",
     "accounts",
     "plugins",
@@ -82,6 +83,7 @@ async def prompt_parts(
         ("channels", f"# Channels\n\n{await _channels_index(store, texts['channels'])}"),
         ("skills", f"# Skills\n\n{await _skills_index()}"),
         ("plugin_tools", _plugin_tools_section(plugin_tools or {})),
+        ("subagents", await _subagents_section(store)),
         ("pinned", await _pinned_section(pinned)),
         ("accounts", f"# Accounts\n\n{await _accounts_index(store)}"),
         ("plugins", await _plugins_section(store)),
@@ -103,6 +105,15 @@ async def _skills_index() -> str:
     listed = await asyncio.to_thread(skills.list_skills)
     lines = "\n".join(f"- {s.name}: {s.description}" for s in listed)
     return f"To run a skill, call use_skill with its name and follow the instructions.\n\n{lines or '(none yet)'}"
+
+
+async def _subagents_section(store: BaseStore) -> str | None:
+    """The named subagents plugins bring (core/mcp/subagents.py); no section without any."""
+    found = await subagents.installed(store)
+    if not found:
+        return None
+    lines = "\n".join(f"- {s.name}: {s.description}" for s in found)
+    return f"# Subagents\n\nNamed subagents, for delegate's `agent` when a task is what one is made for:\n\n{lines}"
 
 
 def _plugin_tools_section(plugin_tools: Mapping[str, Sequence[str]]) -> str | None:
