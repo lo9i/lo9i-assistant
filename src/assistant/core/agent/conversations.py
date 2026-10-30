@@ -3,12 +3,14 @@
 from dataclasses import replace
 from datetime import UTC, datetime
 
+from langchain_core.messages import AIMessage
+
 from assistant.core import conversations, inbox
 from assistant.core.agent.session import Session
 from assistant.core.agent.threads import ConversationError
 from assistant.core.agent.titles import TitlesMixin
 from assistant.core.context import UNATTENDED_CHANNEL
-from assistant.core.conversation import summaries
+from assistant.core.conversation import choices, summaries
 from assistant.core.conversation.display import ShownCall, ShownMessage, ShownStep, shown, tool_call, tool_call_step
 from assistant.core.conversation.turn_header import channels
 from assistant.core.conversations import Conversation
@@ -35,6 +37,13 @@ class ConversationsMixin(TitlesMixin):
     async def conversation_messages(self, thread_id: str) -> list[ShownMessage]:
         state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
         return shown(state.values.get("messages", []))
+
+    async def offered_choices(self, thread_id: str) -> list[str]:
+        """The choices the conversation's last message offers (conversation/choices.py): none when it isn't a reply,
+        or something came after it."""
+        state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
+        last = (state.values.get("messages") or [None])[-1]
+        return choices.offered(last.text) if isinstance(last, AIMessage) and not last.tool_calls else []
 
     async def messages_before_run(self, thread_id: str) -> list[ShownMessage]:
         """Its messages up to its run in progress, all of them when none runs, for a client that replays that

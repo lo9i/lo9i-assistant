@@ -100,6 +100,7 @@ from assistant_terminal.tui.widgets import (
     RESENT,
     BriefNote,
     CarriedNote,
+    ChoicesNote,
     ConnectionNote,
     ContextFuel,
     FollowUpNote,
@@ -509,6 +510,9 @@ class AssistantApp(App):
         text = event.input.value.strip()
         event.input.clear()
         self._history.add(text)
+        if (choice := self._typed_choice(text)) is not None:
+            await self._send_with_attachments(choice)
+            return
         name, _, arg = text.partition(" ")
         command = self._commands.get(name)
         if command:
@@ -517,6 +521,17 @@ class AssistantApp(App):
             await self._command_agent(name, arg.strip())
         elif text or self._attachment_bar.pending:
             await self._send_with_attachments(text)
+
+    def _typed_choice(self, text: str) -> str | None:
+        """The choice of the last reply's that `text` names by its number, while they show."""
+        offered = self._chat.query(ChoicesNote)
+        return offered.last().picked(text) if offered else None
+
+    async def action_pick_choice(self, index: int) -> None:
+        """A choice of the last reply's clicked: sent as the user's message."""
+        offered = self._chat.query(ChoicesNote)
+        if offered and 0 <= index < len(offered.last().offered):
+            await self._send_with_attachments(offered.last().offered[index])
 
     async def _send_with_attachments(self, text: str) -> None:
         """Attached files stay until the message is actually sent."""
@@ -529,6 +544,7 @@ class AssistantApp(App):
             self.notify(t("The assistant is still working on the last message."), severity="warning")
             return False
         await self._chat.query(f".{_LIST_NOTE}").remove()
+        await self._chat.query(ChoicesNote).remove()
         await self._chat.mount(UserMessage(text or _attachment_label(attachments), [a.name for a in attachments]))
         self._run_turn(text, attachments)
         return True

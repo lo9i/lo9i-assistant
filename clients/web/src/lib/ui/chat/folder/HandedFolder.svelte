@@ -3,10 +3,11 @@
   import PanelRightClose from "@lucide/svelte/icons/panel-right-close";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import { untrack } from "svelte";
+  import { DaemonUnavailableError } from "$lib/api/errors";
   import type { FileDiff, FilePreview, FolderChanges, Handoff } from "$lib/api/types";
   import { ChangeMarks, type ChangeKind, type FileView } from "$lib/chat/folderChanges";
-  import { FolderTree } from "$lib/chat/folderTree.svelte";
-  import { Resource, resource, useDaemon } from "$lib/daemon.svelte";
+  import { FolderTree, type Listing } from "$lib/chat/folderTree.svelte";
+  import { resource, useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
   import Confirm from "$lib/ui/Confirm.svelte";
@@ -18,7 +19,7 @@
   // (what git says was deleted shown where it was), what git says changed there at the top, and a file when one is
   // picked: what changed in it when git lists it, its text otherwise. It follows the agent's work: each
   // step it reports and its end (`agent_task_progress`, `agent_finished`) list the folder and its changes again, at
-  // most once every REFRESH_MS, so a burst of steps reads it once. Beside any other conversation (no `handoff`): the
+  // most once every REFRESH_MS, so a burst of steps reads it once, in one request (agentRefresh) that asks git once. Beside any other conversation (no `handoff`): the
   // user's home folder, the same way but without changes, read again only when asked. A file shown can be deleted,
   // to the system's trash, once the user confirms, while Settings → General allows it (off until turned on).
   const REFRESH_MS = 1000;
@@ -35,8 +36,11 @@
     return new FolderTree((path) => client.conversations.agentFolder(thread, path));
   });
   const deletable = resource((c) => c.folders.deleting(), ["settings"]);
-  const changes = new Resource<FolderChanges>(() => client.conversations.agentChanges(threadId));
-  const marks = $derived(new ChangeMarks((handoff && changes.data?.changes) || []));
+  // What git says changed, read with the folders; the error, when reading them failed (not for a daemon away, which
+  // the app says everywhere).
+  let changes = $state<FolderChanges>();
+  let changesError = $state<string | null>(null);
+  const marks = $derived(new ChangeMarks((handoff && changes?.changes) || []));
   const hideLabel = $derived(handoff ? t("handedFolder.hide") : t("handedFolder.hideHome"));
   let picked = $state<string | null>(null);
   // What git says changed in the file picked: it opens on what changed, its text a click away.
@@ -81,9 +85,20 @@
   /** The folder, its changes and the file shown, read again. */
   async function refresh(): Promise<void> {
     refreshing = true;
-    if (handoff) changes.reload();
-    await Promise.all([tree.refresh(), picked ? read(picked) : Promise.resolve()]);
+    await Promise.all([tree.refresh(handoff ? readHanded : undefined), picked ? read(picked) : Promise.resolve()]);
     refreshing = false;
+  }
+
+  /** The handed folder's open folders and its changes, together. */
+  async function readHanded(paths: string[]): Promise<Record<string, Listing>> {
+    try {
+      const found = await client.conversations.agentRefresh(threadId, paths);
+      [changes, changesError] = [found.changes, null];
+      return Object.fromEntries(found.folders.map((f) => [f.path, f.contents ? { contents: f.contents } : { error: f.error }]));
+    } catch (e) {
+      if (!(e instanceof DaemonUnavailableError)) changesError = describe(e);
+      throw e;
+    }
   }
 
   function pick(path: string): void {
@@ -171,7 +186,7 @@
       ondelete={deletable.data ? (path) => (deleting = path) : undefined}
     />
   {:else}
-    {#if handoff}<ChangedFiles changes={changes.data} error={changes.error} {picked} onpick={pick} />{/if}
+    {#if handoff}<ChangedFiles {changes} error={changesError} {picked} onpick={pick} />{/if}
     <div class="tree">
       <FolderLevel
         path=""

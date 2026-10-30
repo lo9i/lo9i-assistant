@@ -1,7 +1,7 @@
 """When to tell the user the allowance is running out: once when the premium requests' or chat's quota (whichever
 has less left, unless both are unlimited) drops below LOW_PERCENT, and once more when it runs out, each at most
 once per period, until the reset date changes. Running out tells it even when the low alert wasn't sent; the low
-alert isn't sent after it. Short texts, as the user reads them on WhatsApp, in the language chosen
+alert isn't sent after it. Short texts, as the user reads them in a chat, in the language chosen
 (core/language.py)."""
 
 import datetime as dt

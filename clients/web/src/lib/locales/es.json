@@ -911,11 +911,12 @@
     "shownTogether": "Se muestra junto a la conversación en la que estás"
   },
   "notificationsPage": {
+    "copilot": "Cupo de Copilot",
     "job": "Tarea programada",
     "background": "Trabajo en segundo plano",
     "clearAll": "Borrar todas",
     "title": "Lo que terminó",
-    "hint": "Resultados de tareas programadas, trabajo en segundo plano que terminó y chequeos de salud. Haz clic en una para verla a la derecha.",
+    "hint": "Resultados de tareas programadas, trabajo en segundo plano que terminó, chequeos de salud y avisos del cupo de Copilot. Haz clic en una para verla a la derecha.",
     "none": "Todavía nada",
     "noneHint": "Cuando corre una tarea programada o termina un trabajo en segundo plano (una tarea de programación, una descarga), aparece aquí.",
     "about": "Sobre",

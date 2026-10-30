@@ -995,6 +995,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations/{thread_id}/agent/folder/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Refresh Handed Folder
+         * @description Each folder in `path` (repeated, "" for the folder itself) as `/folder` lists it, and what git says changed,
+         *     git asked once: the panel's refresh, with every open folder. A folder that can't be read (gone since, a path
+         *     it doesn't show) says why in its `error` instead of failing the rest.
+         */
+        get: operations["refresh_handed_folder_conversations__thread_id__agent_folder_refresh_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/folders/home": {
         parameters: {
             query?: never;
@@ -3586,6 +3608,15 @@ export interface components {
             /** Children */
             children: string[];
         };
+        /**
+         * FolderRefresh
+         * @description The open folders of the tree and what git says changed, read together.
+         */
+        FolderRefresh: {
+            /** Folders */
+            folders: components["schemas"]["ListedFolder"][];
+            changes: components["schemas"]["FolderChanges"];
+        };
         /** FollowLog */
         FollowLog: {
             /** Name */
@@ -4082,6 +4113,20 @@ export interface components {
             language: "auto" | "en" | "es";
         };
         /**
+         * ListedFolder
+         * @description A folder of the tree as `listed` reads it, or why it couldn't be (gone since, outside the folder).
+         */
+        ListedFolder: {
+            /** Path */
+            path: string;
+            contents?: components["schemas"]["FolderContents"] | null;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+        };
+        /**
          * LogEntry
          * @description One record. `message` keeps every line of it. Text before the first record of a file (output
          *     that isn't a record) has no time, level or logger.
@@ -4509,7 +4554,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "job" | "background" | "doctor";
+            kind: "job" | "background" | "doctor" | "copilot";
             /** Title */
             title: string;
             /** Text */
@@ -7247,6 +7292,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FolderChanges"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_handed_folder_conversations__thread_id__agent_folder_refresh_get: {
+        parameters: {
+            query: {
+                path: string[];
+            };
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderRefresh"];
                 };
             };
             /** @description Validation Error */

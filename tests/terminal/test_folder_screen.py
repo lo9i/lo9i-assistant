@@ -61,6 +61,20 @@ async def test_the_handed_folder_shows_what_changed_and_a_changed_file_opens_on_
         assert not screen.query_one("#view-text", Button).display
 
 
+async def test_a_refresh_reads_the_open_folders_and_changes_of_the_handed_folder_at_once(app, client):
+    client.conversations.handoffs["owner:abc"] = Handoff("claude-code", "claude", "Claude Code", "/repo")
+    folder = client.folders.handed_folder
+    async with app.run_test(size=(160, 48)) as pilot:
+        screen = await _open(app, pilot)
+        tree = screen.query_one("#folder-tree", Tree)
+        await wait_for(pilot, lambda: len(tree.root.children) == 3)
+        tree.root.children[0].expand()  # src, listed when it's first opened
+        await wait_for(pilot, lambda: folder.listed_alone == ["src"])
+        await screen.reload()
+        assert folder.refreshes == [[""], ["", "src"]] and folder.listed_alone == ["src"]
+        assert [str(n.label) for n in tree.root.children[0].children] == ["app.py M"]
+
+
 async def test_the_home_folder_has_no_changes_and_a_file_goes_to_the_trash_once_allowed(app, client):
     async with app.run_test(size=(160, 48)) as pilot:
         screen = await _open(app, pilot)

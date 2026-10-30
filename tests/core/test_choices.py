@@ -27,3 +27,14 @@ def test_a_streamed_reply_shows_everything_but_the_marker():
 def test_a_comment_that_isnt_a_marker_shows_once_it_closes():
     streamed = choices.Streamed()
     assert [streamed.add(part) for part in ["a <!-- no", "te --> b"]] == ["a ", "<!-- note --> b"]
+
+
+def test_the_choices_are_those_of_the_marker_at_the_end():
+    assert choices.offered("Push?\n\n<!-- choices: Push | Commit only |  | Cancel -->\n") == [
+        "Push",
+        "Commit only",
+        "Cancel",
+    ]
+    assert choices.offered("<!-- choices: Old --> Push? <!-- choices: Yes | No -->") == ["Yes", "No"]
+    assert choices.offered("Push? <!-- choices: Yes | No --> then more") == []
+    assert choices.offered("No marker.") == []

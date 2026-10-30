@@ -57,4 +57,24 @@ describe("FolderTree", () => {
     await tree.toggle("gone");
     expect(tree.listings.gone).toEqual({ error: expect.stringContaining("gone isn't there.") });
   });
+
+  it("reads every open folder at once on a refresh when it can, and says why for each when that fails", async () => {
+    const daemon = lister({ "": ["src"], src: ["b.txt"] });
+    const tree = new FolderTree(daemon.list);
+    await tree.refresh();
+    await tree.toggle("src");
+    const together: string[][] = [];
+    const readAll = async (paths: string[]) => {
+      together.push(paths);
+      return Object.fromEntries(paths.map((path) => [path, { contents: folder(path, path ? ["c.txt"] : ["src"]) }]));
+    };
+    await tree.refresh(readAll);
+    expect([together, daemon.asked]).toEqual([[["", "src"]], ["", "src"]]);
+    const listing = tree.listings.src;
+    expect("contents" in listing && listing.contents.entries.map((e) => e.name)).toEqual(["c.txt"]);
+    await tree.refresh(async () => {
+      throw new Error("The folder is gone.");
+    });
+    expect(tree.listings.src).toEqual({ error: expect.stringContaining("The folder is gone.") });
+  });
 });

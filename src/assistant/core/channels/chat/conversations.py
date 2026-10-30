@@ -2,8 +2,8 @@
 routes it to the conversation it continues or a new one (core/conversation/dispatch_nodes.py); a reply to a
 message goes on in that message's conversation; after /clear, the next message starts a new conversation;
 while the conversation the channel last wrote in is handed to a coding agent, messages go on there; /pin and
-/unpin change the skills pinned to it. A button
-answers what its message's run waits for. Each run is shown in the chat it came from (turn.py), through the
+/unpin change the skills pinned to it. A button answers what its message's run waits for, or sends a reply's
+choice as the user's message (answers.py). Each run is shown in the chat it came from (turn.py), through the
 channel's process, its first reply tagged with a short name of the conversation; every message sent there
 is kept with its conversation (threads.py), so replying to it goes on there."""
 
@@ -17,6 +17,7 @@ from assistant.core.agent.handoffs import Agent, AgentFolders, Handoff, HandoffE
 from assistant.core.agent.session import Session
 from assistant.core.agent.speech import AudioFormat
 from assistant.core.attachments import Attachment
+from assistant.core.channels.chat.answers import Pick, parse_pick
 from assistant.core.channels.chat.approvals import parse_decision, parse_job_decision
 from assistant.core.channels.chat.port import Buttons, ChatLimits, ChatPort, Operations, RemoteChat
 from assistant.core.channels.chat.questions import (
@@ -66,6 +67,7 @@ class Conversations(Protocol):
     def send_dispatched(self, session: Session, dispatch_id: str) -> AsyncIterator[Event]: ...
     def resume(self, session: Session, decisions: dict[str, dict[str, Any]]) -> AsyncIterator[Event]: ...
     async def pending_approvals(self, thread_id: str) -> list[ApprovalRequired]: ...
+    async def offered_choices(self, thread_id: str) -> list[str]: ...
     async def texts(self) -> Texts: ...
     async def conversation_agent(self, user_id: str, thread_id: str) -> Handoff | None: ...
     async def speaks_reply(self, after_voice_message: bool) -> bool: ...
@@ -149,7 +151,7 @@ class ChannelChats:
 
     async def press(self, channel: str, chat: str, message: str, text: str, data: str) -> None:
         """A button pressed on `message`, whose text is `text`."""
-        where = _Chat(self._channels, channel, chat, await self._conversations.texts())
+        where = _Chat(self._channels, channel, chat, await self._conversations.texts(), answers=message)
         thread_id = await self._conversations.chat_message_thread(settings.owner_id, channel, chat, message)
         thread_id = thread_id or await self._conversations.channel_thread(settings.owner_id, channel)
         await self._press(where, _Pressed(message, text, data, thread_id))
@@ -263,6 +265,8 @@ class ChannelChats:
             await self._answer_question(chat, pressed, press)
         elif decision := parse_decision(pressed.data, place):
             await self._answer_approval(chat, pressed, *decision)
+        elif pick := parse_pick(pressed.data):
+            await self._answer_choice(chat, pressed, pick)
 
     async def _answer_approval(self, chat: "_Chat", pressed: "_Pressed", interrupt_id: str, answer: dict) -> None:
         await chat.port.edit(pressed.message, pressed.text)
@@ -285,6 +289,18 @@ class ChannelChats:
         await chat.port.edit(pressed.message, text)
         await chat.port.send(answered_text(chat.t, picked))
         await self._resume(chat, pressed.thread_id, {press.interrupt_id: {"choices": picked}})
+
+    async def _answer_choice(self, chat: "_Chat", pressed: "_Pressed", pick: Pick) -> None:
+        """The choice goes as the user's message, while the reply it's on is still the conversation's last message.
+        Either way its buttons go, its text kept (the reply's Markdown, as Slack gives it back)."""
+        choice = pick.of(await self._conversations.offered_choices(pressed.thread_id))
+        await chat.port.edit(pressed.message, pressed.text, markdown=True, keep_text=True)
+        if choice is None:
+            await chat.port.send(chat.t("Something came after that reply, so its answers are gone. Write yours."))
+            return
+        await chat.port.send(answered_text(chat.t, [choice]))
+        send = lambda s: self._conversations.send(s, choice)  # noqa: E731
+        await self._answer(chat, pressed.thread_id, send, choice)
 
     async def _answer_job(self, chat: "_Chat", pressed: "_Pressed", interrupt_id: str, answer: dict) -> None:
         """A scheduled job's request: the job's run continues on its own, nothing to show here."""
@@ -382,11 +398,20 @@ class ChannelChats:
 
 class _Chat:
     def __init__(
-        self, channels: Channels, channel: str, chat: str, t: Texts, message: str = "", voice: bool = False
+        self,
+        channels: Channels,
+        channel: str,
+        chat: str,
+        t: Texts,
+        message: str = "",
+        voice: bool = False,
+        answers: str = "",
     ) -> None:
+        """`answers`: the message what's sent here answers, when it isn't the user's `message` (the one whose
+        button was pressed)."""
         self.channel = channel
         self.id = chat
-        self.port: ChatPort = RemoteChat(channels, channel, chat)
+        self.port: ChatPort = RemoteChat(channels, channel, chat, reply_to=answers or message)
         # The text shown there, in the language chosen.
         self.t = t
         # What the user sent there that's being answered: its id ("" for a button pressed), and whether it was a
@@ -416,8 +441,16 @@ class _Recording:
             await self._conversations.chat_messages_in(owner, channel, self._chat.id, [message], self._thread_id)
         return message
 
-    async def edit(self, message: str, text: str, *, markdown: bool = False, buttons: Buttons | None = None) -> None:
-        await self._port.edit(message, text, markdown=markdown, buttons=buttons)
+    async def edit(
+        self,
+        message: str,
+        text: str,
+        *,
+        markdown: bool = False,
+        buttons: Buttons | None = None,
+        keep_text: bool = False,
+    ) -> None:
+        await self._port.edit(message, text, markdown=markdown, buttons=buttons, keep_text=keep_text)
 
     async def typing(self) -> None:
         await self._port.typing()

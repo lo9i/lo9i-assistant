@@ -3,7 +3,8 @@ what git says changed (listed at the top and marked in the tree, what was delete
 the home folder beside one that isn't. A file opens beside the tree: what changed in it when git lists it, its whole
 text a key away, or its text otherwise. A file can be moved to the system's trash, once the user confirms, while
 deleting is allowed (off until turned on, here or in the web app's Settings → General). Read again after each step the
-agent reports and when it's done, and on Refresh."""
+agent reports and when it's done, and on Refresh: the handed folder's open folders and changes in one request, which
+asks git once."""
 
 from typing import ClassVar
 
@@ -20,7 +21,15 @@ from textual.widgets.option_list import Option
 from textual.widgets.tree import TreeNode
 
 from assistant.client.daemon_client import FoldersApi, ShownFolder
-from assistant.core.agent import FileChange, FolderEntry, HandedFolderError
+from assistant.core.agent import (
+    FileChange,
+    FolderChanges,
+    FolderContents,
+    FolderEntry,
+    FolderRefresh,
+    HandedFolderError,
+    ListedFolder,
+)
 from assistant_terminal.folder_text import CHANGES, WHOLE_FILE, ChangeMarks, change_label, entry_label
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
@@ -80,11 +89,12 @@ class FolderScreen(ModalScreen[None]):
     @reports_daemon_unavailable
     async def reload(self) -> None:
         """The folder, its changes, the open folders and the file shown, read again; and whether deleting is on."""
-        await self._read_changes()
         tree = self.query_one("#folder-tree", Tree)
         opened = {n.data.path for n in _nodes(tree.root) if n.data is not None and n.is_expanded}
+        found = await self._read_together(opened)
+        self._show_changes(found.changes if found else None)
         self._listed.clear()
-        await self._fill(tree.root, "", opened)
+        await self._fill(tree.root, "", opened, {f.path: f for f in found.folders} if found else {})
         self._deleting = await self._folders.deleting()
         self.query_one("#allow-deleting", Checkbox).value = self._deleting
         if self._shown is not None:
@@ -94,12 +104,18 @@ class FolderScreen(ModalScreen[None]):
     async def action_reload(self) -> None:
         await self.reload()
 
-    async def _read_changes(self) -> None:
+    async def _read_together(self, opened: set[str]) -> FolderRefresh | None:
+        """The handed folder's open folders and changes, read together; None for the home folder, which has no changes
+        and whose folders are listed one at a time, or when it can't be read (said)."""
+        if not self._folder.has_changes:
+            return None
         try:
-            found = await self._folder.changes()
+            return await self._folder.refresh(["", *sorted(opened)])
         except HandedFolderError as e:
             self.notify(str(e), severity="error")
-            found = None
+            return None
+
+    def _show_changes(self, found: FolderChanges | None) -> None:
         listed: list[FileChange] = found.changes if found else []
         self._marks = ChangeMarks(listed)
         if self._folder.has_changes:
@@ -111,12 +127,14 @@ class FolderScreen(ModalScreen[None]):
             elif not listed:
                 options.add_option(Option(t("Nothing changed."), disabled=True))
 
-    async def _fill(self, node: TreeNode[FolderEntry | None], path: str, opened: set[str]) -> None:
-        """Lists `path` under `node`, then the folders in it that were open, open again."""
+    async def _fill(
+        self, node: TreeNode[FolderEntry | None], path: str, opened: set[str], read: dict[str, ListedFolder]
+    ) -> None:
+        """Lists `path` under `node`, then the folders in it that were open, open again: from `read` when there."""
         node.remove_children()
         self._listed.add(path)
         try:
-            listing = await self._folder.contents(path)
+            listing = await self._listing(path, read)
         except HandedFolderError as e:
             node.add_leaf(Text(str(e), style="red"))
             return
@@ -127,19 +145,27 @@ class FolderScreen(ModalScreen[None]):
                 continue
             child = node.add(label, data=entry, allow_expand=True)
             if entry.path in opened:
-                await self._fill(child, entry.path, opened)
+                await self._fill(child, entry.path, opened, read)
                 child.expand()
         if listing.truncated:
             node.add_leaf(t("More files than shown."))
         if not listing.entries:
             node.add_leaf(Text(t("Empty folder."), style="dim"))
 
+    async def _listing(self, path: str, read: dict[str, ListedFolder]) -> FolderContents:
+        """Raises HandedFolderError for a folder that can't be read."""
+        if (listed := read.get(path)) is None:
+            return await self._folder.contents(path)
+        if listed.contents is None:
+            raise HandedFolderError(listed.error)
+        return listed.contents
+
     @on(Tree.NodeExpanded, "#folder-tree")
     @reports_daemon_unavailable
     async def _opened(self, event: Tree.NodeExpanded[FolderEntry | None]) -> None:
         entry = event.node.data
         if entry is not None and entry.folder and entry.path not in self._listed:
-            await self._fill(event.node, entry.path, set())
+            await self._fill(event.node, entry.path, set(), {})
 
     @on(Tree.NodeSelected, "#folder-tree")
     @reports_daemon_unavailable

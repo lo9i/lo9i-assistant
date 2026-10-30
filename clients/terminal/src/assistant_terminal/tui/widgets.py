@@ -127,6 +127,23 @@ class AssistantMessage(Markdown):
     """A reply. Text is streamed into it with `Markdown.get_stream`."""
 
 
+class ChoicesNote(Static):
+    """A reply's choices (core/conversation/choices.py), numbered under it while it's the conversation's last message.
+    Typing a choice's number alone sends that choice as the user's message, and so does clicking it."""
+
+    def __init__(self, offered: list[str]) -> None:
+        links = "   ".join(
+            f"[@click=app.pick_choice({i})]{i + 1}. {escape(choice)}[/]" for i, choice in enumerate(offered)
+        )
+        super().__init__(f"{links}\n{escape(t('Type a number to answer with it.'))}", classes="choices-note")
+        self.offered = offered
+
+    def picked(self, typed: str) -> str | None:
+        """The choice `typed` names by its number; None for anything else."""
+        number = typed.strip().rstrip(".")
+        return self.offered[int(number) - 1] if number.isdigit() and 0 < int(number) <= len(self.offered) else None
+
+
 class SystemNote(Markdown):
     """Help and status text from the app itself, not from the assistant."""
 

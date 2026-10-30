@@ -9,7 +9,7 @@ import httpx
 import pytest
 from langgraph.store.memory import InMemoryStore
 
-from assistant.core import language
+from assistant.core import language, notifications
 from assistant.core.copilot_quota import records
 from assistant.core.copilot_quota.alerts import SentAlerts, after, due
 from assistant.core.copilot_quota.quota import CopilotQuota, QuotaCheckError, fetch, parse
@@ -126,7 +126,7 @@ def test_the_card_shows_the_plan_whats_left_credits_and_reset():
     )
 
 
-class _WhatsApp:
+class _Chat:
     def __init__(self) -> None:
         self.sent: list[str] = []
 
@@ -153,10 +153,11 @@ def _watch(store: InMemoryStore, outbox: Outbox, github: _GitHub, model: ModelCh
     return CopilotWatch(store, outbox, lambda: model, _checked, "owner", httpx.MockTransport(github.handler))
 
 
-async def test_the_watch_checks_at_start_and_every_few_hours_and_alerts_once():
-    store, outbox, whatsapp = InMemoryStore(), Outbox(), _WhatsApp()
+async def test_the_watch_checks_at_start_and_every_few_hours_and_alerts_once_on_every_channel():
+    store, outbox, whatsapp, telegram = InMemoryStore(), Outbox(), _Chat(), _Chat()
     await language.save(store, "es")
     outbox.register("whatsapp", whatsapp)
+    outbox.register("telegram", telegram)
     github = _GitHub(_report(_snapshot(percent_remaining=15, remaining=45)))
     watch = _watch(store, outbox, github)
     await watch.tick(NOW)
@@ -164,17 +165,22 @@ async def test_the_watch_checks_at_start_and_every_few_hours_and_alerts_once():
     assert github.calls == 1
     await watch.tick(NOW + timedelta(hours=CHECK_HOURS))
     assert github.calls == 2
-    assert whatsapp.sent == ["Copilot: queda 15% del cupo mensual (se renueva el 1/11)."]
+    low = "Copilot: queda 15% del cupo mensual (se renueva el 1/11)."
+    assert whatsapp.sent == telegram.sent == [low]
+    [feed] = await notifications.recent(store, "owner")
+    assert (feed.kind, feed.title, feed.text, feed.ok) == ("copilot", "Cupo de Copilot", low, False)
 
 
-async def test_an_alert_waits_for_whatsapp_to_connect():
-    store, outbox, whatsapp = InMemoryStore(), Outbox(), _WhatsApp()
+async def test_without_a_channel_connected_an_alert_is_kept_in_the_feed_only():
+    store, outbox, whatsapp = InMemoryStore(), Outbox(), _Chat()
     await language.save(store, "es")
     watch = _watch(store, outbox, _GitHub(_report(_snapshot(percent_remaining=0, remaining=0))))
     await watch.tick(NOW)
     outbox.register("whatsapp", whatsapp)
     await watch.tick(NOW + timedelta(minutes=1))
-    assert whatsapp.sent == ["Copilot: se agotó el cupo mensual (se renueva el 1/11)."]
+    assert whatsapp.sent == []
+    [feed] = await notifications.recent(store, "owner")
+    assert feed.text == "Copilot: se agotó el cupo mensual (se renueva el 1/11)."
 
 
 async def test_with_another_provider_nothing_is_checked():

@@ -42,6 +42,7 @@ from assistant.core.agent import (
     FolderContents,
     FolderError,
     FolderListing,
+    FolderRefresh,
     HandedFolderError,
     Handoff,
     HandoffError,
@@ -1113,6 +1114,13 @@ def _add_handed_folder_routes(app: FastAPI, service: AssistantService) -> None:
     async def handed_folder_changes(thread_id: str) -> FolderChanges:
         """What git says changed in the folder; nothing outside a repository."""
         return await _handed_folder(service.handed_folder_changes(settings.owner_id, thread_id))
+
+    @app.get("/conversations/{thread_id}/agent/folder/refresh")
+    async def refresh_handed_folder(thread_id: str, path: Annotated[list[str], Query()]) -> FolderRefresh:
+        """Each folder in `path` (repeated, "" for the folder itself) as `/folder` lists it, and what git says changed,
+        git asked once: the panel's refresh, with every open folder. A folder that can't be read (gone since, a path
+        it doesn't show) says why in its `error` instead of failing the rest."""
+        return await _handed_folder(service.refresh_handed_folder(settings.owner_id, thread_id, path))
 
     @app.get("/folders/home")
     async def home_folder_contents(path: str = "") -> FolderContents:

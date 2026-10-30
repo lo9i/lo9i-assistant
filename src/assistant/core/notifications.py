@@ -1,6 +1,7 @@
-"""The notifications feed: scheduled jobs' results, background work that ended (core/background.py) and health checks,
-listed by the apps apart from any conversation (the web app's Notifications page, /notifications in the
-terminal app), newest first, besides the toast or chat message each one also gets. Each names the
+"""The notifications feed: scheduled jobs' results, background work that ended (core/background.py), health checks
+and the Copilot allowance's alerts (core/copilot_quota/), listed by the apps apart from any conversation (the web
+app's Notifications page, /notifications in the terminal app), newest first, besides the toast or chat message each
+one also gets. Each names the
 conversation its work was started in, when there is one, so the apps open it from there; a job's run names
 its job and run instead, which the apps open on the Jobs page with the run's full reply. One Store record
 per notification under ("notifications", user_id); past _KEPT the oldest go."""
@@ -15,7 +16,7 @@ from langgraph.store.base import BaseStore, PutOp
 _KEPT = 200
 _SCAN_LIMIT = 10_000
 
-Kind = Literal["job", "background", "doctor"]
+Kind = Literal["job", "background", "doctor", "copilot"]
 
 
 @dataclass
@@ -24,7 +25,8 @@ class Notification:
     # ISO 8601.
     at: str
     # job: a scheduled job's run; background: work that ended after the call that started it; doctor: the daily
-    # health check (core/doctor/), which the apps open on its page.
+    # health check (core/doctor/), which the apps open on its page; copilot: the Copilot allowance running low or out
+    # (core/copilot_quota/alerts.py), which opens nothing.
     kind: Kind
     title: str
     text: str
