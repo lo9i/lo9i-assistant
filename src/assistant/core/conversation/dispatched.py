@@ -63,6 +63,11 @@ async def latest(store: BaseStore, user_id: str) -> Kept | None:
     return None if item is None else _kept(item.key, item.value)
 
 
+async def places(store: BaseStore, user_id: str) -> dict[str, str]:
+    """Each kept message's conversation ("" until it's sent), by its id."""
+    return {item.key: item.value.get("sent_to", "") for item in await store.asearch(_namespace(user_id), limit=10_000)}
+
+
 async def sent(store: BaseStore, user_id: str, kept: Kept, thread_id: str) -> None:
     """Records that the message is now in `thread_id`."""
     item = await store.aget(_namespace(user_id), kept.id)

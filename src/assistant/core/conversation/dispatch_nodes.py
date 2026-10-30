@@ -26,7 +26,7 @@ from langgraph.types import Command, interrupt
 
 from assistant.core import inbox
 from assistant.core.context import Context, require_search, require_store, thread_of
-from assistant.core.conversation import carried, dispatch_setting, dispatched, ended, follow_up
+from assistant.core.conversation import carried, dispatch_setting, dispatched, ended, follow_up, routing_picks
 from assistant.core.conversation.dispatch import FOLLOW_UP, QUICK, Candidate, Classifier, Pick, candidates
 from assistant.core.conversation.dispatched import DISPATCH_ID
 from assistant.core.conversation.turn_header import is_date_header, said
@@ -70,43 +70,70 @@ def _dispatch_node(classify: Classifier, then: str) -> Node:
             store, require_search(context), context.user_id, inbox_id, said(message), context.similar
         )
         exchange = state.get("inbox_exchange")
-        pick = await _picked(classify, store, context.user_id, state["messages"], exchange, found)
-        return _routed(state["messages"], exchange, pick, found, then)
+        pick, pick_id = await _picked(classify, context, store, state["messages"], exchange, found)
+        return _routed(state["messages"], exchange, pick, found, then, pick_id)
 
     return _dispatch
 
 
 async def _picked(
     classify: Classifier,
+    context: Context,
     store: BaseStore,
-    user_id: str,
     messages: list[BaseMessage],
     exchange: dict[str, int] | None,
     found: Sequence[Candidate],
-) -> Pick:
+) -> tuple[Pick, str]:
     """Where the message goes: where the one before it went when it obviously follows it up (follow_up.py),
-    else the model's pick, a new conversation when it isn't sure enough. Each pick is logged with where the
-    message before went, which measures how often the model's call could be skipped."""
+    else the conversation closest in meaning where that's measured to be as good as the model (routing_picks.py),
+    else the model's pick, a new conversation when it isn't sure enough. Returns it with the id its meaning pick
+    is logged under ("" for none), which measures that."""
+    user_id = context.user_id
     if exchange is None and (place := await follow_up.obvious(store, user_id, messages, found)):
         logger.info("Routed a message to %s, the conversation it follows up, without the model.", place)
-        return Pick(place, 1.0, "")
-    pick = await classify(said(messages[-1]), found, _exchange_text(messages, exchange))
-    sure = pick if pick.confidence >= (await dispatch_setting.load(store)).confidence else Pick("", 0.0, "")
-    last = await follow_up.last_place(store, user_id, messages)
-    logger.info("The model routed a message to %s; the one before went to %s.", sure.place or "new", last or "-")
-    return sure
+        return Pick(place, 1.0, ""), ""
+    text, ids = said(messages[-1]), [c.thread_id for c in found]
+    meaning = await routing_picks.by_meaning(context.similar, user_id, text, ids)
+    # A quick exchange in progress may be followed up, which only the model tells.
+    trust = await routing_picks.trusted(store, user_id) if meaning and exchange is None else None
+    if meaning and trust and trust.covers(meaning):
+        logger.info(
+            "Routed a message to %s by meaning (%.3f, by %.3f), without the model.",
+            meaning.place,
+            meaning.score,
+            meaning.margin,
+        )
+        sure = Pick(meaning.place, meaning.score, "")
+    else:
+        pick = await classify(text, found, _exchange_text(messages, exchange))
+        sure = pick if pick.confidence >= (await dispatch_setting.load(store)).confidence else Pick("", 0.0, "")
+        last = await follow_up.last_place(store, user_id, messages)
+        logger.info("The model routed a message to %s; the one before went to %s.", sure.place or "new", last or "-")
+    pick_id = await routing_picks.log(store, user_id, meaning, sure.place, ids) if meaning else ""
+    return sure, pick_id
 
 
 def _routed(
-    messages: list[BaseMessage], exchange: dict[str, int] | None, pick: Pick, found: Sequence[Candidate], then: str
+    messages: list[BaseMessage],
+    exchange: dict[str, int] | None,
+    pick: Pick,
+    found: Sequence[Candidate],
+    then: str,
+    pick_id: str = "",
 ) -> Command:
-    """Answered in the inbox (`then`), or sent on: a quick exchange that went on long enough is carried."""
+    """Answered in the inbox (`then`), or sent on: a quick exchange that went on long enough is carried. A message
+    sent on takes the id its pick is logged under, for its final place to be measured (routing_picks.py)."""
     titles = {c.thread_id: c.title for c in found}
     if pick.place == QUICK:
         return Command(goto=then, update={"inbox_exchange": {"start": len(messages) - 1, "turns": 1}})
     if pick.place == FOLLOW_UP and exchange is not None and exchange["turns"] < INBOX_TURNS:
         return Command(goto=then, update={"inbox_exchange": exchange | {"turns": exchange["turns"] + 1}})
-    dispatching: dict[str, Any] = {"thread_id": _conversation(pick.place), "other": "", "titles": titles}
+    dispatching: dict[str, Any] = {
+        "thread_id": _conversation(pick.place),
+        "other": "",
+        "titles": titles,
+        "pick": pick_id,
+    }
     if pick.place == FOLLOW_UP and exchange is not None:
         dispatching["carried"] = carried.lines(messages[exchange["start"] : -1], _CARRIED_CHARS)
     return Command(goto=SEND, update={"dispatching": dispatching, "inbox_exchange": None})
@@ -154,6 +181,8 @@ async def _send(state: dict[str, Any], runtime: Runtime[Context]) -> Command:
     text = _said(state, dispatching)
     exchange = dispatching.get("carried", [])
     dispatch_id = dispatching.get("id") or await _keep(state, runtime, text, exchange)
+    if pick_id := dispatching.get("pick"):
+        await routing_picks.sent_on(require_store(runtime.store), runtime.context.user_id, pick_id, dispatch_id)
     thread_id = dispatching["thread_id"]
     title = dispatching["titles"].get(thread_id, "")
     line = _line(thread_id, title, text if "id" in dispatching else "", bool(exchange))
