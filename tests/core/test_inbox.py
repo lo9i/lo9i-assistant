@@ -9,33 +9,62 @@ import pytest
 from assistant.core import conversations, inbox
 from assistant.core.agent import HandoffError, Session
 from assistant.core.context import UNATTENDED_CHANNEL
+from assistant.core.conversation.dispatch import FOLLOW_UP, QUICK, Pick
 from assistant.core.events import ApprovalRequired, Dispatched, ToolFinished
 from tests.conftest import collect
 from tests.core.test_handoffs import agent_plugin
 
 
-async def test_work_that_outgrows_the_inbox_moves_to_a_new_conversation_without_asking(service, script):
-    script.call("move_to_conversation", title="Tax return", brief="Fill in the 2026 return.").reply("Moved.")
+async def test_work_that_outgrows_the_inbox_moves_to_a_new_conversation_as_the_user_wrote_it(service, script):
+    script.call("move_to_conversation").reply("Moved.")
     session = await service.session("u", "web")
     events = await collect(service.send(session, "let's do my taxes"))
     assert not [e for e in events if isinstance(e, ApprovalRequired)]
     moved = next(e for e in events if isinstance(e, Dispatched))
-    assert (moved.thread_id, moved.title) == ("", "Tax return")
-    assert moved.text == "Carried over from the inbox: Tax return\n\nFill in the 2026 return."
+    assert (moved.thread_id, moved.title, moved.text, moved.carried) == (
+        "",
+        "New conversation",
+        "let's do my taxes",
+        "",
+    )
+    assert moved.line == "→ Started a new conversation."
     finished = next(e for e in events if isinstance(e, ToolFinished))
-    assert finished.output.startswith("Moved this to a new conversation, 'Tax return'")
+    assert finished.output.startswith("Moved the user's message to a new conversation")
     script.reply("Let's start.")
     new = Session("u", "web", await service.new_thread("u"))
     await collect(service.send_dispatched(new, moved.id))
-    assert (await service.conversation_messages(new.thread_id))[0].text == moved.text
+    first, reply = await service.conversation_messages(new.thread_id)
+    assert (first.role, first.text) == ("user", "let's do my taxes")  # their own words, nothing written for them
+    assert (reply.role, reply.text) == ("assistant", "Let's start.")
+
+
+async def test_a_quick_exchange_moved_goes_with_the_message_and_the_inbox_starts_afresh(service, script, inbox_answers):
+    inbox_answers.picks.extend([Pick(QUICK, 0.9, ""), Pick(FOLLOW_UP, 0.9, "")])
+    session = await service.session("u", "web")
+    script.reply("150 km.")
+    await collect(service.send(session, "how far is Rome from Florence?"))
+    script.call("move_to_conversation").reply("Moved.")
+    events = await collect(service.send(session, "ok, plan the whole trip"))
+    moved = next(e for e in events if isinstance(e, Dispatched))
+    assert moved.text == "ok, plan the whole trip" and "with the quick exchange" in moved.line
+    assert moved.carried.startswith("**You:** how far is Rome from Florence?")
+    script.reply("Here's the plan.")
+    new = Session("u", "web", await service.new_thread("u"))
+    await collect(service.send_dispatched(new, moved.id))
+    assert "User: how far is Rome from Florence?" in str(script.requests[-1][-1].content)
+    carried_shown, first = (await service.conversation_messages(new.thread_id))[:2]
+    assert (carried_shown.role, first.role, first.text) == ("carried", "user", "ok, plan the whole trip")
+    script.reply("Sure.")
+    await collect(service.send(session, "what time is it in Tokyo?"))
+    assert inbox_answers.exchanges[-1] == ""  # the moved exchange isn't the inbox's any more
 
 
 async def test_its_not_moved_outside_the_inbox(service, script):
-    script.call("move_to_conversation", title="x", brief="y").reply("ok")
+    script.call("move_to_conversation").reply("ok")
     side = Session("u", "web", await service.new_thread("u"))
     events = await collect(service.send(side, "go"))
     assert ToolFinished("move_to_conversation", "Not moved: this is already a conversation of its own.") in events
-    script.call("move_to_conversation", title="x", brief="y").reply("ok")
+    script.call("move_to_conversation").reply("ok")
     events = await collect(service.send(Session("u", UNATTENDED_CHANNEL, "job:x:1"), "go"))
     assert ToolFinished("move_to_conversation", "Not moved: nobody is watching this scheduled run.") in events
 

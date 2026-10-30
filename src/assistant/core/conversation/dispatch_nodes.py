@@ -6,7 +6,9 @@ and a line saying where it went, so it's the record of what went where. Anywhere
 runs, the run goes on to the epoch and the agent.
 
 A quick exchange in the inbox lasts INBOX_TURNS of the user's messages: the next one about it moves to a
-new conversation, which gets what was said so far in a note, so it picks the exchange up.
+new conversation, which gets what was said so far in a note, so it picks the exchange up. The assistant moves the
+message it's answering the same way when it turns out to be more than a quick answer (core/tools/side.py), with
+`keep_sent_on` and `carried_before`.
 
 A message already sent on can be moved: a run in the inbox whose input is `{"dispatching": {"move": id}}`
 picks again among the other conversations, asks the user (moving is their correction, so they choose), and
@@ -135,8 +137,14 @@ def _routed(
         "pick": pick_id,
     }
     if pick.place == FOLLOW_UP and exchange is not None:
-        dispatching["carried"] = carried.lines(messages[exchange["start"] : -1], _CARRIED_CHARS)
+        dispatching["carried"] = carried_before(messages, exchange, len(messages) - 1)
     return Command(goto=SEND, update={"dispatching": dispatching, "inbox_exchange": None})
+
+
+def carried_before(messages: list[BaseMessage], exchange: dict[str, int] | None, at: int) -> list[carried.Line]:
+    """The quick exchange in the inbox (`exchange`, from graph state) before the user's message at `at`, as its new
+    conversation gets it; [] for none."""
+    return carried.lines(messages[exchange["start"] : at], _CARRIED_CHARS) if exchange else []
 
 
 async def _moving(classify: Classifier, runtime: Runtime[Context], dispatch_id: str) -> Command:
@@ -193,15 +201,20 @@ async def _send(state: dict[str, Any], runtime: Runtime[Context]) -> Command:
 
 
 async def _keep(state: dict[str, Any], runtime: Runtime[Context], text: str, exchange: list[carried.Line]) -> str:
+    message = _last_user_message(state["messages"]) or HumanMessage("")
+    return await keep_sent_on(require_store(runtime.store), runtime.context.user_id, message, text, exchange)
+
+
+async def keep_sent_on(
+    store: BaseStore, user_id: str, message: HumanMessage, text: str, exchange: list[carried.Line]
+) -> str:
     """Keeps the message the inbox got, without its date header, and returns its id. Its notes go with it
     (messages sent on the channel from elsewhere, work that ended in the inbox), and a quick exchange it
     follows up comes with it, as one more note and for the apps to show (carried.py)."""
-    message = _last_user_message(state["messages"]) or HumanMessage("")
     blocks = message.content if isinstance(message.content, list) else [{"type": "text", "text": message.content}]
     content = [b for b in blocks if not is_date_header(b)]
     if exchange:
         content = [carried.note(exchange), *content]
-    store, user_id = require_store(runtime.store), runtime.context.user_id
     return await dispatched.keep(store, user_id, content, text, carried=exchange)
 
 
@@ -213,6 +226,11 @@ def _line(thread_id: str, title: str, moved: str, carried: bool) -> str:
     if carried:
         return "→ Took this to a new conversation, with the quick exchange before it."
     return f"→ Continued in “{title}”." if thread_id else "→ Started a new conversation."
+
+
+def new_conversation_line(carried: bool) -> str:
+    """What the inbox records for a message it took to a new conversation, with the quick exchange before it or not."""
+    return _line("", "", "", carried)
 
 
 def _exchange_text(messages: list[BaseMessage], exchange: dict[str, int] | None) -> str:

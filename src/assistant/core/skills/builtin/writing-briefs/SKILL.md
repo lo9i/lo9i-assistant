@@ -1,9 +1,9 @@
 ---
 name: writing-briefs
-description: When to delegate or move work out of the inbox, and how to write the brief. For delegate and move_to_conversation.
+description: When to delegate or move work out of the inbox, and how to write a subagent's brief. For delegate and move_to_conversation.
 ---
 
-A subagent and a new conversation both start with nothing of this conversation: the brief is all they get.
+A subagent starts with nothing of this conversation: the brief is all it gets.
 
 ## When to delegate
 
@@ -15,9 +15,9 @@ A subagent and a new conversation both start with nothing of this conversation: 
 
 ## When to move out of the inbox
 
-The inbox only answers quick questions. Use move_to_conversation as soon as what the user asks there will take more than a couple of turns: a project, a long research, debugging something, a plan. Nobody is asked: the work moves to a new conversation and the user is taken there. Say so in one short line and don't start the work in the inbox. It does nothing outside the inbox or in a scheduled run.
+The inbox only answers quick questions. Use move_to_conversation as soon as what the user asks there will take more than a couple of turns: a project, a long research, debugging something, a plan. Nobody is asked and you write nothing: the user's message goes to a new conversation as they wrote it, with the quick exchange before it, it's answered there, and the user is taken there. Say so in one short line and don't start the work in the inbox. It does nothing outside the inbox or in a scheduled run.
 
-## Writing the brief
+## Writing a subagent's brief
 
 Say everything it needs, as if to someone who wasn't there:
 
@@ -25,6 +25,4 @@ Say everything it needs, as if to someone who wasn't there:
 - The names, ids, paths, URLs, accounts and versions involved, exactly as they were given.
 - What's already known or was tried, and what was decided so far (and what was ruled out).
 - What the user just asked, in their words when they matter.
-- For delegate, what to return: the format, how long, what to leave out ("the three cheapest, each with its price and link").
-
-`title` for move_to_conversation is a few words naming the topic.
+- What to return: the format, how long, what to leave out ("the three cheapest, each with its price and link").
