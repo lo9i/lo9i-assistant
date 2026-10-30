@@ -1,6 +1,7 @@
 """The delegate tool: hands a task to a subagent (core/subagent.py), which works on it with a fresh
 context and returns only its answer to the model; the steps it took go with the answer for history
-(core/subagent_steps.py)."""
+(core/subagent_steps.py). In scheduled jobs too: an approval inside the subagent pauses the run like any
+other, so it follows the job's forwarding rules (core/approvals.py)."""
 
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
@@ -21,8 +22,6 @@ async def delegate(task: str, runtime: ToolRuntime[Context]) -> str | ToolMessag
     only need a summary of (research across many pages, digging through files or logs). Several calls
     in one reply run in parallel."""
     context = runtime.context
-    if context.unattended:
-        return "Not delegated: subagents don't run in scheduled jobs. Do the task yourself."
     if context.subagents is None:
         return "Not delegated: subagents aren't available here."
     call_id = runtime.tool_call_id or ""
