@@ -85,3 +85,22 @@ async def test_a_subagent_section_needs_format_6_a_name_a_description_and_a_prom
     assert "its subagent prompt '../../../../etc/hosts' isn't a file in its folder" in problems
     assert "its subagent prompt 'nope.md' isn't a file in its folder" in problems
     assert "its subagent's tools and plugins must be lists of names" in problems
+
+
+async def test_it_gets_the_read_only_tools_of_the_plugins_it_names(service, script, repo, monkeypatch):  # noqa: F811
+    await _install(service, repo, _RESEARCHER + "  plugins: [maps]\n")
+    route = {"type": "function", "function": {"name": "mcp__maps__route", "description": "A route", "parameters": {}}}
+    monkeypatch.setattr(service._plugin_tools, "read_only_definitions", lambda: [route])
+    monkeypatch.setattr(
+        service._plugin_tools, "plugin_of", lambda name: "maps" if name.startswith("mcp__maps__") else None
+    )
+    script.call("delegate", task="How far is Rosario?", agent="researcher").reply("300 km").reply("ok")
+    script.call("delegate", task="How far is Rosario?").reply("no idea").reply("ok")
+    session = await service.session("owner", "cli")
+    await collect(service.send(session, "research it"))
+    await collect(service.send(session, "and you?"))
+    names = [{t["function"]["name"] if isinstance(t, dict) else t.name for t in bound} for bound in script.bound]
+    # Each run binds the main agent's tools, then its subagent's, then the main agent's again.
+    researcher, general = names[1], names[4]
+    assert "delegate" not in researcher | general and "list_jobs" in general
+    assert "mcp__maps__route" in researcher and "mcp__maps__route" not in general
