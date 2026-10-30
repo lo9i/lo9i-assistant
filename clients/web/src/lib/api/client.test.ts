@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ConversationsGroup, FilesGroup, JobsGroup, NotificationsGroup, SystemGroup } from "./client";
+import { ConversationsGroup, FilesGroup, HomeGroup, JobsGroup, NotificationsGroup, SystemGroup } from "./client";
 import type { Transport } from "./transport";
 
 function recording(): { transport: Transport; request: ReturnType<typeof vi.fn> } {
@@ -24,6 +24,22 @@ describe("ConversationsGroup.messageAgent", () => {
     const form = request.mock.calls[0][2] as FormData;
     expect(form.get("text")).toBe("");
     expect(form.getAll("files")).toHaveLength(1);
+  });
+});
+
+describe("HomeGroup pins", () => {
+  it("reads, pins and unpins conversations by their id, answering the ids pinned", async () => {
+    const { transport, request } = recording();
+    request.mockResolvedValue({ threads: ["owner:a", "owner:b"] });
+    const home = new HomeGroup(transport);
+    expect(await home.pins()).toEqual(["owner:a", "owner:b"]);
+    expect(await home.pin("owner:b")).toEqual(["owner:a", "owner:b"]);
+    await home.unpin("owner:b");
+    expect(request.mock.calls.map((c) => c.slice(0, 2))).toEqual([
+      ["GET", "/home/pins"],
+      ["PUT", "/home/pins/owner%3Ab"],
+      ["DELETE", "/home/pins/owner%3Ab"],
+    ]);
   });
 });
 

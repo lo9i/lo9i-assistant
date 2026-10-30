@@ -9,6 +9,7 @@
   import { formatDate, t } from "$lib/i18n.svelte";
   import { clientLabel, deviceLabel } from "$lib/sessions";
   import Confirm from "../Confirm.svelte";
+  import PinToHome from "../PinToHome.svelte";
   import EmptyState from "../EmptyState.svelte";
   import Thread from "./Thread.svelte";
 
@@ -21,8 +22,11 @@
     devices: Device[] | undefined;
     oncontinue: (threadId: string) => void;
     ondelete: (threadId: string) => void;
+    /** It's pinned to Home. */
+    pinned: boolean;
+    onpin: (threadId: string) => void;
   };
-  let { conversation, open, sessions, devices, oncontinue, ondelete }: Props = $props();
+  let { conversation, open, sessions, devices, oncontinue, ondelete, pinned, onpin }: Props = $props();
   let confirming = $state(false);
   const { client } = useDaemon();
 
@@ -80,6 +84,10 @@
         <button class="btn btn--primary btn--sm" onclick={() => oncontinue(conversation.thread_id)}>
           <Play size={14} />{t("conversations.continue")}
         </button>
+        <span class="spacer"></span>
+        {#if !conversation.inbox}
+          <PinToHome {pinned} ontoggle={() => onpin(conversation.thread_id)} labeled variant="btn--neutral btn--sm" />
+        {/if}
         <button
           class="btn btn--danger btn--sm"
           aria-label={t("conversations.delete")}
@@ -173,11 +181,14 @@
     margin: 0;
     text-align: right;
   }
-  /* One row however narrow the card: Continue first, Delete (icon only) at the end. */
+  /* One row however narrow the card: Continue first, Pin and Delete (icon only) at the end. */
   .actions {
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
     gap: 8px;
+  }
+  .spacer {
+    flex: 1;
   }
   /* Where the user's next message would be. */
   .reply {

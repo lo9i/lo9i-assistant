@@ -9,6 +9,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const MAX_COLUMNS = 4;
 /** More items than this make a busy card: two columns wide, its list scrolling past about this many. */
 export const BUSY_ITEMS = 5;
+/** The Conversations card's id (CONVERSATIONS in core/home/sections.py): the app draws it live from the
+ * conversations instead of from its result. */
+export const CONVERSATIONS = "conversations";
 // An address written in the subtitle, with the separator before it, for results built before items had a url.
 const URL_IN_TEXT = /\s*(?:[·|,;-]\s*)?(https?:\/\/\S+)/g;
 
@@ -80,6 +83,13 @@ export function withoutSection(sections: HomeSection[], id: string): HomeSection
   return sections.filter((s) => s.id !== id);
 }
 
+/** The Conversations card added at the end, titled `title`, unless Home has it. The daemon gives it its own text
+ * (a section built by code). */
+export function withConversations(sections: HomeSection[], title: string): HomeSection[] {
+  if (sections.some((s) => s.id === CONVERSATIONS)) return sections;
+  return [...sections, { id: CONVERSATIONS, title, prompt: title, plugins: [], columns: 0 }];
+}
+
 /** The section with its card `columns` wide. */
 export function withColumns(sections: HomeSection[], id: string, columns: number): HomeSection[] {
   return sections.map((s) => (s.id === id ? { ...s, columns } : s));
@@ -93,6 +103,16 @@ export function moved(sections: HomeSection[], id: string, by: -1 | 1): HomeSect
   const result = [...sections];
   [result[from], result[to]] = [result[to], result[from]];
   return result;
+}
+
+/** The section dragged before the one with id `before` (to the end for null); unchanged for one that isn't there. */
+export function movedBefore(sections: HomeSection[], id: string, before: string | null): HomeSection[] {
+  const section = sections.find((s) => s.id === id);
+  if (!section || before === id) return sections;
+  const rest = sections.filter((s) => s !== section);
+  const at = before === null ? rest.length : rest.findIndex((s) => s.id === before);
+  if (at < 0) return sections;
+  return [...rest.slice(0, at), section, ...rest.slice(at)];
 }
 
 type Visibility = Pick<Document, "visibilityState" | "addEventListener" | "removeEventListener">;

@@ -27,7 +27,9 @@
   import { conversationLayout } from "$lib/conversationLayout.svelte";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { NARROW } from "$lib/folderPanel.svelte";
+  import { restoresOnEscape } from "$lib/fullScreen";
   import { t } from "$lib/i18n.svelte";
+  import { homePins } from "../../homePins.svelte";
   import EmptyState from "../../EmptyState.svelte";
   import SearchField from "../../SearchField.svelte";
   import { openConversation } from "../../openConversation";
@@ -51,6 +53,7 @@
   const runs = resource((c) => c.runs.inProgress(), ["run", "run_finished"]);
   const tasks = resource((c) => c.tasks.running(), ["agent_task_progress", "agent_task_reports", "background_ended"]);
   const name = resource((c) => c.identity.name(), ["settings"]);
+  const pins = homePins();
   const narrow = new MediaQuery(NARROW);
 
   const layout = $derived(conversationLayout.current);
@@ -169,10 +172,7 @@
   }
 
   function keydown(e: KeyboardEvent): void {
-    if (e.key !== "Escape" || e.defaultPrevented || conversationLayout.current.maximized === null) return;
-    // A dialog's Esc closes the dialog.
-    if (document.querySelector('[role="dialog"]')) return;
-    change(restored(conversationLayout.current));
+    if (conversationLayout.current.maximized !== null && restoresOnEscape(e, document)) change(restored(conversationLayout.current));
   }
 
   function dragStart(e: DragEvent, kind: keyof typeof MIME, id: string): void {
@@ -327,6 +327,8 @@
             onmaximize={() => maximize(p.id)}
             onopen={() => openConversation(chats, notices, p.id)}
             onclear={() => clearIn(p.id)}
+            pinned={pins.has(p.id)}
+            onpin={() => pins.toggle(p.id)}
             onclose={() => change(withoutPane(layout, p.id))}
             ondragstart={narrow.current ? undefined : (e) => dragStart(e, "pane", p.id)}
           />
@@ -397,6 +399,8 @@
                   working={working.has(id)}
                   name={name.data || t("chat.theAssistant")}
                   beside={layout.panes.includes(id)}
+                  pinned={pins.has(id)}
+                  onpin={() => pins.toggle(id)}
                   onopen={() => openConversation(chats, notices, id)}
                   onbeside={() => toggleBeside(id)}
                   onmaximize={() => maximize(id)}
@@ -429,6 +433,8 @@
     onmaximize={() => maximize(id)}
     onopen={() => openConversation(chats, notices, id)}
     onclear={() => clearIn(id)}
+    pinned={pins.has(id)}
+    onpin={() => pins.toggle(id)}
   />
 {/if}
 

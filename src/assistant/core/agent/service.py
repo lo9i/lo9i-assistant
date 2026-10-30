@@ -59,6 +59,7 @@ from assistant.core.doctor.doctor import Doctor
 from assistant.core.doctor.schedule import DoctorSchedule
 from assistant.core.health import HealthLog
 from assistant.core.home import sections as home_sections
+from assistant.core.home.conversations import ConversationsSection
 from assistant.core.home.refresh import HomeRefresh
 from assistant.core.home.schedule import HomeSchedule
 from assistant.core.llm import choice
@@ -153,7 +154,12 @@ class AssistantService(
         self._plugin_tools = PluginTools(
             self.mcp, AgentTools(self.agent_tasks, self._task_reports), tool_groups(settings.toolsets)
         )
-        coded = {home_sections.COPILOT: CopilotSection(storage.store, lambda: self._model)}
+        coded = {
+            home_sections.COPILOT: CopilotSection(storage.store, lambda: self._model),
+            home_sections.CONVERSATIONS: ConversationsSection(
+                storage.store, settings.owner_id, lambda: self.list_conversations(settings.owner_id)
+            ),
+        }
         self.home_refresh = HomeRefresh(storage.store, bus, lambda: self._home_builder, self._plugin_tools, coded)
         self.home_schedule = HomeSchedule(storage.store, self.home_refresh, settings.owner_id)
         self.copilot_watch = CopilotWatch(

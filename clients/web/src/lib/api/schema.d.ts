@@ -1886,6 +1886,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/home/pins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Home Pins
+         * @description The conversations pinned to Home, which its Conversations card shows.
+         */
+        get: operations["home_pins_home_pins_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/home/pins/{thread_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Pin To Home
+         * @description Pins it after the others. 404: no such conversation. 400: the inbox.
+         */
+        put: operations["pin_to_home_home_pins__thread_id__put"];
+        post?: never;
+        /** Unpin From Home */
+        delete: operations["unpin_from_home_home_pins__thread_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/agent-tasks/running": {
         parameters: {
             query?: never;
@@ -3624,6 +3665,11 @@ export interface components {
              * @default false
              */
             refreshing: boolean;
+        };
+        /** HomePins */
+        HomePins: {
+            /** Threads */
+            threads: string[];
         };
         /** HomeRefresh */
         HomeRefresh: {
@@ -8668,6 +8714,88 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HomePage"];
+                };
+            };
+        };
+    };
+    home_pins_home_pins_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomePins"];
+                };
+            };
+        };
+    };
+    pin_to_home_home_pins__thread_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomePins"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unpin_from_home_home_pins__thread_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomePins"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

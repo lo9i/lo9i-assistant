@@ -2,16 +2,15 @@
   import Columns2 from "@lucide/svelte/icons/columns-2";
   import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
-  import { DaemonUnavailableError } from "$lib/api/errors";
-  import type { ShownMessage } from "$lib/api/types";
   import { cardStatus, lastMessages, type Excerpt } from "$lib/chat/cards";
   import type { ChatSnapshot } from "$lib/chat/controller";
   import { draft } from "$lib/chat/draft.svelte";
+  import { glance } from "$lib/chat/glance.svelte";
   import { fromHistory } from "$lib/chat/transcript";
   import { useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
   import { markdown } from "$lib/markdown";
-  import { describe } from "$lib/notices";
+  import PinToHome from "../../PinToHome.svelte";
   import Composer from "../Composer.svelte";
   import StatusPill from "./StatusPill.svelte";
 
@@ -32,55 +31,48 @@
     name: string;
     /** It's open side by side already. */
     beside: boolean;
+    /** It's pinned to Home. */
+    pinned: boolean;
+    onpin: () => void;
     onopen: () => void;
     onbeside: () => void;
     onmaximize: () => void;
     /** Its header is what drags it. */
     ondragstart: (e: DragEvent) => void;
   };
-  let { threadId, title, archived, updatedAt, live, working, name, beside, onopen, onbeside, onmaximize, ondragstart }: Props = $props();
+  let {
+    threadId,
+    title,
+    archived,
+    updatedAt,
+    live,
+    working,
+    name,
+    beside,
+    pinned,
+    onpin,
+    onopen,
+    onbeside,
+    onmaximize,
+    ondragstart,
+  }: Props = $props();
 
-  const { client, chats, notices } = useDaemon();
+  const { chats, notices } = useDaemon();
   const box = $derived(draft.of(threadId));
   let card = $state<HTMLElement>();
   let visible = $state(false);
-  let history = $state.raw<ShownMessage[]>([]);
-  // What the daemon says its run stopped to ask, while it isn't open here.
-  let asking = $state(false);
-  let error = $state<string | null>(null);
-  const isLive = $derived(live !== null);
-  const excerpts = $derived(lastMessages(live ? live.transcript.items : fromHistory(history).items, EXCERPTS));
-  const status = $derived(cardStatus(live, working, asking));
+  // Loaded once it scrolls into view, so a long list doesn't load every conversation.
+  const seen = glance(() => ({ threadId, updatedAt, working, wanted: visible && live === null }));
+  const error = $derived(seen.error);
+  const excerpts = $derived(lastMessages(live ? live.transcript.items : fromHistory(seen.history).items, EXCERPTS));
+  const status = $derived(cardStatus(live, working, seen.asking));
   const running = $derived(live !== null && (live.busy || live.mirroring));
 
-  // A card loads what it shows once it scrolls into view, so a long list doesn't load every conversation.
   $effect(() => {
     if (!card) return;
     const observer = new IntersectionObserver(([entry]) => (visible = entry.isIntersecting), { rootMargin: "200px" });
     observer.observe(card);
     return () => observer.disconnect();
-  });
-
-  // Again when it changes or a run there starts or ends; open here, its chat shows it live instead.
-  $effect(() => {
-    if (!visible || isLive) return;
-    void updatedAt;
-    void working;
-    let current = true;
-    Promise.all([client.conversations.messages(threadId), client.conversations.approvals(threadId)]).then(
-      ([messages, waiting]) => {
-        if (!current) return;
-        history = messages;
-        asking = waiting.length > 0;
-        error = null;
-      },
-      (e: unknown) => {
-        if (current && !(e instanceof DaemonUnavailableError)) error = describe(e);
-      },
-    );
-    return () => {
-      current = false;
-    };
   });
 
   /** Replying opens the conversation in this tab, beside the others, so its reply shows here live. */
@@ -114,6 +106,7 @@
   <header draggable="true" {ondragstart} title={t("board.move")}>
     <span class="grip" aria-hidden="true"><GripVertical size={14} /></span>
     <button class="title" onclick={onopen} title={t("board.openFull")}>{title}</button>
+    <PinToHome {pinned} ontoggle={onpin} />
     <button
       class="btn btn--ghost btn--icon"
       aria-label={t("board.openSide")}

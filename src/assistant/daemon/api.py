@@ -44,6 +44,7 @@ from assistant.core.agent import (
     Handoff,
     HandoffError,
     HomePage,
+    HomePinError,
     HomeSection,
     HomeSectionsError,
     Importables,
@@ -341,6 +342,11 @@ class HomeRefresh(BaseModel):
 
 class HomeSections(BaseModel):
     sections: list[HomeSection]
+
+
+class HomePins(BaseModel):
+    # The conversations pinned to Home, the first pinned first.
+    threads: list[str]
 
 
 class SkillChange(BaseModel):
@@ -1705,6 +1711,25 @@ def _add_home_routes(app: FastAPI, service: AssistantService) -> None:
     async def reset_home_sections() -> HomePage:
         """Back to the built-in sections."""
         return await service.reset_home_sections(settings.owner_id)
+
+    @app.get("/home/pins")
+    async def home_pins() -> HomePins:
+        """The conversations pinned to Home, which its Conversations card shows."""
+        return HomePins(threads=await service.home_pins(settings.owner_id))
+
+    @app.put("/home/pins/{thread_id}")
+    async def pin_to_home(thread_id: str) -> HomePins:
+        """Pins it after the others. 404: no such conversation. 400: the inbox."""
+        try:
+            return HomePins(threads=await service.pin_to_home(settings.owner_id, thread_id))
+        except ConversationError as e:
+            raise HTTPException(404, str(e)) from e
+        except HomePinError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.delete("/home/pins/{thread_id}")
+    async def unpin_from_home(thread_id: str) -> HomePins:
+        return HomePins(threads=await service.unpin_from_home(settings.owner_id, thread_id))
 
 
 def _add_task_routes(app: FastAPI, service: AssistantService) -> None:

@@ -13,8 +13,10 @@
     error: string;
     onsave: (section: HomeSection) => void;
     onclose: () => void;
+    /** Given for a new section while Home has no Conversations card: adds it instead. */
+    onaddconversations?: () => void;
   };
-  let { section, plugins, error, onsave, onclose }: Props = $props();
+  let { section, plugins, error, onsave, onclose, onaddconversations }: Props = $props();
 
   // svelte-ignore state_referenced_locally
   let title = $state(section?.title ?? "");
@@ -43,6 +45,12 @@
   width={600}
   {onclose}
 >
+  {#if onaddconversations}
+    <div class="offer">
+      <p class="text-meta">{t("homeConversations.offer")}</p>
+      <button class="btn btn--neutral btn--sm" onclick={onaddconversations}>{t("homeConversations.add")}</button>
+    </div>
+  {/if}
   <label class="field">
     <span class="micro-label">{t("home.title")}</span>
     <input class="input" bind:value={title} placeholder={t("home.titlePlaceholder")} />
@@ -86,6 +94,19 @@
 </Modal>
 
 <style>
+  .offer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    margin-bottom: 4px;
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-md);
+  }
+  .offer p {
+    margin: 0;
+  }
   .field {
     display: flex;
     flex-direction: column;

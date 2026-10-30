@@ -4383,6 +4383,102 @@
         }
       }
     },
+    "/home/pins": {
+      "get": {
+        "summary": "Home Pins",
+        "description": "The conversations pinned to Home, which its Conversations card shows.",
+        "operationId": "home_pins_home_pins_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomePins"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/home/pins/{thread_id}": {
+      "put": {
+        "summary": "Pin To Home",
+        "description": "Pins it after the others. 404: no such conversation. 400: the inbox.",
+        "operationId": "pin_to_home_home_pins__thread_id__put",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomePins"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Unpin From Home",
+        "operationId": "unpin_from_home_home_pins__thread_id__delete",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomePins"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/agent-tasks/running": {
       "get": {
         "summary": "Running Tasks",
@@ -7815,6 +7911,22 @@
           "cards"
         ],
         "title": "HomePage"
+      },
+      "HomePins": {
+        "properties": {
+          "threads": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Threads"
+          }
+        },
+        "type": "object",
+        "required": [
+          "threads"
+        ],
+        "title": "HomePins"
       },
       "HomeRefresh": {
         "properties": {

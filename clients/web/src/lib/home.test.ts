@@ -2,16 +2,19 @@ import { describe, expect, it } from "vitest";
 import type { HomeSection } from "./api/types";
 import {
   BUSY_ITEMS,
+  CONVERSATIONS,
   cardColumns,
   dayOf,
   isWide,
   itemWhen,
   linked,
   moved,
+  movedBefore,
   snappedColumns,
   updatedLabel,
   whileVisible,
   withColumns,
+  withConversations,
   withSection,
   withoutSection,
 } from "./home";
@@ -116,11 +119,30 @@ describe("editing the sections", () => {
     expect(withoutSection(sections, "b").map((s) => s.id)).toEqual(["a", "c"]);
   });
 
+  it("adds the Conversations card back at the end, once", () => {
+    const added = withConversations(sections, "Conversations");
+    expect(added.map((s) => s.id)).toEqual(["a", "b", "c", CONVERSATIONS]);
+    expect(added[3]).toMatchObject({ title: "Conversations", plugins: [], columns: 0 });
+    expect(withConversations(added, "Again")).toBe(added);
+  });
+
   it("moves one up or down, and leaves the ends alone", () => {
     expect(moved(sections, "b", -1).map((s) => s.id)).toEqual(["b", "a", "c"]);
     expect(moved(sections, "b", 1).map((s) => s.id)).toEqual(["a", "c", "b"]);
     expect(moved(sections, "a", -1)).toBe(sections);
     expect(moved(sections, "c", 1)).toBe(sections);
+  });
+
+  it("drags one before another or to the end, keeping the others in order", () => {
+    expect(movedBefore(sections, "c", "a").map((s) => s.id)).toEqual(["c", "a", "b"]);
+    expect(movedBefore(sections, "a", "c").map((s) => s.id)).toEqual(["b", "a", "c"]);
+    expect(movedBefore(sections, "a", null).map((s) => s.id)).toEqual(["b", "c", "a"]);
+  });
+
+  it("leaves them alone for a drop on itself, or of or on one that isn't there", () => {
+    expect(movedBefore(sections, "b", "b")).toBe(sections);
+    expect(movedBefore(sections, "gone", "a")).toBe(sections);
+    expect(movedBefore(sections, "a", "gone")).toBe(sections);
   });
 });
 

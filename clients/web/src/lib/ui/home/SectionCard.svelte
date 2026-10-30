@@ -3,8 +3,12 @@
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import ExternalLink from "@lucide/svelte/icons/external-link";
+  import GripVertical from "@lucide/svelte/icons/grip-vertical";
+  import Maximize2 from "@lucide/svelte/icons/maximize-2";
+  import Minimize2 from "@lucide/svelte/icons/minimize-2";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Trash from "@lucide/svelte/icons/trash-2";
+  import type { Snippet } from "svelte";
   import type { HomeCard, PluginIcon as Icon } from "$lib/api/types";
   import { MAX_COLUMNS as MAX, cardColumns, itemWhen, linked, snappedColumns } from "$lib/home";
   import { t } from "$lib/i18n.svelte";
@@ -26,8 +30,38 @@
     ondelete: () => void;
     onmove: (by: -1 | 1) => void;
     onresize: (columns: number) => void;
+    /** Shown full screen: over the page, without the tools that place it. */
+    maximized?: boolean;
+    onmaximize: () => void;
+    /** Dragging its header moves it; a drop on it says where by `drop`. */
+    ondragstart?: (e: DragEvent) => void;
+    ondragover?: (e: DragEvent) => void;
+    ondrop?: (e: DragEvent) => void;
+    /** Where a card dragged over it would go: before it, after it, or nowhere. */
+    drop?: "before" | "after" | null;
+    /** What it shows instead of its result's items (the Conversations card, drawn live). */
+    children?: Snippet;
   };
-  let { card, columns, icon = null, today, refreshing, first, last, onedit, ondelete, onmove, onresize }: Props = $props();
+  let {
+    card,
+    columns,
+    icon = null,
+    today,
+    refreshing,
+    first,
+    last,
+    onedit,
+    ondelete,
+    onmove,
+    onresize,
+    maximized = false,
+    onmaximize,
+    ondragstart,
+    ondragover,
+    ondrop,
+    drop = null,
+    children,
+  }: Props = $props();
   const result = $derived(card.result);
   const items = $derived(result?.items ?? []);
   const timed = $derived(items.some((item) => itemWhen(item, today)));
@@ -81,18 +115,34 @@
   }
 </script>
 
-<section class="card surface--glass" data-span={span} bind:this={element} aria-label={card.section.title}>
-  <header>
+<section
+  class="card surface--glass"
+  class:maximized
+  class:drop-before={drop === "before"}
+  class:drop-after={drop === "after"}
+  data-span={span}
+  bind:this={element}
+  aria-label={card.section.title}
+  {ondragover}
+  {ondrop}
+>
+  <!-- Dragging is the mouse's way to move it; its arrows do the same from the keyboard and on a phone. -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <header draggable={!maximized && ondragstart !== undefined} {ondragstart} class:movable={!maximized && ondragstart}>
     <h2 class="text-heading title">
+      {#if !maximized && ondragstart}<span class="grip" aria-hidden="true" title={t("home.dragToMove")}><GripVertical size={14} /></span
+        >{/if}
       {#if icon}<span class="plugin-icon"><PluginIcon {icon} size={18} /></span>{/if}{card.section.title}
     </h2>
     <div class="tools">
-      <button class="btn btn--icon" title={t("home.moveUp")} aria-label={t("home.moveUp")} disabled={first} onclick={() => onmove(-1)}
-        ><ArrowUp size={16} /></button
-      >
-      <button class="btn btn--icon" title={t("home.moveDown")} aria-label={t("home.moveDown")} disabled={last} onclick={() => onmove(1)}
-        ><ArrowDown size={16} /></button
-      >
+      {#if !maximized}
+        <button class="btn btn--icon" title={t("home.moveUp")} aria-label={t("home.moveUp")} disabled={first} onclick={() => onmove(-1)}
+          ><ArrowUp size={16} /></button
+        >
+        <button class="btn btn--icon" title={t("home.moveDown")} aria-label={t("home.moveDown")} disabled={last} onclick={() => onmove(1)}
+          ><ArrowDown size={16} /></button
+        >
+      {/if}
       <button class="btn btn--icon" title={t("common.edit")} aria-label={t("home.editName", { title: card.section.title })} onclick={onedit}
         ><Pencil size={16} /></button
       >
@@ -110,10 +160,20 @@
           aria-label={t("home.openPage", { page: pageLabel(result.page) })}><ExternalLink size={16} /></a
         >
       {/if}
+      <button
+        class="btn btn--icon full"
+        title={maximized ? t("home.restore") : t("home.maximize")}
+        aria-label={maximized ? t("home.restore") : t("home.maximize")}
+        aria-pressed={maximized}
+        onclick={onmaximize}
+        >{#if maximized}<Minimize2 size={16} />{:else}<Maximize2 size={16} />{/if}</button
+      >
     </div>
   </header>
 
-  {#if !result}
+  {#if children}
+    {@render children()}
+  {:else if !result}
     <p class="text-meta">{refreshing ? t("home.building") : t("home.notBuilt")}</p>
   {:else if result.status === "unavailable"}
     <p class="text-meta">{result.error} <a href={resolve("/plugins")}>{t("home.openPlugins")}</a></p>
@@ -207,6 +267,48 @@
     padding: 20px;
     min-width: 0;
   }
+  /* Over the whole app, sidebar included; dialogs still open above it. */
+  .card.maximized {
+    position: fixed;
+    inset: 12px;
+    z-index: 60;
+    overflow-y: auto;
+    background: var(--surface-modal-bg);
+  }
+  .card.maximized :global(ul) {
+    max-height: none;
+  }
+  /* Full screen it has nothing to snap to. */
+  .card.maximized .resize {
+    display: none;
+  }
+  header.movable {
+    cursor: grab;
+  }
+  header.movable:active {
+    cursor: grabbing;
+  }
+  .grip {
+    display: inline-flex;
+    color: var(--color-text-faint);
+  }
+  /* Where a card dragged over it goes: a bar before or after it. */
+  .card.drop-before::before,
+  .card.drop-after::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--glow) 90%, transparent);
+  }
+  .card.drop-before::before {
+    left: -10px;
+  }
+  .card.drop-after::after {
+    right: -10px;
+  }
   header {
     display: flex;
     align-items: center;
@@ -258,7 +360,8 @@
       transition: opacity 0.12s ease;
     }
     .card:hover .tools > *,
-    .card:focus-within .tools > * {
+    .card:focus-within .tools > *,
+    .card.maximized .tools > * {
       opacity: 1;
     }
   }

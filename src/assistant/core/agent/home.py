@@ -1,10 +1,12 @@
 """Home for clients (core/home/): the sections with their last results, a refresh in the background, the clients
-showing it, and the sections the user edits."""
+showing it, the sections the user edits, and the conversations pinned to it."""
 
 from collections.abc import Collection
 
+from assistant.core import conversations, inbox
 from assistant.core.agent.base import ServiceBase
-from assistant.core.home import results, sections
+from assistant.core.agent.threads import ConversationError
+from assistant.core.home import pins, results, sections
 from assistant.core.home.model import HomeCard, HomeItem, HomePage, HomeSection, SectionResult
 from assistant.core.home.sections import HomeSectionsError
 
@@ -13,10 +15,15 @@ __all__ = [
     "HomeItem",
     "HomeMixin",
     "HomePage",
+    "HomePinError",
     "HomeSection",
     "HomeSectionsError",
     "SectionResult",
 ]
+
+
+class HomePinError(ValueError):
+    """A conversation that can't be pinned to Home. The text says why."""
 
 
 class HomeMixin(ServiceBase):
@@ -49,6 +56,27 @@ class HomeMixin(ServiceBase):
         before = {s.id: s for s in await sections.load(self._storage.store, user_id)}
         await self._sections_changed(user_id, before, await sections.reset(self._storage.store, user_id))
         return await self.home_refresh.page(user_id)
+
+    async def home_pins(self, user_id: str) -> list[str]:
+        """The conversations pinned to Home, the first pinned first."""
+        return await pins.load(self._storage.store, user_id)
+
+    async def pin_to_home(self, user_id: str, thread_id: str) -> list[str]:
+        """Pins it after the others. Raises ConversationError for an unknown one, HomePinError for the inbox,
+        which isn't a conversation to read."""
+        if await conversations.load(self._storage.store, user_id, thread_id) is None:
+            raise ConversationError(f"No conversation {thread_id}.")
+        if thread_id == await inbox.current(self._storage.store, user_id):
+            raise HomePinError("The inbox can't be pinned to Home.")
+        return await self._pins_changed(user_id, await pins.pin(self._storage.store, user_id, thread_id))
+
+    async def unpin_from_home(self, user_id: str, thread_id: str) -> list[str]:
+        return await self._pins_changed(user_id, await pins.unpin(self._storage.store, user_id, thread_id))
+
+    async def _pins_changed(self, user_id: str, pinned: list[str]) -> list[str]:
+        """The Conversations card is built again for the apps that show its result."""
+        await self.home_refresh.refresh(user_id, only=[sections.CONVERSATIONS])
+        return pinned
 
     async def _sections_changed(self, user_id: str, before: dict[str, HomeSection], now: list[HomeSection]) -> None:
         for removed in before.keys() - {s.id for s in now}:
