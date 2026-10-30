@@ -23,6 +23,7 @@ const telegram: FoundServer = {
   model_login: "",
   ssh_agent: false,
   oauth: "",
+  subagent: "",
   agent: "",
   email: false,
 };

@@ -31,6 +31,7 @@ _LABELS: dict[PromptPart, str] = {
     "channels": "Channels",
     "skills": "Skills",
     "plugin_tools": "Plugins' tools listed",
+    "subagents": "Subagents",
     "pinned": "Pinned skills",
     "accounts": "Accounts",
     "plugins": "Plugins to offer",

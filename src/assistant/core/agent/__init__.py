@@ -1,9 +1,9 @@
 """AssistantService: the only core API that gateways use.
 
 The service is a facade (`service.py`) composed of mixins, one per concern:
-threads, channel threads, files, memory, channels, email, mcp, sign-ins, alerts, doctor, notifications, home,
-follow-ups, held runs, tasks, repositories, model, identity, prompts, speech, log level, language, web search,
-skills, skill imports, pinned skills, jobs, usage, messaging, runs and locking.
+threads, channel threads, files, the handed folder, memory, channels, email, mcp, sign-ins, alerts, doctor,
+notifications, home, follow-ups, held runs, tasks, repositories, model, identity, prompts, speech, log level,
+language, web search, skills, skill imports, pinned skills, jobs, usage, messaging, runs and locking.
 """
 
 from assistant.core.agent.alerts import Alert, AlertArea
@@ -13,6 +13,17 @@ from assistant.core.agent.devices import Device, DeviceError, PairingCode
 from assistant.core.agent.doctor import Cause, ContextPart, DoctorPage, DoctorReport, KnownCause, StartingContext
 from assistant.core.agent.email import EmailAccount, EmailAccountNotFoundError, EmailError, EmailProvider
 from assistant.core.agent.files import FileUnavailableError, UploadedFile
+from assistant.core.agent.handed_folder import (
+    FileChange,
+    FilePreview,
+    FolderChanges,
+    FolderContents,
+    FolderEntry,
+    HandedFolderError,
+    MissingPathError,
+    NotHandedError,
+    OutsideFolderError,
+)
 from assistant.core.agent.handoffs import Agent, AgentFolders, FolderError, FolderListing, Handoff, HandoffError
 from assistant.core.agent.home import HomeCard, HomeItem, HomePage, HomeSection, HomeSectionsError, SectionResult
 from assistant.core.agent.identity import InvalidNameError
@@ -80,11 +91,17 @@ __all__ = [
     "EmailProvider",
     "Episode",
     "Fact",
+    "FileChange",
+    "FilePreview",
     "FileUnavailableError",
+    "FolderChanges",
+    "FolderContents",
+    "FolderEntry",
     "FolderError",
     "FolderListing",
     "FoundServer",
     "FoundSkill",
+    "HandedFolderError",
     "Handoff",
     "HandoffError",
     "HomeCard",
@@ -113,11 +130,14 @@ __all__ = [
     "MemoryEditError",
     "MemoryNotFoundError",
     "MemorySnapshot",
+    "MissingPathError",
     "ModelOption",
     "ModelProvider",
     "ModelSettingsError",
     "ModelStatus",
+    "NotHandedError",
     "Notification",
+    "OutsideFolderError",
     "PairingCode",
     "PluginIcon",
     "PluginUpdate",

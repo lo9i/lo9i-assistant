@@ -882,6 +882,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations/{thread_id}/agent/folder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Handed Folder Contents
+         * @description The files and folders in `path`, "" for the folder itself: folders first, then files, by name.
+         */
+        get: operations["handed_folder_contents_conversations__thread_id__agent_folder_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{thread_id}/agent/folder/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Handed Folder File
+         * @description A file's text to preview, its start for a big one; none for a file that isn't text.
+         */
+        get: operations["handed_folder_file_conversations__thread_id__agent_folder_file_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{thread_id}/agent/folder/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Handed Folder Changes
+         * @description What git says changed in the folder; nothing outside a repository.
+         */
+        get: operations["handed_folder_changes_conversations__thread_id__agent_folder_changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/files": {
         parameters: {
             query?: never;
@@ -2944,6 +3004,11 @@ export interface components {
              * @default
              */
             message: string;
+            /**
+             * Messages
+             * @default []
+             */
+            messages: string[];
         };
         /** Device */
         Device: {
@@ -3212,6 +3277,62 @@ export interface components {
              */
             saved_at: string;
         };
+        /** FileChange */
+        FileChange: {
+            /** Path */
+            path: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "modified" | "added" | "deleted" | "untracked";
+        };
+        /** FilePreview */
+        FilePreview: {
+            /** Path */
+            path: string;
+            /** Size */
+            size: number;
+            /** Text */
+            text: string | null;
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** FolderChanges */
+        FolderChanges: {
+            /** Repository */
+            repository: boolean;
+            /** Changes */
+            changes: components["schemas"]["FileChange"][];
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /** FolderContents */
+        FolderContents: {
+            /** Path */
+            path: string;
+            /** Entries */
+            entries: components["schemas"]["FolderEntry"][];
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /** FolderEntry */
+        FolderEntry: {
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+            /** Folder */
+            folder: boolean;
+            /** Size */
+            size: number;
+        };
         /** FolderListing */
         FolderListing: {
             /** Path */
@@ -3300,6 +3421,11 @@ export interface components {
              * @default
              */
             oauth: string;
+            /**
+             * Subagent
+             * @default
+             */
+            subagent: string;
             icon?: components["schemas"]["PluginIcon"];
         };
         /**
@@ -6514,6 +6640,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    handed_folder_contents_conversations__thread_id__agent_folder_get: {
+        parameters: {
+            query?: {
+                path?: string;
+            };
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderContents"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    handed_folder_file_conversations__thread_id__agent_folder_file_get: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilePreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    handed_folder_changes_conversations__thread_id__agent_folder_changes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderChanges"];
                 };
             };
             /** @description Validation Error */

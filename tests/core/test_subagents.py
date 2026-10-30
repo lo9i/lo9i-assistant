@@ -103,11 +103,10 @@ async def test_mcp_tools_that_can_change_things_dont_run_in_a_subagent(service, 
     assert "mcp__notes__write isn't available to a subagent" in _tool_results(script.requests[2])[0]
 
 
-async def test_scheduled_jobs_dont_delegate(service, script):
-    script.call("delegate", task="x").reply("ok")
+async def test_scheduled_jobs_delegate_too(service, script):
+    script.call("delegate", task="x").reply("found it").reply("ok")
     events = await collect(service.send(Session("u", UNATTENDED_CHANNEL, "job:x:1"), "go"))
-    finished = next(e for e in events if isinstance(e, ToolFinished))
-    assert finished.output.startswith("Not delegated: subagents don't run in scheduled jobs.")
+    assert ToolFinished("delegate", "found it") in events
 
 
 async def test_the_subagents_steps_show_again_inside_the_delegate_call_after_a_reload(service, script):

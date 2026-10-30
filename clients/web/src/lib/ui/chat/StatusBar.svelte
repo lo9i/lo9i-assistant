@@ -2,7 +2,9 @@
   import type { Snippet } from "svelte";
 
   // A line under the message box with the conversation's state, such as the agent it's handed to. Always there,
-  // so the box doesn't move when an item comes or goes.
+  // so the box doesn't move when an item comes or goes; and one line however narrow the chat gets (a side panel
+  // open beside it): items with text to spare (the conversation's figures) are cut short instead. Only on a phone,
+  // where even the controls don't fit, it wraps.
   let { children }: { children?: Snippet } = $props();
 </script>
 
@@ -13,12 +15,19 @@
 <style>
   .status-bar {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 4px 16px;
     min-height: 28px;
     padding: 0 16px 6px 24px;
     color: var(--color-text-muted);
     font-size: var(--font-size-xs);
+    white-space: nowrap;
+  }
+  @media (max-width: 680px) {
+    .status-bar {
+      flex-wrap: wrap;
+      white-space: normal;
+    }
   }
 </style>

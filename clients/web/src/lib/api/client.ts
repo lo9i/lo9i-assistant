@@ -27,6 +27,9 @@ import type {
   EmailSignIn,
   Episode,
   Fact,
+  FilePreview,
+  FolderChanges,
+  FolderContents,
   FolderListing,
   Handoff,
   HostStatus,
@@ -216,6 +219,22 @@ export class ConversationsGroup {
   /** Stops the agent's step in progress; it waits for the next message. Throws ApiError (409) as messageAgent. */
   async interruptAgent(threadId: string): Promise<void> {
     await this.transport.request("POST", `${this.agentPath(threadId)}/interrupt`);
+  }
+
+  /** The files and folders in `path` of the folder the conversation is handed to ("" for itself), folders first.
+   * Throws ApiError: 400 for a path outside it or one it hides, 404 when it isn't handed over or the path is gone. */
+  agentFolder(threadId: string, path = ""): Promise<FolderContents> {
+    return this.transport.request("GET", `${this.agentPath(threadId)}/folder?path=${encodeURIComponent(path)}`);
+  }
+
+  /** A file of that folder as text to preview (none when it isn't text). Throws ApiError as agentFolder. */
+  agentFile(threadId: string, path: string): Promise<FilePreview> {
+    return this.transport.request("GET", `${this.agentPath(threadId)}/folder/file?path=${encodeURIComponent(path)}`);
+  }
+
+  /** What git says changed in that folder. Throws ApiError (404) when it isn't handed over. */
+  agentChanges(threadId: string): Promise<FolderChanges> {
+    return this.transport.request("GET", `${this.agentPath(threadId)}/folder/changes`);
   }
 
   private agentPath(threadId: string): string {

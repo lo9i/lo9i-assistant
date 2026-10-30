@@ -414,6 +414,27 @@
     "empty": "No folders inside.",
     "showHidden": "Show hidden folders"
   },
+  "handedFolder": {
+    "title": "Files",
+    "show": "Show the agent's folder",
+    "hide": "Hide the agent's folder",
+    "changed": "Changed",
+    "noChanges": "Nothing changed.",
+    "notRepository": "Not a git repository: changes aren't tracked.",
+    "moreChanges": "More changes than shown.",
+    "moreEntries": "More files than shown.",
+    "empty": "Empty folder.",
+    "back": "Back to the files",
+    "notPreviewable": "Can't be previewed: it isn't a text file.",
+    "truncated": "Too big to show whole ({size}): this is its start.",
+    "status": {
+      "modified": "Modified",
+      "added": "Added",
+      "deleted": "Deleted",
+      "untracked": "Untracked",
+      "inside": "Changes inside"
+    }
+  },
   "fuel": {
     "agentContext": "{agent}'s context",
     "context": "Context",
@@ -898,6 +919,7 @@
       "channel": "Channel",
       "email": "Email provider",
       "agent": "Coding agent",
+      "subagent": "Subagent",
       "page": "Page"
     },
     "remotely": "Remotely",

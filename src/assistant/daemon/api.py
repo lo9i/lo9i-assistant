@@ -34,9 +34,13 @@ from assistant.core.agent import (
     EmailProvider,
     Episode,
     Fact,
+    FilePreview,
     FileUnavailableError,
+    FolderChanges,
+    FolderContents,
     FolderError,
     FolderListing,
+    HandedFolderError,
     Handoff,
     HandoffError,
     HomePage,
@@ -60,10 +64,12 @@ from assistant.core.agent import (
     MemoryEditError,
     MemoryNotFoundError,
     MemorySnapshot,
+    MissingPathError,
     ModelOption,
     ModelProvider,
     ModelSettingsError,
     ModelStatus,
+    NotHandedError,
     Notification,
     PluginUpdate,
     PromptEditError,
@@ -160,8 +166,11 @@ class ChannelItems(BaseModel):
 class DeliveryResult(BaseModel):
     # Empty when the channel carried out the operation; otherwise why it couldn't.
     error: str = ""
-    # The id of the message it sent, for a `send`.
+    # The id of the message it sent, for a `send`: the one later edits name.
     message: str = ""
+    # Every message a `send` took, when it went to several chats (the user's own chat on Telegram: a copy in each
+    # paired account), so replying to any of them goes on in its conversation; empty means just `message`.
+    messages: list[str] = []
 
 
 class ChannelPress(BaseModel):
@@ -565,6 +574,7 @@ def create_app(
     _add_pinned_skill_routes(app, service)
     _add_memory_routes(app, service)
     _add_handoff_routes(app, service)
+    _add_handed_folder_routes(app, service)
     _add_file_routes(app, service)
     _add_channel_routes(app, service)
     _add_channel_plugin_routes(app, service)
@@ -998,6 +1008,36 @@ _PageLimit = Annotated[int | None, Query(ge=1, le=200)]
 _Offset = Annotated[int, Query(ge=0)]
 
 
+def _add_handed_folder_routes(app: FastAPI, service: AssistantService) -> None:
+    """The folder a conversation is handed to, for the web app's side panel (core/handed_folder/). Paths are relative
+    to it. 400: a path outside it, or one the panel doesn't show (.git, node_modules, .venv, what git ignores). 404:
+    the conversation isn't with an agent, or the path isn't there."""
+
+    @app.get("/conversations/{thread_id}/agent/folder")
+    async def handed_folder_contents(thread_id: str, path: str = "") -> FolderContents:
+        """The files and folders in `path`, "" for the folder itself: folders first, then files, by name."""
+        return await _handed_folder(service.handed_folder_contents(settings.owner_id, thread_id, path))
+
+    @app.get("/conversations/{thread_id}/agent/folder/file")
+    async def handed_folder_file(thread_id: str, path: str) -> FilePreview:
+        """A file's text to preview, its start for a big one; none for a file that isn't text."""
+        return await _handed_folder(service.handed_folder_file(settings.owner_id, thread_id, path))
+
+    @app.get("/conversations/{thread_id}/agent/folder/changes")
+    async def handed_folder_changes(thread_id: str) -> FolderChanges:
+        """What git says changed in the folder; nothing outside a repository."""
+        return await _handed_folder(service.handed_folder_changes(settings.owner_id, thread_id))
+
+
+async def _handed_folder[T](reading: Awaitable[T]) -> T:
+    try:
+        return await reading
+    except (NotHandedError, MissingPathError) as e:
+        raise HTTPException(404, str(e)) from e
+    except HandedFolderError as e:
+        raise HTTPException(400, str(e)) from e
+
+
 def _add_file_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/files")
     async def file_list(q: str = "", offset: _Offset = 0, limit: _PageLimit = None) -> list[UploadedFile]:
@@ -1081,7 +1121,7 @@ def _add_channel_plugin_routes(app: FastAPI, service: AssistantService) -> None:
     @app.post("/channels/{name}/deliveries/{delivery_id}")
     async def channel_delivered(name: str, delivery_id: str, body: DeliveryResult, request: Request) -> Ok:
         _require_channel(request, name)
-        service.channels_hub.confirm(delivery_id, body.error, body.message)
+        service.channels_hub.confirm(delivery_id, body.error, body.message, body.messages)
         return Ok()
 
 

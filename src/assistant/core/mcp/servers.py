@@ -61,6 +61,14 @@ class McpServer:
     ssh_agent: bool = False
     # Its processes get a key of its own for encrypting its data (core/mcp/data_key.py).
     data_key: bool = False
+    # A named subagent it brings (core/mcp/subagents.py): its name ("" for none), what it's for, its prompt file in
+    # the plugin's folder, the model it runs on, and the tools and plugins it gets.
+    subagent_name: str = ""
+    subagent_description: str = ""
+    subagent_prompt: str = ""
+    subagent_model: str = ""
+    subagent_tools: list[str] = field(default_factory=list)
+    subagent_plugins: list[str] = field(default_factory=list)
     # The provider it signs in to and the scopes it asks for (core/mcp/plugin_oauth.py); "" when it doesn't.
     oauth_provider: str = ""
     oauth_scopes: list[str] = field(default_factory=list)
@@ -112,8 +120,9 @@ def validate(server: McpServer) -> None:
 
 
 def _runs_nothing(server: McpServer) -> bool:
-    """A plugin with no process of its own: email presets, or an agent whose worker runs per task."""
-    return bool(server.email_providers or server.agent_worker.strip())
+    """A plugin with no process of its own: email presets, an agent whose worker runs per task, or a named
+    subagent."""
+    return bool(server.email_providers or server.agent_worker.strip() or server.subagent_name)
 
 
 async def load_all(store: BaseStore) -> list[McpServer]:

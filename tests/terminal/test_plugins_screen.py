@@ -110,6 +110,11 @@ def test_a_channel_plugin_is_labelled_as_a_channel():
     assert "Runs: on the assistant's computer" in describe(Plugin("telegram", False, server=telegram))
 
 
+def test_a_subagent_plugin_is_labelled_as_one():
+    researcher = FoundServer("researcher", "Researches", "none", [], False, subagent="researcher")
+    assert Plugin("researcher", False, server=researcher).kind == "Subagent"
+
+
 def test_a_coding_agent_plugin_is_labelled_as_one_not_as_its_skill():
     claude = FoundServer("claude-code", "Claude Code", "none", [], False, skill=True, agent="claude")
     assert Plugin("claude-code", False, server=claude).kind == "Coding agent · skill"
