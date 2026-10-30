@@ -13,7 +13,7 @@
   import { finalReply, toolRunning } from "$lib/chat/transcript";
   import type { ChatController } from "$lib/chat/controller";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
-  import { folderPanel } from "$lib/folderPanel.svelte";
+  import { folderPanel, homePanel } from "$lib/folderPanel.svelte";
   import { t } from "$lib/i18n.svelte";
   import { Player, speaksReply } from "$lib/speech";
   import type { Agent } from "$lib/api/types";
@@ -324,13 +324,20 @@
         </AgentStatus>
       {:else}
         <ModelStatus />
+        <button
+          type="button"
+          class="btn btn--ghost btn--sm home-folder"
+          aria-pressed={homePanel.open}
+          title={homePanel.open ? t("handedFolder.hideHome") : t("handedFolder.showHome")}
+          onclick={() => homePanel.toggle()}><FolderTreeIcon size={13} />{t("handedFolder.title")}</button
+        >
       {/if}
       <span class="fuel-end"><ContextFuel {threadId} /></span>
     </StatusBar>
     {#if dragging > 0}<div class="drop-hint" aria-hidden="true">{t("chat.dropHint")}</div>{/if}
   </section>
-  {#if handoff.data && folderPanel.open}
-    <HandedFolder {threadId} handoff={handoff.data} onclose={() => folderPanel.toggle()} />
+  {#if handoff.data ? folderPanel.open : homePanel.open}
+    <HandedFolder {threadId} handoff={handoff.data ?? null} onclose={() => (handoff.data ? folderPanel : homePanel).toggle()} />
   {/if}
 </div>
 
@@ -408,5 +415,9 @@
   .fuel-end {
     flex: none;
     margin-left: auto;
+  }
+  /* A control keeps its size; the status bar's other items give way. */
+  .home-folder {
+    flex: none;
   }
 </style>

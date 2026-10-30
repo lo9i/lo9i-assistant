@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ConversationsGroup, FilesGroup, JobsGroup, NotificationsGroup, SystemGroup } from "./client";
+import { ConversationsGroup, FilesGroup, FoldersGroup, JobsGroup, NotificationsGroup, SystemGroup } from "./client";
 import type { Transport } from "./transport";
 
 function recording(): { transport: Transport; request: ReturnType<typeof vi.fn> } {
@@ -54,6 +54,21 @@ describe("ConversationsGroup.toolCall", () => {
     const { transport, request } = recording();
     await new ConversationsGroup(transport).toolCall("owner:t 1", "toolu/1");
     expect(request.mock.calls[0].slice(0, 2)).toEqual(["GET", "/conversations/owner%3At%201/tool-calls/toolu%2F1"]);
+  });
+});
+
+describe("FoldersGroup.home", () => {
+  it("asks for a folder and a file of the home folder by their paths in it", async () => {
+    const { transport, request } = recording();
+    const folders = new FoldersGroup(transport);
+    await folders.home();
+    await folders.home("my notes");
+    await folders.homeFile("my notes/a&b.md");
+    expect(request.mock.calls.map((call) => call.slice(0, 2))).toEqual([
+      ["GET", "/folders/home?path="],
+      ["GET", "/folders/home?path=my%20notes"],
+      ["GET", "/folders/home/file?path=my%20notes%2Fa%26b.md"],
+    ]);
   });
 });
 

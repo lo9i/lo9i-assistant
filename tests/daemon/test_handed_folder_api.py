@@ -45,3 +45,23 @@ async def test_the_folder_is_listed_previewed_and_its_changes_read(http, service
 async def test_a_conversation_not_handed_to_an_agent_has_no_folder(http, service):
     thread = await service.new_thread("owner")
     assert (await http.get(f"/conversations/{thread}/agent/folder")).status_code == 404
+
+
+async def test_the_home_folder_is_listed_and_previewed_without_leaving_it(http, tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / "notes").mkdir(parents=True)
+    (home / "notes" / "todo.md").write_text("milk\n")
+    (home / "node_modules").mkdir()
+    (tmp_path / "secret.txt").write_text("no")
+    (home / "out").symlink_to(tmp_path / "secret.txt")
+    monkeypatch.setenv("HOME", str(home))
+
+    listing = (await http.get("/folders/home")).json()
+    assert [(e["name"], e["folder"]) for e in listing["entries"]] == [("notes", True)]
+    assert (await http.get("/folders/home/file", params={"path": "notes/todo.md"})).json()["text"] == "milk\n"
+
+    assert (await http.get("/folders/home/file", params={"path": "../secret.txt"})).status_code == 400
+    assert (await http.get("/folders/home/file", params={"path": "out"})).status_code == 400
+    assert (await http.get("/folders/home", params={"path": "/etc"})).status_code == 400
+    assert (await http.get("/folders/home", params={"path": "node_modules"})).status_code == 400
+    assert (await http.get("/folders/home/file", params={"path": "gone.md"})).status_code == 404
