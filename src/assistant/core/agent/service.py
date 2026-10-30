@@ -15,6 +15,7 @@ from assistant.core.agent.doctor import DoctorMixin
 from assistant.core.agent.email import EmailMixin
 from assistant.core.agent.files import FilesMixin
 from assistant.core.agent.follow_ups import FollowUpsMixin
+from assistant.core.agent.handed_folder import HandedFolderMixin
 from assistant.core.agent.home import HomeMixin
 from assistant.core.agent.identity import IdentityMixin
 from assistant.core.agent.jobs import JobsMixin
@@ -90,6 +91,7 @@ class AssistantService(
     ThreadsMixin,
     ArchiveMixin,
     FilesMixin,
+    HandedFolderMixin,
     MemoryMixin,
     SignInsMixin,
     EmailMixin,

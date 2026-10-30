@@ -414,6 +414,27 @@
     "empty": "No hay carpetas adentro.",
     "showHidden": "Mostrar carpetas ocultas"
   },
+  "handedFolder": {
+    "title": "Archivos",
+    "show": "Mostrar la carpeta del agente",
+    "hide": "Ocultar la carpeta del agente",
+    "changed": "Cambios",
+    "noChanges": "No cambió nada.",
+    "notRepository": "No es un repositorio git: los cambios no se siguen.",
+    "moreChanges": "Hay más cambios que los mostrados.",
+    "moreEntries": "Hay más archivos que los mostrados.",
+    "empty": "Carpeta vacía.",
+    "back": "Volver a los archivos",
+    "notPreviewable": "No se puede previsualizar: no es un archivo de texto.",
+    "truncated": "Demasiado grande para mostrarlo entero ({size}): este es su comienzo.",
+    "status": {
+      "modified": "Modificado",
+      "added": "Agregado",
+      "deleted": "Borrado",
+      "untracked": "Sin seguimiento",
+      "inside": "Cambios dentro"
+    }
+  },
   "fuel": {
     "agentContext": "Contexto de {agent}",
     "context": "Contexto",

@@ -1,5 +1,6 @@
 <script lang="ts">
   import Clock from "@lucide/svelte/icons/clock";
+  import FolderTreeIcon from "@lucide/svelte/icons/folder-tree";
   import X from "@lucide/svelte/icons/x";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
@@ -12,6 +13,7 @@
   import { finalReply, toolRunning } from "$lib/chat/transcript";
   import type { ChatController } from "$lib/chat/controller";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
+  import { folderPanel } from "$lib/folderPanel.svelte";
   import { t } from "$lib/i18n.svelte";
   import { Player, speaksReply } from "$lib/speech";
   import type { Agent } from "$lib/api/types";
@@ -22,6 +24,7 @@
   import ConversationStats from "./ConversationStats.svelte";
   import ModelStatus from "./ModelStatus.svelte";
   import ContextFuel from "./ContextFuel.svelte";
+  import HandedFolder from "./folder/HandedFolder.svelte";
   import HelpModal from "./HelpModal.svelte";
   import PinnedSkills from "./PinnedSkills.svelte";
   import StatusBar from "./StatusBar.svelte";
@@ -258,65 +261,78 @@
   ondrop={(e) => carriesFiles(e.dataTransfer) && e.preventDefault()}
 />
 
-<section
-  class="chat surface--glass"
-  class:dragging={dragging > 0}
-  aria-label={t("chat.conversation")}
-  ondragenter={dragenter}
-  ondragover={dragover}
-  ondragleave={() => (dragging = Math.max(0, dragging - 1))}
-  ondrop={drop}
->
-  <Thread
-    items={snapshot.current.transcript.items}
-    thinking={(snapshot.current.busy || snapshot.current.mirroring) && !streaming && !toolRunning(snapshot.current.transcript)}
-    name={name.data || t("chat.theAssistant")}
-    onsuggest={(text) => (draft.text = text)}
-    onchoose={snapshot.current.busy || snapshot.current.mirroring ? undefined : (choice) => send(choice, [])}
-    loadCall={(callId) => client.conversations.toolCall(threadId, callId)}
-    loadStep={(callId, index) => client.conversations.toolCallStep(threadId, callId, index)}
-    findable
-  />
-  {#if snapshot.current.queued.length}
-    <ul class="queued" aria-label={t("chat.queued")}>
-      {#each snapshot.current.queued as item, i (i)}
-        <li>
-          <Clock size={12} /><span>{item.text || item.files.map((f) => f.name).join(", ")}</span>
-          <!-- One the inbox sent on here can't be taken back: it was already written. -->
-          {#if !item.dispatched}
-            <button aria-label={t("chat.takeBack")} title={t("chat.takeBackHint")} onclick={() => unqueue(i)}><X size={12} /></button>
-          {/if}
-        </li>
-      {/each}
-    </ul>
-  {/if}
-  <PinnedSkills skills={pinned.data ?? []} onunpin={unpin} />
-  <Composer
-    bind:text={draft.text}
-    bind:files={draft.files}
-    sent={sentTexts(snapshot.current.transcript.items)}
-    busy={snapshot.current.busy}
-    running={snapshot.current.busy || snapshot.current.mirroring}
-    onsend={send}
-    onqueue={enqueue}
-    onstop={() => shown().stop()}
-    oncommand={command}
-    {extra}
-    steering={agentWorking && handoff.data ? { agent: handoff.data.name, onsteer: steer } : null}
-    handedOff={!!handoff.data}
-  />
-  <StatusBar>
-    <WorkingStatus {threadId} />
-    <ConversationStats {threadId} />
-    {#if handoff.data}
-      <AgentStatus handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")} />
-    {:else}
-      <ModelStatus />
+<div class="row">
+  <section
+    class="chat surface--glass"
+    class:dragging={dragging > 0}
+    aria-label={t("chat.conversation")}
+    ondragenter={dragenter}
+    ondragover={dragover}
+    ondragleave={() => (dragging = Math.max(0, dragging - 1))}
+    ondrop={drop}
+  >
+    <Thread
+      items={snapshot.current.transcript.items}
+      thinking={(snapshot.current.busy || snapshot.current.mirroring) && !streaming && !toolRunning(snapshot.current.transcript)}
+      name={name.data || t("chat.theAssistant")}
+      onsuggest={(text) => (draft.text = text)}
+      onchoose={snapshot.current.busy || snapshot.current.mirroring ? undefined : (choice) => send(choice, [])}
+      loadCall={(callId) => client.conversations.toolCall(threadId, callId)}
+      loadStep={(callId, index) => client.conversations.toolCallStep(threadId, callId, index)}
+      findable
+    />
+    {#if snapshot.current.queued.length}
+      <ul class="queued" aria-label={t("chat.queued")}>
+        {#each snapshot.current.queued as item, i (i)}
+          <li>
+            <Clock size={12} /><span>{item.text || item.files.map((f) => f.name).join(", ")}</span>
+            <!-- One the inbox sent on here can't be taken back: it was already written. -->
+            {#if !item.dispatched}
+              <button aria-label={t("chat.takeBack")} title={t("chat.takeBackHint")} onclick={() => unqueue(i)}><X size={12} /></button>
+            {/if}
+          </li>
+        {/each}
+      </ul>
     {/if}
-    <span class="fuel-end"><ContextFuel {threadId} /></span>
-  </StatusBar>
-  {#if dragging > 0}<div class="drop-hint" aria-hidden="true">{t("chat.dropHint")}</div>{/if}
-</section>
+    <PinnedSkills skills={pinned.data ?? []} onunpin={unpin} />
+    <Composer
+      bind:text={draft.text}
+      bind:files={draft.files}
+      sent={sentTexts(snapshot.current.transcript.items)}
+      busy={snapshot.current.busy}
+      running={snapshot.current.busy || snapshot.current.mirroring}
+      onsend={send}
+      onqueue={enqueue}
+      onstop={() => shown().stop()}
+      oncommand={command}
+      {extra}
+      steering={agentWorking && handoff.data ? { agent: handoff.data.name, onsteer: steer } : null}
+      handedOff={!!handoff.data}
+    />
+    <StatusBar>
+      <WorkingStatus {threadId} />
+      <ConversationStats {threadId} />
+      {#if handoff.data}
+        <AgentStatus handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")}>
+          <button
+            type="button"
+            class="btn btn--ghost btn--sm"
+            aria-pressed={folderPanel.open}
+            title={folderPanel.open ? t("handedFolder.hide") : t("handedFolder.show")}
+            onclick={() => folderPanel.toggle()}><FolderTreeIcon size={13} />{t("handedFolder.title")}</button
+          >
+        </AgentStatus>
+      {:else}
+        <ModelStatus />
+      {/if}
+      <span class="fuel-end"><ContextFuel {threadId} /></span>
+    </StatusBar>
+    {#if dragging > 0}<div class="drop-hint" aria-hidden="true">{t("chat.dropHint")}</div>{/if}
+  </section>
+  {#if handoff.data && folderPanel.open}
+    <HandedFolder {threadId} handoff={handoff.data} onclose={() => folderPanel.toggle()} />
+  {/if}
+</div>
 
 {#if snapshot.current.approval}
   <ApprovalModal approval={snapshot.current.approval} onanswer={(d) => shown().answer(d)} />
@@ -327,10 +343,20 @@
 {#if picking}<AgentFolderModal agentName={picking.name} onpick={picked} />{/if}
 
 <style>
+  /* The chat, and beside it the folder of the agent it's handed to. */
+  .row {
+    position: relative;
+    display: flex;
+    gap: 12px;
+    height: 100%;
+    min-height: 0;
+  }
   .chat {
     position: relative;
     display: flex;
     flex-direction: column;
+    flex: 1;
+    min-width: 0;
     min-height: 0;
     height: 100%;
   }
