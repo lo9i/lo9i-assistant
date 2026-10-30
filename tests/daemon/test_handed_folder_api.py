@@ -133,8 +133,8 @@ async def test_the_client_reads_the_handed_folder_its_changes_and_diffs(client, 
 
     listing = await folder.contents()
     assert [(e.name, e.deleted) for e in listing.entries] == [("src", False), ("README.md", True)]
-    changed = await folder.changes()
-    assert changed is not None and sorted((c.path, c.status) for c in changed.changes) == [
+    changed = (await folder.refresh([""])).changes
+    assert sorted((c.path, c.status) for c in changed.changes) == [
         ("README.md", "deleted"),
         ("src/a.py", "modified"),
     ]
@@ -152,9 +152,28 @@ async def test_the_client_moves_a_file_to_the_trash_once_deleting_is_on(client, 
     (tmp_path / "home" / "note.md").write_text("milk\n")
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     home = client.folders.home()
-    assert await home.changes() is None and not await client.folders.deleting()
+    assert not home.has_changes and not await client.folders.deleting()
     with pytest.raises(DeletingOffError):
         await home.delete("note.md")
     assert await client.folders.set_deleting(True)
     await home.delete("note.md")
     assert not (tmp_path / "home" / "note.md").exists() and (trashed / "note.md").read_text() == "milk\n"
+
+
+async def test_a_refresh_reads_the_open_folders_and_the_changes_together(http, client, service, tmp_path):
+    (tmp_path / "project" / "src").mkdir(parents=True)
+    (tmp_path / "project" / "src" / "a.py").write_text("x = 1\n")
+    thread = await _handed(service, tmp_path / "project")
+    base = f"/conversations/{thread}/agent/folder/refresh"
+    found = (await http.get(base, params={"path": ["", "src", "gone"]})).json()
+    assert [(f["path"], bool(f["contents"]), bool(f["error"])) for f in found["folders"]] == [
+        ("", True, False),
+        ("src", True, False),
+        ("gone", False, True),
+    ]
+    assert found["changes"]["repository"] is False
+    read = await client.folders.handed(thread).refresh(["", "src"])
+    assert [f.path for f in read.folders] == ["", "src"] and read.folders[1].contents is not None
+    assert [e.name for e in read.folders[1].contents.entries] == ["a.py"] and not read.changes.repository
+    other = await service.new_thread("owner")
+    assert (await http.get(f"/conversations/{other}/agent/folder/refresh", params={"path": ""})).status_code == 404

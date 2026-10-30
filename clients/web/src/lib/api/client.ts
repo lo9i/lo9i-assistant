@@ -31,9 +31,9 @@ import type {
   Fact,
   FileDiff,
   FilePreview,
-  FolderChanges,
   FolderContents,
   FolderListing,
+  FolderRefresh,
   Handoff,
   HostStatus,
   InstalledFromRepository,
@@ -229,9 +229,12 @@ export class ConversationsGroup {
     return this.transport.request("GET", `${this.agentPath(threadId)}/folder/file?path=${encodeURIComponent(path)}`);
   }
 
-  /** What git says changed in that folder. Throws ApiError (404) when it isn't handed over. */
-  agentChanges(threadId: string): Promise<FolderChanges> {
-    return this.transport.request("GET", `${this.agentPath(threadId)}/folder/changes`);
+  /** Each of `folders` as agentFolder lists it, and what git says changed, in one request that asks git once: the
+   * panel's refresh. A folder that can't be read (gone since) says why in its `error`. Throws ApiError (404) when it
+   * isn't handed over. */
+  agentRefresh(threadId: string, folders: string[]): Promise<FolderRefresh> {
+    const query = folders.map((path) => `path=${encodeURIComponent(path)}`).join("&");
+    return this.transport.request("GET", `${this.agentPath(threadId)}/folder/refresh?${query}`);
   }
 
   /** What changed in a file git lists as changed in that folder, as `git diff` shows it (a new file whole). Throws

@@ -30,6 +30,7 @@ from assistant.core.agent import (
     FolderContents,
     FolderEntry,
     FolderListing,
+    FolderRefresh,
     FoundServer,
     Handoff,
     HandoffError,
@@ -45,6 +46,7 @@ from assistant.core.agent import (
     JobError,
     KeptKeys,
     LanguageError,
+    ListedFolder,
     McpProbe,
     McpServerError,
     McpServerStatus,
@@ -1051,8 +1053,20 @@ class FakeShownFolder:
         self.listed = changes
         self.has_changes = changes is not None
         self.deleted: list[str] = []
+        # The folders listed one at a time, and each refresh's.
+        self.listed_alone: list[str] = []
+        self.refreshes: list[list[str]] = []
 
     async def contents(self, path=""):
+        self.listed_alone.append(path)
+        return self._contents(path)
+
+    async def refresh(self, folders):
+        self.refreshes.append(folders)
+        listed = [ListedFolder(path, self._contents(path)) for path in folders]
+        return FolderRefresh(listed, FolderChanges(True, self.listed or [], False))
+
+    def _contents(self, path):
         prefix = f"{path}/" if path else ""
         names: dict[str, FolderEntry] = {}
         for file, text in self.files.items():
@@ -1068,9 +1082,6 @@ class FakeShownFolder:
         if text is None:
             raise MissingPathError(f"{path} isn't there.")
         return FilePreview(path, len(text), text, False)
-
-    async def changes(self):
-        return FolderChanges(True, self.listed or [], False) if self.has_changes else None
 
     async def diff(self, path):
         change = next((c for c in self.listed or [] if c.path == path), None)

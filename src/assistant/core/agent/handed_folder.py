@@ -15,6 +15,7 @@ from assistant.core.handed_folder.contents import FolderContents, FolderEntry
 from assistant.core.handed_folder.diff import FileDiff
 from assistant.core.handed_folder.paths import HandedFolderError, MissingPathError, OutsideFolderError
 from assistant.core.handed_folder.preview import FilePreview
+from assistant.core.handed_folder.tree import FolderRefresh, ListedFolder
 
 __all__ = [
     "DeletingOffError",
@@ -24,8 +25,10 @@ __all__ = [
     "FolderChanges",
     "FolderContents",
     "FolderEntry",
+    "FolderRefresh",
     "HandedFolderError",
     "HandedFolderMixin",
+    "ListedFolder",
     "MissingPathError",
     "NotHandedError",
     "OutsideFolderError",
@@ -46,6 +49,11 @@ class HandedFolderMixin(ServiceBase):
         there. Raises NotHandedError when the conversation isn't with an agent, and HandedFolderError's others as
         tree.listed."""
         return await tree.listed(await self._handed_root(user_id, thread_id), path)
+
+    async def refresh_handed_folder(self, user_id: str, thread_id: str, folders: list[str]) -> FolderRefresh:
+        """The open `folders` of the panel's tree as handed_folder_contents reads each (one that can't be read says why)
+        and what git says changed, git asked once. Raises NotHandedError, or MissingPathError for a folder gone."""
+        return await tree.refreshed(await self._handed_root(user_id, thread_id), folders)
 
     async def handed_folder_file(self, user_id: str, thread_id: str, path: str) -> FilePreview:
         """A file's text, as preview.preview. Raises as handed_folder_contents."""

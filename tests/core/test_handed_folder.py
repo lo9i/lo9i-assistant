@@ -149,6 +149,33 @@ async def test_the_tree_shows_what_git_says_was_deleted_where_it_was(project):
         await tree.listed(project, "never-there")
 
 
+async def test_a_refresh_reads_every_open_folder_and_the_changes_asking_git_once(project, monkeypatch):
+    (project / "src" / "app.py").unlink()
+    (project / "src").rmdir()
+    (project / "docs").mkdir()
+    (project / "docs" / "new.md").write_text("new")
+    asked = []
+    status = changes.git.status
+
+    async def counted(root):
+        asked.append(root)
+        return await status(root)
+
+    monkeypatch.setattr(changes.git, "status", counted)
+    read = await tree.refreshed(project, ["", "src", "docs", "never-there", "../out", ""])
+    assert len(asked) == 1
+    assert [(f.path, f.contents is not None, bool(f.error)) for f in read.folders] == [
+        ("", True, False),
+        ("src", True, False),
+        ("docs", True, False),
+        ("never-there", False, True),
+        ("../out", False, True),
+    ]
+    inside = read.folders[1].contents
+    assert inside is not None and [(e.path, e.deleted) for e in inside.entries] == [("src/app.py", True)]
+    assert [(c.path, c.status) for c in read.changes.changes] == [("src/app.py", "deleted"), ("docs/", "untracked")]
+
+
 async def test_a_changed_file_shows_what_changed_and_a_new_or_deleted_one_whole(project):
     (project / "README.md").write_text("# Project\nMore.\n")
     modified = await diff.diff(project, "README.md")

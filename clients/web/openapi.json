@@ -2202,6 +2202,58 @@
         }
       }
     },
+    "/conversations/{thread_id}/agent/folder/refresh": {
+      "get": {
+        "summary": "Refresh Handed Folder",
+        "description": "Each folder in `path` (repeated, \"\" for the folder itself) as `/folder` lists it, and what git says changed,\ngit asked once: the panel's refresh, with every open folder. A folder that can't be read (gone since, a path\nit doesn't show) says why in its `error` instead of failing the rest.",
+        "operationId": "refresh_handed_folder_conversations__thread_id__agent_folder_refresh_get",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderRefresh"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/folders/home": {
       "get": {
         "summary": "Home Folder Contents",
@@ -7857,6 +7909,27 @@
         ],
         "title": "FolderListing"
       },
+      "FolderRefresh": {
+        "properties": {
+          "folders": {
+            "items": {
+              "$ref": "#/components/schemas/ListedFolder"
+            },
+            "type": "array",
+            "title": "Folders"
+          },
+          "changes": {
+            "$ref": "#/components/schemas/FolderChanges"
+          }
+        },
+        "type": "object",
+        "required": [
+          "folders",
+          "changes"
+        ],
+        "title": "FolderRefresh",
+        "description": "The open folders of the tree and what git says changed, read together."
+      },
       "FollowLog": {
         "properties": {
           "name": {
@@ -8774,6 +8847,35 @@
           "language"
         ],
         "title": "LanguageSetting"
+      },
+      "ListedFolder": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "contents": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FolderContents"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "title": "ListedFolder",
+        "description": "A folder of the tree as `listed` reads it, or why it couldn't be (gone since, outside the folder)."
       },
       "LogEntry": {
         "properties": {
