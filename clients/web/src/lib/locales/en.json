@@ -3,6 +3,12 @@
     "finished": "{agent} finished",
     "failed": "{agent} stopped with a problem"
   },
+  "folderPanelCard": {
+    "title": "Folder panel",
+    "sub": "The files beside a conversation: the agent's folder, or your home folder. For every device.",
+    "delete": "Allow deleting files",
+    "deleteLabel": "Allow deleting files from the folder panel"
+  },
   "agentDoneCard": {
     "sample": "This is how it looks.",
     "title": "When an agent finishes",
@@ -422,6 +428,9 @@
     "home": "Home folder",
     "showHome": "Show your home folder",
     "hideHome": "Hide your home folder",
+    "delete": "Delete this file",
+    "deleteTitle": "Delete {name}?",
+    "deleteText": "{path} is deleted from the disk for good, not moved to the trash.",
     "changed": "Changed",
     "noChanges": "Nothing changed.",
     "notRepository": "Not a git repository: changes aren't tracked.",

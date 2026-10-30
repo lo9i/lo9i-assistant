@@ -3,6 +3,7 @@
   import AgentDoneCard from "$lib/ui/settings/AgentDoneCard.svelte";
   import AssistantCard from "$lib/ui/settings/AssistantCard.svelte";
   import EmailCard from "$lib/ui/settings/EmailCard.svelte";
+  import FolderPanelCard from "$lib/ui/settings/FolderPanelCard.svelte";
   import LanguageCard from "$lib/ui/settings/LanguageCard.svelte";
   import HostCard from "$lib/ui/settings/HostCard.svelte";
   import KeptKeysCard from "$lib/ui/settings/KeptKeysCard.svelte";
@@ -48,12 +49,13 @@
     </div>
   </div>
   {#if tab === "general"}
-    <!-- Two balanced columns: assistant, language and agent notices; startup, search, email. -->
+    <!-- Two balanced columns: assistant, language, agent notices and the folder panel; startup, search, email. -->
     <div class="grid">
       <div class="stack">
         <AssistantCard />
         <LanguageCard />
         <AgentDoneCard />
+        <FolderPanelCard />
       </div>
       <div class="stack">
         <StartupCard />

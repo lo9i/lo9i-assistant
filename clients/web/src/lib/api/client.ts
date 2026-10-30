@@ -233,6 +233,12 @@ export class ConversationsGroup {
     return this.transport.request("GET", `${this.agentPath(threadId)}/folder/changes`);
   }
 
+  /** Deletes a file of that folder, never a folder. Throws ApiError as agentFolder, and 403 while deleting is off
+   * (FoldersGroup.deleting). */
+  async deleteAgentFile(threadId: string, path: string): Promise<void> {
+    await this.transport.request("DELETE", `${this.agentPath(threadId)}/folder/file?path=${encodeURIComponent(path)}`);
+  }
+
   private agentPath(threadId: string): string {
     return `/conversations/${encodeURIComponent(threadId)}/agent`;
   }
@@ -269,6 +275,20 @@ export class FoldersGroup {
   /** A file of the home folder as text to preview (none when it isn't text). Throws ApiError as home. */
   homeFile(path: string): Promise<FilePreview> {
     return this.transport.request("GET", `/folders/home/file?path=${encodeURIComponent(path)}`);
+  }
+
+  /** Deletes a file of the home folder, never a folder. Throws ApiError as home, and 403 while deleting is off. */
+  async deleteHomeFile(path: string): Promise<void> {
+    await this.transport.request("DELETE", `/folders/home/file?path=${encodeURIComponent(path)}`);
+  }
+
+  /** Whether the panel may delete files (this folder's or the handed one's); off until the user turns it on. */
+  async deleting(): Promise<boolean> {
+    return (await this.transport.request<Schemas["FolderDeleting"]>("GET", "/settings/folder-deleting")).enabled;
+  }
+
+  async setDeleting(enabled: boolean): Promise<boolean> {
+    return (await this.transport.request<Schemas["FolderDeleting"]>("PUT", "/settings/folder-deleting", { enabled })).enabled;
   }
 }
 

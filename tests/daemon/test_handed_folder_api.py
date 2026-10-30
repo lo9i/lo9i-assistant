@@ -65,3 +65,36 @@ async def test_the_home_folder_is_listed_and_previewed_without_leaving_it(http, 
     assert (await http.get("/folders/home", params={"path": "/etc"})).status_code == 400
     assert (await http.get("/folders/home", params={"path": "node_modules"})).status_code == 400
     assert (await http.get("/folders/home/file", params={"path": "gone.md"})).status_code == 404
+
+
+async def test_a_file_of_either_folder_is_deleted_but_not_a_folder_or_outside_it(http, service, tmp_path, monkeypatch):
+    (tmp_path / "project" / "src").mkdir(parents=True)
+    (tmp_path / "project" / "src" / "a.py").write_text("x = 1\n")
+    (tmp_path / "home").mkdir()
+    (tmp_path / "home" / "note.md").write_text("milk\n")
+    (tmp_path / "secret.txt").write_text("no")
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    handed = f"/conversations/{await _handed(service, tmp_path / 'project')}/agent/folder/file"
+    assert (await http.put("/settings/folder-deleting", json={"enabled": True})).json() == {"enabled": True}
+
+    assert (await http.delete(handed, params={"path": "src/a.py"})).status_code == 200
+    assert (await http.delete("/folders/home/file", params={"path": "note.md"})).status_code == 200
+    assert not (tmp_path / "project" / "src" / "a.py").exists() and not (tmp_path / "home" / "note.md").exists()
+
+    assert (await http.delete(handed, params={"path": "src"})).status_code == 404
+    assert (await http.delete("/folders/home/file", params={"path": "../secret.txt"})).status_code == 400
+    assert (await http.delete("/folders/home/file", params={"path": "gone.md"})).status_code == 404
+    assert (tmp_path / "project" / "src").is_dir() and (tmp_path / "secret.txt").exists()
+
+
+async def test_deleting_is_refused_until_turned_on_and_again_once_turned_off(http, tmp_path, monkeypatch):
+    (tmp_path / "note.md").write_text("milk\n")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert (await http.get("/settings/folder-deleting")).json() == {"enabled": False}
+    assert (await http.delete("/folders/home/file", params={"path": "note.md"})).status_code == 403
+
+    await http.put("/settings/folder-deleting", json={"enabled": True})
+    await http.put("/settings/folder-deleting", json={"enabled": False})
+    assert (await http.get("/settings/folder-deleting")).json() == {"enabled": False}
+    assert (await http.delete("/folders/home/file", params={"path": "note.md"})).status_code == 403
+    assert (tmp_path / "note.md").exists()

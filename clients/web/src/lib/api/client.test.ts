@@ -58,16 +58,32 @@ describe("ConversationsGroup.toolCall", () => {
 });
 
 describe("FoldersGroup.home", () => {
-  it("asks for a folder and a file of the home folder by their paths in it", async () => {
+  it("reads and deletes by the path in the folder, the home folder's and the handed one's", async () => {
     const { transport, request } = recording();
     const folders = new FoldersGroup(transport);
     await folders.home();
     await folders.home("my notes");
     await folders.homeFile("my notes/a&b.md");
+    await folders.deleteHomeFile("my notes/a&b.md");
+    await new ConversationsGroup(transport).deleteAgentFile("t 1", "src/a.py");
     expect(request.mock.calls.map((call) => call.slice(0, 2))).toEqual([
       ["GET", "/folders/home?path="],
       ["GET", "/folders/home?path=my%20notes"],
       ["GET", "/folders/home/file?path=my%20notes%2Fa%26b.md"],
+      ["DELETE", "/folders/home/file?path=my%20notes%2Fa%26b.md"],
+      ["DELETE", "/conversations/t%201/agent/folder/file?path=src%2Fa.py"],
+    ]);
+  });
+
+  it("reads and sets whether files may be deleted", async () => {
+    const { transport, request } = recording();
+    request.mockResolvedValue({ enabled: true });
+    const folders = new FoldersGroup(transport);
+    expect(await folders.deleting()).toBe(true);
+    expect(await folders.setDeleting(true)).toBe(true);
+    expect(request.mock.calls).toEqual([
+      ["GET", "/settings/folder-deleting"],
+      ["PUT", "/settings/folder-deleting", { enabled: true }],
     ]);
   });
 });
