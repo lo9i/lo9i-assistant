@@ -3,6 +3,7 @@
 import asyncio
 from dataclasses import replace
 
+from textual.containers import VerticalScroll
 from textual.widgets import Button, Input, Markdown
 
 from assistant.client import DaemonUnavailableError, clipboard
@@ -20,6 +21,7 @@ from assistant.core.events import (
 )
 from assistant.protocol import event_to_dict
 from assistant_terminal.tui.attachments import AttachmentBar
+from assistant_terminal.tui.history import Loaders, show_history
 from assistant_terminal.tui.screens import (
     ApprovalScreen,
     ConversationsScreen,
@@ -29,6 +31,7 @@ from assistant_terminal.tui.screens import (
 )
 from assistant_terminal.tui.widgets import (
     AssistantMessage,
+    ChoicesNote,
     StoppedNote,
     SystemNote,
     ThinkingNote,
@@ -877,3 +880,43 @@ async def test_an_unreachable_daemon_while_reading_the_agents_keeps_the_events_c
         client.memory.profile = {"work": ["programmer"]}
         await client.bus.put(("memory", {}))
         await wait_for(pilot, lambda: "programmer" in str(app.query_one("#memory-body").render()))
+
+
+async def test_a_replys_choices_are_picked_by_their_number_or_a_click(app, client, monkeypatch):
+    async def asks(session, text, attachments=()):
+        client.sent.append((text, []))
+        yield TextDelta("Should I push?\n\n<!-- choices: Push | Commit only |")
+        yield TextDelta(" Cancel -->")
+        yield Done()
+
+    monkeypatch.setattr(client, "send", asks)
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"commit it", "enter")
+        await wait_for(pilot, lambda: bool(app.query(ChoicesNote)))
+        assert app.query_one(ChoicesNote).offered == ["Push", "Commit only", "Cancel"]
+        await wait_for(pilot, lambda: not app._busy)
+        await pilot.press("2", "enter")
+        await wait_for(pilot, lambda: client.sent[-1] == ("Commit only", []))
+        await wait_for(pilot, lambda: not app._busy)
+        assert len(app.query(ChoicesNote)) == 1  # the new reply's, which asks again
+        await app.run_action("pick_choice(2)")
+        await wait_for(pilot, lambda: client.sent[-1] == ("Cancel", []))
+        await wait_for(pilot, lambda: not app._busy)
+        await pilot.press("7", "enter")  # no such choice: an ordinary message
+        await wait_for(pilot, lambda: client.sent[-1] == ("7", []))
+
+
+async def test_a_conversation_whose_last_reply_offers_choices_shows_them_when_opened(app):
+    async with app.run_test(size=(120, 36)):
+        chat, loaders = app.query_one("#chat", VerticalScroll), Loaders(_never, _never)
+        asking = ShownMessage("assistant", "Push?\n\n<!-- choices: Push | Cancel -->")
+        await show_history(chat, [ShownMessage("user", "commit"), asking], loaders)
+        assert app.query_one(ChoicesNote).offered == ["Push", "Cancel"]
+        assert str(app.query(AssistantMessage).last().source).strip() == "Push?"
+        await show_history(chat, [asking, ShownMessage("user", "wait")], loaders)
+        assert not app.query(ChoicesNote)
+
+
+async def _never(*_):
+    raise AssertionError("nothing to load")

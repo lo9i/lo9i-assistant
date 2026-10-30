@@ -46,7 +46,7 @@ AssistantMessage MarkdownParagraph, AssistantMessage MarkdownBullet, AssistantMe
     color: ansi_white;
 }
 
-TranscriptNote, ToolNote, StoppedNote {
+TranscriptNote, ToolNote, StoppedNote, ChoicesNote {
     color: ansi_bright_black;
     padding: 0 0 0 2;
 }

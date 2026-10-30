@@ -3,6 +3,7 @@ conversation, approval and question buttons, and long replies split."""
 
 import asyncio
 
+from assistant.core.channels.chat.answers import parse_pick
 from assistant.core.channels.chat.approvals import job_approval_buttons, parse_decision, parse_job_decision
 from assistant.core.channels.chat.port import ChatLimits
 from assistant.core.channels.chat.questions import (
@@ -45,7 +46,7 @@ class FakeChat:
         self.log.append(("send", message, text, markdown, buttons))
         return message
 
-    async def edit(self, message, text, *, markdown=False, buttons=None):
+    async def edit(self, message, text, *, markdown=False, buttons=None, keep_text=False):
         self.messages[message] = text
         self.log.append(("edit", message, text, markdown, buttons))
 
@@ -108,6 +109,19 @@ async def test_the_answer_buttons_marker_never_shows():
     chat, turn = await _render(TextDelta("Push it?\n\n<!-- choi"), TextDelta("ces: Yes | No -->"), Done())
     assert [entry[2] for entry in chat.log] == ["Push it? …", "Push it? …", "Push it?"]
     assert turn.final_text == "Push it?"
+
+
+async def test_a_replys_choices_are_buttons_on_its_last_message():
+    chat, _ = await _render(TextDelta("Push it?\n\n<!-- choices: Yes | No -->"), Done())
+    final = chat.log[-1]
+    assert final[0] == "edit" and [label for label, _ in final[4]] == ["Yes", "No"]
+    picks = [parse_pick(data) for _, data in final[4]]
+    assert [pick.of(["Yes", "No"]) if pick else None for pick in picks] == ["Yes", "No"]
+    assert picks[0] is not None and picks[0].of(["Yes", "No", "Later"]) is None  # another reply's choices
+    chat, _ = await _render(TextDelta("x" * 5000 + "\n\nend?\n<!-- choices: A | B -->"), Done())
+    sent = [entry for entry in chat.log if entry[0] in ("send", "edit")]
+    assert [bool(entry[4]) for entry in sent[-2:]] == [False, True]
+    assert parse_pick("qp:i1:0") is None and parse_pick("ch:x:abc") is None
 
 
 async def test_a_long_reply_is_split_to_fit_the_channel():

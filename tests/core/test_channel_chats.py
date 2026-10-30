@@ -202,6 +202,30 @@ async def test_what_a_turn_sends_replies_to_the_message_it_answers(service, chan
     assert channel.sent() and all("reply_to" not in data for _, data in channel.ops)
 
 
+async def test_a_replys_choice_pressed_goes_as_the_users_message(service, channel, jobs, script):
+    asking = "Should I push?\n\n<!-- choices: Push | Cancel -->"
+    script.reply(asking)
+    chats = ChannelChats(service, _Runs(say=asking), channel, jobs)
+    await chats.message("telegram", "42", "commit it", [], voice=False, message="m1")
+    [(reply, buttons)] = [
+        (data.get("message", str(i)), data["buttons"])
+        for i, (kind, data) in enumerate(channel.ops, 1)
+        if kind in ("send", "edit") and data["buttons"]
+    ]
+    assert [label for label, _ in buttons] == ["Push", "Cancel"]
+    script.reply("Pushed.")
+    await chats.press("telegram", "42", reply, "[inbox] Should I push?", buttons[0][1])
+    edit = {"message": reply, "text": "[inbox] Should I push?", "markdown": True, "buttons": [], "keep_text": True}
+    assert ("edit", {"chat": "42", **edit}) in channel.ops
+    assert "Picked: Push." in channel.sent()
+    inbox = await service.inbox_thread("owner")
+    assert [m.text for m in await service.conversation_messages(inbox)][-2:] == ["Push", "Pushed."]
+    # Something came after that reply: its buttons answer nothing.
+    await chats.press("telegram", "42", reply, "[inbox] Should I push?", buttons[1][1])
+    assert channel.sent()[-1] == "Something came after that reply, so its answers are gone. Write yours."
+    assert [m.text for m in await service.conversation_messages(inbox)][-1] == "Pushed."
+
+
 async def test_new_sends_the_next_message_to_a_new_conversation(dispatch, chats, channel, script, service):
     assert await chats.command("telegram", "clear") == "Your next message starts a new conversation."
     script.reply("Hi.")

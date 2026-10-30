@@ -1,13 +1,21 @@
 """Answer buttons: a reply that ends with a question with a few clear answers lists them in a marker at its
-end, `<!-- choices: Yes | No -->` (prompts/operating.md). The web app shows them as buttons under the reply
-(clients/web/src/lib/chat/choices.ts); everywhere else the marker is taken out, so nobody reads it. History
-keeps it, so the model sees what it wrote."""
+end, `<!-- choices: Yes | No -->` (prompts/operating.md). The marker never shows; its choices do, while the reply
+is the conversation's last message: as buttons under the reply in the web app (clients/web/src/lib/chat/choices.ts)
+and the chat channels (core/channels/chat/answers.py), numbered under it in the terminal app. History keeps it, so the
+model sees what it wrote."""
 
 import re
 
 _MARKER = re.compile(r"<!--\s*choices:.*?-->", re.IGNORECASE | re.DOTALL)
+_ENDING = re.compile(r"<!--\s*choices:((?:(?!-->).)*)-->\s*\Z", re.IGNORECASE | re.DOTALL)
 # A comment still open at the end, or its first characters: while the reply streams it may become a marker.
 _OPENING = re.compile(r"(<!--(?:(?!-->).)*|<!-?)\Z", re.DOTALL)
+
+
+def offered(text: str) -> list[str]:
+    """The choices the marker at the end of `text` lists; none without one."""
+    ending = _ENDING.search(text)
+    return [choice.strip() for choice in ending.group(1).split("|") if choice.strip()] if ending else []
 
 
 def without_markers(text: str) -> str:

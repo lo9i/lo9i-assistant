@@ -7,7 +7,8 @@ reaches its own channel routes.
 The daemon does everything that is the assistant's: it decides which conversation each message goes to,
 runs it, shows each run as chat messages (a status message for tool calls, the reply streamed by edits and
 split to fit, its first message tagged with the conversation, `[watchlist] …`), writes the approval and
-question messages and their buttons, and decides what a pressed button does (`core/channels/chat/`). The process only connects to its chat service: it sends the daemon what
+question messages and their buttons, a reply's choices as buttons (pressing one sends it as the user's message), and
+decides what a pressed button does (`core/channels/chat/`). The process only connects to its chat service: it sends the daemon what
 the user does there (a message, a button pressed, a command) and carries out the chat operations the
 daemon sends back (send, edit, typing, voice). It needs no code from lo9i.
 
@@ -75,7 +76,7 @@ it too.
 | `renamed` | `{"assistant_name": "..."}` | The assistant was renamed (Telegram renames its bot). |
 | `action` | `{"action": "..."}` | The user pressed a setup button in an app (a SetupItem of kind `action`). |
 | `send` | `{"id", "chat", "text", "markdown", "buttons", "reply_to"}` | Send `text` (Markdown when `markdown` is true) with `buttons`, `[[label, data], ...]`, then `POST /deliveries/{id}` with the new message's id. `reply_to`, only when there's one: the message it answers (the user's, as `message` in `POST /messages` gave it, or the one whose button was pressed), so the chat reads as threads: Slack posts it in that message's thread when it's in one, Telegram quotes it. A message gone or unknown is no error: send it without. |
-| `edit` | `{"id", "chat", "message", "text", "markdown", "buttons"}` | Replace message `message`'s text and buttons; no buttons removes them. |
+| `edit` | `{"id", "chat", "message", "text", "markdown", "buttons", "keep_text"}` | Replace message `message`'s text and buttons; no buttons removes them. With `keep_text` (only when true), `text` is the message's own as `POST /presses` gave it, and only its buttons change: a channel that can change just those does (Telegram, whose pressed text has lost its formatting); any other edits as usual. |
 | `typing` | `{"id", "chat"}` | Show that the assistant is writing, where the service can; otherwise just confirm. |
 | `voice` | `{"id", "chat", "audio"}` | Send `audio`, OGG Opus in base64, as a voice note. Only sent when the stream said `voice=true`. |
 

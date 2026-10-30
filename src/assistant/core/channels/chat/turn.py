@@ -1,7 +1,7 @@
 """Shows one run's events in a chat: a typing indicator, a status message listing tool calls, the reply
 streamed by editing its message, its first message tagged with a short name of the conversation
-(`[watchlist] …`), and approval or question buttons. A handed-off agent's thinking isn't shown: a chat has
-room only for what's said and done."""
+(`[watchlist] …`), its choices as buttons (answers.py), and approval or question buttons. A handed-off agent's
+thinking isn't shown: a chat has room only for what's said and done."""
 
 import asyncio
 import contextlib
@@ -11,8 +11,9 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
+from assistant.core.channels.chat.answers import answer_buttons
 from assistant.core.channels.chat.approvals import approval_buttons, approval_text
-from assistant.core.channels.chat.port import ChatLimits, ChatPort
+from assistant.core.channels.chat.port import Buttons, ChatLimits, ChatPort
 from assistant.core.channels.chat.questions import question_buttons, question_text
 from assistant.core.channels.chat.split import split_text
 from assistant.core.conversation import choices
@@ -170,7 +171,8 @@ class _StatusMessage:
 
 class _ReplyMessage:
     """Streams text by editing one message; the final version is sent as Markdown and split if long. The
-    turn's first reply starts with `tag`. The answer buttons' marker never shows (conversation/choices.py)."""
+    turn's first reply starts with `tag`. The answer buttons' marker never shows (conversation/choices.py): its
+    choices are buttons on the final version's last message."""
 
     def __init__(self, chat: ChatPort, limits: ChatLimits, tag: str = "") -> None:
         self._chat = chat
@@ -194,7 +196,8 @@ class _ReplyMessage:
         """Send the final version. Returns whether there was any text."""
         text = choices.without_markers(self._text).strip()
         if text:
-            await self._send_final(split_text(text, self._limits.message_limit))
+            buttons = answer_buttons(choices.offered(self._text)) or None
+            await self._send_final(split_text(text, self._limits.message_limit), buttons)
         self._text, self._message = "", None
         return bool(text)
 
@@ -206,14 +209,16 @@ class _ReplyMessage:
             await self._chat.edit(self._message, draft)
         self._last_edit = time.monotonic()
 
-    async def _send_final(self, chunks: list[str]) -> None:
+    async def _send_final(self, chunks: list[str], buttons: Buttons | None) -> None:
+        """`buttons` go on the last message."""
         first, *rest = chunks
+        on_first = None if rest else buttons
         if self._message is None:
-            await self._chat.send(first, markdown=True)
+            await self._chat.send(first, markdown=True, buttons=on_first)
         else:
-            await self._chat.edit(self._message, first, markdown=True)
-        for chunk in rest:
-            await self._chat.send(chunk, markdown=True)
+            await self._chat.edit(self._message, first, markdown=True, buttons=on_first)
+        for i, chunk in enumerate(rest, 1):
+            await self._chat.send(chunk, markdown=True, buttons=buttons if i == len(rest) else None)
 
 
 def _describe(args: dict[str, Any]) -> str:

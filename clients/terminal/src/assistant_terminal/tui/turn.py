@@ -30,6 +30,7 @@ from assistant_terminal.tui.widgets import (
     UNTAKEN,
     WAITING,
     AssistantMessage,
+    ChoicesNote,
     ErrorMessage,
     HeldNote,
     StatusLine,
@@ -50,6 +51,8 @@ class TurnView:
         self._stream: MarkdownStream | None = None
         # The streaming reply's text, without the answer buttons' marker.
         self._shown = choices.Streamed()
+        # The last reply's text as written, marker included: its choices show under it once the run ends.
+        self._reply = ""
         # Tool results carry only the tool name, so match them to calls in order. A subagent's calls
         # are matched within their delegate call, keyed by its id.
         self._pending: dict[str, list[ToolCall]] = defaultdict(list)
@@ -61,9 +64,11 @@ class TurnView:
         self.dispatched: Dispatched | None = None
 
     async def render(self, events: AsyncIterator[Event]) -> list[ApprovalRequired]:
-        """Show the events and return the approvals the run is waiting on."""
+        """Show the events and return the approvals the run is waiting on. A reply's choices from before go: something
+        comes after it."""
         approvals: list[ApprovalRequired] = []
         self._status.show(t("Thinking"), t(_STOP_HINT))
+        await self._chat.query(ChoicesNote).remove()
         try:
             async for event in events:
                 if isinstance(event, ApprovalRequired):
@@ -73,6 +78,8 @@ class TurnView:
         finally:
             await self._end_text()
             self._status.clear()
+        if not approvals and (offered := choices.offered(self._reply)):
+            await self._chat.mount(ChoicesNote(offered))
         return approvals
 
     async def _handle(self, event: Event) -> None:
@@ -133,7 +140,9 @@ class TurnView:
             await self._chat.mount(message)
             self._stream = Markdown.get_stream(message)
             self._shown = choices.Streamed()
+            self._reply = ""
             self._status.clear()
+        self._reply += text
         if shown := self._shown.add(text):
             await self._stream.write(shown)
 

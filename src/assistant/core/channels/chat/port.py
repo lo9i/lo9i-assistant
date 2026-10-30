@@ -46,7 +46,13 @@ class ChatPort(Protocol):
 
     async def send(self, text: str, *, markdown: bool = False, buttons: Buttons | None = None) -> str: ...
     async def edit(
-        self, message: str, text: str, *, markdown: bool = False, buttons: Buttons | None = None
+        self,
+        message: str,
+        text: str,
+        *,
+        markdown: bool = False,
+        buttons: Buttons | None = None,
+        keep_text: bool = False,
     ) -> None: ...
     async def typing(self) -> None: ...
     async def voice(self, ogg_opus: bytes) -> None: ...
@@ -81,8 +87,20 @@ class RemoteChat:
             data["reply_to"] = self._reply_to
         return await self._operate("send", data)
 
-    async def edit(self, message: str, text: str, *, markdown: bool = False, buttons: Buttons | None = None) -> None:
-        data = {"message": message, "text": text, "markdown": markdown, "buttons": _listed(buttons)}
+    async def edit(
+        self,
+        message: str,
+        text: str,
+        *,
+        markdown: bool = False,
+        buttons: Buttons | None = None,
+        keep_text: bool = False,
+    ) -> None:
+        """`keep_text`: `text` is the message's own, as a press gave it, and only its buttons change; a channel that can
+        change only those keeps its formatting, which the text a press gives may have lost (Telegram's)."""
+        data: dict[str, object] = {"message": message, "text": text, "markdown": markdown, "buttons": _listed(buttons)}
+        if keep_text:
+            data["keep_text"] = True
         await self._operate("edit", data)
 
     async def typing(self) -> None:

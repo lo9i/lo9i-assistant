@@ -17,6 +17,7 @@ from assistant_terminal.tui.widgets import (
     AssistantMessage,
     BriefNote,
     CarriedNote,
+    ChoicesNote,
     ErrorMessage,
     FollowUpNote,
     HeldNote,
@@ -40,6 +41,8 @@ async def show_history(chat: VerticalScroll, messages: list[ShownMessage], load:
     await chat.remove_children()
     widgets = [_widget(m, load) for m in messages]
     await chat.mount_all([shown for w, m in zip(widgets, messages, strict=True) for shown in (w, *_held(m))])
+    if messages and messages[-1].role == "assistant" and (offered := choices.offered(messages[-1].text)):
+        await chat.mount(ChoicesNote(offered))
     # A delegate call takes its steps once it's mounted, then ends, as it did live.
     for widget, message in zip(widgets, messages, strict=True):
         if message.steps and isinstance(widget, ToolCall):
