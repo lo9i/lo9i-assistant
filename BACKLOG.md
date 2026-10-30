@@ -33,6 +33,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - A18. Telegram and Slack show only the runs their chat starts: a run the daemon starts in their conversation, like a coding task handed to its agent from a conversation or a follow-up on background work that failed (`daemon/queued.py`), shows in the apps but not in the chat, which hears only the end notice. Show runs started elsewhere in a channel's conversation the way the apps mirror them.
 - A19. On macOS a daemon started by hand while start at boot is on can't be stopped from the apps (`launchd.Beside` refuses): launchd keeps trying to start the LaunchDaemon, and stopping its tries needs an administrator. Ask for the password, as turning start at boot on does, and stop them.
 - A20. While an update installs, new runs are refused with a message to send them again once lo9i is back (`hold_runs`, `daemon/updates.py`): the user retypes it, and a scheduled job due then fails with that message. Keep them instead (with their files and the channel they came from) and run them once the daemon has restarted on the update.
+- A42. The web app's Logs page still follows a log on a stream of its own (`/logs/<name>/follow`), a second HTTP/1.1 connection per tab showing it. Several tabs on Logs, with the others' event streams, can still use up a browser's six connections to a plain-HTTP origin. Send the followed log down the tab's `/events` stream as runs are (`daemon/run_follows.py`).
 
 ## MCP
 

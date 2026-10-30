@@ -148,7 +148,8 @@ export interface paths {
          * @description Everything that changes while no run is open: memory, skills, jobs, integrations, runs
          *     started from other channels. Clients keep this open for their whole session, so it also
          *     tells which clients are connected. A new connection starts from now; a reconnection sends
-         *     the last id it received and gets what it missed.
+         *     the last id it received and gets what it missed. The runs the client follows
+         *     (`PUT /events/runs/<id>`) come down it too.
          */
         get: operations["events_events_get"];
         put?: never;
@@ -458,6 +459,29 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/events/runs/{follow_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Follow Run
+         * @description Sends a run's events after `after` down this client's /events stream (`run_events`, then `run_end`), so a
+         *     browser follows every run on the one connection (daemon/run_follows.py). Asked again under the same id, as
+         *     after the stream reconnected, it starts again from `after`.
+         */
+        put: operations["follow_run_events_runs__follow_id__put"];
+        post?: never;
+        /** Unfollow Run */
+        delete: operations["unfollow_run_events_runs__follow_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3337,6 +3361,16 @@ export interface components {
             /** Children */
             children: string[];
         };
+        /** FollowRun */
+        FollowRun: {
+            /** Run Id */
+            run_id: string;
+            /**
+             * After
+             * @default 0
+             */
+            after: number;
+        };
         /**
          * FoundServer
          * @description An MCP server in a repository, before it's installed.
@@ -5821,6 +5855,72 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    follow_run_events_runs__follow_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                follow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FollowRun"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unfollow_run_events_runs__follow_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                follow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
                 };
             };
             /** @description Validation Error */

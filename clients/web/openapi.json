@@ -203,7 +203,7 @@
     "/events": {
       "get": {
         "summary": "Events",
-        "description": "Everything that changes while no run is open: memory, skills, jobs, integrations, runs\nstarted from other channels. Clients keep this open for their whole session, so it also\ntells which clients are connected. A new connection starts from now; a reconnection sends\nthe last id it received and gets what it missed.",
+        "description": "Everything that changes while no run is open: memory, skills, jobs, integrations, runs\nstarted from other channels. Clients keep this open for their whole session, so it also\ntells which clients are connected. A new connection starts from now; a reconnection sends\nthe last id it received and gets what it missed. The runs the client follows\n(`PUT /events/runs/<id>`) come down it too.",
         "operationId": "events_events_get",
         "parameters": [
           {
@@ -796,6 +796,93 @@
             "description": "Successful Response",
             "content": {
               "text/event-stream": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events/runs/{follow_id}": {
+      "put": {
+        "summary": "Follow Run",
+        "description": "Sends a run's events after `after` down this client's /events stream (`run_events`, then `run_end`), so a\nbrowser follows every run on the one connection (daemon/run_follows.py). Asked again under the same id, as\nafter the stream reconnected, it starts again from `after`.",
+        "operationId": "follow_run_events_runs__follow_id__put",
+        "parameters": [
+          {
+            "name": "follow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Follow Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FollowRun"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Unfollow Run",
+        "operationId": "unfollow_run_events_runs__follow_id__delete",
+        "parameters": [
+          {
+            "name": "follow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Follow Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
             }
           },
           "422": {
@@ -7251,6 +7338,24 @@
           "children"
         ],
         "title": "FolderListing"
+      },
+      "FollowRun": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "after": {
+            "type": "integer",
+            "title": "After",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id"
+        ],
+        "title": "FollowRun"
       },
       "FoundServer": {
         "properties": {
