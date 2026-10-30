@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 from assistant.client import DaemonClient, DaemonUnavailableError
 from assistant.client.files import load_attachment
-from assistant.core.agent import Agent, AgentFolders, HandoffError, InvalidNameError, Session, SkillError
+from assistant.core.agent import Agent, HandoffError, InvalidNameError, Session, SkillError
 from assistant.core.attachments import Attachment
 from assistant.core.events import (
     ApprovalRequired,
@@ -19,6 +19,7 @@ from assistant.core.events import (
 from assistant_terminal.channels_text import describe as describe_channel
 from assistant_terminal.commands import GET_TO_KNOW_ME, agent_commands, help_lines
 from assistant_terminal.conversations_text import listed_title, when
+from assistant_terminal.folder_prompt import FolderPrompt
 from assistant_terminal.i18n import t
 from assistant_terminal.jobs_text import summary as jobs_summary
 from assistant_terminal.logs_text import log_line
@@ -102,7 +103,7 @@ class Repl:
             await self._service.conversations.take_back(self._session.thread_id)
             print(t("The assistant answers again from your next message."))
             return
-        folder = arg or await _pick_folder(await self._service.conversations.agent_folders(), agent.name)
+        folder = arg or await FolderPrompt(self._service.conversations, _read_line).pick(agent.name)
         if not folder:
             return
         if self._session.thread_id == self._inbox_id:
@@ -406,18 +407,6 @@ async def _collect_decisions(approvals: list[ApprovalRequired]) -> dict[str, dic
         approved = answer.lower() in ("y", "yes", t("y"), t("yes"))
         decisions[approval.interrupt_id] = {"approved": approved, "reason": None if approved else answer}
     return decisions
-
-
-async def _pick_folder(folders: AgentFolders, agent_name: str) -> str | None:
-    """The workspace or a folder used before by its number, or a full path; nothing cancels."""
-    offered = [folders.workspace, *folders.recent]
-    print(paint(YELLOW, "\n" + t("Where should {agent} work?", agent=agent_name)))
-    for number, folder in enumerate(offered, 1):
-        print(f"  {number}. {folder}" + (t(" (workspace)") if number == 1 else ""))
-    answer = (await _read_line(t("[a number or a full path, or Enter to cancel] ")) or "").strip()
-    if answer.isdigit() and 1 <= int(answer) <= len(offered):
-        return offered[int(answer) - 1]
-    return answer or None
 
 
 async def _answer_question(request: dict) -> dict:

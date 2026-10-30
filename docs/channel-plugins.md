@@ -61,7 +61,7 @@ token reaches only `/channels/<its name>/...`; anything else answers 403.
 | `POST /deliveries/{id}` | `{"error": "", "message": "", "messages": []}`: an operation's result. `error` is empty when it was carried out, otherwise why not; `message` is the id of the message a `send` sent, the one later edits name; `messages`, optional, every message a `send` took when it went to several chats (below). Unanswered within 30 seconds counts as failed. |
 | `POST /messages` | Multipart form: `chat` (the chat's id in the service), `text`, `voice` (`true` for a voice note: Settings → Audio can speak only those replies), `files` (repeated), and optionally `reply_to` (the id of the message it replies to) and `message` (its own id). A reply goes on in the conversation of the message it replies to; any other message goes to the inbox, which routes it to the conversation it's about or a new one (after `/new`: a new one). Send `message` so replying to the user's own message works too. What follows comes as operations for that chat. |
 | `POST /presses` | `{"chat": "...", "message": "...", "text": "...", "data": "..."}`: a button pressed. `message` is the id of the message it's on and `text` that message's text, which the daemon shows again without the buttons; `data` is the button's data, as the daemon gave it. |
-| `POST /commands` | `{"command": "new", "text": ""}`: a command without its slash, and what follows it. `new` sends the next message to a new conversation, `start` greets, and an agent's command hands the conversation the channel last wrote in to it (a new one when that was the inbox; `claude` with a folder in `text`, or `off` to take it back), and the channel's messages go on there until it's taken back. Returns `{"text": "..."}`, what to answer. Send every command the user types: the daemon knows which exist. |
+| `POST /commands` | `{"command": "new", "text": ""}`: a command without its slash, and what follows it. `new` sends the next message to a new conversation, `start` greets, `pin` and `unpin` change the skills pinned to the conversation the channel last wrote in (a skill's name in `text`; `pin` alone lists them), and an agent's command hands the conversation the channel last wrote in to it (a new one when that was the inbox; `claude` with a folder in `text`, or `off` to take it back), and the channel's messages go on there until it's taken back. Returns `{"text": "..."}`, what to answer. Send every command the user types: the daemon knows which exist. |
 
 `POST /messages` and `POST /presses` answer at once; the run goes on in the daemon, where the apps see
 it too.
@@ -70,7 +70,7 @@ it too.
 
 | Kind | Data | What the channel does |
 |---|---|---|
-| `hello` | `{"assistant_name": "...", "commands": [{"command", "description"}, ...]}` | First event of every stream. `commands` are what the channel offers its user, without the slash: `new` and each installed agent's (Telegram's command menu, Slack's manifest). |
+| `hello` | `{"assistant_name": "...", "commands": [{"command", "description"}, ...]}` | First event of every stream. `commands` are what the channel offers its user, without the slash: `new`, `pin`, `unpin` and each installed agent's (Telegram's command menu, Slack's manifest). |
 | `commands` | `{"commands": [...]}` | The commands changed: an agent plugin was installed or removed. |
 | `renamed` | `{"assistant_name": "..."}` | The assistant was renamed (Telegram renames its bot). |
 | `action` | `{"action": "..."}` | The user pressed a setup button in an app (a SetupItem of kind `action`). |

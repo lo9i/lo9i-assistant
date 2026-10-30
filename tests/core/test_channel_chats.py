@@ -14,6 +14,7 @@ from assistant.core.channels.chat.port import ChatLimits, Delivered
 from assistant.core.conversation.dispatch import Pick
 from assistant.core.events import Event, TextDelta
 from assistant.core.outbox import DeliveryError
+from assistant.core.skills import store
 from tests.conftest import collect
 from tests.core.test_handoffs import agent_plugin
 
@@ -99,6 +100,12 @@ def runs() -> _Runs:
 @pytest.fixture
 def chats(service, runs, channel, jobs) -> ChannelChats:
     return ChannelChats(service, runs, channel, jobs)
+
+
+@pytest.fixture
+def coding(isolated_settings, monkeypatch):
+    monkeypatch.setattr("assistant.core.config.settings.skills_dir", str(isolated_settings / "skills"))
+    store.save("coding", "Programming help", "Run the tests before saying it works.")
 
 
 async def test_a_message_runs_in_the_inbox_and_shows_in_its_chat(service, channel, jobs, script):
@@ -191,7 +198,7 @@ async def test_new_sends_the_next_message_to_a_new_conversation(dispatch, chats,
     await chats.message("telegram", "42", "something else", [], voice=False)
     assert len(dispatch.inputs) == 1
     assert await chats.command("telegram", "start") == GREETING
-    assert await chats.command("telegram", "pin") == "Unknown command /pin."
+    assert await chats.command("telegram", "archive") == "Unknown command /archive."
     await service.set_language("es")
     assert await chats.command("telegram", "new") == "Tu próximo mensaje empieza una conversación nueva."
 
@@ -246,8 +253,30 @@ async def test_a_channel_that_went_away_stops_the_turn_and_the_run_goes_on(chats
     assert [m.text for m in await service.conversation_messages(inbox)] == ["hi", "Still here."]
 
 
+async def test_pin_and_unpin_change_the_skills_of_the_channels_conversation(chats, service, script, coding):
+    inbox_answer = await chats.command("telegram", "pin", "coding")
+    assert inbox_answer.startswith("Skills are pinned to a conversation") and not await service.pinned_skills(
+        "owner", await service.inbox_thread("owner")
+    )
+    side = await service.new_thread("owner")
+    await service.chat_messages_in("owner", "telegram", "42", ["7"], side)
+    script.reply("Sure.")
+    await chats.message("telegram", "42", "fix the parser", [], voice=False, reply_to="7")
+    tag = await service.chat_tag("owner", side)
+    assert await chats.command("telegram", "pin", "") == f"No skills pinned in [{tag}]: /pin <skill>."
+    pinned = await chats.command("telegram", "pin", " coding ")
+    assert pinned == f"Pinned coding to [{tag}], from your next message there."
+    assert await service.pinned_skills("owner", side) == ["coding"]
+    assert await chats.command("telegram", "pin", "") == f"Pinned in [{tag}]: coding."
+    assert "missing" in await chats.command("telegram", "pin", "missing")
+    assert await chats.command("telegram", "unpin", "") == "Which skill? /unpin <skill>."
+    unpinned = await chats.command("telegram", "unpin", "coding")
+    assert unpinned == f"Unpinned coding from [{tag}], from your next message there."
+    assert await service.pinned_skills("owner", side) == []
+
+
 async def test_an_agents_command_hands_the_channels_conversation_to_it_and_back(chats, service, script, tmp_path):
-    assert [c["command"] for c in await service.channel_commands()] == ["new"]
+    assert [c["command"] for c in await service.channel_commands()] == ["new", "pin", "unpin"]
     await service.add_mcp_server(agent_plugin())
     assert (await service.channel_commands())[-1]["command"] == "claude"
     asked = await chats.command("telegram", "claude", "")
