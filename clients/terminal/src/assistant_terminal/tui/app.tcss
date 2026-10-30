@@ -755,3 +755,64 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     max-height: 20;
     margin-bottom: 1;
 }
+
+/* /folder: the tree, with what changed above it, beside the file picked. */
+#folder {
+    width: 95%;
+    max-width: 160;
+    height: 90%;
+    padding: 1 2;
+    border: round ansi_bright_black;
+    background: $dialog-background;
+}
+
+#folder-title, #folder-file-title {
+    height: auto;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#folder-main {
+    height: 1fr;
+}
+
+#folder-side {
+    width: 40;
+    border-right: solid ansi_bright_black;
+    padding-right: 1;
+}
+
+#folder-changed-title {
+    height: auto;
+    color: ansi_bright_black;
+}
+
+#folder-changes {
+    height: auto;
+    max-height: 8;
+    border: none;
+    background: transparent;
+    margin-bottom: 1;
+}
+
+#folder-tree {
+    height: 1fr;
+    background: transparent;
+}
+
+#folder-view {
+    padding: 0 1;
+}
+
+#folder-file {
+    width: auto;
+}
+
+#folder-buttons {
+    height: auto;
+    margin-top: 1;
+}
+
+#folder-buttons Button, #folder-buttons Checkbox {
+    margin-right: 2;
+}

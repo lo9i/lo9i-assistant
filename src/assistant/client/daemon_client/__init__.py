@@ -14,6 +14,7 @@ from assistant.client.daemon_client.devices import DevicesApi
 from assistant.client.daemon_client.doctor import DoctorApi
 from assistant.client.daemon_client.email import EmailApi
 from assistant.client.daemon_client.files import FilesApi
+from assistant.client.daemon_client.folders import FoldersApi, ShownFolder
 from assistant.client.daemon_client.home import HomeApi
 from assistant.client.daemon_client.identity import IdentityApi
 from assistant.client.daemon_client.jobs import JobsApi
@@ -41,6 +42,7 @@ __all__ = [
     "DoctorApi",
     "EmailApi",
     "FilesApi",
+    "FoldersApi",
     "HomeApi",
     "IdentityApi",
     "JobsApi",
@@ -52,6 +54,7 @@ __all__ = [
     "OAuthApi",
     "PromptsApi",
     "RepositoriesApi",
+    "ShownFolder",
     "SkillsApi",
     "SpeechApi",
     "SystemApi",

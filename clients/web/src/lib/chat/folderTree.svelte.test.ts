@@ -5,7 +5,7 @@ import { FolderTree } from "./folderTree.svelte";
 function folder(path: string, names: string[]): FolderContents {
   const entries = names.map((name) => {
     const isFolder = !name.includes(".");
-    return { name, path: path ? `${path}/${name}` : name, folder: isFolder, size: 0 };
+    return { name, path: path ? `${path}/${name}` : name, folder: isFolder, size: 0, deleted: false };
   });
   return { path, entries, truncated: false };
 }

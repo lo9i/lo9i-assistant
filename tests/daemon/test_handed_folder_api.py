@@ -1,9 +1,12 @@
 """The handed folder's routes: read only while the conversation is with an agent, only inside its folder."""
 
+import subprocess
+
 import httpx
 import pytest
 
-from assistant.core.agent import Session
+from assistant.client.daemon_client import DaemonClient
+from assistant.core.agent import DeletingOffError, HandedFolderError, MissingPathError, Session
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
 from assistant.daemon.runs import RunHub
@@ -17,6 +20,12 @@ async def http(service):
     transport = httpx.ASGITransport(app=trusted(create_app(service, RunHub())))
     async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}) as h:
         yield h
+
+
+@pytest.fixture
+def client(http) -> DaemonClient:
+    """As the terminal app reads the folder panel."""
+    return DaemonClient(http)
 
 
 async def _handed(service, folder) -> str:
@@ -67,7 +76,9 @@ async def test_the_home_folder_is_listed_and_previewed_without_leaving_it(http, 
     assert (await http.get("/folders/home/file", params={"path": "gone.md"})).status_code == 404
 
 
-async def test_a_file_of_either_folder_is_deleted_but_not_a_folder_or_outside_it(http, service, tmp_path, monkeypatch):
+async def test_a_file_of_either_folder_is_deleted_but_not_a_folder_or_outside_it(
+    http, service, tmp_path, monkeypatch, trashed
+):
     (tmp_path / "project" / "src").mkdir(parents=True)
     (tmp_path / "project" / "src" / "a.py").write_text("x = 1\n")
     (tmp_path / "home").mkdir()
@@ -80,6 +91,7 @@ async def test_a_file_of_either_folder_is_deleted_but_not_a_folder_or_outside_it
     assert (await http.delete(handed, params={"path": "src/a.py"})).status_code == 200
     assert (await http.delete("/folders/home/file", params={"path": "note.md"})).status_code == 200
     assert not (tmp_path / "project" / "src" / "a.py").exists() and not (tmp_path / "home" / "note.md").exists()
+    assert {p.name for p in trashed.iterdir()} == {"a.py", "note.md"}  # in the trash, not gone for good
 
     assert (await http.delete(handed, params={"path": "src"})).status_code == 404
     assert (await http.delete("/folders/home/file", params={"path": "../secret.txt"})).status_code == 400
@@ -98,3 +110,51 @@ async def test_deleting_is_refused_until_turned_on_and_again_once_turned_off(htt
     assert (await http.get("/settings/folder-deleting")).json() == {"enabled": False}
     assert (await http.delete("/folders/home/file", params={"path": "note.md"})).status_code == 403
     assert (tmp_path / "note.md").exists()
+
+
+def _git(where, *args: str) -> None:
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=where, check=True, capture_output=True
+    )
+
+
+async def test_the_client_reads_the_handed_folder_its_changes_and_diffs(client, service, tmp_path, monkeypatch):
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(tmp_path / "no-gitconfig"))
+    project = tmp_path / "project"
+    (project / "src").mkdir(parents=True)
+    (project / "src" / "a.py").write_text("x = 1\n")
+    (project / "README.md").write_text("# P\n")
+    _git(project, "init", "-q")
+    _git(project, "add", ".")
+    _git(project, "commit", "-qm", "start")
+    (project / "README.md").unlink()
+    (project / "src" / "a.py").write_text("x = 2\n")
+    folder = client.folders.handed(await _handed(service, project))
+
+    listing = await folder.contents()
+    assert [(e.name, e.deleted) for e in listing.entries] == [("src", False), ("README.md", True)]
+    changed = await folder.changes()
+    assert changed is not None and sorted((c.path, c.status) for c in changed.changes) == [
+        ("README.md", "deleted"),
+        ("src/a.py", "modified"),
+    ]
+    shown = await folder.diff("src/a.py")
+    assert shown.text is not None and "-x = 1" in shown.text and "+x = 2" in shown.text
+    assert (await folder.file("src/a.py")).text == "x = 2\n"
+    with pytest.raises(MissingPathError):
+        await folder.diff("README")
+    with pytest.raises(HandedFolderError):
+        await folder.file("../secret.txt")
+
+
+async def test_the_client_moves_a_file_to_the_trash_once_deleting_is_on(client, tmp_path, monkeypatch, trashed):
+    (tmp_path / "home").mkdir()
+    (tmp_path / "home" / "note.md").write_text("milk\n")
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    home = client.folders.home()
+    assert await home.changes() is None and not await client.folders.deleting()
+    with pytest.raises(DeletingOffError):
+        await home.delete("note.md")
+    assert await client.folders.set_deleting(True)
+    await home.delete("note.md")
+    assert not (tmp_path / "home" / "note.md").exists() and (trashed / "note.md").read_text() == "milk\n"

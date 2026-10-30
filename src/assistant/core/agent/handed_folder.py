@@ -1,23 +1,25 @@
-"""The folder a conversation is handed to, for the web app's side panel (core/handed_folder/): what's inside it, a
-file's text and what git says changed, read only while the conversation is with an agent and only inside its folder.
-A conversation that isn't shows the user's home folder instead, read the same way, without its changes. The one
-change the panel makes is deleting a file the user picked in either, and only once the user turned that on in
-Settings (deleting_setting.py)."""
+"""The folder a conversation is handed to, for the apps' folder panel (core/handed_folder/): what's inside it, what
+git says was deleted there among it, a file's text, what git says changed and a changed file's diff, read only while
+the conversation is with an agent and only inside its folder. A conversation that isn't shows the user's home folder
+instead, read the same way, without its changes. The one change the panel makes is deleting a file the user picked in
+either, to the system's trash, and only once the user turned that on in Settings (deleting_setting.py)."""
 
 import asyncio
 from pathlib import Path
 
 from assistant.core.agent.base import ServiceBase
 from assistant.core.conversation import handoffs
-from assistant.core.handed_folder import changes, contents, deleting, deleting_setting, paths, preview
+from assistant.core.handed_folder import changes, contents, deleting, deleting_setting, diff, paths, preview, tree
 from assistant.core.handed_folder.changes import FileChange, FolderChanges
 from assistant.core.handed_folder.contents import FolderContents, FolderEntry
+from assistant.core.handed_folder.diff import FileDiff
 from assistant.core.handed_folder.paths import HandedFolderError, MissingPathError, OutsideFolderError
 from assistant.core.handed_folder.preview import FilePreview
 
 __all__ = [
     "DeletingOffError",
     "FileChange",
+    "FileDiff",
     "FilePreview",
     "FolderChanges",
     "FolderContents",
@@ -40,9 +42,10 @@ class DeletingOffError(HandedFolderError):
 
 class HandedFolderMixin(ServiceBase):
     async def handed_folder_contents(self, user_id: str, thread_id: str, path: str) -> FolderContents:
-        """The files and folders in `path` (relative to the folder, "" for itself). Raises NotHandedError when the
-        conversation isn't with an agent, and HandedFolderError's others as contents.contents."""
-        return await contents.contents(await self._handed_root(user_id, thread_id), path)
+        """The files and folders in `path` (relative to the folder, "" for itself), with those git says were deleted
+        there. Raises NotHandedError when the conversation isn't with an agent, and HandedFolderError's others as
+        tree.listed."""
+        return await tree.listed(await self._handed_root(user_id, thread_id), path)
 
     async def handed_folder_file(self, user_id: str, thread_id: str, path: str) -> FilePreview:
         """A file's text, as preview.preview. Raises as handed_folder_contents."""
@@ -52,9 +55,13 @@ class HandedFolderMixin(ServiceBase):
         """What git says changed in the folder. Raises NotHandedError, or MissingPathError for a folder gone."""
         return await changes.changes(await self._handed_root(user_id, thread_id))
 
+    async def handed_folder_diff(self, user_id: str, thread_id: str, path: str) -> FileDiff:
+        """What changed in a file git lists as changed, as diff.diff. Raises as handed_folder_contents."""
+        return await diff.diff(await self._handed_root(user_id, thread_id), path)
+
     async def delete_handed_file(self, user_id: str, thread_id: str, path: str) -> None:
-        """Deletes a file of the folder, as deleting.delete. Raises DeletingOffError while it's turned off, and
-        otherwise as handed_folder_contents."""
+        """Moves a file of the folder to the trash, as deleting.delete. Raises DeletingOffError while it's turned off,
+        and otherwise as handed_folder_contents."""
         await self._refuse_deleting_while_off()
         await deleting.delete(await self._handed_root(user_id, thread_id), path)
 
@@ -68,7 +75,7 @@ class HandedFolderMixin(ServiceBase):
         return await preview.preview(await _home_root(), path)
 
     async def delete_home_file(self, path: str) -> None:
-        """Deletes a file of the home folder, as deleting.delete. Raises as delete_handed_file."""
+        """Moves a file of the home folder to the trash, as deleting.delete. Raises as delete_handed_file."""
         await self._refuse_deleting_while_off()
         await deleting.delete(await _home_root(), path)
 

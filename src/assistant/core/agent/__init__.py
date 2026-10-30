@@ -16,6 +16,7 @@ from assistant.core.agent.files import FileUnavailableError, UploadedFile
 from assistant.core.agent.handed_folder import (
     DeletingOffError,
     FileChange,
+    FileDiff,
     FilePreview,
     FolderChanges,
     FolderContents,
@@ -102,6 +103,7 @@ __all__ = [
     "Episode",
     "Fact",
     "FileChange",
+    "FileDiff",
     "FilePreview",
     "FileUnavailableError",
     "FolderChanges",

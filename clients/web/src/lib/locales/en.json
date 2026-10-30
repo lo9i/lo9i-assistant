@@ -463,9 +463,10 @@
     "home": "Home folder",
     "showHome": "Show your home folder",
     "hideHome": "Hide your home folder",
-    "delete": "Delete this file",
-    "deleteTitle": "Delete {name}?",
-    "deleteText": "{path} is deleted from the disk for good, not moved to the trash.",
+    "delete": "Move this file to the trash",
+    "deleteTitle": "Move {name} to the trash?",
+    "deleteText": "{path} goes to the system's trash, where you can take it back.",
+    "deleteAction": "Move to trash",
     "changed": "Changed",
     "noChanges": "Nothing changed.",
     "notRepository": "Not a git repository: changes aren't tracked.",
@@ -481,7 +482,12 @@
       "deleted": "Deleted",
       "untracked": "Untracked",
       "inside": "Changes inside"
-    }
+    },
+    "view": "Show",
+    "changes": "Changes",
+    "wholeFile": "Whole file",
+    "diffNotText": "Can't show what changed: it isn't a text file.",
+    "diffTruncated": "Too many changes to show whole: this is their start."
   },
   "fuel": {
     "agentContext": "{agent}'s context",

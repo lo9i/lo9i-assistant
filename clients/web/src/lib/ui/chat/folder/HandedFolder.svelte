@@ -3,8 +3,8 @@
   import PanelRightClose from "@lucide/svelte/icons/panel-right-close";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import { untrack } from "svelte";
-  import type { FilePreview, FolderChanges, Handoff } from "$lib/api/types";
-  import { ChangeMarks } from "$lib/chat/folderChanges";
+  import type { FileDiff, FilePreview, FolderChanges, Handoff } from "$lib/api/types";
+  import { ChangeMarks, type ChangeKind, type FileView } from "$lib/chat/folderChanges";
   import { FolderTree } from "$lib/chat/folderTree.svelte";
   import { Resource, resource, useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
@@ -14,12 +14,13 @@
   import FileText from "./FileText.svelte";
   import FolderLevel from "./FolderLevel.svelte";
 
-  // Beside a conversation handed to an agent (/claude): the folder it works in, as a tree opened a folder at a time,
-  // what git says changed there at the top, and a file's text when one is picked. It follows the agent's work: each
+  // Beside a conversation handed to an agent (/claude): the folder it works in, as a tree opened a folder at a time
+  // (what git says was deleted shown where it was), what git says changed there at the top, and a file when one is
+  // picked: what changed in it when git lists it, its text otherwise. It follows the agent's work: each
   // step it reports and its end (`agent_task_progress`, `agent_finished`) list the folder and its changes again, at
   // most once every REFRESH_MS, so a burst of steps reads it once. Beside any other conversation (no `handoff`): the
   // user's home folder, the same way but without changes, read again only when asked. A file shown can be deleted,
-  // once the user confirms, while Settings → General allows it (off until turned on).
+  // to the system's trash, once the user confirms, while Settings → General allows it (off until turned on).
   const REFRESH_MS = 1000;
 
   type Props = { threadId: string; handoff: Handoff | null; onclose: () => void };
@@ -38,7 +39,11 @@
   const marks = $derived(new ChangeMarks((handoff && changes.data?.changes) || []));
   const hideLabel = $derived(handoff ? t("handedFolder.hide") : t("handedFolder.hideHome"));
   let picked = $state<string | null>(null);
+  // What git says changed in the file picked: it opens on what changed, its text a click away.
+  const pickedChange = $derived(picked === null ? null : fileChange(picked));
+  let view = $state<FileView>("text");
   let preview = $state<FilePreview | null>(null);
+  let diff = $state<FileDiff | null>(null);
   let previewError = $state("");
   let refreshing = $state(false);
   // The file the user asked to delete, until they confirm or cancel.
@@ -83,19 +88,37 @@
 
   function pick(path: string): void {
     picked = path;
-    preview = null;
-    previewError = "";
+    view = fileChange(path) ? "diff" : "text";
+    [preview, diff, previewError] = [null, null, ""];
     void read(path);
   }
 
+  function show(shown: FileView): void {
+    view = shown;
+    previewError = "";
+    if (picked !== null) void read(picked);
+  }
+
+  /** The file picked, as it's shown: what changed in it, or its text. */
   async function read(path: string): Promise<void> {
     const call = ++reading;
+    const shown = view;
     try {
-      const found = handoff ? await client.conversations.agentFile(threadId, path) : await client.folders.homeFile(path);
-      if (call === reading) [preview, previewError] = [found, ""];
+      if (shown === "diff") {
+        const found = await client.conversations.agentDiff(threadId, path);
+        if (call === reading) [diff, previewError] = [found, ""];
+      } else {
+        const found = handoff ? await client.conversations.agentFile(threadId, path) : await client.folders.homeFile(path);
+        if (call === reading) [preview, previewError] = [found, ""];
+      }
     } catch (e) {
-      if (call === reading) [preview, previewError] = [null, describe(e)];
+      if (call === reading) previewError = describe(e);
     }
+  }
+
+  function fileChange(path: string): ChangeKind | null {
+    const mark = marks.of(path, false);
+    return mark === null || mark === "inside" ? null : mark;
   }
 
   /** Deletes the file once the user confirms, then shows the tree without it. */
@@ -138,8 +161,12 @@
   {#if picked !== null}
     <FileText
       path={picked}
+      change={pickedChange}
+      {view}
       {preview}
+      {diff}
       error={previewError}
+      onview={show}
       onback={() => (picked = null)}
       ondelete={deletable.data ? (path) => (deleting = path) : undefined}
     />
@@ -164,7 +191,7 @@
   <Confirm
     title={t("handedFolder.deleteTitle", { name: lastPart(path) })}
     text={t("handedFolder.deleteText", { path })}
-    action={t("common.delete")}
+    action={t("handedFolder.deleteAction")}
     onanswer={(yes) => (yes ? void remove(path) : (deleting = null))}
   />
 {/if}

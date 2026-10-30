@@ -38,3 +38,28 @@ function parents(path: string): string[] {
 export function changeLetter(kind: ChangeKind): string {
   return { modified: "M", added: "A", deleted: "D", untracked: "U" }[kind];
 }
+
+/** How the panel shows a file: what changed in it, or its whole text. */
+export type FileView = "diff" | "text";
+
+/** A line of a file's diff as the panel colours it: added, removed, a hunk's heading, git's own lines about the file
+ * (its name, its mode, "\ No newline"), or what stayed around the change. */
+export type DiffLine = { kind: "added" | "removed" | "hunk" | "meta" | "context"; text: string };
+
+/** `git diff`'s unified output, a line each. Lines before the first hunk are git's about the file. */
+export function diffLines(text: string): DiffLine[] {
+  let inHunk = false;
+  return text
+    .replace(/\n$/, "")
+    .split("\n")
+    .map((line): DiffLine => {
+      if (line.startsWith("@@")) {
+        inHunk = true;
+        return { kind: "hunk", text: line };
+      }
+      if (!inHunk || line.startsWith("\\")) return { kind: "meta", text: line };
+      if (line.startsWith("+")) return { kind: "added", text: line };
+      if (line.startsWith("-")) return { kind: "removed", text: line };
+      return { kind: "context", text: line };
+    });
+}

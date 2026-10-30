@@ -10,7 +10,8 @@
   import Self from "./FolderLevel.svelte";
 
   // One folder of the handed folder's tree, and the folders open inside it, each a level deeper. A folder opens on a
-  // click, listed the first time; a file opens its preview.
+  // click, listed the first time; a file opens its preview. What git says was deleted shows where it was, struck
+  // through: a deleted file opens on what it had, a deleted folder on the files deleted with it.
   type Props = {
     path: string;
     listings: Record<string, Listing>;
@@ -40,6 +41,7 @@
         <button
           class="row"
           class:picked={entry.path === picked}
+          class:gone={entry.deleted}
           style:--depth={depth}
           title={entry.path}
           onclick={() => (entry.folder ? ontoggle(entry.path) : onpick(entry.path))}
@@ -86,6 +88,10 @@
   .row:hover {
     background: var(--color-bg-hover-ghost);
     color: var(--color-text-primary);
+  }
+  .row.gone .name {
+    text-decoration: line-through;
+    opacity: 0.7;
   }
   .row.picked {
     background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);

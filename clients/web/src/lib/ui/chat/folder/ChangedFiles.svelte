@@ -4,8 +4,8 @@
   import { t } from "$lib/i18n.svelte";
   import ChangeMark from "./ChangeMark.svelte";
 
-  // The top of the side panel: what git says changed in the handed folder, each file opening its preview (not a
-  // deleted one, nor an untracked folder, which git lists once for everything in it). Folded away with its heading.
+  // The top of the side panel: what git says changed in the handed folder, each file opening what changed in it (a
+  // deleted one what it had; not an untracked folder, which git lists once for everything in it). Folded away with its heading.
   // `error` says why they couldn't be read: in place of Loading the first time, above the ones read before after.
   type Props = {
     changes: FolderChanges | undefined;
@@ -34,7 +34,7 @@
     {:else}
       <ul>
         {#each changes.changes as change (`${change.status}:${change.path}`)}
-          {@const openable = change.status !== "deleted" && !change.path.endsWith("/")}
+          {@const openable = !change.path.endsWith("/")}
           <li>
             <button
               class="row"

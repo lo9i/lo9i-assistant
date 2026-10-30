@@ -917,7 +917,8 @@ export interface paths {
         };
         /**
          * Handed Folder Contents
-         * @description The files and folders in `path`, "" for the folder itself: folders first, then files, by name.
+         * @description The files and folders in `path`, "" for the folder itself: folders first, then files, by name, those git
+         *     says were deleted there marked `deleted`. A folder deleted with everything in it lists those files.
          */
         get: operations["handed_folder_contents_conversations__thread_id__agent_folder_get"];
         put?: never;
@@ -944,9 +945,31 @@ export interface paths {
         post?: never;
         /**
          * Delete Handed File
-         * @description Deletes a file the panel shows, when the user asks from it; never a folder (404, as a path not there).
+         * @description Moves a file the panel shows to the system's trash, when the user asks from it; never a folder (404, as a
+         *     path not there).
          */
         delete: operations["delete_handed_file_conversations__thread_id__agent_folder_file_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{thread_id}/agent/folder/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Handed Folder Diff
+         * @description What changed in a file git lists as changed, as `git diff` against the last commit shows it (a new file
+         *     whole, as added); its start for a big one. 404 for a path git doesn't list as a changed file.
+         */
+        get: operations["handed_folder_diff_conversations__thread_id__agent_folder_diff_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1009,7 +1032,7 @@ export interface paths {
         post?: never;
         /**
          * Delete Home File
-         * @description Deletes a file of the home folder, as the handed folder's.
+         * @description Moves a file of the home folder to the trash, as the handed folder's.
          */
         delete: operations["delete_home_file_folders_home_file_delete"];
         options?: never;
@@ -3457,6 +3480,20 @@ export interface components {
              */
             status: "modified" | "added" | "deleted" | "untracked";
         };
+        /** FileDiff */
+        FileDiff: {
+            /** Path */
+            path: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "modified" | "added" | "deleted" | "untracked";
+            /** Text */
+            text: string | null;
+            /** Truncated */
+            truncated: boolean;
+        };
         /** FilePreview */
         FilePreview: {
             /** Path */
@@ -3507,6 +3544,11 @@ export interface components {
             folder: boolean;
             /** Size */
             size: number;
+            /**
+             * Deleted
+             * @default false
+             */
+            deleted: boolean;
         };
         /** FolderListing */
         FolderListing: {
@@ -7042,6 +7084,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    handed_folder_diff_conversations__thread_id__agent_folder_diff_get: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileDiff"];
                 };
             };
             /** @description Validation Error */

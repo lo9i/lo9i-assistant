@@ -68,6 +68,7 @@ from assistant_terminal.tui.screens import (
     EmailRecipientsScreen,
     EmailScreen,
     FilesScreen,
+    FolderScreen,
     HomeScreen,
     HostScreen,
     JobsScreen,
@@ -192,6 +193,7 @@ class AssistantApp(App):
             "/jobs": self._command_jobs,
             "/devices": self._command_devices,
             "/files": self._command_files,
+            "/folder": self._command_folder,
             "/usage": self._command_usage,
             "/logs": self._command_logs,
             "/doctor": self._command_doctor,
@@ -1042,6 +1044,19 @@ class AssistantApp(App):
 
     async def _command_files(self, _: str) -> None:
         self.push_screen(FilesScreen(self._service.files))
+
+    async def _command_folder(self, _: str) -> None:
+        """The folder the conversation is handed to, or the home folder beside one that isn't."""
+        thread_id = self._live.session.thread_id
+        handoff = await self._service.conversations.agent(thread_id)
+        folders = self._service.folders
+        folder = folders.handed(thread_id) if handoff else folders.home()
+        title = (
+            t("Files of {agent} in {folder}", agent=handoff.name, folder=handoff.folder)
+            if handoff
+            else t("Your home folder")
+        )
+        self.push_screen(FolderScreen(folder, folders, title))
 
     async def _command_usage(self, _: str) -> None:
         self.push_screen(UsageScreen(self._service.usage))

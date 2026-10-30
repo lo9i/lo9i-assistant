@@ -23,6 +23,12 @@ from assistant.core.agent import (
     EmailError,
     Episode,
     Fact,
+    FileChange,
+    FileDiff,
+    FilePreview,
+    FolderChanges,
+    FolderContents,
+    FolderEntry,
     FolderListing,
     FoundServer,
     Handoff,
@@ -45,6 +51,7 @@ from assistant.core.agent import (
     McpToolInfo,
     MemoryEditError,
     MemorySnapshot,
+    MissingPathError,
     ModelSettingsError,
     ModelStatus,
     Notification,
@@ -1036,6 +1043,69 @@ class FakeFiles:
         return b"buy milk"
 
 
+class FakeShownFolder:
+    """A folder the panel shows, from `files` (path → text, None for a deleted one git lists) and `changes`."""
+
+    def __init__(self, files: dict[str, str | None], changes: list[FileChange] | None) -> None:
+        self.files = files
+        self.listed = changes
+        self.has_changes = changes is not None
+        self.deleted: list[str] = []
+
+    async def contents(self, path=""):
+        prefix = f"{path}/" if path else ""
+        names: dict[str, FolderEntry] = {}
+        for file, text in self.files.items():
+            if not file.startswith(prefix):
+                continue
+            name, _, rest = file[len(prefix) :].partition("/")
+            names.setdefault(name, FolderEntry(name, prefix + name, bool(rest), 0, text is None and not rest))
+        entries = sorted(names.values(), key=lambda e: (not e.folder, e.name))
+        return FolderContents(path, entries, False)
+
+    async def file(self, path):
+        text = self.files.get(path)
+        if text is None:
+            raise MissingPathError(f"{path} isn't there.")
+        return FilePreview(path, len(text), text, False)
+
+    async def changes(self):
+        return FolderChanges(True, self.listed or [], False) if self.has_changes else None
+
+    async def diff(self, path):
+        change = next((c for c in self.listed or [] if c.path == path), None)
+        if change is None:
+            raise MissingPathError(f"{path} has no changes to show.")
+        return FileDiff(path, change.status, f"--- a/{path}\n+++ b/{path}\n@@ -1 +1 @@\n-old\n+new\n", False)
+
+    async def delete(self, path):
+        self.deleted.append(path)
+        self.files.pop(path, None)
+
+
+class FakeFolders:
+    def __init__(self) -> None:
+        self.deleting_on = False
+        self.handed_folder = FakeShownFolder(
+            {"src/app.py": "print('hi')\n", "README.md": None, "notes.txt": "milk\n"},
+            [FileChange("src/app.py", "modified"), FileChange("README.md", "deleted")],
+        )
+        self.home_folder = FakeShownFolder({"todo.md": "buy milk\n"}, None)
+
+    def handed(self, thread_id):
+        return self.handed_folder
+
+    def home(self):
+        return self.home_folder
+
+    async def deleting(self):
+        return self.deleting_on
+
+    async def set_deleting(self, enabled):
+        self.deleting_on = enabled
+        return enabled
+
+
 class FakeClients:
     own_id = "me"
 
@@ -1248,6 +1318,7 @@ class FakeClient:
         self.devices = FakeDevices()
         self.logs = FakeLogs()
         self.files = FakeFiles()
+        self.folders = FakeFolders()
         self.mcp = FakeMcp()
         self.home = FakeHome()
         self.repositories = FakeRepositories(self.skills, self.mcp)

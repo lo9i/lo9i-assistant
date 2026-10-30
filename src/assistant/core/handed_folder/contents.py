@@ -21,6 +21,8 @@ class FolderEntry:
     folder: bool
     # In bytes; 0 for a folder.
     size: int
+    # Not on disk any more: git says it was deleted (tree.py), or everything in this folder was.
+    deleted: bool = False
 
 
 @dataclass(frozen=True)

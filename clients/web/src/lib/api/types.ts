@@ -39,6 +39,7 @@ export type FolderListing = Schemas["FolderListing"];
 export type FolderContents = Schemas["FolderContents"];
 export type FolderEntry = Schemas["FolderEntry"];
 export type FilePreview = Schemas["FilePreview"];
+export type FileDiff = Schemas["FileDiff"];
 export type FolderChanges = Schemas["FolderChanges"];
 export type FileChange = Schemas["FileChange"];
 export type Episode = Schemas["Episode"];

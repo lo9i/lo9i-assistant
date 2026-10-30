@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from assistant.core.handed_folder import changes, contents, deleting, paths, preview
+from assistant.core.handed_folder import changes, contents, deleting, diff, paths, preview, tree
 from assistant.core.handed_folder.changes import FileChange, parse_status
-from assistant.core.handed_folder.paths import MissingPathError, OutsideFolderError
+from assistant.core.handed_folder.paths import HandedFolderError, MissingPathError, OutsideFolderError
 
 
 @pytest.fixture(autouse=True)
@@ -103,9 +103,10 @@ async def test_a_file_is_previewed_as_text_its_start_when_big_and_none_when_bina
         await preview.preview(project, "gone.txt")
 
 
-async def test_a_file_is_deleted_but_never_a_folder_or_what_the_tree_hides(project):
+async def test_a_file_is_deleted_to_the_trash_but_never_a_folder_or_what_the_tree_hides(project, trashed):
     await deleting.delete(project, "src/app.py")
     assert not (project / "src" / "app.py").exists()
+    assert (trashed / "app.py").read_text() == "print('hi')\n"  # the user can take it back
     for path in ["src", "", "gone.txt"]:
         with pytest.raises(MissingPathError):
             await deleting.delete(project, path)
@@ -115,11 +116,79 @@ async def test_a_file_is_deleted_but_never_a_folder_or_what_the_tree_hides(proje
     assert (project / "src").is_dir() and (project / ".env").exists() and (project / ".git" / "HEAD").exists()
 
 
-async def test_deleting_a_link_deletes_the_link_not_what_it_leads_to(project):
+async def test_deleting_a_link_deletes_the_link_not_what_it_leads_to(project, trashed):
     os.symlink(project / "README.md", project / "readme-link")
     await deleting.delete(project, "readme-link")
     assert not (project / "readme-link").is_symlink()
+    assert (project / "README.md").exists() and (trashed / "readme-link").is_symlink()
+
+
+async def test_a_file_the_trash_cant_take_is_left_where_it_is(project, monkeypatch):
+    def refused(path: Path) -> None:
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(deleting.trash, "move", refused)
+    with pytest.raises(HandedFolderError, match=r"Can't move README\.md to the trash: Permission denied"):
+        await deleting.delete(project, "README.md")
     assert (project / "README.md").exists()
+
+
+async def test_the_tree_shows_what_git_says_was_deleted_where_it_was(project):
+    (project / "src" / "app.py").unlink()
+    (project / "src").rmdir()
+    (project / "README.md").unlink()
+    top = await tree.listed(project, "")
+    assert [(e.name, e.folder, e.deleted) for e in top.entries] == [
+        ("src", True, True),  # gone with everything in it
+        (".gitignore", False, False),
+        ("README.md", False, True),
+    ]
+    inside = await tree.listed(project, "src")
+    assert [(e.path, e.folder, e.deleted) for e in inside.entries] == [("src/app.py", False, True)]
+    with pytest.raises(MissingPathError):
+        await tree.listed(project, "never-there")
+
+
+async def test_a_changed_file_shows_what_changed_and_a_new_or_deleted_one_whole(project):
+    (project / "README.md").write_text("# Project\nMore.\n")
+    modified = await diff.diff(project, "README.md")
+    assert modified.status == "modified" and modified.text is not None
+    assert "-# Project" not in modified.text and "+More." in modified.text and "@@" in modified.text
+    (project / "new.py").write_text("x = 1\n")
+    added = await diff.diff(project, "new.py")
+    assert added.status == "untracked" and added.text is not None and "+x = 1" in added.text
+    (project / "src" / "app.py").unlink()
+    deleted = await diff.diff(project, "src/app.py")
+    assert deleted.status == "deleted" and deleted.text is not None and "-print('hi')" in deleted.text
+
+
+async def test_a_file_in_a_new_folder_shows_whole_but_not_one_git_ignores_there(project):
+    (project / "docs").mkdir()
+    (project / "docs" / "a.md").write_text("hello\n")
+    (project / "docs" / ".env").write_text("SECRET=2")
+    found = await diff.diff(project, "docs/a.md")
+    assert found.status == "untracked" and found.text is not None and "+hello" in found.text
+    with pytest.raises(OutsideFolderError):
+        await diff.diff(project, "docs/.env")
+
+
+async def test_only_a_file_git_lists_as_changed_has_a_diff(project):
+    (project / "docs").mkdir()
+    (project / "docs" / "a.md").write_text("")
+    (project / ".env").write_text("SECRET=2")
+    for path in ["README.md", "docs/", "docs", ".env", "../outside.txt", "node_modules/x.txt"]:
+        with pytest.raises(MissingPathError):
+            await diff.diff(project, path)
+
+
+async def test_a_repository_with_no_commit_shows_its_files_as_new(tmp_path):
+    where = tmp_path / "fresh"
+    where.mkdir()
+    _git(where, "init", "-q")
+    (where / "a.txt").write_text("hello\n")
+    _git(where, "add", "a.txt")
+    found = await diff.diff(paths.root(str(where)), "a.txt")
+    assert found.status == "added" and found.text is not None and "+hello" in found.text
 
 
 async def test_changes_are_what_git_status_says_under_the_folder(project):

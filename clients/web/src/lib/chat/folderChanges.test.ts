@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ChangeMarks, changeLetter } from "./folderChanges";
+import { ChangeMarks, changeLetter, diffLines } from "./folderChanges";
 
 describe("ChangeMarks", () => {
   const marks = new ChangeMarks([
@@ -29,5 +29,12 @@ describe("ChangeMarks", () => {
 
   it("writes changes as git's short status", () => {
     expect(["modified", "added", "deleted", "untracked"].map((k) => changeLetter(k as never))).toEqual(["M", "A", "D", "U"]);
+  });
+});
+
+describe("diffLines", () => {
+  it("reads git's lines about the file, then each hunk's added, removed and unchanged lines", () => {
+    const text = "diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1,2 +1,2 @@\n keep\n-old\n+new\n\\ No newline at end of file\n";
+    expect(diffLines(text).map((l) => l.kind)).toEqual(["meta", "meta", "meta", "hunk", "context", "removed", "added", "meta"]);
   });
 });

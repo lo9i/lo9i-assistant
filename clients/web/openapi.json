@@ -1970,7 +1970,7 @@
     "/conversations/{thread_id}/agent/folder": {
       "get": {
         "summary": "Handed Folder Contents",
-        "description": "The files and folders in `path`, \"\" for the folder itself: folders first, then files, by name.",
+        "description": "The files and folders in `path`, \"\" for the folder itself: folders first, then files, by name, those git\nsays were deleted there marked `deleted`. A folder deleted with everything in it lists those files.",
         "operationId": "handed_folder_contents_conversations__thread_id__agent_folder_get",
         "parameters": [
           {
@@ -2067,7 +2067,7 @@
       },
       "delete": {
         "summary": "Delete Handed File",
-        "description": "Deletes a file the panel shows, when the user asks from it; never a folder (404, as a path not there).",
+        "description": "Moves a file the panel shows to the system's trash, when the user asks from it; never a folder (404, as a\npath not there).",
         "operationId": "delete_handed_file_conversations__thread_id__agent_folder_file_delete",
         "parameters": [
           {
@@ -2096,6 +2096,55 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{thread_id}/agent/folder/diff": {
+      "get": {
+        "summary": "Handed Folder Diff",
+        "description": "What changed in a file git lists as changed, as `git diff` against the last commit shows it (a new file\nwhole, as added); its start for a big one. 404 for a path git doesn't list as a changed file.",
+        "operationId": "handed_folder_diff_conversations__thread_id__agent_folder_diff_get",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileDiff"
                 }
               }
             }
@@ -2235,7 +2284,7 @@
       },
       "delete": {
         "summary": "Delete Home File",
-        "description": "Deletes a file of the home folder, as the handed folder's.",
+        "description": "Moves a file of the home folder to the trash, as the handed folder's.",
         "operationId": "delete_home_file_folders_home_file_delete",
         "parameters": [
           {
@@ -7601,6 +7650,47 @@
         ],
         "title": "FileChange"
       },
+      "FileDiff": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "modified",
+              "added",
+              "deleted",
+              "untracked"
+            ],
+            "title": "Status"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "status",
+          "text",
+          "truncated"
+        ],
+        "title": "FileDiff"
+      },
       "FilePreview": {
         "properties": {
           "path": {
@@ -7718,6 +7808,11 @@
           "size": {
             "type": "integer",
             "title": "Size"
+          },
+          "deleted": {
+            "type": "boolean",
+            "title": "Deleted",
+            "default": false
           }
         },
         "type": "object",

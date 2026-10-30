@@ -35,6 +35,7 @@ from assistant.core.agent import (
     EmailProvider,
     Episode,
     Fact,
+    FileDiff,
     FilePreview,
     FileUnavailableError,
     FolderChanges,
@@ -1070,14 +1071,16 @@ _Offset = Annotated[int, Query(ge=0)]
 
 
 def _add_handed_folder_routes(app: FastAPI, service: AssistantService) -> None:
-    """The folder a conversation is handed to, or the home folder beside one that isn't, for the web app's side panel
-    (core/handed_folder/). Paths are relative to it; the one change made there is deleting a file the user picked.
+    """The folder a conversation is handed to, or the home folder beside one that isn't, for the apps' folder panel
+    (core/handed_folder/). Paths are relative to it; the one change made there is deleting a file the user picked,
+    which goes to the system's trash.
     400: a path outside it, or one the panel doesn't show (.git, node_modules, .venv, what git ignores). 403:
     deleting while it's turned off in Settings. 404: the conversation isn't with an agent, or the path isn't there."""
 
     @app.get("/conversations/{thread_id}/agent/folder")
     async def handed_folder_contents(thread_id: str, path: str = "") -> FolderContents:
-        """The files and folders in `path`, "" for the folder itself: folders first, then files, by name."""
+        """The files and folders in `path`, "" for the folder itself: folders first, then files, by name, those git
+        says were deleted there marked `deleted`. A folder deleted with everything in it lists those files."""
         return await _handed_folder(service.handed_folder_contents(settings.owner_id, thread_id, path))
 
     @app.get("/conversations/{thread_id}/agent/folder/file")
@@ -1085,9 +1088,16 @@ def _add_handed_folder_routes(app: FastAPI, service: AssistantService) -> None:
         """A file's text to preview, its start for a big one; none for a file that isn't text."""
         return await _handed_folder(service.handed_folder_file(settings.owner_id, thread_id, path))
 
+    @app.get("/conversations/{thread_id}/agent/folder/diff")
+    async def handed_folder_diff(thread_id: str, path: str) -> FileDiff:
+        """What changed in a file git lists as changed, as `git diff` against the last commit shows it (a new file
+        whole, as added); its start for a big one. 404 for a path git doesn't list as a changed file."""
+        return await _handed_folder(service.handed_folder_diff(settings.owner_id, thread_id, path))
+
     @app.delete("/conversations/{thread_id}/agent/folder/file")
     async def delete_handed_file(thread_id: str, path: str) -> Ok:
-        """Deletes a file the panel shows, when the user asks from it; never a folder (404, as a path not there)."""
+        """Moves a file the panel shows to the system's trash, when the user asks from it; never a folder (404, as a
+        path not there)."""
         await _handed_folder(service.delete_handed_file(settings.owner_id, thread_id, path))
         return Ok()
 
@@ -1109,7 +1119,7 @@ def _add_handed_folder_routes(app: FastAPI, service: AssistantService) -> None:
 
     @app.delete("/folders/home/file")
     async def delete_home_file(path: str) -> Ok:
-        """Deletes a file of the home folder, as the handed folder's."""
+        """Moves a file of the home folder to the trash, as the handed folder's."""
         await _handed_folder(service.delete_home_file(path))
         return Ok()
 

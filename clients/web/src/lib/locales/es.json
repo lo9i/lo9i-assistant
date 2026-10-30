@@ -463,9 +463,10 @@
     "home": "Carpeta personal",
     "showHome": "Mostrar tu carpeta personal",
     "hideHome": "Ocultar tu carpeta personal",
-    "delete": "Borrar este archivo",
-    "deleteTitle": "¿Borrar {name}?",
-    "deleteText": "{path} se borra del disco para siempre, no va a la papelera.",
+    "delete": "Mover este archivo a la papelera",
+    "deleteTitle": "¿Mover {name} a la papelera?",
+    "deleteText": "{path} va a la papelera del sistema, de donde puedes recuperarlo.",
+    "deleteAction": "Mover a la papelera",
     "changed": "Cambios",
     "noChanges": "No cambió nada.",
     "notRepository": "No es un repositorio git: los cambios no se siguen.",
@@ -481,7 +482,12 @@
       "deleted": "Borrado",
       "untracked": "Sin seguimiento",
       "inside": "Cambios dentro"
-    }
+    },
+    "view": "Mostrar",
+    "changes": "Cambios",
+    "wholeFile": "Archivo completo",
+    "diffNotText": "No se puede mostrar qué cambió: no es un archivo de texto.",
+    "diffTruncated": "Demasiados cambios para mostrarlos completos: este es el comienzo."
   },
   "fuel": {
     "agentContext": "Contexto de {agent}",

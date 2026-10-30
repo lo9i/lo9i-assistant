@@ -29,6 +29,7 @@ import type {
   EmailSignIn,
   Episode,
   Fact,
+  FileDiff,
   FilePreview,
   FolderChanges,
   FolderContents,
@@ -233,8 +234,14 @@ export class ConversationsGroup {
     return this.transport.request("GET", `${this.agentPath(threadId)}/folder/changes`);
   }
 
-  /** Deletes a file of that folder, never a folder. Throws ApiError as agentFolder, and 403 while deleting is off
-   * (FoldersGroup.deleting). */
+  /** What changed in a file git lists as changed in that folder, as `git diff` shows it (a new file whole). Throws
+   * ApiError as agentFolder, 404 for a file git doesn't list as changed. */
+  agentDiff(threadId: string, path: string): Promise<FileDiff> {
+    return this.transport.request("GET", `${this.agentPath(threadId)}/folder/diff?path=${encodeURIComponent(path)}`);
+  }
+
+  /** Moves a file of that folder to the system's trash, never a folder. Throws ApiError as agentFolder, and 403 while
+   * deleting is off (FoldersGroup.deleting). */
   async deleteAgentFile(threadId: string, path: string): Promise<void> {
     await this.transport.request("DELETE", `${this.agentPath(threadId)}/folder/file?path=${encodeURIComponent(path)}`);
   }
@@ -277,7 +284,8 @@ export class FoldersGroup {
     return this.transport.request("GET", `/folders/home/file?path=${encodeURIComponent(path)}`);
   }
 
-  /** Deletes a file of the home folder, never a folder. Throws ApiError as home, and 403 while deleting is off. */
+  /** Moves a file of the home folder to the trash, never a folder. Throws ApiError as home, and 403 while deleting is
+   * off. */
   async deleteHomeFile(path: string): Promise<void> {
     await this.transport.request("DELETE", `/folders/home/file?path=${encodeURIComponent(path)}`);
   }

@@ -9,6 +9,7 @@ from assistant.client.daemon_client.doctor import DoctorApi
 from assistant.client.daemon_client.email import EmailApi
 from assistant.client.daemon_client.events import EventsMixin
 from assistant.client.daemon_client.files import FilesApi
+from assistant.client.daemon_client.folders import FoldersApi
 from assistant.client.daemon_client.home import HomeApi
 from assistant.client.daemon_client.identity import IdentityApi
 from assistant.client.daemon_client.jobs import JobsApi
@@ -41,6 +42,7 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         super().__init__(transport)
         self.conversations = ConversationsApi(transport)
         self.files = FilesApi(transport)
+        self.folders = FoldersApi(transport)
         self.identity = IdentityApi(transport)
         self.memory = MemoryApi(transport)
         self.skills = SkillsApi(transport)

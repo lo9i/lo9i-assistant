@@ -25,6 +25,7 @@ from assistant.core.config import settings
 from assistant.core.conversation.digest import DigestInput, MemoryDigest
 from assistant.core.conversation.dispatch import QUICK, Candidate, Pick
 from assistant.core.conversation.titles import Titled
+from assistant.core.handed_folder import trash
 from assistant.core.home.model import SectionContent
 from assistant.core.llm import windows
 from assistant.core.memory.embedder import EmbeddingError
@@ -60,6 +61,20 @@ def isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     for key in ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"):
         monkeypatch.delenv(key, raising=False)
     return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def trashed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """The folder panel's trash (core/handed_folder/trash.py) is a folder of the test's, never the system's: what's
+    moved there keeps its name."""
+    where = tmp_path / "Trash"
+
+    def move(path: Path) -> None:
+        where.mkdir(exist_ok=True)
+        path.rename(where / path.name)
+
+    monkeypatch.setattr(trash, "move", move)
+    return where
 
 
 @pytest.fixture(autouse=True)
