@@ -1,7 +1,8 @@
 """What a channel's chat does with what the user sends there. A new message goes to the inbox, which
 routes it to the conversation it continues or a new one (core/conversation/dispatch_nodes.py); a reply to a
 message goes on in that message's conversation; after /new, the next message starts a new conversation;
-while the conversation the channel last wrote in is handed to a coding agent, messages go on there. A button
+while the conversation the channel last wrote in is handed to a coding agent, messages go on there; /pin and
+/unpin change the skills pinned to it. A button
 answers what its message's run waits for. Each run is shown in the chat it came from (turn.py), through the
 channel's process, its first reply tagged with a short name of the conversation; every message sent there
 is kept with its conversation (threads.py), so replying to it goes on there."""
@@ -33,6 +34,7 @@ from assistant.core.conversation.held import CHAT, HeldRun, Origin
 from assistant.core.events import ApprovalRequired, Dispatched, Event, is_question
 from assistant.core.i18n import Texts, translatable
 from assistant.core.outbox import DeliveryError
+from assistant.core.skills.store import SkillError
 from assistant.core.speech.synthesizer import SynthesisError
 
 logger = logging.getLogger(__name__)
@@ -71,6 +73,9 @@ class Conversations(Protocol):
     async def hand_conversation(self, user_id: str, thread_id: str, command: str, folder: str) -> Handoff: ...
     async def take_back_conversation(self, user_id: str, thread_id: str) -> None: ...
     async def agent_folders(self, user_id: str) -> AgentFolders: ...
+    async def pinned_skills(self, user_id: str, thread_id: str) -> list[str]: ...
+    async def pin_skill(self, user_id: str, thread_id: str, name: str) -> list[str]: ...
+    async def unpin_skill(self, user_id: str, thread_id: str, name: str) -> list[str]: ...
 
 
 class Runs(Protocol):
@@ -156,7 +161,7 @@ class ChannelChats:
         task.add_done_callback(self._tasks.discard)
 
     async def command(self, channel: str, command: str, text: str = "") -> str:
-        """/new, /start or an agent's command with what follows it, and what to answer."""
+        """/new, /start, /pin, /unpin or an agent's command with what follows it, and what to answer."""
         t = await self._conversations.texts()
         match command:
             case "new":
@@ -164,6 +169,8 @@ class ChannelChats:
                 return t("Your next message starts a new conversation.")
             case "start":
                 return t(GREETING)
+            case "pin" | "unpin":
+                return await self._pin_command(t, channel, command, text.strip())
         agent = next((a for a in await self._conversations.agents() if a.command == command), None)
         if agent is None:
             return t("Unknown command /{command}.", command=command)
@@ -199,6 +206,41 @@ class ChannelChats:
         folders = [offered.workspace, *offered.recent]
         listed = "\n".join(f"/{agent.command} {folder}" for folder in folders)
         return t("Give {agent} a folder to work in, its full path:", agent=agent.name) + f"\n{listed}"
+
+    async def _pin_command(self, t: Texts, channel: str, command: str, skill: str) -> str:
+        """`/pin <skill>` and `/unpin <skill>` change the skills pinned to the conversation the channel last wrote
+        in, from its next message there (core/conversation/pinned.py); `/pin` alone lists them. Not the inbox's:
+        it sends messages on, so a pin there would hold for quick answers only."""
+        owner = settings.owner_id
+        thread_id = await self._conversations.channel_thread(owner, channel)
+        if thread_id == await self._conversations.inbox_thread(owner):
+            return t(
+                "Skills are pinned to a conversation, and your last message was answered in the inbox. "
+                "Reply to one of my messages in the conversation you want, then pin."
+            )
+        tag = await self._conversations.chat_tag(owner, thread_id)
+        if command == "unpin":
+            return await self._unpin(t, thread_id, tag, skill)
+        return await self._pin(t, thread_id, tag, skill)
+
+    async def _pin(self, t: Texts, thread_id: str, tag: str, skill: str) -> str:
+        owner = settings.owner_id
+        if not skill:
+            pinned = await self._conversations.pinned_skills(owner, thread_id)
+            if not pinned:
+                return t("No skills pinned in [{tag}]: /pin <skill>.", tag=tag)
+            return t("Pinned in [{tag}]: {skills}.", tag=tag, skills=", ".join(pinned))
+        try:
+            await self._conversations.pin_skill(owner, thread_id, skill)
+        except SkillError as e:
+            return str(e)
+        return t("Pinned {skill} to [{tag}], from your next message there.", skill=skill, tag=tag)
+
+    async def _unpin(self, t: Texts, thread_id: str, tag: str, skill: str) -> str:
+        if not skill:
+            return t("Which skill? /unpin <skill>.")
+        await self._conversations.unpin_skill(settings.owner_id, thread_id, skill)
+        return t("Unpinned {skill} from [{tag}], from your next message there.", skill=skill, tag=tag)
 
     async def _press(self, chat: "_Chat", pressed: "_Pressed") -> None:
         place = chat.channel.capitalize()
