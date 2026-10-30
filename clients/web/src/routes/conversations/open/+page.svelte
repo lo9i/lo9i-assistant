@@ -3,8 +3,9 @@
   import { resolve } from "$app/paths";
   import Columns2 from "@lucide/svelte/icons/columns-2";
   import List from "@lucide/svelte/icons/list";
+  import Rows2 from "@lucide/svelte/icons/rows-2";
   import Plus from "@lucide/svelte/icons/plus";
-  import { besideOf, columnsOf } from "$lib/chat/cardLayout";
+  import { besideOf, columnsOf, rearranged } from "$lib/chat/cardLayout";
   import { conversationLayout } from "$lib/conversationLayout.svelte";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
@@ -30,6 +31,7 @@
   const pins = homePins();
   // The conversations shown as columns: the one shown, and those beside it.
   const columns = $derived(snapshot.current ? columnsOf(conversationLayout.current, snapshot.current.threadId) : []);
+  const stacked = $derived(conversationLayout.current.arrange === "stacked");
   let picking = $state(false);
 
   async function startNew(): Promise<void> {
@@ -54,6 +56,17 @@
   <TopBar {title}>
     {#snippet actions()}
       {#if listed && !listed.inbox}<PinToHome pinned={pins.has(listed.thread_id)} ontoggle={() => pins.toggle(listed.thread_id)} />{/if}
+      {#if columns.length > 1}
+        <!-- Shows the arrangement it switches to. -->
+        <button
+          class="btn btn--ghost"
+          title={stacked ? t("board.sideBySideHint") : t("board.stackHint")}
+          onclick={() => conversationLayout.change(rearranged(conversationLayout.current))}
+          >{#if stacked}<Columns2 size={16} />{:else}<Rows2 size={16} />{/if}<span class="hide-narrow"
+            >{stacked ? t("board.sideBySide") : t("board.stack")}</span
+          ></button
+        >
+      {/if}
       <button class="btn btn--ghost" title={t("board.openBesideHint")} onclick={() => (picking = true)}
         ><Columns2 size={16} /><span class="hide-narrow">{t("board.openBeside")}</span></button
       >
@@ -67,7 +80,8 @@
     {/snippet}
   </TopBar>
 
-  <div class="screen" class:wide={columns.length > 1}><Columns /></div>
+  <!-- Side by side the columns take the whole width; stacked, each reads at the page's usual width. -->
+  <div class="screen" class:wide={columns.length > 1 && !stacked}><Columns /></div>
   {#if picking}<BesidePicker {title} shown={columns} onpick={openBeside} />{/if}
 {/if}
 

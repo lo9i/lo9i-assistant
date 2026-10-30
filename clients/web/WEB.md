@@ -38,7 +38,8 @@ conversations side by side, where the user is when they want a second one: Open 
 (`BesidePicker.svelte`), the sidebar's conversations have Open beside and can be dragged onto the page, and a card's
 Open beside goes there too (`openConversation.ts::openBeside`). Up to three columns, each a whole `ChatPanel` on a
 conversation open in the tab (`OpenChats.opened`): resized by dragging the dividers, reordered by their headers, closed,
-any one full screen until its button or Esc. The column the user is in is the conversation shown, which the top bar and
+any one full screen until its button or Esc; Stack in the top bar puts them one above the other instead (`arrange`), and
+Side by side back. The column the user is in is the conversation shown, which the top bar and
 the sidebar name; showing one that isn't a column shows it alone, and the columns come back with one of them. Below
 900px one shows at a time, picked from tabs. Chat's list also shows the conversations as cards (its top bar's List /
 Cards, `ConversationBoard.svelte`): each card has its last messages, a live status and a small composer, reorders by

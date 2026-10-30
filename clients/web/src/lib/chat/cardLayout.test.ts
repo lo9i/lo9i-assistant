@@ -10,6 +10,7 @@ import {
   movedPane,
   ordered,
   parsed,
+  rearranged,
   replacedPane,
   resized,
   restored,
@@ -124,6 +125,20 @@ describe("conversations beside the one shown", () => {
   });
 });
 
+describe("arranging", () => {
+  it("places them side by side at first, stacked once asked, and back", () => {
+    expect(initial.arrange).toBe("side");
+    const stacked = rearranged({ ...panes("a", "b"), widths: [0.7, 0.3] });
+    expect(stacked.arrange).toBe("stacked");
+    expect(stacked.widths).toEqual([0.7, 0.3]);
+    expect(rearranged(stacked).arrange).toBe("side");
+  });
+
+  it("reads an arrangement it doesn't know as side by side", () => {
+    expect(parsed(JSON.stringify({ arrange: "diagonal" })).arrange).toBe("side");
+  });
+});
+
 describe("resizing", () => {
   it("drags a divider, the two panes beside it sharing their width", () => {
     const widths = resized([0.4, 0.4, 0.2], 0, 0.1);
@@ -169,6 +184,7 @@ describe("keeping the layout", () => {
       order: ["b", "a"],
       panes: ["a", "b"],
       widths: [0.6, 0.4],
+      arrange: "stacked",
       maximized: "a",
     };
     expect(parsed(serialized(layout))).toEqual({ ...layout, maximized: null });

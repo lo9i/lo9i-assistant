@@ -267,7 +267,10 @@
     "openBesideHint": "Mostrar otra conversación junto a esta",
     "openBesideOf": "Elige la conversación que se muestra junto a {title}.",
     "openBesideCard": "Abrirla en el chat, junto a la conversación que se muestra ahí",
-    "noneBeside": "No hay otras conversaciones para mostrar al lado."
+    "noneBeside": "No hay otras conversaciones para mostrar al lado.",
+    "stack": "Apilar",
+    "stackHint": "Mostrar las conversaciones una sobre otra",
+    "sideBySideHint": "Mostrar las conversaciones una al lado de otra"
   },
   "devices": {
     "browserOn": "{browser} en {system}",

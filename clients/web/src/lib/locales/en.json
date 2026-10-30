@@ -267,7 +267,10 @@
     "openBesideHint": "Show another conversation next to this one",
     "openBesideOf": "Pick the conversation to show next to {title}.",
     "openBesideCard": "Open it in Chat, next to the conversation shown there",
-    "noneBeside": "No other conversations to show beside it."
+    "noneBeside": "No other conversations to show beside it.",
+    "stack": "Stack",
+    "stackHint": "Show the conversations one above the other",
+    "sideBySideHint": "Show the conversations next to each other"
   },
   "devices": {
     "browserOn": "{browser} on {system}",

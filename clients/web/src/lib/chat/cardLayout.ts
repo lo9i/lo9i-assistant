@@ -5,6 +5,9 @@
 
 export type View = "list" | "cards";
 
+/** How the conversation page places its conversations: next to each other, or one above the other. */
+export type Arrangement = "side" | "stacked";
+
 export type Layout = {
   view: View;
   // The cards' order as the user dragged them, by thread id; null until they do: newest activity first.
@@ -12,6 +15,8 @@ export type Layout = {
   // The conversations side by side, left to right, and each one's share of the width (together 1).
   panes: string[];
   widths: number[];
+  // Their shares are of the width side by side, of the height stacked.
+  arrange: Arrangement;
   // The card or pane shown full screen.
   maximized: string | null;
 };
@@ -20,7 +25,7 @@ export const MAX_PANES = 3;
 // The narrowest a divider drags a pane to, as a share of the width.
 export const MIN_WIDTH = 0.2;
 
-export const initial: Layout = { view: "list", order: null, panes: [], widths: [], maximized: null };
+export const initial: Layout = { view: "list", order: null, panes: [], widths: [], arrange: "side", maximized: null };
 
 /** The cards in order: those the user never placed (new since they last dragged one) first, newest first, then the
  * user's order. `newestFirst` are the conversations listed; one in the order that's gone isn't shown. */
@@ -120,6 +125,11 @@ export function resized(widths: readonly number[], index: number, delta: number)
   return widths.map((w, i) => (i === index ? left : i === index + 1 ? pair - left : w));
 }
 
+/** Side by side, or stacked; each keeps its share, of the height instead of the width. */
+export function rearranged(layout: Layout): Layout {
+  return { ...layout, arrange: layout.arrange === "side" ? "stacked" : "side" };
+}
+
 /** Full screen for `id`, or back to the layout when it already is. */
 export function toggledMax(layout: Layout, id: string): Layout {
   return { ...layout, maximized: layout.maximized === id ? null : id };
@@ -131,8 +141,8 @@ export function restored(layout: Layout): Layout {
 
 /** What's kept of `layout`: everything but the one full screen. */
 export function serialized(layout: Layout): string {
-  const { view, order, panes, widths } = fitted(layout);
-  return JSON.stringify({ view, order, panes, widths });
+  const { view, order, panes, widths, arrange } = fitted(layout);
+  return JSON.stringify({ view, order, panes, widths, arrange });
 }
 
 /** The layout kept as `text`; the initial one for nothing, or for what isn't one (an older or broken record), part
@@ -152,6 +162,7 @@ export function parsed(text: string | null): Layout {
     order: isStrings(kept.order) ? kept.order : null,
     panes,
     widths,
+    arrange: kept.arrange === "stacked" ? "stacked" : "side",
     maximized: null,
   });
 }

@@ -26,9 +26,9 @@
   import ConversationPane from "./ConversationPane.svelte";
 
   // The conversation page: the conversation shown, and the ones beside it as columns (conversationLayout), each a
-  // conversation open in this tab, live with its own message box. Columns are resized by their dividers, reordered by
-  // their headers, and any one shows full screen; a conversation dragged from the sidebar opens beside. On a narrow
-  // screen one shows at a time, picked from tabs.
+  // conversation open in this tab, live with its own message box: next to each other, or stacked one above the other.
+  // Columns are resized by their dividers, reordered by their headers, and any one shows full screen; a conversation
+  // dragged from the sidebar opens beside. On a narrow screen one shows at a time, picked from tabs.
   const COLUMN_DRAG = "application/x-lo9i-column";
   // A divider moved from the keyboard, as a share of the width.
   const STEP = 0.02;
@@ -56,6 +56,7 @@
   });
   // On a narrow screen only the conversation shown, picked from the tabs.
   const shownColumns = $derived(narrow.current ? columns.filter((c) => c.id === current) : columns);
+  const stacked = $derived(layout.arrange === "stacked");
   // The column the user was last in; Cmd+F finds there.
   let focused = $state<string | null>(null);
   let dragged: string | null = null;
@@ -158,10 +159,10 @@
     return dragged !== null || Array.from(e.dataTransfer?.types ?? []).includes(CONVERSATION_DRAG);
   }
 
-  /** Past the middle of what's dragged over: the drop goes after it. */
+  /** Past the middle of what's dragged over (its lower half, stacked): the drop goes after it. */
   function past(e: DragEvent): boolean {
     const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    return e.clientX > box.left + box.width / 2;
+    return stacked ? e.clientY > box.top + box.height / 2 : e.clientX > box.left + box.width / 2;
   }
 
   /** Over a column, or the page at the end (`id` null). */
@@ -188,15 +189,17 @@
     return mark?.id === id && mark.after === after;
   }
 
+  /** Dragging a divider: across, side by side; up and down, stacked. */
   function startResize(e: PointerEvent, index: number): void {
     const divider = e.currentTarget as HTMLElement;
-    const width = row?.clientWidth ?? 0;
-    if (width === 0) return;
+    const length = (stacked ? row?.clientHeight : row?.clientWidth) ?? 0;
+    if (length === 0) return;
     divider.setPointerCapture(e.pointerId);
-    const start = e.clientX;
+    const along = (p: PointerEvent) => (stacked ? p.clientY : p.clientX);
+    const start = along(e);
     const widths = layout.widths;
     const move = (m: PointerEvent) =>
-      change({ ...conversationLayout.current, widths: resized(widths, index, (m.clientX - start) / width) });
+      change({ ...conversationLayout.current, widths: resized(widths, index, (along(m) - start) / length) });
     const end = () => {
       divider.removeEventListener("pointermove", move);
       divider.removeEventListener("pointerup", end);
@@ -208,7 +211,7 @@
   }
 
   function resizeKey(e: KeyboardEvent, index: number): void {
-    const steps: Record<string, number> = { ArrowLeft: -STEP, ArrowRight: STEP };
+    const steps: Record<string, number> = stacked ? { ArrowUp: -STEP, ArrowDown: STEP } : { ArrowLeft: -STEP, ArrowRight: STEP };
     if (!(e.key in steps)) return;
     e.preventDefault();
     change({ ...layout, widths: resized(layout.widths, index, steps[e.key]) });
@@ -230,6 +233,7 @@
 
   <div
     class="row"
+    class:stacked
     class:drop-end={marked(null, true)}
     bind:this={row}
     role="group"
@@ -248,7 +252,7 @@
           <div
             class="divider"
             role="separator"
-            aria-orientation="vertical"
+            aria-orientation={stacked ? "horizontal" : "vertical"}
             aria-label={t("board.resize")}
             aria-valuenow={Math.round((layout.widths[i - 1] ?? 0) * 100)}
             tabindex="0"
@@ -363,6 +367,23 @@
   .divider:focus-visible {
     outline: none;
   }
+  /* Stacked, one above the other: the dividers run across and are dragged up and down. */
+  .row.stacked {
+    flex-direction: column;
+  }
+  .stacked > .divider {
+    width: auto;
+    height: 12px;
+    cursor: row-resize;
+  }
+  .stacked > .divider::after {
+    top: 5px;
+    bottom: auto;
+    left: 30%;
+    right: 30%;
+    width: auto;
+    height: 2px;
+  }
   /* Where a drop goes: a bar before or after a column, or at the page's right end. */
   .slot.drop-before::before,
   .slot.drop-after::after,
@@ -384,5 +405,25 @@
   }
   .row.drop-end::after {
     right: 0;
+  }
+  .stacked > .slot.drop-before::before,
+  .stacked > .slot.drop-after::after,
+  .row.stacked.drop-end::after {
+    left: 0;
+    right: 0;
+    width: auto;
+    height: 3px;
+  }
+  .stacked > .slot.drop-before::before {
+    top: -7px;
+    bottom: auto;
+  }
+  .stacked > .slot.drop-after::after {
+    top: auto;
+    bottom: -7px;
+  }
+  .row.stacked.drop-end::after {
+    top: auto;
+    bottom: 0;
   }
 </style>
