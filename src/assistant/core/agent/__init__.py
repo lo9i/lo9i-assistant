@@ -14,6 +14,7 @@ from assistant.core.agent.doctor import Cause, ContextPart, DoctorPage, DoctorRe
 from assistant.core.agent.email import EmailAccount, EmailAccountNotFoundError, EmailError, EmailProvider
 from assistant.core.agent.files import FileUnavailableError, UploadedFile
 from assistant.core.agent.handed_folder import (
+    DeletingOffError,
     FileChange,
     FilePreview,
     FolderChanges,
@@ -81,6 +82,7 @@ __all__ = [
     "ConversationError",
     "ConversationStats",
     "Decoding",
+    "DeletingOffError",
     "Device",
     "DeviceError",
     "DoctorPage",

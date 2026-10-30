@@ -82,16 +82,30 @@ describe("ChangedFiles", () => {
 describe("FileText", () => {
   it("shows a text file's text, saying when it's only its start", () => {
     const preview = { path: "a.py", size: 300 * 1024, text: "<b>x</b>", truncated: true };
-    const { body } = render(FileText, { props: { path: "a.py", preview, error: "", onback: nothing } });
+    const { body } = render(FileText, { props: { path: "a.py", preview, error: "", onback: nothing, ondelete: nothing } });
     expect(body).toMatch(/<pre[^>]*>&lt;b>x&lt;\/b><\/pre>/);
     expect(body).toContain("Too big to show whole (300.0 KB)");
   });
 
   it("says a file that isn't text can't be previewed", () => {
     const preview = { path: "a.png", size: 10, text: null, truncated: false };
-    const { body } = render(FileText, { props: { path: "a.png", preview, error: "", onback: nothing } });
+    const { body } = render(FileText, { props: { path: "a.png", preview, error: "", onback: nothing, ondelete: nothing } });
     expect(body).toContain("Can't be previewed");
     expect(body).not.toContain("<pre");
+  });
+
+  it("offers to delete a file once it's read, not while it loads or can't be read", () => {
+    const preview = { path: "a.py", size: 1, text: "x", truncated: false };
+    const props = { path: "a.py", error: "", onback: nothing, ondelete: nothing };
+    expect(render(FileText, { props: { ...props, preview } }).body).toContain('aria-label="Delete this file"');
+    expect(render(FileText, { props: { ...props, preview: null } }).body).not.toContain("Delete this file");
+    expect(render(FileText, { props: { ...props, preview: null, error: "Not Found" } }).body).not.toContain("Delete this file");
+  });
+
+  it("doesn't offer to delete while deleting is off", () => {
+    const preview = { path: "a.py", size: 1, text: "x", truncated: false };
+    const { body } = render(FileText, { props: { path: "a.py", preview, error: "", onback: nothing } });
+    expect(body).not.toContain("Delete this file");
   });
 });
 

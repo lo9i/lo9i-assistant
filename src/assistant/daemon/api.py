@@ -27,6 +27,7 @@ from assistant.core.agent import (
     ConversationError,
     ConversationStats,
     Decoding,
+    DeletingOffError,
     DoctorPage,
     EmailAccount,
     EmailAccountNotFoundError,
@@ -365,6 +366,10 @@ class ProfileItems(BaseModel):
 
 
 class PluginUpdateChecks(BaseModel):
+    enabled: bool
+
+
+class FolderDeleting(BaseModel):
     enabled: bool
 
 
@@ -1053,8 +1058,9 @@ _Offset = Annotated[int, Query(ge=0)]
 
 def _add_handed_folder_routes(app: FastAPI, service: AssistantService) -> None:
     """The folder a conversation is handed to, or the home folder beside one that isn't, for the web app's side panel
-    (core/handed_folder/). Paths are relative to it. 400: a path outside it, or one the panel doesn't show (.git,
-    node_modules, .venv, what git ignores). 404: the conversation isn't with an agent, or the path isn't there."""
+    (core/handed_folder/). Paths are relative to it; the one change made there is deleting a file the user picked.
+    400: a path outside it, or one the panel doesn't show (.git, node_modules, .venv, what git ignores). 403:
+    deleting while it's turned off in Settings. 404: the conversation isn't with an agent, or the path isn't there."""
 
     @app.get("/conversations/{thread_id}/agent/folder")
     async def handed_folder_contents(thread_id: str, path: str = "") -> FolderContents:
@@ -1065,6 +1071,12 @@ def _add_handed_folder_routes(app: FastAPI, service: AssistantService) -> None:
     async def handed_folder_file(thread_id: str, path: str) -> FilePreview:
         """A file's text to preview, its start for a big one; none for a file that isn't text."""
         return await _handed_folder(service.handed_folder_file(settings.owner_id, thread_id, path))
+
+    @app.delete("/conversations/{thread_id}/agent/folder/file")
+    async def delete_handed_file(thread_id: str, path: str) -> Ok:
+        """Deletes a file the panel shows, when the user asks from it; never a folder (404, as a path not there)."""
+        await _handed_folder(service.delete_handed_file(settings.owner_id, thread_id, path))
+        return Ok()
 
     @app.get("/conversations/{thread_id}/agent/folder/changes")
     async def handed_folder_changes(thread_id: str) -> FolderChanges:
@@ -1082,12 +1094,29 @@ def _add_handed_folder_routes(app: FastAPI, service: AssistantService) -> None:
         """A file of the home folder's text to preview, as the handed folder's."""
         return await _handed_folder(service.home_folder_file(path))
 
+    @app.delete("/folders/home/file")
+    async def delete_home_file(path: str) -> Ok:
+        """Deletes a file of the home folder, as the handed folder's."""
+        await _handed_folder(service.delete_home_file(path))
+        return Ok()
+
+    @app.get("/settings/folder-deleting")
+    async def folder_deleting() -> FolderDeleting:
+        """Whether the panel may delete files; off until the user turns it on."""
+        return FolderDeleting(enabled=await service.folder_deleting())
+
+    @app.put("/settings/folder-deleting")
+    async def set_folder_deleting(body: FolderDeleting) -> FolderDeleting:
+        return FolderDeleting(enabled=await service.set_folder_deleting(body.enabled))
+
 
 async def _handed_folder[T](reading: Awaitable[T]) -> T:
     try:
         return await reading
     except (NotHandedError, MissingPathError) as e:
         raise HTTPException(404, str(e)) from e
+    except DeletingOffError as e:
+        raise HTTPException(403, str(e)) from e
     except HandedFolderError as e:
         raise HTTPException(400, str(e)) from e
 

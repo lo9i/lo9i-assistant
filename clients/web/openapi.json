@@ -2064,6 +2064,53 @@
             }
           }
         }
+      },
+      "delete": {
+        "summary": "Delete Handed File",
+        "description": "Deletes a file the panel shows, when the user asks from it; never a folder (404, as a path not there).",
+        "operationId": "delete_handed_file_conversations__thread_id__agent_folder_file_delete",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/conversations/{thread_id}/agent/folder/changes": {
@@ -2170,6 +2217,99 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FilePreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Home File",
+        "description": "Deletes a file of the home folder, as the handed folder's.",
+        "operationId": "delete_home_file_folders_home_file_delete",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/folder-deleting": {
+      "get": {
+        "summary": "Folder Deleting",
+        "description": "Whether the panel may delete files; off until the user turns it on.",
+        "operationId": "folder_deleting_settings_folder_deleting_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderDeleting"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Folder Deleting",
+        "operationId": "set_folder_deleting_settings_folder_deleting_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FolderDeleting"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderDeleting"
                 }
               }
             }
@@ -7453,6 +7593,19 @@
           "entries"
         ],
         "title": "FolderContents"
+      },
+      "FolderDeleting": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "FolderDeleting"
       },
       "FolderEntry": {
         "properties": {

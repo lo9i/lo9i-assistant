@@ -3,6 +3,12 @@
     "finished": "{agent} terminó",
     "failed": "{agent} se detuvo con un problema"
   },
+  "folderPanelCard": {
+    "title": "Panel de carpeta",
+    "sub": "Los archivos junto a una conversación: la carpeta del agente o tu carpeta personal. Para todos los dispositivos.",
+    "delete": "Permitir borrar archivos",
+    "deleteLabel": "Permitir borrar archivos desde el panel de carpeta"
+  },
   "agentDoneCard": {
     "sample": "Así se ve.",
     "title": "Cuando un agente termina",
@@ -422,6 +428,9 @@
     "home": "Carpeta personal",
     "showHome": "Mostrar tu carpeta personal",
     "hideHome": "Ocultar tu carpeta personal",
+    "delete": "Borrar este archivo",
+    "deleteTitle": "¿Borrar {name}?",
+    "deleteText": "{path} se borra del disco para siempre, no va a la papelera.",
     "changed": "Cambios",
     "noChanges": "No cambió nada.",
     "notRepository": "No es un repositorio git: los cambios no se siguen.",

@@ -3,5 +3,6 @@ the agent works there: what's inside, one folder at a time (contents.py), a file
 changed (changes.py). Only what's inside the folder is read (paths.py), and only what the tree shows: never .git,
 node_modules, .venv or what git ignores, so a .env the agent's project keeps out of git isn't shown either. It works
 the same for every agent plugin: it reads the folder, not the agent. A conversation not handed to one shows the
-user's home folder the same way, without its changes.
+user's home folder the same way, without its changes. In either, the user can delete a file the tree shows
+(deleting.py).
 """

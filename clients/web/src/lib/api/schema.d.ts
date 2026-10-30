@@ -942,7 +942,11 @@ export interface paths {
         get: operations["handed_folder_file_conversations__thread_id__agent_folder_file_get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Handed File
+         * @description Deletes a file the panel shows, when the user asks from it; never a folder (404, as a path not there).
+         */
+        delete: operations["delete_handed_file_conversations__thread_id__agent_folder_file_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1002,6 +1006,31 @@ export interface paths {
          */
         get: operations["home_folder_file_folders_home_file_get"];
         put?: never;
+        post?: never;
+        /**
+         * Delete Home File
+         * @description Deletes a file of the home folder, as the handed folder's.
+         */
+        delete: operations["delete_home_file_folders_home_file_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/folder-deleting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Folder Deleting
+         * @description Whether the panel may delete files; off until the user turns it on.
+         */
+        get: operations["folder_deleting_settings_folder_deleting_get"];
+        /** Set Folder Deleting */
+        put: operations["set_folder_deleting_settings_folder_deleting_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3412,6 +3441,11 @@ export interface components {
              * @default false
              */
             truncated: boolean;
+        };
+        /** FolderDeleting */
+        FolderDeleting: {
+            /** Enabled */
+            enabled: boolean;
         };
         /** FolderEntry */
         FolderEntry: {
@@ -6913,6 +6947,39 @@ export interface operations {
             };
         };
     };
+    delete_handed_file_conversations__thread_id__agent_folder_file_delete: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     handed_folder_changes_conversations__thread_id__agent_folder_changes_get: {
         parameters: {
             query?: never;
@@ -6993,6 +7060,90 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FilePreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_home_file_folders_home_file_delete: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    folder_deleting_settings_folder_deleting_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderDeleting"];
+                };
+            };
+        };
+    };
+    set_folder_deleting_settings_folder_deleting_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FolderDeleting"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderDeleting"];
                 };
             };
             /** @description Validation Error */

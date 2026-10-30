@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from assistant.core.handed_folder import changes, contents, paths, preview
+from assistant.core.handed_folder import changes, contents, deleting, paths, preview
 from assistant.core.handed_folder.changes import FileChange, parse_status
 from assistant.core.handed_folder.paths import MissingPathError, OutsideFolderError
 
@@ -101,6 +101,25 @@ async def test_a_file_is_previewed_as_text_its_start_when_big_and_none_when_bina
         await preview.preview(project, "src")
     with pytest.raises(MissingPathError):
         await preview.preview(project, "gone.txt")
+
+
+async def test_a_file_is_deleted_but_never_a_folder_or_what_the_tree_hides(project):
+    await deleting.delete(project, "src/app.py")
+    assert not (project / "src" / "app.py").exists()
+    for path in ["src", "", "gone.txt"]:
+        with pytest.raises(MissingPathError):
+            await deleting.delete(project, path)
+    for path in [".env", "node_modules/x.txt", ".git/HEAD", "../outside.txt"]:
+        with pytest.raises(OutsideFolderError):
+            await deleting.delete(project, path)
+    assert (project / "src").is_dir() and (project / ".env").exists() and (project / ".git" / "HEAD").exists()
+
+
+async def test_deleting_a_link_deletes_the_link_not_what_it_leads_to(project):
+    os.symlink(project / "README.md", project / "readme-link")
+    await deleting.delete(project, "readme-link")
+    assert not (project / "readme-link").is_symlink()
+    assert (project / "README.md").exists()
 
 
 async def test_changes_are_what_git_status_says_under_the_folder(project):

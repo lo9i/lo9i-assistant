@@ -1,13 +1,15 @@
 <script lang="ts">
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
   import type { FilePreview } from "$lib/api/types";
   import { t } from "$lib/i18n.svelte";
   import { fileSize } from "$lib/logs";
 
-  // A file of the handed folder, read only, in place of the tree: its text as the daemon sent it (never served as a
-  // page, so nothing in it runs), its start for a big one, or a line saying it isn't text.
-  type Props = { path: string; preview: FilePreview | null; error: string; onback: () => void };
-  let { path, preview, error, onback }: Props = $props();
+  // A file of the folder in place of the tree: its text as the daemon sent it (never served as a page, so nothing in
+  // it runs), its start for a big one, or a line saying it isn't text. Once it's read, it can be deleted
+  // (`ondelete`, which asks first), when deleting is allowed.
+  type Props = { path: string; preview: FilePreview | null; error: string; onback: () => void; ondelete?: (path: string) => void };
+  let { path, preview, error, onback, ondelete }: Props = $props();
 </script>
 
 <section class="file" aria-label={path}>
@@ -17,6 +19,14 @@
     >
     <span class="path" title={path}>{path}</span>
     {#if preview}<span class="text-caption">{fileSize(preview.size)}</span>{/if}
+    {#if preview && ondelete}
+      <button
+        class="btn btn--ghost btn--icon delete"
+        title={t("handedFolder.delete")}
+        aria-label={t("handedFolder.delete")}
+        onclick={() => ondelete?.(path)}><Trash2 size={14} /></button
+      >
+    {/if}
   </header>
   {#if error}
     <p class="note error-text">{error}</p>
@@ -67,5 +77,8 @@
   .note {
     margin: 0;
     padding: 4px 8px;
+  }
+  .delete:hover {
+    color: var(--color-danger);
   }
 </style>

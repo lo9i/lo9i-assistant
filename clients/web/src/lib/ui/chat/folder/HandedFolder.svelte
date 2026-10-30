@@ -6,9 +6,10 @@
   import type { FilePreview, FolderChanges, Handoff } from "$lib/api/types";
   import { ChangeMarks } from "$lib/chat/folderChanges";
   import { FolderTree } from "$lib/chat/folderTree.svelte";
-  import { Resource, useDaemon } from "$lib/daemon.svelte";
+  import { Resource, resource, useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
+  import Confirm from "$lib/ui/Confirm.svelte";
   import ChangedFiles from "./ChangedFiles.svelte";
   import FileText from "./FileText.svelte";
   import FolderLevel from "./FolderLevel.svelte";
@@ -17,12 +18,13 @@
   // what git says changed there at the top, and a file's text when one is picked. It follows the agent's work: each
   // step it reports and its end (`agent_task_progress`, `agent_finished`) list the folder and its changes again, at
   // most once every REFRESH_MS, so a burst of steps reads it once. Beside any other conversation (no `handoff`): the
-  // user's home folder, the same way but without changes, read again only when asked.
+  // user's home folder, the same way but without changes, read again only when asked. A file shown can be deleted,
+  // once the user confirms, while Settings → General allows it (off until turned on).
   const REFRESH_MS = 1000;
 
   type Props = { threadId: string; handoff: Handoff | null; onclose: () => void };
   let { threadId, handoff, onclose }: Props = $props();
-  const { client, hub } = useDaemon();
+  const { client, hub, notices } = useDaemon();
 
   // A new tree for another conversation or folder.
   const tree = $derived.by(() => {
@@ -31,6 +33,7 @@
     void handoff.folder;
     return new FolderTree((path) => client.conversations.agentFolder(thread, path));
   });
+  const deletable = resource((c) => c.folders.deleting(), ["settings"]);
   const changes = new Resource<FolderChanges>(() => client.conversations.agentChanges(threadId));
   const marks = $derived(new ChangeMarks((handoff && changes.data?.changes) || []));
   const hideLabel = $derived(handoff ? t("handedFolder.hide") : t("handedFolder.hideHome"));
@@ -38,6 +41,8 @@
   let preview = $state<FilePreview | null>(null);
   let previewError = $state("");
   let refreshing = $state(false);
+  // The file the user asked to delete, until they confirm or cancel.
+  let deleting = $state<string | null>(null);
   let reading = 0;
 
   $effect(() => {
@@ -93,6 +98,19 @@
     }
   }
 
+  /** Deletes the file once the user confirms, then shows the tree without it. */
+  async function remove(path: string): Promise<void> {
+    deleting = null;
+    try {
+      await (handoff ? client.conversations.deleteAgentFile(threadId, path) : client.folders.deleteHomeFile(path));
+    } catch (e) {
+      notices.report(e);
+      return;
+    }
+    if (picked === path) picked = null;
+    void refresh();
+  }
+
   function lastPart(path: string): string {
     return path.split("/").filter(Boolean).pop() ?? path;
   }
@@ -118,7 +136,13 @@
     >
   </header>
   {#if picked !== null}
-    <FileText path={picked} {preview} error={previewError} onback={() => (picked = null)} />
+    <FileText
+      path={picked}
+      {preview}
+      error={previewError}
+      onback={() => (picked = null)}
+      ondelete={deletable.data ? (path) => (deleting = path) : undefined}
+    />
   {:else}
     {#if handoff}<ChangedFiles changes={changes.data} error={changes.error} {picked} onpick={pick} />{/if}
     <div class="tree">
@@ -134,6 +158,16 @@
     </div>
   {/if}
 </aside>
+
+{#if deleting !== null}
+  {@const path = deleting}
+  <Confirm
+    title={t("handedFolder.deleteTitle", { name: lastPart(path) })}
+    text={t("handedFolder.deleteText", { path })}
+    action={t("common.delete")}
+    onanswer={(yes) => (yes ? void remove(path) : (deleting = null))}
+  />
+{/if}
 
 <style>
   .panel {

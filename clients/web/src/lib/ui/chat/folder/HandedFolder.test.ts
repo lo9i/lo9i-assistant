@@ -10,6 +10,7 @@ vi.mock("$lib/daemon.svelte", () => ({
     error = null;
     reload = () => {};
   },
+  resource: () => ({ data: false, error: null }),
 }));
 
 const handoff = { name: "Claude Code", command: "claude", folder: "/Users/me/projects/lo9i" } as Handoff;
