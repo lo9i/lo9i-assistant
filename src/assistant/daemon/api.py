@@ -104,6 +104,7 @@ from assistant.core.channels.chat.conversations import ChannelChats
 from assistant.core.channels.chat.port import ChatLimits
 from assistant.core.config import settings
 from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
+from assistant.core.conversation.held import from_app
 from assistant.core.events import ApprovalRequired
 from assistant.core.logs import (
     MAX_LINES,
@@ -130,8 +131,8 @@ from assistant.daemon.auth import (
 )
 from assistant.daemon.channel_runs import ChannelRuns
 from assistant.daemon.clients import ClientRegistry
+from assistant.daemon.follows import StreamFollows, StreamKey, log_source, run_source
 from assistant.daemon.launchd import StartupError
-from assistant.daemon.run_follows import RunFollows, StreamKey
 from assistant.daemon.runs import Run, RunHub
 from assistant.daemon.shutdown import Ending
 from assistant.daemon.web_ui import BUILD_DIR, add_web_ui, is_web_ui
@@ -294,6 +295,13 @@ class FollowRun(BaseModel):
     run_id: str
     # How many of the run's events the client has: its events after them are sent.
     after: int = 0
+
+
+class FollowLog(BaseModel):
+    name: str
+    level: LogLevel | None = None
+    component: str = ""
+    lines: Annotated[int, Field(ge=1, le=MAX_LINES)] = 100
 
 
 class SpeakRequest(BaseModel):
@@ -526,7 +534,8 @@ class RunInProgress(BaseModel):
 class ShownConversation(BaseModel):
     """A conversation as a client opens it while its runs may be in progress."""
 
-    # Its messages up to the first run in progress, which `runs` shows from its start.
+    # Its messages up to the first run in progress, which `runs` shows from its start, then those kept while an
+    # update installs (`held`).
     messages: list[ShownMessage]
     runs: list[RunInProgress]
 
@@ -573,7 +582,7 @@ def create_app(
         service.bus, leave=partial(service.leave_thread, settings.owner_id), gone=service.unwatch_home
     )
     streams = streams or DeviceStreams()
-    follows = RunFollows(hub)
+    follows = StreamFollows()
     add_device_routes(app, service, streams)
     _add_client_routes(app, service, clients, streams, follows)
     _add_session_routes(app, service, clients)
@@ -619,7 +628,7 @@ def create_app(
     if updates is not None:
         _add_update_routes(app, updates)
     if logs is not None:
-        _add_log_routes(app, logs, streams)
+        _add_log_routes(app, logs, streams, follows)
     add_web_ui(app, web_ui)
     return app
 
@@ -665,7 +674,7 @@ def _add_security_headers(app: FastAPI) -> None:
 
 
 def _add_client_routes(
-    app: FastAPI, service: AssistantService, clients: ClientRegistry, streams: DeviceStreams, follows: RunFollows
+    app: FastAPI, service: AssistantService, clients: ClientRegistry, streams: DeviceStreams, follows: StreamFollows
 ) -> None:
     @app.get("/events", response_class=EventSourceResponse, responses=_EVENT_STREAM)
     async def events(request: Request, after: int | None = None) -> EventSourceResponse:
@@ -683,18 +692,17 @@ def _add_client_routes(
         return clients.list()
 
 
-def _add_run_follow_routes(app: FastAPI, hub: RunHub, follows: RunFollows) -> None:
+def _add_run_follow_routes(app: FastAPI, hub: RunHub, follows: StreamFollows) -> None:
     @app.put("/events/runs/{follow_id}")
     async def follow_run(follow_id: str, body: FollowRun, request: Request) -> Ok:
         """Sends a run's events after `after` down this client's /events stream (`run_events`, then `run_end`), so a
-        browser follows every run on the one connection (daemon/run_follows.py). Asked again under the same id, as
+        browser follows every run on the one connection (daemon/follows.py). Asked again under the same id, as
         after the stream reconnected, it starts again from `after`."""
-        if not _client_id(request):
-            raise HTTPException(400, "Only a client that names itself (X-Lo9i-Client-Id) has a stream to follow on")
+        _require_stream(request)
         run = hub.get(body.run_id)
         if run is None:
             raise HTTPException(404, "Unknown or expired run")
-        follows.follow(_stream_key(request), follow_id, run, body.after)
+        follows.follow(_stream_key(request), follow_id, run_source(hub, follow_id, run, body.after))
         return Ok()
 
     @app.delete("/events/runs/{follow_id}")
@@ -751,7 +759,7 @@ def _add_run_routes(
         files: Annotated[list[UploadFile] | None, File()] = None,
     ) -> RunStarted:
         attachments = [await _attachment(f) for f in files or []]
-        session = Session(settings.owner_id, channel, thread_id)
+        session = _app_session(request, channel, thread_id)
         client_id = _client_id(request)
         clients.on_thread(client_id, thread_id)
         run = hub.start(thread_id, service.send(session, text, attachments), channel, client_id, text)
@@ -760,7 +768,7 @@ def _add_run_routes(
     @app.post("/threads/{thread_id}/dispatched/{dispatch_id}")
     async def send_dispatched(thread_id: str, dispatch_id: str, request: Request, body: Dispatching) -> RunStarted:
         """Sends a message the inbox sent on (a Dispatched event) here, as it was written."""
-        session = Session(settings.owner_id, body.channel, thread_id)
+        session = _app_session(request, body.channel, thread_id)
         client_id = _client_id(request)
         clients.on_thread(client_id, thread_id)
         events = service.send_dispatched(session, dispatch_id)
@@ -771,7 +779,7 @@ def _add_run_routes(
     async def move_dispatched(thread_id: str, request: Request, body: Moving) -> RunStarted:
         """Asks in the inbox where a message it sent on goes instead, and sends it on again (a Dispatched
         event)."""
-        session = Session(settings.owner_id, body.channel, thread_id)
+        session = _app_session(request, body.channel, thread_id)
         events = service.move_dispatched(session, body.id or None)
         run = hub.start(thread_id, events, body.channel, _client_id(request))
         return RunStarted(run_id=run.id)
@@ -784,7 +792,7 @@ def _add_run_routes(
 
     @app.post("/threads/{thread_id}/approvals")
     async def approve(thread_id: str, body: Approvals, request: Request) -> RunStarted:
-        session = Session(settings.owner_id, body.channel, thread_id)
+        session = _app_session(request, body.channel, thread_id)
         run = hub.start(thread_id, service.resume(session, body.decisions), body.channel, _client_id(request))
         return RunStarted(run_id=run.id)
 
@@ -801,11 +809,16 @@ def _add_run_routes(
     @app.get("/conversations/{thread_id}/live")
     async def live_conversation(thread_id: str) -> ShownConversation:
         """Its messages up to its runs in progress, and those runs, oldest first, which a client follows from
-        their start (`/runs/<id>/events`) to show them as if it had been watching."""
+        their start (`/runs/<id>/events`) to show them as if it had been watching. After the messages, what the user
+        sent there while an update installed, which runs once lo9i is back on it, each marked (`held`) with the id
+        its run is announced with."""
         # Listed before the messages are read, with no wait between: a run listed here that ends while they're read
-        # still stops them where it started.
+        # still stops them where it started. A run kept while an update installed that starts meanwhile is listed
+        # with its `held` id, so a client shows its message once.
         runs = [RunInProgress.of(r) for r in hub.running(thread_id)]
-        return ShownConversation(messages=await service.messages_before_run(thread_id), runs=runs)
+        messages = await service.messages_before_run(thread_id)
+        waiting = await service.held_messages(settings.owner_id, thread_id)
+        return ShownConversation(messages=[*messages, *waiting], runs=runs)
 
     @app.get("/runs/{run_id}/events", response_class=EventSourceResponse, responses=_EVENT_STREAM)
     async def run_events(run_id: str, request: Request, after: int = 0) -> EventSourceResponse:
@@ -1918,8 +1931,11 @@ def _add_update_routes(app: FastAPI, updates: Any) -> None:
             raise HTTPException(409, str(e)) from e
 
 
-def _add_log_routes(app: FastAPI, logs: Mapping[str, LogSource], streams: DeviceStreams) -> None:
-    """The daemon's log (core/logs/): its files and its process output, the latest entries or followed live."""
+def _add_log_routes(
+    app: FastAPI, logs: Mapping[str, LogSource], streams: DeviceStreams, follows: StreamFollows
+) -> None:
+    """The daemon's log (core/logs/): its files and its process output, the latest entries or followed live, on a
+    stream of its own (the terminal app, on the Unix socket) or down a client's /events stream (the web app)."""
 
     @app.get("/logs")
     async def logs_options() -> LogOptions:
@@ -1947,6 +1963,22 @@ def _add_log_routes(app: FastAPI, logs: Mapping[str, LogSource], streams: Device
         Every connection, a reconnection too, starts with its page."""
         entries = _log_source(logs, name).follow(_log_query(level, component, lines))
         return EventSourceResponse(streams.guard(_log_events(entries), device_of(request)), ping=15)
+
+    @app.put("/events/logs/{follow_id}")
+    async def follow_log_on_events(follow_id: str, body: FollowLog, request: Request) -> Ok:
+        """Sends a log down this client's /events stream: a `log_page` like GET /logs/{name}, then a `log_entry` for
+        each new matching entry, so a browser follows it on the one connection (daemon/follows.py). Every time the
+        stream opens, and asked again under the same id, it starts again with its page. 400: an unknown component;
+        404: an unknown log."""
+        _require_stream(request)
+        source = log_source(_log_source(logs, body.name), _log_query(body.level, body.component, body.lines), follow_id)
+        follows.follow(_stream_key(request), follow_id, source)
+        return Ok()
+
+    @app.delete("/events/logs/{follow_id}")
+    async def unfollow_log(follow_id: str, request: Request) -> Ok:
+        follows.stop(_stream_key(request), follow_id)
+        return Ok()
 
 
 def _add_log_level_routes(app: FastAPI, service: AssistantService) -> None:
@@ -2054,6 +2086,17 @@ def resume_point(last_id: int, last_event_id: str | None, after: int | None) -> 
 
 def _client_id(request: Request) -> str:
     return request.headers.get(CLIENT_ID_HEADER, "")
+
+
+def _app_session(request: Request, channel: str, thread_id: str) -> Session:
+    """With the client that sends it, kept with a run held while an update installs: when the inbox sends its
+    message on after the update, that client is told where it went (daemon/held.py)."""
+    return Session(settings.owner_id, channel, thread_id, from_app(_client_id(request)))
+
+
+def _require_stream(request: Request) -> None:
+    if not _client_id(request):
+        raise HTTPException(400, "Only a client that names itself (X-Lo9i-Client-Id) has a stream to follow on")
 
 
 def _stream_key(request: Request) -> StreamKey:

@@ -729,7 +729,7 @@
     "/conversations/{thread_id}/live": {
       "get": {
         "summary": "Live Conversation",
-        "description": "Its messages up to its runs in progress, and those runs, oldest first, which a client follows from\ntheir start (`/runs/<id>/events`) to show them as if it had been watching.",
+        "description": "Its messages up to its runs in progress, and those runs, oldest first, which a client follows from\ntheir start (`/runs/<id>/events`) to show them as if it had been watching. After the messages, what the user\nsent there while an update installed, which runs once lo9i is back on it, each marked (`held`) with the id\nits run is announced with.",
         "operationId": "live_conversation_conversations__thread_id__live_get",
         "parameters": [
           {
@@ -814,7 +814,7 @@
     "/events/runs/{follow_id}": {
       "put": {
         "summary": "Follow Run",
-        "description": "Sends a run's events after `after` down this client's /events stream (`run_events`, then `run_end`), so a\nbrowser follows every run on the one connection (daemon/run_follows.py). Asked again under the same id, as\nafter the stream reconnected, it starts again from `after`.",
+        "description": "Sends a run's events after `after` down this client's /events stream (`run_events`, then `run_end`), so a\nbrowser follows every run on the one connection (daemon/follows.py). Asked again under the same id, as\nafter the stream reconnected, it starts again from `after`.",
         "operationId": "follow_run_events_runs__follow_id__put",
         "parameters": [
           {
@@ -5896,6 +5896,93 @@
           }
         }
       }
+    },
+    "/events/logs/{follow_id}": {
+      "put": {
+        "summary": "Follow Log On Events",
+        "description": "Sends a log down this client's /events stream: a `log_page` like GET /logs/{name}, then a `log_entry` for\neach new matching entry, so a browser follows it on the one connection (daemon/follows.py). Every time the\nstream opens, and asked again under the same id, it starts again with its page. 400: an unknown component;\n404: an unknown log.",
+        "operationId": "follow_log_on_events_events_logs__follow_id__put",
+        "parameters": [
+          {
+            "name": "follow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Follow Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FollowLog"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Unfollow Log",
+        "operationId": "unfollow_log_events_logs__follow_id__delete",
+        "parameters": [
+          {
+            "name": "follow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Follow Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7346,6 +7433,48 @@
           "children"
         ],
         "title": "FolderListing"
+      },
+      "FollowLog": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "DEBUG",
+                  "INFO",
+                  "WARNING",
+                  "ERROR"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "component": {
+            "type": "string",
+            "title": "Component",
+            "default": ""
+          },
+          "lines": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Lines",
+            "default": 100
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "FollowLog"
       },
       "FollowRun": {
         "properties": {
@@ -10026,6 +10155,11 @@
           "agent": {
             "type": "string",
             "title": "Agent",
+            "default": ""
+          },
+          "held": {
+            "type": "string",
+            "title": "Held",
             "default": ""
           }
         },

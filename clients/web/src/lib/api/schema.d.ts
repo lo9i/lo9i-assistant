@@ -436,7 +436,9 @@ export interface paths {
         /**
          * Live Conversation
          * @description Its messages up to its runs in progress, and those runs, oldest first, which a client follows from
-         *     their start (`/runs/<id>/events`) to show them as if it had been watching.
+         *     their start (`/runs/<id>/events`) to show them as if it had been watching. After the messages, what the user
+         *     sent there while an update installed, which runs once lo9i is back on it, each marked (`held`) with the id
+         *     its run is announced with.
          */
         get: operations["live_conversation_conversations__thread_id__live_get"];
         put?: never;
@@ -475,7 +477,7 @@ export interface paths {
         /**
          * Follow Run
          * @description Sends a run's events after `after` down this client's /events stream (`run_events`, then `run_end`), so a
-         *     browser follows every run on the one connection (daemon/run_follows.py). Asked again under the same id, as
+         *     browser follows every run on the one connection (daemon/follows.py). Asked again under the same id, as
          *     after the stream reconnected, it starts again from `after`.
          */
         put: operations["follow_run_events_runs__follow_id__put"];
@@ -2632,6 +2634,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/events/logs/{follow_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Follow Log On Events
+         * @description Sends a log down this client's /events stream: a `log_page` like GET /logs/{name}, then a `log_entry` for
+         *     each new matching entry, so a browser follows it on the one connection (daemon/follows.py). Every time the
+         *     stream opens, and asked again under the same id, it starts again with its page. 400: an unknown component;
+         *     404: an unknown log.
+         */
+        put: operations["follow_log_on_events_events_logs__follow_id__put"];
+        post?: never;
+        /** Unfollow Log */
+        delete: operations["unfollow_log_events_logs__follow_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3365,6 +3391,23 @@ export interface components {
             parent: string | null;
             /** Children */
             children: string[];
+        };
+        /** FollowLog */
+        FollowLog: {
+            /** Name */
+            name: string;
+            /** Level */
+            level?: ("DEBUG" | "INFO" | "WARNING" | "ERROR") | null;
+            /**
+             * Component
+             * @default
+             */
+            component: string;
+            /**
+             * Lines
+             * @default 100
+             */
+            lines: number;
         };
         /** FollowRun */
         FollowRun: {
@@ -4777,6 +4820,11 @@ export interface components {
              * @default
              */
             agent: string;
+            /**
+             * Held
+             * @default
+             */
+            held: string;
         };
         /**
          * ShownStep
@@ -9921,6 +9969,72 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    follow_log_on_events_events_logs__follow_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                follow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FollowLog"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unfollow_log_events_logs__follow_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                follow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
                 };
             };
             /** @description Validation Error */

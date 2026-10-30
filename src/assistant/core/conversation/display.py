@@ -66,6 +66,9 @@ class ShownMessage:
     partial: bool = False
     # A brief: the agent it's for.
     agent: str = ""
+    # What the user sent while an update installed, kept until lo9i is back on it (core/conversation/held.py): the
+    # id its run is announced with (`held` in its `run` event) once it runs.
+    held: str = ""
 
 
 @dataclass

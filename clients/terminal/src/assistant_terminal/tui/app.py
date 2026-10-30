@@ -39,6 +39,7 @@ from assistant.core.events import (
     is_plugin_setup,
     is_question,
 )
+from assistant.protocol import event_from_dict
 from assistant_terminal import i18n
 from assistant_terminal.commands import GET_TO_KNOW_ME, Command, agent_commands, help_lines
 from assistant_terminal.conversations_text import listed_title, when
@@ -370,6 +371,17 @@ class AssistantApp(App):
         if self._live.started_elsewhere(run):
             self._drop_answered_elsewhere()
             self._follow([run])
+
+    @reports_daemon_unavailable
+    async def go_where_sent(self, sent: dict[str, Any]) -> None:
+        """A message this app wrote in the inbox while an update installed, which the daemon sent on after it
+        (daemon/held.py): while this app is still on the inbox, it goes where the message went, as after sending one
+        on itself, and shows its run there."""
+        dispatched = event_from_dict(sent["dispatched"])
+        if not self._live.sent_here(sent) or self._busy or not isinstance(dispatched, Dispatched):
+            return
+        await self._open(dispatched.thread_id)
+        self.notify(t("→ {title}. /inbox goes back.", title=dispatched.title))
 
     def _drop_answered_elsewhere(self) -> None:
         """A run started elsewhere while this conversation's approval is asked here: another app answered it (or

@@ -3,7 +3,17 @@
 // (another client, or a channel like Telegram). React reads it through subscribe/getSnapshot (useSyncExternalStore).
 import { ApiError } from "../api/errors";
 import { LiveConversation, type Conversations } from "../api/live";
-import type { ApprovalRequired, Decision, Dispatched, RunAnnounced, RunEvent, RunFinished, Session, ShownConversation } from "../api/types";
+import type {
+  ApprovalRequired,
+  Decision,
+  Dispatched,
+  RunAnnounced,
+  RunEvent,
+  RunFinished,
+  SentOn,
+  Session,
+  ShownConversation,
+} from "../api/types";
 import { t } from "../i18n.svelte";
 import type { NoticeBoard } from "../notices";
 import { ChatTab, type Place } from "./tab";
@@ -383,6 +393,25 @@ export class ChatController {
     // Another client answered what this page is asking, and goes on with the run there.
     if (this.decide !== null) this.ownRun?.abort();
     await this.follow([run]);
+  }
+
+  /** A message this chat wrote in the inbox while an update installed, which the daemon sent on after it: while
+   * this chat is still on the inbox, it goes where the message went, as after sending one on itself, and shows the
+   * run there. */
+  async sentOn(sent: SentOn): Promise<void> {
+    await this.loaded();
+    if (!this.live.sentHere(sent) || this.ownRun !== null) return;
+    const there = await (this.onDispatched ?? ((d) => this.goOn(d)))(sent.dispatched);
+    await there?.showSent(sent);
+  }
+
+  /** The run of a message the daemon sent on here, unless it shows already (in progress when the conversation
+   * opened, or announced to a chat that isn't the one that wrote it). */
+  private async showSent(sent: SentOn): Promise<void> {
+    if (this.followed.has(sent.run_id)) return;
+    const { text, brief, carried } = sent.dispatched;
+    if (carried) this.set({ transcript: addCarried(this.state.transcript, carried) });
+    await this.follow([{ run_id: sent.run_id, channel: sent.channel, client_id: sent.client_id, text, brief }]);
   }
 
   runFinished(run: RunFinished): void {

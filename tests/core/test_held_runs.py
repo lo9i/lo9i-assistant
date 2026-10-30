@@ -67,3 +67,30 @@ async def test_an_answer_to_an_approval_sent_while_runs_are_held_answers_it_late
     [kept] = await service.held_runs("owner")
     events = await collect(service.run_held(session, kept))
     assert events[0] == ToolFinished("bash", "The user rejected this (not now).") and isinstance(events[-1], Done)
+
+
+async def test_what_waits_is_listed_in_its_conversation_marked_until_it_runs(service, script):
+    script.call("bash", command="rm -rf build")
+    session = Session("owner", "web", await service.new_thread("owner"))
+    other = Session("owner", "web", await service.new_thread("owner"))
+    events = await collect(service.send(session, "clean up"))
+    approval = next(e for e in events if isinstance(e, ApprovalRequired))
+    await service.hold_runs()
+    # An answer to an approval adds no message of its own.
+    await _held(service, service.resume(session, {approval.interrupt_id: {"approved": True, "reason": None}}))
+    note = Attachment("notes.txt", "text/plain", b"buy milk")
+    read = await _held(service, service.send(session, "read this", [note]))
+    elsewhere = await _held(service, service.send(other, "elsewhere"))
+    shown = [(m.role, m.text, m.held) for m in await service.held_messages("owner", session.thread_id)]
+    assert shown == [("user", "[attachment notes.txt]\nread this", read.id)]
+    assert [(m.text, m.held) for m in await service.held_messages("owner", other.thread_id)] == [
+        ("elsewhere", elsewhere.id)
+    ]
+
+    service.release_runs()
+    script.reply("Done.")
+    [kept] = [run for run in await service.held_runs("owner") if run.thread_id == other.thread_id]
+    await collect(service.run_held(other, kept))
+    assert await service.held_messages("owner", other.thread_id) == []
+    assert [m.text for m in await service.conversation_messages(other.thread_id)] == ["elsewhere", "Done."]
+    await asyncio.gather(*service._background)

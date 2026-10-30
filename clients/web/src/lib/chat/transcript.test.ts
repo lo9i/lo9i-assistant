@@ -22,12 +22,32 @@ const kinds = (events: RunEvent[]) => play(events).items.map((item) => item.kind
 describe("transcript", () => {
   it("shows a quick exchange carried from the inbox before the message that followed it up", () => {
     const t = fromHistory([
-      { role: "carried", text: "**You:** how far?", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "" },
-      { role: "user", text: "plan the drive", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "" },
+      {
+        role: "carried",
+        text: "**You:** how far?",
+        detail: "",
+        output: "",
+        dispatch_id: "",
+        call_id: "",
+        partial: false,
+        agent: "",
+        held: "",
+      },
+      { role: "user", text: "plan the drive", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "" },
     ]);
     expect(t.items.map((i) => i.kind)).toEqual(["carried", "user"]);
     const followed = fromHistory([
-      { role: "notice", text: "⚠️ convert: it failed", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "" },
+      {
+        role: "notice",
+        text: "⚠️ convert: it failed",
+        detail: "",
+        output: "",
+        dispatch_id: "",
+        call_id: "",
+        partial: false,
+        agent: "",
+        held: "",
+      },
     ]);
     expect(followed.items[0]).toMatchObject({ kind: "notice", text: "⚠️ convert: it failed" });
     expect(addCarried(empty, "**You:** how far?").items[0]).toMatchObject({ kind: "carried", text: "**You:** how far?" });
@@ -35,9 +55,29 @@ describe("transcript", () => {
     expect(addNotice(empty, "⚠️ convert: it failed").items[0]).toMatchObject({ kind: "notice", text: "⚠️ convert: it failed" });
   });
 
+  it("marks what waits for an update to install as it was marked when it was sent", () => {
+    const t = fromHistory([
+      { role: "user", text: "earlier", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "" },
+      { role: "user", text: "still there?", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "h1" },
+    ]);
+    expect(t.items.map((i) => i.kind)).toEqual(["user", "user", "held"]);
+    expect(t.items[2]).toMatchObject({ kind: "held", heldId: "h1" });
+    expect(showedHeld(t, "h1")).toBe(true);
+  });
+
   it("shows a task the assistant wrote for its agent as its brief, never as the user's message, and pins only theirs", () => {
     const t = fromHistory([
-      { role: "user", text: "fix the tests with claude", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "" },
+      {
+        role: "user",
+        text: "fix the tests with claude",
+        detail: "",
+        output: "",
+        dispatch_id: "",
+        call_id: "",
+        partial: false,
+        agent: "",
+        held: "",
+      },
       {
         role: "brief",
         text: "Fix the failing tests",
@@ -47,6 +87,7 @@ describe("transcript", () => {
         call_id: "",
         partial: false,
         agent: "Claude Code",
+        held: "",
       },
     ]);
     expect(t.items[1]).toEqual({ kind: "brief", id: 2, text: "Fix the failing tests", agent: "Claude Code" });
@@ -57,7 +98,7 @@ describe("transcript", () => {
 
   it("shows a run that failed with the error it ended with, as it showed live", () => {
     const t = fromHistory([
-      { role: "user", text: "remember my goal", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "" },
+      { role: "user", text: "remember my goal", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "" },
       {
         role: "error",
         text: "OperationalError: database is locked",
@@ -67,6 +108,7 @@ describe("transcript", () => {
         call_id: "",
         partial: false,
         agent: "",
+        held: "",
       },
     ]);
     expect(t.items[1]).toMatchObject({ kind: "error", message: "OperationalError: database is locked" });
@@ -207,9 +249,9 @@ describe("transcript", () => {
       ]),
     ).toEqual(["user", "transcript", "error"]);
     const history = fromHistory([
-      { role: "user", text: "q", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "" },
-      { role: "tool", text: "bash", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "" },
-      { role: "assistant", text: "a", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "" },
+      { role: "user", text: "q", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "" },
+      { role: "tool", text: "bash", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "" },
+      { role: "assistant", text: "a", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "" },
     ]);
     expect(history.items.map((i) => i.kind)).toEqual(["user", "tool", "assistant"]);
   });
@@ -229,9 +271,10 @@ describe("transcript", () => {
         call_id: "",
         partial: false,
         agent: "",
+        held: "",
         steps,
       },
-      { role: "tool", text: "bash", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", steps: [] },
+      { role: "tool", text: "bash", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "", steps: [] },
     ]);
     expect(history.items[0]).toMatchObject({
       kind: "tool",
@@ -259,8 +302,19 @@ describe("transcript", () => {
         call_id: "",
         partial: false,
         agent: "",
+        held: "",
       },
-      { role: "tool", text: "Bash", detail: "pytest -q", output: "1 failed", dispatch_id: "", call_id: "", partial: false, agent: "" },
+      {
+        role: "tool",
+        text: "Bash",
+        detail: "pytest -q",
+        output: "1 failed",
+        dispatch_id: "",
+        call_id: "",
+        partial: false,
+        agent: "",
+        held: "",
+      },
     ]);
     expect(history.items).toEqual([
       { kind: "thinking", id: 1, text: "The test expects a list." },
@@ -270,8 +324,18 @@ describe("transcript", () => {
 
   it("shows a call from history by its start, and in full once it has loaded", () => {
     const [preview, whole] = fromHistory([
-      { role: "tool", text: "bash", detail: "seq 1 100", output: "1\n2…", dispatch_id: "", call_id: "c1", partial: true, agent: "" },
-      { role: "tool", text: "bash", detail: "ls", output: "a.txt", dispatch_id: "", call_id: "c2", partial: false, agent: "" },
+      {
+        role: "tool",
+        text: "bash",
+        detail: "seq 1 100",
+        output: "1\n2…",
+        dispatch_id: "",
+        call_id: "c1",
+        partial: true,
+        agent: "",
+        held: "",
+      },
+      { role: "tool", text: "bash", detail: "ls", output: "a.txt", dispatch_id: "", call_id: "c2", partial: false, agent: "", held: "" },
     ]).items;
     expect(preview).toEqual({
       kind: "tool",

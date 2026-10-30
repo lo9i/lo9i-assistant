@@ -30,7 +30,8 @@
   const client = new DaemonClient(new HttpTransport());
   // The voice and text buttons and each conversation open beside the first talk under ids the daemon ties to
   // this client.
-  const partClient = (part: string) => new DaemonClient(new HttpTransport(partClientId(client.clientId, part)), client.following);
+  const partClient = (part: string) =>
+    new DaemonClient(new HttpTransport(partClientId(client.clientId, part)), client.following, client.followingLogs);
   const voiceClient = partClient("voice");
   const textClient = partClient("text");
   const hub = new EventHub();

@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { LogsGroup } from "./api/client";
-import { body } from "./api/testing";
+import { LogStreams } from "./api/logStreams";
 import type { Transport } from "./api/transport";
 import type { LogEntry, LogPage } from "./api/types";
 import { applyLogEvent, fileSize, levelLabel, logLine, tone } from "./logs";
@@ -38,32 +38,36 @@ describe("log lines", () => {
 });
 
 describe("LogsGroup", () => {
-  it("asks for the picks and follows with a page, then entries", async () => {
-    const paths: string[] = [];
+  it("reads a page, and follows down the event stream instead of a stream of its own", async () => {
+    const calls: [string, string, unknown][] = [];
     const transport: Transport = {
       clientId: "test",
-      request: async <T>(_method: string, path: string) => {
-        paths.push(path);
+      request: async <T>(method: string, path: string, sent?: FormData | object) => {
+        calls.push([method, path, sent]);
         return page() as T;
       },
       blob: () => Promise.reject(new Error("unused")),
-      stream: async (path) => {
-        paths.push(path);
-        const first = JSON.stringify(page(entry("before")));
-        return new Response(body(`event: page\ndata: ${first}\n\n`, `event: entry\ndata: ${JSON.stringify(entry("after"))}\n\n`));
-      },
+      stream: () => Promise.reject(new Error("a log has no stream of its own")),
     };
-    const logs = new LogsGroup(transport);
+    const following = new LogStreams(transport);
+    const logs = new LogsGroup(transport, following);
     await logs.page("daemon", { level: "WARNING", component: "", lines: 50 });
-    const seen = [];
-    for await (const event of logs.follow("daemon", { level: "", component: "mcp", lines: 100 }, new AbortController().signal)) {
-      seen.push(event);
-      if (seen.length === 2) break;
-    }
-    expect(paths).toEqual(["/logs/daemon?lines=50&level=WARNING", "/logs/daemon/follow?lines=100&component=mcp"]);
-    expect(seen).toEqual([
-      { kind: "page", page: page(entry("before")) },
-      { kind: "entry", entry: entry("after") },
+    const stop = new AbortController();
+    const events = logs.follow("daemon", { level: "", component: "mcp", lines: 100 }, stop.signal);
+    const first = events.next();
+    await vi.waitFor(() => expect(calls).toHaveLength(2));
+    const follow = decodeURIComponent(calls[1][1].split("/").pop()!);
+    following.receive("log_page", { follow, page: page(entry("before")) });
+    following.receive("log_entry", { follow, entry: entry("after") });
+    expect((await first).value).toEqual({ kind: "page", page: page(entry("before")) });
+    expect((await events.next()).value).toEqual({ kind: "entry", entry: entry("after") });
+    stop.abort();
+    await expect(events.next()).rejects.toThrow();
+    expect(calls.map(([method, path]) => `${method} ${path}`)).toEqual([
+      "GET /logs/daemon?lines=50&level=WARNING",
+      `PUT /events/logs/${follow}`,
+      `DELETE /events/logs/${follow}`,
     ]);
+    expect(calls[1][2]).toEqual({ name: "daemon", lines: 100, component: "mcp" });
   });
 });

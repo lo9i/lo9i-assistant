@@ -2,6 +2,7 @@
 // conversation on the client, every other area as a group.
 import type { components } from "./schema";
 import { resumableEvents, type ReconnectPolicy } from "./reconnect";
+import { LogStreams } from "./logStreams";
 import { RunStreams } from "./runStreams";
 import type { Transport } from "./transport";
 import type {
@@ -92,8 +93,6 @@ type Schemas = components["schemas"];
 
 // The web UI keeps the bus stream for its whole session, so it waits out a daemon restart.
 const BUS_RECONNECT: ReconnectPolicy = { delayMs: 2000 };
-// A followed log waits out a daemon restart too; each reconnection starts with a new page.
-const LOG_RECONNECT: ReconnectPolicy = { delayMs: 2000 };
 
 export class ConversationsGroup {
   constructor(private readonly transport: Transport) {}
@@ -896,7 +895,10 @@ export class LanguageGroup {
 }
 
 export class LogsGroup {
-  constructor(private readonly transport: Transport) {}
+  constructor(
+    private readonly transport: Transport,
+    private readonly following: LogStreams,
+  ) {}
 
   /** The log files (the process output too), levels and components to pick from. */
   options(): Promise<LogOptions> {
@@ -918,13 +920,10 @@ export class LogsGroup {
     return this.transport.request("GET", `${logPath(name)}?${logParams(query)}`);
   }
 
-  /** A page, then each new matching entry, until `signal` aborts; after a reconnection, a new page. */
-  async *follow(name: string, query: LogQuery, signal: AbortSignal): AsyncGenerator<LogEvent> {
-    const path = `${logPath(name)}/follow?${logParams(query)}`;
-    for await (const event of resumableEvents(this.transport, path, LOG_RECONNECT, signal, "")) {
-      const data = JSON.parse(event.data);
-      yield event.event === "entry" ? { kind: "entry", entry: data } : { kind: "page", page: data };
-    }
+  /** A page, then each new matching entry, until `signal` aborts; after the event stream opens again, a new page.
+   * They come down the event stream (`DaemonClient.events`), which must be read for them to come. */
+  follow(name: string, query: LogQuery, signal: AbortSignal): AsyncGenerator<LogEvent> {
+    return this.following.follow(name, query, signal);
   }
 }
 
@@ -1023,11 +1022,12 @@ export class DaemonClient {
   readonly logs: LogsGroup;
   readonly language: LanguageGroup;
 
-  /** The runs this client follows, over the event stream `transport` reads: a tab's other clients (partClientId)
-   * share its own's, since only it reads a stream. */
+  /** The runs and logs this client follows, over the event stream `transport` reads: a tab's other clients
+   * (partClientId) share its own's, since only it reads a stream. */
   constructor(
     private readonly transport: Transport,
     readonly following: RunStreams = new RunStreams(transport),
+    readonly followingLogs: LogStreams = new LogStreams(transport),
   ) {
     this.conversations = new ConversationsGroup(transport);
     this.files = new FilesGroup(transport);
@@ -1055,7 +1055,7 @@ export class DaemonClient {
     this.clients = new ClientsGroup(transport);
     this.auth = new AuthGroup(transport);
     this.devices = new DevicesGroup(transport);
-    this.logs = new LogsGroup(transport);
+    this.logs = new LogsGroup(transport, followingLogs);
     this.language = new LanguageGroup(transport);
   }
 
@@ -1136,16 +1136,18 @@ export class DaemonClient {
   }
 
   /** Daemon events from now on, for as long as `signal` isn't aborted, resuming after a daemon restart.
-   * `onOpen` is called each time the stream opens, after a restart too. The events of the runs this client follows
-   * come down it as well, and go to them (`following`) instead. */
+   * `onOpen` is called each time the stream opens, after a restart too. The events of the runs and logs this client
+   * follows come down it as well, and go to them (`following`, `followingLogs`) instead. */
   async *events(signal: AbortSignal, onOpen?: () => void, onLost?: () => void): AsyncGenerator<BusEvent> {
     const opened = () => {
       onOpen?.();
       this.following.reopened();
+      this.followingLogs.reopened();
     };
     for await (const event of resumableEvents(this.transport, "/events", BUS_RECONNECT, signal, "", opened, onLost)) {
       const data = JSON.parse(event.data) as Record<string, unknown>;
-      if (!this.following.receive(event.event, data)) yield { kind: event.event, data };
+      if (this.following.receive(event.event, data) || this.followingLogs.receive(event.event, data)) continue;
+      yield { kind: event.event, data };
     }
   }
 }

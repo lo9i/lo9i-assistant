@@ -43,7 +43,14 @@ export type Transcript = {
 export const empty: Transcript = { items: [], nextId: 1, streaming: null, pending: {} };
 
 export function fromHistory(messages: ShownMessage[]): Transcript {
-  return messages.reduce(addShown, empty);
+  return messages.reduce(addShownHeld, empty);
+}
+
+/** What the user sent while an update installed shows with the note it showed with when it was sent, so its run,
+ * once it starts, doesn't show it again (`showedHeld`). */
+function addShownHeld(t: Transcript, message: ShownMessage): Transcript {
+  const shown = addShown(t, message);
+  return message.held ? add(shown, { kind: "held", heldId: message.held }) : shown;
 }
 
 /** The latest answer: assistant text after the last message or tool call, for reading aloud, without the answer

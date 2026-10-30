@@ -2,14 +2,15 @@
 its files, an answer to an approval), and a scheduled job's run due then, is kept here instead of refused, with the
 channel it came from and where in it (`Origin`), and runs once lo9i is back on the update, or at once when the
 update failed, in the order it came (daemon/held.py). Its files are saved as any message's, and the message keeps
-their references. One Store record each, under a key that sorts by when it came, so the restart loses none."""
+their references. One Store record each, under a key that sorts by when it came, so the restart loses none. Until it
+runs, its conversation's history lists what it adds there, marked as waiting (`messages`)."""
 
 import time
 from dataclasses import asdict, dataclass, field
 from typing import Any
 from uuid import uuid4
 
-from langchain_core.messages import HumanMessage, messages_from_dict, messages_to_dict
+from langchain_core.messages import BaseMessage, HumanMessage, messages_from_dict, messages_to_dict
 from langgraph.store.base import BaseStore
 from langgraph.types import Command
 
@@ -20,16 +21,28 @@ JOB = "job"
 # What the input of a handed-off agent's turn (core/agent/handoffs.py) is kept under.
 _AGENT = "agent"
 _RESUME = "resume"
+_CLIENT = "client_id"
 
 
 @dataclass(frozen=True)
 class Origin:
     """Where a run came from beyond its channel, so it shows there when it runs again: the apps (`APPS`), which
-    show it like any run announced; a channel's chat (`CHAT`), with the chat and the user's message there in
-    `data`; a scheduled job's run (`JOB`), which the scheduler records."""
+    show it like any run announced, with the client that sent it in `data` (`from_app`); a channel's chat
+    (`CHAT`), with the chat and the user's message there in `data`; a scheduled job's run (`JOB`), which the
+    scheduler records."""
 
     kind: str = APPS
     data: dict[str, Any] = field(default_factory=dict)
+
+
+def from_app(client_id: str) -> Origin:
+    """A run an app's client sent, which is told where the inbox sent its message on when it runs later."""
+    return Origin(APPS, {_CLIENT: client_id}) if client_id else Origin()
+
+
+def client_of(origin: Origin) -> str:
+    """The app's client that sent the run; "" for any other origin."""
+    return str(origin.data.get(_CLIENT, "")) if origin.kind == APPS else ""
 
 
 @dataclass(frozen=True)
@@ -74,6 +87,15 @@ def agent_turn(kept: dict[str, Any]) -> tuple[HumanMessage, str] | None:
     if not isinstance(message, HumanMessage):
         raise ValueError(f"A held agent turn keeps the user's message, not a {message.type} message.")
     return message, str(turn["said"])
+
+
+def messages(kept: dict[str, Any]) -> list[BaseMessage]:
+    """The messages the run adds to its conversation as it starts: none for the answers it resumes with."""
+    if (turn := agent_turn(kept)) is not None:
+        return [turn[0]]
+    if _RESUME in kept:
+        return []
+    return list(graph_input(kept).get("messages", []))
 
 
 def _namespace(user_id: str) -> tuple[str, ...]:

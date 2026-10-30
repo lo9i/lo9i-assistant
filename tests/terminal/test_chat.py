@@ -6,6 +6,7 @@ from dataclasses import replace
 from textual.widgets import Button, Input, Markdown
 
 from assistant.client import DaemonUnavailableError, clipboard
+from assistant.core.agent import ShownMessage
 from assistant.core.attachments import Attachment
 from assistant.core.conversations import Conversation
 from assistant.core.events import (
@@ -17,6 +18,7 @@ from assistant.core.events import (
     ToolFinished,
     ToolStarted,
 )
+from assistant.protocol import event_to_dict
 from assistant_terminal.tui.attachments import AttachmentBar
 from assistant_terminal.tui.screens import (
     ApprovalScreen,
@@ -34,6 +36,8 @@ from assistant_terminal.tui.widgets import (
     UserMessage,
 )
 from tests.terminal.conftest import wait_for
+
+_AT = "2026-10-01T09:00:00+00:00"
 
 
 async def test_a_question_with_several_options_is_answered_with_the_picked_ones(app, client):
@@ -566,6 +570,65 @@ async def test_a_message_kept_while_an_update_installs_shows_once_when_its_run_c
         await client.bus.put(("run", run | {"run_id": "r5", "held": "h1"}))
         await wait_for(pilot, lambda: bool(app.query(AssistantMessage)))
         assert len(app.query(UserMessage)) == 1
+
+
+async def test_what_waits_for_an_update_shows_marked_in_history_and_once_when_its_run_comes(app, client):
+    from assistant_terminal.tui.widgets import HeldNote
+
+    async def after_the_update():
+        yield TextDelta("Back, and yes.")
+        yield Done()
+
+    client.conversations.items.append(Conversation("owner:trip", "Trip", _AT, _AT))
+    client.conversations.said["owner:trip"] = [
+        ShownMessage("user", "find flights"),
+        ShownMessage("assistant", "Two."),
+        ShownMessage("user", "still there?", held="h1"),
+    ]
+    client.runs["r5"] = after_the_update
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        await app._resume("owner:trip")
+        await wait_for(pilot, lambda: bool(app.query(HeldNote)))
+        assert app.query_one(HeldNote).held_id == "h1"
+        run = {"run_id": "r5", "thread_id": "owner:trip", "channel": "web", "client_id": "", "text": "still there?"}
+        await client.bus.put(("run", run | {"held": "h1"}))
+        await wait_for(pilot, lambda: len(app.query(AssistantMessage)) == 2)
+        assert [str(m.render()) for m in app.query(UserMessage)] == ["> find flights", "> still there?"]
+
+
+def _sent_on(client_id: str = "me", from_thread_id: str = "owner:abc") -> dict:
+    dispatched = Dispatched("d1", "owner:taxes", "Taxes", "what about my taxes?", "→ Continued in “Taxes”.")
+    where = {"client_id": client_id, "from_thread_id": from_thread_id, "run_id": "r6", "channel": "cli"}
+    return where | {"dispatched": event_to_dict(dispatched)}
+
+
+async def test_a_message_written_in_the_inbox_during_an_update_takes_the_app_where_it_was_sent_on(app, client):
+    async def there():
+        yield TextDelta("On your taxes.")
+        yield Done()
+
+    client.conversations.items.append(Conversation("owner:taxes", "Taxes", _AT, _AT))
+    run = {
+        "run_id": "r6",
+        "thread_id": "owner:taxes",
+        "channel": "cli",
+        "client_id": "me",
+        "text": "what about my taxes?",
+    }
+    client.conversations.in_progress["owner:taxes"] = [run]
+    client.runs["r6"] = there
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        await client.bus.put(("sent_on", _sent_on("someone else")))
+        await client.bus.put(("sent_on", _sent_on(from_thread_id="owner:elsewhere")))
+        await pilot.pause(0.2)
+        assert app._live.session.thread_id == "owner:abc"
+        await client.bus.put(("sent_on", _sent_on()))
+        await wait_for(pilot, lambda: app._live.session.thread_id == "owner:taxes" and app.query(AssistantMessage))
+        assert app.sub_title == "Taxes"
+        assert str(app.query(UserMessage).last().render()) == "> what about my taxes?"
+        assert "On your taxes." in app.query(AssistantMessage).last().source
 
 
 async def test_a_task_for_the_agent_shows_as_its_brief_not_as_the_users_message(app, client):
