@@ -6,7 +6,7 @@
   import { resolve } from "$app/paths";
   import { draft } from "$lib/chat/draft.svelte";
   import { carriesFiles, droppedFiles } from "$lib/chat/dropped";
-  import { putBack, tellAgent } from "$lib/chat/agentWork";
+  import { putBack, tellAgent, workingIn } from "$lib/chat/agentWork";
   import { agentCommands } from "$lib/chat/commands";
   import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
   import { sentTexts } from "$lib/chat/history";
@@ -60,6 +60,9 @@
   // Plugins can bring agents a conversation is handed to (/claude); the one this conversation is with.
   const agents = resource((c) => c.conversations.agents(), ["mcp"]);
   const handoff = resource((c) => c.conversations.agent(threadId), ["handoffs"]);
+  // The coding agents working here: the one it's handed to shows by its name, the others apart.
+  const running = resource((c) => c.tasks.running(), ["agent_task_progress", "agent_task_reports", "background_ended"]);
+  const working = $derived(workingIn(running.data ?? [], threadId, handoff.data?.name ?? null));
   const extra = $derived(agentCommands(agents.data ?? []));
   const player = new Player();
   let help = $state(false);
@@ -310,10 +313,14 @@
       handedOff={!!handoff.data}
     />
     <StatusBar>
-      <WorkingStatus {threadId} />
+      <WorkingStatus tasks={working.others} />
       <ConversationStats {threadId} />
       {#if handoff.data}
-        <AgentStatus handoff={handoff.data} onback={() => agentCommand(`/${handoff.data?.command}`, "off")}>
+        <AgentStatus
+          handoff={handoff.data}
+          since={working.handed?.started_at ?? null}
+          onback={() => agentCommand(`/${handoff.data?.command}`, "off")}
+        >
           <button
             type="button"
             class="btn btn--ghost btn--sm"

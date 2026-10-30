@@ -1,28 +1,21 @@
 <script lang="ts">
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
+  import type { RunningTask } from "$lib/api/types";
+  import { clock } from "$lib/clock.svelte";
   import { duration } from "$lib/duration";
-  import { resource } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
 
-  // In the status bar: the coding agents working in this conversation, and for how long. Their steps show in the
-  // thread.
-  let { threadId }: { threadId: string } = $props();
-
-  const running = resource((c) => c.tasks.running(), ["agent_task_progress", "agent_task_reports", "background_ended"]);
-  let now = $state(new Date().toISOString());
-  $effect(() => {
-    const timer = setInterval(() => (now = new Date().toISOString()), 30_000);
-    return () => clearInterval(timer);
-  });
-
-  const here = $derived((running.data ?? []).filter((t) => t.thread_id === threadId));
+  // In the status bar: the coding agents working in this conversation, and for how long; not the one it's handed
+  // to, which shows by its name (AgentStatus). Their steps show in the thread.
+  let { tasks }: { tasks: RunningTask[] } = $props();
+  const time = clock();
 </script>
 
-{#each here as task (task.id)}
+{#each tasks as task (task.id)}
   <span class="working">
     <LoaderCircle size={13} class="spin" aria-hidden="true" />
-    <span title="{task.agent} {t('chat.isWorking', { since: duration(task.started_at, now) })}"
-      ><strong>{task.agent}</strong> {t("chat.isWorking", { since: duration(task.started_at, now) })}</span
+    <span title="{task.agent} {t('chat.isWorking', { since: duration(task.started_at, time.now) })}"
+      ><strong>{task.agent}</strong> {t("chat.isWorking", { since: duration(task.started_at, time.now) })}</span
     >
   </span>
 {/each}

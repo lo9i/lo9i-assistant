@@ -24,3 +24,18 @@ describe("AgentStatus", () => {
     expect(body.indexOf("fuel")).toBeLessThan(body.indexOf(">Assistant</button>"));
   });
 });
+
+describe("AgentStatus while its agent works", () => {
+  it("says beside its name for how long, so the bar names it once", () => {
+    const { body } = render(AgentStatus, { props: { handoff, onback: () => {}, since: "2026-10-09T10:00:00Z" } });
+    expect(body).toMatch(/Claude Code<\/span>\s*<span class="working[^"]*">is working · /);
+    expect(body).toContain("lucide-loader-circle");
+    expect(body).not.toContain("lucide-bot");
+  });
+
+  it("shows only its name while it waits", () => {
+    const { body } = render(AgentStatus, { props: { handoff, onback: () => {} } });
+    expect(body).not.toContain("is working");
+    expect(body).toContain("lucide-bot");
+  });
+});
