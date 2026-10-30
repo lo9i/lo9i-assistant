@@ -2944,6 +2944,11 @@ export interface components {
              * @default
              */
             message: string;
+            /**
+             * Messages
+             * @default []
+             */
+            messages: string[];
         };
         /** Device */
         Device: {

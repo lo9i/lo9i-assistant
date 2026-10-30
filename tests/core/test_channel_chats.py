@@ -10,7 +10,7 @@ import pytest
 from assistant.core.agent import Session
 from assistant.core.approvals import RemoteApprovals
 from assistant.core.channels.chat.conversations import GREETING, ChannelChats
-from assistant.core.channels.chat.port import ChatLimits
+from assistant.core.channels.chat.port import ChatLimits, Delivered
 from assistant.core.conversation.dispatch import Pick
 from assistant.core.events import Event, TextDelta
 from assistant.core.outbox import DeliveryError
@@ -53,7 +53,7 @@ class _Channel:
         if self.refuse:
             raise DeliveryError("telegram isn't connected.")
         self.ops.append((kind, data))
-        return str(len(self.ops)) if kind == "send" else ""
+        return Delivered(str(len(self.ops)) if kind == "send" else "")
 
     def limits(self, channel):
         return self._limits

@@ -6448,6 +6448,14 @@
             "type": "string",
             "title": "Message",
             "default": ""
+          },
+          "messages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Messages",
+            "default": []
           }
         },
         "type": "object",

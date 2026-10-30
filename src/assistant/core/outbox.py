@@ -14,8 +14,9 @@ class DeliveryError(Exception):
 
 class Sender(Protocol):
     async def send(self, text: str) -> list[str]:
-        """Deliver `text` to the user and return the ids of the messages it took, in the user's own chat on
-        the channel (core/channels/chat/threads.py keeps them with a conversation). Raises DeliveryError."""
+        """Deliver `text` to the user and return the ids of every message it took, in the user's own chat on
+        the channel, a copy in each paired account included (core/channels/chat/threads.py keeps them with a
+        conversation). Raises DeliveryError."""
         ...
 
 

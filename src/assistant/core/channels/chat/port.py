@@ -14,6 +14,20 @@ OWN_CHAT = ""
 
 
 @dataclass(frozen=True)
+class Delivered:
+    """What a channel says it did for an operation: the id of the message a `send` sent (the one to edit), and
+    every message it took: in the user's own chat, a copy in each paired Telegram account."""
+
+    message: str = ""
+    messages: tuple[str, ...] = ()
+
+    @property
+    def every(self) -> list[str]:
+        """Every message it took; just `message` from a channel that doesn't list them."""
+        return list(self.messages) or ([self.message] if self.message else [])
+
+
+@dataclass(frozen=True)
 class ChatLimits:
     """A channel's pace and sizes, which its process gives when it opens its stream."""
 
@@ -39,9 +53,9 @@ class ChatPort(Protocol):
 
 
 class Operations(Protocol):
-    """The hub call that carries out an operation in a channel and returns the message id it gives."""
+    """The hub call that carries out an operation in a channel and returns what it says it did."""
 
-    async def operate(self, channel: str, kind: str, data: dict[str, object]) -> str: ...
+    async def operate(self, channel: str, kind: str, data: dict[str, object]) -> Delivered: ...
 
 
 class RemoteChat:
@@ -55,6 +69,10 @@ class RemoteChat:
         self._chat = chat
 
     async def send(self, text: str, *, markdown: bool = False, buttons: Buttons | None = None) -> str:
+        return (await self.send_copies(text, markdown=markdown, buttons=buttons)).message
+
+    async def send_copies(self, text: str, *, markdown: bool = False, buttons: Buttons | None = None) -> Delivered:
+        """Sends it, and says every message it took (in the user's own chat, one per paired account)."""
         data = {"text": text, "markdown": markdown, "buttons": _listed(buttons)}
         return await self._operate("send", data)
 
@@ -68,7 +86,7 @@ class RemoteChat:
     async def voice(self, ogg_opus: bytes) -> None:
         await self._operate("voice", {"audio": base64.b64encode(ogg_opus).decode()})
 
-    async def _operate(self, kind: str, data: dict[str, object]) -> str:
+    async def _operate(self, kind: str, data: dict[str, object]) -> Delivered:
         return await self._operations.operate(self._channel, kind, {"chat": self._chat, **data})
 
 
