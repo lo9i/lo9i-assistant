@@ -139,6 +139,7 @@
   },
   "commands": {
     "clear": "Empezar una conversación nueva",
+    "close": "Cerrar esta conversación: sigue en tus conversaciones, y una respuesta en marcha continúa",
     "conversations": "Tus conversaciones, las más recientes primero, para abrir una",
     "move": "Mover el último mensaje que la bandeja de entrada envió a otra conversación",
     "notifications": "Resultados de tareas programadas y trabajo en segundo plano que terminó",

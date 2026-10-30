@@ -13,7 +13,7 @@ async def test_menu_filters_moves_and_completes(app):
         assert menu.open and menu.highlighted.name == "/clear"
         await pilot.press("up")
         assert menu.highlighted.name == "/claude"  # wraps to the last: the agents' commands follow the built-in ones
-        await pilot.press("down", "down", "tab")
+        await pilot.press("down", "down", "down", "tab")
         assert prompt.value == "/conversations"
         prompt.value = ""
         await pilot.press("/", "p", "l")

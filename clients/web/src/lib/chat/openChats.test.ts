@@ -206,6 +206,18 @@ describe("OpenChats", () => {
     expect(chats.saved()).toEqual({ threads: [], active: -1 });
   });
 
+  it("closes the conversation a chat shows, and nothing for one that isn't open", async () => {
+    const daemon = new Daemon();
+    const chats = await open(daemon, ["t1", "t2"], 0);
+    const [first, second] = chats.all();
+    await chats.closeChat(second);
+    expect(daemon.left).toEqual(["t2"]);
+    expect(threads(chats)).toEqual(["t1"]);
+    expect(chats.current).toBe(first);
+    await chats.closeChat(second);
+    expect(daemon.left).toEqual(["t2"]);
+  });
+
   it("starts or shows a conversation again after the last one closed", async () => {
     const daemon = new Daemon();
     const chats = await open(daemon, ["t1"]);

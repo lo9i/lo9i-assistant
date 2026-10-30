@@ -139,6 +139,7 @@
   },
   "commands": {
     "clear": "Start a new conversation",
+    "close": "Close this conversation: it stays in your conversations, and a reply running keeps going",
     "conversations": "Your conversations, newest first, to open one",
     "move": "Move the last message the inbox sent on to another conversation",
     "notifications": "Job results and background work that ended",

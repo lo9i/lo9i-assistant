@@ -216,6 +216,12 @@ export class OpenChats {
     if (await closed.chat.leave()) this.notices.notify(t("controller.closedRunning"));
   }
 
+  /** Closes the open conversation `chat` shows, as close does (/close in it). */
+  async closeChat(chat: ChatController): Promise<void> {
+    const key = this.open.find((o) => o.chat === chat)?.key;
+    if (key !== undefined) await this.close(key);
+  }
+
   /** Stop showing every run; the daemon keeps them going. */
   closeAll(): void {
     this.open.forEach((o) => o.chat.close());

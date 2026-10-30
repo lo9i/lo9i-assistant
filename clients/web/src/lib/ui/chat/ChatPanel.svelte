@@ -240,6 +240,8 @@
     switch (name) {
       case "/clear":
         return void (onclear ? onclear() : chats.startNew());
+      case "/close":
+        return void chats.closeChat(shown());
       case "/notifications":
         return void goto(resolve("/notifications"));
       case "/move":

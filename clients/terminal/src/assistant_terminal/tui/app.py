@@ -171,6 +171,7 @@ class AssistantApp(App):
         self._plugin_updates = PluginUpdates(service.repositories, lambda text: self.notify(text, timeout=10))
         self._commands: dict[str, Callable[[str], Awaitable[None]]] = {
             "/clear": self._command_clear,
+            "/close": self._command_close,
             "/inbox": self._command_inbox,
             "/move": self._command_move,
             "/conversations": self._command_conversations,
@@ -816,6 +817,20 @@ class AssistantApp(App):
     async def _command_conversations(self, _: str) -> None:
         screen = ConversationsScreen(self._service.conversations, self._live.session.thread_id)
         self.push_screen(screen, self._resume)
+
+    async def _command_close(self, _: str) -> None:
+        """Takes the conversation shown off the ones open here and shows the one opened before it, or the inbox after
+        the last; a reply running there keeps going, as when it's closed from /open."""
+        shown = self._live.session.thread_id
+        if shown == self._inbox_id:
+            self.notify(t("The inbox can't be closed: /open lists the conversations open here."), severity="warning")
+            return
+        if shown in self._opened:
+            self._opened.remove(shown)
+        if self._opened:
+            await self._resume(self._opened[-1])
+        else:
+            await self._command_inbox("")
 
     async def _command_open(self, _: str) -> None:
         screen = OpenConversationsScreen(

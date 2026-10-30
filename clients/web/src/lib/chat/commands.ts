@@ -9,6 +9,7 @@ export type Command = { name: string; usage: string; description: Key; values?: 
 
 export const COMMANDS: Command[] = [
   { name: "/clear", usage: "/clear", description: "commands.clear" },
+  { name: "/close", usage: "/close", description: "commands.close" },
   { name: "/conversations", usage: "/conversations", description: "commands.conversations" },
   { name: "/move", usage: "/move", description: "commands.move" },
   { name: "/notifications", usage: "/notifications", description: "commands.notifications" },

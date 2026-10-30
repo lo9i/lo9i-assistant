@@ -85,3 +85,22 @@ async def test_with_none_open_it_says_how_to_open_one(app, client):
         await wait_for(pilot, lambda: screen.query_one("#open-conversations").has_class("empty"))
         assert not screen.query_one("#switch").display
         assert not isinstance(app.screen, ConversationsScreen)
+
+
+async def test_close_shows_the_one_opened_before_then_the_inbox_after_the_last(app, client):
+    client.conversations.items.append(_conversation("owner:taxes", "Taxes"))
+    client.conversations.items.append(_conversation("owner:garden", "Garden"))
+    async with app.run_test(size=(120, 40)) as pilot:
+        inbox = app._live.session.thread_id
+        for thread_id in ("owner:taxes", "owner:garden"):
+            await app._resume(thread_id)
+        await pilot.click("#prompt")
+        await pilot.press(*"/close", "enter")
+        await wait_for(pilot, lambda: app._live.session.thread_id == "owner:taxes")
+        assert app._opened == ["owner:taxes"]
+        await pilot.press(*"/close", "enter")
+        await wait_for(pilot, lambda: app._live.session.thread_id == inbox)
+        assert app._opened == []
+        await pilot.press(*"/close", "enter")
+        await wait_for(pilot, lambda: any("can't be closed" in str(n.message) for n in app._notifications))
+        assert app._live.session.thread_id == inbox
