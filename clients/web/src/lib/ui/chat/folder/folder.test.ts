@@ -94,3 +94,17 @@ describe("FileText", () => {
     expect(body).not.toContain("<pre");
   });
 });
+
+describe("ChangedFiles when they can't be read", () => {
+  it("says why in place of Loading", () => {
+    const { body } = render(ChangedFiles, { props: { changes: undefined, error: "Not Found", picked: null, onpick: nothing } });
+    expect(body).toContain("Not Found");
+    expect(body).not.toContain("Loading");
+  });
+
+  it("keeps the ones read before under why the last read failed", () => {
+    const changes = { repository: true, truncated: false, changes: [{ path: "a.py", status: "modified" as const }] };
+    const { body } = render(ChangedFiles, { props: { changes, error: "Not Found", picked: null, onpick: nothing } });
+    expect(body.indexOf("Not Found")).toBeLessThan(body.indexOf('title="a.py"'));
+  });
+});
