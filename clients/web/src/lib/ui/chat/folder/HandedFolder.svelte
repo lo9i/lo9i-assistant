@@ -16,21 +16,24 @@
   // Beside a conversation handed to an agent (/claude): the folder it works in, as a tree opened a folder at a time,
   // what git says changed there at the top, and a file's text when one is picked. It follows the agent's work: each
   // step it reports and its end (`agent_task_progress`, `agent_finished`) list the folder and its changes again, at
-  // most once every REFRESH_MS, so a burst of steps reads it once.
+  // most once every REFRESH_MS, so a burst of steps reads it once. Beside any other conversation (no `handoff`): the
+  // user's home folder, the same way but without changes, read again only when asked.
   const REFRESH_MS = 1000;
 
-  type Props = { threadId: string; handoff: Handoff; onclose: () => void };
+  type Props = { threadId: string; handoff: Handoff | null; onclose: () => void };
   let { threadId, handoff, onclose }: Props = $props();
   const { client, hub } = useDaemon();
 
   // A new tree for another conversation or folder.
   const tree = $derived.by(() => {
     const thread = threadId;
+    if (handoff === null) return new FolderTree((path) => client.folders.home(path));
     void handoff.folder;
     return new FolderTree((path) => client.conversations.agentFolder(thread, path));
   });
   const changes = new Resource<FolderChanges>(() => client.conversations.agentChanges(threadId));
-  const marks = $derived(new ChangeMarks(changes.data?.changes ?? []));
+  const marks = $derived(new ChangeMarks((handoff && changes.data?.changes) || []));
+  const hideLabel = $derived(handoff ? t("handedFolder.hide") : t("handedFolder.hideHome"));
   let picked = $state<string | null>(null);
   let preview = $state<FilePreview | null>(null);
   let previewError = $state("");
@@ -47,6 +50,7 @@
 
   $effect(() => {
     const thread = threadId;
+    const handed = handoff !== null;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const soon = (data: Record<string, unknown>) => {
       if (data.thread_id !== thread || timer) return;
@@ -55,7 +59,7 @@
         void refresh();
       }, REFRESH_MS);
     };
-    const stop = hub.on(["agent_task_progress", "agent_finished"], soon);
+    const stop = handed ? hub.on(["agent_task_progress", "agent_finished"], soon) : () => {};
     const stopReconnect = hub.onReconnect(() => void refresh());
     return () => {
       stop();
@@ -67,7 +71,7 @@
   /** The folder, its changes and the file shown, read again. */
   async function refresh(): Promise<void> {
     refreshing = true;
-    changes.reload();
+    if (handoff) changes.reload();
     await Promise.all([tree.refresh(), picked ? read(picked) : Promise.resolve()]);
     refreshing = false;
   }
@@ -82,7 +86,7 @@
   async function read(path: string): Promise<void> {
     const call = ++reading;
     try {
-      const found = await client.conversations.agentFile(threadId, path);
+      const found = handoff ? await client.conversations.agentFile(threadId, path) : await client.folders.homeFile(path);
       if (call === reading) [preview, previewError] = [found, ""];
     } catch (e) {
       if (call === reading) [preview, previewError] = [null, describe(e)];
@@ -97,7 +101,11 @@
 <aside class="panel surface--glass" class:previewing={picked !== null} aria-label={t("handedFolder.title")}>
   <header>
     <FolderIcon size={14} />
-    <span class="folder" title={handoff.folder}>{lastPart(handoff.folder)}</span>
+    {#if handoff}
+      <span class="folder" title={handoff.folder}>{lastPart(handoff.folder)}</span>
+    {:else}
+      <span class="folder" title="~">{t("handedFolder.home")}</span>
+    {/if}
     <button
       class="btn btn--ghost btn--icon"
       class:spinning={refreshing}
@@ -105,14 +113,14 @@
       aria-label={t("common.refresh")}
       onclick={() => void refresh()}><RefreshCw size={14} /></button
     >
-    <button class="btn btn--ghost btn--icon" title={t("handedFolder.hide")} aria-label={t("handedFolder.hide")} onclick={onclose}
+    <button class="btn btn--ghost btn--icon" title={hideLabel} aria-label={hideLabel} onclick={onclose}
       ><PanelRightClose size={14} /></button
     >
   </header>
   {#if picked !== null}
     <FileText path={picked} {preview} error={previewError} onback={() => (picked = null)} />
   {:else}
-    <ChangedFiles changes={changes.data} error={changes.error} {picked} onpick={pick} />
+    {#if handoff}<ChangedFiles changes={changes.data} error={changes.error} {picked} onpick={pick} />{/if}
     <div class="tree">
       <FolderLevel
         path=""

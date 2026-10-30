@@ -1052,9 +1052,9 @@ _Offset = Annotated[int, Query(ge=0)]
 
 
 def _add_handed_folder_routes(app: FastAPI, service: AssistantService) -> None:
-    """The folder a conversation is handed to, for the web app's side panel (core/handed_folder/). Paths are relative
-    to it. 400: a path outside it, or one the panel doesn't show (.git, node_modules, .venv, what git ignores). 404:
-    the conversation isn't with an agent, or the path isn't there."""
+    """The folder a conversation is handed to, or the home folder beside one that isn't, for the web app's side panel
+    (core/handed_folder/). Paths are relative to it. 400: a path outside it, or one the panel doesn't show (.git,
+    node_modules, .venv, what git ignores). 404: the conversation isn't with an agent, or the path isn't there."""
 
     @app.get("/conversations/{thread_id}/agent/folder")
     async def handed_folder_contents(thread_id: str, path: str = "") -> FolderContents:
@@ -1070,6 +1070,17 @@ def _add_handed_folder_routes(app: FastAPI, service: AssistantService) -> None:
     async def handed_folder_changes(thread_id: str) -> FolderChanges:
         """What git says changed in the folder; nothing outside a repository."""
         return await _handed_folder(service.handed_folder_changes(settings.owner_id, thread_id))
+
+    @app.get("/folders/home")
+    async def home_folder_contents(path: str = "") -> FolderContents:
+        """The files and folders in `path` of the user's home folder, which the panel shows beside a conversation
+        not handed to an agent; read as the handed folder's."""
+        return await _handed_folder(service.home_folder_contents(path))
+
+    @app.get("/folders/home/file")
+    async def home_folder_file(path: str) -> FilePreview:
+        """A file of the home folder's text to preview, as the handed folder's."""
+        return await _handed_folder(service.home_folder_file(path))
 
 
 async def _handed_folder[T](reading: Awaitable[T]) -> T:

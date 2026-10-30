@@ -257,6 +257,21 @@ export class FilesGroup {
   }
 }
 
+export class FoldersGroup {
+  constructor(private readonly transport: Transport) {}
+
+  /** The files and folders in `path` of the user's home folder ("" for itself), folders first, as the panel shows
+   * them beside a conversation not handed to an agent. Throws ApiError as ConversationsGroup.agentFolder. */
+  home(path = ""): Promise<FolderContents> {
+    return this.transport.request("GET", `/folders/home?path=${encodeURIComponent(path)}`);
+  }
+
+  /** A file of the home folder as text to preview (none when it isn't text). Throws ApiError as home. */
+  homeFile(path: string): Promise<FilePreview> {
+    return this.transport.request("GET", `/folders/home/file?path=${encodeURIComponent(path)}`);
+  }
+}
+
 export class IdentityGroup {
   constructor(private readonly transport: Transport) {}
 
@@ -995,6 +1010,7 @@ export class ClientsGroup {
 export class DaemonClient {
   readonly conversations: ConversationsGroup;
   readonly files: FilesGroup;
+  readonly folders: FoldersGroup;
   readonly identity: IdentityGroup;
   readonly jobs: JobsGroup;
   readonly channels: ChannelsGroup;
@@ -1031,6 +1047,7 @@ export class DaemonClient {
   ) {
     this.conversations = new ConversationsGroup(transport);
     this.files = new FilesGroup(transport);
+    this.folders = new FoldersGroup(transport);
     this.identity = new IdentityGroup(transport);
     this.jobs = new JobsGroup(transport);
     this.channels = new ChannelsGroup(transport);

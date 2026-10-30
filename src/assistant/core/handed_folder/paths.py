@@ -1,6 +1,6 @@
-"""Paths as the apps give them: relative to the handed folder, with `/` between parts, "" for the folder itself.
-Whatever would reach outside it is refused (an absolute path, a `..`, a link whose target is elsewhere), and so is
-what the panel doesn't show (`shown`)."""
+"""Paths as the apps give them: relative to the folder the panel shows (the handed folder, or the home folder), with
+`/` between parts, "" for the folder itself. Whatever would reach outside it is refused (an absolute path, a `..`, a
+link whose target is elsewhere), and so is what the panel doesn't show (`shown`)."""
 
 import asyncio
 from pathlib import Path, PurePosixPath
@@ -40,10 +40,10 @@ def inside(root: Path, relative: str) -> Path:
     """`relative` in `root` (from `root()`), its links followed. Raises OutsideFolderError for a path that
     reaches outside it, MissingPathError for one that isn't there."""
     if "\0" in relative or relative.startswith("/") or ".." in PurePosixPath(relative).parts:
-        raise OutsideFolderError(f"{relative} isn't inside the agent's folder.")
+        raise OutsideFolderError(f"{relative} isn't inside the folder.")
     target = (root / relative).resolve()
     if not target.is_relative_to(root):
-        raise OutsideFolderError(f"{relative} isn't inside the agent's folder.")
+        raise OutsideFolderError(f"{relative} isn't inside the folder.")
     if not target.exists():
         raise MissingPathError(f"{relative} isn't there.")
     return target
