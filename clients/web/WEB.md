@@ -33,6 +33,13 @@ height: auto`) and both parts get `flex: none`, so each takes its own height and
 Chat (`src/routes/conversations/+page.svelte`) is this layout with a message box above it: the screen is
 a column, the box first, then the list and details in a row (`.lists`) that takes the rest.
 
+Chat's page also shows the conversations as cards (its top bar's List / Cards, `src/lib/ui/chat/board/`): each card
+has its last messages, a live status and a small composer; up to three open side by side as panes, each a whole
+`ChatPanel` on a conversation open in the tab (`OpenChats.opened`), with dividers to resize them; cards and panes
+reorder by dragging, and any one shows full screen until its button or Esc. The layout's rules are pure functions
+(`src/lib/chat/cardLayout.ts`), kept per browser (`src/lib/conversationLayout.svelte.ts`). Below 900px it shows one
+conversation at a time.
+
 Settings-style forms (connecting a service, preferences) stay as cards in the settings page grid.
 
 ## Text and languages
