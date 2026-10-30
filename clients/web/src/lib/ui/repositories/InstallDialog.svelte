@@ -62,6 +62,9 @@
       });
     });
 
+  // A chosen server checks the values it's given before it's installed (its error shows below the fields).
+  const checking = $derived((found?.servers ?? []).some((s) => servers.has(s.name) && s.check));
+
   /** "telegram needs Bot token." for the first chosen server with a required value left empty. */
   function missing(): string {
     for (const s of found?.servers ?? []) {
@@ -114,6 +117,7 @@
 {#snippet fields(server: FoundServer)}
   {#if sharedLogin(server)}<p class="text-label">{sharedLogin(server)}</p>{/if}
   {#if sshAgentNote(server)}<p class="text-label">{sshAgentNote(server)}</p>{/if}
+  {#if server.check && server.fields.length}<p class="text-label">{t("install.checks")}</p>{/if}
   {#if server.steps?.length}
     <ol class="steps">
       {#each server.steps as step, i (i)}<li class="text-label">{step}</li>{/each}
@@ -203,7 +207,7 @@
     <button class="btn btn--ghost" onclick={() => onclose()}>{t("common.cancel")}</button>
     {#if found}
       <button class="btn btn--primary" disabled={busy || skills.size + servers.size === 0} onclick={install}
-        >{busy ? t("install.installing") : t("install.install")}</button
+        >{busy ? (checking ? t("install.checking") : t("install.installing")) : t("install.install")}</button
       >
     {:else if error}
       <button class="btn btn--primary" disabled={busy} onclick={look}>{t("app.tryAgain")}</button>

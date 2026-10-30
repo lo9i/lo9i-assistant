@@ -81,6 +81,11 @@ class McpServer:
     agent_name: str = ""
     agent_worker: str = ""
     agent_args: list[str] = field(default_factory=list)
+    # Its plugin's check of the values it was given, run before they're saved (core/mcp/checks.py): a command and
+    # its arguments, or a tool of its MCP server, which the agent never gets; "" for none.
+    check_command: str = ""
+    check_args: list[str] = field(default_factory=list)
+    check_tool: str = ""
     # Which env or header values are the user's keys (keys.py): its fields, for a plugin installed
     # from a repository. One added by hand has all of them as keys.
     keys: list[str] = field(default_factory=list)
@@ -102,10 +107,16 @@ class McpServer:
         return bool(self.command or self.url)
 
     def selects(self, tool: str) -> bool:
-        """Whether the agent gets this tool of the server."""
+        """Whether the agent gets this tool of the server. Never its check, which only lo9i calls."""
+        if self.checks_with(tool):
+            return False
         if self.include:
             return _matches(tool, self.include)
         return not _matches(tool, self.exclude)
+
+    def checks_with(self, tool: str) -> bool:
+        """Whether this tool is the check of the values its plugin was given (core/mcp/checks.py)."""
+        return bool(self.check_tool) and tool == self.check_tool
 
     def asks_first(self, tool: str) -> bool:
         """Whether this tool of the server asks the user before each call, however the server is trusted."""

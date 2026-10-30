@@ -627,6 +627,8 @@
     "allSkillsInstalled": "Everything the extras offer as skills is installed already.",
     "allInstalled": "Everything the extras offer is installed already.",
     "installing": "Installing…",
+    "checking": "Installing and checking…",
+    "checks": "It checks what you enter before it's installed, and says here if something doesn't work.",
     "install": "Install"
   },
   "jobs": {

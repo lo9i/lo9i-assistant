@@ -3670,6 +3670,11 @@ export interface components {
              * @default
              */
             subagent: string;
+            /**
+             * Check
+             * @default false
+             */
+            check: boolean;
             icon?: components["schemas"]["PluginIcon"];
         };
         /**

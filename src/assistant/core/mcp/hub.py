@@ -204,7 +204,7 @@ class McpHub(McpStarts):
         if running is None:
             return "off", "", []
         connection = running.connection
-        tools = [_info(connection.server, tool) for tool in connection.state.tools]
+        tools = _infos(connection.server, connection.state.tools)
         return connection.state.status, connection.state.error, tools
 
     async def started(self, name: str, timeout: float) -> str:
@@ -242,7 +242,7 @@ class McpHub(McpStarts):
                 return McpProbe([], sign_in=True)
             reason = f"no answer within {_PROBE_SECONDS}s" if isinstance(e, TimeoutError) else describe(e)
             raise McpServerError(f"Couldn't connect to {server.name}: {reason}") from e
-        return McpProbe([_info(server, tool) for tool in tools])
+        return McpProbe(_infos(server, tools))
 
     async def start_sign_in(self, server: McpServer, redirect_uri: str) -> McpSignIn:
         """Raises McpServerError for a local server, one that can't be reached or doesn't ask to sign in."""
@@ -348,6 +348,11 @@ def _definition(tool: McpTool) -> dict[str, Any]:
         "type": "function",
         "function": {"name": tool.name, "description": tool.description, "parameters": tool.args_schema},
     }
+
+
+def _infos(server: McpServer, tools: list[Tool]) -> list[McpToolInfo]:
+    """Its tools as the apps list them: all but its check (checks.py), which only lo9i calls."""
+    return [_info(server, tool) for tool in tools if not server.checks_with(tool.name)]
 
 
 def _info(server: McpServer, tool: Tool) -> McpToolInfo:

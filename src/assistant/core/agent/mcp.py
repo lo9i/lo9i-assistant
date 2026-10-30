@@ -103,13 +103,18 @@ class McpMixin(ServiceBase):
         return await self._save_mcp_server(server)
 
     async def update_mcp_server(self, name: str, changes: McpServerChanges) -> McpServerStatus:
-        """Raises McpServerError for an unknown server or invalid settings."""
+        """Raises McpServerError for an unknown server or invalid settings, and CheckFailedError when its plugin's
+        check says new env or header values don't work."""
         server = await keys.fill(self._storage.store, self.secrets, await servers.load(self._storage.store, name))
         values = {f.name: v for f in fields(changes) if (v := getattr(changes, f.name)) is not None}
+        changed = replace(server, **values)
+        if changes.env is not None or changes.headers is not None:
+            # Its plugin's check says before they're saved whether the new values work (core/mcp/checks.py).
+            await self._plugin_checks.run(changed)
         if changes.url is not None and changes.url != server.url:
             # A sign-in belongs to the server at the old URL.
             await self.mcp.sign_out(name)
-        return await self._save_mcp_server(replace(server, **values))
+        return await self._save_mcp_server(changed)
 
     async def start_mcp_sign_in(self, name: str, redirect_uri: str) -> str:
         """The server's sign-in page. The browser comes back to `redirect_uri` (the web app's

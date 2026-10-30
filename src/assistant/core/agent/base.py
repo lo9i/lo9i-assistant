@@ -22,6 +22,7 @@ from assistant.core.home.refresh import HomeRefresh
 from assistant.core.home.schedule import HomeSchedule
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.windows import ContextWindows
+from assistant.core.mcp.checks import PluginChecks
 from assistant.core.mcp.hub import McpHub
 from assistant.core.mcp.pages import McpPages
 from assistant.core.memory.indexer import MemoryIndexer
@@ -52,6 +53,8 @@ class ServiceBase:
     channel_processes: ChannelProcesses
     # MCP server connections. The daemon runs it as a supervised task.
     mcp: McpHub
+    # Plugins' checks of the values they're given, run before those are saved (core/mcp/checks.py).
+    _plugin_checks: PluginChecks
     # The coding agents plugins bring and their tasks (core/agent_tasks/).
     agent_tasks: AgentTasks
     # The conversation that started each task whose end is still to be told.

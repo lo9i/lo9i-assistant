@@ -68,6 +68,7 @@ from assistant.core.llm.windows import ContextWindows
 from assistant.core.mcp import folders, logins
 from assistant.core.mcp import install as plugin_install
 from assistant.core.mcp import keys as plugin_keys
+from assistant.core.mcp.checks import PluginChecks
 from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.hub import McpHub
 from assistant.core.mcp.media import ToolMedia
@@ -149,6 +150,7 @@ class AssistantService(
             background=background,
         )
         self.agent_tasks = AgentTasks(storage.store, secrets, environments, lambda: logins.of_model(self._model))
+        self._plugin_checks = PluginChecks(storage.store, secrets, lambda: logins.of_model(self._model), environments)
         self._task_reports = TaskReports(storage.store)
         self.task_ends = TaskEnds(self.agent_tasks, self._task_reports, bus, background)
         self._plugin_tools = PluginTools(

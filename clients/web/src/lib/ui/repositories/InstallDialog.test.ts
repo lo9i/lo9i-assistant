@@ -24,6 +24,7 @@ const telegram: FoundServer = {
   ssh_agent: false,
   oauth: "",
   subagent: "",
+  check: false,
   agent: "",
   email: false,
 };
@@ -38,6 +39,12 @@ describe("InstallDialog for one plugin", () => {
     expect(body).toContain("t.me/BotFather");
     expect(body).toContain('<li class="text-label">Open @BotFather and send /newbot.</li>');
     expect(body).not.toContain('type="checkbox"');
+    expect(body).not.toContain("It checks what you enter");
+  });
+
+  it("says when it checks what's entered before it's installed", () => {
+    const { body } = render(InstallDialog, { props: { server: { ...telegram, check: true }, onclose: () => {} } });
+    expect(body).toContain("It checks what you enter before it's installed");
   });
 });
 
