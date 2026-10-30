@@ -4055,7 +4055,7 @@ export interface components {
         };
         /**
          * MemorySnapshot
-         * @description What the assistant currently knows about the user, in plain types for gateways.
+         * @description What the assistant currently knows about the user, in plain types for the apps.
          */
         MemorySnapshot: {
             /** Profile */

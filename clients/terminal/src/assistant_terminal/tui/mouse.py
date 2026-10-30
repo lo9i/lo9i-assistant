@@ -2,7 +2,7 @@
 
 Textual sets it once, when the app starts. Switching later uses its terminal driver's private
 `_mouse` flag and `_enable_mouse_support` / `_disable_mouse_support` methods, which a Textual
-upgrade may change or remove (tests/cli/test_mouse.py checks them). When they're missing the switch
+upgrade may change or remove (tests/terminal/test_mouse.py checks them). When they're missing the switch
 reports failure, and the choice applies from the next start.
 """
 

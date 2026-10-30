@@ -1,4 +1,4 @@
-// Files pasted into the message box, like Ctrl+V in the terminal app (src/assistant/client/clipboard.py).
+// Files pasted into the message box, like Ctrl+V in the terminal app (src/assistant/client/clipboard/).
 
 // What browsers call image data pasted without a file, such as a screenshot.
 const UNNAMED_IMAGE = "image.png";

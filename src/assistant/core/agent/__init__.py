@@ -1,4 +1,4 @@
-"""AssistantService: the only core API that gateways use.
+"""AssistantService: the only core API the daemon uses.
 
 The service is a facade (`service.py`) composed of mixins, one per concern:
 threads, channel threads, files, the handed folder, memory, channels, email, mcp, sign-ins, alerts, doctor,
