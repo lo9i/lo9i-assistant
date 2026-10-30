@@ -180,7 +180,7 @@ class ContextFuel(Static):
 
     def show(self, stats: ConversationStats | None) -> None:
         self.update(fuel(stats) if stats else "")
-        self.tooltip = detail(stats) if stats and stats.context_limit > 0 and stats.context_tokens > 0 else None
+        self.tooltip = detail(stats) if stats else None
 
 
 class MouseStatus(Static):

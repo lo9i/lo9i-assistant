@@ -485,9 +485,10 @@
     "context": "Contexto",
     "unknown": "No se sabe hasta su primera respuesta.",
     "figures": "{used} / {limit} tokens",
-    "agentNote": "Según su última respuesta. Compacta los mensajes más viejos cuando se acerca al límite.",
+    "agentNote": "Se actualiza mientras trabaja. Compacta los mensajes más viejos cuando se acerca al límite.",
     "note": "Los mensajes más viejos se resumen cuando se llena.",
-    "label": "Contexto {percent}%"
+    "label": "Contexto {percent}%",
+    "unknownLabel": "Contexto aún desconocido"
   },
   "health": {
     "failures": {

@@ -4,15 +4,18 @@
   import { t } from "$lib/i18n.svelte";
 
   // In the status bar: how full the conversation's context is. At the limit, older messages are summarized. While
-  // the conversation is handed to an agent (/claude), the agent's context, as of its last answer.
+  // the conversation is handed to an agent (/claude), the agent's context as it last said, while it works too
+  // (`agent_context`). A dash while it isn't known: no window, or no tokens yet (the agent's first answer).
   let { threadId }: { threadId: string } = $props();
 
-  const stats = resource((c) => c.conversations.stats(threadId), ["run_finished", "handoffs"]);
+  const stats = resource((c) => c.conversations.stats(threadId), ["run_finished", "handoffs", "agent_context"]);
   const shown = $derived(stats.data && !stats.error && stats.data.thread_id === threadId ? stats.data : null);
-  const ratio = $derived(shown && shown.context_limit > 0 ? Math.min(1, shown.context_tokens / shown.context_limit) : 0);
+  const known = $derived(shown !== null && shown.context_limit > 0 && shown.context_tokens > 0);
+  const ratio = $derived(shown && known ? Math.min(1, shown.context_tokens / shown.context_limit) : 0);
   const SEGMENTS = 24;
   const filled = $derived(Math.round(ratio * SEGMENTS));
   const percent = $derived(Math.round(ratio * 100));
+  const figure = $derived(known ? `${percent}%` : "–");
   // The accent colour until half full, then fading to yellow at three quarters and to red when full.
   const YELLOW = "#e5b931";
   const RED = "#e5534b";
@@ -32,9 +35,7 @@
     if (!shown) return null;
     return {
       heading: shown.context_agent ? t("fuel.agentContext", { agent: shown.context_agent }) : t("fuel.context"),
-      figures: !shown.context_limit
-        ? t("fuel.unknown")
-        : t("fuel.figures", { used: compact(shown.context_tokens), limit: compact(shown.context_limit) }),
+      figures: !known ? t("fuel.unknown") : t("fuel.figures", { used: compact(shown.context_tokens), limit: compact(shown.context_limit) }),
       note: shown.context_agent ? t("fuel.agentNote") : t("fuel.note"),
     };
   });
@@ -42,15 +43,15 @@
 
 {#if shown}
   <span class="wrap">
-    <span class="fuel" style="border-color: {color}" aria-label={t("fuel.label", { percent })}>
+    <span class="fuel" style="border-color: {color}" aria-label={known ? t("fuel.label", { percent }) : t("fuel.unknownLabel")}>
       {#each Array(SEGMENTS) as _, i (i)}
         <span class="seg" style="background: {color}; opacity: {i < filled ? 0.4 : 0.1}"></span>
       {/each}
-      <span class="percent" style="color: {color}">{percent}%</span>
+      <span class="percent" style="color: {color}">{figure}</span>
     </span>
     {#if info}
       <span class="bubble" role="tooltip">
-        <span class="head">{info.heading} <b style="color: {color}">{percent}%</b></span>
+        <span class="head">{info.heading} <b style="color: {color}">{figure}</b></span>
         <span class="figs">{info.figures}</span>
         <span class="note">{info.note}</span>
       </span>

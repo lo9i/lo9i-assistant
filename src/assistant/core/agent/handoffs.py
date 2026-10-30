@@ -210,7 +210,9 @@ class HandoffsMixin(RunsMixin):
             raise HandoffError(f"{handoff.name} isn't installed or is turned off. /{handoff.command} off goes back.")
         reported = _Steps(steps, self.bus, session.thread_id)
         try:
-            return await self.agent_tasks.converse(agent.server, session.thread_id, handoff.folder, said, reported)
+            return await self.agent_tasks.converse(
+                agent.server, session.thread_id, handoff.folder, said, reported, reported.measured
+            )
         except AgentTaskError as e:
             raise HandoffError(f"{handoff.name}: {e}") from e
         finally:
@@ -249,7 +251,8 @@ def _saved_note(upload: dict[str, str]) -> str:
 class _Steps:
     """Each line the agent's worker writes is a step it took (core/agent_tasks/steps.py). Each step, not
     the words of one as they stream, is an `agent_task_progress` event, as for a task start_task started
-    (core/agent_tasks/ends.py), so the apps' list of running tasks follows it."""
+    (core/agent_tasks/ends.py), so the apps' list of running tasks follows it. Each time it says how full its
+    context is now, an `agent_context` event, so the apps' context bar follows it as it works."""
 
     def __init__(self, steps: asyncio.Queue[str], bus: EventBus, thread_id: str) -> None:
         self._steps = steps
@@ -263,6 +266,9 @@ class _Steps:
 
     def progressed(self) -> None:
         self._bus.publish("agent_task_progress", thread_id=self._thread_id)
+
+    def measured(self) -> None:
+        self._bus.publish("agent_context", thread_id=self._thread_id)
 
 
 class _StepReader:

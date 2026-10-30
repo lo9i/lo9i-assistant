@@ -282,6 +282,23 @@ async def test_the_conversations_context_is_the_agents_while_its_handed_to_it(se
     assert stats.context_agent == "" and stats.context_limit == settings.epoch_max_tokens
 
 
+async def test_the_conversations_context_follows_the_agent_while_it_works(service, tmp_path):
+    """A task that says how full its context is before it answers: the bar shows it then, not the one before, and
+    an `agent_context` event tells the apps."""
+    session = await _handed(service, tmp_path)
+    await collect(service.send(session, "fill context 61000"))
+    after = service.bus.last_id
+    working = asyncio.create_task(collect(service.send(session, "work a while at context 90000")))
+    while not [e for e in service.bus._history if e.id > after and e.kind == "agent_context"]:
+        await asyncio.sleep(0.02)
+    assert await service.agent_tasks.working_in("claude-code", session.thread_id, str(tmp_path))
+    told = next(e for e in service.bus._history if e.id > after and e.kind == "agent_context")
+    assert told.data == {"thread_id": session.thread_id}
+    assert (await service.conversation_stats("owner", session.thread_id)).context_tokens == 90_000
+    (tmp_path / "release").touch()
+    await asyncio.wait_for(working, 10)
+
+
 async def test_stopping_the_run_stops_the_agents_task(service, tmp_path):
     session = await _handed(service, tmp_path)
     run = asyncio.create_task(collect(service.send(session, "sleep")))

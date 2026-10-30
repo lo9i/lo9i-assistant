@@ -19,11 +19,16 @@ logging.getLogger("watchfiles").setLevel(logging.WARNING)
 
 # Gets each progress line of a task as it's written.
 Report = Callable[[str], Awaitable[None]]
+# Told each time the task writes how full the agent's context is.
+Measured = Callable[[], None]
 
 
-async def until_ended(store: TaskStore, task_id: str, report: Report | None = None) -> TaskState:
-    """The task's state once it's no longer running. `report`, when given, gets every progress line."""
-    look = _Look(store, task_id, report)
+async def until_ended(
+    store: TaskStore, task_id: str, report: Report | None = None, measured: Measured | None = None
+) -> TaskState:
+    """The task's state once it's no longer running. `report`, when given, gets every progress line, and
+    `measured` hears of each new context.json."""
+    look = _Look(store, task_id, report, measured)
     if (state := await look()).status != "running":
         return state
     folder = store.folder(task_id)
@@ -43,15 +48,25 @@ async def at_most(store: TaskStore, task_id: str, seconds: int, report: Report |
 
 
 class _Look:
-    """The task's state, after reporting the progress lines written since the last look."""
+    """The task's state, after reporting the progress lines written since the last look and telling of a
+    context the task wrote since."""
 
-    def __init__(self, store: TaskStore, task_id: str, report: Report | None) -> None:
-        self._store, self._task_id, self._report = store, task_id, report
+    def __init__(self, store: TaskStore, task_id: str, report: Report | None, measured: Measured | None) -> None:
+        self._store, self._task_id, self._report, self._measured = store, task_id, report, measured
         self._seen = 0
+        self._measured_at = 0
 
     async def __call__(self) -> TaskState:
         if self._report is not None:
             for line in await asyncio.to_thread(self._store.progress_after, self._task_id, self._seen):
                 self._seen += 1
                 await self._report(line)
+        if self._measured is not None:
+            await self._tell_measured(self._measured)
         return await asyncio.to_thread(self._store.state, self._task_id)
+
+    async def _tell_measured(self, measured: Measured) -> None:
+        written = await asyncio.to_thread(self._store.context_written, self._task_id)
+        if written != self._measured_at:
+            self._measured_at = written
+            measured()

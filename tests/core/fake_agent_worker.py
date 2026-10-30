@@ -67,10 +67,21 @@ def _work(folder: Path, task: dict) -> tuple[bool, str]:
         return _hold_messages(folder)
     if prompt in ("leave messages", "leave messages and fail"):
         return _leave_messages(folder, repository, prompt == "leave messages")
+    if prompt.startswith("work a while at context "):
+        return _work_at_context(folder, repository, int(prompt.removeprefix("work a while at context ")))
     if prompt.startswith("fill context "):
         tokens = int(prompt.removeprefix("fill context "))
         (folder / "context.json").write_text(json.dumps({"tokens": tokens, "window": 200_000}))
     return True, f"Done in {repository}: {prompt}"
+
+
+def _work_at_context(folder: Path, repository: Path, tokens: int) -> tuple[bool, str]:
+    """Says how full its context is while it works, as a worker does after each step, then works until `release`."""
+    (folder / "context.partial").write_text(json.dumps({"tokens": tokens, "window": 200_000}))
+    os.replace(folder / "context.partial", folder / "context.json")
+    while not (repository / "release").exists():
+        time.sleep(0.02)
+    return True, "Released."
 
 
 def _take_messages(folder: Path) -> tuple[bool, str]:

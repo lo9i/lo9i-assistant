@@ -20,7 +20,8 @@ _MESSAGE_ROLES = ("user", "assistant", "brief")
 class ConversationStats:
     """`input_tokens` counts the cache reads too. The times are None for a conversation not in the list
     (a new one before its first message). The context is the assistant's or, while the conversation is handed
-    to an agent, that agent's (`context_agent` its name), as of its last answer; 0 when it's not known."""
+    to an agent, that agent's (`context_agent` its name), as it last said, while it works too; 0 when it's not
+    known."""
 
     thread_id: str
     messages: int
