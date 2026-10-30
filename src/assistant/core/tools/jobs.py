@@ -35,18 +35,10 @@ async def schedule_job(
     on_new_mail: bool = False,
     timezone: str = "",
 ) -> str:
-    """Schedule a job that runs by itself, with nobody watching. Give one of `schedule`, `at` or
-    `on_new_mail`.
-
-    `name`: a slug like daily-news. `schedule`: a cron expression in the user's time zone, e.g.
-    "0 9 * * *" for every day at 09:00 or "30 8 * * 1-5" for weekdays at 08:30. `at`: one run at a
-    local date and time, e.g. "2026-09-30T14:05"; work it out from the current time for requests
-    like "in 5 minutes". `on_new_mail`: run whenever new email arrives, given the new messages, e.g.
-    for "tell me on Telegram when my bank writes". `task`: what to do, e.g. "Run the skill
-    news-digest" or "Send the user a Telegram message: stretch". Actions that need approval are
-    sent to the user's connected chat channels to approve, and denied when none is connected.
-    Replaces a job with the same name.
-    """
+    """Schedule a job that runs by itself, with nobody watching; replaces one with the same name. `name`: a
+    slug. Give one of `schedule` (cron in the user's time zone, "0 9 * * *"), `at` (one local date and time,
+    "2026-09-30T14:05") or `on_new_mail`. `task`: what to do, for yourself with nothing of this conversation.
+    How to write it, and approvals: the scheduling-jobs skill."""
     timezone = timezone or settings.timezone
     now = datetime.now(UTC)
     try:

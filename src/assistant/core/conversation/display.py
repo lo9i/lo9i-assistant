@@ -241,6 +241,13 @@ def _agent_reply(lines: list[str], reply: str, message_id: str, unanswered: bool
     return _named(shown, message_id)
 
 
+def agent_tool_calls(message: AIMessage) -> list[ShownMessage]:
+    """A handed-off agent's tool calls in its reply, whole: their outputs and their own subagents' steps uncut."""
+    if not (lines := message.response_metadata.get(STEPS)):
+        return []
+    return [m for m in _agent_reply(lines, _text(message.content), message.id or "") if m.role == "tool"]
+
+
 def _said_after_last_message(steps: list[dict[str, str]]) -> bool:
     own = [step for step in steps if not step.get("within")]
     last_message = max((i for i, step in enumerate(own) if step.get("kind") == "user"), default=-1)
