@@ -7,12 +7,14 @@ sees its 600s read timeout only after 600s awake, which takes hours on a laptop 
 now and then. On 2026-10-12 a memory digest waited that way from 23:05 until a restart the next morning.
 
 TCP keepalive probes the provider once the connection has been idle a short while, so a dead one fails
-within about a minute of being awake, and the SDK retries the call on a new connection."""
+within about a minute of being awake, and the SDK retries the call on a new connection. Anthropic's SDK turns keepalive
+on itself, but sets no idle time on macOS, which then waits the system's two hours before the first probe."""
 
 import socket
 import sys
 
 import httpx
+import httpx2
 
 # Model calls can stream for minutes; connecting shouldn't take long.
 MODEL_TIMEOUT = httpx.Timeout(600, connect=30)
@@ -41,3 +43,9 @@ def transport() -> httpx.AsyncHTTPTransport:
 def client() -> httpx.AsyncClient:
     """An HTTP client for a model provider's SDK, as the Copilot model has (core/llm/copilot.py)."""
     return httpx.AsyncClient(transport=transport(), timeout=MODEL_TIMEOUT)
+
+
+def httpx2_client() -> httpx2.AsyncClient:
+    """The same for an SDK built on httpx2 (Anthropic's), which refuses httpx's clients."""
+    transport = httpx2.AsyncHTTPTransport(socket_options=socket_options())
+    return httpx2.AsyncClient(transport=transport, timeout=httpx2.Timeout(600, connect=30), follow_redirects=True)

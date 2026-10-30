@@ -13,7 +13,6 @@ from collections.abc import Callable
 from typing import Any
 
 from langchain.chat_models import init_chat_model
-from langchain_anthropic import ChatAnthropic
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage
@@ -25,6 +24,7 @@ from pydantic import BaseModel, SecretStr
 from assistant.core.config import settings
 from assistant.core.llm import connections, copilot, openrouter
 from assistant.core.llm.choice import ModelChoice
+from assistant.core.llm.claude import KeptAliveChatAnthropic
 from assistant.core.llm.providers import CACHE_ONE_HOUR, PROMPT_CACHE, provider
 
 
@@ -73,7 +73,7 @@ def _anthropic(choice: ModelChoice, model: str) -> BaseChatModel:
         betas.append("server-side-fallback-2026-07-01")
     # Validated from a mapping: langchain-anthropic types its constructor by field alias
     # (`model_name`, `max_tokens_to_sample`), so the documented keywords don't type-check.
-    return ChatAnthropic.model_validate(
+    return KeptAliveChatAnthropic.model_validate(
         {
             "model": model,
             "max_tokens": settings.max_tokens,
@@ -129,7 +129,14 @@ def _langchain(choice: ModelChoice, model: str) -> BaseChatModel:
         options[known.max_tokens_key] = settings.max_tokens
     if known.model_key:
         options[known.model_key] = model
+    if known.id in _TAKE_HTTP_CLIENT:
+        options["http_async_client"] = connections.client()
     return init_chat_model(model, model_provider=known.id, output_version="v1", **options)
+
+
+# Providers whose LangChain model takes an httpx client as `http_async_client` (built on the OpenAI or Groq SDK), which
+# gets connections that notice when they died (core/llm/connections.py). The others make their clients themselves.
+_TAKE_HTTP_CLIENT = {"azure_openai", "deepseek", "xai", "groq", "together", "upstage", "baseten", "meta"}
 
 
 def _google_credentials(text: str) -> Any:
