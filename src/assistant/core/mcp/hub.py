@@ -60,6 +60,8 @@ class McpToolInfo:
     description: str
     read_only: bool
     selected: bool
+    # Its plugin asks for approval before each call, trusted or not (McpServer.approve).
+    asks_first: bool = False
 
 
 @dataclass
@@ -335,8 +337,9 @@ def _add(tools: dict[str, McpTool], connection: McpConnection, tool: Tool, media
         connection=connection,
         media=media,
         remote_name=tool.name,
-        read_only=_read_only(tool),
+        read_only=_read_only(connection.server, tool),
         trusted=connection.server.trusted,
+        asks_first=connection.server.asks_first(tool.name),
     )
 
 
@@ -349,11 +352,16 @@ def _definition(tool: McpTool) -> dict[str, Any]:
 
 def _info(server: McpServer, tool: Tool) -> McpToolInfo:
     description = strip_hidden(tool.description or "")
-    return McpToolInfo(tool.name, description, _read_only(tool), server.selects(tool.name))
+    return McpToolInfo(
+        tool.name, description, _read_only(server, tool), server.selects(tool.name), server.asks_first(tool.name)
+    )
 
 
-def _read_only(tool: Tool) -> bool:
-    return bool(tool.annotations and tool.annotations.read_only_hint)
+def _read_only(server: McpServer, tool: Tool) -> bool:
+    """A tool that asks first isn't read-only, whatever it claims: subagents and Home don't get it, and a
+    call cut short isn't repeated."""
+    annotated = bool(tool.annotations and tool.annotations.read_only_hint)
+    return annotated and not server.asks_first(tool.name)
 
 
 def _same_connection(old: McpServer, new: McpServer) -> bool:

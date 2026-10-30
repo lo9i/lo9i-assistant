@@ -40,7 +40,7 @@ def describe(server: McpServerStatus) -> str:
     lines.append(t("Status: {status}", status=status(server)) + (f" ({server.error})" if server.error else ""))
     if failures := failures_line(server.failures, server.failure, server.failed_at):
         lines.append(failures)
-    lines.append(_trust(server.trusted))
+    lines.append(_trust(server.trusted, any(tool.asks_first for tool in server.tools)))
     lines.append(
         t("Added by: the {plugin} plugin", plugin=server.plugin) if server.plugin else t("Added by: you, by hand")
     )
@@ -61,12 +61,17 @@ def describe(server: McpServerStatus) -> str:
             else t("Headers: {names} (values hidden)", names=names)
         )
     if server.tools:
-        lines.append(t("Tools the assistant gets are checked. Read-only tools are marked (read-only)."))
+        lines.append(
+            t(
+                "Tools the assistant gets are checked. Read-only tools are marked (read-only), "
+                "tools that always ask for your approval (asks first)."
+            )
+        )
     return "\n\n".join(lines)
 
 
 def tool_label(tool: McpToolInfo) -> str:
-    marker = " " + t("(read-only)") if tool.read_only else ""
+    marker = " " + t("(read-only)") if tool.read_only else " " + t("(asks first)") if tool.asks_first else ""
     return f"{tool.name}{marker}: {tool.description.splitlines()[0] if tool.description else ''}"
 
 
@@ -99,7 +104,9 @@ def parse_command(text: str) -> tuple[str, list[str]]:
     return parts[0], parts[1:]
 
 
-def _trust(trusted: bool) -> str:
+def _trust(trusted: bool, some_ask_first: bool) -> str:
+    if trusted and some_ask_first:
+        return t("Trusted: its tools run without asking, but those marked (asks first).")
     if trusted:
         return t("Trusted: its tools run without asking.")
     return t("Not trusted: tools not marked read-only ask for your approval first.")

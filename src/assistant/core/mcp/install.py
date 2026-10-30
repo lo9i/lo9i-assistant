@@ -28,6 +28,8 @@ code from it. In its commands, arguments and env values:
     trusted: false
     include: []                    # tools the agent gets; empty means all but `exclude`
     exclude: []
+    approve: [download]            # optional, format 7: tools that ask the user before each call, even on a
+                                   # trusted server (names or globs); an update replaces them
     page:                          # optional: a web page, shown in the web app (core/mcp/pages.py); its
                                    # WebSockets pass through too, with no time limit (daemon/page_sockets.py);
                                    # it's told the app's theme: ?theme=light|dark on its first address, and a
@@ -430,6 +432,8 @@ def _parse(data: dict[str, Any], name: str, root: Path, folder: Path) -> Candida
         raise ValueError("it brings a subagent, which needs format: 6")
     if template.oauth_provider and template.url:
         raise ValueError("it signs in with oauth:, which is for plugins that run on this computer, not a url")
+    if version < 7 and template.approve:
+        raise ValueError("it has tools that ask first (approve:), which needs format: 7")
     return Candidate(found, template, folder, folder.relative_to(root).as_posix(), systems, version)
 
 
@@ -444,6 +448,7 @@ def _template(data: dict[str, Any], name: str) -> McpServer:
         trusted=bool(data.get("trusted", False)),
         include=[str(t) for t in data.get("include", [])],
         exclude=[str(t) for t in data.get("exclude", [])],
+        approve=_tool_patterns(data.get("approve", [])),
         page_command=str(data.get("page", {}).get("command", "")),
         page_args=[str(a) for a in data.get("page", {}).get("args", [])],
         channel_command=str(data.get("channel", {}).get("command", "")),
@@ -463,6 +468,14 @@ def _oauth(value: object) -> dict[str, Any]:
     """Raises ValueError for an `oauth:` section that can't be used."""
     provider, scopes = plugin_oauth.parse(value)
     return {"oauth_provider": provider, "oauth_scopes": scopes}
+
+
+def _tool_patterns(value: object) -> list[str]:
+    """Raises ValueError for anything but a list of tool names: a lone name is refused, not read letter by
+    letter, since a tool left out of `approve` would run without asking."""
+    if not isinstance(value, list) or not all(isinstance(t, str) and t.strip() for t in value):
+        raise ValueError("its approve must be a list of tool names")
+    return [t.strip() for t in value]
 
 
 def _found(data: dict[str, Any], template: McpServer, folder: Path, category_folder: str) -> FoundServer:

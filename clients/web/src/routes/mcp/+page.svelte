@@ -13,7 +13,7 @@
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { failures } from "$lib/health";
   import { t } from "$lib/i18n.svelte";
-  import { STATUS_TONES, selectionFor, statusLabel, withTools } from "$lib/mcp";
+  import { STATUS_TONES, selectionFor, statusLabel, trustText, withTools } from "$lib/mcp";
   import { redirectUri } from "$lib/oauth";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
@@ -176,7 +176,7 @@
           <div>
             <span>{t("mcp.trusted")}</span>
             <p class="text-caption">
-              {server.trusted ? t("mcp.trustedYes") : t("mcp.trustedNo")}
+              {trustText(server)}
             </p>
           </div>
           <Toggle

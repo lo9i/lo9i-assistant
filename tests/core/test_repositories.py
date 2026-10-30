@@ -600,6 +600,35 @@ async def test_a_data_key_needs_format_4_and_true_or_false(service, repo):
     assert "its data_key must be true or false" in problems
 
 
+_ASKER = """
+command: "{python}"
+args: ["{dir}/server.py"]
+trusted: true
+format: 7
+approve: [download]
+"""
+
+
+async def test_a_plugin_names_the_tools_that_ask_first_and_an_update_replaces_them(service, repo):
+    folder = repo / "other" / "general" / "asker"
+    _write(folder, {"server.yaml": _ASKER, "server.py": _SERVER})
+    await service.install_from_repository(URL, [], [ServerValues("asker")])
+    server = await servers.load(service.store, "asker")
+    assert server.trusted and server.approve == ["download"] and server.asks_first("download")
+    assert not server.asks_first("add_title")
+    _write(folder, {"server.yaml": _ASKER.replace("[download]", "[download, add_*]")})
+    await service.update_mcp_server_from_repository("asker")
+    assert (await servers.load(service.store, "asker")).approve == ["download", "add_*"]
+
+
+async def test_tools_that_ask_first_need_format_7_and_a_list(service, repo):
+    _write(repo / "other" / "general" / "old", {"server.yaml": _ASKER.replace("format: 7", "format: 6")})
+    _write(repo / "other" / "general" / "odd", {"server.yaml": _ASKER.replace("[download]", "download")})
+    problems = await _problems(service)
+    assert "it has tools that ask first (approve:), which needs format: 7" in problems
+    assert "its approve must be a list of tool names" in problems
+
+
 async def test_a_channel_is_in_communications(service, repo):
     _write(repo / "bot", {"server.yaml": "channel: {command: run-bot}"})
     contents = await service.browse_repository(URL)

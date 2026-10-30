@@ -8,7 +8,9 @@ repository, so it isn't listed, offered, installed or updated here until lo9i is
 # 4: `data_key`, a key of the plugin's own for encrypting its data (core/mcp/data_key.py).
 # 5: `oauth`, signing in with the user's own OAuth app (core/mcp/plugin_oauth.py).
 # 6: `subagent`, a named subagent the assistant delegates tasks to (core/mcp/subagents.py).
-CURRENT = 6
+# 7: `approve`, tools that ask the user before each call even on a trusted server (core/mcp/servers.py): a
+#    daemon that didn't know it would run them without asking.
+CURRENT = 7
 
 
 def parse(value: object) -> int:

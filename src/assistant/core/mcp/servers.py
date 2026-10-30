@@ -38,6 +38,9 @@ class McpServer:
     # Tool names or globs. When include is set, only those tools are used, and exclude is ignored.
     include: list[str] = field(default_factory=list)
     exclude: list[str] = field(default_factory=list)
+    # Tool names or globs that ask the user each time, even on a trusted server: what its plugin declares
+    # (`approve:` in its server.yaml), so an update replaces them. Such a tool never counts as read-only.
+    approve: list[str] = field(default_factory=list)
     # The repository it was installed from (core/mcp/install.py); "" when added by hand.
     source: str = ""
     # A web page the server comes with, run as its own process with the server's env and shown in the
@@ -103,6 +106,10 @@ class McpServer:
         if self.include:
             return _matches(tool, self.include)
         return not _matches(tool, self.exclude)
+
+    def asks_first(self, tool: str) -> bool:
+        """Whether this tool of the server asks the user before each call, however the server is trusted."""
+        return _matches(tool, self.approve)
 
 
 def validate(server: McpServer) -> None:

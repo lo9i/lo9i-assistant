@@ -30,6 +30,7 @@
           <span class="name">
             <code>{tool.name}</code>
             {#if tool.read_only}<span class="pill">{t("mcpAdd.readOnly")}</span>{/if}
+            {#if tool.asks_first}<span class="pill">{t("mcpAdd.asksFirst")}</span>{/if}
           </span>
         </label>
         {#if tool.description}<p class="text-caption">{tool.description}</p>{/if}

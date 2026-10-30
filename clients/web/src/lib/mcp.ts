@@ -41,6 +41,14 @@ export function withTools(servers: McpServerStatus[]): McpServerStatus[] {
   return servers.filter((s) => s.transport !== "none");
 }
 
+/** What trusting the server means for its tools: a trusted server's tools run without asking, but those its
+ *  plugin says ask first (core/mcp/servers.py's `approve`). */
+export function trustText(server: McpServerStatus): string {
+  if (!server.trusted) return t("mcp.trustedNo");
+  if (server.tools.some((tool) => tool.asks_first)) return t("mcp.trustedButAsks");
+  return t("mcp.trustedYes");
+}
+
 const LABELS: Record<string, Key> = {
   connected: "mcp.connected",
   connecting: "mcp.connecting",

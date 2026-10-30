@@ -683,6 +683,7 @@
     "trusted": "De confianza",
     "trustedYes": "Sus herramientas se ejecutan sin preguntar.",
     "trustedNo": "Cada herramienta que no sea de solo lectura pide aprobación primero.",
+    "trustedButAsks": "Sus herramientas se ejecutan sin preguntar, salvo las marcadas pregunta antes.",
     "stopTrusting": "Dejar de confiar",
     "trust": "Confiar",
     "signIn": "Iniciar sesión",
@@ -729,7 +730,8 @@
     "noTools": "Este servidor no tiene herramientas.",
     "all": "Todas",
     "none": "Ninguna",
-    "readOnly": "solo lectura"
+    "readOnly": "solo lectura",
+    "asksFirst": "pregunta antes"
   },
   "memory": {
     "sections": {

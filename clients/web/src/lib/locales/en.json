@@ -683,6 +683,7 @@
     "trusted": "Trusted",
     "trustedYes": "Its tools run without asking.",
     "trustedNo": "Every tool not marked read-only asks for approval first.",
+    "trustedButAsks": "Its tools run without asking, but those marked asks first.",
     "stopTrusting": "Stop trusting",
     "trust": "Trust",
     "signIn": "Sign in",
@@ -729,7 +730,8 @@
     "noTools": "This server has no tools.",
     "all": "All",
     "none": "None",
-    "readOnly": "read-only"
+    "readOnly": "read-only",
+    "asksFirst": "asks first"
   },
   "memory": {
     "sections": {
