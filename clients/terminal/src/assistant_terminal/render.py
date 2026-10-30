@@ -15,6 +15,7 @@ from assistant.core.events import (
     Done,
     Error,
     Event,
+    Held,
     TextDelta,
     Thinking,
     ToolFinished,
@@ -94,6 +95,10 @@ class _Printer:
                 _write(f"\n{paint(BOLD, '> ' + text)}\n{attached}")
             case Dispatched(line=line):
                 _write(f"{_BULLET}{line}\n")
+            case Held():
+                _write(
+                    paint(DIM, f"{_BULLET}⏳ " + t("An update is being installed. This runs once it's done.")) + "\n"
+                )
             case Error(message):
                 _write(paint(RED, f"\n{_BULLET}" + t("Error: {message}", message=message)) + "\n")
             case Cancelled():

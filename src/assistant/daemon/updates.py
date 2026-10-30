@@ -10,13 +10,13 @@ has no repository; it carries the commit it was made from (`VERSION_FILE`) and i
 
 An update waits for the runs in progress to end before it changes anything, and holds new ones off until the
 daemon restarts on it: a run started meanwhile would run the old code against the new files (a module imported late,
-the rebuilt web app served to a tab that reloads). Those are refused with a message to send them again once it's
-back; if the update fails, they're let through again. One update at a time, and the daemon never ends in the middle
-of one: a restart or stop waits for it as it waits
-for runs (daemon/shutdown.py), and a signal's stop waits for it too (server.py, `close` and `until_installed`),
-so the tree is left either on the new version with what it needs or back on the old one. An update the daemon
-ended in the middle of all the same (its task cancelled outright, a crash) leaves a mark in the repository's git
-folder (`_MARK`) with the commit it came from, and the next start goes back to it (`recover`).
+the rebuilt web app served to a tab that reloads). Those are kept, and run once the daemon is back on the update
+(core/conversation/held.py, daemon/held.py); if the update fails, they run at once. One update at a time, and the
+daemon never ends in the middle of one: a restart or stop waits for it as it waits for runs (daemon/shutdown.py),
+and a signal's stop waits for it too (server.py, `close` and `until_installed`), so the tree is left either on the
+new version with what it needs or back on the old one. An update the daemon ended in the middle of all the same (its
+task cancelled outright, a crash) leaves a mark in the repository's git folder (`_MARK`) with the commit it came
+from, and the next start goes back to it (`recover`).
 """
 
 import asyncio
@@ -48,8 +48,6 @@ _MERGE = "Downloading the update"
 _MARK = "lo9i-update.json"
 _UNFINISHED = "The last update didn't finish"
 _WAITING = "Waiting for the runs in progress to end"
-# What a message sent while an update installs gets back.
-_HELD = "lo9i is installing an update and restarts in a moment. Send this again once it's back."
 
 
 @dataclass(frozen=True)
@@ -68,13 +66,13 @@ class _FailedError(Exception):
 class Runs(Protocol):
     """The service's runs (core/agent/runs.py), held off while an update installs."""
 
-    async def hold_runs(self, reason: str) -> None: ...
+    async def hold_runs(self) -> None: ...
 
     def release_runs(self) -> None: ...
 
 
 class _NoRuns:
-    async def hold_runs(self, reason: str) -> None:
+    async def hold_runs(self) -> None:
         return
 
     def release_runs(self) -> None:
@@ -224,7 +222,7 @@ class Updates:
     async def _held(self) -> None:
         """Once the runs in progress have ended; new ones are held off from then on."""
         self._set("updating", _WAITING)
-        await self._runs.hold_runs(_HELD)
+        await self._runs.hold_runs()
 
     async def _go_back(self, before: str, ran: Sequence[Step]) -> tuple[str, str] | None:
         """Back to the commit the update came from, with what it needs: the steps that ran (the one that failed
@@ -265,7 +263,7 @@ class Updates:
         await _run(self._root, step.command, step.timeout)
 
     def _failed(self, error: str) -> None:
-        """The runs held off go on: nothing restarts."""
+        """Runs go on, and those kept meanwhile run now: nothing restarts."""
         logger.warning("The update failed: %s", error)
         self._runs.release_runs()
         self._set("failed", error=error)

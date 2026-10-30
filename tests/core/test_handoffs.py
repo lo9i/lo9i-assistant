@@ -19,7 +19,7 @@ from assistant.core.agent_tasks.records import TaskStore
 from assistant.core.attachments import Attachment
 from assistant.core.config import settings
 from assistant.core.conversation import file_index, queued
-from assistant.core.events import Cancelled, Done, Error, TextDelta, ToolFinished, ToolStarted, UserSaid
+from assistant.core.events import Cancelled, Done, Error, Held, TextDelta, ToolFinished, ToolStarted, UserSaid
 from assistant.core.mcp import folders, servers
 from assistant.core.mcp.servers import McpServer
 from assistant.daemon.managers import ByHand
@@ -612,3 +612,27 @@ async def test_files_sent_to_an_agent_that_cant_take_them_are_not_kept(service, 
     assert (set(uploads_dir.rglob("*")) if uploads_dir.exists() else set()) == before
     (tmp_path / "release").write_text("")
     assert (await run)[-1] == Done()
+
+
+async def test_a_message_for_the_agent_kept_while_an_update_installed_goes_to_it_later(service, script, tmp_path):
+    session = await _handed(service, tmp_path)
+    await service.hold_runs()
+    [held] = await collect(service.send(session, "fix the tests"))
+    assert isinstance(held, Held) and asked() == []
+    service.release_runs()
+    [kept] = await service.held_runs("owner")
+    events = await collect(service.run_held(session, kept))
+    assert events == [TextDelta(f"Done in {tmp_path}: fix the tests"), Done()]
+    assert script.requests == []
+
+
+async def test_a_message_kept_for_an_agent_taken_back_meanwhile_goes_to_the_assistant(service, script, tmp_path):
+    script.reply("On it myself.")
+    session = await _handed(service, tmp_path)
+    await service.hold_runs()
+    await collect(service.send(session, "fix the tests"))
+    service.release_runs()
+    await service.take_back_conversation("owner", session.thread_id)
+    [kept] = await service.held_runs("owner")
+    assert isinstance((await collect(service.run_held(session, kept)))[-1], Done)
+    assert asked() == [] and "fix the tests" in script.requests[0][-1].text

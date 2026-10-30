@@ -49,7 +49,7 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
         else:
             notes = await self._notes_for(session)
             message = _message(session, [*notes, *voice_blocks, *content], brief=brief)
-            async for event in self._run(session, {"messages": [message]}):
+            async for event in self._run(session, {"messages": [message]}, text=text, brief=brief):
                 yield event
         self._title_in_background(session)
 
@@ -74,7 +74,7 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
         else:
             notes = await self._header_notes(session)
             message = _message(session, [*notes, *kept.content], kept.carried, brief)
-            events = self._run(session, {"messages": [message]})
+            events = self._run(session, {"messages": [message]}, text=kept.said, brief=brief)
         async for event in events:
             yield event
         self._title_in_background(session)
@@ -147,7 +147,7 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
         said = "\n\n".join(part for part in [text, *transcripts] if part.strip())
         message = _message(session, [*files, {"type": "text", "text": said}], brief=brief)
         to_agent = "\n\n".join(part for part in [said, _files_note(files)] if part)
-        async for event in self._handed_off(session, handoff, message, to_agent):
+        async for event in self._handed_off(session, handoff, message, to_agent, text, brief):
             yield event
 
     async def _header_notes(self, session: Session) -> list[Block]:

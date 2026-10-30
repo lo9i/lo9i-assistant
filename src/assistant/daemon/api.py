@@ -494,11 +494,13 @@ class RunInProgress(BaseModel):
     thread_id: str
     channel: str
     # As announced in its `run` event: the client that started it, what the user wrote, the notice of a follow-up,
-    # and for a coding task the assistant wrote instead, the agent it's for.
+    # for a coding task the assistant wrote instead, the agent it's for, and for a run kept while an update
+    # installed, the id its Held event gave.
     client_id: str = ""
     text: str = ""
     notice: str = ""
     brief: str = ""
+    held: str = ""
 
     @classmethod
     def of(cls, run: Run) -> "RunInProgress":
@@ -510,6 +512,7 @@ class RunInProgress(BaseModel):
             text=run.text,
             notice=run.notice,
             brief=run.brief,
+            held=run.held,
         )
 
 
@@ -549,8 +552,10 @@ def create_app(
     logs: Mapping[str, LogSource] | None = None,
     streams: DeviceStreams | None = None,
     updates: Any = None,
+    chats: ChannelChats | None = None,
 ) -> FastAPI:
-    """`streams` is shared with the pages app, so revoking a device also closes its pages' WebSockets."""
+    """`streams` is shared with the pages app, so revoking a device also closes its pages' WebSockets; `chats`,
+    with the daemon's runs kept while an update installed, which it runs again in the chats they came from."""
     app = FastAPI(title="lo9i daemon")
     # Checked outside in: the host name, the client header, then the device.
     require_device(app, service)
@@ -573,7 +578,9 @@ def create_app(
     _add_file_routes(app, service)
     _add_channel_routes(app, service)
     _add_channel_plugin_routes(app, service)
-    _add_channel_chat_routes(app, service, hub)
+    _add_channel_chat_routes(
+        app, service, chats or ChannelChats(service, ChannelRuns(hub), service.channels_hub, service.approvals)
+    )
     _add_web_search_routes(app, service)
     _add_email_routes(app, service)
     _add_sign_in_routes(app, service)
@@ -1118,10 +1125,9 @@ def _add_channel_plugin_routes(app: FastAPI, service: AssistantService) -> None:
         return Ok()
 
 
-def _add_channel_chat_routes(app: FastAPI, service: AssistantService, hub: RunHub) -> None:
+def _add_channel_chat_routes(app: FastAPI, service: AssistantService, chats: ChannelChats) -> None:
     """What the user does in a channel's chat (core/channels/chat/conversations.py). Each answers at once;
     what follows reaches the chat as operations on the channel's stream."""
-    chats = ChannelChats(service, ChannelRuns(hub), service.channels_hub, service.approvals)
 
     @app.post("/channels/{name}/messages")
     async def channel_message(

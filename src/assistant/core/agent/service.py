@@ -16,6 +16,7 @@ from assistant.core.agent.email import EmailMixin
 from assistant.core.agent.files import FilesMixin
 from assistant.core.agent.follow_ups import FollowUpsMixin
 from assistant.core.agent.handed_folder import HandedFolderMixin
+from assistant.core.agent.held import HeldRunsMixin
 from assistant.core.agent.home import HomeMixin
 from assistant.core.agent.identity import IdentityMixin
 from assistant.core.agent.jobs import JobsMixin
@@ -102,6 +103,7 @@ class AssistantService(
     NotificationsMixin,
     HomeMixin,
     FollowUpsMixin,
+    HeldRunsMixin,
     TasksMixin,
     RepositoriesMixin,
     ModelMixin,
@@ -198,7 +200,7 @@ class AssistantService(
         self._open_runs = 0
         self._no_runs = asyncio.Event()
         self._no_runs.set()
-        self._held = ""
+        self._held = False
 
     @property
     def store(self):

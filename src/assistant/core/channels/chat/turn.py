@@ -22,6 +22,7 @@ from assistant.core.events import (
     Dispatched,
     Error,
     Event,
+    Held,
     TextDelta,
     ToolFinished,
     ToolStarted,
@@ -82,6 +83,8 @@ class ChatTurn:
                 await self._chat.send(self._t("🎤 I heard ({language}): {text}", language=language, text=heard))
             case Dispatched():
                 self.dispatched = event
+            case Held():
+                await self._chat.send(self._t("⏳ An update is being installed. I'll answer this once it's done."))
             case Error(message):
                 await self._chat.send(f"⚠️ {message}")
             case Cancelled():

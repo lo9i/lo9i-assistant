@@ -18,6 +18,7 @@ _EVENT_TYPES = {
         events.ApprovalRequired,
         events.Transcribed,
         events.Dispatched,
+        events.Held,
         events.Done,
         events.Error,
         events.Cancelled,

@@ -9587,6 +9587,11 @@
             "type": "string",
             "title": "Brief",
             "default": ""
+          },
+          "held": {
+            "type": "string",
+            "title": "Held",
+            "default": ""
           }
         },
         "type": "object",

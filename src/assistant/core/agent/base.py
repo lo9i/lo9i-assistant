@@ -116,8 +116,8 @@ class ServiceBase:
     # (core/agent/runs.py).
     _open_runs: int
     _no_runs: asyncio.Event
-    # While set, new runs are refused with it: an update installs (`hold_runs`, core/agent/runs.py).
-    _held: str
+    # While set, new runs are kept to run later instead: an update installs (`hold_runs`, core/agent/runs.py).
+    _held: bool
     # The model in use (core/agent/model.py), and each model's context window, what a conversation's context is
     # measured against (core/llm/windows.py).
     _model: ModelChoice

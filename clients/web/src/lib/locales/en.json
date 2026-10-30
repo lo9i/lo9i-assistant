@@ -1235,6 +1235,7 @@
     "heard": "Heard ({language}): {text}",
     "somethingWrong": "Something went wrong",
     "stopped": "Stopped.",
+    "held": "An update is being installed. This runs once it's done.",
     "goToMessage": "Go to your message",
     "goToBottom": "Go to bottom"
   },
