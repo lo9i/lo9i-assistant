@@ -12,6 +12,7 @@ from assistant.core.agent.thread_files import ThreadFilesMixin
 from assistant.core.conversation import file_index
 from assistant.core.conversation.file_index import FileReference
 from assistant.core.conversations import Conversation
+from assistant.core.i18n import said
 
 __all__ = ["FileUnavailableError", "FilesMixin", "UploadedFile"]
 
@@ -68,7 +69,7 @@ class FilesMixin(ThreadFilesMixin):
         file = next((f for f in await self.list_files(user_id) if f.path == path), None)
         data = await asyncio.to_thread(uploads.load, path) if file else None
         if file is None or data is None:
-            raise FileUnavailableError("That file isn't there any more.")
+            raise FileUnavailableError(said("That file isn't there any more."))
         return file, data
 
 

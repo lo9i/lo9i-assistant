@@ -6,6 +6,7 @@ from typing import Literal
 
 from assistant.core import language
 from assistant.core.agent.base import ServiceBase
+from assistant.core.i18n import said
 from assistant.core.speech import preferences
 from assistant.core.speech.encode import to_ogg_opus, to_wav
 from assistant.core.speech.preferences import (
@@ -91,7 +92,7 @@ class SpeechMixin(ServiceBase):
         """`text` (Markdown) read aloud in the reply voice, or in `voice`. Raises SynthesisError."""
         spoken = speakable(text)
         if not spoken:
-            raise SynthesisError("There's nothing to read aloud.")
+            raise SynthesisError(said("There's nothing to read aloud."))
         speech = await self._synthesizer.synthesize(
             spoken, voice or (await preferences.in_use(self._storage.store)).reply_voice
         )

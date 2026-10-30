@@ -27,7 +27,7 @@ _EMPTY = translatable("No files yet. Files you attach to a message, and the ones
 
 
 class FilesScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"conversations"})
 
     def __init__(self, files: FilesApi) -> None:

@@ -17,6 +17,7 @@ from assistant.core.conversation.summary import build_summarizer
 from assistant.core.conversation.titles import build_titler
 from assistant.core.graph import build_graph
 from assistant.core.home.builder import build_section_builder
+from assistant.core.i18n import message, said
 from assistant.core.llm import build_llm, choice, packages
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.listing import ModelListError, ModelOption, available
@@ -74,13 +75,13 @@ class ModelMixin(ServiceBase):
         ModelSettingsError."""
         known = provider(provider_id)
         if known is None:
-            raise ModelSettingsError(f"Unknown provider {provider_id}.")
+            raise ModelSettingsError(said("Unknown provider {provider_id}.", provider_id=provider_id))
         new = ModelChoice(known.id, model.strip(), worker_model.strip(), self._values(known, values))
         _check_complete(known, new)
         try:
             await packages.ensure(known)
         except PackageError as e:
-            raise ModelSettingsError(str(e)) from e
+            raise ModelSettingsError(message(e)) from e
         await _check(new, TokenMeter(self._storage.usage, "check"))
         await choice.save(self._storage.store, self.secrets, new)
         self._use_model(new)
@@ -105,11 +106,11 @@ class ModelMixin(ServiceBase):
         to pick from; empty when the provider can't list them. Raises ModelSettingsError."""
         known = provider(provider_id)
         if known is None:
-            raise ModelSettingsError(f"Unknown provider {provider_id}.")
+            raise ModelSettingsError(said("Unknown provider {provider_id}.", provider_id=provider_id))
         try:
             return await available(known.id, self._values(known, values))
         except ModelListError as e:
-            raise ModelSettingsError(str(e)) from e
+            raise ModelSettingsError(message(e)) from e
 
     async def reset_model(self) -> ModelStatus:
         """Forget the app's choice and use .env's again."""
@@ -148,9 +149,9 @@ async def usable_choice(store: BaseStore, secrets: SecretBox) -> ModelChoice:
 def _check_complete(known: ModelProvider, new: ModelChoice) -> None:
     missing = next((f for f in known.fields if f.required and not new.values.get(f.key)), None)
     if missing is not None:
-        raise ModelSettingsError(f"Enter the {missing.label}.")
+        raise ModelSettingsError(said("Enter the {label}.", label=missing.label))
     if not new.model or not new.worker_model:
-        raise ModelSettingsError("Enter both models: the main one and the worker.")
+        raise ModelSettingsError(said("Enter both models: the main one and the worker."))
 
 
 async def _check(new: ModelChoice, meter: TokenMeter) -> None:
@@ -160,7 +161,7 @@ async def _check(new: ModelChoice, meter: TokenMeter) -> None:
             async with asyncio.timeout(_CHECK_SECONDS):
                 await build_llm(new, model).ainvoke([HumanMessage("Reply with OK.")], config={"callbacks": [meter]})
         except Exception as e:
-            raise ModelSettingsError(f"{model} didn't answer: {_reason(e)}") from e
+            raise ModelSettingsError(said("{model} didn't answer: {reason}", model=model, reason=_reason(e))) from e
 
 
 def _reason(error: Exception) -> str:

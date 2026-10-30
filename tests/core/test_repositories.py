@@ -682,6 +682,47 @@ async def test_a_plugins_steps_come_with_it_for_the_install_dialogs(service, rep
     assert found.steps == ["Open @BotFather and send /newbot.", "Paste the token below."]
 
 
+_TRANSLATED = """
+description: A bot
+channel: {command: run-bot}
+fields:
+  - {key: BOT_TOKEN, label: Bot token, secret: true, help: https://t.me/BotFather}
+steps: [Open @BotFather and send /newbot.]
+translations:
+  es:
+    description: Un bot
+    steps: [Abre @BotFather y envía /newbot.]
+    fields: {BOT_TOKEN: {label: Token del bot}}
+"""
+
+
+async def test_a_plugins_text_is_shown_in_the_language_its_server_yaml_translates_it_to(service, repo):
+    _write(repo / "communications" / "chat" / "bot", {"server.yaml": _TRANSLATED})
+    found = next(s for s in (await service.browse_repository(URL)).servers if s.name == "bot")
+    assert (found.description, found.steps, found.fields[0].label) == (
+        "A bot",
+        ["Open @BotFather and send /newbot."],
+        "Bot token",
+    )
+    spanish = install.in_language(found, "es")
+    assert (spanish.description, spanish.steps) == ("Un bot", ["Abre @BotFather y envía /newbot."])
+    assert (spanish.fields[0].label, spanish.fields[0].help) == ("Token del bot", "https://t.me/BotFather")
+    assert install.in_language(found, "fr") == found
+    await service.install_from_repository(URL, [], [ServerValues("bot", {"BOT_TOKEN": "x"})])
+    await service.set_language("es")
+    [field] = (await service.plugin_settings("bot")).fields
+    assert field.label == "Token del bot"
+
+
+async def test_a_translations_section_that_cant_be_used_is_the_plugins_problem(service, repo):
+    _write(
+        repo / "communications" / "chat" / "bot", {"server.yaml": "channel: {command: run-bot}\ntranslations: [es]\n"}
+    )
+    found = await service.browse_repository(URL)
+    assert "bot" not in {s.name for s in found.servers}
+    assert any("its translations must be a section per language" in p for p in found.problems)
+
+
 async def test_a_plugin_the_repository_moved_still_updates(service, repo):
     _write(repo / "gmail", {"server.yaml": _GMAIL})
     await service.install_from_repository(URL, [], [ServerValues("gmail")])

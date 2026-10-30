@@ -19,14 +19,17 @@ from langgraph.store.base import BaseStore
 from assistant.core.conversation.epochs import compact
 from assistant.core.conversation.summary import Summarizer
 from assistant.core.conversation.trim import trimmed
+from assistant.core.i18n import said
 from assistant.core.llm.errors import too_large
 
 
 class ConversationTooLargeError(Exception):
     def __init__(self) -> None:
         super().__init__(
-            "The model refused the request as too large, even with this conversation compacted and its files left "
-            "out. Send a shorter message, or start a new conversation with /clear."
+            said(
+                "The model refused the request as too large, even with this conversation compacted and its files "
+                "left out. Send a shorter message, or start a new conversation with /clear."
+            )
         )
 
 

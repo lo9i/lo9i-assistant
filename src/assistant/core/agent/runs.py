@@ -8,7 +8,7 @@ from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
-from assistant.core import checkpoints, observability
+from assistant.core import checkpoints, i18n, observability
 from assistant.core.agent.locking import LockingMixin
 from assistant.core.agent.search import SearchMixin
 from assistant.core.agent.session import Session
@@ -19,6 +19,7 @@ from assistant.core.conversation.held import HeldRun
 from assistant.core.conversation.oversized import ConversationTooLargeError
 from assistant.core.events import ApprovalRequired, Cancelled, Done, Error, Event, Held, declined
 from assistant.core.health import HealthLog
+from assistant.core.i18n import Texts
 from assistant.core.skills.tracker import SkillScriptTracker
 from assistant.core.stream_events import approval_events, to_events
 from assistant.core.to_the_end import settled, to_the_end
@@ -175,7 +176,7 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
         except Exception as e:
             # The apps show only the message; the log keeps where it came from.
             logger.exception("A run in %s failed", thread_id)
-            events.put_nowait(Error(_shown(e)))
+            events.put_nowait(Error(_shown(e, await i18n.chosen(self._storage.store))))
 
     async def pending_approvals(self, thread_id: str) -> list[ApprovalRequired]:
         """The approvals the conversation's run stopped for, still waiting for an answer."""
@@ -222,7 +223,8 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
         try:
             state = await self._graph.aget_state(config)
             step = next((t.name for t in state.tasks if t.error is not None), "")
-            mark = failed.mark(_shown(error), step)
+            # In English whatever the language: the health check groups failures by what they say.
+            mark = failed.mark(_shown(error, i18n.texts("en")), step)
             await self._graph.aupdate_state(config, {"messages": [mark]}, as_node="agent")
         except Exception:
             logger.exception("Couldn't record the failed run in %s", thread_id)
@@ -260,11 +262,11 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
         return approval_events(state.interrupts)
 
 
-def _shown(error: Exception) -> str:
+def _shown(error: Exception, texts: Texts) -> str:
     """The error as the apps show it: an error written for the user as it is, any other with its type."""
     if isinstance(error, ConversationTooLargeError):
-        return str(error)
-    return f"{type(error).__name__}: {error}"
+        return texts.shown(error)
+    return f"{type(error).__name__}: {texts.shown(error)}"
 
 
 async def _until_error(first: AsyncIterator[Event], then: Callable[[], AsyncIterator[Event]]) -> AsyncIterator[Event]:

@@ -44,8 +44,8 @@ _THEME = "ansi_dark"
 
 class FolderScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [
-        Binding("escape", "dismiss", t("Close")),
-        Binding("r", "reload", t("Refresh")),
+        Binding("escape", "dismiss", translatable("Close")),
+        Binding("r", "reload", translatable("Refresh")),
     ]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"agent_task_progress", "agent_finished", "settings"})
 

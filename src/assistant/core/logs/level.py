@@ -8,6 +8,7 @@ from typing import cast, get_args
 
 from langgraph.store.base import BaseStore
 
+from assistant.core.i18n import said
 from assistant.core.logs.entries import LogLevel
 
 _NAMESPACE = ("settings",)
@@ -44,5 +45,7 @@ def apply(level: LogLevel) -> None:
 
 def _checked(level: str) -> LogLevel:
     if level not in get_args(LogLevel):
-        raise LogLevelError(f"Unknown level: {level}. Choose one of: {', '.join(get_args(LogLevel))}.")
+        raise LogLevelError(
+            said("Unknown level: {level}. Choose one of: {levels}.", level=level, levels=", ".join(get_args(LogLevel)))
+        )
     return cast(LogLevel, level)

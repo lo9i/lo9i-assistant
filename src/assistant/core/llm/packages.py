@@ -8,6 +8,7 @@ import importlib.util
 import logging
 import sys
 
+from assistant.core.i18n import said
 from assistant.core.llm.providers import ModelProvider
 from assistant.core.uv import find as find_uv
 
@@ -30,12 +31,24 @@ async def ensure(provider: ModelProvider) -> None:
         return
     uv = find_uv()
     if uv is None:
-        raise PackageError(f"Using {provider.name} needs uv on this computer, to install {provider.package}.")
+        raise PackageError(
+            said(
+                "Using {name} needs uv on this computer, to install {package}.",
+                name=provider.name,
+                package=provider.package,
+            )
+        )
     logger.info("Installing %s for %s", provider.package, provider.name)
     await _run(uv, "pip", "install", "--python", sys.executable, provider.package, _pinned_core())
     importlib.invalidate_caches()
     if not installed(provider):
-        raise PackageError(f"Installed {provider.package}, but {provider.module} still can't be imported.")
+        raise PackageError(
+            said(
+                "Installed {package}, but {module} still can't be imported.",
+                package=provider.package,
+                module=provider.module,
+            )
+        )
 
 
 def _pinned_core() -> str:
@@ -52,7 +65,7 @@ async def _run(*command: str) -> None:
     except TimeoutError as e:
         proc.kill()
         await proc.wait()
-        raise PackageError(f"Installing didn't finish within {_TIMEOUT // 60} minutes.") from e
+        raise PackageError(said("Installing didn't finish within {minutes} minutes.", minutes=_TIMEOUT // 60)) from e
     if proc.returncode != 0:
         lines = output.decode(errors="replace").strip().splitlines()
-        raise PackageError(f"Couldn't install it: {lines[-1] if lines else 'uv failed'}")
+        raise PackageError(said("Couldn't install it: {error}", error=lines[-1] if lines else said("uv failed")))

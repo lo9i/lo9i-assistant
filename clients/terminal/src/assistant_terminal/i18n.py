@@ -1,9 +1,10 @@
 """The terminal app's own text in the language chosen in any app (core/language.py): auto is English here, as
 there's no browser to follow. Text is written in English where it's used and looked up in this package's tables
-(locales/<language>.json), the way the core's is (core/i18n). main.py sets the language from the daemon before
-the app's modules are imported, since their key bindings and labels are made then; the app sets it again when
-the setting changes, for what it shows after. The tests fail on a text a table lacks
-(tests/terminal/test_i18n.py)."""
+(locales/<language>.json), the way the core's is (core/i18n). main.py sets the language from the daemon at start,
+and the app sets it again when the setting changes. Text is translated when it's shown, never when a module is
+imported: what's made then (key bindings, lists of labels) keeps its English marked with `translatable`, and
+what shows it translates it (the footer, tui/footer.py), so /language changes it at once. The tests fail on a
+text a table lacks, and on one translated at import (tests/terminal/test_i18n.py)."""
 
 from datetime import date, datetime
 from pathlib import Path

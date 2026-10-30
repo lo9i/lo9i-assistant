@@ -7,6 +7,7 @@ from typing import Literal
 
 from assistant.core.agent.email import EmailMixin
 from assistant.core.agent.mcp import McpMixin
+from assistant.core.i18n import said
 from assistant.core.integrations.email.oauth import SignIn as EmailSignIn
 from assistant.core.mcp.plugin_oauth import PluginSignIn
 from assistant.core.mcp.sign_in import McpSignIn
@@ -38,4 +39,4 @@ class SignInsMixin(EmailMixin, McpMixin):
         if isinstance(pending, PluginSignIn):
             plugin = await self._finish_plugin_sign_in(pending, code)
             return SignedIn("plugin", plugin.name, plugin.name)
-        raise SignInError("This sign-in can't be finished here.")
+        raise SignInError(said("This sign-in can't be finished here."))

@@ -20,7 +20,7 @@ fields:
 _CHECK = """
 import os, sys
 if os.environ.get("GREET_TOKEN") != "good":
-    print("The service refused the token.")
+    print("El servicio rechazó el token." if os.environ["LO9I_LANGUAGE"] == "es" else "The service refused the token.")
     sys.exit("Traceback: refused")
 """
 
@@ -86,6 +86,13 @@ async def test_a_check_command_refuses_values_that_dont_work_and_installs_nothin
     assert [s.name for s in await servers.load_all(service.store)] == []
     assert not folders.code("greet").exists()
     assert "expenses" not in {s.name for s in (await service.browse_repository(URL)).skills if s.installed}
+
+
+async def test_a_check_says_why_in_the_language_chosen(service, repo):  # noqa: F811
+    _plugin(repo, _COMMAND)
+    await service.set_language("es")
+    with pytest.raises(CheckFailedError, match=r"^greet: El servicio rechazó el token\.$"):
+        await _install(service, "bad")
 
 
 async def test_values_the_check_takes_are_installed(service, repo):  # noqa: F811

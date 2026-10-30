@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from assistant.core.agent_tasks.steps import TAKEN, parse, streamed, waiting
+from assistant.core.i18n import said
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +131,7 @@ class TaskStore:
 
     def get(self, task_id: str) -> Task:
         if not self.has(task_id):
-            raise TaskNotFoundError(f"No task {task_id}.")
+            raise TaskNotFoundError(said("No task {task_id}.", task_id=task_id))
         return Task(**json.loads((self.folder(task_id) / _TASK).read_text()))
 
     def recent(self, limit: int = 20) -> list[Task]:

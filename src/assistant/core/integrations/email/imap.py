@@ -20,6 +20,7 @@ from email.utils import parsedate_to_datetime
 import certifi
 from aioimaplib import IMAP4, IMAP4_SSL, AioImapException, Response
 
+from assistant.core.i18n import said
 from assistant.core.integrations.email.accounts import EmailConfig, EmailError
 from assistant.core.internet.fetch import html_to_markdown
 
@@ -104,12 +105,12 @@ class Mailbox:
 
     async def _search(self, criteria: list[str]) -> list[int]:
         response = await self._client.uid_search(*criteria)
-        _check(response, "search")
+        _check(response, said("search"))
         return sorted(int(u) for line in response.lines[:-1] if _is_search_result(line) for u in line.split())
 
     async def _fetch(self, uids: str, parts: str) -> Response:
         response = await self._client.uid("fetch", uids, parts)
-        _check(response, "fetch")
+        _check(response, said("fetch"))
         return response
 
 
@@ -122,15 +123,22 @@ async def open_mailbox(config: EmailConfig, folder: str = "INBOX") -> AsyncItera
         # connection at once, instead of as a timeout waiting for the server's greeting.
         await asyncio.wait_for(client._client_task, _TIMEOUT)
         await client.wait_hello_from_server()
-        _check(await _log_in(client, config), "log in")
+        _check(await _log_in(client, config), said("log in"))
         selected = await client.select(_mailbox_name(folder))
-        _check(selected, f"open {folder}")
+        _check(selected, said("open {folder}", folder=folder))
     except (AioImapException, OSError, TimeoutError) as e:
-        raise EmailError(f"Couldn't read mail on {config.imap_host}:{config.imap_port}: {e}") from e
+        raise EmailError(
+            said(
+                "Couldn't read mail on {imap_host}:{imap_port}: {error}",
+                imap_host=config.imap_host,
+                imap_port=config.imap_port,
+                error=e,
+            )
+        ) from e
     try:
         yield Mailbox(client, _uid_validity(selected))
     except (AioImapException, OSError) as e:
-        raise EmailError(f"Reading mail failed: {e}") from e
+        raise EmailError(said("Reading mail failed: {error}", error=e)) from e
     finally:
         await _logout(client)
 
@@ -187,7 +195,7 @@ def _client(config: EmailConfig) -> IMAP4:
         return IMAP4_SSL(config.imap_host, config.imap_port, timeout=_TIMEOUT, ssl_context=context)
     if config.imap_host in _LOCAL_HOSTS:
         return IMAP4(config.imap_host, config.imap_port, timeout=_TIMEOUT)
-    raise EmailError("Reading mail needs IMAP over TLS on port 993 (plain IMAP only to this computer).")
+    raise EmailError(said("Reading mail needs IMAP over TLS on port 993 (plain IMAP only to this computer)."))
 
 
 async def _logout(client: IMAP4) -> None:
@@ -198,7 +206,7 @@ async def _logout(client: IMAP4) -> None:
 def _check(response: Response, action: str) -> None:
     if response.result != "OK":
         detail = response.lines[-1].decode(errors="replace") if response.lines else response.result
-        raise EmailError(f"The mail server couldn't {action}: {detail}")
+        raise EmailError(said("The mail server couldn't {action}: {detail}", action=action, detail=detail))
 
 
 def _summary(meta: bytes, raw: bytes) -> MailSummary:
@@ -217,7 +225,7 @@ def _summary(meta: bytes, raw: bytes) -> MailSummary:
 def _mail(meta: bytes, raw: bytes) -> Mail:
     message = email.message_from_bytes(raw, policy=default)
     if not isinstance(message, EmailMessage):
-        raise EmailError("The mail server sent a message that couldn't be read.")
+        raise EmailError(said("The mail server sent a message that couldn't be read."))
     attachments = [_attachment(part) for part in message.iter_attachments()]
     to, cc = str(message.get("To", "")), str(message.get("Cc", ""))
     return Mail(_summary(meta, raw), to, cc, _body(message), attachments)

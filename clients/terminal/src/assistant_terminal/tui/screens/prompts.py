@@ -18,13 +18,13 @@ from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import PromptsApi
 from assistant.core.agent import PromptEditError, PromptSection, UnknownPromptError
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 
 class PromptsScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "close", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "close", translatable("Close"))]
     # The daemon events that change what it shows (AssistantApp.reload_screen).
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"prompts"})
 

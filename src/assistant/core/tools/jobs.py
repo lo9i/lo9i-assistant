@@ -9,6 +9,7 @@ from langgraph.prebuilt import ToolRuntime
 
 from assistant.core.config import settings
 from assistant.core.context import Context, require_store
+from assistant.core.i18n import said
 from assistant.core.jobs import schedule as cron
 from assistant.core.jobs import store
 from assistant.core.jobs.schedule import ScheduleError
@@ -113,7 +114,7 @@ class _Timing:
 def _new_job(name: str, user_id: str, task: str, timing: _Timing, timezone: str, now: datetime) -> Job:
     """Raises ScheduleError unless exactly one timing is given and valid."""
     if timing.given != 1:
-        raise ScheduleError("Give one of a cron `schedule`, a one-time `at` or `on_new_mail`.")
+        raise ScheduleError(said("Give one of a cron `schedule`, a one-time `at` or `on_new_mail`."))
     cron.zone(timezone)
     job = Job(name, user_id, "", timezone, task, "")
     _reschedule(job, timing, now)
@@ -124,7 +125,7 @@ def _reschedule(job: Job, timing: _Timing, now: datetime) -> None:
     """Applies a new timing; with none, a repeating job's next run is recomputed and the others
     keep theirs. Raises ScheduleError."""
     if timing.given > 1:
-        raise ScheduleError("Give only one of `schedule`, `at` and `on_new_mail`.")
+        raise ScheduleError(said("Give only one of `schedule`, `at` and `on_new_mail`."))
     if timing.on_new_mail:
         job.schedule, job.one_time, job.on_new_mail, job.next_run_at = "", False, True, ""
         return

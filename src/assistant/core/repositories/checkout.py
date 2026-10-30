@@ -9,6 +9,7 @@ import tempfile
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+from assistant.core.i18n import said
 from assistant.core.repositories.errors import RepositoryError
 
 _TIMEOUT = 120
@@ -34,14 +35,16 @@ async def latest_commit(url: str, token: str = "") -> str:
     check_url(url)
     output = (await _git("ls-remote", "--", url, "HEAD", auth=_auth(url, token))).split()
     if not output:
-        raise RepositoryError("The repository has no commits.")
+        raise RepositoryError(said("The repository has no commits."))
     return output[0]
 
 
 def check_url(url: str) -> None:
     # Only https: other git transports can run local commands or read local files.
     if not url.startswith("https://") or any(c.isspace() for c in url):
-        raise RepositoryError("Give the repository's https:// address, for example https://github.com/user/extras.")
+        raise RepositoryError(
+            said("Give the repository's https:// address, for example https://github.com/user/extras.")
+        )
 
 
 def default_name(url: str) -> str:
@@ -89,7 +92,9 @@ async def _git(*args: str, auth: dict[str, str] | None = None) -> str:
             stderr=asyncio.subprocess.PIPE,
         )
     except FileNotFoundError as e:
-        raise RepositoryError("Installing from a repository needs git on the computer running the assistant.") from e
+        raise RepositoryError(
+            said("Installing from a repository needs git on the computer running the assistant.")
+        ) from e
     return await _output(proc)
 
 
@@ -99,13 +104,17 @@ async def _output(proc: asyncio.subprocess.Process) -> str:
     except TimeoutError as e:
         proc.kill()
         await proc.wait()
-        raise RepositoryError(f"The repository didn't download within {_TIMEOUT} seconds.") from e
+        raise RepositoryError(said("The repository didn't download within {seconds} seconds.", seconds=_TIMEOUT)) from e
     if proc.returncode != 0:
         lines = stderr.decode(errors="replace").strip().splitlines()
         if any(sign in line for line in lines for sign in _SIGN_IN_NEEDED):
             raise RepositoryError(
-                "Couldn't get the repository: it's private, or the token can't read it. "
-                "Add it with a token that can read its contents."
+                said(
+                    "Couldn't get the repository: it's private, or the token can't read it. Add it with a token that "
+                    "can read its contents."
+                )
             )
-        raise RepositoryError(f"Couldn't get the repository: {lines[-1] if lines else 'git failed'}")
+        raise RepositoryError(
+            said("Couldn't get the repository: {error}", error=lines[-1] if lines else said("git failed"))
+        )
     return stdout.decode(errors="replace")

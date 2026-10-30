@@ -57,8 +57,8 @@ class _Saved:
 
 class ProfileScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [
-        Binding("escape", "dismiss", t("Close")),
-        Binding("delete", "remove", t("Remove item")),
+        Binding("escape", "dismiss", translatable("Close")),
+        Binding("delete", "remove", translatable("Remove item")),
     ]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"memory"})
 

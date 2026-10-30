@@ -315,7 +315,6 @@
   "Kind: {kind}": "Tipo: {kind}",
   "Known: {title}": "Conocida: {title}",
   "Korean": "Coreano",
-  "Language set to {language}. Restart the app for its keys and labels.": "Idioma: {language}. Reinicia la app para sus teclas y etiquetas.",
   "Languages voice messages are detected as (fewer, fewer mistakes):": "Idiomas en que se detectan los mensajes de voz (menos idiomas, menos errores):",
   "Last active {when}": "Última actividad {when}",
   "Last reply": "Última respuesta",
@@ -916,5 +915,6 @@
   "{used} / {limit} tokens": "{used} / {limit} tokens",
   "→ {title}. /inbox goes back.": "→ {title}. /inbox vuelve atrás.",
   "🎤 heard ({language}): {text}": "🎤 escuchado ({language}): {text}",
-  "🎤 voice message": "🎤 mensaje de voz"
+  "🎤 voice message": "🎤 mensaje de voz",
+  "Language set to {language}.": "Idioma cambiado a {language}."
 }

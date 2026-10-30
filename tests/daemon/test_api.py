@@ -43,6 +43,7 @@ from assistant.daemon.shutdown import Ending, Pending
 from assistant.protocol import (
     CLIENT_HEADER,
     CLIENT_ID_HEADER,
+    LANGUAGE_HEADER,
     Commit,
     NoEndingError,
     PendingEnding,
@@ -236,8 +237,32 @@ async def test_the_language_is_auto_until_picked_and_unknown_ones_are_refused(cl
     assert await client.language.get() == "auto"
     assert await client.language.set("es") == "es"
     assert await client.language.get() == "es"
-    with pytest.raises(LanguageError, match="Unknown language"):
+    with pytest.raises(LanguageError, match="Idioma desconocido: fr"):
         await client.language.set("fr")
+
+
+async def test_errors_are_in_the_language_the_app_shows_else_the_chosen_one(app, service):
+    transport = httpx.ASGITransport(app=trusted(app))
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://127.0.0.1", headers={CLIENT_HEADER: "web"}
+    ) as http:
+        assert (await http.delete("/jobs/nope")).json()["detail"] == "No job named nope."
+        spanish = {LANGUAGE_HEADER: "es"}
+        assert (await http.delete("/jobs/nope", headers=spanish)).json()["detail"] == (
+            "No hay ninguna tarea programada llamada nope."
+        )
+        await service.set_language("es")
+        assert (await http.delete("/jobs/nope")).json()["detail"] == "No hay ninguna tarea programada llamada nope."
+        english = {LANGUAGE_HEADER: "en"}
+        assert (await http.delete("/jobs/nope", headers=english)).json()["detail"] == "No job named nope."
+
+
+async def test_a_routes_answer_is_in_the_language_the_app_shows(app):
+    transport = httpx.ASGITransport(app=trusted(app))
+    headers = {CLIENT_HEADER: "web", LANGUAGE_HEADER: "es"}
+    async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1", headers=headers) as http:
+        [anthropic, *_] = (await http.get("/settings/model/providers")).json()
+    assert anthropic["fields"][0]["label"] == "Clave de API"
 
 
 async def test_every_json_response_has_a_typed_schema(service):
@@ -355,7 +380,7 @@ async def test_a_new_conversations_first_message_is_routed_without_being_sent(di
 
 
 async def test_home_is_shown_refreshed_and_its_sections_edited(client, service):
-    built_in = ["Calendario", "Watchlist", "Gastos", "Copilot", "Conversations"]
+    built_in = ["Calendar", "Watchlist", "Expenses", "Copilot", "Conversations"]
     assert [c.section.title for c in (await client.home.get()).cards] == built_in
     with pytest.raises(HomeSectionsError, match="Every section needs a title"):
         await client.home.save_sections([HomeSection(title="", prompt="x")])

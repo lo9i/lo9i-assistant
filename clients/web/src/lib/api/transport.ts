@@ -1,8 +1,11 @@
+import { language } from "../i18n.svelte";
 import { ApiError, DaemonUnavailableError, isAbort } from "./errors";
 
 // Every request carries these (see src/assistant/protocol.py).
 const CLIENT_HEADER = "X-Lo9i-Client";
 const CLIENT_ID_HEADER = "X-Lo9i-Client-Id";
+// The language the app shows, auto settled by the browser's: the daemon writes its errors in it.
+const LANGUAGE_HEADER = "X-Lo9i-Language";
 // Joins a client's id and the name of a second conversation it holds, such as the voice button's.
 const CLIENT_ID_PART = "/";
 
@@ -59,7 +62,8 @@ export class HttpTransport implements Transport {
 
   private async fetch(path: string, init: RequestInit): Promise<Response> {
     try {
-      return await fetch(path, { ...init, headers: { ...this.headers, ...init.headers } });
+      const headers = { ...this.headers, [LANGUAGE_HEADER]: language.locale, ...init.headers };
+      return await fetch(path, { ...init, headers });
     } catch (error) {
       if (isAbort(error)) throw error;
       throw new DaemonUnavailableError(`Can't reach the daemon: ${String(error)}`);

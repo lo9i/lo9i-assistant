@@ -9,14 +9,14 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, SelectionList, Static
 
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.plugins_text import Plugin, update_label
 
 
 class PluginUpdatesScreen(ModalScreen[list[Plugin] | None]):
     """Returns the plugins to update, None when cancelled."""
 
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "cancel", t("Cancel"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "cancel", translatable("Cancel"))]
 
     def __init__(self, newer: list[Plugin]) -> None:
         super().__init__()

@@ -14,6 +14,7 @@ import os
 import sys
 from pathlib import Path
 
+from assistant.core.i18n import said
 from assistant.protocol import StartupError, StartupStatus
 
 SERVICE = "lo9i-assistant"
@@ -72,7 +73,7 @@ async def enable() -> StartupStatus:
 
 async def install_for_relaunch(pid: int) -> None:
     """Never offered: a systemd service's status says nothing is out of date."""
-    raise StartupError("Turn start at boot off and on to install it again.")
+    raise StartupError(said("Turn start at boot off and on to install it again."))
 
 
 async def disable() -> StartupStatus:
@@ -120,7 +121,7 @@ def _wants_link() -> Path:
 async def _systemctl(*args: str) -> None:
     code, output = await _run("systemctl", "--user", *args)
     if code != 0:
-        raise StartupError(f"systemctl {' '.join(args)} failed: {output}")
+        raise StartupError(said("systemctl {command} failed: {output}", command=" ".join(args), output=output))
 
 
 async def _try_linger() -> None:
@@ -136,7 +137,9 @@ async def _run(*command: str) -> tuple[int, str]:
             *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
         )
     except FileNotFoundError as e:
-        raise StartupError(f"{command[0]} isn't installed, so start at boot isn't available here.") from e
+        raise StartupError(
+            said("{command} isn't installed, so start at boot isn't available here.", command=command[0])
+        ) from e
     output, _ = await proc.communicate()
     return proc.returncode or 0, output.decode(errors="replace").strip()
 

@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 from assistant.client import DaemonClient, DaemonUnavailableError
 from assistant.client.files import load_attachment
-from assistant.core.agent import Agent, HandoffError, InvalidNameError, Session, SkillError
+from assistant.core.agent import Agent, HandoffError, InvalidNameError, LanguageError, Session, SkillError
 from assistant.core.attachments import Attachment
 from assistant.core.events import (
     ApprovalRequired,
@@ -16,6 +16,7 @@ from assistant.core.events import (
     is_plugin_setup,
     is_question,
 )
+from assistant_terminal import i18n
 from assistant_terminal.channels_text import describe as describe_channel
 from assistant_terminal.commands import GET_TO_KNOW_ME, agent_commands, help_lines
 from assistant_terminal.conversations_text import listed_title, when
@@ -61,6 +62,7 @@ class Repl:
             "/skills": self._skills,
             "/plugins": self._plugins,
             "/name": self._name,
+            "/language": self._language,
             "/pin": self._pin,
             "/unpin": self._unpin,
             "/get-to-know-me": self._get_to_know_me,
@@ -237,6 +239,19 @@ class Repl:
             print(t("Renamed to {name}.", name=await self._service.identity.rename(arg)))
         except InvalidNameError as e:
             print(e)
+
+    async def _language(self, arg: str) -> None:
+        """/language says the one in use and the choices; /language es sets it, for every app."""
+        if not arg:
+            chosen = await self._service.language.get()
+            print(t("The apps' language is {language}. Choose auto, en or es: /language es.", language=chosen))
+            return
+        try:
+            i18n.use(await self._service.language.set(arg))
+        except LanguageError as e:
+            print(e)
+            return
+        print(t("Language set to {language}.", language=arg))
 
     async def _pin(self, arg: str) -> None:
         thread_id = self._session.thread_id

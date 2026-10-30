@@ -11,6 +11,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path
 
+from assistant.core.i18n import said
 from assistant.core.mcp.servers import McpServerError
 from assistant.core.uv import find as find_uv
 
@@ -28,7 +29,9 @@ async def build(name: str, folder: Path) -> None:
     """Installs the locked dependencies into `folder/.venv`. Raises McpServerError if uv is missing or fails."""
     uv = find_uv()
     if uv is None:
-        raise McpServerError(f"{name} runs in its own environment, and the assistant can't find uv on this computer.")
+        raise McpServerError(
+            said("{name} runs in its own environment, and the assistant can't find uv on this computer.", name=name)
+        )
     process = await asyncio.create_subprocess_exec(
         uv,
         "sync",
@@ -41,7 +44,11 @@ async def build(name: str, folder: Path) -> None:
     )
     _, errors = await process.communicate()
     if process.returncode != 0:
-        raise McpServerError(f"Couldn't install what {name} needs: {errors.decode(errors='replace').strip()}")
+        raise McpServerError(
+            said(
+                "Couldn't install what {name} needs: {error}", name=name, error=errors.decode(errors="replace").strip()
+            )
+        )
 
 
 class Environments:

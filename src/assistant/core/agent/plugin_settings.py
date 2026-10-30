@@ -4,7 +4,9 @@ processes start again with them."""
 
 import asyncio
 
+from assistant.core import i18n
 from assistant.core.agent.mcp import McpMixin
+from assistant.core.i18n import said
 from assistant.core.mcp import install, keys, plugin_settings, servers
 from assistant.core.mcp.install import ServerField
 from assistant.core.mcp.plugin_settings import PluginFieldValue, PluginSettings
@@ -33,5 +35,8 @@ class PluginSettingsMixin(McpMixin):
     async def _with_fields(self, name: str) -> tuple[McpServer, list[ServerField]]:
         server = await keys.fill(self._storage.store, self.secrets, await servers.load(self._storage.store, name))
         if not server.source:
-            raise McpServerError(f"{name} was added by hand: change its env or headers on the MCP page.")
-        return server, await asyncio.to_thread(install.installed_fields, name)
+            raise McpServerError(
+                said("{name} was added by hand: change its env or headers on the MCP page.", name=name)
+            )
+        language = (await i18n.chosen(self._storage.store)).language
+        return server, await asyncio.to_thread(install.installed_fields, name, language)

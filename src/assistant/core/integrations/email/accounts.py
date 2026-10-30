@@ -13,6 +13,7 @@ from langgraph.store.base import BaseStore
 
 from assistant.core import accounts
 from assistant.core.accounts import Account, Status
+from assistant.core.i18n import said
 from assistant.core.integrations.email import oauth
 from assistant.core.integrations.email import plugins as email_plugins
 from assistant.core.integrations.email.errors import EmailError as EmailError
@@ -76,7 +77,9 @@ async def load(store: BaseStore, box: SecretBox, name: str = "") -> EmailConfig:
         secret = await accounts.secret(store, box, account)
     except SecretError as e:
         await mark_needs_sign_in(store, account.id, "Its password can't be read any more; connect it again.")
-        raise EmailError(f"The password of {config.label} can't be read; connect it again in the app.") from e
+        raise EmailError(
+            said("The password of {label} can't be read; connect it again in the app.", label=config.label)
+        ) from e
     config.password = await _access_token(store, box, account, secret) if config.auth == "oauth" else secret
     return config
 
@@ -91,7 +94,9 @@ async def _access_token(store: BaseStore, box: SecretBox, account: Account, secr
         tokens = await oauth.refresh(tokens)
     except EmailError as e:
         await mark_needs_sign_in(store, account.id, f"Its sign-in stopped working ({e}); sign in again.")
-        raise EmailError(f"{account.label} needs to sign in again in the app: {e}") from e
+        raise EmailError(
+            said("{label} needs to sign in again in the app: {error}", label=account.label, error=e)
+        ) from e
     await accounts.set_secret(store, box, account, tokens.to_secret())
     return tokens.access_token
 

@@ -3,6 +3,7 @@
 from langgraph.store.base import BaseStore
 
 from assistant.core import secret_store
+from assistant.core.i18n import said
 from assistant.core.internet.providers import BraveProvider, SearchError
 from assistant.core.secret_store import SecretBox
 
@@ -18,7 +19,7 @@ async def check(key: str) -> None:
     try:
         await BraveProvider(key).search("weather", 1)
     except SearchError as e:
-        raise InvalidSearchKeyError(f"Brave didn't accept the key: {e}") from e
+        raise InvalidSearchKeyError(said("Brave didn't accept the key: {error}", error=e)) from e
 
 
 async def save(store: BaseStore, box: SecretBox, key: str) -> None:

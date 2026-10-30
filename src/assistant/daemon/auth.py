@@ -29,6 +29,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from assistant.core.agent import AssistantService, Device, DeviceError, PairingCode
 from assistant.core.devices import UNUSED_LIFETIME
+from assistant.core.i18n import message, said
 from assistant.daemon.web_ui import is_web_ui
 
 logger = logging.getLogger(__name__)
@@ -178,13 +179,13 @@ def add_device_routes(app: FastAPI, service: AssistantService, streams: DeviceSt
     async def paired(body: PairRequest, request: Request) -> tuple[Device, str]:
         ip = _ip(request)
         if limiter.blocked(ip):
-            raise HTTPException(429, "Too many wrong codes. Wait a few minutes and try again.")
+            raise HTTPException(429, said("Too many wrong codes. Wait a few minutes and try again."))
         try:
             device, token = await service.pair_device(body.code, body.name, ip)
         except DeviceError as e:
             limiter.failed(ip)
             logger.warning("Wrong pairing code from %s", ip)
-            raise HTTPException(400, str(e)) from e
+            raise HTTPException(400, message(e)) from e
         logger.info("Paired device %s (%s) from %s", device.name, device.id, ip)
         return device, token
 
@@ -238,7 +239,7 @@ async def _revoke(service: AssistantService, streams: DeviceStreams, device_id: 
     try:
         await service.revoke_device(device_id)
     except DeviceError as e:
-        raise HTTPException(404, str(e)) from e
+        raise HTTPException(404, message(e)) from e
     streams.end(device_id)
     logger.info("Revoked device %s", device_id)
 

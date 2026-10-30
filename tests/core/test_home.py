@@ -100,10 +100,20 @@ def _bound_names(tools: list[Any]) -> set[str]:
 
 async def test_home_starts_with_the_built_in_sections_not_built_yet(service):
     page = await service.home("owner")
-    assert [c.section.title for c in page.cards] == ["Calendario", "Watchlist", "Gastos", "Copilot", "Conversations"]
+    assert [c.section.title for c in page.cards] == ["Calendar", "Watchlist", "Expenses", "Copilot", "Conversations"]
     assert [c.section.plugins for c in page.cards] == [["calendar"], ["watchlist"], ["expenses"], [], []]
     assert all(c.section.prompt and c.result is None for c in page.cards)
     assert page.updated_at == "" and not page.refreshing
+
+
+async def test_the_built_in_sections_are_in_the_language_chosen_until_saved(service):
+    await service.set_language("es")
+    page = await service.home("owner")
+    assert [c.section.title for c in page.cards] == ["Calendario", "Watchlist", "Gastos", "Copilot", "Conversaciones"]
+    assert page.cards[-1].section.prompt.startswith("Lo arma lo9i")
+    await service.save_home_sections("owner", [c.section for c in page.cards])
+    await service.set_language("en")
+    assert (await service.home("owner")).cards[0].section.title == "Calendario"
 
 
 async def test_a_section_is_built_from_its_plugins_read_only_tools(service, script, formats):
@@ -272,7 +282,7 @@ async def test_resetting_goes_back_to_the_built_in_sections(service):
     await _only(service, "Agenda")
     page = await service.reset_home_sections("owner")
     await service.home_refresh.wait("owner")
-    assert [c.section.title for c in page.cards] == ["Calendario", "Watchlist", "Gastos", "Copilot", "Conversations"]
+    assert [c.section.title for c in page.cards] == ["Calendar", "Watchlist", "Expenses", "Copilot", "Conversations"]
     assert "agenda" not in await results.load(service.store, "owner")
 
 

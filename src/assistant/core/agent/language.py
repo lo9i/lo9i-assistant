@@ -16,6 +16,7 @@ class LanguageMixin(ServiceBase):
         """Raises LanguageError."""
         return await language.save(self._storage.store, chosen)
 
-    async def texts(self) -> Texts:
-        """The core's text in the language chosen, English for auto: what the chat channels show."""
-        return await i18n.chosen(self._storage.store)
+    async def texts(self, app_shows: str | None = None) -> Texts:
+        """The core's text in the language chosen, English for auto: what the chat channels show. For an app's
+        request, in the language it says it shows (`LANGUAGE_HEADER`), when it does."""
+        return i18n.texts(language.answered_in(await language.load(self._storage.store), app_shows))

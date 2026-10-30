@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, urlparse
 from mcp.client.auth import AuthorizationCodeResult, OAuthClientProvider
 from mcp.client.session import IncomingMessage
 
+from assistant.core.i18n import said
 from assistant.core.mcp.connection import ClientFactory, describe, list_tools
 from assistant.core.mcp.oauth import McpAuth
 from assistant.core.mcp.servers import McpServer, McpServerError
@@ -38,16 +39,20 @@ class McpSignIn:
     async def finish(self, code: str) -> None:
         """Hand over the code and wait until the server accepted it. Raises SignInError."""
         if self._code.done() or self._connecting.done():
-            raise SignInError(f"This sign-in to {self.server} has expired or was replaced. Start it again.")
+            raise SignInError(
+                said("This sign-in to {server} has expired or was replaced. Start it again.", server=self.server)
+            )
         self._code.set_result(AuthorizationCodeResult(code=code, state=self.state))
         try:
             await self._connecting
         except asyncio.CancelledError:
             if (task := asyncio.current_task()) and task.cancelling():
                 raise
-            raise SignInError(f"A newer sign-in to {self.server} replaced this one.") from None
+            raise SignInError(said("A newer sign-in to {server} replaced this one.", server=self.server)) from None
         except Exception as e:
-            raise SignInError(f"Couldn't sign in to {self.server}: {describe(e)}") from e
+            raise SignInError(
+                said("Couldn't sign in to {server}: {error}", server=self.server, error=describe(e))
+            ) from e
 
     def cancel(self) -> None:
         self._connecting.cancel()

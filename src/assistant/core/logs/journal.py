@@ -10,6 +10,7 @@ from collections.abc import AsyncGenerator, Sequence
 from datetime import datetime
 from typing import Any
 
+from assistant.core.i18n import said
 from assistant.core.logs.components import OTHER
 from assistant.core.logs.entries import LogEntry
 from assistant.core.logs.files import LogFileInfo
@@ -70,7 +71,7 @@ class Journal:
         proc = await self._start(*args)
         output, errors = await proc.communicate()
         if proc.returncode != 0:
-            raise JournalError(f"journalctl failed: {errors.decode(errors='replace').strip()}")
+            raise JournalError(said("journalctl failed: {error}", error=errors.decode(errors="replace").strip()))
         return output
 
     async def _start(self, *args: str, errors: int = asyncio.subprocess.PIPE) -> asyncio.subprocess.Process:
@@ -79,7 +80,9 @@ class Journal:
                 *self._command, *args, stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE, stderr=errors
             )
         except FileNotFoundError as e:
-            raise JournalError(f"{self._command[0]} isn't installed, so the journal can't be read.") from e
+            raise JournalError(
+                said("{command} isn't installed, so the journal can't be read.", command=self._command[0])
+            ) from e
 
 
 def _entry(fields: dict[str, Any]) -> LogEntry:

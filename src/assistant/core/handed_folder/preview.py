@@ -9,6 +9,7 @@ from pathlib import Path
 
 from assistant.core.handed_folder import paths
 from assistant.core.handed_folder.paths import HandedFolderError, MissingPathError
+from assistant.core.i18n import said
 
 MAX_BYTES = 256 * 1024
 # A NUL byte in the start of a file says it isn't text.
@@ -49,9 +50,9 @@ def as_text(data: bytes, whole: bool = True) -> str | None:
 
 def _read(target: Path, path: str) -> tuple[int, bytes]:
     if not target.is_file():
-        raise MissingPathError(f"{path} isn't a file.")
+        raise MissingPathError(said("{path} isn't a file.", path=path))
     try:
         with target.open("rb") as f:
             return os.fstat(f.fileno()).st_size, f.read(MAX_BYTES)
     except OSError as e:
-        raise HandedFolderError(f"Can't read {path}: {e.strerror or e}") from e
+        raise HandedFolderError(said("Can't read {path}: {error}", path=path, error=e.strerror or e)) from e

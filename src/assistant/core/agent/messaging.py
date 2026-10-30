@@ -6,7 +6,7 @@ from typing import Any
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 
-from assistant.core import inbox, uploads
+from assistant.core import i18n, inbox, uploads
 from assistant.core.agent.conversations import ConversationsMixin
 from assistant.core.agent.handoffs import HandoffError, HandoffsMixin
 from assistant.core.agent.runs import RunsMixin
@@ -47,7 +47,7 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
             transcripts, voice_blocks = await transcribe_voice(self._transcriber, voice, speech)
             content = await asyncio.to_thread(to_content, text, [a for a in attachments if not is_voice(a)])
         except (TranscriptionError, ValueError) as e:
-            yield Error(str(e))
+            yield Error((await i18n.chosen(self._storage.store)).shown(e))
             return
         content = [*map(referring, saved), *content]
         for transcript in transcripts:

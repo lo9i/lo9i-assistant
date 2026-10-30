@@ -33,6 +33,7 @@ from assistant.core.conversation import prompts
 from assistant.core.conversation.oversized import within_size
 from assistant.core.events import ToolFinished, ToolStarted
 from assistant.core.graph import McpTools, Node, each_tool_call, mcp_calls
+from assistant.core.i18n import said
 from assistant.core.llm import build_llm, metered
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.errors import too_large
@@ -110,7 +111,9 @@ class SubagentRunner(Subagents):
         found = {s.name: s for s in await self.named()}
         if agent not in found:
             listed = ", ".join(found) or "none"
-            raise UnknownSubagentError(f"No subagent named {agent}. The named ones: {listed}.")
+            raise UnknownSubagentError(
+                said("No subagent named {agent}. The named ones: {listed}.", agent=agent, listed=listed)
+            )
         return found[agent]
 
     def _graph_of(self, subagent: NamedSubagent) -> SubagentGraph:

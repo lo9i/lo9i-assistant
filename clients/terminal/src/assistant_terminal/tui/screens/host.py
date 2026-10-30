@@ -43,7 +43,7 @@ _STOP = translatable(
 
 
 class HostScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"update"})
 
     def __init__(self, system: SystemApi) -> None:

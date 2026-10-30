@@ -15,30 +15,32 @@ from assistant.core.config import settings
 from assistant.core.conversation import prompt_edits
 from assistant.core.conversation.prompt import PromptPart, prompt_parts
 from assistant.core.doctor.model import ContextPart, StartingContext
+from assistant.core.i18n import translatable
 from assistant.core.identity import load_name
 from assistant.core.tools.registry import offered_tools
 from assistant.core.usage.tokens import estimate_text
 
 # A starting context past this share of the window alerts: little is left for the conversation itself.
 ALERT_SHARE = 0.3
-CORE_TOOLS = "Core tool definitions"
-PLUGIN_TOOLS = "Plugin tool definitions"
+CORE_TOOLS = translatable("Core tool definitions")
+PLUGIN_TOOLS = translatable("Plugin tool definitions")
 
+# Kept in English, which names a part across days; shown in the language chosen (changes.py::named).
 _LABELS: dict[PromptPart, str] = {
-    "persona": "Persona",
-    "name": "Instructions",
-    "operating": "Instructions",
-    "channels": "Channels",
-    "skills": "Skills",
-    "plugin_tools": "Plugins' tools listed",
-    "subagents": "Subagents",
-    "pinned": "Pinned skills",
-    "accounts": "Accounts",
-    "plugins": "Plugins to offer",
-    "profile": "Profile",
-    "facts": "Saved facts",
-    "recent": "Recent conversations",
-    "summary": "Conversation so far",
+    "persona": translatable("Persona"),
+    "name": translatable("Instructions"),
+    "operating": translatable("Instructions"),
+    "channels": translatable("Channels"),
+    "skills": translatable("Skills"),
+    "plugin_tools": translatable("Plugins' tools listed"),
+    "subagents": translatable("Subagents"),
+    "pinned": translatable("Pinned skills"),
+    "accounts": translatable("Accounts"),
+    "plugins": translatable("Plugins to offer"),
+    "profile": translatable("Profile"),
+    "facts": translatable("Saved facts"),
+    "recent": translatable("Recent conversations"),
+    "summary": translatable("Conversation so far"),
 }
 
 

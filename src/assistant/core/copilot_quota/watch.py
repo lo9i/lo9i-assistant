@@ -73,7 +73,7 @@ class CopilotWatch:
             await records.save_check(self._store, now, await fetch(token, self._transport))
         except QuotaCheckError as e:
             logger.info("Couldn't check the Copilot allowance: %s", e)
-            await records.save_check(self._store, now, None, str(e))
+            await records.save_check(self._store, now, None, (await i18n.chosen(self._store)).shown(e))
         await self._checked()
 
     async def _alert(self, now: datetime) -> None:

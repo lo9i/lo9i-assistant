@@ -21,6 +21,7 @@ from typing import Any
 
 from langgraph.store.base import BaseStore
 
+from assistant.core.i18n import said
 from assistant.core.mcp import folders, servers
 
 _NAME = re.compile(r"^[a-z][a-z0-9-]{1,23}$")
@@ -52,17 +53,17 @@ def parse(section: object, folder: Path) -> dict[str, Any]:
     if section is None:
         return {}
     if not isinstance(section, dict):
-        raise ValueError("its subagent must be a section with a name, a description and a prompt")
+        raise ValueError(said("its subagent must be a section with a name, a description and a prompt"))
     name, description, prompt = (str(section.get(k) or "").strip() for k in ("name", "description", "prompt"))
     if not (name and description and prompt):
-        raise ValueError("its subagent needs a name, a description and a prompt")
+        raise ValueError(said("its subagent needs a name, a description and a prompt"))
     if not _NAME.match(name):
-        raise ValueError(f"its subagent name {name!r} must be a lowercase word, like researcher")
+        raise ValueError(said("its subagent name {name!r} must be a lowercase word, like researcher", name=name))
     if not _inside(folder, prompt):
-        raise ValueError(f"its subagent prompt {prompt!r} isn't a file in its folder")
+        raise ValueError(said("its subagent prompt {prompt!r} isn't a file in its folder", prompt=prompt))
     tools, plugins = section.get("tools", []), section.get("plugins", [])
     if not _names(tools) or not _names(plugins):
-        raise ValueError("its subagent's tools and plugins must be lists of names")
+        raise ValueError(said("its subagent's tools and plugins must be lists of names"))
     return {
         "subagent_name": name,
         "subagent_description": " ".join(description.split()),

@@ -15,6 +15,8 @@ from typing import Any
 
 from langgraph.store.base import BaseStore
 
+from assistant.core.i18n import said
+
 _NAMESPACE = ("mcp_servers",)
 _NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,23}$")
 
@@ -127,14 +129,14 @@ def validate(server: McpServer) -> None:
     """Raises McpServerError for settings that can't work."""
     if not _NAME.match(server.name):
         raise McpServerError(
-            "The name must be 1-24 lowercase letters, digits, - or _, starting with a letter or digit."
+            said("The name must be 1-24 lowercase letters, digits, - or _, starting with a letter or digit.")
         )
     if server.command.strip() and server.url.strip():
-        raise McpServerError("Give either a command (local server) or a URL (remote server), not both.")
+        raise McpServerError(said("Give either a command (local server) or a URL (remote server), not both."))
     if not (server.command.strip() or server.url.strip() or server.channel_command.strip() or _runs_nothing(server)):
-        raise McpServerError("Give either a command (local server) or a URL (remote server).")
+        raise McpServerError(said("Give either a command (local server) or a URL (remote server)."))
     if server.url and not server.url.startswith(("https://", "http://")):
-        raise McpServerError("The URL must start with https:// or http://.")
+        raise McpServerError(said("The URL must start with https:// or http://."))
 
 
 def _runs_nothing(server: McpServer) -> bool:
@@ -152,7 +154,7 @@ async def load(store: BaseStore, name: str) -> McpServer:
     """Raises McpServerError for an unknown server."""
     item = await store.aget(_NAMESPACE, name)
     if item is None:
-        raise McpServerError(f"No MCP server named {name}.")
+        raise McpServerError(said("No MCP server named {name}.", name=name))
     return _from_record(item.value)
 
 
@@ -173,7 +175,7 @@ async def set_icon(store: BaseStore, name: str, icon: dict[str, Any]) -> None:
     McpServerError for an unknown server."""
     item = await store.aget(_NAMESPACE, name)
     if item is None:
-        raise McpServerError(f"No MCP server named {name}.")
+        raise McpServerError(said("No MCP server named {name}.", name=name))
     await store.aput(_NAMESPACE, name, {**item.value, "icon": icon})
 
 

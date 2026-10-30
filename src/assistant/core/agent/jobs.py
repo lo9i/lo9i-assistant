@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessage
 
 from assistant.core.agent.base import ServiceBase
 from assistant.core.conversation import choices
+from assistant.core.i18n import said
 from assistant.core.jobs import schedule as cron
 from assistant.core.jobs import store
 from assistant.core.jobs.store import Job, JobError, RunRecord
@@ -34,7 +35,7 @@ class JobsMixin(ServiceBase):
         job = await self._job(user_id, name)
         run = next((r for r in job.runs if r.at == at), None)
         if run is None:
-            raise JobError(f"{name} has no run at {at}.")
+            raise JobError(said("{name} has no run at {at}.", name=name, at=at))
         reply = await self._last_reply(run.thread_id) if run.thread_id and run.status == "ok" else ""
         return reply or run.summary
 
@@ -46,12 +47,12 @@ class JobsMixin(ServiceBase):
     async def delete_job(self, user_id: str, name: str) -> None:
         """Raises JobError if it doesn't exist."""
         if not await store.delete(self._storage.store, user_id, name):
-            raise JobError(f"No job named {name}.")
+            raise JobError(said("No job named {name}.", name=name))
 
     async def _job(self, user_id: str, name: str) -> Job:
         job = await store.load(self._storage.store, user_id, name)
         if job is None:
-            raise JobError(f"No job named {name}.")
+            raise JobError(said("No job named {name}.", name=name))
         return job
 
 
@@ -61,4 +62,6 @@ def _resume(job: Job, now: datetime) -> None:
     if not job.one_time:
         job.next_run_at = cron.next_runs(job.schedule, job.timezone, now)[0].astimezone(UTC).isoformat()
     elif datetime.fromisoformat(job.next_run_at) <= now:
-        raise JobError(f"{job.name} was due once and that time has passed. Ask the assistant for a new time.")
+        raise JobError(
+            said("{name} was due once and that time has passed. Ask the assistant for a new time.", name=job.name)
+        )

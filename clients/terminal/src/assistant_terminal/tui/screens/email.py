@@ -23,7 +23,7 @@ from assistant.client.daemon_client import ChannelsApi, EmailApi, OAuthApi
 from assistant.core.agent import EmailAccount, EmailError, EmailProvider, SignInError
 from assistant_terminal.channels_text import title
 from assistant_terminal.i18n import t, translatable
-from assistant_terminal.sign_in_text import MISSING_CODE, PASTE_HINT, REDIRECT, returned, signing_message
+from assistant_terminal.sign_in_text import REDIRECT, missing_code, returned, signing_message
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 _INTRO_TITLE = translatable("Add an email account")
@@ -45,7 +45,7 @@ _FIELDS = {
     "email-imap": (translatable("IMAP host, to read mail (TLS on port 993; leave empty to only send)"), False),
     "email-client-id": (translatable("Your OAuth app's client ID"), False),
     "email-client-secret": (translatable("Your OAuth app's client secret"), True),
-    "email-returned": (PASTE_HINT, False),
+    "email-returned": (translatable("Paste the address your browser ended on, if it didn't finish by itself"), False),
 }
 _PRESET_FIELDS = {"email-label", "email-address", "email-password"}
 _OAUTH_FIELDS = {"email-label", "email-address", "email-client-id", "email-client-secret"}
@@ -56,7 +56,7 @@ _ACCOUNT_BUTTONS = ("#email-name", "#rename", "#default", "#edit", "#remove")
 
 
 class EmailScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"integrations", "settings"})
 
     def __init__(self, email: EmailApi, oauth: OAuthApi, channels: ChannelsApi, plugin: str) -> None:
@@ -204,7 +204,7 @@ class EmailScreen(ModalScreen[None]):
     async def _finish(self) -> None:
         state, code = returned(self.query_one("#email-returned", Input).value)
         if not state or not code:
-            self._message = MISSING_CODE
+            self._message = missing_code()
             await self._refresh()
             return
         try:

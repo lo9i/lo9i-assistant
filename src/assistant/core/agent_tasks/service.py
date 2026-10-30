@@ -17,6 +17,7 @@ from assistant.core.agent_tasks.sessions import Sessions
 from assistant.core.agent_tasks.steps import Upload
 from assistant.core.agent_tasks.waiting import Measured, Report, at_most, until_ended
 from assistant.core.config import settings
+from assistant.core.i18n import message, said
 from assistant.core.mcp import data_key, folders, keys, logins, servers, ssh_agent
 from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.logins import SharedLogins
@@ -221,9 +222,14 @@ class AgentTasks:
         tasks = _tasks(server)
         async with self._inboxes:
             if (await asyncio.to_thread(tasks.state, task_id, 0)).status != "running":
-                raise AgentTaskError(f"{server.agent_name} has already finished that task.")
+                raise AgentTaskError(said("{agent_name} has already finished that task.", agent_name=server.agent_name))
             if not await asyncio.to_thread(tasks.takes_messages, task_id):
-                raise AgentTaskError(f"{server.agent_name} can't take messages while it works. Wait for it to finish.")
+                raise AgentTaskError(
+                    said(
+                        "{agent_name} can't take messages while it works. Wait for it to finish.",
+                        agent_name=server.agent_name,
+                    )
+                )
             await asyncio.to_thread(tasks.add_message, task_id, message)
         if (pid := await asyncio.to_thread(tasks.pid, task_id)) is not None:
             await asyncio.to_thread(workers.wake, pid)
@@ -232,7 +238,7 @@ class AgentTasks:
         tasks, sessions = _tasks(server), _sessions(server)
         previous = await asyncio.to_thread(sessions.last, conversation, folder, tasks)
         if previous is not None and (await asyncio.to_thread(tasks.state, previous.id, 0)).status == "running":
-            raise AgentTaskError("Still working on the previous message. Wait for it, or stop it first.")
+            raise AgentTaskError(said("Still working on the previous message. Wait for it, or stop it first."))
         session, follows = (previous.session, previous.id) if previous else ("", "")
         task = await asyncio.to_thread(tasks.create, folder, message, session, follows)
         await asyncio.to_thread(tasks.mark_conversation, task.id, conversation)
@@ -248,7 +254,7 @@ class AgentTasks:
         try:
             await self._environments.ensure(server.name, server.agent_worker)
         except McpServerError as e:
-            raise AgentTaskError(str(e)) from e
+            raise AgentTaskError(message(e)) from e
         # The files the user sends the agent are saved there (core/agent/messaging.py::_to_agent): an agent that
         # checks the paths it opens is let into it.
         shared = {"TZ": settings.timezone, UPLOADS_ENV: str(uploads.absolute(""))}
@@ -260,16 +266,20 @@ class AgentTasks:
     async def _session_to_continue(self, server: McpServer, task_id: str) -> str:
         found = await self.state(task_id)
         if found.agent.server != server.name:
-            raise AgentTaskError(f"Task {task_id} is {found.agent.name}'s: follow it up with {found.agent.name}.")
+            raise AgentTaskError(
+                said("Task {task_id} is {name}'s: follow it up with {name}.", task_id=task_id, name=found.agent.name)
+            )
         if found.state.status == "running":
-            raise AgentTaskError(f"Task {task_id} is still running. Wait for it or stop it before following up.")
+            raise AgentTaskError(
+                said("Task {task_id} is still running. Wait for it or stop it before following up.", task_id=task_id)
+            )
         return found.state.task.session
 
     async def _owner(self, task_id: str) -> McpServer:
         for server in self._agents.values():
             if await asyncio.to_thread(_tasks(server).has, task_id):
                 return server
-        raise AgentTaskError(f"No task {task_id}. list_tasks shows the latest ones.")
+        raise AgentTaskError(said("No task {task_id}. list_tasks shows the latest ones.", task_id=task_id))
 
     async def _recent(self, server: McpServer) -> list[FoundTask]:
         tasks = _tasks(server)
@@ -281,7 +291,9 @@ class AgentTasks:
         server = self._agents.get(name)
         if server is None:
             installed = ", ".join(self._agents) or "none"
-            raise AgentTaskError(f"No coding agent {name!r}. Installed: {installed}.")
+            raise AgentTaskError(
+                said("No coding agent {name!r}. Installed: {installed}.", name=name, installed=installed)
+            )
         return server
 
 
@@ -300,7 +312,7 @@ def _sessions(server: McpServer) -> Sessions:
 def _existing_folder(path: str) -> Path:
     folder = Path(path).expanduser()
     if not folder.is_absolute() or not folder.is_dir():
-        raise AgentTaskError(f"{path} isn't an existing folder. Give an absolute path.")
+        raise AgentTaskError(said("{path} isn't an existing folder. Give an absolute path.", path=path))
     return folder
 
 
@@ -343,5 +355,5 @@ def _reply(state: TaskState) -> str:
     if state.outcome is not None and state.outcome.ok:
         return state.outcome.text
     if lost(state):
-        raise AgentTaskError("The agent's worker ended without a reply: the computer restarted or it was killed.")
+        raise AgentTaskError(said("The agent's worker ended without a reply: the computer restarted or it was killed."))
     raise AgentTaskError(state.outcome.text if state.outcome else f"The task was {state.status}.")

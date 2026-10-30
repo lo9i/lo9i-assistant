@@ -13,6 +13,7 @@ import asyncio
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
+from assistant.core.i18n import said
 from assistant.core.repositories import categories, icons, platforms
 from assistant.core.repositories.checkout import checkout, default_name
 from assistant.core.repositories.folders import SERVER_FILE, subfolders
@@ -67,11 +68,15 @@ def check(names: list[str], found: dict[str, Candidate], url: str) -> None:
     installed from the same repository before is replaced."""
     for name in names:
         if name not in found:
-            raise SkillError(f"The repository has no skill named {name}.")
+            raise SkillError(said("The repository has no skill named {name}.", name=name))
         if _taken(name, url):
-            raise SkillError(f"You already have a skill named {name}. Delete it first to install this one.")
+            raise SkillError(
+                said("You already have a skill named {name}. Delete it first to install this one.", name=name)
+            )
         if found[name].skill.problems:
-            raise SkillError(f"{name} can't be installed: {' '.join(found[name].skill.problems)}")
+            raise SkillError(
+                said("{name} can't be installed: {problems}", name=name, problems=" ".join(found[name].skill.problems))
+            )
 
 
 def install(candidate: Candidate, url: str, commit: str) -> store.Skill:
@@ -84,9 +89,17 @@ async def update(name: str, tokens: dict[str, str] | None = None) -> store.Skill
     private repositories' tokens, by address."""
     source = await asyncio.to_thread(store.installed_from, name)
     if source is None:
-        raise SkillError(f"{name} wasn't installed from a repository, so there's nothing to update it from.")
+        raise SkillError(
+            said("{name} wasn't installed from a repository, so there's nothing to update it from.", name=name)
+        )
     if source.server:
-        raise SkillError(f"{name} comes with the {source.server} MCP server: update the server to update it.")
+        raise SkillError(
+            said(
+                "{name} comes with the {server} MCP server: update the server to update it.",
+                name=name,
+                server=source.server,
+            )
+        )
     async with checkout(source.url, (tokens or {}).get(source.url, "")) as (root, commit):
         candidate = await asyncio.to_thread(_find_at, root, source.path, name)
         return await asyncio.to_thread(install, candidate, source.url, commit)
@@ -95,12 +108,18 @@ async def update(name: str, tokens: dict[str, str] | None = None) -> store.Skill
 def _find_at(root: Path, path: str, name: str) -> Candidate:
     candidate = _candidate(root, root / path, name)
     if candidate is None or candidate.skill.name != name:
-        raise SkillError(f"The repository doesn't have {name} at {path} any more.")
+        raise SkillError(said("The repository doesn't have {name} at {path} any more.", name=name, path=path))
     if not platforms.runs_here(candidate.skill.platforms):
-        raise SkillError(f"The new version of {name} doesn't run on {platforms.current()}.")
+        raise SkillError(
+            said("The new version of {name} doesn't run on {system}.", name=name, system=platforms.current())
+        )
     if candidate.skill.problems:
         raise SkillError(
-            f"The new version of {name} has problems, so the installed one stays: {' '.join(candidate.skill.problems)}"
+            said(
+                "The new version of {name} has problems, so the installed one stays: {problems}",
+                name=name,
+                problems=" ".join(candidate.skill.problems),
+            )
         )
     return candidate
 
@@ -127,7 +146,11 @@ def _in_folder_category(skill: store.Skill, folder: str) -> store.Skill:
     if not folder or skill.category == folder:
         return skill
     if skill.category != categories.DEFAULT:
-        problem = f"It's in the {folder} folder, but its SKILL.md says category {skill.category}."
+        problem = said(
+            "It's in the {folder} folder, but its SKILL.md says category {category}.",
+            folder=folder,
+            category=skill.category,
+        )
         return replace(skill, category=folder, problems=[*skill.problems, problem])
     return replace(skill, category=folder)
 

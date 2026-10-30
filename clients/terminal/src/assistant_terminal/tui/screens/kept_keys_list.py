@@ -39,7 +39,7 @@ def describe(kept: KeptKeys) -> str:
 
 
 class KeptKeysListScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"mcp", "plugins"})
 
     def __init__(self, repositories: RepositoriesApi) -> None:

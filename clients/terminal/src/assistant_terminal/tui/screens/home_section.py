@@ -25,7 +25,7 @@ _CODED_NOTE = translatable("Built by lo9i's code, not by the model: only its tit
 
 
 class HomeSectionScreen(ModalScreen[str | None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(None)", t("Cancel"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(None)", translatable("Cancel"))]
 
     def __init__(self, section: HomeSection | None, plugins: list[str], save: Save) -> None:
         super().__init__()

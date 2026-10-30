@@ -7,6 +7,7 @@ still comes from the sections of its server.yaml; the category only groups it.""
 
 from pathlib import Path, PurePosixPath
 
+from assistant.core.i18n import said
 from assistant.core.repositories.folders import subfolders
 
 CATEGORIES = (
@@ -57,11 +58,25 @@ def parse(value: object, sections: set[str], folder: str = "") -> str:
     its sections don't allow."""
     declared = str(value or "")
     if folder and declared and declared != folder:
-        raise ValueError(f"it's in the {folder} folder, but its category says {declared}")
+        raise ValueError(
+            said("it's in the {folder} folder, but its category says {declared}", folder=folder, declared=declared)
+        )
     needed = sorted({_SECTIONS[s] for s in sections if s in _SECTIONS})
     category = folder or declared or (needed[0] if needed else DEFAULT)
     if category not in CATEGORIES:
-        raise ValueError(f"its category {category!r} isn't one of {', '.join(CATEGORIES)}")
+        raise ValueError(
+            said(
+                "its category {category!r} isn't one of {categories}",
+                category=category,
+                categories=", ".join(CATEGORIES),
+            )
+        )
     if needed and category not in needed:
-        raise ValueError(f"it's a {' and '.join(sorted(sections))} plugin, so its category must be {needed[0]}")
+        raise ValueError(
+            said(
+                "it's a {sections} plugin, so its category must be {category}",
+                sections=" and ".join(sorted(sections)),
+                category=needed[0],
+            )
+        )
     return category

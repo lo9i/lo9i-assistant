@@ -6,6 +6,8 @@ from typing import Literal
 
 from langgraph.store.base import BaseStore
 
+from assistant.core.i18n import said
+
 _NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 # Recent runs kept on each job.
 _HISTORY = 10
@@ -59,7 +61,7 @@ def namespace(user_id: str) -> tuple[str, ...]:
 
 def check_name(name: str) -> None:
     if not _NAME.match(name):
-        raise JobError("Job names use lowercase letters, digits and hyphens, e.g. daily-news.")
+        raise JobError(said("Job names use lowercase letters, digits and hyphens, e.g. daily-news."))
 
 
 async def load(store: BaseStore, user_id: str, name: str) -> Job | None:

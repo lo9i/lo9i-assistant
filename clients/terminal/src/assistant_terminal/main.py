@@ -13,6 +13,8 @@ from assistant_terminal import i18n
 from assistant_terminal.history import History
 from assistant_terminal.i18n import t
 from assistant_terminal.preferences import Preferences
+from assistant_terminal.repl import Repl
+from assistant_terminal.tui.app import AssistantApp
 
 
 async def _chat() -> None:
@@ -25,10 +27,6 @@ async def _chat() -> None:
 
 
 async def _open(client: DaemonClient, session: Session) -> None:
-    # Imported once the language is set: their key bindings and labels are made in it at import (i18n.py).
-    from assistant_terminal.repl import Repl
-    from assistant_terminal.tui.app import AssistantApp
-
     if sys.stdin.isatty() and sys.stdout.isatty():
         history = History(Path(settings.cli_history_path).expanduser(), settings.cli_history_limit)
         preferences = Preferences(Path(settings.cli_preferences_path).expanduser())

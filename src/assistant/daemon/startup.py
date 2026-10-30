@@ -11,6 +11,7 @@ import sys
 from collections.abc import Callable
 from typing import Protocol
 
+from assistant.core.i18n import said
 from assistant.daemon import launchd, systemd
 from assistant.protocol import StartupError, StartupStatus
 
@@ -60,16 +61,16 @@ class Startup:
         """Installs start at boot again, as turning it on now would. Raises StartupError when it's off."""
         backend = self._require()
         if not backend.status().enabled:
-            raise StartupError("Start at boot is off. Turn it on instead.")
+            raise StartupError(said("Start at boot is off. Turn it on instead."))
         if not backend.status().managed:
             return await self.enable()
         await backend.install_for_relaunch(os.getpid())
-        self._relaunch("Start at boot was installed again")
+        self._relaunch(said("Start at boot was installed again"))
         return backend.status()
 
     def _require(self) -> Backend:
         if self._backend is None:
-            raise StartupError("Start at boot works on macOS and on Linux with systemd.")
+            raise StartupError(said("Start at boot works on macOS and on Linux with systemd."))
         return self._backend
 
 

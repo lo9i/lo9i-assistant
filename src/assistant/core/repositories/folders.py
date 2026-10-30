@@ -6,6 +6,7 @@ import shutil
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 
+from assistant.core.i18n import said
 from assistant.core.repositories import source as folder_source
 from assistant.core.repositories.errors import RepositoryError
 from assistant.core.repositories.source import Source
@@ -62,7 +63,14 @@ def copy_files(source: Path, folder: Path, only: list[str] | None = None) -> Non
     paths = files_in(source)
     paths = [p for p in paths if only is None or p.relative_to(source).as_posix() in only]
     if len(paths) > MAX_FILES or sum(p.stat().st_size for p in paths) > MAX_BYTES:
-        raise RepositoryError(f"{source.name} has more than {MAX_FILES} files or {MAX_BYTES // 1_000_000} MB.")
+        raise RepositoryError(
+            said(
+                "{name} has more than {files} files or {megabytes} MB.",
+                name=source.name,
+                files=MAX_FILES,
+                megabytes=MAX_BYTES // 1000000,
+            )
+        )
     for path in paths:
         target = folder / path.relative_to(source)
         target.parent.mkdir(parents=True, exist_ok=True)

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from assistant.core.handed_folder import paths, trash
 from assistant.core.handed_folder.paths import HandedFolderError, MissingPathError
+from assistant.core.i18n import said
 
 
 async def delete(root: Path, path: str) -> None:
@@ -19,8 +20,10 @@ async def delete(root: Path, path: str) -> None:
 
 def _to_trash(entry: Path, target: Path, path: str) -> None:
     if target.is_dir():
-        raise MissingPathError(f"{path or '.'} isn't a file.")
+        raise MissingPathError(said("{path} isn't a file.", path=path or "."))
     try:
         trash.move(entry)
     except OSError as e:
-        raise HandedFolderError(f"Can't move {path} to the trash: {e.strerror or e}") from e
+        raise HandedFolderError(
+            said("Can't move {path} to the trash: {error}", path=path, error=e.strerror or e)
+        ) from e

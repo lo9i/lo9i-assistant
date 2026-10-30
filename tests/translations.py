@@ -1,10 +1,11 @@
 """The text a package marks for translation (core/i18n), read from its code, to check each language's table
-against: `t("...")`, `self._t("...")` and `translatable("...")` with the English text written in the call."""
+against: `t("...")`, `self._t("...")`, `translatable("...")` and `said("...")` with the English text written in the
+call."""
 
 import ast
 from pathlib import Path
 
-_CALLS = {"t", "_t", "translatable"}
+_CALLS = {"t", "_t", "translatable", "said"}
 
 
 def marked_texts(package: Path) -> set[str]:

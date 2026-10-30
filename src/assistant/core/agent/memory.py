@@ -3,6 +3,7 @@ import asyncio
 from assistant.core.agent.base import ServiceBase
 from assistant.core.agent.snapshot import MemorySnapshot
 from assistant.core.config import settings
+from assistant.core.i18n import said
 from assistant.core.memory import episodes, facts, profile
 from assistant.core.memory.episodes import Episode
 from assistant.core.memory.facts import Fact
@@ -52,12 +53,12 @@ class MemoryMixin(ServiceBase):
         """It gets a new id. Raises MemoryNotFoundError for one that's gone, MemoryEditError for empty text."""
         edited = await facts.replace(self._storage.store, user_id, fact_id, _text(text))
         if edited is None:
-            raise MemoryNotFoundError(f"There's no saved fact {fact_id} any more.")
+            raise MemoryNotFoundError(said("There's no saved fact {fact_id} any more.", fact_id=fact_id))
         return edited
 
     async def delete_fact(self, user_id: str, fact_id: str) -> None:
         if not await facts.get(self._storage.store, user_id, [fact_id]):
-            raise MemoryNotFoundError(f"There's no saved fact {fact_id} any more.")
+            raise MemoryNotFoundError(said("There's no saved fact {fact_id} any more.", fact_id=fact_id))
         await facts.remove(self._storage.store, user_id, fact_id)
 
     async def saved_episodes(self, user_id: str) -> list[Episode]:
@@ -68,16 +69,20 @@ class MemoryMixin(ServiceBase):
         """It gets a new id. Raises MemoryNotFoundError for one that's gone, MemoryEditError for empty text."""
         edited = await episodes.replace(self._storage.store, user_id, episode_id, _text(summary))
         if edited is None:
-            raise MemoryNotFoundError(f"There's no conversation summary {episode_id} any more.")
+            raise MemoryNotFoundError(
+                said("There's no conversation summary {episode_id} any more.", episode_id=episode_id)
+            )
         return edited
 
     async def delete_episode(self, user_id: str, episode_id: str) -> None:
         if not await episodes.get(self._storage.store, user_id, [episode_id]):
-            raise MemoryNotFoundError(f"There's no conversation summary {episode_id} any more.")
+            raise MemoryNotFoundError(
+                said("There's no conversation summary {episode_id} any more.", episode_id=episode_id)
+            )
         await episodes.remove(self._storage.store, user_id, episode_id)
 
 
 def _text(text: str) -> str:
     if not text.strip():
-        raise MemoryEditError("Write something, or delete it instead.")
+        raise MemoryEditError(said("Write something, or delete it instead."))
     return text.strip()

@@ -10,6 +10,8 @@ in use take space. Field keys are the chat model's own keyword arguments. Left o
 
 from dataclasses import dataclass
 
+from assistant.core.i18n import said
+
 # Prompt caching, token exchange, server URLs or headers that lo9i handles itself (core/llm/__init__.py).
 NATIVE = ("anthropic", "copilot", "openai", "openrouter")
 # How long a prompt cache lasts after its last use, in minutes, unless a provider says otherwise:
@@ -66,28 +68,32 @@ class ModelProvider:
     prompt_cache_minutes: float = CACHE_MINUTES
 
 
-def _key(label: str = "API key", help: str = "") -> ProviderField:
+_API_KEY = said("API key")
+_SERVER_URL = said("Server URL")
+
+
+def _key(label: str = _API_KEY, help: str = "") -> ProviderField:
     return ProviderField("api_key", label, secret=True, help=help)
 
 
-def _url(key: str = "base_url", label: str = "Server URL", help: str = "") -> ProviderField:
+def _url(key: str = "base_url", label: str = _SERVER_URL, help: str = "") -> ProviderField:
     return ProviderField(key, label, required=False, help=help)
 
 
 _AWS = [
-    ProviderField("region_name", "AWS region", help="Like us-east-1."),
-    ProviderField("aws_access_key_id", "Access key ID", secret=True),
-    ProviderField("aws_secret_access_key", "Secret access key", secret=True),
+    ProviderField("region_name", said("AWS region"), help=said("Like us-east-1.")),
+    ProviderField("aws_access_key_id", said("Access key ID"), secret=True),
+    ProviderField("aws_secret_access_key", said("Secret access key"), secret=True),
 ]
 
 _VERTEX = [
-    ProviderField("project", "Google Cloud project ID"),
-    ProviderField("location", "Region", help="Like us-central1."),
+    ProviderField("project", said("Google Cloud project ID")),
+    ProviderField("location", said("Region"), help=said("Like us-central1.")),
     ProviderField(
         "service_account_json",
-        "Service account key (JSON)",
+        said("Service account key (JSON)"),
         secret=True,
-        help="Paste the whole JSON key of a service account with the Vertex AI User role.",
+        help=said("Paste the whole JSON key of a service account with the Vertex AI User role."),
     ),
 ]
 
@@ -121,14 +127,16 @@ NATIVE_PROVIDERS = [
         "anthropic",
         "Anthropic",
         [
-            _key(help="Create one at https://console.anthropic.com/settings/keys."),
+            _key(help=said("Create one at https://console.anthropic.com/settings/keys.")),
             ProviderField(
                 PROMPT_CACHE,
-                "Prompt cache",
+                said("Prompt cache"),
                 required=False,
                 options=(CACHE_FIVE_MINUTES, CACHE_ONE_HOUR),
-                help="How long a conversation stays cached after its last reply. 1 hour costs twice the input price"
-                " to write instead of 1.25 times, and saves writing it all again when you reply after a pause.",
+                help=said(
+                    "How long a conversation stays cached after its last reply. 1 hour costs twice the input price"
+                    " to write instead of 1.25 times, and saves writing it all again when you reply after a pause."
+                ),
             ),
         ],
         "claude-opus-5-5",
@@ -137,26 +145,28 @@ NATIVE_PROVIDERS = [
     ModelProvider(
         "copilot",
         "GitHub Copilot",
-        [_key("GitHub token", "A GitHub token of an account with a Copilot subscription.")],
+        [_key(said("GitHub token"), said("A GitHub token of an account with a Copilot subscription."))],
         "claude-opus-5.5",
         "claude-sonnet-5.5",
-        help="Copilot's model ids use dots.",
+        help=said("Copilot's model ids use dots."),
     ),
     ModelProvider(
         "openai",
         "OpenAI-compatible",
         [
-            _key(help="For Ollama or another server without keys, any text."),
-            _url(help="Empty for OpenAI. Ollama: http://localhost:11434/v1."),
+            _key(help=said("For Ollama or another server without keys, any text.")),
+            _url(help=said("Empty for OpenAI. Ollama: http://localhost:11434/v1.")),
         ],
     ),
     ModelProvider(
         "openrouter",
         "OpenRouter",
-        [_key(help="Create one at https://openrouter.ai/settings/keys.")],
+        [_key(help=said("Create one at https://openrouter.ai/settings/keys."))],
         "anthropic/claude-opus-5.5",
         "anthropic/claude-sonnet-5.5",
-        help="Model ids name their provider, like anthropic/claude-opus-5.5. Only models that take tools are listed.",
+        help=said(
+            "Model ids name their provider, like anthropic/claude-opus-5.5. Only models that take tools are listed."
+        ),
     ),
 ]
 
@@ -166,7 +176,7 @@ LANGCHAIN_PROVIDERS = [
         "Google Gemini",
         "langchain-google-genai>=4.4,<5",
         "langchain_google_genai",
-        [_key(help="Create one at https://aistudio.google.com/apikey.")],
+        [_key(help=said("Create one at https://aistudio.google.com/apikey."))],
         max_tokens_key="max_output_tokens",
     ),
     _lc(
@@ -191,11 +201,11 @@ LANGCHAIN_PROVIDERS = [
         "",
         "langchain_openai",
         [
-            ProviderField("azure_endpoint", "Endpoint", help="Like https://my-resource.openai.azure.com/."),
+            ProviderField("azure_endpoint", said("Endpoint"), help=said("Like https://my-resource.openai.azure.com/.")),
             _key(),
-            ProviderField("api_version", "API version", help="Like 2024-10-21."),
+            ProviderField("api_version", said("API version"), help=said("Like 2024-10-21.")),
         ],
-        help="The model is the deployment's name.",
+        help=said("The model is the deployment's name."),
         model_key="azure_deployment",
         max_tokens_key="max_completion_tokens",
     ),
@@ -204,7 +214,7 @@ LANGCHAIN_PROVIDERS = [
         "Azure AI Foundry",
         "langchain-azure-ai>=1.2,<2",
         "langchain_azure_ai",
-        [ProviderField("endpoint", "Endpoint"), ProviderField("credential", "API key", secret=True)],
+        [ProviderField("endpoint", said("Endpoint")), ProviderField("credential", said("API key"), secret=True)],
     ),
     _lc("bedrock_converse", "Amazon Bedrock", "langchain-aws>=1.8,<2", "langchain_aws", _AWS),
     _lc("bedrock", "Amazon Bedrock (InvokeModel)", "langchain-aws>=1.8,<2", "langchain_aws", _AWS),
@@ -230,7 +240,7 @@ LANGCHAIN_PROVIDERS = [
         "Cohere",
         "langchain-cohere>=0.6,<1",
         "langchain_cohere",
-        [ProviderField("cohere_api_key", "API key", secret=True)],
+        [ProviderField("cohere_api_key", said("API key"), secret=True)],
         max_tokens_key="",
     ),
     _lc(
@@ -238,7 +248,7 @@ LANGCHAIN_PROVIDERS = [
         "NVIDIA",
         "langchain-nvidia-ai-endpoints>=1.4,<2",
         "langchain_nvidia_ai_endpoints",
-        [_key(), _url(help="Empty for NVIDIA's hosted API; a self-hosted NIM's URL otherwise.")],
+        [_key(), _url(help=said("Empty for NVIDIA's hosted API; a self-hosted NIM's URL otherwise."))],
         max_tokens_key="max_completion_tokens",
     ),
     _lc("upstage", "Upstage", "langchain-upstage>=0.7,<1", "langchain_upstage", [_key()]),
@@ -250,9 +260,9 @@ LANGCHAIN_PROVIDERS = [
         "langchain-ibm>=1.1,<2",
         "langchain_ibm",
         [
-            ProviderField("url", "Service URL", help="Like https://us-south.ml.cloud.ibm.com."),
-            ProviderField("apikey", "API key", secret=True),
-            ProviderField("project_id", "Project ID"),
+            ProviderField("url", said("Service URL"), help=said("Like https://us-south.ml.cloud.ibm.com.")),
+            ProviderField("apikey", said("API key"), secret=True),
+            ProviderField("project_id", said("Project ID")),
         ],
     ),
     _lc(
@@ -260,7 +270,7 @@ LANGCHAIN_PROVIDERS = [
         "Ollama",
         "langchain-ollama>=1.1,<2",
         "langchain_ollama",
-        [_url(help="Empty for Ollama on this computer (http://localhost:11434).")],
+        [_url(help=said("Empty for Ollama on this computer (http://localhost:11434)."))],
         max_tokens_key="num_predict",
     ),
     _lc(
@@ -268,15 +278,15 @@ LANGCHAIN_PROVIDERS = [
         "LiteLLM",
         "langchain-litellm>=0.6.4,<1",
         "langchain_litellm",
-        [ProviderField("api_key", "API key", secret=True, required=False), _url("api_base", "Proxy URL")],
-        help="Model ids name their provider, like openai/gpt-4o.",
+        [ProviderField("api_key", said("API key"), secret=True, required=False), _url("api_base", said("Proxy URL"))],
+        help=said("Model ids name their provider, like openai/gpt-4o."),
     ),
     _lc(
         "langsmith",
         "LangSmith gateway",
         "",
         "langchain_openai",
-        [_key("LangSmith API key")],
+        [_key(said("LangSmith API key"))],
         max_tokens_key="max_completion_tokens",
     ),
 ]

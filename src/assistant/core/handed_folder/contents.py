@@ -8,6 +8,7 @@ from pathlib import Path
 
 from assistant.core.handed_folder import git, paths
 from assistant.core.handed_folder.paths import HandedFolderError, MissingPathError
+from assistant.core.i18n import said
 
 # A folder with more inside lists the first ones and says it was cut.
 MAX_ENTRIES = 1000
@@ -47,12 +48,12 @@ async def contents(root: Path, path: str) -> FolderContents:
 
 def _entries(root: Path, target: Path, path: str) -> list[FolderEntry]:
     if not target.is_dir():
-        raise MissingPathError(f"{path or '.'} isn't a folder.")
+        raise MissingPathError(said("{path} isn't a folder.", path=path or "."))
     try:
         with os.scandir(target) as found:
             entries = [e for e in (_entry(root, path, item) for item in found) if e is not None]
     except OSError as e:
-        raise HandedFolderError(f"Can't read {path or '.'}: {e.strerror or e}") from e
+        raise HandedFolderError(said("Can't read {path}: {error}", path=path or ".", error=e.strerror or e)) from e
     return sorted(entries, key=lambda e: (not e.folder, e.name.lower()))
 
 

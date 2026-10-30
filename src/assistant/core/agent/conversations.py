@@ -14,6 +14,7 @@ from assistant.core.conversation import choices, summaries
 from assistant.core.conversation.display import ShownCall, ShownMessage, ShownStep, shown, tool_call, tool_call_step
 from assistant.core.conversation.turn_header import channels
 from assistant.core.conversations import Conversation
+from assistant.core.i18n import said
 
 __all__ = ["Conversation", "ConversationsMixin", "ShownCall", "ShownMessage", "ShownStep"]
 
@@ -31,7 +32,7 @@ class ConversationsMixin(TitlesMixin):
         before its first message)."""
         found = await conversations.load(self._storage.store, user_id, thread_id)
         if found is None:
-            raise ConversationError(f"No conversation {thread_id}.")
+            raise ConversationError(said("No conversation {thread_id}.", thread_id=thread_id))
         return replace(found, inbox=thread_id == await inbox.current(self._storage.store, user_id))
 
     async def conversation_messages(self, thread_id: str) -> list[ShownMessage]:
@@ -60,7 +61,7 @@ class ConversationsMixin(TitlesMixin):
         state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
         call = tool_call(state.values.get("messages", []), call_id)
         if call is None:
-            raise ConversationError("No such tool call in this conversation.")
+            raise ConversationError(said("No such tool call in this conversation."))
         return call
 
     async def conversation_tool_call_step(self, thread_id: str, call_id: str, index: int) -> ShownCall:
@@ -70,7 +71,7 @@ class ConversationsMixin(TitlesMixin):
         state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
         step = tool_call_step(state.values.get("messages", []), call_id, index)
         if step is None:
-            raise ConversationError("No such step in this tool call.")
+            raise ConversationError(said("No such step in this tool call."))
         return step
 
     async def _note_activity(self, session: Session, text: str) -> None:

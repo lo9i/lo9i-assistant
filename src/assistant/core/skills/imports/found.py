@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from assistant.core.i18n import said
 from assistant.core.repositories.folders import MAX_BYTES, MAX_FILES, files_in
 from assistant.core.skills import files as skill_files
 from assistant.core.skills import store
@@ -104,13 +105,15 @@ def _openai_dependencies(folder: Path) -> list[str]:
     """Codex skills declare the tools they connect to (MCP servers) in agents/openai.yaml."""
     declared = folder / "agents" / "openai.yaml"
     if declared.is_file() and "dependencies:" in _read(declared):
-        return ["It needs tools Codex connects to (dependencies in agents/openai.yaml)."]
+        return [said("It needs tools Codex connects to (dependencies in agents/openai.yaml).")]
     return []
 
 
 def _size(paths: list[Path]) -> list[str]:
     if len(paths) > MAX_FILES or sum(p.stat().st_size for p in paths) > MAX_BYTES:
-        return [f"It has more than {MAX_FILES} files or {MAX_BYTES // 1_000_000} MB."]
+        return [
+            said("It has more than {files} files or {megabytes} MB.", files=MAX_FILES, megabytes=MAX_BYTES // 1_000_000)
+        ]
     return []
 
 

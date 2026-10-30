@@ -12,13 +12,13 @@ from textual.widgets import Button, Static
 
 from assistant.client.daemon_client import RepositoriesApi
 from assistant.core.agent import KeptKeys
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 
 
 class KeptKeysScreen(ModalScreen[bool]):
     """Returns True to delete them."""
 
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "keep", t("Keep"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "keep", translatable("Keep"))]
 
     def __init__(self, kept: KeptKeys) -> None:
         super().__init__()

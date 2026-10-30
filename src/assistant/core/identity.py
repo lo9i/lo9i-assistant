@@ -7,6 +7,8 @@ shows it as its display name.
 
 from langgraph.store.base import BaseStore
 
+from assistant.core.i18n import said
+
 _NAMESPACE = ("settings",)
 _KEY = "assistant"
 # Telegram's limit for a bot's display name.
@@ -26,8 +28,8 @@ async def save_name(store: BaseStore, name: str) -> str:
     """Saves and returns the cleaned name. Raises InvalidNameError."""
     name = " ".join(name.split())
     if not name:
-        raise InvalidNameError("The name can't be empty.")
+        raise InvalidNameError(said("The name can't be empty."))
     if len(name) > MAX_LENGTH:
-        raise InvalidNameError(f"Names can be up to {MAX_LENGTH} characters.")
+        raise InvalidNameError(said("Names can be up to {count} characters.", count=MAX_LENGTH))
     await store.aput(_NAMESPACE, _KEY, {"name": name})
     return name

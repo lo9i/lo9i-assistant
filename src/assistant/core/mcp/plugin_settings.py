@@ -7,6 +7,7 @@ secret given empty keeps the saved one, unless the user clears it; any other fie
 
 from dataclasses import dataclass, replace
 
+from assistant.core.i18n import said
 from assistant.core.mcp import plugin_oauth
 from assistant.core.mcp.install import ServerField
 from assistant.core.mcp.servers import McpServer, McpServerError
@@ -64,12 +65,12 @@ def changed(server: McpServer, fields: list[ServerField], values: dict[str, str]
     secret ones. Raises McpServerError for a field it doesn't have or a required one left empty."""
     by_key = {f.key: f for f in fields}
     if unknown := sorted({*values, *clear} - set(by_key)):
-        raise McpServerError(f"{server.name} has no setting {', '.join(unknown)}.")
+        raise McpServerError(said("{name} has no setting {unknown}.", name=server.name, unknown=", ".join(unknown)))
     current = _values(server)
     new = {k: _new(by_key[k], current.get(k, ""), v.strip(), k in clear) for k, v in values.items()}
     new |= {k: "" for k in clear if k not in new}
     if missing := next((f for f in fields if not f.optional and not {**current, **new}.get(f.key, "")), None):
-        raise McpServerError(f"{server.name} needs {missing.label}.")
+        raise McpServerError(said("{name} needs {label}.", name=server.name, label=missing.label))
     cleared = frozenset(k for k, v in new.items() if not v)
     target = "headers" if server.url else "env"
     return SettingsChange(replace(server, **{target: {**getattr(server, target), **new}}), cleared)

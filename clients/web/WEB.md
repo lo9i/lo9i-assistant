@@ -72,5 +72,7 @@ Keys are typed from `en.json`, so `npm run check` fails on one that doesn't exis
 a key is in one file and not the other, or their placeholders differ. A text with a count is an object of plural
 forms (`one`, `other`), picked by `count`. A list of labels keeps keys (`Key`) and calls `t` where it renders, so
 the page follows a language change at once. Dates, numbers and lists go through `formatDate`, `formatNumber`,
-`formatList` and `languageName`, never `toLocaleString()` or a fixed locale. Text the daemon sends (errors, plugin
-descriptions, notifications) shows as it comes.
+`formatList` and `languageName`, never `toLocaleString()` or a fixed locale. Text the daemon sends shows as it comes:
+every request says the language the app shows (`X-Lo9i-Language`, `lib/api/transport.ts`), which the daemon writes
+its errors and the rest of its answers in (a plugin's steps, a skill's problems); notifications, alerts and Home
+are in the language chosen in Settings, which auto makes English there.

@@ -14,6 +14,7 @@ from faster_whisper import WhisperModel, decode_audio
 from tqdm import tqdm
 
 from assistant.core.config import settings
+from assistant.core.i18n import said
 from assistant.core.speech.transcriber import Transcript, TranscriptionError
 
 
@@ -28,7 +29,7 @@ class FasterWhisperTranscriber:
             try:
                 return await asyncio.to_thread(self._transcribe, audio, model, languages, beam_size)
             except Exception as e:
-                raise TranscriptionError(f"Couldn't transcribe the voice message: {e}") from e
+                raise TranscriptionError(said("Couldn't transcribe the voice message: {error}", error=e)) from e
 
     def _transcribe(self, audio: bytes, model_name: str, languages: list[str], beam_size: int) -> Transcript:
         model = self._load(model_name)

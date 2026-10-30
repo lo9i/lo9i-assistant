@@ -8,7 +8,7 @@ from pathlib import Path
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 
-from assistant.core import inbox, uploads
+from assistant.core import i18n, inbox, uploads
 from assistant.core.agent.runs import RunsMixin
 from assistant.core.agent.session import Session
 from assistant.core.agent_tasks import sent
@@ -23,6 +23,7 @@ from assistant.core.conversation.handoffs import Agent, Handoff
 from assistant.core.conversation.held import HeldRun
 from assistant.core.conversation.queued import Queued
 from assistant.core.events import Done, Error, Event
+from assistant.core.i18n import message, said
 from assistant.core.to_the_end import to_the_end
 
 __all__ = ["Agent", "AgentFolders", "FolderError", "FolderListing", "Handoff", "HandoffError", "HandoffsMixin"]
@@ -47,7 +48,9 @@ class HandoffsMixin(RunsMixin):
         """From the next message, the agent answers in `folder`. Raises HandoffError for the inbox, which
         routes every message, an unknown agent or a folder that doesn't exist."""
         if thread_id == await inbox.current(self._storage.store, user_id):
-            raise HandoffError("The inbox sends each message on, so it can't be handed over: start a conversation.")
+            raise HandoffError(
+                said("The inbox sends each message on, so it can't be handed over: start a conversation.")
+            )
         agent = next((a for a in await self.agents() if a.command == command), None)
         if agent is None:
             raise HandoffError(await self._no_agent(command))
@@ -55,7 +58,7 @@ class HandoffsMixin(RunsMixin):
         if where == agent_folders.workspace():
             await agent_folders.ensure_workspace()
         if not where.is_absolute() or not where.is_dir():
-            raise HandoffError(f"{folder} isn't an existing folder. Give its full path.")
+            raise HandoffError(said("{folder} isn't an existing folder. Give its full path.", folder=folder))
         handoff = Handoff(agent.server, agent.command, agent.name, str(where))
         await handoffs.hand(self._storage.store, user_id, thread_id, handoff)
         await agent_folders.remember(self._storage.store, user_id, where)
@@ -104,14 +107,16 @@ class HandoffsMixin(RunsMixin):
     async def _tell_agent(self, user_id: str, thread_id: str, tell: Callable[[str], Awaitable[None]]) -> None:
         handoff = await handoffs.current(self._storage.store, user_id, thread_id)
         if handoff is None:
-            raise HandoffError("This conversation isn't handed to an agent.")
+            raise HandoffError(said("This conversation isn't handed to an agent."))
         try:
             task = await self.agent_tasks.working_in(handoff.server, thread_id, handoff.folder)
             if not task:
-                raise HandoffError(f"{handoff.name} isn't working on anything now. Send it as a new message.")
+                raise HandoffError(
+                    said("{name} isn't working on anything now. Send it as a new message.", name=handoff.name)
+                )
             await tell(task)
         except AgentTaskError as e:
-            raise HandoffError(str(e)) from e
+            raise HandoffError(message(e)) from e
 
     async def _handed_off(
         self,
@@ -145,11 +150,12 @@ class HandoffsMixin(RunsMixin):
                     yield event
             reply = await asking
         except HandoffError as e:
-            await self._keep_turn(session, message, steps, str(e), answered=False)
+            error = (await i18n.chosen(self._storage.store)).shown(e)
+            await self._keep_turn(session, message, steps, error, answered=False)
             await to_the_end(self._send_waiting_next(session, handoff))
-            for event in [*steps.end("Failed"), Error(str(e))]:
+            for event in [*steps.end("Failed"), Error(error)]:
                 yield event
-            await self._agent_finished(session, handoff, False, str(e))
+            await self._agent_finished(session, handoff, False, error)
             return
         except (asyncio.CancelledError, Exception) as e:
             # To the end: a second cancel (the reader gone too) mustn't lose what the user sent, and the run ends
@@ -211,18 +217,24 @@ class HandoffsMixin(RunsMixin):
             "agent_finished", thread_id=session.thread_id, agent=handoff.name, ok=ok, text=short(text, _FINISHED)
         )
 
-    async def _ask_agent(self, session: Session, handoff: Handoff, said: str, steps: asyncio.Queue[str]) -> str:
+    async def _ask_agent(self, session: Session, handoff: Handoff, words: str, steps: asyncio.Queue[str]) -> str:
         """Raises HandoffError with what went wrong, for the user."""
         agent = next((a for a in await self.agents() if a.server == handoff.server), None)
         if agent is None:
-            raise HandoffError(f"{handoff.name} isn't installed or is turned off. /{handoff.command} off goes back.")
+            raise HandoffError(
+                said(
+                    "{name} isn't installed or is turned off. /{command} off goes back.",
+                    name=handoff.name,
+                    command=handoff.command,
+                )
+            )
         reported = _Steps(steps, self.bus, session.thread_id)
         try:
             return await self.agent_tasks.converse(
-                agent.server, session.thread_id, handoff.folder, said, reported, reported.measured
+                agent.server, session.thread_id, handoff.folder, words, reported, reported.measured
             )
         except AgentTaskError as e:
-            raise HandoffError(f"{handoff.name}: {e}") from e
+            raise HandoffError(said("{name}: {error}", name=handoff.name, error=e)) from e
         finally:
             # Its end too, so the apps' list of running tasks drops it.
             reported.progressed()

@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Protocol
 
 from assistant.core import uv
+from assistant.core.i18n import message, said
 from assistant.protocol import Commit, UpdateError, UpdateStatus
 
 logger = logging.getLogger(__name__)
@@ -43,11 +44,11 @@ _GIT_SECONDS = 60
 # One line per commit: its sha, subject and date, apart by a character no subject has.
 _FORMAT = "--format=%H%x1f%s%x1f%cI"
 _NPM_PLACES = ("/opt/homebrew/bin/npm", "/usr/local/bin/npm", "/usr/bin/npm")
-_MERGE = "Downloading the update"
+_MERGE = said("Downloading the update")
 # In the repository's git folder while an update is being installed: the commit it came from.
 _MARK = "lo9i-update.json"
-_UNFINISHED = "The last update didn't finish"
-_WAITING = "Waiting for the runs in progress to end"
+_UNFINISHED = said("The last update didn't finish")
+_WAITING = said("Waiting for the runs in progress to end")
 
 
 @dataclass(frozen=True)
@@ -128,14 +129,14 @@ class Updates:
         """Starts installing what's new. Raises UpdateError when there's nothing to install or it can't be."""
         async with self._lock:
             if self._closed:
-                raise UpdateError("lo9i is restarting or stopping. Update once it's back.")
+                raise UpdateError(said("lo9i is restarting or stopping. Update once it's back."))
             if self._state in ("updating", "restarting"):
-                raise UpdateError("An update is already being installed.")
+                raise UpdateError(said("An update is already being installed."))
             status = await self._check()
             if not status.can_update:
                 raise UpdateError(status.reason)
             if not status.behind:
-                raise UpdateError("lo9i is up to date.")
+                raise UpdateError(said("lo9i is up to date."))
             # Before the lock is let go, so the next start or check sees it.
             self._set("updating", _WAITING)
             self._task = asyncio.create_task(self._update(status.upstream))
@@ -167,7 +168,7 @@ class Updates:
         if installed_from(self._root) != "git" or not (before := await self._unfinished()):
             return
         async with self._lock:
-            self._set("updating", f"{_UNFINISHED}: going back")
+            self._set("updating", said("The last update didn't finish: going back"))
             self._task = asyncio.create_task(self._back_from(before))
 
     async def _update(self, upstream: str) -> None:
@@ -180,13 +181,15 @@ class Updates:
             await self._run_step(merge)
         except _FailedError as e:
             await self._unmark()
-            self._failed(f"{merge.label} failed: {e}")
+            self._failed(said("{step} failed: {error}", step=merge.label, error=e))
             return
         for done, step in enumerate(self._steps):
             try:
                 await self._run_step(step)
             except _FailedError as e:
-                await self._failed_back(before, self._steps[: done + 1], f"{step.label} failed: {e}")
+                await self._failed_back(
+                    before, self._steps[: done + 1], said("{step} failed: {error}", step=step.label, error=e)
+                )
                 return
         await self._unmark()
         logger.info("Updated to %s; restarting.", upstream)
@@ -198,10 +201,15 @@ class Updates:
         if failed := await self._go_back(before, ran):
             label, why = failed
             self._failed(
-                f"{error}. {label} failed too: {why}. A restart now would run a version that isn't fully installed."
+                said(
+                    "{error}. {step} failed too: {why}. A restart now would run a version that isn't fully installed.",
+                    error=error,
+                    step=label,
+                    why=why,
+                )
             )
         else:
-            self._failed(f"{error}. lo9i went back to the version it was on, which keeps running.")
+            self._failed(said("{error}. lo9i went back to the version it was on, which keeps running.", error=error))
 
     async def _back_from(self, before: str) -> None:
         """Every step runs again: which ones the unfinished update ran isn't known. The daemon restarts after, as
@@ -214,7 +222,13 @@ class Updates:
         logger.warning("%s; going back to %s.", _UNFINISHED, before)
         if failed := await self._go_back(before, self._steps):
             label, why = failed
-            self._failed(f"{_UNFINISHED}, and {label} failed: {why}. It's tried again at the next start.")
+            self._failed(
+                said(
+                    "The last update didn't finish, and {step} failed: {why}. It's tried again at the next start.",
+                    step=label,
+                    why=why,
+                )
+            )
             return
         self._set("restarting")
         self._restart()
@@ -230,12 +244,12 @@ class Updates:
         the new commits with what the old ones needed. The tree was clean before the update (`_blocker`), so
         whatever the steps changed in it is theirs. Returns the step that failed and why, or None once it's back
         and the mark is gone; a failure keeps the mark, so the next start tries again."""
-        reset = Step("Going back to the version before", ["git", "reset", "--hard", "--quiet", before])
-        for step in [reset, *(Step(f"Going back: {s.label}", s.command, s.timeout) for s in ran)]:
+        reset = Step(said("Going back to the version before"), ["git", "reset", "--hard", "--quiet", before])
+        for step in [reset, *(Step(said("Going back: {step}", step=s.label), s.command, s.timeout) for s in ran)]:
             try:
                 await self._run_step(step)
             except _FailedError as e:
-                return step.label, str(e)
+                return step.label, message(e)
         await self._unmark()
         return None
 
@@ -274,16 +288,21 @@ class Updates:
             upstream = (await _git(self._root, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")).strip()
         except _FailedError:
             return _Checked(
-                "", [], now, "This copy's branch follows no branch of the repository, so it has no updates."
+                "", [], now, said("This copy's branch follows no branch of the repository, so it has no updates.")
             )
         try:
             await _git(self._root, "fetch", "--quiet")
         except _FailedError as e:
-            return _Checked(upstream, [], now, f"Couldn't reach the repository: {e}")
+            return _Checked(upstream, [], now, said("Couldn't reach the repository: {error}", error=e))
         try:
             return await self._compared(upstream, now)
         except _FailedError as e:
-            return _Checked(upstream, [], now, f"Couldn't compare this copy with {upstream}: {e}")
+            return _Checked(
+                upstream,
+                [],
+                now,
+                said("Couldn't compare this copy with {upstream}: {error}", upstream=upstream, error=e),
+            )
 
     async def _compared(self, upstream: str, now: str) -> _Checked:
         """What's new on the fetched upstream, and whether it can be installed. Raises _FailedError when git
@@ -294,10 +313,16 @@ class Updates:
     async def _blocker(self, upstream: str) -> str:
         """Why the update can't be installed here, or "" when it can."""
         if (await _git(self._root, "status", "--porcelain", "--untracked-files=no")).strip():
-            return "This copy has changes that aren't committed, which an update would overwrite. Commit or undo them."
+            return said(
+                "This copy has changes that aren't committed, which an update would overwrite. Commit or undo them."
+            )
         ahead = int((await _git(self._root, "rev-list", "--count", f"{upstream}..HEAD")).strip() or 0)
         if ahead:
-            return f"This copy has {ahead} commit(s) {upstream} doesn't have. Push or drop them, then update."
+            return said(
+                "This copy has {count} commit(s) {upstream} doesn't have. Push or drop them, then update.",
+                count=ahead,
+                upstream=upstream,
+            )
         return ""
 
     async def _current(self) -> Commit | None:
@@ -329,8 +354,8 @@ class Updates:
 
 
 _NOT_A_CLONE = {
-    "deployed": "This copy was installed from another computer with scripts/deploy.sh. Deploy again from there.",
-    "package": "This copy isn't a clone of lo9i's repository, so the app can't update it.",
+    "deployed": said("This copy was installed from another computer with scripts/deploy.sh. Deploy again from there."),
+    "package": said("This copy isn't a clone of lo9i's repository, so the app can't update it."),
 }
 
 
@@ -344,7 +369,7 @@ def installed_from(root: Path) -> str:
 def default_steps(root: Path) -> list[Step]:
     """Syncs the dependencies with uv, and builds the web app when npm is there (as install.sh does)."""
     found = uv.find()
-    steps = [Step("Installing its dependencies", [found or "uv", "sync", "--frozen", "--inexact", "--quiet"])]
+    steps = [Step(said("Installing its dependencies"), [found or "uv", "sync", "--frozen", "--inexact", "--quiet"])]
     npm = shutil.which("npm") or next((p for p in _NPM_PLACES if Path(p).is_file()), None)
     if npm is None:
         logger.info("npm isn't installed in %s; updates won't rebuild the web app.", root)
@@ -354,8 +379,8 @@ def default_steps(root: Path) -> list[Step]:
     # takes no more updates (`_blocker`).
     return [
         *steps,
-        Step("Installing the web app's packages", [npm, *web, "ci", "--no-audit", "--no-fund", "--silent"]),
-        Step("Building the web app", [npm, *web, "run", "build", "--silent"]),
+        Step(said("Installing the web app's packages"), [npm, *web, "ci", "--no-audit", "--no-fund", "--silent"]),
+        Step(said("Building the web app"), [npm, *web, "run", "build", "--silent"]),
     ]
 
 
@@ -394,11 +419,11 @@ async def _run(root: Path, command: list[str], timeout: float) -> str:
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
         )  # fmt: skip
     except OSError as e:
-        raise _FailedError(f"{command[0]} couldn't run ({e.strerror or e})") from e
+        raise _FailedError(said("{command} couldn't run ({error})", command=command[0], error=e.strerror or e)) from e
     try:
         out, err = await asyncio.wait_for(process.communicate(), timeout)
     except TimeoutError:
-        raise _FailedError(f"it took longer than {int(timeout)} seconds") from None
+        raise _FailedError(said("it took longer than {seconds} seconds", seconds=int(timeout))) from None
     finally:
         await _ended(process)
     if process.returncode:

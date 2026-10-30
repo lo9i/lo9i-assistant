@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from assistant.core.i18n import message, said
 from assistant.core.repositories import folders
 from assistant.core.repositories.errors import RepositoryError
 from assistant.core.skills import files as skill_files
@@ -44,14 +45,16 @@ def import_skills(ids: Sequence[str], replace: bool, home: Path, projects: Seque
 
 def _import(item: Found | None, picked: str, replace: bool, names: Names, before: bool) -> ImportOutcome:
     if item is None:
-        return ImportOutcome(picked, FAILED, note="It isn't among the skills to import any more: list them again.")
+        return ImportOutcome(
+            picked, FAILED, note=said("It isn't among the skills to import any more: list them again.")
+        )
     if item.problems:
         return ImportOutcome(picked, FAILED, note=" ".join(item.problems))
     name, renamed = names.pick(item, replace)
     try:
         _write(item, name)
     except (SkillError, RepositoryError, OSError) as e:
-        return ImportOutcome(picked, FAILED, note=str(e))
+        return ImportOutcome(picked, FAILED, note=message(e))
     return ImportOutcome(picked, UPDATED if before else IMPORTED, name, renamed)
 
 

@@ -9,6 +9,7 @@ from assistant.core.agent.threads import ConversationError
 from assistant.core.home import pins, results, sections
 from assistant.core.home.model import HomeCard, HomeItem, HomePage, HomeSection, SectionResult
 from assistant.core.home.sections import HomeSectionsError
+from assistant.core.i18n import said
 
 __all__ = [
     "HomeCard",
@@ -65,9 +66,9 @@ class HomeMixin(ServiceBase):
         """Pins it after the others. Raises ConversationError for an unknown one, HomePinError for the inbox,
         which isn't a conversation to read."""
         if await conversations.load(self._storage.store, user_id, thread_id) is None:
-            raise ConversationError(f"No conversation {thread_id}.")
+            raise ConversationError(said("No conversation {thread_id}.", thread_id=thread_id))
         if thread_id == await inbox.current(self._storage.store, user_id):
-            raise HomePinError("The inbox can't be pinned to Home.")
+            raise HomePinError(said("The inbox can't be pinned to Home."))
         return await self._pins_changed(user_id, await pins.pin(self._storage.store, user_id, thread_id))
 
     async def unpin_from_home(self, user_id: str, thread_id: str) -> list[str]:

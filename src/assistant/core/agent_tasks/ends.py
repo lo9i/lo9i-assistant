@@ -14,6 +14,7 @@ from assistant.core.agent_tasks.steps import streamed
 from assistant.core.agent_tasks.waiting import Report
 from assistant.core.background import BackgroundEnds, Ended, short
 from assistant.core.bus import EventBus
+from assistant.core.i18n import said
 from assistant.core.waiting import first
 
 logger = logging.getLogger(__name__)
@@ -99,12 +100,16 @@ def ended(found: FoundTask) -> Ended:
 
 
 def _notice(agent: str, state: TaskState, asked: str, result: str) -> str:
-    task = f"task {state.task.id} ({asked})"
+    task = state.task.id
     if state.status == "done":
-        return f"✅ {agent} finished {task}: {result}"
+        return said(
+            "✅ {agent} finished task {task} ({asked}): {result}", agent=agent, task=task, asked=asked, result=result
+        )
     if state.status == "stopped":
-        return f"⏹️ {agent}'s {task} was stopped."
-    return f"⚠️ {agent}'s {task} failed: {result}"
+        return said("⏹️ {agent}'s task {task} ({asked}) was stopped.", agent=agent, task=task, asked=asked)
+    return said(
+        "⚠️ {agent}'s task {task} ({asked}) failed: {result}", agent=agent, task=task, asked=asked, result=result
+    )
 
 
 def _result(state: TaskState) -> str:

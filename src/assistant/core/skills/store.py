@@ -6,6 +6,7 @@ from pathlib import Path
 import yaml
 
 from assistant.core.config import settings
+from assistant.core.i18n import said
 from assistant.core.repositories import categories, folders, icons, platforms
 from assistant.core.repositories import source as skill_source
 from assistant.core.skills import files as skill_files
@@ -66,7 +67,7 @@ def saved_skills() -> list[Skill]:
 def load(name: str) -> Skill:
     skill = read(folder(name))
     if skill is None:
-        raise SkillError(f"No skill named {name}.")
+        raise SkillError(said("No skill named {name}.", name=name))
     return skill
 
 
@@ -89,13 +90,13 @@ def check_content(name: str, instructions: str, files: dict[str, str] | None = N
     paths = sorted(files) if files is not None else skill_files.listed(_path(name).parent)
     found = problems(instructions, paths)
     if found:
-        raise SkillError(" ".join(found))
+        raise SkillError(found[0] if len(found) == 1 else " ".join(found))
 
 
 def problems(instructions: str, files: list[str]) -> list[str]:
     """What would stop a skill from working: instructions that use files it doesn't have."""
     missing = sorted({p for p in _REFERENCED.findall(instructions) if not _has(files, p)})
-    return [f"Its instructions use files it doesn't have: {', '.join(missing)}."] if missing else []
+    return [said("Its instructions use files it doesn't have: {files}.", files=", ".join(missing))] if missing else []
 
 
 def save(name: str, description: str, instructions: str, files: dict[str, str] | None = None) -> Skill:
@@ -134,10 +135,12 @@ def delete(name: str, server: str = "") -> None:
     _refuse_builtin(name)
     target = _path(name).parent
     if not target.exists():
-        raise SkillError(f"No skill named {name}.")
+        raise SkillError(said("No skill named {name}.", name=name))
     owner = (skill_source.read(target) or skill_source.Source("", "", "")).server
     if owner and owner != server:
-        raise SkillError(f"{name} comes with the {owner} MCP server: remove the server to remove it.")
+        raise SkillError(
+            said("{name} comes with the {owner} MCP server: remove the server to remove it.", name=name, owner=owner)
+        )
     shutil.rmtree(target)
 
 
@@ -191,7 +194,7 @@ def _icon(meta: dict, folder: Path) -> tuple[icons.PluginIcon, list[str]]:
     try:
         return icons.parse(meta.get("icon"), folder), []
     except ValueError as e:
-        return icons.PluginIcon(), [f"In its SKILL.md, {e}."]
+        return icons.PluginIcon(), [said("In its SKILL.md, {problem}.", problem=e)]
 
 
 def _platforms(meta: dict) -> tuple[list[str], list[str]]:
@@ -199,7 +202,7 @@ def _platforms(meta: dict) -> tuple[list[str], list[str]]:
     try:
         return platforms.parse(meta.get("platforms")), []
     except ValueError as e:
-        return [], [f"In its SKILL.md, {e}."]
+        return [], [said("In its SKILL.md, {problem}.", problem=e)]
 
 
 def _category(meta: dict) -> tuple[str, list[str]]:
@@ -207,7 +210,7 @@ def _category(meta: dict) -> tuple[str, list[str]]:
     try:
         return categories.parse(meta.get("category"), set()), []
     except ValueError as e:
-        return categories.DEFAULT, [f"In its SKILL.md, {e}."]
+        return categories.DEFAULT, [said("In its SKILL.md, {problem}.", problem=e)]
 
 
 def _plugin(source: skill_source.Source | None, name: str) -> str:
@@ -225,9 +228,13 @@ def parse(text: str) -> tuple[dict, str, list[str]]:
     try:
         meta = yaml.safe_load(match.group(1)) or {}
     except yaml.YAMLError as e:
-        return {}, match.group(2), [f"The header of its SKILL.md isn't valid YAML: {str(e).splitlines()[0]}."]
+        return (
+            {},
+            match.group(2),
+            [said("The header of its SKILL.md isn't valid YAML: {error}.", error=str(e).splitlines()[0])],
+        )
     if not isinstance(meta, dict):
-        return {}, match.group(2), ["The header of its SKILL.md must be fields like name: and description:."]
+        return {}, match.group(2), [said("The header of its SKILL.md must be fields like name: and description:.")]
     return meta, match.group(2), []
 
 
@@ -242,7 +249,7 @@ def _is_builtin(name: str) -> bool:
 
 def _refuse_builtin(name: str) -> None:
     if _is_builtin(name):
-        raise SkillError(f"{name} is built into the assistant and can't be changed or deleted.")
+        raise SkillError(said("{name} is built into the assistant and can't be changed or deleted.", name=name))
 
 
 def _read_all(root: Path) -> list[Skill]:
@@ -257,5 +264,5 @@ def _root() -> Path:
 
 def _path(name: str) -> Path:
     if not _NAME.match(name):
-        raise SkillError("Skill names use lowercase letters, digits and hyphens, e.g. news-digest.")
+        raise SkillError(said("Skill names use lowercase letters, digits and hyphens, e.g. news-digest."))
     return _root() / name / skill_files.INSTRUCTIONS

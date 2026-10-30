@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 
 from assistant.core import accounts as core_accounts
 from assistant.core.agent.channels import ChannelsMixin
+from assistant.core.i18n import said
 from assistant.core.integrations.email import accounts, imap, oauth, recipients, smtp
 from assistant.core.integrations.email import plugins as email_plugins
 from assistant.core.integrations.email.accounts import EmailConfig, EmailError
@@ -179,11 +180,9 @@ class EmailMixin(ChannelsMixin):
         config = await self._email(account_id)
         installed = await self.channel_names()
         if channel and channel not in installed:
-            raise EmailError(
-                f"New mail can be announced on {' or '.join(installed) or 'an installed chat channel'}, not {channel}."
-            )
+            raise EmailError(_not_a_channel(channel, installed))
         if channel and not config.can_read:
-            raise EmailError("Set up reading mail first: connect the account again with its IMAP server.")
+            raise EmailError(said("Set up reading mail first: connect the account again with its IMAP server."))
         config.new_mail_alerts = channel
         return _account(await accounts.save(self._storage.store, self.secrets, config))
 
@@ -203,20 +202,20 @@ class EmailMixin(ChannelsMixin):
         """The account without its password. Raises EmailAccountNotFoundError."""
         config = await accounts.get(self._storage.store, account_id)
         if config is None:
-            raise EmailAccountNotFoundError(f"No email account {account_id}.")
+            raise EmailAccountNotFoundError(said("No email account {account_id}.", account_id=account_id))
         return config
 
     async def _check_plugin(self, plugin: str) -> None:
         """An account belongs to an email plugin that is on, or to none (servers entered by hand)."""
         if plugin and plugin not in await email_plugins.active(self._storage.store):
-            raise EmailError(f"{plugin} isn't an email plugin that's installed and on.")
+            raise EmailError(said("{plugin} isn't an email plugin that's installed and on.", plugin=plugin))
 
     async def _check_label(self, config: EmailConfig) -> None:
         """Names are unique: the agent picks an account by its name."""
         others = await accounts.list_accounts(self._storage.store)
         taken = {c.label.lower() for c in others if c.account_id != config.account_id}
         if (config.label or config.sender).lower() in taken:
-            raise EmailError(f"Another account is already called {config.label or config.sender}.")
+            raise EmailError(said("Another account is already called {label}.", label=config.label or config.sender))
 
     async def _verified_save(self, config: EmailConfig, password: str) -> EmailAccount:
         config.label = config.label.strip()[:_LABEL_CHARS]
@@ -244,4 +243,12 @@ def _account(config: EmailConfig) -> EmailAccount:
         config.auth,
         config.oauth_provider,
         config.plugin,
+    )
+
+
+def _not_a_channel(channel: str, installed: list[str]) -> str:
+    if not installed:
+        return said("New mail can be announced on an installed chat channel, not {channel}.", channel=channel)
+    return said(
+        "New mail can be announced on {channels}, not {channel}.", channels=", ".join(installed), channel=channel
     )

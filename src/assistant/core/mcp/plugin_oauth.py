@@ -23,6 +23,7 @@ from urllib.parse import urlencode
 import httpx
 from langgraph.store.base import BaseStore
 
+from assistant.core.i18n import said
 from assistant.core.mcp import keys
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.oauth import SignInError, challenge, expiry
@@ -101,22 +102,28 @@ def parse(value: object) -> tuple[str, list[str]]:
     if value is None:
         return "", []
     if not isinstance(value, dict):
-        raise ValueError("its oauth must be a section with a provider and scopes")
+        raise ValueError(said("its oauth must be a section with a provider and scopes"))
     provider = str(value.get("provider", ""))
     if provider not in PROVIDERS:
-        raise ValueError(f"its oauth provider {provider!r} isn't one of {', '.join(PROVIDERS)}")
+        raise ValueError(
+            said(
+                "its oauth provider {provider!r} isn't one of {providers}",
+                provider=provider,
+                providers=", ".join(PROVIDERS),
+            )
+        )
     scopes = value.get("scopes")
     if not isinstance(scopes, list) or not scopes or not all(isinstance(s, str) and s.strip() for s in scopes):
-        raise ValueError("its oauth scopes must be a list of the scopes it needs")
+        raise ValueError(said("its oauth scopes must be a list of the scopes it needs"))
     return provider, [s.strip() for s in scopes]
 
 
 def new_sign_in(server: McpServer, client_id: str, client_secret: str, redirect_uri: str) -> PluginSignIn:
     """Raises McpServerError for a plugin that doesn't sign in, or missing values."""
     if not server.oauth_provider:
-        raise McpServerError(f"{server.name} doesn't sign in to anything.")
+        raise McpServerError(said("{name} doesn't sign in to anything.", name=server.name))
     if not client_id.strip() or not redirect_uri.strip():
-        raise McpServerError("Enter your OAuth app's client ID.")
+        raise McpServerError(said("Enter your OAuth app's client ID."))
     return PluginSignIn(
         server.name,
         server.oauth_provider,
@@ -156,7 +163,7 @@ async def exchange(sign_in: PluginSignIn, code: str) -> Login:
     }
     answer = await _token_request(provider, sign_in.client_id, sign_in.client_secret, data)
     if not answer.get("refresh_token"):
-        raise SignInError(f"{provider.name} gave no refresh token; sign in again.")
+        raise SignInError(said("{name} gave no refresh token; sign in again.", name=provider.name))
     return Login(
         provider.id,
         provider.token_url,
@@ -189,11 +196,11 @@ async def _token_request(provider: Provider, client_id: str, client_secret: str,
         async with httpx.AsyncClient(timeout=_TIMEOUT) as http:
             response = await http.post(provider.token_url, data=form)
     except httpx.HTTPError as e:
-        raise SignInError(f"Couldn't reach {provider.name} to sign in: {e}") from e
+        raise SignInError(said("Couldn't reach {name} to sign in: {error}", name=provider.name, error=e)) from e
     answer = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
     if response.status_code != 200 or "access_token" not in answer:
         reason = answer.get("error_description") or answer.get("error") or f"HTTP {response.status_code}"
-        raise SignInError(f"{provider.name} refused the sign-in: {reason}")
+        raise SignInError(said("{name} refused the sign-in: {reason}", name=provider.name, reason=reason))
     return answer
 
 

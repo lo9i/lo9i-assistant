@@ -20,7 +20,7 @@ from textual.widgets.option_list import Option
 from assistant.client import DaemonUnavailableError
 from assistant.client.daemon_client import ChannelsApi, EmailApi, McpApi, OAuthApi, RepositoriesApi, SkillsApi
 from assistant.core.agent import McpServerError, RepositoryError, RepositoryPlugins, ServerValues, SkillError
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.plugins_text import (
     Plugin,
     by_category,
@@ -49,7 +49,7 @@ _CATEGORY = "category:"
 
 
 class PluginsScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     # The daemon events that change what it shows (AssistantApp.reload_screen): a check that found something new
     # or kept keys (`plugins`), MCP servers installed or removed (`mcp`), skills installed or removed (`skills`), a
     # channel's setup (`channels`), the repositories listed (`settings`).

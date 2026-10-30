@@ -20,18 +20,19 @@ import asyncio
 import contextlib
 import logging
 from collections.abc import AsyncIterator, Coroutine, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 
 from langgraph.store.base import BaseStore
 
-from assistant.core import notifications
+from assistant.core import i18n, notifications
 from assistant.core.agent import AssistantService, Session
 from assistant.core.config import settings
 from assistant.core.context import UNATTENDED_CHANNEL
 from assistant.core.conversation import held
 from assistant.core.conversation.held import HeldRun, Origin
 from assistant.core.events import ApprovalRequired, Error, Event, Held, ToolFinished
+from assistant.core.i18n import said, translatable
 from assistant.core.integrations.email.imap import MailSummary
 from assistant.core.jobs import active, store
 from assistant.core.jobs import schedule as cron
@@ -45,7 +46,13 @@ logger = logging.getLogger(__name__)
 _TICK_SECONDS = 30
 # A run that starts later than this after it was due says so: ticks and a busy daemon account for less.
 _LATE = timedelta(minutes=5)
-_MISSED = "it was due while the assistant wasn't running (the computer was off or asleep)"
+_MISSED = said("it was due while the assistant wasn't running (the computer was off or asleep)")
+# What a notification says before the summary of a run that didn't go well.
+_NOT_OK = {
+    "failed": translatable("Failed: {summary}"),
+    "needs attention": translatable("Needs attention: {summary}"),
+    "missed": translatable("Missed: {summary}"),
+}
 _SUMMARY_CHARS = 300
 
 
@@ -133,7 +140,8 @@ class Scheduler:
         _advance(job, now)
         missed = now - scheduled > timedelta(hours=settings.jobs_grace_hours)
         if not missed and key in self._running:
-            job.record(RunRecord(now.isoformat(), "skipped", "the previous run was still going"))
+            t = await i18n.chosen(self._store)
+            job.record(RunRecord(now.isoformat(), "skipped", t("the previous run was still going")))
         elif not missed:
             self._start(key, job, now, _message(job), scheduled)
         await store.save(self._store, job)
@@ -164,11 +172,12 @@ class Scheduler:
             summary = outcome.error or await self._service.last_reply(run.thread_id)
             status = outcome.status
         except TimeoutError:
-            status, summary = "failed", f"timed out after {settings.jobs_timeout_minutes} minutes"
+            status, summary = "failed", said("timed out after {minutes} minutes", minutes=settings.jobs_timeout_minutes)
         except Exception as e:
             logger.exception("Job %s failed", job.name)
             status, summary = "failed", f"{type(e).__name__}: {e}"
-        await self._finish(job, run, RunRecord(run.started, status, summary[-_SUMMARY_CHARS:], run.thread_id))
+        summary = (await i18n.chosen(self._store)).shown(summary)[-_SUMMARY_CHARS:]
+        await self._finish(job, run, RunRecord(run.started, status, summary, run.thread_id))
 
     async def _resume(self, job: Job, run: ActiveRun, approvals: list[ApprovalRequired]) -> None:
         """Ask again for the approvals a run stopped for, once a channel can show them: channels
@@ -215,7 +224,7 @@ class Scheduler:
         current = await store.load(self._store, job.user_id, job.name)
         if current is None:
             return
-        current.record(run)
+        current.record(replace(run, summary=(await i18n.chosen(self._store)).shown(run.summary)))
         await store.save(self._store, current)
         if run.status != "skipped":
             await _notify(self._store, job, run, late)
@@ -225,9 +234,9 @@ class Scheduler:
 
 async def _notify(saved: BaseStore, job: Job, run: RunRecord, late: str = "") -> None:
     """Into the notifications feed: a run's result, or why it failed or didn't run, opening on the job."""
-    ok = run.status == "ok"
-    text = run.summary if ok else f"{run.status.capitalize()}: {run.summary}"
-    await notifications.add_job_run(saved, job.user_id, job.name, run.at, f"{late}{text}", ok)
+    ok, t = run.status == "ok", await i18n.chosen(saved)
+    text = run.summary if ok else t(_NOT_OK.get(run.status, "{summary}"), summary=t.shown(run.summary))
+    await notifications.add_job_run(saved, job.user_id, job.name, run.at, f"{t.shown(late)}{text}", ok)
 
 
 def _lateness(run: ActiveRun) -> str:
@@ -237,8 +246,9 @@ def _lateness(run: ActiveRun) -> str:
     late = datetime.fromisoformat(run.started) - datetime.fromisoformat(run.scheduled)
     if late <= _LATE:
         return ""
-    return (
-        f"Ran {_duration(late)} late: the assistant wasn't running when it was due (the computer was off or asleep). "
+    return said(
+        "Ran {duration} late: the assistant wasn't running when it was due (the computer was off or asleep). ",
+        duration=_duration(late),
     )
 
 

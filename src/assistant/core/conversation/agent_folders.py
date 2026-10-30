@@ -10,6 +10,7 @@ from pathlib import Path
 from langgraph.store.base import BaseStore
 
 from assistant.core.config import settings
+from assistant.core.i18n import said
 
 _RECENT_LIMIT = 10
 _KEY = "recent"
@@ -65,11 +66,11 @@ async def children(folder: str, hidden: bool = False) -> FolderListing:
     existing folder given by its full path, or can't be read."""
     where = Path(folder).expanduser()
     if not where.is_absolute():
-        raise FolderError(f"{folder} isn't a full path.")
+        raise FolderError(said("{folder} isn't a full path.", folder=folder))
     try:
         inside = await asyncio.to_thread(_folders_in, where, hidden)
     except OSError as e:
-        raise FolderError(f"Can't read {folder}: {e.strerror or e}") from e
+        raise FolderError(said("Can't read {folder}: {error}", folder=folder, error=e.strerror or e)) from e
     return FolderListing(str(where), str(where.parent) if where.parent != where else None, inside)
 
 

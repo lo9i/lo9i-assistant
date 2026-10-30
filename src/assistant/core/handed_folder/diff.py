@@ -8,6 +8,7 @@ from pathlib import Path
 from assistant.core.handed_folder import changes, git, paths, preview
 from assistant.core.handed_folder.changes import ChangeKind, FileChange
 from assistant.core.handed_folder.paths import HandedFolderError, MissingPathError
+from assistant.core.i18n import said
 
 # No colour, and git's own diff whatever the user set up: an external diff tool would open a window.
 _DIFF = ("diff", "--no-color", "--no-ext-diff")
@@ -32,7 +33,7 @@ async def diff(root: Path, path: str) -> FileDiff:
     change = await _change(root, where)
     out = await _git_diff(root, change)
     if out is None:
-        raise HandedFolderError(f"git can't show what changed in {where}.")
+        raise HandedFolderError(said("git can't show what changed in {where}.", where=where))
     truncated = len(out) > preview.MAX_BYTES
     text = preview.as_text(out[: preview.MAX_BYTES], whole=not truncated)
     return FileDiff(where, change.status, text, truncated)
@@ -46,7 +47,7 @@ async def _change(root: Path, where: str) -> FileChange:
     if change is None and await _in_new_folder(root, where, found):
         change = FileChange(where, "untracked")
     if change is None:
-        raise MissingPathError(f"{where or '.'} has no changes to show.")
+        raise MissingPathError(said("{path} has no changes to show.", path=where or "."))
     return change
 
 

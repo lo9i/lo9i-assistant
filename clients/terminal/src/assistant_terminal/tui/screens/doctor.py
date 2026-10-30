@@ -16,7 +16,7 @@ from textual.widgets.option_list import Option
 from assistant.client.daemon_client import DoctorApi
 from assistant.core.agent import DoctorPage
 from assistant_terminal.doctor_text import cause_line, describe_cause, describe_known, known_line, overview
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 _OVERVIEW = "overview"
@@ -24,7 +24,7 @@ _KNOWN = "known:"
 
 
 class DoctorScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"doctor"})
 
     def __init__(self, doctor: DoctorApi) -> None:

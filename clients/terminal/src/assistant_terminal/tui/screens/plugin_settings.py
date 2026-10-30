@@ -14,12 +14,12 @@ from textual.widgets import Button, Checkbox, Input, Markdown, Static
 
 from assistant.client.daemon_client import McpApi
 from assistant.core.agent import McpServerError, PluginFieldValue, PluginSettings
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 
 class PluginSettingsScreen(ModalScreen[bool]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(False)", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss(False)", translatable("Close"))]
 
     def __init__(self, mcp: McpApi, plugin: str) -> None:
         super().__init__()

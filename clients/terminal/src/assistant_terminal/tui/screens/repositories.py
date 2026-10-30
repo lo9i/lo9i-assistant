@@ -15,13 +15,13 @@ from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import RepositoriesApi
 from assistant.core.agent import Repository, RepositoryError
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 
 class RepositoriesScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", t("Close"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
 
     def __init__(self, repositories: RepositoriesApi) -> None:
         super().__init__()

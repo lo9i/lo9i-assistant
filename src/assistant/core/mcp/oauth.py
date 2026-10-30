@@ -29,6 +29,7 @@ from mcp.shared.auth import (
 from pydantic import AnyUrl, BaseModel, ValidationError
 
 from assistant.core import secret_store
+from assistant.core.i18n import said
 from assistant.core.mcp.servers import McpServer
 from assistant.core.secret_store import SecretBox, SecretError
 
@@ -182,7 +183,7 @@ class _ConnectionAuth(httpx2.Auth):
         if provider is None:
             response = yield request
             if _asks_to_sign_in(response):
-                raise SignInNeededError(f"{self._server.name} asks you to sign in.")
+                raise SignInNeededError(said("{name} asks you to sign in.", name=self._server.name))
             return
         flow = provider.async_auth_flow(request)
         outgoing = await flow.__anext__()
@@ -190,7 +191,7 @@ class _ConnectionAuth(httpx2.Auth):
             response = yield outgoing
             if outgoing is request and _asks_to_sign_in(response):
                 await flow.aclose()
-                raise SignInNeededError(f"{self._server.name} needs you to sign in again.", lost=True)
+                raise SignInNeededError(said("{name} needs you to sign in again.", name=self._server.name), lost=True)
             try:
                 outgoing = await flow.asend(response)
             except StopAsyncIteration:
@@ -229,7 +230,7 @@ def _refusal(name: str) -> Callable[..., Awaitable[Any]]:
     stops a connection before the SDK starts a sign-in, so these are only a guard."""
 
     async def refuse(*_: object) -> Any:
-        raise SignInNeededError(f"{name} needs you to sign in again.", lost=True)
+        raise SignInNeededError(said("{name} needs you to sign in again.", name=name), lost=True)
 
     return refuse
 

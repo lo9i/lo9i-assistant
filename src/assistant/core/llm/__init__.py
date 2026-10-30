@@ -22,6 +22,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, SecretStr
 
 from assistant.core.config import settings
+from assistant.core.i18n import said
 from assistant.core.llm import connections, copilot, openrouter
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.claude import KeptAliveChatAnthropic
@@ -121,7 +122,7 @@ def _openrouter(choice: ModelChoice, model: str) -> BaseChatModel:
 def _langchain(choice: ModelChoice, model: str) -> BaseChatModel:
     known = provider(choice.provider)
     if known is None:
-        raise ValueError(f"Unknown model provider {choice.provider}.")
+        raise ValueError(said("Unknown model provider {provider}.", provider=choice.provider))
     options: dict[str, Any] = {k: v for k, v in choice.values.items() if v}
     if "service_account_json" in options:
         options["credentials"] = _google_credentials(options.pop("service_account_json"))

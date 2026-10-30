@@ -7,6 +7,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import BinaryIO
 
+from assistant.core.i18n import said
 from assistant.core.logs.components import COMPONENTS
 from assistant.core.logs.entries import LEVELS, LogEntry, at_least, parse
 from assistant.core.logs.files import LogFile, LogFileInfo, info
@@ -28,11 +29,11 @@ class LogQuery:
 
     def __post_init__(self) -> None:
         if self.level and self.level not in LEVELS:
-            raise LogQueryError(f"Unknown level: {self.level}")
+            raise LogQueryError(said("Unknown level: {level}", level=self.level))
         if self.component and self.component not in COMPONENTS:
-            raise LogQueryError(f"Unknown component: {self.component}")
+            raise LogQueryError(said("Unknown component: {component}", component=self.component))
         if not 1 <= self.lines <= MAX_LINES:
-            raise LogQueryError(f"Lines must be between 1 and {MAX_LINES}")
+            raise LogQueryError(said("Lines must be between 1 and {count}.", count=MAX_LINES))
 
     def matches(self, entry: LogEntry) -> bool:
         if self.component and entry.component != self.component:

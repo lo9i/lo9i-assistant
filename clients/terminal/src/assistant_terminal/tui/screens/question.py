@@ -8,13 +8,13 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, OptionList, SelectionList, Static
 
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 
 
 class QuestionScreen(ModalScreen[dict[str, Any]]):
     """Returns {"choices": [picked options]}, or {"choices": None} when skipped."""
 
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "skip", t("Skip"))]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "skip", translatable("Skip"))]
 
     def __init__(self, request: dict[str, Any]) -> None:
         super().__init__()
