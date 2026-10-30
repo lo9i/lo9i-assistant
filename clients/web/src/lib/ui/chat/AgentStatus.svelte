@@ -19,12 +19,19 @@
 </div>
 
 <style>
+  /* Its controls keep their size; the status bar's other items give way. */
   .agent {
     display: flex;
-    flex-wrap: wrap;
+    flex: none;
     align-items: center;
     gap: 6px;
-    min-width: 0;
+  }
+  @media (max-width: 680px) {
+    .agent {
+      flex: 0 1 auto;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
   }
   .name {
     cursor: default;

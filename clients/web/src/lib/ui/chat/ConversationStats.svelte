@@ -22,7 +22,12 @@
 {/if}
 
 <style>
+  /* The first to give way when the status bar runs short; the tooltip has it all. */
   .stats {
+    flex: 0 100 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     cursor: default;
     font-variant-numeric: tabular-nums;
   }
