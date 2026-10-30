@@ -74,6 +74,8 @@ class PluginsScreen(ModalScreen[None]):
         self._checked = ""
         # The repositories' errors told, so each is told once while it lasts.
         self._told: set[str] = set()
+        # Installed plugins with fields of their own, as installed: the ones Settings opens for.
+        self._with_settings: set[str] = set()
 
     def compose(self) -> ComposeResult:
         with Vertical(id="plugins"):
@@ -124,6 +126,7 @@ class PluginsScreen(ModalScreen[None]):
     @reports_daemon_unavailable
     async def _load(self) -> None:
         """As the repositories offered it when last checked; installed or not is read fresh."""
+        self._with_settings = {s.name for s in await self._mcp.servers() if s.settings}
         await self._apply(await self._repositories.plugins(cached=True))
 
     @work(exclusive=True, group="check")
@@ -325,8 +328,9 @@ class PluginsScreen(ModalScreen[None]):
         self.query_one("#update").display = plugin is not None and updatable(plugin)
         email = installed and plugin is not None and plugin.server is not None and plugin.server.email
         self.query_one("#email-accounts").display = email
-        has_fields = installed and plugin is not None and plugin.server is not None and bool(plugin.server.fields)
-        self.query_one("#plugin-settings").display = has_fields
+        self.query_one("#plugin-settings").display = (
+            installed and plugin is not None and plugin.name in self._with_settings
+        )
         signs_in = installed and plugin is not None and plugin.server is not None and bool(plugin.server.oauth)
         self.query_one("#plugin-sign-in").display = signs_in
         await self._show_setup(plugin)

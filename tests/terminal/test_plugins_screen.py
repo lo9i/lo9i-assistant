@@ -376,7 +376,7 @@ async def test_reading_the_plugins_again_doesnt_hold_up_the_other_events(app, cl
 
 
 async def test_an_installed_plugins_settings_change_what_it_was_given(app, client):
-    client.mcp.items["calendar"] = _mcp_status("calendar", source=EXTRAS)
+    client.mcp.items["calendar"] = replace(_mcp_status("calendar", source=EXTRAS), settings=True)
     async with app.run_test(size=(120, 50)) as pilot:
         screen = await _open(pilot, app)
         screen.query_one("#plugins-search", Input).value = "calendar"
@@ -407,9 +407,17 @@ async def test_an_installed_plugins_settings_change_what_it_was_given(app, clien
         assert client.mcp.saved_settings == ("calendar", {"CAL_USER": "you"}, ["CAL_PIN"])
 
 
-async def test_a_plugin_not_installed_has_no_settings(app, client):
+async def test_settings_show_only_for_an_installed_plugin_with_fields_of_its_own(app, client):
     async with app.run_test(size=(120, 44)) as pilot:
         screen = await _open(pilot, app)
         screen.query_one("#plugins-search", Input).value = "calendar"
         await wait_for(pilot, lambda: "## calendar" in _body(screen))
         assert not screen.query_one("#plugin-settings").display
+        # Installed, as the listing's version asks for fields, but the version installed has none.
+        client.mcp.items["calendar"] = _mcp_status("calendar", source=EXTRAS)
+        await screen.reload()
+        await pilot.pause()
+        assert not screen.query_one("#plugin-settings").display
+        client.mcp.items["calendar"] = replace(_mcp_status("calendar", source=EXTRAS), settings=True)
+        await screen.reload()
+        await wait_for(pilot, lambda: screen.query_one("#plugin-settings").display)

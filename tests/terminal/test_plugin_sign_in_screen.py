@@ -56,3 +56,19 @@ async def test_plugins_open_the_sign_in_of_an_installed_plugin_that_signs_in(app
         assert not plugins.query_one("#email-accounts").display
         plugins.query_one("#plugin-sign-in", Button).press()
         await wait_for(pilot, lambda: isinstance(app.screen, PluginSignInScreen))
+
+
+async def test_a_sign_in_its_check_refused_in_the_browser_shows_in_its_screen(app, client):
+    client.mcp.items["drive"] = replace(_mcp_status("drive"), oauth="google")
+    refusal = "The sign-in wasn't kept. drive: Google refused the account."
+    async with app.run_test(size=(120, 50)) as pilot:
+        await pilot.pause()
+        await app.push_screen(PluginSignInScreen(client.mcp, client.oauth, "drive", "google"))
+        await wait_for(pilot, lambda: isinstance(app.screen, PluginSignInScreen))
+        body = app.screen.query_one("#plugin-sign-in-body", Markdown)
+        await wait_for(pilot, lambda: "Not signed in yet" in body.source)
+        # Another plugin's refusal isn't this screen's.
+        await app.show_sign_in_refused({"name": "contacts", "error": "contacts: no"})
+        assert "contacts: no" not in body.source
+        await app.show_sign_in_refused({"name": "drive", "error": refusal})
+        await wait_for(pilot, lambda: refusal in body.source)

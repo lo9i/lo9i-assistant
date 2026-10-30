@@ -43,7 +43,6 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - A24. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen. It would also give plugins that ask for the ssh agent (`ssh_agent: true`, `core/mcp/ssh_agent.py`) the user's agent, which a LaunchDaemon has none of.
 - A25. Checks and Google Contacts were tried only against fakes: the claude-code plugin's check with a real Claude token from `claude setup-token` (it lists Anthropic's models with the token as a bearer and the `oauth-2025-04-20` beta; a 401 there refuses it, so if that list doesn't take sign-in tokens the check refuses good ones) and with a real API key; the contacts plugin on a real Google account (the `https://www.googleapis.com/auth/carddav` scope, the CardDAV API turned on, discovery from `/.well-known/carddav`).
 - A26. YouTube summaries: summarize a video from its transcript (the youtube plugin, `media/video/youtube`, already downloads transcripts), and optionally the new uploads of followed channels in the watchlist.
-- A27. Plugin settings, follow-ups. The web app's Plugins page offers Settings only for a plugin its repository still lists with fields (`plugin.server.fields`, from the listing), so one its repository dropped can't be opened there although `GET /plugins/<name>/settings` reads its installed folder; list installed plugins from their records too. A sign-in finished in the browser that its check refuses says so only on the `/app/oauth` page: the terminal app's sign-in screen, waiting for an `mcp` event, just stays signed out; tell the apps (an event with the refusal).
 
 ## Context
 
@@ -51,18 +50,18 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Voice
 
-- A28. Real-time voice agent: live spoken conversation from the browser.
+- A27. Real-time voice agent: live spoken conversation from the browser.
   - A speech-to-speech model (OpenAI GPT-Live) listens and speaks. No separate speech-to-text or text-to-speech step; transcripts come from the model's own events.
   - Audio goes directly between the browser and OpenAI over WebRTC. The daemon only exchanges the connection offer and answer, and never handles audio.
   - The daemon keeps a sideband WebSocket to OpenAI for each call. When the voice model needs to act, it calls a tool; the daemon runs it through `AssistantService`, so Claude stays the brain.
   - Tool calls are logged by the model's call id, so a retried call returns the first result.
   - Needs an OpenAI key in addition to the Anthropic key. Not needed for Telegram voice notes.
-- A29. Spoken replies in Slack. Settings → Audio speaks replies in the web chat and as Telegram voice notes; Slack doesn't get them yet (upload the audio with `files.uploadV2`).
-- A30. A voice message that is the first message of a conversation the web app's Chat opened for no topic (a new tab) stays in that conversation: routing reads only typed text (`POST /routes`, `ChatController.routed`), while the inbox routes a voice note by what it said. Transcribe it first, or let `/routes` take the recording, so it goes on in the conversation it's about too.
+- A28. Spoken replies in Slack. Settings → Audio speaks replies in the web chat and as Telegram voice notes; Slack doesn't get them yet (upload the audio with `files.uploadV2`).
+- A29. A voice message that is the first message of a conversation the web app's Chat opened for no topic (a new tab) stays in that conversation: routing reads only typed text (`POST /routes`, `ChatController.routed`), while the inbox routes a voice note by what it said. Transcribe it first, or let `/routes` take the recording, so it goes on in the conversation it's about too.
 
 ## Platforms
 
-- A31. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
+- A30. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
   - Daemon connection: a named pipe or localhost with a paired device instead of the Unix socket.
   - Startup: a Task Scheduler task or a Windows service as a `daemon/startup.py` backend.
   - Clipboard: `client/clipboard/windows.py`, pasting files, images and text with PowerShell (`Get-Clipboard -Format FileDropList`, `System.Windows.Forms.Clipboard.GetImage`) and copying with `Set-Clipboard`.
@@ -70,7 +69,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 ## Languages
 
-- A32. Languages, follow-ups. The apps' own text is in English and Spanish (`core/language.py`, Settings → General, `/language`; `core/i18n/`, `clients/web/src/lib/locales/`, `assistant_terminal/locales/`); left:
+- A31. Languages, follow-ups. The apps' own text is in English and Spanish (`core/language.py`, Settings → General, `/language`; `core/i18n/`, `clients/web/src/lib/locales/`, `assistant_terminal/locales/`); left:
   - Text the daemon writes for people is English whatever the language: errors raised in core and shown as they come (HTTP error details, tool and plugin errors), notifications' and alerts' titles and texts, the health check's causes and context parts, background work's end notices, plugin fields' and model providers' labels and help, and built-in Home sections' titles. Give the code that writes them the chosen texts (`i18n.chosen`), as the chat channels' (`core/channels/chat/`), the new-mail alerts and the Copilot card do. The web app's "auto" follows the browser, which the daemon doesn't know, so text it writes for the apps would follow the saved choice only.
   - The chat channel plugins' own text (their setup items, pairing replies; in the extras) is English.
   - The terminal app makes its key bindings and some labels when its modules are imported (`assistant_terminal/i18n.py`), so `/language` changes them from the next start; the plain REPL (pipes) has no `/language`.
@@ -80,10 +79,10 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 
 Not worth doing yet; each item says what was done and when to look at it again.
 
-- A33. Starting the hosts plugin's Herdr session on a host (extras, `connectivity/remote/hosts`, `herdr.py::_READY`) waits for its socket to answer, up to 5 seconds: Herdr 0.9 has no event or command that says a headless server is ready. Done: the assistant's commands run in a tab of their own, labeled `assistant`, with a POSIX sh (hosts 0.4.0). Revisit when Herdr adds a readiness signal (its CLI reference, `herdr status server`, events).
-- A34. Plugins repeat the code their protocol needs: Telegram and Slack each have `daemon.py` and `runner.py`, Claude Code and Copilot each have `task_folder.py`, so a protocol change means changing every copy. Done: the extras' `tests/test_shared_code.py` (run by their pre-commit hook) fails when the copies differ, and lists the differences meant to be there. Left: publish one small client per protocol on PyPI, which each plugin's `uv.lock` pins. Revisit when a third channel or agent plugin comes, or a protocol changes again.
+- A32. Starting the hosts plugin's Herdr session on a host (extras, `connectivity/remote/hosts`, `herdr.py::_READY`) waits for its socket to answer, up to 5 seconds: Herdr 0.9 has no event or command that says a headless server is ready. Done: the assistant's commands run in a tab of their own, labeled `assistant`, with a POSIX sh (hosts 0.4.0). Revisit when Herdr adds a readiness signal (its CLI reference, `herdr status server`, events).
+- A33. Plugins repeat the code their protocol needs: Telegram and Slack each have `daemon.py` and `runner.py`, Claude Code and Copilot each have `task_folder.py`, so a protocol change means changing every copy. Done: the extras' `tests/test_shared_code.py` (run by their pre-commit hook) fails when the copies differ, and lists the differences meant to be there. Left: publish one small client per protocol on PyPI, which each plugin's `uv.lock` pins. Revisit when a third channel or agent plugin comes, or a protocol changes again.
 
-- A35. Try NVIDIA Nemotron 3.5 Transcribe (open, 40 languages incl. Spanish, speaker labels, translation, questions about a recording, term hints in the prompt, up to 1 h of audio) in place of faster-whisper, or as a plugin for long recordings such as meetings or YouTube videos without captions. Today it's 30B (4B active) and only runs on a large NVIDIA GPU via vLLM; hosted APIs (DeepInfra, Baseten) send audio to a third party. Revisit when its quantized versions and NeMo-Speech.cpp ship and it runs on a Mac. https://huggingface.co/blog/nvidia/nemotron-transcribe-granary
+- A34. Try NVIDIA Nemotron 3.5 Transcribe (open, 40 languages incl. Spanish, speaker labels, translation, questions about a recording, term hints in the prompt, up to 1 h of audio) in place of faster-whisper, or as a plugin for long recordings such as meetings or YouTube videos without captions. Today it's 30B (4B active) and only runs on a large NVIDIA GPU via vLLM; hosted APIs (DeepInfra, Baseten) send audio to a third party. Revisit when its quantized versions and NeMo-Speech.cpp ship and it runs on a Mac. https://huggingface.co/blog/nvidia/nemotron-transcribe-granary
 
 ## Open questions and risks
 

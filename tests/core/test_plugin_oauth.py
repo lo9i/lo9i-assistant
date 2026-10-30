@@ -181,9 +181,13 @@ async def test_its_check_runs_after_it_signs_in_and_a_refused_account_isnt_kept(
     _write(repo / "productivity" / "documents" / "drive", files)
     await service.install_from_repository(URL, [], [ServerValues("drive")])
     google["answer"] = {"access_token": "a", "refresh_token": "refresh-bad"}
+    after = service.bus.last_id
     with pytest.raises(CheckFailedError, match=r"^The sign-in wasn't kept\. drive: Google refused the account"):
         await _signed_in(service)
     assert await _login(service) is None
+    # The apps waiting for the browser hear it too.
+    told = [e.data for e in service.bus._history if e.id > after and e.kind == "sign_in_refused"]
+    assert [t["name"] for t in told] == ["drive"] and "turn on the CardDAV API" in told[0]["error"]
     google["answer"] = {}
     await _signed_in(service)
     assert (await _status(service)).signed_in_as == "me@x.com"

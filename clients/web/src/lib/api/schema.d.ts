@@ -4313,6 +4313,11 @@ export interface components {
              * @default
              */
             signed_in_as: string;
+            /**
+             * Settings
+             * @default false
+             */
+            settings: boolean;
         };
         /** McpSignInStart */
         McpSignInStart: {

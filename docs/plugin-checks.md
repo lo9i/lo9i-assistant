@@ -44,7 +44,7 @@ user. A plugin without an MCP server (`command` or `url`) uses a command.
 A plugin that signs in (`oauth:`) is checked again when the user signs in, with the new sign-in in `LO9I_OAUTH`, so
 an account it can't use (an API not turned on, a scope refused) shows on the page the browser comes back to instead
 of on its first use. When the check refuses it, the sign-in isn't kept: the page says `The sign-in wasn't kept.
-<plugin>: <what it said>`, and the user signs in again once it's fixed. When it's installed, before any sign-in,
+<plugin>: <what it said>`, as does the plugin's sign-in in the apps, and the user signs in again once it's fixed. When it's installed, before any sign-in,
 `LO9I_OAUTH` is empty: a check that needs it lets the values through then.
 
 ## What to check

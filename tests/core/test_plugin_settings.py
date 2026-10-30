@@ -54,6 +54,9 @@ async def test_its_fields_show_their_values_and_a_secret_only_as_set(service, gr
         ("GREET_PIN", "", True, True),
     ]
     assert "good" not in str(shown) and "1234" not in str(shown)
+    # Its status says it has settings; a server added by hand has none.
+    await service.add_mcp_server(McpServer("notes", command="notes-mcp", env={"KEY": "1"}))
+    assert {s.name: s.settings for s in await service.mcp_servers()} == {"greet": True, "notes": False}
 
 
 async def test_a_new_value_is_saved_and_the_rest_stays(service, greet):

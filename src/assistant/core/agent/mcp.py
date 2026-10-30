@@ -71,6 +71,8 @@ class McpServerStatus:
     # with; "" when it doesn't sign in, or isn't signed in.
     oauth: str = ""
     signed_in_as: str = ""
+    # A plugin with fields of its own, which its settings change (core/mcp/plugin_settings.py).
+    settings: bool = False
 
 
 @dataclass
@@ -157,7 +159,10 @@ class McpMixin(ServiceBase):
         try:
             await self._plugin_checks.run(signed_in)
         except CheckFailedError as e:
-            raise CheckFailedError(f"The sign-in wasn't kept. {e}") from e
+            refused = CheckFailedError(f"The sign-in wasn't kept. {e}")
+            # The browser's page says so; an app waiting for the sign-in hears it too.
+            self.bus.publish("sign_in_refused", name=server.name, error=str(refused))
+            raise refused from e
         return await self._save_mcp_server(signed_in)
 
     async def sign_out_plugin(self, name: str) -> McpServerStatus:
@@ -250,4 +255,5 @@ async def mcp_status(hub: McpHub, server: McpServer, signed_in_as: str = "") -> 
         icon=PluginIcon(**server.icon),
         oauth=server.oauth_provider,
         signed_in_as=signed_in_as,
+        settings=bool(server.source and set(server.keys) - {plugin_oauth.ENV}),
     )

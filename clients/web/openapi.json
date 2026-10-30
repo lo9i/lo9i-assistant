@@ -9360,6 +9360,11 @@
             "type": "string",
             "title": "Signed In As",
             "default": ""
+          },
+          "settings": {
+            "type": "boolean",
+            "title": "Settings",
+            "default": false
           }
         },
         "type": "object",

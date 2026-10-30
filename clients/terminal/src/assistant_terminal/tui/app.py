@@ -370,6 +370,13 @@ class AssistantApp(App):
             severity="warning",
         )
 
+    async def show_sign_in_refused(self, refused: dict[str, Any]) -> None:
+        """In the plugin's sign-in screen when it's open, which waits for the browser; a notification otherwise."""
+        screen = self.screen
+        if isinstance(screen, PluginSignInScreen) and await screen.refused(refused["name"], refused["error"]):
+            return
+        self.notify(refused["error"], severity="warning", timeout=15)
+
     def mirror_run(self, run: dict[str, Any]) -> None:
         """Show a run started elsewhere in this conversation (another client or channel) as it happens."""
         if self._live.started_elsewhere(run):

@@ -1,5 +1,6 @@
 <script lang="ts">
   import SecretInput from "../SecretInput.svelte";
+  import type { SignInRefused } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
@@ -7,15 +8,25 @@
 
   // A plugin that signs in with the user's own OAuth app (`oauth:` in its server.yaml; the daemon's
   // core/mcp/plugin_oauth.py): whether it's signed in and as whom, signing in and out. The client ID and secret are
-  // typed here and go to the daemon; the /oauth page finishes the sign-in, and it shows here once it's done.
+  // typed here and go to the daemon; the /oauth page finishes the sign-in, and it shows here once it's done, or why
+  // the plugin's check refused it.
   let { plugin, provider }: { plugin: string; provider: string } = $props();
 
   const NAMES: Record<string, string> = { google: "Google" };
   // Where the user creates their OAuth app.
   const CONSOLES: Record<string, string> = { google: "https://console.cloud.google.com/apis/credentials" };
 
-  const { client } = useDaemon();
+  const { client, hub } = useDaemon();
   const servers = resource((c) => c.mcp.servers(), ["mcp"]);
+  // The /oauth page finished it, but the plugin's check refused the account: the sign-in wasn't kept.
+  $effect(() =>
+    hub.on(["sign_in_refused"], (data) => {
+      const refused = data as SignInRefused;
+      if (refused.name !== plugin) return;
+      message = refused.error;
+      failed = true;
+    }),
+  );
   const status = $derived(servers.data?.find((s) => s.name === plugin));
   const signedIn = $derived(status?.signed_in_as ?? "");
   const providerName = $derived(NAMES[provider] ?? provider);
