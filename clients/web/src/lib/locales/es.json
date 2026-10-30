@@ -1213,6 +1213,7 @@
     "heard": "Escuchado ({language}): {text}",
     "somethingWrong": "Algo salió mal",
     "stopped": "Detenido.",
+    "held": "Se está instalando una actualización. Esto se ejecuta cuando termine.",
     "goToMessage": "Ir a tu mensaje",
     "goToBottom": "Ir al final"
   },

@@ -36,6 +36,7 @@
   "{month}/{day}": "{day}/{month}",
   "{title} is waiting for you.": "{title} te está esperando.",
   "⏹ Stopped.": "⏹ Detenido.",
+  "⏳ An update is being installed. I'll answer this once it's done.": "⏳ Se está instalando una actualización. Responderé esto cuando termine.",
   "✅ Approve": "✅ Aprobar",
   "✅ Done": "✅ Listo",
   "❌ Reject": "❌ Rechazar",

@@ -544,6 +544,30 @@ async def test_a_follow_up_run_shows_what_it_follows_up_on_as_it_starts(app, cli
         assert "convert: it failed" in str(app.query_one(FollowUpNote).render())
 
 
+async def test_a_message_kept_while_an_update_installs_shows_once_when_its_run_comes(app, client):
+    from assistant.core.events import Held
+    from assistant_terminal.tui.widgets import HeldNote
+
+    async def kept():
+        yield Held("h1")
+
+    async def after_the_update():
+        yield TextDelta("Back, and yes.")
+        yield Done()
+
+    client.runs["r4"], client.runs["r5"] = kept, after_the_update
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        thread_id = app._live.session.thread_id
+        run = {"thread_id": thread_id, "channel": "web", "client_id": "", "text": "still there?", "notice": ""}
+        await client.bus.put(("run", run | {"run_id": "r4"}))
+        await wait_for(pilot, lambda: bool(app.query(HeldNote)))
+        assert "update is being installed" in str(app.query_one(HeldNote).render())
+        await client.bus.put(("run", run | {"run_id": "r5", "held": "h1"}))
+        await wait_for(pilot, lambda: bool(app.query(AssistantMessage)))
+        assert len(app.query(UserMessage)) == 1
+
+
 async def test_a_task_for_the_agent_shows_as_its_brief_not_as_the_users_message(app, client):
     from assistant_terminal.tui.widgets import BriefNote
 

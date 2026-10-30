@@ -29,7 +29,8 @@ class FollowUpsMixin(RunsMixin, ConversationsMixin):
         if not work_ended:
             return
         await self._note_activity(session, notice)
-        async for event in self._run(session, {"messages": [_message(session, work_ended, notice)]}):
+        message = _message(session, work_ended, notice)
+        async for event in self._run(session, {"messages": [message]}, notice=notice):
             yield event
 
 

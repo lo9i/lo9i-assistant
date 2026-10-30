@@ -5,6 +5,7 @@
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Copy from "@lucide/svelte/icons/copy";
   import Forward from "@lucide/svelte/icons/forward";
+  import Hourglass from "@lucide/svelte/icons/hourglass";
   import Inbox from "@lucide/svelte/icons/inbox";
   import Paperclip from "@lucide/svelte/icons/paperclip";
   import Sparkles from "@lucide/svelte/icons/sparkles";
@@ -264,6 +265,8 @@
         </details>
       {:else if item.kind === "notice"}
         <p class="text-caption notice" data-findable><Inbox size={12} />{item.text}</p>
+      {:else if item.kind === "held"}
+        <p class="text-caption notice"><Hourglass size={12} />{t("thread.held")}</p>
       {:else if item.kind === "transcript"}
         <p class="text-caption" data-findable>{t("thread.heard", { language: item.language, text: item.text })}</p>
       {:else if item.kind === "error"}

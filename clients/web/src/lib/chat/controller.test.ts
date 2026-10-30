@@ -106,6 +106,7 @@ const inProgress = (run_id: string, text: string, client_id = "me"): RunInProgre
   text,
   notice: "",
   brief: "",
+  held: "",
 });
 
 const texts = (chat: ChatController) => chat.getSnapshot().transcript.items.map((i) => ("text" in i ? i.text : i.kind));
@@ -376,6 +377,16 @@ describe("ChatController", () => {
     expect(texts(chat)).toEqual(["earlier", "hi", "from telegram"]);
     await chat.mirror({ run_id: "r2", thread_id: "t1", channel: "web", client_id: "me", text: "mine" });
     expect(texts(chat)).toHaveLength(3);
+  });
+
+  it("shows a message kept while an update installed once, when its run comes after the update", async () => {
+    const daemon = new FakeDaemon();
+    daemon.runs = [[{ type: "Held", id: "h1" }], [{ type: "TextDelta", text: "back" }, { type: "Done" }]];
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    await chat.send("still there?", []);
+    expect(texts(chat)).toEqual(["earlier", "still there?", "held"]);
+    await chat.mirror({ run_id: "r", thread_id: "t1", channel: "web", client_id: "", text: "still there?", held: "h1" });
+    expect(texts(chat)).toEqual(["earlier", "still there?", "held", "back"]);
   });
 });
 

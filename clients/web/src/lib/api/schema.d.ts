@@ -4422,6 +4422,11 @@ export interface components {
              * @default
              */
             brief: string;
+            /**
+             * Held
+             * @default
+             */
+            held: string;
         };
         /** RunRecord */
         RunRecord: {

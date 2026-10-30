@@ -176,3 +176,23 @@ async def test_schedule_needs_exactly_one_future_timing(service, script):
     assert "one of" in both
     neither = await _schedule(service, script, name="x", task="t")
     assert "one of" in neither
+
+
+async def test_a_job_due_while_an_update_installs_is_kept_and_recorded_once_it_runs(service, script):
+    now = await _job_due(service, script, minutes_ago=1)
+    await service.hold_runs()
+    job = await _run_tick(service, now)
+    assert job.runs == [] and datetime.fromisoformat(job.next_run_at) > now
+    [kept] = await service.held_runs("owner")
+    assert kept.origin.kind == "job" and kept.thread_id.startswith("job:daily-news:")
+    # At the next start the kept run isn't taken for one the daemon stopped in the middle of.
+    await Scheduler(service).resume_interrupted()
+    job = await store.load(service.store, "owner", "daily-news")
+    assert job is not None and job.runs == []
+
+    service.release_runs()
+    script.reply("Here is today's summary.")
+    await Scheduler(service).replay(kept)
+    job = await store.load(service.store, "owner", "daily-news")
+    assert job is not None and [(r.status, r.thread_id) for r in job.runs] == [("ok", kept.thread_id)]
+    assert "today's summary" in job.runs[-1].summary and await service.held_runs("owner") == []

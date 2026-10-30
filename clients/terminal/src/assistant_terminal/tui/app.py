@@ -99,6 +99,7 @@ from assistant_terminal.tui.widgets import (
     ConnectionNote,
     ContextFuel,
     FollowUpNote,
+    HeldNote,
     MemoryPanel,
     MouseStatus,
     StatusLine,
@@ -389,7 +390,10 @@ class AssistantApp(App):
 
     async def _show_started(self, run: dict[str, Any]) -> None:
         """What the run answers: what the user wrote, from where when it wasn't this app, a coding task the
-        assistant wrote for its agent, or a follow-up's notice."""
+        assistant wrote for its agent, or a follow-up's notice. Not what this app showed already when it was kept
+        while an update installed."""
+        if run.get("held") and any(note.held_id == run["held"] for note in self._chat.query(HeldNote)):
+            return
         if run["text"] and run.get("brief"):
             await self._chat.mount(BriefNote(run["text"], run["brief"]))
         elif run["text"]:

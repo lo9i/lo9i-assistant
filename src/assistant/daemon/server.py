@@ -16,13 +16,17 @@ from dotenv import dotenv_values, load_dotenv
 from sse_starlette.sse import AppStatus
 
 from assistant.core.agent import AssistantService
+from assistant.core.channels.chat.conversations import ChannelChats
 from assistant.core.config import settings
+from assistant.core.conversation import held
 from assistant.core.internet import browser
 from assistant.core.logs import LogSource, LogWriter, configure, log_sources, output_path, process_output
 from assistant.daemon import https, launchd, managers, output, pages, systemd, updates
 from assistant.daemon.adapters import Adapter, supervise
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import DeviceStreams, trusted
+from assistant.daemon.channel_runs import ChannelRuns
+from assistant.daemon.held import HeldRuns
 from assistant.daemon.http_server import HttpServer, Listener
 from assistant.daemon.mail_watcher import MailWatcher
 from assistant.daemon.pages import create_pages_app
@@ -62,7 +66,8 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         hub = RunHub(service.bus)
         streams = DeviceStreams()
         startup = Startup(stop, shutdown.relaunch)
-        app = create_app(service, hub, startup, shutdown, logs=logs, streams=streams, updates=updater)
+        chats = ChannelChats(service, ChannelRuns(hub), service.channels_hub, service.approvals)
+        app = create_app(service, hub, startup, shutdown, logs=logs, streams=streams, updates=updater, chats=chats)
         servers = _listeners(app, socket_path)
         page_servers = [HttpServer(create_pages_app(service, streams), at) for at in pages.listeners()]
         if not _bound([*servers, *page_servers]):
@@ -84,6 +89,7 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         tasks.append(_supervised(service.memory_writer, stop))
         tasks.append(_supervised(service.task_ends, stop))
         tasks.append(_supervised(QueuedMessages(service, hub), stop))
+        tasks.append(_supervised(HeldRuns(service, hub, {held.CHAT: chats, held.JOB: scheduler}), stop))
         tasks.append(_supervised(service.update_checker, stop))
         tasks.append(_supervised(service.home_schedule, stop))
         tasks.append(_supervised(service.copilot_watch, stop))

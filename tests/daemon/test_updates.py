@@ -57,7 +57,7 @@ class _Runs:
         self.clone = clone
         self.done: list[tuple[str, str]] = []
 
-    async def hold_runs(self, reason: str) -> None:
+    async def hold_runs(self) -> None:
         self.done.append(("held", _git(self.clone, "log", "-1", "--format=%s").strip()))
 
     def release_runs(self) -> None:

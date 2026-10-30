@@ -16,9 +16,10 @@ from assistant.core.agent_tasks.steps import STEPS, UNANSWERED, AgentSteps, Uplo
 from assistant.core.attachments import Attachment, reference
 from assistant.core.background import short
 from assistant.core.bus import EventBus
-from assistant.core.conversation import agent_folders, handoffs, queued
+from assistant.core.conversation import agent_folders, handoffs, held, queued
 from assistant.core.conversation.agent_folders import AgentFolders, FolderError, FolderListing
 from assistant.core.conversation.handoffs import Agent, Handoff
+from assistant.core.conversation.held import HeldRun
 from assistant.core.events import Done, Error, Event
 from assistant.core.to_the_end import to_the_end
 
@@ -111,9 +112,12 @@ class HandoffsMixin(RunsMixin):
             raise HandoffError(str(e)) from e
 
     async def _handed_off(
-        self, session: Session, handoff: Handoff, message: HumanMessage, said: str
+        self, session: Session, handoff: Handoff, message: HumanMessage, said: str, text: str = "", brief: str = ""
     ) -> AsyncIterator[Event]:
-        async for event in self._run_with(session, lambda: self._agent_turn(session, handoff, message, said)):
+        """`text` and `brief`: what the run is announced with, as `_run` takes them."""
+        kept = held.kept_agent_turn(message, said)
+        again = HeldRun(session.thread_id, session.channel, kept, text, brief, origin=session.origin)
+        async for event in self._run_with(session, lambda: self._agent_turn(session, handoff, message, said), again):
             yield event
 
     async def _agent_turn(

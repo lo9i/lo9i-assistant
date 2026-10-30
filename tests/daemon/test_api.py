@@ -521,6 +521,7 @@ async def test_a_conversation_opens_with_its_messages_and_the_runs_in_progress_t
             "text": "and now?",
             "notice": "",
             "brief": "",
+            "held": "",
         }
     ]
 

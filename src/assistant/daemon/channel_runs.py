@@ -13,9 +13,9 @@ class ChannelRuns:
         self._hub = hub
 
     async def follow(
-        self, channel: str, thread_id: str, events: AsyncIterator[Event], text: str, brief: str = ""
+        self, channel: str, thread_id: str, events: AsyncIterator[Event], text: str, brief: str = "", held: str = ""
     ) -> AsyncIterator[Event]:
-        run = self._hub.start(thread_id, events, channel, text=text, brief=brief)
+        run = self._hub.start(thread_id, events, channel, text=text, brief=brief, held=held)
         async for _, event in self._hub.follow(run, 0):
             if event is None:
                 return

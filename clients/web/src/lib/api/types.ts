@@ -154,6 +154,8 @@ export type RunEvent =
   | ApprovalRequired
   | { type: "Transcribed"; text: string; language: string }
   | Dispatched
+  // An update installs: the run was kept, and runs once lo9i is back, announced with this `id` (`held`).
+  | { type: "Held"; id: string }
   | { type: "Done" }
   | { type: "Error"; message: string }
   | { type: "Cancelled" };
@@ -161,7 +163,8 @@ export type RunEvent =
 /** A `run` bus event: a run started by any client or channel. `client_id` is empty for a channel
  * without a client (Telegram). */
 /** A `run` bus event. `notice`: for a follow-up the assistant runs on its own, what it follows up on. `brief`: when
- * `text` is a coding task the assistant wrote and not the user, the agent it's for. */
+ * `text` is a coding task the assistant wrote and not the user, the agent it's for. `held`: for a run kept while an
+ * update installed, the id its Held event gave. */
 export type RunAnnounced = {
   run_id: string;
   thread_id: string;
@@ -170,6 +173,7 @@ export type RunAnnounced = {
   text: string;
   notice?: string;
   brief?: string;
+  held?: string;
 };
 
 /** A `run_finished` bus event. */

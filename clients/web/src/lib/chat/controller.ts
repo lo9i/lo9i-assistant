@@ -7,7 +7,19 @@ import type { ApprovalRequired, Decision, Dispatched, RunAnnounced, RunEvent, Ru
 import { t } from "../i18n.svelte";
 import type { NoticeBoard } from "../notices";
 import { ChatTab, type Place } from "./tab";
-import { addBrief, addCarried, addNotice, addUser, apply, empty, endRun, endText, fromHistory, type Transcript } from "./transcript";
+import {
+  addBrief,
+  addCarried,
+  addNotice,
+  addUser,
+  apply,
+  empty,
+  endRun,
+  endText,
+  fromHistory,
+  showedHeld,
+  type Transcript,
+} from "./transcript";
 
 /** The DaemonClient calls the chat needs. */
 export interface ChatClient extends Conversations {
@@ -27,7 +39,7 @@ export interface ChatClient extends Conversations {
 type Start = (signal: AbortSignal) => AsyncIterable<RunEvent>;
 
 /** A run to show from its start, as its `run` event announced it or the conversation lists it in progress. */
-type Followed = Pick<RunAnnounced, "run_id" | "channel" | "client_id" | "text" | "notice" | "brief">;
+type Followed = Pick<RunAnnounced, "run_id" | "channel" | "client_id" | "text" | "notice" | "brief" | "held">;
 
 /** A message waiting for the reply before it to finish. One the inbox sent on here (`dispatched`) can't be taken
  * back: the daemon keeps it as sent on. `after` is called once its own reply has finished. */
@@ -462,8 +474,10 @@ export class ChatController {
   }
 
   /** What a run answers, where the user's message would be: what they wrote, from where when it wasn't this page,
-   * a coding task the assistant wrote for its agent, or the notice of a follow-up. */
+   * a coding task the assistant wrote for its agent, or the notice of a follow-up. Not what the page showed already
+   * when it was kept while an update installed. */
   private showStarted(run: Followed): void {
+    if (showedHeld(this.state.transcript, run.held)) return;
     const channel = run.client_id === this.client.clientId ? undefined : run.channel;
     if (run.text && run.brief) this.set({ transcript: addBrief(this.state.transcript, run.text, run.brief) });
     else if (run.text) this.set({ transcript: addUser(this.state.transcript, run.text, [], channel) });

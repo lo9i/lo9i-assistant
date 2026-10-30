@@ -29,6 +29,7 @@ from assistant.core.channels.chat.questions import (
 from assistant.core.channels.chat.turn import ChatTurn
 from assistant.core.config import settings
 from assistant.core.conversation.dispatch_nodes import NEW_TITLE
+from assistant.core.conversation.held import CHAT, HeldRun, Origin
 from assistant.core.events import ApprovalRequired, Dispatched, Event, is_question
 from assistant.core.i18n import Texts, translatable
 from assistant.core.outbox import DeliveryError
@@ -58,6 +59,7 @@ class Conversations(Protocol):
     ) -> None: ...
     async def chat_tag(self, user_id: str, thread_id: str, text: str = "") -> str: ...
     def send(self, session: Session, text: str, attachments: Sequence[Attachment] = ()) -> AsyncIterator[Event]: ...
+    def run_held(self, session: Session, run: HeldRun) -> AsyncIterator[Event]: ...
     def send_dispatched(self, session: Session, dispatch_id: str) -> AsyncIterator[Event]: ...
     def resume(self, session: Session, decisions: dict[str, dict[str, Any]]) -> AsyncIterator[Event]: ...
     async def pending_approvals(self, thread_id: str) -> list[ApprovalRequired]: ...
@@ -73,10 +75,11 @@ class Conversations(Protocol):
 
 class Runs(Protocol):
     def follow(
-        self, channel: str, thread_id: str, events: AsyncIterator[Event], text: str, brief: str = ""
+        self, channel: str, thread_id: str, events: AsyncIterator[Event], text: str, brief: str = "", held: str = ""
     ) -> AsyncIterator[Event]:
         """Runs `events` where every client sees it (the daemon's runs) and yields them as they come; `brief`:
-        the agent `text` is a coding task for, as the run is announced."""
+        the agent `text` is a coding task for, and `held`, the id of a run kept while an update installed, as the
+        run is announced."""
         ...
 
 
@@ -109,12 +112,34 @@ class ChannelChats:
         """Runs the message and shows it in `chat`, then speaks the reply when Settings → Audio says so.
         `voice`: the user's message was a voice note. `reply_to`: the id of the message it replies to;
         `message`: its own id, kept with the conversation it goes to."""
-        where = _Chat(self._channels, channel, chat, await self._conversations.texts())
+        where = _Chat(self._channels, channel, chat, await self._conversations.texts(), message, voice)
         thread_id = await self._thread_for(where, reply_to)
-        turn = await self._show(where, thread_id, lambda s: self._conversations.send(s, text, attachments), text)
-        if message:
-            await self._conversations.chat_messages_in(settings.owner_id, channel, chat, [message], turn.thread_id)
-        await self._speak(where, turn.final_text, voice)
+        await self._answer(where, thread_id, lambda s: self._conversations.send(s, text, attachments), text)
+
+    async def replay(self, run: HeldRun) -> None:
+        """Runs what the user sent in a chat while an update installed (`held.CHAT`), kept until now
+        (core/conversation/held.py), and shows it there as it would have been then."""
+        data, texts = run.origin.data, await self._conversations.texts()
+        where = _Chat(self._channels, run.channel, str(data["chat"]), texts, str(data["message"]), bool(data["voice"]))
+        start = lambda s: self._conversations.run_held(s, run)  # noqa: E731
+        await self._answer(where, run.thread_id, start, run.text, run.brief, run.id)
+
+    async def _answer(
+        self,
+        chat: "_Chat",
+        thread_id: str,
+        start: Callable[[Session], AsyncIterator[Event]],
+        text: str,
+        brief: str = "",
+        held: str = "",
+    ) -> None:
+        """Shows the run, keeps the user's message with the conversation it went to, and speaks the reply when
+        Settings → Audio says so."""
+        turn = await self._show(chat, thread_id, start, text, brief=brief, held=held)
+        if chat.message:
+            owner = settings.owner_id
+            await self._conversations.chat_messages_in(owner, chat.channel, chat.id, [chat.message], turn.thread_id)
+        await self._speak(chat, turn.final_text, chat.voice)
 
     async def press(self, channel: str, chat: str, message: str, text: str, data: str) -> None:
         """A button pressed on `message`, whose text is `text`."""
@@ -242,16 +267,18 @@ class ChannelChats:
         text: str,
         named: str = "",
         brief: str = "",
+        held: str = "",
     ) -> ChatTurn:
         """Shows the run in `thread_id`; when the inbox sent its message on, the run there instead, whose turn
         is returned. The channel has then last written in the conversation the turn ran in. `named` tags a
         conversation that isn't saved yet; `text` does otherwise. `brief`: the agent `text` is a coding task for,
-        written by the assistant (core/conversation/briefs.py)."""
+        written by the assistant (core/conversation/briefs.py); `held`: the id of the run kept while an update
+        installed that this one runs."""
         owner = settings.owner_id
         tag = await self._conversations.chat_tag(owner, thread_id, named or text)
         port = _Recording(chat.port, self._conversations, chat, thread_id)
         turn = ChatTurn(port, self._channels.limits(chat.channel), chat.t, thread_id, tag)
-        await turn.render(self._run(chat.channel, thread_id, start, text, brief))
+        await turn.render(self._run(chat, thread_id, start, text, brief, held))
         if turn.dispatched:
             return await self._go_on(chat, turn.dispatched)
         await self._conversations.channel_wrote(owner, chat.channel, thread_id)
@@ -267,14 +294,15 @@ class ChannelChats:
 
     async def _run(
         self,
-        channel: str,
+        chat: "_Chat",
         thread_id: str,
         start: Callable[[Session], AsyncIterator[Event]],
         text: str,
         brief: str = "",
+        held: str = "",
     ) -> AsyncIterator[Event]:
-        session = Session(settings.owner_id, channel, thread_id)
-        async for event in self._runs.follow(channel, thread_id, start(session), text, brief):
+        session = Session(settings.owner_id, chat.channel, thread_id, chat.origin())
+        async for event in self._runs.follow(chat.channel, thread_id, start(session), text, brief, held):
             yield event
 
     async def _waiting(
@@ -298,12 +326,22 @@ class ChannelChats:
 
 
 class _Chat:
-    def __init__(self, channels: Channels, channel: str, chat: str, t: Texts) -> None:
+    def __init__(
+        self, channels: Channels, channel: str, chat: str, t: Texts, message: str = "", voice: bool = False
+    ) -> None:
         self.channel = channel
         self.id = chat
         self.port: ChatPort = RemoteChat(channels, channel, chat)
         # The text shown there, in the language chosen.
         self.t = t
+        # What the user sent there that's being answered: its id ("" for a button pressed), and whether it was a
+        # voice note.
+        self.message = message
+        self.voice = voice
+
+    def origin(self) -> Origin:
+        """Kept with a run held while an update installs, so `replay` shows it here."""
+        return Origin(CHAT, {"chat": self.id, "message": self.message, "voice": self.voice})
 
 
 class _Recording:

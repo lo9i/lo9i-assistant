@@ -590,6 +590,7 @@
   "Stop the assistant? Jobs, chat channels and the apps stop working until it's started again on the computer it runs on (opening the terminal app there starts it). It waits for the runs in progress to end.": "¿Detener el asistente? Las tareas programadas, los canales de chat y las apps dejan de funcionar hasta que se vuelva a iniciar en la computadora donde corre (abrir la app de terminal allí lo inicia). Espera a que terminen las ejecuciones en curso.",
   "Stop: {reason}": "Detener: {reason}",
   "Stopped.": "Detenido.",
+  "An update is being installed. This runs once it's done.": "Se está instalando una actualización. Esto se ejecuta cuando termine.",
   "Sun": "dom",
   "Sunday": "domingo",
   "System prompt": "Prompt del sistema",

@@ -128,6 +128,15 @@ class Dispatched:
 
 
 @dataclass
+class Held:
+    """lo9i is installing an update: the run was kept instead of run (core/conversation/held.py), and runs once
+    lo9i is back on it, announced with this `id` (`held` in its `run` event), so a client that showed the user's
+    message then doesn't show it twice. Each client says so in its own words, in the user's language."""
+
+    id: str
+
+
+@dataclass
 class Done:
     pass
 
@@ -151,6 +160,7 @@ Event = (
     | ApprovalRequired
     | Transcribed
     | Dispatched
+    | Held
     | Done
     | Error
     | Cancelled
