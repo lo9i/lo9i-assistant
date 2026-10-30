@@ -84,7 +84,7 @@
 {:else if total}
   <div class="tiles">
     <div class="tile surface--glass">
-      <span class="tile-head"><Activity size={18} class="tile-icon" aria-hidden="true" />{t("tokens.modelCalls")}</span>
+      <span class="tile-head"><Activity size={15} class="tile-icon" aria-hidden="true" />{t("tokens.modelCalls")}</span>
       <div class="tile-body">
         <span class="big">{formatNumber(total.calls)}</span>
         <div class="chart"><TokenBars points={callSeries} label={t("tokens.modelCallsPerDay")} /></div>
@@ -96,7 +96,7 @@
       >
     </div>
     <div class="tile surface--glass">
-      <span class="tile-head"><ArrowDownToLine size={18} class="tile-icon" aria-hidden="true" />{t("tokens.inputTokens")}</span>
+      <span class="tile-head"><ArrowDownToLine size={15} class="tile-icon" aria-hidden="true" />{t("tokens.inputTokens")}</span>
       <div class="tile-body">
         <span class="big">{count(total.input_tokens)}</span>
         <div class="chart"><TokenLine points={inputSeries} label={t("tokens.inputPerDay")} /></div>
@@ -108,7 +108,7 @@
       </span>
     </div>
     <div class="tile surface--glass" style:--tile-color={OUTPUT_COLOR}>
-      <span class="tile-head"><ArrowUpFromLine size={18} class="tile-icon" aria-hidden="true" />{t("tokens.outputTokens")}</span>
+      <span class="tile-head"><ArrowUpFromLine size={15} class="tile-icon" aria-hidden="true" />{t("tokens.outputTokens")}</span>
       <div class="tile-body">
         <span class="big">{count(total.output_tokens)}</span>
         <div class="chart"><TokenLine points={outputSeries} label={t("tokens.outputPerDay")} color={OUTPUT_COLOR} /></div>
@@ -116,7 +116,7 @@
       <span class="text-caption">{t("tokens.outputHint")}</span>
     </div>
     <div class="tile surface--glass" style:--tile-color={COST_COLOR}>
-      <span class="tile-head"><CircleDollarSign size={18} class="tile-icon" aria-hidden="true" />{t("tokens.cost")}</span>
+      <span class="tile-head"><CircleDollarSign size={15} class="tile-icon" aria-hidden="true" />{t("tokens.cost")}</span>
       <div class="tile-body">
         <span class="big">{money(total.cost)}</span>
         <div class="chart"><TokenLine points={costSeries} label={t("tokens.costPerDay")} color={COST_COLOR} /></div>
@@ -178,19 +178,20 @@
   .tiles {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 16px;
+    gap: 12px;
   }
   .tile {
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    padding: 20px 24px;
-    border-radius: 16px;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: 12px;
   }
   .tile-head {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    font-size: 0.875rem;
     font-weight: 500;
   }
   .tile-head :global(.tile-icon) {
@@ -203,14 +204,15 @@
     gap: 16px;
   }
   .big {
-    font-size: 2.25rem;
+    font-size: 1.6rem;
     font-weight: 600;
     line-height: 1;
     white-space: nowrap;
   }
   .chart {
-    flex: 0 1 50%;
+    flex: 0 1 45%;
     min-width: 60px;
+    max-height: 40px;
   }
   .table-card {
     overflow: hidden;
