@@ -1,11 +1,13 @@
 """Runs kept while an update installed (core/conversation/held.py), run once lo9i is back on it (daemon/held.py)."""
 
 from collections.abc import AsyncIterator
+from dataclasses import replace
 
 from assistant.core.agent.handoffs import HandoffsMixin
 from assistant.core.agent.session import Session
 from assistant.core.agent.titles import TitlesMixin
 from assistant.core.conversation import handoffs, held
+from assistant.core.conversation.display import ShownMessage, shown
 from assistant.core.conversation.held import HeldRun
 from assistant.core.events import Event
 
@@ -14,6 +16,12 @@ class HeldRunsMixin(HandoffsMixin, TitlesMixin):
     async def held_runs(self, user_id: str) -> list[HeldRun]:
         """The runs waiting, oldest first."""
         return await held.waiting(self._storage.store, user_id)
+
+    async def held_messages(self, user_id: str, thread_id: str) -> list[ShownMessage]:
+        """What the runs waiting in the conversation add to it, oldest first, as its history shows it once they ran,
+        each marked with its run's id."""
+        waiting = [run for run in await self.held_runs(user_id) if run.thread_id == thread_id]
+        return [replace(message, held=run.id) for run in waiting for message in shown(held.messages(run.input))]
 
     async def drop_held_run(self, user_id: str, held_id: str) -> None:
         """One that won't run: what it was for is gone (a scheduled job deleted)."""

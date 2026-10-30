@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { ApiError } from "../api/errors";
-import type { ApprovalRequired, Decision, Dispatched, RunEvent, RunInProgress, Session } from "../api/types";
+import type { ApprovalRequired, Decision, Dispatched, RunEvent, RunInProgress, SentOn, Session, ShownMessage } from "../api/types";
 import { NoticeBoard } from "../notices";
 import { ChatController, type ChatClient } from "./controller";
 import { ChatTab } from "./tab";
@@ -26,11 +26,16 @@ class FakeDaemon implements ChatClient {
   // Where `route` sends a first message; "" for where it was written.
   routes = new Map<string, string>();
   routed: string[] = [];
+  // What a conversation's history ends with after its messages: what waits for an update to install.
+  held = new Map<string, ShownMessage[]>();
   conversations = {
     live: async (threadId: string) => {
       this.loading.push(threadId);
       await this.slowHistory;
-      const messages = [{ role: "user", text: "earlier", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "" }];
+      const messages = [
+        { role: "user", text: "earlier", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "" },
+        ...(this.held.get(threadId) ?? []),
+      ];
       return { messages, runs: this.inProgress.get(threadId) ?? [] };
     },
     approvals: async (threadId: string) => this.waiting.get(threadId) ?? [],
@@ -387,6 +392,57 @@ describe("ChatController", () => {
     expect(texts(chat)).toEqual(["earlier", "still there?", "held"]);
     await chat.mirror({ run_id: "r", thread_id: "t1", channel: "web", client_id: "", text: "still there?", held: "h1" });
     expect(texts(chat)).toEqual(["earlier", "still there?", "held", "back"]);
+  });
+
+  it("shows what waits for an update to install in history, marked, and once when its run comes", async () => {
+    const daemon = new FakeDaemon();
+    const waiting = { role: "user", text: "still there?", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "" };
+    daemon.held.set("t1", [{ ...waiting, held: "h1" }]);
+    daemon.runs = [[{ type: "TextDelta", text: "back" }, { type: "Done" }]];
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    expect(texts(chat)).toEqual(["earlier", "still there?", "held"]);
+    await chat.mirror({ run_id: "r", thread_id: "t1", channel: "telegram", client_id: "", text: "still there?", held: "h1" });
+    expect(texts(chat)).toEqual(["earlier", "still there?", "held", "back"]);
+  });
+
+  const sentOn = (client_id = "me", from_thread_id = "inbox"): SentOn => ({
+    client_id,
+    from_thread_id,
+    run_id: "r9",
+    channel: "web",
+    dispatched: { type: "Dispatched", id: "d1", thread_id: "t1", title: "Trip", text: "flights?", line: "→ Trip.", carried: "**Q:** hi" },
+  });
+
+  it("goes where the daemon sent on what it wrote in the inbox during an update, and shows its run there", async () => {
+    const daemon = new FakeDaemon();
+    daemon.runs = [[{ type: "Held", id: "h1" }], [{ type: "TextDelta", text: "Two flights." }, { type: "Done" }]];
+    const chat = await ChatController.open(daemon, "web", null, board);
+    await chat.send("flights?", []);
+    await chat.sentOn(sentOn());
+    expect(chat.getSnapshot().threadId).toBe("t1");
+    expect(daemon.followed).toEqual(["r9"]);
+    expect(texts(chat)).toEqual(["earlier", "**Q:** hi", "flights?", "Two flights."]);
+  });
+
+  it("leaves a message sent on after an update to the client that wrote it, while it's still where it wrote it", async () => {
+    const daemon = new FakeDaemon();
+    const inbox = await ChatController.open(daemon, "web", null, board);
+    const elsewhere = await ChatController.open(daemon, "web", "t1", board);
+    await inbox.sentOn(sentOn("someone else"));
+    await elsewhere.sentOn(sentOn());
+    expect(inbox.getSnapshot().threadId).toBe("inbox");
+    expect(daemon.followed).toEqual([]);
+  });
+
+  it("hands a message sent on after an update to whoever shows where it went", async () => {
+    const daemon = new FakeDaemon();
+    daemon.runs = [[{ type: "Done" }]];
+    const chat = await ChatController.open(daemon, "web", null, board);
+    const there = await ChatController.open(daemon, "web", "t1", board);
+    chat.onDispatched = async () => there;
+    await chat.sentOn(sentOn());
+    expect(chat.getSnapshot().threadId).toBe("inbox");
+    expect(texts(there)).toEqual(["earlier", "**Q:** hi", "flights?"]);
   });
 });
 

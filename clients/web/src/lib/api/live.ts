@@ -1,7 +1,7 @@
 // The conversation the page shows, like src/assistant/client/live.py: which conversation this
 // client is on, which runs in it come from elsewhere (another client, or a channel like Telegram),
 // and which replies were left running after moving to another conversation.
-import type { RunAnnounced, RunFinished, Session } from "./types";
+import type { RunAnnounced, RunFinished, SentOn, Session } from "./types";
 
 /** The DaemonClient calls LiveConversation needs. */
 export interface Conversations {
@@ -44,6 +44,12 @@ export class LiveConversation {
   /** A run in this conversation, started by anything but this client. */
   startedElsewhere(run: RunAnnounced): boolean {
     return run.thread_id === this.session.thread_id && run.client_id !== this.client.clientId;
+  }
+
+  /** A message this client wrote in this conversation (the inbox) while an update installed, which the daemon sent
+   * on after it: the client goes where it went, as after a Dispatched of its own run. */
+  sentHere(sent: SentOn): boolean {
+    return sent.client_id === this.client.clientId && sent.from_thread_id === this.session.thread_id;
   }
 
   /** True, once, when a finished run is one left with `startNew` or `resume`. */

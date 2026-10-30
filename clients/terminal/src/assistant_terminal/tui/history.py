@@ -1,6 +1,7 @@
 """Shows an earlier conversation in the chat when it's resumed: a delegate call with the subagent's steps
 inside it, as it was shown live, and any other call with the start of its arguments and output, which loads
-in full when it's expanded; so does a step inside a call that shows only its start."""
+in full when it's expanded; so does a step inside a call that shows only its start. What the user sent while an update
+installed, which runs once lo9i is back on it, shows with the note it showed with when it was sent."""
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -16,6 +17,7 @@ from assistant_terminal.tui.widgets import (
     CarriedNote,
     ErrorMessage,
     FollowUpNote,
+    HeldNote,
     PartialToolCall,
     ThinkingNote,
     ToolCall,
@@ -35,7 +37,7 @@ class Loaders:
 async def show_history(chat: VerticalScroll, messages: list[ShownMessage], load: Loaders) -> None:
     await chat.remove_children()
     widgets = [_widget(m, load) for m in messages]
-    await chat.mount_all(widgets)
+    await chat.mount_all([shown for w, m in zip(widgets, messages, strict=True) for shown in (w, *_held(m))])
     # A delegate call takes its steps once it's mounted, then ends, as it did live.
     for widget, message in zip(widgets, messages, strict=True):
         if message.steps and isinstance(widget, ToolCall):
@@ -53,6 +55,11 @@ async def _add_steps(call: ToolCall, message: ShownMessage, load: Loaders) -> No
         await call.add_step(shown)
         shown.finish(step.output)
     call.finish(message.output)
+
+
+def _held(message: ShownMessage) -> list[HeldNote]:
+    """Its run, once it starts, doesn't show the message again (`HeldNote.held_id`)."""
+    return [HeldNote(message.held)] if message.held else []
 
 
 def _widget(message: ShownMessage, load: Loaders):

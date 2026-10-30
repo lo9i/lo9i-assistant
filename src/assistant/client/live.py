@@ -49,6 +49,11 @@ class LiveConversation:
         """A run (from a `run` event) in this conversation, started by anything but this client."""
         return run["thread_id"] == self.session.thread_id and not self.own(run)
 
+    def sent_here(self, sent: dict[str, Any]) -> bool:
+        """A message this client wrote in this conversation (the inbox) while an update installed, which the daemon
+        sent on after it (a `sent_on` event): the client goes where it went, as after a Dispatched of its own run."""
+        return sent["client_id"] == self._client_id and sent["from_thread_id"] == self.session.thread_id
+
     def own(self, run: dict[str, Any]) -> bool:
         """This client started the run (from a `run` event, or a conversation's runs in progress)."""
         return run.get("client_id") == self._client_id

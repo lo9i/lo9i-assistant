@@ -184,6 +184,11 @@ export type RunAnnounced = {
 /** A `run_finished` bus event. */
 export type RunFinished = { run_id: string; thread_id: string; channel: string; status: string; reply: string };
 
+/** A `sent_on` bus event: a message `client_id` wrote in the inbox (`from_thread_id`) while an update installed,
+ * which the daemon sent on after it to `dispatched.thread_id`, where `run_id` runs it (src/assistant/daemon/held.py).
+ * That client goes there, as after a Dispatched of its own run. */
+export type SentOn = { client_id: string; from_thread_id: string; run_id: string; channel: string; dispatched: Dispatched };
+
 export type BusEvent = { kind: string; data: Record<string, unknown> };
 
 /** A `job` bus event: a scheduled job finished a run. */

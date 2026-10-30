@@ -27,6 +27,7 @@ from assistant.core.agent import (
 )
 from assistant.core.attachments import Attachment
 from assistant.core.config import settings
+from assistant.core.conversation import held
 from assistant.core.conversation.dispatch import Pick
 from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
 from assistant.core.conversations import Conversation
@@ -524,6 +525,37 @@ async def test_a_conversation_opens_with_its_messages_and_the_runs_in_progress_t
             "held": "",
         }
     ]
+
+
+async def test_a_conversation_opens_with_what_waits_for_an_update_marked_after_its_messages(service, script):
+    script.reply("Hello.")
+    session = Session("owner", "cli", await service.new_thread("owner"))
+    elsewhere = Session("owner", "cli", await service.new_thread("owner"))
+    await collect(service.send(session, "hi"))
+    app = trusted(create_app(service, RunHub()))
+    headers = {CLIENT_HEADER: "t", CLIENT_ID_HEADER: "tab-1"}
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t", headers=headers) as http:
+        await service.hold_runs()
+        files = {"files": ("notes.txt", b"buy milk", "text/plain")}
+        sent = await http.post(
+            f"/threads/{session.thread_id}/messages", data={"channel": "web", "text": "still?"}, files=files
+        )
+        await http.post(f"/threads/{elsewhere.thread_id}/messages", data={"channel": "web", "text": "not here"})
+        async with asyncio.timeout(5):  # the runs answer with Held
+            while len(await service.held_runs("owner")) < 2:
+                await asyncio.sleep(0.01)
+        live = (await http.get(f"/conversations/{session.thread_id}/live")).json()
+        opened = await DaemonClient(http).conversations.live(session.thread_id)  # as the terminal app opens it
+    assert sent.status_code == 200
+    [waiting] = [r for r in await service.held_runs("owner") if r.thread_id == session.thread_id]
+    shown = [(m["role"], m["text"], m["held"]) for m in live["messages"]]
+    assert shown == [
+        ("user", "hi", ""),
+        ("assistant", "Hello.", ""),
+        ("user", "[attachment notes.txt]\nstill?", waiting.id),
+    ]
+    assert opened.messages[-1].held == waiting.id and live["runs"] == []
+    assert held.client_of(waiting.origin) == "tab-1"
 
 
 async def test_a_profile_edit_with_an_unknown_section_or_too_many_items_is_422(app):
