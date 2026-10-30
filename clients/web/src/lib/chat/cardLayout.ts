@@ -1,6 +1,7 @@
-// How Chat's page lays out the conversations: as a list or as cards, the cards' order, the conversations open side by
-// side as panes with each one's share of the width, and the one shown full screen. Kept per browser, all but the one
-// full screen, which its button or Esc gives back. Pure functions, so the rules are testable without a page.
+// How Chat lays out the conversations: its list as a table or as cards, the cards' order, the conversations the
+// conversation page shows side by side as columns with each one's share of the width, and the one shown full screen.
+// Kept per browser, all but the one full screen, which its button or Esc gives back. Pure functions, so the rules are
+// testable without a page.
 
 export type View = "list" | "cards";
 
@@ -11,8 +12,6 @@ export type Layout = {
   // The conversations side by side, left to right, and each one's share of the width (together 1).
   panes: string[];
   widths: number[];
-  // Whether the cards show beside the panes, or the panes take the whole width.
-  cardsBeside: boolean;
   // The card or pane shown full screen.
   maximized: string | null;
 };
@@ -21,7 +20,7 @@ export const MAX_PANES = 3;
 // The narrowest a divider drags a pane to, as a share of the width.
 export const MIN_WIDTH = 0.2;
 
-export const initial: Layout = { view: "list", order: null, panes: [], widths: [], cardsBeside: true, maximized: null };
+export const initial: Layout = { view: "list", order: null, panes: [], widths: [], maximized: null };
 
 /** The cards in order: those the user never placed (new since they last dragged one) first, newest first, then the
  * user's order. `newestFirst` are the conversations listed; one in the order that's gone isn't shown. */
@@ -64,6 +63,23 @@ export function withPane(layout: Layout, id: string, before: string | null = nul
     panes: [...kept.slice(0, at), id, ...kept.slice(at)],
     widths: [...scaled.slice(0, at), share, ...scaled.slice(at)],
   };
+}
+
+/** The columns the conversation page shows while `current` is the conversation shown: those side by side when it's
+ * one of them; it alone otherwise, the others coming back when one of them is shown again. */
+export function columnsOf(layout: Layout, current: string): string[] {
+  return layout.panes.includes(current) ? layout.panes : [current];
+}
+
+/** `id` beside `current`, the conversation shown: added to the columns it's in, or the two of them as new columns.
+ * With MAX_PANES already, the last that isn't `current` gives way. */
+export function besideOf(layout: Layout, current: string, id: string): Layout {
+  if (id === current) return layout;
+  const shown: Layout = layout.panes.includes(current) ? layout : { ...layout, panes: [current], widths: [1] };
+  if (shown.panes.includes(id)) return shown;
+  if (shown.panes.length < MAX_PANES) return withPane(shown, id);
+  const giving = shown.panes.findLast((p) => p !== current) ?? current;
+  return withPane(withoutPane(shown, giving), id);
 }
 
 /** Without the pane on `id`; the others share its width. Shown full screen, the layout comes back. */
@@ -115,8 +131,8 @@ export function restored(layout: Layout): Layout {
 
 /** What's kept of `layout`: everything but the one full screen. */
 export function serialized(layout: Layout): string {
-  const { view, order, panes, widths, cardsBeside } = fitted(layout);
-  return JSON.stringify({ view, order, panes, widths, cardsBeside });
+  const { view, order, panes, widths } = fitted(layout);
+  return JSON.stringify({ view, order, panes, widths });
 }
 
 /** The layout kept as `text`; the initial one for nothing, or for what isn't one (an older or broken record), part
@@ -136,7 +152,6 @@ export function parsed(text: string | null): Layout {
     order: isStrings(kept.order) ? kept.order : null,
     panes,
     widths,
-    cardsBeside: kept.cardsBeside !== false,
     maximized: null,
   });
 }

@@ -29,8 +29,6 @@
     working: boolean;
     /** The assistant's name, over its messages. */
     name: string;
-    /** It's open side by side already. */
-    beside: boolean;
     /** It's pinned to Home. */
     pinned: boolean;
     onpin: () => void;
@@ -40,22 +38,8 @@
     /** Its header is what drags it. */
     ondragstart: (e: DragEvent) => void;
   };
-  let {
-    threadId,
-    title,
-    archived,
-    updatedAt,
-    live,
-    working,
-    name,
-    beside,
-    pinned,
-    onpin,
-    onopen,
-    onbeside,
-    onmaximize,
-    ondragstart,
-  }: Props = $props();
+  let { threadId, title, archived, updatedAt, live, working, name, pinned, onpin, onopen, onbeside, onmaximize, ondragstart }: Props =
+    $props();
 
   const { chats, notices } = useDaemon();
   const box = $derived(draft.of(threadId));
@@ -100,19 +84,15 @@
   }
 </script>
 
-<article class="card surface--glass" class:beside bind:this={card} aria-label={title}>
-  <!-- Dragging is the mouse's way; the buttons do the same from the keyboard (open side by side). -->
+<article class="card surface--glass" bind:this={card} aria-label={title}>
+  <!-- Dragging is the mouse's way to move it; Newest first puts the cards back in order. -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <header draggable="true" {ondragstart} title={t("board.move")}>
     <span class="grip" aria-hidden="true"><GripVertical size={14} /></span>
     <button class="title" onclick={onopen} title={t("board.openFull")}>{title}</button>
     <PinToHome {pinned} ontoggle={onpin} />
-    <button
-      class="btn btn--ghost btn--icon"
-      aria-label={t("board.openSide")}
-      title={t("board.openSide")}
-      aria-pressed={beside}
-      onclick={onbeside}><Columns2 size={14} /></button
+    <button class="btn btn--ghost btn--icon" aria-label={t("board.openBeside")} title={t("board.openBesideCard")} onclick={onbeside}
+      ><Columns2 size={14} /></button
     >
     <button class="btn btn--ghost btn--icon" aria-label={t("board.maximize")} title={t("board.maximize")} onclick={onmaximize}
       ><Maximize2 size={14} /></button
@@ -165,9 +145,6 @@
     padding: 10px 12px 12px;
     min-width: 0;
   }
-  .card.beside {
-    border-color: color-mix(in srgb, var(--glow) 55%, transparent);
-  }
   header {
     display: flex;
     align-items: center;
@@ -178,10 +155,6 @@
   }
   header:active {
     cursor: grabbing;
-  }
-  header [aria-pressed="true"] {
-    color: var(--color-text-primary);
-    background: var(--color-bg-hover-ghost);
   }
   .grip {
     display: flex;

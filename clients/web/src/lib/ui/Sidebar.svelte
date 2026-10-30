@@ -13,6 +13,7 @@
   import CalendarClock from "@lucide/svelte/icons/calendar-clock";
   import ChartColumn from "@lucide/svelte/icons/chart-column";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
+  import Columns2 from "@lucide/svelte/icons/columns-2";
   import Files from "@lucide/svelte/icons/files";
   import House from "@lucide/svelte/icons/house";
   import Laptop from "@lucide/svelte/icons/laptop";
@@ -29,12 +30,14 @@
   import { t, type Key } from "$lib/i18n.svelte";
   import { pageLabel } from "$lib/pages";
   import PluginIcon from "./PluginIcon.svelte";
+  import { conversationLayout } from "$lib/conversationLayout.svelte";
+  import { CONVERSATION_DRAG, openBeside } from "./openConversation";
   import { OPEN_PAGE, openNow } from "./openNow.svelte";
   import { sidebar } from "$lib/sidebar.svelte";
 
   let { name }: { name: string } = $props();
 
-  const { chats } = useDaemon();
+  const { chats, notices } = useDaemon();
   // MCP servers that come with a web page, shown in an iframe (routes/pages/[name]).
   const servers = resource((c) => c.mcp.servers(), ["mcp"]);
   const pages = $derived((servers.data ?? []).filter((s) => s.page && s.enabled));
@@ -48,7 +51,8 @@
   const unread = $derived((notifications.data ?? []).filter((n) => !n.read).length);
 
   // Chat is the list of conversations. Under it: the ones open in this tab, side by side, and any other with
-  // a reply or a coding task running, whoever started it. Open one to show it; the others keep going.
+  // a reply or a coding task running, whoever started it. Open one to show it; the others keep going. Open beside, or
+  // dragging one onto the conversation page, shows it next to the conversation shown there.
   const CHAT = resolve("/conversations");
   const OPEN = OPEN_PAGE;
   const open = openNow();
@@ -57,6 +61,12 @@
   async function startNew(): Promise<void> {
     await chats.startNew();
     await goto(OPEN);
+  }
+
+  function dragConversation(e: DragEvent, threadId: string): void {
+    if (!e.dataTransfer) return;
+    e.dataTransfer.setData(CONVERSATION_DRAG, threadId);
+    e.dataTransfer.effectAllowed = "copy";
   }
 
   type Add = { label: Key; run: () => Promise<void> };
@@ -152,6 +162,8 @@
             <li class="branch">
               <button
                 class="branch-item"
+                draggable="true"
+                ondragstart={(e) => dragConversation(e, entry.threadId)}
                 style:--tint={tint(entry.threadId)}
                 class:current={entry.active && page.url.pathname === OPEN}
                 aria-current={entry.active && page.url.pathname === OPEN ? "true" : undefined}
@@ -167,6 +179,14 @@
                 <span>{entry.title}</span>
                 {#if entry.waiting}<i class="waiting" aria-label={t("nav.waiting")}></i>{/if}
               </button>
+              {#if !(entry.active && page.url.pathname === OPEN)}
+                <button
+                  class="close beside"
+                  aria-label={t("nav.openBeside", { title: entry.title })}
+                  title={t("board.openBesideHint")}
+                  onclick={() => openBeside(chats, notices, conversationLayout, entry.threadId)}><Columns2 size={14} /></button
+                >
+              {/if}
               {#if entry.key !== null}
                 {@const key = entry.key}
                 <button
@@ -491,6 +511,12 @@
     background: none;
     color: var(--color-text-muted);
     cursor: pointer;
+  }
+  /* Open beside shows on the row the pointer is on, so the titles keep their room; always where nothing hovers. */
+  @media (hover: hover) {
+    .branch:not(:hover):not(:focus-within) .beside {
+      display: none;
+    }
   }
   .branch-item:hover,
   .branch-item.current,

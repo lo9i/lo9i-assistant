@@ -33,12 +33,17 @@ height: auto`) and both parts get `flex: none`, so each takes its own height and
 Chat (`src/routes/conversations/+page.svelte`) is this layout with a message box above it: the screen is
 a column, the box first, then the list and details in a row (`.lists`) that takes the rest.
 
-Chat's page also shows the conversations as cards (its top bar's List / Cards, `src/lib/ui/chat/board/`): each card
-has its last messages, a live status and a small composer; up to three open side by side as panes, each a whole
-`ChatPanel` on a conversation open in the tab (`OpenChats.opened`), with dividers to resize them; cards and panes
-reorder by dragging, and any one shows full screen until its button or Esc. The layout's rules are pure functions
-(`src/lib/chat/cardLayout.ts`), kept per browser (`src/lib/conversationLayout.svelte.ts`). Below 900px it shows one
-conversation at a time.
+The conversation page (`src/routes/conversations/open`, `src/lib/ui/chat/board/Columns.svelte`) shows several
+conversations side by side, where the user is when they want a second one: Open beside in its top bar picks one
+(`BesidePicker.svelte`), the sidebar's conversations have Open beside and can be dragged onto the page, and a card's
+Open beside goes there too (`openConversation.ts::openBeside`). Up to three columns, each a whole `ChatPanel` on a
+conversation open in the tab (`OpenChats.opened`): resized by dragging the dividers, reordered by their headers, closed,
+any one full screen until its button or Esc. The column the user is in is the conversation shown, which the top bar and
+the sidebar name; showing one that isn't a column shows it alone, and the columns come back with one of them. Below
+900px one shows at a time, picked from tabs. Chat's list also shows the conversations as cards (its top bar's List /
+Cards, `ConversationBoard.svelte`): each card has its last messages, a live status and a small composer, reorders by
+dragging and shows full screen. The rules are pure functions (`src/lib/chat/cardLayout.ts`: `columnsOf`, `besideOf`),
+the layout kept per browser (`src/lib/conversationLayout.svelte.ts`).
 
 Home (`src/routes/home/+page.svelte`) is a grid of cards, one per section, saved by the daemon with their order and
 width: a card moves by dragging its header or with its arrows (for keyboards and phones), resizes by dragging its

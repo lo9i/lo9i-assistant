@@ -1,19 +1,24 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
+  import Columns2 from "@lucide/svelte/icons/columns-2";
   import List from "@lucide/svelte/icons/list";
   import Plus from "@lucide/svelte/icons/plus";
+  import { besideOf, columnsOf } from "$lib/chat/cardLayout";
+  import { conversationLayout } from "$lib/conversationLayout.svelte";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
-  import ChatPanel from "$lib/ui/chat/ChatPanel.svelte";
+  import BesidePicker from "$lib/ui/chat/BesidePicker.svelte";
+  import Columns from "$lib/ui/chat/board/Columns.svelte";
   import OpenSwitcher from "$lib/ui/chat/OpenSwitcher.svelte";
   import { homePins } from "$lib/ui/homePins.svelte";
   import { leaveInbox } from "$lib/ui/openConversation";
   import PinToHome from "$lib/ui/PinToHome.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
-  const { chats } = useDaemon();
-  // The conversation shown; the others open beside it are in the sidebar, every one in Chat's list.
+  const { chats, notices } = useDaemon();
+  // The conversation shown, with any beside it as columns; the others open are in the sidebar, every one in Chat's
+  // list.
   const snapshot = external(chats.subscribe, () => chats.current?.getSnapshot() ?? null);
   // Chat never shows the inbox: should it come to it all the same, or with none open, the page gives way to the list.
   const shown = $derived(snapshot.current !== null && snapshot.current.threadId !== snapshot.current.inboxId);
@@ -23,9 +28,25 @@
   const title = $derived(listed?.title || t("nav.newConversation"));
   // Pinned to Home, once it's listed: a new conversation is, from its first message.
   const pins = homePins();
+  // The conversations shown as columns: the one shown, and those beside it.
+  const columns = $derived(snapshot.current ? columnsOf(conversationLayout.current, snapshot.current.threadId) : []);
+  let picking = $state(false);
 
   async function startNew(): Promise<void> {
     await chats.startNew();
+  }
+
+  /** The conversation picked opens beside the one shown, which stays shown. */
+  async function openBeside(threadId: string | null): Promise<void> {
+    picking = false;
+    const anchor = snapshot.current?.threadId;
+    if (threadId === null || anchor === undefined) return;
+    try {
+      if (!(await chats.opened(threadId))) return notices.notify(t("controller.deleted"), "warning");
+      conversationLayout.change(besideOf(conversationLayout.current, anchor, threadId));
+    } catch (e) {
+      notices.report(e);
+    }
   }
 </script>
 
@@ -33,6 +54,9 @@
   <TopBar {title}>
     {#snippet actions()}
       {#if listed && !listed.inbox}<PinToHome pinned={pins.has(listed.thread_id)} ontoggle={() => pins.toggle(listed.thread_id)} />{/if}
+      <button class="btn btn--ghost" title={t("board.openBesideHint")} onclick={() => (picking = true)}
+        ><Columns2 size={16} /><span class="hide-narrow">{t("board.openBeside")}</span></button
+      >
       <OpenSwitcher />
       <button class="btn btn--ghost" title={t("conversations.allHint")} onclick={() => goto(resolve("/conversations"))}
         ><List size={16} /><span class="hide-narrow">{t("conversations.all")}</span></button
@@ -43,7 +67,8 @@
     {/snippet}
   </TopBar>
 
-  <div class="screen"><ChatPanel /></div>
+  <div class="screen" class:wide={columns.length > 1}><Columns /></div>
+  {#if picking}<BesidePicker {title} shown={columns} onpick={openBeside} />{/if}
 {/if}
 
 <style>
@@ -52,6 +77,10 @@
     height: calc(100dvh - var(--top-bar-height));
     max-width: 1600px;
     margin: 0 auto;
+  }
+  /* Side by side, the columns take the whole width. */
+  .screen.wide {
+    max-width: none;
   }
   @media (max-width: 680px) {
     .screen {

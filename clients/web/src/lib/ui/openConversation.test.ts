@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { initial, type Layout } from "$lib/chat/cardLayout";
 import type { Shown } from "$lib/chat/openChats";
 import { NoticeBoard } from "$lib/notices";
 
@@ -6,7 +7,7 @@ const goto = vi.fn();
 vi.mock("$app/navigation", () => ({ goto }));
 vi.mock("$app/paths", () => ({ resolve: (path: string) => `/app${path}` }));
 
-const { leaveInbox, openConversation } = await import("./openConversation");
+const { leaveInbox, openBeside, openConversation } = await import("./openConversation");
 
 describe("openConversation", () => {
   beforeEach(() => goto.mockClear());
@@ -42,5 +43,46 @@ describe("leaveInbox", () => {
   it("stays on any other conversation", () => {
     expect(leaveInbox({ threadId: "t1", inboxId: "inbox" })).toBe(false);
     expect(goto).not.toHaveBeenCalled();
+  });
+});
+
+describe("openBeside", () => {
+  beforeEach(() => goto.mockClear());
+
+  const shownOn = (threadId: string | null) => ({
+    current: threadId === null ? null : ({ getSnapshot: () => ({ threadId, inboxId: "inbox" }) } as never),
+  });
+
+  function columns() {
+    let current = initial;
+    return {
+      get current() {
+        return current;
+      },
+      change: (next: Layout) => void (current = next),
+    };
+  }
+
+  it("opens a conversation beside the one shown, as columns of the conversation page", async () => {
+    const kept = columns();
+    await openBeside({ ...shownOn("t1"), show: async () => "shown" as Shown }, new NoticeBoard(), kept, "t2");
+    expect(kept.current.panes).toEqual(["t1", "t2"]);
+    expect(goto.mock.calls).toEqual([["/app/conversations/open"]]);
+  });
+
+  it("opens it alone when none is shown, or the inbox is", async () => {
+    const kept = columns();
+    await openBeside({ ...shownOn(null), show: async () => "shown" as Shown }, new NoticeBoard(), kept, "t2");
+    await openBeside({ ...shownOn("inbox"), show: async () => "shown" as Shown }, new NoticeBoard(), kept, "t2");
+    expect(kept.current.panes).toEqual([]);
+  });
+
+  it("leaves the columns alone for one that was deleted, and says so", async () => {
+    const kept = columns();
+    const notices = new NoticeBoard();
+    await openBeside({ ...shownOn("t1"), show: async () => "gone" as Shown }, notices, kept, "t2");
+    expect(kept.current.panes).toEqual([]);
+    expect(goto).not.toHaveBeenCalled();
+    expect(notices.getSnapshot().map((n) => n.text)).toEqual(["That conversation was deleted."]);
   });
 });

@@ -227,7 +227,7 @@
     "pickOne": "Pick one from the table to read it here.",
     "today": "Today {time}",
     "title": "Conversations",
-    "hint": "Newest first. Click one to read it on the right; double-click to continue it.",
+    "hint": "Newest first. Click one to read it on the right; double-click to continue it. In a conversation, Open beside shows another next to it.",
     "search": "Search conversations",
     "searchFailed": "Couldn't search what was said: {error}",
     "noneYet": "No conversations yet",
@@ -246,9 +246,7 @@
     "listHint": "Show the conversations as a list",
     "cards": "Cards",
     "cardsHint": "Show the conversations as cards, and open some side by side",
-    "hint": "Drag a card to move it, or onto the side-by-side area to open it there.",
-    "dropHere": "Drop a card here to open it side by side, up to {count} at once",
-    "openSide": "Open side by side",
+    "hint": "Drag a card to move it. Open beside shows it in Chat next to the conversation there.",
     "openFull": "Open in Chat",
     "maximize": "Full screen",
     "restore": "Back to the layout (Esc)",
@@ -257,8 +255,6 @@
     "resize": "Drag to resize the panes",
     "newestFirst": "Newest first",
     "newestFirstHint": "Order the cards by their newest activity again",
-    "hideCards": "Hide the cards",
-    "showCards": "Show the cards",
     "working": "Working",
     "waiting": "Waiting for you",
     "idle": "Idle",
@@ -266,7 +262,12 @@
     "task": "Task for the agent",
     "noMessages": "No messages yet",
     "commandsInChat": "Commands run in the conversation: open it to use {name}.",
-    "sideBySide": "Side by side"
+    "sideBySide": "Side by side",
+    "openBeside": "Open beside",
+    "openBesideHint": "Show another conversation next to this one",
+    "openBesideOf": "Pick the conversation to show next to {title}.",
+    "openBesideCard": "Open it in Chat, next to the conversation shown there",
+    "noneBeside": "No other conversations to show beside it."
   },
   "devices": {
     "browserOn": "{browser} on {system}",
@@ -883,7 +884,8 @@
     "waiting": "Waiting for your answer",
     "working": "Working…",
     "closeConversation": "Close {title}",
-    "alerts": "Alerts"
+    "alerts": "Alerts",
+    "openBeside": "Open {title} beside the conversation shown"
   },
   "notificationsPage": {
     "job": "Scheduled job",

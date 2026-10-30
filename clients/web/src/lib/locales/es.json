@@ -227,7 +227,7 @@
     "pickOne": "Elige una de la tabla para leerla aquí.",
     "today": "Hoy {time}",
     "title": "Conversaciones",
-    "hint": "Las más recientes primero. Haz clic en una para leerla a la derecha; doble clic para continuarla.",
+    "hint": "Las más recientes primero. Haz clic en una para leerla a la derecha; doble clic para continuarla. En una conversación, Abrir al lado muestra otra junto a ella.",
     "search": "Buscar conversaciones",
     "searchFailed": "No se pudo buscar en lo que se dijo: {error}",
     "noneYet": "Todavía no hay conversaciones",
@@ -246,9 +246,7 @@
     "listHint": "Mostrar las conversaciones como una lista",
     "cards": "Tarjetas",
     "cardsHint": "Mostrar las conversaciones como tarjetas y abrir algunas lado a lado",
-    "hint": "Arrastra una tarjeta para moverla, o al área de lado a lado para abrirla ahí.",
-    "dropHere": "Suelta una tarjeta aquí para abrirla lado a lado, hasta {count} a la vez",
-    "openSide": "Abrir lado a lado",
+    "hint": "Arrastra una tarjeta para moverla. Abrir al lado la muestra en el chat junto a la conversación de ahí.",
     "openFull": "Abrir en el chat",
     "maximize": "Pantalla completa",
     "restore": "Volver a la disposición (Esc)",
@@ -257,8 +255,6 @@
     "resize": "Arrastra para cambiar el ancho de los paneles",
     "newestFirst": "Más recientes primero",
     "newestFirstHint": "Ordenar las tarjetas otra vez por su actividad más reciente",
-    "hideCards": "Ocultar las tarjetas",
-    "showCards": "Mostrar las tarjetas",
     "working": "Trabajando",
     "waiting": "Te espera",
     "idle": "En pausa",
@@ -266,7 +262,12 @@
     "task": "Tarea para el agente",
     "noMessages": "Todavía no hay mensajes",
     "commandsInChat": "Los comandos se usan en la conversación: ábrela para usar {name}.",
-    "sideBySide": "Lado a lado"
+    "sideBySide": "Lado a lado",
+    "openBeside": "Abrir al lado",
+    "openBesideHint": "Mostrar otra conversación junto a esta",
+    "openBesideOf": "Elige la conversación que se muestra junto a {title}.",
+    "openBesideCard": "Abrirla en el chat, junto a la conversación que se muestra ahí",
+    "noneBeside": "No hay otras conversaciones para mostrar al lado."
   },
   "devices": {
     "browserOn": "{browser} en {system}",
@@ -883,7 +884,8 @@
     "waiting": "Esperando tu respuesta",
     "working": "Trabajando…",
     "closeConversation": "Cerrar {title}",
-    "alerts": "Alertas"
+    "alerts": "Alertas",
+    "openBeside": "Abrir {title} junto a la conversación que se muestra"
   },
   "notificationsPage": {
     "job": "Tarea programada",

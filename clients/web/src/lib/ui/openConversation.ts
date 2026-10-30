@@ -1,5 +1,6 @@
 import { goto } from "$app/navigation";
 import { resolve } from "$app/paths";
+import { besideOf, type Layout } from "$lib/chat/cardLayout";
 import type { ChatSnapshot } from "$lib/chat/controller";
 import type { OpenChats } from "$lib/chat/openChats";
 import { t } from "$lib/i18n.svelte";
@@ -12,6 +13,33 @@ export async function openConversation(chats: Pick<OpenChats, "show">, notices: 
     const shown = await chats.show(threadId);
     if (shown === "gone") return notices.notify(t("controller.deleted"), "warning");
     await goto(resolve(shown === "shown" ? "/conversations/open" : "/conversations"));
+  } catch (e) {
+    notices.report(e);
+  }
+}
+
+/** What a conversation dragged from the sidebar carries, its id: dropped on the conversation page, it opens beside. */
+export const CONVERSATION_DRAG = "application/x-lo9i-conversation";
+
+/** Where the conversation page's columns are kept (conversationLayout). */
+export type Columns = { readonly current: Layout; change(next: Layout): void };
+
+/** Shows `threadId` in Chat beside the conversation shown there, as columns of the conversation page; alone when none
+ * is shown. As `openConversation` for the inbox and for one that was deleted. */
+export async function openBeside(
+  chats: Pick<OpenChats, "show" | "current">,
+  notices: NoticeBoard,
+  columns: Columns,
+  threadId: string,
+): Promise<void> {
+  const before = chats.current?.getSnapshot();
+  const anchor = before && before.threadId !== before.inboxId ? before.threadId : null;
+  try {
+    const shown = await chats.show(threadId);
+    if (shown === "gone") return notices.notify(t("controller.deleted"), "warning");
+    if (shown === "inbox") return void (await goto(resolve("/conversations")));
+    if (anchor !== null) columns.change(besideOf(columns.current, anchor, threadId));
+    await goto(resolve("/conversations/open"));
   } catch (e) {
     notices.report(e);
   }
