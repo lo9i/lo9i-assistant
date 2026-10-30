@@ -36,11 +36,16 @@ a column, the box first, then the list and details in a row (`.lists`) that take
 The conversation page (`src/routes/conversations/open`, `src/lib/ui/chat/board/Columns.svelte`) shows several
 conversations side by side, where the user is when they want a second one: Open beside in its top bar picks one
 (`BesidePicker.svelte`), the sidebar's conversations have Open beside and can be dragged onto the page, and a card's
-Open beside goes there too (`openConversation.ts::openBeside`). Up to three columns, each a whole `ChatPanel` on a
-conversation open in the tab (`OpenChats.opened`): resized by dragging the dividers, reordered by their headers, closed,
-any one full screen until its button or Esc; Stack in the top bar puts them one above the other instead (`arrange`), and
-Side by side back. The column the user is in is the conversation shown, which the top bar and
-the sidebar name; showing one that isn't a column shows it alone, and the columns come back with one of them. Below
+Open beside goes there too (`openConversation.ts::openBeside`). Up to three conversations, each a whole `ChatPanel` on a
+conversation open in the tab (`OpenChats.opened`), in groups (`Layout.groups`): columns side by side, each holding one
+or more stacked, or rows stacked, each holding one or more side by side, so the page can be split in half with two
+stacked in one half. Dividers resize them both ways; each closes, and any one expands to the page's whole room for conversations (the top bar and sidebar stay) until its
+button or Esc;
+Stack and Side by side in the top bar turn columns into rows and back (`arrange`). A conversation dragged by its header,
+or from the sidebar, dropped on one takes the half of it it's dropped on (`edgeOf`, `docked`): beside it in its group,
+or a group of its own. The one the user is in is the conversation shown, which the sidebar names, the top bar saying
+how many are shown; showing one that isn't there shows it alone, and the others come back with one of them. A new
+conversation started there joins them (`startNewHere`). Below
 900px one shows at a time, picked from tabs. Chat's list also shows the conversations as cards (its top bar's List /
 Cards, `ConversationBoard.svelte`): each card has its last messages, a live status and a small composer, reorders by
 dragging and shows full screen. The rules are pure functions (`src/lib/chat/cardLayout.ts`: `columnsOf`, `besideOf`),

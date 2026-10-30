@@ -15,7 +15,8 @@
     chat: ChatController;
     title: string;
     status: CardStatus;
-    /** Shown full screen. */
+    /** Expanded to the whole of the page's room for conversations, the others out of the way; where they go is the
+     * page's. Here it only changes what its header offers. */
     maximized: boolean;
     /** Cmd+F finds in it: the pane the user is in. */
     findable: boolean;
@@ -75,14 +76,6 @@
     min-width: 0;
     min-height: 0;
   }
-  /* Over the whole app, sidebar included; dialogs still open above it. */
-  .pane.maximized {
-    position: fixed;
-    inset: 0;
-    z-index: 60;
-    padding: 12px 16px 8px;
-    background: var(--color-bg-page);
-  }
   header {
     display: flex;
     align-items: center;
@@ -113,10 +106,5 @@
   .body {
     flex: 1;
     min-height: 0;
-  }
-  .maximized .body {
-    width: 100%;
-    max-width: 1600px;
-    margin: 0 auto;
   }
 </style>

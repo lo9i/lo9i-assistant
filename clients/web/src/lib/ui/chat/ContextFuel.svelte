@@ -5,7 +5,8 @@
 
   // In the status bar: how full the conversation's context is. At the limit, older messages are summarized. While
   // the conversation is handed to an agent (/claude), the agent's context as it last said, while it works too
-  // (`agent_context`). A dash while it isn't known: no window, or no tokens yet (the agent's first answer).
+  // (`agent_context`). A dash while it isn't known: no window, or no tokens yet (the agent's first answer). Where the
+  // status bar has little room (StatusBar's container), a ring filling up instead of the bar; the tooltip says the same.
   let { threadId }: { threadId: string } = $props();
 
   const stats = resource((c) => c.conversations.stats(threadId), ["run_finished", "handoffs", "agent_context"]);
@@ -13,6 +14,9 @@
   const known = $derived(shown !== null && shown.context_limit > 0 && shown.context_tokens > 0);
   const ratio = $derived(shown && known ? Math.min(1, shown.context_tokens / shown.context_limit) : 0);
   const SEGMENTS = 24;
+  // The ring's radius, and the length of its circle, which its filled arc is a share of.
+  const RADIUS = 6;
+  const CIRCLE = 2 * Math.PI * RADIUS;
   const filled = $derived(Math.round(ratio * SEGMENTS));
   const percent = $derived(Math.round(ratio * 100));
   const figure = $derived(known ? `${percent}%` : "–");
@@ -49,6 +53,27 @@
       {/each}
       <span class="percent" style="color: {color}">{figure}</span>
     </span>
+    <svg
+      class="ring"
+      viewBox="0 0 16 16"
+      width="16"
+      height="16"
+      role="img"
+      aria-label={known ? t("fuel.label", { percent }) : t("fuel.unknownLabel")}
+    >
+      <circle cx="8" cy="8" r={RADIUS} fill="none" stroke={color} stroke-width="2.5" opacity="0.2" />
+      <circle
+        cx="8"
+        cy="8"
+        r={RADIUS}
+        fill="none"
+        stroke={color}
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-dasharray="{ratio * CIRCLE} {CIRCLE}"
+        transform="rotate(-90 8 8)"
+      />
+    </svg>
     {#if info}
       <span class="bubble" role="tooltip">
         <span class="head">{info.heading} <b style="color: {color}">{figure}</b></span>
@@ -63,6 +88,7 @@
   .wrap {
     position: relative;
     display: inline-flex;
+    align-items: center;
   }
   .bubble {
     position: absolute;
@@ -126,5 +152,17 @@
     width: 3px;
     height: 100%;
     border-radius: 2px;
+  }
+  .ring {
+    display: none;
+    cursor: default;
+  }
+  @container status-bar (max-width: 640px) {
+    .fuel {
+      display: none;
+    }
+    .ring {
+      display: block;
+    }
   }
 </style>

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { initial, type Layout } from "$lib/chat/cardLayout";
+import { besideOf, initial, together, type Layout } from "$lib/chat/cardLayout";
 import type { Shown } from "$lib/chat/openChats";
 import { NoticeBoard } from "$lib/notices";
 
@@ -7,7 +7,7 @@ const goto = vi.fn();
 vi.mock("$app/navigation", () => ({ goto }));
 vi.mock("$app/paths", () => ({ resolve: (path: string) => `/app${path}` }));
 
-const { leaveInbox, openBeside, openConversation } = await import("./openConversation");
+const { leaveInbox, openBeside, openConversation, startNewHere } = await import("./openConversation");
 
 describe("openConversation", () => {
   beforeEach(() => goto.mockClear());
@@ -66,7 +66,7 @@ describe("openBeside", () => {
   it("opens a conversation beside the one shown, as columns of the conversation page", async () => {
     const kept = columns();
     await openBeside({ ...shownOn("t1"), show: async () => "shown" as Shown }, new NoticeBoard(), kept, "t2");
-    expect(kept.current.panes).toEqual(["t1", "t2"]);
+    expect(together(kept.current)).toEqual(["t1", "t2"]);
     expect(goto.mock.calls).toEqual([["/app/conversations/open"]]);
   });
 
@@ -74,15 +74,42 @@ describe("openBeside", () => {
     const kept = columns();
     await openBeside({ ...shownOn(null), show: async () => "shown" as Shown }, new NoticeBoard(), kept, "t2");
     await openBeside({ ...shownOn("inbox"), show: async () => "shown" as Shown }, new NoticeBoard(), kept, "t2");
-    expect(kept.current.panes).toEqual([]);
+    expect(together(kept.current)).toEqual([]);
   });
 
   it("leaves the columns alone for one that was deleted, and says so", async () => {
     const kept = columns();
     const notices = new NoticeBoard();
     await openBeside({ ...shownOn("t1"), show: async () => "gone" as Shown }, notices, kept, "t2");
-    expect(kept.current.panes).toEqual([]);
+    expect(together(kept.current)).toEqual([]);
     expect(goto).not.toHaveBeenCalled();
     expect(notices.getSnapshot().map((n) => n.text)).toEqual(["That conversation was deleted."]);
+  });
+});
+
+describe("startNewHere", () => {
+  const chatOn = (threadId: string) => ({ getSnapshot: () => ({ threadId, inboxId: "inbox" }) }) as never;
+
+  function columns(start: Layout) {
+    let current = start;
+    return {
+      get current() {
+        return current;
+      },
+      change: (next: Layout) => void (current = next),
+    };
+  }
+
+  it("adds the new conversation to the ones side by side with the one shown", async () => {
+    const kept = columns(besideOf(initial, "a", "b"));
+    await startNewHere({ current: chatOn("a"), startNew: async () => chatOn("n") }, kept);
+    expect(together(kept.current)).toEqual(["a", "b", "n"]);
+  });
+
+  it("shows it alone when the one shown is alone", async () => {
+    const kept = columns(besideOf(initial, "a", "b"));
+    await startNewHere({ current: chatOn("x"), startNew: async () => chatOn("n") }, kept);
+    await startNewHere({ current: null, startNew: async () => chatOn("m") }, kept);
+    expect(together(kept.current)).toEqual(["a", "b"]);
   });
 });

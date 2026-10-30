@@ -66,3 +66,14 @@ describe("ContextFuel", () => {
     expect(render(ContextFuel, { props: { threadId: "t2" } }).body).not.toContain("fuel");
   });
 });
+
+describe("ContextFuel with little room", () => {
+  it("has a ring as full as the bar, which shows in its place where the status bar is narrow", () => {
+    loaded.data = { ...stats, context_tokens: 50000, context_limit: 100000 };
+    loaded.error = null;
+    const { body } = render(ContextFuel, { props: { threadId: "t1" } });
+    expect(body).toContain('class="ring');
+    const circle = 2 * Math.PI * 6;
+    expect(body).toContain(`stroke-dasharray="${0.5 * circle} ${circle}"`);
+  });
+});

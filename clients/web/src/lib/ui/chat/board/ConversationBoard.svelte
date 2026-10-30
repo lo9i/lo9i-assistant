@@ -19,8 +19,8 @@
   import ConversationPane from "./ConversationPane.svelte";
 
   // The cards view of Chat's list: every conversation as a card with its last messages, status and a small message
-  // box, in the order the user dragged them, any one full screen. Open beside on a card takes it to the conversation
-  // page, next to the conversation shown there (Columns.svelte). The one full screen is a conversation open in this
+  // box, in the order the user dragged them, any one expanded to their whole room. Open beside on a card takes it to the conversation
+  // page, next to the conversation shown there (Columns.svelte). The one expanded is a conversation open in this
   // tab (OpenChats), so it's live.
   type Props = { conversations: Conversation[] | undefined; error: string | null };
   let { conversations, error }: Props = $props();
@@ -49,7 +49,7 @@
     const found = new Set(matching(conversations ?? [], query, []).map((c) => c.thread_id));
     return order.filter((id) => found.has(id));
   });
-  // The card full screen, over the page.
+  // The card expanded, in the cards' room.
   const overlay = $derived.by(() => {
     void open.current;
     return layout.maximized === null ? null : chats.find(layout.maximized);
@@ -77,7 +77,7 @@
     }
   }
 
-  /** /clear in the conversation full screen: a new conversation in its place. */
+  /** /clear in the conversation expanded: a new conversation in its place. */
   async function clearIn(id: string): Promise<void> {
     try {
       const next = (await chats.startNew()).getSnapshot().threadId;
@@ -132,7 +132,8 @@
 
 <svelte:window onkeydown={keydown} ondragend={dragEnd} />
 
-<section class="cards surface--glass">
+<!-- A card expanded takes the cards' room; they stay as they were, behind it. -->
+<section class="cards surface--glass" class:hidden={overlay !== null && layout.maximized !== null}>
   <header class="toolbar">
     <div>
       <h2 class="text-heading">{t("conversations.title")}</h2>
@@ -188,18 +189,20 @@
 
 {#if overlay && layout.maximized}
   {@const id = layout.maximized}
-  <ConversationPane
-    chat={overlay}
-    title={titleOf(id)}
-    status={cardStatus(live.get(id) ?? null, working.has(id), false)}
-    maximized
-    findable
-    onmaximize={() => maximize(id)}
-    onopen={() => openConversation(chats, notices, id)}
-    onclear={() => clearIn(id)}
-    pinned={pins.has(id)}
-    onpin={() => pins.toggle(id)}
-  />
+  <div class="expanded">
+    <ConversationPane
+      chat={overlay}
+      title={titleOf(id)}
+      status={cardStatus(live.get(id) ?? null, working.has(id), false)}
+      maximized
+      findable
+      onmaximize={() => maximize(id)}
+      onopen={() => openConversation(chats, notices, id)}
+      onclear={() => clearIn(id)}
+      pinned={pins.has(id)}
+      onpin={() => pins.toggle(id)}
+    />
+  </div>
 {/if}
 
 {#if open.current.moving}
@@ -207,6 +210,14 @@
 {/if}
 
 <style>
+  .hidden {
+    display: none;
+  }
+  .expanded {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+  }
   .cards {
     flex: 1;
     min-width: 0;

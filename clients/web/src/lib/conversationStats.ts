@@ -15,6 +15,16 @@ export function statsLine(stats: ConversationStats, now: string): string {
   return parts.join(" · ");
 }
 
+/** The line's figures alone, for where icons stand for their words: messages, tokens, tools, and how long ago. */
+export function statsFigures(stats: ConversationStats, now: string): { messages: string; tokens: string; tools: string; ago: string } {
+  return {
+    messages: formatNumber(stats.messages),
+    tokens: compact(stats.input_tokens + stats.output_tokens),
+    tools: formatNumber(stats.tool_calls),
+    ago: stats.last_activity ? ago(stats.last_activity, now) : "",
+  };
+}
+
 /** One line per figure, for the line's tooltip. */
 export function statsDetail(stats: ConversationStats, timezone = Intl.DateTimeFormat().resolvedOptions().timeZone): string {
   const lines = [

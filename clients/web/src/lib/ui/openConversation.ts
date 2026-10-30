@@ -1,6 +1,6 @@
 import { goto } from "$app/navigation";
 import { resolve } from "$app/paths";
-import { besideOf, type Layout } from "$lib/chat/cardLayout";
+import { besideOf, columnsOf, type Layout } from "$lib/chat/cardLayout";
 import type { ChatSnapshot } from "$lib/chat/controller";
 import type { OpenChats } from "$lib/chat/openChats";
 import { t } from "$lib/i18n.svelte";
@@ -43,6 +43,15 @@ export async function openBeside(
   } catch (e) {
     notices.report(e);
   }
+}
+
+/** Starts a new conversation and shows it; while the conversation shown is side by side or stacked with others, the
+ * new one joins them (the last other giving way past MAX_PANES). */
+export async function startNewHere(chats: Pick<OpenChats, "startNew" | "current">, columns: Columns): Promise<void> {
+  const before = chats.current?.getSnapshot();
+  const split = before !== undefined && columnsOf(columns.current, before.threadId).length > 1;
+  const started = (await chats.startNew()).getSnapshot().threadId;
+  if (split) columns.change(besideOf(columns.current, before.threadId, started));
 }
 
 /** Takes a page about to show `chat` on the inbox, or no chat (none is open), to the list of conversations, in its

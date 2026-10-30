@@ -1,7 +1,9 @@
 <script lang="ts">
   let tip = $state<{ title: string; status: string; color: string; x: number; y: number } | null>(null);
   function showTip(e: Event, title: string, status: string, color: string) {
-    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    // Past the whole row, not just its title: there it would cover the row's own buttons (Open beside, close).
+    const target = e.currentTarget as HTMLElement;
+    const r = (target.closest("li") ?? target).getBoundingClientRect();
     tip = { title, status, color, x: r.right + 10, y: r.top + r.height / 2 };
   }
   import { goto } from "$app/navigation";
@@ -30,8 +32,9 @@
   import { t, type Key } from "$lib/i18n.svelte";
   import { pageLabel } from "$lib/pages";
   import PluginIcon from "./PluginIcon.svelte";
+  import { columnsOf } from "$lib/chat/cardLayout";
   import { conversationLayout } from "$lib/conversationLayout.svelte";
-  import { CONVERSATION_DRAG, openBeside } from "./openConversation";
+  import { CONVERSATION_DRAG, openBeside, startNewHere } from "./openConversation";
   import { OPEN_PAGE, openNow } from "./openNow.svelte";
   import { sidebar } from "$lib/sidebar.svelte";
 
@@ -57,9 +60,17 @@
   const OPEN = OPEN_PAGE;
   const open = openNow();
   const everything = $derived(open.items);
+  // The conversations the conversation page shows together with the one shown there: they have no Open beside, and
+  // their icon says they're together.
+  const together = $derived.by(() => {
+    const shown = everything.find((entry) => entry.active)?.threadId;
+    return shown === undefined ? [] : columnsOf(conversationLayout.current, shown);
+  });
 
+  // On the conversation page with several shown, the new one joins them.
   async function startNew(): Promise<void> {
-    await chats.startNew();
+    if (page.url.pathname === OPEN) await startNewHere(chats, conversationLayout);
+    else await chats.startNew();
     await goto(OPEN);
   }
 
@@ -175,15 +186,19 @@
                 onclick={() => open.show(entry)}
               >
                 {#if entry.running}<LoaderCircle size={14} class="spin" aria-label={t("nav.working")} />
+                {:else if together.length > 1 && together.includes(entry.threadId)}<Columns2
+                    size={14}
+                    aria-label={t("nav.shownTogether")}
+                  />
                 {:else}<MessageSquare size={14} />{/if}
                 <span>{entry.title}</span>
                 {#if entry.waiting}<i class="waiting" aria-label={t("nav.waiting")}></i>{/if}
               </button>
-              {#if !(entry.active && page.url.pathname === OPEN)}
+              {#if !together.includes(entry.threadId)}
                 <button
                   class="close beside"
                   aria-label={t("nav.openBeside", { title: entry.title })}
-                  title={t("board.openBesideHint")}
+                  title={t("nav.openBesideHint")}
                   onclick={() => openBeside(chats, notices, conversationLayout, entry.threadId)}><Columns2 size={14} /></button
                 >
               {/if}

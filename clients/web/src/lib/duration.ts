@@ -1,6 +1,6 @@
 import { t } from "./i18n.svelte";
 
-/** How long between two times, roughly: "under a minute", "12 min", "2 h 5 min", "3 days". */
+/** How long between two times, roughly and briefly: "< 1 min", "12 min", "2 h 5 min", "3 days". */
 export function duration(from: string, to: string): string {
   const minutes = minutesBetween(from, to);
   if (minutes < 1) return t("duration.underAMinute");

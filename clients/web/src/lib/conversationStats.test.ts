@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ConversationStats } from "./api/types";
-import { compact, statsDetail, statsLine } from "./conversationStats";
+import { compact, statsDetail, statsFigures, statsLine } from "./conversationStats";
 
 const stats: ConversationStats = {
   thread_id: "owner:abc",
@@ -24,6 +24,11 @@ describe("conversation stats", () => {
       "1 message · 182k tokens · 1 tool",
     );
     expect(statsLine(stats, "2026-10-23T10:00:20Z")).toMatch(/just now$/);
+  });
+
+  it("gives the line's figures alone, for icons to stand for their words", () => {
+    expect(statsFigures(stats, "2026-10-23T12:00:00Z")).toEqual({ messages: "24", tokens: "182k", tools: "37", ago: "2 h ago" });
+    expect(statsFigures({ ...stats, last_activity: null }, "2026-10-23T12:00:00Z").ago).toBe("");
   });
 
   it("details every figure in the tooltip", () => {

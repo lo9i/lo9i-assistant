@@ -3,27 +3,38 @@ import {
   beforeOf,
   besideOf,
   columnsOf,
+  docked,
+  edgeOf,
+  groupsOf,
   initial,
   MAX_PANES,
-  MIN_WIDTH,
+  MIN_SHARE,
   movedCard,
-  movedPane,
   ordered,
   parsed,
   rearranged,
   replacedPane,
   resized,
+  resizedGroups,
+  resizedWithin,
   restored,
   serialized,
   toggledMax,
   unordered,
   withoutPane,
-  withPane,
   type Layout,
 } from "./cardLayout";
 
-const panes = (...ids: string[]): Layout => ids.reduce((layout, id) => withPane(layout, id), initial);
-const sum = (widths: number[]) => widths.reduce((a, b) => a + b, 0);
+/** Which conversations each group holds. */
+const shape = (layout: Layout) => layout.groups.map((g) => g.ids);
+const close = (shares: number[], expected: number[]) => {
+  expect(shares).toHaveLength(expected.length);
+  shares.forEach((s, i) => expect(s).toBeCloseTo(expected[i]));
+};
+// a and b side by side.
+const two = docked(initial, "a", "b", "right");
+// The page split in half, b and c stacked in the right half.
+const three = docked(two, "b", "c", "bottom");
 
 describe("card order", () => {
   it("is newest activity first until the user drags a card", () => {
@@ -53,85 +64,116 @@ describe("card order", () => {
   });
 });
 
-describe("panes", () => {
-  it("adds conversations side by side, each once, sharing the width evenly", () => {
-    const layout = withPane(panes("a", "b"), "a");
-    expect(layout.panes).toEqual(["b", "a"]);
-    expect(layout.widths).toEqual([0.5, 0.5]);
-    expect(panes("a", "b", "c").widths.map((w) => w.toFixed(3))).toEqual(["0.333", "0.333", "0.333"]);
-  });
-
-  it("adds one before another, the others keeping their proportions", () => {
-    const wide = { ...panes("a", "b"), widths: [0.75, 0.25] };
-    const layout = withPane(wide, "c", "b");
-    expect(layout.panes).toEqual(["a", "c", "b"]);
-    expect(layout.widths[0] / layout.widths[2]).toBeCloseTo(3);
-    expect(layout.widths[1]).toBeCloseTo(1 / 3);
-    expect(sum(layout.widths)).toBeCloseTo(1);
-  });
-
-  it(`keeps at most ${MAX_PANES}: the last gives way to a new one`, () => {
-    expect(withPane(panes("a", "b", "c"), "d").panes).toEqual(["a", "b", "d"]);
-    expect(withPane(panes("a", "b", "c"), "d", "a").panes).toEqual(["d", "a", "b"]);
-    expect(withPane(panes("a", "b", "c"), "d").widths).toHaveLength(3);
-  });
-
-  it("closes one, the others sharing its width", () => {
-    const layout = withoutPane({ ...panes("a", "b", "c"), widths: [0.5, 0.25, 0.25] }, "a");
-    expect(layout.panes).toEqual(["b", "c"]);
-    expect(layout.widths).toEqual([0.5, 0.5]);
-    expect(withoutPane(layout, "gone")).toBe(layout);
-  });
-
-  it("moves one, keeping its width", () => {
-    const layout = movedPane({ ...panes("a", "b", "c"), widths: [0.5, 0.3, 0.2] }, "c", "a");
-    expect(layout.panes).toEqual(["c", "a", "b"]);
-    expect(layout.widths.map((w) => w.toFixed(1))).toEqual(["0.2", "0.5", "0.3"]);
-    expect(movedPane(layout, "c", null).panes).toEqual(["a", "b", "c"]);
-  });
-
-  it("shows another conversation in a pane's place and width", () => {
-    const layout = replacedPane({ ...panes("a", "b"), widths: [0.7, 0.3] }, "a", "n");
-    expect(layout.panes).toEqual(["n", "b"]);
-    expect(layout.widths[0]).toBeCloseTo(0.7);
-  });
-});
-
 describe("conversations beside the one shown", () => {
   it("shows the one shown alone until another opens beside it", () => {
     expect(columnsOf(initial, "a")).toEqual(["a"]);
-    const two = besideOf(initial, "a", "b");
-    expect(two.panes).toEqual(["a", "b"]);
-    expect(columnsOf(two, "b")).toEqual(["a", "b"]);
+    const pair = besideOf(initial, "a", "b");
+    expect([shape(pair), pair.arrange]).toEqual([[["a"], ["b"]], "side"]);
+    expect(columnsOf(pair, "b")).toEqual(["a", "b"]);
   });
 
-  it("adds to the columns the shown one is in, once, and never itself", () => {
-    const two = besideOf(initial, "a", "b");
-    expect(besideOf(two, "b", "c").panes).toEqual(["a", "b", "c"]);
-    expect(besideOf(two, "a", "b")).toBe(two);
-    expect(besideOf(two, "a", "a")).toBe(two);
+  it("adds a group after the others the one shown is with, once, and never itself", () => {
+    const pair = besideOf(initial, "a", "b");
+    expect(shape(besideOf(pair, "b", "c"))).toEqual([["a"], ["b"], ["c"]]);
+    expect(besideOf(pair, "a", "b")).toBe(pair);
+    expect(besideOf(pair, "a", "a")).toBe(pair);
   });
 
-  it("starts new columns from one shown that isn't in them, keeping the old ones for when they're shown again", () => {
-    const two = besideOf(initial, "a", "b");
-    expect(columnsOf(two, "x")).toEqual(["x"]);
-    expect(besideOf(two, "x", "y").panes).toEqual(["x", "y"]);
+  it("starts anew from one shown that isn't with them, keeping the others for when they're shown again", () => {
+    expect(columnsOf(three, "x")).toEqual(["x"]);
+    expect(groupsOf(three, "x")).toEqual([{ ids: ["x"], shares: [1] }]);
+    expect(groupsOf(three, "c")).toBe(three.groups);
+    expect(shape(besideOf(three, "x", "y"))).toEqual([["x"], ["y"]]);
   });
 
   it(`keeps the one shown when there are ${MAX_PANES} already: the last other one gives way`, () => {
     const full = besideOf(besideOf(initial, "a", "b"), "a", "c");
-    expect(besideOf(full, "c", "d").panes).toEqual(["a", "c", "d"]);
-    expect(besideOf(full, "a", "d").panes).toEqual(["a", "b", "d"]);
+    expect(shape(besideOf(full, "c", "d"))).toEqual([["a"], ["c"], ["d"]]);
+    expect(shape(besideOf(full, "a", "d"))).toEqual([["a"], ["b"], ["d"]]);
+  });
+});
+
+describe("dropping on a conversation", () => {
+  const box = { left: 0, top: 0, width: 400, height: 800 };
+
+  it("goes by the edge the pointer is nearest, measured against the conversation's size", () => {
+    expect(edgeOf(box, 50, 400)).toBe("left");
+    expect(edgeOf(box, 380, 400)).toBe("right");
+    expect(edgeOf(box, 200, 60)).toBe("top");
+    expect(edgeOf(box, 200, 760)).toBe("bottom");
+  });
+
+  it("stacks one dropped above or below the conversation shown alone", () => {
+    const below = docked(initial, "a", "b", "bottom");
+    expect([shape(below), below.arrange]).toEqual([[["a"], ["b"]], "stacked"]);
+    expect(shape(docked(initial, "a", "b", "top"))).toEqual([["b"], ["a"]]);
+  });
+
+  it("puts one dropped at a side next to it, side by side", () => {
+    const right = docked({ ...initial, arrange: "stacked" }, "a", "b", "right");
+    expect([shape(right), right.arrange]).toEqual([[["a"], ["b"]], "side"]);
+    expect(shape(docked(initial, "a", "b", "left"))).toEqual([["b"], ["a"]]);
+  });
+
+  it("splits a half in two: one dropped below a conversation side by side stacks in its half", () => {
+    expect([shape(three), three.arrange]).toEqual([[["a"], ["b", "c"]], "side"]);
+    close(three.shares, [0.5, 0.5]);
+    close(three.groups[1].shares, [0.5, 0.5]);
+  });
+
+  it("splits a row in two: one dropped beside a conversation stacked shares its row", () => {
+    const rows = docked(docked(initial, "a", "b", "bottom"), "b", "c", "right");
+    expect([shape(rows), rows.arrange]).toEqual([[["a"], ["b", "c"]], "stacked"]);
+  });
+
+  it("gives a new group half of the room of the one it's dropped beside", () => {
+    const beside = docked(two, "b", "c", "right");
+    expect(shape(beside)).toEqual([["a"], ["b"], ["c"]]);
+    close(beside.shares, [0.5, 0.25, 0.25]);
+  });
+
+  it("moves one already shown to where it's dropped", () => {
+    expect(shape(docked(three, "a", "c", "left"))).toEqual([["c"], ["a"], ["b"]]);
+    expect(shape(docked(three, "c", "b", "bottom"))).toEqual([["a"], ["c", "b"]]);
+  });
+
+  it(`keeps the one dropped on when there are ${MAX_PANES} already`, () => {
+    expect(shape(docked(three, "a", "d", "bottom"))).toEqual([["a", "d"], ["b"]]);
+  });
+
+  it("leaves it alone dropped on itself", () => {
+    expect(docked(initial, "a", "a", "top")).toBe(initial);
+  });
+});
+
+describe("closing one", () => {
+  it("gives its room to the others in its group", () => {
+    const left = withoutPane(three, "c");
+    expect([shape(left), left.arrange]).toEqual([[["a"], ["b"]], "side"]);
+    close(left.shares, [0.5, 0.5]);
+  });
+
+  it("gives a group left empty's room to the others, two in one group then splitting the whole page", () => {
+    const left = withoutPane(three, "a");
+    expect([shape(left), left.arrange]).toEqual([[["b"], ["c"]], "stacked"]);
+  });
+
+  it("keeps nothing for one left alone, and leaves the layout as it is for one that isn't shown", () => {
+    expect(shape(withoutPane(two, "a"))).toEqual([]);
+    expect(withoutPane(three, "gone")).toBe(three);
+  });
+
+  it("shows another conversation in its place and share", () => {
+    expect(shape(replacedPane(three, "c", "n"))).toEqual([["a"], ["b", "n"]]);
   });
 });
 
 describe("arranging", () => {
-  it("places them side by side at first, stacked once asked, and back", () => {
+  it("places them side by side at first, turns columns into rows once asked, and back", () => {
     expect(initial.arrange).toBe("side");
-    const stacked = rearranged({ ...panes("a", "b"), widths: [0.7, 0.3] });
-    expect(stacked.arrange).toBe("stacked");
-    expect(stacked.widths).toEqual([0.7, 0.3]);
-    expect(rearranged(stacked).arrange).toBe("side");
+    const rows = rearranged(three);
+    expect([shape(rows), rows.arrange]).toEqual([shape(three), "stacked"]);
+    expect(rearranged(rows).arrange).toBe("side");
   });
 
   it("reads an arrangement it doesn't know as side by side", () => {
@@ -140,53 +182,47 @@ describe("arranging", () => {
 });
 
 describe("resizing", () => {
-  it("drags a divider, the two panes beside it sharing their width", () => {
-    const widths = resized([0.4, 0.4, 0.2], 0, 0.1);
-    expect(widths[0]).toBeCloseTo(0.5);
-    expect(widths[1]).toBeCloseTo(0.3);
-    expect(widths[2]).toBe(0.2);
+  it("drags a divider, the two beside it sharing their room", () => {
+    close(resized([0.4, 0.4, 0.2], 0, 0.1), [0.5, 0.3, 0.2]);
   });
 
-  it(`keeps each pane at least ${MIN_WIDTH} of the width`, () => {
-    const close = (widths: number[], expected: number[]) => widths.forEach((w, i) => expect(w).toBeCloseTo(expected[i]));
-    close(resized([0.5, 0.5], 0, 0.9), [1 - MIN_WIDTH, MIN_WIDTH]);
-    close(resized([0.5, 0.5], 0, -0.9), [MIN_WIDTH, 1 - MIN_WIDTH]);
+  it(`keeps each at least ${MIN_SHARE} of the room`, () => {
+    close(resized([0.5, 0.5], 0, 0.9), [1 - MIN_SHARE, MIN_SHARE]);
+    close(resized([0.5, 0.5], 0, -0.9), [MIN_SHARE, 1 - MIN_SHARE]);
   });
 
   it("ignores a divider that isn't there", () => {
     expect(resized([1], 0, 0.1)).toEqual([1]);
   });
+
+  it("resizes the groups, or the conversations within one", () => {
+    close(resizedGroups(three, 0, 0.1).shares, [0.6, 0.4]);
+    close(resizedWithin(three, 1, 0, -0.1).groups[1].shares, [0.4, 0.6]);
+  });
 });
 
 describe("full screen", () => {
   it("shows one full screen, and the layout again when pressed again or restored", () => {
-    const max = toggledMax(panes("a"), "a");
+    const max = toggledMax(initial, "a");
     expect(max.maximized).toBe("a");
     expect(toggledMax(max, "a").maximized).toBeNull();
     expect(toggledMax(max, "b").maximized).toBe("b");
     expect(restored(max).maximized).toBeNull();
   });
 
-  it("gives the layout back when the pane full screen closes", () => {
-    expect(withoutPane(toggledMax(panes("a", "b"), "a"), "a").maximized).toBeNull();
-    expect(withoutPane(toggledMax(panes("a", "b"), "a"), "b").maximized).toBe("a");
+  it("gives the layout back when the one full screen closes", () => {
+    expect(withoutPane(toggledMax(three, "a"), "a").maximized).toBeNull();
+    expect(withoutPane(toggledMax(three, "a"), "b").maximized).toBe("a");
   });
 
-  it("follows a pane shown full screen to the conversation it shows instead", () => {
-    expect(replacedPane(toggledMax(panes("a"), "a"), "a", "n").maximized).toBe("n");
+  it("follows the one full screen to the conversation it shows instead", () => {
+    expect(replacedPane(toggledMax(three, "c"), "c", "n").maximized).toBe("n");
   });
 });
 
 describe("keeping the layout", () => {
   it("reads back what it kept, but the one full screen", () => {
-    const layout: Layout = {
-      view: "cards",
-      order: ["b", "a"],
-      panes: ["a", "b"],
-      widths: [0.6, 0.4],
-      arrange: "stacked",
-      maximized: "a",
-    };
+    const layout: Layout = { ...resizedGroups(three, 0, 0.1), view: "cards", order: ["b", "a"], maximized: "a" };
     expect(parsed(serialized(layout))).toEqual({ ...layout, maximized: null });
   });
 
@@ -196,11 +232,12 @@ describe("keeping the layout", () => {
     expect(parsed("[1]")).toEqual(initial);
   });
 
-  it("keeps what it can of an odd record", () => {
+  it("reads one kept before groups as each conversation a group of its own", () => {
     const layout = parsed(JSON.stringify({ view: "cards", order: [1], panes: ["a", "a", "b", "c", "d"], widths: [1] }));
     expect(layout.view).toBe("cards");
     expect(layout.order).toBeNull();
-    expect(layout.panes).toEqual(["a", "b", "c"]);
-    expect(layout.widths.map((w) => w.toFixed(3))).toEqual(["0.333", "0.333", "0.333"]);
+    expect(shape(layout)).toEqual([["a"], ["b"], ["c"]]);
+    close(layout.shares, [1 / 3, 1 / 3, 1 / 3]);
+    close(parsed(JSON.stringify({ panes: ["a", "b"], widths: [0.6, 0.4] })).shares, [0.6, 0.4]);
   });
 });

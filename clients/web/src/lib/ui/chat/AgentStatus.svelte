@@ -9,8 +9,8 @@
   import { t } from "$lib/i18n.svelte";
 
   // In the status bar: the agent this conversation is handed to (/claude), whose replies come from it, not the
-  // assistant. Named where the assistant's model is otherwise, so it's plain who answers; while it works, for how
-  // long goes beside its name, so the bar names it once. `children` (its context) goes between its name and the way
+  // assistant. Named where the assistant's model is otherwise, so it's plain who answers; while it works, a spinner
+  // and for how long go beside its name, no words: the spinner says it's working. `children` (its context) goes between its name and the way
   // back. Its name is in Claude's orange, as the message box's border. The way back is an icon with a short label,
   // its tooltip saying what it does, so it takes little of the bar.
   type Props = {
@@ -26,15 +26,19 @@
 
 <div class="agent" title={t("chat.agentIn", { agent: handoff.name, folder: handoff.folder })}>
   {#if since}
-    <LoaderCircle size={13} class="spin" aria-hidden="true" />
+    <LoaderCircle size={13} class="spin" aria-label={t("nav.working")} />
   {:else}
     <Bot size={13} aria-hidden="true" />
   {/if}
   <span class="name">{handoff.name}</span>
-  {#if since}<span class="working">{t("chat.isWorking", { since: duration(since, time.now) })}</span>{/if}
+  {#if since}<span class="working">{duration(since, time.now)}</span>{/if}
   {@render children?.()}
-  <button type="button" class="btn btn--ghost back" title={t("chat.backToAssistantHint", { command: handoff.command })} onclick={onback}
-    ><Undo2 size={12} aria-hidden="true" />{t("chat.backToAssistant")}</button
+  <button
+    type="button"
+    class="btn btn--ghost back"
+    aria-label={t("chat.backToAssistant")}
+    title={t("chat.backToAssistantHint", { command: handoff.command })}
+    onclick={onback}><Undo2 size={12} aria-hidden="true" /><span class="back-label">{t("chat.backToAssistant")}</span></button
   >
 </div>
 
@@ -46,11 +50,16 @@
     align-items: center;
     gap: 6px;
   }
-  @media (max-width: 680px) {
+  /* Where the status bar is too narrow for its controls (StatusBar's container), they wrap too. */
+  @container status-bar (max-width: 640px) {
     .agent {
       flex: 0 1 auto;
       flex-wrap: wrap;
       min-width: 0;
+    }
+    /* With little room, the way back is its icon alone; its tooltip says where it goes. */
+    .back-label {
+      display: none;
     }
   }
   .back {

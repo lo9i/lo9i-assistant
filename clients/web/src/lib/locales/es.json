@@ -116,7 +116,6 @@
     "rejectReason": "Motivo, si rechazas (opcional)",
     "reject": "Rechazar",
     "approve": "Aprobar",
-    "isWorking": "está trabajando · {since}",
     "pinnedSkills": "Habilidades fijadas",
     "unpin": "Desfijar {skill}",
     "pickOne": "Elige una",
@@ -249,8 +248,8 @@
     "cardsHint": "Mostrar las conversaciones como tarjetas y abrir algunas lado a lado",
     "hint": "Arrastra una tarjeta para moverla. Abrir al lado la muestra en el chat junto a la conversación de ahí.",
     "openFull": "Abrir en el chat",
-    "maximize": "Pantalla completa",
-    "restore": "Volver a la disposición (Esc)",
+    "maximize": "Expandir",
+    "restore": "Volver a las demás (Esc)",
     "closePane": "Cerrar este panel (la conversación sigue abierta)",
     "move": "Arrastra para moverla",
     "resize": "Arrastra para cambiar el ancho de los paneles",
@@ -271,7 +270,11 @@
     "noneBeside": "No hay otras conversaciones para mostrar al lado.",
     "stack": "Apilar",
     "stackHint": "Mostrar las conversaciones una sobre otra",
-    "sideBySideHint": "Mostrar las conversaciones una al lado de otra"
+    "sideBySideHint": "Mostrar las conversaciones una al lado de otra",
+    "showing": {
+      "one": "{count} conversación",
+      "other": "{count} conversaciones"
+    }
   },
   "devices": {
     "browserOn": "{browser} en {system}",
@@ -352,7 +355,7 @@
     "notNoise": "No es ruido"
   },
   "duration": {
-    "underAMinute": "menos de un minuto",
+    "underAMinute": "< 1 min",
     "minutes": "{minutes} min",
     "hoursMinutes": "{hours} h {minutes} min",
     "hours": "{hours} h",
@@ -890,7 +893,9 @@
     "working": "Trabajando…",
     "closeConversation": "Cerrar {title}",
     "alerts": "Alertas",
-    "openBeside": "Abrir {title} junto a la conversación que se muestra"
+    "openBeside": "Abrir {title} junto a la conversación que se muestra",
+    "openBesideHint": "Mostrarla junto a la conversación en la que estás",
+    "shownTogether": "Se muestra junto a la conversación en la que estás"
   },
   "notificationsPage": {
     "job": "Tarea programada",
