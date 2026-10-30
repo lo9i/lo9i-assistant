@@ -149,7 +149,7 @@ class ChannelChats:
 
     async def press(self, channel: str, chat: str, message: str, text: str, data: str) -> None:
         """A button pressed on `message`, whose text is `text`."""
-        where = _Chat(self._channels, channel, chat, await self._conversations.texts())
+        where = _Chat(self._channels, channel, chat, await self._conversations.texts(), answers=message)
         thread_id = await self._conversations.chat_message_thread(settings.owner_id, channel, chat, message)
         thread_id = thread_id or await self._conversations.channel_thread(settings.owner_id, channel)
         await self._press(where, _Pressed(message, text, data, thread_id))
@@ -382,11 +382,20 @@ class ChannelChats:
 
 class _Chat:
     def __init__(
-        self, channels: Channels, channel: str, chat: str, t: Texts, message: str = "", voice: bool = False
+        self,
+        channels: Channels,
+        channel: str,
+        chat: str,
+        t: Texts,
+        message: str = "",
+        voice: bool = False,
+        answers: str = "",
     ) -> None:
+        """`answers`: the message what's sent here answers, when it isn't the user's `message` (the one whose
+        button was pressed)."""
         self.channel = channel
         self.id = chat
-        self.port: ChatPort = RemoteChat(channels, channel, chat)
+        self.port: ChatPort = RemoteChat(channels, channel, chat, reply_to=answers or message)
         # The text shown there, in the language chosen.
         self.t = t
         # What the user sent there that's being answered: its id ("" for a button pressed), and whether it was a

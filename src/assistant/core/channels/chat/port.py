@@ -61,19 +61,24 @@ class Operations(Protocol):
 class RemoteChat:
     """A chat in a channel, through its process. `chat` is the channel's id for it; "" is the user's own
     chat there (every paired Telegram account, the owner's Slack DM), for messages the assistant starts.
+    `reply_to`: the message what it sends answers (the user's, or the one whose button was pressed), which Slack
+    posts in that message's thread and Telegram quotes, so the chat reads as threads.
     Each operation raises DeliveryError when the channel doesn't carry it out."""
 
-    def __init__(self, operations: Operations, channel: str, chat: str) -> None:
+    def __init__(self, operations: Operations, channel: str, chat: str, reply_to: str = "") -> None:
         self._operations = operations
         self._channel = channel
         self._chat = chat
+        self._reply_to = reply_to
 
     async def send(self, text: str, *, markdown: bool = False, buttons: Buttons | None = None) -> str:
         return (await self.send_copies(text, markdown=markdown, buttons=buttons)).message
 
     async def send_copies(self, text: str, *, markdown: bool = False, buttons: Buttons | None = None) -> Delivered:
         """Sends it, and says every message it took (in the user's own chat, one per paired account)."""
-        data = {"text": text, "markdown": markdown, "buttons": _listed(buttons)}
+        data: dict[str, object] = {"text": text, "markdown": markdown, "buttons": _listed(buttons)}
+        if self._reply_to:
+            data["reply_to"] = self._reply_to
         return await self._operate("send", data)
 
     async def edit(self, message: str, text: str, *, markdown: bool = False, buttons: Buttons | None = None) -> None:

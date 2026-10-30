@@ -74,7 +74,7 @@ it too.
 | `commands` | `{"commands": [...]}` | The commands changed: an agent plugin was installed or removed. |
 | `renamed` | `{"assistant_name": "..."}` | The assistant was renamed (Telegram renames its bot). |
 | `action` | `{"action": "..."}` | The user pressed a setup button in an app (a SetupItem of kind `action`). |
-| `send` | `{"id", "chat", "text", "markdown", "buttons"}` | Send `text` (Markdown when `markdown` is true) with `buttons`, `[[label, data], ...]`, then `POST /deliveries/{id}` with the new message's id. |
+| `send` | `{"id", "chat", "text", "markdown", "buttons", "reply_to"}` | Send `text` (Markdown when `markdown` is true) with `buttons`, `[[label, data], ...]`, then `POST /deliveries/{id}` with the new message's id. `reply_to`, only when there's one: the message it answers (the user's, as `message` in `POST /messages` gave it, or the one whose button was pressed), so the chat reads as threads: Slack posts it in that message's thread when it's in one, Telegram quotes it. A message gone or unknown is no error: send it without. |
 | `edit` | `{"id", "chat", "message", "text", "markdown", "buttons"}` | Replace message `message`'s text and buttons; no buttons removes them. |
 | `typing` | `{"id", "chat"}` | Show that the assistant is writing, where the service can; otherwise just confirm. |
 | `voice` | `{"id", "chat", "audio"}` | Send `audio`, OGG Opus in base64, as a voice note. Only sent when the stream said `voice=true`. |
