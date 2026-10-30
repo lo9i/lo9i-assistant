@@ -7,7 +7,9 @@
   import { t } from "$lib/i18n.svelte";
   import ChatPanel from "$lib/ui/chat/ChatPanel.svelte";
   import OpenSwitcher from "$lib/ui/chat/OpenSwitcher.svelte";
+  import { homePins } from "$lib/ui/homePins.svelte";
   import { leaveInbox } from "$lib/ui/openConversation";
+  import PinToHome from "$lib/ui/PinToHome.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
   const { chats } = useDaemon();
@@ -17,7 +19,10 @@
   const shown = $derived(snapshot.current !== null && snapshot.current.threadId !== snapshot.current.inboxId);
   $effect(() => void leaveInbox(snapshot.current));
   const conversations = resource((c) => c.conversations.list(), ["conversations"]);
-  const title = $derived(conversations.data?.find((c) => c.thread_id === snapshot.current?.threadId)?.title || t("nav.newConversation"));
+  const listed = $derived(conversations.data?.find((c) => c.thread_id === snapshot.current?.threadId));
+  const title = $derived(listed?.title || t("nav.newConversation"));
+  // Pinned to Home, once it's listed: a new conversation is, from its first message.
+  const pins = homePins();
 
   async function startNew(): Promise<void> {
     await chats.startNew();
@@ -27,6 +32,7 @@
 {#if shown}
   <TopBar {title}>
     {#snippet actions()}
+      {#if listed && !listed.inbox}<PinToHome pinned={pins.has(listed.thread_id)} ontoggle={() => pins.toggle(listed.thread_id)} />{/if}
       <OpenSwitcher />
       <button class="btn btn--ghost" title={t("conversations.allHint")} onclick={() => goto(resolve("/conversations"))}
         ><List size={16} /><span class="hide-narrow">{t("conversations.all")}</span></button

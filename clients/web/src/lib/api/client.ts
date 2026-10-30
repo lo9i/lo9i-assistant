@@ -731,6 +731,20 @@ export class HomeGroup {
   resetSections(): Promise<HomePage> {
     return this.transport.request("DELETE", "/home/sections");
   }
+
+  /** The conversations pinned to Home, which its Conversations card shows, the first pinned first. */
+  async pins(): Promise<string[]> {
+    return (await this.transport.request<Schemas["HomePins"]>("GET", "/home/pins")).threads;
+  }
+
+  /** Pins it after the others. Throws ApiError: 404 for no such conversation, 400 for the inbox. */
+  async pin(threadId: string): Promise<string[]> {
+    return (await this.transport.request<Schemas["HomePins"]>("PUT", `/home/pins/${encodeURIComponent(threadId)}`)).threads;
+  }
+
+  async unpin(threadId: string): Promise<string[]> {
+    return (await this.transport.request<Schemas["HomePins"]>("DELETE", `/home/pins/${encodeURIComponent(threadId)}`)).threads;
+  }
 }
 
 /** Coding agents' tasks running in the background, with their latest steps. */

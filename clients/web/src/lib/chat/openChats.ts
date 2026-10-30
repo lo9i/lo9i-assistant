@@ -31,6 +31,8 @@ export class OpenChats {
   private readonly unsubscribe = new Map<string, () => void>();
   // The chat on the inbox a move runs in, kept out of the open ones for as long as it runs.
   private mover: ChatController | null = null;
+  // The conversations being opened beside the others, so one asked for twice at once opens once.
+  private readonly opening = new Map<string, Promise<ChatController | null>>();
 
   private constructor(
     private readonly clientFor: ClientFor,
@@ -111,6 +113,38 @@ export class OpenChats {
     }
   }
 
+  /** The open conversation on `threadId`, if any. */
+  find(threadId: string): ChatController | null {
+    return this.open.find((o) => o.chat.getSnapshot().threadId === threadId)?.chat ?? null;
+  }
+
+  /** The open conversation on `threadId`, opened beside the others without showing it when it isn't (a card replied
+   * from, a conversation side by side); null for the inbox or one that's gone. Asked twice at once, it opens once. */
+  async opened(threadId: string): Promise<ChatController | null> {
+    if (threadId === this.inboxId) return null;
+    const open = this.find(threadId);
+    if (open) return open;
+    const opening = this.opening.get(threadId) ?? this.openBeside(threadId);
+    this.opening.set(threadId, opening);
+    try {
+      return await opening;
+    } finally {
+      this.opening.delete(threadId);
+    }
+  }
+
+  private async openBeside(threadId: string): Promise<ChatController | null> {
+    try {
+      return await this.add(
+        (client) => ChatController.openExisting(client, this.channel, threadId, this.inboxId, this.notices, this.tab),
+        false,
+      );
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return null;
+      throw e;
+    }
+  }
+
   /** Throws ApiError (404) for one that's gone. */
   private async shown(threadId: string): Promise<ChatController> {
     const open = this.open.find((o) => o.chat.getSnapshot().threadId === threadId);
@@ -187,13 +221,14 @@ export class OpenChats {
     this.open.forEach((o) => o.chat.close());
   }
 
-  private async add(opening: (client: ChatClient) => Promise<ChatController>): Promise<ChatController> {
+  /** Opens a chat beside the others, shown unless `show` is false (and another one is). */
+  private async add(opening: (client: ChatClient) => Promise<ChatController>, show = true): Promise<ChatController> {
     const key = newKey();
     const chat = await opening(this.clientFor(key));
     const opened = { key, chat };
     this.open.push(opened);
     this.follow(opened);
-    this.activeKey = key;
+    if (show || this.activeKey === null) this.activeKey = key;
     this.changed();
     return chat;
   }

@@ -19,6 +19,7 @@ _BUILT_IN = (
     ("expenses", "Gastos", "expenses"),
 )
 COPILOT = "copilot"
+CONVERSATIONS = "conversations"
 # Built in and built by code: id, title, and what the editor shows as what it shows (no model reads it).
 _CODED = (
     (
@@ -26,6 +27,13 @@ _CODED = (
         "Copilot",
         "Built by lo9i from what GitHub reports, without the model: the Copilot plan, the premium requests left, "
         "the credits used and when they reset. Changing this text changes nothing.",
+    ),
+    (
+        CONVERSATIONS,
+        "Conversations",
+        "Built by lo9i, without the model: the conversations pinned to Home (Pin to Home in Chat), or the most "
+        "recent ones while none is, each with its latest message and whether it's working or waiting for you. "
+        "Changing this text changes nothing.",
     ),
 )
 
@@ -76,12 +84,14 @@ def _coded_since(known: list[str], saved: list[HomeSection]) -> list[HomeSection
 
 
 def _cleaned(section: HomeSection) -> HomeSection:
+    """A section built by code keeps its own text whatever the app sends, so an app adds one back by its id."""
     plugins = list(dict.fromkeys(p.strip() for p in section.plugins if p.strip()))
+    coded = {s.id: s for s in _coded()}.get(section.id.strip())
     return HomeSection(
         id=section.id.strip() or uuid4().hex[:8],
         title=" ".join(section.title.split()),
-        prompt=section.prompt.strip(),
-        plugins=plugins,
+        prompt=coded.prompt if coded else section.prompt.strip(),
+        plugins=[] if coded else plugins,
         columns=section.columns,
     )
 

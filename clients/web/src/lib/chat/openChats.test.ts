@@ -245,4 +245,34 @@ describe("OpenChats", () => {
     await settled();
     expect(waiting(chats)).toEqual(["t2", "t3"]);
   });
+
+  it("opens a conversation beside the others without showing it, once however often it's asked for at once", async () => {
+    const daemon = new Daemon();
+    daemon.saved.add("t3");
+    const chats = await open(daemon, ["t1"]);
+    const [a, b] = await Promise.all([chats.opened("t3"), chats.opened("t3")]);
+    expect(a).not.toBeNull();
+    expect(a).toBe(b);
+    expect(threads(chats)).toEqual(["t1", "t3"]);
+    expect(shown(chats)).toBe("t1");
+    expect(chats.find("t3")).toBe(a);
+    expect(await chats.opened("t1")).toBe(chats.find("t1"));
+    expect(threads(chats)).toEqual(["t1", "t3"]);
+  });
+
+  it("opens no inbox and no conversation that's gone beside the others", async () => {
+    const daemon = new Daemon();
+    const chats = await open(daemon, []);
+    expect(await chats.opened("inbox")).toBeNull();
+    expect(await chats.opened("gone")).toBeNull();
+    expect(threads(chats)).toEqual([]);
+    expect(chats.find("gone")).toBeNull();
+  });
+
+  it("shows the conversation opened beside none", async () => {
+    const daemon = new Daemon();
+    const chats = await open(daemon, []);
+    await chats.opened("t2");
+    expect(shown(chats)).toBe("t2");
+  });
 });

@@ -26,7 +26,15 @@ from assistant.core.agent.handed_folder import (
     OutsideFolderError,
 )
 from assistant.core.agent.handoffs import Agent, AgentFolders, FolderError, FolderListing, Handoff, HandoffError
-from assistant.core.agent.home import HomeCard, HomeItem, HomePage, HomeSection, HomeSectionsError, SectionResult
+from assistant.core.agent.home import (
+    HomeCard,
+    HomeItem,
+    HomePage,
+    HomePinError,
+    HomeSection,
+    HomeSectionsError,
+    SectionResult,
+)
 from assistant.core.agent.identity import InvalidNameError
 from assistant.core.agent.jobs import Job, JobError, RunRecord
 from assistant.core.agent.language import Language, LanguageError
@@ -109,6 +117,7 @@ __all__ = [
     "HomeCard",
     "HomeItem",
     "HomePage",
+    "HomePinError",
     "HomeSection",
     "HomeSectionsError",
     "ImportOutcome",

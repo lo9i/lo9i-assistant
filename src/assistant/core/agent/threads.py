@@ -11,6 +11,7 @@ from assistant.core.agent.thread_files import ThreadFilesMixin, referenced
 from assistant.core.channels.chat import threads as chat_threads
 from assistant.core.config import settings
 from assistant.core.conversation import choices, ended, file_index, handoffs, moved, pinned, queued, summaries
+from assistant.core.home import pins as home_pins
 
 # What the home conversation from before the inbox is listed as.
 _HOME_TITLE = "Home (before the inbox)"
@@ -101,6 +102,7 @@ class ThreadsMixin(ArchiveMixin, ThreadFilesMixin):
             await self._forget_channel_pointers(user_id, thread_id)
             await inbox.forget(self._storage.store, user_id, thread_id)
             await pinned.forget(self._storage.store, user_id, thread_id)
+            await home_pins.forget(self._storage.store, user_id, thread_id)
             await summaries.forget(self._storage.store, user_id, thread_id)
             await file_index.forget(self._storage.store, user_id, thread_id)
             await handoffs.forget(self._storage.store, user_id, thread_id)

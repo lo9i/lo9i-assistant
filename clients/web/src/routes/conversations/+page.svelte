@@ -2,11 +2,17 @@
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
+  import LayoutGrid from "@lucide/svelte/icons/layout-grid";
+  import List from "@lucide/svelte/icons/list";
   import Plus from "@lucide/svelte/icons/plus";
+  import type { View } from "$lib/chat/cardLayout";
+  import { conversationLayout } from "$lib/conversationLayout.svelte";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
+  import ConversationBoard from "$lib/ui/chat/board/ConversationBoard.svelte";
   import ConversationPreview from "$lib/ui/chat/ConversationPreview.svelte";
   import ConversationsTable from "$lib/ui/chat/ConversationsTable.svelte";
+  import { homePins } from "$lib/ui/homePins.svelte";
   import { openConversation } from "$lib/ui/openConversation";
   import OpenSwitcher from "$lib/ui/chat/OpenSwitcher.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
@@ -22,6 +28,7 @@
   const listed = $derived(conversations.data?.filter((c) => !c.inbox));
   const clients = resource((c) => c.clients.list(), ["clients"]);
   const devices = resource((c) => c.devices.list(), ["devices"]);
+  const pins = homePins();
   // Links from other pages (Active sessions, Notifications) pick a conversation with ?c=<thread id>.
   let picked = $state<string | null>(page.url.searchParams.get("c"));
 
@@ -58,10 +65,32 @@
     await chats.startNew();
     await goto(OPEN);
   }
+
+  // As a list with a preview, or as cards some of which open side by side; kept per browser.
+  const view = $derived(conversationLayout.current.view);
+  function show(next: View): void {
+    conversationLayout.change({ ...conversationLayout.current, view: next });
+  }
 </script>
 
 <TopBar title={t("nav.chat")}>
   {#snippet actions()}
+    <div class="views" role="group" aria-label={t("conversations.title")}>
+      <button
+        class="btn btn--ghost btn--sm"
+        class:on={view === "list"}
+        aria-pressed={view === "list"}
+        title={t("board.listHint")}
+        onclick={() => show("list")}><List size={16} /><span class="hide-narrow">{t("board.list")}</span></button
+      >
+      <button
+        class="btn btn--ghost btn--sm"
+        class:on={view === "cards"}
+        aria-pressed={view === "cards"}
+        title={t("board.cardsHint")}
+        onclick={() => show("cards")}><LayoutGrid size={16} /><span class="hide-narrow">{t("board.cards")}</span></button
+      >
+    </div>
     <OpenSwitcher />
     <button class="btn btn--primary" onclick={startNew}
       ><Plus size={16} /><span class="hide-narrow">{t("nav.newConversation")}</span></button
@@ -70,27 +99,47 @@
 </TopBar>
 
 <div class="screen">
-  <div class="lists">
-    <ConversationsTable
-      conversations={listed}
-      error={conversations.error}
-      {selected}
-      open={openThreads}
-      onselect={(id) => (picked = id)}
-      oncontinue={continueWith}
-    />
-    <ConversationPreview
-      {conversation}
-      open={selected !== null && openThreads.includes(selected)}
-      {sessions}
-      devices={devices.data}
-      oncontinue={continueWith}
-      ondelete={remove}
-    />
-  </div>
+  {#if view === "cards"}
+    <ConversationBoard conversations={listed} error={conversations.error} />
+  {:else}
+    <div class="lists">
+      <ConversationsTable
+        conversations={listed}
+        error={conversations.error}
+        {selected}
+        open={openThreads}
+        onselect={(id) => (picked = id)}
+        oncontinue={continueWith}
+      />
+      <ConversationPreview
+        {conversation}
+        open={selected !== null && openThreads.includes(selected)}
+        {sessions}
+        devices={devices.data}
+        oncontinue={continueWith}
+        ondelete={remove}
+        pinned={selected !== null && pins.has(selected)}
+        onpin={(id) => pins.toggle(id)}
+      />
+    </div>
+  {/if}
 </div>
 
 <style>
+  .views {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+  .views .btn {
+    padding: 5px 10px;
+  }
+  .views .btn.on {
+    background: var(--color-bg-hover-ghost);
+    color: var(--color-text-primary);
+  }
   .screen {
     display: flex;
     flex-direction: column;

@@ -201,6 +201,6 @@ async def test_the_copilot_card_joins_sections_saved_before_it_and_stays_removed
     store = InMemoryStore()
     mine = HomeSection(id="news", title="News", prompt="Today's news.")
     await store.aput(sections.namespace("owner"), "sections", {"sections": [mine.model_dump()]})
-    assert [s.id for s in await sections.load(store, "owner")] == ["news", sections.COPILOT]
+    assert [s.id for s in await sections.load(store, "owner")] == ["news", sections.COPILOT, sections.CONVERSATIONS]
     await sections.save(store, "owner", [mine])
     assert [s.id for s in await sections.load(store, "owner")] == ["news"]

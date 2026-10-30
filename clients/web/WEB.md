@@ -33,6 +33,22 @@ height: auto`) and both parts get `flex: none`, so each takes its own height and
 Chat (`src/routes/conversations/+page.svelte`) is this layout with a message box above it: the screen is
 a column, the box first, then the list and details in a row (`.lists`) that takes the rest.
 
+Chat's page also shows the conversations as cards (its top bar's List / Cards, `src/lib/ui/chat/board/`): each card
+has its last messages, a live status and a small composer; up to three open side by side as panes, each a whole
+`ChatPanel` on a conversation open in the tab (`OpenChats.opened`), with dividers to resize them; cards and panes
+reorder by dragging, and any one shows full screen until its button or Esc. The layout's rules are pure functions
+(`src/lib/chat/cardLayout.ts`), kept per browser (`src/lib/conversationLayout.svelte.ts`). Below 900px it shows one
+conversation at a time.
+
+Home (`src/routes/home/+page.svelte`) is a grid of cards, one per section, saved by the daemon with their order and
+width: a card moves by dragging its header or with its arrows (for keyboards and phones), resizes by dragging its
+right edge, and shows full screen with its button until pressed again or Esc (`src/lib/fullScreen.ts`; a full-screen
+card is drawn outside the grid, whose container query would hold it). The Conversations card (`CONVERSATIONS`) is
+drawn live instead of from its result (`src/lib/ui/home/HomeConversations.svelte`): the conversations pinned to Home,
+or the most recent while none is (`src/lib/homeConversations.ts`); removed, the editor of a new section offers it
+back. Pin to Home (`PinToHome.svelte`, `homePins()`)
+sits on every conversation: the list's details, its card and pane, the open conversation's top bar.
+
 Settings-style forms (connecting a service, preferences) stay as cards in the settings page grid.
 
 ## Text and languages

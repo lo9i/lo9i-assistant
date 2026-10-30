@@ -6,15 +6,29 @@
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import { DaemonUnavailableError } from "$lib/api/errors";
-  import type { HomePage, HomeSection } from "$lib/api/types";
+  import type { HomeCard, HomePage, HomeSection } from "$lib/api/types";
+  import { beforeOf } from "$lib/chat/cardLayout";
   import { resource, useDaemon } from "$lib/daemon.svelte";
-  import { dayOf, moved, updatedLabel, whileVisible, withColumns, withSection, withoutSection } from "$lib/home";
+  import { restoresOnEscape, toggled } from "$lib/fullScreen";
+  import {
+    CONVERSATIONS,
+    dayOf,
+    moved,
+    movedBefore,
+    updatedLabel,
+    whileVisible,
+    withColumns,
+    withConversations,
+    withSection,
+    withoutSection,
+  } from "$lib/home";
   import { t } from "$lib/i18n.svelte";
   import { HomeSaves } from "$lib/homeSaves.svelte";
   import { describe } from "$lib/notices";
   import { installedIcon } from "$lib/pluginIcons";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
+  import HomeConversations from "$lib/ui/home/HomeConversations.svelte";
   import SectionCard from "$lib/ui/home/SectionCard.svelte";
   import SectionEditor from "$lib/ui/home/SectionEditor.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
@@ -43,6 +57,12 @@
   let editError = $state("");
   let removing = $state<HomeSection | null>(null);
   let resetting = $state(false);
+  // The card shown full screen, by its section's id; its button or Esc gives the page back.
+  let maximized = $state<string | null>(null);
+  const shownFull = $derived(home.data?.cards.find((c) => c.section.id === maximized) ?? null);
+  // The card being dragged to another place, and where it would go.
+  let dragged: string | null = null;
+  let mark = $state<{ id: string; after: boolean } | null>(null);
 
   let visible = false;
 
@@ -126,7 +146,98 @@
     editError = "";
     editing = section;
   }
+
+  // Built in, it can be removed; the editor of a new section offers it back.
+  const hasConversations = $derived(sections.some((s) => s.id === CONVERSATIONS));
+  async function addConversations(): Promise<void> {
+    editing = undefined;
+    await change((latest) => withConversations(latest, t("homeConversations.title")));
+  }
+
+  function keydown(e: KeyboardEvent): void {
+    if (maximized !== null && restoresOnEscape(e, document)) maximized = null;
+  }
+
+  function dragStart(e: DragEvent, id: string): void {
+    if (!e.dataTransfer) return;
+    dragged = id;
+    // Some browsers drag only what carries data.
+    e.dataTransfer.setData("application/x-lo9i-home-card", id);
+    e.dataTransfer.effectAllowed = "move";
+    const whole = (e.currentTarget as HTMLElement).closest("section");
+    if (whole) e.dataTransfer.setDragImage(whole, 16, 16);
+  }
+
+  function dragEnd(): void {
+    dragged = null;
+    mark = null;
+  }
+
+  /** Past the middle of the card dragged over: the drop goes after it. */
+  function past(e: DragEvent): boolean {
+    const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    return e.clientX > box.left + box.width / 2;
+  }
+
+  function dragOver(e: DragEvent, id: string): void {
+    if (dragged === null) return;
+    e.preventDefault();
+    mark = { id, after: past(e) };
+  }
+
+  function dropOn(e: DragEvent, id: string): void {
+    const card = dragged;
+    if (card === null) return;
+    e.preventDefault();
+    const after = past(e);
+    dragEnd();
+    void change((latest) =>
+      movedBefore(
+        latest,
+        card,
+        beforeOf(
+          latest.map((s) => s.id ?? ""),
+          id,
+          after,
+        ),
+      ),
+    );
+  }
+
+  function dropMark(id: string): "before" | "after" | null {
+    return mark?.id === id ? (mark.after ? "after" : "before") : null;
+  }
 </script>
+
+<svelte:window onkeydown={keydown} ondragend={dragEnd} />
+
+{#snippet sectionCard(card: HomeCard, i: number, full: boolean)}
+  {@const id = card.section.id ?? ""}
+  <SectionCard
+    {card}
+    columns={widths.get(card.section.id) ?? card.section.columns}
+    icon={installedIcon(servers.data, card.section.plugins[0] ?? "")}
+    {today}
+    {refreshing}
+    first={i === 0}
+    last={i === (home.data?.cards.length ?? 0) - 1}
+    onedit={() => edit(card.section)}
+    ondelete={() => (removing = card.section)}
+    onmove={(by) => change((latest) => moved(latest, id, by))}
+    onresize={(columns) => change((latest) => withColumns(latest, id, columns))}
+    maximized={full}
+    onmaximize={() => (maximized = toggled(maximized, id))}
+    ondragstart={(e) => dragStart(e, id)}
+    ondragover={(e) => dragOver(e, id)}
+    ondrop={(e) => dropOn(e, id)}
+    drop={full ? null : dropMark(id)}
+    children={id === CONVERSATIONS ? conversations : undefined}
+  />
+{/snippet}
+
+{#snippet conversations()}
+  <HomeConversations />
+{/snippet}
 
 <TopBar title={t("nav.home")}>
   {#snippet actions()}
@@ -155,21 +266,13 @@
   {:else}
     <div class="grid">
       {#each home.data.cards as card, i (card.section.id)}
-        <SectionCard
-          {card}
-          columns={widths.get(card.section.id) ?? card.section.columns}
-          icon={installedIcon(servers.data, card.section.plugins[0] ?? "")}
-          {today}
-          {refreshing}
-          first={i === 0}
-          last={i === home.data.cards.length - 1}
-          onedit={() => edit(card.section)}
-          ondelete={() => (removing = card.section)}
-          onmove={(by) => change((latest) => moved(latest, card.section.id ?? "", by))}
-          onresize={(columns) => change((latest) => withColumns(latest, card.section.id ?? "", columns))}
-        />
+        {@render sectionCard(card, i, false)}
       {/each}
     </div>
+    <!-- Outside the grid, whose container query would hold a fixed card inside it. -->
+    {#if shownFull}
+      {@render sectionCard(shownFull, home.data.cards.indexOf(shownFull), true)}
+    {/if}
   {/if}
   <footer class="text-meta">
     {t("homePage.footer")}
@@ -178,7 +281,14 @@
 </div>
 
 {#if editing !== undefined}
-  <SectionEditor section={editing} {plugins} error={editError} onsave={saveEdited} onclose={() => (editing = undefined)} />
+  <SectionEditor
+    section={editing}
+    {plugins}
+    error={editError}
+    onsave={saveEdited}
+    onclose={() => (editing = undefined)}
+    onaddconversations={editing === null && !hasConversations ? addConversations : undefined}
+  />
 {/if}
 
 {#if removing}

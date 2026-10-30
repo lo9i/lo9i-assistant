@@ -1,4 +1,7 @@
 {
+  "Untitled": "Sin título",
+  "No conversations yet.": "Todavía no hay conversaciones.",
+  "Recent: pin a conversation to Home to keep it here.": "Recientes: fija una conversación al Inicio para tenerla aquí.",
   " (renews on {day})": " (se renueva el {day})",
   "Shown while the model is GitHub Copilot (Settings → Model).": "Se muestra mientras el modelo es GitHub Copilot (Ajustes → Modelo).",
   "Not checked yet.": "Todavía no se consultó.",

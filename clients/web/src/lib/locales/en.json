@@ -241,6 +241,33 @@
     "allHint": "Every conversation, newest first",
     "all": "All conversations"
   },
+  "board": {
+    "list": "List",
+    "listHint": "Show the conversations as a list",
+    "cards": "Cards",
+    "cardsHint": "Show the conversations as cards, and open some side by side",
+    "hint": "Drag a card to move it, or onto the side-by-side area to open it there.",
+    "dropHere": "Drop a card here to open it side by side, up to {count} at once",
+    "openSide": "Open side by side",
+    "openFull": "Open in Chat",
+    "maximize": "Full screen",
+    "restore": "Back to the layout (Esc)",
+    "closePane": "Close this pane (the conversation stays open)",
+    "move": "Drag to move",
+    "resize": "Drag to resize the panes",
+    "newestFirst": "Newest first",
+    "newestFirstHint": "Order the cards by their newest activity again",
+    "hideCards": "Hide the cards",
+    "showCards": "Show the cards",
+    "working": "Working",
+    "waiting": "Waiting for you",
+    "idle": "Idle",
+    "you": "You",
+    "task": "Task for the agent",
+    "noMessages": "No messages yet",
+    "commandsInChat": "Commands run in the conversation: open it to use {name}.",
+    "sideBySide": "Side by side"
+  },
   "devices": {
     "browserOn": "{browser} on {system}",
     "browser": "Browser",
@@ -477,6 +504,20 @@
     "paste": "Attach a copied screenshot or image",
     "pasteKey": "Paste"
   },
+  "pins": {
+    "pin": "Pin to Home",
+    "unpin": "Unpin from Home",
+    "pinned": "Pinned to Home.",
+    "unpinned": "Unpinned from Home."
+  },
+  "homeConversations": {
+    "none": "No conversations yet.",
+    "recent": "Recent",
+    "recentHint": "None is pinned: these are the most recent. Pin a conversation to Home from Chat to keep it here.",
+    "title": "Conversations",
+    "offer": "Or add the Conversations card: the conversations you pin to Home, live.",
+    "add": "Add it"
+  },
   "home": {
     "today": "Today",
     "tomorrow": "Tomorrow",
@@ -484,6 +525,9 @@
     "updated": "Updated {when}",
     "moveUp": "Move up",
     "moveDown": "Move down",
+    "dragToMove": "Drag to move it",
+    "maximize": "Full screen",
+    "restore": "Back to Home (Esc)",
     "editName": "Edit {title}",
     "removeName": "Remove {title}",
     "openPage": "Open {page}",

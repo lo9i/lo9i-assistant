@@ -241,6 +241,33 @@
     "allHint": "Todas las conversaciones, las más recientes primero",
     "all": "Todas las conversaciones"
   },
+  "board": {
+    "list": "Lista",
+    "listHint": "Mostrar las conversaciones como una lista",
+    "cards": "Tarjetas",
+    "cardsHint": "Mostrar las conversaciones como tarjetas y abrir algunas lado a lado",
+    "hint": "Arrastra una tarjeta para moverla, o al área de lado a lado para abrirla ahí.",
+    "dropHere": "Suelta una tarjeta aquí para abrirla lado a lado, hasta {count} a la vez",
+    "openSide": "Abrir lado a lado",
+    "openFull": "Abrir en el chat",
+    "maximize": "Pantalla completa",
+    "restore": "Volver a la disposición (Esc)",
+    "closePane": "Cerrar este panel (la conversación sigue abierta)",
+    "move": "Arrastra para moverla",
+    "resize": "Arrastra para cambiar el ancho de los paneles",
+    "newestFirst": "Más recientes primero",
+    "newestFirstHint": "Ordenar las tarjetas otra vez por su actividad más reciente",
+    "hideCards": "Ocultar las tarjetas",
+    "showCards": "Mostrar las tarjetas",
+    "working": "Trabajando",
+    "waiting": "Te espera",
+    "idle": "En pausa",
+    "you": "Tú",
+    "task": "Tarea para el agente",
+    "noMessages": "Todavía no hay mensajes",
+    "commandsInChat": "Los comandos se usan en la conversación: ábrela para usar {name}.",
+    "sideBySide": "Lado a lado"
+  },
   "devices": {
     "browserOn": "{browser} en {system}",
     "browser": "Navegador",
@@ -477,6 +504,20 @@
     "paste": "Adjuntar una captura o imagen copiada",
     "pasteKey": "Pegar"
   },
+  "pins": {
+    "pin": "Fijar al Inicio",
+    "unpin": "Quitar del Inicio",
+    "pinned": "Fijada al Inicio.",
+    "unpinned": "Quitada del Inicio."
+  },
+  "homeConversations": {
+    "none": "Todavía no hay conversaciones.",
+    "recent": "Recientes",
+    "recentHint": "No hay ninguna fijada: estas son las más recientes. Fija una conversación al Inicio desde el chat para tenerla aquí.",
+    "title": "Conversaciones",
+    "offer": "O agrega la tarjeta de conversaciones: las que fijas al Inicio, en vivo.",
+    "add": "Agregarla"
+  },
   "home": {
     "today": "Hoy",
     "tomorrow": "Mañana",
@@ -484,6 +525,9 @@
     "updated": "Actualizado {when}",
     "moveUp": "Subir",
     "moveDown": "Bajar",
+    "dragToMove": "Arrastra para moverla",
+    "maximize": "Pantalla completa",
+    "restore": "Volver al Inicio (Esc)",
     "editName": "Editar {title}",
     "removeName": "Quitar {title}",
     "openPage": "Abrir {page}",

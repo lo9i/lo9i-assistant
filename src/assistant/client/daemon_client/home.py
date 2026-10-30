@@ -1,11 +1,13 @@
 from assistant.client.daemon_client.transport import Transport
-from assistant.core.agent import HomePage, HomeSection, HomeSectionsError
+from assistant.core.agent import ConversationError, HomePage, HomePinError, HomeSection, HomeSectionsError
 
 _ERRORS = {400: HomeSectionsError}
+_PIN_ERRORS = {400: HomePinError, 404: ConversationError}
 
 
 class HomeApi:
-    """Home: its sections with their last results, refreshed in the background, and the sections themselves."""
+    """Home: its sections with their last results, refreshed in the background, the sections themselves, and the
+    conversations pinned to it."""
 
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
@@ -33,3 +35,15 @@ class HomeApi:
 
     async def reset_sections(self) -> HomePage:
         return HomePage.model_validate(await self._transport.request("DELETE", "/home/sections"))
+
+    async def pins(self) -> list[str]:
+        """The conversations pinned to Home, the first pinned first."""
+        return (await self._transport.request("GET", "/home/pins"))["threads"]
+
+    async def pin(self, thread_id: str) -> list[str]:
+        """Raises ConversationError for an unknown conversation, HomePinError for the inbox."""
+        pinned = await self._transport.request("PUT", f"/home/pins/{thread_id}", errors=_PIN_ERRORS)
+        return pinned["threads"]
+
+    async def unpin(self, thread_id: str) -> list[str]:
+        return (await self._transport.request("DELETE", f"/home/pins/{thread_id}"))["threads"]

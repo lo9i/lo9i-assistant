@@ -31,6 +31,8 @@
     steering?: { agent: string; onsteer: (text: string, files: File[]) => void } | null;
     /** The conversation is handed to an agent (/claude), working or not. */
     handedOff?: boolean;
+    /** A small box among others (a card's): tighter, and not taking the focus when it shows. */
+    compact?: boolean;
   };
   let {
     busy,
@@ -44,6 +46,7 @@
     extra = [],
     steering = null,
     handedOff = false,
+    compact = false,
     onqueue,
   }: Props = $props();
   // The sent message shown (an index into `sent`), and what was being typed before Up.
@@ -175,6 +178,8 @@
       e.preventDefault();
       submit();
     } else if (e.key === "Escape" && running) {
+      // Taken: it stops the reply, nothing else (such as restoring a conversation shown full screen).
+      e.preventDefault();
       onstop();
     }
   }
@@ -187,7 +192,7 @@
   }
 </script>
 
-<div class="dock">
+<div class="dock" class:compact>
   {#if menu.length}
     <ul class="menu" role="listbox" aria-label={t("composer.commands")} bind:this={list}>
       {#each menu as command (command.name)}
@@ -250,7 +255,7 @@
         oninput={(e) => type(e.currentTarget.value)}
         {onkeydown}
         {onpaste}
-        autofocus></textarea>
+        autofocus={!compact}></textarea>
     {/if}
     {#if recorder.recording}
       <button class="send" aria-label={t("composer.sendVoice")} title={t("composer.sendVoice")} onclick={sendRecording}>
@@ -290,6 +295,9 @@
     position: relative;
     /* Little below: the status bar follows right under it. */
     padding: 8px 16px 2px 16px;
+  }
+  .dock.compact {
+    padding: 6px 0 0;
   }
   .composer {
     display: flex;

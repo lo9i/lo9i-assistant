@@ -39,12 +39,24 @@
     "/audio": "audio",
   };
 
+  type Props = {
+    /** The open conversation it shows (one side by side); without, the one shown in Chat. */
+    chat?: ChatController;
+    /** Asks what the inbox asks while /move runs there: one panel of those on the page does. */
+    asksMoves?: boolean;
+    /** Cmd+F finds in its messages: the panel the user is in, of those on the page. */
+    findable?: boolean;
+    /** /clear starts a new conversation; given, instead of showing it in Chat (a pane shows it in its place). */
+    onclear?: () => void;
+  };
+  let { chat, asksMoves = true, findable = true, onclear }: Props = $props();
+
   const { client, notices, chats } = useDaemon();
   // The open conversation shown; the sidebar picks it. The page shows this panel only while one is open: when the
   // last one closes, it keeps the one it had until the page takes it away.
   let kept: ChatController | null = null;
   function shown(): ChatController {
-    kept = chats.current ?? kept;
+    kept = chat ?? chats.current ?? kept;
     if (kept === null) throw new Error("ChatPanel shown with no open conversation");
     return kept;
   }
@@ -75,9 +87,7 @@
   const agentWorking = $derived(!!handoff.data && (snapshot.current.busy || snapshot.current.mirroring));
 
   // Each conversation keeps its own unsent text and files.
-  $effect.pre(() => {
-    draft.thread = threadId;
-  });
+  const box = $derived(draft.of(threadId));
 
   /** Sends, then reads the answer aloud when Settings → Audio says so. */
   async function send(text: string, files: File[]): Promise<void> {
@@ -112,16 +122,16 @@
   }
   function unqueue(index: number): void {
     const item = shown().unqueue(index);
-    if (item && !draft.text.trim()) {
-      draft.text = item.text;
-      draft.files = item.files;
+    if (item && !box.text.trim()) {
+      box.text = item.text;
+      box.files = item.files;
     }
   }
 
   /** Passes a message and its files on to the working agent; what it can't take goes back in the box. */
   async function steer(text: string, files: File[]): Promise<void> {
     const taken = await tellAgent(() => client.conversations.messageAgent(threadId, text, files), notices);
-    if (!taken) putBack(draft, text, files);
+    if (!taken) putBack(box, text, files);
   }
 
   function dragenter(e: DragEvent): void {
@@ -141,7 +151,7 @@
     if (!e.dataTransfer || !carriesFiles(e.dataTransfer)) return;
     e.preventDefault();
     const { files, folders } = droppedFiles(e.dataTransfer);
-    draft.files = [...draft.files, ...files];
+    box.files = [...box.files, ...files];
     if (folders) notices.notify(t("chat.noFolders"), "warning");
   }
 
@@ -218,7 +228,7 @@
     }
     switch (name) {
       case "/clear":
-        return void chats.startNew();
+        return void (onclear ? onclear() : chats.startNew());
       case "/notifications":
         return void goto(resolve("/notifications"));
       case "/move":
@@ -278,11 +288,11 @@
       items={snapshot.current.transcript.items}
       thinking={(snapshot.current.busy || snapshot.current.mirroring) && !streaming && !toolRunning(snapshot.current.transcript)}
       name={name.data || t("chat.theAssistant")}
-      onsuggest={(text) => (draft.text = text)}
+      onsuggest={(text) => (box.text = text)}
       onchoose={snapshot.current.busy || snapshot.current.mirroring ? undefined : (choice) => send(choice, [])}
       loadCall={(callId) => client.conversations.toolCall(threadId, callId)}
       loadStep={(callId, index) => client.conversations.toolCallStep(threadId, callId, index)}
-      findable
+      {findable}
     />
     {#if snapshot.current.queued.length}
       <ul class="queued" aria-label={t("chat.queued")}>
@@ -299,8 +309,8 @@
     {/if}
     <PinnedSkills skills={pinned.data ?? []} onunpin={unpin} />
     <Composer
-      bind:text={draft.text}
-      bind:files={draft.files}
+      bind:text={box.text}
+      bind:files={box.files}
       sent={sentTexts(snapshot.current.transcript.items)}
       busy={snapshot.current.busy}
       running={snapshot.current.busy || snapshot.current.mirroring}
@@ -350,7 +360,7 @@
 
 {#if snapshot.current.approval}
   <ApprovalModal approval={snapshot.current.approval} onanswer={(d) => shown().answer(d)} />
-{:else if open.current.moving}
+{:else if asksMoves && open.current.moving}
   <ApprovalModal approval={open.current.moving} onanswer={(d) => chats.answerMove(d)} />
 {/if}
 {#if help}<HelpModal onclose={() => (help = false)} {extra} />{/if}
