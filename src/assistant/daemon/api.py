@@ -187,10 +187,14 @@ class ChannelPress(BaseModel):
 
 
 class ChannelCommand(BaseModel):
-    # Without its slash: new, start, or an agent's (claude).
+    # Without its slash: clear, start, pin, unpin, or an agent's (claude).
     command: str
-    # What follows it: an agent's folder, or off.
+    # What follows it: a skill's name, an agent's folder, or off.
     text: str = ""
+    # The chat it was sent in and the message it replies to, when the channel has one: /pin and /unpin then change
+    # that message's conversation.
+    chat: str = ""
+    reply_to: str = ""
 
 
 class CommandReply(BaseModel):
@@ -521,12 +525,14 @@ class RunInProgress(BaseModel):
     channel: str
     # As announced in its `run` event: the client that started it, what the user wrote, the notice of a follow-up,
     # for a coding task the assistant wrote instead, the agent it's for, and for a run kept while an update
-    # installed, the id its Held event gave.
+    # installed, the id its Held event gave, and whether `text` is messages a handed-off agent hadn't taken, sent
+    # again.
     client_id: str = ""
     text: str = ""
     notice: str = ""
     brief: str = ""
     held: str = ""
+    resent: bool = False
 
     @classmethod
     def of(cls, run: Run) -> "RunInProgress":
@@ -539,6 +545,7 @@ class RunInProgress(BaseModel):
             notice=run.notice,
             brief=run.brief,
             held=run.held,
+            resent=run.resent,
         )
 
 
@@ -1245,7 +1252,7 @@ def _add_channel_chat_routes(app: FastAPI, service: AssistantService, chats: Cha
     @app.post("/channels/{name}/commands")
     async def channel_command(name: str, body: ChannelCommand, request: Request) -> CommandReply:
         _require_channel(request, name)
-        return CommandReply(text=await chats.command(name, body.command, body.text))
+        return CommandReply(text=await chats.command(name, body.command, body.text, body.chat, body.reply_to))
 
 
 def _require_channel(request: Request, name: str) -> None:

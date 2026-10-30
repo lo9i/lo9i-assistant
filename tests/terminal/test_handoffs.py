@@ -1,6 +1,13 @@
+from textual.app import App, ComposeResult
+from textual.containers import VerticalScroll
 from textual.widgets import Button, Input, OptionList
 
+from assistant.core.agent import ShownMessage
+from assistant.core.events import Cancelled, UserSaid, UserTaken
+from assistant_terminal.tui.history import Loaders, show_history
 from assistant_terminal.tui.screens import AgentFolderScreen
+from assistant_terminal.tui.turn import TurnView
+from assistant_terminal.tui.widgets import StatusLine, UserMessage
 from tests.terminal.conftest import wait_for
 
 
@@ -85,3 +92,45 @@ def _options(app) -> list[str]:
         return []
     shown = app.screen.query_one("#agent-folder-options", OptionList)
     return [str(shown.get_option_at_index(i).prompt) for i in range(shown.option_count)]
+
+
+class _Chat(App):
+    def compose(self) -> ComposeResult:
+        yield VerticalScroll(id="chat")
+        yield StatusLine()
+
+
+async def _events(*events):
+    for event in events:
+        yield event
+
+
+async def test_a_message_the_agent_gets_to_later_says_its_waiting_until_it_takes_it():
+    app = _Chat()
+    async with app.run_test():
+        view = TurnView(app.query_one("#chat", VerticalScroll), app.query_one(StatusLine))
+        await view.render(_events(UserSaid("docs", id="m1", waiting=True), UserSaid("tests", id="m2", waiting=True)))
+        shown = [str(m.render()) for m in app.query(UserMessage)]
+        assert shown == [
+            "> docs\n  waiting for the agent to get to it",
+            "> tests\n  waiting for the agent to get to it",
+        ]
+        await view.render(_events(UserTaken("m1"), Cancelled()))
+        shown = [str(m.render()) for m in app.query(UserMessage)]
+        assert shown == ["> docs", "> tests\n  not taken: sent again below"]  # it went to the agent next
+
+
+async def test_history_shows_a_message_it_never_got_to_and_those_sent_again():
+    app = _Chat()
+    async with app.run_test():
+        await show_history(
+            app.query_one("#chat", VerticalScroll),
+            [ShownMessage("user", "tests", untaken=True), ShownMessage("user", "tests", resent=True)],
+            Loaders(_never, _never),
+        )
+        shown = [str(m.render()) for m in app.query(UserMessage)]
+        assert shown == ["> tests\n  not taken: sent again below", "> tests\n  sent again"]
+
+
+async def _never(*_):
+    raise AssertionError("nothing to load")

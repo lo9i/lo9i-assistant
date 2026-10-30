@@ -79,12 +79,12 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
         await self._no_runs.wait()
 
     async def _run(
-        self, session: Session, input: Any, text: str = "", brief: str = "", notice: str = ""
+        self, session: Session, input: Any, text: str = "", brief: str = "", notice: str = "", resent: bool = False
     ) -> AsyncIterator[Event]:
-        """`text`, `brief` and `notice`: what the run is announced with (daemon/runs.py), kept with it when runs are
-        held, so it's announced the same when it runs later."""
+        """`text`, `brief`, `notice` and `resent`: what the run is announced with (daemon/runs.py), kept with it when
+        runs are held, so it's announced the same when it runs later."""
         kept = held.kept_input(input)
-        again = HeldRun(session.thread_id, session.channel, kept, text, brief, notice, session.origin)
+        again = HeldRun(session.thread_id, session.channel, kept, text, brief, notice, resent, session.origin)
         async for event in self._run_with(session, lambda: self._run_events(session, input), again):
             yield event
 

@@ -22,6 +22,7 @@ from assistant.core.events import (
     ToolStarted,
     Transcribed,
     UserSaid,
+    UserTaken,
 )
 from assistant_terminal.i18n import t
 from assistant_terminal.spinner import Spinner
@@ -68,6 +69,8 @@ class _Printer:
         self._streaming = ""
         # The streaming reply's text, without the answer buttons' marker.
         self._reply = choices.Streamed()
+        # The messages the user sent a handed-off agent that it hasn't got to yet: their first line, by id.
+        self._waiting: dict[str, str] = {}
 
     def print(self, event: Event) -> None:
         if isinstance(event, TextDelta):
@@ -90,9 +93,15 @@ class _Printer:
                 _write(paint(DIM, _result(output)) + "\n")
             case Transcribed(text, language):
                 _write(paint(DIM, _INDENT + t("🎤 heard ({language}): {text}", language=language, text=text)) + "\n")
-            case UserSaid(text, files):
+            case UserSaid(text, files, message_id, waiting):
                 attached = "".join(f"  📎 {name}\n" for name in files)
                 _write(f"\n{paint(BOLD, '> ' + text)}\n{attached}")
+                if waiting:
+                    self._waiting[message_id] = text.split("\n")[0]
+                    _write(paint(DIM, _INDENT + t("waiting for the agent to get to it")) + "\n")
+            case UserTaken(message_id) if message_id in self._waiting:
+                taken = self._waiting.pop(message_id)
+                _write(paint(DIM, _INDENT + t("The agent got to: {text}", text=taken)) + "\n")
             case Dispatched(line=line):
                 _write(f"{_BULLET}{line}\n")
             case Held():

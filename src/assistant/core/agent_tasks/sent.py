@@ -33,9 +33,11 @@ def as_sent(step: str, sent: dict[str, Any] | None) -> str:
     return json.dumps(json.loads(step) | {"text": sent["said"], "files": sent.get("files", [])})
 
 
-def user_step(sent: dict[str, Any]) -> str:
-    """A `user` step for a message the task ended without taking, which the next task gets."""
-    return as_sent(json.dumps({"kind": "user", "text": sent.get("text", "")}), sent)
+def user_step(sent: dict[str, Any], waiting: bool = False) -> str:
+    """A `user` step for a message the task ended without taking, which the next task gets: in the same run after
+    one that's done, or `waiting` (with no `taken` step to come) as the next message after one that wasn't."""
+    step = {"kind": "user", "text": sent.get("text", "")} | ({"waiting": True} if waiting else {})
+    return as_sent(json.dumps(step), sent)
 
 
 def said(messages: Sequence[dict[str, Any]]) -> str:

@@ -275,6 +275,37 @@ async def test_pin_and_unpin_change_the_skills_of_the_channels_conversation(chat
     assert await service.pinned_skills("owner", side) == []
 
 
+async def test_a_pin_sent_as_a_reply_goes_to_that_messages_conversation(chats, service, script, coding):
+    side = await service.new_thread("owner")
+    await service.chat_messages_in("owner", "telegram", "42", ["7"], side)
+    script.reply("Noted.")
+    await chats.message("telegram", "42", "what's new?", [], voice=False)  # answered in the inbox
+    pinned = await chats.command("telegram", "pin", "coding", chat="42", reply_to="7")
+    assert pinned.startswith("Pinned coding to [") and await service.pinned_skills("owner", side) == ["coding"]
+    # A message it doesn't know of (or no reply, as a Slack slash command) falls back to the last conversation.
+    assert (await chats.command("telegram", "pin", "coding", chat="42", reply_to="99")).startswith(
+        "Skills are pinned to a conversation"
+    )
+    await chats.command("telegram", "unpin", "coding", chat="42", reply_to="7")
+    assert await service.pinned_skills("owner", side) == []
+
+
+async def test_a_pin_after_clear_is_the_new_conversations(chats, service, script, coding):
+    side = await service.new_thread("owner")
+    await service.chat_messages_in("owner", "telegram", "42", ["7"], side)
+    script.reply("Sure.")
+    await chats.message("telegram", "42", "fix the parser", [], voice=False, reply_to="7")
+    await chats.command("telegram", "clear")
+    pinned = await chats.command("telegram", "pin", "coding")
+    assert pinned == "Pinned coding to [the new conversation], from your next message there."
+    assert await service.pinned_skills("owner", side) == []  # not the one before /clear
+    script.reply("Hi.")
+    await chats.message("telegram", "42", "a fresh start", [], voice=False)
+    fresh = await service.channel_thread("owner", "telegram")
+    assert fresh != side and await service.pinned_skills("owner", fresh) == ["coding"]
+    assert [m.text for m in await service.conversation_messages(fresh)] == ["a fresh start", "Hi."]
+
+
 async def test_an_agents_command_hands_the_channels_conversation_to_it_and_back(chats, service, script, tmp_path):
     assert [c["command"] for c in await service.channel_commands()] == ["clear", "pin", "unpin"]
     await service.add_mcp_server(agent_plugin())
@@ -311,3 +342,13 @@ async def test_a_message_sent_while_an_update_installs_is_kept_and_answered_in_i
     assert channel.shown()[-1] == "[still there?] Back, and yes."
     assert (runs.texts[-1], runs.held[-1]) == ("still there?", kept.id)
     assert await service.chat_message_thread("owner", "telegram", "42", "8") == side
+
+
+async def test_a_clear_from_before_new_conversations_were_named_still_starts_one(chats, service, script):
+    await service.store.aput(("channel_new", "owner"), "telegram", {"new": True})
+    script.reply("Hi.")
+    await chats.message("telegram", "42", "a fresh start", [], voice=False)
+    fresh = await service.channel_thread("owner", "telegram")
+    assert fresh != await service.inbox_thread("owner")
+    assert [m.text for m in await service.conversation_messages(fresh)] == ["a fresh start", "Hi."]
+    assert await service.channel_new_thread("owner", "telegram") is None

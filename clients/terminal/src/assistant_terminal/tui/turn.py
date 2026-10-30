@@ -23,9 +23,12 @@ from assistant.core.events import (
     ToolStarted,
     Transcribed,
     UserSaid,
+    UserTaken,
 )
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.widgets import (
+    UNTAKEN,
+    WAITING,
     AssistantMessage,
     ErrorMessage,
     HeldNote,
@@ -52,6 +55,8 @@ class TurnView:
         self._pending: dict[str, list[ToolCall]] = defaultdict(list)
         self._calls: dict[str, ToolCall] = {}
         self._steps: dict[tuple[str, str], list[ToolCall]] = defaultdict(list)
+        # The messages the user sent a handed-off agent that it hasn't got to yet, with their ids.
+        self._waiting: list[tuple[str, UserMessage]] = []
         # Where home sent the message on, once the run says so; the app goes there after it.
         self.dispatched: Dispatched | None = None
 
@@ -88,19 +93,39 @@ class TurnView:
                 await self._thinking(text)
             case Transcribed(text, language):
                 await self._chat.mount(TranscriptNote(text, language))
-            case UserSaid(text, files):
-                await self._chat.mount(UserMessage(text, files))
+            case UserSaid(text, files, message_id, waiting):
+                await self._user_said(UserMessage(text, files, WAITING if waiting else ""), message_id, waiting)
+            case UserTaken(message_id):
+                self._taken(message_id)
             case Dispatched():
                 self.dispatched = event
                 await self._chat.mount(AssistantMessage(event.line))
             case Held(held_id):
                 await self._chat.mount(HeldNote(held_id))
             case Error(message):
+                self._not_taken()
                 await self._chat.mount(ErrorMessage(message))
             case Cancelled():
+                self._not_taken()
                 await self._cancelled()
             case Done():
                 pass
+
+    async def _user_said(self, message: UserMessage, message_id: str, waiting: bool) -> None:
+        if waiting:
+            self._waiting.append((message_id, message))
+        await self._chat.mount(message)
+
+    def _taken(self, message_id: str) -> None:
+        for shown in [shown for shown in self._waiting if shown[0] == message_id]:
+            shown[1].note("")
+            self._waiting.remove(shown)
+
+    def _not_taken(self) -> None:
+        """The run ended before the agent got to them: they go to it as the next message."""
+        for _, message in self._waiting:
+            message.note(UNTAKEN)
+        self._waiting.clear()
 
     async def _text(self, text: str) -> None:
         if self._stream is None:

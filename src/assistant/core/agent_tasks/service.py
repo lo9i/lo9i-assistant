@@ -179,23 +179,27 @@ class AgentTasks:
         except BaseException:
             await _stop(tasks, task_id)
             await followed.rest(tasks, task_id)
-            await self._untaken(tasks, task_id, report)
+            await self._untaken(tasks, task_id, report, answered_next=False)
             raise
-        return state, await self._untaken(tasks, task_id, report)
+        return state, await self._untaken(tasks, task_id, report, answered_next=state.status == "done")
 
-    async def _untaken(self, tasks: TaskStore, task_id: str, report: Report) -> list[dict[str, Any]]:
+    async def _untaken(
+        self, tasks: TaskStore, task_id: str, report: Report, answered_next: bool
+    ) -> list[dict[str, Any]]:
         """Once the task has ended: read under the lock `_tell` writes under, after which no message reaches it. Those
-        its worker never passed on are reported as `user` steps; the others already were."""
+        its worker never passed on are reported as `user` steps, waiting unless they're `answered_next` in the same
+        run; the others already were."""
         async with self._inboxes:
             left = await asyncio.to_thread(tasks.untaken, task_id)
         for untaken in left:
             if not untaken.passed_on:
-                await report(sent.user_step(untaken.message))
+                await report(sent.user_step(untaken.message, waiting=not answered_next))
         return [untaken.message for untaken in left]
 
-    async def waiting(self, agent: str, conversation: str, folder: str) -> list[dict[str, Any]]:
+    async def take_waiting(self, agent: str, conversation: str, folder: str) -> list[dict[str, Any]]:
         """The messages sent to the conversation's last task in `folder` that its agent hadn't taken when it ended,
-        oldest first, as written in its inbox (sent.py): [] while it runs, or for an agent that's gone."""
+        oldest first, as written in its inbox (sent.py), for the agent to get next: once, so a run that fails before
+        it starts a task of its own doesn't send them again. [] while it runs, or for an agent that's gone."""
         server = self._agents.get(agent)
         if server is None:
             return []
@@ -204,7 +208,10 @@ class AgentTasks:
         if last is None or (await asyncio.to_thread(tasks.state, last.id, 0)).status == "running":
             return []
         async with self._inboxes:
+            if await asyncio.to_thread(tasks.sent_on, last.id):
+                return []
             left = await asyncio.to_thread(tasks.untaken, last.id)
+            await asyncio.to_thread(tasks.mark_sent_on, last.id)
         return [untaken.message for untaken in left]
 
     async def _tell(self, task_id: str, message: dict[str, Any]) -> None:

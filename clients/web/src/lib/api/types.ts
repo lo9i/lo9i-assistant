@@ -154,8 +154,10 @@ export type RunEvent =
   // `within`: the id of the delegate call whose subagent made this call; empty for the agent's own.
   | { type: "ToolStarted"; name: string; args: Record<string, unknown>; id?: string; within?: string }
   | { type: "ToolFinished"; name: string; output: string; within?: string }
-  // A message the user sent the agent the conversation is handed to while it worked, where it was passed on.
-  | { type: "UserSaid"; text: string; files?: string[] }
+  // A message the user sent the agent the conversation is handed to while it worked, where it was passed on. `id`: its
+  // id in the task's inbox; `waiting`: the agent gets to it only later, which a UserTaken with its id says.
+  | { type: "UserSaid"; text: string; files?: string[]; id?: string; waiting?: boolean }
+  | { type: "UserTaken"; id: string }
   | ApprovalRequired
   | { type: "Transcribed"; text: string; language: string }
   | Dispatched
@@ -169,7 +171,8 @@ export type RunEvent =
  * without a client (Telegram). */
 /** A `run` bus event. `notice`: for a follow-up the assistant runs on its own, what it follows up on. `brief`: when
  * `text` is a coding task the assistant wrote and not the user, the agent it's for. `held`: for a run kept while an
- * update installed, the id its Held event gave. */
+ * update installed, the id its Held event gave. `resent`: `text` is messages a handed-off agent hadn't got to when
+ * its run was stopped or failed, sent to it again. */
 export type RunAnnounced = {
   run_id: string;
   thread_id: string;
@@ -179,6 +182,7 @@ export type RunAnnounced = {
   notice?: string;
   brief?: string;
   held?: string;
+  resent?: boolean;
 };
 
 /** A `run_finished` bus event. */

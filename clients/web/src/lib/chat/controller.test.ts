@@ -33,7 +33,19 @@ class FakeDaemon implements ChatClient {
       this.loading.push(threadId);
       await this.slowHistory;
       const messages = [
-        { role: "user", text: "earlier", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "" },
+        {
+          role: "user",
+          text: "earlier",
+          detail: "",
+          output: "",
+          dispatch_id: "",
+          call_id: "",
+          partial: false,
+          agent: "",
+          held: "",
+          untaken: false,
+          resent: false,
+        },
         ...(this.held.get(threadId) ?? []),
       ];
       return { messages, runs: this.inProgress.get(threadId) ?? [] };
@@ -112,6 +124,7 @@ const inProgress = (run_id: string, text: string, client_id = "me"): RunInProgre
   notice: "",
   brief: "",
   held: "",
+  resent: false,
 });
 
 const texts = (chat: ChatController) => chat.getSnapshot().transcript.items.map((i) => ("text" in i ? i.text : i.kind));
@@ -396,7 +409,18 @@ describe("ChatController", () => {
 
   it("shows what waits for an update to install in history, marked, and once when its run comes", async () => {
     const daemon = new FakeDaemon();
-    const waiting = { role: "user", text: "still there?", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "" };
+    const waiting = {
+      role: "user",
+      text: "still there?",
+      detail: "",
+      output: "",
+      dispatch_id: "",
+      call_id: "",
+      partial: false,
+      agent: "",
+      untaken: false,
+      resent: false,
+    };
     daemon.held.set("t1", [{ ...waiting, held: "h1" }]);
     daemon.runs = [[{ type: "TextDelta", text: "back" }, { type: "Done" }]];
     const chat = await ChatController.open(daemon, "web", "t1", board);
