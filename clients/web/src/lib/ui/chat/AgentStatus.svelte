@@ -11,8 +11,8 @@
   // In the status bar: the agent this conversation is handed to (/claude), whose replies come from it, not the
   // assistant. Named where the assistant's model is otherwise, so it's plain who answers; while it works, a spinner
   // and for how long go beside its name, no words: the spinner says it's working. `children` (its context) goes between its name and the way
-  // back. Its name is in Claude's orange, as the message box's border. The way back is an icon with a short label,
-  // its tooltip saying what it does, so it takes little of the bar.
+  // back. Its name is in Claude's orange, as the message box's border. The way back is a small button like Files beside
+  // it, an icon with a short label, its tooltip saying what it does.
   type Props = {
     handoff: Handoff;
     onback: () => void;
@@ -28,17 +28,17 @@
   {#if since}
     <LoaderCircle size={13} class="spin" aria-label={t("nav.working")} />
   {:else}
-    <Bot size={13} aria-hidden="true" />
+    <Bot size={13} class="mark" aria-hidden="true" />
   {/if}
   <span class="name">{handoff.name}</span>
   {#if since}<span class="working">{duration(since, time.now)}</span>{/if}
   {@render children?.()}
   <button
     type="button"
-    class="btn btn--ghost back"
+    class="btn btn--ghost btn--sm back"
     aria-label={t("chat.backToAssistant")}
     title={t("chat.backToAssistantHint", { command: handoff.command })}
-    onclick={onback}><Undo2 size={12} aria-hidden="true" /><span class="back-label">{t("chat.backToAssistant")}</span></button
+    onclick={onback}><Undo2 size={13} aria-hidden="true" /><span class="back-label">{t("chat.backToAssistant")}</span></button
   >
 </div>
 
@@ -57,19 +57,39 @@
       flex-wrap: wrap;
       min-width: 0;
     }
-    /* With little room, the way back is its icon alone; its tooltip says where it goes. */
+    /* With little room, the way back is its icon alone, as tight as the Files button's; its tooltip says where it
+     goes. */
     .back-label {
       display: none;
     }
+    /* And the agent is its icon, in its colour: the name stays for screen readers and in the tooltip. */
+    .name {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
   }
+
+  /* Its hover background needs little room around the label: a small button's own padding (12px a side) left a wide
+   gap to the Files button beside it. */
   .back {
-    gap: 4px;
-    padding: 3px 6px;
-    font-size: 11px;
-    font-weight: 500;
+    padding: 4px 6px;
+  }
+  @container status-bar (max-width: 640px) {
+    .back {
+      padding: 4px;
+    }
   }
   .name {
     cursor: default;
+    color: var(--color-agent);
+  }
+  /* Its icon, the spinner while it works, in the agent's colour, as its name. */
+  .agent :global(.mark) {
+    flex: none;
     color: var(--color-agent);
   }
   .agent :global(.spin) {

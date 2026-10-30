@@ -923,7 +923,7 @@ class FakeConversations:
 
     async def stats(self, thread_id):
         tokens, limit, agent = self.context.get(thread_id, (0, 0, ""))
-        return ConversationStats(thread_id, 0, 0, 0, 0, 0, 0, None, None, tokens, limit, agent)
+        return ConversationStats(thread_id, 0, 0, 0, 0, 0, 0, None, tokens, limit, agent)
 
     async def live(self, thread_id):
         return OpenedConversation(self.said.get(thread_id, []), self.in_progress.get(thread_id, []))

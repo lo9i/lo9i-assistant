@@ -142,10 +142,10 @@ async def test_a_conversations_stats_count_only_its_own_messages_tokens_and_tool
     stats = await service.conversation_stats("owner", session.thread_id)
     assert (stats.messages, stats.model_calls, stats.tool_calls) == (2, 2, 1)
     assert (stats.input_tokens, stats.cache_read_tokens, stats.output_tokens) == (1900, 1450, 50)
-    assert stats.started_at and stats.last_activity and stats.started_at <= stats.last_activity
+    assert stats.started_at
 
 
 async def test_a_new_conversation_has_no_stats(service):
     stats = await service.conversation_stats("owner", await service.new_thread("owner"))
     assert (stats.messages, stats.model_calls, stats.tool_calls, stats.input_tokens) == (0, 0, 0, 0)
-    assert stats.started_at is None and stats.last_activity is None
+    assert stats.started_at is None

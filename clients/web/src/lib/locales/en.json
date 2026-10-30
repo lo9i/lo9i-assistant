@@ -1276,13 +1276,17 @@
       "one": "{count} tool",
       "other": "{count} tools"
     },
-    "inputTokens": "Input tokens: {count}",
-    "outputTokens": "Output tokens: {count}",
-    "cacheReadTokens": "Cache read tokens: {count}",
-    "modelCalls": "Model calls: {count}",
-    "toolCalls": "Tool calls: {count}",
-    "started": "Started: {when}",
-    "lastActivity": "Last activity: {when}"
+    "detail": {
+      "tokens": "Tokens",
+      "input": "Input",
+      "cached": "From the cache",
+      "output": "Output",
+      "calls": "Calls",
+      "modelCalls": "To the model",
+      "toolCalls": "To tools",
+      "time": "Time",
+      "started": "Started"
+    }
   },
   "thread": {
     "suggestMemory": "What do you remember about me?",

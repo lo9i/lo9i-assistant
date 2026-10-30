@@ -1276,13 +1276,17 @@
       "one": "{count} herramienta",
       "other": "{count} herramientas"
     },
-    "inputTokens": "Tokens de entrada: {count}",
-    "outputTokens": "Tokens de salida: {count}",
-    "cacheReadTokens": "Tokens leídos de caché: {count}",
-    "modelCalls": "Llamadas al modelo: {count}",
-    "toolCalls": "Llamadas a herramientas: {count}",
-    "started": "Empezó: {when}",
-    "lastActivity": "Última actividad: {when}"
+    "detail": {
+      "tokens": "Tokens",
+      "input": "De entrada",
+      "cached": "De la caché",
+      "output": "De salida",
+      "calls": "Llamadas",
+      "modelCalls": "Al modelo",
+      "toolCalls": "A herramientas",
+      "time": "Tiempo",
+      "started": "Empezó"
+    }
   },
   "thread": {
     "suggestMemory": "¿Qué recuerdas de mí?",

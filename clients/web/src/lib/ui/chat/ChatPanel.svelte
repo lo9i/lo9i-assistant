@@ -385,6 +385,10 @@
 
 <style>
   /* With little room in the status bar (StatusBar's container), the Files button is its icon alone. */
+  /* Tight around its label, as the way back beside it: a small button's own padding left a wide gap between them. */
+  .folder-button {
+    padding: 4px 6px;
+  }
   @container status-bar (max-width: 640px) {
     .folder-label {
       display: none;

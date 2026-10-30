@@ -19,7 +19,6 @@ const stats: Stats = {
   context_limit: 120000,
   context_agent: "",
   started_at: "2026-10-23T08:00:00Z",
-  last_activity: "2026-10-23T09:00:00Z",
 };
 
 describe("ContextFuel", () => {

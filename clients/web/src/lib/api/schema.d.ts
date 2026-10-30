@@ -3119,7 +3119,7 @@ export interface components {
         };
         /**
          * ConversationStats
-         * @description `input_tokens` counts the cache reads too. The times are None for a conversation not in the list
+         * @description `input_tokens` counts the cache reads too. `started_at` is None for a conversation not in the list
          *     (a new one before its first message). The context is the assistant's or, while the conversation is handed
          *     to an agent, that agent's (`context_agent` its name), as it last said, while it works too; 0 when it's not
          *     known.
@@ -3141,8 +3141,6 @@ export interface components {
             tool_calls: number;
             /** Started At */
             started_at: string | null;
-            /** Last Activity */
-            last_activity: string | null;
             /**
              * Context Tokens
              * @default 0

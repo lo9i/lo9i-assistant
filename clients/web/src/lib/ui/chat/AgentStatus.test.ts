@@ -11,7 +11,7 @@ describe("AgentStatus", () => {
     expect(body).toMatch(/<span class="name[^"]*">Claude Code<\/span>/);
     expect(body).toContain('title="Claude Code in /repo"');
     expect(body).toContain("Back to the assistant: its own model answers again, with its memory and tools (/claude off)");
-    expect(body).toMatch(/<button[^>]*class="btn btn--ghost back[^"]*"[^>]*>.*lucide-undo-2.*Assistant<\/span><\/button>/s);
+    expect(body).toMatch(/<button[^>]*class="btn btn--ghost btn--sm back[^"]*"[^>]*>.*lucide-undo-2.*Assistant<\/span><\/button>/s);
     expect(body).not.toContain("Interrupt");
   });
 

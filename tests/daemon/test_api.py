@@ -983,7 +983,7 @@ async def test_conversation_stats_through_the_client(client, script):
     await collect(client.send(session, "hello"))
     stats = await client.conversations.stats(session.thread_id)
     assert stats.thread_id == session.thread_id and stats.messages == 2 and stats.model_calls == 1
-    assert stats.input_tokens == 50 and stats.output_tokens == 5 and stats.last_activity is not None
+    assert stats.input_tokens == 50 and stats.output_tokens == 5 and stats.started_at is not None
 
 
 async def test_a_delegate_calls_steps_reach_the_client_with_the_conversation(client, service, script):

@@ -14,34 +14,44 @@ const stats: ConversationStats = {
   context_limit: 150000,
   context_agent: "",
   started_at: "2026-10-23T08:00:00Z",
-  last_activity: "2026-10-23T10:00:00Z",
 };
 
 describe("conversation stats", () => {
-  it("reads as one short line", () => {
-    expect(statsLine(stats, "2026-10-23T12:00:00Z")).toBe("24 messages · 182k tokens · 37 tools · 2 h ago");
-    expect(statsLine({ ...stats, messages: 1, tool_calls: 1, last_activity: null }, "2026-10-23T12:00:00Z")).toBe(
-      "1 message · 182k tokens · 1 tool",
-    );
-    expect(statsLine(stats, "2026-10-23T10:00:20Z")).toMatch(/just now$/);
+  it("sums up the conversation in one line", () => {
+    expect(statsLine(stats)).toBe("24 messages · 182k tokens · 37 tools");
+    expect(statsLine({ ...stats, messages: 1, tool_calls: 1 })).toBe("1 message · 182k tokens · 1 tool");
   });
 
-  it("gives the line's figures alone, for icons to stand for their words", () => {
-    expect(statsFigures(stats, "2026-10-23T12:00:00Z")).toEqual({ messages: "24", tokens: "182k", tools: "37", ago: "2 h ago" });
-    expect(statsFigures({ ...stats, last_activity: null }, "2026-10-23T12:00:00Z").ago).toBe("");
+  it("has the line's figures alone, for icons", () => {
+    expect(statsFigures(stats)).toEqual({ messages: "24", tokens: "182k", tools: "37" });
   });
 
-  it("details every figure in the tooltip", () => {
-    const detail = statsDetail(stats, "UTC").split("\n");
-    expect(detail).toEqual([
-      "Input tokens: 170,400",
-      "Output tokens: 11,700",
-      "Cache read tokens: 120,000",
-      "Model calls: 30",
-      "Tool calls: 37",
-      "Started: Fri 23 Oct 08:00",
-      "Last activity: Fri 23 Oct 10:00",
+  it("details every figure in the tooltip, grouped, with the cache's share of the input", () => {
+    expect(statsDetail(stats, "UTC")).toEqual([
+      {
+        title: "Tokens",
+        rows: [
+          { label: "Input", value: "170,400" },
+          { label: "From the cache", value: "120,000", note: "70%" },
+          { label: "Output", value: "11,700" },
+        ],
+      },
+      {
+        title: "Calls",
+        rows: [
+          { label: "To the model", value: "30" },
+          { label: "To tools", value: "37" },
+        ],
+      },
+      { title: "Time", rows: [{ label: "Started", value: "Fri 23 Oct 08:00" }] },
     ]);
+  });
+
+  it("leaves out what a new conversation doesn't have yet", () => {
+    const fresh = { ...stats, input_tokens: 0, cache_read_tokens: 0, started_at: null };
+    const groups = statsDetail(fresh, "UTC");
+    expect(groups.map((g) => g.title)).toEqual(["Tokens", "Calls"]);
+    expect(groups[0].rows[1].note).toBeUndefined();
   });
 
   it("rounds token counts", () => {

@@ -18,7 +18,7 @@ _MESSAGE_ROLES = ("user", "assistant", "brief")
 
 @dataclass(frozen=True)
 class ConversationStats:
-    """`input_tokens` counts the cache reads too. The times are None for a conversation not in the list
+    """`input_tokens` counts the cache reads too. `started_at` is None for a conversation not in the list
     (a new one before its first message). The context is the assistant's or, while the conversation is handed
     to an agent, that agent's (`context_agent` its name), as it last said, while it works too; 0 when it's not
     known."""
@@ -31,7 +31,6 @@ class ConversationStats:
     output_tokens: int
     tool_calls: int
     started_at: str | None
-    last_activity: str | None
     context_tokens: int = 0
     context_limit: int = 0
     context_agent: str = ""
@@ -64,7 +63,6 @@ class UsageMixin(ConversationsMixin):
             output_tokens=usage.output_tokens,
             tool_calls=usage.tool_calls,
             started_at=listed.started_at if listed else None,
-            last_activity=listed.updated_at if listed else None,
             context_tokens=context,
             context_limit=limit,
             context_agent=agent,

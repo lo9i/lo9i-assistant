@@ -1,42 +1,71 @@
 // A conversation's stats as the chat's status bar shows them (GET /conversations/<id>/stats).
 import type { ConversationStats } from "./api/types";
-import { ago } from "./duration";
 import { localTime } from "./health";
 import { formatNumber, t } from "./i18n.svelte";
 
-/** Like "24 messages · 182k tokens · 37 tools · 2 h ago". */
-export function statsLine(stats: ConversationStats, now: string): string {
-  const parts = [
+/** One figure of the tooltip, with a note after its value (the cache's share of the input). */
+export interface StatsRow {
+  label: string;
+  value: string;
+  note?: string;
+}
+
+/** A titled group of the tooltip's figures. */
+export interface StatsGroup {
+  title: string;
+  rows: StatsRow[];
+}
+
+/** Like "24 messages · 182k tokens · 37 tools". */
+export function statsLine(stats: ConversationStats): string {
+  return [
     t("stats.messages", { count: stats.messages }),
     t("stats.tokens", { tokens: compact(stats.input_tokens + stats.output_tokens) }),
     t("stats.tools", { count: stats.tool_calls }),
-  ];
-  if (stats.last_activity) parts.push(ago(stats.last_activity, now));
-  return parts.join(" · ");
+  ].join(" · ");
 }
 
-/** The line's figures alone, for where icons stand for their words: messages, tokens, tools, and how long ago. */
-export function statsFigures(stats: ConversationStats, now: string): { messages: string; tokens: string; tools: string; ago: string } {
+/** The line's figures alone, for where icons stand for their words: messages, tokens and tools. */
+export function statsFigures(stats: ConversationStats): { messages: string; tokens: string; tools: string } {
   return {
     messages: formatNumber(stats.messages),
     tokens: compact(stats.input_tokens + stats.output_tokens),
     tools: formatNumber(stats.tool_calls),
-    ago: stats.last_activity ? ago(stats.last_activity, now) : "",
   };
 }
 
-/** One line per figure, for the line's tooltip. */
-export function statsDetail(stats: ConversationStats, timezone = Intl.DateTimeFormat().resolvedOptions().timeZone): string {
-  const lines = [
-    t("stats.inputTokens", { count: formatNumber(stats.input_tokens) }),
-    t("stats.outputTokens", { count: formatNumber(stats.output_tokens) }),
-    t("stats.cacheReadTokens", { count: formatNumber(stats.cache_read_tokens) }),
-    t("stats.modelCalls", { count: formatNumber(stats.model_calls) }),
-    t("stats.toolCalls", { count: formatNumber(stats.tool_calls) }),
+/** The line's tooltip: its tokens, its calls and when it started, each group under a title. */
+export function statsDetail(stats: ConversationStats, timezone = Intl.DateTimeFormat().resolvedOptions().timeZone): StatsGroup[] {
+  const groups: StatsGroup[] = [
+    {
+      title: t("stats.detail.tokens"),
+      rows: [
+        { label: t("stats.detail.input"), value: formatNumber(stats.input_tokens) },
+        { label: t("stats.detail.cached"), value: formatNumber(stats.cache_read_tokens), note: cacheShare(stats) },
+        { label: t("stats.detail.output"), value: formatNumber(stats.output_tokens) },
+      ],
+    },
+    {
+      title: t("stats.detail.calls"),
+      rows: [
+        { label: t("stats.detail.modelCalls"), value: formatNumber(stats.model_calls) },
+        { label: t("stats.detail.toolCalls"), value: formatNumber(stats.tool_calls) },
+      ],
+    },
   ];
-  if (stats.started_at) lines.push(t("stats.started", { when: localTime(stats.started_at, timezone) }));
-  if (stats.last_activity) lines.push(t("stats.lastActivity", { when: localTime(stats.last_activity, timezone) }));
-  return lines.join("\n");
+  if (stats.started_at) {
+    groups.push({
+      title: t("stats.detail.time"),
+      rows: [{ label: t("stats.detail.started"), value: localTime(stats.started_at, timezone) }],
+    });
+  }
+  return groups;
+}
+
+/** How much of the input the provider read from its cache, like "70%"; none before any input. */
+function cacheShare(stats: ConversationStats): string | undefined {
+  if (!stats.input_tokens) return undefined;
+  return formatNumber(stats.cache_read_tokens / stats.input_tokens, { style: "percent", maximumFractionDigits: 0 });
 }
 
 /** Like "950", "4.2k", "182k", "1.3M"; in Spanish "4,2k". */

@@ -7,7 +7,7 @@ from tests.terminal.conftest import wait_for
 
 
 def _stats(tokens: int, limit: int, agent: str = "") -> ConversationStats:
-    return ConversationStats("t", 0, 0, 0, 0, 0, 0, None, None, tokens, limit, agent)
+    return ConversationStats("t", 0, 0, 0, 0, 0, 0, None, tokens, limit, agent)
 
 
 def test_the_bar_fills_and_turns_yellow_then_red():

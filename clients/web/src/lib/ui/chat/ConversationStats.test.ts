@@ -19,7 +19,6 @@ const stats: Stats = {
   context_limit: 150000,
   context_agent: "",
   started_at: "2026-10-23T08:00:00Z",
-  last_activity: "2026-10-23T09:00:00Z",
 };
 
 describe("ConversationStats", () => {
@@ -28,10 +27,12 @@ describe("ConversationStats", () => {
     loaded.error = null;
   });
 
-  it("shows the conversation's line, with its figures in the tooltip", () => {
+  it("shows the conversation's line, with its figures in a card on hover", () => {
     const { body } = render(ConversationStats, { props: { threadId: "t1" } });
     expect(body).toContain("4 messages · 4.2k tokens · 2 tools");
-    expect(body).toContain("Cache read tokens: 2,500");
+    expect(body).not.toContain("title=");
+    expect(body).toContain('role="tooltip"');
+    expect(body).toMatch(/From the cache<\/span>\s*<span class="value[^"]*">2,500(<!--[^>]*-->)*<span class="note[^"]*">63%<\/span>/);
   });
 
   it("shows a conversation with no messages yet", () => {
@@ -56,6 +57,6 @@ describe("ConversationStats with little room", () => {
     expect(body).toContain("lucide-mail");
     expect(body).toContain("lucide-coins");
     expect(body).toContain("lucide-wrench");
-    expect(body).toMatch(/lucide-wrench[\s\S]*?<\/svg>2</);
+    expect(body).toMatch(/lucide-wrench[\s\S]*?<\/svg>(<!---->)?2</);
   });
 });
