@@ -554,6 +554,8 @@
     "titlePlaceholder": "Calendario",
     "what": "Qué mostrar",
     "whatPlaceholder": "Los eventos de hoy de todos mis calendarios, por hora de inicio.",
+    "shows": "Qué muestra",
+    "builtByCode": "Lo arma el código de lo9i, no el modelo: aquí solo se pueden cambiar su título y su ancho.",
     "plugins": "Plugins que lee",
     "noPlugins": "Todavía no hay plugins con herramientas instalados. Instala uno en Plugins.",
     "notInstalled": "no instalado",
@@ -1294,6 +1296,9 @@
     "thinking": "Pensando",
     "taskFor": "Tarea para {agent}",
     "fromInbox": "Desde la bandeja de entrada",
+    "waiting": "Esperando a que el agente llegue a él",
+    "untaken": "No lo tomó: se envió de nuevo abajo",
+    "resent": "Enviado de nuevo",
     "stoppedTag": "detenida",
     "steps": {
       "one": "{count} paso",

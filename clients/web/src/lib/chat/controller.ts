@@ -49,7 +49,7 @@ export interface ChatClient extends Conversations {
 type Start = (signal: AbortSignal) => AsyncIterable<RunEvent>;
 
 /** A run to show from its start, as its `run` event announced it or the conversation lists it in progress. */
-type Followed = Pick<RunAnnounced, "run_id" | "channel" | "client_id" | "text" | "notice" | "brief" | "held">;
+type Followed = Pick<RunAnnounced, "run_id" | "channel" | "client_id" | "text" | "notice" | "brief" | "held" | "resent">;
 
 /** A message waiting for the reply before it to finish. One the inbox sent on here (`dispatched`) can't be taken
  * back: the daemon keeps it as sent on. `after` is called once its own reply has finished. */
@@ -509,7 +509,7 @@ export class ChatController {
     if (showedHeld(this.state.transcript, run.held)) return;
     const channel = run.client_id === this.client.clientId ? undefined : run.channel;
     if (run.text && run.brief) this.set({ transcript: addBrief(this.state.transcript, run.text, run.brief) });
-    else if (run.text) this.set({ transcript: addUser(this.state.transcript, run.text, [], channel) });
+    else if (run.text) this.set({ transcript: addUser(this.state.transcript, run.text, [], channel, run.resent ? "resent" : undefined) });
     if (run.notice) this.set({ transcript: addNotice(this.state.transcript, run.notice) });
   }
 

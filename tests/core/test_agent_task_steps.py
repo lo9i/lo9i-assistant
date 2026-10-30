@@ -1,9 +1,10 @@
 """A handed-off agent's progress messages as a run's events."""
 
 import json
+from typing import cast
 
 from assistant.core.agent_tasks.steps import AgentSteps, line
-from assistant.core.events import TextDelta, ToolFinished, ToolStarted, UserSaid
+from assistant.core.events import TextDelta, ToolFinished, ToolStarted, UserSaid, UserTaken
 
 
 def _events(steps: AgentSteps, *messages: dict | str) -> list:
@@ -99,3 +100,15 @@ def test_a_message_the_user_sent_while_it_worked_shows_as_theirs_and_its_next_wo
     assert events == [TextDelta("Running the tests."), UserSaid("skip the slow ones"), TextDelta("Skipping")]
     assert steps.spoke and steps.reply("Skipping") == []
     assert line(json.dumps({"kind": "user", "text": "skip the slow ones"})) == "The user: skip the slow ones"
+
+
+def test_a_message_the_agent_gets_to_later_shows_waiting_until_its_taken_step_which_is_kept():
+    steps = AgentSteps("Claude Code")
+    events = _events(
+        steps,
+        {"kind": "user", "text": "skip the slow ones", "id": "m1", "waiting": True},
+        {"kind": "taken", "id": "m1"},
+    )
+    assert events == [UserSaid("skip the slow ones", waiting=True), UserTaken("m1")]
+    assert cast(UserSaid, events[0]).id == "m1"
+    assert [json.loads(kept)["kind"] for kept in steps.lines] == ["user", "taken"]  # history knows it was taken

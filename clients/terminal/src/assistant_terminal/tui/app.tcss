@@ -717,6 +717,13 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     height: 8;
 }
 
+/* A section built by code: what it shows, which only the code changes. */
+#home-section-shows {
+    height: auto;
+    margin-top: 1;
+    color: ansi_bright_black;
+}
+
 #home-section-note {
     height: auto;
     margin-top: 1;

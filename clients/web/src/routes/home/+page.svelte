@@ -12,9 +12,11 @@
   import { restoresOnEscape, toggled } from "$lib/fullScreen";
   import {
     CONVERSATIONS,
+    cardColumns,
     dayOf,
     moved,
     movedBefore,
+    packed,
     updatedLabel,
     whileVisible,
     withColumns,
@@ -47,6 +49,16 @@
   const saves = new HomeSaves(async (next) => show(await client.home.saveSections(next)));
   // Each card's width as last asked for, so a resized card doesn't spring back while its save is on its way.
   const widths = $derived(new Map(saves.latest(sections).map((s) => [s.id, s.columns])));
+  // The grid's columns as laid out now (read again as its width changes), and the columns each card takes in them:
+  // packed in the saved order, so the page shows the cards in it.
+  let grid = $state<HTMLElement>();
+  let gridWidth = $state(0);
+  const available = $derived(grid && gridWidth ? getComputedStyle(grid).gridTemplateColumns.split(" ").length : 1);
+  const placed = $derived(packed(home.data?.cards.map(asked) ?? [], available));
+
+  function asked(card: HomeCard): number {
+    return cardColumns({ columns: widths.get(card.section.id) ?? card.section.columns }, card.result?.items ?? []);
+  }
 
   // The clock the labels read, moved on every minute so "Updated" and the days stay right.
   let now = $state(new Date());
@@ -216,6 +228,7 @@
   <SectionCard
     {card}
     columns={widths.get(card.section.id) ?? card.section.columns}
+    placed={placed[i] ?? 1}
     icon={installedIcon(servers.data, card.section.plugins[0] ?? "")}
     {today}
     {refreshing}
@@ -264,7 +277,7 @@
       <EmptyState icon={House} title={t("homePage.none")} text={t("homePage.noneHint")} />
     </section>
   {:else}
-    <div class="grid">
+    <div class="grid" bind:this={grid} bind:clientWidth={gridWidth}>
       {#each home.data.cards as card, i (card.section.id)}
         {@render sectionCard(card, i, false)}
       {/each}
@@ -319,13 +332,12 @@
     max-width: 1600px;
     margin: 0 auto;
   }
-  /* Its width is what the cards ask about to span their columns (SectionCard); dense fills the hole a wide card
-   leaves at the end of a row with the cards after it. */
+  /* Its width is what the cards ask about to show their resize handle (SectionCard). The cards are placed in order,
+   never into an earlier hole: `placed` fills each row. */
   .grid {
     container: home-grid / inline-size;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
-    grid-auto-flow: dense;
     gap: 16px;
     align-items: start;
   }

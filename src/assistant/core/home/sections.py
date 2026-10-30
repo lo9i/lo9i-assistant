@@ -20,20 +20,20 @@ _BUILT_IN = (
 )
 COPILOT = "copilot"
 CONVERSATIONS = "conversations"
-# Built in and built by code: id, title, and what the editor shows as what it shows (no model reads it).
+# Built in and built by code: id, title, and what the apps show as what it shows (no model reads it), which only
+# the code changes.
 _CODED = (
     (
         COPILOT,
         "Copilot",
         "Built by lo9i from what GitHub reports, without the model: the Copilot plan, the premium requests left, "
-        "the credits used and when they reset. Changing this text changes nothing.",
+        "the credits used and when they reset.",
     ),
     (
         CONVERSATIONS,
         "Conversations",
         "Built by lo9i, without the model: the conversations pinned to Home (Pin to Home in Chat), or the most "
-        "recent ones while none is, each with its latest message and whether it's working or waiting for you. "
-        "Changing this text changes nothing.",
+        "recent ones while none is, each with its latest message and whether it's working or waiting for you.",
     ),
 )
 
@@ -55,7 +55,7 @@ async def load(store: BaseStore, user_id: str) -> list[HomeSection]:
     item = await store.aget(namespace(user_id), _KEY)
     if item is None:
         return built_in()
-    saved = [HomeSection.model_validate(s) for s in item.value["sections"]]
+    saved = [_as_coded(HomeSection.model_validate(s)) for s in item.value["sections"]]
     return saved + _coded_since(item.value.get("coded", []), saved)
 
 
@@ -74,7 +74,13 @@ async def reset(store: BaseStore, user_id: str) -> list[HomeSection]:
 
 
 def _coded() -> list[HomeSection]:
-    return [HomeSection(id=i, title=t, prompt=p) for i, t, p in _CODED]
+    return [HomeSection(id=i, title=t, prompt=p, coded=True) for i, t, p in _CODED]
+
+
+def _as_coded(section: HomeSection) -> HomeSection:
+    """A saved section built by code says so, with what it shows as the code says now; any other as it was saved."""
+    coded = {s.id: s for s in _coded()}.get(section.id)
+    return section.model_copy(update={"prompt": coded.prompt, "plugins": [], "coded": True}) if coded else section
 
 
 def _coded_since(known: list[str], saved: list[HomeSection]) -> list[HomeSection]:
@@ -84,16 +90,17 @@ def _coded_since(known: list[str], saved: list[HomeSection]) -> list[HomeSection
 
 
 def _cleaned(section: HomeSection) -> HomeSection:
-    """A section built by code keeps its own text whatever the app sends, so an app adds one back by its id."""
+    """A section built by code keeps its own text whatever the app sends, so an app adds one back by its id; only its
+    title and width are the app's."""
     plugins = list(dict.fromkeys(p.strip() for p in section.plugins if p.strip()))
-    coded = {s.id: s for s in _coded()}.get(section.id.strip())
-    return HomeSection(
+    cleaned = HomeSection(
         id=section.id.strip() or uuid4().hex[:8],
         title=" ".join(section.title.split()),
-        prompt=coded.prompt if coded else section.prompt.strip(),
-        plugins=[] if coded else plugins,
+        prompt=section.prompt.strip(),
+        plugins=plugins,
         columns=section.columns,
     )
+    return _as_coded(cleaned)
 
 
 def _check(sections: list[HomeSection]) -> None:

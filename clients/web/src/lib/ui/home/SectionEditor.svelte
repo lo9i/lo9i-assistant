@@ -35,7 +35,7 @@
   }
 
   function save(): void {
-    onsave({ id: section?.id ?? "", title, prompt, plugins: picked, columns });
+    onsave({ id: section?.id ?? "", title, prompt, plugins: picked, columns, coded: section?.coded ?? false });
   }
 </script>
 
@@ -55,27 +55,36 @@
     <span class="micro-label">{t("home.title")}</span>
     <input class="input" bind:value={title} placeholder={t("home.titlePlaceholder")} />
   </label>
-  <label class="field">
-    <span class="micro-label">{t("home.what")}</span>
-    <textarea class="input" rows="7" bind:value={prompt} placeholder={t("home.whatPlaceholder")}></textarea>
-  </label>
-  <fieldset class="field">
-    <legend class="micro-label">{t("home.plugins")}</legend>
-    {#if choices.length === 0}
-      <p class="text-meta">{t("home.noPlugins")}</p>
-    {:else}
-      <div class="plugins">
-        {#each choices as name (name)}
-          <label class="plugin">
-            <input type="checkbox" checked={picked.includes(name)} onchange={(e) => toggle(name, e.currentTarget.checked)} />
-            {name}
-            {#if !plugins.includes(name)}<span class="text-caption">{t("home.notInstalled")}</span>{/if}
-          </label>
-        {/each}
-      </div>
-      <p class="text-meta">{t("home.nonePicked")}</p>
-    {/if}
-  </fieldset>
+  {#if section?.coded}
+    <!-- Built by code, not by the model: what it shows and the plugins it reads are the code's. -->
+    <div class="field">
+      <span class="micro-label">{t("home.shows")}</span>
+      <p class="text-meta">{section.prompt}</p>
+      <p class="text-caption">{t("home.builtByCode")}</p>
+    </div>
+  {:else}
+    <label class="field">
+      <span class="micro-label">{t("home.what")}</span>
+      <textarea class="input" rows="7" bind:value={prompt} placeholder={t("home.whatPlaceholder")}></textarea>
+    </label>
+    <fieldset class="field">
+      <legend class="micro-label">{t("home.plugins")}</legend>
+      {#if choices.length === 0}
+        <p class="text-meta">{t("home.noPlugins")}</p>
+      {:else}
+        <div class="plugins">
+          {#each choices as name (name)}
+            <label class="plugin">
+              <input type="checkbox" checked={picked.includes(name)} onchange={(e) => toggle(name, e.currentTarget.checked)} />
+              {name}
+              {#if !plugins.includes(name)}<span class="text-caption">{t("home.notInstalled")}</span>{/if}
+            </label>
+          {/each}
+        </div>
+        <p class="text-meta">{t("home.nonePicked")}</p>
+      {/if}
+    </fieldset>
+  {/if}
   <label class="field">
     <span class="micro-label">{t("home.width")}</span>
     <select class="input" bind:value={columns}>

@@ -6,7 +6,9 @@ the chat's id; /clear under ("channel_new", user_id).
 Messages the assistant starts (send_message, the end of background work) go to the user's own chat
 (OWN_CHAT), whose real id the daemon doesn't know: they're kept under it, and a reply in any chat looks
 there too. A message sent to several paired Telegram accounts is kept by its id in each of them, as the channel
-lists them."""
+lists them.
+
+/clear names the new conversation at once, so what's done before the next message (pinning a skill) goes to it."""
 
 from langgraph.store.base import BaseStore
 
@@ -49,16 +51,20 @@ async def record_own(store: BaseStore, user_id: str, channel: str, messages: lis
     await record(store, user_id, channel, OWN_CHAT, messages, thread_id)
 
 
-async def want_new(store: BaseStore, user_id: str, channel: str) -> None:
-    await store.aput(_new(user_id), channel, {"new": True})
+async def want_new(store: BaseStore, user_id: str, channel: str, thread_id: str) -> None:
+    """The channel's next message goes to `thread_id`, a new conversation."""
+    await store.aput(_new(user_id), channel, {"thread_id": thread_id})
 
 
-async def take_new(store: BaseStore, user_id: str, channel: str) -> bool:
-    """Whether the channel's /clear waits for its next message; it no longer does."""
-    if await store.aget(_new(user_id), channel) is None:
-        return False
+async def new_waiting(store: BaseStore, user_id: str, channel: str) -> str | None:
+    """The new conversation the channel's /clear waits to send its next message to; None when none waits, "" for a
+    /clear from before they were named."""
+    item = await store.aget(_new(user_id), channel)
+    return None if item is None else str(item.value.get("thread_id", ""))
+
+
+async def forget_new(store: BaseStore, user_id: str, channel: str) -> None:
     await store.adelete(_new(user_id), channel)
-    return True
 
 
 async def forget(store: BaseStore, user_id: str, channels: list[str], thread_id: str) -> None:

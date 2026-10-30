@@ -14,6 +14,7 @@ from assistant.core.agent.session import Session
 from assistant.core.agent.titles import TitlesMixin
 from assistant.core.attachments import Attachment, Block, is_reference, referring, to_content
 from assistant.core.conversation import briefs, carried, dispatched, ended, handoffs, introduction, moved, pinned, sent
+from assistant.core.conversation import resent as resent_mark
 from assistant.core.conversation.handoffs import Handoff
 from assistant.core.conversation.turn_header import header_block
 from assistant.core.events import Error, Event, Transcribed
@@ -32,11 +33,14 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
         attachments: Sequence[Attachment] = (),
         brief: str = "",
         saved: Sequence[dict[str, str]] = (),
+        resent: bool = False,
     ) -> AsyncIterator[Event]:
         """`brief`: for a coding task the assistant wrote for the agent it handed the conversation to
         (daemon/queued.py), the agent's name, kept on the message so the apps don't show it as the user's
         (core/conversation/briefs.py). `saved`: files sent with it that are already saved under the uploads dir
-        (a message kept in core/conversation/queued.py), their references, which go before `attachments`."""
+        (a message kept in core/conversation/queued.py), their references, which go before `attachments`.
+        `resent`: it's messages the agent hadn't taken, sent again, kept on the message so the apps show it as
+        those (core/conversation/resent.py)."""
         voice = [a for a in attachments if is_voice(a)]
         try:
             speech = await preferences.in_use(self._storage.store)
@@ -51,12 +55,13 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
         await self._note_activity(session, _title_text(text, [t.text for t in transcripts], attachments))
         handoff = await handoffs.current(self._storage.store, session.user_id, session.thread_id)
         if handoff is not None:
-            async for event in self._to_agent(session, handoff, text, [t.text for t in transcripts], content, brief):
+            said = [t.text for t in transcripts]
+            async for event in self._to_agent(session, handoff, text, said, content, brief, resent):
                 yield event
         else:
             notes = await self._notes_for(session)
-            message = _message(session, [*notes, *voice_blocks, *content], brief=brief)
-            async for event in self._run(session, {"messages": [message]}, text=text, brief=brief):
+            message = _message(session, [*notes, *voice_blocks, *content], brief=brief, resent=resent)
+            async for event in self._run(session, {"messages": [message]}, text=text, brief=brief, resent=resent):
                 yield event
         self._title_in_background(session)
 
@@ -147,14 +152,15 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
         transcripts: list[str],
         content: list[Block],
         brief: str = "",
+        resent: bool = False,
     ) -> AsyncIterator[Event]:
         """The agent gets what was written and said, and where the files sent with it are saved: it runs
         on this computer and reads them from there. The conversation keeps the files as any message does."""
         files = [b for b in content if is_reference(b)]
         said = "\n\n".join(part for part in [text, *transcripts] if part.strip())
-        message = _message(session, [*files, {"type": "text", "text": said}], brief=brief)
+        message = _message(session, [*files, {"type": "text", "text": said}], brief=brief, resent=resent)
         to_agent = "\n\n".join(part for part in [said, _files_note(files)] if part)
-        async for event in self._handed_off(session, handoff, message, to_agent, text, brief):
+        async for event in self._handed_off(session, handoff, message, to_agent, text, brief, resent):
             yield event
 
     async def _header_notes(self, session: Session) -> list[Block]:
@@ -182,11 +188,15 @@ def _title_text(text: str, transcripts: list[str], attachments: Sequence[Attachm
 
 
 def _message(
-    session: Session, content: list[Block], exchange: list[carried.Line] | None = None, brief: str = ""
+    session: Session,
+    content: list[Block],
+    exchange: list[carried.Line] | None = None,
+    brief: str = "",
+    resent: bool = False,
 ) -> HumanMessage:
     """`exchange`: the quick exchange in the inbox the message followed up, kept for the apps to show; `brief`: the
-    agent a coding task the assistant wrote is for."""
-    shown = ({carried.CARRIED: exchange} if exchange else {}) | briefs.kept(brief)
+    agent a coding task the assistant wrote is for; `resent`: it's messages the agent hadn't taken, sent again."""
+    shown = ({carried.CARRIED: exchange} if exchange else {}) | briefs.kept(brief) | resent_mark.kept(resent)
     return HumanMessage(content=[header_block(session.channel, datetime.now(UTC)), *content], additional_kwargs=shown)
 
 

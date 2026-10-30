@@ -204,3 +204,23 @@ async def test_the_copilot_card_joins_sections_saved_before_it_and_stays_removed
     assert [s.id for s in await sections.load(store, "owner")] == ["news", sections.COPILOT, sections.CONVERSATIONS]
     await sections.save(store, "owner", [mine])
     assert [s.id for s in await sections.load(store, "owner")] == ["news"]
+
+
+async def test_a_section_built_by_code_says_so_and_keeps_its_own_text_whatever_is_saved():
+    store = InMemoryStore()
+    old = HomeSection(id=sections.COPILOT, title="Copilot", prompt="Old text. Changing this text changes nothing.")
+    await store.aput(sections.namespace("owner"), "sections", {"sections": [old.model_dump()]})
+    [copilot, conversations] = await sections.load(store, "owner")
+    assert copilot.coded and conversations.coded  # saved before it said so, it does now, with the code's text
+    assert "Changing this text" not in copilot.prompt and copilot.prompt.startswith("Built by lo9i")
+    edited = copilot.model_copy(update={"title": "My Copilot", "prompt": "Show me", "plugins": ["x"], "columns": 2})
+    news = HomeSection(id="news", title="News", prompt="Today's news.", coded=True)  # an app can't say it's coded
+    [saved, mine] = await sections.save(store, "owner", [edited, news])
+    assert (saved.title, saved.prompt, saved.plugins, saved.columns, saved.coded) == (
+        "My Copilot",
+        copilot.prompt,
+        [],
+        2,
+        True,
+    )
+    assert not mine.coded and mine.prompt == "Today's news."

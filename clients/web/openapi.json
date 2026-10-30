@@ -6701,6 +6701,16 @@
             "type": "string",
             "title": "Text",
             "default": ""
+          },
+          "chat": {
+            "type": "string",
+            "title": "Chat",
+            "default": ""
+          },
+          "reply_to": {
+            "type": "string",
+            "title": "Reply To",
+            "default": ""
           }
         },
         "type": "object",
@@ -7049,7 +7059,7 @@
           "last_activity"
         ],
         "title": "ConversationStats",
-        "description": "`input_tokens` counts the cache reads too. The times are None for a conversation not in the list\n(a new one before its first message). The context is the assistant's or, while the conversation is handed\nto an agent, that agent's (`context_agent` its name), as of its last answer; 0 when it's not known."
+        "description": "`input_tokens` counts the cache reads too. The times are None for a conversation not in the list\n(a new one before its first message). The context is the assistant's or, while the conversation is handed\nto an agent, that agent's (`context_agent` its name), as it last said, while it works too; 0 when it's not\nknown."
       },
       "ConversationsContaining": {
         "properties": {
@@ -8202,6 +8212,11 @@
             "minimum": 0.0,
             "title": "Columns",
             "default": 0
+          },
+          "coded": {
+            "type": "boolean",
+            "title": "Coded",
+            "default": false
           }
         },
         "type": "object",
@@ -10177,6 +10192,11 @@
             "type": "string",
             "title": "Held",
             "default": ""
+          },
+          "resent": {
+            "type": "boolean",
+            "title": "Resent",
+            "default": false
           }
         },
         "type": "object",
@@ -10512,6 +10532,16 @@
             "type": "string",
             "title": "Held",
             "default": ""
+          },
+          "untaken": {
+            "type": "boolean",
+            "title": "Untaken",
+            "default": false
+          },
+          "resent": {
+            "type": "boolean",
+            "title": "Resent",
+            "default": false
           }
         },
         "type": "object",

@@ -79,6 +79,18 @@ async def test_new_sends_the_channels_next_message_to_a_new_conversation(app, se
         assert reply.json() == {"text": "Unknown command /home."}
 
 
+async def test_a_pin_sent_as_a_reply_carries_the_message_it_replies_to(app, service):
+    side = await service.new_thread("owner")
+    await service.chat_messages_in("owner", "telegram", "42", ["7"], side)
+    token = service.channels_hub.issue_token("telegram")
+    async with _client(app, token) as http:
+        alone = await http.post("/channels/telegram/commands", json={"command": "pin"})
+        assert alone.json()["text"].startswith("Skills are pinned to a conversation")  # the inbox's, last written in
+        replying = {"command": "pin", "chat": "42", "reply_to": "7"}
+        reply = await http.post("/channels/telegram/commands", json=replying)
+        assert reply.json()["text"].startswith("No skills pinned in [")  # the side conversation's
+
+
 async def test_a_channel_process_holds_its_stream_and_confirms_deliveries(app, service):
     """Over a real socket: the in-process transport doesn't stream."""
     token = service.channels_hub.issue_token("telegram")

@@ -14,7 +14,7 @@ import json
 import uuid
 from typing import Any
 
-from assistant.core.events import Event, TextDelta, ToolFinished, ToolStarted, UserSaid
+from assistant.core.events import Event, TextDelta, ToolFinished, ToolStarted, UserSaid, UserTaken
 from assistant.core.subagent_steps import SubagentStep
 
 _LINE = 200
@@ -54,8 +54,9 @@ class AgentSteps:
         step = parse(message)
         kind = step.get("kind", "")
         if kind == TAKEN:
-            # Only says when the agent got to a message already shown: nothing to show or keep.
-            return []
+            # Says when the agent got to a message already shown, waiting: kept, so history knows it was taken.
+            self.lines.append(message)
+            return [UserTaken(step.get("id", ""))]
         if kind not in _DELTAS:
             self.lines.append(message)
         events = self._events(step, files_of(message))
@@ -90,7 +91,7 @@ class AgentSteps:
         if kind == "user":
             # What it says next answers the user's message: its reply isn't said yet.
             self._open, self.spoke = "", False
-            return [UserSaid(text, [f["name"] for f in files])]
+            return [UserSaid(text, [f["name"] for f in files], step.get("id", ""), waiting(step))]
         return self._note(text)
 
     def _words(self, kind: str, text: str) -> list[str]:

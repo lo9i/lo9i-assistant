@@ -52,8 +52,10 @@ dragging and shows full screen. The rules are pure functions (`src/lib/chat/card
 the layout kept per browser (`src/lib/conversationLayout.svelte.ts`).
 
 Home (`src/routes/home/+page.svelte`) is a grid of cards, one per section, saved by the daemon with their order and
-width: a card moves by dragging its header or with its arrows (for keyboards and phones), resizes by dragging its
-right edge, and shows full screen with its button until pressed again or Esc (`src/lib/fullScreen.ts`; a full-screen
+width: the page shows them in that order, packed into rows with the last card of a row widened to fill it, never
+moved up into a hole (`packed` in `src/lib/home.ts`), so its arrows move it past the cards beside it on screen. A card
+moves by dragging its header or with its arrows (for keyboards and phones), resizes by dragging its right edge, and
+shows full screen with its button until pressed again or Esc (`src/lib/fullScreen.ts`; a full-screen
 card is drawn outside the grid, whose container query would hold it). The Conversations card (`CONVERSATIONS`) is
 drawn live instead of from its result (`src/lib/ui/home/HomeConversations.svelte`): the conversations pinned to Home,
 or the most recent while none is (`src/lib/homeConversations.ts`); removed, the editor of a new section offers it

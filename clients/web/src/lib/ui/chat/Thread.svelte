@@ -15,7 +15,7 @@
   import type { ShownCall } from "$lib/api/types";
   import { answerable } from "$lib/chat/choices";
   import { isFindKey, onMac } from "$lib/chat/find";
-  import { inlineArg, pinnable, withWhole, withWholeStep, type ChatItem } from "$lib/chat/transcript";
+  import { inlineArg, pinnable, withWhole, withWholeStep, type ChatItem, type UserNote } from "$lib/chat/transcript";
   import { WholeCalls } from "$lib/chat/wholeCalls.svelte";
   import { t, type Key } from "$lib/i18n.svelte";
   import { markdown } from "$lib/markdown";
@@ -47,6 +47,8 @@
   const wholes = new WholeCalls();
 
   const SUGGESTIONS: Key[] = ["thread.suggestMemory", "thread.suggestNews", "thread.suggestSearch"];
+  // Where a message the user sent a handed-off agent while it worked is.
+  const USER_NOTES: Record<UserNote, Key> = { waiting: "thread.waiting", untaken: "thread.untaken", resent: "thread.resent" };
 
   let scroller = $state<HTMLElement>();
   let height = $state(0);
@@ -149,6 +151,7 @@
             {#each item.files as file (file)}
               <span class="file"><Paperclip size={12} color="#7aa7d9" />{file}</span>
             {/each}
+            {#if item.note}<span class="user-note">{t(USER_NOTES[item.note])}</span>{/if}
           </div>
         </div>
       {:else if item.kind === "assistant"}
@@ -410,6 +413,13 @@
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
     margin-top: 6px;
+  }
+  .user-note {
+    display: block;
+    margin-top: 4px;
+    font-size: var(--font-size-xs);
+    font-style: italic;
+    color: var(--color-text-muted);
   }
   .assistant-bubble {
     background: var(--color-bg-hover-ghost);

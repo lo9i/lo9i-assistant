@@ -21,6 +21,8 @@ class Queued:
     brief: str = ""
     # The files sent with it, already saved under the uploads dir: their references (path, name, media_type).
     files: list[dict[str, str]] = field(default_factory=list)
+    # Messages the agent the conversation is handed to hadn't taken, sent again (core/conversation/resent.py).
+    resent: bool = False
 
 
 def _namespace(user_id: str) -> tuple[str, ...]:
@@ -35,6 +37,7 @@ async def add(store: BaseStore, user_id: str, thread_id: str, queued: Queued) ->
         "follow_up": queued.follow_up,
         "brief": queued.brief,
         "files": queued.files,
+        "resent": queued.resent,
     }
     waiting = [*(item.value["messages"] if item else []), added]
     await store.aput(_namespace(user_id), thread_id, {"messages": waiting})
@@ -51,7 +54,8 @@ async def take(store: BaseStore, user_id: str, thread_id: str) -> Queued | None:
     else:
         await store.adelete(_namespace(user_id), thread_id)
     brief, files = str(first.get("brief") or ""), list(first.get("files") or [])
-    return Queued(first["channel"], first["text"], bool(first.get("follow_up")), brief, files)
+    resent = bool(first.get("resent"))
+    return Queued(first["channel"], first["text"], bool(first.get("follow_up")), brief, files, resent)
 
 
 async def threads(store: BaseStore, user_id: str) -> list[str]:

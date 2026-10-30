@@ -43,6 +43,18 @@ class UserSaid:
     text: str
     # The names of the files sent with it.
     files: list[str] = field(default_factory=list)
+    # The message's id in the task's inbox; "" for one the worker didn't pass on.
+    id: str = field(default="", compare=False)
+    # The agent gets to it only once it's done with what it's doing: a UserTaken event with its id says when.
+    # One still waiting when the run ends wasn't taken, and goes to the agent as the next message.
+    waiting: bool = False
+
+
+@dataclass
+class UserTaken:
+    """The agent got to a message the user sent it that was waiting (UserSaid.waiting)."""
+
+    id: str
 
 
 @dataclass
@@ -157,6 +169,7 @@ Event = (
     | ToolStarted
     | ToolFinished
     | UserSaid
+    | UserTaken
     | ApprovalRequired
     | Transcribed
     | Dispatched

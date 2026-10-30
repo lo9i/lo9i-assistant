@@ -55,6 +55,7 @@ class HeldRun:
     text: str = ""
     brief: str = ""
     notice: str = ""
+    resent: bool = False
     origin: Origin = field(default_factory=Origin)
     # Its key once kept; "" before.
     id: str = ""

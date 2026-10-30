@@ -26,11 +26,24 @@ class ChannelThreadsMixin(ThreadsMixin):
 
     async def channel_wants_new(self, user_id: str, channel: str) -> None:
         """The channel's /clear: its next message starts a new conversation."""
-        await threads.want_new(self._storage.store, user_id, channel)
+        await threads.want_new(self._storage.store, user_id, channel, await self.new_thread(user_id))
 
-    async def channel_takes_new(self, user_id: str, channel: str) -> bool:
-        """Whether the channel's /clear waits for this message; it no longer does."""
-        return await threads.take_new(self._storage.store, user_id, channel)
+    async def channel_new_thread(self, user_id: str, channel: str) -> str | None:
+        """The new conversation the channel's /clear started, which its next message goes to; None when none waits."""
+        store = self._storage.store
+        new = await threads.new_waiting(store, user_id, channel)
+        if new == "":
+            new = await self.new_thread(user_id)
+            await threads.want_new(store, user_id, channel, new)
+        return new
+
+    async def channel_takes_new(self, user_id: str, channel: str) -> str | None:
+        """The new conversation the channel's /clear started, for this message, which no longer waits for it; None
+        when none did."""
+        new = await self.channel_new_thread(user_id, channel)
+        if new is not None:
+            await threads.forget_new(self._storage.store, user_id, channel)
+        return new
 
     async def chat_tag(self, user_id: str, thread_id: str, text: str = "") -> str:
         """A short name for the conversation, shown with the replies in a chat: "inbox", its first tag, or

@@ -554,6 +554,8 @@
     "titlePlaceholder": "Calendar",
     "what": "What to show",
     "whatPlaceholder": "Today's events from all my calendars, by start time.",
+    "shows": "What it shows",
+    "builtByCode": "Built by lo9i's code, not by the model: only its title and width can be changed here.",
     "plugins": "Plugins it reads",
     "noPlugins": "No plugin with tools is installed yet. Install one in Plugins.",
     "notInstalled": "not installed",
@@ -1294,6 +1296,9 @@
     "thinking": "Thinking",
     "taskFor": "Task for {agent}",
     "fromInbox": "From the inbox",
+    "waiting": "Waiting for the agent to get to it",
+    "untaken": "Not taken: sent again below",
+    "resent": "Sent again",
     "stoppedTag": "stopped",
     "steps": {
       "one": "{count} step",

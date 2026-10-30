@@ -95,6 +95,7 @@ from assistant_terminal.tui.theme import NAME as THEME_NAME
 from assistant_terminal.tui.theme import THEME
 from assistant_terminal.tui.turn import TurnView
 from assistant_terminal.tui.widgets import (
+    RESENT,
     BriefNote,
     CarriedNote,
     ConnectionNote,
@@ -411,7 +412,7 @@ class AssistantApp(App):
             await self._chat.mount(BriefNote(run["text"], run["brief"]))
         elif run["text"]:
             text = run["text"] if self._live.own(run) else f"[{run['channel']}] {run['text']}"
-            await self._chat.mount(UserMessage(text, []))
+            await self._chat.mount(UserMessage(text, [], RESENT if run.get("resent") else ""))
         if run.get("notice"):
             await self._chat.mount(FollowUpNote(run["notice"]))
 

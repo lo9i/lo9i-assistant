@@ -2982,6 +2982,16 @@ export interface components {
              * @default
              */
             text: string;
+            /**
+             * Chat
+             * @default
+             */
+            chat: string;
+            /**
+             * Reply To
+             * @default
+             */
+            reply_to: string;
         };
         /** ChannelItems */
         ChannelItems: {
@@ -3111,7 +3121,8 @@ export interface components {
          * ConversationStats
          * @description `input_tokens` counts the cache reads too. The times are None for a conversation not in the list
          *     (a new one before its first message). The context is the assistant's or, while the conversation is handed
-         *     to an agent, that agent's (`context_agent` its name), as of its last answer; 0 when it's not known.
+         *     to an agent, that agent's (`context_agent` its name), as it last said, while it works too; 0 when it's not
+         *     known.
          */
         ConversationStats: {
             /** Thread Id */
@@ -3778,6 +3789,11 @@ export interface components {
              * @default 0
              */
             columns: number;
+            /**
+             * Coded
+             * @default false
+             */
+            coded: boolean;
         };
         /** HomeSections */
         HomeSections: {
@@ -4756,6 +4772,11 @@ export interface components {
              * @default
              */
             held: string;
+            /**
+             * Resent
+             * @default false
+             */
+            resent: boolean;
         };
         /** RunRecord */
         RunRecord: {
@@ -4951,6 +4972,16 @@ export interface components {
              * @default
              */
             held: string;
+            /**
+             * Untaken
+             * @default false
+             */
+            untaken: boolean;
+            /**
+             * Resent
+             * @default false
+             */
+            resent: boolean;
         };
         /**
          * ShownStep

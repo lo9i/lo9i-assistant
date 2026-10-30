@@ -4,7 +4,7 @@ import type { RunEvent, ShownCall, ShownMessage } from "../api/types";
 import { withoutMarkers } from "./choices";
 
 export type ChatItem =
-  | { kind: "user"; id: number; text: string; files: string[]; channel?: string }
+  | { kind: "user"; id: number; text: string; files: string[]; channel?: string; note?: UserNote; messageId?: string }
   // A coding task the assistant wrote for the agent (`agent`) it handed the conversation to: not the user's.
   | { kind: "brief"; id: number; text: string; agent: string }
   // `dispatchId`: the inbox's record of a message it sent on, which can be moved.
@@ -22,6 +22,11 @@ export type ChatItem =
   | { kind: "stopped"; id: number };
 
 export type ToolState = "running" | "done" | "cancelled";
+
+/** Where a message the user sent a handed-off agent while it worked is: still waiting for it to get to it, never got
+ * to (the run was stopped or failed, so it went to the agent as the next message), or that next message, those
+ * messages sent again. */
+export type UserNote = "waiting" | "untaken" | "resent";
 
 /** A tool call. A delegate call's subagent reports its own calls as `steps`. One from history that's `partial`
  * shows its arguments on one line and the start of its output: the whole call loads by `callId` when opened. */
@@ -76,8 +81,8 @@ export function addCarried(t: Transcript, text: string): Transcript {
   return add({ ...t, streaming: null }, { kind: "carried", text });
 }
 
-export function addUser(t: Transcript, text: string, files: string[], channel?: string): Transcript {
-  return add({ ...t, streaming: null }, { kind: "user", text, files, channel });
+export function addUser(t: Transcript, text: string, files: string[], channel?: string, note?: UserNote): Transcript {
+  return add({ ...t, streaming: null }, { kind: "user", text, files, channel, ...(note ? { note } : {}) });
 }
 
 /** A coding task the assistant wrote for `agent`, sent where the user's message would be. */
@@ -110,7 +115,9 @@ export function apply(t: Transcript, event: RunEvent): Transcript {
     case "Thinking":
       return addThinking(ended, event.text);
     case "UserSaid":
-      return add(ended, { kind: "user", text: event.text, files: event.files ?? [] });
+      return add(ended, { kind: "user", text: event.text, files: event.files ?? [], ...saidNote(event) });
+    case "UserTaken":
+      return { ...ended, items: ended.items.map((item) => (waitingFor(item, event.id) ? taken(item) : item)) };
     case "Transcribed":
       return add(ended, { kind: "transcript", text: event.text, language: event.language });
     case "Dispatched":
@@ -119,9 +126,9 @@ export function apply(t: Transcript, event: RunEvent): Transcript {
     case "Held":
       return add(ended, { kind: "held", heldId: event.id });
     case "Error":
-      return add(ended, { kind: "error", message: event.message });
+      return add(notTaken(ended), { kind: "error", message: event.message });
     case "Cancelled":
-      return cancelled(ended);
+      return cancelled(notTaken(ended));
     default:
       return ended;
   }
@@ -156,7 +163,7 @@ function add(t: Transcript, item: NewItem): Transcript {
 }
 
 function addShown(t: Transcript, message: ShownMessage): Transcript {
-  if (message.role === "user") return add(t, { kind: "user", ...splitAttachments(message.text) });
+  if (message.role === "user") return add(t, { kind: "user", ...splitAttachments(message.text), ...shownNote(message) });
   if (message.role === "brief") return add(t, { kind: "brief", text: message.text, agent: message.agent });
   if (message.role === "thinking") return add(t, { kind: "thinking", text: message.text });
   if (message.role === "carried") return add(t, { kind: "carried", text: message.text });
@@ -238,6 +245,29 @@ function toolFinished(t: Transcript, name: string, output: string): Transcript {
   if (id === undefined) return t;
   const finished = update(t, id, (item) => (item.kind === "tool" ? { ...item, output, state: "done" } : item));
   return { ...finished, pending: { ...t.pending, [name]: rest } };
+}
+
+function saidNote(said: Extract<RunEvent, { type: "UserSaid" }>): { note?: UserNote; messageId?: string } {
+  return said.waiting ? { note: "waiting", messageId: said.id ?? "" } : {};
+}
+
+function shownNote(message: ShownMessage): { note?: UserNote } {
+  if (message.untaken) return { note: "untaken" };
+  return message.resent ? { note: "resent" } : {};
+}
+
+function waitingFor(item: ChatItem, messageId: string): boolean {
+  return item.kind === "user" && item.note === "waiting" && item.messageId === messageId;
+}
+
+function taken(item: ChatItem): ChatItem {
+  return item.kind === "user" ? { ...item, note: undefined, messageId: undefined } : item;
+}
+
+/** The run ended before the agent got to the messages still waiting: they go to it as the next message. */
+function notTaken(t: Transcript): Transcript {
+  const items = t.items.map((item) => (item.kind === "user" && item.note === "waiting" ? { ...item, note: "untaken" as const } : item));
+  return { ...t, items };
 }
 
 function cancelled(t: Transcript): Transcript {
