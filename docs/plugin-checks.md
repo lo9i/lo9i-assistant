@@ -1,7 +1,8 @@
 # Plugin checks
 
 A plugin can check the values it's given (its fields: a token, a password, an address) when they're saved, before
-they are: installing it, or changing its env or headers on the MCP page. A wrong key then shows in the dialog it was
+they are: installing it, changing its settings in Plugins, changing its env or headers on the MCP page, or signing it
+in (`oauth:`). A wrong key then shows in the dialog it was
 typed in, instead of failing the plugin's first use (a coding task that fails after minutes of retries, a bot that
 never answers). lo9i runs it in `core/mcp/checks.py`; installing goes on only when it passes.
 
@@ -37,6 +38,14 @@ A tool of the plugin's MCP server, called with no arguments on a connection of i
 An error result (`isError`, such as a `ToolError` raised in it) refuses the values with its text; any other result
 takes them. The agent never gets the tool and the apps don't list it, so it can say things only meant for the
 user. A plugin without an MCP server (`command` or `url`) uses a command.
+
+## After a sign-in
+
+A plugin that signs in (`oauth:`) is checked again when the user signs in, with the new sign-in in `LO9I_OAUTH`, so
+an account it can't use (an API not turned on, a scope refused) shows on the page the browser comes back to instead
+of on its first use. When the check refuses it, the sign-in isn't kept: the page says `The sign-in wasn't kept.
+<plugin>: <what it said>`, and the user signs in again once it's fixed. When it's installed, before any sign-in,
+`LO9I_OAUTH` is empty: a check that needs it lets the values through then.
 
 ## What to check
 

@@ -806,7 +806,10 @@
     "all": "Todas",
     "none": "Ninguna",
     "readOnly": "solo lectura",
-    "asksFirst": "pregunta antes"
+    "asksFirst": "pregunta antes",
+    "merges": "Los valores que escribas reemplazan a los del mismo nombre; el resto, y lo que el plugin define por sí mismo, se quedan. El servidor se reconecta con los valores nuevos. Sus campos son más fáciles de cambiar en sus Ajustes, en Plugins.",
+    "pluginEnvLines": "CLAVE=valor, uno por línea.",
+    "pluginHeaderLines": "Nombre: valor, uno por línea."
   },
   "memory": {
     "sections": {
@@ -1410,5 +1413,20 @@
     "checking": "Comprobando…",
     "usesBrave": "Las búsquedas usan Brave. Cuando Brave falla, usan buscadores públicos y servicios de búsqueda gratuitos.",
     "remove": "Quitar la clave"
+  },
+  "pluginSettings": {
+    "open": "Ajustes",
+    "title": "Ajustes de {name}",
+    "description": "Lo que se le dio al instalarlo. Vuelve a arrancar con lo que guardes.",
+    "checks": "Comprueba lo que escribes antes de guardarlo, y dice aquí si algo no funciona.",
+    "optional": "opcional",
+    "savedKeep": "Guardado · déjalo vacío para conservarlo",
+    "notSet": "Sin valor",
+    "willBeRemoved": "Se quita al guardar",
+    "clear": "Quitar",
+    "keep": "Conservar",
+    "saving": "Guardando…",
+    "checking": "Comprobando…",
+    "saved": "Ajustes de {name} guardados."
   }
 }

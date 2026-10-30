@@ -56,6 +56,8 @@ from assistant.core.agent import (
     ModelStatus,
     Notification,
     PairingCode,
+    PluginFieldValue,
+    PluginSettings,
     PluginUpdate,
     PromptEditError,
     PromptSection,
@@ -663,6 +665,32 @@ class FakeMcp:
     def __init__(self):
         self.items = {"notes": _mcp_status("notes")}
         self.added = []
+        # Installed plugins' settings, as the daemon shows them; what its check says when it refuses them; what was
+        # saved last.
+        self.settings = {
+            "calendar": PluginSettings(
+                "calendar",
+                [
+                    PluginFieldValue("CAL_USER", "User", value="me", set=True),
+                    PluginFieldValue("CAL_PASSWORD", "Password", secret=True, set=True),
+                    PluginFieldValue("CAL_PIN", "PIN", secret=True, optional=True, set=True),
+                ],
+                check=True,
+            )
+        }
+        self.check_refusal = ""
+        self.saved_settings: tuple[str, dict[str, str], list[str]] | None = None
+
+    async def plugin_settings(self, name):
+        if name not in self.settings:
+            raise McpServerError(f"{name} was added by hand: change its env or headers on the MCP page.")
+        return self.settings[name]
+
+    async def change_plugin_settings(self, name, values, clear=None):
+        if self.check_refusal:
+            raise McpServerError(self.check_refusal)
+        self.saved_settings = (name, values, clear or [])
+        return self.settings[name]
 
     async def servers(self):
         return list(self.items.values())

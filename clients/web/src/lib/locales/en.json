@@ -806,7 +806,10 @@
     "all": "All",
     "none": "None",
     "readOnly": "read-only",
-    "asksFirst": "asks first"
+    "asksFirst": "asks first",
+    "merges": "Values you type replace those with the same name; the rest, and what the plugin sets itself, stay. The server reconnects with the new values. Its fields are easier to change in its Settings, in Plugins.",
+    "pluginEnvLines": "KEY=value, one per line.",
+    "pluginHeaderLines": "Name: value, one per line."
   },
   "memory": {
     "sections": {
@@ -1410,5 +1413,20 @@
     "checking": "Checking…",
     "usesBrave": "Searches use Brave. When Brave fails, they use public engines and free search services.",
     "remove": "Remove key"
+  },
+  "pluginSettings": {
+    "open": "Settings",
+    "title": "{name} settings",
+    "description": "What it was given when it was installed. It starts again with what you save.",
+    "checks": "It checks what you enter before it's saved, and says here if something doesn't work.",
+    "optional": "optional",
+    "savedKeep": "Saved · leave empty to keep it",
+    "notSet": "Not set",
+    "willBeRemoved": "Removed when you save",
+    "clear": "Clear",
+    "keep": "Keep",
+    "saving": "Saving…",
+    "checking": "Checking…",
+    "saved": "Saved {name}'s settings."
   }
 }

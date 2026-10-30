@@ -1,7 +1,7 @@
 import asyncio
 from dataclasses import replace
 
-from textual.widgets import Button, Input, Markdown, OptionList
+from textual.widgets import Button, Checkbox, Input, Markdown, OptionList
 
 from assistant.core.agent import (
     FoundServer,
@@ -13,10 +13,10 @@ from assistant.core.agent import (
 )
 from assistant.core.repositories.known import EXTRAS
 from assistant_terminal.plugins_text import Plugin, by_category, describe, from_repositories
-from assistant_terminal.tui.screens import PluginsScreen
+from assistant_terminal.tui.screens import PluginSettingsScreen, PluginsScreen
 from assistant_terminal.tui.screens.confirm import ConfirmWithOptionScreen
 from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen, _field_input
-from tests.terminal.conftest import wait_for
+from tests.terminal.conftest import _mcp_status, wait_for
 
 
 async def _open(pilot, app) -> PluginsScreen:
@@ -373,3 +373,43 @@ async def test_reading_the_plugins_again_doesnt_hold_up_the_other_events(app, cl
             await wait_for(pilot, lambda: app.query(AssistantMessage))
         finally:
             reading.set()
+
+
+async def test_an_installed_plugins_settings_change_what_it_was_given(app, client):
+    client.mcp.items["calendar"] = _mcp_status("calendar", source=EXTRAS)
+    async with app.run_test(size=(120, 50)) as pilot:
+        screen = await _open(pilot, app)
+        screen.query_one("#plugins-search", Input).value = "calendar"
+        await wait_for(pilot, lambda: "## calendar" in _body(screen) and screen.query_one("#plugin-settings").display)
+        screen.query_one("#plugin-settings", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, PluginSettingsScreen))
+        settings = app.screen
+        await wait_for(pilot, lambda: bool(settings.query("#plugin-field-CAL_USER")))
+        user = settings.query_one("#plugin-field-CAL_USER", Input)
+        password = settings.query_one("#plugin-field-CAL_PASSWORD", Input)
+        # A field not secret shows its value; a secret one only that it's saved, and only an optional one clears.
+        assert user.value == "me" and password.value == "" and password.password
+        assert password.placeholder == "Saved: leave empty to keep it"
+        assert not settings.query("#plugin-clear-CAL_PASSWORD") and settings.query("#plugin-clear-CAL_PIN")
+        message = settings.query_one("#plugin-settings-message", Markdown)
+        assert "It checks what you enter before it's saved" in message.source
+        # What its check says shows here, and nothing closes.
+        client.mcp.check_refusal = "calendar: The server refused the password."
+        user.value = "you"
+        settings.query_one("#save", Button).press()
+        await wait_for(pilot, lambda: "The server refused the password." in message.source)
+        assert app.screen is settings and client.mcp.saved_settings is None
+        client.mcp.check_refusal = ""
+        settings.query_one("#plugin-clear-CAL_PIN", Checkbox).value = True
+        settings.query_one("#save", Button).press()
+        await wait_for(pilot, lambda: app.screen is screen)
+        # The secret left empty isn't sent, which keeps it.
+        assert client.mcp.saved_settings == ("calendar", {"CAL_USER": "you"}, ["CAL_PIN"])
+
+
+async def test_a_plugin_not_installed_has_no_settings(app, client):
+    async with app.run_test(size=(120, 44)) as pilot:
+        screen = await _open(pilot, app)
+        screen.query_one("#plugins-search", Input).value = "calendar"
+        await wait_for(pilot, lambda: "## calendar" in _body(screen))
+        assert not screen.query_one("#plugin-settings").display

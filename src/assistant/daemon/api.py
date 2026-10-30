@@ -74,6 +74,7 @@ from assistant.core.agent import (
     ModelStatus,
     NotHandedError,
     Notification,
+    PluginSettings,
     PluginUpdate,
     PromptEditError,
     PromptSection,
@@ -265,6 +266,13 @@ class PluginSignInStart(BaseModel):
     client_secret: str = ""
     # Where the provider sends the browser back: the web app's /app/oauth page.
     redirect_uri: str
+
+
+class PluginSettingsChange(BaseModel):
+    # New values by field key; a field left out keeps its value, and so does a secret one given empty.
+    values: dict[str, str] = {}
+    # Secret fields to empty, which an empty value keeps.
+    clear: list[str] = []
 
 
 class EmailRecipients(BaseModel):
@@ -1632,6 +1640,29 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
             return SignInPage(
                 url=await service.start_plugin_sign_in(name, body.client_id, body.client_secret, body.redirect_uri)
             )
+        except McpServerError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.get("/plugins/{name}/settings")
+    async def plugin_settings(name: str) -> PluginSettings:
+        """The plugin's fields with their values, a secret one only saying whether it's set. 404: no such plugin.
+        400: added by hand, or its installed folder can't be read."""
+        if name not in {s.name for s in await service.mcp_servers()}:
+            raise HTTPException(404, f"No plugin named {name}.")
+        try:
+            return await service.plugin_settings(name)
+        except McpServerError as e:
+            raise HTTPException(400, str(e)) from e
+
+    @app.put("/plugins/{name}/settings")
+    async def change_plugin_settings(name: str, body: PluginSettingsChange) -> PluginSettings:
+        """Give its fields new values; its check runs first and nothing is saved when it refuses them, and its
+        processes start again with them. 404: no such plugin. 400: an unknown field, a required one left empty, or
+        what its check says."""
+        if name not in {s.name for s in await service.mcp_servers()}:
+            raise HTTPException(404, f"No plugin named {name}.")
+        try:
+            return await service.change_plugin_settings(name, body.values, body.clear)
         except McpServerError as e:
             raise HTTPException(400, str(e)) from e
 
