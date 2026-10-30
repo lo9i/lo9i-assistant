@@ -4756,6 +4756,11 @@ export interface components {
              * @default
              */
             held: string;
+            /**
+             * Resent
+             * @default false
+             */
+            resent: boolean;
         };
         /** RunRecord */
         RunRecord: {
@@ -4951,6 +4956,16 @@ export interface components {
              * @default
              */
             held: string;
+            /**
+             * Untaken
+             * @default false
+             */
+            untaken: boolean;
+            /**
+             * Resent
+             * @default false
+             */
+            resent: boolean;
         };
         /**
          * ShownStep

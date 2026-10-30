@@ -1288,6 +1288,9 @@
     "thinking": "Pensando",
     "taskFor": "Tarea para {agent}",
     "fromInbox": "Desde la bandeja de entrada",
+    "waiting": "Esperando a que el agente llegue a él",
+    "untaken": "No lo tomó: se envió de nuevo abajo",
+    "resent": "Enviado de nuevo",
     "stoppedTag": "detenida",
     "steps": {
       "one": "{count} paso",

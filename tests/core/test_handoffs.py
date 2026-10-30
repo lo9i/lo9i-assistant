@@ -19,7 +19,17 @@ from assistant.core.agent_tasks.records import TaskStore
 from assistant.core.attachments import Attachment
 from assistant.core.config import settings
 from assistant.core.conversation import file_index, queued
-from assistant.core.events import Cancelled, Done, Error, Held, TextDelta, ToolFinished, ToolStarted, UserSaid
+from assistant.core.events import (
+    Cancelled,
+    Done,
+    Error,
+    Held,
+    TextDelta,
+    ToolFinished,
+    ToolStarted,
+    UserSaid,
+    UserTaken,
+)
 from assistant.core.mcp import folders, servers
 from assistant.core.mcp.servers import McpServer
 from assistant.daemon.managers import ByHand
@@ -568,16 +578,19 @@ async def test_messages_a_failed_task_didnt_take_are_shown_and_kept_with_the_err
     await service.message_agent("owner", session.thread_id, "see this", [Attachment("shot.png", "image/png", b"x")])
     (tmp_path / "release").write_text("")
     events = await run
-    assert UserSaid("see this", ["shot.png"]) in events
+    assert UserSaid("see this", ["shot.png"], waiting=True) in events  # never taken
     assert isinstance(events[-1], Error) and events[-1].message == "Claude Code: it broke"
-    shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
+    shown = [(m.role, m.text, m.untaken) for m in await service.conversation_messages(session.thread_id)]
     assert shown == [
-        ("user", "leave messages and fail"),
-        ("assistant", "Working."),
-        ("user", "see this\n[attachment shot.png]"),
-        ("assistant", "Claude Code: it broke"),
+        ("user", "leave messages and fail", False),
+        ("assistant", "Working.", False),
+        ("user", "see this\n[attachment shot.png]", True),
+        ("assistant", "Claude Code: it broke", False),
     ]
     assert [f.name for f in await service.list_files("owner")] == ["shot.png"]
+    waiting = await service.next_queued("owner", session.thread_id)  # it goes to the agent next, as after a stop
+    assert waiting is not None and (waiting.text, waiting.resent) == ("see this", True)
+    assert [f["name"] for f in waiting.files] == ["shot.png"]
 
 
 async def test_a_message_written_as_the_task_ends_is_answered_next(service, tmp_path, monkeypatch):
@@ -662,12 +675,15 @@ async def test_stopped_with_a_message_it_hadnt_got_to_the_agent_resumes_its_sess
     after = service.bus.last_id
     stop = asyncio.Event()
     sending = asyncio.create_task(QueuedMessages(service, RunHub(service.bus)).run(stop))
+    announced = []
     async with asyncio.timeout(10):
         async for event in service.bus.subscribe(after):
+            announced += [event.data] if event.kind == "run" else []
             if event.kind == "agent_finished":
                 break
     stop.set()
     await sending
+    assert [(run["text"], run["resent"]) for run in announced] == [("skip the slow tests", True)]
     assert await service.conversation_agent("owner", session.thread_id) is not None  # still Claude Code's
     first, resumed = asked()
     assert (resumed["prompt"], resumed["follow_up_of"], resumed["session"]) == (
@@ -676,8 +692,11 @@ async def test_stopped_with_a_message_it_hadnt_got_to_the_agent_resumes_its_sess
         first["session"],
     )
     assert script.requests == []  # the assistant's model wasn't asked
-    shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
-    assert shown[-2:] == [("user", "skip the slow tests"), ("assistant", f"Done in {tmp_path}: skip the slow tests")]
+    shown = [(m.role, m.text, m.resent) for m in await service.conversation_messages(session.thread_id)]
+    assert shown[-2:] == [  # those messages sent again, not new ones
+        ("user", "skip the slow tests", True),
+        ("assistant", f"Done in {tmp_path}: skip the slow tests", False),
+    ]
     assert await service.queued_threads("owner") == []
 
 
@@ -711,6 +730,46 @@ async def test_stopped_with_several_messages_waiting_they_go_to_the_agent_as_one
     assert said == "skip the slow tests\n\nunread: and run the linter" and files_note.endswith("(shot.png)")
     shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
     assert shown[-2] == ("user", "[attachment shot.png]\nskip the slow tests\n\nunread: and run the linter")
+
+
+async def test_a_message_the_agent_gets_to_later_shows_as_waiting_until_it_takes_it(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    events: list = []
+
+    async def showing() -> None:
+        async for event in service.send(session, "hold messages"):
+            events.append(event)
+
+    run = asyncio.create_task(showing())
+    await _taking_messages(service, session, tmp_path)
+    await service.message_agent("owner", session.thread_id, "take a look at the docs")
+    await service.message_agent("owner", session.thread_id, "skip the slow tests")
+    async with asyncio.timeout(10):
+        while sum(isinstance(e, UserSaid | UserTaken) for e in events) < 3:
+            await asyncio.sleep(0.02)
+    assert await service.cancel(session.thread_id)
+    await run
+    said = [e for e in events if isinstance(e, UserSaid | UserTaken)]
+    docs = cast(UserSaid, said[0]).id
+    assert said == [
+        UserSaid("take a look at the docs", waiting=True),
+        UserTaken(docs),
+        UserSaid("skip the slow tests", waiting=True),  # still waiting when it stopped
+    ]
+    shown = [(m.role, m.text, m.untaken) for m in await service.conversation_messages(session.thread_id)]
+    assert shown[-3:] == [  # after a reload, the one it never got to says so
+        ("user", "take a look at the docs", False),
+        ("user", "skip the slow tests", True),
+        ("assistant", "[stopped before Claude Code replied]", False),
+    ]
+
+
+async def test_the_messages_it_hadnt_taken_go_to_the_agent_only_once(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    await _stopped_with(service, session, tmp_path, ("skip the slow tests", []))
+    assert await service.queued_threads("owner") == [session.thread_id]
+    # A run that fails before it starts a task of its own (its folder gone) finds them sent on already.
+    assert await service.agent_tasks.take_waiting("claude-code", session.thread_id, str(tmp_path)) == []
 
 
 async def test_stopped_with_nothing_waiting_it_just_stops(service, tmp_path):

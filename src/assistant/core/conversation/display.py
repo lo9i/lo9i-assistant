@@ -16,8 +16,8 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMe
 from langchain_core.messages.tool import ToolCall
 
 from assistant.core import subagent_steps
-from assistant.core.agent_tasks.steps import STEPS, UNANSWERED, Upload, args_of, files_of, parse
-from assistant.core.conversation import briefs, carried, ended, failed
+from assistant.core.agent_tasks.steps import STEPS, TAKEN, UNANSWERED, Upload, args_of, files_of, parse, waiting
+from assistant.core.conversation import briefs, carried, ended, failed, resent
 from assistant.core.conversation.dispatched import DISPATCH_ID
 from assistant.core.conversation.turn_header import is_header
 
@@ -69,6 +69,10 @@ class ShownMessage:
     # What the user sent while an update installed, kept until lo9i is back on it (core/conversation/held.py): the
     # id its run is announced with (`held` in its `run` event) once it runs.
     held: str = ""
+    # A message the user sent a handed-off agent while it worked that it never got to: the run was stopped or failed,
+    # and it went to the agent as the next message (`resent` there, core/conversation/resent.py).
+    untaken: bool = False
+    resent: bool = False
 
 
 @dataclass
@@ -93,7 +97,7 @@ def _shown(message: BaseMessage, results: dict[str, ToolMessage]) -> list[ShownM
     if isinstance(message, HumanMessage):
         exchange = carried.of(message)
         before = [ShownMessage("carried", carried.shown(exchange))] if exchange else []
-        return [*before, ShownMessage("user", _text(message.content, skip_header=True))]
+        return [*before, ShownMessage("user", _text(message.content, skip_header=True), resent=resent.of(message))]
     if (mark := failed.of(message)) is not None:
         return [ShownMessage("error", str(mark.get("error", "")))]
     if isinstance(message, AIMessage) and (steps := message.response_metadata.get(STEPS)):
@@ -226,15 +230,22 @@ def _agent_reply(lines: list[str], reply: str, message_id: str, unanswered: bool
     shown, as live); the reply after them unless its last text, after the user's last message to it, already
     said it. Its thinking reads as what it says, as it was shown live (core/agent_tasks/steps.py). Each tool
     call is named after the reply (`message_id`) and its place, to load it whole. When it ended `unanswered`,
-    the reply is the note saying how, always shown on its own after the steps."""
+    the reply is the note saying how, always shown on its own after the steps, and the messages the user sent it
+    that it never got to say so."""
     shown: list[ShownMessage] = []
     calls: dict[str, ShownMessage] = {}
     steps = [parse(line) for line in lines]
+    taken = {step.get("id") for step in steps if step.get("kind") == TAKEN}
     for line, step in zip(lines, steps, strict=True):
         if within := step.get("within"):
             _add_inner(calls.get(within), step)
+        elif step.get("kind") == TAKEN:
+            continue
         elif step.get("kind") == "user":
-            shown.append(ShownMessage("user", _with_attachments(step.get("text", ""), files_of(line))))
+            # An answered turn's agent took every message: steps kept before `taken` steps were don't say so.
+            untaken = unanswered and waiting(step) and step.get("id") not in taken
+            text = _with_attachments(step.get("text", ""), files_of(line))
+            shown.append(ShownMessage("user", text, untaken=untaken))
         else:
             _add_step(shown, step, calls)
     if unanswered:

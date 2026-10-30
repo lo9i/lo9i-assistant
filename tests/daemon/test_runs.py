@@ -46,6 +46,7 @@ async def test_starting_a_run_is_announced_on_the_bus():
         "notice": "",
         "brief": "",
         "held": "",
+        "resent": False,
     }
 
 

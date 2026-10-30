@@ -47,6 +47,7 @@ Each task is a folder under the plugin's data folder, `tasks/<id>/`. Every file 
 | `result.json` | worker | `{"ok", "text", "finished_at", "cost_usd"}`, written last, whole (write it to another name, then rename). `text` is the agent's final answer, or what went wrong. |
 | `context.json` | worker, optional | `{"tokens", "window"}`: how full the agent's context is once it answered, `tokens` of the model's `window`, written whole just before `result.json`. While a conversation is handed to the agent, the apps show it as the conversation's context, from the latest task in its session that wrote one. A separate file because a daemon from before it reads `result.json` into its own fields only. |
 | `stopped` | daemon | The user stopped the task. |
+| `sent_on` | daemon | The messages the task ended without taking went to the agent next (below), so they go only once. |
 | `conversation` | daemon | The conversation handed to the agent that the task answers in. The worker doesn't read it. |
 | `inbox/` | worker makes it, daemon writes in it | What the user sends the task while it works (below). |
 | `worker.log` | the worker's output | For finding out why a worker failed. |
@@ -76,14 +77,16 @@ it started would end on it).
 
 An agent that gets to a message only later (Claude Code takes what it's sent once it's done with the turn in
 progress) marks its `user` step `"waiting": true`, and writes a `taken` step with the message's id once the
-agent gets to it. A `user` step without `waiting` counts as taken.
+agent gets to it. A `user` step without `waiting` counts as taken. The apps show a waiting message as waiting
+until its `taken` step.
 
 The task ends once the agent has answered every message it was sent. Messages left in `inbox/` without a
 `user` step when it ends (sent just as it finished) go to the agent next, as a follow-up in the same
-session, in the same run. When the user stops the run, the messages the agent hadn't taken (left in
-`inbox/` without a `user` step, or with a `waiting` one and no `taken` step) go to it next, together as
-one message following up the stopped task in its session, as a run of their own once the stopped one ends
-(`core/conversation/queued.py`); the conversation stays handed to the agent.
+session, in the same run. When the user stops the run, or the task fails, the messages the agent hadn't taken
+(left in `inbox/` without a `user` step, or with a `waiting` one and no `taken` step) go to it next, together as
+one message following up the task in its session, as a run of their own once that one ends
+(`core/conversation/queued.py`); the conversation stays handed to the agent. The apps show them as not taken in
+the run that ended and that message as them sent again (`core/conversation/resent.py`), not as new ones.
 
 ## Steps
 
@@ -99,7 +102,7 @@ Each line of `progress.log` is a JSON object with a `kind`; fields that are empt
 | `text_delta` | `text` | Words of a text as they're written. The whole text follows as a `text` step. |
 | `thinking_delta` | `text` | Words of a thinking as they're written. The whole thinking follows as a `thinking` step. |
 | `user` | `text`, `id`, `waiting` | A message the user sent while it worked, passed on to the agent; `id` is its file in `inbox/`. `waiting`: the agent gets to it only later (above). |
-| `taken` | `id` | The agent got to a message whose `user` step was `waiting`. Not shown. |
+| `taken` | `id` | The agent got to a message whose `user` step was `waiting`: it no longer shows as waiting. |
 
 `within` on any step is the id of the tool call whose subagent took it. In a conversation handed to the
 agent, the daemon shows text as the reply, thinking apart, and each tool call with its result

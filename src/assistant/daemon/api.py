@@ -521,12 +521,14 @@ class RunInProgress(BaseModel):
     channel: str
     # As announced in its `run` event: the client that started it, what the user wrote, the notice of a follow-up,
     # for a coding task the assistant wrote instead, the agent it's for, and for a run kept while an update
-    # installed, the id its Held event gave.
+    # installed, the id its Held event gave, and whether `text` is messages a handed-off agent hadn't taken, sent
+    # again.
     client_id: str = ""
     text: str = ""
     notice: str = ""
     brief: str = ""
     held: str = ""
+    resent: bool = False
 
     @classmethod
     def of(cls, run: Run) -> "RunInProgress":
@@ -539,6 +541,7 @@ class RunInProgress(BaseModel):
             notice=run.notice,
             brief=run.brief,
             held=run.held,
+            resent=run.resent,
         )
 
 

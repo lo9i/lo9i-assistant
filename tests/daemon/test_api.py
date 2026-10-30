@@ -538,6 +538,7 @@ async def test_a_conversation_opens_with_its_messages_and_the_runs_in_progress_t
             "notice": "",
             "brief": "",
             "held": "",
+            "resent": False,
         }
     ]
 

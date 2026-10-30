@@ -32,8 +32,22 @@ describe("transcript", () => {
         partial: false,
         agent: "",
         held: "",
+        untaken: false,
+        resent: false,
       },
-      { role: "user", text: "plan the drive", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "" },
+      {
+        role: "user",
+        text: "plan the drive",
+        detail: "",
+        output: "",
+        dispatch_id: "",
+        call_id: "",
+        partial: false,
+        agent: "",
+        held: "",
+        untaken: false,
+        resent: false,
+      },
     ]);
     expect(t.items.map((i) => i.kind)).toEqual(["carried", "user"]);
     const followed = fromHistory([
@@ -47,6 +61,8 @@ describe("transcript", () => {
         partial: false,
         agent: "",
         held: "",
+        untaken: false,
+        resent: false,
       },
     ]);
     expect(followed.items[0]).toMatchObject({ kind: "notice", text: "⚠️ convert: it failed" });
@@ -57,8 +73,32 @@ describe("transcript", () => {
 
   it("marks what waits for an update to install as it was marked when it was sent", () => {
     const t = fromHistory([
-      { role: "user", text: "earlier", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "" },
-      { role: "user", text: "still there?", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "h1" },
+      {
+        role: "user",
+        text: "earlier",
+        detail: "",
+        output: "",
+        dispatch_id: "",
+        call_id: "",
+        partial: false,
+        agent: "",
+        held: "",
+        untaken: false,
+        resent: false,
+      },
+      {
+        role: "user",
+        text: "still there?",
+        detail: "",
+        output: "",
+        dispatch_id: "",
+        call_id: "",
+        partial: false,
+        agent: "",
+        held: "h1",
+        untaken: false,
+        resent: false,
+      },
     ]);
     expect(t.items.map((i) => i.kind)).toEqual(["user", "user", "held"]);
     expect(t.items[2]).toMatchObject({ kind: "held", heldId: "h1" });
@@ -77,6 +117,8 @@ describe("transcript", () => {
         partial: false,
         agent: "",
         held: "",
+        untaken: false,
+        resent: false,
       },
       {
         role: "brief",
@@ -88,6 +130,8 @@ describe("transcript", () => {
         partial: false,
         agent: "Claude Code",
         held: "",
+        untaken: false,
+        resent: false,
       },
     ]);
     expect(t.items[1]).toEqual({ kind: "brief", id: 2, text: "Fix the failing tests", agent: "Claude Code" });
@@ -98,7 +142,19 @@ describe("transcript", () => {
 
   it("shows a run that failed with the error it ended with, as it showed live", () => {
     const t = fromHistory([
-      { role: "user", text: "remember my goal", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "" },
+      {
+        role: "user",
+        text: "remember my goal",
+        detail: "",
+        output: "",
+        dispatch_id: "",
+        call_id: "",
+        partial: false,
+        agent: "",
+        held: "",
+        untaken: false,
+        resent: false,
+      },
       {
         role: "error",
         text: "OperationalError: database is locked",
@@ -109,6 +165,8 @@ describe("transcript", () => {
         partial: false,
         agent: "",
         held: "",
+        untaken: false,
+        resent: false,
       },
     ]);
     expect(t.items[1]).toMatchObject({ kind: "error", message: "OperationalError: database is locked" });
@@ -139,6 +197,32 @@ describe("transcript", () => {
       "Skipping them",
     ]);
     expect(t.items.find((i) => i.kind === "user" && i.text === "skip the slow ones")).toMatchObject({ files: ["slow.txt"] });
+  });
+
+  it("shows a message the agent gets to later as waiting until it takes it, and as not taken once the run stops", () => {
+    const t = play([
+      { type: "UserSaid", text: "look at the docs", id: "m1", waiting: true },
+      { type: "UserSaid", text: "skip the slow ones", id: "m2", waiting: true },
+      { type: "UserTaken", id: "m1" },
+    ]);
+    const notes = (items: typeof t.items) => items.flatMap((i) => (i.kind === "user" ? [[i.text, i.note]] : []));
+    expect(notes(t.items)).toEqual([
+      ["hi", undefined],
+      ["look at the docs", undefined],
+      ["skip the slow ones", "waiting"],
+    ]);
+    expect(notes(apply(t, { type: "Cancelled" }).items).at(-1)).toEqual(["skip the slow ones", "untaken"]);
+    expect(notes(apply(t, { type: "Error", message: "it broke" }).items).at(-1)).toEqual(["skip the slow ones", "untaken"]);
+  });
+
+  it("shows the messages the agent never got to, and those sent again, as history kept them", () => {
+    const shown = { detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "" };
+    const t = fromHistory([
+      { role: "user", text: "skip the slow ones", ...shown, untaken: true, resent: false },
+      { role: "user", text: "skip the slow ones", ...shown, untaken: false, resent: true },
+    ]);
+    expect(t.items.map((i) => i.kind === "user" && i.note)).toEqual(["untaken", "resent"]);
+    expect(addUser(empty, "skip the slow ones", [], undefined, "resent").items[0]).toMatchObject({ note: "resent" });
   });
 
   it("matches tool results to calls in order", () => {
@@ -249,9 +333,45 @@ describe("transcript", () => {
       ]),
     ).toEqual(["user", "transcript", "error"]);
     const history = fromHistory([
-      { role: "user", text: "q", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "" },
-      { role: "tool", text: "bash", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "" },
-      { role: "assistant", text: "a", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "" },
+      {
+        role: "user",
+        text: "q",
+        detail: "",
+        output: "",
+        dispatch_id: "",
+        call_id: "",
+        partial: false,
+        agent: "",
+        held: "",
+        untaken: false,
+        resent: false,
+      },
+      {
+        role: "tool",
+        text: "bash",
+        detail: "",
+        output: "",
+        dispatch_id: "",
+        call_id: "",
+        partial: false,
+        agent: "",
+        held: "",
+        untaken: false,
+        resent: false,
+      },
+      {
+        role: "assistant",
+        text: "a",
+        detail: "",
+        output: "",
+        dispatch_id: "",
+        call_id: "",
+        partial: false,
+        agent: "",
+        held: "",
+        untaken: false,
+        resent: false,
+      },
     ]);
     expect(history.items.map((i) => i.kind)).toEqual(["user", "tool", "assistant"]);
   });
@@ -272,9 +392,24 @@ describe("transcript", () => {
         partial: false,
         agent: "",
         held: "",
+        untaken: false,
+        resent: false,
         steps,
       },
-      { role: "tool", text: "bash", detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "", steps: [] },
+      {
+        role: "tool",
+        text: "bash",
+        detail: "",
+        output: "",
+        dispatch_id: "",
+        call_id: "",
+        partial: false,
+        agent: "",
+        held: "",
+        untaken: false,
+        resent: false,
+        steps: [],
+      },
     ]);
     expect(history.items[0]).toMatchObject({
       kind: "tool",
@@ -303,6 +438,8 @@ describe("transcript", () => {
         partial: false,
         agent: "",
         held: "",
+        untaken: false,
+        resent: false,
       },
       {
         role: "tool",
@@ -314,6 +451,8 @@ describe("transcript", () => {
         partial: false,
         agent: "",
         held: "",
+        untaken: false,
+        resent: false,
       },
     ]);
     expect(history.items).toEqual([
@@ -334,8 +473,22 @@ describe("transcript", () => {
         partial: true,
         agent: "",
         held: "",
+        untaken: false,
+        resent: false,
       },
-      { role: "tool", text: "bash", detail: "ls", output: "a.txt", dispatch_id: "", call_id: "c2", partial: false, agent: "", held: "" },
+      {
+        role: "tool",
+        text: "bash",
+        detail: "ls",
+        output: "a.txt",
+        dispatch_id: "",
+        call_id: "c2",
+        partial: false,
+        agent: "",
+        held: "",
+        untaken: false,
+        resent: false,
+      },
     ]).items;
     expect(preview).toEqual({
       kind: "tool",

@@ -10177,6 +10177,11 @@
             "type": "string",
             "title": "Held",
             "default": ""
+          },
+          "resent": {
+            "type": "boolean",
+            "title": "Resent",
+            "default": false
           }
         },
         "type": "object",
@@ -10512,6 +10517,16 @@
             "type": "string",
             "title": "Held",
             "default": ""
+          },
+          "untaken": {
+            "type": "boolean",
+            "title": "Untaken",
+            "default": false
+          },
+          "resent": {
+            "type": "boolean",
+            "title": "Resent",
+            "default": false
           }
         },
         "type": "object",

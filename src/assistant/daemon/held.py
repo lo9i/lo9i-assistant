@@ -70,7 +70,7 @@ class _AppRuns:
 
     async def replay(self, run: HeldRun) -> None:
         session = Session(settings.owner_id, run.channel, run.thread_id, run.origin)
-        shown = {"text": run.text, "notice": run.notice, "brief": run.brief, "held": run.id}
+        shown = {"text": run.text, "notice": run.notice, "brief": run.brief, "resent": run.resent, "held": run.id}
         started = self._hub.start(run.thread_id, self._service.run_held(session, run), run.channel, **shown)
         if dispatched := await self._until_finished(started):
             await self._send_on(run, dispatched)

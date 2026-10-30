@@ -12,6 +12,8 @@
   daemon writes it before the worker starts.
 - inbox/: what the user sends the task while it works. The worker makes the folder once it takes them;
   the daemon writes each message in it as a file of its own, then wakes the worker (workers.wake).
+- sent_on: the messages it ended without taking went to the agent next (AgentTasks.take_waiting). The daemon
+  writes it.
 - worker.log: the worker's output, for finding out why one failed.
 
 Every file has one writer, so the daemon and the worker never race on one. A task's state comes from
@@ -44,6 +46,7 @@ _CONTEXT = "context.json"
 _STOPPED = "stopped"
 _CONVERSATION = "conversation"
 _INBOX = "inbox"
+_SENT_ON = "sent_on"
 # How long a task may go without its worker's pid before it counts as a worker that never started.
 _START_SECONDS = 60
 
@@ -195,6 +198,13 @@ class TaskStore:
             if passed.get(path.stem, True) and path.stem not in taken
         ]
         return [untaken for untaken in left if untaken.message.get("kind") == "message"]
+
+    def mark_sent_on(self, task_id: str) -> None:
+        (self.folder(task_id) / _SENT_ON).write_text(_now())
+
+    def sent_on(self, task_id: str) -> bool:
+        """The messages it didn't take went to the agent next already (`mark_sent_on`)."""
+        return (self.folder(task_id) / _SENT_ON).exists()
 
     def progress_after(self, task_id: str, seen: int) -> list[str]:
         """The task's progress lines after the first `seen`, for following it as it goes."""

@@ -114,11 +114,18 @@ class HandoffsMixin(RunsMixin):
             raise HandoffError(str(e)) from e
 
     async def _handed_off(
-        self, session: Session, handoff: Handoff, message: HumanMessage, said: str, text: str = "", brief: str = ""
+        self,
+        session: Session,
+        handoff: Handoff,
+        message: HumanMessage,
+        said: str,
+        text: str = "",
+        brief: str = "",
+        resent: bool = False,
     ) -> AsyncIterator[Event]:
-        """`text` and `brief`: what the run is announced with, as `_run` takes them."""
+        """`text`, `brief` and `resent`: what the run is announced with, as `_run` takes them."""
         kept = held.kept_agent_turn(message, said)
-        again = HeldRun(session.thread_id, session.channel, kept, text, brief, origin=session.origin)
+        again = HeldRun(session.thread_id, session.channel, kept, text, brief, resent=resent, origin=session.origin)
         async for event in self._run_with(session, lambda: self._agent_turn(session, handoff, message, said), again):
             yield event
 
@@ -139,6 +146,7 @@ class HandoffsMixin(RunsMixin):
             reply = await asking
         except HandoffError as e:
             await self._keep_turn(session, message, steps, str(e), answered=False)
+            await to_the_end(self._send_waiting_next(session, handoff))
             for event in [*steps.end("Failed"), Error(str(e))]:
                 yield event
             await self._agent_finished(session, handoff, False, str(e))
@@ -147,8 +155,7 @@ class HandoffsMixin(RunsMixin):
             # To the end: a second cancel (the reader gone too) mustn't lose what the user sent, and the run ends
             # only once it's written.
             await to_the_end(self._keep_unanswered(session, message, steps, asking, reported, _ended(handoff, e)))
-            if isinstance(e, asyncio.CancelledError):
-                await to_the_end(self._send_waiting_next(session, handoff))
+            await to_the_end(self._send_waiting_next(session, handoff))
             raise
         for event in steps.end("Done"):
             yield event
@@ -174,12 +181,13 @@ class HandoffsMixin(RunsMixin):
         await self._keep_turn(session, message, steps, note, answered=False)
 
     async def _send_waiting_next(self, session: Session, handoff: Handoff) -> None:
-        """The run was stopped: what the user sent the agent meanwhile that it hadn't got to goes to it next, together
-        as one message continuing its session, the conversation still handed to it. The daemon sends it once this run
-        has ended (daemon/queued.py)."""
-        left = await self.agent_tasks.waiting(handoff.server, session.thread_id, handoff.folder)
+        """The run was stopped or failed: what the user sent the agent meanwhile that it hadn't got to goes to it next,
+        together as one message continuing its session, the conversation still handed to it, shown as those messages
+        sent again (core/conversation/resent.py). The daemon sends it once this run has ended (daemon/queued.py). A
+        failed task's go too: the user wrote them for the agent, and nothing else would answer them."""
+        left = await self.agent_tasks.take_waiting(handoff.server, session.thread_id, handoff.folder)
         if left:
-            waiting = Queued(session.channel, sent.said(left), files=sent.files(left))
+            waiting = Queued(session.channel, sent.said(left), files=sent.files(left), resent=True)
             await queued.add(self._storage.store, session.user_id, session.thread_id, waiting)
 
     async def _keep_turn(

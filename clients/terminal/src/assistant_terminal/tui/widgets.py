@@ -13,16 +13,33 @@ from textual.widgets import Collapsible, Markdown, Static
 from assistant.client.errors import DaemonUnavailableError
 from assistant.core.agent import ConversationError, ConversationStats, MemorySnapshot, ShownCall
 from assistant_terminal.context_text import detail, fuel
-from assistant_terminal.i18n import t
+from assistant_terminal.i18n import t, translatable
 from assistant_terminal.profile_text import section_label
 
 _FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
 
+# Said after a message the user sent a handed-off agent while it worked (UserSaid.waiting), until it takes it.
+WAITING = translatable("waiting for the agent to get to it")
+# The run ended before the agent got to it: it went to the agent as the next message.
+UNTAKEN = translatable("not taken: sent again below")
+# The messages it hadn't taken, as that next message (core/conversation/resent.py).
+RESENT = translatable("sent again")
+
+
 class UserMessage(Static):
-    def __init__(self, text: str, attachments: list[str]) -> None:
-        lines = [f"> {escape(text)}", *(f"  📎 {escape(name)}" for name in attachments)]
-        super().__init__("\n".join(lines))
+    """What the user wrote; `note`, dimmed under it, says where a message to a handed-off agent is (WAITING, ...)."""
+
+    def __init__(self, text: str, attachments: list[str], note: str = "") -> None:
+        self._lines = [f"> {escape(text)}", *(f"  📎 {escape(name)}" for name in attachments)]
+        super().__init__(self._shown(note))
+
+    def note(self, note: str) -> None:
+        """Shows `note`, a translatable text, under it instead; none for ""."""
+        self.update(self._shown(note))
+
+    def _shown(self, note: str) -> str:
+        return "\n".join([*self._lines, *([f"[dim]  {escape(t(note))}[/dim]"] if note else [])])
 
 
 class TranscriptNote(Static):

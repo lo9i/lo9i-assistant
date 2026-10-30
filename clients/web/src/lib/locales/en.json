@@ -1288,6 +1288,9 @@
     "thinking": "Thinking",
     "taskFor": "Task for {agent}",
     "fromInbox": "From the inbox",
+    "waiting": "Waiting for the agent to get to it",
+    "untaken": "Not taken: sent again below",
+    "resent": "Sent again",
     "stoppedTag": "stopped",
     "steps": {
       "one": "{count} step",
