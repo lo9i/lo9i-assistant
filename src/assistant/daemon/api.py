@@ -131,6 +131,7 @@ from assistant.daemon.auth import (
 from assistant.daemon.channel_runs import ChannelRuns
 from assistant.daemon.clients import ClientRegistry
 from assistant.daemon.launchd import StartupError
+from assistant.daemon.run_follows import RunFollows, StreamKey
 from assistant.daemon.runs import Run, RunHub
 from assistant.daemon.shutdown import Ending
 from assistant.daemon.web_ui import BUILD_DIR, add_web_ui, is_web_ui
@@ -287,6 +288,12 @@ class SpeechChange(BaseModel):
 class SpokenRepliesChange(BaseModel):
     spoken_replies: SpokenReplies
     voice: str
+
+
+class FollowRun(BaseModel):
+    run_id: str
+    # How many of the run's events the client has: its events after them are sent.
+    after: int = 0
 
 
 class SpeakRequest(BaseModel):
@@ -566,10 +573,12 @@ def create_app(
         service.bus, leave=partial(service.leave_thread, settings.owner_id), gone=service.unwatch_home
     )
     streams = streams or DeviceStreams()
+    follows = RunFollows(hub)
     add_device_routes(app, service, streams)
-    _add_client_routes(app, service, clients, streams)
+    _add_client_routes(app, service, clients, streams, follows)
     _add_session_routes(app, service, clients)
     _add_run_routes(app, service, hub, clients, streams)
+    _add_run_follow_routes(app, hub, follows)
     _add_conversation_routes(app, service, clients)
     _add_pinned_skill_routes(app, service)
     _add_memory_routes(app, service)
@@ -656,21 +665,42 @@ def _add_security_headers(app: FastAPI) -> None:
 
 
 def _add_client_routes(
-    app: FastAPI, service: AssistantService, clients: ClientRegistry, streams: DeviceStreams
+    app: FastAPI, service: AssistantService, clients: ClientRegistry, streams: DeviceStreams, follows: RunFollows
 ) -> None:
     @app.get("/events", response_class=EventSourceResponse, responses=_EVENT_STREAM)
     async def events(request: Request, after: int | None = None) -> EventSourceResponse:
         """Everything that changes while no run is open: memory, skills, jobs, integrations, runs
         started from other channels. Clients keep this open for their whole session, so it also
         tells which clients are connected. A new connection starts from now; a reconnection sends
-        the last id it received and gets what it missed."""
+        the last id it received and gets what it missed. The runs the client follows
+        (`PUT /events/runs/<id>`) come down it too."""
         start = resume_point(service.bus.last_id, request.headers.get("last-event-id"), after)
-        events = _bus_events(service, start, clients, _client(request))
+        events = follows.events(_stream_key(request), _bus_events(service, start, clients, _client(request)))
         return EventSourceResponse(streams.guard(events, device_of(request)), ping=15)
 
     @app.get("/clients")
     async def connected_clients() -> list[ConnectedClient]:
         return clients.list()
+
+
+def _add_run_follow_routes(app: FastAPI, hub: RunHub, follows: RunFollows) -> None:
+    @app.put("/events/runs/{follow_id}")
+    async def follow_run(follow_id: str, body: FollowRun, request: Request) -> Ok:
+        """Sends a run's events after `after` down this client's /events stream (`run_events`, then `run_end`), so a
+        browser follows every run on the one connection (daemon/run_follows.py). Asked again under the same id, as
+        after the stream reconnected, it starts again from `after`."""
+        if not _client_id(request):
+            raise HTTPException(400, "Only a client that names itself (X-Lo9i-Client-Id) has a stream to follow on")
+        run = hub.get(body.run_id)
+        if run is None:
+            raise HTTPException(404, "Unknown or expired run")
+        follows.follow(_stream_key(request), follow_id, run, body.after)
+        return Ok()
+
+    @app.delete("/events/runs/{follow_id}")
+    async def unfollow_run(follow_id: str, request: Request) -> Ok:
+        follows.stop(_stream_key(request), follow_id)
+        return Ok()
 
 
 def _add_session_routes(app: FastAPI, service: AssistantService, clients: ClientRegistry) -> None:
@@ -2024,6 +2054,12 @@ def resume_point(last_id: int, last_event_id: str | None, after: int | None) -> 
 
 def _client_id(request: Request) -> str:
     return request.headers.get(CLIENT_ID_HEADER, "")
+
+
+def _stream_key(request: Request) -> StreamKey:
+    """Whose /events stream: a client's on its device, so no other device can send to it."""
+    device = device_of(request)
+    return device.id if device else "", _client_id(request)
 
 
 def _client(request: Request) -> tuple[str, str, str, str]:

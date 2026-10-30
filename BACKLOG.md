@@ -31,6 +31,7 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 - A15. On macOS a daemon started by hand while start at boot is on can't be stopped from the apps (`launchd.Beside` refuses): launchd keeps trying to start the LaunchDaemon, and stopping its tries needs an administrator. Ask for the password, as turning start at boot on does, and stop them.
 - A37. Runs kept while an update installs (`core/conversation/held.py`) aren't in the conversation's history (`GET /conversations/<id>/live`) until they run: a page reloaded, or a conversation opened, during the update doesn't show the message waiting. List them there, marked as waiting for the update.
 - A38. A message written in the inbox during an update, sent on after it (`daemon/held.py`), goes to its conversation without the app that sent it: the terminal app stays on the inbox and a web quick button's panel shows only the inbox's line. Tell that client where it went (a `Dispatched` it acts on), as when it sent the message itself.
+- A40. The web app's Logs page still follows a log on a stream of its own (`/logs/<name>/follow`), a second HTTP/1.1 connection per tab showing it. Several tabs on Logs, with the others' event streams, can still use up a browser's six connections to a plain-HTTP origin. Send the followed log down the tab's `/events` stream as runs are (`daemon/run_follows.py`).
 
 ## MCP
 

@@ -1,7 +1,8 @@
 // The daemon's HTTP API for the web UI, grouped like src/assistant/client/daemon_client: the
 // conversation on the client, every other area as a group.
 import type { components } from "./schema";
-import { resumableEventBatches, resumableEvents, type ReconnectPolicy } from "./reconnect";
+import { resumableEvents, type ReconnectPolicy } from "./reconnect";
+import { RunStreams } from "./runStreams";
 import type { Transport } from "./transport";
 import type {
   Agent,
@@ -89,10 +90,6 @@ import type {
 
 type Schemas = components["schemas"];
 
-// Sent after a run's last event (END in src/assistant/protocol.py).
-const END = "end";
-// A run is short-lived; if the daemon stays away this long, the reply is reported as lost.
-const RUN_RECONNECT: ReconnectPolicy = { delayMs: 1000, attempts: 5 };
 // The web UI keeps the bus stream for its whole session, so it waits out a daemon restart.
 const BUS_RECONNECT: ReconnectPolicy = { delayMs: 2000 };
 // A followed log waits out a daemon restart too; each reconnection starts with a new page.
@@ -1026,7 +1023,12 @@ export class DaemonClient {
   readonly logs: LogsGroup;
   readonly language: LanguageGroup;
 
-  constructor(private readonly transport: Transport) {
+  /** The runs this client follows, over the event stream `transport` reads: a tab's other clients (partClientId)
+   * share its own's, since only it reads a stream. */
+  constructor(
+    private readonly transport: Transport,
+    readonly following: RunStreams = new RunStreams(transport),
+  ) {
     this.conversations = new ConversationsGroup(transport);
     this.files = new FilesGroup(transport);
     this.identity = new IdentityGroup(transport);
@@ -1122,27 +1124,28 @@ export class DaemonClient {
     return (await this.transport.request<Schemas["CancelResult"]>("POST", `${thread(session)}/cancel`)).cancelled;
   }
 
-  /** A run's events from its first, reconnecting if the connection drops. */
+  /** A run's events from its first, over the event stream (`events`), which must be read for them to come. */
   async *followRun(runId: string, signal: AbortSignal): AsyncGenerator<RunEvent> {
     for await (const batch of this.followRunBatches(runId, signal)) yield* batch;
   }
 
   /** `followRun`'s events in the batches they arrived in: following a run from its start, its past events come at
    * once, and the chat applies them in one go instead of updating the page for each. */
-  async *followRunBatches(runId: string, signal: AbortSignal): AsyncGenerator<RunEvent[]> {
-    for await (const batch of resumableEventBatches(this.transport, `/runs/${runId}/events`, RUN_RECONNECT, signal)) {
-      const end = batch.findIndex((event) => event.event === END);
-      const events = (end < 0 ? batch : batch.slice(0, end)).map((event) => JSON.parse(event.data) as RunEvent);
-      if (events.length) yield events;
-      if (end >= 0) return;
-    }
+  followRunBatches(runId: string, signal: AbortSignal): AsyncGenerator<RunEvent[]> {
+    return this.following.follow(runId, signal);
   }
 
   /** Daemon events from now on, for as long as `signal` isn't aborted, resuming after a daemon restart.
-   * `onOpen` is called each time the stream opens, after a restart too. */
+   * `onOpen` is called each time the stream opens, after a restart too. The events of the runs this client follows
+   * come down it as well, and go to them (`following`) instead. */
   async *events(signal: AbortSignal, onOpen?: () => void, onLost?: () => void): AsyncGenerator<BusEvent> {
-    for await (const event of resumableEvents(this.transport, "/events", BUS_RECONNECT, signal, "", onOpen, onLost)) {
-      yield { kind: event.event, data: JSON.parse(event.data) };
+    const opened = () => {
+      onOpen?.();
+      this.following.reopened();
+    };
+    for await (const event of resumableEvents(this.transport, "/events", BUS_RECONNECT, signal, "", opened, onLost)) {
+      const data = JSON.parse(event.data) as Record<string, unknown>;
+      if (!this.following.receive(event.event, data)) yield { kind: event.event, data };
     }
   }
 }

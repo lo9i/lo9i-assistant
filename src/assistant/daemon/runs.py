@@ -82,17 +82,24 @@ class RunHub:
 
     async def follow(self, run: Run, after: int) -> AsyncIterator[tuple[int, dict[str, Any] | None]]:
         """(event id, event) for events after `after`, then (id, None) once the run is finished."""
+        async for start, pending, finished in self.batches(run, after):
+            for index, event in enumerate(pending, start + 1):
+                yield index, event
+            if finished:
+                yield start + len(pending) + 1, None
+
+    async def batches(self, run: Run, after: int) -> AsyncIterator[tuple[int, list[dict[str, Any]], bool]]:
+        """(events before them, the events, whether they're the run's last) each time it has news after `after`,
+        until it's finished."""
         index = after
         while True:
             async with run.changed:
                 await run.changed.wait_for(partial(_has_news, run, index))
                 pending, finished = run.events[index:], run.finished
-            for event in pending:
-                index += 1
-                yield index, event
-            if finished and index >= len(run.events):
-                yield index + 1, None
+            yield index, pending, finished
+            if finished:
                 return
+            index += len(pending)
 
     async def _consume(self, run: Run, events: AsyncIterator[Event]) -> None:
         try:
