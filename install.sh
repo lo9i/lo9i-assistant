@@ -78,8 +78,9 @@ ask_provider() {
   say "  1) Anthropic API key"
   say "  2) GitHub Copilot subscription (a GitHub token with Copilot access)"
   say "  3) OpenAI-compatible API (OpenAI, Ollama, others)"
+  say "  4) OpenRouter API key (many providers' models)"
   local choice=""
-  until [[ "$choice" =~ ^[123]$ ]]; do
+  until [[ "$choice" =~ ^[1234]$ ]]; do
     read -r -p "Choice [1]: " choice </dev/tty
     choice="${choice:-1}"
   done
@@ -88,6 +89,8 @@ ask_provider() {
     2) printf 'PROVIDER=copilot\nCOPILOT_GITHUB_TOKEN=%s\nMODEL=claude-opus-5.5\nWORKER_MODEL=claude-sonnet-5.5\n' \
          "$(secret 'GitHub token')" ;;
     3) openai_settings ;;
+    4) printf 'PROVIDER=openrouter\nOPENROUTER_API_KEY=%s\nMODEL=anthropic/claude-opus-5.5\nWORKER_MODEL=anthropic/claude-sonnet-5.5\n' \
+         "$(secret 'OpenRouter API key')" ;;
   esac
 }
 

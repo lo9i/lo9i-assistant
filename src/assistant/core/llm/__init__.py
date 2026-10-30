@@ -1,5 +1,5 @@
-"""Chat model construction per provider. Anthropic, Copilot and OpenAI-compatible servers have their
-own builders (prompt caching, the token exchange, server URLs); every other provider in
+"""Chat model construction per provider. Anthropic, Copilot, OpenAI-compatible servers and OpenRouter have
+their own builders (prompt caching, the token exchange, server URLs, reasoning and headers); every other provider in
 core/llm/providers.py is built by LangChain's `init_chat_model` from the values the user gave.
 
 Every model uses output_version="v1": AI messages are stored in checkpoints as LangChain
@@ -23,7 +23,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, SecretStr
 
 from assistant.core.config import settings
-from assistant.core.llm import connections, copilot
+from assistant.core.llm import connections, copilot, openrouter
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.providers import CACHE_ONE_HOUR, PROMPT_CACHE, provider
 
@@ -114,6 +114,10 @@ def _copilot(choice: ModelChoice, model: str) -> BaseChatModel:
     return copilot.chat_model(model, choice.values.get("api_key", ""), settings.max_tokens)
 
 
+def _openrouter(choice: ModelChoice, model: str) -> BaseChatModel:
+    return openrouter.chat_model(model, choice.values.get("api_key", ""), settings.max_tokens)
+
+
 def _langchain(choice: ModelChoice, model: str) -> BaseChatModel:
     known = provider(choice.provider)
     if known is None:
@@ -141,4 +145,5 @@ _BUILDERS: dict[str, Callable[[ModelChoice, str], BaseChatModel]] = {
     "anthropic": _anthropic,
     "openai": _openai,
     "copilot": _copilot,
+    "openrouter": _openrouter,
 }

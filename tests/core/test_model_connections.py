@@ -1,5 +1,5 @@
 """Connections to model providers notice when they died (core/llm/connections.py): TCP keepalive on the
-HTTP clients the Copilot and OpenAI-compatible models use, so a call on a connection that died while the
+HTTP clients the Copilot, OpenAI-compatible and OpenRouter models use, so a call on a connection that died while the
 computer slept fails within a minute of waking, instead of after its 600s read timeout counted awake."""
 
 import asyncio
@@ -22,7 +22,7 @@ def test_connections_probe_the_provider_once_idle():
     assert 30 in options.values()  # the idle time before the first probe, named per system
 
 
-@pytest.mark.parametrize("provider", ["copilot", "openai"])
+@pytest.mark.parametrize("provider", ["copilot", "openai", "openrouter"])
 def test_the_models_built_here_use_those_connections(provider, monkeypatch):
     made: list[httpx.AsyncHTTPTransport] = []
 

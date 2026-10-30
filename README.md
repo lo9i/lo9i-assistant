@@ -2,7 +2,7 @@
 
 **Your own AI assistant, running on your computer.** Chat with it from Telegram, WhatsApp, Slack, the web or the terminal, and it handles your email, calendar, bills, servers and code. It remembers you across all of them.
 
-Works with an Anthropic key, any OpenAI-compatible API (including Ollama), or **just a GitHub Copilot subscription**.
+Works with an Anthropic key, an OpenRouter key, any OpenAI-compatible API (including Ollama), or **just a GitHub Copilot subscription**.
 
 ![lo9i web app](https://lo9i.com.ar/img/web-delegate.webp)
 
@@ -35,7 +35,7 @@ It downloads the assistant into `~/lo9i-assistant`, installs uv and the dependen
 - macOS or Linux
 - git and curl; the installer adds [uv](https://docs.astral.sh/uv/) and Python 3.12
 - Node.js, only to build the web app (without it, the web app isn't built)
-- A model provider: an Anthropic API key, an OpenAI-compatible API, or a GitHub Copilot subscription
+- A model provider: an Anthropic API key, an OpenRouter API key, an OpenAI-compatible API, or a GitHub Copilot subscription
 
 ## Setup from a checkout
 
@@ -52,6 +52,7 @@ The model provider is set in the app (`/model`, or Settings → General → Mode
 | Anthropic (default) | `ANTHROPIC_API_KEY` |
 | OpenAI-compatible | `PROVIDER=openai`, `OPENAI_API_KEY`, and `OPENAI_BASE_URL` for other servers (Ollama) |
 | GitHub Copilot | `PROVIDER=copilot`, `COPILOT_GITHUB_TOKEN`, and Copilot model ids (`MODEL=claude-opus-5.5`) |
+| OpenRouter | `PROVIDER=openrouter`, `OPENROUTER_API_KEY`, and OpenRouter model ids (`MODEL=anthropic/claude-opus-5.5`) |
 
 Other settings are listed in `.env.example`.
 
