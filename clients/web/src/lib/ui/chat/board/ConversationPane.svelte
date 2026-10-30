@@ -20,7 +20,8 @@
     /** Cmd+F finds in it: the pane the user is in. */
     findable: boolean;
     onmaximize: () => void;
-    onopen: () => void;
+    /** Given where it isn't Chat's conversation page already (a card full screen): opening it there. */
+    onopen?: () => void;
     /** /clear in it: a new conversation in its place. */
     onclear: () => void;
     /** It's pinned to Home. */
@@ -34,7 +35,7 @@
 </script>
 
 <section class="pane" class:maximized aria-label={title}>
-  <!-- Dragging is the mouse's way to reorder; closing and opening side by side again does it from the keyboard. -->
+  <!-- Dragging is the mouse's way to reorder; closing and opening beside again does it from the keyboard. -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <header draggable={ondragstart !== undefined && !maximized} {ondragstart} class:movable={ondragstart && !maximized}>
     {#if ondragstart && !maximized}<span class="grip" aria-hidden="true" title={t("board.move")}><GripVertical size={14} /></span>{/if}
@@ -42,9 +43,11 @@
     <StatusPill {status} />
     <span class="spacer"></span>
     <PinToHome {pinned} ontoggle={onpin} />
-    <button class="btn btn--ghost btn--icon btn--sm" aria-label={t("board.openFull")} title={t("board.openFull")} onclick={onopen}
-      ><ExternalLink size={14} /></button
-    >
+    {#if onopen}
+      <button class="btn btn--ghost btn--icon btn--sm" aria-label={t("board.openFull")} title={t("board.openFull")} onclick={onopen}
+        ><ExternalLink size={14} /></button
+      >
+    {/if}
     <button
       class="btn btn--ghost btn--icon btn--sm"
       aria-label={maximized ? t("board.restore") : t("board.maximize")}

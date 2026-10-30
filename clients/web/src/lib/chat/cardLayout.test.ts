@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   beforeOf,
+  besideOf,
+  columnsOf,
   initial,
   MAX_PANES,
   MIN_WIDTH,
@@ -94,6 +96,34 @@ describe("panes", () => {
   });
 });
 
+describe("conversations beside the one shown", () => {
+  it("shows the one shown alone until another opens beside it", () => {
+    expect(columnsOf(initial, "a")).toEqual(["a"]);
+    const two = besideOf(initial, "a", "b");
+    expect(two.panes).toEqual(["a", "b"]);
+    expect(columnsOf(two, "b")).toEqual(["a", "b"]);
+  });
+
+  it("adds to the columns the shown one is in, once, and never itself", () => {
+    const two = besideOf(initial, "a", "b");
+    expect(besideOf(two, "b", "c").panes).toEqual(["a", "b", "c"]);
+    expect(besideOf(two, "a", "b")).toBe(two);
+    expect(besideOf(two, "a", "a")).toBe(two);
+  });
+
+  it("starts new columns from one shown that isn't in them, keeping the old ones for when they're shown again", () => {
+    const two = besideOf(initial, "a", "b");
+    expect(columnsOf(two, "x")).toEqual(["x"]);
+    expect(besideOf(two, "x", "y").panes).toEqual(["x", "y"]);
+  });
+
+  it(`keeps the one shown when there are ${MAX_PANES} already: the last other one gives way`, () => {
+    const full = besideOf(besideOf(initial, "a", "b"), "a", "c");
+    expect(besideOf(full, "c", "d").panes).toEqual(["a", "c", "d"]);
+    expect(besideOf(full, "a", "d").panes).toEqual(["a", "b", "d"]);
+  });
+});
+
 describe("resizing", () => {
   it("drags a divider, the two panes beside it sharing their width", () => {
     const widths = resized([0.4, 0.4, 0.2], 0, 0.1);
@@ -139,7 +169,6 @@ describe("keeping the layout", () => {
       order: ["b", "a"],
       panes: ["a", "b"],
       widths: [0.6, 0.4],
-      cardsBeside: false,
       maximized: "a",
     };
     expect(parsed(serialized(layout))).toEqual({ ...layout, maximized: null });
@@ -157,6 +186,5 @@ describe("keeping the layout", () => {
     expect(layout.order).toBeNull();
     expect(layout.panes).toEqual(["a", "b", "c"]);
     expect(layout.widths.map((w) => w.toFixed(3))).toEqual(["0.333", "0.333", "0.333"]);
-    expect(layout.cardsBeside).toBe(true);
   });
 });
