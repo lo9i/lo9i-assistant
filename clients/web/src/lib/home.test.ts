@@ -10,6 +10,7 @@ import {
   linked,
   moved,
   movedBefore,
+  packed,
   snappedColumns,
   updatedLabel,
   whileVisible,
@@ -65,6 +66,17 @@ describe("a card's width", () => {
 
   it("is saved with its section", () => {
     expect(withColumns([section("a"), section("b")], "b", 2).map((s) => s.columns)).toEqual([0, 2]);
+  });
+
+  it("keeps the saved order: a card that doesn't fit starts the next row, and the one before it fills its row", () => {
+    // Three columns: a and b fill the first row; d (two) doesn't fit after c, so c widens to the whole row.
+    expect(packed([1, 2, 2, 2, 1], 3)).toEqual([1, 2, 3, 2, 1]);
+    expect(packed([2, 2, 1], 3)).toEqual([3, 2, 1]);
+    // The last row keeps its widths; a card never asks for more than the page has.
+    expect(packed([1, 1], 4)).toEqual([1, 1]);
+    expect(packed([4, 3, 1], 2)).toEqual([2, 2, 1]);
+    expect(packed([2, 1, 2], 1)).toEqual([1, 1, 1]);
+    expect(packed([], 3)).toEqual([]);
   });
 });
 

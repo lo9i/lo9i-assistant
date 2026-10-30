@@ -65,6 +65,26 @@ export function snappedColumns(width: number, column: number, gap: number, avail
   return Math.max(1, Math.min(columns, available, MAX_COLUMNS));
 }
 
+/** The columns each card takes on a page `available` columns wide, the cards in their saved order: each as many as
+ * it asks for (`spans`) that the page has, row after row in order. A card that doesn't fit in what its row has left
+ * starts the next row, and the card before it widens to fill its row, so no card moves up into a hole and the page
+ * shows them in the order Move up and Move down change. The last row keeps its cards' widths. */
+export function packed(spans: number[], available: number): number[] {
+  const columns = Math.max(1, available);
+  const placed: number[] = [];
+  let used = 0;
+  for (const span of spans) {
+    const wide = Math.max(1, Math.min(span, columns));
+    if (used + wide > columns) {
+      placed[placed.length - 1] += columns - used;
+      used = 0;
+    }
+    placed.push(wide);
+    used += wide;
+  }
+  return placed;
+}
+
 /** "Updated 10:32" today, "Updated Wed 21 Oct 18:05" before; "" before the first refresh. */
 export function updatedLabel(at: string, now: Date, timezone = Intl.DateTimeFormat().resolvedOptions().timeZone): string {
   if (!at) return "";

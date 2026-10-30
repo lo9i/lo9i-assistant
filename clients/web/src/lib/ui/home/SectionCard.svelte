@@ -19,6 +19,8 @@
     card: HomeCard;
     // The width saved for it (0 for automatic), the one last asked for while a save is on its way.
     columns: number;
+    // The columns it takes on the page now: as many as it asks for that the page has, or more to fill its row.
+    placed: number;
     // The icon of the plugin it reads first; none when that isn't installed.
     icon?: Icon | null;
     // YYYY-MM-DD, to say when each item is.
@@ -45,6 +47,7 @@
   let {
     card,
     columns,
+    placed,
     icon = null,
     today,
     refreshing,
@@ -120,7 +123,7 @@
   class:maximized
   class:drop-before={drop === "before"}
   class:drop-after={drop === "after"}
-  data-span={span}
+  style:grid-column={maximized ? undefined : `span ${dragged ?? placed}`}
   bind:this={element}
   aria-label={card.section.title}
   {ondragover}
@@ -237,26 +240,11 @@
     display: inline-flex;
     color: var(--color-text-muted);
   }
-  /* A card spans the columns it was given (or two when it's busy) as far as the page has them: Home's columns are at
-   least 320px with 16px between them, so two from 656px, three from 992px, four from 1328px. On a narrow page
-   every card is one column, and there's nothing to resize. */
+  /* The page places it (`placed`). Home's columns are at least 320px with 16px between them, so there are two from
+   656px; on a narrower page every card is one column, and there's nothing to resize. */
   @container home-grid (min-width: 656px) {
-    .card:not([data-span="1"]) {
-      grid-column: span 2;
-    }
     .resize {
       display: block;
-    }
-  }
-  @container home-grid (min-width: 992px) {
-    .card[data-span="3"],
-    .card[data-span="4"] {
-      grid-column: span 3;
-    }
-  }
-  @container home-grid (min-width: 1328px) {
-    .card[data-span="4"] {
-      grid-column: span 4;
     }
   }
   .card {
