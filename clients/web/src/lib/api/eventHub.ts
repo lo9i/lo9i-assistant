@@ -1,5 +1,5 @@
 // Daemon events for the whole page: one /events stream, handed to whoever registered for a kind
-// (like src/assistant/gateways/cli/tui/live.py, but any part of the page can listen).
+// (like clients/terminal/src/assistant_terminal/tui/live.py, but any part of the page can listen).
 import type { DaemonClient } from "./client";
 import { isAbort } from "./errors";
 import type { BusEvent } from "./types";

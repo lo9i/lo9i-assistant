@@ -23,9 +23,13 @@ class Subagents(ABC):
     check a Protocol."""
 
     @abstractmethod
-    async def run(self, task: str, context: "Context", call_id: str, plugins: Collection[str]) -> SubagentAnswer:
+    async def run(
+        self, task: str, context: "Context", call_id: str, plugins: Collection[str], agent: str = ""
+    ) -> SubagentAnswer:
         """`call_id`: the delegate call's, which the subagent's tool events name. `plugins`: those the
-        conversation loaded (core/plugin_loading.py), whose read-only tools the subagent gets."""
+        conversation loaded (core/plugin_loading.py), whose read-only tools the subagent gets. `agent`: a named
+        subagent a plugin brings (core/mcp/subagents.py), "" for the general one; an unknown one raises
+        UnknownSubagentError."""
 
 
 class McpStarts(ABC):

@@ -92,6 +92,7 @@ def from_env() -> ModelChoice:
         "anthropic": settings.anthropic_api_key,
         "openai": settings.openai_api_key,
         "copilot": settings.copilot_github_token,
+        "openrouter": settings.openrouter_api_key,
     }
     values = {"api_key": keys[settings.provider]}
     if settings.provider == "openai" and settings.openai_base_url:

@@ -21,15 +21,24 @@
 {#each here as task (task.id)}
   <span class="working">
     <LoaderCircle size={13} class="spin" aria-hidden="true" />
-    <span><strong>{task.agent}</strong> {t("chat.isWorking", { since: duration(task.started_at, now) })}</span>
+    <span title="{task.agent} {t('chat.isWorking', { since: duration(task.started_at, now) })}"
+      ><strong>{task.agent}</strong> {t("chat.isWorking", { since: duration(task.started_at, now) })}</span
+    >
   </span>
 {/each}
 
 <style>
+  /* Gives way after the conversation's figures when the status bar runs short. */
   .working {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  .working > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .working :global(.spin) {
     flex: none;

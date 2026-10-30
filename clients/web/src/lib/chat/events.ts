@@ -1,4 +1,4 @@
-// The daemon events the chat reacts to, like src/assistant/gateways/cli/tui/live.py.
+// The daemon events the chat reacts to, like clients/terminal/src/assistant_terminal/tui/live.py.
 import type { EventHub } from "../api/eventHub";
 import type { RunAnnounced, RunFinished } from "../api/types";
 import type { ChatController } from "./controller";

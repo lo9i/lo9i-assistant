@@ -11,6 +11,7 @@ import {
   fromHistory,
   inlineArg,
   pinnable,
+  showedHeld,
   toolRunning,
   withWhole,
 } from "./transcript";
@@ -183,6 +184,14 @@ describe("transcript", () => {
     expect(inlineArg({ command: "ls", timeout: 5 })).toBeUndefined();
     expect(inlineArg({ todos: [] })).toBeUndefined();
     expect(inlineArg({})).toBeUndefined();
+  });
+
+  it("notes a message kept while an update installs, so its run later doesn't show it twice", () => {
+    const t = play([{ type: "Held", id: "h1" }]);
+    expect(t.items.map((i) => i.kind)).toEqual(["user", "held"]);
+    expect(showedHeld(t, "h1")).toBe(true);
+    expect(showedHeld(t, "h2")).toBe(false);
+    expect(showedHeld(t, undefined)).toBe(false);
   });
 
   it("starts a new message after the run ends", () => {

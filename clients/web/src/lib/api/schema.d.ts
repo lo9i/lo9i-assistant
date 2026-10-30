@@ -3028,6 +3028,11 @@ export interface components {
              * @default
              */
             message: string;
+            /**
+             * Messages
+             * @default []
+             */
+            messages: string[];
         };
         /** Device */
         Device: {
@@ -3450,6 +3455,11 @@ export interface components {
              * @default
              */
             oauth: string;
+            /**
+             * Subagent
+             * @default
+             */
+            subagent: string;
             icon?: components["schemas"]["PluginIcon"];
         };
         /**
@@ -4079,7 +4089,7 @@ export interface components {
         };
         /**
          * MemorySnapshot
-         * @description What the assistant currently knows about the user, in plain types for gateways.
+         * @description What the assistant currently knows about the user, in plain types for the apps.
          */
         MemorySnapshot: {
             /** Profile */
@@ -4572,6 +4582,11 @@ export interface components {
              * @default
              */
             brief: string;
+            /**
+             * Held
+             * @default
+             */
+            held: string;
         };
         /** RunRecord */
         RunRecord: {

@@ -5,7 +5,8 @@ the chat's id; /new under ("channel_new", user_id).
 
 Messages the assistant starts (send_message, the end of background work) go to the user's own chat
 (OWN_CHAT), whose real id the daemon doesn't know: they're kept under it, and a reply in any chat looks
-there too. A message sent to several paired Telegram accounts is known only by its id in the last one."""
+there too. A message sent to several paired Telegram accounts is kept by its id in each of them, as the channel
+lists them."""
 
 from langgraph.store.base import BaseStore
 

@@ -112,8 +112,7 @@
   {#if picked !== null}
     <FileText path={picked} {preview} error={previewError} onback={() => (picked = null)} />
   {:else}
-    <ChangedFiles changes={changes.data} {picked} onpick={pick} />
-    {#if changes.error}<p class="error-text note">{changes.error}</p>{/if}
+    <ChangedFiles changes={changes.data} error={changes.error} {picked} onpick={pick} />
     <div class="tree">
       <FolderLevel
         path=""
@@ -166,10 +165,6 @@
     overflow-y: auto;
     border-top: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
     padding-top: 6px;
-  }
-  .note {
-    margin: 0;
-    padding: 0 8px;
   }
   .spinning :global(svg) {
     animation: spin 0.8s linear infinite;

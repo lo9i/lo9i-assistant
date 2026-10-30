@@ -26,12 +26,13 @@ class Run:
     id: str
     thread_id: str
     channel: str = ""
-    # The client that started it, what the user wrote and the notice of a follow-up, as announced (`start`), and
-    # for a coding task the assistant wrote, its agent.
+    # The client that started it, what the user wrote and the notice of a follow-up, as announced (`start`), for a
+    # coding task the assistant wrote, its agent, and for a run kept while an update installed, its id.
     client_id: str = ""
     text: str = ""
     notice: str = ""
     brief: str = ""
+    held: str = ""
     events: list[dict[str, Any]] = field(default_factory=list)
     finished: bool = False
     changed: asyncio.Condition = field(default_factory=asyncio.Condition)
@@ -52,26 +53,21 @@ class RunHub:
         text: str = "",
         notice: str = "",
         brief: str = "",
+        held: str = "",
     ) -> Run:
         """Start consuming a run. Other clients hear about it on the bus, so a conversation shown
         in several places (two terminals, Telegram) updates everywhere. `client_id` names the
         client that started it, which already shows it. `text` is what the user wrote; `notice`, for a
         follow-up the assistant runs on its own (core/agent/follow_ups.py), what it follows up on, which the
         apps show where the user's message would be; `brief`, when `text` is a coding task the assistant wrote and
-        not the user (core/conversation/briefs.py), the agent it's for."""
-        run = Run(uuid4().hex, thread_id, channel=channel, client_id=client_id, text=text, notice=notice, brief=brief)
+        not the user (core/conversation/briefs.py), the agent it's for; `held`, for a run kept while an update
+        installed (core/conversation/held.py), the id its Held event gave, so an app that showed the user's
+        message then doesn't show it again."""
+        shown = {"client_id": client_id, "text": text, "notice": notice, "brief": brief, "held": held}
+        run = Run(uuid4().hex, thread_id, channel, client_id, text, notice, brief, held)
         self._runs[run.id] = run
         if self._bus is not None:
-            self._bus.publish(
-                "run",
-                run_id=run.id,
-                thread_id=thread_id,
-                channel=channel,
-                client_id=client_id,
-                text=text,
-                notice=notice,
-                brief=brief,
-            )
+            self._bus.publish("run", run_id=run.id, thread_id=thread_id, channel=channel, **shown)
         task = asyncio.create_task(self._consume(run, events))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)

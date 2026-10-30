@@ -16,6 +16,7 @@ from assistant.core.events import (
     Done,
     Error,
     Event,
+    Held,
     TextDelta,
     Thinking,
     ToolFinished,
@@ -27,6 +28,7 @@ from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.widgets import (
     AssistantMessage,
     ErrorMessage,
+    HeldNote,
     StatusLine,
     StoppedNote,
     ThinkingNote,
@@ -91,6 +93,8 @@ class TurnView:
             case Dispatched():
                 self.dispatched = event
                 await self._chat.mount(AssistantMessage(event.line))
+            case Held(held_id):
+                await self._chat.mount(HeldNote(held_id))
             case Error(message):
                 await self._chat.mount(ErrorMessage(message))
             case Cancelled():

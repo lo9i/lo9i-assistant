@@ -82,6 +82,16 @@ class FollowUpNote(Static):
         super().__init__(f"↳ {escape(notice)}", classes="follow-up-note")
 
 
+class HeldNote(Static):
+    """An update installs: what the user sent is kept, and runs once lo9i is back, announced with `held_id`."""
+
+    def __init__(self, held_id: str) -> None:
+        super().__init__(
+            "⏳ " + escape(t("An update is being installed. This runs once it's done.")), classes="follow-up-note"
+        )
+        self.held_id = held_id
+
+
 class ToolNote(Static):
     """A tool the assistant used, in a conversation shown again after resuming it."""
 

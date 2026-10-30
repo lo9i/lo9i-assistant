@@ -5,7 +5,7 @@ model id."""
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from assistant.core.llm import copilot
+from assistant.core.llm import copilot, openrouter
 
 
 @dataclass(frozen=True)
@@ -34,4 +34,14 @@ async def _copilot(values: dict[str, str]) -> list[ModelOption]:
         raise ModelListError(str(e)) from e
 
 
-_LISTERS: dict[str, Callable[[dict[str, str]], Awaitable[list[ModelOption]]]] = {"copilot": _copilot}
+async def _openrouter(values: dict[str, str]) -> list[ModelOption]:
+    try:
+        return [ModelOption(id, name) for id, name in await openrouter.list_models()]
+    except openrouter.OpenRouterError as e:
+        raise ModelListError(str(e)) from e
+
+
+_LISTERS: dict[str, Callable[[dict[str, str]], Awaitable[list[ModelOption]]]] = {
+    "copilot": _copilot,
+    "openrouter": _openrouter,
+}

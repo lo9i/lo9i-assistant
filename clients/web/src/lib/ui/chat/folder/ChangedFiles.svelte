@@ -6,8 +6,14 @@
 
   // The top of the side panel: what git says changed in the handed folder, each file opening its preview (not a
   // deleted one, nor an untracked folder, which git lists once for everything in it). Folded away with its heading.
-  type Props = { changes: FolderChanges | undefined; picked: string | null; onpick: (path: string) => void };
-  let { changes, picked, onpick }: Props = $props();
+  // `error` says why they couldn't be read: in place of Loading the first time, above the ones read before after.
+  type Props = {
+    changes: FolderChanges | undefined;
+    error?: string | null;
+    picked: string | null;
+    onpick: (path: string) => void;
+  };
+  let { changes, error = null, picked, onpick }: Props = $props();
   let folded = $state(false);
 </script>
 
@@ -18,8 +24,9 @@
     {#if changes?.changes.length}<span class="pill">{changes.changes.length}{changes.truncated ? "+" : ""}</span>{/if}
   </button>
   {#if !folded}
+    {#if error}<p class="note error-text">{error}</p>{/if}
     {#if !changes}
-      <p class="note text-caption">{t("common.loading")}</p>
+      {#if !error}<p class="note text-caption">{t("common.loading")}</p>{/if}
     {:else if !changes.repository}
       <p class="note text-caption">{t("handedFolder.notRepository")}</p>
     {:else if !changes.changes.length}

@@ -14,9 +14,10 @@ from assistant.core.agent.search import SearchMixin
 from assistant.core.agent.session import Session
 from assistant.core.agent.thread_files import ThreadFilesMixin
 from assistant.core.context import Context
-from assistant.core.conversation import failed
+from assistant.core.conversation import failed, held
+from assistant.core.conversation.held import HeldRun
 from assistant.core.conversation.oversized import ConversationTooLargeError
-from assistant.core.events import ApprovalRequired, Cancelled, Done, Error, Event, declined
+from assistant.core.events import ApprovalRequired, Cancelled, Done, Error, Event, Held, declined
 from assistant.core.health import HealthLog
 from assistant.core.skills.tracker import SkillScriptTracker
 from assistant.core.stream_events import approval_events, to_events
@@ -55,34 +56,52 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
             task.cancel()
         return len(running)
 
-    async def hold_runs(self, reason: str) -> None:
-        """Returns once no run is in progress, and from then on refuses new ones with `reason` (an Error event)
-        until `release_runs`: an update installs (daemon/updates.py), and a run started meanwhile would run the
-        old code against the new files."""
+    async def hold_runs(self) -> None:
+        """Returns once no run is in progress, and from then on keeps new ones instead of running them
+        (core/conversation/held.py), each answered with Held, until `release_runs`: an update installs
+        (daemon/updates.py), and a run started meanwhile would run the old code against the new files. The daemon
+        runs the kept ones once it's back on the update (daemon/held.py)."""
         while self._open_runs:
             await self._no_runs.wait()
-        self._held = reason
+        self._held = True
 
     def release_runs(self) -> None:
-        self._held = ""
+        """The update failed and nothing restarts: the runs kept meanwhile run now (a `runs_released` event)."""
+        self._held = False
+        self.bus.publish("runs_released")
+
+    def runs_held(self) -> bool:
+        return self._held
 
     async def until_no_runs(self) -> None:
         """Returns once no conversation has a run in progress, each one's cleanup done (a cancelled run's open tool
         calls answered, the conversation indexed and pruned), so the service can be closed after."""
         await self._no_runs.wait()
 
-    async def _run(self, session: Session, input: Any) -> AsyncIterator[Event]:
-        async for event in self._run_with(session, lambda: self._run_events(session, input)):
+    async def _run(
+        self, session: Session, input: Any, text: str = "", brief: str = "", notice: str = ""
+    ) -> AsyncIterator[Event]:
+        """`text`, `brief` and `notice`: what the run is announced with (daemon/runs.py), kept with it when runs are
+        held, so it's announced the same when it runs later."""
+        kept = held.kept_input(input)
+        again = HeldRun(session.thread_id, session.channel, kept, text, brief, notice, session.origin)
+        async for event in self._run_with(session, lambda: self._run_events(session, input), again):
             yield event
 
-    async def _run_with(self, session: Session, events: Callable[[], AsyncIterator[Event]]) -> AsyncIterator[Event]:
+    async def _run_with(
+        self, session: Session, events: Callable[[], AsyncIterator[Event]], again: HeldRun
+    ) -> AsyncIterator[Event]:
         """A run of the conversation: the graph's, or a handed-off agent's (handoffs.py). One at a time
-        per conversation, cancellable, and indexed (its messages and files) and pruned when it ends."""
+        per conversation, cancellable, and indexed (its messages and files) and pruned when it ends. While runs
+        are held, `again` is kept to run later instead (core/agent/held.py); one kept already (its id set) stops
+        being kept as it runs, and doesn't run when it ran already."""
         async with self._thread_lock(session.thread_id):
             # Checked with the lock held, right before counting the run: one waiting for the lock when runs were
-            # held is refused too.
+            # held is kept too.
             if self._held:
-                yield Error(self._held)
+                yield Held(again.id or await held.keep(self._storage.store, session.user_id, again))
+                return
+            if again.id and not await held.take(self._storage.store, session.user_id, again.id):
                 return
             with self._open_run():
                 await self._mark_start(session.thread_id)

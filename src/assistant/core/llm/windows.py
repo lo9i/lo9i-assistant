@@ -1,7 +1,7 @@
 """How many tokens a model takes in, its context window, which a conversation's context is measured against (the
 context bar, core/agent/usage.py; the doctor, core/doctor/context.py). Only measured: compaction still starts at
 EPOCH_MAX_TOKENS (core/conversation/epochs.py). The provider says where it lists its models with their windows
-(Anthropic, Copilot); for the others it isn't known, and the measure is EPOCH_MAX_TOKENS.
+(Anthropic, Copilot, OpenRouter); for the others it isn't known, and the measure is EPOCH_MAX_TOKENS.
 
 Learned once per model, when it's saved in the app or first measured, and kept in the Store; a provider that
 couldn't say isn't asked again until the daemon restarts."""
@@ -13,7 +13,7 @@ import anthropic
 from langgraph.store.base import BaseStore
 
 from assistant.core.config import settings
-from assistant.core.llm import copilot
+from assistant.core.llm import copilot, openrouter
 from assistant.core.llm.choice import ModelChoice
 
 logger = logging.getLogger(__name__)
@@ -30,9 +30,14 @@ async def _copilot(choice: ModelChoice, model: str) -> int | None:
     return await copilot.context_window(choice.values.get("api_key", ""), model)
 
 
+async def _openrouter(choice: ModelChoice, model: str) -> int | None:
+    return await openrouter.context_window(model)
+
+
 _LOOKUPS: dict[str, Callable[[ModelChoice, str], Awaitable[int | None]]] = {
     "anthropic": _anthropic,
     "copilot": _copilot,
+    "openrouter": _openrouter,
 }
 
 
@@ -63,7 +68,7 @@ class ContextWindows:
     async def _asked(self, choice: ModelChoice) -> int | None:
         try:
             return await _LOOKUPS[choice.provider](choice, choice.model)
-        except (anthropic.APIError, copilot.CopilotAuthError) as e:
+        except (anthropic.APIError, copilot.CopilotAuthError, openrouter.OpenRouterError) as e:
             # A refused key, no network or an unknown model leaves it unknown, as for a provider that doesn't say.
             logger.info("Couldn't learn the context window of %s: %s", choice.model, e)
             return None

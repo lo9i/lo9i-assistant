@@ -103,7 +103,8 @@
     "setUp": "Set up {name}",
     "modelTip": "Provider: {provider} · worker: {worker}",
     "agentIn": "{agent} in {folder}",
-    "backToAssistant": "Back to the assistant",
+    "backToAssistant": "Assistant",
+    "backToAssistantHint": "Back to the assistant: its own model answers again, with its memory and tools (/{command} off)",
     "approveTool": "Approve {tool}?",
     "approveAction": "Approve this action?",
     "rejectReason": "Reason, if you reject (optional)",
@@ -919,6 +920,7 @@
       "channel": "Channel",
       "email": "Email provider",
       "agent": "Coding agent",
+      "subagent": "Subagent",
       "page": "Page"
     },
     "remotely": "Remotely",
@@ -1234,6 +1236,7 @@
     "heard": "Heard ({language}): {text}",
     "somethingWrong": "Something went wrong",
     "stopped": "Stopped.",
+    "held": "An update is being installed. This runs once it's done.",
     "goToMessage": "Go to your message",
     "goToBottom": "Go to bottom"
   },

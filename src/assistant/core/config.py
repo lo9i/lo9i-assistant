@@ -45,12 +45,15 @@ class Settings(BaseSettings):
     # provider; the worker gets its own model so it can run cheaper.
     # copilot: Claude and other models through a GitHub Copilot subscription (core/llm/copilot.py),
     # with COPILOT_GITHUB_TOKEN. Model ids are Copilot's, e.g. claude-opus-5.5.
-    provider: Literal["anthropic", "openai", "copilot"] = "anthropic"
+    # openrouter: many providers' models through one OpenRouter key (core/llm/openrouter.py), with
+    # OPENROUTER_API_KEY. Model ids are OpenRouter's, e.g. anthropic/claude-opus-5.5.
+    provider: Literal["anthropic", "openai", "copilot", "openrouter"] = "anthropic"
     anthropic_api_key: str = ""
     openai_api_key: str = ""
     # Empty for OpenAI itself; another OpenAI-compatible server (Ollama: http://localhost:11434/v1).
     openai_base_url: str = ""
     copilot_github_token: str = ""
+    openrouter_api_key: str = ""
     model: str = "claude-opus-5-5"
     worker_model: str = "claude-opus-5-5"
     effort: str = "medium"

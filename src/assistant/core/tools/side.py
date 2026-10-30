@@ -20,11 +20,9 @@ from assistant.core.tools.registry import register
 @register("messages")
 @tool
 async def move_to_conversation(title: str, brief: str, runtime: ToolRuntime[Context]) -> str:
-    """Move work out of the inbox into a new conversation of its own; the user is taken there, nobody is
-    asked. The inbox only answers quick questions: use it as soon as what the user asks there will take more
-    than a couple of turns (a project, a long research, debugging something). `title`: a few words.
-    `brief`: everything the new conversation needs to pick the work up (the goal, names, paths, decisions
-    made so far, what the user just asked), since it has nothing of the inbox."""
+    """Move work out of the inbox into a new conversation, without asking, as soon as it will take more than a
+    couple of turns (a project, a long research, debugging). `title`: a few words. `brief`: everything the new
+    conversation needs, as it has nothing of the inbox (the writing-briefs skill)."""
     if runtime.context.unattended:
         return "Not moved: nobody is watching this scheduled run."
     store, user_id = require_store(runtime.store), runtime.context.user_id

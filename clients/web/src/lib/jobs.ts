@@ -1,4 +1,4 @@
-// Scheduled jobs as text, like src/assistant/gateways/cli/jobs_text.py.
+// Scheduled jobs as text, like clients/terminal/src/assistant_terminal/jobs_text.py.
 import cronstrue from "cronstrue";
 import "cronstrue/locales/es";
 import type { Job } from "./api/types";

@@ -10,7 +10,7 @@ import pytest
 from assistant.core.agent import Session
 from assistant.core.approvals import RemoteApprovals
 from assistant.core.channels.chat.conversations import GREETING, ChannelChats
-from assistant.core.channels.chat.port import ChatLimits
+from assistant.core.channels.chat.port import ChatLimits, Delivered
 from assistant.core.conversation.dispatch import Pick
 from assistant.core.events import Event, TextDelta
 from assistant.core.outbox import DeliveryError
@@ -28,13 +28,17 @@ class _Runs:
     def __init__(self, say: str = "", quiet_in: str = "") -> None:
         self.texts: list[str] = []
         self.briefs: list[str] = []
+        self.held: list[str] = []
         self._say = say
         # A conversation whose runs say nothing: the inbox, which sends a message on without a reply.
         self._quiet_in = quiet_in
 
-    async def follow(self, channel, thread_id, events: AsyncIterator[Event], text: str, brief: str = ""):
+    async def follow(
+        self, channel, thread_id, events: AsyncIterator[Event], text: str, brief: str = "", held: str = ""
+    ):
         self.texts.append(text)
         self.briefs.append(brief)
+        self.held.append(held)
         if self._say and thread_id != self._quiet_in:
             yield TextDelta(self._say)
         async for event in events:
@@ -53,7 +57,7 @@ class _Channel:
         if self.refuse:
             raise DeliveryError("telegram isn't connected.")
         self.ops.append((kind, data))
-        return str(len(self.ops)) if kind == "send" else ""
+        return Delivered(str(len(self.ops)) if kind == "send" else "")
 
     def limits(self, channel):
         return self._limits
@@ -256,3 +260,25 @@ async def test_an_agents_command_hands_the_channels_conversation_to_it_and_back(
     assert "isn't an existing folder" in await chats.command("telegram", "claude", str(tmp_path / "missing"))
     assert await chats.command("telegram", "claude", "off") == "The assistant answers again from your next message."
     assert await service.conversation_agent("owner", thread) is None
+
+
+async def test_a_message_sent_while_an_update_installs_is_kept_and_answered_in_its_chat_later(
+    service, channel, jobs, script
+):
+    side = await service.new_thread("owner")
+    # The user replies to a message of the side conversation's.
+    await service.chat_messages_in("owner", "telegram", "42", ["7"], side)
+    chats = ChannelChats(service, _Runs(), channel, jobs)
+    await service.hold_runs()
+    await chats.message("telegram", "42", "still there?", [], voice=False, reply_to="7", message="8")
+    assert channel.sent() == ["⏳ An update is being installed. I'll answer this once it's done."]
+    [kept] = await service.held_runs("owner")
+    assert (kept.thread_id, kept.origin.data) == (side, {"chat": "42", "message": "8", "voice": False})
+
+    service.release_runs()
+    script.reply("Back, and yes.")
+    runs = _Runs(say="Back, and yes.")
+    await ChannelChats(service, runs, channel, jobs).replay(kept)
+    assert channel.shown()[-1] == "[still there?] Back, and yes."
+    assert (runs.texts[-1], runs.held[-1]) == ("still there?", kept.id)
+    assert await service.chat_message_thread("owner", "telegram", "42", "8") == side

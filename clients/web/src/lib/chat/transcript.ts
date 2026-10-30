@@ -1,5 +1,5 @@
 // What the chat shows: past messages, then each run's events as they arrive (like
-// src/assistant/gateways/cli/tui/turn.py). Pure functions, so the rules are testable without a page.
+// clients/terminal/src/assistant_terminal/tui/turn.py). Pure functions, so the rules are testable without a page.
 import type { RunEvent, ShownCall, ShownMessage } from "../api/types";
 import { withoutMarkers } from "./choices";
 
@@ -14,6 +14,8 @@ export type ChatItem =
   | { kind: "carried"; id: number; text: string }
   // Background work that ended, which the assistant followed up on without a message from the user.
   | { kind: "notice"; id: number; text: string }
+  // An update installs: what the user sent is kept, and runs once lo9i is back (`heldId`, as its run says).
+  | { kind: "held"; id: number; heldId: string }
   | ToolItem
   | { kind: "transcript"; id: number; text: string; language: string }
   | { kind: "error"; id: number; message: string }
@@ -76,6 +78,12 @@ export function addBrief(t: Transcript, text: string, agent: string): Transcript
   return add({ ...t, streaming: null }, { kind: "brief", text, agent });
 }
 
+/** Whether this transcript showed what the user sent when it was kept for after an update (`heldId`): its run then
+ * doesn't show it again. */
+export function showedHeld(t: Transcript, heldId: string | undefined): boolean {
+  return heldId !== undefined && t.items.some((item) => item.kind === "held" && item.heldId === heldId);
+}
+
 /** Only what the user wrote is pinned over the thread as what the reply below answers: never a brief. */
 export function pinnable(item: ChatItem): item is Extract<ChatItem, { kind: "user" }> {
   return item.kind === "user";
@@ -101,6 +109,8 @@ export function apply(t: Transcript, event: RunEvent): Transcript {
     case "Dispatched":
       // As the inbox records it (core/conversation/dispatch_nodes.py), so history reads the same.
       return add(ended, { kind: "assistant", text: event.line, dispatchId: event.id });
+    case "Held":
+      return add(ended, { kind: "held", heldId: event.id });
     case "Error":
       return add(ended, { kind: "error", message: event.message });
     case "Cancelled":

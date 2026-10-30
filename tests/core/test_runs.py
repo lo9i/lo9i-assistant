@@ -4,7 +4,7 @@ import asyncio
 
 from langchain_core.messages import ToolMessage
 
-from assistant.core.events import MOVED_ON, ApprovalRequired, Done, Error, ToolFinished, ToolStarted
+from assistant.core.events import MOVED_ON, ApprovalRequired, Done, Held, ToolFinished, ToolStarted
 from tests.conftest import collect, written
 
 
@@ -98,12 +98,13 @@ async def test_runs_are_held_off_once_none_is_in_progress_until_released(service
     session = await service.session("u", "cli")
     running = asyncio.create_task(collect(service.send(session, "wait")))
     await written(tmp_path / "workspace" / "a.started")
-    holding = asyncio.create_task(service.hold_runs("lo9i is installing an update."))
+    holding = asyncio.create_task(service.hold_runs())
     await asyncio.sleep(0.05)
     assert not holding.done()  # it waits for the run in progress
     (tmp_path / "workspace" / "a").touch()
     await running
     await asyncio.wait_for(holding, 5)
-    assert await collect(service.send(session, "hello")) == [Error("lo9i is installing an update.")]
+    [held] = await collect(service.send(session, "hello"))
+    assert isinstance(held, Held) and service.runs_held()
     service.release_runs()
     assert isinstance((await collect(service.send(session, "hello")))[-1], Done)

@@ -11,6 +11,9 @@ A run that needs approval waits for the user's answer on a connected chat channe
 JOB_APPROVAL_MINUTES; the run's time limit doesn't count the wait. Runs in progress are kept in the
 Store (core/jobs/active.py): on start, a run the daemon stopped while it waited for approval asks
 again and goes on, and one stopped in the middle of anything else is recorded as failed.
+
+A run that starts while an update installs is kept instead (core/conversation/held.py) and stays active: it runs
+once the daemon is back on the update (`replay`, from daemon/held.py), recorded on its job as any run.
 """
 
 import asyncio
@@ -26,7 +29,9 @@ from assistant.core import notifications
 from assistant.core.agent import AssistantService, Session
 from assistant.core.config import settings
 from assistant.core.context import UNATTENDED_CHANNEL
-from assistant.core.events import ApprovalRequired, Error, Event, ToolFinished
+from assistant.core.conversation import held
+from assistant.core.conversation.held import HeldRun, Origin
+from assistant.core.events import ApprovalRequired, Error, Event, Held, ToolFinished
 from assistant.core.integrations.email.imap import MailSummary
 from assistant.core.jobs import active, store
 from assistant.core.jobs import schedule as cron
@@ -42,6 +47,10 @@ _TICK_SECONDS = 30
 _LATE = timedelta(minutes=5)
 _MISSED = "it was due while the assistant wasn't running (the computer was off or asleep)"
 _SUMMARY_CHARS = 300
+
+
+# A run kept while an update installs (`_Outcome.status`): neither recorded nor finished until it runs.
+_HELD = "held"
 
 
 @dataclass
@@ -76,8 +85,11 @@ class Scheduler:
 
     async def resume_interrupted(self) -> None:
         """Pick up the runs the daemon stopped in the middle of. Only a run waiting for approval
-        can go on: one stopped anywhere else might have left a tool half done."""
+        can go on: one stopped anywhere else might have left a tool half done. A run kept while an update
+        installed hasn't started: it runs when it's replayed."""
         for run in await active.all_runs(self._store):
+            if await self._kept(run):
+                continue
             job = await store.load(self._store, run.user_id, run.job)
             approvals = await self._service.pending_approvals(run.thread_id)
             if job is None:
@@ -88,6 +100,21 @@ class Scheduler:
                 await self._finish(
                     job, run, RunRecord(run.started, "failed", "the daemon stopped during the run", run.thread_id)
                 )
+
+    async def replay(self, run: HeldRun) -> None:
+        """Runs a job's run kept while an update installed (`held.JOB`), recorded on its job as any run; returns
+        once it ended. A run whose job was deleted meanwhile doesn't run."""
+        started = next((r for r in await active.all_runs(self._store) if r.thread_id == run.thread_id), None)
+        job = started and await store.load(self._store, started.user_id, started.job)
+        if started is None or job is None:
+            await self._service.drop_held_run(settings.owner_id, run.id)
+            if started is not None:
+                await active.finish(self._store, started)
+            return
+        await self._launch(_key(job), self._execute(job, started, self._service.run_held(_session(started), run)))
+
+    async def _kept(self, run: ActiveRun) -> bool:
+        return any(kept.thread_id == run.thread_id for kept in await self._service.held_runs(run.user_id))
 
     async def run_for_mail(self, job: Job, mails: list[MailSummary]) -> None:
         """Start a mail job's run with the new messages. Skipped (and recorded) when its previous
@@ -119,17 +146,21 @@ class Scheduler:
         run = ActiveRun(job.user_id, job.name, thread_id, now.isoformat(), due)
         self._launch(key, self._execute(job, run, self._service.send(_session(run), message)))
 
-    def _launch(self, key: str, execution: Coroutine[None, None, None]) -> None:
+    def _launch(self, key: str, execution: Coroutine[None, None, None]) -> asyncio.Task:
         task = asyncio.create_task(execution)
         self._running[key] = task
         task.add_done_callback(lambda _: self._running.pop(key, None))
+        return task
 
     async def _execute(self, job: Job, run: ActiveRun, events: AsyncIterator[Event]) -> None:
         """The run from `events` on, recorded on the job when it ends. Kept as active until then,
-        so a run the daemon stops in the middle of is found again on its next start."""
+        so a run the daemon stops in the middle of is found again on its next start, and a run kept while an update
+        installs once it runs."""
         await active.start(self._store, run)
         try:
             outcome = await self._converse(job, _session(run), events)
+            if outcome.status == _HELD:
+                return
             summary = outcome.error or await self._service.last_reply(run.thread_id)
             status = outcome.status
         except TimeoutError:
@@ -224,6 +255,8 @@ async def _follow(events: AsyncIterator[Event], outcome: _Outcome) -> list[Appro
             outcome.status = "needs attention"
         elif isinstance(event, ApprovalRequired):
             approvals.append(event)
+        elif isinstance(event, Held):
+            outcome.status = _HELD
         elif isinstance(event, Error):
             outcome.status, outcome.error = "failed", event.message
     return approvals
@@ -235,7 +268,7 @@ async def _replay(approvals: Iterable[ApprovalRequired]) -> AsyncIterator[Event]
 
 
 def _session(run: ActiveRun) -> Session:
-    return Session(run.user_id, UNATTENDED_CHANNEL, run.thread_id)
+    return Session(run.user_id, UNATTENDED_CHANNEL, run.thread_id, Origin(held.JOB))
 
 
 def _key(job: Job) -> str:

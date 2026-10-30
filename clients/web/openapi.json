@@ -6674,6 +6674,14 @@
             "type": "string",
             "title": "Message",
             "default": ""
+          },
+          "messages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Messages",
+            "default": []
           }
         },
         "type": "object",
@@ -7454,6 +7462,11 @@
           "oauth": {
             "type": "string",
             "title": "Oauth",
+            "default": ""
+          },
+          "subagent": {
+            "type": "string",
+            "title": "Subagent",
             "default": ""
           },
           "icon": {
@@ -8812,7 +8825,7 @@
         },
         "type": "object",
         "title": "MemorySnapshot",
-        "description": "What the assistant currently knows about the user, in plain types for gateways."
+        "description": "What the assistant currently knows about the user, in plain types for the apps."
       },
       "MemoryText": {
         "properties": {
@@ -9678,6 +9691,11 @@
           "brief": {
             "type": "string",
             "title": "Brief",
+            "default": ""
+          },
+          "held": {
+            "type": "string",
+            "title": "Held",
             "default": ""
           }
         },

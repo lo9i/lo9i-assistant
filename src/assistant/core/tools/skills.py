@@ -24,12 +24,10 @@ async def save_skill(
     runtime: ToolRuntime[Context],
     files: dict[str, str] | None = None,
 ) -> str:
-    """Create or replace a skill: reusable step-by-step instructions for a task you'll do again,
-    for example a daily news digest. `name` is a short slug like news-digest; `description` is one
-    line saying when to use it; `instructions` are the steps, written for yourself. `files` are
-    scripts or reference files kept in the skill's folder, as {relative path: content}, for example
-    {"scripts/report.py": "..."}; refer to them by that path in the instructions. Giving `files`
-    replaces all of the skill's files; leaving it out keeps them. The user approves every save."""
+    """Create or replace a skill (step-by-step instructions for a task you'll do again); the user approves it.
+    `name`: a slug. `description`: one line, when to use it. `instructions`: the steps. `files`: {relative
+    path: content} kept in its folder, replacing all of them; left out, they stay. How to write one: the
+    writing-skills skill."""
     try:
         await asyncio.to_thread(store.check, name, files)
         await asyncio.to_thread(store.check_content, name, instructions, files)

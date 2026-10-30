@@ -103,7 +103,8 @@
     "setUp": "Configurar {name}",
     "modelTip": "Proveedor: {provider} · auxiliar: {worker}",
     "agentIn": "{agent} en {folder}",
-    "backToAssistant": "Volver al asistente",
+    "backToAssistant": "Asistente",
+    "backToAssistantHint": "Volver al asistente: responde de nuevo su propio modelo, con su memoria y sus herramientas (/{command} off)",
     "approveTool": "¿Aprobar {tool}?",
     "approveAction": "¿Aprobar esta acción?",
     "rejectReason": "Motivo, si rechazas (opcional)",
@@ -919,6 +920,7 @@
       "channel": "Canal",
       "email": "Proveedor de correo",
       "agent": "Agente de programación",
+      "subagent": "Subagente",
       "page": "Página"
     },
     "remotely": "En remoto",
@@ -1234,6 +1236,7 @@
     "heard": "Escuchado ({language}): {text}",
     "somethingWrong": "Algo salió mal",
     "stopped": "Detenido.",
+    "held": "Se está instalando una actualización. Esto se ejecuta cuando termine.",
     "goToMessage": "Ir a tu mensaje",
     "goToBottom": "Ir al final"
   },

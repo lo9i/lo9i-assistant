@@ -16,7 +16,7 @@
   let testing = $state(false);
   const provider = $derived<ModelProvider | undefined>(providers.data?.find((p) => p.id === form.provider));
   const current = $derived(s !== undefined && form.provider === s.provider);
-  // The provider's models for the key typed or saved, to pick from (Copilot lists them); empty
+  // The provider's models for the key typed or saved, to pick from (Copilot and OpenRouter list them); empty
   // otherwise, and the model ids are typed.
   let options = $state<ModelOption[]>([]);
   // Sorted by name; a model in use that the provider no longer lists stays offered, so it shows.

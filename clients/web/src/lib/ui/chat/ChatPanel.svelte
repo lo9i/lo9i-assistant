@@ -406,6 +406,7 @@
   }
   /* The context bar at the status bar's right end. */
   .fuel-end {
+    flex: none;
     margin-left: auto;
   }
 </style>

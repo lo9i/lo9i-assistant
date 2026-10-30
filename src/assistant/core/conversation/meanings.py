@@ -108,6 +108,11 @@ class SimilarConversations:
         """The ids of the conversations among `among` closest in meaning to `text`, closest first. None until
         the index has some (the model is then loaded), and none when the model fails: routing goes on with
         the words and the most recent then."""
+        return [thread_id for thread_id, _ in await self.scored(user_id, text, among)][:limit]
+
+    async def scored(self, user_id: str, text: str, among: Sequence[str]) -> list[tuple[str, float]]:
+        """The conversations among `among` that have a vector, closest in meaning to `text` first, each with how
+        close (the cosine similarity); none as for `nearest`."""
         if not among or not await self._vectors.any(user_id, KIND, self._embedder.model):
             return []
         try:
@@ -117,7 +122,8 @@ class SimilarConversations:
             return []
         ranked = await self._vectors.ranked(user_id, KIND, self._embedder.model, vector)
         allowed, closest = set(among), dict.fromkeys(thread_of(key) for key, _ in ranked)
-        return [thread_id for thread_id in closest if thread_id in allowed][:limit]
+        scores = {thread_of(key): score for key, score in reversed(ranked)}
+        return [(thread_id, scores[thread_id]) for thread_id in closest if thread_id in allowed]
 
 
 def passage(conversation: Conversation, opening: str, summary: str = "") -> str:

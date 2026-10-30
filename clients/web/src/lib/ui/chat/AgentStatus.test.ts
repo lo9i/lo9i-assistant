@@ -10,7 +10,8 @@ describe("AgentStatus", () => {
     const { body } = render(AgentStatus, { props: { handoff, onback: () => {} } });
     expect(body).toMatch(/<span class="name[^"]*">Claude Code<\/span>/);
     expect(body).toContain('title="Claude Code in /repo"');
-    expect(body).toContain("Back to the assistant");
+    expect(body).toContain("Back to the assistant: its own model answers again, with its memory and tools (/claude off)");
+    expect(body).toMatch(/<button[^>]*class="btn btn--ghost back[^"]*"[^>]*>.*lucide-undo-2.*Assistant<\/button>/s);
     expect(body).not.toContain("Interrupt");
   });
 
@@ -20,5 +21,6 @@ describe("AgentStatus", () => {
     const name = body.indexOf("Claude Code</span>");
     expect(name).toBeLessThan(body.indexOf("fuel"));
     expect(body.indexOf("fuel")).toBeLessThan(body.indexOf("Back to the assistant"));
+    expect(body.indexOf("fuel")).toBeLessThan(body.indexOf(">Assistant</button>"));
   });
 });
