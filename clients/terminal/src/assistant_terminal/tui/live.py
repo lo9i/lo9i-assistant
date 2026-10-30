@@ -121,6 +121,8 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         "agent_task_progress": tasks("agent_task_progress"),
         "agent_task_reports": tasks("agent_task_reports"),
         "agent_context": agent_context,
+        # The agent a conversation is handed to is done with the job: /folder reads its folder again.
+        "agent_finished": screen("agent_finished"),
         "job": app.show_job,
         "background_ended": app.show_background_ended,
         "failing": app.show_failing,
