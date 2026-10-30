@@ -1,5 +1,6 @@
-"""The model providers clients offer: the three lo9i builds itself (Anthropic with prompt caching,
-GitHub Copilot with its token exchange, OpenAI-compatible servers) and every provider LangChain's
+"""The model providers clients offer: the four lo9i builds itself (Anthropic with prompt caching,
+GitHub Copilot with its token exchange, OpenAI-compatible servers, OpenRouter with its reasoning and
+attribution headers) and every provider LangChain's
 `init_chat_model` supports, each with the fields it needs (core/llm/__init__.py builds them).
 
 A provider's package is installed when it's first chosen (core/llm/packages.py), so only the ones
@@ -9,8 +10,8 @@ in use take space. Field keys are the chat model's own keyword arguments. Left o
 
 from dataclasses import dataclass
 
-# Prompt caching, token exchange or server URLs that lo9i handles itself (core/llm/__init__.py).
-NATIVE = ("anthropic", "copilot", "openai")
+# Prompt caching, token exchange, server URLs or headers that lo9i handles itself (core/llm/__init__.py).
+NATIVE = ("anthropic", "copilot", "openai", "openrouter")
 # How long a prompt cache lasts after its last use, in minutes, unless a provider says otherwise:
 # Anthropic's default cache, the one lo9i asks for, lasts 5 minutes, and OpenAI's in-memory one "around
 # 5 to 10 minutes of inactivity". Old tool results are trimmed only once it has expired (core/conversation/trim.py).
@@ -149,6 +150,14 @@ NATIVE_PROVIDERS = [
             _url(help="Empty for OpenAI. Ollama: http://localhost:11434/v1."),
         ],
     ),
+    ModelProvider(
+        "openrouter",
+        "OpenRouter",
+        [_key(help="Create one at https://openrouter.ai/settings/keys.")],
+        "anthropic/claude-opus-5.5",
+        "anthropic/claude-sonnet-5.5",
+        help="Model ids name their provider, like anthropic/claude-opus-5.5. Only models that take tools are listed.",
+    ),
 ]
 
 LANGCHAIN_PROVIDERS = [
@@ -213,7 +222,6 @@ LANGCHAIN_PROVIDERS = [
     # Its cache is cleared "usually within a few hours to a few days" after its last use.
     _lc("deepseek", "DeepSeek", "langchain-deepseek>=1.1,<2", "langchain_deepseek", [_key()], prompt_cache_minutes=60),
     _lc("xai", "xAI (Grok)", "langchain-xai>=1.3,<2", "langchain_xai", [_key()]),
-    _lc("openrouter", "OpenRouter", "langchain-openrouter>=0.2.9,<1", "langchain_openrouter", [_key()]),
     _lc("together", "Together AI", "langchain-together>=0.4,<1", "langchain_together", [_key()]),
     _lc("fireworks", "Fireworks AI", "langchain-fireworks>=1.7,<2", "langchain_fireworks", [_key()]),
     _lc("perplexity", "Perplexity", "langchain-perplexity>=1.4,<2", "langchain_perplexity", [_key()]),
