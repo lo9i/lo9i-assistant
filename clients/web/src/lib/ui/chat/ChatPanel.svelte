@@ -346,20 +346,24 @@
         >
           <button
             type="button"
-            class="btn btn--ghost btn--sm"
+            class="btn btn--ghost btn--sm folder-button"
             aria-pressed={panelOpen}
+            aria-label={t("handedFolder.title")}
             title={panelOpen ? t("handedFolder.hide") : t("handedFolder.show")}
-            onclick={() => panel.toggle(threadId)}><FolderTreeIcon size={13} />{t("handedFolder.title")}</button
+            onclick={() => panel.toggle(threadId)}
+            ><FolderTreeIcon size={13} /><span class="folder-label">{t("handedFolder.title")}</span></button
           >
         </AgentStatus>
       {:else}
         <ModelStatus />
         <button
           type="button"
-          class="btn btn--ghost btn--sm home-folder"
+          class="btn btn--ghost btn--sm home-folder folder-button"
           aria-pressed={panelOpen}
+          aria-label={t("handedFolder.title")}
           title={panelOpen ? t("handedFolder.hideHome") : t("handedFolder.showHome")}
-          onclick={() => panel.toggle(threadId)}><FolderTreeIcon size={13} />{t("handedFolder.title")}</button
+          onclick={() => panel.toggle(threadId)}
+          ><FolderTreeIcon size={13} /><span class="folder-label">{t("handedFolder.title")}</span></button
         >
       {/if}
       <span class="fuel-end"><ContextFuel {threadId} /></span>
@@ -380,6 +384,20 @@
 {#if picking}<AgentFolderModal agentName={picking.name} onpick={picked} />{/if}
 
 <style>
+  /* With little room in the status bar (StatusBar's container), the Files button is its icon alone. */
+  @container status-bar (max-width: 640px) {
+    .folder-label {
+      display: none;
+    }
+    .folder-button {
+      padding: 4px;
+    }
+    /* The ring, centred under the message box's send button rather than at the bar's very edge: the button's centre
+     is 21px in from the box's edge (6px padding, half its 30px), the ring's 8px. */
+    .fuel-end {
+      margin-right: 13px;
+    }
+  }
   /* The chat, and beside it the folder of the agent it's handed to. */
   .row {
     position: relative;
@@ -442,7 +460,11 @@
     padding: 2px;
   }
   /* The context bar at the status bar's right end. */
+  /* A box of its own, centred in the bar: inline, the ring (no text, so no baseline) would sit on the line's
+   baseline, below the others. */
   .fuel-end {
+    display: flex;
+    align-items: center;
     flex: none;
     margin-left: auto;
   }

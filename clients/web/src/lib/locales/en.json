@@ -116,7 +116,6 @@
     "rejectReason": "Reason, if you reject (optional)",
     "reject": "Reject",
     "approve": "Approve",
-    "isWorking": "is working · {since}",
     "pinnedSkills": "Pinned skills",
     "unpin": "Unpin {skill}",
     "pickOne": "Pick one",
@@ -249,8 +248,8 @@
     "cardsHint": "Show the conversations as cards, and open some side by side",
     "hint": "Drag a card to move it. Open beside shows it in Chat next to the conversation there.",
     "openFull": "Open in Chat",
-    "maximize": "Full screen",
-    "restore": "Back to the layout (Esc)",
+    "maximize": "Expand",
+    "restore": "Back to the others (Esc)",
     "closePane": "Close this pane (the conversation stays open)",
     "move": "Drag to move",
     "resize": "Drag to resize the panes",
@@ -271,7 +270,11 @@
     "noneBeside": "No other conversations to show beside it.",
     "stack": "Stack",
     "stackHint": "Show the conversations one above the other",
-    "sideBySideHint": "Show the conversations next to each other"
+    "sideBySideHint": "Show the conversations next to each other",
+    "showing": {
+      "one": "{count} conversation",
+      "other": "{count} conversations"
+    }
   },
   "devices": {
     "browserOn": "{browser} on {system}",
@@ -352,7 +355,7 @@
     "notNoise": "Not noise"
   },
   "duration": {
-    "underAMinute": "under a minute",
+    "underAMinute": "< 1 min",
     "minutes": "{minutes} min",
     "hoursMinutes": "{hours} h {minutes} min",
     "hours": "{hours} h",
@@ -890,7 +893,9 @@
     "working": "Working…",
     "closeConversation": "Close {title}",
     "alerts": "Alerts",
-    "openBeside": "Open {title} beside the conversation shown"
+    "openBeside": "Open {title} beside the conversation shown",
+    "openBesideHint": "Show it next to the conversation you're in",
+    "shownTogether": "Shown together with the conversation you're in"
   },
   "notificationsPage": {
     "job": "Scheduled job",

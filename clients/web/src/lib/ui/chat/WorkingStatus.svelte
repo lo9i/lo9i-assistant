@@ -5,7 +5,8 @@
   import { duration } from "$lib/duration";
   import { t } from "$lib/i18n.svelte";
 
-  // In the status bar: the coding agents working in this conversation, and for how long; not the one it's handed
+  // In the status bar: the coding agents working in this conversation, a spinner and for how long (no words: the
+  // spinner says it); not the one it's handed
   // to, which shows by its name (AgentStatus). Their steps show in the thread.
   let { tasks }: { tasks: RunningTask[] } = $props();
   const time = clock();
@@ -13,9 +14,9 @@
 
 {#each tasks as task (task.id)}
   <span class="working">
-    <LoaderCircle size={13} class="spin" aria-hidden="true" />
-    <span title="{task.agent} {t('chat.isWorking', { since: duration(task.started_at, time.now) })}"
-      ><strong>{task.agent}</strong> {t("chat.isWorking", { since: duration(task.started_at, time.now) })}</span
+    <LoaderCircle size={13} class="spin" aria-label={t("nav.working")} />
+    <span title="{task.agent} · {duration(task.started_at, time.now)}"
+      ><strong>{task.agent}</strong> {duration(task.started_at, time.now)}</span
     >
   </span>
 {/each}

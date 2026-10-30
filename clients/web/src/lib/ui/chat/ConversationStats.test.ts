@@ -47,3 +47,15 @@ describe("ConversationStats", () => {
     expect(failed).not.toContain("Internal Server Error");
   });
 });
+
+describe("ConversationStats with little room", () => {
+  it("has its figures with icons for their words, shown in the line's place where the status bar is narrow", () => {
+    loaded.data = stats;
+    loaded.error = null;
+    const { body } = render(ConversationStats, { props: { threadId: "t1" } });
+    expect(body).toContain("lucide-mail");
+    expect(body).toContain("lucide-coins");
+    expect(body).toContain("lucide-wrench");
+    expect(body).toMatch(/lucide-wrench[\s\S]*?<\/svg>2</);
+  });
+});

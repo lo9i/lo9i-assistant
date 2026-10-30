@@ -3,16 +3,22 @@
 
   // A line under the message box with the conversation's state, such as the agent it's handed to. Always there,
   // so the box doesn't move when an item comes or goes; and one line however narrow the chat gets (a side panel
-  // open beside it): items with text to spare (the conversation's figures) are cut short instead. Only on a phone,
-  // where even the controls don't fit, it wraps.
+  // open beside it): items with text to spare (the conversation's figures) are cut short instead. Only where even the
+  // controls don't fit, on a phone or a conversation sharing the page with others, it wraps: it goes by its own width,
+  // not the window's.
   let { children }: { children?: Snippet } = $props();
 </script>
 
-<footer class="status-bar" role="status">
-  {@render children?.()}
-</footer>
+<div class="room">
+  <footer class="status-bar" role="status">
+    {@render children?.()}
+  </footer>
+</div>
 
 <style>
+  .room {
+    container: status-bar / inline-size;
+  }
   .status-bar {
     display: flex;
     flex-wrap: nowrap;
@@ -24,9 +30,10 @@
     font-size: var(--font-size-xs);
     white-space: nowrap;
   }
-  @media (max-width: 680px) {
+  @container status-bar (max-width: 640px) {
     .status-bar {
       flex-wrap: wrap;
+      gap: 4px 10px;
       white-space: normal;
     }
   }

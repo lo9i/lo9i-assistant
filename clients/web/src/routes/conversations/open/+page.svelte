@@ -13,7 +13,7 @@
   import Columns from "$lib/ui/chat/board/Columns.svelte";
   import OpenSwitcher from "$lib/ui/chat/OpenSwitcher.svelte";
   import { homePins } from "$lib/ui/homePins.svelte";
-  import { leaveInbox } from "$lib/ui/openConversation";
+  import { leaveInbox, startNewHere } from "$lib/ui/openConversation";
   import PinToHome from "$lib/ui/PinToHome.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
@@ -26,16 +26,18 @@
   $effect(() => void leaveInbox(snapshot.current));
   const conversations = resource((c) => c.conversations.list(), ["conversations"]);
   const listed = $derived(conversations.data?.find((c) => c.thread_id === snapshot.current?.threadId));
-  const title = $derived(listed?.title || t("nav.newConversation"));
-  // Pinned to Home, once it's listed: a new conversation is, from its first message.
-  const pins = homePins();
   // The conversations shown as columns: the one shown, and those beside it.
   const columns = $derived(snapshot.current ? columnsOf(conversationLayout.current, snapshot.current.threadId) : []);
+  // Several shown, the page is named after none of them: each column has its own title.
+  const title = $derived(columns.length > 1 ? t("board.showing", { count: columns.length }) : listed?.title || t("nav.newConversation"));
+  // Pinned to Home, once it's listed: a new conversation is, from its first message.
+  const pins = homePins();
   const stacked = $derived(conversationLayout.current.arrange === "stacked");
   let picking = $state(false);
 
+  // A new conversation joins the ones shown together.
   async function startNew(): Promise<void> {
-    await chats.startNew();
+    await startNewHere(chats, conversationLayout);
   }
 
   /** The conversation picked opens beside the one shown, which stays shown. */
@@ -55,7 +57,11 @@
 {#if shown}
   <TopBar {title}>
     {#snippet actions()}
-      {#if listed && !listed.inbox}<PinToHome pinned={pins.has(listed.thread_id)} ontoggle={() => pins.toggle(listed.thread_id)} />{/if}
+      <!-- With several shown, each column has its own Pin to Home. -->
+      {#if columns.length < 2 && listed && !listed.inbox}<PinToHome
+          pinned={pins.has(listed.thread_id)}
+          ontoggle={() => pins.toggle(listed.thread_id)}
+        />{/if}
       {#if columns.length > 1}
         <!-- Shows the arrangement it switches to. -->
         <button
@@ -82,7 +88,7 @@
 
   <!-- Side by side the columns take the whole width; stacked, each reads at the page's usual width. -->
   <div class="screen" class:wide={columns.length > 1 && !stacked}><Columns /></div>
-  {#if picking}<BesidePicker {title} shown={columns} onpick={openBeside} />{/if}
+  {#if picking}<BesidePicker title={listed?.title || t("nav.newConversation")} shown={columns} onpick={openBeside} />{/if}
 {/if}
 
 <style>

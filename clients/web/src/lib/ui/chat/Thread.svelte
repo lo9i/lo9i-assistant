@@ -349,13 +349,15 @@
   .asked.under-find {
     top: 56px;
   }
+  /* Its line breaks run together, so a blank line between paragraphs doesn't take one of the three lines with only
+   the ellipsis on it. */
   .asked-text {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
     line-clamp: 3;
     overflow: hidden;
-    white-space: pre-wrap;
+    white-space: normal;
     overflow-wrap: anywhere;
   }
   .to-bottom:hover {
@@ -493,18 +495,29 @@
   .round:hover {
     color: var(--color-text-primary);
   }
+  /* Never wider than the conversation, which may share the page with others: what's long is cut short or scrolls. */
   .tool,
   .thinking {
     align-self: flex-start;
+    max-width: 100%;
+    min-width: 0;
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
+  }
+  /* Closed, a call is a line at most 70% as wide as the conversation, however wide that is (alone, or beside others):
+   its command is cut short there. Open, it's a card as wide as it needs. */
+  .tool:not([open]),
+  .thinking {
+    max-width: 70%;
   }
   .tool summary,
   .thinking {
     display: inline-flex;
+    max-width: 100%;
     align-items: center;
     gap: 6px;
-    padding: 5px 12px;
+    padding: 3px 10px;
+    line-height: 1.3;
     border-radius: var(--radius-full);
     border: 1px solid var(--color-border);
     background: var(--color-bg-hover-ghost);
@@ -523,7 +536,7 @@
   }
   .tool pre {
     margin-top: 8px;
-    max-width: min(800px, 80vw);
+    max-width: min(800px, 100%);
   }
   .tool pre.command {
     opacity: 0.85;
@@ -570,8 +583,9 @@
   .tool[open] > .whole-note {
     padding: 6px 12px;
   }
+  /* Its command or argument is a glimpse, cut short at the line's end; opening the call shows it whole. */
   .detail {
-    max-width: min(480px, 60vw);
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -596,11 +610,11 @@
   .carried,
   .brief-text {
     margin-top: 8px;
-    max-width: min(800px, 80vw);
+    max-width: min(800px, 100%);
   }
   .thought-text {
     margin-top: 8px;
-    max-width: min(800px, 80vw);
+    max-width: min(800px, 100%);
     white-space: pre-wrap;
     font-style: italic;
   }

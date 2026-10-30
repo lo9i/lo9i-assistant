@@ -10,11 +10,12 @@ const tasks: RunningTask[] = [
 describe("WorkingStatus", () => {
   it("says which agent works, without its steps, which the thread shows", () => {
     const { body } = render(WorkingStatus, { props: { tasks } });
-    expect(body).toContain("Claude Code</strong> is working");
+    expect(body).toContain("Claude Code</strong>");
+    expect(body).not.toContain("is working");
     expect(body).not.toContain("Bash: pytest");
   });
 
   it("shows nothing while none works", () => {
-    expect(render(WorkingStatus, { props: { tasks: [] } }).body).not.toContain("is working");
+    expect(render(WorkingStatus, { props: { tasks: [] } }).body).not.toContain("Claude Code");
   });
 });
