@@ -4477,7 +4477,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "job" | "background" | "doctor";
+            kind: "job" | "background" | "doctor" | "copilot";
             /** Title */
             title: string;
             /** Text */

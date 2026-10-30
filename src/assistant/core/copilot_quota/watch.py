@@ -1,8 +1,9 @@
 """Watching the allowance: the daemon runs this as a supervised task. While the model provider is Copilot it checks
 at start and every CHECK_HOURS after, keeps the result (records.py) and has Home's Copilot card built again from it.
 Ticks read the wall clock, so a computer waking from sleep catches up within a tick. An alert that's due (alerts.py)
-goes to the user's own chat on WhatsApp through the outbox, as send_message's do, once the channel is connected,
-and is recorded for the turn header of their next message there (core/conversation/sent.py).
+goes to the notifications feed, which keeps it for the apps, and to the user's own chat on every chat channel
+connected then, through the outbox as send_message's do, recorded for the turn header of their next message there
+(core/conversation/sent.py).
 
 A failed check (GitHub unreachable, the token refused) is logged at INFO, not as a fault of the daemon's, so it
 stays out of the health check; the card says it couldn't check."""
@@ -16,7 +17,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 from langgraph.store.base import BaseStore
 
-from assistant.core import i18n
+from assistant.core import i18n, notifications
 from assistant.core.conversation import sent as sent_messages
 from assistant.core.copilot_quota import alerts, records
 from assistant.core.copilot_quota.quota import QuotaCheckError, fetch
@@ -26,7 +27,6 @@ from assistant.core.outbox import DeliveryError, Outbox
 logger = logging.getLogger(__name__)
 
 CHECK_HOURS = 3
-CHANNEL = "whatsapp"
 _TICK_SECONDS = 60
 
 
@@ -77,21 +77,27 @@ class CopilotWatch:
         await self._checked()
 
     async def _alert(self, now: datetime) -> None:
-        """Sends the alert the last check calls for, once the channel can take it."""
+        """Tells the alert the last check calls for, if any."""
         check = await records.last(self._store)
-        if check is None or check.quota is None or CHANNEL not in self._outbox.channels:
+        if check is None or check.quota is None:
             return
-        sent = await records.sent(self._store)
-        alert = alerts.due(await i18n.chosen(self._store), check.quota, sent)
+        sent, t = await records.sent(self._store), await i18n.chosen(self._store)
+        alert = alerts.due(t, check.quota, sent)
         if alert is None:
             return
-        try:
-            await self._outbox.send(CHANNEL, alert.text)
-        except DeliveryError as e:
-            logger.info("Couldn't send the Copilot alert on %s: %s", CHANNEL, e)
-            return
         await records.save_sent(self._store, alerts.after(check.quota, sent, alert))
-        await sent_messages.record(self._store, self._user_id, CHANNEL, alert.text, now)
+        await notifications.add(self._store, self._user_id, "copilot", t("Copilot allowance"), alert.text, ok=False)
+        for channel in self._outbox.channels:
+            await self._send(channel, alert.text, now)
+
+    async def _send(self, channel: str, text: str, now: datetime) -> None:
+        """A channel that doesn't take it misses it: the feed has it."""
+        try:
+            await self._outbox.send(channel, text)
+        except DeliveryError as e:
+            logger.info("Couldn't send the Copilot alert on %s: %s", channel, e)
+            return
+        await sent_messages.record(self._store, self._user_id, channel, text, now)
 
 
 def _token(model: ModelChoice) -> str:

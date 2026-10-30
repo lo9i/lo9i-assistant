@@ -9656,7 +9656,8 @@
             "enum": [
               "job",
               "background",
-              "doctor"
+              "doctor",
+              "copilot"
             ],
             "title": "Kind"
           },

@@ -20,6 +20,7 @@
   "Approve {tool}? ({reason})": "¿Aprobar {tool}? ({reason})",
   "Approved.": "Aprobado.",
   "Approved. The job goes on.": "Aprobado. La tarea programada sigue.",
+  "Copilot allowance": "Cupo de Copilot",
   "Copilot: this month's allowance is used up{renewal}.": "Copilot: se agotó el cupo mensual{renewal}.",
   "Copilot: {percent}% of this month's allowance left{renewal}.": "Copilot: queda {percent}% del cupo mensual{renewal}.",
   "Give {agent} a folder to work in, its full path:": "Indica a {agent} una carpeta donde trabajar, con su ruta completa:",

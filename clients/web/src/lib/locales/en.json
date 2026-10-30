@@ -908,11 +908,12 @@
     "shownTogether": "Shown together with the conversation you're in"
   },
   "notificationsPage": {
+    "copilot": "Copilot allowance",
     "job": "Scheduled job",
     "background": "Background work",
     "clearAll": "Clear all",
     "title": "What finished",
-    "hint": "Scheduled jobs' results, background work that ended and health checks. Click one to see it on the right.",
+    "hint": "Scheduled jobs' results, background work that ended, health checks and Copilot allowance alerts. Click one to see it on the right.",
     "none": "Nothing yet",
     "noneHint": "When a scheduled job runs or background work ends (a coding task, a download), it shows up here.",
     "about": "About",
