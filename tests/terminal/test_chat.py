@@ -4,7 +4,7 @@ import asyncio
 from dataclasses import replace
 
 from textual.containers import VerticalScroll
-from textual.widgets import Button, Input, Markdown
+from textual.widgets import Button, Checkbox, Input, Markdown, Select
 
 from assistant.client import DaemonUnavailableError, clipboard
 from assistant.core.agent import ShownMessage
@@ -25,6 +25,7 @@ from assistant_terminal.tui.history import Loaders, show_history
 from assistant_terminal.tui.screens import (
     ApprovalScreen,
     ConversationsScreen,
+    FormScreen,
     JobsScreen,
     NotificationsScreen,
     QuestionScreen,
@@ -942,3 +943,34 @@ async def test_a_conversation_whose_last_reply_offers_choices_shows_them_when_op
 
 async def _never(*_):
     raise AssertionError("nothing to load")
+
+
+async def test_a_servers_form_is_filled_in_and_sent(app, client):
+    client.waiting_for = {
+        "kind": "form",
+        "asked_by": "shop",
+        "message": "Which size?",
+        "fields": [
+            {
+                "key": "size",
+                "title": "Size",
+                "type": "choice",
+                "required": True,
+                "options": [{"value": "m", "label": "M"}],
+            },
+            {"key": "count", "title": "Count", "type": "integer", "required": False, "default": 1},
+            {"key": "gift", "title": "Gift", "type": "boolean", "required": False},
+        ],
+    }
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"order a shirt", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, FormScreen))
+        app.screen.query_one("#accept", Button).press()
+        await pilot.pause()
+        assert isinstance(app.screen, FormScreen)  # the size is required
+        app.screen.query_one("#form-field-0", Select).value = "m"
+        app.screen.query_one("#form-field-2", Checkbox).value = True
+        app.screen.query_one("#accept", Button).press()
+        await wait_for(pilot, lambda: not app._busy)
+        assert client.decisions == {"i1": {"action": "accept", "content": {"size": "m", "count": "1", "gift": True}}}

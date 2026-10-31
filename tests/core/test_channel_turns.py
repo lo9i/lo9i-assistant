@@ -135,6 +135,15 @@ async def test_a_question_shows_its_buttons():
     assert (question[2], question[4]) == (question_text(EN, _QUESTION), question_buttons(EN, "q1", _QUESTION))
 
 
+async def test_a_servers_link_comes_with_buttons_and_a_form_to_fill_in_points_to_the_app():
+    link = {"kind": "form", "asked_by": "shop", "message": "Pay here", "url": "https://pay.example"}
+    form = {"kind": "form", "asked_by": "shop", "message": "Your size?", "fields": [{"key": "size", "title": "Size"}]}
+    chat, _ = await _render(ApprovalRequired("f1", link), ApprovalRequired("f2", form), Done())
+    [(_, _, first, _, buttons), (_, _, second, _, none)] = [entry for entry in chat.log if entry[0] == "send"]
+    assert first.startswith("shop asks: Pay here\n\nhttps://pay.example") and parse_decision(buttons[0][1], "Telegram")
+    assert "- Size" in second and "in the app" in second and none == []
+
+
 async def test_the_first_reply_is_tagged_with_its_conversation():
     chat, turn = await _render(
         TextDelta("Booked."), ToolStarted("bash", {"command": "ls"}), TextDelta("Done."), Done(), tag="watchlist"

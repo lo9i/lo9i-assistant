@@ -74,6 +74,11 @@ class McpServerStatus:
     signed_in_as: str = ""
     # A plugin with fields of its own, which its settings change (core/mcp/plugin_settings.py).
     settings: bool = False
+    # What the server has besides tools (resources, prompts), as of its last connection; and whether the agent
+    # gets tools for them (core/mcp/listings.py), which the user turns on.
+    offers: list[str] = field(default_factory=list)
+    resources: bool = False
+    prompts: bool = False
 
 
 @dataclass
@@ -89,6 +94,8 @@ class McpServerChanges:
     trusted: bool | None = None
     include: list[str] | None = None
     exclude: list[str] | None = None
+    resources: bool | None = None
+    prompts: bool | None = None
 
 
 class McpMixin(ServiceBase):
@@ -257,4 +264,7 @@ async def mcp_status(hub: McpHub, server: McpServer, signed_in_as: str = "") -> 
         oauth=server.oauth_provider,
         signed_in_as=signed_in_as,
         settings=plugin_settings.has_settings(server),
+        offers=hub.offers(server.name),
+        resources=server.resources,
+        prompts=server.prompts,
     )

@@ -2,7 +2,8 @@
 server runs on demand instead (core/mcp/on_demand.py): started by a call, stopped when idle.
 
 The SDK's client must be opened and closed in the same task, so each connection lives in its own
-task (`run`); calls from tools use the open session.
+task (`run`); calls from tools use the open session. What the server asks while it handles a call (a form for the
+user, text from the model) is answered in the call's task (asking.py).
 """
 
 import asyncio
@@ -11,20 +12,36 @@ import logging
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
+from typing import Any
 
 import httpx2
+from langgraph.errors import GraphBubbleUp
 from mcp import Client, StdioServerParameters
 from mcp.client.extension import ClientExtension
 from mcp.client.session import IncomingMessage, MessageHandlerFnT
 from mcp.client.streamable_http import streamable_http_client
 from mcp.shared.dispatcher import ProgressFnT
 from mcp.shared.exceptions import MCPError
-from mcp.types import CallToolResult, Implementation, TextContent, Tool, ToolListChangedNotification
+from mcp.types import (
+    CallToolResult,
+    GetPromptResult,
+    Implementation,
+    InputResponses,
+    Prompt,
+    ReadResourceResult,
+    Resource,
+    ResourceTemplate,
+    TextContent,
+    Tool,
+    ToolListChangedNotification,
+)
 
 from assistant.core.background import Origin
 from assistant.core.config import settings
 from assistant.core.health import HealthLog
 from assistant.core.i18n import message, said
+from assistant.core.mcp import listings
+from assistant.core.mcp.asking import Asker, InFlight, answering, rounds
 from assistant.core.mcp.background import BackgroundWork, WorkFinished, WorkStarted, origin_meta
 from assistant.core.mcp.oauth import McpAuth, SignInNeededError, needs_sign_in
 from assistant.core.mcp.on_demand import OnDemand
@@ -56,7 +73,11 @@ class ConnectionState:
     tools: list[Tool] = field(default_factory=list)
 
 
-ClientFactory = Callable[[McpServer, MessageHandlerFnT, httpx2.Auth | None, Sequence[ClientExtension]], Client]
+ClientFactory = Callable[
+    [McpServer, MessageHandlerFnT, httpx2.Auth | None, Sequence[ClientExtension], InFlight | None], Client
+]
+# A request made again with the server's questions answered, until it's answered itself (asking.py).
+_Send = Callable[[Client, InputResponses | None, str | None], Awaitable[object]]
 # Gets the server's report that background work it did finished (core/mcp/background.py).
 WorkFinishedFn = Callable[[McpServer, WorkFinished], Awaitable[None]]
 
@@ -66,17 +87,20 @@ def open_client(
     on_message: MessageHandlerFnT,
     auth: httpx2.Auth | None = None,
     extensions: Sequence[ClientExtension] = (),
+    in_flight: InFlight | None = None,
 ) -> Client:
     """A client for the server's transport; `auth` signs a remote server's requests. Stdio servers
     get only a safe baseline of the daemon's environment (the SDK's `get_default_environment`), the
-    assistant's time zone, and their own env."""
+    assistant's time zone, and their own env. With `in_flight`, it tells the server it answers forms and asks the
+    model for text, and hands what a server on an older protocol asks during a call to that call (asking.py)."""
     target = (
         StdioServerParameters(command=server.command, args=server.args, env={"TZ": settings.timezone, **server.env})
         if server.command
         else _http_transport(server, auth)
     )
     info = Implementation(name="lo9i", version="1")
-    return Client(target, message_handler=on_message, client_info=info, extensions=list(extensions))
+    asked = {"elicitation_callback": in_flight.elicit, "sampling_callback": in_flight.sample} if in_flight else {}
+    return Client(target, message_handler=on_message, client_info=info, extensions=list(extensions), **asked)
 
 
 @asynccontextmanager
@@ -118,6 +142,7 @@ class McpConnection:
         self._factory = factory
         self._auth = auth
         self._client: Client | None = None
+        self._in_flight = InFlight()
         self._lost = asyncio.Event()
         self._connected = asyncio.Event()
         self._tools_changed = asyncio.Event()
@@ -167,18 +192,30 @@ class McpConnection:
         await stop.wait()
 
     async def call(
-        self, tool: str, arguments: dict, progress: ProgressFnT | None = None, origin: Origin | None = None
+        self,
+        tool: str,
+        arguments: dict,
+        progress: ProgressFnT | None = None,
+        origin: Origin | None = None,
+        asker: Asker | None = None,
     ) -> CallToolResult:
         """Raises MCPError for an error the server reported, NotConnectedError or ConnectionLostError.
         `progress` gets the progress notifications the server sends while the call runs. `origin`: the
-        conversation the call is made in, which background work it starts is told to."""
-        try:
-            with self._on_demand.using() if self._on_demand else contextlib.nullcontext():
-                await self._wake()
-                result = await self._call(tool, arguments, progress, origin)
-        except Exception as e:
-            await self._health.failed("mcp", self.server.name, said("{tool}: {error}", tool=tool, error=describe(e)))
-            raise
+        conversation the call is made in, which background work it starts is told to. `asker` answers what the
+        server asks meanwhile; it may pause the run (GraphBubbleUp), which gives the call up."""
+
+        def send(client: Client, responses: InputResponses | None, state: str | None):
+            return client.session.call_tool(
+                tool,
+                arguments,
+                progress_callback=progress,
+                input_responses=responses,
+                request_state=state,
+                meta=origin_meta(origin),
+                allow_input_required=True,
+            )
+
+        result: CallToolResult = await self._use(tool, send, asker)
         if result.is_error:
             await self._health.failed(
                 "mcp", self.server.name, said("{tool}: {error}", tool=tool, error=_error_text(result))
@@ -186,6 +223,50 @@ class McpConnection:
         else:
             await self._health.succeeded("mcp", self.server.name)
         return result
+
+    async def read_resource(self, uri: str, asker: Asker | None = None) -> ReadResourceResult:
+        """Raises as `call` does."""
+
+        def send(client: Client, responses: InputResponses | None, state: str | None):
+            return client.session.read_resource(
+                uri, input_responses=responses, request_state=state, allow_input_required=True
+            )
+
+        return await self._succeeded(await self._use(listings.READ_RESOURCE, send, asker))
+
+    async def get_prompt(self, name: str, arguments: dict[str, str], asker: Asker | None = None) -> GetPromptResult:
+        """Raises as `call` does."""
+
+        def send(client: Client, responses: InputResponses | None, state: str | None):
+            return client.session.get_prompt(
+                name, arguments, input_responses=responses, request_state=state, allow_input_required=True
+            )
+
+        return await self._succeeded(await self._use(listings.GET_PROMPT, send, asker))
+
+    async def list_resources(self) -> tuple[list[Resource], list[ResourceTemplate]]:
+        """Its resources and resource templates. Raises as `call` does."""
+        return await self._succeeded(await self._use(listings.LIST_RESOURCES, _resources, None))
+
+    async def list_prompts(self) -> list[Prompt]:
+        """Raises as `call` does."""
+        return await self._succeeded(await self._use(listings.LIST_PROMPTS, _prompts, None))
+
+    async def _succeeded[R](self, result: R) -> R:
+        await self._health.succeeded("mcp", self.server.name)
+        return result
+
+    async def _use(self, what: str, send: _Send, asker: Asker | None) -> Any:
+        """A failure is recorded under `what`; a pause for the user isn't one."""
+        try:
+            with self._on_demand.using() if self._on_demand else contextlib.nullcontext():
+                await self._wake()
+                return await self._sent(send, asker)
+        except GraphBubbleUp:
+            raise
+        except Exception as e:
+            await self._health.failed("mcp", self.server.name, said("{tool}: {error}", tool=what, error=describe(e)))
+            raise
 
     async def _wake(self) -> None:
         """On demand and not running: start it, and wait until it's connected."""
@@ -198,15 +279,14 @@ class McpConnection:
                 async with asyncio.timeout(_START_SECONDS):
                     await _first(self._connected.wait(), self._attempt_failed.wait())
 
-    async def _call(
-        self, tool: str, arguments: dict, progress: ProgressFnT | None, origin: Origin | None
-    ) -> CallToolResult:
+    async def _sent(self, send: _Send, asker: Asker | None) -> Any:
         client = self._client
         if client is None:
             raise NotConnectedError(self.state.error or self.state.status)
         try:
-            return await client.call_tool(tool, arguments, progress_callback=progress, meta=origin_meta(origin))
-        except MCPError:
+            with self._in_flight.call() as call:
+                return await answering(rounds(lambda r, s: send(client, r, s), asker), call, asker)
+        except (MCPError, GraphBubbleUp):
             raise
         except Exception as e:
             self._lost.set()
@@ -227,7 +307,9 @@ class McpConnection:
             async with asyncio.timeout(_CONNECT_SECONDS):
                 auth = self._auth.for_connection(self.server) if self._auth else None
                 background = BackgroundWork(self._started_work, self._finished_work)
-                client = await stack.enter_async_context(self._factory(self.server, self._message, auth, [background]))
+                client = await stack.enter_async_context(
+                    self._factory(self.server, self._message, auth, [background], self._in_flight)
+                )
                 await self._open(client)
             try:
                 await self._serve(client, stop)
@@ -235,7 +317,7 @@ class McpConnection:
                 self._close()
 
     async def _open(self, client: Client) -> None:
-        tools = await list_tools(client)
+        tools = await offered(client)
         await self._health.signed_in(self.server.name)
         self._client = client
         self._lost.clear()
@@ -287,7 +369,7 @@ class McpConnection:
 
     async def _refresh(self, client: Client) -> None:
         try:
-            tools = await list_tools(client)
+            tools = await offered(client)
         except Exception as e:
             logger.warning("MCP server %s: couldn't refresh its tools: %s", self.server.name, describe(e))
             return
@@ -298,6 +380,19 @@ class McpConnection:
     def _set(self, state: ConnectionState) -> None:
         self.state = state
         self._on_change()
+
+
+async def offered(client: Client) -> list[Tool]:
+    """Its tools, then those lo9i adds for what it has besides (listings.py): kept and listed as its tools are."""
+    return [*await list_tools(client), *listings.added(client.server_capabilities)]
+
+
+async def _resources(client: Client, responses: object, state: object) -> tuple[list[Resource], list[ResourceTemplate]]:
+    return await listings.all_resources(client), await listings.all_templates(client)
+
+
+async def _prompts(client: Client, responses: object, state: object) -> list[Prompt]:
+    return await listings.all_prompts(client)
 
 
 async def list_tools(client: Client) -> list[Tool]:

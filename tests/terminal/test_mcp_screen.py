@@ -168,3 +168,18 @@ async def test_a_plugin_that_is_only_a_chat_channel_is_not_listed(app, client):
         options = screen.query_one("#mcp-list", OptionList)
         await wait_for(pilot, lambda: options.option_count == 2)
         assert [options.get_option_at_index(i).id for i in range(2)] == ["notes", "slack"]
+
+
+async def test_a_servers_resources_and_prompts_are_turned_on_with_its_tools(app, client):
+    client.mcp.items["notes"] = replace(_mcp_status("notes"), offers=["prompts", "resources"])
+    async with app.run_test(size=(140, 45)) as pilot:
+        screen = await _open(pilot, app)
+        tools = screen.query_one("#mcp-tools", SelectionList)
+        await wait_for(
+            pilot, lambda: "@resources" in [tools.get_option_at_index(i).value for i in range(tools.option_count)]
+        )
+        tools.select("@resources")
+        screen.query_one("#save-tools", Button).press()
+        notes = client.mcp.items["notes"]
+        await wait_for(pilot, lambda: notes.resources)
+        assert not notes.prompts and notes.include == [] and notes.exclude == []

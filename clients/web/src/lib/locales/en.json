@@ -771,7 +771,11 @@
     "noneSelected": "No server selected",
     "noneSelectedHint": "Pick one from the table to see it here.",
     "removeText": "The assistant loses its tools from your next message, and its settings are deleted.",
-    "needsPair": "“{line}” needs a name, {separator} and a value."
+    "needsPair": "“{line}” needs a name, {separator} and a value.",
+    "resources": "Resources",
+    "resourcesHint": "The assistant lists and reads what the server offers to read (list_resources, read_resource).",
+    "prompts": "Prompts",
+    "promptsHint": "The assistant lists and follows the server's prompts (list_prompts, get_prompt)."
   },
   "mcpAdd": {
     "title": "Add an MCP server",
@@ -1429,5 +1433,14 @@
     "saving": "Saving…",
     "checking": "Checking…",
     "saved": "Saved {name}'s settings."
+  },
+  "form": {
+    "asks": "{server} asks",
+    "openLink": "It asks you to open this link:",
+    "pick": "Pick one",
+    "missing": "Fill in: {fields}",
+    "decline": "Decline",
+    "opened": "I opened it",
+    "send": "Send"
   }
 }

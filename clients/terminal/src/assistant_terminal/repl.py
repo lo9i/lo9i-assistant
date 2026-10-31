@@ -12,6 +12,7 @@ from assistant.core.events import (
     ApprovalRequired,
     Dispatched,
     Event,
+    is_form,
     is_plugin_offer,
     is_plugin_setup,
     is_question,
@@ -404,6 +405,9 @@ async def _collect_decisions(approvals: list[ApprovalRequired]) -> dict[str, dic
         if is_question(request):
             decisions[approval.interrupt_id] = await _answer_question(request)
             continue
+        if is_form(request):
+            decisions[approval.interrupt_id] = await _answer_form(request)
+            continue
         if is_plugin_setup(request):
             print(paint(YELLOW, "\n" + t("Set up {name} in /plugins in the full app.", name=request.get("name"))))
             decisions[approval.interrupt_id] = {"done": True}
@@ -422,6 +426,44 @@ async def _collect_decisions(approvals: list[ApprovalRequired]) -> dict[str, dic
         approved = answer.lower() in ("y", "yes", t("y"), t("yes"))
         decisions[approval.interrupt_id] = {"approved": approved, "reason": None if approved else answer}
     return decisions
+
+
+async def _answer_form(request: dict) -> dict:
+    """A server's form, a field a line (empty leaves it out), or its link; `n` alone declines it."""
+    print(paint(YELLOW, "\n" + t("{server} asks:", server=request.get("asked_by")) + f" {request.get('message')}"))
+    if url := request.get("url"):
+        print(url)
+        answer = await _read_line(t("[y when you opened it, N to decline] ")) or ""
+        return {"action": "accept" if answer.lower() in ("y", "yes", t("y"), t("yes")) else "decline"}
+    content: dict[str, object] = {}
+    for field in request.get("fields") or []:
+        given = await _read_line(_field_prompt(field))
+        if given is None or given.strip().lower() == "n":
+            return {"action": "decline"}
+        if given.strip():
+            content[field["key"]] = _field_value(field, given.strip())
+    return {"action": "accept", "content": content}
+
+
+def _field_prompt(field: dict) -> str:
+    options = field.get("options") or []
+    listed = "".join(f"\n  {i}. {o['label']}" for i, o in enumerate(options, 1))
+    required = " *" if field.get("required") else ""
+    hint = t(" (numbers)") if field["type"] == "choices" else t(" (y/n)") if field["type"] == "boolean" else ""
+    return f"{field.get('title') or field['key']}{required}{hint}{listed}\n> "
+
+
+def _field_value(field: dict, given: str) -> object:
+    """What the server's form gets for the line typed: the options picked by number, or the text."""
+    options = [o["value"] for o in field.get("options") or []]
+    picked = [options[int(n) - 1] for n in given.split() if n.isdigit() and 0 < int(n) <= len(options)]
+    if field["type"] == "choices":
+        return picked
+    if field["type"] == "choice":
+        return picked[0] if picked else given
+    if field["type"] == "boolean":
+        return given.lower() in ("y", "yes", t("y"), t("yes"))
+    return given
 
 
 async def _answer_question(request: dict) -> dict:

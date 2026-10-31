@@ -118,8 +118,9 @@ export type LogQuery = { level: string; component: string; lines: number };
 export type LogEvent = { kind: "page"; page: LogPage } | { kind: "entry"; entry: LogEntry };
 
 /** An approval, with `kind: "question"` a question with options, with `kind: "plugin"` a plugin the
- *  agent offers to install, or with `kind: "plugin_setup"` an installed plugin's setup to open (the
- *  plugin comes as the extras list it, `server` or `skill`) (core/events.py). */
+ *  agent offers to install, with `kind: "plugin_setup"` an installed plugin's setup to open (the
+ *  plugin comes as the extras list it, `server` or `skill`), or with `kind: "form"` an MCP server's form or link
+ *  (core/events.py). */
 export type ApprovalRequest = {
   kind?: string;
   tool?: string;
@@ -131,12 +132,32 @@ export type ApprovalRequest = {
   name?: string;
   server?: FoundServer;
   skill?: FoundSkill;
+  // A server's form (`kind: "form"`): who asks, what, and its fields or the link it asks to open.
+  asked_by?: string;
+  message?: string;
+  fields?: FormField[];
+  url?: string;
 } & Record<string, unknown>;
+/** A field of an MCP server's form (core/mcp/elicitation.py). */
+export type FormField = {
+  key: string;
+  title: string;
+  description: string;
+  type: "text" | "number" | "integer" | "boolean" | "choice" | "choices";
+  required: boolean;
+  default?: unknown;
+  options?: { value: string; label: string }[];
+  format?: string;
+};
 export type ApprovalRequired = { type: "ApprovalRequired"; interrupt_id: string; request: ApprovalRequest };
-/** An approval's answer, a question's (the options picked, null when skipped), or whether the user
- *  installed the plugin offered. */
+/** An approval's answer, a question's (the options picked, null when skipped), whether the user
+ *  installed the plugin offered, or a server's form's (sent, declined or cancelled). */
 export type Decision =
-  { approved: boolean; reason: string | null } | { choices: string[] | null } | { installed: boolean } | { done: boolean };
+  | { approved: boolean; reason: string | null }
+  | { choices: string[] | null }
+  | { installed: boolean }
+  | { done: boolean }
+  | { action: "accept" | "decline" | "cancel"; content?: Record<string, unknown> };
 
 /** The inbox sent the message on to a conversation, `thread_id` (empty: a new one), or the assistant moved
  * work out of it; once the run ends, the client goes there and sends it by `id` (core/events.py). `carried`:

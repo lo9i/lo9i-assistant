@@ -57,7 +57,9 @@ async def service(script, digests, summaries, titles, monkeypatch) -> AsyncItera
     monkeypatch.setattr(
         hub_module,
         "open_client",
-        lambda server, handler, auth, extensions: Client(fake, message_handler=handler, extensions=extensions),
+        lambda server, handler, auth, extensions, in_flight=None: Client(
+            fake, message_handler=handler, extensions=extensions
+        ),
     )
     async with AssistantService.open() as svc:
         stop = asyncio.Event()
@@ -101,7 +103,7 @@ async def test_mcp_failures_in_a_row_alert_once_and_a_success_clears_them(servic
 
 
 async def test_a_server_that_cant_connect_counts_a_failure(service, monkeypatch):
-    def refuse(server, handler, auth, extensions):
+    def refuse(server, handler, auth, extensions, in_flight=None):
         raise OSError("no such command")
 
     monkeypatch.setattr(service.mcp, "_factory", refuse)

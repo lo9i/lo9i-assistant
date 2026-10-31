@@ -17,7 +17,16 @@ from textual.widgets.option_list import Option
 from assistant.client.daemon_client import McpApi, OAuthApi, RepositoriesApi
 from assistant.core.agent import McpServerChanges, McpServerError, McpServerStatus
 from assistant_terminal.i18n import t, translatable
-from assistant_terminal.mcp_text import describe, selection, shown, summary, tool_label
+from assistant_terminal.mcp_text import (
+    ADDED,
+    describe,
+    offer_rows,
+    offers_on,
+    selection,
+    shown,
+    summary,
+    tool_label,
+)
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 from assistant_terminal.tui.screens.kept_keys import ask_about_keys
@@ -123,8 +132,10 @@ class McpScreen(ModalScreen[None]):
         server = self._current()
         if server is not None:
             selected = set(self.query_one("#mcp-tools", SelectionList).selected)
-            include, exclude = selection(server.tools, selected)
-            await self._change(server.name, McpServerChanges(include=include, exclude=exclude), t("Saved the tools."))
+            include, exclude = selection(server.tools, {s for s in selected if not s.startswith(ADDED)})
+            resources, prompts = offers_on(server, selected)
+            changes = McpServerChanges(include=include, exclude=exclude, resources=resources, prompts=prompts)
+            await self._change(server.name, changes, t("Saved the tools."))
 
     @on(Button.Pressed, "#trust")
     @reports_daemon_unavailable
@@ -190,7 +201,8 @@ class McpScreen(ModalScreen[None]):
         tools = self.query_one("#mcp-tools", SelectionList)
         tools.clear_options()
         tools.add_options([(tool_label(t), t.name, t.selected) for t in server.tools])
-        tools.display = self.query_one("#save-tools").display = bool(server.tools)
+        tools.add_options(offer_rows(server))
+        tools.display = self.query_one("#save-tools").display = bool(server.tools or server.offers)
         self.query_one("#update").display = bool(server.source)
         self.query_one("#sign-in").display = server.status == "needs_sign_in"
         # What a plugin installed goes with the plugin, in /plugins.

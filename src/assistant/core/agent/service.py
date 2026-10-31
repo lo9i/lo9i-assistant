@@ -75,6 +75,7 @@ from assistant.core.mcp.hub import McpHub
 from assistant.core.mcp.media import ToolMedia
 from assistant.core.mcp.oauth import McpAuth
 from assistant.core.mcp.pages import McpPages
+from assistant.core.mcp.sampling import Sampler
 from assistant.core.memory import profile
 from assistant.core.memory.e5 import E5Embedder
 from assistant.core.memory.indexer import MemoryIndexer
@@ -150,6 +151,7 @@ class AssistantService(
             shared=lambda: logins.of_model(self._model),
             environments=environments,
             background=background,
+            sampler=Sampler(lambda: self._model, storage.usage),
         )
         self.agent_tasks = AgentTasks(storage.store, secrets, environments, lambda: logins.of_model(self._model))
         self._plugin_checks = PluginChecks(storage.store, secrets, lambda: logins.of_model(self._model), environments)

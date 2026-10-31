@@ -133,7 +133,7 @@ class PluginChecks:
         try:
             async with (
                 asyncio.timeout(CHECK_SECONDS),
-                self._factory(server, _ignore, None, ()) as client,
+                self._factory(server, _ignore, None, (), None) as client,
             ):
                 result = await client.call_tool(server.check_tool, {})
         except TimeoutError:

@@ -163,6 +163,7 @@ function add(t: Transcript, item: NewItem): Transcript {
 }
 
 function addShown(t: Transcript, message: ShownMessage): Transcript {
+  if (message.role === "user" && message.untaken) return t;
   if (message.role === "user") return add(t, { kind: "user", ...splitAttachments(message.text), ...shownNote(message) });
   if (message.role === "brief") return add(t, { kind: "brief", text: message.text, agent: message.agent });
   if (message.role === "thinking") return add(t, { kind: "thinking", text: message.text });
@@ -264,9 +265,9 @@ function taken(item: ChatItem): ChatItem {
   return item.kind === "user" ? { ...item, note: undefined, messageId: undefined } : item;
 }
 
-/** The run ended before the agent got to the messages still waiting: they go to it as the next message. */
+/** The run ended before the agent got to the messages still waiting: they go to it as the next message, so they leave here. */
 function notTaken(t: Transcript): Transcript {
-  const items = t.items.map((item) => (item.kind === "user" && item.note === "waiting" ? { ...item, note: "untaken" as const } : item));
+  const items = t.items.filter((item) => !(item.kind === "user" && item.note === "waiting"));
   return { ...t, items };
 }
 

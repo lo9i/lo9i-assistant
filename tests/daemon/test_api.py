@@ -864,7 +864,9 @@ async def test_mcp_servers_through_the_client(client, service, monkeypatch, isol
         return text
 
     monkeypatch.setattr(
-        service.mcp, "_factory", lambda server, handler, auth, extensions: Client(fake, message_handler=handler)
+        service.mcp,
+        "_factory",
+        lambda server, handler, auth, extensions, in_flight=None: Client(fake, message_handler=handler),
     )
     server = McpServer(name="notes", command="notes-server", env={"TOKEN": "secret"})
     assert [t.name for t in (await client.mcp.probe(server)).tools] == ["add_note"]

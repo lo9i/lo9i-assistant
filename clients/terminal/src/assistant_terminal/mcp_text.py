@@ -60,7 +60,7 @@ def describe(server: McpServerStatus) -> str:
             if server.command
             else t("Headers: {names} (values hidden)", names=names)
         )
-    if server.tools:
+    if server.tools or server.offers:
         lines.append(
             t(
                 "Tools the assistant gets are checked. Read-only tools are marked (read-only), "
@@ -83,6 +83,26 @@ def selection(tools: list[McpToolInfo], selected: set[str]) -> tuple[list[str], 
         return [], []
     chosen = [n for n in names if n in selected]
     return (chosen, []) if chosen else ([], ["*"])
+
+
+# What a server has besides tools, which the assistant gets tools for once turned on (core/mcp/listings.py), as
+# rows in the list of its tools; each row's value is "@" and the kind.
+_OFFERS = {
+    "resources": translatable("Its resources: list and read them (list_resources, read_resource)"),
+    "prompts": translatable("Its prompts: list and get them (list_prompts, get_prompt)"),
+}
+ADDED = "@"
+
+
+def offer_rows(server: McpServerStatus) -> list[tuple[str, str, bool]]:
+    """(label, value, on) for each thing the server has besides tools."""
+    return [(t(_OFFERS[kind]), ADDED + kind, getattr(server, kind)) for kind in server.offers if kind in _OFFERS]
+
+
+def offers_on(server: McpServerStatus, selected: set[str]) -> tuple[bool | None, bool | None]:
+    """Whether its resources and prompts are checked; None for what the server doesn't have."""
+    resources, prompts = ((ADDED + kind in selected if kind in server.offers else None) for kind in _OFFERS)
+    return resources, prompts
 
 
 def parse_pairs(text: str, separator: str) -> dict[str, str]:

@@ -916,5 +916,17 @@
   "→ {title}. /inbox goes back.": "→ {title}. /inbox vuelve atrás.",
   "🎤 heard ({language}): {text}": "🎤 escuchado ({language}): {text}",
   "🎤 voice message": "🎤 mensaje de voz",
-  "Language set to {language}.": "Idioma cambiado a {language}."
+  "Language set to {language}.": "Idioma cambiado a {language}.",
+  " (numbers)": " (números)",
+  " (y/n)": " (s/n)",
+  "Decline": "Rechazar",
+  "Fill in: {fields}": "Completa: {fields}",
+  "I opened it": "Ya lo abrí",
+  "It asks you to open this link:": "Te pide que abras este enlace:",
+  "Its prompts: list and get them (list_prompts, get_prompt)": "Sus prompts: listarlos y obtenerlos (list_prompts, get_prompt)",
+  "Its resources: list and read them (list_resources, read_resource)": "Sus recursos: listarlos y leerlos (list_resources, read_resource)",
+  "Send": "Enviar",
+  "[y when you opened it, N to decline] ": "[s cuando lo hayas abierto, N para rechazar] ",
+  "{server} asks": "{server} pregunta",
+  "{server} asks:": "{server} pregunta:"
 }

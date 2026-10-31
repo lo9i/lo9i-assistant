@@ -66,7 +66,9 @@ class ApprovalRequired:
     `description` and the plugin as the repository lists it (`server` or `skill`): the app installs
     it through its usual route and answers {"installed": bool}. One whose `kind` is PLUGIN_SETUP
     opens an installed plugin's setup (its email accounts, a channel's pairing), with `name`,
-    `description` and `server`, answered with {"done": true} once the user closes it."""
+    `description` and `server`, answered with {"done": true} once the user closes it. One whose `kind` is FORM
+    is an MCP server's form for the user, or a link it asks the user to open (core/mcp/elicitation.py), answered
+    with {"action": "accept" | "decline" | "cancel", "content": {...}}."""
 
     interrupt_id: str
     request: dict[str, Any]
@@ -93,13 +95,22 @@ def is_plugin_setup(request: dict[str, Any]) -> bool:
     return request.get("kind") == PLUGIN_SETUP
 
 
+FORM = "form"
+
+
+def is_form(request: dict[str, Any]) -> bool:
+    return request.get("kind") == FORM
+
+
 # Why an approval was rejected when the user wrote again instead of answering it.
 MOVED_ON = "the user sent a new message instead of answering"
 
 
 def declined(request: dict[str, Any]) -> dict[str, Any]:
     """The answer to `request` when the user moved on without answering it (sent a new message): an approval
-    rejected, a question skipped, a plugin not installed, a setup closed."""
+    rejected, a question skipped, a plugin not installed, a setup closed, a server's form declined."""
+    if is_form(request):
+        return {"action": "decline"}
     if is_question(request):
         return {"choices": None}
     if is_plugin_offer(request):

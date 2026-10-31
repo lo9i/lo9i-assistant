@@ -1,6 +1,7 @@
 """Shows one run's events in a chat: a typing indicator, a status message listing tool calls, the reply
 streamed by editing its message, its first message tagged with a short name of the conversation
-(`[watchlist] …`), its choices as buttons (answers.py), and approval or question buttons. A handed-off agent's
+(`[watchlist] …`), its choices as buttons (answers.py), and approval or question buttons, and an MCP server's forms
+(forms.py). A handed-off agent's
 thinking isn't shown: a chat has room only for what's said and done."""
 
 import asyncio
@@ -13,6 +14,7 @@ from typing import Any
 
 from assistant.core.channels.chat.answers import answer_buttons
 from assistant.core.channels.chat.approvals import approval_buttons, approval_text
+from assistant.core.channels.chat.forms import form_buttons, form_text
 from assistant.core.channels.chat.port import Buttons, ChatLimits, ChatPort
 from assistant.core.channels.chat.questions import question_buttons, question_text
 from assistant.core.channels.chat.split import split_text
@@ -28,6 +30,7 @@ from assistant.core.events import (
     ToolFinished,
     ToolStarted,
     Transcribed,
+    is_form,
     is_question,
 )
 from assistant.core.i18n import Texts
@@ -94,7 +97,9 @@ class ChatTurn:
                 pass
 
     async def _ask(self, interrupt_id: str, request: dict[str, Any]) -> None:
-        if is_question(request):
+        if is_form(request):
+            await self._chat.send(form_text(self._t, request), buttons=form_buttons(self._t, interrupt_id, request))
+        elif is_question(request):
             buttons = question_buttons(self._t, interrupt_id, request)
             await self._chat.send(question_text(self._t, request), buttons=buttons)
         else:

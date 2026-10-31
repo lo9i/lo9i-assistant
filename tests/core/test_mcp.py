@@ -80,7 +80,9 @@ async def service(script, digests, summaries, titles, notes, monkeypatch) -> Asy
     monkeypatch.setattr(
         hub_module,
         "open_client",
-        lambda server, handler, auth, extensions: Client(fake, message_handler=handler, extensions=extensions),
+        lambda server, handler, auth, extensions, in_flight=None: Client(
+            fake, message_handler=handler, extensions=extensions
+        ),
     )
     async with AssistantService.open() as svc:
         stop = asyncio.Event()
@@ -375,7 +377,7 @@ class _DroppingConnection(McpConnection):
         self.calls = 0
         self.content = content or [TextContent(text="fine")]
 
-    async def call(self, tool: str, arguments: dict, progress=None, origin=None) -> CallToolResult:
+    async def call(self, tool: str, arguments: dict, progress=None, origin=None, asker=None) -> CallToolResult:
         self.calls += 1
         if self.calls == 1:
             raise ConnectionLostError("connection reset")
@@ -498,7 +500,7 @@ async def test_a_connection_that_cant_be_got_ready_fails_without_connecting():
     async def prepare(server: McpServer) -> None:
         raise McpServerError(f"Couldn't install what {server.name} needs")
 
-    def factory(server, on_message, auth, extensions):
+    def factory(server, on_message, auth, extensions, in_flight=None):
         opened.append(server.name)
         raise AssertionError("not reached")
 
@@ -526,7 +528,7 @@ class _Opens:
         self.count = 0
         self._server = _notes_server(notes)
 
-    def __call__(self, server, on_message, auth, extensions=()):
+    def __call__(self, server, on_message, auth, extensions=(), in_flight=None):
         self.count += 1
         return Client(self._server, message_handler=on_message, extensions=extensions)
 
@@ -577,9 +579,11 @@ async def test_a_server_on_demand_with_unknown_tools_starts_at_once_and_keeps_th
     stop = asyncio.Event()
     running = asyncio.create_task(connection.run(stop))
     await _until(lambda: connection.state.status == "connected")
-    assert saved == [["read_notes", "add_note", "chart"]]
+    # With the tools lo9i adds for its resources and prompts (core/mcp/listings.py).
+    added = ["list_resources", "read_resource", "list_prompts", "get_prompt"]
+    assert saved == [["read_notes", "add_note", "chart", *added]]
     await _until(lambda: connection.state.status == "idle")
-    assert len(connection.state.tools) == 3
+    assert len(connection.state.tools) == 7
     stop.set()
     await running
 
@@ -609,7 +613,7 @@ async def test_a_call_to_a_server_on_demand_that_cant_start_fails_at_once(notes)
     async with probe(None, None, None) as client:
         cached = await list_tools(client)
 
-    def broken(server, on_message, auth, extensions):
+    def broken(server, on_message, auth, extensions, in_flight=None):
         raise OSError("No such file or directory: notes-server")
 
     connection = _on_demand_connection(broken, cached, [])

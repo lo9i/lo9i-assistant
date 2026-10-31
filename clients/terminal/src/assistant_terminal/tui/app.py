@@ -35,6 +35,7 @@ from assistant.core.attachments import Attachment
 from assistant.core.events import (
     Dispatched,
     Event,
+    is_form,
     is_plugin_offer,
     is_plugin_setup,
     is_question,
@@ -70,6 +71,7 @@ from assistant_terminal.tui.screens import (
     EmailScreen,
     FilesScreen,
     FolderScreen,
+    FormScreen,
     HomeScreen,
     HostScreen,
     JobsScreen,
@@ -1155,10 +1157,12 @@ def _attachment_label(attachments: list[Attachment]) -> str:
     return t("🎤 voice message") if any(a.media_type.startswith("audio/") for a in attachments) else t("(attachment)")
 
 
-def _screen_for(request: dict[str, Any]) -> ApprovalScreen | QuestionScreen:
-    """What the run waits for: a question with options, or an approval."""
+def _screen_for(request: dict[str, Any]) -> ApprovalScreen | QuestionScreen | FormScreen:
+    """What the run waits for: a question with options, a server's form, or an approval."""
     if is_question(request):
         return QuestionScreen(request)
+    if is_form(request):
+        return FormScreen(request)
     return ApprovalScreen(request)
 
 

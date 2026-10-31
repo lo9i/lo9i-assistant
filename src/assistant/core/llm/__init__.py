@@ -29,11 +29,11 @@ from assistant.core.llm.claude import KeptAliveChatAnthropic
 from assistant.core.llm.providers import CACHE_ONE_HOUR, PROMPT_CACHE, provider
 
 
-def build_llm(choice: ModelChoice, model: str) -> BaseChatModel:
-    """`model` (the choice's main or worker model) from the choice's provider. Its package must be
-    installed (core/llm/packages.py)."""
+def build_llm(choice: ModelChoice, model: str, max_tokens: int | None = None) -> BaseChatModel:
+    """`model` (the choice's main or worker model) from the choice's provider, writing at most `max_tokens`
+    (MAX_TOKENS when None). Its package must be installed (core/llm/packages.py)."""
     builder = _BUILDERS.get(choice.provider, _langchain)
-    return builder(choice, model)
+    return builder(choice, model, max_tokens or settings.max_tokens)
 
 
 def metered(llm: BaseChatModel, meter: BaseCallbackHandler) -> BaseChatModel:
@@ -64,7 +64,7 @@ def build_structured(
     )
 
 
-def _anthropic(choice: ModelChoice, model: str) -> BaseChatModel:
+def _anthropic(choice: ModelChoice, model: str, max_tokens: int) -> BaseChatModel:
     # Top-level cache_control: the API caches the whole prefix (tools, system, history)
     # up to the last block, and the next call reads it back.
     model_kwargs: dict = {"cache_control": _cache_control(choice)}
@@ -77,7 +77,7 @@ def _anthropic(choice: ModelChoice, model: str) -> BaseChatModel:
     return KeptAliveChatAnthropic.model_validate(
         {
             "model": model,
-            "max_tokens": settings.max_tokens,
+            "max_tokens": max_tokens,
             "output_config": {"effort": settings.effort},
             "output_version": "v1",
             "betas": betas or None,
@@ -95,7 +95,7 @@ def _cache_control(choice: ModelChoice) -> dict[str, str]:
     return {"type": "ephemeral"}
 
 
-def _openai(choice: ModelChoice, model: str) -> BaseChatModel:
+def _openai(choice: ModelChoice, model: str, max_tokens: int) -> BaseChatModel:
     # Without a key or URL in the choice, the SDK reads OPENAI_API_KEY and OPENAI_BASE_URL.
     key = choice.values.get("api_key")
     return ChatOpenAI(
@@ -104,22 +104,22 @@ def _openai(choice: ModelChoice, model: str) -> BaseChatModel:
         base_url=choice.values.get("base_url") or None,
         # On connections that notice when they died (core/llm/connections.py).
         http_async_client=connections.client(),
-        max_completion_tokens=settings.max_tokens,
+        max_completion_tokens=max_tokens,
         output_version="v1",
         # Ask for token usage on streamed replies too; servers other than OpenAI don't send it unasked.
         stream_usage=True,
     )
 
 
-def _copilot(choice: ModelChoice, model: str) -> BaseChatModel:
-    return copilot.chat_model(model, choice.values.get("api_key", ""), settings.max_tokens)
+def _copilot(choice: ModelChoice, model: str, max_tokens: int) -> BaseChatModel:
+    return copilot.chat_model(model, choice.values.get("api_key", ""), max_tokens)
 
 
-def _openrouter(choice: ModelChoice, model: str) -> BaseChatModel:
-    return openrouter.chat_model(model, choice.values.get("api_key", ""), settings.max_tokens)
+def _openrouter(choice: ModelChoice, model: str, max_tokens: int) -> BaseChatModel:
+    return openrouter.chat_model(model, choice.values.get("api_key", ""), max_tokens)
 
 
-def _langchain(choice: ModelChoice, model: str) -> BaseChatModel:
+def _langchain(choice: ModelChoice, model: str, max_tokens: int) -> BaseChatModel:
     known = provider(choice.provider)
     if known is None:
         raise ValueError(said("Unknown model provider {provider}.", provider=choice.provider))
@@ -127,7 +127,7 @@ def _langchain(choice: ModelChoice, model: str) -> BaseChatModel:
     if "service_account_json" in options:
         options["credentials"] = _google_credentials(options.pop("service_account_json"))
     if known.max_tokens_key:
-        options[known.max_tokens_key] = settings.max_tokens
+        options[known.max_tokens_key] = max_tokens
     if known.model_key:
         options[known.model_key] = model
     if known.id in _TAKE_HTTP_CLIENT:
@@ -149,7 +149,7 @@ def _google_credentials(text: str) -> Any:
     )
 
 
-_BUILDERS: dict[str, Callable[[ModelChoice, str], BaseChatModel]] = {
+_BUILDERS: dict[str, Callable[[ModelChoice, str, int], BaseChatModel]] = {
     "anthropic": _anthropic,
     "openai": _openai,
     "copilot": _copilot,

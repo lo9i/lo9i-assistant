@@ -310,11 +310,11 @@ ApprovalScreen {
     margin-right: 2;
 }
 
-QuestionScreen, PluginUpdatesScreen, AgentFolderScreen, SkillImportsScreen {
+QuestionScreen, FormScreen, PluginUpdatesScreen, AgentFolderScreen, SkillImportsScreen {
     align: center middle;
 }
 
-#question, #plugin-updates, #agent-folder, #repositories, #skill-imports {
+#question, #form, #plugin-updates, #agent-folder, #repositories, #skill-imports {
     width: 80%;
     max-width: 100;
     height: auto;
@@ -819,5 +819,32 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
 }
 
 #folder-buttons Button, #folder-buttons Checkbox {
+    margin-right: 2;
+}
+
+#form-message, #form-url {
+    margin: 1 0;
+}
+
+#form-url {
+    color: ansi_cyan;
+}
+
+#form-fields {
+    height: auto;
+    max-height: 20;
+}
+
+#form-fields .form-title {
+    margin-top: 1;
+    text-style: bold;
+}
+
+#form-buttons {
+    height: auto;
+    margin-top: 1;
+}
+
+#form-buttons Button {
     margin-right: 2;
 }

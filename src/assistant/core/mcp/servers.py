@@ -43,6 +43,10 @@ class McpServer:
     # Tool names or globs that ask the user each time, even on a trusted server: what its plugin declares
     # (`approve:` in its server.yaml), so an update replaces them. Such a tool never counts as read-only.
     approve: list[str] = field(default_factory=list)
+    # The agent gets tools to list and read the server's resources, and to list and get its prompts, when the
+    # server has them (core/mcp/listings.py). Off until the user turns them on.
+    resources: bool = False
+    prompts: bool = False
     # The repository it was installed from (core/mcp/install.py); "" when added by hand.
     source: str = ""
     # A web page the server comes with, run as its own process with the server's env and shown in the
