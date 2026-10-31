@@ -467,6 +467,8 @@ class McpServerChange(BaseModel):
     trusted: bool | None = None
     include: list[str] | None = None
     exclude: list[str] | None = None
+    resources: bool | None = None
+    prompts: bool | None = None
 
 
 class AssistantName(BaseModel):

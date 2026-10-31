@@ -211,8 +211,8 @@ describe("transcript", () => {
       ["look at the docs", undefined],
       ["skip the slow ones", "waiting"],
     ]);
-    expect(notes(apply(t, { type: "Cancelled" }).items).at(-1)).toEqual(["skip the slow ones", "untaken"]);
-    expect(notes(apply(t, { type: "Error", message: "it broke" }).items).at(-1)).toEqual(["skip the slow ones", "untaken"]);
+    expect(notes(apply(t, { type: "Cancelled" }).items).at(-1)).toEqual(["look at the docs", undefined]);
+    expect(notes(apply(t, { type: "Error", message: "it broke" }).items).at(-1)).toEqual(["look at the docs", undefined]);
   });
 
   it("shows the messages the agent never got to, and those sent again, as history kept them", () => {
@@ -221,7 +221,7 @@ describe("transcript", () => {
       { role: "user", text: "skip the slow ones", ...shown, untaken: true, resent: false },
       { role: "user", text: "skip the slow ones", ...shown, untaken: false, resent: true },
     ]);
-    expect(t.items.map((i) => i.kind === "user" && i.note)).toEqual(["untaken", "resent"]);
+    expect(t.items.map((i) => i.kind === "user" && i.note)).toEqual(["resent"]);
     expect(addUser(empty, "skip the slow ones", [], undefined, "resent").items[0]).toMatchObject({ note: "resent" });
   });
 

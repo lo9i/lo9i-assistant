@@ -771,7 +771,11 @@
     "noneSelected": "Ningún servidor elegido",
     "noneSelectedHint": "Elige uno de la tabla para verlo aquí.",
     "removeText": "El asistente pierde sus herramientas desde tu próximo mensaje, y su configuración se borra.",
-    "needsPair": "«{line}» necesita un nombre, {separator} y un valor."
+    "needsPair": "«{line}» necesita un nombre, {separator} y un valor.",
+    "resources": "Recursos",
+    "resourcesHint": "El asistente lista y lee lo que el servidor ofrece para leer (list_resources, read_resource).",
+    "prompts": "Prompts",
+    "promptsHint": "El asistente lista y sigue los prompts del servidor (list_prompts, get_prompt)."
   },
   "mcpAdd": {
     "title": "Agregar un servidor MCP",
@@ -1429,5 +1433,14 @@
     "saving": "Guardando…",
     "checking": "Comprobando…",
     "saved": "Ajustes de {name} guardados."
+  },
+  "form": {
+    "asks": "{server} pregunta",
+    "openLink": "Te pide que abras este enlace:",
+    "pick": "Elige uno",
+    "missing": "Completa: {fields}",
+    "decline": "Rechazar",
+    "opened": "Ya lo abrí",
+    "send": "Enviar"
   }
 }

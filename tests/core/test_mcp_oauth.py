@@ -144,7 +144,7 @@ async def service(script, digests, titles, oauth_server, monkeypatch) -> AsyncIt
     monkeypatch.setattr(
         hub_module,
         "open_client",
-        lambda server, handler, auth, extensions: Client(
+        lambda server, handler, auth, extensions, in_flight=None: Client(
             transport(server, auth), message_handler=handler, extensions=extensions
         ),
     )

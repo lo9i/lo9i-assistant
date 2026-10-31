@@ -27,7 +27,6 @@ from assistant.core.events import (
 )
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.widgets import (
-    UNTAKEN,
     WAITING,
     AssistantMessage,
     ChoicesNote,
@@ -131,7 +130,7 @@ class TurnView:
     def _not_taken(self) -> None:
         """The run ended before the agent got to them: they go to it as the next message."""
         for _, message in self._waiting:
-            message.note(UNTAKEN)
+            message.remove()
         self._waiting.clear()
 
     async def _text(self, text: str) -> None:

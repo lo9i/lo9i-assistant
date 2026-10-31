@@ -6616,7 +6616,7 @@
           "request"
         ],
         "title": "ApprovalRequired",
-        "description": "The run waits for the user. Usually an approval, answered with {\"approved\", \"reason\"}; a\nrequest whose `kind` is QUESTION is a question with options (core/tools/questions.py), with\n`question`, `options` and `multiple`, answered with {\"choices\": [picked options]}. One whose\n`kind` is PLUGIN_OFFER offers a plugin from the extras (core/tools/plugins.py), with `name`,\n`description` and the plugin as the repository lists it (`server` or `skill`): the app installs\nit through its usual route and answers {\"installed\": bool}. One whose `kind` is PLUGIN_SETUP\nopens an installed plugin's setup (its email accounts, a channel's pairing), with `name`,\n`description` and `server`, answered with {\"done\": true} once the user closes it."
+        "description": "The run waits for the user. Usually an approval, answered with {\"approved\", \"reason\"}; a\nrequest whose `kind` is QUESTION is a question with options (core/tools/questions.py), with\n`question`, `options` and `multiple`, answered with {\"choices\": [picked options]}. One whose\n`kind` is PLUGIN_OFFER offers a plugin from the extras (core/tools/plugins.py), with `name`,\n`description` and the plugin as the repository lists it (`server` or `skill`): the app installs\nit through its usual route and answers {\"installed\": bool}. One whose `kind` is PLUGIN_SETUP\nopens an installed plugin's setup (its email accounts, a channel's pairing), with `name`,\n`description` and `server`, answered with {\"done\": true} once the user closes it. One whose `kind` is FORM\nis an MCP server's form for the user, or a link it asks the user to open (core/mcp/elicitation.py), answered\nwith {\"action\": \"accept\" | \"decline\" | \"cancel\", \"content\": {...}}."
       },
       "Approvals": {
         "properties": {
@@ -9268,6 +9268,28 @@
               }
             ],
             "title": "Exclude"
+          },
+          "resources": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resources"
+          },
+          "prompts": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompts"
           }
         },
         "type": "object",
@@ -9474,6 +9496,23 @@
           "settings": {
             "type": "boolean",
             "title": "Settings",
+            "default": false
+          },
+          "offers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Offers"
+          },
+          "resources": {
+            "type": "boolean",
+            "title": "Resources",
+            "default": false
+          },
+          "prompts": {
+            "type": "boolean",
+            "title": "Prompts",
             "default": false
           }
         },

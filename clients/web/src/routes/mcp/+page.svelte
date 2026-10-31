@@ -185,6 +185,33 @@
             onchange={(on) => change(() => client.mcp.change(server.name, { trusted: on }))}
           />
         </div>
+        <!-- What the server has besides tools: the assistant gets tools for it once turned on (core/mcp/listings.py). -->
+        {#if server.offers?.includes("resources")}
+          <div class="trust">
+            <div>
+              <span>{t("mcp.resources")}</span>
+              <p class="text-caption">{t("mcp.resourcesHint")}</p>
+            </div>
+            <Toggle
+              checked={server.resources ?? false}
+              label={t("mcp.resources")}
+              onchange={(on) => change(() => client.mcp.change(server.name, { resources: on }))}
+            />
+          </div>
+        {/if}
+        {#if server.offers?.includes("prompts")}
+          <div class="trust">
+            <div>
+              <span>{t("mcp.prompts")}</span>
+              <p class="text-caption">{t("mcp.promptsHint")}</p>
+            </div>
+            <Toggle
+              checked={server.prompts ?? false}
+              label={t("mcp.prompts")}
+              onchange={(on) => change(() => client.mcp.change(server.name, { prompts: on }))}
+            />
+          </div>
+        {/if}
         <div class="actions">
           {#if server.status === "needs_sign_in"}
             <button class="btn btn--primary btn--sm" onclick={() => signIn(server.name)}><LogIn size={14} />{t("mcp.signIn")}</button>

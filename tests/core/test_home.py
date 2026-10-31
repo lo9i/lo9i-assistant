@@ -59,7 +59,9 @@ async def service(script, digests, summaries, titles, formats, created, monkeypa
     monkeypatch.setattr(
         hub_module,
         "open_client",
-        lambda server, handler, auth, extensions: Client(fake, message_handler=handler, extensions=extensions),
+        lambda server, handler, auth, extensions, in_flight=None: Client(
+            fake, message_handler=handler, extensions=extensions
+        ),
     )
     async with AssistantService.open() as svc:
         stop = asyncio.Event()

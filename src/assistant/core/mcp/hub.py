@@ -27,7 +27,7 @@ from assistant.core.context import McpStarts
 from assistant.core.health import Health, HealthLog
 from assistant.core.hidden_text import strip_hidden
 from assistant.core.i18n import said
-from assistant.core.mcp import background, data_key, keys, logins, servers, sign_in, ssh_agent, tool_cache
+from assistant.core.mcp import background, data_key, keys, listings, logins, servers, sign_in, ssh_agent, tool_cache
 from assistant.core.mcp.background import WorkFinished
 from assistant.core.mcp.connection import (
     ClientFactory,
@@ -42,10 +42,11 @@ from assistant.core.mcp.logins import SharedLogins
 from assistant.core.mcp.media import ToolMedia
 from assistant.core.mcp.oauth import McpAuth, needs_sign_in
 from assistant.core.mcp.on_demand import OnDemand
+from assistant.core.mcp.sampling import Sampler
 from assistant.core.mcp.sanitize import MAX_TOOL_NAME, tool_name
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.mcp.sign_in import McpSignIn
-from assistant.core.mcp.tools import McpTool
+from assistant.core.mcp.tools import McpListingTool, McpTool
 from assistant.core.secret_store import SecretBox
 
 logger = logging.getLogger(__name__)
@@ -94,11 +95,14 @@ class McpHub(McpStarts):
         shared: SharedLogins | None = None,
         environments: Environments | None = None,
         background: BackgroundEnds | None = None,
+        sampler: Sampler | None = None,
     ) -> None:
         """`shared` gives the logins servers can use instead of their own (core/mcp/logins.py);
         `environments` rebuilds a server's lost environment before it starts. `secrets` reads the
         servers' keys (keys.py) to connect them. `background` tells the servers' background work that
-        finished to the conversation that started it."""
+        finished to the conversation that started it. `sampler` writes the text servers ask the model for
+        (sampling.py); without it they're refused."""
+        self._sampler = sampler
         self._environments = environments
         self._background = background
         self._store = store
@@ -112,7 +116,7 @@ class McpHub(McpStarts):
         self._running: dict[str, _Running] = {}
         # The sign-in in progress per server; starting another drops it.
         self._signing_in: dict[str, McpSignIn] = {}
-        self._tools: dict[str, McpTool] = {}
+        self._tools: dict[str, McpTool | McpListingTool] = {}
         self._active = False
 
     async def run(self, stop: asyncio.Event) -> None:
@@ -172,7 +176,7 @@ class McpHub(McpStarts):
         """Definitions of the tools that say they only read, for subagents and Home's sections."""
         return [_definition(tool) for _, tool in sorted(self._tools.items()) if tool.read_only]
 
-    def tool(self, name: str) -> McpTool | None:
+    def tool(self, name: str) -> McpTool | McpListingTool | None:
         return self._tools.get(name)
 
     async def call(
@@ -208,6 +212,11 @@ class McpHub(McpStarts):
         tools = _infos(connection.server, connection.state.tools)
         return connection.state.status, connection.state.error, tools
 
+    def offers(self, name: str) -> list[str]:
+        """What the server has besides tools (resources, prompts) as of its last connection; [] while off."""
+        running = self._running.get(name)
+        return listings.offers(running.connection.state.tools) if running else []
+
     async def started(self, name: str, timeout: float) -> str:
         """A server just installed or turned on: its first start can be slow (an environment to build) and
         can time out once before a retry connects. One on demand that already stopped again is idle."""
@@ -235,7 +244,7 @@ class McpHub(McpStarts):
         try:
             async with (
                 asyncio.timeout(_PROBE_SECONDS),
-                self._factory(server, _ignore, self._auth.for_connection(server), ()) as client,
+                self._factory(server, _ignore, self._auth.for_connection(server), (), None) as client,
             ):
                 tools = await list_tools(client)
         except Exception as e:
@@ -316,35 +325,47 @@ class McpHub(McpStarts):
         self._tools = self._collect()
         self._bus.publish("mcp")
 
-    def _collect(self) -> dict[str, McpTool]:
-        tools: dict[str, McpTool] = {}
+    def _collect(self) -> dict[str, McpTool | McpListingTool]:
+        tools: dict[str, McpTool | McpListingTool] = {}
         for running in self._running.values():
             connection = running.connection
             for tool in connection.state.tools:
-                if connection.server.selects(tool.name):
-                    _add(tools, connection, tool, self._media)
+                if listings.kind(tool) is not None:
+                    if listings.turned_on(connection.server, tool):
+                        self._add(tools, connection, tool, McpListingTool)
+                elif connection.server.selects(tool.name):
+                    self._add(tools, connection, tool, McpTool)
         return tools
 
+    def _add(
+        self, tools: dict[str, McpTool | McpListingTool], connection: McpConnection, tool: Tool, kind: type
+    ) -> None:
+        name = tool_name(connection.server.name, tool.name)
+        if len(name) > MAX_TOOL_NAME or name in tools:
+            logger.warning("MCP tool %s left out: its name is too long or taken by another tool", name)
+            return
+        common = {
+            "name": name,
+            "description": strip_hidden(tool.description or tool.title or tool.name),
+            "args_schema": json.loads(strip_hidden(json.dumps(tool.input_schema, ensure_ascii=False))),
+            "connection": connection,
+            "media": self._media,
+            "sampler": self._sampler,
+            "remote_name": tool.name,
+        }
+        if kind is McpListingTool:
+            tools[name] = McpListingTool(**common)
+            return
+        server = connection.server
+        tools[name] = McpTool(
+            **common,
+            read_only=_read_only(server, tool),
+            trusted=server.trusted,
+            asks_first=server.asks_first(tool.name),
+        )
 
-def _add(tools: dict[str, McpTool], connection: McpConnection, tool: Tool, media: ToolMedia) -> None:
-    name = tool_name(connection.server.name, tool.name)
-    if len(name) > MAX_TOOL_NAME or name in tools:
-        logger.warning("MCP tool %s left out: its name is too long or taken by another tool", name)
-        return
-    tools[name] = McpTool(
-        name=name,
-        description=strip_hidden(tool.description or tool.title or tool.name),
-        args_schema=json.loads(strip_hidden(json.dumps(tool.input_schema, ensure_ascii=False))),
-        connection=connection,
-        media=media,
-        remote_name=tool.name,
-        read_only=_read_only(connection.server, tool),
-        trusted=connection.server.trusted,
-        asks_first=connection.server.asks_first(tool.name),
-    )
 
-
-def _definition(tool: McpTool) -> dict[str, Any]:
+def _definition(tool: McpTool | McpListingTool) -> dict[str, Any]:
     return {
         "type": "function",
         "function": {"name": tool.name, "description": tool.description, "parameters": tool.args_schema},
@@ -352,8 +373,9 @@ def _definition(tool: McpTool) -> dict[str, Any]:
 
 
 def _infos(server: McpServer, tools: list[Tool]) -> list[McpToolInfo]:
-    """Its tools as the apps list them: all but its check (checks.py), which only lo9i calls."""
-    return [_info(server, tool) for tool in tools if not server.checks_with(tool.name)]
+    """Its tools as the apps list them: all but its check (checks.py), which only lo9i calls, and those lo9i adds
+    for its resources and prompts, which the apps show as switches (listings.py)."""
+    return [_info(server, t) for t in tools if not server.checks_with(t.name) and listings.kind(t) is None]
 
 
 def _info(server: McpServer, tool: Tool) -> McpToolInfo:
