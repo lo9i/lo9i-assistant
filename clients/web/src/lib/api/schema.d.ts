@@ -2538,6 +2538,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings/voice-calls/voice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Voice Call Voice
+         * @description Used from the next call. 400: not one of the voices.
+         */
+        put: operations["set_voice_call_voice_settings_voice_calls_voice_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/conversations/{thread_id}/voice-call": {
         parameters: {
             query?: never;
@@ -5994,6 +6014,15 @@ export interface components {
             key_source: "saved" | "model" | "env" | "";
             /** Model */
             model: string;
+            /** Voice */
+            voice: string;
+            /** Voices */
+            voices: string[];
+        };
+        /** VoiceCallVoice */
+        VoiceCallVoice: {
+            /** Voice */
+            voice: string;
         };
         /** VoiceOption */
         VoiceOption: {
@@ -10648,6 +10677,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VoiceCallSettings"];
+                };
+            };
+        };
+    };
+    set_voice_call_voice_settings_voice_calls_voice_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceCallVoice"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceCallSettings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

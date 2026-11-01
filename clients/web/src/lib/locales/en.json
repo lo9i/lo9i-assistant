@@ -1555,6 +1555,8 @@
     "checking": "Checking…",
     "remove": "Remove key",
     "model": "Voice model",
-    "cost": "OpenAI bills calls by the audio they carry, apart from what your model uses."
+    "cost": "OpenAI bills calls by the audio they carry, apart from what your model uses.",
+    "voice": "Voice",
+    "voiceHint": "Calls use it from the next one. OpenAI recommends Marin and Cedar for the best quality."
   }
 }

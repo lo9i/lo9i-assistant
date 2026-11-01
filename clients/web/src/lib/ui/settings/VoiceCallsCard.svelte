@@ -29,6 +29,9 @@
     loaded.reload();
   }
 
+  // OpenAI's voices are names: shown capitalized, as OpenAI writes them.
+  const named = (voice: string) => voice.charAt(0).toUpperCase() + voice.slice(1);
+
   async function save(): Promise<void> {
     if (!key.trim()) return;
     saving = true;
@@ -78,6 +81,18 @@
         <button class="btn btn--primary" type="submit" disabled={saving}>{saving ? t("voiceCallsCard.checking") : t("common.save")}</button>
       </form>
     {/if}
+    <div class="field">
+      <label class="micro-label" for="voice-call-voice">{t("voiceCallsCard.voice")}</label>
+      <select
+        id="voice-call-voice"
+        class="input"
+        value={s.voice}
+        onchange={(e) => act(() => client.voiceCalls.setVoice(e.currentTarget.value))}
+      >
+        {#each s.voices as voice (voice)}<option value={voice}>{named(voice)}</option>{/each}
+      </select>
+      <span class="text-caption">{t("voiceCallsCard.voiceHint")}</span>
+    </div>
     <dl>
       <dt class="micro-label">{t("voiceCallsCard.model")}</dt>
       <dd>{s.model}</dd>
@@ -103,6 +118,11 @@
   .text-meta,
   .text-caption {
     margin: 0;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
   dl {
     display: flex;

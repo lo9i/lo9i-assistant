@@ -521,5 +521,6 @@
   "OpenAI didn't accept the key: {error}": "OpenAI no aceptó la clave: {error}",
   "Live voice calls need an OpenAI API key: add one in Settings → Audio.": "Las llamadas de voz en vivo necesitan una clave de API de OpenAI: agrega una en Ajustes → Audio.",
   "Open a conversation to start a call in it.": "Abre una conversación para empezar una llamada en ella.",
-  "A call is already on in this conversation.": "Ya hay una llamada en curso en esta conversación."
+  "A call is already on in this conversation.": "Ya hay una llamada en curso en esta conversación.",
+  "Unknown voice {voice}. Choose one of: {voices}.": "Voz desconocida {voice}. Elige una de: {voices}."
 }

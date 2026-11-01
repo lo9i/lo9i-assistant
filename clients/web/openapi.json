@@ -5890,6 +5890,45 @@
         }
       }
     },
+    "/settings/voice-calls/voice": {
+      "put": {
+        "summary": "Set Voice Call Voice",
+        "description": "Used from the next call. 400: not one of the voices.",
+        "operationId": "set_voice_call_voice_settings_voice_calls_voice_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceCallVoice"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceCallSettings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/conversations/{thread_id}/voice-call": {
       "post": {
         "summary": "Start Voice Call",
@@ -12677,15 +12716,41 @@
           "model": {
             "type": "string",
             "title": "Model"
+          },
+          "voice": {
+            "type": "string",
+            "title": "Voice"
+          },
+          "voices": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Voices"
           }
         },
         "type": "object",
         "required": [
           "key_source",
-          "model"
+          "model",
+          "voice",
+          "voices"
         ],
         "title": "VoiceCallSettings",
         "description": "What Settings \u2192 Audio shows. Never includes the key."
+      },
+      "VoiceCallVoice": {
+        "properties": {
+          "voice": {
+            "type": "string",
+            "title": "Voice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "voice"
+        ],
+        "title": "VoiceCallVoice"
       },
       "VoiceOption": {
         "properties": {

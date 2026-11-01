@@ -1,7 +1,7 @@
 from urllib.parse import quote
 
 from assistant.client.daemon_client.transport import Transport
-from assistant.core.agent import VoiceCallError, VoiceCallSettings, VoiceKeyError
+from assistant.core.agent import VoiceCallError, VoiceCallSettings, VoiceChoiceError, VoiceKeyError
 from assistant.core.voice.realtime import Answer, RealtimeError
 
 _SETTINGS = "/settings/voice-calls"
@@ -24,6 +24,11 @@ class VoiceCallsApi:
 
     async def remove_key(self) -> VoiceCallSettings:
         return VoiceCallSettings(**await self._transport.request("DELETE", f"{_SETTINGS}/key"))
+
+    async def set_voice(self, voice: str) -> VoiceCallSettings:
+        """Used from the next call. Raises VoiceChoiceError for one that isn't among `settings().voices`."""
+        body, errors = {"voice": voice}, {400: VoiceChoiceError}
+        return VoiceCallSettings(**await self._transport.request("PUT", f"{_SETTINGS}/voice", json=body, errors=errors))
 
     async def start(self, thread_id: str, offer: str) -> Answer:
         """OpenAI's answer to the browser's SDP offer. Raises VoiceCallError (no key, the inbox, a call on there

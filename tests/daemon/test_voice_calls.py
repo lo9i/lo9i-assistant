@@ -8,7 +8,7 @@ import httpx
 import pytest
 
 from assistant.client.daemon_client import DaemonClient
-from assistant.core.agent import Session, VoiceCallError, VoiceKeyError
+from assistant.core.agent import Session, VoiceCallError, VoiceChoiceError, VoiceKeyError
 from assistant.core.voice.realtime import RealtimeError, SidebandLostError
 from assistant.daemon import voice_calls
 from assistant.daemon.api import create_app
@@ -163,3 +163,12 @@ async def test_the_daemon_hangs_up_its_calls_when_it_stops(service, realtime, ca
     assert realtime.hung_up == ["rtc_1"]
     # What was said is kept before it's done.
     assert [m.text for m in await service.conversation_messages(THREAD)] == ["bye"]
+
+
+async def test_the_voice_is_picked_from_the_app_and_the_next_call_speaks_in_it(client, realtime):
+    with pytest.raises(VoiceChoiceError):
+        await client.voice_calls.set_voice("robot")
+    assert (await client.voice_calls.set_voice("sage")).voice == "sage"
+    await client.voice_calls.start(THREAD, "offer")
+    assert realtime.calls[0][2]["audio"]["output"]["voice"] == "sage"
+    await client.voice_calls.end("rtc_1")

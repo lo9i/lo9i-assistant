@@ -1555,6 +1555,8 @@
     "checking": "Comprobando…",
     "remove": "Quitar clave",
     "model": "Modelo de voz",
-    "cost": "OpenAI cobra las llamadas por el audio que llevan, aparte de lo que usa tu modelo."
+    "cost": "OpenAI cobra las llamadas por el audio que llevan, aparte de lo que usa tu modelo.",
+    "voice": "Voz",
+    "voiceHint": "Las llamadas la usan desde la próxima. OpenAI recomienda Marin y Cedar para la mejor calidad."
   }
 }

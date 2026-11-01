@@ -10,7 +10,7 @@ import httpx
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
-from assistant.core.agent import Session, VoiceCallError, VoiceKeyError
+from assistant.core.agent import Session, VoiceCallError, VoiceChoiceError, VoiceKeyError
 from assistant.core.config import settings
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.voice import key as voice_key
@@ -199,3 +199,12 @@ def test_spoken_messages_are_left_out_by_their_mark():
     said = [message(Line("user", "hi"), datetime.now(UTC)), message(Line("voice", "hello"), datetime.now(UTC))]
     kept = [HumanMessage("typed"), *said, AIMessage("reply")]
     assert [m.text for m in without_spoken(kept)] == ["typed", "reply"]
+
+
+async def test_calls_speak_in_the_voice_picked(service, realtime):
+    status = await service.voice_call_settings()
+    assert (status.voice, status.voices[:2]) == ("marin", ["marin", "cedar"])
+    with pytest.raises(VoiceChoiceError, match="Unknown voice"):
+        await service.set_voice_call_voice("robot")
+    assert (await service.set_voice_call_voice("cedar")).voice == "cedar"
+    assert (await service.voice_call_session("owner", THREAD))["audio"]["output"]["voice"] == "cedar"

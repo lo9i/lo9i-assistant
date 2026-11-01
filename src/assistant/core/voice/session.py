@@ -1,5 +1,5 @@
-"""A call's settings, sent with the browser's offer (realtime.py): the model, how it hears and speaks, its
-instructions (prompts/voice_call.md) and its one tool, through which the assistant answers."""
+"""A call's settings, sent with the browser's offer (realtime.py): the model, how it hears and speaks (in the voice
+picked, voices.py), its instructions (prompts/voice_call.md) and its one tool, through which the assistant answers."""
 
 from typing import Any
 
@@ -9,7 +9,6 @@ ASK = "ask_assistant"
 # Transcribes what the user says for the call's own events, which the browser shows and the conversation keeps
 # (the model itself hears the audio).
 _TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe"
-_VOICE = "marin"
 
 _ASK_TOOL = {
     "type": "function",
@@ -32,7 +31,7 @@ _ASK_TOOL = {
 }
 
 
-def settings(instructions: str) -> dict[str, Any]:
+def settings(instructions: str, voice: str) -> dict[str, Any]:
     """The call's session, as /v1/realtime/calls takes it."""
     return {
         "type": "realtime",
@@ -40,7 +39,7 @@ def settings(instructions: str) -> dict[str, Any]:
         "instructions": instructions,
         "audio": {
             "input": {"transcription": {"model": _TRANSCRIPTION_MODEL}, "turn_detection": {"type": "semantic_vad"}},
-            "output": {"voice": _VOICE},
+            "output": {"voice": voice},
         },
         "tools": [_ASK_TOOL],
         "tool_choice": "auto",

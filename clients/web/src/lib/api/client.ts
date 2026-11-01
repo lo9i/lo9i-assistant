@@ -426,6 +426,11 @@ export class VoiceCallsGroup {
     return this.transport.request("DELETE", "/settings/voice-calls/key");
   }
 
+  /** The voice calls speak in, from the next one. Throws ApiError (400) for one that isn't among `voices`. */
+  setVoice(voice: string): Promise<VoiceCallSettings> {
+    return this.transport.request("PUT", "/settings/voice-calls/voice", { voice });
+  }
+
   /** OpenAI's answer to the browser's SDP offer. Throws ApiError: 409 with no OpenAI key, in the inbox or with a call
    * on there already, 502 when OpenAI refuses. */
   start(threadId: string, sdp: string): Promise<VoiceCallAnswer> {

@@ -110,6 +110,7 @@ from assistant.core.agent import (
     UsageReport,
     VoiceCallError,
     VoiceCallSettings,
+    VoiceChoiceError,
     VoiceKeyError,
     WebSearchStatus,
 )
@@ -600,6 +601,10 @@ class CancelResult(BaseModel):
 
 class VoiceCallKey(BaseModel):
     key: str
+
+
+class VoiceCallVoice(BaseModel):
+    voice: str
 
 
 class VoiceCallOffer(BaseModel):
@@ -1300,6 +1305,14 @@ def _add_voice_call_routes(app: FastAPI, service: AssistantService, calls: Voice
     @app.delete("/settings/voice-calls/key")
     async def remove_voice_call_key() -> VoiceCallSettings:
         return await service.remove_voice_call_key()
+
+    @app.put("/settings/voice-calls/voice")
+    async def set_voice_call_voice(body: VoiceCallVoice) -> VoiceCallSettings:
+        """Used from the next call. 400: not one of the voices."""
+        try:
+            return await service.set_voice_call_voice(body.voice)
+        except VoiceChoiceError as e:
+            raise HTTPException(400, message(e)) from e
 
     @app.post("/conversations/{thread_id}/voice-call")
     async def start_voice_call(thread_id: str, body: VoiceCallOffer) -> VoiceCallAnswer:

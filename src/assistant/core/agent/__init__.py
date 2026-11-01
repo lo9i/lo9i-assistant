@@ -85,7 +85,7 @@ from assistant.core.agent.subagents import (
 from assistant.core.agent.tasks import RunningTask
 from assistant.core.agent.threads import ConversationBusyError, ConversationError
 from assistant.core.agent.usage import ConversationStats, SpendingStatus, TokenReport, UsageReport
-from assistant.core.agent.voice_calls import VoiceCallError, VoiceCallSettings, VoiceKeyError
+from assistant.core.agent.voice_calls import VoiceCallError, VoiceCallSettings, VoiceChoiceError, VoiceKeyError
 from assistant.core.agent.web_search import InvalidSearchKeyError, WebSearchStatus
 
 __all__ = [
@@ -209,6 +209,7 @@ __all__ = [
     "UsageReport",
     "VoiceCallError",
     "VoiceCallSettings",
+    "VoiceChoiceError",
     "VoiceKeyError",
     "WebSearchStatus",
 ]

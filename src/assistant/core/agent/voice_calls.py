@@ -20,12 +20,13 @@ from assistant.core.i18n import said
 from assistant.core.identity import load_name
 from assistant.core.to_the_end import to_the_end
 from assistant.core.voice import key as voice_key
-from assistant.core.voice import notes, session, spoken
+from assistant.core.voice import notes, session, spoken, voices
 from assistant.core.voice.heard import Line
 from assistant.core.voice.key import Source
 from assistant.core.voice.realtime import MODEL, RealtimeError
+from assistant.core.voice.voices import VoiceChoiceError
 
-__all__ = ["VoiceCallError", "VoiceCallSettings", "VoiceCallsMixin", "VoiceKeyError"]
+__all__ = ["VoiceCallError", "VoiceCallSettings", "VoiceCallsMixin", "VoiceChoiceError", "VoiceKeyError"]
 
 # The settings' event: the key lives with the secrets, whose writes clients don't hear about.
 _EVENT = "settings"
@@ -51,12 +52,21 @@ class VoiceCallSettings:
     key_source: Source
     # The speech-to-speech model calls use.
     model: str
+    # The voice calls speak in, and those that can be picked (core/voice/voices.py).
+    voice: str
+    voices: list[str]
 
 
 class VoiceCallsMixin(MessagingMixin):
     async def voice_call_settings(self) -> VoiceCallSettings:
         found = await voice_key.current(self._storage.store, self.secrets, self._model)
-        return VoiceCallSettings(key_source=found.source, model=MODEL)
+        voice = await voices.load(self._storage.store)
+        return VoiceCallSettings(key_source=found.source, model=MODEL, voice=voice, voices=list(voices.VOICES))
+
+    async def set_voice_call_voice(self, voice: str) -> VoiceCallSettings:
+        """Used from the next call. Raises VoiceChoiceError."""
+        await voices.save(self._storage.store, voice)
+        return await self.voice_call_settings()
 
     async def set_voice_call_key(self, key: str) -> VoiceCallSettings:
         """Checks the key with OpenAI, then saves it. Raises VoiceKeyError."""
@@ -88,7 +98,8 @@ class VoiceCallsMixin(MessagingMixin):
             raise VoiceCallError(said("Open a conversation to start a call in it."))
         name = await load_name(self._storage.store)
         recent = _recent(await self._thread_messages(thread_id), name)
-        return session.settings(prompts.load("voice_call").format(name=name, recent=recent))
+        instructions = prompts.load("voice_call").format(name=name, recent=recent)
+        return session.settings(instructions, await voices.load(self._storage.store))
 
     async def ask_from_voice_call(self, session: Session, request: str, heard: Sequence[Line]) -> AsyncIterator[Event]:
         """The voice model's request, as a message of the call's conversation (channel voice): its turn header says
