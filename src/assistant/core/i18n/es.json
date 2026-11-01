@@ -254,6 +254,7 @@
   "its subagent prompt {prompt!r} isn't a file in its folder": "el prompt de su subagente {prompt!r} no es un archivo de su carpeta",
   "its subagent's tools and plugins must be lists of names": "las herramientas y plugins de su subagente deben ser listas de nombres",
   "journalctl failed: {error}": "journalctl falló: {error}",
+  "The journal can't be read: add this user to the systemd-journal group (sudo usermod -aG systemd-journal {user}) and start lo9i again.": "No se puede leer el journal: agregá este usuario al grupo systemd-journal (sudo usermod -aG systemd-journal {user}) y volvé a iniciar lo9i.",
   "lo9i is restarting or stopping. Update once it's back.": "lo9i se está reiniciando o deteniendo. Actualiza cuando vuelva.",
   "lo9i is up to date.": "lo9i está actualizado.",
   "macOS would start the assistant again at once: start at boot was turned on before it could be stopped from the app. Turn start at boot off and on again to allow it.": "macOS volvería a iniciar el asistente de inmediato: el inicio con el sistema se activó antes de que pudiera detenerse desde la app. Desactiva y vuelve a activar el inicio con el sistema para permitirlo.",
@@ -495,5 +496,6 @@
   "This request isn't waiting any more: it already went on without it.": "Esta solicitud ya no espera: ya siguió sin ella.",
   "Approved. It goes on.": "Aprobado. Sigue.",
   "Rejected. It goes on without it.": "Rechazado. Sigue sin eso.",
-  "It uses files of its Claude Code plugin outside its folder ({root}).": "Usa archivos de su plugin de Claude Code fuera de su carpeta ({root})."
+  "It uses files of its Claude Code plugin outside its folder ({root}).": "Usa archivos de su plugin de Claude Code fuera de su carpeta ({root}).",
+  "That conversation was deleted.": "Esa conversación se borró."
 }

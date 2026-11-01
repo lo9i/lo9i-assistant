@@ -158,3 +158,11 @@ async def test_a_journal_that_cant_be_read_says_why(tmp_path):
     failing = Journal("lo9i-assistant", (sys.executable, "-c", "import sys; sys.exit('No journal files')"))
     page = await failing.page(LogQuery())
     assert "No journal files" in page.entries[0].message
+
+
+async def test_a_journal_only_root_can_read_says_how_to_let_this_user_read_it():
+    # journalctl's words when the journal is kept only in memory and the user isn't in systemd-journal.
+    said = "No journal files were opened due to insufficient permissions."
+    refused = Journal("lo9i-assistant", (sys.executable, "-c", f"import sys; sys.exit({said!r})"))
+    page = await refused.page(LogQuery())
+    assert "systemd-journal" in page.entries[0].message and "usermod" in page.entries[0].message

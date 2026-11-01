@@ -5,6 +5,7 @@ the service stopped or started."""
 
 import asyncio
 import contextlib
+import getpass
 import json
 from collections.abc import AsyncGenerator, Sequence
 from datetime import datetime
@@ -71,7 +72,18 @@ class Journal:
         proc = await self._start(*args)
         output, errors = await proc.communicate()
         if proc.returncode != 0:
-            raise JournalError(said("journalctl failed: {error}", error=errors.decode(errors="replace").strip()))
+            error = errors.decode(errors="replace").strip()
+            if "insufficient permissions" in error:
+                # With the journal kept only in memory (Storage=volatile), a user's entries are in the
+                # system journal, which only root and the systemd-journal group can read.
+                raise JournalError(
+                    said(
+                        "The journal can't be read: add this user to the systemd-journal group "
+                        "(sudo usermod -aG systemd-journal {user}) and start lo9i again.",
+                        user=getpass.getuser(),
+                    )
+                )
+            raise JournalError(said("journalctl failed: {error}", error=error))
         return output
 
     async def _start(self, *args: str, errors: int = asyncio.subprocess.PIPE) -> asyncio.subprocess.Process:
