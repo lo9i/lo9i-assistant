@@ -33,7 +33,6 @@ A = action, G = memory gap, H = context improvement, Q = open question, R = risk
 ## Plugins
 
 - A22. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen. It would also give plugins that ask for the ssh agent (`ssh_agent: true`, `core/mcp/ssh_agent.py`) the user's agent, which a LaunchDaemon has none of.
-- A24. YouTube summaries: summarize a video from its transcript (the youtube plugin, `media/video/youtube`, already downloads transcripts), and optionally the new uploads of followed channels in the watchlist.
 
 ## Context
 
