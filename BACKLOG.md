@@ -40,12 +40,11 @@ A = action, L = to revisit later, G = memory gap, H = context improvement, Q = o
   - The daemon keeps a sideband WebSocket to OpenAI for each call. When the voice model needs to act, it calls a tool; the daemon runs it through `AssistantService`, so Claude stays the brain.
   - Tool calls are logged by the model's call id, so a retried call returns the first result.
   - Needs an OpenAI key in addition to the Anthropic key. Not needed for Telegram voice notes.
-- A26. Spoken replies in Slack. Settings → Audio speaks replies in the web chat and as Telegram voice notes; Slack doesn't get them yet (upload the audio with `files.uploadV2`).
-- A27. A voice message that is the first message of a conversation the web app's Chat opened for no topic (a new tab) stays in that conversation: routing reads only typed text (`POST /routes`, `ChatController.routed`), while the inbox routes a voice note by what it said. Transcribe it first, or let `/routes` take the recording, so it goes on in the conversation it's about too.
+- A26. A voice message that is the first message of a conversation the web app's Chat opened for no topic (a new tab) stays in that conversation: routing reads only typed text (`POST /routes`, `ChatController.routed`), while the inbox routes a voice note by what it said. Transcribe it first, or let `/routes` take the recording, so it goes on in the conversation it's about too.
 
 ## Platforms
 
-- A28. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
+- A27. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
   - Daemon connection: a named pipe or localhost with a paired device instead of the Unix socket.
   - Startup: a Task Scheduler task or a Windows service as a `daemon/startup.py` backend.
   - Clipboard: `client/clipboard/windows.py`, pasting files, images and text with PowerShell (`Get-Clipboard -Format FileDropList`, `System.Windows.Forms.Clipboard.GetImage`) and copying with `Set-Clipboard`.
