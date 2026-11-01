@@ -2,10 +2,11 @@
 routes it to the conversation it continues or a new one (core/conversation/dispatch_nodes.py); a reply to a
 message goes on in that message's conversation; after /clear, the next message starts a new conversation;
 while the conversation the channel last wrote in is handed to a coding agent, messages go on there; /pin and
-/unpin change the skills pinned to it. A button answers what its message's run waits for, or sends a reply's
-choice as the user's message (answers.py). Each run is shown in the chat it came from (turn.py), through the
-channel's process, its first reply tagged with a short name of the conversation; every message sent there
-is kept with its conversation (threads.py), so replying to it goes on there."""
+/unpin change the skills pinned to a conversation, and an agent's command hands one over. A button answers
+what its message's run waits for, or sends a reply's choice as the user's message (answers.py). Each run is
+shown in the chat it came from (turn.py), through the channel's process, its first reply tagged with a short
+name of the conversation; every message sent there is kept with its conversation (threads.py), so replying to
+it goes on there."""
 
 import asyncio
 import logging
@@ -180,14 +181,14 @@ class ChannelChats:
         agent = next((a for a in await self._conversations.agents() if a.command == command), None)
         if agent is None:
             return t("Unknown command /{command}.", command=command)
-        return await self._agent_command(t, channel, agent, text.strip())
+        thread_id = await self._pinned_in(channel, chat, reply_to)
+        return await self._agent_command(t, channel, thread_id, agent, text.strip())
 
-    async def _agent_command(self, t: Texts, channel: str, agent: Agent, folder: str) -> str:
-        """`/claude <folder>` hands the conversation the channel last wrote in to the agent (a new one when that
-        was the inbox), and the channel's messages go on there until `/claude off` takes it back; alone it
-        says how, with the folders used before (a chat has no folder picker)."""
+    async def _agent_command(self, t: Texts, channel: str, thread_id: str, agent: Agent, folder: str) -> str:
+        """`/claude <folder>` hands `thread_id` to the agent (a new conversation when that's the inbox), and the
+        channel's messages go on there, a /clear waiting dropped, until `/claude off` takes it back; alone it says
+        how, with the folders used before (a chat has no folder picker)."""
         owner = settings.owner_id
-        thread_id = await self._conversations.channel_thread(owner, channel)
         if folder == "off":
             await self._conversations.take_back_conversation(owner, thread_id)
             return t("The assistant answers again from your next message.")
@@ -199,6 +200,7 @@ class ChannelChats:
             handoff = await self._conversations.hand_conversation(owner, thread_id, agent.command, folder)
         except HandoffError as e:
             return str(e)
+        await self._conversations.channel_takes_new(owner, channel)
         await self._conversations.channel_wrote(owner, channel, thread_id)
         return t(
             "{agent} answers from your next message, working in {folder}. /{command} off brings the assistant back.",
@@ -214,8 +216,8 @@ class ChannelChats:
         return t("Give {agent} a folder to work in, its full path:", agent=agent.name) + f"\n{listed}"
 
     async def _pinned_in(self, channel: str, chat: str, reply_to: str) -> str:
-        """The conversation /pin and /unpin change: the one of the message they reply to; after /clear, the new one
-        the next message starts; else the one the channel last wrote in."""
+        """The conversation /pin, /unpin and an agent's command act on: the one of the message they reply to;
+        after /clear, the new one the next message starts; else the one the channel last wrote in."""
         owner, conversations = settings.owner_id, self._conversations
         if chat and reply_to and (replied := await conversations.chat_message_thread(owner, channel, chat, reply_to)):
             return replied
