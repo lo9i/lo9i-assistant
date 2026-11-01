@@ -6,7 +6,8 @@ while the conversation the channel last wrote in is handed to a coding agent, me
 what its message's run waits for, or sends a reply's choice as the user's message (answers.py). Each run is
 shown in the chat it came from (turn.py), through the channel's process, its first reply tagged with a short
 name of the conversation; every message sent there is kept with its conversation (threads.py), so replying to
-it goes on there."""
+it goes on there. A run the daemon starts on its own in a conversation the channel was on (a coding task, a
+follow-up on background work: daemon/queued.py) shows in the user's own chat there the same way (`mirror`)."""
 
 import asyncio
 import logging
@@ -20,7 +21,7 @@ from assistant.core.agent.speech import AudioFormat
 from assistant.core.attachments import Attachment
 from assistant.core.channels.chat.answers import Pick, parse_pick
 from assistant.core.channels.chat.approvals import parse_decision, parse_job_decision
-from assistant.core.channels.chat.port import Buttons, ChatLimits, ChatPort, Operations, RemoteChat
+from assistant.core.channels.chat.port import OWN_CHAT, Buttons, ChatLimits, ChatPort, Operations, RemoteChat
 from assistant.core.channels.chat.questions import (
     Press,
     answered_text,
@@ -156,6 +157,18 @@ class ChannelChats:
             owner = settings.owner_id
             await self._conversations.chat_messages_in(owner, chat.channel, chat.id, [chat.message], turn.thread_id)
         await self._speak(chat, turn.final_text, chat.voice)
+
+    async def mirror(self, channel: str, thread_id: str, events: AsyncIterator[Event], text: str = "") -> None:
+        """Shows in the user's own chat on `channel` a run the daemon started on its own in `thread_id`, a
+        conversation the channel was on, as the apps show it: `events` are the run's, followed from its start, and
+        `text` what it was started with, which names a conversation not tagged yet. Replying to it goes on there,
+        and the channel's next message too."""
+        where = _Chat(self._channels, channel, OWN_CHAT, await self._conversations.texts())
+        owner = settings.owner_id
+        tag = await self._conversations.chat_tag(owner, thread_id, text)
+        port = _Recording(where.port, self._conversations, where, thread_id)
+        await ChatTurn(port, self._channels.limits(channel), where.t, thread_id, tag).render(events)
+        await self._conversations.channel_wrote(owner, channel, thread_id)
 
     async def press(self, channel: str, chat: str, message: str, text: str, data: str) -> None:
         """A button pressed on `message`, whose text is `text`."""

@@ -21,7 +21,8 @@ build). When it ends, the daemon tells the conversation that started it (`core/b
   (Telegram, Slack), the channel gets the same text as a message, kept with that conversation, so replying
   to it goes on there (`core/channels/chat/threads.py`). Scheduled jobs' results go to the same feed. A
   channel now on another conversation also hears of it in the turn header of the user's next message on
-  it, as with `send_message`.
+  it, as with `send_message`. The follow-up the assistant runs then shows in that channel's chat too, as the
+  apps show it (`daemon/channel_runs.py::ChannelMirrors`).
 
 ## Coding agents' tasks
 

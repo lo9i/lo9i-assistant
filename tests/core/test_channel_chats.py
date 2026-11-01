@@ -12,7 +12,7 @@ from assistant.core.approvals import RemoteApprovals
 from assistant.core.channels.chat.conversations import GREETING, ChannelChats
 from assistant.core.channels.chat.port import ChatLimits, Delivered
 from assistant.core.conversation.dispatch import FOLLOW_UP, QUICK, Pick
-from assistant.core.events import Event, TextDelta
+from assistant.core.events import Done, Event, TextDelta
 from assistant.core.outbox import DeliveryError
 from assistant.core.skills import store
 from tests.conftest import collect
@@ -209,6 +209,57 @@ async def test_replying_to_a_message_goes_on_in_its_conversation(dispatch, chann
     script.reply("And Saturday too.")
     await chats.message("telegram", "42", "and saturday?", [], voice=False, reply_to="m1")
     assert [m.text for m in await service.conversation_messages(planned)][-1] == "And Saturday too."
+
+
+async def test_a_run_the_daemon_starts_in_a_channels_conversation_shows_in_the_users_own_chat(
+    dispatch, channel, jobs, script, service
+):
+    chats = ChannelChats(
+        service, _Runs(say="Here's a plan.", quiet_in=await service.inbox_thread("owner")), channel, jobs
+    )
+    script.reply("Here's a plan.")
+    await chats.message("telegram", "42", "plan my week", [], voice=False)
+    planned = await service.channel_thread("owner", "telegram")
+    await service.channel_wants_new("owner", "telegram")
+
+    async def follow_up():
+        yield TextDelta("The calendar sync failed; I'll retry.")
+        yield Done()
+
+    await chats.mirror("telegram", planned, follow_up())
+    _, sent = channel.ops[-1]
+    assert sent["chat"] == "" and "The calendar sync failed" in channel.shown()[-1]  # the user's own chat
+    assert channel.shown()[-1].startswith(f"[{await service.chat_tag('owner', planned)}] ")  # tagged as any turn
+    script.reply("Retried.")
+    await chats.message("telegram", "42", "did it work?", [], voice=False, reply_to=channel.last_sent())
+    assert [m.text for m in await service.conversation_messages(planned)][-2:] == ["did it work?", "Retried."]
+
+
+async def test_a_run_the_daemon_starts_shows_in_its_channels_chat_only_while_that_channel_is_connected(
+    channel, jobs, service
+):
+    from assistant.core.outbox import Outbox
+    from assistant.daemon.channel_runs import ChannelMirrors, ChannelRuns
+    from assistant.daemon.runs import RunHub
+
+    async def run(text):
+        yield TextDelta(text)
+        yield Done()
+
+    class _Connected:
+        async def send(self, text: str) -> list[str]:
+            return []
+
+    hub, outbox = RunHub(service.bus), Outbox()
+    outbox.register("telegram", _Connected())
+    mirrors = ChannelMirrors(hub, ChannelChats(service, ChannelRuns(hub), channel, jobs), outbox)
+    thread_id = await service.new_thread("owner")
+    mirrors.mirror(hub.start(thread_id, run("From the web app's channel."), "web"))
+    mirrors.mirror(hub.start(thread_id, run("Retrying the sync."), "telegram"))
+    async with asyncio.timeout(5):
+        while not channel.shown() or "Retrying" not in channel.shown()[-1]:
+            await asyncio.sleep(0.01)
+    assert len(channel.shown()) == 1
 
 
 async def test_what_a_turn_sends_replies_to_the_message_it_answers(service, channel, jobs, script):

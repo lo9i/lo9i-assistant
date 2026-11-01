@@ -37,7 +37,7 @@ from assistant.daemon.queued import QueuedMessages
 from assistant.daemon.runs import RunHub
 from assistant.daemon.shutdown import Ending, Shutdown
 from tests.conftest import collect
-from tests.daemon.test_queued import NOT_ENDING
+from tests.daemon.test_queued import NO_MIRRORS, NOT_ENDING
 
 WORKER = str(Path(__file__).with_name("fake_agent_worker.py"))
 
@@ -692,7 +692,7 @@ async def test_stopped_with_a_message_it_hadnt_got_to_the_agent_resumes_its_sess
     task = await _stopped_with(service, session, tmp_path, ("skip the slow tests", []))
     after = service.bus.last_id
     stop = asyncio.Event()
-    sending = asyncio.create_task(QueuedMessages(service, RunHub(service.bus), NOT_ENDING).run(stop))
+    sending = asyncio.create_task(QueuedMessages(service, RunHub(service.bus), NOT_ENDING, NO_MIRRORS).run(stop))
     announced = []
     async with asyncio.timeout(10):
         async for event in service.bus.subscribe(after):

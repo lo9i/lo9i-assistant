@@ -25,7 +25,7 @@ from assistant.daemon import https, launchd, managers, output, pages, systemd, u
 from assistant.daemon.adapters import Adapter, supervise
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import DeviceStreams, trusted
-from assistant.daemon.channel_runs import ChannelRuns
+from assistant.daemon.channel_runs import ChannelMirrors, ChannelRuns
 from assistant.daemon.held import HeldRuns
 from assistant.daemon.http_server import HttpServer, Listener
 from assistant.daemon.mail_watcher import MailWatcher
@@ -89,7 +89,8 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         tasks.append(_supervised(service.memory_writer, stop))
         tasks.append(_supervised(service.task_ends, stop))
         tasks.append(_supervised(service.background_subagents, stop))
-        tasks.append(_supervised(QueuedMessages(service, hub, shutdown), stop))
+        mirrors = ChannelMirrors(hub, chats, service.outbox)
+        tasks.append(_supervised(QueuedMessages(service, hub, shutdown, mirrors), stop))
         tasks.append(_supervised(HeldRuns(service, hub, {held.CHAT: chats, held.JOB: scheduler}), stop))
         tasks.append(_supervised(service.update_checker, stop))
         tasks.append(_supervised(service.home_schedule, stop))
