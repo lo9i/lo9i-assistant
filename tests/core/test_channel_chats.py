@@ -361,6 +361,37 @@ async def test_an_agents_command_hands_the_channels_conversation_to_it_and_back(
     assert await service.conversation_agent("owner", thread) is None
 
 
+async def test_an_agents_command_after_clear_hands_the_new_conversation(chats, service, script, tmp_path):
+    await service.add_mcp_server(agent_plugin())
+    side = await service.new_thread("owner")
+    await service.chat_messages_in("owner", "telegram", "42", ["7"], side)
+    script.reply("Sure.")
+    await chats.message("telegram", "42", "fix the parser", [], voice=False, reply_to="7")
+    await chats.command("telegram", "clear")
+    await chats.command("telegram", "claude", str(tmp_path))
+    fresh = await service.channel_thread("owner", "telegram")
+    assert fresh != side and await service.conversation_agent("owner", side) is None
+    assert (await service.conversation_agent("owner", fresh)).folder == str(tmp_path)
+    # The next message goes to the one handed over, not to yet another new one.
+    assert await service.channel_takes_new("owner", "telegram") is None
+
+
+async def test_an_agents_command_sent_as_a_reply_hands_that_messages_conversation(chats, service, script, tmp_path):
+    await service.add_mcp_server(agent_plugin())
+    side = await service.new_thread("owner")
+    await service.chat_messages_in("owner", "telegram", "42", ["7"], side)
+    script.reply("Noted.")
+    await chats.message("telegram", "42", "what's new?", [], voice=False)  # answered in the inbox
+    await chats.command("telegram", "clear")
+    await chats.command("telegram", "claude", str(tmp_path), chat="42", reply_to="7")
+    assert (await service.conversation_agent("owner", side)).folder == str(tmp_path)
+    # Its messages go on there: the /clear before it is dropped.
+    assert await service.channel_thread("owner", "telegram") == side
+    assert await service.channel_takes_new("owner", "telegram") is None
+    await chats.command("telegram", "claude", "off", chat="42", reply_to="7")
+    assert await service.conversation_agent("owner", side) is None
+
+
 async def test_a_message_sent_while_an_update_installs_is_kept_and_answered_in_its_chat_later(
     service, channel, jobs, script
 ):
