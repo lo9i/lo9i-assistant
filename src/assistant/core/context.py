@@ -28,9 +28,13 @@ class Subagents(ABC):
         self, task: str, context: "Context", call_id: str, plugins: Collection[str], agent: str = ""
     ) -> SubagentAnswer:
         """`call_id`: the delegate call's, which the subagent's tool events name. `plugins`: those the
-        conversation loaded (core/plugin_loading.py), whose read-only tools the subagent gets. `agent`: a named
-        subagent a plugin brings (core/mcp/subagents.py), "" for the general one; an unknown one raises
-        UnknownSubagentError."""
+        conversation loaded (core/plugin_loading.py) and those the delegate call named, whose read-only tools the
+        subagent gets. `agent`: a named subagent a plugin brings (core/mcp/subagents.py), "" for the general one; an
+        unknown one raises UnknownSubagentError."""
+
+    @abstractmethod
+    def readable_plugins(self) -> set[str]:
+        """The plugins with read-only tools, which a subagent can be given."""
 
 
 class BackgroundSubagentStarts(ABC):

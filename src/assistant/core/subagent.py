@@ -1,9 +1,10 @@
 """Subagents: a task the main agent hands off with `delegate`, worked on with a fresh context and the
 worker model, so the tool output it reads never reaches the main conversation; only its answer does. It gets the
-read-only tools of the plugins the conversation loaded (core/plugin_loading.py). A named subagent a plugin brings
-(core/mcp/subagents.py) works with its own instructions after the subagent prompt, on the model it names, with
-only the tools it names among those, and the read-only tools of the plugins it names too; its graph is built the
-first time it's handed a task, and again when its plugin changes it.
+read-only tools of the plugins the conversation loaded (core/plugin_loading.py) and of those the delegate call names,
+which load for it alone, so the conversation's tool list (and its prompt cache) stays as it is. A named subagent a
+plugin brings (core/mcp/subagents.py) works with its own instructions after the subagent prompt, on the model it
+names, with only the tools it names among those, and the read-only tools of the plugins it names too; its graph is
+built the first time it's handed a task, and again when its plugin changes it.
 
 A subagent's graph runs inside the delegate call. It shares the run's checkpointer under that call's
 namespace, so an approval inside it pauses the main run and the answer resumes it where it stopped. Its
@@ -106,6 +107,9 @@ class SubagentRunner(Subagents):
         )
         return SubagentAnswer(answer(state["messages"]), steps(state["messages"]))
 
+    def readable_plugins(self) -> set[str]:
+        return {plugin for d in self._mcp.read_only_definitions() if (plugin := self._mcp.plugin_of(_name(d)))}
+
     async def background_start(self, task: str, plugins: Collection[str], agent: str = "") -> SubagentState:
         """Where a subagent sent off in the background starts, its tools' events naming no call. Raises
         UnknownSubagentError for an `agent` no installed plugin brings."""
@@ -157,7 +161,11 @@ class SubagentRunner(Subagents):
     def _read_only(self, plugins: Collection[str]) -> list[dict[str, Any]]:
         """The read-only tools of these plugins: the others' would fill every request of the task."""
         definitions = self._mcp.read_only_definitions()
-        return [d for d in definitions if self._mcp.plugin_of(d["function"]["name"]) in plugins]
+        return [d for d in definitions if self._mcp.plugin_of(_name(d)) in plugins]
+
+
+def _name(definition: dict[str, Any]) -> str:
+    return definition["function"]["name"]
 
 
 def answer(messages: Sequence[Any], missing: str = NO_ANSWER) -> str:

@@ -20,29 +20,23 @@ A = action, L = to revisit later, G = memory gap, H = context improvement, Q = o
 - A17. The messages waiting in a conversation (`daemon/queued.py`: a coding task, a follow-up, what a stopped agent hadn't got to) are sent as soon as its run ends, even while a restart or stop waits for runs (`daemon/shutdown.py`): Now cancels the runs, and the run the queue starts then is one more the restart waits for. Hold them while an ending is pending; they're kept in the Store, so they go once the daemon is back.
 - A18. Pinning conversations to Home (`core/home/pins.py`, `PUT`/`DELETE /home/pins/<id>`) is only in the web app: the terminal app shows the Conversations card's result in `/home` but can't pin or unpin (the Python `DaemonClient` has `home.pin` and `home.unpin`), and that result, built by code (`core/home/conversations.py`), is built again only when a pin changes or Home refreshes, so its times lag behind the conversations; the web app draws the card live. Add pinning to the terminal app's conversation list, and build the card again on `conversations` events while a client shows Home.
 
-## MCP
-
-- A19. Signing in to a remote MCP server whose authorization server has no dynamic client registration: today the sign-in fails at registration (`core/mcp/oauth.py`). The Sign in dialog takes a client ID and secret of the user's own OAuth app, saved as the server's registered client so registration is skipped, and shows the redirect URI to register with it, as email does. A client metadata URL (the spec's other option) doesn't fit: the authorization server must fetch it, and the daemon is reachable only on the tailnet.
-- A20. Remote MCP servers can't report finished background work: on the 2026-07-28 protocol a streamable HTTP connection has no channel outside a request, so `notifications/lo9i/work_finished` (`core/mcp/background.py`) arrives only from local (stdio) servers. Open a `subscriptions/listen` stream to remote servers that advertise it, if the SDK lets vendor notifications through one.
-- A21. Subagents (`delegate`) get only the read-only tools of the plugins their conversation loaded (`core/subagent.py`), with no `load_tools` of their own, so a delegated task that needs a plugin the conversation didn't load can't use it. Give subagents `load_tools` if delegated tasks show they need it.
-
 ## Plugins
 
-- A22. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen. It would also give plugins that ask for the ssh agent (`ssh_agent: true`, `core/mcp/ssh_agent.py`) the user's agent, which a LaunchDaemon has none of.
+- A19. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen. It would also give plugins that ask for the ssh agent (`ssh_agent: true`, `core/mcp/ssh_agent.py`) the user's agent, which a LaunchDaemon has none of.
 
 ## Voice
 
-- A25. Real-time voice agent: live spoken conversation from the browser.
+- A20. Real-time voice agent: live spoken conversation from the browser.
   - A speech-to-speech model (OpenAI GPT-Live) listens and speaks. No separate speech-to-text or text-to-speech step; transcripts come from the model's own events.
   - Audio goes directly between the browser and OpenAI over WebRTC. The daemon only exchanges the connection offer and answer, and never handles audio.
   - The daemon keeps a sideband WebSocket to OpenAI for each call. When the voice model needs to act, it calls a tool; the daemon runs it through `AssistantService`, so Claude stays the brain.
   - Tool calls are logged by the model's call id, so a retried call returns the first result.
   - Needs an OpenAI key in addition to the Anthropic key. Not needed for Telegram voice notes.
-- A26. A voice message that is the first message of a conversation the web app's Chat opened for no topic (a new tab) stays in that conversation: routing reads only typed text (`POST /routes`, `ChatController.routed`), while the inbox routes a voice note by what it said. Transcribe it first, or let `/routes` take the recording, so it goes on in the conversation it's about too.
+- A21. A voice message that is the first message of a conversation the web app's Chat opened for no topic (a new tab) stays in that conversation: routing reads only typed text (`POST /routes`, `ChatController.routed`), while the inbox routes a voice note by what it said. Transcribe it first, or let `/routes` take the recording, so it goes on in the conversation it's about too.
 
 ## Platforms
 
-- A27. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
+- A22. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
   - Daemon connection: a named pipe or localhost with a paired device instead of the Unix socket.
   - Startup: a Task Scheduler task or a Windows service as a `daemon/startup.py` backend.
   - Clipboard: `client/clipboard/windows.py`, pasting files, images and text with PowerShell (`Get-Clipboard -Format FileDropList`, `System.Windows.Forms.Clipboard.GetImage`) and copying with `Set-Clipboard`.

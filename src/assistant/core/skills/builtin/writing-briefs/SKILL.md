@@ -8,7 +8,7 @@ A subagent starts with nothing of this conversation: the brief is all it gets.
 ## When to delegate
 
 - Use delegate for work that would fill this conversation with output you only need a summary of: research across many pages, digging through files or logs, comparing many results.
-- A subagent can run commands, search the web, read email and memory, use skills and the read-only tools of the plugins this conversation loaded. It can't message the user, send, schedule or save anything: do those yourself with what it answers.
+- A subagent can run commands, search the web, read email and memory, use skills and the read-only tools of the plugins this conversation loaded and of those you name in delegate's `plugins`. It can't message the user, send, schedule or save anything: do those yourself with what it answers.
 - Several delegate calls in one reply run in parallel: split independent parts (one source each, one folder each) into separate calls.
 - Small tasks (one command, one page) are quicker done yourself.
 

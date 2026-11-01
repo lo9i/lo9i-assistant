@@ -103,6 +103,27 @@ async def test_mcp_tools_that_can_change_things_dont_run_in_a_subagent(service, 
     assert "mcp__notes__write isn't available to a subagent" in _tool_results(script.requests[2])[0]
 
 
+async def test_a_delegate_call_gives_its_subagent_alone_the_read_only_tools_of_the_plugins_it_names(
+    service, script, monkeypatch
+):
+    route = {"type": "function", "function": {"name": "mcp__maps__route", "description": "A route", "parameters": {}}}
+    monkeypatch.setattr(service._plugin_tools, "read_only_definitions", lambda: [route])
+    monkeypatch.setattr(
+        service._plugin_tools, "plugin_of", lambda name: "maps" if name.startswith("mcp__maps__") else None
+    )
+    script.call("delegate", task="How far is Rosario?", plugins=["maps"]).reply("300 km").reply("ok")
+    script.call("delegate", task="Will it rain there?", plugins=["maps", "weather"]).reply("can't")
+    session = await service.session("u", "cli")
+    await collect(service.send(session, "how far is Rosario?"))
+    await collect(service.send(session, "and the weather?"))
+    names = [{t["function"]["name"] if isinstance(t, dict) else t.name for t in bound} for bound in script.bound]
+    assert "mcp__maps__route" in names[1]
+    assert not any("mcp__maps__route" in bound for bound in [names[0], *names[2:]])  # the conversation's stay
+    assert _tool_results(script.requests[-1])[-1] == (
+        "Not delegated: weather has no read-only tools a subagent can use. Plugins it can get: maps."
+    )
+
+
 async def test_scheduled_jobs_delegate_too(service, script):
     script.call("delegate", task="x").reply("found it").reply("ok")
     events = await collect(service.send(Session("u", UNATTENDED_CHANNEL, "job:x:1"), "go"))
