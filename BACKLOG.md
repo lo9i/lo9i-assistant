@@ -21,14 +21,6 @@ A = action, L = to revisit later, G = memory gap, H = context improvement, Q = o
   - Tool calls are logged by the model's call id, so a retried call returns the first result.
   - Needs an OpenAI key in addition to the Anthropic key. Not needed for Telegram voice notes.
 
-## Platforms
-
-- A13. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
-  - Daemon connection: a named pipe or localhost with a paired device instead of the Unix socket.
-  - Startup: a Task Scheduler task or a Windows service as a `daemon/startup.py` backend.
-  - Clipboard: `client/clipboard/windows.py`, pasting files, images and text with PowerShell (`Get-Clipboard -Format FileDropList`, `System.Windows.Forms.Clipboard.GetImage`) and copying with `Set-Clipboard`.
-  - Bash tool, data paths and `install.sh`: decide between native Windows and running under WSL.
-
 ## To revisit
 
 Not worth doing yet; each item says what was done and when to look at it again.
@@ -39,6 +31,12 @@ Not worth doing yet; each item says what was done and when to look at it again.
 - L4. OpenRouter (`core/llm/openrouter.py`) is tested only against a fake API; no call has been made with a real key. Check on one: a streamed reply with tool calls, and a reasoning model's tool round (Claude with reasoning on, Gemini, GPT) taking its `reasoning_details` back. Its prompt caching is OpenRouter's default: models that cache on their own (OpenAI, DeepSeek, Gemini) do, but Anthropic's need `cache_control` breakpoints, which nothing sends, so a Claude model there pays its whole input on every call; add them as the Anthropic builder does, and `prompt_cache_minutes` for it. Home's refresh (`core/home/refresh.py::_expected`) tells usage limits and outages apart only for OpenAI's errors, not OpenRouter's SDK errors (nor Anthropic's). Its models have no cost in the usage report until `MODEL_PRICES` sets one (`core/usage/prices.py`), though its model list gives each model's prices.
 - L5. Checks and Google Contacts were tried only against fakes: the claude-code plugin's check with a real Claude token from `claude setup-token` (it lists Anthropic's models with the token as a bearer and the `oauth-2025-04-20` beta; a 401 there refuses it, so if that list doesn't take sign-in tokens the check refuses good ones) and with a real API key; the contacts plugin on a real Google account (the `https://www.googleapis.com/auth/carddav` scope, the CardDAV API turned on, discovery from `/.well-known/carddav`).
 - L6. Model connections that notice when they died (`core/llm/connections.py`, TCP keepalive) still miss the LangChain providers whose packages make their clients in private code (`core/llm/kept_alive.py` says which and why: Anthropic on Bedrock and on Bedrock Mantle, NVIDIA, Google Gemini, Vertex AI, IBM watsonx, LiteLLM), and Anthropic's own reach them only through `core/llm/claude.py`, which replaces langchain-anthropic's private `_async_client`. Give them those connections, and drop claude.py's override, once their packages take a client, a transport or socket options. Revisit when one of those packages takes a client, a transport or socket options.
+- L7. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
+  - Daemon connection: a named pipe or localhost with a paired device instead of the Unix socket.
+  - Startup: a Task Scheduler task or a Windows service as a `daemon/startup.py` backend.
+  - Clipboard: `client/clipboard/windows.py`, pasting files, images and text with PowerShell (`Get-Clipboard -Format FileDropList`, `System.Windows.Forms.Clipboard.GetImage`) and copying with `Set-Clipboard`.
+  - Bash tool, data paths and `install.sh`: decide between native Windows and running under WSL.
+  - Revisit when someone asks to run lo9i on Windows.
 
 ## Open questions and risks
 
