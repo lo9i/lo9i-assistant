@@ -14,7 +14,7 @@ from assistant.protocol import (
     UpdateStatus,
 )
 
-# Enabling waits for the user to answer the macOS password dialog.
+# Enabling start at boot, and stopping beside it on macOS, wait for the user to answer the macOS password dialog.
 _PASSWORD_DIALOG = httpx.Timeout(300, connect=5)
 # Checking for an update fetches the repository (up to a minute, daemon/updates.py).
 _FETCH = httpx.Timeout(90, connect=5)
@@ -50,9 +50,13 @@ class SystemApi:
         return ShutdownStatus(**await self._transport.request("POST", "/system/restart"))
 
     async def stop(self) -> ShutdownStatus:
-        """The daemon stops once no run is in progress. Raises StopRefusedError when its service manager
-        would start it again."""
-        return ShutdownStatus(**await self._transport.request("POST", "/system/stop", errors={409: StopRefusedError}))
+        """The daemon stops once no run is in progress. Some ask macOS for an administrator password first (a system
+        dialog; `HostStatus.stop_note`). Raises StopRefusedError when its service manager would start it again, or the
+        password wasn't given."""
+        stopped = await self._transport.request(
+            "POST", "/system/stop", errors={409: StopRefusedError}, timeout=_PASSWORD_DIALOG
+        )
+        return ShutdownStatus(**stopped)
 
     async def ending(self) -> PendingEnding:
         """The restart or stop waiting for runs to end; `ending` is "" when none is."""

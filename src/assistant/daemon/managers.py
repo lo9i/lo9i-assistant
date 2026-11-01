@@ -19,6 +19,12 @@ class ByHand:
     def stop_refusal(self) -> str | None:
         return None
 
+    def stop_note(self) -> str | None:
+        return None
+
+    async def before_stop(self) -> str | None:
+        return None
+
     async def stop(self, stop: asyncio.Event) -> None:
         stop.set()
 

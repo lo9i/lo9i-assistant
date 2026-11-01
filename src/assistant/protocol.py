@@ -109,6 +109,8 @@ class HostStatus:
     load_average: list[float]
     # Why the daemon can't be stopped from the apps now; "" when it can.
     stop_refusal: str = ""
+    # What stopping it asks for first (macOS's administrator password), said before it's pressed; "" for nothing.
+    stop_note: str = ""
 
 
 class StartupError(Exception):

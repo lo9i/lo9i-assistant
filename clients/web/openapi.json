@@ -6259,7 +6259,7 @@
     "/system/host": {
       "get": {
         "summary": "Host Status",
-        "description": "The computer the daemon runs on: system, versions, CPU, memory, disk, uptime and load, and why the\ndaemon can't be stopped from the apps now, if it can't.",
+        "description": "The computer the daemon runs on: system, versions, CPU, memory, disk, uptime and load, why the daemon\ncan't be stopped from the apps now, if it can't, and what stopping it asks for first.",
         "operationId": "host_status_system_host_get",
         "responses": {
           "200": {
@@ -6365,6 +6365,7 @@
     "/system/stop": {
       "post": {
         "summary": "Stop Daemon",
+        "description": "409: it can't be stopped, or what stopping takes first wasn't done (`stop_note`: the administrator's\npassword not given).",
         "operationId": "stop_daemon_system_stop_post",
         "responses": {
           "200": {
@@ -8990,6 +8991,11 @@
           "stop_refusal": {
             "type": "string",
             "title": "Stop Refusal",
+            "default": ""
+          },
+          "stop_note": {
+            "type": "string",
+            "title": "Stop Note",
             "default": ""
           }
         },

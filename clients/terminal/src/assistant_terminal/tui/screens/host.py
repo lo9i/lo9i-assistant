@@ -89,6 +89,8 @@ class HostScreen(ModalScreen[None]):
     async def _stop(self) -> None:
         if not await self.app.push_screen_wait(ConfirmScreen(t(_STOP), t("Stop"))):
             return
+        if (await self._system.host()).stop_note:
+            self.notify(t("Waiting for the macOS password dialog…"))
         try:
             await self._system.stop()
         except StopRefusedError as e:
@@ -196,6 +198,8 @@ def describe(host: HostStatus, update: UpdateStatus | None = None, pending: Pend
     table = "## " + t("Host") + "\n\n| | |\n|---|---|\n" + "\n".join(f"| {term} | {value} |" for term, value in rows)
     if host.stop_refusal:
         table += "\n\n" + t("Stop: {reason}", reason=host.stop_refusal)
+    elif host.stop_note:
+        table += "\n\n" + t("Stop: {reason}", reason=host.stop_note)
     return table + (_updates(update) if update else "") + (_pending(pending) if pending and pending.ending else "")
 
 

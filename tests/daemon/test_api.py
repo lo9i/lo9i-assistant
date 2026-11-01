@@ -90,10 +90,13 @@ class _Startup:
 
 
 class _Shutdown:
-    def __init__(self, refusal: str | None = None) -> None:
+    def __init__(self, refusal: str | None = None, note: str | None = None, password: bool = True) -> None:
+        """`note`: what stopping asks for first; `password`: whether the user gives it."""
         self.requests: list[Ending] = []
         self.askers: list[str] = []
         self._refusal = refusal
+        self._note = note
+        self._password = password
 
     def request(self, ending: Ending, by: str = "") -> int:
         if ending is Ending.STOP and self._refusal:
@@ -101,6 +104,14 @@ class _Shutdown:
         self.requests.append(ending)
         self.askers.append(by)
         return 2
+
+    async def request_stop(self, by: str = "") -> int:
+        if self._note and not self._password:
+            raise StopRefusedError("The administrator password wasn't given.")
+        return self.request(Ending.STOP, by)
+
+    def stop_note(self) -> str | None:
+        return self._note
 
     def pending(self) -> Pending | None:
         return Pending(self.requests[-1], 2, waiting_for_update=True) if self.requests else None
@@ -157,6 +168,18 @@ async def test_a_stop_the_service_manager_would_undo_is_refused_with_its_reason(
             await system.stop()
         # Said before Stop is pressed: the host says why it can't be.
         assert (await system.host()).stop_refusal == "macOS would start it again"
+
+
+async def test_a_stop_that_asks_for_the_password_says_so_first_and_is_refused_without_it(service):
+    note = "Start at boot is on: stopping asks for the administrator password on this Mac."
+    async with _system(service, _Shutdown(note=note, password=False)) as system:
+        assert (await system.host()).stop_note == note
+        with pytest.raises(StopRefusedError, match="password wasn't given"):
+            await system.stop()
+    shutdown = _Shutdown(note=note)
+    async with _system(service, shutdown) as system:
+        assert (await system.stop()).waiting_for_runs == 2
+    assert shutdown.requests == [Ending.STOP]
 
 
 async def test_installing_start_at_boot_again_says_why_it_cant(service):

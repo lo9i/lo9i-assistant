@@ -33,10 +33,10 @@ const update = {
 };
 
 // The card reads the host first, then the update's status.
-const loaded = vi.hoisted(() => ({ calls: 0 }));
+const loaded = vi.hoisted(() => ({ calls: 0, host: {} as Record<string, unknown> }));
 vi.mock("$lib/daemon.svelte", () => ({
   useDaemon: () => ({ client: {}, hub: { on: () => () => {} }, notices: {} }),
-  resource: () => ({ data: loaded.calls++ % 2 === 0 ? host : update }),
+  resource: () => ({ data: loaded.calls++ % 2 === 0 ? { ...host, ...loaded.host } : update }),
 }));
 
 describe("HostCard", () => {
@@ -54,5 +54,12 @@ describe("HostCard", () => {
     expect(body).toContain("subagent");
     expect(body).toContain("Check for updates");
     expect(body).toContain("Update and restart");
+  });
+
+  it("says before it's pressed that stopping asks for the administrator password", () => {
+    loaded.host = { stop_note: "Start at boot is on: stopping asks for the administrator password on this Mac." };
+    const { body } = render(HostCard);
+    loaded.host = {};
+    expect(body).toContain("stopping asks for the administrator password on this Mac.");
   });
 });

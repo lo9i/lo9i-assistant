@@ -4,6 +4,9 @@ user, from boot, without anyone logging in.
 Installing needs administrator rights once; macOS shows its standard password dialog. launchd starts the
 daemon again when it crashes, but not when it stops cleanly, so it can be stopped from the app.
 
+A daemon started by hand while start at boot is on runs beside the LaunchDaemon, which launchd keeps trying to start:
+stopping it stops those tries first, until the next boot, which asks for the password too (`Beside`).
+
 A LaunchDaemon installed by an older version differs from the one turning it on installs now (where the daemon's
 output goes, whether it can be stopped from the app): its status says how (`outdated`), and installing it again
 replaces it. The daemon it runs is replaced once it exits (`install_for_relaunch`), so its runs end first.
@@ -23,7 +26,7 @@ from assistant.core.config import settings
 from assistant.core.i18n import said
 from assistant.core.logs import output_path
 from assistant.daemon import output
-from assistant.protocol import StartupError, StartupStatus
+from assistant.protocol import StartupError, StartupStatus, StopRefusedError
 
 DAEMON_LABEL = "com.lo9i.assistant"
 OLLAMA_LABEL = "com.lo9i.ollama"
@@ -41,6 +44,7 @@ LEGACY_OUTPUT = Path("~/.lo9i/daemon.log")
 
 
 __all__ = [
+    "AdminCancelledError",
     "Beside",
     "Service",
     "StartupError",
@@ -50,6 +54,7 @@ __all__ = [
     "move_legacy_output",
     "outdated",
     "status",
+    "stop_tries",
 ]
 
 
@@ -65,24 +70,59 @@ class Service:
             "stopped from the app. Turn start at boot off and on again to allow it."
         )
 
+    def stop_note(self) -> str | None:
+        return None
+
+    async def before_stop(self) -> str | None:
+        return None
+
     async def stop(self, stop: asyncio.Event) -> None:
         stop.set()
 
 
 class Beside:
-    """A daemon started by hand. While start at boot is on, launchd keeps trying to start the LaunchDaemon, and
-    stopping those tries needs an administrator, so the next one would take over: stopping would restart it."""
+    """A daemon started by hand. While start at boot is on, launchd keeps trying to start the LaunchDaemon (each try
+    steps aside while this one runs), and the next one would take over once it exits. Stopping those tries needs an
+    administrator, so a stop asks for the password as it's asked for and stops them until the next boot: the plist
+    stays, so start at boot still starts the assistant then. Without the password the stop is refused."""
 
     def stop_refusal(self) -> str | None:
+        return None
+
+    def stop_note(self) -> str | None:
         if not status().enabled:
             return None
         return said(
-            "Start at boot is on, so macOS would start the assistant again at once. Turn start at boot off to stop "
-            "it, or restart it instead."
+            "Start at boot is on: stopping asks for the administrator password on this Mac, so macOS stops trying to "
+            "start the assistant until the next boot."
         )
+
+    async def before_stop(self) -> str | None:
+        """Raises StopRefusedError when the password wasn't given."""
+        if not status().enabled:
+            return None
+        try:
+            await stop_tries()
+        except AdminCancelledError as e:
+            raise StopRefusedError(
+                said(
+                    "The administrator password wasn't given. Start at boot is on, so macOS would start the "
+                    "assistant again at once: stopping needs the password, or start at boot turned off. Restarting "
+                    "needs neither."
+                )
+            ) from e
+        except StartupError as e:
+            raise StopRefusedError(
+                said("macOS didn't stop trying to start the assistant: {reason}", reason=str(e))
+            ) from e
+        return said("macOS stopped trying to start the assistant until the next boot")
 
     async def stop(self, stop: asyncio.Event) -> None:
         stop.set()
+
+
+class AdminCancelledError(StartupError):
+    """The user cancelled macOS's administrator password dialog."""
 
 
 def status() -> StartupStatus:
@@ -149,6 +189,12 @@ async def enable() -> StartupStatus:
         staged = {label: _stage(Path(tmp), label, data) for label, data in plists.items()}
         await _run_as_admin(" && ".join(install_commands(label, path) for label, path in staged.items()))
     return status()
+
+
+async def stop_tries() -> None:
+    """Stops launchd trying to start the LaunchDaemon until the next boot, which loads its plist again: a daemon
+    started by hand runs beside it. Asks for the administrator's password. Raises StartupError."""
+    await _run_as_admin(f"launchctl bootout system/{DAEMON_LABEL} 2>/dev/null; true")
 
 
 async def disable() -> StartupStatus:
@@ -262,7 +308,9 @@ async def _run_as_admin(script: str) -> None:
     _, stderr = await proc.communicate()
     if proc.returncode != 0:
         message = stderr.decode(errors="replace").strip()
-        raise StartupError("Cancelled." if "User canceled" in message else f"macOS refused: {message}")
+        if "User canceled" in message:
+            raise AdminCancelledError("Cancelled.")
+        raise StartupError(f"macOS refused: {message}")
 
 
 def _applescript_escape(text: str) -> str:

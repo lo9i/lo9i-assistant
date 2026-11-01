@@ -32,6 +32,12 @@ class Service:
     def stop_refusal(self) -> str | None:
         return None
 
+    def stop_note(self) -> str | None:
+        return None
+
+    async def before_stop(self) -> str | None:
+        return None
+
     async def stop(self, stop: asyncio.Event) -> None:
         # Without waiting: systemd waits for the daemon to exit, which waits for this call.
         await _systemctl("stop", "--no-block", SERVICE)
@@ -42,6 +48,12 @@ class Beside:
     stopping stops the service first (only its tries: it doesn't run this process), then exits."""
 
     def stop_refusal(self) -> str | None:
+        return None
+
+    def stop_note(self) -> str | None:
+        return None
+
+    async def before_stop(self) -> str | None:
         return None
 
     async def stop(self, stop: asyncio.Event) -> None:

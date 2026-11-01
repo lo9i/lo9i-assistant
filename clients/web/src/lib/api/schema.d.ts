@@ -2696,8 +2696,8 @@ export interface paths {
         };
         /**
          * Host Status
-         * @description The computer the daemon runs on: system, versions, CPU, memory, disk, uptime and load, and why the
-         *     daemon can't be stopped from the apps now, if it can't.
+         * @description The computer the daemon runs on: system, versions, CPU, memory, disk, uptime and load, why the daemon
+         *     can't be stopped from the apps now, if it can't, and what stopping it asks for first.
          */
         get: operations["host_status_system_host_get"];
         put?: never;
@@ -2774,7 +2774,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Stop Daemon */
+        /**
+         * Stop Daemon
+         * @description 409: it can't be stopped, or what stopping takes first wasn't done (`stop_note`: the administrator's
+         *     password not given).
+         */
         post: operations["stop_daemon_system_stop_post"];
         delete?: never;
         options?: never;
@@ -4149,6 +4153,11 @@ export interface components {
              * @default
              */
             stop_refusal: string;
+            /**
+             * Stop Note
+             * @default
+             */
+            stop_note: string;
         };
         /** ImportOutcome */
         ImportOutcome: {

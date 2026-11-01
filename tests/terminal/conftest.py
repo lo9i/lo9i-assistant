@@ -531,6 +531,7 @@ class FakeSystem:
         # "restart" and "stop", as asked; a stop is refused with this reason when it's set.
         self.endings: list[str] = []
         self.stop_refusal = ""
+        self.stop_note = ""
         # The runs a restart or stop asked for waits for; "now" cancels them.
         self.runs = 0
         self.pending = PendingEnding("", 0)
@@ -556,6 +557,7 @@ class FakeSystem:
             90_060,
             [0.09, 0.09, 0.04],
             self.stop_refusal,
+            self.stop_note,
         )
 
     async def enable_startup(self):

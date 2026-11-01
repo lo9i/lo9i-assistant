@@ -2044,10 +2044,11 @@ def _add_usage_routes(app: FastAPI, service: AssistantService) -> None:
 def _add_host_route(app: FastAPI, shutdown: Any | None) -> None:
     @app.get("/system/host")
     async def host_status(texts: _Answering) -> HostStatus:
-        """The computer the daemon runs on: system, versions, CPU, memory, disk, uptime and load, and why the
-        daemon can't be stopped from the apps now, if it can't."""
+        """The computer the daemon runs on: system, versions, CPU, memory, disk, uptime and load, why the daemon
+        can't be stopped from the apps now, if it can't, and what stopping it asks for first."""
         refusal = shutdown.stop_refusal() if shutdown is not None else None
-        return replace(await host.status(), stop_refusal=texts.shown(refusal or ""))
+        note = shutdown.stop_note() if shutdown is not None else None
+        return replace(await host.status(), stop_refusal=texts.shown(refusal or ""), stop_note=texts.shown(note or ""))
 
 
 def _add_startup_routes(app: FastAPI, startup: Any) -> None:
@@ -2092,8 +2093,10 @@ def _add_shutdown_routes(app: FastAPI, shutdown: Any) -> None:
 
     @app.post("/system/stop")
     async def stop_daemon(request: Request) -> ShutdownStatus:
+        """409: it can't be stopped, or what stopping takes first wasn't done (`stop_note`: the administrator's
+        password not given)."""
         try:
-            return ShutdownStatus(waiting_for_runs=shutdown.request(Ending.STOP, _asker(request)))
+            return ShutdownStatus(waiting_for_runs=await shutdown.request_stop(_asker(request)))
         except StopRefusedError as e:
             raise HTTPException(409, message(e)) from e
 

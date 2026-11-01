@@ -88,6 +88,18 @@ class ServiceManager(Protocol):
         """Why the daemon can't be stopped from the app, or None when it can."""
         ...
 
+    def stop_note(self) -> str | None:
+        """What stopping asks for first (an administrator's password), for the apps to say before it's pressed; None
+        for nothing."""
+        ...
+
+    async def before_stop(self) -> str | None:
+        """Done as a stop is asked for, before it waits for runs: what has to be done first, with the user there to
+        answer (stopping launchd's tries, which asks for the administrator's password). Returns what it did, which
+        the stop can't be taken back after; None when it did nothing. Raises StopRefusedError when it couldn't (the
+        password not given)."""
+        ...
+
     async def stop(self, stop: asyncio.Event) -> None:
         """Stops the daemon: sets `stop`, or has the service manager stop it."""
         ...
@@ -142,6 +154,20 @@ class Shutdown:
         self._announce_pending()
         return waiting
 
+    async def request_stop(self, by: str = "") -> int:
+        """`request(Ending.STOP)`, once the service manager did what stopping takes first (`before_stop`), which a stop
+        asked for already has. What it did makes the stop final: it can't be taken back. Raises StopRefusedError."""
+        if self._manager.stop_refusal() is None and not self._stopping():
+            await self._before_stop()
+        return self.request(Ending.STOP, by)
+
+    async def _before_stop(self) -> None:
+        if (done := await self._manager.before_stop()) is not None:
+            self._needed_by = self._needed_by or done
+
+    def _stopping(self) -> bool:
+        return self._stop.is_set() or (self._waiting is not None and self._wanted is Ending.STOP)
+
     def restart_for_update(self) -> int:
         """An update was installed: restarts once no run is in progress, so it runs, and can't be taken back. A
         stop asked for before stays a stop: the update runs when the daemon is started again. Returns how many runs
@@ -166,6 +192,10 @@ class Shutdown:
     def stop_refusal(self) -> str | None:
         """Why the daemon can't be stopped from the apps now, or None when it can."""
         return self._manager.stop_refusal()
+
+    def stop_note(self) -> str | None:
+        """What stopping asks for first, or None for nothing."""
+        return self._manager.stop_note()
 
     def pending(self) -> Pending | None:
         """The restart or stop waiting for runs to end, if one is."""

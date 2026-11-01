@@ -67,7 +67,11 @@
     if (ending) return hub.onReconnect(() => location.reload());
   });
 
+  // A stop that asks for the administrator's password first (`stop_note`) waits for the macOS dialog.
+  let askingPassword = $state(false);
+
   async function end(kind: Ending): Promise<void> {
+    askingPassword = kind === "stop" && !!h?.stop_note;
     try {
       const status = await (kind === "restart" ? client.system.restart() : client.system.stop());
       ending = { ending: kind, waiting: status.waiting_for_runs, update: false, canTakeBack: true, neededBy: "" };
@@ -75,6 +79,8 @@
       void pending();
     } catch (e) {
       notices.report(e);
+    } finally {
+      askingPassword = false;
     }
   }
 
@@ -192,11 +198,13 @@
       <button
         class="btn btn--sm btn--danger"
         onclick={() => (confirming = "stop")}
-        disabled={!!h.stop_refusal}
+        disabled={!!h.stop_refusal || askingPassword}
         title={h.stop_refusal || undefined}><Power size={14} /> {t("shutdown.stop")}</button
       >
     </div>
     {#if h.stop_refusal}<p class="text-caption">{h.stop_refusal}</p>{/if}
+    {#if askingPassword}<p class="text-caption">{t("startup.waitingPassword")}</p>
+    {:else if h.stop_note}<p class="text-caption">{h.stop_note}</p>{/if}
   {/if}
 </SettingsCard>
 

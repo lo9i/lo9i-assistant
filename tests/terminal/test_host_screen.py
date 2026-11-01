@@ -53,12 +53,26 @@ async def test_restart_and_stop_ask_first(app, client):
 
 
 async def test_a_stop_the_service_manager_would_undo_says_why_before_its_pressed(app, client):
-    client.system.stop_refusal = "Start at boot is on, so macOS would start the assistant again at once."
+    client.system.stop_refusal = "macOS would start the assistant again at once."
     async with app.run_test(size=(140, 40)) as pilot:
         screen = await _host_screen(pilot, app)
         body = screen.query_one("#host-body", Markdown)
-        await wait_for(pilot, lambda: "Stop: Start at boot is on" in body.source)
+        await wait_for(pilot, lambda: "Stop: macOS would start" in body.source)
         assert screen.query_one("#stop", Button).disabled and client.system.endings == []
+
+
+async def test_a_stop_that_asks_for_the_password_says_so_before_and_while_it_waits(app, client):
+    client.system.stop_note = "Start at boot is on: stopping asks for the administrator password on this Mac."
+    async with app.run_test(size=(140, 40)) as pilot:
+        screen = await _host_screen(pilot, app)
+        body = screen.query_one("#host-body", Markdown)
+        await wait_for(pilot, lambda: "Stop: Start at boot is on: stopping asks for the administrator" in body.source)
+        assert not screen.query_one("#stop", Button).disabled
+        screen.query_one("#stop", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: "Waiting for the macOS password dialog" in _notices(app))
+        await wait_for(pilot, lambda: client.system.endings == ["stop"])
 
 
 async def test_checks_for_an_update_lists_whats_new_and_installs_it_after_asking(app, client):

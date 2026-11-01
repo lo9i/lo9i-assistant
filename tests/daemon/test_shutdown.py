@@ -36,13 +36,23 @@ class _Runs:
 
 
 class _Manager:
-    def __init__(self, refusal: str | None = None, fails: bool = False) -> None:
+    def __init__(self, refusal: str | None = None, fails: bool = False, first: str | None = None) -> None:
+        """`first`: what it does before a stop (`before_stop`), which makes it final."""
         self.refusal = refusal
         self.fails = fails
+        self.first = first
         self.stops = 0
+        self.befores = 0
 
     def stop_refusal(self) -> str | None:
         return self.refusal
+
+    def stop_note(self) -> str | None:
+        return "it asks for the password" if self.first else None
+
+    async def before_stop(self) -> str | None:
+        self.befores += 1
+        return self.first
 
     async def stop(self, stop: asyncio.Event) -> None:
         self.stops += 1
@@ -288,14 +298,79 @@ def test_the_service_manager_is_the_one_that_started_the_daemon(monkeypatch, env
     assert isinstance(managers.current(), manager)
 
 
-async def test_a_daemon_started_by_hand_beside_start_at_boot_on_macos_isnt_stopped_as_launchd_would_restart_it(
+class _Admin:
+    """In place of macOS's administrator password dialog: records what it would run as root, or is cancelled."""
+
+    def __init__(self, cancelled: bool = False) -> None:
+        self.cancelled = cancelled
+        self.scripts: list[str] = []
+
+    async def __call__(self, script: str) -> None:
+        if self.cancelled:
+            raise launchd.AdminCancelledError("Cancelled.")
+        self.scripts.append(script)
+
+
+def _beside_start_at_boot(monkeypatch, admin: _Admin, enabled: bool = True) -> None:
+    on = StartupStatus(enabled=enabled, managed=False, includes_ollama=False)
+    monkeypatch.setattr(launchd, "status", lambda: on)
+    monkeypatch.setattr(launchd, "_run_as_admin", admin)
+
+
+async def test_a_daemon_started_by_hand_beside_start_at_boot_on_macos_stops_launchds_tries_with_the_password(
     monkeypatch,
 ):
-    on = StartupStatus(enabled=True, managed=False, includes_ollama=False)
-    monkeypatch.setattr(launchd, "status", lambda: on)
-    assert "Turn start at boot off" in (launchd.Beside().stop_refusal() or "")
-    monkeypatch.setattr(launchd, "status", lambda: replace(on, enabled=False))
-    assert launchd.Beside().stop_refusal() is None
+    admin = _Admin()
+    _beside_start_at_boot(monkeypatch, admin)
+    beside = launchd.Beside()
+    assert beside.stop_refusal() is None
+    assert "asks for the administrator password" in (beside.stop_note() or "")
+    assert await beside.before_stop() == "macOS stopped trying to start the assistant until the next boot"
+    # Booted out until the next boot; the plist stays, so start at boot still holds.
+    assert admin.scripts == [f"launchctl bootout system/{launchd.DAEMON_LABEL} 2>/dev/null; true"]
+    stop = asyncio.Event()
+    await beside.stop(stop)
+    assert stop.is_set()
+
+
+async def test_without_the_password_the_stop_is_refused_and_nothing_changes(monkeypatch):
+    _beside_start_at_boot(monkeypatch, _Admin(cancelled=True))
+    stop = asyncio.Event()
+    shutdown = Shutdown(_Runs(), stop, launchd.Beside())
+    with pytest.raises(StopRefusedError, match="password wasn't given"):
+        await shutdown.request_stop()
+    await asyncio.sleep(0.01)
+    assert not stop.is_set() and shutdown.pending() is None and not shutdown.asked()
+
+
+async def test_beside_start_at_boot_off_a_stop_asks_for_nothing(monkeypatch):
+    admin = _Admin()
+    _beside_start_at_boot(monkeypatch, admin, enabled=False)
+    assert launchd.Beside().stop_note() is None
+    assert await launchd.Beside().before_stop() is None
+    assert admin.scripts == []
+
+
+async def test_what_a_stop_does_first_is_done_once_and_makes_it_final():
+    runs, manager = _Runs(running=1), _Manager(first="macOS stopped trying to start it")
+    shutdown = Shutdown(runs, asyncio.Event(), manager)
+    assert shutdown.stop_note() == "it asks for the password"
+    assert await shutdown.request_stop() == 1
+    assert await shutdown.request_stop() == 1
+    assert manager.befores == 1
+    assert shutdown.pending() == Pending(Ending.STOP, 1, needed_by="macOS stopped trying to start it")
+    with pytest.raises(NoEndingError, match="macOS stopped trying to start it, so the stop can't be taken back"):
+        shutdown.take_back()
+    runs.ended.set()
+    await asyncio.sleep(0.01)
+    assert shutdown.ending is Ending.STOP
+
+
+async def test_a_stop_a_manager_refuses_asks_nothing_first():
+    manager = _Manager(refusal="it would start again", first="done")
+    with pytest.raises(StopRefusedError):
+        await Shutdown(_Runs(), asyncio.Event(), manager).request_stop()
+    assert manager.befores == 0
 
 
 async def test_a_daemon_started_by_hand_beside_the_systemd_service_stops_its_tries_too(monkeypatch):
