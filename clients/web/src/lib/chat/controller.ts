@@ -414,6 +414,15 @@ export class ChatController {
     await this.follow([{ run_id: sent.run_id, channel: sent.channel, client_id: sent.client_id, text, brief, carried }]);
   }
 
+  /** A live voice call kept what was said in `threadId` (core/voice/): once this chat shows it and its own reply isn't
+   * running, history shows it. A message written here after isn't routed elsewhere: the call wrote here. */
+  async voiceSaid(threadId: string): Promise<void> {
+    if (threadId !== this.state.threadId) return;
+    this.fresh = null;
+    await this.loaded();
+    if (this.ownRun === null) await this.guarded(() => this.showHistory());
+  }
+
   runFinished(run: RunFinished): void {
     // A run started anywhere, this page watching it or not, may have stopped to ask the user.
     if (run.thread_id === this.live.session.thread_id) void this.answerPending();

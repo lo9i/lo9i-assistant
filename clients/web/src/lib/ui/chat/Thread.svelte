@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AudioLines from "@lucide/svelte/icons/audio-lines";
   import Brain from "@lucide/svelte/icons/brain";
   import Check from "@lucide/svelte/icons/check";
   import ClipboardList from "@lucide/svelte/icons/clipboard-list";
@@ -15,7 +16,7 @@
   import type { ShownCall } from "$lib/api/types";
   import { answerable } from "$lib/chat/choices";
   import { isFindKey, onMac } from "$lib/chat/find";
-  import { inlineArg, pinnable, withWhole, withWholeStep, type ChatItem, type UserNote } from "$lib/chat/transcript";
+  import { inlineArg, pinnable, withWhole, withWholeStep, type CallPart, type ChatItem, type UserNote } from "$lib/chat/transcript";
   import { WholeCalls } from "$lib/chat/wholeCalls.svelte";
   import { t, type Key } from "$lib/i18n.svelte";
   import { markdown } from "$lib/markdown";
@@ -49,6 +50,9 @@
   const SUGGESTIONS: Key[] = ["thread.suggestMemory", "thread.suggestNews", "thread.suggestSearch"];
   // Where a message the user sent a handed-off agent while it worked is.
   const USER_NOTES: Record<UserNote, Key> = { waiting: "thread.waiting", untaken: "thread.untaken", resent: "thread.resent" };
+  // A live voice call's messages (core/voice/); a run of the voice's request shows live with its channel.
+  const CALL_PARTS: Record<CallPart, Key> = { said: "voiceCall.said", asked: "voiceCall.asked" };
+  const VOICE_CHANNEL = "voice";
 
   let scroller = $state<HTMLElement>();
   let height = $state(0);
@@ -146,7 +150,9 @@
       {#if item.kind === "user"}
         <div class="row user" data-id={item.id}>
           <div class="bubble user-bubble" data-findable>
-            {#if item.channel}<span class="micro-label">{item.channel}</span>{/if}
+            {#if item.voice || item.channel === VOICE_CHANNEL}
+              <span class="micro-label call-part"><AudioLines size={11} />{t(CALL_PARTS[item.voice ?? "asked"])}</span>
+            {:else if item.channel}<span class="micro-label">{item.channel}</span>{/if}
             {#if item.text}<p>{item.text}</p>{/if}
             {#each item.files as file (file)}
               <span class="file"><Paperclip size={12} color="#7aa7d9" />{file}</span>
@@ -169,6 +175,7 @@
             >
               {#if copied === item.id}<Check size={14} />{:else}<Copy size={14} />{/if}
             </button>
+            {#if item.voice}<span class="micro-label call-part"><AudioLines size={11} />{t(CALL_PARTS[item.voice])}</span>{/if}
             <div class="prose" data-findable>{@html markdown(reply.text)}</div>
           </div>
           {#if onchoose && reply.choices.length && i === items.length - 1}
@@ -413,6 +420,11 @@
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
     margin-top: 6px;
+  }
+  .call-part {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
   }
   .user-note {
     display: block;

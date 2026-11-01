@@ -31,6 +31,7 @@ from assistant.client.daemon_client.system import SystemApi
 from assistant.client.daemon_client.tasks import TasksApi
 from assistant.client.daemon_client.transport import Transport
 from assistant.client.daemon_client.usage import UsageApi
+from assistant.client.daemon_client.voice_calls import VoiceCallsApi
 from assistant.client.daemon_client.web_search import WebSearchApi
 
 
@@ -52,6 +53,7 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         self.channels = ChannelsApi(transport)
         self.speech = SpeechApi(transport)
         self.web_search = WebSearchApi(transport)
+        self.voice_calls = VoiceCallsApi(transport)
         self.model = ModelApi(transport)
         self.email = EmailApi(transport)
         self.oauth = OAuthApi(transport)

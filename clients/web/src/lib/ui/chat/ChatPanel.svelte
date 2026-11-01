@@ -34,6 +34,8 @@
   import SubagentsPanel from "./subagents/SubagentsPanel.svelte";
   import WorkingStatus from "./WorkingStatus.svelte";
   import Thread from "./Thread.svelte";
+  import VoiceCallPanel from "./VoiceCallPanel.svelte";
+  import { VoiceCall, voiceCall } from "$lib/voiceCall.svelte";
 
   // Commands that open a tab of the settings page.
   const SETTINGS_TABS: Record<string, string> = {
@@ -85,6 +87,12 @@
   const subagentCounts = $derived(counts(subagents.data ?? []));
   const subagentsOpen = $derived(!!subagents.data?.length && subagentsPanel.isOpen(threadId));
   const player = new Player();
+  // Live voice calls (core/voice/), which need an OpenAI key: this tab's call, when it's in this conversation.
+  const voiceCalls = resource((c) => c.voiceCalls.settings(), ["settings"]);
+  const callHere = $derived(voiceCall.threadId === threadId);
+  const callOn = $derived(callHere && voiceCall.state !== "idle");
+  // The call button was pressed with no key set: the panel says where to add one.
+  let needsKey = $state(false);
   let help = $state(false);
   // The agent /claude alone picks a folder for.
   let picking = $state<Agent | null>(null);
@@ -125,6 +133,16 @@
     } catch (e) {
       notices.report(e);
     }
+  }
+
+  /** Starts a call here, or hangs up the one on here. Without a key, says where to add one. */
+  async function pressCall(): Promise<void> {
+    if (callOn) return void voiceCall.stop(client.voiceCalls);
+    needsKey = !voiceCalls.data?.key_source;
+    if (needsKey) return;
+    if (!VoiceCall.supported()) return notices.notify(t("voiceCall.unsupported"), "warning");
+    player.stop();
+    await voiceCall.start(client.voiceCalls, threadId);
   }
 
   // Messages written while a reply runs wait in the conversation's queue, each going out when the one before
@@ -322,6 +340,18 @@
       </ul>
     {/if}
     <PinnedSkills skills={pinned.data ?? []} onunpin={unpin} />
+    {#if needsKey || callHere}
+      <VoiceCallPanel
+        call={voiceCall}
+        name={name.data || t("chat.theAssistant")}
+        {needsKey}
+        onhangup={() => voiceCall.stop(client.voiceCalls)}
+        onclose={() => {
+          needsKey = false;
+          voiceCall.error = "";
+        }}
+      />
+    {/if}
     <Composer
       bind:text={box.text}
       bind:files={box.files}
@@ -335,6 +365,7 @@
       {extra}
       steering={agentWorking && handoff.data ? { agent: handoff.data.name, onsteer: steer } : null}
       handedOff={!!handoff.data}
+      call={{ on: callOn, ready: !!voiceCalls.data?.key_source, onpress: pressCall }}
     />
     <StatusBar>
       <WorkingStatus tasks={working.others} />

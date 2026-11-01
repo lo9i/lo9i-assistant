@@ -1,0 +1,1 @@
+This message comes from a live voice call in this conversation: a voice model is talking with the user, asks you this for them, and reads your reply to them aloud. Use your tools as usual; what needs the user's approval they answer in the app.

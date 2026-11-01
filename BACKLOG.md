@@ -12,15 +12,6 @@ A = action, L = to revisit later, G = memory gap, H = context improvement, Q = o
 
 - A11. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen. It would also give plugins that ask for the ssh agent (`ssh_agent: true`, `core/mcp/ssh_agent.py`) the user's agent, which a LaunchDaemon has none of.
 
-## Voice
-
-- A12. Real-time voice agent: live spoken conversation from the browser.
-  - A speech-to-speech model (OpenAI GPT-Live) listens and speaks. No separate speech-to-text or text-to-speech step; transcripts come from the model's own events.
-  - Audio goes directly between the browser and OpenAI over WebRTC. The daemon only exchanges the connection offer and answer, and never handles audio.
-  - The daemon keeps a sideband WebSocket to OpenAI for each call. When the voice model needs to act, it calls a tool; the daemon runs it through `AssistantService`, so Claude stays the brain.
-  - Tool calls are logged by the model's call id, so a retried call returns the first result.
-  - Needs an OpenAI key in addition to the Anthropic key. Not needed for Telegram voice notes.
-
 ## To revisit
 
 Not worth doing yet; each item says what was done and when to look at it again.

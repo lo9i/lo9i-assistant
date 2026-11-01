@@ -58,6 +58,8 @@ def isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(settings, "web_render", False)
     monkeypatch.setattr(settings, "web_blocked_domains", [])
     monkeypatch.setattr(settings, "timezone", "UTC")
+    monkeypatch.setattr(settings, "openai_api_key", "")
+    monkeypatch.setattr(settings, "openai_base_url", "")
     for key in ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"):
         monkeypatch.delenv(key, raising=False)
     return tmp_path

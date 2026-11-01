@@ -19,7 +19,8 @@ from assistant.core import subagent_steps
 from assistant.core.agent_tasks.steps import STEPS, TAKEN, UNANSWERED, Upload, args_of, files_of, parse, waiting
 from assistant.core.conversation import briefs, carried, ended, failed, resent
 from assistant.core.conversation.dispatched import DISPATCH_ID
-from assistant.core.conversation.turn_header import is_header
+from assistant.core.conversation.turn_header import channel_of, is_header
+from assistant.core.voice import spoken
 
 # The most of a call's arguments and of its output history sends: enough to tell what the call was, without
 # sending every page or file it read each time a conversation is shown.
@@ -73,6 +74,9 @@ class ShownMessage:
     # and it went to the agent as the next message (`resent` there, core/conversation/resent.py).
     untaken: bool = False
     resent: bool = False
+    # A live voice call's (core/voice/): "said" in it, by the user or the voice, or "asked", the voice's request to the
+    # assistant.
+    voice: str = ""
 
 
 @dataclass
@@ -97,7 +101,8 @@ def _shown(message: BaseMessage, results: dict[str, ToolMessage]) -> list[ShownM
     if isinstance(message, HumanMessage):
         exchange = carried.of(message)
         before = [ShownMessage("carried", carried.shown(exchange))] if exchange else []
-        return [*before, ShownMessage("user", _text(message.content, skip_header=True), resent=resent.of(message))]
+        text = _text(message.content, skip_header=True)
+        return [*before, ShownMessage("user", text, resent=resent.of(message), voice=_voice(message))]
     if (mark := failed.of(message)) is not None:
         return [ShownMessage("error", str(mark.get("error", "")))]
     if isinstance(message, AIMessage) and (steps := message.response_metadata.get(STEPS)):
@@ -106,9 +111,16 @@ def _shown(message: BaseMessage, results: dict[str, ToolMessage]) -> list[ShownM
     if isinstance(message, AIMessage):
         text = _text(message.content)
         calls = [_call(call, results.get(call["id"] or "")) for call in message.tool_calls]
-        said = ShownMessage("assistant", text, dispatch_id=message.response_metadata.get(DISPATCH_ID, ""))
+        dispatch_id = message.response_metadata.get(DISPATCH_ID, "")
+        said = ShownMessage("assistant", text, dispatch_id=dispatch_id, voice=_voice(message))
         return [*([said] if text else []), *calls]
     return []
+
+
+def _voice(message: BaseMessage) -> str:
+    if spoken.is_spoken(message):
+        return "said"
+    return "asked" if channel_of(message) == spoken.VOICE_CHANNEL else ""
 
 
 def tool_call(messages: Sequence[BaseMessage], call_id: str) -> ShownCall | None:

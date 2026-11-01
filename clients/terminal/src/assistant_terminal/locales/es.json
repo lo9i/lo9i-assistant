@@ -973,5 +973,7 @@
   "Spending limits saved.": "Límites de gasto guardados.",
   "Set one: /limits day 5, or /limits day off.": "Pon uno: /limits day 5, o /limits day off.",
   "Spending limits: what model calls may spend per job, conversation and day": "Límites de gasto: lo que pueden gastar las llamadas al modelo por tarea, conversación y día",
-  "over budget": "pasó el límite de gasto"
+  "over budget": "pasó el límite de gasto",
+  "🎙 said in the voice call": "🎙 dicho en la llamada de voz",
+  "🎙 asked in the voice call": "🎙 preguntado en la llamada de voz"
 }

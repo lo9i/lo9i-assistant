@@ -41,6 +41,7 @@ from assistant.core.agent.subagents import SubagentsMixin
 from assistant.core.agent.tasks import TasksMixin
 from assistant.core.agent.threads import ThreadsMixin
 from assistant.core.agent.usage import UsageMixin
+from assistant.core.agent.voice_calls import VoiceCallsMixin
 from assistant.core.agent.web_search import WebSearchMixin
 from assistant.core.agent_tasks.ends import TaskEnds
 from assistant.core.agent_tasks.reports import TaskReports
@@ -95,6 +96,8 @@ from assistant.core.storage import Storage, open_storage
 from assistant.core.tools.registry import tool_groups
 from assistant.core.usage.alerts import SpendingAlerts
 from assistant.core.usage.budget import Budget
+from assistant.core.voice.realtime import OpenAIRealtime
+from assistant.core.voice.tool_calls import ToolCalls
 
 
 class AssistantService(
@@ -132,6 +135,7 @@ class AssistantService(
     PinnedSkillsMixin,
     JobsMixin,
     UsageMixin,
+    VoiceCallsMixin,
     MessagingMixin,
     RunsMixin,
     LockingMixin,
@@ -221,6 +225,8 @@ class AssistantService(
         self._titling = asyncio.Lock()
         self._conversations_lock = asyncio.Lock()
         self._synthesizer = KokoroSynthesizer()
+        self.realtime = OpenAIRealtime()
+        self.voice_tool_calls = ToolCalls(storage.store)
         self._thread_locks = defaultdict(asyncio.Lock)
         self._active_runs = {}
         self._run_starts = {}

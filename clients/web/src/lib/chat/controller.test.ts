@@ -45,6 +45,7 @@ class FakeDaemon implements ChatClient {
           held: "",
           untaken: false,
           resent: false,
+          voice: "",
         },
         ...(this.held.get(threadId) ?? []),
       ];
@@ -434,6 +435,7 @@ describe("ChatController", () => {
       agent: "",
       untaken: false,
       resent: false,
+      voice: "",
     };
     daemon.held.set("t1", [{ ...waiting, held: "h1" }]);
     daemon.runs = [[{ type: "TextDelta", text: "back" }, { type: "Done" }]];
@@ -457,6 +459,7 @@ describe("ChatController", () => {
       held,
       untaken: false,
       resent: false,
+      voice: "",
     });
     daemon.held.set("t1", [kept("first?", "h1"), kept("second?", "h2")]);
     daemon.runs = [

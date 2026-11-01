@@ -108,6 +108,9 @@ from assistant.core.agent import (
     UnknownPromptError,
     UploadedFile,
     UsageReport,
+    VoiceCallError,
+    VoiceCallSettings,
+    VoiceKeyError,
     WebSearchStatus,
 )
 from assistant.core.attachments import Attachment
@@ -134,6 +137,7 @@ from assistant.core.memory.profile import MAX_ITEMS, Section
 from assistant.core.repositories import contents, listed
 from assistant.core.repositories.known import EXTRAS
 from assistant.core.usage.limits import SpendingLimits, SpendingLimitsError
+from assistant.core.voice.realtime import RealtimeError
 from assistant.daemon import host
 from assistant.daemon.auth import (
     DeviceStreams,
@@ -149,6 +153,7 @@ from assistant.daemon.follows import StreamFollows, StreamKey, log_source, run_s
 from assistant.daemon.launchd import StartupError
 from assistant.daemon.runs import Run, RunHub
 from assistant.daemon.shutdown import Ending
+from assistant.daemon.voice_calls import VoiceCalls
 from assistant.daemon.web_ui import BUILD_DIR, add_web_ui, is_web_ui
 from assistant.protocol import (
     CLIENT_HEADER,
@@ -593,6 +598,27 @@ class CancelResult(BaseModel):
     cancelled: bool
 
 
+class VoiceCallKey(BaseModel):
+    key: str
+
+
+class VoiceCallOffer(BaseModel):
+    # The browser's WebRTC SDP offer.
+    sdp: str
+
+
+class VoiceCallAnswer(BaseModel):
+    """OpenAI's SDP answer, which completes the browser's peer connection, and the call's id, to hang up."""
+
+    call_id: str
+    sdp: str
+
+
+class VoiceCallEnded(BaseModel):
+    # False: no such call was on.
+    ended: bool
+
+
 # How the OpenAPI schema describes a route that answers with audio.
 _WAV: dict[int | str, dict[str, Any]] = {200: {"content": {"audio/wav": {}}}}
 
@@ -618,9 +644,11 @@ def create_app(
     streams: DeviceStreams | None = None,
     updates: Any = None,
     chats: ChannelChats | None = None,
+    voice_calls: VoiceCalls | None = None,
 ) -> FastAPI:
     """`streams` is shared with the pages app, so revoking a device also closes its pages' WebSockets; `chats`,
-    with the daemon's runs kept while an update installed, which it runs again in the chats they came from."""
+    with the daemon's runs kept while an update installed, which it runs again in the chats they came from;
+    `voice_calls`, with the daemon, which hangs them up when it stops."""
     app = FastAPI(title="lo9i daemon")
     # Checked outside in: the host name, the client header, then the device.
     require_device(app, service)
@@ -666,6 +694,7 @@ def create_app(
     _add_identity_routes(app, service)
     _add_prompt_routes(app, service)
     _add_speech_routes(app, service)
+    _add_voice_call_routes(app, service, voice_calls or VoiceCalls(service, hub))
     _add_log_level_routes(app, service)
     _add_dispatch_routes(app, service)
     _add_language_routes(app, service)
@@ -1251,6 +1280,42 @@ def _add_web_search_routes(app: FastAPI, service: AssistantService) -> None:
     @app.delete("/integrations/web-search/brave-key")
     async def remove_brave_key() -> WebSearchStatus:
         return await service.remove_brave_key()
+
+
+def _add_voice_call_routes(app: FastAPI, service: AssistantService, calls: VoiceCalls) -> None:
+    """Live voice calls from the browser (core/voice/, daemon/voice_calls.py) and the OpenAI key they use."""
+
+    @app.get("/settings/voice-calls")
+    async def voice_call_settings() -> VoiceCallSettings:
+        return await service.voice_call_settings()
+
+    @app.put("/settings/voice-calls/key")
+    async def set_voice_call_key(body: VoiceCallKey) -> VoiceCallSettings:
+        """400: OpenAI doesn't accept the key."""
+        try:
+            return await service.set_voice_call_key(body.key)
+        except VoiceKeyError as e:
+            raise HTTPException(400, message(e)) from e
+
+    @app.delete("/settings/voice-calls/key")
+    async def remove_voice_call_key() -> VoiceCallSettings:
+        return await service.remove_voice_call_key()
+
+    @app.post("/conversations/{thread_id}/voice-call")
+    async def start_voice_call(thread_id: str, body: VoiceCallOffer) -> VoiceCallAnswer:
+        """Starts a call in the conversation from the browser's offer. 409: no OpenAI key, the inbox, or a call on
+        there already; 502: OpenAI refused the call."""
+        try:
+            answer = await calls.start(settings.owner_id, thread_id, body.sdp)
+        except VoiceCallError as e:
+            raise HTTPException(409, message(e)) from e
+        except RealtimeError as e:
+            raise HTTPException(502, message(e)) from e
+        return VoiceCallAnswer(call_id=answer.call_id, sdp=answer.sdp)
+
+    @app.delete("/voice-calls/{call_id}")
+    async def end_voice_call(call_id: str) -> VoiceCallEnded:
+        return VoiceCallEnded(ended=await calls.end(call_id))
 
 
 def _add_channel_routes(app: FastAPI, service: AssistantService) -> None:

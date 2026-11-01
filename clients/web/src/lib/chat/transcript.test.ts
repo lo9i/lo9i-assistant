@@ -34,6 +34,7 @@ describe("transcript", () => {
         held: "",
         untaken: false,
         resent: false,
+        voice: "",
       },
       {
         role: "user",
@@ -47,6 +48,7 @@ describe("transcript", () => {
         held: "",
         untaken: false,
         resent: false,
+        voice: "",
       },
     ]);
     expect(t.items.map((i) => i.kind)).toEqual(["carried", "user"]);
@@ -63,6 +65,7 @@ describe("transcript", () => {
         held: "",
         untaken: false,
         resent: false,
+        voice: "",
       },
     ]);
     expect(followed.items[0]).toMatchObject({ kind: "notice", text: "⚠️ convert: it failed" });
@@ -85,6 +88,7 @@ describe("transcript", () => {
         held: "",
         untaken: false,
         resent: false,
+        voice: "",
       },
       {
         role: "user",
@@ -98,6 +102,7 @@ describe("transcript", () => {
         held: "h1",
         untaken: false,
         resent: false,
+        voice: "",
       },
     ]);
     expect(t.items.map((i) => i.kind)).toEqual(["user", "user", "held"]);
@@ -119,6 +124,7 @@ describe("transcript", () => {
         held: "",
         untaken: false,
         resent: false,
+        voice: "",
       },
       {
         role: "brief",
@@ -132,6 +138,7 @@ describe("transcript", () => {
         held: "",
         untaken: false,
         resent: false,
+        voice: "",
       },
     ]);
     expect(t.items[1]).toEqual({ kind: "brief", id: 2, text: "Fix the failing tests", agent: "Claude Code" });
@@ -154,6 +161,7 @@ describe("transcript", () => {
         held: "",
         untaken: false,
         resent: false,
+        voice: "",
       },
       {
         role: "error",
@@ -167,6 +175,7 @@ describe("transcript", () => {
         held: "",
         untaken: false,
         resent: false,
+        voice: "",
       },
     ]);
     expect(t.items[1]).toMatchObject({ kind: "error", message: "OperationalError: database is locked" });
@@ -216,7 +225,7 @@ describe("transcript", () => {
   });
 
   it("shows the messages the agent never got to, and those sent again, as history kept them", () => {
-    const shown = { detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "" };
+    const shown = { detail: "", output: "", dispatch_id: "", call_id: "", partial: false, agent: "", held: "", voice: "" };
     const t = fromHistory([
       { role: "user", text: "skip the slow ones", ...shown, untaken: true, resent: false },
       { role: "user", text: "skip the slow ones", ...shown, untaken: false, resent: true },
@@ -345,6 +354,7 @@ describe("transcript", () => {
         held: "",
         untaken: false,
         resent: false,
+        voice: "",
       },
       {
         role: "tool",
@@ -358,6 +368,7 @@ describe("transcript", () => {
         held: "",
         untaken: false,
         resent: false,
+        voice: "",
       },
       {
         role: "assistant",
@@ -371,6 +382,7 @@ describe("transcript", () => {
         held: "",
         untaken: false,
         resent: false,
+        voice: "",
       },
     ]);
     expect(history.items.map((i) => i.kind)).toEqual(["user", "tool", "assistant"]);
@@ -394,6 +406,7 @@ describe("transcript", () => {
         held: "",
         untaken: false,
         resent: false,
+        voice: "",
         steps,
       },
       {
@@ -408,6 +421,7 @@ describe("transcript", () => {
         held: "",
         untaken: false,
         resent: false,
+        voice: "",
         steps: [],
       },
     ]);
@@ -440,6 +454,7 @@ describe("transcript", () => {
         held: "",
         untaken: false,
         resent: false,
+        voice: "",
       },
       {
         role: "tool",
@@ -453,6 +468,7 @@ describe("transcript", () => {
         held: "",
         untaken: false,
         resent: false,
+        voice: "",
       },
     ]);
     expect(history.items).toEqual([
@@ -475,6 +491,7 @@ describe("transcript", () => {
         held: "",
         untaken: false,
         resent: false,
+        voice: "",
       },
       {
         role: "tool",
@@ -488,6 +505,7 @@ describe("transcript", () => {
         held: "",
         untaken: false,
         resent: false,
+        voice: "",
       },
     ]).items;
     expect(preview).toEqual({
@@ -506,5 +524,26 @@ describe("transcript", () => {
     const loaded = withWhole(preview, { name: "bash", args: { command: "seq 1 100", timeout: 5 }, output: "1\n2\n3" });
     expect(loaded).toMatchObject({ args: { command: "seq 1 100", timeout: 5 }, output: "1\n2\n3", partial: false, callId: "c1" });
     expect(inlineArg(loaded.args)).toBeUndefined();
+  });
+
+  it("marks what was said in a live voice call and what the voice asked the assistant", () => {
+    const shown = {
+      detail: "",
+      output: "",
+      dispatch_id: "",
+      call_id: "",
+      partial: false,
+      agent: "",
+      held: "",
+      untaken: false,
+      resent: false,
+    };
+    const t = fromHistory([
+      { role: "user", text: "what's on today?", ...shown, voice: "said" },
+      { role: "user", text: "List today's meetings", ...shown, voice: "asked" },
+      { role: "assistant", text: "Two meetings.", ...shown, voice: "" },
+      { role: "assistant", text: "You have two.", ...shown, voice: "said" },
+    ]);
+    expect(t.items.map((i) => ("voice" in i ? i.voice : undefined))).toEqual(["said", "asked", undefined, "said"]);
   });
 });

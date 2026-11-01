@@ -25,6 +25,9 @@ WAITING = translatable("waiting for the agent to get to it")
 UNTAKEN = translatable("not taken: sent again below")
 # The messages it hadn't taken, as that next message (core/conversation/resent.py).
 RESENT = translatable("sent again")
+# A live voice call's messages (core/voice/): said in it, by the user or the voice, or the voice's request.
+SAID_IN_CALL = translatable("🎙 said in the voice call")
+ASKED_IN_CALL = translatable("🎙 asked in the voice call")
 
 
 class UserMessage(Static):

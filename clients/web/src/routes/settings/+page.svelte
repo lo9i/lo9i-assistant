@@ -15,6 +15,7 @@
   import SpendingLimitsCard from "$lib/ui/settings/SpendingLimitsCard.svelte";
   import SpokenRepliesCard from "$lib/ui/settings/SpokenRepliesCard.svelte";
   import StartupCard from "$lib/ui/settings/StartupCard.svelte";
+  import VoiceCallsCard from "$lib/ui/settings/VoiceCallsCard.svelte";
   import WebSearchCard from "$lib/ui/settings/WebSearchCard.svelte";
   import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
@@ -90,6 +91,7 @@
     <div class="grid">
       <div class="stack">
         <SpeechCard />
+        <VoiceCallsCard />
       </div>
       <div class="stack">
         <SpokenRepliesCard />

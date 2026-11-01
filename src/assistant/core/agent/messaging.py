@@ -21,6 +21,7 @@ from assistant.core.events import Error, Event, Transcribed
 from assistant.core.speech import preferences
 from assistant.core.speech.transcriber import TranscriptionError
 from assistant.core.speech.voice import is_voice, transcribe_voice
+from assistant.core.voice import notes as voice_notes
 
 
 class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
@@ -165,16 +166,17 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
 
     async def _header_notes(self, session: Session) -> list[Block]:
         """What goes in the turn header after the date: messages sent here from elsewhere, a change in
-        the pinned skills, background work started here that ended, messages moved out of here, and the
-        one-time offer to get to know the user."""
+        the pinned skills, background work started here that ended, messages moved out of here, what was said in a
+        voice call here after its last request, and the one-time offer to get to know the user."""
         store = self._storage.store
         sent_here = await sent.take(store, session.user_id, session.channel)
         repinned = await pinned.take_notice(store, session.user_id, session.thread_id)
         handed_back = await handoffs.take_notice(store, session.user_id, session.thread_id)
         work_ended = await ended.take(store, session.user_id, session.thread_id)
         moved_away = await moved.take(store, session.user_id, session.thread_id)
+        unheard = await voice_notes.take(store, session.user_id, session.thread_id)
         offer = await introduction.offer(store, session.user_id, session.channel)
-        return [*sent_here, *repinned, *handed_back, *work_ended, *moved_away, *offer]
+        return [*sent_here, *repinned, *handed_back, *work_ended, *moved_away, *unheard, *offer]
 
     async def resume(self, session: Session, decisions: dict[str, dict[str, Any]]) -> AsyncIterator[Event]:
         """Answer pending approvals. `decisions` maps interrupt id to {"approved": bool, "reason": str}."""

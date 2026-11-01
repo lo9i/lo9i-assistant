@@ -31,6 +31,7 @@ from assistant.client.daemon_client.speech import SpeechApi
 from assistant.client.daemon_client.subagents import SubagentsApi
 from assistant.client.daemon_client.system import SystemApi
 from assistant.client.daemon_client.usage import UsageApi
+from assistant.client.daemon_client.voice_calls import VoiceCallsApi
 from assistant.client.daemon_client.web_search import WebSearchApi
 
 __all__ = [
@@ -61,6 +62,7 @@ __all__ = [
     "SubagentsApi",
     "SystemApi",
     "UsageApi",
+    "VoiceCallsApi",
     "WebSearchApi",
     "offered_plugin",
 ]

@@ -39,6 +39,8 @@ from assistant.core.speech.transcriber import Transcriber
 from assistant.core.storage import Storage
 from assistant.core.subagent import SubagentRunner
 from assistant.core.usage.budget import Budget
+from assistant.core.voice.realtime import Realtime
+from assistant.core.voice.tool_calls import ToolCalls
 
 
 class ServiceBase:
@@ -104,6 +106,10 @@ class ServiceBase:
     # Checks each day once it ended. The daemon runs it as a supervised task.
     doctor_schedule: DoctorSchedule
     _home_builder: SectionBuilder
+    # OpenAI's Realtime API, for live voice calls (core/voice/); the tests fake it.
+    realtime: Realtime
+    # The voice model's tool calls by their id, so one made again gets the first result (core/voice/tool_calls.py).
+    voice_tool_calls: ToolCalls
     _transcriber: Transcriber
     _synthesizer: Synthesizer
     _digester: Digester
