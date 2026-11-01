@@ -85,11 +85,16 @@ class BackgroundSubagents(BackgroundSubagentStarts):
         # Those the user stopped, and those whose conversation was deleted, while their work winds down.
         self._stopping: set[str] = set()
         self._forgetting: set[str] = set()
+        # Those telling their end, which a stop mustn't cut short; and the deleted conversations.
+        self._finishing: set[str] = set()
+        self._gone: set[str] = set()
         self._added = asyncio.Event()
 
     async def start(
         self, task: str, user_id: str, thread_id: str, channel: str, plugins: Collection[str], agent: str = ""
     ) -> str:
+        if thread_id in self._gone:
+            raise SubagentError(said("That conversation was deleted."))
         await self._runner().background_graph(agent)  # an unknown agent raises before anything is kept
         started = datetime.now(UTC).isoformat()
         subagent = BackgroundSubagent(
@@ -129,7 +134,7 @@ class BackgroundSubagents(BackgroundSubagentStarts):
         """Returns once it's stopped. Raises SubagentError for an unknown one or one that ended."""
         subagent = await self._known(subagent_id)
         working = self._working.get(subagent_id)
-        if subagent.ended or working is None or working.done():
+        if subagent.ended or working is None or working.done() or subagent_id in self._finishing:
             raise SubagentError(said("That subagent isn't working."))
         self._stopping.add(subagent_id)
         working.cancel()
@@ -146,6 +151,7 @@ class BackgroundSubagents(BackgroundSubagentStarts):
 
     async def forget(self, thread_id: str) -> None:
         """The conversation was deleted: its subagents stop and go, with all they kept."""
+        self._gone.add(thread_id)  # none starts or tells its end in it from now on
         kept = await records.listed(self._storage.store, thread_id)
         working = [self._working[s.id] for s in kept if s.id in self._working]
         self._forgetting.update(s.id for s in kept)
@@ -164,7 +170,7 @@ class BackgroundSubagents(BackgroundSubagentStarts):
     async def _work_on_kept(self) -> None:
         self._working = {key: task for key, task in self._working.items() if not task.done()}
         for subagent in await records.listed(self._storage.store):
-            if not subagent.ended and subagent.id not in self._working:
+            if not subagent.ended and subagent.id not in self._working and subagent.thread_id not in self._gone:
                 self._working[subagent.id] = asyncio.create_task(self._work(subagent), name=f"subagent {subagent.id}")
 
     async def _work(self, subagent: BackgroundSubagent) -> None:
@@ -180,9 +186,17 @@ class BackgroundSubagents(BackgroundSubagentStarts):
             await self._end(work, STOPPED, "")
         except Exception as e:
             logger.exception("Background subagent %s failed", subagent.id)
-            await self._end(work, FAILED, f"{type(e).__name__}: {i18n.message(e)}")
+            await self._finish(work, FAILED, f"{type(e).__name__}: {i18n.message(e)}")
         else:
-            await self._end(work, DONE, result)
+            await self._finish(work, DONE, result)
+
+    async def _finish(self, work: SubagentWork, status: Status, result: str) -> None:
+        """Ends it with no stop cutting that short, which would tell its end twice."""
+        self._finishing.add(work.subagent.id)
+        try:
+            await self._end(work, status, result)
+        finally:
+            self._finishing.discard(work.subagent.id)
 
     async def _answers(self, subagent: BackgroundSubagent, asked: list[ApprovalRequired]) -> dict[str, Any]:
         t = await i18n.chosen(self._storage.store)
@@ -206,6 +220,8 @@ class BackgroundSubagents(BackgroundSubagentStarts):
         await self._keep_latest(subagent.thread_id)
 
     async def _tell(self, subagent: BackgroundSubagent) -> None:
+        if subagent.thread_id in self._gone:
+            return
         told = ends.ended(subagent)
         store = self._storage.store
         if subagent.status == STOPPED:

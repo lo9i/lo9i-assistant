@@ -128,6 +128,9 @@
   .status--done {
     --mark: var(--color-success);
   }
+  .status--stopped {
+    --mark: var(--color-text-muted);
+  }
   .status--failed {
     --mark: var(--color-danger);
   }

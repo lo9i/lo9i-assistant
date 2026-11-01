@@ -227,3 +227,41 @@ async def test_waiting_with_no_time_limit_is_answered_from_the_apps():
     assert approvals.answer("i1", {"approved": True})
     assert await waiting == {"approved": True}
     assert not approvals.answer("i1", {"approved": True})
+
+
+async def test_two_approvals_at_once_are_each_answered_in_turn(service, script):
+    _, subagent_id = await _sent_off(service, script)
+    script.reply(
+        tool_calls=[
+            {"name": "bash", "args": {"command": "rm -rf a"}, "id": "c-a"},
+            {"name": "bash", "args": {"command": "rm -rf b"}, "id": "c-b"},
+        ]
+    ).reply("Both done.")
+    after = service.bus.last_id
+    async with _working(service):
+        await _status(service, after, "waiting")
+        await _until(lambda: len(service.approvals._waiting) == 2)
+        first_one, second = (await service.subagent_details(subagent_id)).subagent.waiting
+        assert await service.answer_subagent(subagent_id, first_one.interrupt_id, {"approved": False, "reason": "no"})
+        await _until_left(service, subagent_id, [second.interrupt_id])
+        after = service.bus.last_id
+        assert await service.answer_subagent(subagent_id, second.interrupt_id, {"approved": False, "reason": "no"})
+        await _status(service, after, "done")
+
+
+async def _until_left(service: AssistantService, subagent_id: str, left: list[str]) -> None:
+    async with asyncio.timeout(10):
+        while [w.interrupt_id for w in (await service.subagent_details(subagent_id)).subagent.waiting] != left:
+            await asyncio.sleep(0.01)
+
+
+async def test_a_deleted_conversation_gets_no_new_subagent(service, script):
+    session, _ = await _sent_off(service, script)
+    script.call("bash", command="rm -rf build")
+    after = service.bus.last_id
+    async with _working(service):
+        await _status(service, after, "waiting")
+        await service.delete_conversation("owner", session.thread_id)
+        assert await service.background_subagents_of(session.thread_id) == []
+        with pytest.raises(SubagentError):
+            await service.background_subagents.start("x", "owner", session.thread_id, "web", [])

@@ -61,11 +61,15 @@
       notices.notify(ended.text, ended.ok ? "info" : "warning", open);
     }),
   );
-  // A background subagent waits for the user's answer: its conversation's side panel has it.
+  // A background subagent starts waiting for the user's answer: its conversation's side panel has it. Once per wait,
+  // not again for each request it waits on or when the daemon starts again.
+  const subagentStatus = new Map<string, string>();
   $effect(() =>
     hub.on(["subagents"], (data) => {
       const changed = data as SubagentChanged;
-      if (changed.status !== "waiting") return;
+      const before = subagentStatus.get(changed.id);
+      subagentStatus.set(changed.id, changed.status);
+      if (changed.status !== "waiting" || before === "waiting") return;
       const open = { label: t("app.openItsConversation"), run: () => void openConversation(chats, notices, changed.thread_id) };
       notices.notify(t("app.subagentWaiting"), "warning", open);
     }),

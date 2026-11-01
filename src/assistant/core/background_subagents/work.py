@@ -3,6 +3,7 @@ approval pauses only it), from where it stopped when the daemon started again. E
 kept and published as it starts and as it finishes; what it waits for the user's answer to is kept on its record
 until it's answered."""
 
+import asyncio
 import sys
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict
@@ -53,10 +54,10 @@ class SubagentWork:
     async def answer(self, runner: SubagentRunner, context: Context) -> str:
         """Its answer once it's done; raises what stopped it. Runs from where its checkpoints left it."""
         subagent = self.subagent
-        self._open = {s.call_id: s for s in await records.steps(self._store, subagent.id) if not s.done}
         graph = await runner.background_graph(subagent.agent)
         config = self.config()
         saved = await graph.aget_state(config)
+        await self._reopen(list(saved.values.get("messages", [])) if saved.values else [])
         input: Any = (
             None if saved.values else await runner.background_start(subagent.task, subagent.plugins, subagent.agent)
         )
@@ -76,6 +77,22 @@ class SubagentWork:
             "callbacks": [*observability.callbacks(), SkillScriptTracker(self._health)],
             "metadata": {CONVERSATION: subagent.thread_id, CHANNEL: subagent.channel},
         }
+
+    async def _reopen(self, messages: list[BaseMessage]) -> None:
+        """The steps in progress when the daemon stopped. One its checkpoints don't call any more (the model's reply
+        wasn't kept, so it's asked again) or did answer is closed, so no step stays in progress for good."""
+        called = {c["id"] for m in messages if isinstance(m, AIMessage) for c in m.tool_calls}
+        answered = {m.tool_call_id: m.text for m in messages if isinstance(m, ToolMessage)}
+        self._open = {}
+        for step in await records.steps(self._store, self.subagent.id):
+            if step.done:
+                continue
+            if step.call_id in called and step.call_id not in answered:
+                self._open[step.call_id] = step
+            else:
+                step.output, step.done = answered.get(step.call_id, ""), True
+                await records.save_step(self._store, self.subagent.id, step)
+        self.subagent.step = "; ".join(line(s.name, s.args) for s in self._open.values())
 
     async def _stream(self, graph: SubagentGraph, input: Any, config: RunnableConfig, context: Context) -> None:
         async for update in graph.astream(input, config, context=context, stream_mode="updates"):
@@ -102,11 +119,21 @@ class SubagentWork:
         self._bus.publish("subagent_step", id=self.subagent.id, thread_id=self.subagent.thread_id, step=asdict(step))
 
     async def _waiting(self, asked: list[ApprovalRequired]) -> dict[str, Any]:
-        """Kept on its record while the user answers, which may take as long as they like."""
+        """Kept on its record while the user answers, which may take as long as they like. Each request leaves it
+        as it's answered, so the apps show the next one."""
         subagent = self.subagent
-        subagent.status, subagent.waiting = WAITING, asked
+        subagent.status, subagent.waiting = WAITING, list(asked)
         await self.save()
-        decisions = await self._answers(subagent, asked)
+
+        async def one(request: ApprovalRequired) -> dict[str, Any]:
+            decision = await self._answers(subagent, [request])
+            subagent.waiting = [w for w in subagent.waiting if w.interrupt_id != request.interrupt_id]
+            await self.save()
+            return decision
+
+        decisions: dict[str, Any] = {}
+        for decided in await asyncio.gather(*(one(a) for a in asked)):
+            decisions.update(decided)
         subagent.status, subagent.waiting = RUNNING, []
         await self.save()
         return decisions
