@@ -23,7 +23,7 @@ from pydantic import BaseModel, SecretStr
 
 from assistant.core.config import settings
 from assistant.core.i18n import said
-from assistant.core.llm import connections, copilot, openrouter
+from assistant.core.llm import connections, copilot, kept_alive, openrouter
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.claude import KeptAliveChatAnthropic
 from assistant.core.llm.providers import CACHE_ONE_HOUR, PROMPT_CACHE, provider
@@ -130,14 +130,11 @@ def _langchain(choice: ModelChoice, model: str, max_tokens: int) -> BaseChatMode
         options[known.max_tokens_key] = max_tokens
     if known.model_key:
         options[known.model_key] = model
-    if known.id in _TAKE_HTTP_CLIENT:
-        options["http_async_client"] = connections.client()
-    return init_chat_model(model, model_provider=known.id, output_version="v1", **options)
-
-
-# Providers whose LangChain model takes an httpx client as `http_async_client` (built on the OpenAI or Groq SDK), which
-# gets connections that notice when they died (core/llm/connections.py). The others make their clients themselves.
-_TAKE_HTTP_CLIENT = {"azure_openai", "deepseek", "xai", "groq", "together", "upstage", "baseten", "meta"}
+    # On connections that notice when they died, where its package lets them be given (core/llm/kept_alive.py).
+    options.update(kept_alive.options(known.id))
+    llm = init_chat_model(model, model_provider=known.id, output_version="v1", **options)
+    kept_alive.reconnect(known.id, llm)
+    return llm
 
 
 def _google_credentials(text: str) -> Any:
