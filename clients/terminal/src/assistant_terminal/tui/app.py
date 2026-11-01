@@ -926,8 +926,16 @@ class AssistantApp(App):
     async def action_open_conversations(self) -> None:
         await self._command_open("")
 
-    async def _command_subagents(self, _: str) -> None:
-        self.push_screen(SubagentsScreen(self._service.subagents, self._live.session.thread_id, _screen_for))
+    async def _command_subagents(self, arg: str) -> None:
+        """/subagents shows this conversation's; /subagents all every conversation's."""
+        screen = SubagentsScreen(
+            self._service.subagents,
+            self._service.conversations,
+            self._live.session.thread_id,
+            _screen_for,
+            everywhere=arg.strip().lower() == "all",
+        )
+        self.push_screen(screen, self._resume)
 
     async def _command_notifications(self, _: str) -> None:
         screen = NotificationsScreen(self._service.notifications, self._service.jobs, self._service.doctor)

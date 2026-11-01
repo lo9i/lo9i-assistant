@@ -4,10 +4,6 @@ Open work, tackled one at a time. Finished items are deleted and the remaining c
 for something to happen before they're worth doing are under To revisit, with what brings them back.
 A = action, L = to revisit later, G = memory gap, H = context improvement, Q = open question, R = risk.
 
-## Agent
-
-- A32. A view of all background subagents across conversations (`core/background_subagents/`): today each shows only in its conversation's side panel (web app) and `/subagents` (terminal app). The API already lists them all (`GET /subagents` without `thread_id`), and `subagents` events carry each one's conversation.
-
 ## Daemon
 
 - A10. Passkeys as a faster sign-in for devices paired over the network (HTTPS and device pairing are done: `daemon/auth.py`, `daemon/https.py`).

@@ -1,6 +1,7 @@
-"""The conversation's background subagents (/subagents): each one's status, how long it's been at it and what it's
-doing, newest first, and the one highlighted's task, steps and answer, kept current as they work. Answer opens what it
-waits for (an approval, a server's form); Stop stops one working; Remove takes one that ended off the list."""
+"""The conversation's background subagents (/subagents), or every conversation's (/subagents all, or A to switch): each
+one's status, how long it's been at it and what it's doing, newest first, and the one highlighted's task, steps and
+answer, kept current as they work. Answer opens what it waits for (an approval, a server's form); Stop stops one
+working; Remove takes one that ended off the list; Open goes to the conversation one works for."""
 
 from collections.abc import Awaitable, Callable
 from functools import partial
@@ -14,35 +15,45 @@ from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, OptionList, Static
 from textual.widgets.option_list import Option
 
-from assistant.client.daemon_client import SubagentsApi
+from assistant.client.daemon_client import ConversationsApi, SubagentsApi
 from assistant.core.agent import BackgroundSubagent, SubagentError
 from assistant_terminal.i18n import t, translatable
-from assistant_terminal.subagents_text import subagent_detail, subagent_line
+from assistant_terminal.subagents_text import conversation_titles, subagent_detail, subagent_line
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 
 
-class SubagentsScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "close", translatable("Close"))]
+class SubagentsScreen(ModalScreen[str | None]):
+    """Dismissed with the id of the conversation to open, or None."""
+
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding("escape", "close", translatable("Close")),
+        Binding("a", "switch", translatable("All / this conversation")),
+    ]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"subagents", "subagent_step"})
 
     def __init__(
-        self, subagents: SubagentsApi, thread_id: str, screen_for: Callable[[dict[str, Any]], Screen[dict[str, Any]]]
+        self,
+        subagents: SubagentsApi,
+        conversations: ConversationsApi,
+        thread_id: str,
+        screen_for: Callable[[dict[str, Any]], Screen[dict[str, Any]]],
+        everywhere: bool = False,
     ) -> None:
-        """`screen_for`: the dialog that answers a request, as a run's are answered."""
+        """`screen_for`: the dialog that answers a request, as a run's are answered. `everywhere`: every
+        conversation's, each named after its conversation, instead of `thread_id`'s."""
         super().__init__()
         self._subagents = subagents
+        self._conversations = conversations
         self._conversation = thread_id
         self._screen_for = screen_for
+        self._everywhere = everywhere
         self._shown: dict[str, BackgroundSubagent] = {}
         self._selected: str | None = None
 
     def compose(self) -> ComposeResult:
         with Vertical(id="subagents"):
-            yield Static(t("Background subagents"), id="subagents-title")
-            yield Static(
-                t("None in this conversation. The assistant sends them off for long work, to go on talking."),
-                id="subagents-empty",
-            )
+            yield Static(id="subagents-title")
+            yield Static(id="subagents-empty")
             with Horizontal(id="subagents-main"):
                 yield OptionList(id="subagents-list")
                 yield Static(classes="divider")
@@ -52,6 +63,8 @@ class SubagentsScreen(ModalScreen[None]):
                 yield Button(t("Answer"), variant="success", id="answer")
                 yield Button(t("Stop"), variant="error", id="stop")
                 yield Button(t("Remove"), id="remove")
+                yield Button(t("Open its conversation"), id="open-conversation")
+                yield Button(id="scope")
                 yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
@@ -61,11 +74,12 @@ class SubagentsScreen(ModalScreen[None]):
     @reports_daemon_unavailable
     async def reload(self) -> None:
         """Called when one changes or takes a step."""
-        listed = await self._subagents.list(self._conversation)
+        self._show_scope()
+        listed = await self._subagents.list("" if self._everywhere else self._conversation)
         self._shown = {s.id: s for s in listed}
         options = self.query_one("#subagents-list", OptionList)
         options.clear_options()
-        options.add_options([Option(subagent_line(s), id=s.id) for s in listed])
+        options.add_options([Option(line, id=s.id) for s, line in zip(listed, await self._lines(listed), strict=True)])
         self.query_one("#subagents").set_class(not listed, "empty")
         if not listed:
             self._selected = None
@@ -76,6 +90,29 @@ class SubagentsScreen(ModalScreen[None]):
         options.highlighted = options.get_option_index(keep)
         options.focus()
         await self._select(keep)
+
+    def _show_scope(self) -> None:
+        everywhere = self._everywhere
+        title = t("Background subagents in every conversation") if everywhere else t("Background subagents")
+        self.query_one("#subagents-title", Static).update(title)
+        self.query_one("#scope", Button).label = t("This conversation") if everywhere else t("All conversations")
+        self.query_one("#subagents-empty", Static).update(
+            t("None yet. The assistant sends them off for long work, to go on talking.")
+            if everywhere
+            else t("None in this conversation. The assistant sends them off for long work, to go on talking.")
+        )
+
+    async def _lines(self, listed: list[BackgroundSubagent]) -> list[str]:
+        if not self._everywhere:
+            return [subagent_line(s) for s in listed]
+        titles = conversation_titles(listed, await self._conversations.recent())
+        return [subagent_line(s, conversation=titles[s.thread_id]) for s in listed]
+
+    @on(Button.Pressed, "#scope")
+    @reports_daemon_unavailable
+    async def action_switch(self) -> None:
+        self._everywhere = not self._everywhere
+        await self.reload()
 
     @reports_daemon_unavailable
     async def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
@@ -96,6 +133,7 @@ class SubagentsScreen(ModalScreen[None]):
         self.query_one("#answer").display = bool(subagent and subagent.waiting)
         self.query_one("#stop").display = bool(subagent and not subagent.ended)
         self.query_one("#remove").display = bool(subagent and subagent.ended)
+        self.query_one("#open-conversation").display = bool(subagent and subagent.thread_id != self._conversation)
 
     @on(Button.Pressed, "#answer")
     def _answer(self) -> None:
@@ -128,6 +166,12 @@ class SubagentsScreen(ModalScreen[None]):
         except SubagentError as e:
             self.notify(str(e), severity="warning")
         await self.reload()
+
+    @on(Button.Pressed, "#open-conversation")
+    def _open_conversation(self) -> None:
+        subagent = self._shown.get(self._selected or "")
+        if subagent is not None:
+            self.dismiss(subagent.thread_id)
 
     @on(Button.Pressed, "#close")
     def action_close(self) -> None:

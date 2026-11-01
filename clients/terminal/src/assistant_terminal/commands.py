@@ -39,7 +39,14 @@ COMMANDS = [
     Command("/inbox", "/inbox", translatable("Back to the inbox: the next message goes where it belongs")),
     Command("/move", "/move", translatable("Move the last message the inbox sent on to another conversation")),
     Command("/notifications", "/notifications", translatable("Job results and background work that ended")),
-    Command("/subagents", "/subagents", translatable("This conversation's background subagents: what each is doing")),
+    # Optional `all` stays out of its usage, so Enter on the menu runs it at once.
+    Command(
+        "/subagents",
+        "/subagents",
+        translatable(
+            "This conversation's background subagents, what each is doing; /subagents all: every conversation's"
+        ),
+    ),
     Command("/home", "/home", translatable("Home: what the assistant gathered from your plugins, by section")),
     Command("/attach", "/attach <path>", translatable("Attach a file to the next message")),
     Command("/plugins", "/plugins", translatable("Install, update and remove plugins from the extras")),

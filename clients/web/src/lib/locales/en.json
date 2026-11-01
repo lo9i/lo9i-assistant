@@ -913,7 +913,12 @@
     "alerts": "Alerts",
     "openBeside": "Open {title} beside the conversation shown",
     "openBesideHint": "Show it next to the conversation you're in",
-    "shownTogether": "Shown together with the conversation you're in"
+    "shownTogether": "Shown together with the conversation you're in",
+    "subagents": "Subagents",
+    "workingCount": {
+      "one": "{count} working",
+      "other": "{count} working"
+    }
   },
   "notificationsPage": {
     "copilot": "Copilot allowance",
@@ -1478,6 +1483,23 @@
     },
     "notWaiting": "It doesn't wait for that any more.",
     "stopTitle": "Stop this subagent?",
-    "stopText": "It stops where it is, without an answer. The assistant hears that you stopped it."
+    "stopText": "It stops where it is, without an answer. The assistant hears that you stopped it.",
+    "all": "Every conversation's subagents"
+  },
+  "subagentsPage": {
+    "title": "Background subagents",
+    "hint": "Subagents the assistant sent off to work in the background, in every conversation, newest first. Click one to see it on the right.",
+    "search": "Search by task or conversation",
+    "none": "None yet",
+    "noneHint": "When the assistant sends a subagent off to work in the background on a long task, it shows up here.",
+    "status": "Status",
+    "task": "Task",
+    "conversation": "Conversation",
+    "started": "Started",
+    "ended": "Ended",
+    "took": "Time",
+    "inbox": "The inbox",
+    "noneSelected": "No subagent selected",
+    "noneSelectedHint": "Pick one to see its steps, what it waits for and its answer."
   }
 }

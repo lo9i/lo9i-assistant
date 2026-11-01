@@ -18,8 +18,9 @@
 
   // One background subagent in place of the cards: its task, what it waits for the user's answer to, its steps as they
   // come (each step's tool and what it was called with, and once it finished, what it answered), and how it ended.
-  // While it works it can be stopped, which asks first; once it ended, removed.
-  type Props = { id: string; onback: () => void };
+  // While it works it can be stopped, which asks first; once it ended, removed. Back to the cards only in the panel: the
+  // Subagents page lists them beside it.
+  type Props = { id: string; onback?: () => void };
   let { id, onback }: Props = $props();
   const { client, hub, notices } = useDaemon();
   const time = clock();
@@ -88,9 +89,11 @@
 
 <section class="subagent" aria-label={t("subagents.one")}>
   <header>
-    <button class="btn btn--ghost btn--icon" title={t("subagents.back")} aria-label={t("subagents.back")} onclick={onback}
-      ><ArrowLeft size={14} /></button
-    >
+    {#if onback}
+      <button class="btn btn--ghost btn--icon" title={t("subagents.back")} aria-label={t("subagents.back")} onclick={onback}
+        ><ArrowLeft size={14} /></button
+      >
+    {/if}
     {#if subagent}
       <StatusMark status={subagent.status} />
       <span class="status">{t(`subagents.status.${subagent.status}`)}</span>

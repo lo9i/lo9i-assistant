@@ -10,6 +10,7 @@
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
   import Bell from "@lucide/svelte/icons/bell";
+  import Bot from "@lucide/svelte/icons/bot";
   import TextButton from "./quick/TextButton.svelte";
   import VoiceButton from "./quick/VoiceButton.svelte";
   import CalendarClock from "@lucide/svelte/icons/calendar-clock";
@@ -33,6 +34,7 @@
   import { pageLabel } from "$lib/pages";
   import PluginIcon from "./PluginIcon.svelte";
   import { columnsOf } from "$lib/chat/cardLayout";
+  import { counts } from "$lib/chat/subagents";
   import { conversationLayout } from "$lib/conversationLayout.svelte";
   import { CONVERSATION_DRAG, openBeside, startNewHere } from "./openConversation";
   import { OPEN_PAGE, openNow } from "./openNow.svelte";
@@ -52,6 +54,9 @@
   // Job results and background work that ended, counted until the Notifications page is seen.
   const notifications = resource((c) => c.notifications.list(), ["notifications"]);
   const unread = $derived((notifications.data ?? []).filter((n) => !n.read).length);
+  // Every conversation's background subagents, counted while they work.
+  const subagents = resource((c) => c.subagents.list(), ["subagents"]);
+  const subagentsWorking = $derived(counts(subagents.data ?? []).working);
 
   // Chat is the list of conversations. Under it: the ones open in this tab, side by side, and any other with
   // a reply or a coding task running, whoever started it. Open one to show it; the others keep going. Open beside, or
@@ -114,6 +119,7 @@
       count: () => open.waiting,
       counted: "nav.waitingCount",
     },
+    { href: resolve("/subagents"), label: "nav.subagents", Icon: Bot, count: () => subagentsWorking, counted: "nav.workingCount" },
     { href: resolve("/files"), label: "nav.files", Icon: Files },
     { href: resolve("/usage"), label: "nav.usage", Icon: ChartColumn },
     { href: resolve("/sessions"), label: "nav.sessions", Icon: MonitorSmartphone },

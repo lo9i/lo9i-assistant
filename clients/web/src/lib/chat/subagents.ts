@@ -1,7 +1,8 @@
-// What the side panel of background subagents (ui/chat/subagents/) shows of them: which work, which wait for the
-// user and what for, and one's steps kept current from the `subagent_step` events that bring each as it starts and
-// finishes.
-import type { ApprovalRequest, ApprovalRequired, BackgroundStep, BackgroundSubagent } from "$lib/api/types";
+// What the side panel of background subagents (ui/chat/subagents/) and the page of them all (routes/subagents) show of
+// them: which work, which wait for the user and what for, the conversation each works for, and one's steps kept
+// current from the `subagent_step` events that bring each as it starts and finishes.
+import type { ApprovalRequest, ApprovalRequired, BackgroundStep, BackgroundSubagent, Conversation } from "$lib/api/types";
+import { t } from "$lib/i18n.svelte";
 
 /** Still at it: working, or waiting for the user's answer. */
 export function working(subagent: BackgroundSubagent): boolean {
@@ -31,4 +32,16 @@ export function asked(subagent: BackgroundSubagent): ApprovalRequired[] {
 /** Its steps with one an event brought: a new one added in its place, one that finished replacing itself. */
 export function withStep(steps: BackgroundStep[], step: BackgroundStep): BackgroundStep[] {
   return [...steps.filter((s) => s.index !== step.index), step].sort((a, b) => a.index - b.index);
+}
+
+/** What its card says it's doing: what it waits for, its step in progress, or how it ended. */
+export function doing(subagent: BackgroundSubagent): string {
+  if (subagent.status === "waiting") return t("subagents.waitingForYou");
+  if (subagent.status === "running") return subagent.step || t("subagents.thinking");
+  return subagent.status === "done" ? t("subagents.answered") : subagent.result;
+}
+
+/** The title of the conversation one works for, among those listed; untitled while it has none. */
+export function conversationTitle(threadId: string, conversations: Pick<Conversation, "thread_id" | "title">[]): string {
+  return conversations.find((c) => c.thread_id === threadId)?.title || t("common.untitled");
 }

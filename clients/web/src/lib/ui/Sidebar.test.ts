@@ -46,4 +46,10 @@ describe("Sidebar", () => {
     expect(body).not.toContain('class="open"');
     expect(closeButtons(body)).toEqual([]);
   });
+
+  it("links to the page of every conversation's subagents", () => {
+    daemon.open = { chats: [], activeKey: null, moving: null };
+    const { body } = render(Sidebar, { props: { name: "lo9i" } });
+    expect(body).toContain('href="/app/subagents"');
+  });
 });

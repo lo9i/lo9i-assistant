@@ -3,7 +3,8 @@ long it's been at it and what it's doing, and one's steps and answer."""
 
 from datetime import UTC, datetime
 
-from assistant.core.agent import BackgroundStep, BackgroundSubagent
+from assistant.core.agent import BackgroundStep, BackgroundSubagent, Conversation
+from assistant_terminal.conversations_text import listed_title
 from assistant_terminal.i18n import t, translatable
 
 _STATUS = {
@@ -14,7 +15,7 @@ _STATUS = {
     "stopped": translatable("stopped"),
 }
 _MARK = {"running": "…", "waiting": "?", "done": "✓", "failed": "✗", "stopped": "■"}
-_TASK, _STEP = 48, 60
+_TASK, _STEP, _CONVERSATION = 48, 60, 32
 
 
 def status(subagent: BackgroundSubagent) -> str:
@@ -31,10 +32,17 @@ def elapsed(subagent: BackgroundSubagent, now: datetime | None = None) -> str:
     return f"{minutes}m" if minutes < 60 else f"{minutes // 60}h {minutes % 60}m"
 
 
-def subagent_line(subagent: BackgroundSubagent, now: datetime | None = None) -> str:
-    """Its status, how long, and its task's start."""
+def subagent_line(subagent: BackgroundSubagent, now: datetime | None = None, conversation: str = "") -> str:
+    """Its status, how long, and its task's start, after the conversation it works for when given."""
     task = _cut(_first_line(subagent.task), _TASK)
-    return f"{_MARK.get(subagent.status, '·')} {status(subagent)} · {elapsed(subagent, now)} · {task}"
+    working_for = f"{_cut(conversation, _CONVERSATION)}: " if conversation else ""
+    return f"{_MARK.get(subagent.status, '·')} {status(subagent)} · {elapsed(subagent, now)} · {working_for}{task}"
+
+
+def conversation_titles(subagents: list[BackgroundSubagent], conversations: list[Conversation]) -> dict[str, str]:
+    """The title of the conversation each works for, by its id; untitled for one not listed."""
+    listed = {c.thread_id: listed_title(c) for c in conversations}
+    return {s.thread_id: listed.get(s.thread_id) or t("Untitled") for s in subagents}
 
 
 def subagent_detail(subagent: BackgroundSubagent, steps: list[BackgroundStep], now: datetime | None = None) -> str:

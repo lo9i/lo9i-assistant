@@ -8,6 +8,7 @@ from assistant.client import DaemonClient, DaemonUnavailableError
 from assistant.client.files import load_attachment
 from assistant.core.agent import (
     Agent,
+    BackgroundSubagent,
     HandoffError,
     Importable,
     InvalidNameError,
@@ -42,7 +43,7 @@ from assistant_terminal.render import render
 from assistant_terminal.sessions_text import describe as describe_sessions
 from assistant_terminal.skill_imports_text import detail, label, numbers, outcome, selectable, suggestions
 from assistant_terminal.style import GREEN, RESET, YELLOW, code, paint
-from assistant_terminal.subagents_text import subagent_detail, subagent_line
+from assistant_terminal.subagents_text import conversation_titles, subagent_detail, subagent_line
 from assistant_terminal.usage_text import describe as describe_usage
 from assistant_terminal.web_search_text import describe as describe_web_search
 
@@ -205,18 +206,27 @@ class Repl:
         await self._open(items[index].thread_id, items[index].title)
 
     async def _subagents(self, arg: str) -> None:
-        """/subagents lists this conversation's background subagents, numbered, newest first; /subagents <number>
-        shows one's steps and answer. Answering what one waits for needs the full app."""
-        items = await self._service.subagents.list(self._session.thread_id)
-        if not arg.isdigit():
-            print("\n".join(f"{i}. {subagent_line(s)}" for i, s in enumerate(items, 1)) or t("No subagents here."))
+        """/subagents lists this conversation's background subagents, numbered, newest first; /subagents all every
+        conversation's, each after its conversation; a number after either shows one's steps and answer. Answering
+        what one waits for needs the full app."""
+        words = arg.split()
+        everywhere = bool(words) and words[0].lower() == "all"
+        number = words[everywhere] if len(words) > everywhere else ""
+        items = await self._service.subagents.list("" if everywhere else self._session.thread_id)
+        if not number.isdigit():
+            print(await self._subagent_lines(items, everywhere) or t("No subagents here."))
             return
-        index = int(arg) - 1
+        index = int(number) - 1
         if not 0 <= index < len(items):
             print(t("No subagent with that number."))
             return
         details = await self._service.subagents.get(items[index].id)
         print(subagent_detail(details.subagent, details.steps))
+
+    async def _subagent_lines(self, items: list[BackgroundSubagent], everywhere: bool) -> str:
+        titles = conversation_titles(items, await self._service.conversations.recent()) if everywhere else {}
+        lines = (subagent_line(s, conversation=titles.get(s.thread_id, "")) for s in items)
+        return "\n".join(f"{i}. {line}" for i, line in enumerate(lines, 1))
 
     async def _open(self, thread_id: str, title: str) -> None:
         await self._service.resume_thread(self._session.user_id, thread_id)

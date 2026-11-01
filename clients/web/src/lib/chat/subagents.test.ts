@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BackgroundStep, BackgroundSubagent } from "$lib/api/types";
-import { asked, counts, taskTitle, withStep, working } from "./subagents";
+import { asked, conversationTitle, counts, doing, taskTitle, withStep, working } from "./subagents";
 
 function subagent(status: BackgroundSubagent["status"], waiting: BackgroundSubagent["waiting"] = []): BackgroundSubagent {
   return {
@@ -51,5 +51,22 @@ describe("background subagents", () => {
       [0, true],
       [1, true],
     ]);
+  });
+
+  it("say what they're doing, or how they ended", () => {
+    expect(doing({ ...subagent("running"), step: "bash ls" })).toBe("bash ls");
+    expect(doing(subagent("running"))).toBe("Thinking…");
+    expect(doing(subagent("waiting"))).toBe("Waiting for your answer");
+    expect(doing({ ...subagent("failed"), result: "RuntimeError: down" })).toBe("RuntimeError: down");
+  });
+
+  it("name the conversation they work for by its title", () => {
+    const listed = [
+      { thread_id: "t1", title: "Flights to Rome" },
+      { thread_id: "t2", title: "" },
+    ];
+    expect(conversationTitle("t1", listed)).toBe("Flights to Rome");
+    expect(conversationTitle("t2", listed)).toBe("Untitled");
+    expect(conversationTitle("gone", listed)).toBe("Untitled");
   });
 });

@@ -1,8 +1,10 @@
 <script lang="ts">
+  import { resolve } from "$app/paths";
   import Bot from "@lucide/svelte/icons/bot";
+  import List from "@lucide/svelte/icons/list";
   import PanelRightClose from "@lucide/svelte/icons/panel-right-close";
   import type { BackgroundSubagent } from "$lib/api/types";
-  import { taskTitle } from "$lib/chat/subagents";
+  import { doing, taskTitle } from "$lib/chat/subagents";
   import { clock } from "$lib/clock.svelte";
   import { duration } from "$lib/duration";
   import { t } from "$lib/i18n.svelte";
@@ -11,7 +13,8 @@
 
   // Beside a conversation that sent subagents off to work in the background: a card for each, newest first, with its
   // task, its status, what it's doing now and for how long. A card opens it in place of the list, as a file opens in
-  // the folder panel: its steps as they come, what it waits for, and its answer once it ended.
+  // the folder panel: its steps as they come, what it waits for, and its answer once it ended. Every conversation's are
+  // on the Subagents page.
   type Props = { subagents: BackgroundSubagent[]; onclose: () => void };
   let { subagents, onclose }: Props = $props();
   const time = clock();
@@ -20,18 +23,15 @@
   $effect(() => {
     if (picked !== null && !subagents.some((s) => s.id === picked)) picked = null;
   });
-
-  function doing(subagent: BackgroundSubagent): string {
-    if (subagent.status === "waiting") return t("subagents.waitingForYou");
-    if (subagent.status === "running") return subagent.step || t("subagents.thinking");
-    return subagent.status === "done" ? t("subagents.answered") : subagent.result;
-  }
 </script>
 
 <aside class="panel surface--glass" class:viewing={picked !== null} aria-label={t("subagents.title")}>
   <header>
     <Bot size={14} />
     <span class="title">{t("subagents.title")}</span>
+    <a class="btn btn--ghost btn--icon" href={resolve("/subagents")} title={t("subagents.all")} aria-label={t("subagents.all")}
+      ><List size={14} /></a
+    >
     <button class="btn btn--ghost btn--icon" title={t("subagents.hide")} aria-label={t("subagents.hide")} onclick={onclose}
       ><PanelRightClose size={14} /></button
     >

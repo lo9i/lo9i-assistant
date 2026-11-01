@@ -913,7 +913,12 @@
     "alerts": "Alertas",
     "openBeside": "Abrir {title} junto a la conversación que se muestra",
     "openBesideHint": "Mostrarla junto a la conversación en la que estás",
-    "shownTogether": "Se muestra junto a la conversación en la que estás"
+    "shownTogether": "Se muestra junto a la conversación en la que estás",
+    "subagents": "Subagentes",
+    "workingCount": {
+      "one": "{count} trabajando",
+      "other": "{count} trabajando"
+    }
   },
   "notificationsPage": {
     "copilot": "Cupo de Copilot",
@@ -1478,6 +1483,23 @@
     },
     "notWaiting": "Ya no espera eso.",
     "stopTitle": "¿Detener este subagente?",
-    "stopText": "Se detiene donde está, sin respuesta. El asistente sabrá que lo detuviste."
+    "stopText": "Se detiene donde está, sin respuesta. El asistente sabrá que lo detuviste.",
+    "all": "Los subagentes de todas las conversaciones"
+  },
+  "subagentsPage": {
+    "title": "Subagentes en segundo plano",
+    "hint": "Los subagentes que el asistente puso a trabajar en segundo plano, en todas las conversaciones, los más nuevos primero. Haz clic en uno para verlo a la derecha.",
+    "search": "Buscar por tarea o conversación",
+    "none": "Ninguno todavía",
+    "noneHint": "Cuando el asistente pone a un subagente a trabajar en segundo plano en una tarea larga, aparece aquí.",
+    "status": "Estado",
+    "task": "Tarea",
+    "conversation": "Conversación",
+    "started": "Empezó",
+    "ended": "Terminó",
+    "took": "Tiempo",
+    "inbox": "La bandeja de entrada",
+    "noneSelected": "Ningún subagente seleccionado",
+    "noneSelectedHint": "Elige uno para ver sus pasos, lo que espera y su respuesta."
   }
 }
