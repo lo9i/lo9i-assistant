@@ -172,7 +172,7 @@ class AssistantService(
             ),
         }
         self.home_refresh = HomeRefresh(storage.store, bus, lambda: self._home_builder, self._plugin_tools, coded)
-        self.home_schedule = HomeSchedule(storage.store, self.home_refresh, settings.owner_id)
+        self.home_schedule = HomeSchedule(storage.store, self.home_refresh, settings.owner_id, bus)
         self.copilot_watch = CopilotWatch(
             storage.store,
             self.outbox,

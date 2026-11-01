@@ -1,12 +1,16 @@
 """Conversations pinned to Home, and Home's Conversations card built from them (core/home/pins.py, conversations.py)."""
 
+import asyncio
+from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
+
 import pytest
 
 from assistant.core import conversations
 from assistant.core.agent import AssistantService, ConversationError, HomePinError
 from assistant.core.config import settings
 from assistant.core.conversations import Conversation
-from assistant.core.home import sections
+from assistant.core.home import results, sections
 from assistant.core.home.conversations import RECENT, shown
 from assistant.core.home.model import HomeSection
 from assistant.core.home.sections import CONVERSATIONS
@@ -90,6 +94,37 @@ async def test_the_card_shows_the_recent_conversations_while_none_is_pinned_and_
     assert result is not None
     assert [i.title for i in result.items] == ["B", "A"]
     assert result.note.startswith("Recent")
+
+
+async def _time(service: AssistantService) -> str:
+    """The time the card shows for its first conversation."""
+    result = (await _card(service)).result
+    assert result is not None
+    return result.items[0].time
+
+
+def _local(at: str) -> str:
+    return datetime.fromisoformat(at).astimezone(ZoneInfo(settings.timezone)).strftime("%H:%M")
+
+
+async def test_while_a_client_shows_home_the_card_is_built_again_when_a_conversation_changes(service):
+    await _listed(service, "a")
+    await service.pin_to_home(OWNER, "a")
+    assert await _time(service) == _local("2026-10-22T10:00:00+00:00")
+    await results.mark_refreshed(service.store, OWNER, datetime.now(UTC))  # no refresh due
+    stop = asyncio.Event()
+    keeping = asyncio.create_task(service.home_schedule.run(stop))
+    await asyncio.sleep(0)
+    await conversations.save(service.store, OWNER, _conversation("a", "2026-10-22T18:30:00+00:00"))
+    await asyncio.sleep(0.05)
+    assert await _time(service) == _local("2026-10-22T10:00:00+00:00")  # nobody watching
+    service.home_schedule.watch("tab-1")
+    await conversations.save(service.store, OWNER, _conversation("a", "2026-10-22T19:30:00+00:00"))
+    async with asyncio.timeout(5):
+        while await _time(service) != _local("2026-10-22T19:30:00+00:00"):
+            await asyncio.sleep(0.01)
+    stop.set()
+    await keeping
 
 
 def test_recent_conversations_leave_out_the_inbox_and_archived_ones_and_stop_at_a_few():

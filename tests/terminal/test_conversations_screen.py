@@ -161,3 +161,28 @@ async def test_a_step_inside_a_delegate_call_shows_its_start_and_loads_in_full_w
         assert step.title == "✓ bash(cat log)" and step in app.query(ToolCall).first().query(ToolCall)
         step.collapsed = False
         await wait_for(pilot, lambda: str(step.query_one(".tool-result", Static).content) == "line\nline")
+
+
+async def test_a_conversation_is_pinned_to_home_and_unpinned_from_the_list_but_never_the_inbox(app, client):
+    from textual.widgets import Button
+
+    client.conversations.items = [
+        Conversation("owner:inbox", "", _AT, _AT, inbox=True),
+        Conversation("owner:trip", "trip", _AT, _AT),
+    ]
+    async with app.run_test() as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/conversations", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
+        screen, options = app.screen, app.screen.query_one(OptionList)
+        pin = screen.query_one("#pin", Button)
+        await wait_for(pilot, lambda: options.highlighted == 0 and pin.disabled)  # the inbox
+        await pilot.press("down")
+        await wait_for(pilot, lambda: not pin.disabled and str(pin.label) == "Pin to Home")
+        await pilot.press("p")
+        await wait_for(pilot, lambda: client.home.pinned == ["owner:trip"])
+        await client.bus.put(("home", {}))  # as the daemon announces the pin
+        await wait_for(pilot, lambda: "📌" in str(options.get_option_at_index(1).prompt))
+        await wait_for(pilot, lambda: str(pin.label) == "Unpin from Home")
+        pin.press()
+        await wait_for(pilot, lambda: client.home.pinned == [])
