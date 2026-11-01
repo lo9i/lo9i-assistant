@@ -5,6 +5,7 @@
     atEnd,
     besideOf,
     docked,
+    expandedOn,
     edgeOf,
     groupsOf,
     replacedPane,
@@ -116,6 +117,14 @@
     }
   });
 
+  // Another conversation shown (picked in the sidebar) while one is full screen: it's the one in view.
+  $effect(() => {
+    if (current === null) return;
+    const before = untrack(() => conversationLayout.current);
+    const next = expandedOn(before, current);
+    if (next !== before) change(next);
+  });
+
   /** The one the user is in becomes the conversation shown: the sidebar follows it. */
   function show(id: string): void {
     focused = id;
@@ -153,11 +162,13 @@
     if (id === current && other) show(other);
   }
 
-  /** /clear in one: a new conversation in its place. */
+  /** /clear in one: a new conversation in its place. Replaced in the layout from before it started, which still says
+   * whether `id` was full screen. */
   async function clearIn(id: string): Promise<void> {
+    const before = conversationLayout.current;
     try {
       const next = (await chats.startNew()).getSnapshot().threadId;
-      change(replacedPane(conversationLayout.current, id, next));
+      change(replacedPane(before, id, next));
     } catch (e) {
       notices.report(e);
     }

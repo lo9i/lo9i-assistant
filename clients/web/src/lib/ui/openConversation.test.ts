@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { besideOf, initial, together, type Layout } from "$lib/chat/cardLayout";
+import { besideOf, initial, toggledMax, together, type Layout } from "$lib/chat/cardLayout";
 import type { Shown } from "$lib/chat/openChats";
 import { NoticeBoard } from "$lib/notices";
 
@@ -111,5 +111,12 @@ describe("startNewHere", () => {
     await startNewHere({ current: chatOn("x"), startNew: async () => chatOn("n") }, kept);
     await startNewHere({ current: null, startNew: async () => chatOn("m") }, kept);
     expect(together(kept.current)).toEqual(["a", "b"]);
+  });
+
+  it("shows it alone when the one shown is full screen, ending full screen and keeping the others for later", async () => {
+    const kept = columns(toggledMax(besideOf(initial, "a", "b"), "a"));
+    await startNewHere({ current: chatOn("a"), startNew: async () => chatOn("n") }, kept);
+    expect(together(kept.current)).toEqual(["a", "b"]);
+    expect(kept.current.maximized).toBeNull();
   });
 });

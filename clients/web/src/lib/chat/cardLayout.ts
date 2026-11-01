@@ -190,6 +190,14 @@ export function restored(layout: Layout): Layout {
   return layout.maximized === null ? layout : { ...layout, maximized: null };
 }
 
+/** Full screen while `current` becomes the conversation shown (picked in the sidebar): one shown with the one full
+ * screen takes its place there; any other shows alone, ending full screen, the others coming back when one of them is
+ * shown again. */
+export function expandedOn(layout: Layout, current: string): Layout {
+  if (layout.maximized === null || layout.maximized === current) return layout;
+  return together(layout).includes(current) ? { ...layout, maximized: current } : restored(layout);
+}
+
 /** What's kept of `layout`: everything but the one full screen. */
 export function serialized(layout: Layout): string {
   const { view, order, groups, shares, arrange } = canonical(layout);

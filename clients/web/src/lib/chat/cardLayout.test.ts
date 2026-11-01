@@ -5,6 +5,7 @@ import {
   columnsOf,
   docked,
   edgeOf,
+  expandedOn,
   groupsOf,
   initial,
   MAX_PANES,
@@ -217,6 +218,15 @@ describe("full screen", () => {
 
   it("follows the one full screen to the conversation it shows instead", () => {
     expect(replacedPane(toggledMax(three, "c"), "c", "n").maximized).toBe("n");
+  });
+
+  it("goes to another one shown with it when that one is shown, and ends for one shown alone", () => {
+    const max = toggledMax(three, "a");
+    expect(expandedOn(max, "a")).toBe(max);
+    expect(expandedOn(max, "b").maximized).toBe("b");
+    const alone = expandedOn(max, "x");
+    expect(alone.maximized).toBeNull();
+    expect(alone.groups).toEqual(three.groups);
   });
 });
 

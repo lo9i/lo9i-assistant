@@ -1,6 +1,6 @@
 import { goto } from "$app/navigation";
 import { resolve } from "$app/paths";
-import { besideOf, columnsOf, type Layout } from "$lib/chat/cardLayout";
+import { besideOf, columnsOf, restored, type Layout } from "$lib/chat/cardLayout";
 import type { ChatSnapshot } from "$lib/chat/controller";
 import type { OpenChats } from "$lib/chat/openChats";
 import { t } from "$lib/i18n.svelte";
@@ -46,12 +46,15 @@ export async function openBeside(
 }
 
 /** Starts a new conversation and shows it; while the conversation shown is side by side or stacked with others, the
- * new one joins them (the last other giving way past MAX_PANES). */
+ * new one joins them (the last other giving way past MAX_PANES). One shown full screen is the only one in view, so the
+ * new one shows alone, and full screen ends; the others come back when one of them is shown again. */
 export async function startNewHere(chats: Pick<OpenChats, "startNew" | "current">, columns: Columns): Promise<void> {
   const before = chats.current?.getSnapshot();
-  const split = before !== undefined && columnsOf(columns.current, before.threadId).length > 1;
+  const expanded = columns.current.maximized !== null;
+  const split = before !== undefined && !expanded && columnsOf(columns.current, before.threadId).length > 1;
   const started = (await chats.startNew()).getSnapshot().threadId;
-  if (split) columns.change(besideOf(columns.current, before.threadId, started));
+  if (expanded) columns.change(restored(columns.current));
+  else if (split) columns.change(besideOf(columns.current, before.threadId, started));
 }
 
 /** Takes a page about to show `chat` on the inbox, or no chat (none is open), to the list of conversations, in its
