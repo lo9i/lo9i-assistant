@@ -167,6 +167,8 @@ class Done:
 @dataclass
 class Error:
     message: str
+    # A spending limit was reached (core/usage/budget.py): the run stopped there, as the message says.
+    over_budget: bool = False
 
 
 @dataclass

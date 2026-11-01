@@ -12,6 +12,8 @@ JOB_APPROVAL_MINUTES; the run's time limit doesn't count the wait. Runs in progr
 Store (core/jobs/active.py): on start, a run the daemon stopped while it waited for approval asks
 again and goes on, and one stopped in the middle of anything else is recorded as failed.
 
+A run a spending limit stopped (core/usage/budget.py) is recorded as over budget, its summary saying which limit.
+
 A run that starts while an update installs is kept instead (core/conversation/held.py) and stays active: it runs
 once the daemon is back on the update (`replay`, from daemon/held.py), recorded on its job as any run.
 """
@@ -51,6 +53,7 @@ _MISSED = said("it was due while the assistant wasn't running (the computer was 
 _NOT_OK = {
     "failed": translatable("Failed: {summary}"),
     "needs attention": translatable("Needs attention: {summary}"),
+    "over budget": translatable("Over budget: {summary}"),
     "missed": translatable("Missed: {summary}"),
 }
 _SUMMARY_CHARS = 300
@@ -268,7 +271,7 @@ async def _follow(events: AsyncIterator[Event], outcome: _Outcome) -> list[Appro
         elif isinstance(event, Held):
             outcome.status = _HELD
         elif isinstance(event, Error):
-            outcome.status, outcome.error = "failed", event.message
+            outcome.status, outcome.error = "over budget" if event.over_budget else "failed", event.message
     return approvals
 
 

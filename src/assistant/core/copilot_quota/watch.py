@@ -22,7 +22,7 @@ from assistant.core.conversation import sent as sent_messages
 from assistant.core.copilot_quota import alerts, records
 from assistant.core.copilot_quota.quota import QuotaCheckError, fetch
 from assistant.core.llm.choice import ModelChoice
-from assistant.core.outbox import DeliveryError, Outbox
+from assistant.core.outbox import Outbox
 
 logger = logging.getLogger(__name__)
 
@@ -87,17 +87,7 @@ class CopilotWatch:
             return
         await records.save_sent(self._store, alerts.after(check.quota, sent, alert))
         await notifications.add(self._store, self._user_id, "copilot", t("Copilot allowance"), alert.text, ok=False)
-        for channel in self._outbox.channels:
-            await self._send(channel, alert.text, now)
-
-    async def _send(self, channel: str, text: str, now: datetime) -> None:
-        """A channel that doesn't take it misses it: the feed has it."""
-        try:
-            await self._outbox.send(channel, text)
-        except DeliveryError as e:
-            logger.info("Couldn't send the Copilot alert on %s: %s", channel, e)
-            return
-        await sent_messages.record(self._store, self._user_id, channel, text, now)
+        await sent_messages.tell_every_channel(self._store, self._outbox, self._user_id, alert.text, now)
 
 
 def _token(model: ModelChoice) -> str:

@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from assistant.client import DaemonClient, DaemonUnavailableError
@@ -26,6 +27,7 @@ from assistant.core.events import (
     is_plugin_setup,
     is_question,
 )
+from assistant.core.usage.limits import SpendingLimitsError
 from assistant_terminal import i18n
 from assistant_terminal.channels_text import describe as describe_channel
 from assistant_terminal.commands import GET_TO_KNOW_ME, agent_commands, help_lines
@@ -33,6 +35,8 @@ from assistant_terminal.conversations_text import listed_title, when
 from assistant_terminal.folder_prompt import FolderPrompt
 from assistant_terminal.i18n import t
 from assistant_terminal.jobs_text import summary as jobs_summary
+from assistant_terminal.limits_text import LIMITS, NotAnAmountError, amount_of
+from assistant_terminal.limits_text import describe as describe_limits
 from assistant_terminal.logs_text import log_line
 from assistant_terminal.mcp_text import shown as shown_servers
 from assistant_terminal.mcp_text import summary as mcp_summary
@@ -82,6 +86,7 @@ class Repl:
             "/get-to-know-me": self._get_to_know_me,
             "/jobs": self._jobs,
             "/usage": self._usage,
+            "/limits": self._limits,
             "/logs": self._logs,
             "/profile": self._profile,
             "/sessions": self._sessions,
@@ -334,6 +339,20 @@ class Repl:
     async def _usage(self, arg: str) -> None:
         days = int(arg) if arg.isdigit() else 7
         print(describe_usage(await self._service.usage.report(days), await self._service.usage.tokens(days)))
+
+    async def _limits(self, arg: str) -> None:
+        """/limits shows the spending limits; /limits <job-run|job-day|conversation|day> <amount|off> sets one."""
+        name, _, typed = arg.partition(" ")
+        kind = next((k for k, (word, _) in LIMITS.items() if word == name), None)
+        status = await self._service.usage.spending()
+        if kind is None:
+            print(describe_limits(status) + "\n\n" + t("Set one: /limits day 5, or /limits day off."))
+            return
+        try:
+            changed = replace(status.limits, **{kind: amount_of(typed)})
+            print(describe_limits(await self._service.usage.set_limits(changed)))
+        except (NotAnAmountError, SpendingLimitsError) as e:
+            print(e)
 
     async def _logs(self, arg: str) -> None:
         """The latest entries of the daemon's log; following it needs the full app or the web app."""

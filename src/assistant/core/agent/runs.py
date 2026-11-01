@@ -23,6 +23,7 @@ from assistant.core.i18n import Texts
 from assistant.core.skills.tracker import SkillScriptTracker
 from assistant.core.stream_events import approval_events, to_events
 from assistant.core.to_the_end import settled, to_the_end
+from assistant.core.usage.budget import OverBudgetError
 from assistant.core.usage.log import UsageLog
 from assistant.core.usage.meter import CHANNEL, CONVERSATION
 from assistant.core.usage.tracker import UsageTracker
@@ -173,6 +174,10 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
         try:
             async for event in produce():
                 events.put_nowait(event)
+        except OverBudgetError as e:
+            # Not a fault: the run ends where the user's limit said, and the message says why.
+            logger.info("A run in %s reached a spending limit: %s", thread_id, e)
+            events.put_nowait(Error(_shown(e, await i18n.chosen(self._storage.store)), over_budget=True))
         except Exception as e:
             # The apps show only the message; the log keeps where it came from.
             logger.exception("A run in %s failed", thread_id)
@@ -272,7 +277,7 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
 
 def _shown(error: Exception, texts: Texts) -> str:
     """The error as the apps show it: an error written for the user as it is, any other with its type."""
-    if isinstance(error, ConversationTooLargeError):
+    if isinstance(error, ConversationTooLargeError | OverBudgetError):
         return texts.shown(error)
     return f"{type(error).__name__}: {texts.shown(error)}"
 

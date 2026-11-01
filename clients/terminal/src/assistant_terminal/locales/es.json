@@ -958,5 +958,20 @@
   "None yet. The assistant sends them off for long work, to go on talking.": "Ninguno todavía. El asistente los envía para trabajos largos, para seguir conversando.",
   "This conversation": "Esta conversación",
   "All conversations": "Todas las conversaciones",
-  "This conversation's background subagents, what each is doing; /subagents all: every conversation's": "Los subagentes en segundo plano de esta conversación, qué hace cada uno; /subagents all: los de todas"
+  "This conversation's background subagents, what each is doing; /subagents all: every conversation's": "Los subagentes en segundo plano de esta conversación, qué hace cada uno; /subagents all: los de todas",
+  "Per run of a scheduled job": "Por ejecución de una tarea programada",
+  "Per scheduled job, a day": "Por tarea programada, al día",
+  "Per conversation": "Por conversación",
+  "Overall, a day": "En total, al día",
+  "Spending limits": "Límites de gasto",
+  "What the model calls may spend, in US dollars as /usage prices them. A reply or a job's run that reaches a limit stops there and says which; at 80% your chat channels and /notifications hear it once.": "Lo que pueden gastar las llamadas al modelo, en dólares estadounidenses como los calcula /usage. Una respuesta o una ejecución de una tarea que llega a un límite se detiene ahí y dice cuál; al 80 % tus canales de chat y /notifications se enteran una vez.",
+  "Spent today: {spent}": "Gastado hoy: {spent}",
+  "Every model call counts, titles and memory included; a day starts at midnight where you are. Models with no known price (local ones, Copilot's subscription, any not priced in MODEL_PRICES) count as nothing.": "Cuenta cada llamada al modelo, también los títulos y la memoria; el día empieza a medianoche donde estás. Los modelos sin precio conocido (los locales, la suscripción de Copilot, los que MODEL_PRICES no tiene) cuentan como nada.",
+  "Each limit is an amount, like 2.50, or empty for none.": "Cada límite es un monto, como 2.50, o vacío para ninguno.",
+  "no limit": "sin límite",
+  "No limit": "Sin límite",
+  "Spending limits saved.": "Límites de gasto guardados.",
+  "Set one: /limits day 5, or /limits day off.": "Pon uno: /limits day 5, o /limits day off.",
+  "Spending limits: what model calls may spend per job, conversation and day": "Límites de gasto: lo que pueden gastar las llamadas al modelo por tarea, conversación y día",
+  "over budget": "pasó el límite de gasto"
 }

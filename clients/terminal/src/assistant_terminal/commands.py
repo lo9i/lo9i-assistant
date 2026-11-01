@@ -71,6 +71,9 @@ COMMANDS = [
     Command("/model", "/model", translatable("The model provider, key and models")),
     Command("/audio", "/audio", translatable("Speech to text and spoken replies")),
     Command("/websearch", "/websearch", translatable("Web search: the Brave Search API key")),
+    Command(
+        "/limits", "/limits", translatable("Spending limits: what model calls may spend per job, conversation and day")
+    ),
     Command("/email", "/email", translatable("Who the assistant emails without asking, from any account")),
     Command("/mcp", "/mcp", translatable("MCP servers and their tools")),
     Command("/keys", "/keys", translatable("Keys and tokens removed plugins left kept, to delete them")),

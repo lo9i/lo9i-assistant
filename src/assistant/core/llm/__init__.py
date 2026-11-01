@@ -13,7 +13,6 @@ from collections.abc import Callable
 from typing import Any
 
 from langchain.chat_models import init_chat_model
-from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_core.output_parsers.openai_tools import PydanticToolsParser
@@ -27,6 +26,7 @@ from assistant.core.llm import connections, copilot, kept_alive, openrouter
 from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.claude import KeptAliveChatAnthropic
 from assistant.core.llm.providers import CACHE_ONE_HOUR, PROMPT_CACHE, provider
+from assistant.core.usage.meter import TokenMeter
 
 
 def build_llm(choice: ModelChoice, model: str, max_tokens: int | None = None) -> BaseChatModel:
@@ -36,15 +36,15 @@ def build_llm(choice: ModelChoice, model: str, max_tokens: int | None = None) ->
     return builder(choice, model, max_tokens or settings.max_tokens)
 
 
-def metered(llm: BaseChatModel, meter: BaseCallbackHandler) -> BaseChatModel:
-    """The model, recording its calls with `meter` (core/usage/meter.py). Set on the model itself,
-    so LangChain adds it to the run's callbacks: passed in a call's config instead, it would
-    replace them, and LangGraph streams replies through one of those."""
-    return llm.model_copy(update={"callbacks": [meter]})
+def metered(llm: BaseChatModel, meter: TokenMeter) -> BaseChatModel:
+    """The model, recording its calls with `meter` (core/usage/meter.py) and holding them to the spending limits with
+    its check. Set on the model itself, so LangChain adds them to the run's callbacks: passed in a call's config
+    instead, they would replace them, and LangGraph streams replies through one of those."""
+    return llm.model_copy(update={"callbacks": [meter, meter.check]})
 
 
 def build_structured(
-    choice: ModelChoice, model: str, schema: type[BaseModel], meter: BaseCallbackHandler | None = None
+    choice: ModelChoice, model: str, schema: type[BaseModel], meter: TokenMeter | None = None
 ) -> Runnable[list[BaseMessage], Any]:
     """A model that answers with an instance of `schema`, its calls recorded with `meter` if given."""
     llm = build_llm(choice, model)

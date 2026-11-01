@@ -92,6 +92,7 @@ from assistant_terminal.tui.screens import (
     SessionsScreen,
     SkillImportsScreen,
     SkillsScreen,
+    SpendingLimitsScreen,
     StartupScreen,
     SubagentsScreen,
     UsageScreen,
@@ -190,6 +191,7 @@ class AssistantApp(App):
             "/model": self._command_model,
             "/audio": self._command_audio,
             "/websearch": self._command_web_search,
+            "/limits": self._command_limits,
             "/email": self._command_email,
             "/startup": self._command_startup,
             "/host": self._command_host,
@@ -1187,6 +1189,9 @@ class AssistantApp(App):
     async def _command_email(self, _: str) -> None:
         """Who the assistant emails without asking: the web app's Settings → General → Email."""
         self.push_screen(EmailRecipientsScreen(self._service.email))
+
+    async def _command_limits(self, _: str) -> None:
+        self.push_screen(SpendingLimitsScreen(self._service.usage))
 
     async def _command_web_search(self, _: str) -> None:
         self.push_screen(WebSearchScreen(self._service.web_search))

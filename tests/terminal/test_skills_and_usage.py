@@ -1,11 +1,18 @@
 from types import SimpleNamespace
 
-from textual.widgets import Button, Checkbox, Markdown, OptionList, SelectionList, Static
+from textual.widgets import Button, Checkbox, Input, Markdown, OptionList, SelectionList, Static
 
 from assistant.core.agent import Session, Skill
+from assistant.core.usage.limits import SpendingLimits
 from assistant_terminal.repl import Repl
-from assistant_terminal.tui.screens import ConfirmScreen, SkillImportsScreen, SkillsScreen, UsageScreen
-from tests.terminal.conftest import FakeSkills, wait_for
+from assistant_terminal.tui.screens import (
+    ConfirmScreen,
+    SkillImportsScreen,
+    SkillsScreen,
+    SpendingLimitsScreen,
+    UsageScreen,
+)
+from tests.terminal.conftest import FakeSkills, FakeUsage, wait_for
 
 
 async def _open(pilot, app, command, screen_type):
@@ -160,3 +167,38 @@ async def test_the_plain_repls_import_skills_lists_them_numbered_and_imports_by_
     await repl._import_skills("1-2 replace")
     assert skills.imports == [(["/h/.claude/skills/pdf", "/h/.agents/skills/edit"], True)]
     assert "pdf: imported as pdf" in capsys.readouterr().out
+
+
+async def test_limits_screen_shows_and_sets_the_spending_limits(app, client):
+    client.usage.limits = SpendingLimits(day=5.0)
+    async with app.run_test(size=(120, 40)) as pilot:
+        screen = await _open(pilot, app, "/limits", SpendingLimitsScreen)
+
+        def body() -> str:
+            return screen.query_one("#spending-body", Markdown).source
+
+        await wait_for(pilot, lambda: "Overall, a day: US$5.00" in body() and "Spent today: US$1.25" in body())
+        assert screen.query_one("#limit-day", Input).value == "5"
+        screen.query_one("#limit-conversation", Input).value = "2.5"
+        screen.query_one("#limit-day", Input).value = ""
+        screen.query_one("#save", Button).press()
+        await wait_for(pilot, lambda: client.usage.limits == SpendingLimits(conversation=2.5))
+        await wait_for(pilot, lambda: "Per conversation: US$2.50" in body() and "Overall, a day: no limit" in body())
+        screen.query_one("#limit-job_run", Input).value = "lots"
+        screen.query_one("#save", Button).press()
+        await pilot.pause(0.1)
+        assert client.usage.limits == SpendingLimits(conversation=2.5)
+
+
+async def test_the_plain_repl_shows_and_sets_a_limit(capsys):
+    usage = FakeUsage()
+    repl = Repl(SimpleNamespace(usage=usage), Session("owner", "cli", "inbox"))  # type: ignore[arg-type]
+    await repl._limits("")
+    assert "Per scheduled job, a day: no limit" in capsys.readouterr().out
+    await repl._limits("job-day 0.75")
+    assert usage.limits == SpendingLimits(job_day=0.75)
+    assert "Per scheduled job, a day: US$0.75" in capsys.readouterr().out
+    await repl._limits("job-day off")
+    assert usage.limits == SpendingLimits()
+    await repl._limits("day -1")
+    assert "more than 0" in capsys.readouterr().out

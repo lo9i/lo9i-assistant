@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ConversationsGroup, FilesGroup, FoldersGroup, HomeGroup, JobsGroup, NotificationsGroup, SystemGroup } from "./client";
+import { ConversationsGroup, FilesGroup, FoldersGroup, HomeGroup, JobsGroup, NotificationsGroup, SystemGroup, UsageGroup } from "./client";
 import type { Transport } from "./transport";
 
 function recording(): { transport: Transport; request: ReturnType<typeof vi.fn> } {
@@ -100,6 +100,20 @@ describe("FoldersGroup.home", () => {
     expect(request.mock.calls).toEqual([
       ["GET", "/settings/folder-deleting"],
       ["PUT", "/settings/folder-deleting", { enabled: true }],
+    ]);
+  });
+});
+
+describe("UsageGroup spending limits", () => {
+  it("reads them and sets them", async () => {
+    const { transport, request } = recording();
+    request.mockResolvedValue({ limits: { day: 3 }, spent_today: 1.2 });
+    const usage = new UsageGroup(transport);
+    expect((await usage.spending()).spent_today).toBe(1.2);
+    await usage.setLimits({ job_run: null, job_day: null, conversation: 2, day: 3 });
+    expect(request.mock.calls).toEqual([
+      ["GET", "/settings/spending-limits"],
+      ["PUT", "/settings/spending-limits", { job_run: null, job_day: null, conversation: 2, day: 3 }],
     ]);
   });
 });

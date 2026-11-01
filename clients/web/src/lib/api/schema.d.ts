@@ -2663,6 +2663,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings/spending-limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Spending Limits
+         * @description The limits on what model calls spend (core/usage/limits.py), and what was spent today.
+         */
+        get: operations["spending_limits_settings_spending_limits_get"];
+        /**
+         * Set Spending Limits
+         * @description Each limit in US dollars, null for none. 400: a limit that isn't more than 0.
+         */
+        put: operations["set_spending_limits_settings_spending_limits_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/host": {
         parameters: {
             query?: never;
@@ -4760,7 +4784,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "job" | "background" | "doctor" | "copilot";
+            kind: "job" | "background" | "doctor" | "copilot" | "spending";
             /** Title */
             title: string;
             /** Text */
@@ -5568,6 +5592,29 @@ export interface components {
             language_options: components["schemas"]["LanguageOption"][];
             /** Voice Options */
             voice_options: components["schemas"]["VoiceOption"][];
+        };
+        /**
+         * SpendingLimits
+         * @description US dollars; None is no limit.
+         */
+        SpendingLimits: {
+            /** Job Run */
+            job_run?: number | null;
+            /** Job Day */
+            job_day?: number | null;
+            /** Conversation */
+            conversation?: number | null;
+            /** Day */
+            day?: number | null;
+        };
+        /**
+         * SpendingStatus
+         * @description The spending limits, and what was spent today overall, in US dollars as the usage report prices it.
+         */
+        SpendingStatus: {
+            limits: components["schemas"]["SpendingLimits"];
+            /** Spent Today */
+            spent_today: number;
         };
         /** SpokenRepliesChange */
         SpokenRepliesChange: {
@@ -10738,6 +10785,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TokenReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    spending_limits_settings_spending_limits_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendingStatus"];
+                };
+            };
+        };
+    };
+    set_spending_limits_settings_spending_limits_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpendingLimits"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendingStatus"];
                 };
             };
             /** @description Validation Error */

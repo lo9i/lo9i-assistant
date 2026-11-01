@@ -497,5 +497,17 @@
   "Approved. It goes on.": "Aprobado. Sigue.",
   "Rejected. It goes on without it.": "Rechazado. Sigue sin eso.",
   "It uses files of its Claude Code plugin outside its folder ({root}).": "Usa archivos de su plugin de Claude Code fuera de su carpeta ({root}).",
-  "That conversation was deleted.": "Esa conversación se borró."
+  "That conversation was deleted.": "Esa conversación se borró.",
+  "A limit is an amount more than 0; leave it empty for no limit.": "Un límite es un monto mayor que 0; déjalo vacío para no tener límite.",
+  "This run of the job {job} spent {spent}, its limit per run is {limit}: it stopped here.": "Esta ejecución de la tarea programada {job} gastó {spent} y su límite por ejecución es {limit}: se detuvo aquí.",
+  "The job {job} spent {spent} today, its daily limit is {limit}: this run stopped here.": "La tarea programada {job} gastó {spent} hoy y su límite diario es {limit}: esta ejecución se detuvo aquí.",
+  "This conversation spent {spent}, its limit is {limit}, so the assistant stopped here. Raise or clear the limit in Settings → Model (/limits in the terminal app) to go on, or start a new conversation.": "Esta conversación gastó {spent} y su límite es {limit}, así que el asistente se detuvo aquí. Sube o quita el límite en Ajustes → Modelo (/limits en la app de terminal) para seguir, o empieza una conversación nueva.",
+  "The assistant spent {spent} today, the daily limit is {limit}, so it stopped here. It goes on tomorrow, or once the limit is raised or cleared in Settings → Model (/limits in the terminal app).": "El asistente gastó {spent} hoy y el límite diario es {limit}, así que se detuvo aquí. Sigue mañana, o cuando subas o quites el límite en Ajustes → Modelo (/limits en la app de terminal).",
+  "Spending limit": "Límite de gasto",
+  "A run of the job {job} has spent {spent} of its {limit} limit per run.": "Una ejecución de la tarea programada {job} gastó {spent} de su límite de {limit} por ejecución.",
+  "The job {job} has spent {spent} today of its {limit} daily limit.": "La tarea programada {job} gastó {spent} hoy de su límite diario de {limit}.",
+  "The conversation “{title}” has spent {spent} of its {limit} limit.": "La conversación «{title}» gastó {spent} de su límite de {limit}.",
+  "The assistant has spent {spent} today of the {limit} daily limit.": "El asistente gastó {spent} hoy del límite diario de {limit}.",
+  "At the limit it stops; Settings → Model (/limits in the terminal app) changes it.": "Al llegar al límite se detiene; se cambia en Ajustes → Modelo (/limits en la app de terminal).",
+  "Over budget: {summary}": "Pasó el límite de gasto: {summary}"
 }

@@ -1,4 +1,5 @@
-"""Usage for clients: tool and skill calls, the tokens model calls took, and one conversation's stats."""
+"""Usage for clients: tool and skill calls, the tokens model calls took, one conversation's stats, and the spending
+limits (core/usage/limits.py)."""
 
 from dataclasses import dataclass
 
@@ -7,9 +8,11 @@ from assistant.core.agent.conversations import ConversationsMixin
 from assistant.core.config import settings
 from assistant.core.conversation import handoffs
 from assistant.core.conversation.epochs import estimate_tokens
+from assistant.core.usage import limits
+from assistant.core.usage.limits import SpendingLimits
 from assistant.core.usage.log import TokenReport, UsageReport
 
-__all__ = ["ConversationStats", "TokenReport", "UsageMixin", "UsageReport"]
+__all__ = ["ConversationStats", "SpendingStatus", "TokenReport", "UsageMixin", "UsageReport"]
 
 # What counts as a message in a conversation's stats: what the user and the assistant said (a coding task it wrote
 # for its agent too), not tool calls.
@@ -36,7 +39,23 @@ class ConversationStats:
     context_agent: str = ""
 
 
+@dataclass(frozen=True)
+class SpendingStatus:
+    """The spending limits, and what was spent today overall, in US dollars as the usage report prices it."""
+
+    limits: SpendingLimits
+    spent_today: float
+
+
 class UsageMixin(ConversationsMixin):
+    async def spending(self) -> SpendingStatus:
+        return SpendingStatus(await limits.load(self._storage.store), await self._budget.spent_today())
+
+    async def set_spending_limits(self, changed: SpendingLimits) -> SpendingStatus:
+        """Raises SpendingLimitsError. A `settings` event tells the apps."""
+        await limits.save(self._storage.store, changed)
+        return await self.spending()
+
     async def usage_report(self, days: int = 7) -> UsageReport:
         return await self._storage.usage.report(days)
 

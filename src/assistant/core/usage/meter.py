@@ -1,8 +1,12 @@
 """Records every model call in the token ledger (core/usage/log.py) through LangChain callbacks,
 so no caller counts tokens itself. Each place that calls a model attaches a meter with the call's
 purpose; which conversation and channel it belongs to comes from the run's metadata (`CONVERSATION`
-and `CHANNEL`), so a call made outside a run (archiving, titling) is recorded without them."""
+and `CHANNEL`), so a call made outside a run (archiving, titling) is recorded without them. Beside it on the model
+goes its `check` (llm.metered), which holds each call to the spending limits before it's made (budget.py), and after
+it's recorded the meter has the limits nearly reached told. A model checked as it's set up (agent/model.py) gets only
+the meter, so saving a model is never held."""
 
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -31,6 +35,7 @@ class TokenMeter(AsyncCallbackHandler):
         self._log = log
         self._purpose = purpose
         self._started: dict[UUID, _Started] = {}
+        self.check = SpendingCheck(log)
 
     async def on_chat_model_start(
         self,
@@ -51,9 +56,33 @@ class TokenMeter(AsyncCallbackHandler):
         call = _call(self._purpose, started, reply)
         parts = [*input_parts(started.messages, call.input_tokens), *output_parts(reply, call.output_tokens)]
         await self._log.record_model_call(call, parts)
+        if self._log.guard is not None:
+            await self._log.guard.after_call(call.thread_id)
 
     async def on_llm_error(self, error: BaseException, *, run_id: UUID, **kwargs: Any) -> None:
         self._started.pop(run_id, None)
+
+
+class SpendingCheck(AsyncCallbackHandler):
+    """Before each model call: one over a spending limit raises OverBudgetError (budget.py), and the call isn't made.
+    A handler of its own, since its errors reach the caller, and the meter's mustn't."""
+
+    raise_error = True
+
+    def __init__(self, log: UsageLog) -> None:
+        self._log = log
+
+    async def on_chat_model_start(
+        self,
+        serialized: dict[str, Any],
+        messages: list[list[BaseMessage]],
+        *,
+        run_id: UUID,
+        metadata: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        if self._log.guard is not None:
+            await self._log.guard.check(str((metadata or {}).get(CONVERSATION, "")))
 
 
 def _call(purpose: str, started: _Started, reply: AIMessage) -> ModelCall:
@@ -91,3 +120,15 @@ def _reply(response: LLMResult) -> AIMessage | None:
     if isinstance(first, ChatGeneration) and isinstance(first.message, AIMessage):
         return first.message
     return None
+
+
+class _Refusals(logging.Filter):
+    """LangChain logs each error a callback raises as a warning before passing it on. A call a spending limit refused
+    isn't a fault (runs.py logs the run's end at INFO), so that record goes; any other error of the check stays."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        said = record.getMessage()
+        return not (said.startswith(f"Error in {SpendingCheck.__name__}.") and ": OverBudgetError(" in said)
+
+
+logging.getLogger("langchain_core.callbacks.manager").addFilter(_Refusals())

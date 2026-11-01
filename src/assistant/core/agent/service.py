@@ -93,6 +93,8 @@ from assistant.core.speech.kokoro import KokoroSynthesizer
 from assistant.core.speech.whisper import FasterWhisperTranscriber
 from assistant.core.storage import Storage, open_storage
 from assistant.core.tools.registry import tool_groups
+from assistant.core.usage.alerts import SpendingAlerts
+from assistant.core.usage.budget import Budget
 
 
 class AssistantService(
@@ -181,6 +183,10 @@ class AssistantService(
             settings.owner_id,
         )
         self._windows = ContextWindows(storage.store)
+        self._budget = Budget(
+            storage.usage, storage.store, SpendingAlerts(storage.store, self.outbox, settings.owner_id)
+        )
+        storage.usage.guard = self._budget
         self.doctor = Doctor(
             storage.store,
             bus,

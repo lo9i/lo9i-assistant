@@ -5,6 +5,7 @@ the user's message, tools and the reply; core/usage/tokens.py). Reports read the
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from typing import Protocol
 
 import aiosqlite
 
@@ -43,6 +44,7 @@ CREATE TABLE IF NOT EXISTS model_calls (
 );
 CREATE INDEX IF NOT EXISTS model_calls_at ON model_calls (at);
 CREATE INDEX IF NOT EXISTS model_calls_thread ON model_calls (thread_id);
+CREATE INDEX IF NOT EXISTS model_calls_job ON model_calls (job, at);
 CREATE TABLE IF NOT EXISTS token_parts (
     call_id INTEGER NOT NULL REFERENCES model_calls (id),
     kind TEXT NOT NULL,
@@ -153,9 +155,19 @@ class ThreadUsage:
     tool_calls: int = 0
 
 
+class Guard(Protocol):
+    """Holds model calls to the spending limits (budget.py), which TokenMeter asks around each call (meter.py)."""
+
+    async def check(self, thread_id: str) -> None: ...
+
+    async def after_call(self, thread_id: str) -> None: ...
+
+
 class UsageLog:
     def __init__(self, conn: aiosqlite.Connection) -> None:
         self._conn = conn
+        # The spending limits, set once the service can tell one nearly reached; until then calls are held to none.
+        self.guard: Guard | None = None
 
     async def setup(self) -> None:
         await self._conn.executescript(_SCHEMA)
@@ -240,6 +252,23 @@ class UsageLog:
         async with self._conn.execute(query, (thread_id, thread_id)) as cursor:
             row = await cursor.fetchone()
         return ThreadUsage(*row) if row else ThreadUsage()
+
+    async def spent(self, since: str = "", thread_id: str = "", job: str = "") -> float:
+        """US dollars spent since `since` (ISO 8601 in UTC, "" for ever), in `thread_id` or by `job` when given, as
+        the token report prices it: a model with no price counts as nothing."""
+        where = ["at >= ?"]
+        values = [since]
+        for column, value in (("thread_id", thread_id), ("job", job)):
+            if value:
+                where.append(f"{column} = ?")
+                values.append(value)
+        query = f"""
+            SELECT model, SUM(input_tokens), SUM(cache_read_tokens), SUM(cache_write_tokens), SUM(output_tokens)
+            FROM model_calls WHERE {" AND ".join(where)} GROUP BY model
+        """
+        async with self._conn.execute(query, values) as cursor:
+            rows = await cursor.fetchall()
+        return sum(prices.cost(model, *tokens) or 0.0 for model, *tokens in rows)
 
     async def _token_rows(self, column: str, since: str) -> list[TokenRow]:
         """Rows per value of `column`, the most tokens first. Grouped by model too, since each has its price."""

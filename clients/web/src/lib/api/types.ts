@@ -91,6 +91,8 @@ export type UsageReport = Schemas["UsageReport"];
 export type ToolUsage = Schemas["ToolUsage"];
 export type TokenReport = Schemas["TokenReport"];
 export type TokenRow = Schemas["TokenRow"];
+export type SpendingLimits = Schemas["SpendingLimits"];
+export type SpendingStatus = Schemas["SpendingStatus"];
 export type HostStatus = Schemas["HostStatus"];
 export type StartupStatus = Schemas["StartupStatus"];
 export type ShutdownStatus = Schemas["ShutdownStatus"];
@@ -194,7 +196,7 @@ export type RunEvent =
   // An update installs: the run was kept, and runs once lo9i is back, announced with this `id` (`held`).
   | { type: "Held"; id: string }
   | { type: "Done" }
-  | { type: "Error"; message: string }
+  | { type: "Error"; message: string; over_budget?: boolean }
   | { type: "Cancelled" };
 
 /** A `run` bus event: a run started by any client or channel. `client_id` is empty for a channel

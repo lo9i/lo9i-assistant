@@ -28,7 +28,7 @@ async def test_a_failing_run_reports_an_error():
     hub = RunHub()
     run = hub.start("t", broken())
     events = [e async for _, e in hub.follow(run, 0) if e]
-    assert events[-1] == {"type": "Error", "message": "RuntimeError: boom"}
+    assert events[-1] == {"type": "Error", "message": "RuntimeError: boom", "over_budget": False}
 
 
 async def test_starting_a_run_is_announced_on_the_bus():

@@ -12,6 +12,7 @@
   import ModelCard from "$lib/ui/settings/ModelCard.svelte";
   import PromptCard from "$lib/ui/settings/PromptCard.svelte";
   import SpeechCard from "$lib/ui/settings/SpeechCard.svelte";
+  import SpendingLimitsCard from "$lib/ui/settings/SpendingLimitsCard.svelte";
   import SpokenRepliesCard from "$lib/ui/settings/SpokenRepliesCard.svelte";
   import StartupCard from "$lib/ui/settings/StartupCard.svelte";
   import WebSearchCard from "$lib/ui/settings/WebSearchCard.svelte";
@@ -68,6 +69,9 @@
       <div class="stack">
         <ModelCard />
         <DispatchCard />
+      </div>
+      <div class="stack">
+        <SpendingLimitsCard />
       </div>
     </div>
   {:else if tab === "prompt"}

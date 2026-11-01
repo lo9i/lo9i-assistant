@@ -6200,6 +6200,62 @@
         }
       }
     },
+    "/settings/spending-limits": {
+      "get": {
+        "summary": "Spending Limits",
+        "description": "The limits on what model calls spend (core/usage/limits.py), and what was spent today.",
+        "operationId": "spending_limits_settings_spending_limits_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpendingStatus"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Spending Limits",
+        "description": "Each limit in US dollars, null for none. 400: a limit that isn't more than 0.",
+        "operationId": "set_spending_limits_settings_spending_limits_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpendingLimits"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpendingStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/system/host": {
       "get": {
         "summary": "Host Status",
@@ -10278,7 +10334,8 @@
               "job",
               "background",
               "doctor",
-              "copilot"
+              "copilot",
+              "spending"
             ],
             "title": "Kind"
           },
@@ -11754,6 +11811,75 @@
         ],
         "title": "SpeechStatus",
         "description": "The chosen settings and what can be chosen."
+      },
+      "SpendingLimits": {
+        "properties": {
+          "job_run": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Run"
+          },
+          "job_day": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Day"
+          },
+          "conversation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation"
+          },
+          "day": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day"
+          }
+        },
+        "type": "object",
+        "title": "SpendingLimits",
+        "description": "US dollars; None is no limit."
+      },
+      "SpendingStatus": {
+        "properties": {
+          "limits": {
+            "$ref": "#/components/schemas/SpendingLimits"
+          },
+          "spent_today": {
+            "type": "number",
+            "title": "Spent Today"
+          }
+        },
+        "type": "object",
+        "required": [
+          "limits",
+          "spent_today"
+        ],
+        "title": "SpendingStatus",
+        "description": "The spending limits, and what was spent today overall, in US dollars as the usage report prices it."
       },
       "SpokenRepliesChange": {
         "properties": {

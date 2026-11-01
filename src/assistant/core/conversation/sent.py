@@ -1,14 +1,19 @@
 """Messages the assistant sent on a channel from outside that channel's conversation: send_message
-from a job or another chat, and new-mail alerts. They're kept until the user next writes on that
-channel and then go into that message's turn header, so a reply to one arrives with its context.
+from a job or another chat, new-mail alerts, and alerts told on every channel (Copilot's allowance, spending
+limits). They're kept until the user next writes on that channel and then go into that message's turn header, so a
+reply to one arrives with its context.
 """
 
+import logging
 import uuid
 from datetime import datetime
 
 from langgraph.store.base import BaseStore
 
 from assistant.core.conversation.turn_header import sent_block
+from assistant.core.outbox import DeliveryError, Outbox
+
+logger = logging.getLogger(__name__)
 
 _LIMIT = 20
 
@@ -19,6 +24,19 @@ def _namespace(user_id: str, channel: str) -> tuple[str, ...]:
 
 async def record(store: BaseStore, user_id: str, channel: str, text: str, at: datetime) -> None:
     await store.aput(_namespace(user_id, channel), uuid.uuid4().hex, {"at": at.isoformat(), "text": text})
+
+
+async def tell_every_channel(store: BaseStore, outbox: Outbox, user_id: str, text: str, at: datetime) -> None:
+    """To the user's own chat on every chat channel connected now, each recorded for the turn header of their next
+    message there. A channel that doesn't take it misses it: what tells everyone this way (an alert) is in the
+    notifications feed too."""
+    for channel in outbox.channels:
+        try:
+            await outbox.send(channel, text)
+        except DeliveryError as e:
+            logger.info("Couldn't send an alert on %s: %s", channel, e)
+            continue
+        await record(store, user_id, channel, text, at)
 
 
 async def take(store: BaseStore, user_id: str, channel: str) -> list[dict[str, str]]:

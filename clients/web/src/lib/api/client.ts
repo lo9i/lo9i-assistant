@@ -86,6 +86,8 @@ import type {
   Skill,
   SkillSummary,
   SpeechStatus,
+  SpendingLimits,
+  SpendingStatus,
   StartupStatus,
   TokenReport,
   UpdateStatus,
@@ -924,6 +926,16 @@ export class UsageGroup {
   /** Tokens and cost of the model calls, grouped every way the report offers. */
   tokens(days: number): Promise<TokenReport> {
     return this.transport.request("GET", `/usage/tokens?days=${days}`);
+  }
+
+  /** The limits on what model calls spend, in US dollars (null for none), and what was spent today. */
+  spending(): Promise<SpendingStatus> {
+    return this.transport.request("GET", "/settings/spending-limits");
+  }
+
+  /** Throws ApiError 400 for a limit that isn't more than 0. */
+  setLimits(limits: SpendingLimits): Promise<SpendingStatus> {
+    return this.transport.request("PUT", "/settings/spending-limits", limits);
   }
 }
 

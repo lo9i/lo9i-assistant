@@ -37,6 +37,7 @@ from assistant.core.home import results
 from assistant.core.internet import brave_key
 from assistant.core.logs import LogWriter, log_sources
 from assistant.core.speech.heard import HeardOnce
+from assistant.core.usage.limits import SpendingLimits, SpendingLimitsError
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
 from assistant.daemon.runs import RunHub
@@ -1024,6 +1025,16 @@ async def test_token_usage_through_the_client(client, script):
     await collect(client.send(await _new_session(client), "hello"))
     report = await client.usage.tokens(7)
     assert report.total.calls == 1 and report.total.input_tokens == 50 and report.by_purpose[0].name == "reply"
+
+
+async def test_spending_limits_through_the_client(client):
+    status = await client.usage.spending()
+    assert status.limits == SpendingLimits() and status.spent_today == 0
+    changed = await client.usage.set_limits(SpendingLimits(job_run=0.5, day=3.0))
+    assert changed.limits == SpendingLimits(job_run=0.5, day=3.0)
+    with pytest.raises(SpendingLimitsError, match="more than 0"):
+        await client.usage.set_limits(SpendingLimits(conversation=-1.0))
+    assert (await client.usage.spending()).limits.day == 3.0
 
 
 async def test_conversation_stats_through_the_client(client, script):

@@ -38,6 +38,7 @@ from assistant.core.speech.synthesizer import Synthesizer
 from assistant.core.speech.transcriber import Transcriber
 from assistant.core.storage import Storage
 from assistant.core.subagent import SubagentRunner
+from assistant.core.usage.budget import Budget
 
 
 class ServiceBase:
@@ -130,6 +131,8 @@ class ServiceBase:
     # measured against (core/llm/windows.py).
     _model: ModelChoice
     _windows: ContextWindows
+    # Holds every model call to the spending limits (core/usage/budget.py), as the token ledger's guard.
+    _budget: Budget
 
     async def _servers_changed(self) -> None:
         """Bring MCP connections, coding agents, pages and channels in line with the saved servers. A server's skill

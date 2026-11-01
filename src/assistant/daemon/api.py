@@ -98,6 +98,7 @@ from assistant.core.agent import (
     SkillSummary,
     SpeechSettingsError,
     SpeechStatus,
+    SpendingStatus,
     SpokenReplies,
     SubagentDetails,
     SubagentError,
@@ -132,6 +133,7 @@ from assistant.core.logs import (
 from assistant.core.memory.profile import MAX_ITEMS, Section
 from assistant.core.repositories import contents, listed
 from assistant.core.repositories.known import EXTRAS
+from assistant.core.usage.limits import SpendingLimits, SpendingLimitsError
 from assistant.daemon import host
 from assistant.daemon.auth import (
     DeviceStreams,
@@ -2024,6 +2026,19 @@ def _add_usage_routes(app: FastAPI, service: AssistantService) -> None:
     async def token_usage(days: int = 7) -> TokenReport:
         """Tokens and cost of the model calls, by day, model, purpose, channel, conversation, job, skill and tool."""
         return await service.token_report(days)
+
+    @app.get("/settings/spending-limits")
+    async def spending_limits() -> SpendingStatus:
+        """The limits on what model calls spend (core/usage/limits.py), and what was spent today."""
+        return await service.spending()
+
+    @app.put("/settings/spending-limits")
+    async def set_spending_limits(body: SpendingLimits) -> SpendingStatus:
+        """Each limit in US dollars, null for none. 400: a limit that isn't more than 0."""
+        try:
+            return await service.set_spending_limits(body)
+        except SpendingLimitsError as e:
+            raise HTTPException(400, message(e)) from e
 
 
 def _add_host_route(app: FastAPI, shutdown: Any | None) -> None:

@@ -665,7 +665,8 @@
     "notRunYetHint": "Las ejecuciones aparecen aquí después de la primera.",
     "noneSelected": "Ninguna tarea programada elegida",
     "noneSelectedHint": "Elige una de la tabla para ver aquí sus ejecuciones.",
-    "deleteText": "La tarea programada deja de ejecutarse y su historial se borra."
+    "deleteText": "La tarea programada deja de ejecutarse y su historial se borra.",
+    "overBudget": "pasó el límite de gasto"
   },
   "keptKeys": {
     "tokenFor": "Token de {repository}",
@@ -926,7 +927,7 @@
     "background": "Trabajo en segundo plano",
     "clearAll": "Borrar todas",
     "title": "Lo que terminó",
-    "hint": "Resultados de tareas programadas, trabajo en segundo plano que terminó, chequeos de salud y avisos del cupo de Copilot. Haz clic en una para verla a la derecha.",
+    "hint": "Resultados de tareas programadas, trabajo en segundo plano que terminó, chequeos de salud, avisos del cupo de Copilot y límites de gasto casi alcanzados. Haz clic en una para verla a la derecha.",
     "none": "Todavía nada",
     "noneHint": "Cuando corre una tarea programada o termina un trabajo en segundo plano (una tarea de programación, una descarga), aparece aquí.",
     "about": "Sobre",
@@ -938,7 +939,8 @@
     "noneSelected": "Ninguna notificación elegida",
     "noneSelectedHint": "Aquí aparecen los resultados de tareas programadas y el trabajo en segundo plano terminado.",
     "clearTitle": "¿Borrar todas las notificaciones?",
-    "clearText": "Las tareas programadas y el trabajo del que tratan no se tocan."
+    "clearText": "Las tareas programadas y el trabajo del que tratan no se tocan.",
+    "spending": "Límite de gasto"
   },
   "oauth": {
     "finishing": "Terminando el inicio de sesión…",
@@ -1501,5 +1503,17 @@
     "inbox": "La bandeja de entrada",
     "noneSelected": "Ningún subagente seleccionado",
     "noneSelectedHint": "Elige uno para ver sus pasos, lo que espera y su respuesta."
+  },
+  "spending": {
+    "title": "Límites de gasto",
+    "sub": "Lo que pueden gastar las llamadas al modelo, en dólares estadounidenses como los calcula Uso. Una respuesta o una ejecución de una tarea que llega a un límite se detiene ahí y dice cuál; al 80 % tus canales de chat y Notificaciones se enteran una vez.",
+    "jobRun": "Por ejecución de una tarea programada",
+    "jobDay": "Por tarea programada, al día",
+    "conversation": "Por conversación",
+    "day": "En total, al día",
+    "none": "Sin límite",
+    "today": "Gastado hoy: {spent}",
+    "notAmount": "Cada límite es un monto, como 2.50, o vacío para ninguno.",
+    "hint": "Cuenta cada llamada al modelo, también los títulos y la memoria; el día empieza a medianoche donde estás. Los modelos sin precio conocido (los locales, la suscripción de Copilot, los que MODEL_PRICES no tiene) cuentan como nada."
   }
 }

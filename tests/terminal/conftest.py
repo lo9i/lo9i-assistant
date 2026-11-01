@@ -82,6 +82,7 @@ from assistant.core.agent import (
     SkillError,
     SpeechSettingsError,
     SpeechStatus,
+    SpendingStatus,
     SubagentDetails,
     SubagentError,
     TokenReport,
@@ -98,6 +99,7 @@ from assistant.core.integrations.email.providers import EmailProvider
 from assistant.core.llm.choice import PROVIDERS as PROVIDERS_FOR_MODEL
 from assistant.core.logs import COMPONENTS, LogEntry, LogFileInfo, LogOptions, LogPage, LogQuery
 from assistant.core.repositories.known import EXTRAS
+from assistant.core.usage.limits import SpendingLimits, SpendingLimitsError
 from assistant.core.usage.log import TokenRow, ToolUsage
 from assistant.protocol import (
     Commit,
@@ -234,6 +236,18 @@ class FakeMemory:
 
 
 class FakeUsage:
+    def __init__(self):
+        self.limits = SpendingLimits()
+
+    async def spending(self):
+        return SpendingStatus(self.limits, 1.25)
+
+    async def set_limits(self, limits):
+        if any(v is not None and v <= 0 for v in (limits.job_run, limits.job_day, limits.conversation, limits.day)):
+            raise SpendingLimitsError("A limit is an amount more than 0; leave it empty for no limit.")
+        self.limits = limits
+        return await self.spending()
+
     async def report(self, days=7):
         tools = [
             ToolUsage("bash", 12, 1, 2, 850, "2026-09-30T09:00:00"),

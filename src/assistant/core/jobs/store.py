@@ -20,7 +20,8 @@ class JobError(Exception):
 @dataclass
 class RunRecord:
     at: str
-    status: str  # ok | failed | needs attention | skipped | missed
+    # ok | failed | needs attention | over budget (a spending limit stopped it) | skipped | missed
+    status: str
     summary: str = ""
     thread_id: str = ""
 

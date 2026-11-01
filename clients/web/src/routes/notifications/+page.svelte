@@ -16,8 +16,8 @@
   import { openConversation } from "$lib/ui/openConversation";
   import TopBar from "$lib/ui/TopBar.svelte";
 
-  // Scheduled jobs' results, background work that ended, health checks and Copilot allowance alerts
-  // (core/notifications.py), apart from any conversation. Each opens the conversation its work was started in,
+  // Scheduled jobs' results, background work that ended, health checks, Copilot allowance alerts and spending limits
+  // nearly reached (core/notifications.py), apart from any conversation. Each opens the conversation its work was started in,
   // when it has one, and a job's run opens on the Jobs page with its whole reply. Seen here, they're read. A page at a time as the table is scrolled.
   const { client, chats, notices } = useDaemon();
   const notifications = pagedResource(
@@ -43,7 +43,9 @@
         ? t("alerts.healthCheck")
         : n.kind === "copilot"
           ? t("notificationsPage.copilot")
-          : t("notificationsPage.background");
+          : n.kind === "spending"
+            ? t("notificationsPage.spending")
+            : t("notificationsPage.background");
   }
 
   function jobLink(n: Notification): string {

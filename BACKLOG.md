@@ -7,16 +7,15 @@ A = action, L = to revisit later, G = memory gap, H = context improvement, Q = o
 ## Daemon
 
 - A10. Passkeys as a faster sign-in for devices paired over the network (HTTPS and device pairing are done: `daemon/auth.py`, `daemon/https.py`).
-- A11. Spending limits on the token ledger (`core/usage`): per job run, per job per day, per conversation and overall per day. Checked before every model call; going over ends the run cleanly (a job run is recorded as over budget, a chat gets a clear message), and a warning at a threshold (80%) goes to Telegram or Slack.
-- A12. On macOS a daemon started by hand while start at boot is on can't be stopped from the apps (`launchd.Beside` refuses): launchd keeps trying to start the LaunchDaemon, and stopping its tries needs an administrator. Ask for the password, as turning start at boot on does, and stop them.
+- A11. On macOS a daemon started by hand while start at boot is on can't be stopped from the apps (`launchd.Beside` refuses): launchd keeps trying to start the LaunchDaemon, and stopping its tries needs an administrator. Ask for the password, as turning start at boot on does, and stop them.
 
 ## Plugins
 
-- A13. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen. It would also give plugins that ask for the ssh agent (`ssh_agent: true`, `core/mcp/ssh_agent.py`) the user's agent, which a LaunchDaemon has none of.
+- A12. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen. It would also give plugins that ask for the ssh agent (`ssh_agent: true`, `core/mcp/ssh_agent.py`) the user's agent, which a LaunchDaemon has none of.
 
 ## Voice
 
-- A14. Real-time voice agent: live spoken conversation from the browser.
+- A13. Real-time voice agent: live spoken conversation from the browser.
   - A speech-to-speech model (OpenAI GPT-Live) listens and speaks. No separate speech-to-text or text-to-speech step; transcripts come from the model's own events.
   - Audio goes directly between the browser and OpenAI over WebRTC. The daemon only exchanges the connection offer and answer, and never handles audio.
   - The daemon keeps a sideband WebSocket to OpenAI for each call. When the voice model needs to act, it calls a tool; the daemon runs it through `AssistantService`, so Claude stays the brain.
@@ -25,7 +24,7 @@ A = action, L = to revisit later, G = memory gap, H = context improvement, Q = o
 
 ## Platforms
 
-- A15. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
+- A14. Windows. Nothing runs there today: the terminal app reaches the daemon only through a Unix socket (`client/connection.py`), and `/startup` knows only launchd and systemd (`daemon/startup.py`).
   - Daemon connection: a named pipe or localhost with a paired device instead of the Unix socket.
   - Startup: a Task Scheduler task or a Windows service as a `daemon/startup.py` backend.
   - Clipboard: `client/clipboard/windows.py`, pasting files, images and text with PowerShell (`Get-Clipboard -Format FileDropList`, `System.Windows.Forms.Clipboard.GetImage`) and copying with `Set-Clipboard`.

@@ -15,6 +15,7 @@ _STATUSES = {
     "ok": translatable("ok"),
     "failed": translatable("failed"),
     "needs attention": translatable("needs attention"),
+    "over budget": translatable("over budget"),
 }
 # A job's state other than active (core/jobs/).
 _STATES = {"paused": translatable("paused"), "done": translatable("done")}

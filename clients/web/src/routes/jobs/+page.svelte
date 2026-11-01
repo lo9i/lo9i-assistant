@@ -32,9 +32,15 @@
     ok: "var(--color-success)",
     failed: "var(--color-danger)",
     "needs attention": "var(--color-warn)",
+    "over budget": "var(--color-warn)",
   };
 
-  const STATUSES: Record<string, Key> = { ok: "jobsPage.ok", failed: "jobsPage.failed", "needs attention": "jobsPage.needsAttention" };
+  const STATUSES: Record<string, Key> = {
+    ok: "jobsPage.ok",
+    failed: "jobsPage.failed",
+    "needs attention": "jobsPage.needsAttention",
+    "over budget": "jobsPage.overBudget",
+  };
 
   /** A run's status as shown. */
   function status(value: string): string {
