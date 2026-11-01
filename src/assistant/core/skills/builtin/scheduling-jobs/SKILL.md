@@ -21,7 +21,7 @@ Give exactly one of:
 - To reach the user somewhere, the task says to use send_message on a chat channel; a run's reply on its own only goes to the apps' notifications and the Jobs page.
 - Name the skill it runs or the tools it needs (a plugin's mcp__<server>__<tool>, send_email): the run starts with those loaded.
 - A repeated task belongs in a skill (save_skill) the job runs, so it can be changed without rescheduling.
-- A job can't ask the user questions or delegate to subagents; say in the task what to do when something's missing.
+- A job can't ask the user questions; say in the task what to do when something's missing. It can delegate, but its subagents never run in the background: the job waits for their answers.
 
 ## Approvals
 

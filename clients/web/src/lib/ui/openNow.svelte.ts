@@ -3,6 +3,7 @@
 import { goto } from "$app/navigation";
 import { resolve } from "$app/paths";
 import { openList, type OpenItem } from "$lib/chat/openList";
+import { working } from "$lib/chat/subagents";
 import { TINTS, tints } from "$lib/chat/tints";
 import { external, resource, useDaemon } from "$lib/daemon.svelte";
 import { openConversation } from "./openConversation";
@@ -25,11 +26,14 @@ export function openNow(): OpenNow {
   const conversations = resource((c) => c.conversations.list(), ["conversations"]);
   const runs = resource((c) => c.runs.inProgress(), ["run", "run_finished"]);
   const tasks = resource((c) => c.tasks.running(), ["agent_task_progress", "agent_task_reports", "background_ended"]);
+  // Every conversation's background subagents: one with any working is listed too.
+  const subagents = resource((c) => c.subagents.list(), ["subagents"]);
   const open = external(chats.subscribe, chats.getSnapshot);
   const items = $derived(
     openList(open.current, conversations.data ?? [], [
       ...(runs.data ?? []).map((r) => r.thread_id),
       ...(tasks.data ?? []).map((t) => t.thread_id),
+      ...(subagents.data ?? []).filter(working).map((s) => s.thread_id),
     ]),
   );
   const tintOf = $derived(tints.for(items.map((e) => e.threadId)));

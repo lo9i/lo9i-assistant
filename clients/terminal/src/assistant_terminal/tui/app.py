@@ -48,6 +48,7 @@ from assistant_terminal.history import History
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.jobs_text import status as job_status
 from assistant_terminal.preferences import Preferences
+from assistant_terminal.subagents_text import running_line
 from assistant_terminal.tasks_text import task_line
 from assistant_terminal.tui.attachments import AttachmentBar
 from assistant_terminal.tui.command_menu import CommandMenu
@@ -92,6 +93,7 @@ from assistant_terminal.tui.screens import (
     SkillImportsScreen,
     SkillsScreen,
     StartupScreen,
+    SubagentsScreen,
     UsageScreen,
     WebSearchScreen,
 )
@@ -182,6 +184,7 @@ class AssistantApp(App):
             "/conversations": self._command_conversations,
             "/open": self._command_open,
             "/notifications": self._command_notifications,
+            "/subagents": self._command_subagents,
             "/attach": self._command_attach,
             "/mcp": self._command_mcp,
             "/model": self._command_model,
@@ -345,6 +348,20 @@ class AssistantApp(App):
         """A toast can't be opened: /notifications opens the conversation it ended in."""
         text = t("{text} (/notifications opens it)", text=ended["text"])
         self.notify(text, severity="information" if ended["ok"] else "warning", timeout=10)
+
+    async def show_subagent(self, subagent: dict[str, Any]) -> None:
+        """A background subagent changed: the line under the title, and a notice when it waits for the user. Its end
+        comes as background work's (show_background_ended)."""
+        await self.refresh_thread()
+        if subagent["status"] != "waiting":
+            return
+        here = subagent["thread_id"] == self._live.session.thread_id
+        text = (
+            t("A subagent is waiting for your answer: /subagents")
+            if here
+            else t("A subagent in another conversation is waiting for your answer.")
+        )
+        self.notify(text, severity="warning", timeout=10)
 
     def show_failing(self, failing: dict[str, Any]) -> None:
         values = {"name": failing["name"], "error": failing["error"]}
@@ -701,19 +718,22 @@ class AssistantApp(App):
 
     @reports_daemon_unavailable
     async def refresh_thread(self) -> None:
-        """The conversation's title under the app's, then the agent it's handed to, the skills pinned to it and
-        the coding tasks running in the background. The conversation shown joins the open ones (Ctrl+O)."""
+        """The conversation's title under the app's, then the agent it's handed to, the skills pinned to it, the
+        coding tasks running in the background and its background subagents working. The conversation shown joins
+        the open ones (Ctrl+O)."""
         thread_id = self._live.session.thread_id
         if thread_id != self._inbox_id and thread_id not in self._opened:
             self._opened.append(thread_id)
         handoff = await self._service.conversations.agent(thread_id)
         pinned = await self._service.conversations.pinned(thread_id)
         running = await self._service.tasks.running()
+        subagents = running_line(await self._service.subagents.list(thread_id))
         parts = [
             await self._conversation_name(thread_id),
             *([t("talking to {agent} in {folder}", agent=handoff.name, folder=handoff.folder)] if handoff else []),
             *([t("pinned: {skills}", skills=", ".join(pinned))] if pinned else []),
             *(task_line(task, thread_id) for task in running),
+            *([subagents] if subagents else []),
         ]
         self.sub_title = " · ".join(parts)
         await self.refresh_context()
@@ -888,6 +908,9 @@ class AssistantApp(App):
     @reports_daemon_unavailable
     async def action_open_conversations(self) -> None:
         await self._command_open("")
+
+    async def _command_subagents(self, _: str) -> None:
+        self.push_screen(SubagentsScreen(self._service.subagents, self._live.session.thread_id, _screen_for))
 
     async def _command_notifications(self, _: str) -> None:
         screen = NotificationsScreen(self._service.notifications, self._service.jobs, self._service.doctor)

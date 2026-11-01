@@ -1,10 +1,11 @@
-"""Reacts to daemon events while the app is open: memory and skills reload the panel, finished jobs and
-background work, MCP servers or skills that keep failing, MCP servers whose sign-in stopped working, a plugin's
-sign-in its check refused and new plugin updates show a notification, changes refresh an open screen that shows them
-(its `RELOADS_ON`, in the background), a rename updates the title, a new language is used for what shows after it,
-pinning or unpinning a skill and titling the conversation update the subtitle, runs started elsewhere in this
-conversation appear in the chat live, a message written in the inbox while an update installed goes where the daemon
-sent it on after it, and a conversation left with /clear while its reply was running reports when it finishes."""
+"""Reacts to daemon events while the app is open: memory and skills reload the panel, finished jobs and background work,
+MCP servers or skills that keep failing, MCP servers whose sign-in stopped working, a plugin's sign-in its check
+refused and new plugin updates show a notification, changes refresh an open screen that shows them (its `RELOADS_ON`,
+in the background), a rename updates the title, a new language is used for what shows after it, pinning or unpinning
+a skill, titling the conversation and background subagents update the subtitle (one waiting for the user says so),
+runs started elsewhere in this conversation appear in the chat live, a message written in the inbox while an update
+installed goes where the daemon sent it on after it, and a conversation left with /clear while its reply was running
+reports when it finishes."""
 
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
@@ -22,6 +23,7 @@ class LiveApp(Protocol):
     def go_where_sent(self, sent: dict[str, Any]) -> Awaitable[None]: ...
     def show_job(self, job: dict[str, Any]) -> None: ...
     def show_background_ended(self, ended: dict[str, Any]) -> None: ...
+    def show_subagent(self, subagent: dict[str, Any]) -> Awaitable[None]: ...
     def show_failing(self, failing: dict[str, Any]) -> None: ...
     def show_signed_out(self, signed_out: dict[str, Any]) -> None: ...
     def show_sign_in_refused(self, refused: dict[str, Any]) -> Awaitable[None]: ...
@@ -96,6 +98,11 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         """The agent a conversation is handed to said how full its context is now, while it works."""
         await app.refresh_context()
 
+    async def subagents(data: dict[str, Any]) -> None:
+        """A background subagent started, changed status or ended: the line under the title, /subagents."""
+        await app.show_subagent(data)
+        app.reload_screen("subagents")
+
     async def mcp(_: dict[str, Any]) -> None:
         """Plugins changed: an agent's command may have come or gone."""
         await app.refresh_agents()
@@ -126,6 +133,9 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         "agent_finished": screen("agent_finished"),
         "job": app.show_job,
         "background_ended": app.show_background_ended,
+        "subagents": subagents,
+        # One took a step: /subagents shows what it's doing.
+        "subagent_step": screen("subagent_step"),
         "failing": app.show_failing,
         "signed_out": app.show_signed_out,
         "sign_in_refused": app.show_sign_in_refused,

@@ -106,7 +106,8 @@ class Settings(BaseSettings):
     # MODEL_PRICES='{"gpt-5": {"input": 1.25, "output": 10, "cache_read": 0.125}}'. Overrides them too.
     model_prices: dict[str, dict[str, float]] = {}
     toolsets: list[str] = ["terminal", "memory", "web", "skills", "email", "jobs", "messages", "identity", "subagents"]
-    # Model calls a subagent (core/subagent.py) gets. The last one's tool calls don't run, so it
+    # Model calls a subagent (core/subagent.py) its conversation waits for gets; one sent off in the background has
+    # no limit. The last one's tool calls don't run, so it
     # answers with what it has.
     subagent_max_steps: int = 25
     skills_dir: str = "~/.lo9i/skills"

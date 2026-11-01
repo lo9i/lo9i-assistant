@@ -36,6 +36,7 @@ from assistant_terminal.tui.screens.sessions import SessionsScreen
 from assistant_terminal.tui.screens.skill_imports import SkillImportsScreen
 from assistant_terminal.tui.screens.skills import SkillsScreen
 from assistant_terminal.tui.screens.startup import StartupScreen
+from assistant_terminal.tui.screens.subagents import SubagentsScreen
 from assistant_terminal.tui.screens.usage import UsageScreen
 from assistant_terminal.tui.screens.web_search import WebSearchScreen
 
@@ -73,6 +74,7 @@ __all__ = [
     "SkillImportsScreen",
     "SkillsScreen",
     "StartupScreen",
+    "SubagentsScreen",
     "UsageScreen",
     "WebSearchScreen",
 ]

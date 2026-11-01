@@ -32,6 +32,18 @@ class Subagents(ABC):
         UnknownSubagentError."""
 
 
+class BackgroundSubagentStarts(ABC):
+    """Sends a subagent off to work in the background (core/background_subagents/). A base class for the same reason
+    as Subagents."""
+
+    @abstractmethod
+    async def start(
+        self, task: str, user_id: str, thread_id: str, channel: str, plugins: Collection[str], agent: str = ""
+    ) -> str:
+        """Its id. It works for the conversation `thread_id`, which its answer goes back to when it ends. `plugins`
+        and `agent` as in Subagents.run; an unknown agent raises UnknownSubagentError."""
+
+
 class McpStarts(ABC):
     """Waits for an MCP server that's starting (core/mcp/hub.py). A base class for the same reason as
     Subagents."""
@@ -63,6 +75,8 @@ class Context:
     similar: SimilarConversations | None = field(default=None, compare=False)
     # For delegate. None inside a subagent, so subagents don't start their own.
     subagents: Subagents | None = field(default=None, compare=False)
+    # For delegate in the background. None inside a subagent, and where nobody would hear its end (scheduled runs).
+    background: BackgroundSubagentStarts | None = field(default=None, compare=False)
     # For offer_plugin, which waits for the server the user just installed.
     mcp: McpStarts | None = field(default=None, compare=False)
     # An unattended run whose approvals are sent to the user (core/approvals.py) instead of denied.
@@ -95,9 +109,15 @@ def require_recall(context: Context) -> MemoryRecall:
     return context.recall
 
 
+# In a run's configurable, the conversation it works for when its thread isn't the conversation's: a background
+# subagent's (core/background_subagents/).
+CONVERSATION_ID = "conversation_id"
+
+
 def thread_of(config: RunnableConfig) -> str:
     """The id of the conversation a run is in."""
-    return (config.get("configurable") or {}).get("thread_id", "")
+    configurable = config.get("configurable") or {}
+    return configurable.get(CONVERSATION_ID) or configurable.get("thread_id", "")
 
 
 def require_store(store: BaseStore | None) -> BaseStore:

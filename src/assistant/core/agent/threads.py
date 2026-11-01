@@ -86,7 +86,7 @@ class ThreadsMixin(ArchiveMixin, ThreadFilesMixin):
     async def delete_conversation(self, user_id: str, thread_id: str) -> None:
         """Delete the conversation: its messages, its place in the list and in search, and the files
         and voice recordings sent in it, but those another conversation refers to too. What memory learned from it
-        stays. A channel on it (Telegram) starts
+        stays; its background subagents stop and go. A channel on it (Telegram) starts
         a new one with its next message. Raises ConversationError for an unknown one,
         ConversationBusyError while a reply is running."""
         listed = await conversations.load(self._storage.store, user_id, thread_id)
@@ -94,6 +94,7 @@ class ThreadsMixin(ArchiveMixin, ThreadFilesMixin):
             raise ConversationError(said("No conversation {thread_id}.", thread_id=thread_id))
         if thread_id in self._active_runs:
             raise ConversationBusyError(said("A reply is still running in this conversation. Stop it first."))
+        await self.background_subagents.forget(thread_id)
         async with self._thread_lock(thread_id):
             messages = await self._thread_messages(thread_id)
             await self._storage.checkpointer.adelete_thread(thread_id)

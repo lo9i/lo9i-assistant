@@ -12,6 +12,8 @@ from assistant.client.daemon_client.conversations import OpenedConversation
 from assistant.core.agent import (
     Agent,
     AgentFolders,
+    BackgroundStep,
+    BackgroundSubagent,
     ChannelNotConnectedError,
     ChannelStatus,
     Conversation,
@@ -80,6 +82,8 @@ from assistant.core.agent import (
     SkillError,
     SpeechSettingsError,
     SpeechStatus,
+    SubagentDetails,
+    SubagentError,
     TokenReport,
     UploadedFile,
     UsageReport,
@@ -923,6 +927,33 @@ class FakeTasks:
         return list(self.tasks)
 
 
+class FakeSubagents:
+    def __init__(self):
+        self.items: list[BackgroundSubagent] = []
+        self.steps: dict[str, list[BackgroundStep]] = {}
+        self.answers: list[tuple[str, str, dict]] = []
+        self.stopped: list[str] = []
+
+    async def list(self, thread_id=""):
+        return [s for s in self.items if not thread_id or s.thread_id == thread_id]
+
+    async def get(self, subagent_id):
+        found = next((s for s in self.items if s.id == subagent_id), None)
+        if found is None:
+            raise SubagentError("gone")
+        return SubagentDetails(found, self.steps.get(subagent_id, []))
+
+    async def answer(self, subagent_id, interrupt_id, decision):
+        self.answers.append((subagent_id, interrupt_id, decision))
+        return True
+
+    async def stop(self, subagent_id):
+        self.stopped.append(subagent_id)
+
+    async def remove(self, subagent_id):
+        self.items = [s for s in self.items if s.id != subagent_id]
+
+
 class FakeConversations:
     def __init__(self):
         self.items = [Conversation("owner:abc", "plan my trip", _NEXT, _NEXT)]
@@ -1354,6 +1385,7 @@ class FakeClient:
         self.clients = FakeClients()
         self.conversations = FakeConversations()
         self.tasks = FakeTasks()
+        self.subagents = FakeSubagents()
         self.devices = FakeDevices()
         self.logs = FakeLogs()
         self.files = FakeFiles()

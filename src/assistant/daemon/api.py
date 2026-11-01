@@ -21,6 +21,7 @@ from assistant.core.agent import (
     Alert,
     AlertArea,
     AssistantService,
+    BackgroundSubagent,
     ChannelNotConnectedError,
     ChannelStatus,
     Conversation,
@@ -98,6 +99,9 @@ from assistant.core.agent import (
     SpeechSettingsError,
     SpeechStatus,
     SpokenReplies,
+    SubagentDetails,
+    SubagentError,
+    SubagentNotFoundError,
     SynthesisError,
     TokenReport,
     UnknownPromptError,
@@ -164,6 +168,16 @@ from assistant.protocol import (
 class Approvals(BaseModel):
     channel: str
     decisions: dict[str, dict[str, Any]]
+
+
+class SubagentAnswer(BaseModel):
+    interrupt_id: str
+    decision: dict[str, Any]
+
+
+class SubagentAnswered(BaseModel):
+    # False when it no longer waits for that: answered already, or it ended.
+    answered: bool
 
 
 class BraveKey(BaseModel):
@@ -646,6 +660,7 @@ def create_app(
     _add_notification_routes(app, service)
     _add_home_routes(app, service)
     _add_task_routes(app, service)
+    _add_subagent_routes(app, service)
     _add_repository_routes(app, service)
     _add_identity_routes(app, service)
     _add_prompt_routes(app, service)
@@ -1868,6 +1883,48 @@ def _add_task_routes(app: FastAPI, service: AssistantService) -> None:
     async def running_tasks() -> list[RunningTask]:
         """Coding agents' tasks still running, the newest first, with their latest steps."""
         return await service.running_tasks()
+
+
+def _add_subagent_routes(app: FastAPI, service: AssistantService) -> None:
+    """Subagents sent off in the background (core/background_subagents/). A `subagents` event says one changed
+    (`id`, `thread_id`, `status`), a `subagent_step` event brings each of its steps as it starts and finishes (`id`,
+    `thread_id`, `step`)."""
+
+    @app.get("/subagents")
+    async def subagent_list(thread_id: str = "") -> list[BackgroundSubagent]:
+        """The conversation's, or every one without `thread_id`, the newest first."""
+        return await service.background_subagents_of(thread_id)
+
+    @app.get("/subagents/{subagent_id}")
+    async def subagent(subagent_id: str) -> SubagentDetails:
+        """It and its steps, oldest first. 404: no such subagent."""
+        return await _subagent_call(service.subagent_details(subagent_id))
+
+    @app.post("/subagents/{subagent_id}/answers")
+    async def answer_subagent(subagent_id: str, body: SubagentAnswer) -> SubagentAnswered:
+        """Answers what it waits for, as a run's approval is answered."""
+        answered = await _subagent_call(service.answer_subagent(subagent_id, body.interrupt_id, body.decision))
+        return SubagentAnswered(answered=answered)
+
+    @app.post("/subagents/{subagent_id}/stop")
+    async def stop_subagent(subagent_id: str) -> BackgroundSubagent:
+        """Returns once it stopped. 409: it isn't working."""
+        return await _subagent_call(service.stop_subagent(subagent_id))
+
+    @app.delete("/subagents/{subagent_id}")
+    async def remove_subagent(subagent_id: str) -> Ok:
+        """One that ended. 409: it's still working."""
+        await _subagent_call(service.remove_subagent(subagent_id))
+        return Ok()
+
+
+async def _subagent_call[T](call: Awaitable[T]) -> T:
+    try:
+        return await call
+    except SubagentNotFoundError as e:
+        raise HTTPException(404, message(e)) from e
+    except SubagentError as e:
+        raise HTTPException(409, message(e)) from e
 
 
 def _add_job_routes(app: FastAPI, service: AssistantService) -> None:

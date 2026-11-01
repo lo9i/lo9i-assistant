@@ -4,11 +4,15 @@ A channel adapter registers a forwarder while it can deliver (Telegram), like th
 run that needs approval pauses; the scheduler asks here, the forwarder shows the request with
 Approve and Reject buttons, and the adapter passes the answer back with `answer`. With no
 forwarder registered, unattended runs deny instead (`tools/approval.py`).
+
+A subagent working in the background (core/background_subagents/) waits here too, with no time limit: for the apps,
+which answer through `answer`, and for the chat channel its conversation is on, which gets the request.
 """
 
 import asyncio
 import contextlib
 import logging
+from collections.abc import Collection
 from typing import Any, Protocol
 
 from assistant.core.outbox import DeliveryError
@@ -62,6 +66,19 @@ class RemoteApprovals:
         finally:
             self._waiting.pop(interrupt_id, None)
 
+    async def wait(
+        self, interrupt_id: str, title: str, request: dict[str, Any], channels: Collection[str] = ()
+    ) -> Decision:
+        """The user's decision, however long it takes: forwarded to those of `channels` that can show it, and
+        answered there or by `answer`."""
+        waiting: asyncio.Future[Decision] = asyncio.get_running_loop().create_future()
+        self._waiting[interrupt_id] = waiting
+        try:
+            await self._forward(interrupt_id, title, request, channels)
+            return await waiting
+        finally:
+            self._waiting.pop(interrupt_id, None)
+
     def answer(self, interrupt_id: str, decision: Decision) -> bool:
         """Pass on a decision. False when that request isn't waiting any more."""
         waiting = self._waiting.get(interrupt_id)
@@ -70,9 +87,14 @@ class RemoteApprovals:
         waiting.set_result(decision)
         return True
 
-    async def _forward(self, interrupt_id: str, title: str, request: dict[str, Any]) -> bool:
+    async def _forward(
+        self, interrupt_id: str, title: str, request: dict[str, Any], channels: Collection[str] | None = None
+    ) -> bool:
+        """To every channel that can forward, or only those of `channels`."""
         delivered = False
         for channel, forwarder in list(self._forwarders.items()):
+            if channels is not None and channel not in channels:
+                continue
             try:
                 await forwarder.forward(interrupt_id, title, request)
                 delivered = True

@@ -9,7 +9,10 @@ A subagent's graph runs inside the delegate call. It shares the run's checkpoint
 namespace, so an approval inside it pauses the main run and the answer resumes it where it stopped. Its
 tool calls stream live inside the delegate call, and are kept with the call's result for history
 (core/subagent_steps.py). A call refused as too large is made again with its tool results and files left out
-(core/conversation/oversized.py); refused again, the task ends with an answer saying so."""
+(core/conversation/oversized.py); refused again, the task ends with an answer saying so.
+
+A subagent sent off in the background (core/background_subagents/) runs on a graph of its own kind: its
+checkpoints go under a thread of its own, so an approval pauses only it, and it has no step limit."""
 
 import asyncio
 from collections.abc import Awaitable, Callable, Collection, Sequence
@@ -49,6 +52,8 @@ from assistant.core.usage.meter import TokenMeter
 # The result of a tool call made after the subagent's limits ran out.
 LIMIT_REACHED = "[not run: this task's step limit was reached. Answer now with what you found.]"
 NO_ANSWER = "The subagent stopped at its step limit without an answer."
+# One in the background has no step limit.
+NO_BACKGROUND_ANSWER = "The subagent ended without an answer."
 TOO_LARGE = (
     "The subagent stopped: the model refused its request as too large, even with its tool results and files left "
     "out. Split the task into smaller ones, or do it yourself."
@@ -79,11 +84,12 @@ class SubagentRunner(Subagents):
         self._storage = storage
         self._choice = choice
         self._mcp = mcp
-        self._graph = _compiled(
-            _llm(storage, choice, choice.worker_model), subagent_tools(settings.toolsets), choice, mcp
-        )
-        # Each named subagent's graph, with what it was built from.
-        self._named: dict[str, tuple[NamedSubagent, SubagentGraph]] = {}
+        llm, tools = _llm(storage, choice, choice.worker_model), subagent_tools(settings.toolsets)
+        self._graph = _compiled(llm, tools, choice, mcp)
+        self._background = _compiled(llm, tools, choice, mcp, saved=storage)
+        # Each named subagent's graphs (the one run inside a delegate call, the one in the background), with what
+        # they were built from.
+        self._named: dict[tuple[str, bool], tuple[NamedSubagent, SubagentGraph]] = {}
 
     async def named(self) -> list[NamedSubagent]:
         return await named.installed(self._storage.store)
@@ -92,20 +98,39 @@ class SubagentRunner(Subagents):
         self, task: str, context: Context, call_id: str, plugins: Collection[str], agent: str = ""
     ) -> SubagentAnswer:
         """Raises UnknownSubagentError for an `agent` no installed plugin brings."""
-        graph = self._graph
-        if agent:
-            subagent = await self._find(agent)
-            graph, plugins = self._graph_of(subagent), [*plugins, *subagent.plugins]
-        mcp_tools = self._read_only(plugins)
-        start = SubagentState(
-            messages=[HumanMessage(task)], mcp_tools=mcp_tools, steps=0, call_id=call_id, trimmed_before=0
-        )
+        graph, start = await self._prepared(task, call_id, plugins, agent, background=False)
         state = await graph.ainvoke(
             start,
             {"recursion_limit": 2 * settings.subagent_max_steps + 5},
-            context=replace(context, subagents=None),
+            context=replace(context, subagents=None, background=None),
         )
         return SubagentAnswer(answer(state["messages"]), steps(state["messages"]))
+
+    async def background_start(self, task: str, plugins: Collection[str], agent: str = "") -> SubagentState:
+        """Where a subagent sent off in the background starts, its tools' events naming no call. Raises
+        UnknownSubagentError for an `agent` no installed plugin brings."""
+        return (await self._prepared(task, "", plugins, agent, background=True))[1]
+
+    async def background_graph(self, agent: str = "") -> SubagentGraph:
+        """The graph a subagent sent off in the background runs on: it saves its checkpoints, and has no step limit.
+        Raises UnknownSubagentError when `agent`'s plugin went away."""
+        return self._background if not agent else self._graph_of(await self._find(agent), background=True)
+
+    async def _prepared(
+        self, task: str, call_id: str, plugins: Collection[str], agent: str, background: bool
+    ) -> tuple[SubagentGraph, SubagentState]:
+        graph = self._background if background else self._graph
+        if agent:
+            subagent = await self._find(agent)
+            graph, plugins = self._graph_of(subagent, background), [*plugins, *subagent.plugins]
+        start = SubagentState(
+            messages=[HumanMessage(task)],
+            mcp_tools=self._read_only(plugins),
+            steps=0,
+            call_id=call_id,
+            trimmed_before=0,
+        )
+        return graph, start
 
     async def _find(self, agent: str) -> NamedSubagent:
         found = {s.name: s for s in await self.named()}
@@ -116,16 +141,17 @@ class SubagentRunner(Subagents):
             )
         return found[agent]
 
-    def _graph_of(self, subagent: NamedSubagent) -> SubagentGraph:
-        kept = self._named.get(subagent.name)
+    def _graph_of(self, subagent: NamedSubagent, background: bool) -> SubagentGraph:
+        kept = self._named.get((subagent.name, background))
         if kept is not None and kept[0] == subagent:
             return kept[1]
         choice = self._choice
         model = {"main": choice.model, "worker": choice.worker_model}.get(subagent.model, subagent.model)
         tools = [t for t in subagent_tools(settings.toolsets) if not subagent.tools or t.name in subagent.tools]
         prompt = f"{prompts.load('subagent')}\n\n{subagent.prompt}"
-        graph = _compiled(_llm(self._storage, choice, model), tools, choice, self._mcp, prompt)
-        self._named[subagent.name] = (subagent, graph)
+        saved = self._storage if background else None
+        graph = _compiled(_llm(self._storage, choice, model), tools, choice, self._mcp, prompt, saved)
+        self._named[(subagent.name, background)] = (subagent, graph)
         return graph
 
     def _read_only(self, plugins: Collection[str]) -> list[dict[str, Any]]:
@@ -134,9 +160,10 @@ class SubagentRunner(Subagents):
         return [d for d in definitions if self._mcp.plugin_of(d["function"]["name"]) in plugins]
 
 
-def answer(messages: Sequence[Any]) -> str:
+def answer(messages: Sequence[Any], missing: str = NO_ANSWER) -> str:
+    """Its last reply; `missing` when it ended without one."""
     last = messages[-1] if messages else None
-    return (last.text if isinstance(last, AIMessage) else "") or NO_ANSWER
+    return (last.text if isinstance(last, AIMessage) else "") or missing
 
 
 def steps(messages: Sequence[Any]) -> list[SubagentStep]:
@@ -155,17 +182,30 @@ def _llm(storage: Storage, choice: ModelChoice, model: str) -> BaseChatModel:
 
 
 def _compiled(
-    llm: BaseChatModel, tools: Sequence[BaseTool], choice: ModelChoice, mcp: McpTools, prompt: str = ""
+    llm: BaseChatModel,
+    tools: Sequence[BaseTool],
+    choice: ModelChoice,
+    mcp: McpTools,
+    prompt: str = "",
+    saved: Storage | None = None,
 ) -> SubagentGraph:
-    """A subagent's graph; `prompt` is its system prompt, the subagent prompt when empty."""
+    """A subagent's graph; `prompt` is its system prompt, the subagent prompt when empty. Run inside a delegate call
+    it shares the run's checkpointer and store, and stops at the step limit; `saved`, for one sent off in the
+    background, has its own and no limit."""
     builder = StateGraph(SubagentState, context_schema=Context)
     images = choice.provider in IMAGES_IN_TOOL_RESULTS
     builder.add_node(_AGENT, _agent_node(llm, tools, images, prompt))
-    builder.add_node(_TOOLS, ToolNode(tools, awrap_tool_call=_reported(_limited(_offered_mcp(mcp_calls(mcp))))))
+    calls = _offered_mcp(mcp_calls(mcp))
+    route = each_tool_call(_TOOLS)
+    if saved is None:
+        calls, route = _limited(calls), _until_limit(route)
+    builder.add_node(_TOOLS, ToolNode(tools, awrap_tool_call=_reported(calls)))
     builder.add_edge(START, _AGENT)
-    builder.add_conditional_edges(_AGENT, _until_limit(each_tool_call(_TOOLS)), [_TOOLS, END])
+    builder.add_conditional_edges(_AGENT, route, [_TOOLS, END])
     builder.add_edge(_TOOLS, _AGENT)
-    return builder.compile()
+    if saved is None:
+        return builder.compile()
+    return builder.compile(checkpointer=saved.checkpointer, store=saved.store)
 
 
 def _agent_node(llm: BaseChatModel, tools: Sequence[BaseTool], images_in_tool_results: bool, prompt: str) -> Node:

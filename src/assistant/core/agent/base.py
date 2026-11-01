@@ -4,6 +4,7 @@ from assistant.core.agent_tasks.ends import TaskEnds
 from assistant.core.agent_tasks.reports import TaskReports
 from assistant.core.agent_tasks.service import AgentTasks
 from assistant.core.approvals import RemoteApprovals
+from assistant.core.background_subagents.runner import BackgroundSubagents
 from assistant.core.bus import EventBus
 from assistant.core.channels.hub import ChannelHub
 from assistant.core.channels.processes import ChannelProcesses
@@ -83,6 +84,8 @@ class ServiceBase:
     _graph: Graph
     # Runs delegated tasks; rebuilt with the graph when the model changes.
     _subagents: SubagentRunner
+    # Subagents sent off in the background (core/background_subagents/). The daemon runs it as a supervised task.
+    background_subagents: BackgroundSubagents
     # Picks where a message goes (core/conversation/dispatch.py) outside the graph; rebuilt with it.
     _classify: Classifier
     # Builds Home's sections in the background (core/home/), with the builder of the model in use. Requests start

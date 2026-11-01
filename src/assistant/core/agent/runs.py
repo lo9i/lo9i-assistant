@@ -13,7 +13,7 @@ from assistant.core.agent.locking import LockingMixin
 from assistant.core.agent.search import SearchMixin
 from assistant.core.agent.session import Session
 from assistant.core.agent.thread_files import ThreadFilesMixin
-from assistant.core.context import Context
+from assistant.core.context import UNATTENDED_CHANNEL, Context
 from assistant.core.conversation import failed, held
 from assistant.core.conversation.held import HeldRun
 from assistant.core.conversation.oversized import ConversationTooLargeError
@@ -232,19 +232,7 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
     async def _stream(
         self, session: Session, input: Any, config: RunnableConfig, stop_before: Sequence[str] = ()
     ) -> AsyncIterator[Event]:
-        context = Context(
-            user_id=session.user_id,
-            channel=session.channel,
-            bus=self.bus,
-            outbox=self.outbox,
-            secrets=self.secrets,
-            forwards_approvals=self.approvals.available,
-            search=self._storage.search,
-            recall=self._recall,
-            similar=self._similar,
-            subagents=self._subagents,
-            mcp=self.mcp,
-        )
+        context = self._run_context(session.user_id, session.channel)
         async for namespace, mode, data in self._graph.astream(
             input,
             config,
@@ -256,6 +244,25 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
             # astream types its items as `dict | Any`; with subgraphs=True they're (namespace, mode, data).
             for event in to_events(cast(tuple[str, ...], namespace), mode, data):
                 yield event
+
+    def _run_context(self, user_id: str, channel: str) -> Context:
+        """What a run's nodes and tools get. Subagents aren't sent off in the background from a scheduled run: it ends
+        with its reply, and nobody would hear theirs."""
+        unattended = channel == UNATTENDED_CHANNEL
+        return Context(
+            user_id=user_id,
+            channel=channel,
+            bus=self.bus,
+            outbox=self.outbox,
+            secrets=self.secrets,
+            forwards_approvals=self.approvals.available,
+            search=self._storage.search,
+            recall=self._recall,
+            similar=self._similar,
+            subagents=self._subagents,
+            background=None if unattended else self.background_subagents,
+            mcp=self.mcp,
+        )
 
     async def _pending_approvals(self, config: RunnableConfig) -> list[ApprovalRequired]:
         state = await self._graph.aget_state(config)
