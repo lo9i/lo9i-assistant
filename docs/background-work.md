@@ -39,6 +39,14 @@ Tasks run in the background from scheduled jobs.
 A conversation handed to an agent (`/claude`) runs its messages as tasks too; their replies come back in
 the conversation, so their ends aren't told.
 
+## Background subagents
+
+`delegate(task, background=True)` sends a subagent off to work while the conversation goes on
+(`core/background_subagents/`). Its end is told like a task's, with its whole answer in the assistant's note, and
+the assistant always follows it up at once (the follow-up above), so the answer is used while the user may be away.
+One the user stopped is only noted for the assistant. What it waits for the user's answer to pauses only it: the
+apps answer it on its card, and the chat channel its conversation is on gets it with buttons.
+
 ## MCP servers
 
 lo9i advertises the client extension `lo9i/background` in its capabilities. Every call the assistant makes

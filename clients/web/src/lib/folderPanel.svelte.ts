@@ -52,3 +52,6 @@ function initial(key: string, shownAtFirst: boolean): boolean {
 
 export const folderPanel = new FolderPanel("lo9i.folderPanel", true);
 export const homePanel = new FolderPanel("lo9i.homePanel", false);
+// The side panel of the conversation's background subagents (ui/chat/subagents/), kept the same way: shown at first,
+// as it's there only once the conversation sent one off.
+export const subagentsPanel = new FolderPanel("lo9i.subagentsPanel", true);

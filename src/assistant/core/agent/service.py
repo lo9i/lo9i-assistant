@@ -37,6 +37,7 @@ from assistant.core.agent.sign_ins import SignInsMixin
 from assistant.core.agent.skill_imports import SkillImportsMixin
 from assistant.core.agent.skills import SkillsMixin
 from assistant.core.agent.speech import SpeechMixin
+from assistant.core.agent.subagents import SubagentsMixin
 from assistant.core.agent.tasks import TasksMixin
 from assistant.core.agent.threads import ThreadsMixin
 from assistant.core.agent.usage import UsageMixin
@@ -47,6 +48,7 @@ from assistant.core.agent_tasks.service import AgentTasks
 from assistant.core.agent_tasks.tools import AgentTools
 from assistant.core.approvals import RemoteApprovals
 from assistant.core.background import BackgroundEnds
+from assistant.core.background_subagents.runner import BackgroundSubagents
 from assistant.core.bus import EventBus
 from assistant.core.channels.hub import ChannelHub
 from assistant.core.channels.processes import ChannelProcesses
@@ -110,6 +112,7 @@ class AssistantService(
     FollowUpsMixin,
     HeldRunsMixin,
     TasksMixin,
+    SubagentsMixin,
     RepositoriesMixin,
     ModelMixin,
     DevicesMixin,
@@ -200,6 +203,9 @@ class AssistantService(
         )
         self.update_checker = UpdateChecker(storage.store, bus, secrets)
         self._sign_ins = SignIns()
+        self.background_subagents = BackgroundSubagents(
+            storage, bus, self._health, self.approvals, background, lambda: self._subagents, self._run_context
+        )
         self._use_model(model)
         self._background = set()
         self._untitled = set()

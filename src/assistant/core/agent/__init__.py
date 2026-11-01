@@ -2,8 +2,8 @@
 
 The service is a facade (`service.py`) composed of mixins, one per concern:
 threads, channel threads, files, the handed folder, memory, channels, email, mcp, sign-ins, alerts, doctor,
-notifications, home, follow-ups, held runs, tasks, repositories, model, identity, prompts, speech, log level,
-language, web search, skills, skill imports, pinned skills, jobs, usage, messaging, runs and locking.
+notifications, home, follow-ups, held runs, tasks, background subagents, repositories, model, identity, prompts,
+speech, log level, language, web search, skills, skill imports, pinned skills, jobs, usage, messaging, runs and locking.
 """
 
 from assistant.core.agent.alerts import Alert, AlertArea
@@ -74,6 +74,13 @@ from assistant.core.agent.skill_imports import Importable, Importables, ImportOu
 from assistant.core.agent.skills import FoundSkill, Skill, SkillError, SkillSummary
 from assistant.core.agent.snapshot import MemorySnapshot
 from assistant.core.agent.speech import Decoding, SpeechSettingsError, SpeechStatus, SpokenReplies, SynthesisError
+from assistant.core.agent.subagents import (
+    BackgroundStep,
+    BackgroundSubagent,
+    SubagentDetails,
+    SubagentError,
+    SubagentNotFoundError,
+)
 from assistant.core.agent.tasks import RunningTask
 from assistant.core.agent.threads import ConversationBusyError, ConversationError
 from assistant.core.agent.usage import ConversationStats, TokenReport, UsageReport
@@ -85,6 +92,8 @@ __all__ = [
     "Alert",
     "AlertArea",
     "AssistantService",
+    "BackgroundStep",
+    "BackgroundSubagent",
     "Cause",
     "ChannelNotConnectedError",
     "ChannelStatus",
@@ -187,6 +196,9 @@ __all__ = [
     "SpeechStatus",
     "SpokenReplies",
     "StartingContext",
+    "SubagentDetails",
+    "SubagentError",
+    "SubagentNotFoundError",
     "SynthesisError",
     "TokenReport",
     "UnknownPromptError",

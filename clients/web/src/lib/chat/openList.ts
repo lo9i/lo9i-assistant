@@ -1,5 +1,5 @@
 // What the sidebar lists under Chat: the conversations open in this tab, then every other one with
-// something working in it (a reply, a coding task), whoever started it. Never the inbox: it isn't a
+// something working in it (a reply, a coding task, a background subagent), whoever started it. Never the inbox: it isn't a
 // conversation of its own, and Chat's page opens it.
 import type { Conversation } from "../api/types";
 import { t } from "../i18n.svelte";

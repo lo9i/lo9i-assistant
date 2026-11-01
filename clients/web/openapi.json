@@ -4912,6 +4912,219 @@
         }
       }
     },
+    "/subagents": {
+      "get": {
+        "summary": "Subagent List",
+        "description": "The conversation's, or every one without `thread_id`, the newest first.",
+        "operationId": "subagent_list_subagents_get",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BackgroundSubagent"
+                  },
+                  "title": "Response Subagent List Subagents Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/subagents/{subagent_id}": {
+      "get": {
+        "summary": "Subagent",
+        "description": "It and its steps, oldest first. 404: no such subagent.",
+        "operationId": "subagent_subagents__subagent_id__get",
+        "parameters": [
+          {
+            "name": "subagent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Subagent Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubagentDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove Subagent",
+        "description": "One that ended. 409: it's still working.",
+        "operationId": "remove_subagent_subagents__subagent_id__delete",
+        "parameters": [
+          {
+            "name": "subagent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Subagent Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/subagents/{subagent_id}/answers": {
+      "post": {
+        "summary": "Answer Subagent",
+        "description": "Answers what it waits for, as a run's approval is answered.",
+        "operationId": "answer_subagent_subagents__subagent_id__answers_post",
+        "parameters": [
+          {
+            "name": "subagent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Subagent Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubagentAnswer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubagentAnswered"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/subagents/{subagent_id}/stop": {
+      "post": {
+        "summary": "Stop Subagent",
+        "description": "Returns once it stopped. 409: it isn't working.",
+        "operationId": "stop_subagent_subagents__subagent_id__stop_post",
+        "parameters": [
+          {
+            "name": "subagent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Subagent Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackgroundSubagent"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/repositories/updates": {
       "get": {
         "summary": "Plugin Updates",
@@ -6652,6 +6865,136 @@
           "name"
         ],
         "title": "AssistantName"
+      },
+      "BackgroundStep": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "call_id": {
+            "type": "string",
+            "title": "Call Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "args": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Args"
+          },
+          "output": {
+            "type": "string",
+            "title": "Output",
+            "default": ""
+          },
+          "done": {
+            "type": "boolean",
+            "title": "Done",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "index",
+          "call_id",
+          "name",
+          "args"
+        ],
+        "title": "BackgroundStep",
+        "description": "One of its tool calls: the tool, what it was called with, and once it finished, what it answered."
+      },
+      "BackgroundSubagent": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "thread_id": {
+            "type": "string",
+            "title": "Thread Id"
+          },
+          "channel": {
+            "type": "string",
+            "title": "Channel"
+          },
+          "task": {
+            "type": "string",
+            "title": "Task"
+          },
+          "agent": {
+            "type": "string",
+            "title": "Agent"
+          },
+          "plugins": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Plugins"
+          },
+          "started_at": {
+            "type": "string",
+            "title": "Started At"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "waiting",
+              "done",
+              "failed",
+              "stopped"
+            ],
+            "title": "Status",
+            "default": "running"
+          },
+          "ended_at": {
+            "type": "string",
+            "title": "Ended At",
+            "default": ""
+          },
+          "step": {
+            "type": "string",
+            "title": "Step",
+            "default": ""
+          },
+          "steps": {
+            "type": "integer",
+            "title": "Steps",
+            "default": 0
+          },
+          "result": {
+            "type": "string",
+            "title": "Result",
+            "default": ""
+          },
+          "waiting": {
+            "items": {
+              "$ref": "#/components/schemas/ApprovalRequired"
+            },
+            "type": "array",
+            "title": "Waiting"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "thread_id",
+          "channel",
+          "task",
+          "agent",
+          "plugins",
+          "started_at"
+        ],
+        "title": "BackgroundSubagent"
       },
       "Body_channel_message_channels__name__messages_post": {
         "properties": {
@@ -11479,6 +11822,58 @@
         ],
         "title": "StartupStatus",
         "description": "Whether the daemon starts at boot, and whether this daemon was started that way."
+      },
+      "SubagentAnswer": {
+        "properties": {
+          "interrupt_id": {
+            "type": "string",
+            "title": "Interrupt Id"
+          },
+          "decision": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Decision"
+          }
+        },
+        "type": "object",
+        "required": [
+          "interrupt_id",
+          "decision"
+        ],
+        "title": "SubagentAnswer"
+      },
+      "SubagentAnswered": {
+        "properties": {
+          "answered": {
+            "type": "boolean",
+            "title": "Answered"
+          }
+        },
+        "type": "object",
+        "required": [
+          "answered"
+        ],
+        "title": "SubagentAnswered"
+      },
+      "SubagentDetails": {
+        "properties": {
+          "subagent": {
+            "$ref": "#/components/schemas/BackgroundSubagent"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/BackgroundStep"
+            },
+            "type": "array",
+            "title": "Steps"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subagent",
+          "steps"
+        ],
+        "title": "SubagentDetails"
       },
       "ThreadCreated": {
         "properties": {

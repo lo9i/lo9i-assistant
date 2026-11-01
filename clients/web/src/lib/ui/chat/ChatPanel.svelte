@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Bot from "@lucide/svelte/icons/bot";
   import Clock from "@lucide/svelte/icons/clock";
   import FolderTreeIcon from "@lucide/svelte/icons/folder-tree";
   import X from "@lucide/svelte/icons/x";
@@ -14,7 +15,8 @@
   import { finalReply, toolRunning } from "$lib/chat/transcript";
   import type { ChatController } from "$lib/chat/controller";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
-  import { folderPanel, homePanel } from "$lib/folderPanel.svelte";
+  import { folderPanel, homePanel, subagentsPanel } from "$lib/folderPanel.svelte";
+  import { counts } from "$lib/chat/subagents";
   import { t } from "$lib/i18n.svelte";
   import { Player, speaksReply } from "$lib/speech";
   import type { Agent } from "$lib/api/types";
@@ -29,6 +31,7 @@
   import HelpModal from "./HelpModal.svelte";
   import PinnedSkills from "./PinnedSkills.svelte";
   import StatusBar from "./StatusBar.svelte";
+  import SubagentsPanel from "./subagents/SubagentsPanel.svelte";
   import WorkingStatus from "./WorkingStatus.svelte";
   import Thread from "./Thread.svelte";
 
@@ -77,6 +80,10 @@
   const running = resource((c) => c.tasks.running(), ["agent_task_progress", "agent_task_reports", "background_ended"]);
   const working = $derived(workingIn(running.data ?? [], threadId, handoff.data?.name ?? null));
   const extra = $derived(agentCommands(agents.data ?? []));
+  // The subagents it sent off to work in the background: a side panel of their cards, once there's one.
+  const subagents = resource((c) => c.subagents.list(threadId), ["subagents"]);
+  const subagentCounts = $derived(counts(subagents.data ?? []));
+  const subagentsOpen = $derived(!!subagents.data?.length && subagentsPanel.isOpen(threadId));
   const player = new Player();
   let help = $state(false);
   // The agent /claude alone picks a folder for.
@@ -97,6 +104,7 @@
     untrack(() => {
       folderPanel.keep(shown);
       homePanel.keep(shown);
+      subagentsPanel.keep(shown);
     });
   });
 
@@ -366,12 +374,33 @@
           ><FolderTreeIcon size={13} /><span class="folder-label">{t("handedFolder.title")}</span></button
         >
       {/if}
+      {#if subagents.data?.length}
+        <button
+          type="button"
+          class="btn btn--ghost btn--sm folder-button subagents-button"
+          class:waiting={subagentCounts.waiting > 0}
+          aria-pressed={subagentsOpen}
+          aria-label={t("subagents.title")}
+          title={subagentCounts.waiting
+            ? t("subagents.waitingHint", { count: subagentCounts.waiting })
+            : subagentsOpen
+              ? t("subagents.hide")
+              : t("subagents.show")}
+          onclick={() => subagentsPanel.toggle(threadId)}
+          ><Bot size={13} /><span class="folder-label">{t("subagents.title")}</span>{#if subagentCounts.working}<span class="count"
+              >{subagentCounts.working}</span
+            >{/if}</button
+        >
+      {/if}
       <span class="fuel-end"><ContextFuel {threadId} /></span>
     </StatusBar>
     {#if dragging > 0}<div class="drop-hint" aria-hidden="true">{t("chat.dropHint")}</div>{/if}
   </section>
   {#if panelOpen}
     <HandedFolder {threadId} handoff={handoff.data ?? null} onclose={() => panel.toggle(threadId)} />
+  {/if}
+  {#if subagentsOpen}
+    <SubagentsPanel subagents={subagents.data ?? []} onclose={() => subagentsPanel.toggle(threadId)} />
   {/if}
 </div>
 
@@ -402,7 +431,7 @@
       margin-right: 13px;
     }
   }
-  /* The chat, and beside it the folder of the agent it's handed to. */
+  /* The chat, and beside it the folder of the agent it's handed to, and its background subagents. */
   .row {
     position: relative;
     display: flex;
@@ -473,7 +502,23 @@
     margin-left: auto;
   }
   /* A control keeps its size; the status bar's other items give way. */
-  .home-folder {
+  .home-folder,
+  .subagents-button {
     flex: none;
+  }
+  /* How many work; in the colour of waiting while one waits for the user's answer. */
+  .count {
+    min-width: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+  .subagents-button.waiting {
+    color: var(--color-warn);
+  }
+  .subagents-button.waiting .count {
+    background: color-mix(in srgb, var(--color-warn) 25%, transparent);
   }
 </style>

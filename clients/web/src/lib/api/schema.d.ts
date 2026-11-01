@@ -2089,6 +2089,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/subagents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Subagent List
+         * @description The conversation's, or every one without `thread_id`, the newest first.
+         */
+        get: operations["subagent_list_subagents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subagents/{subagent_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Subagent
+         * @description It and its steps, oldest first. 404: no such subagent.
+         */
+        get: operations["subagent_subagents__subagent_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove Subagent
+         * @description One that ended. 409: it's still working.
+         */
+        delete: operations["remove_subagent_subagents__subagent_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subagents/{subagent_id}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer Subagent
+         * @description Answers what it waits for, as a run's approval is answered.
+         */
+        post: operations["answer_subagent_subagents__subagent_id__answers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subagents/{subagent_id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop Subagent
+         * @description Returns once it stopped. 409: it isn't working.
+         */
+        post: operations["stop_subagent_subagents__subagent_id__stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/repositories/updates": {
         parameters: {
             query?: never;
@@ -2929,6 +3013,79 @@ export interface components {
         AssistantName: {
             /** Name */
             name: string;
+        };
+        /**
+         * BackgroundStep
+         * @description One of its tool calls: the tool, what it was called with, and once it finished, what it answered.
+         */
+        BackgroundStep: {
+            /** Index */
+            index: number;
+            /** Call Id */
+            call_id: string;
+            /** Name */
+            name: string;
+            /** Args */
+            args: {
+                [key: string]: unknown;
+            };
+            /**
+             * Output
+             * @default
+             */
+            output: string;
+            /**
+             * Done
+             * @default false
+             */
+            done: boolean;
+        };
+        /** BackgroundSubagent */
+        BackgroundSubagent: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id: string;
+            /** Thread Id */
+            thread_id: string;
+            /** Channel */
+            channel: string;
+            /** Task */
+            task: string;
+            /** Agent */
+            agent: string;
+            /** Plugins */
+            plugins: string[];
+            /** Started At */
+            started_at: string;
+            /**
+             * Status
+             * @default running
+             * @enum {string}
+             */
+            status: "running" | "waiting" | "done" | "failed" | "stopped";
+            /**
+             * Ended At
+             * @default
+             */
+            ended_at: string;
+            /**
+             * Step
+             * @default
+             */
+            step: string;
+            /**
+             * Steps
+             * @default 0
+             */
+            steps: number;
+            /**
+             * Result
+             * @default
+             */
+            result: string;
+            /** Waiting */
+            waiting?: components["schemas"]["ApprovalRequired"][];
         };
         /** Body_channel_message_channels__name__messages_post */
         Body_channel_message_channels__name__messages_post: {
@@ -5438,6 +5595,26 @@ export interface components {
             starts_without_login: boolean;
             /** Outdated */
             outdated?: string[];
+        };
+        /** SubagentAnswer */
+        SubagentAnswer: {
+            /** Interrupt Id */
+            interrupt_id: string;
+            /** Decision */
+            decision: {
+                [key: string]: unknown;
+            };
+        };
+        /** SubagentAnswered */
+        SubagentAnswered: {
+            /** Answered */
+            answered: boolean;
+        };
+        /** SubagentDetails */
+        SubagentDetails: {
+            subagent: components["schemas"]["BackgroundSubagent"];
+            /** Steps */
+            steps: components["schemas"]["BackgroundStep"][];
         };
         /** ThreadCreated */
         ThreadCreated: {
@@ -9441,6 +9618,165 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunningTask"][];
+                };
+            };
+        };
+    };
+    subagent_list_subagents_get: {
+        parameters: {
+            query?: {
+                thread_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackgroundSubagent"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    subagent_subagents__subagent_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subagent_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubagentDetails"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_subagent_subagents__subagent_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subagent_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answer_subagent_subagents__subagent_id__answers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subagent_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubagentAnswer"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubagentAnswered"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_subagent_subagents__subagent_id__stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subagent_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackgroundSubagent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

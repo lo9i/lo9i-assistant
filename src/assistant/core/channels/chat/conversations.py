@@ -303,16 +303,15 @@ class ChannelChats:
         await self._answer(chat, pressed.thread_id, send, choice)
 
     async def _answer_job(self, chat: "_Chat", pressed: "_Pressed", interrupt_id: str, answer: dict) -> None:
-        """A scheduled job's request: the job's run continues on its own, nothing to show here."""
+        """A request forwarded from a scheduled job's run or a background subagent (core/approvals.py): it continues on
+        its own, nothing to show here."""
         await chat.port.edit(pressed.message, pressed.text)
         if not self._jobs.answer(interrupt_id, answer):
-            await chat.port.send(
-                chat.t("This request isn't waiting any more: the job's run already went on without it.")
-            )
+            await chat.port.send(chat.t("This request isn't waiting any more: it already went on without it."))
         elif answer["approved"]:
-            await chat.port.send(chat.t("Approved. The job goes on."))
+            await chat.port.send(chat.t("Approved. It goes on."))
         else:
-            await chat.port.send(chat.t("Rejected. The job goes on without it."))
+            await chat.port.send(chat.t("Rejected. It goes on without it."))
 
     async def _thread_for(self, chat: "_Chat", reply_to: str) -> str:
         """Where a message goes: the conversation of the message it replies to; a new one after /clear; the

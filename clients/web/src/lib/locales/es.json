@@ -47,7 +47,8 @@
     "tryAgain": "Reintentar",
     "unreachable": "No se puede contactar al asistente en este momento. Puede que se esté reiniciando; vuelve a intentarlo en un momento.",
     "openItsConversation": "Abrir su conversación",
-    "jobFinished": "Tarea programada {name}: {status}"
+    "jobFinished": "Tarea programada {name}: {status}",
+    "subagentWaiting": "Un subagente espera tu respuesta."
   },
   "assistant": {
     "saved": "Guardado: {name}. Se aplica desde el próximo mensaje.",
@@ -1442,5 +1443,41 @@
     "decline": "Rechazar",
     "opened": "Ya lo abrí",
     "send": "Enviar"
+  },
+  "subagents": {
+    "title": "Subagentes",
+    "show": "Mostrar los subagentes que trabajan en segundo plano",
+    "hide": "Ocultar los subagentes",
+    "waitingHint": {
+      "one": "Un subagente espera tu respuesta",
+      "other": "{count} subagentes esperan tu respuesta"
+    },
+    "waitingForYou": "Espera tu respuesta",
+    "thinking": "Pensando…",
+    "answered": "Respondió: su respuesta volvió a la conversación.",
+    "none": "Todavía ninguno.",
+    "status": {
+      "running": "Trabajando",
+      "waiting": "Te espera",
+      "done": "Terminado",
+      "failed": "Falló",
+      "stopped": "Detenido"
+    },
+    "one": "Subagente",
+    "back": "Volver a los subagentes",
+    "named": "El subagente {agent}",
+    "answer": "Responder",
+    "stop": "Detener",
+    "remove": "Quitar",
+    "asks": "Pide: {what}",
+    "answerTitle": "Su respuesta",
+    "failedTitle": "Qué salió mal",
+    "steps": {
+      "one": "{count} paso",
+      "other": "{count} pasos"
+    },
+    "notWaiting": "Ya no espera eso.",
+    "stopTitle": "¿Detener este subagente?",
+    "stopText": "Se detiene donde está, sin respuesta. El asistente sabrá que lo detuviste."
   }
 }

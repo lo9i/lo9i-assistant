@@ -26,6 +26,7 @@ from assistant.client.daemon_client.runs import RunsMixin
 from assistant.client.daemon_client.sessions import SessionsMixin
 from assistant.client.daemon_client.skills import SkillsApi
 from assistant.client.daemon_client.speech import SpeechApi
+from assistant.client.daemon_client.subagents import SubagentsApi
 from assistant.client.daemon_client.system import SystemApi
 from assistant.client.daemon_client.tasks import TasksApi
 from assistant.client.daemon_client.transport import Transport
@@ -61,6 +62,7 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         self.prompts = PromptsApi(transport)
         self.home = HomeApi(transport)
         self.tasks = TasksApi(transport)
+        self.subagents = SubagentsApi(transport)
         self.repositories = RepositoriesApi(transport)
         self.system = SystemApi(transport)
         self.clients = ClientsApi(transport)

@@ -256,11 +256,11 @@ async def test_a_coding_task_moves_to_a_new_conversation_handed_to_its_agent(
 
 async def test_a_job_request_is_answered_from_its_buttons(chats, channel, jobs):
     await chats.press("slack", "D1", "7", "The job is waiting", "ja:i1")
-    assert channel.sent() == ["This request isn't waiting any more: the job's run already went on without it."]
+    assert channel.sent() == ["This request isn't waiting any more: it already went on without it."]
     jobs._waiting["i2"] = asyncio.get_running_loop().create_future()
     await chats.press("slack", "D1", "7", "The job is waiting", "jr:i2")
     assert jobs._waiting["i2"].result() == {"approved": False, "reason": "rejected in Slack"}
-    assert channel.sent()[-1] == "Rejected. The job goes on without it."
+    assert channel.sent()[-1] == "Rejected. It goes on without it."
 
 
 async def test_a_reply_is_spoken_only_where_voice_notes_can_be_sent(service, script, jobs, monkeypatch):

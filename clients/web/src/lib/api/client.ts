@@ -11,6 +11,7 @@ import type {
   Alert,
   ApprovalRequest,
   ApprovalRequired,
+  BackgroundSubagent,
   DoctorPage,
   Notification,
   HomePage,
@@ -73,6 +74,7 @@ import type {
   RunInProgress,
   RunningTask,
   ServerValues,
+  SubagentDetails,
   Session,
   ShownCall,
   ShownConversation,
@@ -781,6 +783,44 @@ export class TasksGroup {
   }
 }
 
+/** Subagents sent off in the background (core/background_subagents/): `subagents` and `subagent_step` events say when
+ * they change. */
+export class SubagentsGroup {
+  constructor(private readonly transport: Transport) {}
+
+  /** The conversation's, or every one without `threadId`, the newest first. */
+  list(threadId = ""): Promise<BackgroundSubagent[]> {
+    const query = threadId ? `?${new URLSearchParams({ thread_id: threadId })}` : "";
+    return this.transport.request("GET", `/subagents${query}`);
+  }
+
+  /** It and its steps. Throws ApiError 404 for one that went. */
+  get(id: string): Promise<SubagentDetails> {
+    return this.transport.request("GET", `/subagents/${encodeURIComponent(id)}`);
+  }
+
+  /** Answers what it waits for; false when it doesn't wait for that any more. */
+  async answer(id: string, interruptId: string, decision: Decision): Promise<boolean> {
+    const body = { interrupt_id: interruptId, decision };
+    const answered = await this.transport.request<Schemas["SubagentAnswered"]>(
+      "POST",
+      `/subagents/${encodeURIComponent(id)}/answers`,
+      body,
+    );
+    return answered.answered;
+  }
+
+  /** Resolves once it stopped. Throws ApiError 409 when it isn't working. */
+  stop(id: string): Promise<BackgroundSubagent> {
+    return this.transport.request("POST", `/subagents/${encodeURIComponent(id)}/stop`);
+  }
+
+  /** One that ended. Throws ApiError 409 while it's still working. */
+  async remove(id: string): Promise<void> {
+    await this.transport.request("DELETE", `/subagents/${encodeURIComponent(id)}`);
+  }
+}
+
 export class RunsGroup {
   constructor(private readonly transport: Transport) {}
 
@@ -1085,6 +1125,7 @@ export class DaemonClient {
   readonly notifications: NotificationsGroup;
   readonly home: HomeGroup;
   readonly tasks: TasksGroup;
+  readonly subagents: SubagentsGroup;
   readonly runs: RunsGroup;
   readonly repositories: RepositoriesGroup;
   readonly skills: SkillsGroup;
@@ -1122,6 +1163,7 @@ export class DaemonClient {
     this.notifications = new NotificationsGroup(transport);
     this.home = new HomeGroup(transport);
     this.tasks = new TasksGroup(transport);
+    this.subagents = new SubagentsGroup(transport);
     this.runs = new RunsGroup(transport);
     this.repositories = new RepositoriesGroup(transport);
     this.skills = new SkillsGroup(transport);

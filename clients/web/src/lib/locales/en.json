@@ -47,7 +47,8 @@
     "tryAgain": "Try again",
     "unreachable": "Can't reach the assistant right now. It may be restarting; try again in a moment.",
     "openItsConversation": "Open its conversation",
-    "jobFinished": "Job {name}: {status}"
+    "jobFinished": "Job {name}: {status}",
+    "subagentWaiting": "A subagent is waiting for your answer."
   },
   "assistant": {
     "saved": "Saved: {name}. It applies from the next message.",
@@ -1442,5 +1443,41 @@
     "decline": "Decline",
     "opened": "I opened it",
     "send": "Send"
+  },
+  "subagents": {
+    "title": "Subagents",
+    "show": "Show the subagents working in the background",
+    "hide": "Hide the subagents",
+    "waitingHint": {
+      "one": "A subagent is waiting for your answer",
+      "other": "{count} subagents are waiting for your answer"
+    },
+    "waitingForYou": "Waiting for your answer",
+    "thinking": "Thinking…",
+    "answered": "Answered: its answer went back to the conversation.",
+    "none": "None yet.",
+    "status": {
+      "running": "Working",
+      "waiting": "Waiting for you",
+      "done": "Done",
+      "failed": "Failed",
+      "stopped": "Stopped"
+    },
+    "one": "Subagent",
+    "back": "Back to the subagents",
+    "named": "The subagent {agent}",
+    "answer": "Answer",
+    "stop": "Stop",
+    "remove": "Remove",
+    "asks": "Asks: {what}",
+    "answerTitle": "Its answer",
+    "failedTitle": "What went wrong",
+    "steps": {
+      "one": "{count} step",
+      "other": "{count} steps"
+    },
+    "notWaiting": "It doesn't wait for that any more.",
+    "stopTitle": "Stop this subagent?",
+    "stopText": "It stops where it is, without an answer. The assistant hears that you stopped it."
   }
 }

@@ -2,7 +2,7 @@
   import type { Snippet } from "svelte";
   import { announce } from "$lib/agentDone";
   import { agentDone, chime, systemNotice } from "$lib/agentDone.svelte";
-  import type { AgentFinished, BackgroundEnded, Failing, JobFinished, SignedOut } from "$lib/api/types";
+  import type { AgentFinished, BackgroundEnded, Failing, JobFinished, SignedOut, SubagentChanged } from "$lib/api/types";
   import { saveOpen, saveThread } from "$lib/chat/tabThread";
   import { external, provideDaemon, resource, type Daemon } from "$lib/daemon.svelte";
   import { failingNotice, signedOutNotice } from "$lib/health";
@@ -59,6 +59,15 @@
           ? undefined
           : { label: t("app.openItsConversation"), run: () => void openConversation(chats, notices, ended.thread_id) };
       notices.notify(ended.text, ended.ok ? "info" : "warning", open);
+    }),
+  );
+  // A background subagent waits for the user's answer: its conversation's side panel has it.
+  $effect(() =>
+    hub.on(["subagents"], (data) => {
+      const changed = data as SubagentChanged;
+      if (changed.status !== "waiting") return;
+      const open = { label: t("app.openItsConversation"), run: () => void openConversation(chats, notices, changed.thread_id) };
+      notices.notify(t("app.subagentWaiting"), "warning", open);
     }),
   );
   // Once the agent a conversation is handed to is done with the user's job: a sound and a pop-up, as Settings say.

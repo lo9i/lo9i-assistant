@@ -28,6 +28,7 @@ from assistant.client.daemon_client.prompts import PromptsApi
 from assistant.client.daemon_client.repositories import RepositoriesApi, offered_plugin
 from assistant.client.daemon_client.skills import SkillsApi
 from assistant.client.daemon_client.speech import SpeechApi
+from assistant.client.daemon_client.subagents import SubagentsApi
 from assistant.client.daemon_client.system import SystemApi
 from assistant.client.daemon_client.usage import UsageApi
 from assistant.client.daemon_client.web_search import WebSearchApi
@@ -57,6 +58,7 @@ __all__ = [
     "ShownFolder",
     "SkillsApi",
     "SpeechApi",
+    "SubagentsApi",
     "SystemApi",
     "UsageApi",
     "WebSearchApi",
