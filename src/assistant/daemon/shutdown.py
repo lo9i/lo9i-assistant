@@ -159,6 +159,10 @@ class Shutdown:
         self._needed_by, self._relaunch = needed_by, True
         return self.request(Ending.RESTART, needed_by.lower())
 
+    def asked(self) -> bool:
+        """Whether a restart or stop was asked for and not taken back: waiting for runs, or going ahead."""
+        return self._waiting is not None or self._stop.is_set()
+
     def stop_refusal(self) -> str | None:
         """Why the daemon can't be stopped from the apps now, or None when it can."""
         return self._manager.stop_refusal()
@@ -228,6 +232,9 @@ class Shutdown:
             self._waiting, self._going_ahead = None, False
             if self._needed_by:
                 self._restart_instead()
+            else:
+                # The daemon keeps running, as when the stop is taken back: every app hears it isn't coming.
+                self._announce(Pending(self._wanted, 0), True)
             return
         self.ending = Ending.STOP
 

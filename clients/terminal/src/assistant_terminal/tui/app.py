@@ -433,10 +433,14 @@ class AssistantApp(App):
 
     async def _show_started(self, run: dict[str, Any]) -> None:
         """What the run answers: what the user wrote, from where when it wasn't this app, a coding task the
-        assistant wrote for its agent, or a follow-up's notice. Not what this app showed already when it was kept
-        while an update installed."""
-        if run.get("held") and any(note.held_id == run["held"] for note in self._chat.query(HeldNote)):
+        assistant wrote for its agent, or a follow-up's notice, after the quick exchange the inbox carried with a
+        message it sent on. What this app showed already when it was kept while an update installed moves to the end
+        instead."""
+        if held := next((n for n in self._chat.query(HeldNote) if run.get("held") and n.held_id == run["held"]), None):
+            await self._start_held(held)
             return
+        if run.get("carried"):
+            await self._chat.mount(CarriedNote(run["carried"]))
         if run["text"] and run.get("brief"):
             await self._chat.mount(BriefNote(run["text"], run["brief"]))
         elif run["text"]:
@@ -444,6 +448,16 @@ class AssistantApp(App):
             await self._chat.mount(UserMessage(text, [], RESENT if run.get("resent") else ""))
         if run.get("notice"):
             await self._chat.mount(FollowUpNote(run["notice"]))
+
+    async def _start_held(self, note: HeldNote) -> None:
+        """What the user sent while an update installed, moved to the end as its run starts, without its note: it
+        shows after the replies of the runs kept before it, whichever order they were shown in."""
+        shown = list(self._chat.children)
+        at = shown.index(note)
+        start = max((i for i, widget in enumerate(shown[:at]) if isinstance(widget, UserMessage)), default=at)
+        for widget in shown[start:at]:
+            self._chat.move_child(widget, after=self._chat.children[-1])
+        await note.remove()
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         """F3 only when recording can work; Esc only while a reply runs; Up, Down and Ctrl+V only
@@ -611,7 +625,10 @@ class AssistantApp(App):
             await self._chat.mount(UserMessage(dispatched.text, []))
         session = replace(self._live.session)
         await self._turn(
-            session, lambda: self._service.send_dispatched(session, dispatched.id, dispatched.text, dispatched.brief)
+            session,
+            lambda: self._service.send_dispatched(
+                session, dispatched.id, dispatched.text, dispatched.brief, dispatched.carried
+            ),
         )
 
     async def _open(self, thread_id: str) -> None:

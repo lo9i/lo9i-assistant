@@ -11,7 +11,7 @@ from assistant.core.agent import Session
 from assistant.core.approvals import RemoteApprovals
 from assistant.core.channels.chat.conversations import GREETING, ChannelChats
 from assistant.core.channels.chat.port import ChatLimits, Delivered
-from assistant.core.conversation.dispatch import Pick
+from assistant.core.conversation.dispatch import FOLLOW_UP, QUICK, Pick
 from assistant.core.events import Event, TextDelta
 from assistant.core.outbox import DeliveryError
 from assistant.core.skills import store
@@ -30,16 +30,25 @@ class _Runs:
         self.texts: list[str] = []
         self.briefs: list[str] = []
         self.held: list[str] = []
+        self.carried: list[str] = []
         self._say = say
         # A conversation whose runs say nothing: the inbox, which sends a message on without a reply.
         self._quiet_in = quiet_in
 
     async def follow(
-        self, channel, thread_id, events: AsyncIterator[Event], text: str, brief: str = "", held: str = ""
+        self,
+        channel,
+        thread_id,
+        events: AsyncIterator[Event],
+        text: str,
+        brief: str = "",
+        held: str = "",
+        carried: str = "",
     ):
         self.texts.append(text)
         self.briefs.append(brief)
         self.held.append(held)
+        self.carried.append(carried)
         if self._say and thread_id != self._quiet_in:
             yield TextDelta(self._say)
         async for event in events:
@@ -161,6 +170,21 @@ async def test_the_inbox_sends_a_message_on_and_the_reply_is_tagged_with_where(
     shown = [m.text for m in await service.conversation_messages(taxes)]
     assert shown == ["my taxes", "Started.", "what about my taxes?", "On the taxes."]
     assert await service.channel_thread("owner", "telegram") == taxes
+
+
+async def test_a_message_the_inbox_moves_on_is_announced_with_the_exchange_it_carried(
+    channel, jobs, script, service, inbox_answers
+):
+    inbox_answers.picks.extend([Pick(QUICK, 0.9, ""), Pick(FOLLOW_UP, 0.9, "")])
+    runs = _Runs()
+    chats = ChannelChats(service, runs, channel, jobs)
+    script.reply("150 km.")
+    await chats.message("telegram", "42", "how far is Rome from Florence?", [], voice=False)
+    script.call("move_to_conversation").reply("Moved.").reply("Here's the plan.")
+    await chats.message("telegram", "42", "ok, plan the whole trip", [], voice=False)
+    # Every app following the run there shows the exchange before the message (daemon/runs.py).
+    assert runs.texts[-1] == "ok, plan the whole trip"
+    assert runs.carried[-1].startswith("**You:** how far is Rome from Florence?")
 
 
 async def test_a_new_conversation_is_tagged_with_its_first_words(dispatch, channel, jobs, script, service):

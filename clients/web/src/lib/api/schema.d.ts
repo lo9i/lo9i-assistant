@@ -362,7 +362,8 @@ export interface paths {
         /**
          * Route First Message
          * @description Where the first message of a conversation opened for no topic goes: on in the conversation it's about,
-         *     or in the new one. Nothing is sent; the client sends it there.
+         *     or in the new one, by its text and what its voice recordings say. Nothing is sent; the client sends it
+         *     there.
          */
         post: operations["route_first_message_routes_post"];
         delete?: never;
@@ -560,7 +561,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Conversation Messages */
+        /**
+         * Conversation Messages
+         * @description Its messages, then what the user sent there while an update installed, each marked (`held`), as
+         *     `/live` lists them.
+         */
         get: operations["conversation_messages_conversations__thread_id__messages_get"];
         put?: never;
         post?: never;
@@ -3124,6 +3129,16 @@ export interface components {
             /** Files */
             files?: string[] | null;
         };
+        /** Body_route_first_message_routes_post */
+        Body_route_first_message_routes_post: {
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /** Files */
+            files?: string[] | null;
+        };
         /** Body_send_threads__thread_id__messages_post */
         Body_send_threads__thread_id__messages_post: {
             /** Channel */
@@ -3446,6 +3461,11 @@ export interface components {
              * @default
              */
             brief: string;
+            /**
+             * Carried
+             * @default
+             */
+            carried: string;
         };
         /**
          * DoctorPage
@@ -5104,11 +5124,6 @@ export interface components {
             /** Thread Id */
             thread_id: string;
         };
-        /** Routing */
-        Routing: {
-            /** Text */
-            text: string;
-        };
         /** RunInProgress */
         RunInProgress: {
             /** Run Id */
@@ -5147,6 +5162,11 @@ export interface components {
              * @default false
              */
             resent: boolean;
+            /**
+             * Carried
+             * @default
+             */
+            carried: string;
         };
         /** RunRecord */
         RunRecord: {
@@ -6302,9 +6322,9 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": components["schemas"]["Routing"];
+                "multipart/form-data": components["schemas"]["Body_route_first_message_routes_post"];
             };
         };
         responses: {

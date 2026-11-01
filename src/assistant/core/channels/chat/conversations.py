@@ -84,11 +84,18 @@ class Conversations(Protocol):
 
 class Runs(Protocol):
     def follow(
-        self, channel: str, thread_id: str, events: AsyncIterator[Event], text: str, brief: str = "", held: str = ""
+        self,
+        channel: str,
+        thread_id: str,
+        events: AsyncIterator[Event],
+        text: str,
+        brief: str = "",
+        held: str = "",
+        carried: str = "",
     ) -> AsyncIterator[Event]:
         """Runs `events` where every client sees it (the daemon's runs) and yields them as they come; `brief`:
-        the agent `text` is a coding task for, and `held`, the id of a run kept while an update installed, as the
-        run is announced."""
+        the agent `text` is a coding task for, `held`, the id of a run kept while an update installed, and
+        `carried`, the quick exchange the inbox carried with a message it sent on, as the run is announced."""
         ...
 
 
@@ -340,17 +347,19 @@ class ChannelChats:
         named: str = "",
         brief: str = "",
         held: str = "",
+        carried: str = "",
     ) -> ChatTurn:
         """Shows the run in `thread_id`; when the inbox sent its message on, the run there instead, whose turn
         is returned. The channel has then last written in the conversation the turn ran in. `named` tags a
         conversation that isn't saved yet; `text` does otherwise. `brief`: the agent `text` is a coding task for,
         written by the assistant (core/conversation/briefs.py); `held`: the id of the run kept while an update
-        installed that this one runs."""
+        installed that this one runs; `carried`: the quick exchange the inbox carried with the message it sent on
+        here, which the apps show before it."""
         owner = settings.owner_id
         tag = await self._conversations.chat_tag(owner, thread_id, named or text)
         port = _Recording(chat.port, self._conversations, chat, thread_id)
         turn = ChatTurn(port, self._channels.limits(chat.channel), chat.t, thread_id, tag)
-        await turn.render(self._run(chat, thread_id, start, text, brief, held))
+        await turn.render(self._run(chat, thread_id, start, text, brief, held, carried))
         if turn.dispatched:
             return await self._go_on(chat, turn.dispatched)
         await self._conversations.channel_wrote(owner, chat.channel, thread_id)
@@ -362,7 +371,9 @@ class ChannelChats:
         thread_id = dispatched.thread_id or await self._conversations.new_thread(settings.owner_id)
         send = lambda s: self._conversations.send_dispatched(s, dispatched.id)  # noqa: E731
         named = dispatched.title if dispatched.title != NEW_TITLE else dispatched.text
-        return await self._show(chat, thread_id, send, dispatched.text, named, dispatched.brief)
+        return await self._show(
+            chat, thread_id, send, dispatched.text, named, dispatched.brief, carried=dispatched.carried
+        )
 
     async def _run(
         self,
@@ -372,9 +383,10 @@ class ChannelChats:
         text: str,
         brief: str = "",
         held: str = "",
+        carried: str = "",
     ) -> AsyncIterator[Event]:
         session = Session(settings.owner_id, chat.channel, thread_id, chat.origin())
-        async for event in self._runs.follow(chat.channel, thread_id, start(session), text, brief, held):
+        async for event in self._runs.follow(chat.channel, thread_id, start(session), text, brief, held, carried):
             yield event
 
     async def _waiting(

@@ -82,7 +82,8 @@ class _AppRuns:
         client_id = held.client_of(run.origin)
         session = Session(settings.owner_id, run.channel, thread_id, run.origin)
         events = self._service.send_dispatched(session, dispatched.id)
-        sent = self._hub.start(thread_id, events, run.channel, client_id, dispatched.text, brief=dispatched.brief)
+        text, brief, carried = dispatched.text, dispatched.brief, dispatched.carried
+        sent = self._hub.start(thread_id, events, run.channel, client_id, text, brief=brief, carried=carried)
         if client_id:
             self._tell(client_id, run, sent, replace(dispatched, thread_id=thread_id))
         await self._until_finished(sent)

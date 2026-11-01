@@ -527,17 +527,14 @@ class Dispatching(BaseModel):
     # moved out of the inbox, the agent it's for (the Dispatched event's `brief`).
     text: str = ""
     brief: str = ""
+    # The quick exchange the inbox carried with it (the Dispatched event's `carried`), announced too.
+    carried: str = ""
 
 
 class Moving(BaseModel):
     channel: str
     # The message to move, from the inbox's record of it; empty for the last one the inbox sent on.
     id: str = ""
-
-
-class Routing(BaseModel):
-    # The first message of a new conversation, as the user wrote it.
-    text: str
 
 
 class Routed(BaseModel):
@@ -555,14 +552,15 @@ class RunInProgress(BaseModel):
     channel: str
     # As announced in its `run` event: the client that started it, what the user wrote, the notice of a follow-up,
     # for a coding task the assistant wrote instead, the agent it's for, and for a run kept while an update
-    # installed, the id its Held event gave, and whether `text` is messages a handed-off agent hadn't taken, sent
-    # again.
+    # installed, the id its Held event gave, whether `text` is messages a handed-off agent hadn't taken, sent
+    # again, and the quick exchange the inbox carried with a message it sent on.
     client_id: str = ""
     text: str = ""
     notice: str = ""
     brief: str = ""
     held: str = ""
     resent: bool = False
+    carried: str = ""
 
     @classmethod
     def of(cls, run: Run) -> "RunInProgress":
@@ -576,6 +574,7 @@ class RunInProgress(BaseModel):
             brief=run.brief,
             held=run.held,
             resent=run.resent,
+            carried=run.carried,
         )
 
 
@@ -845,7 +844,7 @@ def _add_run_routes(
         client_id = _client_id(request)
         clients.on_thread(client_id, thread_id)
         events = service.send_dispatched(session, dispatch_id)
-        run = hub.start(thread_id, events, body.channel, client_id, body.text, brief=body.brief)
+        run = hub.start(thread_id, events, body.channel, client_id, body.text, brief=body.brief, carried=body.carried)
         return RunStarted(run_id=run.id)
 
     @app.post("/threads/{thread_id}/moves")
@@ -858,10 +857,14 @@ def _add_run_routes(
         return RunStarted(run_id=run.id)
 
     @app.post("/routes")
-    async def route_first_message(body: Routing) -> Routed:
+    async def route_first_message(
+        text: Annotated[str, Form()] = "", files: Annotated[list[UploadFile] | None, File()] = None
+    ) -> Routed:
         """Where the first message of a conversation opened for no topic goes: on in the conversation it's about,
-        or in the new one. Nothing is sent; the client sends it there."""
-        return Routed(thread_id=await service.route_first_message(settings.owner_id, body.text))
+        or in the new one, by its text and what its voice recordings say. Nothing is sent; the client sends it
+        there."""
+        attachments = [await _attachment(f) for f in files or []]
+        return Routed(thread_id=await service.route_first_message(settings.owner_id, text, attachments))
 
     @app.post("/threads/{thread_id}/approvals")
     async def approve(thread_id: str, body: Approvals, request: Request) -> RunStarted:
@@ -925,7 +928,10 @@ def _add_conversation_routes(app: FastAPI, service: AssistantService, clients: C
 
     @app.get("/conversations/{thread_id}/messages")
     async def conversation_messages(thread_id: str) -> list[ShownMessage]:
-        return await service.conversation_messages(thread_id)
+        """Its messages, then what the user sent there while an update installed, each marked (`held`), as
+        `/live` lists them."""
+        messages = await service.conversation_messages(thread_id)
+        return [*messages, *await service.held_messages(settings.owner_id, thread_id)]
 
     @app.get("/conversations/{thread_id}/tool-calls/{call_id}")
     async def conversation_tool_call(thread_id: str, call_id: str) -> ShownCall:

@@ -51,9 +51,11 @@ class FakeDaemon implements ChatClient {
       return { messages, runs: this.inProgress.get(threadId) ?? [] };
     },
     approvals: async (threadId: string) => this.waiting.get(threadId) ?? [],
-    route: async (text: string) => {
-      this.routed.push(text);
-      return this.routes.get(text) ?? "";
+    route: async (text: string, voice: File[] = []) => {
+      const heard = voice.map((f) => `[${f.name}]`);
+      const routed = [text, ...heard].filter(Boolean).join(" ");
+      this.routed.push(routed);
+      return this.routes.get(routed) ?? "";
     },
   };
 
@@ -125,6 +127,7 @@ const inProgress = (run_id: string, text: string, client_id = "me"): RunInProgre
   brief: "",
   held: "",
   resent: false,
+  carried: "",
 });
 
 const texts = (chat: ChatController) => chat.getSnapshot().transcript.items.map((i) => ("text" in i ? i.text : i.kind));
@@ -183,6 +186,17 @@ describe("ChatController", () => {
     await picked.send("flights?", []);
     expect(daemon.routed).toEqual(["plan my week"]);
     expect(daemon.sent).toEqual(["t2: plan my week", "t2: ", "t2: flights?"]);
+  });
+
+  it("routes a first voice message by its recording, sending only the recording to be heard", async () => {
+    const daemon = new FakeDaemon();
+    daemon.routes.set("[voice.webm]", "t1");
+    const chat = await ChatController.openInChat(daemon, "web", null, board);
+    const voice = new File(["audio"], "voice.webm", { type: "audio/webm" });
+    await chat.send("", [voice, new File(["hi"], "notes.txt")]);
+    expect(daemon.routed).toEqual(["[voice.webm]"]);
+    expect(chat.getSnapshot().threadId).toBe("t1");
+    expect(daemon.sent).toEqual(["t1: "]);
   });
 
   it("sends the first message here when where it goes can't be found out", async () => {
@@ -404,7 +418,7 @@ describe("ChatController", () => {
     await chat.send("still there?", []);
     expect(texts(chat)).toEqual(["earlier", "still there?", "held"]);
     await chat.mirror({ run_id: "r", thread_id: "t1", channel: "web", client_id: "", text: "still there?", held: "h1" });
-    expect(texts(chat)).toEqual(["earlier", "still there?", "held", "back"]);
+    expect(texts(chat)).toEqual(["earlier", "still there?", "back"]);
   });
 
   it("shows what waits for an update to install in history, marked, and once when its run comes", async () => {
@@ -426,7 +440,34 @@ describe("ChatController", () => {
     const chat = await ChatController.open(daemon, "web", "t1", board);
     expect(texts(chat)).toEqual(["earlier", "still there?", "held"]);
     await chat.mirror({ run_id: "r", thread_id: "t1", channel: "telegram", client_id: "", text: "still there?", held: "h1" });
-    expect(texts(chat)).toEqual(["earlier", "still there?", "held", "back"]);
+    expect(texts(chat)).toEqual(["earlier", "still there?", "back"]);
+  });
+
+  it("shows each kept message after the replies of the ones kept before it, as their runs come", async () => {
+    const daemon = new FakeDaemon();
+    const kept = (text: string, held: string): ShownMessage => ({
+      role: "user",
+      text,
+      detail: "",
+      output: "",
+      dispatch_id: "",
+      call_id: "",
+      partial: false,
+      agent: "",
+      held,
+      untaken: false,
+      resent: false,
+    });
+    daemon.held.set("t1", [kept("first?", "h1"), kept("second?", "h2")]);
+    daemon.runs = [
+      [{ type: "TextDelta", text: "First." }, { type: "Done" }],
+      [{ type: "TextDelta", text: "Second." }, { type: "Done" }],
+    ];
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    expect(texts(chat)).toEqual(["earlier", "first?", "held", "second?", "held"]);
+    await chat.mirror({ run_id: "r1", thread_id: "t1", channel: "web", client_id: "", text: "first?", held: "h1" });
+    await chat.mirror({ run_id: "r2", thread_id: "t1", channel: "web", client_id: "", text: "second?", held: "h2" });
+    expect(texts(chat)).toEqual(["earlier", "first?", "First.", "second?", "Second."]);
   });
 
   const sentOn = (client_id = "me", from_thread_id = "inbox"): SentOn => ({
@@ -660,6 +701,15 @@ describe("ChatController with a run in progress on showing a conversation", () =
     await until(() => texts(chat).length === 5);
     expect(texts(chat)).toEqual(["earlier", "first?", "First.", "second?", "Second."]);
     expect(chat.getSnapshot().transcript.items[1]).toMatchObject({ channel: "telegram" });
+  });
+
+  it("shows the quick exchange the inbox carried with a message it sent on before it", async () => {
+    const daemon = new FakeDaemon();
+    daemon.inProgress.set("t1", [{ ...inProgress("r1", "and in winter?", ""), carried: "**You:** Rome in May?" }]);
+    daemon.runs = [[{ type: "TextDelta", text: "Colder." }, { type: "Done" }]];
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    await until(() => texts(chat).length === 4);
+    expect(texts(chat)).toEqual(["earlier", "**You:** Rome in May?", "and in winter?", "Colder."]);
   });
 
   it("shows it once when its run event comes too", async () => {

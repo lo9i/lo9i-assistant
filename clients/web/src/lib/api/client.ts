@@ -135,9 +135,13 @@ export class ConversationsGroup {
     return this.transport.request("GET", path);
   }
 
-  /** The conversation the first message of a new one, `text`, continues; "" for the new one. Sends nothing. */
-  async route(text: string): Promise<string> {
-    return (await this.transport.request<Schemas["Routed"]>("POST", "/routes", { text })).thread_id;
+  /** The conversation the first message of a new one continues, by `text` and what the `voice` recordings say; "" for
+   * the new one. Sends nothing. */
+  async route(text: string, voice: File[] = []): Promise<string> {
+    const form = new FormData();
+    form.append("text", text);
+    voice.forEach((file) => form.append("files", file, file.name));
+    return (await this.transport.request<Schemas["Routed"]>("POST", "/routes", form)).thread_id;
   }
 
   /** Its messages, tokens and tool calls, and when it started and was last written in; all zero for a new one. */
@@ -1212,9 +1216,15 @@ export class DaemonClient {
   }
 
   /** Sends a message the inbox sent on (a Dispatched event) in `session`'s conversation, as it was written. Its
-   * text, and for a coding task its agent, are announced with the run, so other clients show it. */
+   * text, for a coding task its agent, and the quick exchange the inbox carried with it are announced with the run,
+   * so other clients show it. */
   async *sendDispatched(session: Session, dispatched: Dispatched, signal: AbortSignal): AsyncGenerator<RunEvent> {
-    const body = { channel: session.channel, text: dispatched.text, brief: dispatched.brief ?? "" };
+    const body = {
+      channel: session.channel,
+      text: dispatched.text,
+      brief: dispatched.brief ?? "",
+      carried: dispatched.carried ?? "",
+    };
     const run = await this.transport.request<Schemas["RunStarted"]>(
       "POST",
       `${thread(session)}/dispatched/${encodeURIComponent(dispatched.id)}`,

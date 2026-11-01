@@ -13,7 +13,7 @@
   import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
   import { sentTexts } from "$lib/chat/history";
   import { finalReply, toolRunning } from "$lib/chat/transcript";
-  import type { ChatController } from "$lib/chat/controller";
+  import { isVoice, type ChatController } from "$lib/chat/controller";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { folderPanel, homePanel, subagentsPanel } from "$lib/folderPanel.svelte";
   import { counts } from "$lib/chat/subagents";
@@ -119,14 +119,7 @@
   /** Reads `chat`'s answer to a message with `files` aloud when Settings → Audio says so. */
   async function speak(chat: ChatController, files: File[]): Promise<void> {
     const reply = finalReply(chat.getSnapshot().transcript);
-    if (
-      !reply ||
-      !speaksReply(
-        speech.data?.spoken_replies,
-        files.some((f) => f.type.startsWith("audio/")),
-      )
-    )
-      return;
+    if (!reply || !speaksReply(speech.data?.spoken_replies, files.some(isVoice))) return;
     try {
       await player.speak(reply, (part) => client.speech.speak(part));
     } catch (e) {

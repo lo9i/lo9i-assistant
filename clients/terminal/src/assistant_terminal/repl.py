@@ -166,7 +166,8 @@ class Repl:
             print(t("From the inbox:") + f"\n{dispatched.carried}")
         if dispatched.brief:
             print(t("Task for {agent}:", agent=dispatched.brief) + f"\n{dispatched.text}")
-        await self._turn(self._service.send_dispatched(self._session, dispatched.id, dispatched.text, dispatched.brief))
+        shown = (dispatched.text, dispatched.brief, dispatched.carried)
+        await self._turn(self._service.send_dispatched(self._session, dispatched.id, *shown))
 
     async def _get_to_know_me(self, _: str) -> None:
         """In a conversation of its own."""

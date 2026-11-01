@@ -107,12 +107,15 @@ async def test_a_refused_stop_changes_nothing():
     assert not stop.is_set() and shutdown.ending is None
 
 
-async def test_a_stop_that_fails_can_be_asked_again():
+async def test_a_stop_that_fails_can_be_asked_again_and_every_app_hears_it_isnt_coming():
+    heard: list[tuple[Pending, bool]] = []
     manager, stop = _Manager(fails=True), asyncio.Event()
-    shutdown = Shutdown(_Runs(), stop, manager)
+    shutdown = Shutdown(_Runs(), stop, manager, lambda p, back: heard.append((p, back)))
     shutdown.request(Ending.STOP)
+    assert shutdown.asked()
     await asyncio.sleep(0.01)
-    assert shutdown.ending is None
+    assert shutdown.ending is None and not shutdown.asked()
+    assert heard[-1] == (Pending(Ending.STOP, 0), True)
     manager.fails = False
     shutdown.request(Ending.STOP)
     await asyncio.wait_for(stop.wait(), 1)
@@ -125,8 +128,9 @@ async def test_a_pending_restart_is_shown_and_taken_back_and_the_daemon_keeps_ru
     assert shutdown.pending() is None
     shutdown.request(Ending.RESTART)
     assert shutdown.pending() == Pending(Ending.RESTART, 2)
+    assert shutdown.asked()
     shutdown.take_back("web")
-    assert shutdown.pending() is None
+    assert shutdown.pending() is None and not shutdown.asked()
     runs.ended.set()
     await asyncio.sleep(0.01)
     assert not stop.is_set() and shutdown.ending is None

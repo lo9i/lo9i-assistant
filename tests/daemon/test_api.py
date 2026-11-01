@@ -36,6 +36,7 @@ from assistant.core.events import ApprovalRequired, Cancelled, Dispatched, Done,
 from assistant.core.home import results
 from assistant.core.internet import brave_key
 from assistant.core.logs import LogWriter, log_sources
+from assistant.core.speech.heard import HeardOnce
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
 from assistant.daemon.runs import RunHub
@@ -54,6 +55,7 @@ from assistant.protocol import (
     UpdateStatus,
 )
 from tests.conftest import collect, written
+from tests.core.test_speech import VOICE, FakeTranscriber
 
 
 @pytest.fixture
@@ -375,8 +377,26 @@ async def test_a_new_conversations_first_message_is_routed_without_being_sent(di
     headers = {CLIENT_HEADER: "test", CLIENT_ID_HEADER: "me"}
     transport = httpx.ASGITransport(app=trusted(app))
     async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1", headers=headers) as http:
-        assert (await http.post("/routes", json={"text": "flights to Rome"})).json() == {"thread_id": "t1"}
-        assert (await http.post("/routes", json={"text": "plan my week"})).json() == {"thread_id": ""}
+        assert (await http.post("/routes", data={"text": "flights to Rome"})).json() == {"thread_id": "t1"}
+        assert (await http.post("/routes", data={"text": "plan my week"})).json() == {"thread_id": ""}
+
+
+async def test_a_new_conversations_first_voice_message_is_routed_by_what_it_says_and_heard_once(
+    dispatch, app, service, monkeypatch
+):
+    transcriber = FakeTranscriber()
+    monkeypatch.setattr(service, "_transcriber", HeardOnce(transcriber))
+    record = Conversation("t1", "Dentist", "2026-10-01", "2026-10-01", tags=["dentista"])
+    await conversations.save(service.store, "owner", record)
+    dispatch.picks.append(Pick("t1", 0.95, ""))
+    headers = {CLIENT_HEADER: "test", CLIENT_ID_HEADER: "me"}
+    transport = httpx.ASGITransport(app=trusted(app))
+    voice = {"files": ("voice.ogg", b"fake audio", "audio/ogg")}
+    async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1", headers=headers) as http:
+        assert (await http.post("/routes", data={"text": ""}, files=voice)).json() == {"thread_id": "t1"}
+    assert dispatch.inputs[-1][0] == "hola, recordame el dentista"
+    await collect(service.send(Session("owner", "web", "t1"), "", [VOICE]))
+    assert len(transcriber.calls) == 1  # sent where it went, it isn't transcribed again
 
 
 async def test_home_is_shown_refreshed_and_its_sections_edited(client, service):
@@ -564,6 +584,7 @@ async def test_a_conversation_opens_with_its_messages_and_the_runs_in_progress_t
             "brief": "",
             "held": "",
             "resent": False,
+            "carried": "",
         }
     ]
 
@@ -587,7 +608,9 @@ async def test_a_conversation_opens_with_what_waits_for_an_update_marked_after_i
                 await asyncio.sleep(0.01)
         live = (await http.get(f"/conversations/{session.thread_id}/live")).json()
         opened = await DaemonClient(http).conversations.live(session.thread_id)  # as the terminal app opens it
+        previewed = (await http.get(f"/conversations/{session.thread_id}/messages")).json()
     assert sent.status_code == 200
+    assert previewed == live["messages"]  # a preview lists what waits too
     [waiting] = [r for r in await service.held_runs("owner") if r.thread_id == session.thread_id]
     shown = [(m["role"], m["text"], m["held"]) for m in live["messages"]]
     assert shown == [

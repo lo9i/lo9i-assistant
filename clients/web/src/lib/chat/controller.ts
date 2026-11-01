@@ -28,6 +28,7 @@ import {
   endText,
   fromHistory,
   showedHeld,
+  startedHeld,
   type Transcript,
 } from "./transcript";
 
@@ -42,14 +43,14 @@ export interface ChatClient extends Conversations {
   conversations: {
     live(threadId: string): Promise<ShownConversation>;
     approvals(threadId: string): Promise<ApprovalRequired[]>;
-    route(text: string): Promise<string>;
+    route(text: string, voice: File[]): Promise<string>;
   };
 }
 
 type Start = (signal: AbortSignal) => AsyncIterable<RunEvent>;
 
 /** A run to show from its start, as its `run` event announced it or the conversation lists it in progress. */
-type Followed = Pick<RunAnnounced, "run_id" | "channel" | "client_id" | "text" | "notice" | "brief" | "held" | "resent">;
+type Followed = Pick<RunAnnounced, "run_id" | "channel" | "client_id" | "text" | "notice" | "brief" | "held" | "resent" | "carried">;
 
 /** A message waiting for the reply before it to finish. One the inbox sent on here (`dispatched`) can't be taken
  * back: the daemon keeps it as sent on. `after` is called once its own reply has finished. */
@@ -191,7 +192,7 @@ export class ChatController {
   getSnapshot = (): ChatSnapshot => this.state;
 
   async send(text: string, files: File[]): Promise<void> {
-    const routes = this.fresh === this.state.threadId && text.trim() !== "";
+    const routes = this.fresh === this.state.threadId && (text.trim() !== "" || files.some(isVoice));
     this.fresh = null;
     if (routes) return await this.routed(text, files);
     const names = files.map((f) => f.name);
@@ -256,17 +257,18 @@ export class ChatController {
   /** Sends a fresh conversation's first message where it goes: on in the conversation it's about, or here. Busy
    * while that's picked. */
   private async routed(text: string, files: File[]): Promise<void> {
-    const place = await this.placeFor(text);
+    const place = await this.placeFor(text, files.filter(isVoice));
     const there = place ? await this.goTo(place) : this;
     await there.send(text, files);
   }
 
-  /** Where `text` goes; here ("") when that can't be found out, so the message is never lost. */
-  private async placeFor(text: string): Promise<string> {
+  /** Where `text` and what the `voice` recordings say go; here ("") when that can't be found out, so the message is
+   * never lost. */
+  private async placeFor(text: string, voice: File[]): Promise<string> {
     this.handingOn = true;
     this.showing();
     try {
-      return await this.client.conversations.route(text);
+      return await this.client.conversations.route(text, voice);
     } catch (error) {
       this.report(error);
       return "";
@@ -408,10 +410,8 @@ export class ChatController {
   /** The run of a message the daemon sent on here, unless it shows already (in progress when the conversation
    * opened, or announced to a chat that isn't the one that wrote it). */
   private async showSent(sent: SentOn): Promise<void> {
-    if (this.followed.has(sent.run_id)) return;
     const { text, brief, carried } = sent.dispatched;
-    if (carried) this.set({ transcript: addCarried(this.state.transcript, carried) });
-    await this.follow([{ run_id: sent.run_id, channel: sent.channel, client_id: sent.client_id, text, brief }]);
+    await this.follow([{ run_id: sent.run_id, channel: sent.channel, client_id: sent.client_id, text, brief, carried }]);
   }
 
   runFinished(run: RunFinished): void {
@@ -503,10 +503,15 @@ export class ChatController {
   }
 
   /** What a run answers, where the user's message would be: what they wrote, from where when it wasn't this page,
-   * a coding task the assistant wrote for its agent, or the notice of a follow-up. Not what the page showed already
-   * when it was kept while an update installed. */
+   * a coding task the assistant wrote for its agent, or the notice of a follow-up, after the quick exchange the inbox
+   * carried with a message it sent on. What the page showed already when it was kept while an update installed moves
+   * to the end instead. */
   private showStarted(run: Followed): void {
-    if (showedHeld(this.state.transcript, run.held)) return;
+    if (run.held && showedHeld(this.state.transcript, run.held)) {
+      this.set({ transcript: startedHeld(this.state.transcript, run.held) });
+      return;
+    }
+    if (run.carried) this.set({ transcript: addCarried(this.state.transcript, run.carried) });
     const channel = run.client_id === this.client.clientId ? undefined : run.channel;
     if (run.text && run.brief) this.set({ transcript: addBrief(this.state.transcript, run.text, run.brief) });
     else if (run.text) this.set({ transcript: addUser(this.state.transcript, run.text, [], channel, run.resent ? "resent" : undefined) });
@@ -648,4 +653,9 @@ async function rejoin(client: ChatClient, earlier: string | null, inboxId: strin
     if (error instanceof ApiError && error.status === 404) return inboxId;
     throw error;
   }
+}
+
+/** A voice recording, which the daemon transcribes (core/speech/voice.py::is_voice). */
+export function isVoice(file: File): boolean {
+  return file.type.startsWith("audio/");
 }

@@ -28,7 +28,8 @@ describe("AgentStatus", () => {
 describe("AgentStatus while its agent works", () => {
   it("says beside its name for how long, so the bar names it once", () => {
     const { body } = render(AgentStatus, { props: { handoff, onback: () => {}, since: "2026-10-09T10:00:00Z" } });
-    expect(body).toMatch(/Claude Code<\/span>\s*<span class="working[^"]*">[^<]+<\/span>/);
+    // Svelte marks its blocks with comments, which may come between them.
+    expect(body).toMatch(/Claude Code<\/span>\s*(<!--[^>]*-->)*<span class="working[^"]*">[^<]+<\/span>/);
     expect(body).not.toContain("is working");
     expect(body).toContain("lucide-loader-circle");
     expect(body).not.toContain("lucide-bot");

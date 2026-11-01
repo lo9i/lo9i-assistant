@@ -213,6 +213,8 @@ export type RunAnnounced = {
   brief?: string;
   held?: string;
   resent?: boolean;
+  /** For a message the inbox sent on, the quick exchange it carried with it, as Markdown. */
+  carried?: string;
 };
 
 /** A `run_finished` bus event. */

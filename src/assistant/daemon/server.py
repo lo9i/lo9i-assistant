@@ -89,7 +89,7 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         tasks.append(_supervised(service.memory_writer, stop))
         tasks.append(_supervised(service.task_ends, stop))
         tasks.append(_supervised(service.background_subagents, stop))
-        tasks.append(_supervised(QueuedMessages(service, hub), stop))
+        tasks.append(_supervised(QueuedMessages(service, hub, shutdown), stop))
         tasks.append(_supervised(HeldRuns(service, hub, {held.CHAT: chats, held.JOB: scheduler}), stop))
         tasks.append(_supervised(service.update_checker, stop))
         tasks.append(_supervised(service.home_schedule, stop))

@@ -1,9 +1,13 @@
 """Sends the messages waiting in a conversation (core/conversation/queued.py) once nothing runs there: when
 one is queued, or when its run ends, each as a run of its own, announced like any other, so every app on the
 conversation shows it live. A follow-up on background work runs with no message from the user
-(core/agent/follow_ups.py). Ones left waiting when the daemon stopped are sent when it starts."""
+(core/agent/follow_ups.py). Ones left waiting when the daemon stopped are sent when it starts.
+
+While a restart or stop is asked for (daemon/shutdown.py) they wait: a run started then would be one more it waits
+for, and they're kept in the Store, so they go once the daemon is back, or at once when it's taken back."""
 
 import asyncio
+from typing import Protocol
 
 from assistant.core.agent import AssistantService, Session
 from assistant.core.config import settings
@@ -11,12 +15,19 @@ from assistant.core.waiting import first
 from assistant.daemon.runs import RunHub
 
 
+class Ending(Protocol):
+    """The daemon's restart or stop (daemon/shutdown.py::Shutdown)."""
+
+    def asked(self) -> bool: ...
+
+
 class QueuedMessages:
     name = "queued messages"
 
-    def __init__(self, service: AssistantService, hub: RunHub) -> None:
+    def __init__(self, service: AssistantService, hub: RunHub, ending: Ending) -> None:
         self._service = service
         self._hub = hub
+        self._ending = ending
 
     async def run(self, stop: asyncio.Event) -> None:
         # Taken before sending, so a run that ends meanwhile is heard.
@@ -29,7 +40,7 @@ class QueuedMessages:
         async for event in self._service.bus.subscribe(after):
             if event.kind == "run_finished":
                 await self._send_next(str(event.data["thread_id"]))
-            elif event.kind == "queued_messages":
+            elif event.kind == "queued_messages" or (event.kind == "ending" and event.data.get("taken_back")):
                 await self._send_where_idle()
 
     async def _send_where_idle(self) -> None:
@@ -40,6 +51,8 @@ class QueuedMessages:
                 await self._send_next(thread_id)
 
     async def _send_next(self, thread_id: str) -> None:
+        if self._ending.asked():
+            return
         waiting = await self._service.next_queued(settings.owner_id, thread_id)
         if waiting is None:
             return

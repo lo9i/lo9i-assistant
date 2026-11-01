@@ -88,6 +88,7 @@ from assistant.core.outbox import Outbox
 from assistant.core.plugin_tools import PluginTools
 from assistant.core.repositories.checker import UpdateChecker
 from assistant.core.secret_store import SecretBox
+from assistant.core.speech.heard import HeardOnce
 from assistant.core.speech.kokoro import KokoroSynthesizer
 from assistant.core.speech.whisper import FasterWhisperTranscriber
 from assistant.core.storage import Storage, open_storage
@@ -140,7 +141,7 @@ class AssistantService(
         self.outbox = Outbox()
         self.approvals = RemoteApprovals()
         self._health = HealthLog(storage.store, bus)
-        self._transcriber = FasterWhisperTranscriber()
+        self._transcriber = HeardOnce(FasterWhisperTranscriber())
         media = ToolMedia(self._transcriber, storage.store)
         auth = McpAuth(storage.store, secrets)
         environments = Environments(folders.code)

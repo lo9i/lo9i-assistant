@@ -96,6 +96,17 @@ export function showedHeld(t: Transcript, heldId: string | undefined): boolean {
   return heldId !== undefined && t.items.some((item) => item.kind === "held" && item.heldId === heldId);
 }
 
+/** What the user sent while an update installed (`heldId`), moved to the end as its run starts, without its note: it
+ * shows after the replies of the runs kept before it, whichever order the page showed them in. */
+export function startedHeld(t: Transcript, heldId: string): Transcript {
+  const note = t.items.findIndex((item) => item.kind === "held" && item.heldId === heldId);
+  if (note < 0) return t;
+  const user = t.items.findLastIndex((item, at) => at < note && item.kind === "user");
+  const from = user < 0 ? note : user;
+  const items = [...t.items.slice(0, from), ...t.items.slice(note + 1), ...t.items.slice(from, note)];
+  return { ...t, items, streaming: null };
+}
+
 /** Only what the user wrote is pinned over the thread as what the reply below answers: never a brief. */
 export function pinnable(item: ChatItem): item is Extract<ChatItem, { kind: "user" }> {
   return item.kind === "user";

@@ -28,13 +28,15 @@ class Run:
     channel: str = ""
     # The client that started it, what the user wrote and the notice of a follow-up, as announced (`start`), for a
     # coding task the assistant wrote, its agent, and for a run kept while an update installed, its id; `resent`
-    # when `text` is messages a handed-off agent hadn't taken, sent again.
+    # when `text` is messages a handed-off agent hadn't taken, sent again; `carried`, the quick exchange the inbox
+    # carried with a message it sent on.
     client_id: str = ""
     text: str = ""
     notice: str = ""
     brief: str = ""
     held: str = ""
     resent: bool = False
+    carried: str = ""
     events: list[dict[str, Any]] = field(default_factory=list)
     finished: bool = False
     changed: asyncio.Condition = field(default_factory=asyncio.Condition)
@@ -57,6 +59,7 @@ class RunHub:
         brief: str = "",
         held: str = "",
         resent: bool = False,
+        carried: str = "",
     ) -> Run:
         """Start consuming a run. Other clients hear about it on the bus, so a conversation shown
         in several places (two terminals, Telegram) updates everywhere. `client_id` names the
@@ -66,9 +69,12 @@ class RunHub:
         not the user (core/conversation/briefs.py), the agent it's for; `held`, for a run kept while an update
         installed (core/conversation/held.py), the id its Held event gave, so an app that showed the user's
         message then doesn't show it again; `resent`, when `text` is messages a handed-off agent hadn't taken, sent
-        again (core/conversation/resent.py), which the apps show as those and not as new ones."""
-        shown = {"client_id": client_id, "text": text, "notice": notice, "brief": brief, "held": held, "resent": resent}
-        run = Run(uuid4().hex, thread_id, channel, client_id, text, notice, brief, held, resent)
+        again (core/conversation/resent.py), which the apps show as those and not as new ones; `carried`, for a message
+        the inbox sent on, the quick exchange it carried with it as Markdown (core/conversation/carried.py), which the
+        apps show before it."""
+        run = Run(uuid4().hex, thread_id, channel, client_id, text, notice, brief, held, resent, carried)
+        shown = {"client_id": client_id, "text": text, "notice": notice, "brief": brief, "held": held}
+        shown |= {"resent": resent, "carried": carried}
         self._runs[run.id] = run
         if self._bus is not None:
             self._bus.publish("run", run_id=run.id, thread_id=thread_id, channel=channel, **shown)

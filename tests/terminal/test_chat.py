@@ -574,6 +574,24 @@ async def test_a_follow_up_run_shows_what_it_follows_up_on_as_it_starts(app, cli
         assert "convert: it failed" in str(app.query_one(FollowUpNote).render())
 
 
+async def test_a_run_of_a_message_the_inbox_sent_on_shows_the_exchange_it_carried_first(app, client):
+    from assistant_terminal.tui.widgets import CarriedNote
+
+    async def answer():
+        yield TextDelta("Colder.")
+        yield Done()
+
+    client.runs["r2"] = answer
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        thread_id = app._live.session.thread_id
+        run = {"run_id": "r2", "thread_id": thread_id, "channel": "web", "client_id": "", "text": "and in winter?"}
+        await client.bus.put(("run", run | {"carried": "**You:** Rome in May?"}))
+        await wait_for(pilot, lambda: app.query(CarriedNote) and app.query(AssistantMessage))
+        shown = list(app._chat.children)
+        assert shown.index(app.query_one(CarriedNote)) < shown.index(app.query_one(UserMessage))
+
+
 async def test_a_message_kept_while_an_update_installs_shows_once_when_its_run_comes(app, client):
     from assistant.core.events import Held
     from assistant_terminal.tui.widgets import HeldNote
@@ -595,7 +613,43 @@ async def test_a_message_kept_while_an_update_installs_shows_once_when_its_run_c
         assert "update is being installed" in str(app.query_one(HeldNote).render())
         await client.bus.put(("run", run | {"run_id": "r5", "held": "h1"}))
         await wait_for(pilot, lambda: bool(app.query(AssistantMessage)))
-        assert len(app.query(UserMessage)) == 1
+        assert len(app.query(UserMessage)) == 1 and not app.query(HeldNote)  # it runs now
+
+
+async def test_each_kept_message_shows_after_the_replies_of_the_ones_kept_before_it(app, client):
+    from assistant.core.events import Held
+    from assistant_terminal.tui.widgets import HeldNote
+
+    def kept(held_id):
+        async def run():
+            yield Held(held_id)
+
+        return run
+
+    def answer(text):
+        async def run():
+            yield TextDelta(text)
+            yield Done()
+
+        return run
+
+    client.runs |= {"k1": kept("h1"), "k2": kept("h2"), "r1": answer("First."), "r2": answer("Second.")}
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        thread_id = app._live.session.thread_id
+        run = {"thread_id": thread_id, "channel": "web", "client_id": "", "notice": ""}
+        await client.bus.put(("run", run | {"run_id": "k1", "text": "first?"}))
+        await wait_for(pilot, lambda: len(app.query(HeldNote)) == 1)
+        await client.bus.put(("run", run | {"run_id": "k2", "text": "second?"}))
+        await wait_for(pilot, lambda: len(app.query(HeldNote)) == 2)
+        # The daemon runs them one after another (daemon/held.py).
+        await client.bus.put(("run", run | {"run_id": "r1", "text": "first?", "held": "h1"}))
+        await wait_for(pilot, lambda: bool(app.query(AssistantMessage)))
+        await client.bus.put(("run", run | {"run_id": "r2", "text": "second?", "held": "h2"}))
+        await wait_for(pilot, lambda: len(app.query(AssistantMessage)) == 2 and not app.query(HeldNote))
+        shown = [w for w in app._chat.children if isinstance(w, UserMessage | AssistantMessage)]
+        assert [type(w).__name__ for w in shown] == ["UserMessage", "AssistantMessage"] * 2
+        assert "first?" in str(shown[0].render()) and "second?" in str(shown[2].render())
 
 
 async def test_what_waits_for_an_update_shows_marked_in_history_and_once_when_its_run_comes(app, client):
