@@ -10,9 +10,7 @@ A = action, L = to revisit later, G = memory gap, H = context improvement, Q = o
 
 ## Daemon
 
-- A10. Network access, follow-ups. HTTPS and device pairing are done (`daemon/auth.py`, `daemon/https.py`); left:
-  - Passkeys as a faster sign-in for paired devices.
-  - Bearer tokens for non-browser clients on other hosts (the terminal app over the network). The daemon already accepts `Authorization: Bearer`; no client sends one yet.
+- A10. Passkeys as a faster sign-in for devices paired over the network (HTTPS and device pairing are done: `daemon/auth.py`, `daemon/https.py`).
 - A11. Spending limits on the token ledger (`core/usage`): per job run, per job per day, per conversation and overall per day. Checked before every model call; going over ends the run cleanly (a job run is recorded as over budget, a chat gets a clear message), and a warning at a threshold (80%) goes to Telegram or Slack.
 - A12. The journal reader (`core/logs/journal.py`) is tested only against a fake `journalctl`. Check on the Linux host that `journalctl --user-unit lo9i-assistant` run as the daemon's user reads the service's output and systemd's notes about it, whatever the journal's storage there.
 - A13. Telegram and Slack show only the runs their chat starts: a run the daemon starts in their conversation, like a coding task handed to its agent from a conversation or a follow-up on background work that failed (`daemon/queued.py`), shows in the apps but not in the chat, which hears only the end notice. Show runs started elsewhere in a channel's conversation the way the apps mirror them.
