@@ -844,9 +844,7 @@
     "saved": "Saved along the way",
     "savedHint": "What the assistant noted in conversations. The newest facts are in its mind; it searches the rest.",
     "facts": "Facts",
-    "fact": "fact",
-    "summaries": "Conversation summaries",
-    "summary": "summary"
+    "fact": "fact"
   },
   "microphone": {
     "title": "Microphone",

@@ -844,9 +844,7 @@
     "saved": "Guardado en el camino",
     "savedHint": "Lo que el asistente anotó en las conversaciones. Los datos más recientes los tiene presentes; el resto los busca.",
     "facts": "Datos",
-    "fact": "dato",
-    "summaries": "Resúmenes de conversaciones",
-    "summary": "resumen"
+    "fact": "dato"
   },
   "microphone": {
     "title": "Micrófono",

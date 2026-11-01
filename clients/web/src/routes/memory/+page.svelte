@@ -1,5 +1,4 @@
 <script lang="ts">
-  import BookOpen from "@lucide/svelte/icons/book-open";
   import Briefcase from "@lucide/svelte/icons/briefcase";
   import Lightbulb from "@lucide/svelte/icons/lightbulb";
   import Clock from "@lucide/svelte/icons/clock";
@@ -34,11 +33,9 @@
   const memory = resource((c) => c.memory.snapshot(), ["memory"]);
   const { chats, client, notices } = useDaemon();
 
-  // What it saved on its own: facts, and a summary of each past conversation.
+  // What it saved on its own: facts.
   const facts = resource((c) => c.memory.facts(), ["memory"]);
-  const episodes = resource((c) => c.memory.episodes(), ["memory"]);
   const factItems = $derived((facts.data ?? []).map((f) => ({ id: f.id, text: f.text, when: f.saved_at.slice(0, 10) })));
-  const episodeItems = $derived((episodes.data ?? []).map((e) => ({ id: e.id ?? "", text: e.summary, when: e.started_at.slice(0, 10) })));
 
   async function saveSection(name: string, items: string[]): Promise<void> {
     try {
@@ -88,8 +85,8 @@
     <h2 class="text-heading">{t("memoryPage.saved")}</h2>
     <p class="text-meta">{t("memoryPage.savedHint")}</p>
   </header>
-  {#if facts.error || episodes.error}
-    <p class="error-text">{facts.error ?? episodes.error}</p>
+  {#if facts.error}
+    <p class="error-text">{facts.error}</p>
   {:else}
     <div class="lists">
       <MemoryList
@@ -99,14 +96,6 @@
         Icon={Lightbulb}
         onedit={(id, text) => change(() => client.memory.editFact(id, text))}
         ondelete={(id) => change(() => client.memory.deleteFact(id))}
-      />
-      <MemoryList
-        title={t("memoryPage.summaries")}
-        noun={t("memoryPage.summary")}
-        items={episodeItems}
-        Icon={BookOpen}
-        onedit={(id, text) => change(() => client.memory.editEpisode(id, text))}
-        ondelete={(id) => change(() => client.memory.deleteEpisode(id))}
       />
     </div>
   {/if}
