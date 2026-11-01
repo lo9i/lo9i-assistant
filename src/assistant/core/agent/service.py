@@ -56,6 +56,7 @@ from assistant.core.config import settings
 from assistant.core.conversation import prompt_edits
 from assistant.core.conversation.meanings import ConversationIndexer, SimilarConversations
 from assistant.core.conversation.memory_writer import MemoryWriter
+from assistant.core.conversation.past_outputs import PastOutputs
 from assistant.core.copilot_quota.section import CopilotSection
 from assistant.core.copilot_quota.watch import CopilotWatch
 from assistant.core.doctor.doctor import Doctor
@@ -196,6 +197,7 @@ class AssistantService(
         embedder = E5Embedder()
         self.memory_index = MemoryIndexer(storage.store, storage.vectors, embedder, bus)
         self._recall = MemoryRecall(storage.store, storage.vectors, embedder)
+        self._past_outputs = PastOutputs(storage.checkpointer, storage.search)
         self.conversation_index = ConversationIndexer(storage.store, storage.search, storage.vectors, embedder, bus)
         self._similar = SimilarConversations(storage.vectors, embedder)
         self.memory_writer = MemoryWriter(

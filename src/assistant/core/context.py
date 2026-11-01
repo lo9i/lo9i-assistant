@@ -7,6 +7,7 @@ from langgraph.store.base import BaseStore
 
 from assistant.core.bus import EventBus
 from assistant.core.conversation.meanings import SimilarConversations
+from assistant.core.conversation.past_outputs import PastOutputs
 from assistant.core.conversation.search import MessageIndex
 from assistant.core.memory.recall import MemoryRecall
 from assistant.core.outbox import Outbox
@@ -69,6 +70,8 @@ class Context:
     secrets: SecretBox | None = field(default=None, compare=False)
     # For searching past conversations.
     search: MessageIndex | None = field(default=None, compare=False)
+    # For reading whole a tool output the search found.
+    past_outputs: PastOutputs | None = field(default=None, compare=False)
     # For searching saved facts and episodes by meaning.
     recall: MemoryRecall | None = field(default=None, compare=False)
     # For routing from the inbox: the conversations closest in meaning to a message.
@@ -100,6 +103,13 @@ def require_search(context: Context) -> MessageIndex:
     if context.search is None:
         raise RuntimeError("The run was started without the search index.")
     return context.search
+
+
+def require_past_outputs(context: Context) -> PastOutputs:
+    """The service always passes them to runs (`core/agent/runs.py`)."""
+    if context.past_outputs is None:
+        raise RuntimeError("The run was started without the past tool outputs.")
+    return context.past_outputs
 
 
 def require_recall(context: Context) -> MemoryRecall:

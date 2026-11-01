@@ -7,13 +7,14 @@ assistant's replies. Tool outputs go in a table of their own (the assistant's, a
 handed-off agent's), so they never crowd out what was said, nor make a conversation match the search box
 for words only a page it read had. Each conversation records how many of its messages are indexed in
 each, so a run that wasn't indexed is caught up by the next one, and conversations indexed before tool
-outputs were are caught up at start.
+outputs were are caught up at start. Each tool output keeps the call it came from (and its place among a call's
+steps), so the agent can read it whole (core/conversation/past_outputs.py), past what's indexed of it.
 """
 
 import asyncio
 import re
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import aiosqlite
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
@@ -23,7 +24,19 @@ from assistant.core.conversation.display import agent_tool_calls, shown
 from assistant.core.conversation.turn_header import sent_at
 
 # unicode61 with diacritics removed, so "camion" finds "camión".
-_SCHEMA = """
+_TOOL_OUTPUTS = """
+CREATE VIRTUAL TABLE IF NOT EXISTS tool_output_search USING fts5(
+    text,
+    user_id UNINDEXED,
+    thread_id UNINDEXED,
+    tool UNINDEXED,
+    at UNINDEXED,
+    call_id UNINDEXED,
+    step UNINDEXED,
+    tokenize = 'unicode61 remove_diacritics 2'
+)
+"""
+_SCHEMA = f"""
 CREATE VIRTUAL TABLE IF NOT EXISTS message_search USING fts5(
     text,
     user_id UNINDEXED,
@@ -32,14 +45,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS message_search USING fts5(
     at UNINDEXED,
     tokenize = 'unicode61 remove_diacritics 2'
 );
-CREATE VIRTUAL TABLE IF NOT EXISTS tool_output_search USING fts5(
-    text,
-    user_id UNINDEXED,
-    thread_id UNINDEXED,
-    tool UNINDEXED,
-    at UNINDEXED,
-    tokenize = 'unicode61 remove_diacritics 2'
-);
+{_TOOL_OUTPUTS};
 CREATE TABLE IF NOT EXISTS message_search_progress (
     thread_id TEXT PRIMARY KEY,
     indexed_upto INTEGER NOT NULL,
@@ -47,6 +53,7 @@ CREATE TABLE IF NOT EXISTS message_search_progress (
 );
 """
 _TOOLS_PROGRESS = "tools_indexed_upto"
+_CALL_COLUMN = "call_id"
 
 # Words around each match shown in a result.
 _SNIPPET_WORDS = 32
@@ -69,14 +76,20 @@ class Found:
     # Local time of the turn ("2026-09-30 14:05"), from its turn header; empty when it had none.
     at: str
     snippet: str
+    # A tool output: the call it came from, and its place (from 0) among the call's steps when it's one of them (a
+    # subagent's, a task's); "" when it can't be read whole (a handed-off agent's reply without an id).
+    call_id: str = ""
+    step: int | None = None
 
 
 @dataclass(frozen=True)
 class _Row:
     # user | assistant, or the tool's name.
     role: str
-    at: str
     text: str
+    at: str = ""
+    call_id: str = ""
+    step: int | None = None
 
 
 @dataclass(frozen=True)
@@ -95,6 +108,7 @@ class MessageIndex:
     async def setup(self) -> None:
         await self._conn.executescript(_SCHEMA)
         await self._add_tools_progress()
+        await self._add_calls()
 
     async def _add_tools_progress(self) -> None:
         """To a progress table from before tool outputs were indexed: 0 for each conversation, so the catch-up at
@@ -105,6 +119,23 @@ class MessageIndex:
             await self._conn.execute(
                 f"ALTER TABLE message_search_progress ADD COLUMN {_TOOLS_PROGRESS} INTEGER NOT NULL DEFAULT 0"
             )
+
+    async def _add_calls(self) -> None:
+        """A tool output table from before outputs kept their calls is made again, empty, and every conversation's
+        outputs are indexed again by the catch-up at start: FTS5 tables take no new columns."""
+        async with self._conn.execute("PRAGMA table_info(tool_output_search)") as cursor:
+            columns = {row[1] for row in await cursor.fetchall()}
+        if _CALL_COLUMN in columns:
+            return
+        await self._conn.execute("BEGIN")
+        try:
+            await self._conn.execute("DROP TABLE tool_output_search")
+            await self._conn.execute(_TOOL_OUTPUTS)
+            await self._conn.execute(f"UPDATE message_search_progress SET {_TOOLS_PROGRESS} = 0")
+        except BaseException:
+            await self._conn.execute("ROLLBACK")
+            raise
+        await self._conn.execute("COMMIT")
 
     async def add(self, user_id: str, thread_id: str, messages: Sequence[BaseMessage]) -> int:
         """Indexes the messages and tool outputs not indexed yet; `messages` is the conversation's whole
@@ -127,8 +158,9 @@ class MessageIndex:
             [(r.text, user_id, thread_id, r.role, r.at) for r in said],
         )
         await self._conn.executemany(
-            "INSERT INTO tool_output_search (text, user_id, thread_id, tool, at) VALUES (?, ?, ?, ?, ?)",
-            [(r.text, user_id, thread_id, r.role, r.at) for r in outputs],
+            "INSERT INTO tool_output_search (text, user_id, thread_id, tool, at, call_id, step) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [(r.text, user_id, thread_id, r.role, r.at, r.call_id, r.step) for r in outputs],
         )
         await self._conn.execute(
             f"INSERT INTO message_search_progress (thread_id, indexed_upto, {_TOOLS_PROGRESS}) VALUES (?, ?, ?) "
@@ -140,22 +172,35 @@ class MessageIndex:
     async def search(self, user_id: str, query: str, limit: int) -> list[Found]:
         """What the user and the assistant wrote, the best matches first. Any of the query's words matches;
         messages with more of them, and rarer ones, rank higher."""
-        return await self._search("message_search", "role", user_id, query, limit)
+        return await self._search("message_search", "role, at, '', NULL", user_id, query, limit)
 
     async def search_tool_outputs(self, user_id: str, query: str, limit: int) -> list[Found]:
-        """What tools answered, ranked as `search` ranks messages; each found with its tool's name as its role."""
-        return await self._search("tool_output_search", "tool", user_id, query, limit)
+        """What tools answered, ranked as `search` ranks messages; each found with its tool's name as its role, and
+        its call."""
+        return await self._search("tool_output_search", "tool, at, call_id, step", user_id, query, limit)
 
-    async def _search(self, table: str, role: str, user_id: str, query: str, limit: int) -> list[Found]:
+    async def _search(self, table: str, columns: str, user_id: str, query: str, limit: int) -> list[Found]:
+        """`columns`: the role, the time, the call and the step, in that order."""
         match = _match(query)
         if not match:
             return []
         sql = (
-            f"SELECT thread_id, {role}, at, snippet({table}, 0, '', '', '…', {_SNIPPET_WORDS}) "
+            f"SELECT thread_id, {columns}, snippet({table}, 0, '', '', '…', {_SNIPPET_WORDS}) "
             f"FROM {table} WHERE {table} MATCH ? AND user_id = ? ORDER BY rank LIMIT ?"
         )
         async with self._conn.execute(sql, (match, user_id, limit)) as cursor:
-            return [Found(*row) for row in await cursor.fetchall()]
+            rows = await cursor.fetchall()
+        return [
+            Found(thread_id, role, at, snippet, call_id, step) for thread_id, role, at, call_id, step, snippet in rows
+        ]
+
+    async def has_tool_output(self, user_id: str, thread_id: str, call_id: str, step: int | None) -> bool:
+        """Whether the user's conversation has that tool output indexed, as search found it."""
+        sql = (
+            "SELECT 1 FROM tool_output_search WHERE user_id = ? AND thread_id = ? AND call_id = ? AND step IS ? LIMIT 1"
+        )
+        async with self._conn.execute(sql, (user_id, thread_id, call_id, step)) as cursor:
+            return await cursor.fetchone() is not None
 
     async def threads_with(self, user_id: str, text: str) -> list[str]:
         """The conversations with a message holding every word of `text`, each as the start of a word, so a
@@ -192,10 +237,8 @@ class MessageIndex:
         return _Progress(int(row[0]), int(row[1])) if row else _Progress(0, 0)
 
 
-def _rows(
-    messages: Sequence[BaseMessage], start: int, texts: Callable[[BaseMessage], list[tuple[str, str]]]
-) -> list[_Row]:
-    """Rows for the messages from `start` on, from each one's (role, text) pairs. A reply takes the time of the
+def _rows(messages: Sequence[BaseMessage], start: int, texts: Callable[[BaseMessage], list[_Row]]) -> list[_Row]:
+    """Rows for the messages from `start` on, each one's with the time of its turn. A reply takes the time of the
     user message before it, which may come before `start` (a run resumed after an approval)."""
     rows: list[_Row] = []
     at = ""
@@ -203,26 +246,28 @@ def _rows(
         if isinstance(message, HumanMessage):
             at = sent_at(message) or at
         if position >= start:
-            rows += [_Row(role, at, text) for role, text in texts(message) if text.strip()]
+            rows += [replace(row, at=at) for row in texts(message) if row.text.strip()]
     return rows
 
 
-def _said(message: BaseMessage) -> list[tuple[str, str]]:
-    return [(m.role, m.text) for m in shown([message]) if m.role in _SAID]
+def _said(message: BaseMessage) -> list[_Row]:
+    return [_Row(m.role, m.text) for m in shown([message]) if m.role in _SAID]
 
 
-def _outputs(message: BaseMessage) -> list[tuple[str, str]]:
-    """Each tool's name and output: a tool's result with the steps a subagent or a task took for it, and a
-    handed-off agent's calls in its reply with their own subagents' steps."""
+def _outputs(message: BaseMessage) -> list[_Row]:
+    """Each tool's name and output, with its call: a tool's result with the steps a subagent or a task took for it,
+    and a handed-off agent's calls in its reply with their own subagents' steps."""
     if isinstance(message, ToolMessage):
-        steps = [(s.name, s.output) for s in subagent_steps.of(message)]
-        found = [(message.name or "tool", message.text), *steps]
+        call_id = message.tool_call_id
+        steps = [_Row(s.name, s.output, call_id=call_id, step=i) for i, s in enumerate(subagent_steps.of(message))]
+        found = [_Row(message.name or "tool", message.text, call_id=call_id), *steps]
     elif isinstance(message, AIMessage):
         calls = agent_tool_calls(message)
-        found = [(c.text, c.output) for c in calls] + [(s.name, s.output) for c in calls for s in c.steps]
+        found = [_Row(c.text, c.output, call_id=c.call_id) for c in calls]
+        found += [_Row(s.name, s.output, call_id=c.call_id, step=i) for c in calls for i, s in enumerate(c.steps)]
     else:
         found = []
-    return [(name, output[:_MAX_TOOL_OUTPUT]) for name, output in found if name not in _COPIES]
+    return [replace(row, text=row.text[:_MAX_TOOL_OUTPUT]) for row in found if row.role not in _COPIES]
 
 
 def _match(query: str) -> str:

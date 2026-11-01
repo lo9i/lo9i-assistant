@@ -257,6 +257,7 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
             secrets=self.secrets,
             forwards_approvals=self.approvals.available,
             search=self._storage.search,
+            past_outputs=self._past_outputs,
             recall=self._recall,
             similar=self._similar,
             subagents=self._subagents,

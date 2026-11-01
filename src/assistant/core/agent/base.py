@@ -12,6 +12,7 @@ from assistant.core.conversation.digest import Digester
 from assistant.core.conversation.dispatch import Classifier
 from assistant.core.conversation.meanings import ConversationIndexer, SimilarConversations
 from assistant.core.conversation.memory_writer import MemoryWriter
+from assistant.core.conversation.past_outputs import PastOutputs
 from assistant.core.conversation.titles import Titler
 from assistant.core.copilot_quota.watch import CopilotWatch
 from assistant.core.doctor.doctor import Doctor
@@ -72,6 +73,7 @@ class ServiceBase:
     # Digests archived parts of conversations into memory. The daemon runs it as a supervised task.
     memory_writer: MemoryWriter
     _recall: MemoryRecall
+    _past_outputs: PastOutputs
     _similar: SimilarConversations
     # Checks the extras for newer plugin versions. The daemon runs it as a supervised task.
     update_checker: UpdateChecker
