@@ -6,7 +6,15 @@ from datetime import UTC, datetime
 
 from assistant.client import DaemonClient, DaemonUnavailableError
 from assistant.client.files import load_attachment
-from assistant.core.agent import Agent, HandoffError, InvalidNameError, LanguageError, Session, SkillError
+from assistant.core.agent import (
+    Agent,
+    HandoffError,
+    Importable,
+    InvalidNameError,
+    LanguageError,
+    Session,
+    SkillError,
+)
 from assistant.core.attachments import Attachment
 from assistant.core.events import (
     ApprovalRequired,
@@ -32,6 +40,7 @@ from assistant_terminal.plugins_text import checked_line, from_repositories, las
 from assistant_terminal.profile_text import section_label
 from assistant_terminal.render import render
 from assistant_terminal.sessions_text import describe as describe_sessions
+from assistant_terminal.skill_imports_text import detail, label, numbers, outcome, selectable, suggestions
 from assistant_terminal.style import GREEN, RESET, YELLOW, code, paint
 from assistant_terminal.subagents_text import subagent_detail, subagent_line
 from assistant_terminal.usage_text import describe as describe_usage
@@ -63,6 +72,7 @@ class Repl:
             "/audio": self._audio,
             "/websearch": self._web_search,
             "/skills": self._skills,
+            "/import-skills": self._import_skills,
             "/plugins": self._plugins,
             "/name": self._name,
             "/language": self._language,
@@ -248,6 +258,22 @@ class Repl:
         skills = await self._service.skills.list()
         print("\n".join(f"{s.name}: {s.description}" for s in skills) or t("No skills yet."))
 
+    async def _import_skills(self, arg: str) -> None:
+        """/import-skills lists Claude Code's and Codex's skills, numbered; /import-skills <numbers> imports those (like
+        1 3 5-7), and `replace` in it replaces a skill of yours with the same name instead of adding the agent's."""
+        found = await self._service.skills.importable()
+        if not arg:
+            print(_importable_list(found.skills) or detail(None))
+            print(suggestions(found.suggestions))
+            return
+        picked = [found.skills[n - 1] for n in numbers(arg, len(found.skills))]
+        ids = [i.id for i in picked if selectable(i)]
+        if not ids:
+            print(t("Pick the skills to import first."))
+            return
+        outcomes = await self._service.skills.import_skills(ids, "replace" in arg.split())
+        print("\n".join(outcome(o) for o in outcomes))
+
     async def _name(self, arg: str) -> None:
         if not arg:
             print(await self._service.identity.name() or t("The assistant has no name yet: /name <name>."))
@@ -403,6 +429,13 @@ class Repl:
             return
         self._attachments.append(attachment)
         print(t("Attached {name} ({type}).", name=attachment.name, type=attachment.media_type))
+
+
+def _importable_list(items: list[Importable]) -> str:
+    lines = [f"{n}. {label(i)}\n   {detail(i).replace(chr(10), chr(10) + '   ')}" for n, i in enumerate(items, 1)]
+    if lines:
+        lines.append(t("/import-skills <numbers> imports them (like 1 3 5-7); add replace to replace yours."))
+    return "\n".join(lines)
 
 
 async def _read_line(prompt: str) -> str | None:

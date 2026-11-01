@@ -1,8 +1,11 @@
+from types import SimpleNamespace
+
 from textual.widgets import Button, Checkbox, Markdown, OptionList, SelectionList, Static
 
-from assistant.core.agent import Skill
+from assistant.core.agent import Session, Skill
+from assistant_terminal.repl import Repl
 from assistant_terminal.tui.screens import ConfirmScreen, SkillImportsScreen, SkillsScreen, UsageScreen
-from tests.terminal.conftest import wait_for
+from tests.terminal.conftest import FakeSkills, wait_for
 
 
 async def _open(pilot, app, command, screen_type):
@@ -143,3 +146,17 @@ async def test_import_skills_lists_other_agents_skills_and_imports_the_picked_on
         screen.query_one("#replace", Checkbox).value = True
         screen.query_one("#import", Button).press()
         await wait_for(pilot, lambda: client.skills.imports == [(["/h/.agents/skills/edit"], True)])
+
+
+async def test_the_plain_repls_import_skills_lists_them_numbered_and_imports_by_number(capsys):
+    skills = FakeSkills()
+    repl = Repl(SimpleNamespace(skills=skills), Session("owner", "cli", "inbox"))  # type: ignore[arg-type]
+
+    await repl._import_skills("")
+    listed = capsys.readouterr().out
+    assert "1. pdf (Claude Code)" in listed and "2. edit (Codex) · for a coding agent" in listed
+    assert "/import-skills <numbers>" in listed and "/h/.claude/CLAUDE.md" in listed
+
+    await repl._import_skills("1-2 replace")
+    assert skills.imports == [(["/h/.claude/skills/pdf", "/h/.agents/skills/edit"], True)]
+    assert "pdf: imported as pdf" in capsys.readouterr().out

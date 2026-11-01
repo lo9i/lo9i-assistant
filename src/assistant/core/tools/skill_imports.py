@@ -59,7 +59,11 @@ def _listed(found: Importables) -> str:
 
 
 def _line(item: Importable) -> str:
-    where = f"{item.agent_name}, project {item.project}" if item.project else item.agent_name
+    where = item.agent_name
+    if item.plugin:
+        where += f", plugin {item.plugin}"
+    if item.project:
+        where += f", project {item.project}"
     notes = [_state(item)]
     if item.renamed:
         notes.append(item.renamed)

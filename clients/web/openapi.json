@@ -9016,6 +9016,11 @@
             },
             "type": "array",
             "title": "Problems"
+          },
+          "plugin": {
+            "type": "string",
+            "title": "Plugin",
+            "default": ""
           }
         },
         "type": "object",

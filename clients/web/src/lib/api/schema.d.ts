@@ -4154,6 +4154,11 @@ export interface components {
             needs_agent?: string[];
             /** Problems */
             problems?: string[];
+            /**
+             * Plugin
+             * @default
+             */
+            plugin: string;
         };
         /** Importables */
         Importables: {

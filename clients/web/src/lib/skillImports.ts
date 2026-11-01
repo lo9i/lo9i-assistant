@@ -3,10 +3,12 @@
 import type { Importable, ImportOutcome } from "$lib/api/types";
 import { t } from "$lib/i18n.svelte";
 
-/** The agent it comes from, and the project's folder name when it's a project's. */
+/** The agent it comes from, the plugin it comes with (without its marketplace), and the project's folder name when
+ * it's a project's. */
 export function whereFrom(item: Importable): string {
+  const plugin = item.plugin.split("@")[0];
   const project = item.project.split("/").filter(Boolean).pop();
-  return project ? `${item.agent_name} · ${project}` : item.agent_name;
+  return [item.agent_name, plugin, project].filter(Boolean).join(" · ");
 }
 
 /** Imported and unchanged, or broken: nothing to import. */

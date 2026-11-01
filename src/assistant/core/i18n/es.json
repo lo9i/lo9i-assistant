@@ -494,5 +494,6 @@
   "✅ A subagent finished ({asked}): {result}": "✅ Un subagente terminó ({asked}): {result}",
   "This request isn't waiting any more: it already went on without it.": "Esta solicitud ya no espera: ya siguió sin ella.",
   "Approved. It goes on.": "Aprobado. Sigue.",
-  "Rejected. It goes on without it.": "Rechazado. Sigue sin eso."
+  "Rejected. It goes on without it.": "Rechazado. Sigue sin eso.",
+  "It uses files of its Claude Code plugin outside its folder ({root}).": "Usa archivos de su plugin de Claude Code fuera de su carpeta ({root})."
 }

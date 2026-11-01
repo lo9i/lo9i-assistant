@@ -27,7 +27,7 @@ class Importable:
     # "claude" or "codex", and how the apps name it.
     agent: str
     agent_name: str
-    # "skills" for a skill, "prompts" for a Codex prompt.
+    # "skills" for a skill, "prompts" for a Codex prompt, "commands" for a Claude Code command.
     kind: str
     # The project folder it's in; "" for the user's own.
     project: str
@@ -44,6 +44,8 @@ class Importable:
     needs_agent: list[str] = field(default_factory=list)
     # Why it can't be imported.
     problems: list[str] = field(default_factory=list)
+    # The Claude Code plugin it comes with (`name@marketplace`); "" for none.
+    plugin: str = ""
 
 
 @dataclass(frozen=True)
@@ -92,6 +94,7 @@ def _importable(item: Found, imported: tuple[str, records.ImportRecord] | None, 
         renamed,
         item.needs_agent,
         item.problems,
+        item.plugin,
     )
 
 

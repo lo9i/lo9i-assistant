@@ -1,10 +1,11 @@
+import json
 from pathlib import Path
 
 import pytest
 
 from assistant.core.events import ApprovalRequired, ToolFinished
 from assistant.core.skills import store
-from assistant.core.skills.imports import formats, importing, listing, setup
+from assistant.core.skills.imports import formats, importing, listing, places, setup
 from tests.conftest import collect
 
 
@@ -22,6 +23,8 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
+    # Never this computer's.
+    monkeypatch.setattr(places, "CODEX_ADMIN_SKILLS", tmp_path / "etc" / "codex" / "skills")
     return home
 
 
@@ -148,6 +151,99 @@ def test_a_skill_with_problems_or_gone_isnt_imported(home: Path):
     assert [o.action for o in outcomes] == [importing.FAILED, importing.FAILED]
     assert "list them again" in outcomes[1].note
     assert store.saved_skills() == []
+
+
+def test_claude_codes_commands_are_found_as_skills_named_by_their_path(home: Path, tmp_path: Path):
+    commands = home / ".claude" / "commands"
+    (commands / "frontend").mkdir(parents=True)
+    (commands / "frontend" / "component.md").write_text(
+        "---\ndescription: Make a component\nargument-hint: <name>\n---\n\nMake the $ARGUMENTS component.\n"
+    )
+    (commands / "all_tools.md").write_text("# List All Tools\n\nList them.\n")
+    project = tmp_path / "shop"
+    (project / ".claude" / "commands").mkdir(parents=True)
+    (project / ".claude" / "commands" / "ship.md").write_text("Ship it: !`git push`\n")
+
+    found = _by_name(home, [project])
+
+    assert [(n, i.kind, i.project) for n, i in found.items()] == [
+        ("all-tools", "commands", ""),
+        ("frontend-component", "commands", ""),
+        ("ship", "commands", str(project)),
+    ]
+    component = found["frontend-component"]
+    assert component.description == "Make a component" and found["all-tools"].description == "List All Tools"
+    assert found["ship"].needs_agent == ["It runs commands as Claude Code loads it (!`…`); here they're only text."]
+    [outcome] = importing.import_skills([component.id], False, home, [project])
+    assert outcome.name == "frontend-component"
+    instructions = store.load("frontend-component").instructions
+    assert "It takes: <name>." in instructions and instructions.endswith("Make the $ARGUMENTS component.")
+
+
+def _plugin(home: Path, name: str, version: str, project: Path | None = None) -> Path:
+    folder = home / ".claude" / "plugins" / "cache" / "market" / name / version
+    listed = home / ".claude" / "plugins" / "installed_plugins.json"
+    data = json.loads(listed.read_text()) if listed.exists() else {"version": 2, "plugins": {}}
+    install = {"scope": "local", "projectPath": str(project)} if project else {"scope": "user"}
+    data["plugins"][f"{name}@market"] = [{**install, "installPath": str(folder), "version": version}]
+    listed.parent.mkdir(parents=True, exist_ok=True)
+    listed.write_text(json.dumps(data))
+    return folder
+
+
+def test_claude_code_plugins_skills_are_found_under_an_id_their_updates_keep(home: Path, tmp_path: Path):
+    design = _plugin(home, "design", "1.0.0")
+    _skill(
+        design / "skills" / "frontend",
+        "name: frontend\ndescription: Design pages",
+        "Read ${CLAUDE_PLUGIN_ROOT}/skills/frontend/references/style.md.",
+        {"references/style.md": "Bold."},
+    )
+    _skill(design / "skills" / "hooked", "name: hooked\ndescription: x", "Run ${CLAUDE_PLUGIN_ROOT}/hooks/a.sh.")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    _skill(_plugin(home, "local", "1.0.0", elsewhere) / "skills" / "only-there", "name: only-there", "x")
+
+    found = _by_name(home)
+
+    assert set(found) == {"frontend", "hooked"}  # a project's plugin only with that project
+    frontend = found["frontend"]
+    assert (frontend.id, frontend.plugin) == ("design@market/skills/frontend", "design@market")
+    assert found["hooked"].problems == [
+        "It uses files of its Claude Code plugin outside its folder (${CLAUDE_PLUGIN_ROOT})."
+    ]
+    importing.import_skills([frontend.id], False, home, [])
+    assert "Read references/style.md." in store.load("frontend").instructions
+    assert "only-there" in _by_name(home, [elsewhere])
+
+    updated = _plugin(home, "design", "1.1.0")
+    _skill(
+        updated / "skills" / "frontend",
+        "name: frontend\ndescription: Design pages",
+        "Read ${CLAUDE_PLUGIN_ROOT}/skills/frontend/references/style.md.",
+        {"references/style.md": "Bolder."},
+    )
+    assert _by_name(home)["frontend"].state == listing.CHANGED
+
+
+def test_codexs_admin_skills_are_found(home: Path):
+    _skill(places.CODEX_ADMIN_SKILLS / "audit", "name: audit\ndescription: Company audit", "Audit.")
+    assert _by_name(home)["audit"].agent_name == "Codex"
+
+
+def test_a_project_skills_use_of_the_projects_own_files_names_them_in_full(home: Path, tmp_path: Path):
+    project = tmp_path / "shop"
+    (project / "scripts").mkdir(parents=True)
+    (project / "scripts" / "deploy.sh").write_text("echo deploy")
+    _skill(project / ".claude" / "skills" / "deploy", "name: deploy\ndescription: Deploy", "Run scripts/deploy.sh.")
+    _skill(project / ".claude" / "skills" / "missing", "name: missing", "Run scripts/nowhere.sh.")
+
+    found = _by_name(home, [project])
+
+    assert not found["deploy"].problems
+    importing.import_skills([found["deploy"].id], False, home, [project])
+    assert store.load("deploy").instructions == f"Run {project / 'scripts' / 'deploy.sh'}."
+    assert found["missing"].problems == ["Its instructions use files it doesn't have: scripts/nowhere.sh."]
 
 
 def test_install_asks_once_and_all_leaves_out_skills_for_coding_agents(home: Path, pdf: Path):

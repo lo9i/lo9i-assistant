@@ -21,7 +21,7 @@ _BUILTIN = Path(__file__).parent / "builtin"
 _NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 _FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n?(.*)$", re.DOTALL)
 # Paths into a skill's folder that its instructions mention, by the usual folder names.
-_REFERENCED = re.compile(r"(?<![\w./-])((?:scripts|references|assets)/[\w.-]*\w(?:/[\w.-]*\w)*)")
+REFERENCED = re.compile(r"(?<![\w./-])((?:scripts|references|assets)/[\w.-]*\w(?:/[\w.-]*\w)*)")
 
 
 @dataclass(frozen=True)
@@ -95,7 +95,7 @@ def check_content(name: str, instructions: str, files: dict[str, str] | None = N
 
 def problems(instructions: str, files: list[str]) -> list[str]:
     """What would stop a skill from working: instructions that use files it doesn't have."""
-    missing = sorted({p for p in _REFERENCED.findall(instructions) if not _has(files, p)})
+    missing = sorted({p for p in REFERENCED.findall(instructions) if not has_file(files, p)})
     return [said("Its instructions use files it doesn't have: {files}.", files=", ".join(missing))] if missing else []
 
 
@@ -238,7 +238,7 @@ def parse(text: str) -> tuple[dict, str, list[str]]:
     return meta, match.group(2), []
 
 
-def _has(files: list[str], path: str) -> bool:
+def has_file(files: list[str], path: str) -> bool:
     """Whether `path` is one of the files, or a folder holding some."""
     return path in files or any(f.startswith(f"{path}/") for f in files)
 

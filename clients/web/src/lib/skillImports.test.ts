@@ -15,6 +15,7 @@ function item(over: Partial<Importable> = {}): Importable {
     state: "new",
     name_here: "pdf",
     renamed: "",
+    plugin: "",
     ...over,
   };
 }
@@ -23,6 +24,7 @@ describe("skill imports", () => {
   it("says where a skill comes from", () => {
     expect(whereFrom(item())).toBe("Claude Code");
     expect(whereFrom(item({ project: "/home/me/shop/" }))).toBe("Claude Code · shop");
+    expect(whereFrom(item({ plugin: "frontend-design@claude-plugins-official" }))).toBe("Claude Code · frontend-design");
   });
 
   it("offers only what there is to import, and picks new ones that need no coding agent", () => {

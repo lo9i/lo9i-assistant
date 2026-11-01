@@ -948,5 +948,6 @@
   "{count} subagents working (/subagents)": "{count} subagentes trabajando (/subagents)",
   "finished": "terminado",
   "No subagents here.": "No hay subagentes aquí.",
-  "No subagent with that number.": "No hay ningún subagente con ese número."
+  "No subagent with that number.": "No hay ningún subagente con ese número.",
+  "/import-skills <numbers> imports them (like 1 3 5-7); add replace to replace yours.": "/import-skills <números> las importa (como 1 3 5-7); agrega replace para reemplazar las tuyas."
 }
