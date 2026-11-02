@@ -3,7 +3,7 @@
 import contextlib
 import json
 from collections.abc import AsyncGenerator, Awaitable, Mapping
-from dataclasses import asdict, replace
+from dataclasses import asdict, dataclass, replace
 from functools import partial
 from pathlib import Path
 from typing import Annotated, Any
@@ -16,6 +16,8 @@ from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from assistant.core.agent import (
+    AboutYou,
+    AboutYouStatus,
     Agent,
     AgentFolders,
     Alert,
@@ -103,6 +105,7 @@ from assistant.core.agent import (
     SubagentDetails,
     SubagentError,
     SubagentNotFoundError,
+    Suggested,
     SynthesisError,
     TokenReport,
     UnknownPromptError,
@@ -134,6 +137,8 @@ from assistant.core.logs import (
     LogSource,
     log_options,
 )
+from assistant.core.mcp import install as server_install
+from assistant.core.memory.about_you import HelpTopic, ReplyLength
 from assistant.core.memory.profile import MAX_ITEMS, Section
 from assistant.core.repositories import contents, listed
 from assistant.core.repositories.known import EXTRAS
@@ -508,6 +513,25 @@ class ThreadCreated(BaseModel):
 
 class MemoryText(BaseModel):
     text: str
+
+
+class AboutYouAnswers(BaseModel):
+    """The About you step's answers; only the name is required."""
+
+    name: str = Field(min_length=1, max_length=200)
+    language: str = Field(default="", max_length=100)
+    reply_length: ReplyLength | None = None
+    help_with: list[HelpTopic] = Field(default_factory=list)
+    other_help: str = Field(default="", max_length=500)
+
+    def answers(self) -> AboutYou:
+        return AboutYou(self.name, self.language, self.reply_length, self.help_with, self.other_help)
+
+
+@dataclass(frozen=True)
+class AboutYouSaved:
+    # The extras' plugins for what the user wants help with, not installed here, by topic.
+    suggestions: list[Suggested]
 
 
 class ConversationAgent(BaseModel):
@@ -1097,6 +1121,19 @@ def _add_handoff_routes(app: FastAPI, service: AssistantService) -> None:
 def _add_memory_routes(app: FastAPI, service: AssistantService) -> None:
     """Saved facts and summaries of past conversations, edited and deleted from the apps. 404: it's gone;
     400: empty text."""
+
+    @app.get("/memory/about-you")
+    async def about_you() -> AboutYouStatus:
+        """The About you step's answers as the profile holds them; `needed` while it has no name, when the apps
+        show the step on their own."""
+        return await service.about_you(settings.owner_id)
+
+    @app.put("/memory/about-you")
+    async def save_about_you(body: AboutYouAnswers, texts: _Answering) -> AboutYouSaved:
+        """Writes the answers to the profile at once (a `memory` event). 400: no name."""
+        found = await _memory_call(service.save_about_you(settings.owner_id, body.answers()))
+        shown = [replace(s, servers=[server_install.in_language(v, texts.language) for v in s.servers]) for s in found]
+        return texts.within(AboutYouSaved(shown))
 
     @app.get("/memory/facts")
     async def saved_facts() -> list[Fact]:

@@ -20,6 +20,7 @@ from assistant.core.agent import (
     ServerField,
     ServerValues,
     Skill,
+    Suggested,
 )
 
 _ERRORS = {400: RepositoryError}
@@ -120,6 +121,11 @@ def _skill(data: dict[str, Any]) -> FoundSkill:
 def offered_plugin(request: dict[str, Any]) -> FoundServer | FoundSkill:
     """The plugin in a request the agent paused for (core/events.py::PLUGIN_OFFER)."""
     return _server(request["server"]) if "server" in request else _skill(request["skill"])
+
+
+def suggested_from(data: dict[str, Any]) -> Suggested:
+    """The plugins the About you step offers for one topic (core/repositories/suggested.py)."""
+    return Suggested(data["topic"], [_server(s) for s in data["servers"]], [_skill(s) for s in data["skills"]])
 
 
 def _with_url(body: dict[str, Any], url: str | None) -> dict[str, Any]:

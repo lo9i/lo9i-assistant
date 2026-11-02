@@ -61,6 +61,7 @@ from assistant_terminal.tui.mouse import switch_mouse
 from assistant_terminal.tui.plugin_updates import PluginUpdates
 from assistant_terminal.tui.prompt import PromptInput
 from assistant_terminal.tui.screens import (
+    AboutYouScreen,
     AgentFolderScreen,
     ApprovalScreen,
     AudioScreen,
@@ -95,6 +96,7 @@ from assistant_terminal.tui.screens import (
     SpendingLimitsScreen,
     StartupScreen,
     SubagentsScreen,
+    SuggestedPluginsScreen,
     UsageScreen,
     WebSearchScreen,
 )
@@ -215,6 +217,7 @@ class AssistantApp(App):
             "/pin": self._command_pin,
             "/unpin": self._command_unpin,
             "/get-to-know-me": self._command_get_to_know_me,
+            "/about-you": self._command_about_you,
             "/mouse": self._command_mouse,
             "/help": self._command_help,
             "/quit": self._command_quit,
@@ -251,6 +254,8 @@ class AssistantApp(App):
         await self.refresh_plugin_updates()
         await self.refresh_agents()
         self._answer_pending()
+        if (await self._service.memory.about_you()).needed:
+            self._about_you()
 
     @work(exclusive=True, group="events")
     async def _listen(self) -> None:
@@ -1096,6 +1101,25 @@ class AssistantApp(App):
         """In a conversation of its own."""
         await self._command_clear("")
         await self._send(GET_TO_KNOW_ME, [])
+
+    async def _command_about_you(self, _: str) -> None:
+        self._about_you()
+
+    @work(group="about-you", exclusive=True)
+    @reports_daemon_unavailable
+    async def _about_you(self) -> None:
+        """The About you step, then the plugins it suggests until the user is done: each picked goes to the usual
+        install, then to its setup (an email account, signing in)."""
+        suggestions = await self.push_screen_wait(AboutYouScreen(self._service.memory))
+        installed: set[str] = set()
+        while suggestions:
+            plugin = await self.push_screen_wait(SuggestedPluginsScreen(suggestions, installed))
+            if plugin is None:
+                return
+            if await self.push_screen_wait(RepositoryInstallScreen(self._service.repositories, offered=plugin)):
+                installed.add(plugin.name)
+                if isinstance(plugin, FoundServer):
+                    await self._set_up(plugin)
 
     async def _command_help(self, _: str) -> None:
         keys = [

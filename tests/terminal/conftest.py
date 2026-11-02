@@ -10,6 +10,8 @@ import pytest
 import assistant_terminal.tui.app as app_module
 from assistant.client.daemon_client.conversations import OpenedConversation
 from assistant.core.agent import (
+    AboutYou,
+    AboutYouStatus,
     Agent,
     AgentFolders,
     BackgroundStep,
@@ -201,6 +203,16 @@ class FakeMemory:
         self._skills = skills
         self.saved_facts = [Fact("f1", "likes jazz", "2026-10-01T09:00:00")]
         self.saved_episodes = [Episode("2026-10-01T09:00", "2026-10-01T10:00", "Planned a trip", "e1")]
+        # The About you step's answers: named, so the app doesn't open it unless a test empties them.
+        self.about = AboutYou("Ana")
+        self.suggestions = []
+
+    async def about_you(self):
+        return AboutYouStatus(self.about, needed=not self.about.name)
+
+    async def save_about_you(self, answers):
+        self.about = answers
+        return list(self.suggestions)
 
     async def facts(self):
         return list(self.saved_facts)

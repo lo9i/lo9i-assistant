@@ -813,6 +813,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/memory/about-you": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * About You
+         * @description The About you step's answers as the profile holds them; `needed` while it has no name, when the apps
+         *     show the step on their own.
+         */
+        get: operations["about_you_memory_about_you_get"];
+        /**
+         * Save About You
+         * @description Writes the answers to the profile at once (a `memory` event). 400: no name.
+         */
+        put: operations["save_about_you_memory_about_you_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/memory/facts": {
         parameters: {
             query?: never;
@@ -3153,6 +3178,64 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AboutYou
+         * @description The step's answers; only the name is required to save them.
+         */
+        AboutYou: {
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Language
+             * @default
+             */
+            language: string;
+            /** Reply Length */
+            reply_length?: ("short" | "detailed") | null;
+            /** Help With */
+            help_with?: ("email" | "calendar" | "coding" | "expenses" | "media" | "hosts")[];
+            /**
+             * Other Help
+             * @default
+             */
+            other_help: string;
+        };
+        /**
+         * AboutYouAnswers
+         * @description The About you step's answers; only the name is required.
+         */
+        AboutYouAnswers: {
+            /** Name */
+            name: string;
+            /**
+             * Language
+             * @default
+             */
+            language: string;
+            /** Reply Length */
+            reply_length?: ("short" | "detailed") | null;
+            /** Help With */
+            help_with?: ("email" | "calendar" | "coding" | "expenses" | "media" | "hosts")[];
+            /**
+             * Other Help
+             * @default
+             */
+            other_help: string;
+        };
+        /** AboutYouSaved */
+        AboutYouSaved: {
+            /** Suggestions */
+            suggestions: components["schemas"]["Suggested"][];
+        };
+        /** AboutYouStatus */
+        AboutYouStatus: {
+            answers: components["schemas"]["AboutYou"];
+            /** Needed */
+            needed: boolean;
+        };
         /**
          * Agent
          * @description An agent a plugin brings.
@@ -5939,6 +6022,21 @@ export interface components {
             /** Steps */
             steps: components["schemas"]["BackgroundStep"][];
         };
+        /**
+         * Suggested
+         * @description The plugins for one topic not installed here.
+         */
+        Suggested: {
+            /**
+             * Topic
+             * @enum {string}
+             */
+            topic: "email" | "calendar" | "coding" | "expenses" | "media" | "hosts";
+            /** Servers */
+            servers: components["schemas"]["FoundServer"][];
+            /** Skills */
+            skills: components["schemas"]["FoundSkill"][];
+        };
         /** ThreadCreated */
         ThreadCreated: {
             /** Thread Id */
@@ -7450,6 +7548,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PinnedSkills"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    about_you_memory_about_you_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AboutYouStatus"];
+                };
+            };
+        };
+    };
+    save_about_you_memory_about_you_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AboutYouAnswers"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AboutYouSaved"];
                 };
             };
             /** @description Validation Error */

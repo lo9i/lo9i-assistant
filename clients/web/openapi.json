@@ -1620,6 +1620,62 @@
         }
       }
     },
+    "/memory/about-you": {
+      "get": {
+        "summary": "About You",
+        "description": "The About you step's answers as the profile holds them; `needed` while it has no name, when the apps\nshow the step on their own.",
+        "operationId": "about_you_memory_about_you_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AboutYouStatus"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Save About You",
+        "description": "Writes the answers to the profile at once (a `memory` event). 400: no name.",
+        "operationId": "save_about_you_memory_about_you_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AboutYouAnswers"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AboutYouSaved"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/memory/facts": {
       "get": {
         "summary": "Saved Facts",
@@ -7138,6 +7194,149 @@
   },
   "components": {
     "schemas": {
+      "AboutYou": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          },
+          "language": {
+            "type": "string",
+            "title": "Language",
+            "default": ""
+          },
+          "reply_length": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "short",
+                  "detailed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply Length"
+          },
+          "help_with": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "email",
+                "calendar",
+                "coding",
+                "expenses",
+                "media",
+                "hosts"
+              ]
+            },
+            "type": "array",
+            "title": "Help With"
+          },
+          "other_help": {
+            "type": "string",
+            "title": "Other Help",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "AboutYou",
+        "description": "The step's answers; only the name is required to save them."
+      },
+      "AboutYouAnswers": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "language": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Language",
+            "default": ""
+          },
+          "reply_length": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "short",
+                  "detailed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply Length"
+          },
+          "help_with": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "email",
+                "calendar",
+                "coding",
+                "expenses",
+                "media",
+                "hosts"
+              ]
+            },
+            "type": "array",
+            "title": "Help With"
+          },
+          "other_help": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Other Help",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "AboutYouAnswers",
+        "description": "The About you step's answers; only the name is required."
+      },
+      "AboutYouSaved": {
+        "properties": {
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/Suggested"
+            },
+            "type": "array",
+            "title": "Suggestions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "suggestions"
+        ],
+        "title": "AboutYouSaved"
+      },
+      "AboutYouStatus": {
+        "properties": {
+          "answers": {
+            "$ref": "#/components/schemas/AboutYou"
+          },
+          "needed": {
+            "type": "boolean",
+            "title": "Needed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "answers",
+          "needed"
+        ],
+        "title": "AboutYouStatus"
+      },
       "Agent": {
         "properties": {
           "server": {
@@ -12506,6 +12705,44 @@
           "steps"
         ],
         "title": "SubagentDetails"
+      },
+      "Suggested": {
+        "properties": {
+          "topic": {
+            "type": "string",
+            "enum": [
+              "email",
+              "calendar",
+              "coding",
+              "expenses",
+              "media",
+              "hosts"
+            ],
+            "title": "Topic"
+          },
+          "servers": {
+            "items": {
+              "$ref": "#/components/schemas/FoundServer"
+            },
+            "type": "array",
+            "title": "Servers"
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/FoundSkill"
+            },
+            "type": "array",
+            "title": "Skills"
+          }
+        },
+        "type": "object",
+        "required": [
+          "topic",
+          "servers",
+          "skills"
+        ],
+        "title": "Suggested",
+        "description": "The plugins for one topic not installed here."
       },
       "ThreadCreated": {
         "properties": {

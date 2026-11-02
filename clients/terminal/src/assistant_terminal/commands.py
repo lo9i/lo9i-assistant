@@ -93,6 +93,7 @@ COMMANDS = [
     ),
     Command("/unpin", "/unpin <skill>", translatable("Turn a pinned skill off for this conversation")),
     Command("/profile", "/profile", translatable("What the assistant knows about you: add, edit and remove")),
+    Command("/about-you", "/about-you", translatable("Your name, how to reply and what you want help with")),
     Command("/get-to-know-me", "/get-to-know-me", translatable("Let the assistant get to know you")),
     Command("/mouse", "/mouse [on|off]", translatable("Turn clicking in the app on or off")),
     Command("/help", "/help", translatable("Show commands and keys")),

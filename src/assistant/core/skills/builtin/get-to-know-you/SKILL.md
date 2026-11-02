@@ -19,7 +19,7 @@ Then go through what it found, grouped by profile section, and ask the user to c
 
 Go through the profile sections in this order, a couple of questions at a time, in a warm and plain tone. Skip a section the profile already covers well; ask only about what's missing.
 
-1. About: what to call them, where they live (city and timezone), languages.
+1. About: what to call them (saved as `Name: <name>`, the item the apps' About you step reads), where they live (city and timezone), languages.
 2. Work: role, field, what they're working on.
 3. How to reply: short or detailed, tone, language, format.
 4. Routine: working hours, regular commitments.

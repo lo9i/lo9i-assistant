@@ -209,6 +209,7 @@
   "Using {name} needs uv on this computer, to install {package}.": "Usar {name} necesita uv en esta computadora, para instalar {package}.",
   "Write a message or attach a file.": "Escribe un mensaje o adjunta un archivo.",
   "Write something, or delete it instead.": "Escribe algo, o bórralo en su lugar.",
+  "Write your name.": "Escribe tu nombre.",
   "You already have a skill named {name}. Delete it first to install this one.": "Ya tienes una habilidad llamada {name}. Bórrala primero para instalar esta.",
   "You're on this conversation. Start a new one first, then delete it.": "Estás en esta conversación. Empieza una nueva primero y luego bórrala.",
   "a provider in its email: section has no {missing}": "un proveedor de su sección email: no tiene {missing}",

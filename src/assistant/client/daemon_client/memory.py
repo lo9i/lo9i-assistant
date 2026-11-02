@@ -1,5 +1,17 @@
+from dataclasses import asdict
+
+from assistant.client.daemon_client.repositories import suggested_from
 from assistant.client.daemon_client.transport import Transport
-from assistant.core.agent import Episode, Fact, MemoryEditError, MemoryNotFoundError, MemorySnapshot
+from assistant.core.agent import (
+    AboutYou,
+    AboutYouStatus,
+    Episode,
+    Fact,
+    MemoryEditError,
+    MemoryNotFoundError,
+    MemorySnapshot,
+    Suggested,
+)
 
 _ERRORS = {404: MemoryNotFoundError, 400: MemoryEditError}
 
@@ -16,6 +28,17 @@ class MemoryApi:
     async def set_profile_section(self, section: str, items: list[str]) -> MemorySnapshot:
         body = {"items": items}
         return MemorySnapshot(**await self._transport.request("PUT", f"/memory/profile/{section}", json=body))
+
+    async def about_you(self) -> AboutYouStatus:
+        """The About you step's answers as the profile holds them; `needed` while it has no name."""
+        data = await self._transport.request("GET", "/memory/about-you")
+        return AboutYouStatus(AboutYou(**data["answers"]), data["needed"])
+
+    async def save_about_you(self, answers: AboutYou) -> list[Suggested]:
+        """Writes them to the profile; returns the extras' plugins to offer for what the user wants help with.
+        Raises MemoryEditError without a name."""
+        data = await self._transport.request("PUT", "/memory/about-you", json=asdict(answers), errors=_ERRORS)
+        return [suggested_from(s) for s in data["suggestions"]]
 
     async def facts(self) -> list[Fact]:
         """Every saved fact, newest first."""

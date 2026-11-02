@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
+  import { onMount, type Snippet } from "svelte";
+  import { aboutYouStep } from "$lib/aboutYou.svelte";
   import { announce } from "$lib/agentDone";
   import { agentDone, chime, systemNotice } from "$lib/agentDone.svelte";
   import type { AgentFinished, BackgroundEnded, Failing, JobFinished, SignedOut, SubagentChanged } from "$lib/api/types";
@@ -9,6 +10,7 @@
   import { language, t } from "$lib/i18n.svelte";
   import { openConversation } from "$lib/ui/openConversation";
   import { sidebar } from "$lib/sidebar.svelte";
+  import AboutYouDialog from "./aboutYou/AboutYouDialog.svelte";
   import ConnectionBanner from "./ConnectionBanner.svelte";
   import Sidebar from "./Sidebar.svelte";
   import KeptKeysDialog from "./plugins/KeptKeysDialog.svelte";
@@ -85,6 +87,14 @@
   $effect(() => hub.on(["failing"], (data) => notices.notify(failingNotice(data as Failing), "warning")));
   $effect(() => hub.on(["signed_out"], (data) => notices.notify(signedOutNotice(data as SignedOut), "warning")));
 
+  // The About you step shows on its own when the app opens, while the profile has no name.
+  onMount(() => {
+    daemon.client.memory.aboutYou().then(
+      (status) => (aboutYouStep.open ||= status.needed),
+      (e: unknown) => notices.report(e),
+    );
+  });
+
   function onKeydown(e: KeyboardEvent): void {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
       e.preventDefault();
@@ -102,6 +112,7 @@
 </div>
 <Toasts {notices} />
 <KeptKeysDialog />
+{#if aboutYouStep.open}<AboutYouDialog onclose={() => (aboutYouStep.open = false)} />{/if}
 
 <style>
   .app-layout {

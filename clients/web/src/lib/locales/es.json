@@ -1,4 +1,34 @@
 {
+  "aboutYou": {
+    "title": "Sobre ti",
+    "description": "Para que el asistente te conozca desde la primera conversación. Solo hace falta tu nombre; lo demás puedes saltarlo, y cambiar cualquier cosa luego en Ajustes → Sobre ti.",
+    "name": "¿Cómo debería llamarte?",
+    "language": "Idioma de las respuestas",
+    "languageHint": "Por ejemplo español o inglés",
+    "replyLength": "Respuestas",
+    "short": "Cortas y al grano",
+    "detailed": "Detalladas, con explicaciones",
+    "noPreference": "Sin preferencia",
+    "helpWith": "¿Con qué quieres ayuda sobre todo?",
+    "topics": {
+      "email": "Correo",
+      "calendar": "Calendario",
+      "coding": "Programación",
+      "expenses": "Gastos",
+      "media": "Películas y YouTube",
+      "hosts": "Servidores y equipos"
+    },
+    "otherHelp": "Algo más, con tus palabras",
+    "needsName": "Escribe tu nombre.",
+    "later": "Más tarde",
+    "save": "Guardar",
+    "pluginsTitle": "Plugins para lo que elegiste",
+    "pluginsDescription": "Instala los que quieras; no se instala nada a menos que pulses Instalar. También están en Plugins.",
+    "emailHint": "Elige el de tu cuenta de correo.",
+    "install": "Instalar",
+    "installed": "Instalado",
+    "done": "Listo"
+  },
   "agentDone": {
     "finished": "{agent} terminó",
     "failed": "{agent} se detuvo con un problema"
@@ -853,6 +883,7 @@
     "full": "Lleno. Edita o quita un elemento para hacer lugar."
   },
   "memoryPage": {
+    "aboutYou": "Nombre y preferencias",
     "getToKnowMe": "Conóceme",
     "saved": "Guardado en el camino",
     "savedHint": "Lo que el asistente anotó en las conversaciones. Los datos más recientes los tiene presentes; el resto los busca.",

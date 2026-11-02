@@ -84,6 +84,7 @@ class Repl:
             "/pin": self._pin,
             "/unpin": self._unpin,
             "/get-to-know-me": self._get_to_know_me,
+            "/about-you": self._about_you,
             "/jobs": self._jobs,
             "/usage": self._usage,
             "/limits": self._limits,
@@ -358,6 +359,10 @@ class Repl:
         """The latest entries of the daemon's log; following it needs the full app or the web app."""
         page = await self._service.logs.page("daemon", lines=int(arg) if arg.isdigit() else 50)
         print("\n".join(log_line(e) for e in page.entries) or t("Nothing logged yet."))
+
+    async def _about_you(self, _: str) -> None:
+        """Answered in the full app or the web app, as the profile is edited."""
+        print(t("Answer it with /about-you in the full-screen app, or in the web app's Settings → About you."))
 
     async def _profile(self, _: str) -> None:
         """Shows it; editing needs the full app or the web app."""

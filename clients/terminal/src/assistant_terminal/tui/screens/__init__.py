@@ -1,8 +1,9 @@
 """Modal screens opened from the chat: setup (the model, audio, web search, chat channels, email, MCP
 servers, start at boot), browsing (plugins, skills, jobs, files, usage, the daemon's log, connected
-clients, notifications, the health check), the profile, the system prompt texts, approvals, questions and the
-folder an agent works in."""
+clients, notifications, the health check), the About you step, the profile, the system prompt texts,
+approvals, questions and the folder an agent works in."""
 
+from assistant_terminal.tui.screens.about_you import AboutYouScreen, SuggestedPluginsScreen
 from assistant_terminal.tui.screens.agent_folder import AgentFolderScreen
 from assistant_terminal.tui.screens.approval import ApprovalScreen
 from assistant_terminal.tui.screens.audio import AudioScreen
@@ -42,6 +43,7 @@ from assistant_terminal.tui.screens.usage import UsageScreen
 from assistant_terminal.tui.screens.web_search import WebSearchScreen
 
 __all__ = [
+    "AboutYouScreen",
     "AgentFolderScreen",
     "ApprovalScreen",
     "AudioScreen",
@@ -77,6 +79,7 @@ __all__ = [
     "SpendingLimitsScreen",
     "StartupScreen",
     "SubagentsScreen",
+    "SuggestedPluginsScreen",
     "UsageScreen",
     "WebSearchScreen",
 ]

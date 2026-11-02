@@ -1,4 +1,34 @@
 {
+  "aboutYou": {
+    "title": "About you",
+    "description": "So the assistant knows you from the first chat. Only your name is needed; the rest you can skip, and change any of it later in Settings → About you.",
+    "name": "What should it call you?",
+    "language": "Language for replies",
+    "languageHint": "For example English or Spanish",
+    "replyLength": "Replies",
+    "short": "Short and to the point",
+    "detailed": "Detailed, with explanations",
+    "noPreference": "No preference",
+    "helpWith": "What do you mainly want help with?",
+    "topics": {
+      "email": "Email",
+      "calendar": "Calendar",
+      "coding": "Coding",
+      "expenses": "Expenses",
+      "media": "Movies and YouTube",
+      "hosts": "Servers and hosts"
+    },
+    "otherHelp": "Anything else, in your words",
+    "needsName": "Write your name.",
+    "later": "Later",
+    "save": "Save",
+    "pluginsTitle": "Plugins for what you picked",
+    "pluginsDescription": "Install the ones you want; nothing is installed unless you press Install. They're in Plugins too.",
+    "emailHint": "Pick the one your email account is with.",
+    "install": "Install",
+    "installed": "Installed",
+    "done": "Done"
+  },
   "agentDone": {
     "finished": "{agent} finished",
     "failed": "{agent} stopped with a problem"
@@ -853,6 +883,7 @@
     "full": "Full. Edit or remove an item to make room."
   },
   "memoryPage": {
+    "aboutYou": "Name and preferences",
     "getToKnowMe": "Get to know me",
     "saved": "Saved along the way",
     "savedHint": "What the assistant noted in conversations. The newest facts are in its mind; it searches the rest.",

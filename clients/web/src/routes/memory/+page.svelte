@@ -5,10 +5,12 @@
   import Heart from "@lucide/svelte/icons/heart";
   import MessageSquareText from "@lucide/svelte/icons/message-square-text";
   import Sparkles from "@lucide/svelte/icons/sparkles";
+  import UserRoundPen from "@lucide/svelte/icons/user-round-pen";
   import Target from "@lucide/svelte/icons/target";
   import ThumbsDown from "@lucide/svelte/icons/thumbs-down";
   import UserRound from "@lucide/svelte/icons/user-round";
   import Users from "@lucide/svelte/icons/users";
+  import { aboutYouStep } from "$lib/aboutYou.svelte";
   import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
@@ -59,6 +61,9 @@
 <!-- A settings tab of its own page. -->
 <TopBar title={t("nav.settings")}>
   {#snippet actions()}
+    <button class="btn btn--neutral" onclick={() => (aboutYouStep.open = true)}
+      ><UserRoundPen size={16} /><span class="hide-narrow">{t("memoryPage.aboutYou")}</span></button
+    >
     <button class="btn btn--primary" onclick={() => startGetToKnowYou(chats)}
       ><Sparkles size={16} /><span class="hide-narrow">{t("memoryPage.getToKnowMe")}</span></button
     >

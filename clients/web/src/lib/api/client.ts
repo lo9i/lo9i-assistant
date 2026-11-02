@@ -6,6 +6,8 @@ import { LogStreams } from "./logStreams";
 import { RunStreams } from "./runStreams";
 import type { Transport } from "./transport";
 import type {
+  AboutYou,
+  AboutYouStatus,
   Agent,
   AgentFolders,
   Alert,
@@ -98,6 +100,7 @@ import type {
   VoiceCallAnswer,
   VoiceCallSettings,
   WebSearchStatus,
+  Suggested,
 } from "./types";
 
 type Schemas = components["schemas"];
@@ -919,6 +922,17 @@ export class MemoryGroup {
   /** What the assistant knows about the user: profile sections, facts and recent conversations. */
   snapshot(): Promise<MemorySnapshot> {
     return this.transport.request("GET", "/memory");
+  }
+
+  /** The About you step's answers as the profile holds them; `needed` while it has no name. */
+  aboutYou(): Promise<AboutYouStatus> {
+    return this.transport.request("GET", "/memory/about-you");
+  }
+
+  /** Writes the step's answers to the profile; returns the extras' plugins for what the user wants help with. */
+  async saveAboutYou(answers: AboutYou): Promise<Suggested[]> {
+    const saved: Schemas["AboutYouSaved"] = await this.transport.request("PUT", "/memory/about-you", answers);
+    return saved.suggestions;
   }
 
   /** Replaces one profile section with the user's own list (at most 8 items). */

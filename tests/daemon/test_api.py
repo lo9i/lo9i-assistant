@@ -655,6 +655,23 @@ async def test_a_profile_edit_with_an_unknown_section_or_too_many_items_is_422(a
         assert (await http.put("/memory/profile/goals", json=too_many)).status_code == 422
 
 
+async def test_the_about_you_step_goes_to_the_profile(client, app):
+    from assistant.core.agent import AboutYou, MemoryEditError
+
+    assert (await client.memory.about_you()).needed
+    assert await client.memory.save_about_you(AboutYou("Ana", "Spanish", "short", other_help="taxes")) == []
+    status = await client.memory.about_you()
+    assert not status.needed and status.answers == AboutYou("Ana", "Spanish", "short", other_help="taxes")
+    assert (await client.memory.snapshot()).profile["about"] == ["Name: Ana"]
+    with pytest.raises(MemoryEditError):
+        await client.memory.save_about_you(AboutYou(" "))
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=trusted(app)), base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}
+    ) as http:
+        assert (await http.put("/memory/about-you", json={"name": ""})).status_code == 422
+        assert (await http.put("/memory/about-you", json={"name": "A", "help_with": ["golf"]})).status_code == 422
+
+
 async def test_a_message_to_the_agent_with_neither_text_nor_files_is_400(app):
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=trusted(app)), base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}

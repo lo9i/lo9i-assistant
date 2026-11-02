@@ -1,12 +1,13 @@
 """AssistantService: the only core API the daemon uses.
 
 The service is a facade (`service.py`) composed of mixins, one per concern:
-threads, channel threads, files, the handed folder, memory, channels, email, mcp, sign-ins, alerts, doctor,
-notifications, home, follow-ups, held runs, tasks, background subagents, repositories, model, devices, passkeys,
-identity, prompts, speech, log level, language, web search, skills, skill imports, pinned skills, jobs, usage, live
-voice calls, messaging, runs and locking.
+threads, channel threads, files, the handed folder, memory, the About you step, channels, email, mcp, sign-ins,
+alerts, doctor, notifications, home, follow-ups, held runs, tasks, background subagents, repositories, model,
+devices, passkeys, identity, prompts, speech, log level, language, web search, skills, skill imports, pinned skills,
+jobs, usage, live voice calls, messaging, runs and locking.
 """
 
+from assistant.core.agent.about_you import AboutYou, AboutYouStatus, Suggested
 from assistant.core.agent.alerts import Alert, AlertArea
 from assistant.core.agent.channels import ChannelNotConnectedError, ChannelStatus, SetupItem
 from assistant.core.agent.conversations import Conversation, ShownCall, ShownMessage, ShownStep
@@ -90,6 +91,8 @@ from assistant.core.agent.voice_calls import VoiceCallError, VoiceCallSettings, 
 from assistant.core.agent.web_search import InvalidSearchKeyError, WebSearchStatus
 
 __all__ = [
+    "AboutYou",
+    "AboutYouStatus",
     "Agent",
     "AgentFolders",
     "Alert",
@@ -206,6 +209,7 @@ __all__ = [
     "SubagentDetails",
     "SubagentError",
     "SubagentNotFoundError",
+    "Suggested",
     "SynthesisError",
     "TokenReport",
     "UnknownPromptError",

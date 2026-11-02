@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from assistant.core import observability
+from assistant.core.agent.about_you import AboutYouMixin
 from assistant.core.agent.alerts import AlertsMixin
 from assistant.core.agent.archive import ArchiveMixin
 from assistant.core.agent.channel_threads import ChannelThreadsMixin
@@ -109,6 +110,7 @@ class AssistantService(
     FilesMixin,
     HandedFolderMixin,
     MemoryMixin,
+    AboutYouMixin,
     SignInsMixin,
     EmailMixin,
     ChannelsMixin,
