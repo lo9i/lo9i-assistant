@@ -74,6 +74,8 @@ class Tokens:
     refresh_token: str
     access_token: str = ""
     expires_at: float = 0
+    # Microsoft's personal-accounts-only endpoint, for Hotmail/Outlook.com/Live addresses.
+    personal: bool = False
 
     def to_secret(self) -> str:
         return json.dumps(asdict(self))
@@ -118,7 +120,21 @@ def authorization_url(sign_in: SignIn, state: str) -> str:
         "login_hint": sign_in.address,
         **dict(provider.extra),
     }
-    return f"{provider.auth_url}?{urlencode(query)}"
+    return f"{_endpoint(provider.auth_url, personal_address(sign_in.provider, sign_in.address))}?{urlencode(query)}"
+
+
+# Microsoft's personal domains. Signing these in through /common can land in a work
+# organization the address is a guest of; /consumers only takes personal accounts.
+_PERSONAL_DOMAINS = ("hotmail.", "outlook.", "live.", "msn.com", "passport.com")
+
+
+def personal_address(provider: str, address: str) -> bool:
+    domain = address.rpartition("@")[2].lower()
+    return provider == "microsoft" and domain.startswith(_PERSONAL_DOMAINS)
+
+
+def _endpoint(url: str, personal: bool) -> str:
+    return url.replace("/common/", "/consumers/") if personal else url
 
 
 def new_sign_in(
@@ -150,17 +166,20 @@ async def exchange(sign_in: SignIn, code: str) -> Tokens:
         "redirect_uri": sign_in.redirect_uri,
         "code_verifier": sign_in.verifier,
     }
-    answer = await _token_request(sign_in.provider, sign_in.client_id, sign_in.client_secret, data)
+    personal = personal_address(sign_in.provider, sign_in.address)
+    answer = await _token_request(sign_in.provider, sign_in.client_id, sign_in.client_secret, data, personal)
     if not answer.get("refresh_token"):
         raise EmailError(said("{name} gave no refresh token; sign in again.", name=provider_for(sign_in.provider).name))
-    tokens = Tokens(sign_in.provider, sign_in.client_id, sign_in.client_secret, answer["refresh_token"])
+    tokens = Tokens(
+        sign_in.provider, sign_in.client_id, sign_in.client_secret, answer["refresh_token"], personal=personal
+    )
     return _with_access(tokens, answer)
 
 
 async def refresh(tokens: Tokens) -> Tokens:
     """A new access token. Raises EmailError when the provider refuses (revoked, expired)."""
     data = {"grant_type": "refresh_token", "refresh_token": tokens.refresh_token}
-    answer = await _token_request(tokens.provider, tokens.client_id, tokens.client_secret, data)
+    answer = await _token_request(tokens.provider, tokens.client_id, tokens.client_secret, data, tokens.personal)
     # Microsoft sends a new refresh token each time; Google keeps the old one.
     tokens.refresh_token = answer.get("refresh_token") or tokens.refresh_token
     return _with_access(tokens, answer)
@@ -175,12 +194,14 @@ def provider_for(provider_id: str) -> OAuthProvider:
     return provider
 
 
-async def _token_request(provider_id: str, client_id: str, client_secret: str, data: dict[str, str]) -> dict:
+async def _token_request(
+    provider_id: str, client_id: str, client_secret: str, data: dict[str, str], personal: bool = False
+) -> dict:
     provider = provider_for(provider_id)
     form = {**data, "client_id": client_id, **({"client_secret": client_secret} if client_secret else {})}
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as http:
-            response = await http.post(provider.token_url, data=form)
+            response = await http.post(_endpoint(provider.token_url, personal), data=form)
     except httpx.HTTPError as e:
         raise EmailError(said("Couldn't reach {name} to sign in: {error}", name=provider.name, error=e)) from e
     answer = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
