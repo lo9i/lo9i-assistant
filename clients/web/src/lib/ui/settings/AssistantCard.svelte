@@ -8,6 +8,7 @@
   import SettingsCard from "../Card.svelte";
   import AssistantUpdates from "./AssistantUpdates.svelte";
   import EndingDialog from "./EndingDialog.svelte";
+  import SettingRow from "./SettingRow.svelte";
 
   const { client, notices } = useDaemon();
   const current = resource((c) => c.identity.name(), ["settings"]);
@@ -57,34 +58,32 @@
 </script>
 
 <SettingsCard id="assistant" title={t("assistant.title")} sub={t("assistant.sub")}>
-  <form class="setting" onsubmit={save}>
-    <div class="label">
-      <span class="text-label">{t("assistant.name")}</span>
-      <span class="text-caption">{t("assistant.nameHint")}</span>
-    </div>
-    <div class="control">
-      <input class="input" bind:value={name} placeholder={t("assistant.name")} aria-label={t("assistant.name")} />
+  <form onsubmit={save}>
+    <SettingRow label={t("assistant.name")}>
+      {#snippet hint()}{t("assistant.nameHint")}{/snippet}
+      <input class="input name" bind:value={name} placeholder={t("assistant.name")} aria-label={t("assistant.name")} />
       <button class="btn btn--primary btn--sm" type="submit" disabled={!name.trim() || name.trim() === current.data}
         >{t("common.save")}</button
       >
-    </div>
+    </SettingRow>
   </form>
   {#if message}<p class="text-meta saved">{message}</p>{/if}
   <AssistantUpdates />
-  <div class="ending">
-    <div class="actions">
-      <button class="btn btn--sm" onclick={() => (confirming = "restart")}><RotateCcw size={14} /> {t("shutdown.restart")}</button>
-      <button
-        class="btn btn--sm btn--danger"
-        onclick={() => (confirming = "stop")}
-        disabled={!!host.data?.stop_refusal || askingPassword}
-        title={host.data?.stop_refusal || undefined}><Power size={14} /> {t("shutdown.stop")}</button
-      >
-    </div>
-    {#if host.data?.stop_refusal}<p class="text-caption">{host.data.stop_refusal}</p>{/if}
-    {#if askingPassword}<p class="text-caption">{t("startup.waitingPassword")}</p>
-    {:else if host.data?.stop_note}<p class="text-caption">{host.data.stop_note}</p>{/if}
-  </div>
+  <SettingRow label={t("assistant.ending")}>
+    {#snippet hint()}
+      {#if host.data?.stop_refusal}{host.data.stop_refusal}
+      {:else if askingPassword}{t("startup.waitingPassword")}
+      {:else if host.data?.stop_note}{host.data.stop_note}
+      {:else}{t("assistant.endingHint")}{/if}
+    {/snippet}
+    <button class="btn btn--sm" onclick={() => (confirming = "restart")}><RotateCcw size={14} /> {t("shutdown.restart")}</button>
+    <button
+      class="btn btn--sm btn--danger"
+      onclick={() => (confirming = "stop")}
+      disabled={!!host.data?.stop_refusal || askingPassword}
+      title={host.data?.stop_refusal || undefined}><Power size={14} /> {t("shutdown.stop")}</button
+    >
+  </SettingRow>
 </SettingsCard>
 
 {#if confirming}
@@ -95,39 +94,10 @@
 <EndingDialog bind:this={dialog} bind:ending />
 
 <style>
-  .setting {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-  .label {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .control {
-    display: flex;
-    gap: 8px;
-  }
-  .control .input {
+  .name {
     width: 200px;
   }
   .saved {
     margin: -12px 0 0;
-  }
-  .ending {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .ending p {
-    margin: 0;
-  }
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
   }
 </style>

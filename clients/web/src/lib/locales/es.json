@@ -85,6 +85,8 @@
     "title": "Asistente",
     "sub": "Cómo se llama a sí mismo, sus actualizaciones, y reiniciarlo o detenerlo.",
     "name": "Nombre",
+    "ending": "Reiniciar o detener",
+    "endingHint": "Espera a que terminen las respuestas en curso.",
     "nameHint": "El nombre visible del bot de Telegram lo sigue."
   },
   "banner": {

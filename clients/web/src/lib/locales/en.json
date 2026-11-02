@@ -85,6 +85,8 @@
     "title": "Assistant",
     "sub": "What it calls itself, its updates, and restarting or stopping it.",
     "name": "Name",
+    "ending": "Restart or stop",
+    "endingHint": "It waits for the replies in progress to end.",
     "nameHint": "The Telegram bot's display name follows it."
   },
   "banner": {

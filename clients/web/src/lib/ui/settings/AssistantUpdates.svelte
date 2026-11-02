@@ -7,6 +7,7 @@
   import { t } from "$lib/i18n.svelte";
   import { canInstall, updateLine } from "$lib/updates";
   import Confirm from "../Confirm.svelte";
+  import SettingRow from "./SettingRow.svelte";
 
   const { client, notices } = useDaemon();
   // Each change of an update's state comes as an `update` event.
@@ -42,33 +43,32 @@
 {#if update.data}
   {@const u = update.data}
   <section class="update">
-    <p class="micro-label">{t("host.updates")}</p>
-    <p class="text-label" class:error-text={u.state === "failed"}>
-      {#if busy(u)}<LoaderCircle size={14} class="spin" aria-hidden="true" />{/if}
-      {updateLine(u)}
-    </p>
+    <SettingRow label={t("host.updates")}>
+      {#snippet hint()}
+        <span class="line" class:error-text={u.state === "failed"}>
+          {#if busy(u)}<LoaderCircle size={12} class="spin" aria-hidden="true" />{/if}
+          {updateLine(u)}
+        </span>
+      {/snippet}
+      {#if u.installed_from === "git"}
+        <button class="btn btn--sm" onclick={check} disabled={busy(u)}>
+          <SearchCheck size={14} />
+          {t("host.check")}
+        </button>
+      {/if}
+      {#if canInstall(u)}
+        <button class="btn btn--sm btn--primary" onclick={() => (confirming = true)} disabled={busy(u)}>
+          <Download size={14} />
+          {t("host.updateAndRestart")}
+        </button>
+      {/if}
+    </SettingRow>
     {#if u.new.length && u.state !== "restarting"}
       <ul class="commits">
         {#each u.new as commit (commit.sha)}
           <li><code>{commit.sha.slice(0, 7)}</code> {commit.subject}</li>
         {/each}
       </ul>
-    {/if}
-    {#if u.installed_from === "git" || canInstall(u)}
-      <div class="actions">
-        {#if u.installed_from === "git"}
-          <button class="btn btn--sm" onclick={check} disabled={busy(u)}>
-            <SearchCheck size={14} />
-            {t("host.check")}
-          </button>
-        {/if}
-        {#if canInstall(u)}
-          <button class="btn btn--sm btn--primary" onclick={() => (confirming = true)} disabled={busy(u)}>
-            <Download size={14} />
-            {t("host.updateAndRestart")}
-          </button>
-        {/if}
-      </div>
     {/if}
   </section>
 {/if}
@@ -89,18 +89,15 @@
   .update {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-  }
-  .update .text-label {
-    display: flex;
-    align-items: center;
     gap: 8px;
   }
-  .update :global(.spin) {
-    animation: spin 1s linear infinite;
+  .line {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
-  p {
-    margin: 0;
+  .line :global(.spin) {
+    animation: spin 1s linear infinite;
   }
   .commits {
     margin: 0;
@@ -114,19 +111,13 @@
   .commits li {
     padding: 2px 0;
   }
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 6px;
-  }
   @keyframes spin {
     to {
       transform: rotate(360deg);
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .update :global(.spin) {
+    .line :global(.spin) {
       animation: none;
     }
   }
