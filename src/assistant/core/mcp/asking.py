@@ -32,12 +32,16 @@ from mcp.types import (
     InputResponses,
 )
 
+from assistant.core.waiting import given_up
+
 # Requests made again with answers before a server's request counts as never ending.
 MAX_ROUNDS = 10
 # A round with no questions, only state to send back: the server is still working.
 _STATE_ONLY_SECONDS = 0.1
 
 Answer = InputResponse | ErrorData
+# A question sent apart from a call, and where its answer goes.
+_Question = tuple[InputRequest, asyncio.Future[Answer]]
 
 
 class Asker(Protocol):
@@ -94,7 +98,7 @@ class _Call:
     """A call in progress, which questions sent apart from it go to."""
 
     def __init__(self) -> None:
-        self.questions: asyncio.Queue[tuple[InputRequest, asyncio.Future[Answer]]] = asyncio.Queue()
+        self.questions: asyncio.Queue[_Question] = asyncio.Queue()
 
     def close(self) -> None:
         """A question it never answered (the run paused, the call ended) is refused."""
@@ -140,18 +144,31 @@ async def answering[R](work: Awaitable[R], call: _Call, asker: Asker | None) -> 
     the work is given up."""
     running = asyncio.ensure_future(work)
     try:
-        while True:
-            asked = asyncio.ensure_future(call.questions.get())
-            done, _ = await asyncio.wait({running, asked}, return_when=asyncio.FIRST_COMPLETED)
-            if asked not in done:
-                asked.cancel()
-                return running.result()
-            await _answer_one(*asked.result(), asker)
+        while (question := await _asked(running, call)) is not None:
+            await _answer_one(*question, asker)
+        return running.result()
     finally:
         if not running.done():
             running.cancel()
             with contextlib.suppress(BaseException):
                 await running
+
+
+async def _asked(running: asyncio.Future[Any], call: _Call) -> _Question | None:
+    """The next question sent apart from the call, or None once it's done. Stopped while waiting, a question taken
+    just then goes back to the call, which refuses it as it closes."""
+    asked = asyncio.ensure_future(call.questions.get())
+    try:
+        done, _ = await asyncio.wait({running, asked}, return_when=asyncio.FIRST_COMPLETED)
+    except BaseException:
+        await given_up(asked)
+        if not asked.cancelled():
+            call.questions.put_nowait(asked.result())
+        raise
+    if asked in done:
+        return asked.result()
+    await given_up(asked)
+    return None
 
 
 async def _answer_one(request: InputRequest, waiting: asyncio.Future[Answer], asker: Asker | None) -> None:

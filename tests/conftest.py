@@ -343,3 +343,9 @@ async def written(path: Path) -> str:
             return path.read_text().strip()
         await asyncio.sleep(0.05)
     raise TimeoutError(f"{path} was never written")
+
+
+def waiting_on_queues() -> list[asyncio.Task[Any]]:
+    """Tasks still waiting in a Queue.get. One left behind is destroyed with its queue once nothing holds them,
+    which asyncio logs as "Task was destroyed but it is pending!"."""
+    return [task for task in asyncio.all_tasks() if getattr(task.get_coro(), "__qualname__", None) == "Queue.get"]

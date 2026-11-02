@@ -4,6 +4,7 @@ most so much and so often. On the 2026-07-28 protocol and on an older one. And t
 resources and prompts (core/mcp/listings.py), off until the user turns them on. The server runs in-process."""
 
 import asyncio
+import contextlib
 from collections.abc import AsyncIterator
 from typing import Annotated, Any
 
@@ -13,9 +14,11 @@ from mcp.server import MCPServer
 from mcp.server.mcpserver import Elicit, ElicitationResult, Resolve, Sample
 from mcp.types import (
     CreateMessageResult,
+    ElicitRequest,
     ElicitRequestFormParams,
     ElicitRequestURLParams,
     ElicitResult,
+    ErrorData,
     SamplingMessage,
     TextContent,
 )
@@ -23,10 +26,10 @@ from pydantic import BaseModel
 
 from assistant.core.agent import AssistantService, McpServer, McpServerChanges, Session
 from assistant.core.events import ApprovalRequired, TextDelta, ToolFinished
-from assistant.core.mcp import elicitation
+from assistant.core.mcp import asking, elicitation
 from assistant.core.mcp import hub as hub_module
 from assistant.core.mcp import sampling as sampling_module
-from tests.conftest import collect
+from tests.conftest import collect, waiting_on_queues
 
 ORDER = "mcp__shop__order"
 SUMMARY = "mcp__shop__summary"
@@ -271,3 +274,29 @@ def test_a_forms_choices_and_a_link_are_shown_and_answered_as_their_types():
     assert elicitation.result(link, {"action": "accept"}) == ElicitResult(action="accept")
     bad = ElicitRequestURLParams(message="Run", url="file:///etc/passwd", elicitation_id="2")
     assert elicitation.request("shop", bad) is None
+
+
+async def test_a_call_stopped_while_it_waits_for_questions_leaves_no_wait_on_its_queue():
+    with asking.InFlight().call() as call:
+        answering = asyncio.create_task(asking.answering(asyncio.Event().wait(), call, None))
+        await asyncio.sleep(0.01)
+        answering.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await answering
+    assert waiting_on_queues() == []
+
+
+async def test_a_question_taken_as_its_call_stops_is_refused():
+    """The question came just as the run stopped: it goes back to the call, which refuses it as it closes."""
+    waiting: asyncio.Future[asking.Answer] = asyncio.get_running_loop().create_future()
+    with asking.InFlight().call() as call:
+        answering = asyncio.create_task(asking.answering(asyncio.Event().wait(), call, None))
+        await asyncio.sleep(0.01)
+        call.questions.put_nowait(
+            (ElicitRequest(params=ElicitRequestFormParams(message="?", requested_schema={})), waiting)
+        )
+        await asyncio.sleep(0)  # the wait for questions takes it
+        answering.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await answering
+    assert isinstance(waiting.result(), ErrorData)

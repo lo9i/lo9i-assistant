@@ -24,6 +24,7 @@ from assistant.core.integrations.email.accounts import EmailConfig, EmailError
 from assistant.core.integrations.email.imap import Mailbox, MailSummary
 from assistant.core.jobs import store as jobs
 from assistant.core.outbox import DeliveryError
+from assistant.core.waiting import first
 from assistant.daemon.scheduler import Scheduler
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ class MailWatcher:
             configs = await self._wanted()
             watching = [asyncio.create_task(self._watch(c)) for c in configs]
             try:
-                await _first(stop.wait(), self._until_changed(configs))
+                await first(stop.wait(), self._until_changed(configs))
             finally:
                 for task in watching:
                     task.cancel()
@@ -158,12 +159,3 @@ def _account(config: EmailConfig) -> str:
 def _connections(configs: list[EmailConfig]) -> set[tuple]:
     """What a change to needs new connections."""
     return {(c.account_id, c.imap_host, c.imap_port, c.username, c.password) for c in configs}
-
-
-async def _first(*waits) -> None:
-    tasks = [asyncio.ensure_future(w) for w in waits]
-    try:
-        await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-    finally:
-        for task in tasks:
-            task.cancel()

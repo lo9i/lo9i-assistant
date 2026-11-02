@@ -24,6 +24,7 @@ from assistant.core.channels.chat.port import OWN_CHAT, ChatLimits, Delivered, R
 from assistant.core.channels.chat.split import split_text
 from assistant.core.i18n import Texts, said
 from assistant.core.outbox import DeliveryError, Outbox
+from assistant.core.waiting import given_up
 
 # The channel protocol this daemon speaks (docs/channel-plugins.md). A plugin declares the one its process
 # speaks (`protocol:` in its channel section); one that speaks another isn't run (processes.py).
@@ -286,10 +287,8 @@ async def _next(stream: _Stream) -> ChannelEvent | None:
     try:
         await asyncio.wait({getting, ending}, return_when=asyncio.FIRST_COMPLETED)
     finally:
-        ending.cancel()
-        if not getting.done():
-            getting.cancel()
-    return getting.result() if getting.done() else None
+        await given_up(getting, ending)
+    return None if getting.cancelled() else getting.result()
 
 
 class _Sender:

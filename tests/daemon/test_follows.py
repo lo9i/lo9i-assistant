@@ -1,11 +1,13 @@
 """Runs and logs followed over a client's /events stream instead of a stream each (daemon/follows.py)."""
 
 import asyncio
+import contextlib
 import json
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import Any
 
 import httpx
+import pytest
 
 from assistant.core.events import Done, TextDelta
 from assistant.core.logs import LogEntry, LogFileInfo, LogPage, LogQuery
@@ -14,6 +16,7 @@ from assistant.daemon.auth import trusted
 from assistant.daemon.follows import LOG_ENTRY, LOG_PAGE, RUN_END, RUN_EVENTS, StreamFollows, log_source, run_source
 from assistant.daemon.runs import RunHub
 from assistant.protocol import CLIENT_HEADER, CLIENT_ID_HEADER
+from tests.conftest import waiting_on_queues
 
 KEY = ("dev1", "tab-1")
 
@@ -215,3 +218,24 @@ async def test_the_log_routes_follow_and_stop_following(service):
         assert (await http.delete("/events/logs/l1")).status_code == 200
         unnamed = await http.put("/events/logs/l1", json={"name": "daemon"}, headers={CLIENT_ID_HEADER: ""})
         assert unnamed.status_code == 400
+
+
+async def test_a_stream_closed_while_it_waits_leaves_no_wait_on_its_queue():
+    """The client left (sse_starlette cancels the stream's task) while nothing came down it."""
+    stream = StreamFollows().events(KEY, _quiet())
+    reading = asyncio.create_task(anext(stream))
+    await asyncio.sleep(0.01)
+    reading.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await reading
+    await stream.aclose()
+    assert waiting_on_queues() == []
+
+
+async def test_a_stream_ends_with_the_bus_error():
+    async def failing() -> AsyncIterator[dict[str, Any]]:
+        raise ValueError("broken")
+        yield {}
+
+    with pytest.raises(ValueError, match="broken"):
+        await anext(StreamFollows().events(KEY, failing()))

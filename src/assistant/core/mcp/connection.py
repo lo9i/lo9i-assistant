@@ -46,6 +46,7 @@ from assistant.core.mcp.background import BackgroundWork, WorkFinished, WorkStar
 from assistant.core.mcp.oauth import McpAuth, SignInNeededError, needs_sign_in
 from assistant.core.mcp.on_demand import OnDemand
 from assistant.core.mcp.servers import McpServer
+from assistant.core.waiting import first
 
 logger = logging.getLogger(__name__)
 
@@ -277,7 +278,7 @@ class McpConnection:
             self._on_demand.want()
             with contextlib.suppress(TimeoutError):
                 async with asyncio.timeout(_START_SECONDS):
-                    await _first(self._connected.wait(), self._attempt_failed.wait())
+                    await first(self._connected.wait(), self._attempt_failed.wait())
 
     async def _sent(self, send: _Send, asker: Asker | None) -> Any:
         client = self._client
@@ -329,7 +330,7 @@ class McpConnection:
     async def _serve(self, client: Client, stop: asyncio.Event) -> None:
         """Until stopped or the connection drops, refresh the tools whenever the server says they changed."""
         while True:
-            await _first(stop.wait(), self._lost.wait(), self._tools_changed.wait(), self._idle())
+            await first(stop.wait(), self._lost.wait(), self._tools_changed.wait(), self._idle())
             if stop.is_set() or self._lost.is_set() or (self._on_demand and not self._on_demand.wanted):
                 return
             self._tools_changed.clear()
@@ -404,15 +405,6 @@ async def list_tools(client: Client) -> list[Tool]:
         cursor = page.next_cursor
         if not cursor:
             return tools
-
-
-async def _first(*waits) -> None:
-    tasks = [asyncio.ensure_future(w) for w in waits]
-    try:
-        await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-    finally:
-        for task in tasks:
-            task.cancel()
 
 
 async def _wait(stop: asyncio.Event, seconds: float) -> None:

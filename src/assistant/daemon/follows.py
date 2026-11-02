@@ -32,6 +32,8 @@ type StreamKey = tuple[str, str]
 type Sent = dict[str, Any]
 # What a follow sends down the stream, from its start each time the stream opens; ending, the follow is done.
 type Source = Callable[[], AsyncGenerator[Sent]]
+# A stream's queue: what goes down it, then why the bus ended, which ends it.
+type _Stream = asyncio.Queue[Sent | Exception]
 
 RUN_EVENTS = "run_events"
 RUN_END = "run_end"
@@ -51,7 +53,7 @@ class StreamFollows:
         self._grace_seconds = grace_seconds
         self._follows: dict[StreamKey, dict[str, _Follow]] = {}
         # The stream each client reads now; a newer one replaces it.
-        self._streams: dict[StreamKey, asyncio.Queue[Sent]] = {}
+        self._streams: dict[StreamKey, _Stream] = {}
 
     def follow(self, key: StreamKey, follow_id: str, source: Source) -> None:
         """Sends what `source` gives down the client's stream, now or once it opens. Asking again under the same id
@@ -73,13 +75,13 @@ class StreamFollows:
             pump = asyncio.create_task(_pump(bus, queue))
             try:
                 while True:
-                    yield await _next(queue, pump)
+                    yield _event(await queue.get())
             finally:
                 pump.cancel()
 
     @contextlib.contextmanager
     def _stream(self, key: StreamKey):
-        queue: asyncio.Queue[Sent] = asyncio.Queue()
+        queue: _Stream = asyncio.Queue()
         self._cancel_tasks(key)
         self._streams[key] = queue
         for follow_id, follow in self._follows.get(key, {}).items():
@@ -89,7 +91,7 @@ class StreamFollows:
         finally:
             self._closed(key, queue)
 
-    def _closed(self, key: StreamKey, queue: asyncio.Queue[Sent]) -> None:
+    def _closed(self, key: StreamKey, queue: _Stream) -> None:
         """An older stream noticed closing after its client opened a new one leaves the new one be."""
         if self._streams.get(key) is not queue:
             return
@@ -101,10 +103,10 @@ class StreamFollows:
         if key not in self._streams:
             self._follows.pop(key, None)
 
-    def _start(self, key: StreamKey, follow_id: str, follow: _Follow, queue: asyncio.Queue[Sent]) -> None:
+    def _start(self, key: StreamKey, follow_id: str, follow: _Follow, queue: _Stream) -> None:
         follow.task = asyncio.create_task(self._send(key, follow_id, follow, queue))
 
-    async def _send(self, key: StreamKey, follow_id: str, follow: _Follow, queue: asyncio.Queue[Sent]) -> None:
+    async def _send(self, key: StreamKey, follow_id: str, follow: _Follow, queue: _Stream) -> None:
         # Closed when cancelled too, so a followed journal's journalctl stops at once.
         try:
             async with contextlib.aclosing(follow.source()) as sent:
@@ -150,20 +152,22 @@ def log_source(log: LogSource, query: LogQuery, follow_id: str) -> Source:
     return sent
 
 
-async def _pump(events: AsyncIterator[Sent], queue: asyncio.Queue[Sent]) -> None:
-    async for event in events:
-        queue.put_nowait(event)
+async def _pump(events: AsyncIterator[Sent], queue: _Stream) -> None:
+    """The bus's events, then why it ended, which ends the stream: read from the queue alone, a stream waits on
+    nothing else, so closing it leaves no wait behind."""
+    try:
+        async for event in events:
+            queue.put_nowait(event)
+    except Exception as e:
+        queue.put_nowait(e)
+    else:
+        queue.put_nowait(RuntimeError("The bus stopped"))
 
 
-async def _next(queue: asyncio.Queue[Sent], pump: asyncio.Task[None]) -> Sent:
-    """The next event, or the bus's error if it failed, which ends the stream."""
-    getting = asyncio.ensure_future(queue.get())
-    await asyncio.wait({getting, pump}, return_when=asyncio.FIRST_COMPLETED)
-    if getting.done():
-        return getting.result()
-    getting.cancel()
-    pump.result()
-    raise RuntimeError("The bus stopped")
+def _event(item: Sent | Exception) -> Sent:
+    if isinstance(item, Exception):
+        raise item
+    return item
 
 
 def _sent(kind: str, **data: Any) -> Sent:
