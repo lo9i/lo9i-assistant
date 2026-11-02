@@ -5,7 +5,7 @@
 const MARKER = /<!--\s*choices:[\s\S]*?-->/gi;
 // A comment still open at the end, or its first characters: while the reply streams it may become a marker.
 const OPENING = /(<!--(?:(?!-->)[\s\S])*|<!-?)$/;
-const ENDING = /<!--\s*choices:([\s\S]*?)-->\s*$/i;
+const ENDING = /<!--\s*choices:((?:(?!-->)[\s\S])*)-->\s*$/i;
 
 export type Answerable = { text: string; choices: string[] };
 
