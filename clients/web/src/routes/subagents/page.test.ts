@@ -55,7 +55,7 @@ vi.mock("$lib/daemon.svelte", () => ({
 const { default: Page } = await import("./+page.svelte");
 
 describe("Subagents page", () => {
-  it("lists every conversation's subagents with their status, task and conversation", () => {
+  it("lists every conversation's active subagents with their status, task and conversation", () => {
     listed.subagents = [
       subagent("a", "t1", "running", { step: "bash ls -la" }),
       subagent("b", "t2", "done", { ended_at: "2026-11-01T10:05:00Z" }),
@@ -65,10 +65,20 @@ describe("Subagents page", () => {
     expect(body).toContain("Task a</button>");
     expect(body).toContain("bash ls -la");
     expect(body).toContain("Flights to Rome");
-    expect(body).toContain("Tax return");
     expect(body).toContain("The inbox");
     expect(body).toContain("Waiting for you");
     expect(body).not.toContain("with details</button>");
+    expect(body).toMatch(/<input type="checkbox" checked[^>]*\/>\s*Active/);
+    expect(body).not.toContain("Task b</button>");
+    expect(body).not.toContain("Tax return");
+  });
+
+  it("says when none is active, and how to see those that ended", () => {
+    listed.subagents = [subagent("b", "t2", "done", { ended_at: "2026-11-01T10:05:00Z" })];
+    const { body } = render(Page);
+    expect(body).toContain("No active subagents");
+    expect(body).toContain("Turn off Active");
+    expect(body).not.toContain("Task b</button>");
   });
 
   it("says when there are none yet", () => {

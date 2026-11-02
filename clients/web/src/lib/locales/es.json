@@ -1556,7 +1556,11 @@
     "notWaiting": "Ya no espera eso.",
     "stopTitle": "¿Detener este subagente?",
     "stopText": "Se detiene donde está, sin respuesta. El asistente sabrá que lo detuviste.",
-    "all": "Los subagentes de todas las conversaciones"
+    "all": "Los subagentes de todas las conversaciones",
+    "activeOnly": "Activos",
+    "activeOnlyHint": "Solo los que siguen trabajando o te esperan",
+    "noneActive": "No hay subagentes activos.",
+    "noneActiveHint": "Desmarca Activos para ver también los que terminaron."
   },
   "subagentsPage": {
     "title": "Subagentes en segundo plano",
@@ -1564,6 +1568,8 @@
     "search": "Buscar por tarea o conversación",
     "none": "Ninguno todavía",
     "noneHint": "Cuando el asistente pone a un subagente a trabajar en segundo plano en una tarea larga, aparece aquí.",
+    "noneActive": "No hay subagentes activos",
+    "noneActiveHint": "Desmarca Activos para ver también los que terminaron.",
     "status": "Estado",
     "task": "Tarea",
     "conversation": "Conversación",

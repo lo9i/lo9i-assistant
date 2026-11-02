@@ -1556,7 +1556,11 @@
     "notWaiting": "It doesn't wait for that any more.",
     "stopTitle": "Stop this subagent?",
     "stopText": "It stops where it is, without an answer. The assistant hears that you stopped it.",
-    "all": "Every conversation's subagents"
+    "all": "Every conversation's subagents",
+    "activeOnly": "Active",
+    "activeOnlyHint": "Only those still working or waiting for you",
+    "noneActive": "No active subagents.",
+    "noneActiveHint": "Turn off Active to see the ones that ended too."
   },
   "subagentsPage": {
     "title": "Background subagents",
@@ -1564,6 +1568,8 @@
     "search": "Search by task or conversation",
     "none": "None yet",
     "noneHint": "When the assistant sends a subagent off to work in the background on a long task, it shows up here.",
+    "noneActive": "No active subagents",
+    "noneActiveHint": "Turn off Active to see the ones that ended too.",
     "status": "Status",
     "task": "Task",
     "conversation": "Conversation",

@@ -4,21 +4,24 @@
   import List from "@lucide/svelte/icons/list";
   import PanelRightClose from "@lucide/svelte/icons/panel-right-close";
   import type { BackgroundSubagent } from "$lib/api/types";
-  import { doing, taskTitle } from "$lib/chat/subagents";
+  import { doing, taskTitle, working } from "$lib/chat/subagents";
   import { clock } from "$lib/clock.svelte";
   import { duration } from "$lib/duration";
   import { t } from "$lib/i18n.svelte";
+  import ActiveOnly from "./ActiveOnly.svelte";
   import StatusMark from "./StatusMark.svelte";
   import SubagentView from "./SubagentView.svelte";
 
   // Beside a conversation that sent subagents off to work in the background: a card for each, newest first, with its
   // task, its status, what it's doing now and for how long. A card opens it in place of the list, as a file opens in
-  // the folder panel: its steps as they come, what it waits for, and its answer once it ended. Every conversation's are
-  // on the Subagents page.
+  // the folder panel: its steps as they come, what it waits for, and its answer once it ended. At first only those still
+  // at it show; the Active filter off shows those that ended too. Every conversation's are on the Subagents page.
   type Props = { subagents: BackgroundSubagent[]; onclose: () => void };
   let { subagents, onclose }: Props = $props();
   const time = clock();
   let picked = $state<string | null>(null);
+  let activeOnly = $state(true);
+  const shown = $derived(activeOnly ? subagents.filter(working) : subagents);
   // One removed meanwhile goes back to the list.
   $effect(() => {
     if (picked !== null && !subagents.some((s) => s.id === picked)) picked = null;
@@ -39,8 +42,9 @@
   {#if picked !== null}
     <SubagentView id={picked} onback={() => (picked = null)} />
   {:else}
+    <div class="filter"><ActiveOnly bind:checked={activeOnly} /></div>
     <ul class="cards">
-      {#each subagents as subagent (subagent.id)}
+      {#each shown as subagent (subagent.id)}
         <li>
           <button class="card status--{subagent.status}" onclick={() => (picked = subagent.id)}>
             <span class="top">
@@ -53,7 +57,11 @@
           </button>
         </li>
       {:else}
-        <li class="text-caption empty">{t("subagents.none")}</li>
+        {#if activeOnly && subagents.length > 0}
+          <li class="text-caption empty">{t("subagents.noneActive")} {t("subagents.noneActiveHint")}</li>
+        {:else}
+          <li class="text-caption empty">{t("subagents.none")}</li>
+        {/if}
       {/each}
     </ul>
   {/if}
@@ -87,6 +95,9 @@
     min-width: 0;
     font-weight: 600;
     color: var(--color-text-primary);
+  }
+  .filter {
+    padding: 0 8px;
   }
   .cards {
     flex: 1;

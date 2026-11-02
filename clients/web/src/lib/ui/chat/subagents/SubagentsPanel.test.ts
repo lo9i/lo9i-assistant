@@ -24,7 +24,7 @@ function subagent(id: string, status: BackgroundSubagent["status"], fields: Part
 }
 
 describe("SubagentsPanel", () => {
-  it("shows a card for each with its task, status, what it's doing and for how long", () => {
+  it("shows a card for each active one with its task, status, what it's doing and for how long", () => {
     const subagents = [
       subagent("a", "running", { step: "bash ls -la" }),
       subagent("b", "waiting"),
@@ -37,8 +37,18 @@ describe("SubagentsPanel", () => {
     expect(body).toContain("bash ls -la");
     expect(body).toContain("5 min");
     expect(body).toContain("Waiting for your answer");
-    expect(body).toContain("RuntimeError: down");
     expect(body).toContain("lucide-loader-circle");
+    expect(body).toMatch(/<input type="checkbox" checked[^>]*\/>\s*Active/);
+    expect(body).not.toContain("Task c</span>");
+    expect(body).not.toContain("RuntimeError: down");
+  });
+
+  it("says when none is active, and how to see those that ended", () => {
+    const subagents = [subagent("c", "done", { ended_at: new Date().toISOString() })];
+    const { body } = render(SubagentsPanel, { props: { subagents, onclose: () => {} } });
+    expect(body).toContain("No active subagents.");
+    expect(body).toContain("Turn off Active");
+    expect(body).not.toContain("Task c</span>");
   });
 
   it("says when it's still thinking", () => {
