@@ -1,4 +1,4 @@
-// Updating lo9i from the Host card (src/assistant/daemon/updates.py): what to say about the version it runs and
+// Updating lo9i from the Assistant card (src/assistant/daemon/updates.py): what to say about the version it runs and
 // what an update would bring.
 import type { Commit, UpdateStatus } from "./api/types";
 import { formatDate, t } from "./i18n.svelte";

@@ -6,6 +6,7 @@
   import { confirmation, type Coming, type Ending } from "$lib/shutdown";
   import Confirm from "../Confirm.svelte";
   import SettingsCard from "../Card.svelte";
+  import AssistantUpdates from "./AssistantUpdates.svelte";
   import EndingDialog from "./EndingDialog.svelte";
 
   const { client, notices } = useDaemon();
@@ -69,6 +70,7 @@
     </div>
   </form>
   {#if message}<p class="text-meta saved">{message}</p>{/if}
+  <AssistantUpdates />
   <div class="ending">
     <div class="actions">
       <button class="btn btn--sm" onclick={() => (confirming = "restart")}><RotateCcw size={14} /> {t("shutdown.restart")}</button>

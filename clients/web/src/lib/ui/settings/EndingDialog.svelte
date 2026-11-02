@@ -1,6 +1,6 @@
 <script lang="ts">
-  // A restart or stop the daemon accepted, until it's back: from the Assistant card's buttons, an update the Host card
-  // installed, another tab, or before this page loaded. The page waits for it to come back.
+  // A restart or stop the daemon accepted, until it's back: from the Assistant card's buttons, an update installed,
+  // another tab, or before this page loaded. The page waits for it to come back.
   import { LoaderCircle } from "@lucide/svelte";
   import { useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";

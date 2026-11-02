@@ -83,7 +83,7 @@
   "assistant": {
     "saved": "Saved: {name}. It applies from the next message.",
     "title": "Assistant",
-    "sub": "What it calls itself, and restarting or stopping it.",
+    "sub": "What it calls itself, its updates, and restarting or stopping it.",
     "name": "Name",
     "nameHint": "The Telegram bot's display name follows it."
   },

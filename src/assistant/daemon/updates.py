@@ -1,5 +1,5 @@
-"""Updating lo9i from the apps (Settings → System, `/host`): which version the daemon runs, whether a newer one
-is there, and installing it, then restarting (daemon/shutdown.py).
+"""Updating lo9i from the apps (Settings → General's Assistant card, `/host`): which version the daemon runs,
+whether a newer one is there, and installing it, then restarting (daemon/shutdown.py).
 
 The version is a commit of lo9i's repository. A clone (install.sh, or a checkout someone works in) updates
 itself: it fetches its upstream branch, and an update fast-forwards to it, syncs the dependencies, builds the

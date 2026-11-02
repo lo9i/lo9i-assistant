@@ -83,7 +83,7 @@
   "assistant": {
     "saved": "Guardado: {name}. Se aplica desde el próximo mensaje.",
     "title": "Asistente",
-    "sub": "Cómo se llama a sí mismo, y reiniciarlo o detenerlo.",
+    "sub": "Cómo se llama a sí mismo, sus actualizaciones, y reiniciarlo o detenerlo.",
     "name": "Nombre",
     "nameHint": "El nombre visible del bot de Telegram lo sigue."
   },
