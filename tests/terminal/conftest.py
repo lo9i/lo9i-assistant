@@ -60,6 +60,8 @@ from assistant.core.agent import (
     ModelStatus,
     Notification,
     PairingCode,
+    Passkey,
+    PasskeyError,
     PluginFieldValue,
     PluginSettings,
     PluginUpdate,
@@ -1072,6 +1074,9 @@ class FakeConversations:
 class FakeDevices:
     def __init__(self):
         self.items = [Device("d1", "Laptop", "2026-09-01T09:00:00+00:00", "2026-09-30T09:00:00+00:00", "203.0.113.7")]
+        self.keys = [
+            Passkey("k1", "d1", "lo9i.example.com", True, "2026-09-02T09:00:00+00:00", "2026-09-29T09:00:00+00:00")
+        ]
         self.codes = 0
 
     async def list(self):
@@ -1085,6 +1090,15 @@ class FakeDevices:
         if device_id not in {d.id for d in self.items}:
             raise DeviceError(f"No device {device_id}.")
         self.items = [d for d in self.items if d.id != device_id]
+        self.keys = [p for p in self.keys if p.device_id != device_id]
+
+    async def passkeys(self):
+        return list(self.keys)
+
+    async def remove_passkey(self, passkey_id):
+        if passkey_id not in {p.id for p in self.keys}:
+            raise PasskeyError(f"No passkey {passkey_id}.")
+        self.keys = [p for p in self.keys if p.id != passkey_id]
 
 
 def ending_event(ending: str, runs: int, taken_back: bool, update: bool = False, can_take_back: bool = True) -> dict:

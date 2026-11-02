@@ -200,6 +200,180 @@
         }
       }
     },
+    "/auth/passkey/options": {
+      "post": {
+        "summary": "Sign In Options",
+        "operationId": "sign_in_options_auth_passkey_options_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyCeremony"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/passkey": {
+      "post": {
+        "summary": "Sign In",
+        "description": "Signs this browser in as the passkey's device, and sets its token cookie.",
+        "operationId": "sign_in_auth_passkey_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyAnswer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Device"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/passkeys": {
+      "get": {
+        "summary": "Passkey List",
+        "description": "Every device's, most recently used first.",
+        "operationId": "passkey_list_passkeys_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Passkey"
+                  },
+                  "type": "array",
+                  "title": "Response Passkey List Passkeys Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add Passkey",
+        "operationId": "add_passkey_passkeys_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyAnswer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Passkey"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/passkeys/options": {
+      "post": {
+        "summary": "Passkey Options",
+        "description": "Starts adding a passkey for the calling device.",
+        "operationId": "passkey_options_passkeys_options_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyCeremony"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/passkeys/{passkey_id}": {
+      "delete": {
+        "summary": "Remove Passkey",
+        "operationId": "remove_passkey_passkeys__passkey_id__delete",
+        "parameters": [
+          {
+            "name": "passkey_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Passkey Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyRemoved"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/events": {
       "get": {
         "summary": "Events",
@@ -10658,6 +10832,93 @@
           "expires_at"
         ],
         "title": "PairingCode"
+      },
+      "Passkey": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "device_id": {
+            "type": "string",
+            "title": "Device Id"
+          },
+          "host": {
+            "type": "string",
+            "title": "Host"
+          },
+          "synced": {
+            "type": "boolean",
+            "title": "Synced"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "last_used_at": {
+            "type": "string",
+            "title": "Last Used At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "device_id",
+          "host",
+          "synced",
+          "created_at",
+          "last_used_at"
+        ],
+        "title": "Passkey"
+      },
+      "PasskeyAnswer": {
+        "properties": {
+          "ceremony": {
+            "type": "string",
+            "title": "Ceremony"
+          },
+          "credential": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Credential"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ceremony",
+          "credential"
+        ],
+        "title": "PasskeyAnswer"
+      },
+      "PasskeyCeremony": {
+        "properties": {
+          "ceremony": {
+            "type": "string",
+            "title": "Ceremony"
+          },
+          "options": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Options"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ceremony",
+          "options"
+        ],
+        "title": "PasskeyCeremony"
+      },
+      "PasskeyRemoved": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "PasskeyRemoved"
       },
       "PendingEnding": {
         "properties": {

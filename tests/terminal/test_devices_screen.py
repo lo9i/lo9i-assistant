@@ -1,4 +1,5 @@
-"""/devices: pair a browser with a code, see devices, revoke one after confirming."""
+"""/devices: pair a browser with a code, see devices and their passkeys, remove those, revoke one after
+confirming."""
 
 from textual.widgets import Button, Markdown
 
@@ -35,3 +36,22 @@ async def test_pair_a_browser_and_revoke_a_device(app, client, monkeypatch):
         await pilot.press("y")
         await wait_for(pilot, lambda: client.devices.items == [] and "No devices paired yet" in body())
         assert not screen.query_one("#revoke").display
+
+
+async def test_a_devices_passkeys_show_with_it_and_are_removed_after_confirming(app, client):
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/devices", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, DevicesScreen))
+        screen = app.screen
+
+        def body() -> str:
+            return screen.query_one("#device-body", Markdown).source
+
+        await wait_for(pilot, lambda: "Passkeys" in body() and "synced" in body())
+        screen.query_one("#remove-passkeys", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: client.devices.keys == [] and "No passkeys" in body())
+        assert not screen.query_one("#remove-passkeys").display
+        assert [d.id for d in client.devices.items] == ["d1"]

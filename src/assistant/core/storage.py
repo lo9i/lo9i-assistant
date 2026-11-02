@@ -52,6 +52,8 @@ _CHANGE_EVENTS = {
     # Tasks whose end is still to be told (core/agent_tasks/reports.py), for the daemon to follow.
     "agent_task_reports": "agent_task_reports",
     "devices": "devices",
+    # Passkeys show with the devices they belong to (core/passkeys.py).
+    "passkeys": "devices",
     "mcp_servers": "mcp",
     # Failures of MCP servers and skills (core/health.py), shown with them.
     "mcp_health": "mcp",

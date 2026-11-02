@@ -2,9 +2,9 @@
 
 The service is a facade (`service.py`) composed of mixins, one per concern:
 threads, channel threads, files, the handed folder, memory, channels, email, mcp, sign-ins, alerts, doctor,
-notifications, home, follow-ups, held runs, tasks, background subagents, repositories, model, identity, prompts,
-speech, log level, language, web search, skills, skill imports, pinned skills, jobs, usage, live voice calls,
-messaging, runs and locking.
+notifications, home, follow-ups, held runs, tasks, background subagents, repositories, model, devices, passkeys,
+identity, prompts, speech, log level, language, web search, skills, skill imports, pinned skills, jobs, usage, live
+voice calls, messaging, runs and locking.
 """
 
 from assistant.core.agent.alerts import Alert, AlertArea
@@ -54,6 +54,7 @@ from assistant.core.agent.mcp import (
 from assistant.core.agent.memory import Episode, Fact, MemoryEditError, MemoryNotFoundError
 from assistant.core.agent.model import ModelOption, ModelProvider, ModelSettingsError, ModelStatus, ProviderField
 from assistant.core.agent.notifications import Notification
+from assistant.core.agent.passkeys import Passkey, PasskeyError, Site
 from assistant.core.agent.plugin_settings import PluginFieldValue, PluginSettings
 from assistant.core.agent.prompts import PromptEditError, PromptSection, UnknownPromptError
 from assistant.core.agent.repositories import (
@@ -168,6 +169,8 @@ __all__ = [
     "Notification",
     "OutsideFolderError",
     "PairingCode",
+    "Passkey",
+    "PasskeyError",
     "PluginFieldValue",
     "PluginIcon",
     "PluginSettings",
@@ -191,6 +194,7 @@ __all__ = [
     "ShownStep",
     "SignInError",
     "SignedIn",
+    "Site",
     "Skill",
     "SkillError",
     "SkillSummary",

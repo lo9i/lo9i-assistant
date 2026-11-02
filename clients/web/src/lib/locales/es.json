@@ -303,7 +303,20 @@
     "noneSelectedHint": "Elige uno de la tabla, o vincula uno nuevo.",
     "logOutTitle": "¿Cerrar sesión en este navegador?",
     "revokeTitle": "¿Revocar {name}?",
-    "revokeText": "Necesitará un código nuevo para volver a usar el asistente."
+    "revokeText": "Necesitará un código nuevo para volver a usar el asistente. Sus llaves de acceso también se quitan.",
+    "passkeys": "Llaves de acceso",
+    "addPasskey": "Agregar una llave de acceso",
+    "passkeyAdded": "Llave de acceso agregada. La próxima vez, inicia sesión con ella en lugar de un código.",
+    "passkeyAddedOn": "Agregada el {when}",
+    "passkeyUsed": "usada el {when}",
+    "synced": "Sincronizada",
+    "syncedHint": "La guarda un gestor de contraseñas que la sincroniza con tus otros dispositivos, que también pueden iniciar sesión con ella.",
+    "noPasskeys": "Ninguna.",
+    "noPasskeysHere": "Ninguna todavía. Agrega una para iniciar sesión con Face ID, Touch ID o el bloqueo de pantalla en lugar de un código.",
+    "passkeysNeedHttps": "Las llaves de acceso funcionan en la dirección HTTPS del asistente, abierta por su nombre.",
+    "removePasskey": "Quitar llave de acceso",
+    "removePasskeyTitle": "¿Quitar esta llave de acceso?",
+    "removePasskeyText": "Ya no servirá para iniciar sesión. Puede que tu gestor de contraseñas todavía la muestre: bórrala ahí también."
   },
   "dispatch": {
     "title": "Encaminar mensajes",
@@ -969,7 +982,14 @@
     "code": "Código de vinculación",
     "namePlaceholder": "Nombre para este dispositivo",
     "name": "Nombre del dispositivo",
-    "pair": "Vincular"
+    "pair": "Vincular",
+    "passkeyHint": "¿Ya agregaste una llave de acceso para este asistente? Inicia sesión con ella en lugar de un código.",
+    "passkey": "Iniciar sesión con una llave de acceso",
+    "orCode": "O vincula con un código",
+    "paired": "Este navegador está vinculado",
+    "offerPasskey": "Agrega una llave de acceso para iniciar sesión la próxima vez con Face ID, Touch ID o el bloqueo de pantalla, sin código.",
+    "addPasskey": "Agregar una llave de acceso",
+    "notNow": "Ahora no"
   },
   "pluginSetup": {
     "starting": "Iniciando {name}… su configuración aparece aquí cuando esté en marcha."

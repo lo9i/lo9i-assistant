@@ -4,13 +4,9 @@ Open work, tackled one at a time. Finished items are deleted and the remaining c
 for something to happen before they're worth doing are under To revisit, with what brings them back.
 A = action, L = to revisit later, G = memory gap, H = context improvement, Q = open question, R = risk.
 
-## Daemon
-
-- A10. Passkeys as a faster sign-in for devices paired over the network (HTTPS and device pairing are done: `daemon/auth.py`, `daemon/https.py`).
-
 ## Plugins
 
-- A11. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen. It would also give plugins that ask for the ssh agent (`ssh_agent: true`, `core/mcp/ssh_agent.py`) the user's agent, which a LaunchDaemon has none of.
+- A10. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen. It would also give plugins that ask for the ssh agent (`ssh_agent: true`, `core/mcp/ssh_agent.py`) the user's agent, which a LaunchDaemon has none of.
 
 ## To revisit
 
@@ -31,7 +27,7 @@ Not worth doing yet; each item says what was done and when to look at it again.
 
 ## Open questions and risks
 
-- R1. Bash runs on the host as the daemon's user. It can read `~/.lo9i` (including the database with the Telegram token, the email password and MCP servers' keys) and that user's other files. Only dangerous-command approvals stand in the way. With remote access (A10), a stolen paired device can reach this too until it's revoked. A paired device can also add a local MCP server, which runs its command without approval. Options: run the daemon as a dedicated user with little else on the host, and run just the bash tool in a sandbox container.
+- R1. Bash runs on the host as the daemon's user. It can read `~/.lo9i` (including the database with the Telegram token, the email password and MCP servers' keys) and that user's other files. Only dangerous-command approvals stand in the way. With remote access, a stolen paired device can reach this too until it's revoked. A paired device can also add a local MCP server, which runs its command without approval. Options: run the daemon as a dedicated user with little else on the host, and run just the bash tool in a sandbox container.
 - R2. MCP servers send text the model reads (tool descriptions and results). Hidden Unicode tag characters are stripped and write tools on untrusted servers need approval, but visible injected instructions still reach the model. A server whose tool list keeps changing starts a new epoch at each message (a prompt cache miss each time). A server also names the conversation its finished background work is told to by sending back the call's `_meta["lo9i/origin"]` (`core/mcp/background.py`), which isn't signed: it can put a note in any conversation whose id it learned from a call.
 - R3. langchain-openrouter 0.2.9 takes only the openrouter SDK below 1.0, and the SDK's 0.11 releases take only pydantic below 2.13, so the lock holds the SDK at 0.10.8 to keep pydantic where it is (`uv lock --upgrade-package "pydantic==<version>"` when it's added). `uv lock --upgrade` would move pydantic back to 2.12 for it. Revisit when langchain-openrouter takes the SDK 1.x (which takes pydantic below 3).
 - R4. The folder panel beside a conversation not handed to an agent reads the whole home folder (`GET /folders/home`, `.../file`) and deletes any file in it the tree shows once deleting is turned on in Settings → General (`DELETE /folders/home/file`, off by default), hiding only what the agent folder's panel hides (.git, node_modules, .venv, what git ignores): a paired device can preview `~/.ssh` keys, `~/.lo9i/keys/secrets.key` with `~/.lo9i/lo9i.db` (every secret `core/secret_store.py` keeps), cloud credentials. Through chat it could already have the agent read them (R1), but this needs no model and no approval. Decide what the home folder leaves out (lo9i's data folder, its keys, known credential folders, or hidden files unless asked, as the /claude folder picker does) and whether its file previews and deletions should need the device to be on the Unix socket or confirmed.

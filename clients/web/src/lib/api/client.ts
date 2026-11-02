@@ -58,6 +58,8 @@ import type {
   ModelStatus,
   Page,
   PairingCode,
+  Passkey,
+  PasskeyCeremony,
   PendingEnding,
   PluginSettings,
   PluginSettingsChange,
@@ -1131,6 +1133,38 @@ export class AuthGroup {
   async logout(): Promise<void> {
     await this.transport.request("POST", "/auth/logout");
   }
+
+  /** What the browser signs to sign in with a passkey; works before this browser is paired. */
+  passkeyOptions(): Promise<PasskeyCeremony> {
+    return this.transport.request("POST", "/auth/passkey/options");
+  }
+
+  /** Signs this browser in as the passkey's device; the daemon sets the token cookie. */
+  signInWithPasskey(ceremony: string, credential: Record<string, unknown>): Promise<Device> {
+    return this.transport.request("POST", "/auth/passkey", { ceremony, credential });
+  }
+}
+
+export class PasskeysGroup {
+  constructor(private readonly transport: Transport) {}
+
+  /** Every device's, most recently used first. */
+  list(): Promise<Passkey[]> {
+    return this.transport.request("GET", "/passkeys");
+  }
+
+  /** What the browser makes a passkey for this browser's device from. */
+  options(): Promise<PasskeyCeremony> {
+    return this.transport.request("POST", "/passkeys/options");
+  }
+
+  add(ceremony: string, credential: Record<string, unknown>): Promise<Passkey> {
+    return this.transport.request("POST", "/passkeys", { ceremony, credential });
+  }
+
+  async remove(id: string): Promise<void> {
+    await this.transport.request("DELETE", `/passkeys/${encodeURIComponent(id)}`);
+  }
 }
 
 export class DevicesGroup {
@@ -1189,6 +1223,7 @@ export class DaemonClient {
   readonly clients: ClientsGroup;
   readonly auth: AuthGroup;
   readonly devices: DevicesGroup;
+  readonly passkeys: PasskeysGroup;
   readonly logs: LogsGroup;
   readonly language: LanguageGroup;
 
@@ -1228,6 +1263,7 @@ export class DaemonClient {
     this.clients = new ClientsGroup(transport);
     this.auth = new AuthGroup(transport);
     this.devices = new DevicesGroup(transport);
+    this.passkeys = new PasskeysGroup(transport);
     this.logs = new LogsGroup(transport, followingLogs);
     this.language = new LanguageGroup(transport);
   }

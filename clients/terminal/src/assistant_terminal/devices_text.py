@@ -3,19 +3,32 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from assistant.core.agent import Device, PairingCode
+from assistant.core.agent import Device, PairingCode, Passkey
 from assistant.core.config import settings
 from assistant_terminal.i18n import short_date, t
 
 
-def describe(device: Device) -> str:
-    """Markdown: the device, when it was paired and last used, and from where."""
+def describe(device: Device, passkeys: list[Passkey]) -> str:
+    """Markdown: the device, when it was paired and last used, and from where, and its passkeys."""
     used = t(
         "Last used {when} from {address}",
         when=_local(device.last_used_at),
         address=device.last_ip or t("an unknown address"),
     )
-    return f"### {device.name}\n\n{used}\n\n" + t("Paired {when}", when=_local(device.created_at))
+    paired = t("Paired {when}", when=_local(device.created_at))
+    return f"### {device.name}\n\n{used}\n\n{paired}\n\n{_passkeys(passkeys)}"
+
+
+def _passkeys(passkeys: list[Passkey]) -> str:
+    if not passkeys:
+        return t(
+            "No passkeys. One is added in that browser, on the web app's Devices page, to sign in there without a code."
+        )
+    lines = [f"**{t('Passkeys')}**", ""]
+    for passkey in passkeys:
+        line = t("Added {added}, used {used}", added=_local(passkey.created_at), used=_local(passkey.last_used_at))
+        lines.append(f"- {line}" + (f" ({t('synced')})" if passkey.synced else ""))
+    return "\n".join(lines)
 
 
 def pairing(code: PairingCode) -> str:

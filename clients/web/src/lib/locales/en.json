@@ -303,7 +303,20 @@
     "noneSelectedHint": "Pick one from the table, or pair a new one.",
     "logOutTitle": "Log out of this browser?",
     "revokeTitle": "Revoke {name}?",
-    "revokeText": "It will need a new code to use the assistant again."
+    "revokeText": "It will need a new code to use the assistant again. Its passkeys are removed too.",
+    "passkeys": "Passkeys",
+    "addPasskey": "Add a passkey",
+    "passkeyAdded": "Passkey added. Next time, sign in with it instead of a code.",
+    "passkeyAddedOn": "Added {when}",
+    "passkeyUsed": "used {when}",
+    "synced": "Synced",
+    "syncedHint": "Kept by a password manager that syncs it to your other devices, which can sign in with it too.",
+    "noPasskeys": "None.",
+    "noPasskeysHere": "None yet. Add one to sign in with Face ID, Touch ID or your screen lock instead of a code.",
+    "passkeysNeedHttps": "Passkeys work at the assistant's HTTPS address, opened by its name.",
+    "removePasskey": "Remove passkey",
+    "removePasskeyTitle": "Remove this passkey?",
+    "removePasskeyText": "It won't sign in any more. Your password manager may still list it: delete it there too."
   },
   "dispatch": {
     "title": "Routing messages",
@@ -969,7 +982,14 @@
     "code": "Pairing code",
     "namePlaceholder": "Name for this device",
     "name": "Device name",
-    "pair": "Pair"
+    "pair": "Pair",
+    "passkeyHint": "Added a passkey for this assistant before? Sign in with it instead of a code.",
+    "passkey": "Sign in with a passkey",
+    "orCode": "Or pair with a code",
+    "paired": "This browser is paired",
+    "offerPasskey": "Add a passkey to sign in next time with Face ID, Touch ID or your screen lock, without a code.",
+    "addPasskey": "Add a passkey",
+    "notNow": "Not now"
   },
   "pluginSetup": {
     "starting": "Starting {name}… its setup shows here once it's running."

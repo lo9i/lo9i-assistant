@@ -5,8 +5,9 @@ localhost port or HTTPS, must come from a paired device: a browser that entered 
 from a trusted client and got a token, kept in a cookie. 127.0.0.1 isn't trusted, because port
 forwarding and proxies make remote traffic arrive from there.
 
-Without a device, the network only reaches /health, pairing, and the web UI's files (its login
-page). Revoking a device ends its open event streams.
+Without a device, the network only reaches /health, pairing, signing in with a passkey
+(daemon/passkeys.py), and the web UI's files (its login page). Revoking a device ends its open event
+streams.
 
 A channel plugin's process (core/channels/) sends the token the daemon gave it when it started
 instead. That token reaches only its own channel's routes, `/channels/<name>/...`.
@@ -37,8 +38,8 @@ logger = logging.getLogger(__name__)
 COOKIE = "lo9i_device"
 _TRUSTED = "lo9i.trusted"
 # A sign-in's last step comes from the browser that signed in, maybe unpaired; its one-time state
-# proves it (core/oauth.py).
-_OPEN_PATHS = {"/health", "/auth/pair", "/auth/pair/token", "/oauth/finish"}
+# proves it (core/oauth.py). A passkey proves the device it belongs to (core/passkeys.py).
+_OPEN_PATHS = {"/health", "/auth/pair", "/auth/pair/token", "/oauth/finish", "/auth/passkey", "/auth/passkey/options"}
 
 
 class PairRequest(BaseModel):
@@ -156,13 +157,13 @@ def require_device(app: FastAPI, service: AssistantService) -> None:
         token = token_of(request)
         if token and (channel := service.channels_hub.channel_for(token)) is not None:
             return await _as_channel(request, call_next, channel)
-        device = await service.device_for_token(token, _ip(request)) if token else None
+        device = await service.device_for_token(token, ip_of(request)) if token else None
         if device is None:
             return JSONResponse({"detail": "This device isn't paired."}, status_code=401)
         request.state.device = device
         response = await call_next(request)
         if request.cookies.get(COOKIE):
-            _set_cookie(response, token)  # Kept for as long as the device is in use.
+            set_device_cookie(response, token)  # Kept for as long as the device is in use.
         return response
 
 
@@ -177,7 +178,7 @@ def add_device_routes(app: FastAPI, service: AssistantService, streams: DeviceSt
     limiter = PairingLimiter()
 
     async def paired(body: PairRequest, request: Request) -> tuple[Device, str]:
-        ip = _ip(request)
+        ip = ip_of(request)
         if limiter.blocked(ip):
             raise HTTPException(429, said("Too many wrong codes. Wait a few minutes and try again."))
         try:
@@ -193,7 +194,7 @@ def add_device_routes(app: FastAPI, service: AssistantService, streams: DeviceSt
     async def pair(body: PairRequest, request: Request, response: Response) -> Device:
         """Pairs this browser with a code from a trusted client, and sets its token cookie."""
         device, token = await paired(body, request)
-        _set_cookie(response, token)
+        set_device_cookie(response, token)
         return device
 
     @app.post("/auth/pair/token")
@@ -281,10 +282,12 @@ def token_of(request: HTTPConnection) -> str:
     return request.cookies.get(COOKIE) or bearer.removeprefix("Bearer ").strip()
 
 
-def _ip(request: Request) -> str:
+def ip_of(request: Request) -> str:
+    """The address the request came from, as the device's last use records it."""
     return request.client.host if request.client else ""
 
 
-def _set_cookie(response: Response, token: str) -> None:
+def set_device_cookie(response: Response, token: str) -> None:
+    """Keeps the device's token in the browser: sent back only over HTTPS, to this site, and never to scripts."""
     lifetime = int(UNUSED_LIFETIME / timedelta(seconds=1))
     response.set_cookie(COOKIE, token, max_age=lifetime, path="/", secure=True, httponly=True, samesite="strict")

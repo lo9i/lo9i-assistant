@@ -1,6 +1,10 @@
 """Devices allowed to use the daemon over the network (browsers on other hosts), and the one-time
 codes that pair a new one. Tokens and codes are stored only as SHA-256 hashes, so a copy of the
-database doesn't let anyone in."""
+database doesn't let anyone in.
+
+A device can hold several tokens, one record each: signing in with one of its passkeys
+(core/passkeys.py) gives the browser a new one, so the passkey works in every browser it's synced
+to without signing the others out. Revoking the device revokes them all."""
 
 import hashlib
 import hmac
@@ -66,6 +70,20 @@ async def add(store: BaseStore, name: str, ip: str, now: datetime) -> tuple[Devi
     return device, token
 
 
+async def add_token(store: BaseStore, device_id: str, ip: str, now: datetime) -> tuple[Device, str] | None:
+    """A new token for a device paired before, None once it's revoked. Its tokens unused too long go."""
+    tokens = [item for item in await store.asearch(_DEVICES, limit=1000) if item.value["id"] == device_id]
+    if not tokens:
+        return None
+    for item in tokens:
+        if now - datetime.fromisoformat(item.value["last_used_at"]) > UNUSED_LIFETIME:
+            await store.adelete(_DEVICES, item.key)
+    token = secrets.token_urlsafe(32)
+    device = Device(**{**tokens[0].value, "last_used_at": now.isoformat(), "last_ip": ip})
+    await store.aput(_DEVICES, _hash(token), asdict(device))
+    return device, token
+
+
 async def find(store: BaseStore, token: str, ip: str, now: datetime) -> Device | None:
     """The device a token belongs to, unless it was revoked or unused too long. Records its use."""
     item = await store.aget(_DEVICES, _hash(token))
@@ -81,18 +99,21 @@ async def find(store: BaseStore, token: str, ip: str, now: datetime) -> Device |
 
 
 async def list_all(store: BaseStore) -> list[Device]:
-    """Most recently used first."""
-    devices = [Device(**item.value) for item in await store.asearch(_DEVICES, limit=1000)]
-    return sorted(devices, key=lambda d: d.last_used_at, reverse=True)
+    """Most recently used first; a device with several tokens once, as its latest use."""
+    latest: dict[str, Device] = {}
+    for item in await store.asearch(_DEVICES, limit=1000):
+        device = Device(**item.value)
+        if device.id not in latest or device.last_used_at > latest[device.id].last_used_at:
+            latest[device.id] = device
+    return sorted(latest.values(), key=lambda d: d.last_used_at, reverse=True)
 
 
 async def revoke(store: BaseStore, device_id: str) -> bool:
-    """Whether a device with that id existed."""
-    for item in await store.asearch(_DEVICES, limit=1000):
-        if item.value["id"] == device_id:
-            await store.adelete(_DEVICES, item.key)
-            return True
-    return False
+    """Whether a device with that id existed. Every token it holds goes."""
+    tokens = [item for item in await store.asearch(_DEVICES, limit=1000) if item.value["id"] == device_id]
+    for item in tokens:
+        await store.adelete(_DEVICES, item.key)
+    return bool(tokens)
 
 
 def _normalized(code: str) -> str:

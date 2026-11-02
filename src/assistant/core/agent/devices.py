@@ -1,9 +1,9 @@
 """Devices that use the assistant over the network: pairing a new one with a one-time code,
-recognizing it by its token, and revoking it."""
+recognizing it by its token, and revoking it with its passkeys."""
 
 from datetime import UTC, datetime
 
-from assistant.core import devices
+from assistant.core import devices, passkeys
 from assistant.core.agent.base import ServiceBase
 from assistant.core.devices import Device, PairingCode
 from assistant.core.i18n import said
@@ -34,6 +34,7 @@ class DevicesMixin(ServiceBase):
         return await devices.list_all(self._storage.store)
 
     async def revoke_device(self, device_id: str) -> None:
-        """Raises DeviceError for an unknown device."""
+        """Raises DeviceError for an unknown device. Its passkeys go too, so they can't sign it in again."""
         if not await devices.revoke(self._storage.store, device_id):
             raise DeviceError(said("No device {device_id}.", device_id=device_id))
+        await passkeys.remove_of_device(self._storage.store, device_id)

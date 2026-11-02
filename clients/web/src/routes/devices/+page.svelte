@@ -5,9 +5,11 @@
   import KeyRound from "@lucide/svelte/icons/key-round";
   import Laptop from "@lucide/svelte/icons/laptop";
   import Link from "@lucide/svelte/icons/link";
-  import type { Device, PairingCode } from "$lib/api/types";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
+  import type { Device, PairingCode, Passkey } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { formatDate, t } from "$lib/i18n.svelte";
+  import { addPasskey, forgetPasskey, passkeysWork, Prepared } from "$lib/passkeys";
   import Confirm from "$lib/ui/Confirm.svelte";
   import { clientLabel, conversationLabel } from "$lib/sessions";
   import EmptyState from "$lib/ui/EmptyState.svelte";
@@ -15,6 +17,8 @@
 
   const { client, notices } = useDaemon();
   const devices = resource((c) => c.devices.list(), ["devices"]);
+  // A passkey changing publishes `devices` too: they show with their device.
+  const passkeys = resource((c) => c.passkeys.list(), ["devices"]);
   const me = resource((c) => c.auth.me(), []);
   const clients = resource((c) => c.clients.list(), ["clients"]);
   const conversations = resource((c) => c.conversations.list(), ["conversations"]);
@@ -22,13 +26,22 @@
   let picked = $state<string | null>(page.url.searchParams.get("d"));
   let code = $state<PairingCode | null>(null);
   let revoking = $state<Device | null>(null);
+  let removing = $state<Passkey | null>(null);
+  let adding = $state(false);
+  const prepared = new Prepared(() => client.passkeys.options());
+  const canAdd = passkeysWork();
   // Until one is picked: this browser, or the first one.
   const device = $derived(devices.data?.find((d) => d.id === picked) ?? devices.data?.find((d) => isMe(d)) ?? devices.data?.[0]);
 
+  const devicePasskeys = $derived(passkeysOf(device));
   const sessions = $derived((clients.data ?? []).filter((c) => c.device_id && c.device_id === device?.id));
 
   function sessionCount(d: Device): number {
     return (clients.data ?? []).filter((c) => c.device_id === d.id).length;
+  }
+
+  function passkeysOf(d: Device | undefined): Passkey[] {
+    return (passkeys.data ?? []).filter((p) => p.device_id === d?.id);
   }
 
   function isMe(d: Device): boolean {
@@ -47,6 +60,11 @@
     }
   }
 
+  // Asked for once this browser is known to be a device, so Add a passkey asks the browser at once.
+  $effect(() => {
+    if (canAdd && me.data?.device) prepared.prepare();
+  });
+
   // The sidebar's + links here with ?pair: open a code, then drop the parameter so a reload doesn't open another.
   $effect(() => {
     if (!page.url.searchParams.has("pair")) return;
@@ -54,12 +72,33 @@
     void goto(resolve("/devices"), { replaceState: true });
   });
 
+  async function addHere(): Promise<void> {
+    adding = true;
+    try {
+      if (await addPasskey(client.passkeys, prepared)) notices.notify(t("devices.passkeyAdded"));
+    } catch (e) {
+      notices.report(e);
+    }
+    adding = false;
+  }
+
+  async function removePasskey(p: Passkey): Promise<void> {
+    try {
+      await client.passkeys.remove(p.id);
+    } catch (e) {
+      return notices.report(e);
+    }
+    forgetPasskey(p);
+  }
+
   async function revoke(d: Device): Promise<void> {
+    const its = passkeysOf(d);
     try {
       await client.devices.revoke(d.id);
     } catch (e) {
       return notices.report(e);
     }
+    its.forEach(forgetPasskey);
     // Revoking this browser logs it out; the layout shows the pairing page.
     if (isMe(d)) location.reload();
   }
@@ -92,6 +131,7 @@
               <th>{t("devices.browserColumn")}</th>
               <th>{t("devices.sessions")}</th>
               <th>{t("devices.lastUsed")}</th>
+              <th class="hide-narrow">{t("devices.passkeys")}</th>
               <th class="hide-narrow">{t("devices.from")}</th>
               <th class="hide-narrow">{t("devices.paired")}</th>
             </tr>
@@ -105,6 +145,7 @@
                 </td>
                 <td class="text-label">{sessionCount(d) || "—"}</td>
                 <td class="text-label">{when(d.last_used_at)}</td>
+                <td class="text-label hide-narrow">{passkeysOf(d).length || "—"}</td>
                 <td class="text-label hide-narrow">{d.last_ip || "—"}</td>
                 <td class="text-label hide-narrow">{when(d.created_at)}</td>
               </tr>
@@ -156,6 +197,35 @@
             <p class="text-caption">{t("devices.noneNow")}</p>
           {/each}
         </div>
+        <div class="passkeys">
+          <h3 class="micro-label">{t("devices.passkeys")}</h3>
+          {#each devicePasskeys as p (p.id)}
+            <div class="passkey">
+              <p>
+                {t("devices.passkeyAddedOn", { when: when(p.created_at) })}
+                <span class="text-caption">· {t("devices.passkeyUsed", { when: when(p.last_used_at) })}</span>
+                {#if p.synced}<span class="pill" title={t("devices.syncedHint")}>{t("devices.synced")}</span>{/if}
+              </p>
+              <button
+                class="btn btn--ghost btn--sm"
+                aria-label={t("devices.removePasskey")}
+                title={t("devices.removePasskey")}
+                onclick={() => (removing = p)}><Trash2 size={14} /></button
+              >
+            </div>
+          {:else}
+            <p class="text-caption">{isMe(device) && canAdd ? t("devices.noPasskeysHere") : t("devices.noPasskeys")}</p>
+          {/each}
+          {#if isMe(device)}
+            {#if canAdd}
+              <button class="btn btn--outline btn--sm add-passkey" onclick={addHere} disabled={adding}>
+                <KeyRound size={14} />{t("devices.addPasskey")}
+              </button>
+            {:else}
+              <p class="text-caption">{t("devices.passkeysNeedHttps")}</p>
+            {/if}
+          {/if}
+        </div>
         <button class="btn btn--danger btn--sm revoke" onclick={() => (revoking = device)}>
           {isMe(device) ? t("devices.logOut") : t("devices.revoke")}
         </button>
@@ -167,6 +237,19 @@
     {/if}
   </div>
 </div>
+
+{#if removing}
+  {@const p = removing}
+  <Confirm
+    title={t("devices.removePasskeyTitle")}
+    text={t("devices.removePasskeyText")}
+    action={t("devices.removePasskey")}
+    onanswer={(yes) => {
+      removing = null;
+      if (yes) void removePasskey(p);
+    }}
+  />
+{/if}
 
 {#if revoking}
   {@const d = revoking}
@@ -291,6 +374,27 @@
   }
   .revoke {
     align-self: flex-start;
+  }
+  .passkeys {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .passkeys h3 {
+    margin: 0 0 2px;
+  }
+  .passkey {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .passkey .pill {
+    margin-left: 6px;
+  }
+  .add-passkey {
+    align-self: flex-start;
+    margin-top: 4px;
   }
   .pairing {
     background: color-mix(in srgb, var(--color-accent) 10%, transparent);

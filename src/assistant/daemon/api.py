@@ -152,6 +152,7 @@ from assistant.daemon.channel_runs import ChannelRuns
 from assistant.daemon.clients import ClientRegistry
 from assistant.daemon.follows import StreamFollows, StreamKey, log_source, run_source
 from assistant.daemon.launchd import StartupError
+from assistant.daemon.passkeys import add_passkey_routes
 from assistant.daemon.runs import Run, RunHub
 from assistant.daemon.shutdown import Ending
 from assistant.daemon.voice_calls import VoiceCalls
@@ -667,6 +668,7 @@ def create_app(
     streams = streams or DeviceStreams()
     follows = StreamFollows()
     add_device_routes(app, service, streams)
+    add_passkey_routes(app, service)
     _add_client_routes(app, service, clients, streams, follows)
     _add_session_routes(app, service, clients)
     _add_run_routes(app, service, hub, clients, streams)

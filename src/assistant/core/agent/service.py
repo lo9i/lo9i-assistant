@@ -28,6 +28,7 @@ from assistant.core.agent.memory import MemoryMixin
 from assistant.core.agent.messaging import MessagingMixin
 from assistant.core.agent.model import ModelMixin, usable_choice
 from assistant.core.agent.notifications import NotificationsMixin
+from assistant.core.agent.passkeys import PasskeysMixin
 from assistant.core.agent.pinned import PinnedSkillsMixin
 from assistant.core.agent.plugin_settings import PluginSettingsMixin
 from assistant.core.agent.prompts import PromptsMixin
@@ -86,6 +87,7 @@ from assistant.core.memory.indexer import MemoryIndexer
 from assistant.core.memory.recall import MemoryRecall
 from assistant.core.oauth import SignIns
 from assistant.core.outbox import Outbox
+from assistant.core.passkeys import Ceremonies
 from assistant.core.plugin_tools import PluginTools
 from assistant.core.repositories.checker import UpdateChecker
 from assistant.core.secret_store import SecretBox
@@ -123,6 +125,7 @@ class AssistantService(
     RepositoriesMixin,
     ModelMixin,
     DevicesMixin,
+    PasskeysMixin,
     IdentityMixin,
     PromptsMixin,
     SpeechMixin,
@@ -187,6 +190,7 @@ class AssistantService(
             settings.owner_id,
         )
         self._windows = ContextWindows(storage.store)
+        self._passkey_ceremonies = Ceremonies()
         self._budget = Budget(
             storage.usage, storage.store, SpendingAlerts(storage.store, self.outbox, settings.owner_id)
         )

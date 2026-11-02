@@ -31,6 +31,7 @@ from assistant.core.memory.indexer import MemoryIndexer
 from assistant.core.memory.recall import MemoryRecall
 from assistant.core.oauth import SignIns
 from assistant.core.outbox import Outbox
+from assistant.core.passkeys import Ceremonies
 from assistant.core.plugin_tools import PluginTools
 from assistant.core.repositories.checker import UpdateChecker
 from assistant.core.secret_store import SecretBox
@@ -76,6 +77,8 @@ class ServiceBase:
     # Digests archived parts of conversations into memory. The daemon runs it as a supervised task.
     memory_writer: MemoryWriter
     _recall: MemoryRecall
+    # Passkey registrations and sign-ins waiting for the browser's answer (core/passkeys.py).
+    _passkey_ceremonies: Ceremonies
     _past_outputs: PastOutputs
     _similar: SimilarConversations
     # Checks the extras for newer plugin versions. The daemon runs it as a supervised task.
