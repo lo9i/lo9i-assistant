@@ -592,6 +592,45 @@
         }
       }
     },
+    "/memory/profile-order": {
+      "put": {
+        "summary": "Set Profile Order",
+        "description": "The order the apps show the profile's sections in; ones it leaves out come after. 422: an unknown\nsection.",
+        "operationId": "set_profile_order_memory_profile_order_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileOrder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemorySnapshot"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/threads/{thread_id}/messages": {
       "post": {
         "summary": "Send",
@@ -11382,6 +11421,32 @@
           "items"
         ],
         "title": "ProfileItems"
+      },
+      "ProfileOrder": {
+        "properties": {
+          "sections": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "about",
+                "people",
+                "how_to_reply",
+                "routine",
+                "goals",
+                "interests",
+                "dislikes",
+                "work"
+              ]
+            },
+            "type": "array",
+            "title": "Sections"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sections"
+        ],
+        "title": "ProfileOrder"
       },
       "PromptSection": {
         "properties": {

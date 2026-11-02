@@ -14,6 +14,7 @@
   import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
+  import { placed, stepped } from "$lib/memory";
   import TopBar from "$lib/ui/TopBar.svelte";
   import MemoryList from "$lib/ui/memory/MemoryList.svelte";
   import ProfileSection from "$lib/ui/memory/ProfileSection.svelte";
@@ -48,6 +49,67 @@
     memory.reload();
   }
 
+  // The sections' order as the user set it, by dragging a card's handle or with its arrow keys: shown at once, until
+  // the daemon's snapshot has it.
+  let moved = $state<string[] | null>(null);
+  const order = $derived(moved ?? memory.data?.profile_sections ?? []);
+  $effect(() => {
+    if (moved && memory.data?.profile_sections?.join() === moved.join()) moved = null;
+  });
+
+  async function reorder(next: string[]): Promise<void> {
+    if (next === order) return;
+    moved = next;
+    try {
+      await client.memory.setProfileOrder(next);
+    } catch (e) {
+      moved = null;
+      notices.report(e);
+    }
+    memory.reload();
+  }
+
+  // The section being dragged, and the one under the pointer with where it would go. Pointer events, so a mouse, a
+  // finger and a pen drag the same way; the pointer is captured by the handle, so the drop is found by position.
+  let dragging = $state<string | null>(null);
+  let mark = $state<{ name: string; after: boolean } | null>(null);
+
+  function grab(e: PointerEvent, name: string): void {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragging = name;
+  }
+
+  function drag(e: PointerEvent): void {
+    if (dragging === null) return;
+    const over = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-section]");
+    const name = over?.dataset.section;
+    if (!over || !name || name === dragging) {
+      mark = null;
+      return;
+    }
+    const box = over.getBoundingClientRect();
+    mark = { name, after: e.clientY > box.top + box.height / 2 };
+  }
+
+  function release(): void {
+    const name = dragging;
+    const target = mark;
+    dragging = null;
+    mark = null;
+    if (name !== null && target !== null) void reorder(placed(order, name, target.name, target.after));
+  }
+
+  function cancelDrag(): void {
+    dragging = null;
+    mark = null;
+  }
+
+  function keydown(e: KeyboardEvent): void {
+    if (e.key === "Escape" && dragging !== null) cancelDrag();
+  }
+
   /** Lists reload from the `memory` event every change publishes. */
   async function change(call: () => Promise<unknown>): Promise<void> {
     try {
@@ -57,6 +119,8 @@
     }
   }
 </script>
+
+<svelte:window onpointermove={drag} onpointerup={release} onpointercancel={cancelDrag} onkeydown={keydown} />
 
 <!-- A settings tab of its own page. -->
 <TopBar title={t("nav.settings")}>
@@ -76,12 +140,16 @@
     <p class="error-text">{memory.error}</p>
   {:else if memory.data}
     <div class="grid">
-      {#each memory.data.profile_sections as name (name)}
+      {#each order as name (name)}
         <ProfileSection
           {name}
           items={memory.data.profile?.[name] ?? []}
           Icon={ICONS[name] ?? UserRound}
           onsave={(items) => saveSection(name, items)}
+          ongrab={(e) => grab(e, name)}
+          onstep={(by) => reorder(stepped(order, name, by))}
+          lifted={dragging === name}
+          drop={mark?.name === name ? (mark.after ? "after" : "before") : null}
         />
       {/each}
     </div>

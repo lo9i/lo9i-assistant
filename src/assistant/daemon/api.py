@@ -417,6 +417,10 @@ class ProfileItems(BaseModel):
     items: list[str] = Field(max_length=MAX_ITEMS)
 
 
+class ProfileOrder(BaseModel):
+    sections: list[Section]
+
+
 class PluginUpdateChecks(BaseModel):
     enabled: bool
 
@@ -879,6 +883,12 @@ def _add_session_routes(app: FastAPI, service: AssistantService, clients: Client
     async def set_profile_section(section: Section, body: ProfileItems) -> MemorySnapshot:
         """Replaces one profile section with the user's own list. 422: an unknown section or too many items."""
         return await service.set_profile_section(settings.owner_id, section, body.items)
+
+    @app.put("/memory/profile-order")
+    async def set_profile_order(body: ProfileOrder) -> MemorySnapshot:
+        """The order the apps show the profile's sections in; ones it leaves out come after. 422: an unknown
+        section."""
+        return await service.set_profile_order(settings.owner_id, body.sections)
 
 
 def _add_run_routes(

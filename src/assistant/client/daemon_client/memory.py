@@ -29,6 +29,11 @@ class MemoryApi:
         body = {"items": items}
         return MemorySnapshot(**await self._transport.request("PUT", f"/memory/profile/{section}", json=body))
 
+    async def set_profile_order(self, sections: list[str]) -> MemorySnapshot:
+        """The order the apps show the profile's sections in."""
+        body = {"sections": sections}
+        return MemorySnapshot(**await self._transport.request("PUT", "/memory/profile-order", json=body))
+
     async def about_you(self) -> AboutYouStatus:
         """The About you step's answers as the profile holds them; `needed` while it has no name."""
         data = await self._transport.request("GET", "/memory/about-you")

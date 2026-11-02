@@ -4,7 +4,7 @@ from assistant.core.agent.base import ServiceBase
 from assistant.core.agent.snapshot import MemorySnapshot
 from assistant.core.config import settings
 from assistant.core.i18n import said
-from assistant.core.memory import episodes, facts, profile
+from assistant.core.memory import episodes, facts, profile, profile_order
 from assistant.core.memory.episodes import Episode
 from assistant.core.memory.facts import Fact
 from assistant.core.memory.profile import Section
@@ -30,7 +30,7 @@ class MemoryMixin(ServiceBase):
         current = await profile.load(store, user_id)
         return MemorySnapshot(
             profile={name: items for name, items in current.model_dump().items() if items},
-            profile_sections=list(profile.Profile.model_fields),
+            profile_sections=await profile_order.load(store, user_id),
             facts=[f.text for f in await facts.load(store, user_id, settings.memory_max_facts)],
             episodes=[e.summary for e in await episodes.recent(store, user_id, settings.memory_max_episodes)],
             skills=[s.name for s in await asyncio.to_thread(skills.saved_skills)],
@@ -43,6 +43,11 @@ class MemoryMixin(ServiceBase):
         current = await profile.load(store, user_id)
         cleaned = [item.strip() for item in items if item.strip()]
         await profile.save(store, user_id, profile.Profile.model_validate(current.model_dump() | {section: cleaned}))
+        return await self.memory_snapshot(user_id)
+
+    async def set_profile_order(self, user_id: str, sections: list[Section]) -> MemorySnapshot:
+        """The order the apps show the profile's sections in; the system prompt keeps its own."""
+        await profile_order.save(self._storage.store, user_id, sections)
         return await self.memory_snapshot(user_id)
 
     async def saved_facts(self, user_id: str) -> list[Fact]:

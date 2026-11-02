@@ -880,7 +880,9 @@
     "editItem": "Editar el elemento",
     "addTo": "Agregar a {section}",
     "add": "Agregar",
-    "full": "Lleno. Edita o quita un elemento para hacer lugar."
+    "full": "Lleno. Edita o quita un elemento para hacer lugar.",
+    "dragToMove": "Arrastra para reordenar, o usa las flechas",
+    "moveSection": "Mover {section}"
   },
   "memoryPage": {
     "aboutYou": "Nombre y preferencias",

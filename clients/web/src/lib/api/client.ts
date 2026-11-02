@@ -940,6 +940,11 @@ export class MemoryGroup {
     return this.transport.request("PUT", `/memory/profile/${encodeURIComponent(section)}`, { items });
   }
 
+  /** The order the apps show the profile's sections in; the system prompt keeps its own. */
+  setProfileOrder(sections: string[]): Promise<MemorySnapshot> {
+    return this.transport.request("PUT", "/memory/profile-order", { sections });
+  }
+
   /** Every saved fact, newest first. */
   facts(): Promise<Fact[]> {
     return this.transport.request("GET", "/memory/facts");

@@ -531,6 +531,9 @@ async def test_threads_memory_and_channels(client):
     assert await client.new_thread("owner") != await client.new_thread("owner")
     assert (await client.memory.snapshot()).facts == []
     assert (await client.memory.set_profile_section("interests", ["chess"])).profile == {"interests": ["chess"]}
+    assert (await client.memory.set_profile_order(["work", "about"])).profile_sections[:2] == ["work", "about"]
+    with pytest.raises(httpx.HTTPStatusError):
+        await client.memory.set_profile_order(["pets"])
     assert await client.clients.list() == []
     assert await client.email.accounts() == []
     assert await client.email.set_recipients(["Friend@Test.com"]) == ["friend@test.com"]

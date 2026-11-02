@@ -24,6 +24,8 @@ _CHANGE_EVENTS = {
     "profile": "memory",
     "facts": "memory",
     "episodes": "memory",
+    # The order the apps show the profile's sections in (core/memory/profile_order.py).
+    "profile_order": "memory",
     # Archived parts of conversations waiting for the memory writer (core/conversation/memory_writer.py).
     "memory_pending": "memory_pending",
     "integrations": "integrations",

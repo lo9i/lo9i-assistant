@@ -1,4 +1,5 @@
 <script lang="ts">
+  import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Plus from "@lucide/svelte/icons/plus";
   import X from "@lucide/svelte/icons/x";
@@ -9,8 +10,20 @@
   // As in core/memory/profile.py: every item is in every system prompt, so a section stays short.
   const MAX_ITEMS = 8;
 
-  type Props = { name: string; items: string[]; Icon: typeof UserRound; onsave: (items: string[]) => Promise<void> };
-  let { name, items, Icon, onsave }: Props = $props();
+  type Props = {
+    name: string;
+    items: string[];
+    Icon: typeof UserRound;
+    onsave: (items: string[]) => Promise<void>;
+    /** Pressing its handle starts dragging it (mouse, touch or pen); its arrow keys move it one place. */
+    ongrab?: (e: PointerEvent) => void;
+    onstep?: (by: -1 | 1) => void;
+    /** It's the one being dragged. */
+    lifted?: boolean;
+    /** Where a section dragged over it would go: before it, after it, or nowhere. */
+    drop?: "before" | "after" | null;
+  };
+  let { name, items, Icon, onsave, ongrab, onstep, lifted = false, drop = null }: Props = $props();
   let adding = $state("");
   let editing = $state<number | null>(null);
   let draft = $state("");
@@ -43,14 +56,36 @@
     if (draft.trim() !== items[i]) await save(items.map((item, j) => (j === i ? draft : item)));
   }
 
+  function onGripKey(e: KeyboardEvent): void {
+    const by = e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : 0;
+    if (!by || !onstep) return;
+    e.preventDefault();
+    onstep(by);
+  }
+
   function onEditKey(e: KeyboardEvent): void {
     if (e.key === "Enter") void finishEdit();
     if (e.key === "Escape") editing = null;
   }
 </script>
 
-<section class="section surface--glass">
+<section
+  class="section surface--glass"
+  class:lifted
+  class:drop-before={drop === "before"}
+  class:drop-after={drop === "after"}
+  data-section={name}
+>
   <header>
+    {#if ongrab}
+      <button
+        class="grip"
+        title={t("memory.dragToMove")}
+        aria-label={t("memory.moveSection", { section: sectionLabel(name) })}
+        onpointerdown={ongrab}
+        onkeydown={onGripKey}><GripVertical size={14} /></button
+      >
+    {/if}
     <span class="icon"><Icon size={16} /></span>
     <h3 class="micro-label">{sectionLabel(name)}</h3>
     <span class="pill">{items.length}/{MAX_ITEMS}</span>
@@ -108,10 +143,54 @@
 
 <style>
   .section {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 14px;
     padding: 20px;
+  }
+  .section.lifted {
+    opacity: 0.5;
+  }
+  /* Where a section dragged over it goes: a bar above or below it. */
+  .section.drop-before::before,
+  .section.drop-after::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--glow) 90%, transparent);
+  }
+  .section.drop-before::before {
+    top: -10px;
+  }
+  .section.drop-after::after {
+    bottom: -10px;
+  }
+  .grip {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 20px;
+    height: 28px;
+    margin-left: -8px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-text-faint);
+    cursor: grab;
+    /* A touch on it drags the section instead of scrolling the page. */
+    touch-action: none;
+  }
+  .grip:hover,
+  .grip:focus-visible {
+    color: var(--color-text-primary);
+  }
+  .grip:active {
+    cursor: grabbing;
   }
   header {
     display: flex;

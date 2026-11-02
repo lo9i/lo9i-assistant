@@ -39,6 +39,17 @@ async def test_old_profiles_move_into_the_current_sections(service):
     assert snapshot.facts == ["chess"]  # beyond the section's limit
 
 
+async def test_the_user_orders_the_profile_sections_and_new_ones_come_after(service):
+    from assistant.core.memory.profile import Profile
+
+    every = list(Profile.model_fields)
+    snapshot = await service.set_profile_order("u", ["work", "about", "work"])
+    assert snapshot.profile_sections == ["work", "about", *(s for s in every if s not in ("work", "about"))]
+    # Kept for the next snapshot; the profile itself, which the system prompt shows, keeps its order.
+    assert (await service.memory_snapshot("u")).profile_sections == snapshot.profile_sections
+    assert (await service.memory_snapshot("someone else")).profile_sections == every
+
+
 async def test_the_user_edits_a_profile_section(service):
     snapshot = await service.set_profile_section("u", "goals", ["  run a marathon ", "", "learn Italian"])
     assert snapshot.profile == {"goals": ["run a marathon", "learn Italian"]}

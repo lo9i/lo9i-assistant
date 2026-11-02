@@ -387,6 +387,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/memory/profile-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Profile Order
+         * @description The order the apps show the profile's sections in; ones it leaves out come after. 422: an unknown
+         *     section.
+         */
+        put: operations["set_profile_order_memory_profile_order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/threads/{thread_id}/messages": {
         parameters: {
             query?: never;
@@ -5339,6 +5360,11 @@ export interface components {
             /** Items */
             items: string[];
         };
+        /** ProfileOrder */
+        ProfileOrder: {
+            /** Sections */
+            sections: ("about" | "people" | "how_to_reply" | "routine" | "goals" | "interests" | "dislikes" | "work")[];
+        };
         /** PromptSection */
         PromptSection: {
             /** Name */
@@ -6804,6 +6830,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ProfileItems"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemorySnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_profile_order_memory_profile_order_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileOrder"];
             };
         };
         responses: {

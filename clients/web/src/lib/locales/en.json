@@ -880,7 +880,9 @@
     "editItem": "Edit item",
     "addTo": "Add to {section}",
     "add": "Add",
-    "full": "Full. Edit or remove an item to make room."
+    "full": "Full. Edit or remove an item to make room.",
+    "dragToMove": "Drag to reorder, or use the arrow keys",
+    "moveSection": "Move {section}"
   },
   "memoryPage": {
     "aboutYou": "Name and preferences",
