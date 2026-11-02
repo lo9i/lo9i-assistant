@@ -28,9 +28,10 @@ from assistant.core.agent import (
 )
 from assistant.core.attachments import Attachment
 from assistant.core.config import settings
-from assistant.core.conversation import held
+from assistant.core.conversation import held, queued
 from assistant.core.conversation.dispatch import Pick
 from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
+from assistant.core.conversation.queued import Queued
 from assistant.core.conversations import Conversation
 from assistant.core.events import ApprovalRequired, Cancelled, Dispatched, Done, ToolFinished
 from assistant.core.home import results
@@ -160,6 +161,17 @@ async def test_a_pending_restart_is_read_made_to_go_ahead_and_taken_back(service
         assert (await system.take_back_ending()).ending == ""
         with pytest.raises(NoEndingError):
             await system.take_back_ending()
+
+
+async def test_a_pending_restart_says_who_asked_when_and_the_queued_messages_waiting_for_it(service):
+    await queued.add(service.store, "owner", "owner:fix", Queued("web", "finish", brief="Claude Code"))
+    service.ending.asked("restart", "web (device Mac)")
+    async with _system(service, _Shutdown()) as system:
+        await system.restart()
+        pending = await system.ending()
+    asked = service.ending.current()
+    assert asked is not None
+    assert (pending.asked_by, pending.asked_at, pending.queued_messages) == ("web (device Mac)", asked.asked_at, 1)
 
 
 async def test_a_stop_the_service_manager_would_undo_is_refused_with_its_reason(service):

@@ -162,6 +162,38 @@ async def test_now_cancels_the_runs_a_stop_waits_for_so_it_goes_ahead():
         shutdown.take_back()
 
 
+class _Recorded:
+    """What core/ending.py::EndingState is told."""
+
+    def __init__(self) -> None:
+        self.requests: list[tuple[str, str]] = []
+        self.taken_back_times = 0
+
+    def asked(self, ending: str, by: str) -> None:
+        self.requests.append((ending, by))
+
+    def taken_back(self) -> None:
+        self.taken_back_times += 1
+
+
+async def test_who_asked_is_recorded_for_the_assistant_and_the_apps_until_it_is_taken_back():
+    recorded = _Recorded()
+    shutdown = Shutdown(_Runs(running=1), asyncio.Event(), _Manager(), recorded=recorded)
+    shutdown.request(Ending.RESTART, "web (device Mac)")
+    shutdown.request(Ending.STOP)
+    assert recorded.requests == [("restart", "web (device Mac)"), ("stop", "a client")]
+    shutdown.take_back()
+    assert recorded.taken_back_times == 1
+
+
+async def test_a_stop_that_fails_is_no_longer_recorded():
+    recorded = _Recorded()
+    shutdown = Shutdown(_Runs(), asyncio.Event(), _Manager(fails=True), recorded=recorded)
+    shutdown.request(Ending.STOP)
+    await asyncio.sleep(0.01)
+    assert recorded.requests == [("stop", "a client")] and recorded.taken_back_times == 1
+
+
 class _Update:
     """An update being installed until `done` is set."""
 

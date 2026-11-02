@@ -6815,7 +6815,7 @@
     "/system/ending": {
       "get": {
         "summary": "Pending Ending",
-        "description": "The restart or stop waiting for runs to end; `ending` is \"\" when none is.",
+        "description": "The restart or stop waiting for runs to end, who asked and when, and the queued messages waiting for it;\n`ending` is \"\" when none is.",
         "operationId": "pending_ending_system_ending_get",
         "responses": {
           "200": {
@@ -11148,6 +11148,21 @@
             "type": "string",
             "title": "Needed By",
             "default": ""
+          },
+          "asked_by": {
+            "type": "string",
+            "title": "Asked By",
+            "default": ""
+          },
+          "asked_at": {
+            "type": "string",
+            "title": "Asked At",
+            "default": ""
+          },
+          "queued_messages": {
+            "type": "integer",
+            "title": "Queued Messages",
+            "default": 0
           }
         },
         "type": "object",
@@ -11156,7 +11171,7 @@
           "waiting_for_runs"
         ],
         "title": "PendingEnding",
-        "description": "The restart or stop waiting for runs to end, and for an update being installed; `ending` is \"\" when none\nis. `can_take_back` is false when something needs it, which `needed_by` says (\"An update was installed\")."
+        "description": "The restart or stop waiting for runs to end, and for an update being installed; `ending` is \"\" when none\nis. `can_take_back` is false when something needs it, which `needed_by` says (\"An update was installed\").\n`asked_by` and `asked_at` (ISO 8601) say who asked for it and when; `queued_messages`, how many messages queued in\nconversations (a coding task, a follow-up) wait for it, since none is sent until it's done or taken back."
       },
       "PinnedSkills": {
         "properties": {

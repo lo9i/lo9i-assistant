@@ -7,7 +7,7 @@
   import { DaemonUnavailableError } from "$lib/api/errors";
   import { external, useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
-  import { answerable, coming as comingOf, comingText, type Coming } from "$lib/shutdown";
+  import { answerable, coming as comingOf, comingText, pendingDetail, pendingTitle, type Coming } from "$lib/shutdown";
 
   // Says, on every page, what the daemon is up to when the page can't simply go on: a restart or stop coming (an
   // `ending` event, whoever asked for it), the daemon away while its event stream is lost (a restart, a computer
@@ -19,12 +19,16 @@
   let coming = $state<Coming | null>(null);
   let newVersion = $state(false);
 
+  // The event says what's coming at once; who asked, when, and the queued messages come from the daemon after it.
   $effect(() => {
     void pending();
-    return hub.on(["ending"], (data) => (coming = comingOf(data)));
+    return hub.on(["ending"], (data) => {
+      coming = comingOf(data);
+      if (coming) void pending();
+    });
   });
-  // How many runs it still waits for; once none, it's going ahead and what's coming stays.
-  $effect(() => hub.on(["run_finished"], () => void (coming && pending())));
+  // How many runs and queued messages it still waits for; once none, it's going ahead and what's coming stays.
+  $effect(() => hub.on(["run_finished", "queued_messages"], () => void (coming && pending())));
 
   /** A restart or stop asked for before this page loaded, or the runs it waits for now. */
   async function pending(): Promise<void> {
@@ -94,7 +98,11 @@
 {:else if coming}
   <div class="banner surface--glass" role="status" aria-live="polite">
     <RefreshCw size={16} />
-    <span>{comingText(name, coming)}</span>
+    <span>
+      <strong>{pendingTitle(coming)}</strong>
+      {comingText(name, coming)}
+      {#if pendingDetail(coming)}<span class="detail">{pendingDetail(coming)}</span>{/if}
+    </span>
     {#if answerable(coming).cancel}
       <button class="btn btn--sm btn--ghost" onclick={takeBack} disabled={answering}>{t("common.cancel")}</button>
     {/if}
@@ -133,6 +141,9 @@
   }
   strong {
     font-weight: 600;
+  }
+  .detail {
+    color: var(--color-text-muted);
   }
   span {
     color: var(--color-text-primary);

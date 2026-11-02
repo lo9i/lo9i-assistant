@@ -1,6 +1,6 @@
 // Restarting or stopping the daemon from the Host card (src/assistant/daemon/shutdown.py). Either waits for
 // the runs in progress to end; the page reloads once the daemon is back.
-import { formatList, t } from "./i18n.svelte";
+import { formatDate, formatList, t } from "./i18n.svelte";
 
 export type Ending = "restart" | "stop";
 
@@ -13,8 +13,19 @@ export function confirmation(ending: Ending): { title: string; text: string; act
 }
 
 /** A restart or stop the daemon accepted, until it's back: what it waits for, and whether it can be taken back (not
- * when something needs it, which `neededBy` says: an update installed, start at boot installed again). */
-export type Coming = { ending: Ending; waiting: number; update: boolean; canTakeBack: boolean; neededBy: string };
+ * when something needs it, which `neededBy` says: an update installed, start at boot installed again). `askedBy` and
+ * `askedAt` say who asked and when, `queued` how many messages queued in conversations (a coding task, a follow-up)
+ * wait for it; GET /system/ending says them, an `ending` event doesn't. */
+export type Coming = {
+  ending: Ending;
+  waiting: number;
+  update: boolean;
+  canTakeBack: boolean;
+  neededBy: string;
+  askedBy?: string;
+  askedAt?: string;
+  queued?: number;
+};
 
 /** From GET /system/ending (null when none is waiting) or an `ending` event (null when it was taken back). */
 export function coming(data: Record<string, unknown>): Coming | null {
@@ -25,7 +36,26 @@ export function coming(data: Record<string, unknown>): Coming | null {
     update: Boolean(data.waiting_for_update),
     canTakeBack: data.can_take_back !== false,
     neededBy: typeof data.needed_by === "string" ? data.needed_by : "",
+    ...(typeof data.asked_by === "string" && data.asked_by ? { askedBy: data.asked_by } : {}),
+    ...(typeof data.asked_at === "string" && data.asked_at ? { askedAt: data.asked_at } : {}),
+    ...(typeof data.queued_messages === "number" ? { queued: data.queued_messages } : {}),
   };
+}
+
+/** The pending restart or stop as a title, for the notice every page shows. */
+export function pendingTitle(c: Coming): string {
+  return c.ending === "restart" ? t("shutdown.restartPending") : t("shutdown.stopPending");
+}
+
+/** Who asked and when, and the queued messages that wait for it; "" when the daemon didn't say. */
+export function pendingDetail(c: Coming): string {
+  const parts: string[] = [];
+  if (c.askedBy && c.askedAt) {
+    const at = formatDate(c.askedAt, { hour: "2-digit", minute: "2-digit" });
+    parts.push(t("shutdown.askedBy", { by: c.askedBy, at }));
+  }
+  if (c.queued) parts.push(t("shutdown.queuedWait", { count: c.queued }));
+  return parts.join(" ");
 }
 
 /** What the page says once the daemon has accepted the request, until it's back. */

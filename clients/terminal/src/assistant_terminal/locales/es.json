@@ -1003,5 +1003,8 @@
   "Plugins for what you picked": "Plugins para lo que elegiste",
   "Enter installs the one picked; nothing is installed otherwise. They're in /plugins too.": "Enter instala el elegido; si no, no se instala nada. También están en /plugins.",
   "Your name, how to reply and what you want help with": "Tu nombre, cómo responderte y con qué quieres ayuda",
-  "Answer it with /about-you in the full-screen app, or in the web app's Settings → About you.": "Respóndelo con /about-you en la app a pantalla completa, o en Ajustes → Sobre ti de la app web."
+  "Answer it with /about-you in the full-screen app, or in the web app's Settings → About you.": "Respóndelo con /about-you en la app a pantalla completa, o en Ajustes → Sobre ti de la app web.",
+  "Asked by {by} at {at}.": "Lo pidió {by} el {at}.",
+  "1 queued message waits for it.": "1 mensaje en cola lo espera.",
+  "{count} queued messages wait for it.": "{count} mensajes en cola lo esperan."
 }

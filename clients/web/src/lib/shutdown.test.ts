@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answerable, coming, comingText, endingText, waitingText, type Coming } from "./shutdown";
+import { answerable, coming, comingText, endingText, pendingDetail, pendingTitle, waitingText, type Coming } from "./shutdown";
 
 const runs = (ending: "restart" | "stop", waiting: number, more: Partial<Coming> = {}): Coming => ({
   ending,
@@ -22,6 +22,23 @@ describe("coming", () => {
       needed_by: "An update was installed",
     };
     expect(coming(installed)).toEqual(runs("restart", 1, { update: true, canTakeBack: false, neededBy: "An update was installed" }));
+  });
+});
+
+describe("pendingTitle and pendingDetail", () => {
+  it("say who asked, when, and how many queued messages wait for it", () => {
+    const asked = coming({
+      ending: "restart",
+      waiting_for_runs: 1,
+      asked_by: "claude-code (unix socket)",
+      asked_at: "2026-11-02T14:05:00+00:00",
+      queued_messages: 2,
+    });
+    expect(asked).not.toBeNull();
+    expect(pendingTitle(asked!)).toBe("Restart pending:");
+    expect(pendingDetail(asked!)).toMatch(/^Asked by claude-code \(unix socket\) at .+\. 2 queued messages wait for it\.$/);
+    expect(pendingDetail(runs("stop", 1))).toBe("");
+    expect(pendingTitle(runs("stop", 1))).toBe("Stop pending:");
   });
 });
 

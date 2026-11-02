@@ -10,6 +10,7 @@ from assistant.core import uploads
 from assistant.core.agent import AssistantService, Session
 from assistant.core.agent_tasks.service import AgentTaskError
 from assistant.core.context import UNATTENDED_CHANNEL
+from assistant.core.conversation import queued
 from assistant.core.conversation.queued import Queued
 from assistant.core.events import ApprovalRequired, Dispatched, ToolFinished, ToolStarted
 from assistant.core.mcp import folders
@@ -128,6 +129,18 @@ async def test_status_shows_steps_and_stop_stops_a_running_task(service, tmp_pat
     assert "isn't running" in await _call(service, "stop_task", task_id=running.id)
     listed = await _call(service, "list_tasks")
     assert listed.index(running.id) < listed.index(done.id) and "(Claude Code)" in listed
+
+
+async def test_list_tasks_says_a_restart_is_pending_and_what_waits_in_the_queue_for_it(service):
+    await service.add_mcp_server(agent_plugin(trusted=True))
+    assert await _call(service, "list_tasks") == "No tasks yet."
+    await queued.add(service.store, "owner", "owner:fix", Queued("web", "finish the tests", brief="Claude Code"))
+    service.ending.asked("restart", "web (device Mac)")
+    listed = await _call(service, "list_tasks")
+    assert listed.startswith("A restart of lo9i is pending, asked by web (device Mac) at ")
+    assert "about to go ahead. Until it happens, messages queued in conversations aren't sent" in listed
+    assert "Messages waiting in the queue:\n- owner:fix: a task for Claude Code: finish the tests" in listed
+    assert listed.endswith("No tasks yet.")
 
 
 async def test_the_worker_is_told_where_the_files_sent_to_it_are(service, tmp_path, isolated_settings):

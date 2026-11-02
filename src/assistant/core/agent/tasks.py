@@ -43,6 +43,10 @@ class TasksMixin(ServiceBase):
     async def queued_threads(self, user_id: str) -> list[str]:
         return await queued.threads(self._storage.store, user_id)
 
+    async def queued_count(self, user_id: str) -> int:
+        """How many messages wait to be sent, in every conversation: held back while a restart is pending."""
+        return sum(len(messages) for messages in (await queued.waiting(self._storage.store, user_id)).values())
+
     async def _running(self, found: FoundTask) -> RunningTask | None:
         task = found.state.task
         try:

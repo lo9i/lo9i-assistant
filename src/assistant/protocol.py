@@ -60,13 +60,18 @@ class ShutdownStatus:
 @dataclass
 class PendingEnding:
     """The restart or stop waiting for runs to end, and for an update being installed; `ending` is "" when none
-    is. `can_take_back` is false when something needs it, which `needed_by` says ("An update was installed")."""
+    is. `can_take_back` is false when something needs it, which `needed_by` says ("An update was installed").
+    `asked_by` and `asked_at` (ISO 8601) say who asked for it and when; `queued_messages`, how many messages queued in
+    conversations (a coding task, a follow-up) wait for it, since none is sent until it's done or taken back."""
 
     ending: str
     waiting_for_runs: int
     waiting_for_update: bool = False
     can_take_back: bool = False
     needed_by: str = ""
+    asked_by: str = ""
+    asked_at: str = ""
+    queued_messages: int = 0
 
 
 class NoEndingError(Exception):

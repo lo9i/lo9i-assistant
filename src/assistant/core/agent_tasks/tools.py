@@ -12,19 +12,23 @@ from langchain_core.tools import BaseTool, InjectedToolCallId, StructuredTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from langgraph.config import get_store, get_stream_writer
 from langgraph.runtime import get_runtime
+from langgraph.store.base import BaseStore
 from pydantic import BaseModel, Field
 
 from assistant.core import inbox, subagent_steps
+from assistant.core.agent_tasks.pending_restart import queue_note, restart_note
 from assistant.core.agent_tasks.records import TaskState, lost
 from assistant.core.agent_tasks.reports import TaskReports
 from assistant.core.agent_tasks.service import MAX_WAIT_SECONDS, AgentTaskError, AgentTasks, CodingAgent, FoundTask
 from assistant.core.agent_tasks.steps import kept_within, line, within_call
 from assistant.core.agent_tasks.waiting import Report
 from assistant.core.background import Origin, current_origin, short
+from assistant.core.config import settings
 from assistant.core.context import Context, require_store
 from assistant.core.conversation import handoffs, queued
 from assistant.core.conversation.handoffs import Handoff
 from assistant.core.conversation.queued import Queued
+from assistant.core.ending import EndingState
 from assistant.core.subagent_steps import SubagentAnswer
 from assistant.core.tools.approval import ask
 from assistant.core.tools.side import moved_out_of_inbox
@@ -75,9 +79,11 @@ class _Nothing(BaseModel):
 class AgentTools:
     """The task tools while an agent is installed; none otherwise."""
 
-    def __init__(self, tasks: AgentTasks, reports: TaskReports) -> None:
+    def __init__(self, tasks: AgentTasks, reports: TaskReports, ending: EndingState, store: BaseStore) -> None:
+        """`ending`: a restart or stop of lo9i that's pending, which holds back the messages queued in conversations,
+        a task handed with its conversation included."""
         self._tasks = tasks
-        self._tools: dict[str, BaseTool] = {tool.name: tool for tool in _build(tasks, reports)}
+        self._tools: dict[str, BaseTool] = {tool.name: tool for tool in _build(tasks, reports, ending, store)}
 
     def definitions(self) -> list[dict[str, Any]]:
         if not self._tasks.agents():
@@ -99,7 +105,7 @@ class AgentTools:
         return definition
 
 
-def _build(tasks: AgentTasks, reports: TaskReports) -> list[BaseTool]:
+def _build(tasks: AgentTasks, reports: TaskReports, ending: EndingState, store: BaseStore) -> list[BaseTool]:
     async def start_task(agent: str, repository: str, task: str, title: str = "", follow_up_of: str = "") -> str:
         found = next((a for a in tasks.agents() if a.server == agent), None)
         handoff = {"command": found.command, "folder": repository, "name": found.name} if found else None
@@ -143,8 +149,10 @@ def _build(tasks: AgentTasks, reports: TaskReports) -> list[BaseTool]:
         return _with_steps(render(found), shown, tool_call_id)
 
     async def list_tasks() -> str:
-        """The coding agents' latest tasks, newest first, with their state."""
-        return "\n".join(_summary(found) for found in await tasks.recent()) or "No tasks yet."
+        """The coding agents' latest tasks, newest first, with their state; a restart of lo9i that's pending, and the
+        messages waiting in the queue, which aren't sent until it's done."""
+        listed = "\n".join(_summary(found) for found in await tasks.recent()) or "No tasks yet."
+        return "\n\n".join(part for part in [*await _waiting(ending, store), listed] if part)
 
     async def stop_task(task_id: str) -> str:
         """Stop a running task, and every command it started. What it already changed stays."""
@@ -167,6 +175,15 @@ def _build(tasks: AgentTasks, reports: TaskReports) -> list[BaseTool]:
         StructuredTool.from_function(coroutine=list_tasks, args_schema=_Nothing),
         StructuredTool.from_function(coroutine=stop_task, args_schema=_Stop),
     ]
+
+
+async def _waiting(ending: EndingState, store: BaseStore) -> list[str]:
+    """A restart or stop that's pending and the messages queued meanwhile, for the assistant."""
+    origin = current_origin()
+    user_id, here = (origin.user_id, origin.thread_id) if origin else (settings.owner_id, "")
+    asked = ending.current()
+    restart = await restart_note(asked, store, user_id, here) if asked else ""
+    return [restart, await queue_note(await queued.waiting(store, user_id), store, user_id, here)]
 
 
 async def _watched_conversation(repository: str) -> Origin | None:

@@ -3011,7 +3011,8 @@ export interface paths {
         };
         /**
          * Pending Ending
-         * @description The restart or stop waiting for runs to end; `ending` is "" when none is.
+         * @description The restart or stop waiting for runs to end, who asked and when, and the queued messages waiting for it;
+         *     `ending` is "" when none is.
          */
         get: operations["pending_ending_system_ending_get"];
         put?: never;
@@ -5178,6 +5179,8 @@ export interface components {
          * PendingEnding
          * @description The restart or stop waiting for runs to end, and for an update being installed; `ending` is "" when none
          *     is. `can_take_back` is false when something needs it, which `needed_by` says ("An update was installed").
+         *     `asked_by` and `asked_at` (ISO 8601) say who asked for it and when; `queued_messages`, how many messages queued in
+         *     conversations (a coding task, a follow-up) wait for it, since none is sent until it's done or taken back.
          */
         PendingEnding: {
             /** Ending */
@@ -5199,6 +5202,21 @@ export interface components {
              * @default
              */
             needed_by: string;
+            /**
+             * Asked By
+             * @default
+             */
+            asked_by: string;
+            /**
+             * Asked At
+             * @default
+             */
+            asked_at: string;
+            /**
+             * Queued Messages
+             * @default 0
+             */
+            queued_messages: number;
         };
         /** PinnedSkills */
         PinnedSkills: {

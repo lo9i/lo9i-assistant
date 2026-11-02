@@ -735,7 +735,7 @@ def create_app(
     if startup is not None:
         _add_startup_routes(app, startup)
     if shutdown is not None:
-        _add_shutdown_routes(app, shutdown)
+        _add_shutdown_routes(app, shutdown, service)
     if updates is not None:
         _add_update_routes(app, updates)
     if logs is not None:
@@ -2199,7 +2199,7 @@ def _add_startup_routes(app: FastAPI, startup: Any) -> None:
             raise HTTPException(400, message(e)) from e
 
 
-def _add_shutdown_routes(app: FastAPI, shutdown: Any) -> None:
+def _add_shutdown_routes(app: FastAPI, shutdown: Any, service: AssistantService) -> None:
     """Restarting or stopping the daemon once no run is in progress (daemon/shutdown.py). `shutdown` offers
     request(ending), pending(), take_back() and now(). The answer goes out before the daemon stops: stopping waits
     for requests in progress."""
@@ -2219,8 +2219,9 @@ def _add_shutdown_routes(app: FastAPI, shutdown: Any) -> None:
 
     @app.get("/system/ending")
     async def pending_ending(texts: _Answering) -> PendingEnding:
-        """The restart or stop waiting for runs to end; `ending` is "" when none is."""
-        return texts.within(_pending(shutdown))
+        """The restart or stop waiting for runs to end, who asked and when, and the queued messages waiting for it;
+        `ending` is "" when none is."""
+        return texts.within(await _pending(shutdown, service))
 
     @app.delete("/system/ending")
     async def take_back_ending(request: Request, texts: _Answering) -> PendingEnding:
@@ -2230,7 +2231,7 @@ def _add_shutdown_routes(app: FastAPI, shutdown: Any) -> None:
             shutdown.take_back(_asker(request))
         except NoEndingError as e:
             raise HTTPException(409, message(e)) from e
-        return texts.within(_pending(shutdown))
+        return texts.within(await _pending(shutdown, service))
 
     @app.post("/system/ending/now")
     async def end_now(request: Request) -> CancelledRuns:
@@ -2241,16 +2242,20 @@ def _add_shutdown_routes(app: FastAPI, shutdown: Any) -> None:
             raise HTTPException(409, message(e)) from e
 
 
-def _pending(shutdown: Any) -> PendingEnding:
+async def _pending(shutdown: Any, service: AssistantService) -> PendingEnding:
     pending = shutdown.pending()
     if pending is None:
         return PendingEnding("", 0)
+    asked = service.ending.current()
     return PendingEnding(
         pending.ending.value,
         pending.waiting_for_runs,
         pending.waiting_for_update,
         pending.can_take_back,
         pending.needed_by,
+        asked.asked_by if asked else "",
+        asked.asked_at if asked else "",
+        await service.queued_count(settings.owner_id),
     )
 
 

@@ -2,6 +2,7 @@ from textual.widgets import Button, Markdown
 
 from assistant.protocol import Commit, PendingEnding
 from assistant_terminal.tui.screens import ConfirmScreen, HostScreen
+from assistant_terminal.tui.screens.host import pending_detail
 from tests.terminal.conftest import ending_event, wait_for
 
 
@@ -122,6 +123,14 @@ async def test_a_pending_restart_shows_with_cancel_and_now(app, client):
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
         await pilot.press("y")
         await wait_for(pilot, lambda: client.system.cancelled_runs == 2)
+
+
+def test_a_pending_restart_says_who_asked_when_and_the_queued_messages_waiting_for_it():
+    pending = PendingEnding("restart", 1, asked_by="web (device Mac)", asked_at="2026-11-02T14:05:00+00:00")
+    assert pending_detail(pending).startswith("Asked by web (device Mac) at ")
+    assert pending_detail(PendingEnding("restart", 1, queued_messages=1)) == "1 queued message waits for it."
+    assert pending_detail(PendingEnding("restart", 1, queued_messages=3)) == "3 queued messages wait for it."
+    assert pending_detail(PendingEnding("restart", 1)) == ""
 
 
 async def test_every_restart_or_stop_announced_shows_in_the_app(app, client):

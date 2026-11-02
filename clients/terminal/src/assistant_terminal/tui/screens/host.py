@@ -4,6 +4,7 @@ or stops the daemon, after asking (daemon/shutdown.py), and checks for and insta
 here, whoever asked for it, with Cancel, which takes it back (not the restart an installed update needs), and Now,
 which cancels the runs so it goes ahead."""
 
+from datetime import datetime
 from typing import ClassVar
 
 from textual import on, work
@@ -23,7 +24,7 @@ from assistant.protocol import (
     UpdateError,
     UpdateStatus,
 )
-from assistant_terminal.i18n import decimal, t, translatable
+from assistant_terminal.i18n import decimal, short_date, t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
@@ -217,7 +218,22 @@ def _pending(pending: PendingEnding) -> str:
         *([t("Now cancels the runs.")] if pending.waiting_for_runs else []),
     ]
     heading = t("Restart pending") if restart else t("Stop pending")
-    return f"\n\n### {heading}\n\n{' '.join([said, *choices])}"
+    detail = pending_detail(pending)
+    return f"\n\n### {heading}\n\n{' '.join([said, *choices])}" + (f"\n\n{detail}" if detail else "")
+
+
+def pending_detail(pending: PendingEnding) -> str:
+    """Who asked and when, and the queued messages that wait for it, as the web app's notice says them
+    (lib/shutdown.ts::pendingDetail)."""
+    parts = []
+    if pending.asked_by and pending.asked_at:
+        at = short_date(datetime.fromisoformat(pending.asked_at).astimezone())
+        parts.append(t("Asked by {by} at {at}.", by=pending.asked_by, at=at))
+    if pending.queued_messages == 1:
+        parts.append(t("1 queued message waits for it."))
+    elif pending.queued_messages:
+        parts.append(t("{count} queued messages wait for it.", count=pending.queued_messages))
+    return " ".join(parts)
 
 
 def _updates(update: UpdateStatus) -> str:

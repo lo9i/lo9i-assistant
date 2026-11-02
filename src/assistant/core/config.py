@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     # On macOS, the session helper listens here in the user's login session, for a daemon started at boot outside it
     # (core/login_session.py).
     session_socket: str = "~/.lo9i/session.sock"
+    # While a restart or stop of the daemon waits for runs: who asked, when, and what it waits for (core/ending.py).
+    restart_pending_path: str = "~/.lo9i/restart-pending.json"
     daemon_port: int = 8765
     # Browsers on other hosts: HTTPS on HTTPS_BIND:HTTPS_PORT with this certificate and key, for
     # the name HTTPS_HOST (e.g. assistant.example.com). Off while HTTPS_PORT is 0. Every network

@@ -45,6 +45,7 @@ def isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         "persona_path": tmp_path / "SOUL.md",
         "prompts_dir": tmp_path / "prompts",
         "daemon_socket": tmp_path / "daemon.sock",
+        "restart_pending_path": tmp_path / "restart-pending.json",
         "secrets_key_path": tmp_path / "keys" / "secrets.key",
     }.items():
         monkeypatch.setattr(settings, name, str(value))

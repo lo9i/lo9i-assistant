@@ -17,6 +17,7 @@ from assistant.core.conversation.titles import Titler
 from assistant.core.copilot_quota.watch import CopilotWatch
 from assistant.core.doctor.doctor import Doctor
 from assistant.core.doctor.schedule import DoctorSchedule
+from assistant.core.ending import EndingState
 from assistant.core.graph import Graph
 from assistant.core.health import HealthLog
 from assistant.core.home.builder import SectionBuilder
@@ -67,6 +68,8 @@ class ServiceBase:
     _task_reports: TaskReports
     # Tells a conversation that a task it started ended. The daemon runs it as a supervised task.
     task_ends: TaskEnds
+    # The restart or stop of the daemon waiting for runs (core/ending.py), which the daemon's shutdown keeps.
+    ending: EndingState
     # The tools plugins bring, MCP servers' and the agents' task tools, for the graph and subagents.
     _plugin_tools: PluginTools
     # The web pages MCP servers come with, run like `mcp`.

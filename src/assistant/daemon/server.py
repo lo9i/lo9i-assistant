@@ -62,6 +62,8 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         # Before any request, so no message lands in the home conversation it retires.
         if retired := await service.retire_home(settings.owner_id):
             logger.info("Kept the home conversation %s as an archived conversation; the inbox replaces it.", retired)
+        # What a daemon before this one was asked for has happened.
+        service.ending.clear_left_over()
         shutdown, updater = _ending(service, stop)
         await updater.recover()
         hub = RunHub(service.bus)
@@ -175,7 +177,7 @@ def _ending(service: AssistantService, stop: asyncio.Event) -> tuple[Shutdown, U
         announce=lambda: service.bus.publish("update"),
         runs=service,
     )
-    shutdown = Shutdown(service, stop, managers.current(), _announcer(service), updater)
+    shutdown = Shutdown(service, stop, managers.current(), _announcer(service), updater, service.ending)
     return shutdown, updater
 
 

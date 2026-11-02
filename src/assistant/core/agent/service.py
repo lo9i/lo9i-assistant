@@ -64,6 +64,7 @@ from assistant.core.copilot_quota.section import CopilotSection
 from assistant.core.copilot_quota.watch import CopilotWatch
 from assistant.core.doctor.doctor import Doctor
 from assistant.core.doctor.schedule import DoctorSchedule
+from assistant.core.ending import EndingState
 from assistant.core.health import HealthLog
 from assistant.core.home import sections as home_sections
 from assistant.core.home.conversations import ConversationsSection
@@ -173,8 +174,11 @@ class AssistantService(
         self._plugin_checks = PluginChecks(storage.store, secrets, lambda: logins.of_model(self._model), environments)
         self._task_reports = TaskReports(storage.store)
         self.task_ends = TaskEnds(self.agent_tasks, self._task_reports, bus, background)
+        self.ending = EndingState(Path(settings.restart_pending_path).expanduser(), lambda: sorted(self._active_runs))
         self._plugin_tools = PluginTools(
-            self.mcp, AgentTools(self.agent_tasks, self._task_reports), tool_groups(settings.toolsets)
+            self.mcp,
+            AgentTools(self.agent_tasks, self._task_reports, self.ending, storage.store),
+            tool_groups(settings.toolsets),
         )
         coded = {
             home_sections.COPILOT: CopilotSection(storage.store, lambda: self._model),

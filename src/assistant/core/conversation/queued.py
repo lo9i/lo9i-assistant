@@ -53,14 +53,23 @@ async def take(store: BaseStore, user_id: str, thread_id: str) -> Queued | None:
         await store.aput(_namespace(user_id), thread_id, {"messages": rest})
     else:
         await store.adelete(_namespace(user_id), thread_id)
-    brief, files = str(first.get("brief") or ""), list(first.get("files") or [])
-    resent = bool(first.get("resent"))
-    return Queued(first["channel"], first["text"], bool(first.get("follow_up")), brief, files, resent)
+    return _queued(first)
+
+
+def _queued(kept: dict) -> Queued:
+    brief, files = str(kept.get("brief") or ""), list(kept.get("files") or [])
+    return Queued(kept["channel"], kept["text"], bool(kept.get("follow_up")), brief, files, bool(kept.get("resent")))
 
 
 async def threads(store: BaseStore, user_id: str) -> list[str]:
     """The conversations with messages waiting."""
     return [item.key for item in await store.asearch(_namespace(user_id), limit=1000)]
+
+
+async def waiting(store: BaseStore, user_id: str) -> dict[str, list[Queued]]:
+    """Every conversation's messages waiting, oldest first, without taking them."""
+    found = await store.asearch(_namespace(user_id), limit=1000)
+    return {item.key: [_queued(kept) for kept in item.value["messages"]] for item in found}
 
 
 async def forget(store: BaseStore, user_id: str, thread_id: str) -> None:

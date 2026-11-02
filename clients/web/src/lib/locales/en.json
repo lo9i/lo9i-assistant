@@ -1231,7 +1231,14 @@
       "other": "the {count} runs in progress end"
     },
     "once": "once {waits}",
-    "now": "now"
+    "now": "now",
+    "restartPending": "Restart pending:",
+    "stopPending": "Stop pending:",
+    "askedBy": "Asked by {by} at {at}.",
+    "queuedWait": {
+      "one": "1 queued message waits for it.",
+      "other": "{count} queued messages wait for it."
+    }
   },
   "skills": {
     "updated": "Updated {name} from the extras.",

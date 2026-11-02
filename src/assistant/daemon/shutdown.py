@@ -81,6 +81,22 @@ class _NoUpdates:
         return
 
 
+class Recorded(Protocol):
+    """Where the rest of lo9i reads what's asked for (core/ending.py::EndingState)."""
+
+    def asked(self, ending: str, by: str) -> None: ...
+
+    def taken_back(self) -> None: ...
+
+
+class _NotRecorded:
+    def asked(self, ending: str, by: str) -> None:
+        return
+
+    def taken_back(self) -> None:
+        return
+
+
 class ServiceManager(Protocol):
     """What started the daemon (daemon/managers.py), and what stopping it takes."""
 
@@ -113,15 +129,18 @@ class Shutdown:
         manager: ServiceManager,
         announce: Announce = lambda pending, taken_back: None,
         update: Update | None = None,
+        recorded: Recorded | None = None,
     ) -> None:
         """`announce` tells the apps a restart or stop is coming, and what it waits for, or that it was taken back,
         so every one of them can say so, not only the one that asked. `update` is the updater, whose
-        update in progress it waits for too."""
+        update in progress it waits for too. `recorded` keeps who asked and when, for the assistant's tools and the
+        apps (core/ending.py)."""
         self._runs = runs
         self._stop = stop
         self._manager = manager
         self._announce = announce
         self._update = update or _NoUpdates()
+        self._recorded = recorded or _NotRecorded()
         self._wanted = Ending.RESTART
         self._waiting: asyncio.Task | None = None
         # No run is left: it's going ahead, and can't be taken back any more.
@@ -151,6 +170,7 @@ class Shutdown:
             self._waiting = asyncio.create_task(self._when_no_runs())
         waiting = self._runs.runs_in_progress()
         logger.info("A %s was asked for by %s; it waits for %s run(s) in progress.", ending, by or "a client", waiting)
+        self._recorded.asked(ending.value, by or "a client")
         self._announce_pending()
         return waiting
 
@@ -212,6 +232,7 @@ class Shutdown:
             raise NoEndingError(self._not_taken_back())
         waiting.cancel()
         self._waiting = None
+        self._recorded.taken_back()
         logger.info("The %s was taken back by %s.", self._wanted, by or "a client")
         self._announce(Pending(self._wanted, 0), True)
 
@@ -260,6 +281,7 @@ class Shutdown:
         except Exception:
             logger.exception("Couldn't stop the daemon")
             self._waiting, self._going_ahead = None, False
+            self._recorded.taken_back()
             if self._needed_by:
                 self._restart_instead()
             else:
