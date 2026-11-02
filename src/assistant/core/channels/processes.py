@@ -11,7 +11,7 @@ from mcp.client.stdio import get_default_environment
 
 from assistant.core.channels.hub import ChannelHub, protocol_problem
 from assistant.core.config import settings
-from assistant.core.mcp import data_key, folders, keys, servers, ssh_agent
+from assistant.core.mcp import data_key, folders, keys, servers, user
 from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.process import ProcessSpec, keep_running
 from assistant.core.mcp.servers import McpServer
@@ -87,7 +87,7 @@ class ChannelProcesses:
 
     def _spec(self, server: McpServer) -> ProcessSpec:
         code = folders.code(server.name)
-        own = ssh_agent.with_agent(server).env
+        own = user.with_user(server).env
         env = get_default_environment() | {"TZ": settings.timezone} | own | self._daemon_env(server.name)
         return ProcessSpec(server.channel_command, server.channel_args, env, code if code.is_dir() else None)
 

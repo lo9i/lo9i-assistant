@@ -153,13 +153,22 @@ def _guide(contents: RepositoryContents) -> str:
     """What to do: a single plugin's steps for what it asks for, numbered, when it has them."""
     one = contents.servers[0] if len(contents.servers) == 1 and not contents.skills else None
     checks = one is not None and one.check and bool(one.fields)
-    if one is None or not (one.steps or one.model_login or one.ssh_agent or checks):
+    if one is None:
         return t("Check what to install. Servers ask for their values below, then Install.")
-    shared = [t(_SHARED_LOGIN)] if one.model_login == "copilot" else []
-    agent = [t(_SSH_AGENT)] if one.ssh_agent else []
-    checked = [t(_CHECKS)] if checks else []
+    notes = [
+        t(note)
+        for note, applies in (
+            (_SHARED_LOGIN, one.model_login == "copilot"),
+            (_SSH_AGENT, one.ssh_agent),
+            (_LOGIN_SESSION, one.login_session),
+            (_CHECKS, checks),
+        )
+        if applies
+    ]
+    if not (notes or one.steps):
+        return t("Check what to install. Servers ask for their values below, then Install.")
     steps = "\n".join(f"{i}. {step}" for i, step in enumerate(one.steps, 1))
-    return "\n\n".join([*shared, *agent, *checked, steps]).strip()
+    return "\n\n".join([*notes, steps]).strip()
 
 
 def _offer_intro(plugin: FoundServer | FoundSkill) -> str:
@@ -177,6 +186,8 @@ _KNOWN_HINT = translatable("leave empty to keep the one you set before")
 _SHARED_LOGIN = translatable("It uses your GitHub Copilot login from /model while the model is GitHub Copilot.")
 # A plugin whose processes get the user's ssh agent (core/mcp/ssh_agent.py).
 _SSH_AGENT = translatable("It uses your ssh agent, so it can sign in with the keys the agent holds.")
+# A plugin that opens apps on the Mac's screen (core/login_session.py).
+_LOGIN_SESSION = translatable("It opens apps on this Mac's screen, so it works while you're logged in on the Mac.")
 # A plugin that checks the values it's given before it's installed (core/mcp/checks.py).
 _CHECKS = translatable("It checks what you enter before it's installed, and says here if something doesn't work.")
 

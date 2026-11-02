@@ -43,6 +43,9 @@ code from it. In its commands, arguments and env values:
       protocol: 2                  # the channel protocol it speaks (docs/channel-plugins.md); 1 if absent
     model_login: copilot           # optional: a login of lo9i's its server gets instead of its own (logins.py)
     ssh_agent: true                # optional: its processes get the user's ssh agent (ssh_agent.py)
+    login_session: true            # optional: its processes open apps on the user's screen on macOS, through the
+                                   # session helper when lo9i runs from boot (core/login_session.py,
+                                   # docs/login-session.md)
     data_key: true                 # optional, format 4: a random key of its own, made when it's installed and
                                    # kept encrypted by lo9i (also when it's removed, with its data), that its
                                    # processes get in LO9I_DATA_KEY to encrypt what they keep in {data} (data_key.py)
@@ -92,6 +95,7 @@ from typing import Any
 import yaml
 from langgraph.store.base import BaseStore
 
+from assistant.core import login_session
 from assistant.core.i18n import message, said
 from assistant.core.integrations.email import providers as email_providers
 from assistant.core.mcp import (
@@ -173,6 +177,8 @@ class FoundServer:
     agent: str = ""
     # Its processes get the user's ssh agent (core/mcp/ssh_agent.py), for the install dialogs to say.
     ssh_agent: bool = False
+    # Its processes open apps on the user's screen (core/login_session.py), for the install dialogs to say.
+    login_session: bool = False
     # The provider it signs in to in its setup, like "google" (core/mcp/plugin_oauth.py); "" when it doesn't.
     oauth: str = ""
     # The named subagent it brings, like "researcher" (core/mcp/subagents.py); "" for none.
@@ -516,6 +522,7 @@ def _template(data: dict[str, Any], name: str) -> McpServer:
         email_providers=[asdict(p) for p in email_providers.parse(data.get("email"), name)],
         model_login=logins.parse(data.get("model_login")),
         ssh_agent=ssh_agent.parse(data.get("ssh_agent")),
+        login_session=login_session.parse(data.get("login_session")),
         data_key=data_key.parse(data.get("data_key")),
         **_oauth(data.get("oauth")),
         **_agent(data.get("agent")),
@@ -557,6 +564,7 @@ def _found(data: dict[str, Any], template: McpServer, folder: Path, category_fol
         model_login=template.model_login,
         agent=template.agent_command,
         ssh_agent=template.ssh_agent,
+        login_session=template.login_session,
         oauth=template.oauth_provider,
         subagent=template.subagent_name,
         check=bool(template.check_command or template.check_tool),

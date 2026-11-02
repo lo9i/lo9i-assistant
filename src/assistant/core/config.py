@@ -29,6 +29,9 @@ class Settings(BaseSettings):
 
     # The daemon listens on this Unix socket and on 127.0.0.1:DAEMON_PORT.
     daemon_socket: str = "~/.lo9i/daemon.sock"
+    # On macOS, the session helper listens here in the user's login session, for a daemon started at boot outside it
+    # (core/login_session.py).
+    session_socket: str = "~/.lo9i/session.sock"
     daemon_port: int = 8765
     # Browsers on other hosts: HTTPS on HTTPS_BIND:HTTPS_PORT with this certificate and key, for
     # the name HTTPS_HOST (e.g. assistant.example.com). Off while HTTPS_PORT is 0. Every network

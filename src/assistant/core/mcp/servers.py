@@ -68,6 +68,8 @@ class McpServer:
     model_login: str = ""
     # Its processes get the user's ssh agent (core/mcp/ssh_agent.py).
     ssh_agent: bool = False
+    # Its processes open apps on the user's screen, through the login session (core/login_session.py).
+    login_session: bool = False
     # Its processes get a key of its own for encrypting its data (core/mcp/data_key.py).
     data_key: bool = False
     # A named subagent it brings (core/mcp/subagents.py): its name ("" for none), what it's for, its prompt file in

@@ -13,6 +13,7 @@ import {
   runsOf,
   sharedLogin,
   sshAgentNote,
+  loginSessionNote,
   hasNewer,
   updatable,
   versionOf,
@@ -46,6 +47,7 @@ const contents: RepositoryContents = {
       category: "other/general",
       model_login: "",
       ssh_agent: false,
+      login_session: false,
       oauth: "",
       subagent: "",
       check: false,
@@ -109,6 +111,7 @@ group("versionOf", () => {
             category: "other/general",
             model_login: "",
             ssh_agent: false,
+            login_session: false,
             oauth: "",
             subagent: "",
             check: false,
@@ -144,6 +147,7 @@ group("updatable", () => {
           category: "other/general",
           model_login: "",
           ssh_agent: false,
+          login_session: false,
           oauth: "",
           subagent: "",
           check: false,
@@ -182,6 +186,7 @@ const found = (over: Partial<FoundServer>): FoundServer => ({
   category: "other/general",
   model_login: "",
   ssh_agent: false,
+  login_session: false,
   oauth: "",
   subagent: "",
   check: false,
@@ -236,6 +241,7 @@ group("emptyHint and sharedLogin", () => {
     known_fields: [],
     model_login: "copilot",
     ssh_agent: false,
+    login_session: false,
     oauth: "",
     subagent: "",
     check: false,
@@ -253,6 +259,10 @@ group("emptyHint and sharedLogin", () => {
   it("says when the plugin uses the ssh agent", () => {
     expect(sshAgentNote(found({ ssh_agent: true }))).toContain("ssh agent");
     expect(sshAgentNote(found({}))).toBe("");
+  });
+  it("says when the plugin opens apps on the Mac's screen", () => {
+    expect(loginSessionNote(found({ login_session: true }))).toContain("logged in");
+    expect(loginSessionNote(found({}))).toBe("");
   });
 });
 

@@ -31,7 +31,7 @@ from mcp.types import CallToolResult, TextContent
 from assistant.core import i18n
 from assistant.core.config import settings
 from assistant.core.i18n import said
-from assistant.core.mcp import data_key, folders, keys, logins, ssh_agent
+from assistant.core.mcp import data_key, folders, keys, logins, user
 from assistant.core.mcp.connection import ClientFactory, describe, open_client
 from assistant.core.mcp.environment import Environments
 from assistant.core.mcp.logins import SharedLogins
@@ -103,7 +103,7 @@ class PluginChecks:
             headers={k: v or ("" if k in cleared else saved.headers.get(k, "")) for k, v in server.headers.items()},
         )
         keyed = await data_key.with_key(self._store, self._secrets, own)
-        return ssh_agent.with_agent(logins.with_login(keyed, self._shared()))
+        return user.with_user(logins.with_login(keyed, self._shared()))
 
     async def _command(self, server: McpServer) -> str | None:
         """Why the check command says the values don't work; None when it exits 0."""

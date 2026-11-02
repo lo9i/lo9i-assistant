@@ -254,6 +254,7 @@
   "its platforms {unknown} aren't any of {platforms}": "sus platforms {unknown} no son ninguna de {platforms}",
   "its skill has problems: {problems}": "su habilidad tiene problemas: {problems}",
   "its ssh_agent must be true or false": "su ssh_agent debe ser true o false",
+  "its login_session must be true or false": "su login_session debe ser true o false",
   "its subagent must be a section with a name, a description and a prompt": "su subagente debe ser una sección con un nombre, una descripción y un prompt",
   "its subagent name {name!r} must be a lowercase word, like researcher": "el nombre de su subagente {name!r} debe ser una palabra en minúsculas, como researcher",
   "its subagent needs a name, a description and a prompt": "su subagente necesita un nombre, una descripción y un prompt",

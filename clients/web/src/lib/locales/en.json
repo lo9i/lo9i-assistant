@@ -1042,7 +1042,8 @@
     "keepSaved": "Leave empty to keep the one already saved",
     "optional": "Optional",
     "copilotLogin": "It uses your GitHub Copilot login from Settings → Model while the model is GitHub Copilot.",
-    "sshAgent": "It uses your ssh agent, so it can sign in with the keys the agent holds."
+    "sshAgent": "It uses your ssh agent, so it can sign in with the keys the agent holds.",
+    "loginSession": "It opens apps on this Mac's screen, so it works while you're logged in on the Mac."
   },
   "pluginsPage": {
     "installed": "Installed {names}. The assistant uses it from your next message.",
@@ -1287,6 +1288,7 @@
     "macPassword": "macOS asks for your administrator password once. It runs as your user, without anyone logging in.",
     "macSleep": "A sleeping or powered-off Mac runs nothing; missed jobs catch up within 6 hours, and Notifications says when one ran late or was missed.",
     "macFileVault": "With FileVault on, after a restart nothing runs until someone logs in once.",
+    "macSession": "Calls and other plugins that open apps on the Mac's screen work while you're logged in on it: a helper of the assistant's runs in your session for them.",
     "linuxService": "It runs as a systemd user service (lo9i-assistant), as your user. Its log is in Settings → Logs; output from before it starts logging is in journalctl --user -u lo9i-assistant.",
     "linuxSleep": "A powered-off or suspended computer runs nothing; missed jobs catch up within 6 hours, and Notifications says when one ran late or was missed.",
     "linuxOllama": "Ollama isn't included: its Linux installer runs it as a service of its own.",

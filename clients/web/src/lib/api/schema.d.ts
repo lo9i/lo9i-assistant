@@ -4117,6 +4117,11 @@ export interface components {
              */
             ssh_agent: boolean;
             /**
+             * Login Session
+             * @default false
+             */
+            login_session: boolean;
+            /**
              * Oauth
              * @default
              */

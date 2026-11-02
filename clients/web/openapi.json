@@ -8978,6 +8978,11 @@
             "title": "Ssh Agent",
             "default": false
           },
+          "login_session": {
+            "type": "boolean",
+            "title": "Login Session",
+            "default": false
+          },
           "oauth": {
             "type": "string",
             "title": "Oauth",

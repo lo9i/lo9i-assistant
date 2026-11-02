@@ -1,5 +1,6 @@
 """Start at boot: macOS LaunchDaemons for the daemon (and Ollama when it's used), running as the
-user, from boot, without anyone logging in.
+user, from boot, without anyone logging in. Outside the user's login session it has no screen and no ssh agent, so
+the session helper's LaunchAgent goes with it (session_agent.py).
 
 Installing needs administrator rights once; macOS shows its standard password dialog. launchd starts the
 daemon again when it crashes, but not when it stops cleanly, so it can be stopped from the app.
@@ -22,17 +23,19 @@ import sys
 import tempfile
 from pathlib import Path
 
+from assistant.core import login_session
 from assistant.core.config import settings
 from assistant.core.i18n import said
 from assistant.core.logs import output_path
 from assistant.daemon import output
+from assistant.daemon.session_agent import SessionAgent
 from assistant.protocol import StartupError, StartupStatus, StopRefusedError
 
 DAEMON_LABEL = "com.lo9i.assistant"
 OLLAMA_LABEL = "com.lo9i.ollama"
 _PLIST_DIR = Path("/Library/LaunchDaemons")
-# Set in the plist, so a daemon knows launchd started it.
-MANAGED_ENV = "LO9I_LAUNCHD"
+# Set in the plist, so a daemon knows launchd started it, outside the login session.
+MANAGED_ENV = login_session.FROM_BOOT_ENV
 # Set in plists whose KeepAlive leaves the daemon stopped after it exits cleanly, so stopping it from the
 # app lasts. Plists installed before restart it whatever its exit.
 STAYS_STOPPED_ENV = "LO9I_STAYS_STOPPED"
@@ -51,6 +54,7 @@ __all__ = [
     "disable",
     "enable",
     "install_for_relaunch",
+    "keep_session_helper",
     "move_legacy_output",
     "outdated",
     "status",
@@ -177,6 +181,7 @@ async def install_for_relaunch(pid: int) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         staged = _stage(Path(tmp), DAEMON_LABEL, daemon_plist())
         await _run_as_admin(relaunch_commands(DAEMON_LABEL, staged, pid))
+    await SessionAgent().install()
 
 
 async def enable() -> StartupStatus:
@@ -188,6 +193,7 @@ async def enable() -> StartupStatus:
             plists[OLLAMA_LABEL] = ollama
         staged = {label: _stage(Path(tmp), label, data) for label, data in plists.items()}
         await _run_as_admin(" && ".join(install_commands(label, path) for label, path in staged.items()))
+    await SessionAgent().install()
     return status()
 
 
@@ -199,7 +205,15 @@ async def stop_tries() -> None:
 
 async def disable() -> StartupStatus:
     await _run_as_admin(" ; ".join(uninstall_commands(label) for label in (DAEMON_LABEL, OLLAMA_LABEL)))
+    await SessionAgent().remove()
     return status()
+
+
+async def keep_session_helper() -> None:
+    """At the daemon's start: while start at boot is on, the session helper's LaunchAgent installed and its code
+    current (SessionAgent.ensure), for one installed before it came or before an update."""
+    if status().enabled:
+        await SessionAgent().ensure()
 
 
 def daemon_plist() -> bytes:

@@ -339,7 +339,7 @@
     top: 8px;
     right: 16px;
     z-index: 1;
-    max-width: 85%;
+    max-width: 68%;
     padding: 8px 12px;
     border: 1px solid var(--color-border);
     /* The user's bubble, where it was. */

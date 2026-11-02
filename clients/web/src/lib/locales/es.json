@@ -1042,7 +1042,8 @@
     "keepSaved": "Déjalo vacío para conservar el que ya está guardado",
     "optional": "Opcional",
     "copilotLogin": "Usa tu inicio de sesión de GitHub Copilot de Ajustes → Modelo mientras el modelo sea GitHub Copilot.",
-    "sshAgent": "Usa tu agente ssh, así que puede iniciar sesión con las claves que tiene el agente."
+    "sshAgent": "Usa tu agente ssh, así que puede iniciar sesión con las claves que tiene el agente.",
+    "loginSession": "Abre apps en la pantalla de esta Mac, así que funciona mientras tengas la sesión iniciada en la Mac."
   },
   "pluginsPage": {
     "installed": "Se instaló {names}. El asistente lo usa desde tu próximo mensaje.",
@@ -1287,6 +1288,7 @@
     "macPassword": "macOS pide tu contraseña de administrador una vez. Corre como tu usuario, sin que nadie inicie sesión.",
     "macSleep": "Una Mac dormida o apagada no ejecuta nada; las tareas programadas perdidas se recuperan dentro de 6 horas, y Notificaciones avisa cuando una corrió tarde o se perdió.",
     "macFileVault": "Con FileVault activado, después de un reinicio nada corre hasta que alguien inicia sesión una vez.",
+    "macSession": "Las llamadas y otros plugins que abren apps en la pantalla de la Mac funcionan mientras tengas la sesión iniciada en ella: un ayudante del asistente corre en tu sesión para ellos.",
     "linuxService": "Corre como un servicio de usuario de systemd (lo9i-assistant), como tu usuario. Su registro está en Ajustes → Registros; la salida de antes de que empiece a registrar está en journalctl --user -u lo9i-assistant.",
     "linuxSleep": "Una computadora apagada o suspendida no ejecuta nada; las tareas programadas perdidas se recuperan dentro de 6 horas, y Notificaciones avisa cuando una corrió tarde o se perdió.",
     "linuxOllama": "Ollama no está incluido: su instalador para Linux lo ejecuta como un servicio propio.",

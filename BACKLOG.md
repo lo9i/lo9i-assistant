@@ -4,10 +4,6 @@ Open work, tackled one at a time. Finished items are deleted and the remaining c
 for something to happen before they're worth doing are under To revisit, with what brings them back.
 A = action, L = to revisit later, G = memory gap, H = context improvement, Q = open question, R = risk.
 
-## Plugins
-
-- A10. Calls (the phone plugin) and anything else that opens an app need lo9i in the user's login session: from boot (`/startup`, a LaunchDaemon) `open` has no screen. Run the daemon as a LaunchAgent in the user's session on macOS, or keep a helper there for what needs the screen. It would also give plugins that ask for the ssh agent (`ssh_agent: true`, `core/mcp/ssh_agent.py`) the user's agent, which a LaunchDaemon has none of.
-
 ## To revisit
 
 Not worth doing yet; each item says what was done and when to look at it again.

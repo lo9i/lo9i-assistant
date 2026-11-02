@@ -159,6 +159,10 @@ def test_an_optional_field_and_the_shared_copilot_login_are_explained():
     assert guide.startswith("It uses your GitHub Copilot login from /model") and "1. Paste it." in guide
     hosts = FoundServer("hosts", "Your hosts", "stdio", [], False, ssh_agent=True)
     assert "your ssh agent" in _guide(RepositoryContents(skills=[], servers=[hosts]))
+    phone = FoundServer("phone", "Calls", "stdio", [], False, login_session=True)
+    assert "logged in on the Mac" in _guide(RepositoryContents(skills=[], servers=[phone]))
+    plain = FoundServer("notes", "Notes", "stdio", [], False)
+    assert _guide(RepositoryContents(skills=[], servers=[plain])).startswith("Check what to install")
 
 
 async def test_updates_lists_the_newer_plugins_and_updates_the_picked_ones(app, client):

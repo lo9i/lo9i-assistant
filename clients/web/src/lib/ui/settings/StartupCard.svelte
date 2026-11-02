@@ -15,7 +15,7 @@
   const s = $derived(loaded.data);
 
   const NOTES: Record<string, Key[]> = {
-    macos: ["startup.macPassword", "startup.macSleep", "startup.macFileVault"],
+    macos: ["startup.macPassword", "startup.macSleep", "startup.macFileVault", "startup.macSession"],
     linux: ["startup.linuxService", "startup.linuxSleep", "startup.linuxOllama"],
   };
   const computer = $derived(s?.platform === "macos" ? t("startup.theMac") : t("startup.theComputer"));

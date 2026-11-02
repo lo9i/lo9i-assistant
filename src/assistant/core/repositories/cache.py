@@ -15,8 +15,9 @@ from assistant.core.skills.install import FoundSkill
 
 _NAMESPACE = ("repository_listings",)
 # What a listing holds. Raised whenever a plugin's record gains a field read from the repository (its icon, its
-# ssh_agent, its oauth), so a listing kept before is read again instead of giving the new field its default.
-_FORMAT = 3
+# ssh_agent, its oauth, its login_session), so a listing kept before is read again instead of giving the new field its
+# default.
+_FORMAT = 4
 
 
 def _reader() -> str:

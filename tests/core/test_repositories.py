@@ -535,6 +535,16 @@ async def test_a_server_can_ask_for_the_ssh_agent_with_true_or_false(service, re
     assert (await servers.load(service.store, "remote")).ssh_agent
 
 
+async def test_a_server_can_ask_for_the_login_session_with_true_or_false(service, repo):
+    _write(repo / "remote", {"server.yaml": "url: https://remote.example.com/mcp\nlogin_session: true"})
+    _write(repo / "other" / "general" / "odd", {"server.yaml": "url: https://odd.example.com/mcp\nlogin_session: 1"})
+    found = next(s for s in (await service.browse_repository(URL)).servers if s.name == "remote")
+    assert found.login_session
+    assert re.search("its login_session must be true or false", await _problems(service))
+    await service.install_from_repository(URL, [], [ServerValues("remote", {})])
+    assert (await servers.load(service.store, "remote")).login_session
+
+
 _KEEPER = """
 command: "{python}"
 args: ["{dir}/server.py"]

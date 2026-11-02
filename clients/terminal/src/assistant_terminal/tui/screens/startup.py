@@ -22,7 +22,9 @@ _ABOUT = {
         "- macOS asks for your administrator password once.\n"
         "- A sleeping or powered-off Mac runs nothing; missed jobs catch up within 6 hours, and /notifications says "
         "when one ran late or was missed.\n"
-        "- With FileVault on, after a restart nothing runs until someone logs in once."
+        "- With FileVault on, after a restart nothing runs until someone logs in once.\n"
+        "- Calls and other plugins that open apps on the Mac's screen work while you're logged in on it: a helper of "
+        "the assistant's runs in your session for them."
     ),
     "linux": translatable(
         "Starting at boot runs the assistant as a systemd user service (`lo9i-assistant`) from the moment the "

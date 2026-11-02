@@ -81,6 +81,8 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         background = [asyncio.create_task(_catch_up_conversations(service)), asyncio.create_task(_prune(service))]
         if https.enabled():
             background.append(asyncio.create_task(https.reload_on_renewal(servers[-1], page_servers[-1])))
+        if sys.platform == "darwin":
+            background.append(asyncio.create_task(launchd.keep_session_helper()))
         scheduler = Scheduler(service)
         tasks.append(_supervised(scheduler, stop))
         tasks.append(_supervised(MailWatcher(service, scheduler), stop))
