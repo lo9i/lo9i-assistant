@@ -126,3 +126,26 @@ async def test_renaming_keeps_the_sign_in_and_names_stay_unique(service, smtp):
     with pytest.raises(EmailError, match="already called"):
         await service.rename_email_account(work.id, "personal")
     assert (await service.rename_email_account(home.id, "")).label == "me@home.com"
+
+
+async def test_files_are_attached_and_missing_ones_stop_the_mail(service, script, smtp, tmp_path):
+    await _add(service, "me@home.com")
+    pdf = tmp_path / "factura.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    script.call("send_email", to=["me@home.com"], subject="F", body="b", attachments=[str(pdf)]).reply("ok")
+    await collect(service.send(await service.session("u", "worker"), "send it"))
+    assert smtp == [("me@home.com", ["me@home.com"], "F", "b", ["factura.pdf"])]
+    script.call("send_email", to=["me@home.com"], subject="G", body="b", attachments=["/nope.pdf"]).reply("no")
+    events = await collect(service.send(await service.session("u", "worker"), "send it"))
+    assert "no such file" in events[1].output and len(smtp) == 1
+
+
+def test_the_message_carries_the_file(tmp_path):
+    from email.message import EmailMessage
+
+    pdf = tmp_path / "a.pdf"
+    pdf.write_bytes(b"%PDF")
+    message = EmailMessage()
+    message.set_content("b")
+    message.add_attachment(pdf.read_bytes(), maintype="application", subtype="pdf", filename=pdf.name)
+    assert [p.get_filename() for p in message.iter_attachments()] == ["a.pdf"]

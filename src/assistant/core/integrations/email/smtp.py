@@ -1,6 +1,9 @@
 """Sending mail over SMTP with an email account's settings."""
 
+import mimetypes
+from collections.abc import Sequence
 from email.message import EmailMessage
+from pathlib import Path
 
 import aiosmtplib
 import certifi
@@ -24,10 +27,14 @@ async def verify(config: EmailConfig) -> None:
         ) from e
 
 
-async def send(config: EmailConfig, to: list[str], subject: str, body: str) -> None:
+async def send(config: EmailConfig, to: list[str], subject: str, body: str, attachments: Sequence[Path] = ()) -> None:
     message = EmailMessage()
     message["From"], message["To"], message["Subject"] = config.sender, ", ".join(to), subject
     message.set_content(body)
+    for path in attachments:
+        kind, _ = mimetypes.guess_type(path.name)
+        maintype, subtype = (kind or "application/octet-stream").split("/", 1)
+        message.add_attachment(path.read_bytes(), maintype=maintype, subtype=subtype, filename=path.name)
     try:
         smtp = aiosmtplib.SMTP(**_connection(config))
         await smtp.connect()

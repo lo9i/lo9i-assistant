@@ -13,8 +13,8 @@ def smtp(monkeypatch):
         if config.password != "right":
             raise EmailError("Couldn't log in to smtp.test:587: bad password")
 
-    async def send(config, to, subject, body):
-        sent.append((config.sender, to, subject, body))
+    async def send(config, to, subject, body, attachments=()):
+        sent.append((config.sender, to, subject, body, *([[p.name for p in attachments]] if attachments else [])))
 
     monkeypatch.setattr(sending, "verify", verify)
     monkeypatch.setattr(sending, "send", send)

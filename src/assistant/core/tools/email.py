@@ -7,6 +7,7 @@ follow instructions found in mail.
 
 import asyncio
 from datetime import date
+from pathlib import Path
 
 from langchain_core.tools import tool
 from langgraph.prebuilt import ToolRuntime
@@ -29,9 +30,20 @@ _NOT_SET_UP = (
 
 @register("email", group="email")
 @tool
-async def send_email(to: list[str], subject: str, body: str, runtime: ToolRuntime[Context], account: str = "") -> str:
-    """Send a plain-text email. `to` is a list of addresses. `account` is the label or address of
-    the user's email account to send from; empty for the default."""
+async def send_email(
+    to: list[str],
+    subject: str,
+    body: str,
+    runtime: ToolRuntime[Context],
+    account: str = "",
+    attachments: list[str] | None = None,
+) -> str:
+    """Send a plain-text email. `to` is a list of addresses. `attachments`: paths of files on this
+    computer to attach (a PDF, an image...). `account` is the label or address of the user's email
+    account to send from; empty for the default."""
+    files = _attachable(attachments or [])
+    if isinstance(files, str):
+        return files
     config = await _config(runtime, account)
     if isinstance(config, str):
         return config
@@ -42,17 +54,34 @@ async def send_email(to: list[str], subject: str, body: str, runtime: ToolRuntim
     if outsiders:
         request = {
             "tool": "send_email",
-            "command": f"From: {config.sender}\nTo: {', '.join(to)}\nSubject: {subject}",
+            "command": f"From: {config.sender}\nTo: {', '.join(to)}\nSubject: {subject}"
+            + "".join(f"\nAttachment: {f}" for f in files),
             "reason": f"email from {config.label} to {', '.join(outsiders)}",
         }
         rejection = ask(request, runtime.context)
         if rejection:
             return rejection
     try:
-        await smtp.send(config, to, subject, body)
+        await smtp.send(config, to, subject, body, files)
     except EmailError as e:
         return str(e)
-    return f"Sent from {config.sender} to {', '.join(to)}."
+    attached = f" with {', '.join(f.name for f in files)}" if files else ""
+    return f"Sent from {config.sender} to {', '.join(to)}{attached}."
+
+
+# Most providers refuse messages over 25 MB; base64 makes files about a third larger.
+_MAX_SENT_BYTES = 18_000_000
+
+
+def _attachable(paths: list[str]) -> list[Path] | str:
+    """The files to attach, or why they can't be."""
+    files = [Path(p).expanduser() for p in paths]
+    missing = [str(f) for f in files if not f.is_file()]
+    if missing:
+        return f"Not sent: no such file: {', '.join(missing)}. Attachments must be paths of files on this computer."
+    if sum(f.stat().st_size for f in files) > _MAX_SENT_BYTES:
+        return "Not sent: the attachments are over 18 MB together, more than mail servers accept."
+    return files
 
 
 _MAX_RESULTS = 50
