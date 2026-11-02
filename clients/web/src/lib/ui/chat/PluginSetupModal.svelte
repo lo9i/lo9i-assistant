@@ -8,10 +8,12 @@
   import PluginSettingsDialog from "../plugins/PluginSettingsDialog.svelte";
   import PluginSetup from "../plugins/PluginSetup.svelte";
 
-  // An installed plugin's setup in the conversation; the run goes on when it's closed. Opened later
+  // An installed plugin's setup in the conversation; the run goes on once the user says it's Done. Esc, the scrim and ×
+  // only hide it (`onhide`, `hidden`), the run still waiting, unless nothing waits for it (`ondone` then). Opened later
   // (open_plugin_setup, `settings`), it offers the plugin's settings too, which take its place while open; right
   // after it's installed they were just typed.
-  let { server, settings = false, ondone }: { server: FoundServer; settings?: boolean; ondone: () => void } = $props();
+  type Props = { server: FoundServer; settings?: boolean; ondone: () => void; onhide?: () => void; hidden?: boolean };
+  let { server, settings = false, ondone, onhide, hidden = false }: Props = $props();
   const installed = resource((c) => c.mcp.servers(), ["mcp"]);
   const hasSettings = $derived(settings && !!installed.data?.find((s) => s.name === server.name)?.settings);
   let configuring = $state(false);
@@ -20,7 +22,14 @@
 {#if configuring}
   <PluginSettingsDialog plugin={server.name} onclose={() => (configuring = false)} />
 {:else}
-  <Modal title={t("chat.setUp", { name: pluginLabel(server.name) })} description={server.description} width={600} onclose={ondone}>
+  <Modal
+    title={t("chat.setUp", { name: pluginLabel(server.name) })}
+    description={server.description}
+    width={600}
+    onclose={onhide ?? ondone}
+    closeLabel={onhide ? t("pending.hide") : undefined}
+    {hidden}
+  >
     {#if hasSettings}
       <div>
         <button class="btn btn--neutral btn--sm" onclick={() => (configuring = true)}

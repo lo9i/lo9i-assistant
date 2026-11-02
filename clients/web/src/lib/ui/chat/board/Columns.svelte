@@ -27,7 +27,7 @@
   import { t } from "$lib/i18n.svelte";
   import { homePins } from "../../homePins.svelte";
   import { CONVERSATION_DRAG } from "../../openConversation";
-  import ApprovalModal from "../ApprovalModal.svelte";
+  import PendingAsk from "../PendingAsk.svelte";
   import ChatPanel from "../ChatPanel.svelte";
   import ConversationPane from "./ConversationPane.svelte";
 
@@ -372,7 +372,7 @@
 </div>
 
 {#if items.length > 1 && open.current.moving}
-  <ApprovalModal approval={open.current.moving} onanswer={(d) => chats.answerMove(d)} />
+  <PendingAsk approval={open.current.moving} onanswer={(d) => chats.answerMove(d)} floating />
 {/if}
 
 <style>

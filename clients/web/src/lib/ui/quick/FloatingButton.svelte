@@ -13,6 +13,11 @@
     color: #fff;
     animation: pulse 1.4s ease-in-out infinite;
   }
+  /* What its run waits for, hidden without an answer: pressing it opens that again. */
+  .fab.waiting {
+    color: var(--color-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 45%, transparent);
+  }
   .fab :global(.spin) {
     animation: spin 1s linear infinite;
   }

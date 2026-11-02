@@ -14,7 +14,7 @@
   import EmptyState from "../../EmptyState.svelte";
   import SearchField from "../../SearchField.svelte";
   import { openBeside, openConversation } from "../../openConversation";
-  import ApprovalModal from "../ApprovalModal.svelte";
+  import PendingAsk from "../PendingAsk.svelte";
   import ConversationCard from "./ConversationCard.svelte";
   import ConversationPane from "./ConversationPane.svelte";
 
@@ -206,7 +206,7 @@
 {/if}
 
 {#if open.current.moving}
-  <ApprovalModal approval={open.current.moving} onanswer={(d) => chats.answerMove(d)} />
+  <PendingAsk approval={open.current.moving} onanswer={(d) => chats.answerMove(d)} floating />
 {/if}
 
 <style>

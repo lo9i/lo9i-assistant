@@ -7,6 +7,7 @@
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { draft } from "$lib/chat/draft.svelte";
+  import { hiddenAsks } from "$lib/chat/hiddenAsks.svelte";
   import { carriesFiles, droppedFiles } from "$lib/chat/dropped";
   import { putBack, tellAgent, workingIn } from "$lib/chat/agentWork";
   import { agentCommands } from "$lib/chat/commands";
@@ -19,10 +20,11 @@
   import { counts } from "$lib/chat/subagents";
   import { t } from "$lib/i18n.svelte";
   import { Player, speaksReply } from "$lib/speech";
-  import type { Agent } from "$lib/api/types";
+  import type { Agent, ApprovalRequired, Decision } from "$lib/api/types";
   import AgentStatus from "./AgentStatus.svelte";
   import AgentFolderModal from "./AgentFolderModal.svelte";
-  import ApprovalModal from "./ApprovalModal.svelte";
+  import PendingAsk from "./PendingAsk.svelte";
+  import PendingCard from "./PendingCard.svelte";
   import Composer from "./Composer.svelte";
   import ConversationStats from "./ConversationStats.svelte";
   import ModelStatus from "./ModelStatus.svelte";
@@ -72,6 +74,13 @@
   // A snapshot comes with every update of the transcript; what's loaded for the conversation is loaded again only
   // when it's another one.
   const threadId = $derived(snapshot.current.threadId);
+  // What the conversation's run waits for, else what the inbox asks while /move runs there. Hidden without an answer,
+  // it shows as a card above the message box, and the rest of the conversation can be used meanwhile.
+  const asked = $derived.by((): { approval: ApprovalRequired; answer: (d: Decision) => void } | null => {
+    if (snapshot.current.approval) return { approval: snapshot.current.approval, answer: (d) => shown().answer(d) };
+    if (asksMoves && open.current.moving) return { approval: open.current.moving, answer: (d) => chats.answerMove(d) };
+    return null;
+  });
   const name = resource((c) => c.identity.name(), ["settings"]);
   const speech = resource((c) => c.speech.settings(), ["settings"]);
   const pinned = resource((c) => c.conversations.pinned(threadId), ["pinned_skills"]);
@@ -340,6 +349,10 @@
       </ul>
     {/if}
     <PinnedSkills skills={pinned.data ?? []} onunpin={unpin} />
+    {#if asked && hiddenAsks.has(asked.approval.interrupt_id)}
+      {@const id = asked.approval.interrupt_id}
+      <div class="asked"><PendingCard approval={asked.approval} onopen={() => hiddenAsks.show(id)} /></div>
+    {/if}
     {#if needsKey || callHere}
       <VoiceCallPanel
         call={voiceCall}
@@ -428,11 +441,7 @@
   {/if}
 </div>
 
-{#if snapshot.current.approval}
-  <ApprovalModal approval={snapshot.current.approval} onanswer={(d) => shown().answer(d)} />
-{:else if asksMoves && open.current.moving}
-  <ApprovalModal approval={open.current.moving} onanswer={(d) => chats.answerMove(d)} />
-{/if}
+{#if asked}<PendingAsk approval={asked.approval} onanswer={asked.answer} />{/if}
 {#if help}<HelpModal onclose={() => (help = false)} {extra} />{/if}
 {#if picking}<AgentFolderModal agentName={picking.name} onpick={picked} />{/if}
 
@@ -482,6 +491,9 @@
     background: color-mix(in srgb, var(--color-accent) 8%, transparent);
     font-weight: 600;
     pointer-events: none;
+  }
+  .asked {
+    padding: 0 16px 8px;
   }
   .queued {
     list-style: none;

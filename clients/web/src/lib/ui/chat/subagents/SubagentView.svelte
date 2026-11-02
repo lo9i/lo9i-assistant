@@ -153,7 +153,7 @@
 </section>
 
 {#if answering && question}
-  <ApprovalModal approval={question} onanswer={(d) => void answer(d)} />
+  <ApprovalModal approval={question} onanswer={(d) => void answer(d)} onhide={() => (answering = false)} />
 {/if}
 {#if stopping}
   <Confirm

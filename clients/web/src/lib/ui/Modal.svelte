@@ -9,10 +9,14 @@
     width?: number;
     /** Esc, the scrim and × close it when given. */
     onclose?: () => void;
+    /** What × says it does: closing, unless closing only hides it (a question the run still waits for). */
+    closeLabel?: string;
+    /** Kept, with what was typed in it, but not shown: hidden, it neither covers the page nor takes Esc. */
+    hidden?: boolean;
     children: Snippet;
     footer?: Snippet;
   };
-  let { title, description, width = 520, onclose, children, footer }: Props = $props();
+  let { title, description, width = 520, onclose, closeLabel, hidden = false, children, footer }: Props = $props();
 
   // Shown from the page's body: a card with a backdrop filter (the glass surfaces) would otherwise hold
   // the fixed scrim inside itself, so a dialog opened from a card never showed.
@@ -22,13 +26,13 @@
   }
 
   function onKeydown(e: KeyboardEvent): void {
-    if (e.key === "Escape" && onclose) onclose();
+    if (e.key === "Escape" && onclose && !hidden) onclose();
   }
 </script>
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="scrim" role="presentation" onclick={onclose} use:portal>
+<div class="scrim" class:hidden role="presentation" onclick={onclose} use:portal>
   <div
     class="modal"
     style:max-width="{width}px"
@@ -45,7 +49,13 @@
         {#if description}<p class="text-label">{description}</p>{/if}
       </div>
       {#if onclose}
-        <button class="btn btn--icon" style="--btn-icon-size: 32px" aria-label={t("common.close")} onclick={onclose}>
+        <button
+          class="btn btn--icon"
+          style="--btn-icon-size: 32px"
+          aria-label={closeLabel ?? t("common.close")}
+          title={closeLabel}
+          onclick={onclose}
+        >
           <X size={18} />
         </button>
       {/if}
@@ -65,6 +75,9 @@
     padding: 24px;
     background: var(--scrim-bg);
     backdrop-filter: var(--scrim-blur);
+  }
+  .scrim.hidden {
+    display: none;
   }
   .modal {
     width: 100%;

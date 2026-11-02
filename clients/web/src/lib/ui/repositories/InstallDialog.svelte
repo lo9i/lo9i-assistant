@@ -11,14 +11,18 @@
   // `kind`: only MCP servers (the MCP servers page) or only skills (the Skills page). `server` or
   // `skill`: just this plugin, already read from the extras (the Plugins page, or one the agent offers
   // in the chat). `url`: the repository it's from, the extras when absent. What's installed already isn't offered.
+  // `onhide`: one the agent offers waits for the user's answer, so Esc, the scrim and × only hide it (`hidden`); its
+  // Cancel says it isn't installed.
   type Props = {
     onclose: (installed?: string[]) => void;
+    onhide?: () => void;
+    hidden?: boolean;
     kind?: "server" | "skill";
     server?: FoundServer;
     skill?: FoundSkill;
     url?: string;
   };
-  let { onclose, kind: shownKind, server: onlyServer, skill: onlySkill, url }: Props = $props();
+  let { onclose, onhide, hidden = false, kind: shownKind, server: onlyServer, skill: onlySkill, url }: Props = $props();
   const only = $derived(onlyServer ?? onlySkill);
   const { client } = useDaemon();
 
@@ -154,7 +158,9 @@
   title={only ? t("install.title", { name: pluginLabel(only.name) }) : t("install.titleAny")}
   description={only ? only.description : t("install.description")}
   width={600}
-  onclose={() => onclose()}
+  onclose={onhide ?? (() => onclose())}
+  closeLabel={onhide ? t("pending.hide") : undefined}
+  {hidden}
 >
   {#if onlyServer}
     <div class="form">{@render fields(onlyServer)}</div>
@@ -205,7 +211,7 @@
   {/if}
   {#if error}<p class="error-text">{error}</p>{/if}
   {#snippet footer()}
-    <button class="btn btn--ghost" onclick={() => onclose()}>{t("common.cancel")}</button>
+    <button class="btn btn--ghost" onclick={() => onclose()}>{onhide ? t("pending.dontInstall") : t("common.cancel")}</button>
     {#if found}
       <button class="btn btn--primary" disabled={busy || skills.size + servers.size === 0} onclick={install}
         >{busy ? (checking ? t("install.checking") : t("install.installing")) : t("install.install")}</button

@@ -5,8 +5,10 @@
   import Modal from "../Modal.svelte";
 
   // An MCP server's form (core/mcp/elicitation.py): its fields to fill in, or a link it asks the user to open. It
-  // names the server that asks, so its words aren't taken for the assistant's. Closing it cancels.
-  let { form, onanswer }: { form: ApprovalRequired; onanswer: (d: Decision) => void } = $props();
+  // names the server that asks, so its words aren't taken for the assistant's. Esc, the scrim and × only hide it
+  // (`onhide`, `hidden`); Decline declines it.
+  type Props = { form: ApprovalRequired; onanswer: (d: Decision) => void; onhide: () => void; hidden: boolean };
+  let { form, onanswer, onhide, hidden }: Props = $props();
   const request = $derived(form.request);
   const fields = $derived(request.fields ?? []);
   let values = $state<Record<string, FieldValue>>({});
@@ -27,11 +29,16 @@
     const picked = (values[key] as string[]) ?? [];
     values[key] = on ? [...picked, value] : picked.filter((v) => v !== value);
   }
-
-  const cancel = () => onanswer({ action: "cancel" });
 </script>
 
-<Modal title={t("form.asks", { server: request.asked_by ?? "" })} description={request.message} onclose={cancel} width={560}>
+<Modal
+  title={t("form.asks", { server: request.asked_by ?? "" })}
+  description={request.message}
+  onclose={onhide}
+  closeLabel={t("pending.hide")}
+  {hidden}
+  width={560}
+>
   {#if request.url}
     <p class="text-meta">{t("form.openLink")}</p>
     <a class="link" href={request.url} target="_blank" rel="noreferrer noopener">{request.url}</a>

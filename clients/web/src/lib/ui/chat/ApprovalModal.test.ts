@@ -19,8 +19,8 @@ describe("ApprovalModal", () => {
       category: "other/general",
     };
     const approval = { type: "ApprovalRequired" as const, interrupt_id: "i1", request: { kind: "plugin", name: "notes", skill } };
-    const { body } = render(ApprovalModal, { props: { approval, onanswer: () => {} } });
-    expect(body).toContain("Install notes");
+    const { body } = render(ApprovalModal, { props: { approval, onanswer: () => {}, onhide: () => {} } });
+    expect(body).toContain("Install Notes");
     expect(body).not.toContain("Approve");
   });
 });
@@ -51,8 +51,8 @@ describe("ApprovalModal for a plugin's setup", () => {
 
   it("opens the setup with a Done button", () => {
     const approval = { type: "ApprovalRequired" as const, interrupt_id: "i1", request: { kind: "plugin_setup", name: "gmail", server } };
-    const { body } = render(ApprovalModal, { props: { approval, onanswer: () => {} } });
-    expect(body).toContain("Set up gmail");
+    const { body } = render(ApprovalModal, { props: { approval, onanswer: () => {}, onhide: () => {} } });
+    expect(body).toContain("Set up Gmail");
     expect(body).toContain("Done");
     expect(body).not.toContain("Settings");
   });
@@ -60,7 +60,7 @@ describe("ApprovalModal for a plugin's setup", () => {
   it("offers its settings when the version installed has fields of its own", () => {
     installed.servers = [{ name: "gmail", settings: true }];
     const approval = { type: "ApprovalRequired" as const, interrupt_id: "i1", request: { kind: "plugin_setup", name: "gmail", server } };
-    const { body } = render(ApprovalModal, { props: { approval, onanswer: () => {} } });
+    const { body } = render(ApprovalModal, { props: { approval, onanswer: () => {}, onhide: () => {} } });
     expect(body).toContain("Settings");
     installed.servers = undefined;
   });
@@ -81,7 +81,9 @@ describe("ApprovalModal for an MCP tool's call", () => {
       arguments: [{ name: "cuit", about: "The issuer's CUIT", value: "20-12345678-6" }],
       why: "untrusted",
     };
-    const { body } = render(ApprovalModal, { props: { approval: ask(call, '{"cuit": "20-12345678-6"}'), onanswer: () => {} } });
+    const { body } = render(ApprovalModal, {
+      props: { approval: ask(call, '{"cuit": "20-12345678-6"}'), onanswer: () => {}, onhide: () => {} },
+    });
     expect(body).toContain("Approve setup from billing?");
     expect(body).toContain("billing isn't trusted, and this tool can change things.");
     expect(body).toContain("See or change the issuer's setup.");
@@ -91,8 +93,48 @@ describe("ApprovalModal for an MCP tool's call", () => {
 
   it("explains a call with no arguments and a tool that always asks", () => {
     const call: ApprovalCall = { server: "billing", tool: "create_invoice", does: "", arguments: [], why: "asks_first" };
-    const { body } = render(ApprovalModal, { props: { approval: ask(call, "{}"), onanswer: () => {} } });
+    const { body } = render(ApprovalModal, { props: { approval: ask(call, "{}"), onanswer: () => {}, onhide: () => {} } });
     expect(body).toContain("No arguments: it runs with its defaults.");
     expect(body).toContain("billing asks before each use of this tool.");
+  });
+});
+
+describe("ApprovalModal hidden without an answer", () => {
+  const approval = { type: "ApprovalRequired" as const, interrupt_id: "i1", request: { tool: "bash", command: "rm -r build" } };
+  const question = {
+    type: "ApprovalRequired" as const,
+    interrupt_id: "i2",
+    request: { kind: "question", question: "Which one?", options: ["a", "b"] },
+  };
+
+  it("offers to hide an approval, which only its buttons answer", () => {
+    const { body } = render(ApprovalModal, { props: { approval, onanswer: () => {}, onhide: () => {} } });
+    expect(body).toContain('aria-label="Hide for now: nothing is answered, and the assistant keeps waiting"');
+    expect(body).toContain("Reject");
+    expect(body).toContain("Approve");
+    expect(body).not.toMatch(/class="scrim[^"]*hidden/);
+  });
+
+  it("keeps a question hidden, with Skip as its own answer", () => {
+    const { body } = render(ApprovalModal, { props: { approval: question, onanswer: () => {}, onhide: () => {}, hidden: true } });
+    expect(body).toMatch(/class="scrim[^"]*hidden/);
+    expect(body).toContain("Skip");
+    expect(body).toContain("Hide for now");
+  });
+
+  it("declines a plugin offered with Don't install, not Cancel", () => {
+    const skill = {
+      name: "notes",
+      description: "",
+      files: [],
+      installed: false,
+      version: "",
+      installed_version: "",
+      category: "other/general",
+    };
+    const offer = { type: "ApprovalRequired" as const, interrupt_id: "i3", request: { kind: "plugin", name: "notes", skill } };
+    const { body } = render(ApprovalModal, { props: { approval: offer, onanswer: () => {}, onhide: () => {} } });
+    expect(body).toContain(">Don't install<");
+    expect(body).not.toContain(">Cancel<");
   });
 });

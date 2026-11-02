@@ -108,7 +108,7 @@ async def set_up_email(runtime: ToolRuntime[Context]) -> str:
     plugin = providers.get(_picked(interrupt(_provider_question(list(providers)))))
     if plugin is None:
         return "The user didn't pick a provider."
-    # The tool runs again from the start once the setup closes, so it installs only the first time.
+    # The tool runs again from the start once the setup is done, so it installs only the first time.
     if not plugin.installed:
         if not _runs_nothing(plugin):
             return f"{plugin.name} runs code on this computer: offer it with offer_plugin instead."

@@ -1,15 +1,18 @@
 <script lang="ts">
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
+  import MessageCircleQuestion from "@lucide/svelte/icons/message-circle-question-mark";
   import AudioLines from "@lucide/svelte/icons/audio-lines";
   import Send from "@lucide/svelte/icons/send-horizontal";
   import Volume2 from "@lucide/svelte/icons/volume-2";
+  import { hiddenAsks } from "$lib/chat/hiddenAsks.svelte";
   import { finalReply } from "$lib/chat/transcript";
   import { external, useDaemon } from "$lib/daemon.svelte";
   import { t, type Key } from "$lib/i18n.svelte";
   import { Recorder } from "$lib/microphone.svelte";
   import { Player } from "$lib/speech";
   import { clock, phase, type Phase } from "$lib/voice";
-  import ApprovalModal from "../chat/ApprovalModal.svelte";
+  import PendingAsk from "../chat/PendingAsk.svelte";
+  import PendingCard from "../chat/PendingCard.svelte";
   import FloatingButton from "./FloatingButton.svelte";
   import QuickPanel from "./QuickPanel.svelte";
   import { quickPanel } from "./openPanel.svelte";
@@ -28,6 +31,9 @@
 
   const current = $derived(phase({ recording: recorder.recording, busy: snapshot.current.busy, preparingSpeech, speaking }));
   const reply = $derived(finalReply(snapshot.current.transcript));
+  // What its run waits for, hidden without an answer: the panel shows its card, and the button opens it again.
+  const asked = $derived(snapshot.current.approval);
+  const askHidden = $derived(!!asked && hiddenAsks.has(asked.interrupt_id));
   const LABELS: Record<Phase, Key> = {
     idle: "quick.talk",
     listening: "quick.send",
@@ -42,7 +48,8 @@
   });
 
   function press(): void {
-    if (current === "idle") void listen();
+    if (asked && askHidden) hiddenAsks.show(asked.interrupt_id);
+    else if (current === "idle") void listen();
     else if (current === "listening") void send();
     else if (current === "thinking") void stopThinking();
     else player.stop();
@@ -116,6 +123,7 @@
     onstop={() => void stopThinking()}
     onclose={close}
   >
+    {#if asked && askHidden}<PendingCard approval={asked} onopen={() => hiddenAsks.show(asked.interrupt_id)} />{/if}
     {#if current === "listening"}
       <p class="status">
         <span class="dot"></span>{t("quick.listening", { elapsed: clock(now - recorder.startedAt) })}
@@ -123,8 +131,10 @@
     {/if}
   </QuickPanel>
 {/if}
-<FloatingButton label={t(LABELS[current])} tone={current} onclick={press}>
-  {#if current === "listening"}
+<FloatingButton label={askHidden ? t("pending.reopen") : t(LABELS[current])} tone={askHidden ? "waiting" : current} onclick={press}>
+  {#if askHidden}
+    <MessageCircleQuestion size={18} />
+  {:else if current === "listening"}
     <Send size={18} />
   {:else if current === "thinking"}
     <LoaderCircle size={18} class="spin" />
@@ -135,8 +145,8 @@
   {/if}
 </FloatingButton>
 
-{#if snapshot.current.approval}
-  <ApprovalModal approval={snapshot.current.approval} onanswer={(d) => voice.answer(d)} />
+{#if asked}
+  <PendingAsk approval={asked} onanswer={(d) => voice.answer(d)} onhide={() => (quickPanel.open = "voice")} />
 {/if}
 
 <style>

@@ -33,7 +33,7 @@ const telegram: FoundServer = {
 describe("InstallDialog for one plugin", () => {
   it("shows its fields at once, without a checkbox", () => {
     const { body } = render(InstallDialog, { props: { server: telegram, onclose: () => {} } });
-    expect(body).toContain("Install telegram");
+    expect(body).toContain("Install Telegram");
     expect(body).toContain("Chat with the assistant on Telegram");
     expect(body).toContain("Bot token");
     expect(body).toContain("Leave empty to keep the one already saved");
@@ -61,7 +61,7 @@ describe("InstallDialog for a skill the agent offers", () => {
       category: "other/general",
     };
     const { body } = render(InstallDialog, { props: { skill, onclose: () => {} } });
-    expect(body).toContain("Install notes");
+    expect(body).toContain("Install Notes");
     expect(body).toContain("Keep notes in a folder");
     expect(body).toContain("Files: scripts/add.py");
     expect(body).not.toContain("<input");

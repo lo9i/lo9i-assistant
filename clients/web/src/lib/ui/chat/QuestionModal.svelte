@@ -4,8 +4,9 @@
   import Modal from "../Modal.svelte";
 
   // A question with options from the agent (ask_user): a button per option for one choice,
-  // checkboxes and Done for several.
-  let { question, onanswer }: { question: ApprovalRequired; onanswer: (d: Decision) => void } = $props();
+  // checkboxes and Done for several. Esc, the scrim and × only hide it (`onhide`, `hidden`); Skip skips it.
+  type Props = { question: ApprovalRequired; onanswer: (d: Decision) => void; onhide: () => void; hidden: boolean };
+  let { question, onanswer, onhide, hidden }: Props = $props();
   const request = $derived(question.request);
   const options = $derived(request.options ?? []);
   let picked = $state<string[]>([]);
@@ -18,7 +19,13 @@
   const skip = () => onanswer({ choices: null });
 </script>
 
-<Modal title={request.question ?? t("chat.pickOne")} description={request.multiple ? t("chat.pickAny") : undefined} onclose={skip}>
+<Modal
+  title={request.question ?? t("chat.pickOne")}
+  description={request.multiple ? t("chat.pickAny") : undefined}
+  onclose={onhide}
+  closeLabel={t("pending.hide")}
+  {hidden}
+>
   <div class="options">
     {#each options as option (option)}
       {#if request.multiple}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ApprovalRequired, Decision } from "$lib/api/types";
+  import { approvalTitle } from "$lib/chat/asked";
   import { t } from "$lib/i18n.svelte";
   import Modal from "../Modal.svelte";
   import PluginOfferModal from "./PluginOfferModal.svelte";
@@ -8,18 +9,15 @@
   import QuestionModal from "./QuestionModal.svelte";
 
   // What the run waits for: an approval, a question with options, a plugin to install or to set up, or a server's form.
-  let { approval, onanswer }: { approval: ApprovalRequired; onanswer: (d: Decision) => void } = $props();
+  // Only its buttons answer it. Esc, the scrim and × hide it (`onhide`), and the run goes on waiting: hidden, it stays
+  // as it was, with what was typed in it, until it's shown again.
+  type Props = { approval: ApprovalRequired; onanswer: (d: Decision) => void; onhide: () => void; hidden?: boolean };
+  let { approval, onanswer, onhide, hidden = false }: Props = $props();
   let reason = $state("");
   const request = $derived(approval.request);
   // An MCP tool's call comes in words (core/mcp/described.py): its title and why it asks, then what it does.
   const call = $derived(request.call);
-  const title = $derived(
-    call
-      ? t("chat.approveCall", { tool: call.tool, server: call.server })
-      : request.tool
-        ? t("chat.approveTool", { tool: String(request.tool) })
-        : t("chat.approveAction"),
-  );
+  const title = $derived(approvalTitle(request));
   const why = $derived(
     call
       ? t(call.why === "asks_first" ? "chat.asksFirstCall" : "chat.untrustedCall", { server: call.server })
@@ -31,15 +29,15 @@
 </script>
 
 {#if request.kind === "question"}
-  <QuestionModal question={approval} {onanswer} />
+  <QuestionModal question={approval} {onanswer} {onhide} {hidden} />
 {:else if request.kind === "form"}
-  <FormModal form={approval} {onanswer} />
+  <FormModal form={approval} {onanswer} {onhide} {hidden} />
 {:else if request.kind === "plugin"}
-  <PluginOfferModal offer={approval} {onanswer} />
+  <PluginOfferModal offer={approval} {onanswer} {onhide} {hidden} />
 {:else if request.kind === "plugin_setup" && request.server}
-  <PluginSetupModal server={request.server} settings ondone={() => onanswer({ done: true })} />
+  <PluginSetupModal server={request.server} settings ondone={() => onanswer({ done: true })} {onhide} {hidden} />
 {:else}
-  <Modal {title} description={why}>
+  <Modal {title} description={why} onclose={onhide} closeLabel={t("pending.hide")} {hidden}>
     {#if call}
       {#if call.does}<p>{call.does}</p>{/if}
       {#if call.arguments.length}

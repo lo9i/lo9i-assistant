@@ -3316,9 +3316,10 @@ export interface components {
          *     `description` and the plugin as the repository lists it (`server` or `skill`): the app installs
          *     it through its usual route and answers {"installed": bool}. One whose `kind` is PLUGIN_SETUP
          *     opens an installed plugin's setup (its email accounts, a channel's pairing), with `name`,
-         *     `description` and `server`, answered with {"done": true} once the user closes it. One whose `kind` is FORM
-         *     is an MCP server's form for the user, or a link it asks the user to open (core/mcp/elicitation.py), answered
-         *     with {"action": "accept" | "decline" | "cancel", "content": {...}}.
+         *     `description` and `server`, answered with {"done": true} once the user says it's done (hiding the
+         *     dialog answers nothing). One whose `kind` is FORM is an MCP server's form for the user, or a link it
+         *     asks the user to open (core/mcp/elicitation.py), answered with {"action": "accept" | "decline" |
+         *     "cancel", "content": {...}}.
          */
         ApprovalRequired: {
             /** Interrupt Id */
