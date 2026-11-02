@@ -11,7 +11,8 @@
 
   // On an app's icon in the sidebar while its plugin has a newer version: pressing it updates the plugin there, without
   // going to Plugins. It spins while it updates; a new version that asks for a value opens a dialog for it, and any
-  // other failure says why in a notice. The parent places it on the icon's corner.
+  // other failure says why in a notice. At the row's right end, where a conversation's close button is; on the
+  // icon's corner while the sidebar shows only icons.
   let { update }: { update: PluginUpdate } = $props();
   const { client, notices } = useDaemon();
 
@@ -47,7 +48,9 @@
 
 {#if done !== update.version}
   <button class="app-update" class:busy draggable="false" disabled={busy} title={hint} aria-label={hint} onclick={run}>
-    {#if busy}<LoaderCircle size={11} class="spin" />{:else}<ArrowUp size={11} strokeWidth={3} />{/if}
+    <span class="dot"
+      >{#if busy}<LoaderCircle size={12} class="spin" />{:else}<ArrowUp size={12} strokeWidth={3} />{/if}</span
+    >
   </button>
 {/if}
 
@@ -65,32 +68,66 @@
 <style>
   .app-update {
     position: absolute;
-    top: 4px;
-    left: 24px;
+    top: 50%;
+    right: 6px;
     display: grid;
     place-items: center;
-    width: 16px;
-    height: 16px;
+    width: 26px;
+    height: 26px;
     padding: 0;
-    border: 2px solid var(--sidebar-bg);
-    border-radius: var(--radius-full);
-    box-sizing: content-box;
-    background: var(--color-accent);
-    color: #fff;
+    transform: translateY(-50%);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
     cursor: pointer;
-    transition: transform 0.12s ease;
-  }
-  /* A larger target than the dot it shows. */
-  .app-update::before {
-    content: "";
-    position: absolute;
-    inset: -6px;
   }
   .app-update:hover:not(.busy) {
-    transform: scale(1.15);
+    background: var(--color-bg-hover-ghost);
   }
   .app-update.busy {
     cursor: progress;
+  }
+  .dot {
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: var(--radius-full);
+    background: var(--color-accent);
+    color: #fff;
+  }
+  /* Only the icons show: on the icon's corner, as the counts are. */
+  :global(.collapsed) .app-update {
+    top: 2px;
+    right: auto;
+    left: calc(50% + 2px);
+    width: 18px;
+    height: 18px;
+    transform: none;
+  }
+  :global(.collapsed) .app-update:hover:not(.busy) {
+    background: none;
+  }
+  :global(.collapsed) .dot {
+    width: 14px;
+    height: 14px;
+  }
+  @media (max-width: 680px) {
+    .app-update {
+      top: 2px;
+      right: auto;
+      left: calc(50% + 2px);
+      width: 18px;
+      height: 18px;
+      transform: none;
+    }
+    .app-update:hover:not(.busy) {
+      background: none;
+    }
+    .dot {
+      width: 14px;
+      height: 14px;
+    }
   }
   .app-update :global(.spin) {
     animation: spin 1s linear infinite;

@@ -500,6 +500,18 @@
   .app-row {
     cursor: grab;
   }
+  /* Room for the update button at the row's right end. */
+  .app-row:has(:global(.app-update)) .nav-item {
+    padding-right: 40px;
+  }
+  :global(.collapsed) .app-row .nav-item {
+    padding-right: 0;
+  }
+  @media (max-width: 680px) {
+    .app-row .nav-item {
+      padding-right: 0;
+    }
+  }
   .app-row.drop-target {
     box-shadow: inset 0 2px 0 var(--color-accent);
   }
