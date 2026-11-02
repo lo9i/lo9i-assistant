@@ -1,10 +1,10 @@
-// Restarting or stopping the daemon from the Host card (src/assistant/daemon/shutdown.py). Either waits for
+// Restarting or stopping the daemon from the Assistant card (src/assistant/daemon/shutdown.py). Either waits for
 // the runs in progress to end; the page reloads once the daemon is back.
 import { formatDate, formatList, t } from "./i18n.svelte";
 
 export type Ending = "restart" | "stop";
 
-/** What the Host card asks before a restart or stop. */
+/** What the Assistant card asks before a restart or stop. */
 export function confirmation(ending: Ending): { title: string; text: string; action: string } {
   if (ending === "restart") {
     return { title: t("shutdown.restartTitle"), text: t("shutdown.restartText"), action: t("shutdown.restart") };

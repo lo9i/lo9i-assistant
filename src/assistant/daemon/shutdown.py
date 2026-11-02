@@ -1,8 +1,8 @@
-"""Restarting or stopping the daemon on request (Settings → System, `/host`, `assistant daemon restart`, POST
-/system/restart and /system/stop). It waits until no run is in progress: an agent a conversation is handed to
-(/claude) answers inside a run, so stopping the daemon under it would stop the agent before it replies. While it
-waits it's pending (GET /system/ending): it can be taken back, or made to go ahead now by cancelling the runs, so
-a run that never ends (a stuck job) can't hold it forever. It waits for an update being installed too
+"""Restarting or stopping the daemon on request (Settings → General's Assistant card, `/host`, `assistant daemon
+restart`, POST /system/restart and /system/stop). It waits until no run is in progress: an agent a conversation is
+handed to (/claude) answers inside a run, so stopping the daemon under it would stop the agent before it replies.
+While it waits it's pending (GET /system/ending): it can be taken back, or made to go ahead now by cancelling the
+runs, so a run that never ends (a stuck job) can't hold it forever. It waits for an update being installed too
 (daemon/updates.py), which no one can cancel: stopped in the middle, the daemon would come back on new code with
 what the old one needed. The restart an update asks for once it's installed can't be taken back either: the new
 code is in the tree, and the old code still running would load its modules from there. Nor can the relaunch start at

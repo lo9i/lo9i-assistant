@@ -83,7 +83,7 @@
   "assistant": {
     "saved": "Saved: {name}. It applies from the next message.",
     "title": "Assistant",
-    "sub": "What it calls itself.",
+    "sub": "What it calls itself, and restarting or stopping it.",
     "name": "Name",
     "nameHint": "The Telegram bot's display name follows it."
   },
@@ -1225,10 +1225,10 @@
   "shutdown": {
     "restartTitle": "Restart the assistant?",
     "restartText": "It stops and starts again once the runs in progress end. This page reloads when it's back.",
-    "restart": "Restart assistant",
+    "restart": "Restart",
     "stopTitle": "Stop the assistant?",
     "stopText": "Jobs, chat channels and the apps stop working until it's started again on the computer it runs on (opening the terminal app there starts it). It waits for the runs in progress to end.",
-    "stop": "Stop assistant",
+    "stop": "Stop",
     "restarting": "The assistant restarts {when}. This page reloads when it's back.",
     "stopping": "The assistant stops {when}. Start it again on the computer it runs on; this page reloads when it's back.",
     "nowRestarts": "Now cancels the runs in progress, and it restarts at once.",
