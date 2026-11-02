@@ -1,5 +1,5 @@
-// How a connected client (a session) is named next to its device and its conversation, on the
-// Active sessions, Devices and Conversations pages.
+// How a connected client (a session) is named next to its device and its conversation, in Settings → System's active
+// sessions and on the Devices and Conversations pages.
 import type { ConnectedClient, Conversation, Device } from "./api/types";
 import { t, type Key } from "./i18n.svelte";
 

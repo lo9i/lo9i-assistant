@@ -11,6 +11,7 @@
   import DispatchCard from "$lib/ui/settings/DispatchCard.svelte";
   import ModelCard from "$lib/ui/settings/ModelCard.svelte";
   import PromptCard from "$lib/ui/settings/PromptCard.svelte";
+  import SessionsCard from "$lib/ui/settings/SessionsCard.svelte";
   import SpeechCard from "$lib/ui/settings/SpeechCard.svelte";
   import SpendingLimitsCard from "$lib/ui/settings/SpendingLimitsCard.svelte";
   import SpokenRepliesCard from "$lib/ui/settings/SpokenRepliesCard.svelte";
@@ -87,6 +88,8 @@
         <KeptKeysCard />
       </div>
     </div>
+    <!-- The whole width: the table needs room. -->
+    <SessionsCard />
   {:else}
     <div class="grid">
       <div class="stack">

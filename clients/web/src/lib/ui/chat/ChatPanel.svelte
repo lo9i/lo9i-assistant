@@ -268,7 +268,7 @@
       case "/conversations":
         return void goto(resolve("/conversations"));
       case "/sessions":
-        return void goto(resolve("/sessions"));
+        return void goto(`${resolve("/settings")}?tab=system`);
       case "/jobs":
         return void goto(resolve("/jobs"));
       case "/plugins":

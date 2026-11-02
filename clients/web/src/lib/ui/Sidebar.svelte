@@ -50,7 +50,12 @@
   let draggingApp = $state<string | null>(null);
   let overApp = $state<string | null>(null);
   function dropApp(target: string): void {
-    if (draggingApp) appOrder.move(pages.map((p) => p.name), draggingApp, target);
+    if (draggingApp)
+      appOrder.move(
+        pages.map((p) => p.name),
+        draggingApp,
+        target,
+      );
     draggingApp = overApp = null;
   }
   // Failures are stored with the servers and skills, and the health check's with its reports, so their events refresh
@@ -252,7 +257,13 @@
         }}
         ondragend={() => (draggingApp = overApp = null)}
       >
-        <a {href} class="nav-item" draggable="false" aria-current={page.url.pathname === href ? "page" : undefined} title={`${pageLabel(p.name)} · ${t("nav.dragToReorder")}`}>
+        <a
+          {href}
+          class="nav-item"
+          draggable="false"
+          aria-current={page.url.pathname === href ? "page" : undefined}
+          title={`${pageLabel(p.name)} · ${t("nav.dragToReorder")}`}
+        >
           <PluginIcon icon={p.icon} size={20} />
           <span class="label">{pageLabel(p.name)}</span>
         </a>
@@ -481,9 +492,13 @@
     background: var(--color-bg-hover-ghost);
     color: var(--color-text-primary);
   }
+  .app-row {
+    cursor: grab;
+  }
+  .app-row.drop-target {
+    box-shadow: inset 0 2px 0 var(--color-accent);
+  }
   .nav-item:hover,
-  .app-row { cursor: grab; }
-  .app-row.drop-target { box-shadow: inset 0 2px 0 var(--color-accent); }
   .nav-item[aria-current="page"] {
     background: var(--color-bg-hover-ghost);
     color: var(--color-text-primary);
