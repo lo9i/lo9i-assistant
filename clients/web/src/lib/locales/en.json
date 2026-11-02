@@ -963,7 +963,8 @@
     "workingCount": {
       "one": "{count} working",
       "other": "{count} working"
-    }
+    },
+    "dragToReorder": "Drag to reorder"
   },
   "notificationsPage": {
     "copilot": "Copilot allowance",

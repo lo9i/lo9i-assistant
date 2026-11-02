@@ -963,7 +963,8 @@
     "workingCount": {
       "one": "{count} trabajando",
       "other": "{count} trabajando"
-    }
+    },
+    "dragToReorder": "Arrastrá para reordenar"
   },
   "notificationsPage": {
     "copilot": "Cupo de Copilot",
@@ -1201,9 +1202,9 @@
       "audio": "Audio",
       "plugins": "Plugins",
       "mcp": "Servidores MCP",
-      "skills": "Habilidades",
+      "skills": "Skills",
       "system": "Sistema",
-      "logs": "Registros",
+      "logs": "Logs",
       "doctor": "Salud"
     },
     "updatesCount": {
@@ -1457,7 +1458,7 @@
   "usagePage": {
     "all": "Todo",
     "tools": "Herramientas",
-    "skills": "Habilidades",
+    "skills": "Skills",
     "period": "Período",
     "days": "{days} días",
     "title": "Llamadas a herramientas y habilidades",

@@ -39,13 +39,21 @@
   import { CONVERSATION_DRAG, openBeside, startNewHere } from "./openConversation";
   import { OPEN_PAGE, openNow } from "./openNow.svelte";
   import { sidebar } from "$lib/sidebar.svelte";
+  import { appOrder } from "$lib/appOrder.svelte";
 
   let { name }: { name: string } = $props();
 
   const { chats, notices } = useDaemon();
   // MCP servers that come with a web page, shown in an iframe (routes/pages/[name]).
   const servers = resource((c) => c.mcp.servers(), ["mcp"]);
-  const pages = $derived((servers.data ?? []).filter((s) => s.page && s.enabled));
+  const pages = $derived(appOrder.sort((servers.data ?? []).filter((s) => s.page && s.enabled)));
+  // The app being dragged to a new place among the apps, and the one it's over.
+  let draggingApp = $state<string | null>(null);
+  let overApp = $state<string | null>(null);
+  function dropApp(target: string): void {
+    if (draggingApp) appOrder.move(pages.map((p) => p.name), draggingApp, target);
+    draggingApp = overApp = null;
+  }
   // Failures are stored with the servers and skills, and the health check's with its reports, so their events refresh
   // the count.
   const alerts = resource((c) => c.alerts.list(), ["mcp", "skills", "doctor"]);
@@ -225,8 +233,28 @@
     {#if pages.length}<hr class="divider" />{/if}
     {#each pages as p (p.name)}
       {@const href = resolve("/pages/[name]", { name: p.name })}
-      <div class="nav-row">
-        <a {href} class="nav-item" aria-current={page.url.pathname === href ? "page" : undefined} title={pageLabel(p.name)}>
+      <div
+        class="nav-row app-row"
+        class:drop-target={overApp === p.name && draggingApp !== p.name}
+        role="listitem"
+        draggable="true"
+        ondragstart={(e) => {
+          draggingApp = p.name;
+          if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+        }}
+        ondragover={(e) => {
+          if (!draggingApp) return;
+          e.preventDefault();
+          overApp = p.name;
+        }}
+        ondragleave={() => overApp === p.name && (overApp = null)}
+        ondrop={(e) => {
+          e.preventDefault();
+          dropApp(p.name);
+        }}
+        ondragend={() => (draggingApp = overApp = null)}
+      >
+        <a {href} class="nav-item" draggable="false" aria-current={page.url.pathname === href ? "page" : undefined} title={`${pageLabel(p.name)} · ${t("nav.dragToReorder")}`}>
           <PluginIcon icon={p.icon} size={20} />
           <span class="label">{pageLabel(p.name)}</span>
         </a>
@@ -447,6 +475,8 @@
     color: var(--color-text-primary);
   }
   .nav-item:hover,
+  .app-row { cursor: grab; }
+  .app-row.drop-target { box-shadow: inset 0 2px 0 var(--color-accent); }
   .nav-item[aria-current="page"] {
     background: var(--color-bg-hover-ghost);
     color: var(--color-text-primary);
