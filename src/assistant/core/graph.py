@@ -46,6 +46,7 @@ from assistant.core.storage import Storage
 from assistant.core.tools import tools_for
 from assistant.core.tools.registry import offered_tools
 from assistant.core.usage.meter import TokenMeter
+from assistant.core.voice.spoken import without_spoken
 
 Node = Callable[..., Awaitable[dict]]
 
@@ -315,7 +316,7 @@ def mcp_calls(mcp: McpTools) -> AsyncToolCallWrapper:
 def _agent_node(llm: BaseChatModel, tools: Sequence[BaseTool], images_in_tool_results: bool) -> Node:
     async def _agent(state: AgentState) -> dict:
         kept = trimmed(state["messages"], state.get("epoch_start", 0), state.get("trimmed_before", 0))
-        epoch = answered(failed.without_marks(without_routed(kept)))
+        epoch = answered(failed.without_marks(without_routed(without_spoken(kept))))
         messages = await asyncio.to_thread(hydrate, epoch, images_in_tool_results)
         bound = llm.bind_tools([*tools, *state.get("mcp_tools", [])])
         try:

@@ -512,5 +512,15 @@
   "Start at boot is on: stopping asks for the administrator password on this Mac, so macOS stops trying to start the assistant until the next boot.": "El inicio con el sistema está activado: detenerlo pide la contraseña de administrador en este Mac, para que macOS deje de intentar iniciar el asistente hasta el próximo arranque.",
   "The administrator password wasn't given. Start at boot is on, so macOS would start the assistant again at once: stopping needs the password, or start at boot turned off. Restarting needs neither.": "No se dio la contraseña de administrador. El inicio con el sistema está activado, así que macOS volvería a iniciar el asistente enseguida: detenerlo necesita la contraseña, o desactivar el inicio con el sistema. Reiniciarlo no necesita ninguna de las dos.",
   "macOS didn't stop trying to start the assistant: {reason}": "macOS no dejó de intentar iniciar el asistente: {reason}",
-  "macOS stopped trying to start the assistant until the next boot": "macOS dejó de intentar iniciar el asistente hasta el próximo arranque"
+  "macOS stopped trying to start the assistant until the next boot": "macOS dejó de intentar iniciar el asistente hasta el próximo arranque",
+  "OpenAI answered the call without its id.": "OpenAI respondió la llamada sin su id.",
+  "Couldn't connect to the call: {error}": "No se pudo conectar con la llamada: {error}",
+  "The connection to the call dropped: {error}": "Se cortó la conexión con la llamada: {error}",
+  "Couldn't reach OpenAI: {error}": "No se pudo contactar a OpenAI: {error}",
+  "OpenAI refused: {error}": "OpenAI lo rechazó: {error}",
+  "OpenAI didn't accept the key: {error}": "OpenAI no aceptó la clave: {error}",
+  "Live voice calls need an OpenAI API key: add one in Settings → Audio.": "Las llamadas de voz en vivo necesitan una clave de API de OpenAI: agrega una en Ajustes → Audio.",
+  "Open a conversation to start a call in it.": "Abre una conversación para empezar una llamada en ella.",
+  "A call is already on in this conversation.": "Ya hay una llamada en curso en esta conversación.",
+  "Unknown voice {voice}. Choose one of: {voices}.": "Voz desconocida {voice}. Elige una de: {voices}."
 }

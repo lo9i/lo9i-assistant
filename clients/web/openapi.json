@@ -5817,6 +5817,207 @@
         }
       }
     },
+    "/settings/voice-calls": {
+      "get": {
+        "summary": "Voice Call Settings",
+        "operationId": "voice_call_settings_settings_voice_calls_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceCallSettings"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/voice-calls/key": {
+      "put": {
+        "summary": "Set Voice Call Key",
+        "description": "400: OpenAI doesn't accept the key.",
+        "operationId": "set_voice_call_key_settings_voice_calls_key_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceCallKey"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceCallSettings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove Voice Call Key",
+        "operationId": "remove_voice_call_key_settings_voice_calls_key_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceCallSettings"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/voice-calls/voice": {
+      "put": {
+        "summary": "Set Voice Call Voice",
+        "description": "Used from the next call. 400: not one of the voices.",
+        "operationId": "set_voice_call_voice_settings_voice_calls_voice_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceCallVoice"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceCallSettings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{thread_id}/voice-call": {
+      "post": {
+        "summary": "Start Voice Call",
+        "description": "Starts a call in the conversation from the browser's offer. 409: no OpenAI key, the inbox, or a call on\nthere already; 502: OpenAI refused the call.",
+        "operationId": "start_voice_call_conversations__thread_id__voice_call_post",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceCallOffer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceCallAnswer"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/voice-calls/{call_id}": {
+      "delete": {
+        "summary": "End Voice Call",
+        "operationId": "end_voice_call_voice_calls__call_id__delete",
+        "parameters": [
+          {
+            "name": "call_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Call Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceCallEnded"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/settings/log-level": {
       "get": {
         "summary": "Log Level",
@@ -11399,6 +11600,11 @@
             "type": "boolean",
             "title": "Resent",
             "default": false
+          },
+          "voice": {
+            "type": "string",
+            "title": "Voice",
+            "default": ""
           }
         },
         "type": "object",
@@ -12436,6 +12642,115 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VoiceCallAnswer": {
+        "properties": {
+          "call_id": {
+            "type": "string",
+            "title": "Call Id"
+          },
+          "sdp": {
+            "type": "string",
+            "title": "Sdp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "call_id",
+          "sdp"
+        ],
+        "title": "VoiceCallAnswer",
+        "description": "OpenAI's SDP answer, which completes the browser's peer connection, and the call's id, to hang up."
+      },
+      "VoiceCallEnded": {
+        "properties": {
+          "ended": {
+            "type": "boolean",
+            "title": "Ended"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ended"
+        ],
+        "title": "VoiceCallEnded"
+      },
+      "VoiceCallKey": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "VoiceCallKey"
+      },
+      "VoiceCallOffer": {
+        "properties": {
+          "sdp": {
+            "type": "string",
+            "title": "Sdp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sdp"
+        ],
+        "title": "VoiceCallOffer"
+      },
+      "VoiceCallSettings": {
+        "properties": {
+          "key_source": {
+            "type": "string",
+            "enum": [
+              "saved",
+              "model",
+              "env",
+              ""
+            ],
+            "title": "Key Source"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "voice": {
+            "type": "string",
+            "title": "Voice"
+          },
+          "voices": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Voices"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key_source",
+          "model",
+          "voice",
+          "voices"
+        ],
+        "title": "VoiceCallSettings",
+        "description": "What Settings \u2192 Audio shows. Never includes the key."
+      },
+      "VoiceCallVoice": {
+        "properties": {
+          "voice": {
+            "type": "string",
+            "title": "Voice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "voice"
+        ],
+        "title": "VoiceCallVoice"
       },
       "VoiceOption": {
         "properties": {

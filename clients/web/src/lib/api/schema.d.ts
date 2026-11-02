@@ -2500,6 +2500,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings/voice-calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Voice Call Settings */
+        get: operations["voice_call_settings_settings_voice_calls_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/voice-calls/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Voice Call Key
+         * @description 400: OpenAI doesn't accept the key.
+         */
+        put: operations["set_voice_call_key_settings_voice_calls_key_put"];
+        post?: never;
+        /** Remove Voice Call Key */
+        delete: operations["remove_voice_call_key_settings_voice_calls_key_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/voice-calls/voice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Voice Call Voice
+         * @description Used from the next call. 400: not one of the voices.
+         */
+        put: operations["set_voice_call_voice_settings_voice_calls_voice_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{thread_id}/voice-call": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Voice Call
+         * @description Starts a call in the conversation from the browser's offer. 409: no OpenAI key, the inbox, or a call on
+         *     there already; 502: OpenAI refused the call.
+         */
+        post: operations["start_voice_call_conversations__thread_id__voice_call_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/voice-calls/{call_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** End Voice Call */
+        delete: operations["end_voice_call_voice_calls__call_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/settings/log-level": {
         parameters: {
             query?: never;
@@ -5405,6 +5501,11 @@ export interface components {
              * @default false
              */
             resent: boolean;
+            /**
+             * Voice
+             * @default
+             */
+            voice: string;
         };
         /**
          * ShownStep
@@ -5875,6 +5976,53 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * VoiceCallAnswer
+         * @description OpenAI's SDP answer, which completes the browser's peer connection, and the call's id, to hang up.
+         */
+        VoiceCallAnswer: {
+            /** Call Id */
+            call_id: string;
+            /** Sdp */
+            sdp: string;
+        };
+        /** VoiceCallEnded */
+        VoiceCallEnded: {
+            /** Ended */
+            ended: boolean;
+        };
+        /** VoiceCallKey */
+        VoiceCallKey: {
+            /** Key */
+            key: string;
+        };
+        /** VoiceCallOffer */
+        VoiceCallOffer: {
+            /** Sdp */
+            sdp: string;
+        };
+        /**
+         * VoiceCallSettings
+         * @description What Settings → Audio shows. Never includes the key.
+         */
+        VoiceCallSettings: {
+            /**
+             * Key Source
+             * @enum {string}
+             */
+            key_source: "saved" | "model" | "env" | "";
+            /** Model */
+            model: string;
+            /** Voice */
+            voice: string;
+            /** Voices */
+            voices: string[];
+        };
+        /** VoiceCallVoice */
+        VoiceCallVoice: {
+            /** Voice */
+            voice: string;
         };
         /** VoiceOption */
         VoiceOption: {
@@ -10447,6 +10595,178 @@ export interface operations {
                 };
                 content: {
                     "audio/wav": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    voice_call_settings_settings_voice_calls_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceCallSettings"];
+                };
+            };
+        };
+    };
+    set_voice_call_key_settings_voice_calls_key_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceCallKey"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceCallSettings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_voice_call_key_settings_voice_calls_key_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceCallSettings"];
+                };
+            };
+        };
+    };
+    set_voice_call_voice_settings_voice_calls_voice_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceCallVoice"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceCallSettings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_voice_call_conversations__thread_id__voice_call_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceCallOffer"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceCallAnswer"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    end_voice_call_voice_calls__call_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                call_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceCallEnded"];
                 };
             };
             /** @description Validation Error */

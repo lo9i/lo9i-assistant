@@ -2,6 +2,8 @@
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import Mic from "@lucide/svelte/icons/mic";
   import Paperclip from "@lucide/svelte/icons/paperclip";
+  import Phone from "@lucide/svelte/icons/phone";
+  import PhoneOff from "@lucide/svelte/icons/phone-off";
   import Square from "@lucide/svelte/icons/square";
   import X from "@lucide/svelte/icons/x";
   import { commandText, offered, parse, takesArgument, type Command } from "$lib/chat/commands";
@@ -33,6 +35,9 @@
     handedOff?: boolean;
     /** A small box among others (a card's): tighter, and not taking the focus when it shows. */
     compact?: boolean;
+    /** The live voice call button (core/voice/): `on` while a call is on here; not `ready` without an OpenAI key, which
+     * its title says. */
+    call?: { on: boolean; ready: boolean; onpress: () => void } | null;
   };
   let {
     busy,
@@ -48,6 +53,7 @@
     handedOff = false,
     compact = false,
     onqueue,
+    call = null,
   }: Props = $props();
   // The sent message shown (an index into `sent`), and what was being typed before Up.
   let recalled = $state<number | null>(null);
@@ -257,6 +263,19 @@
         {onpaste}
         autofocus={!compact}></textarea>
     {/if}
+    {#if call && !recorder.recording}
+      <button
+        class="lead call"
+        class:on={call.on}
+        class:off={!call.ready}
+        aria-pressed={call.on}
+        aria-label={call.on ? t("voiceCall.end") : t("voiceCall.start")}
+        title={call.on ? t("voiceCall.end") : call.ready ? t("voiceCall.startHint") : t("voiceCall.needsKeyHint")}
+        onclick={call.onpress}
+      >
+        {#if call.on}<PhoneOff size={16} />{:else}<Phone size={16} />{/if}
+      </button>
+    {/if}
     {#if recorder.recording}
       <button class="send" aria-label={t("composer.sendVoice")} title={t("composer.sendVoice")} onclick={sendRecording}>
         <ArrowUp size={14} />
@@ -335,6 +354,15 @@
   }
   .lead:hover {
     color: var(--color-text-primary);
+  }
+  /* A call on: the button hangs up, in the colour of stopping. */
+  .call.on {
+    color: #fff;
+    background: var(--color-danger);
+  }
+  /* No OpenAI key yet: pressing it says where to add one. */
+  .call.off {
+    opacity: 0.55;
   }
   .recording {
     flex: 1;

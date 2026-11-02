@@ -36,6 +36,7 @@ from assistant.daemon.scheduler import Scheduler
 from assistant.daemon.shutdown import Announce, Ending, Shutdown, exec_again, from_dotenv
 from assistant.daemon.startup import Startup
 from assistant.daemon.updates import Updates
+from assistant.daemon.voice_calls import VoiceCalls
 from assistant.daemon.web_build import WebBuildWatcher
 
 logger = logging.getLogger(__name__)
@@ -67,7 +68,10 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         streams = DeviceStreams()
         startup = Startup(stop, shutdown.relaunch)
         chats = ChannelChats(service, ChannelRuns(hub), service.channels_hub, service.approvals)
-        app = create_app(service, hub, startup, shutdown, logs=logs, streams=streams, updates=updater, chats=chats)
+        calls = VoiceCalls(service, hub)
+        app = create_app(
+            service, hub, startup, shutdown, logs=logs, streams=streams, updates=updater, chats=chats, voice_calls=calls
+        )
         servers = _listeners(app, socket_path)
         page_servers = [HttpServer(create_pages_app(service, streams), at) for at in pages.listeners()]
         if not _bound([*servers, *page_servers]):
@@ -97,6 +101,7 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         tasks.append(_supervised(service.copilot_watch, stop))
         tasks.append(_supervised(service.doctor_schedule, stop))
         tasks.append(_supervised(WebBuildWatcher(service.bus), stop))
+        tasks.append(_supervised(calls, stop))
         # Downloads once in the background; until then pages are read without rendering.
         install = asyncio.create_task(browser.install_browser()) if settings.web_render else None
         logger.info("Daemon ready on %s and http://127.0.0.1:%s", socket_path, settings.daemon_port)

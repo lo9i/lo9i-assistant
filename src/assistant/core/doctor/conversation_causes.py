@@ -23,6 +23,7 @@ from assistant.core.doctor.causes import Occurrence
 from assistant.core.doctor.clock import day_of, header_time
 from assistant.core.doctor.model import ThreadRef
 from assistant.core.jobs import store as jobs
+from assistant.core.voice.spoken import without_spoken
 
 NO_REPLY = "A message got no reply: its run was stopped before it answered"
 # An exception's repr: `OperationalError('database is locked')`.
@@ -118,8 +119,9 @@ def _error_text(error: object) -> str:
 
 
 def _turns(messages: Sequence[BaseMessage]) -> list[list[BaseMessage]]:
+    """What's said in a voice call isn't a turn of a run: the call keeps it as it's said (core/voice/spoken.py)."""
     turns: list[list[BaseMessage]] = []
-    for message in messages:
+    for message in without_spoken(messages):
         if isinstance(message, HumanMessage):
             turns.append([message])
         elif turns:

@@ -93,6 +93,8 @@ import type {
   UpdateStatus,
   UploadedFile,
   UsageReport,
+  VoiceCallAnswer,
+  VoiceCallSettings,
   WebSearchStatus,
 } from "./types";
 
@@ -403,6 +405,41 @@ export class SpeechGroup {
   /** The text read aloud on the host, as WAV. `voice` "" uses the reply voice. */
   speak(text: string, voice = ""): Promise<Blob> {
     return this.transport.blob("POST", "/speech", { text, voice });
+  }
+}
+
+/** Live voice calls (core/voice/): the OpenAI key they use, and starting and ending one. The call's audio goes between
+ * the browser and OpenAI; the daemon passes the offer on and the answer back, and keeps a connection on the call. */
+export class VoiceCallsGroup {
+  constructor(private readonly transport: Transport) {}
+
+  settings(): Promise<VoiceCallSettings> {
+    return this.transport.request("GET", "/settings/voice-calls");
+  }
+
+  /** Throws ApiError (400) when OpenAI doesn't accept it. */
+  setKey(key: string): Promise<VoiceCallSettings> {
+    return this.transport.request("PUT", "/settings/voice-calls/key", { key });
+  }
+
+  removeKey(): Promise<VoiceCallSettings> {
+    return this.transport.request("DELETE", "/settings/voice-calls/key");
+  }
+
+  /** The voice calls speak in, from the next one. Throws ApiError (400) for one that isn't among `voices`. */
+  setVoice(voice: string): Promise<VoiceCallSettings> {
+    return this.transport.request("PUT", "/settings/voice-calls/voice", { voice });
+  }
+
+  /** OpenAI's answer to the browser's SDP offer. Throws ApiError: 409 with no OpenAI key, in the inbox or with a call
+   * on there already, 502 when OpenAI refuses. */
+  start(threadId: string, sdp: string): Promise<VoiceCallAnswer> {
+    return this.transport.request("POST", `/conversations/${encodeURIComponent(threadId)}/voice-call`, { sdp });
+  }
+
+  /** Hangs up; false when no such call was on. */
+  async end(callId: string): Promise<boolean> {
+    return (await this.transport.request<Schemas["VoiceCallEnded"]>("DELETE", `/voice-calls/${encodeURIComponent(callId)}`)).ended;
   }
 }
 
@@ -1130,6 +1167,7 @@ export class DaemonClient {
   readonly jobs: JobsGroup;
   readonly channels: ChannelsGroup;
   readonly speech: SpeechGroup;
+  readonly voiceCalls: VoiceCallsGroup;
   readonly webSearch: WebSearchGroup;
   readonly email: EmailGroup;
   readonly oauth: OAuthGroup;
@@ -1168,6 +1206,7 @@ export class DaemonClient {
     this.jobs = new JobsGroup(transport);
     this.channels = new ChannelsGroup(transport);
     this.speech = new SpeechGroup(transport);
+    this.voiceCalls = new VoiceCallsGroup(transport);
     this.webSearch = new WebSearchGroup(transport);
     this.email = new EmailGroup(transport);
     this.oauth = new OAuthGroup(transport);

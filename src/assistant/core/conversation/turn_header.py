@@ -46,6 +46,12 @@ def said(message: BaseMessage) -> str:
     return "\n".join(t for t in texts if t.strip())
 
 
+def channel_of(message: BaseMessage) -> str | None:
+    """The channel a user message came from, by its turn header; None without one."""
+    content = message.content if isinstance(message, HumanMessage) else None
+    return _channel(content[0]) if isinstance(content, list) and content else None
+
+
 def is_date_header(block: object) -> bool:
     """True for the block `header_block` made: the date, time and channel, without the notes after it."""
     return _channel(block) is not None
@@ -55,10 +61,8 @@ def channels(messages: Sequence[BaseMessage]) -> list[str]:
     """The channels the user's messages came from, in the order they were first used."""
     found: dict[str, None] = {}
     for message in messages:
-        if isinstance(message, HumanMessage) and isinstance(message.content, list) and message.content:
-            channel = _channel(message.content[0])
-            if channel is not None:
-                found[channel] = None
+        if (channel := channel_of(message)) is not None:
+            found[channel] = None
     return list(found)
 
 

@@ -13,6 +13,8 @@ from assistant.core.config import settings
 from assistant.core.conversation import choices, ended, file_index, handoffs, moved, pinned, queued, summaries
 from assistant.core.home import pins as home_pins
 from assistant.core.i18n import said
+from assistant.core.voice import notes as voice_notes
+from assistant.core.voice.spoken import without_spoken
 
 # What the home conversation from before the inbox is listed as.
 _HOME_TITLE = "Home (before the inbox)"
@@ -110,6 +112,7 @@ class ThreadsMixin(ArchiveMixin, ThreadFilesMixin):
             await handoffs.forget(self._storage.store, user_id, thread_id)
             await ended.forget(self._storage.store, user_id, thread_id)
             await moved.forget(self._storage.store, user_id, thread_id)
+            await voice_notes.forget(self._storage.store, user_id, thread_id)
             await queued.forget(self._storage.store, user_id, thread_id)
             await notifications.forget_conversation(self._storage.store, user_id, thread_id)
             await chat_threads.forget(self._storage.store, user_id, listed.channels, thread_id)
@@ -126,9 +129,9 @@ class ThreadsMixin(ArchiveMixin, ThreadFilesMixin):
         self._archive_in_background(thread_id, user_id)
 
     async def last_reply(self, thread_id: str) -> str:
-        """The text of the conversation's last assistant message."""
+        """The text of the conversation's last assistant message, not counting what a voice call's voice said."""
         state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
-        replies = [m for m in state.values.get("messages", []) if isinstance(m, AIMessage)]
+        replies = [m for m in without_spoken(state.values.get("messages", [])) if isinstance(m, AIMessage)]
         return choices.without_markers(replies[-1].text).strip() if replies else ""
 
 

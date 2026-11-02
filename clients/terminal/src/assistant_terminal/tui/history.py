@@ -11,8 +11,11 @@ from textual.containers import VerticalScroll
 
 from assistant.core.agent import ShownCall, ShownMessage
 from assistant.core.conversation import choices
+from assistant_terminal.i18n import t
 from assistant_terminal.tui.widgets import (
+    ASKED_IN_CALL,
     RESENT,
+    SAID_IN_CALL,
     UNTAKEN,
     AssistantMessage,
     BriefNote,
@@ -67,11 +70,18 @@ def _held(message: ShownMessage) -> list[HeldNote]:
     return [HeldNote(message.held)] if message.held else []
 
 
+def _user_note(message: ShownMessage) -> str:
+    if message.untaken or message.resent:
+        return UNTAKEN if message.untaken else RESENT
+    return {"said": SAID_IN_CALL, "asked": ASKED_IN_CALL}.get(message.voice, "")
+
+
 def _widget(message: ShownMessage, load: Loaders):
     if message.role == "user":
-        return UserMessage(message.text, [], UNTAKEN if message.untaken else RESENT if message.resent else "")
+        return UserMessage(message.text, [], _user_note(message))
     if message.role == "assistant":
-        return AssistantMessage(choices.without_markers(message.text).strip())
+        text = choices.without_markers(message.text).strip()
+        return AssistantMessage(f"*{t(SAID_IN_CALL)}*\n\n{text}" if message.voice == "said" else text)
     if message.role == "thinking":
         return ThinkingNote(message.text)
     if message.role == "carried":

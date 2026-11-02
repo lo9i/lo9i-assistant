@@ -3,12 +3,16 @@
 import type { RunEvent, ShownCall, ShownMessage } from "../api/types";
 import { withoutMarkers } from "./choices";
 
+/** A live voice call's message (core/voice/): what the user or the voice "said" in it, or what the voice "asked" the
+ * assistant. */
+export type CallPart = "said" | "asked";
+
 export type ChatItem =
-  | { kind: "user"; id: number; text: string; files: string[]; channel?: string; note?: UserNote; messageId?: string }
+  | { kind: "user"; id: number; text: string; files: string[]; channel?: string; note?: UserNote; messageId?: string; voice?: CallPart }
   // A coding task the assistant wrote for the agent (`agent`) it handed the conversation to: not the user's.
   | { kind: "brief"; id: number; text: string; agent: string }
   // `dispatchId`: the inbox's record of a message it sent on, which can be moved.
-  | { kind: "assistant"; id: number; text: string; dispatchId?: string }
+  | { kind: "assistant"; id: number; text: string; dispatchId?: string; voice?: CallPart }
   | { kind: "thinking"; id: number; text: string }
   // A quick exchange the inbox carried to this conversation, as Markdown, before the message that followed it up.
   | { kind: "carried"; id: number; text: string }
@@ -175,7 +179,8 @@ function add(t: Transcript, item: NewItem): Transcript {
 
 function addShown(t: Transcript, message: ShownMessage): Transcript {
   if (message.role === "user" && message.untaken) return t;
-  if (message.role === "user") return add(t, { kind: "user", ...splitAttachments(message.text), ...shownNote(message) });
+  if (message.role === "user")
+    return add(t, { kind: "user", ...splitAttachments(message.text), ...shownNote(message), ...inCall(message) });
   if (message.role === "brief") return add(t, { kind: "brief", text: message.text, agent: message.agent });
   if (message.role === "thinking") return add(t, { kind: "thinking", text: message.text });
   if (message.role === "carried") return add(t, { kind: "carried", text: message.text });
@@ -183,7 +188,11 @@ function addShown(t: Transcript, message: ShownMessage): Transcript {
   // A run that failed: what it ended with, as it showed live.
   if (message.role === "error") return add(t, { kind: "error", message: message.text });
   if (message.role === "tool") return add(t, shownTool(message));
-  return add(t, { kind: "assistant", text: message.text, dispatchId: message.dispatch_id || undefined });
+  return add(t, { kind: "assistant", text: message.text, dispatchId: message.dispatch_id || undefined, ...inCall(message) });
+}
+
+function inCall(message: ShownMessage): { voice?: CallPart } {
+  return message.voice === "said" || message.voice === "asked" ? { voice: message.voice } : {};
 }
 
 /** A handed-off agent's tool call comes with what it was about and its output, a delegate call with its task,
