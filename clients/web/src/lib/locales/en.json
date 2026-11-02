@@ -1225,10 +1225,10 @@
   "shutdown": {
     "restartTitle": "Restart the assistant?",
     "restartText": "It stops and starts again once the runs in progress end. This page reloads when it's back.",
-    "restart": "Restart",
+    "restart": "Restart assistant",
     "stopTitle": "Stop the assistant?",
     "stopText": "Jobs, chat channels and the apps stop working until it's started again on the computer it runs on (opening the terminal app there starts it). It waits for the runs in progress to end.",
-    "stop": "Stop",
+    "stop": "Stop assistant",
     "restarting": "The assistant restarts {when}. This page reloads when it's back.",
     "stopping": "The assistant stops {when}. Start it again on the computer it runs on; this page reloads when it's back.",
     "nowRestarts": "Now cancels the runs in progress, and it restarts at once.",

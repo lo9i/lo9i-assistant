@@ -1225,10 +1225,10 @@
   "shutdown": {
     "restartTitle": "¿Reiniciar el asistente?",
     "restartText": "Se detiene y vuelve a arrancar cuando terminen las ejecuciones en curso. Esta página se recarga cuando vuelva.",
-    "restart": "Reiniciar",
+    "restart": "Reiniciar asistente",
     "stopTitle": "¿Detener el asistente?",
     "stopText": "Las tareas programadas, los canales de chat y las apps dejan de funcionar hasta que se vuelva a iniciar en la computadora donde corre (abrir la app de terminal allí lo inicia). Espera a que terminen las ejecuciones en curso.",
-    "stop": "Detener",
+    "stop": "Detener asistente",
     "restarting": "El asistente se reinicia {when}. Esta página se recarga cuando vuelva.",
     "stopping": "El asistente se detiene {when}. Vuelve a iniciarlo en la computadora donde corre; esta página se recarga cuando vuelva.",
     "nowRestarts": "Ahora cancela las ejecuciones en curso y se reinicia de inmediato.",
