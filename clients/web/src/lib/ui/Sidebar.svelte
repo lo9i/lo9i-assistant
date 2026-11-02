@@ -24,7 +24,6 @@
   import ListChecks from "@lucide/svelte/icons/list-checks";
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import MessageCircle from "@lucide/svelte/icons/message-circle";
-  import MonitorSmartphone from "@lucide/svelte/icons/monitor-smartphone";
   import Plus from "@lucide/svelte/icons/plus";
   import Settings from "@lucide/svelte/icons/settings";
   import Sparkles from "@lucide/svelte/icons/sparkles";
@@ -113,9 +112,9 @@
     exact?: boolean;
   };
   const ALERTS = resolve("/alerts");
+  const HOME = resolve("/home");
   const NOTIFICATIONS = resolve("/notifications");
   const NAV: Item[] = [
-    { href: resolve("/home"), label: "nav.home", Icon: House },
     // The open conversations show under Chat. Its count is those waiting for an answer, for when that list is hidden
     // (the sidebar collapsed, a phone).
     {
@@ -130,7 +129,6 @@
     { href: resolve("/subagents"), label: "nav.subagents", Icon: Bot, count: () => subagentsWorking, counted: "nav.workingCount" },
     { href: resolve("/files"), label: "nav.files", Icon: Files },
     { href: resolve("/usage"), label: "nav.usage", Icon: ChartColumn },
-    { href: resolve("/sessions"), label: "nav.sessions", Icon: MonitorSmartphone },
     { href: resolve("/jobs"), label: "nav.jobs", Icon: CalendarClock },
     { href: resolve("/devices"), label: "nav.devices", Icon: Laptop, add: { label: "nav.pairBrowser", run: pairBrowser } },
     { href: NOTIFICATIONS, label: "nav.notifications", Icon: ListChecks, count: () => unread },
@@ -265,6 +263,15 @@
   <div class="footer-slot">
     <!-- Last: alerts, and a short message or voice to the assistant (sent to the inbox, routed on). -->
     <div class="bar">
+      <a
+        href={HOME}
+        class="bar-item"
+        aria-current={page.url.pathname === HOME ? "page" : undefined}
+        aria-label={t("nav.home")}
+        title={t("nav.home")}
+      >
+        <House size={18} />
+      </a>
       <a
         href={ALERTS}
         class="bar-item"
