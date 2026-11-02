@@ -4,7 +4,9 @@ conversation shows it live. A follow-up on background work runs with no message 
 (core/agent/follow_ups.py). Ones left waiting when the daemon stopped are sent when it starts.
 
 While a restart or stop is asked for (daemon/shutdown.py) they wait: a run started then would be one more it waits
-for, and they're kept in the Store, so they go once the daemon is back, or at once when it's taken back.
+for, and they're kept in the Store, so they go once the daemon is back, or at once when it's taken back. Those of a
+conversation whose messages go first (core/ending.py: a coding task the user chose to send now) go all the same, and
+the restart waits for them, until the conversation has none left once its run ended.
 
 A run sent from a chat channel (the conversation was on Telegram when its task or follow-up was queued) shows in
 that channel's chat too, as the apps show it (daemon/channel_runs.py)."""
@@ -61,10 +63,12 @@ class QueuedMessages:
                 await self._send_next(thread_id)
 
     async def _send_next(self, thread_id: str) -> None:
-        if self._ending.asked():
+        first = self._service.ending
+        if self._ending.asked() and not first.goes_first(thread_id):
             return
         waiting = await self._service.next_queued(settings.owner_id, thread_id)
         if waiting is None:
+            first.sent(thread_id)
             return
         session = Session(settings.owner_id, waiting.channel, thread_id)
         if waiting.follow_up:

@@ -3,11 +3,18 @@ handed to its agent along with the conversation it's in (core/agent_tasks/tools.
 background work that ended there (core/background.py), which the assistant answers with no message from the
 user, and what the user sent the agent the conversation is handed to that it hadn't taken when they stopped it
 (core/agent/handoffs.py). The daemon sends each as a run of its own, so every app shows it in that conversation
-(daemon/queued.py). Kept in the Store, so a restart doesn't lose one."""
+(daemon/queued.py). Kept in the Store, so a restart doesn't lose one.
 
-from dataclasses import dataclass, field
+A coding task goes only with its conversation handed to its agent (core/agent/tasks.py::next_queued): one kept for
+after a pending restart carries the handoff (`hand_to`), made as it's sent, so the conversation is never handed over
+without it; one whose conversation was taken back before it went is dropped, never sent to the assistant as if the
+user had written it."""
+
+from dataclasses import asdict, dataclass, field
 
 from langgraph.store.base import BaseStore
+
+from assistant.core.conversation.handoffs import Handoff
 
 
 @dataclass(frozen=True)
@@ -23,6 +30,8 @@ class Queued:
     files: list[dict[str, str]] = field(default_factory=list)
     # Messages the agent the conversation is handed to hadn't taken, sent again (core/conversation/resent.py).
     resent: bool = False
+    # For a coding task kept for after a restart: the conversation is handed to its agent as the task is sent.
+    hand_to: Handoff | None = None
 
 
 def _namespace(user_id: str) -> tuple[str, ...]:
@@ -38,9 +47,16 @@ async def add(store: BaseStore, user_id: str, thread_id: str, queued: Queued) ->
         "brief": queued.brief,
         "files": queued.files,
         "resent": queued.resent,
+        "hand_to": asdict(queued.hand_to) if queued.hand_to else None,
     }
     waiting = [*(item.value["messages"] if item else []), added]
     await store.aput(_namespace(user_id), thread_id, {"messages": waiting})
+
+
+async def first(store: BaseStore, user_id: str, thread_id: str) -> Queued | None:
+    """The oldest message waiting in the conversation, still kept."""
+    item = await store.aget(_namespace(user_id), thread_id)
+    return _queued(item.value["messages"][0]) if item else None
 
 
 async def take(store: BaseStore, user_id: str, thread_id: str) -> Queued | None:
@@ -48,17 +64,19 @@ async def take(store: BaseStore, user_id: str, thread_id: str) -> Queued | None:
     item = await store.aget(_namespace(user_id), thread_id)
     if item is None:
         return None
-    first, *rest = item.value["messages"]
+    oldest, *rest = item.value["messages"]
     if rest:
         await store.aput(_namespace(user_id), thread_id, {"messages": rest})
     else:
         await store.adelete(_namespace(user_id), thread_id)
-    return _queued(first)
+    return _queued(oldest)
 
 
 def _queued(kept: dict) -> Queued:
     brief, files = str(kept.get("brief") or ""), list(kept.get("files") or [])
-    return Queued(kept["channel"], kept["text"], bool(kept.get("follow_up")), brief, files, bool(kept.get("resent")))
+    hand_to = Handoff(**kept["hand_to"]) if kept.get("hand_to") else None
+    follow_up, resent = bool(kept.get("follow_up")), bool(kept.get("resent"))
+    return Queued(kept["channel"], kept["text"], follow_up, brief, files, resent, hand_to)
 
 
 async def threads(store: BaseStore, user_id: str) -> list[str]:

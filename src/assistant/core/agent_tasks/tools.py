@@ -5,7 +5,7 @@ change the user's code and spend their plan, so the user approves them unless th
 task's end is told to the conversation that started it (ends.py), unless these tools showed it first."""
 
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import BaseTool, InjectedToolCallId, StructuredTool
@@ -28,7 +28,7 @@ from assistant.core.context import Context, require_store
 from assistant.core.conversation import handoffs, queued
 from assistant.core.conversation.handoffs import Handoff
 from assistant.core.conversation.queued import Queued
-from assistant.core.ending import EndingState
+from assistant.core.ending import AskedEnding, EndingState
 from assistant.core.subagent_steps import SubagentAnswer
 from assistant.core.tools.approval import ask
 from assistant.core.tools.side import moved_out_of_inbox
@@ -46,8 +46,13 @@ _START = (
     "user is notified and the next message here says so; task_status follows it sooner (wait_seconds to wait "
     "for it). Continue its work with follow_up_of. Where the user is watching, the task goes to the agent as a "
     "conversation instead, so they see its work: in a conversation, it's handed to the agent and the task is its "
-    "next message; in the inbox, the task moves to a new conversation handed to the agent."
+    "next message; in the inbox, the task moves to a new conversation handed to the agent. While a restart of "
+    "lo9i is pending, a task handed with its conversation would wait for it: by default nothing is handed over and "
+    "this says what the restart waits for, so ask the user whether to send it now or after the restart, then call "
+    "again with when_restart_pending."
 )
+
+RestartChoice = Literal["ask", "send_now", "after_restart"]
 
 
 class _Start(BaseModel):
@@ -58,6 +63,16 @@ class _Start(BaseModel):
     follow_up_of: Annotated[
         str, Field(description="An earlier task's id, to continue its session with what it already knows")
     ] = ""
+    when_restart_pending: Annotated[
+        RestartChoice,
+        Field(
+            description=(
+                "Only while a restart of lo9i is pending, for a task handed with this conversation: ask (the "
+                "default) hands nothing over and says what the restart waits for; send_now hands it over now and "
+                "the restart waits for the task to end; after_restart hands it over with the task once lo9i is back"
+            )
+        ),
+    ] = "ask"
 
 
 class _Status(BaseModel):
@@ -106,7 +121,14 @@ class AgentTools:
 
 
 def _build(tasks: AgentTasks, reports: TaskReports, ending: EndingState, store: BaseStore) -> list[BaseTool]:
-    async def start_task(agent: str, repository: str, task: str, title: str = "", follow_up_of: str = "") -> str:
+    async def start_task(
+        agent: str,
+        repository: str,
+        task: str,
+        title: str = "",
+        follow_up_of: str = "",
+        when_restart_pending: RestartChoice = "ask",
+    ) -> str:
         found = next((a for a in tasks.agents() if a.server == agent), None)
         handoff = {"command": found.command, "folder": repository, "name": found.name} if found else None
         if handoff and await moved_out_of_inbox(title or short(task, _TITLE), task, handoff):
@@ -115,12 +137,8 @@ def _build(tasks: AgentTasks, reports: TaskReports, ending: EndingState, store: 
                 "the task as its first message; the user is taken there. Say so in one short line; don't start it here."
             )
         if found and (where := await _watched_conversation(repository)):
-            if rejection := _approve(tasks, agent, f"Hand this conversation to {found.name} in {repository}", task):
-                return rejection
-            await _hand_with_task(where, found, repository, task)
-            return (
-                f"This conversation is now handed to {found.name} in {repository}, which gets the task as soon as "
-                "this reply ends; the user sees its work here. Say so in one short line; don't call start_task again."
+            return await _hand_over(
+                tasks, ending, where, found, Path(repository).expanduser(), task, when_restart_pending
             )
         if rejection := _approve(tasks, agent, f"Start a task in {repository}", task):
             return rejection
@@ -197,14 +215,56 @@ async def _watched_conversation(repository: str) -> Origin | None:
     return None if origin.thread_id == await inbox.current(store, origin.user_id) else origin
 
 
-async def _hand_with_task(where: Origin, agent: CodingAgent, repository: str, task: str) -> None:
-    """From now on the agent answers in this conversation, and its first message there is the task, sent
-    once this run ends (core/conversation/queued.py)."""
+async def _hand_over(
+    tasks: AgentTasks,
+    ending: EndingState,
+    where: Origin,
+    agent: CodingAgent,
+    folder: Path,
+    task: str,
+    when: RestartChoice,
+) -> str:
+    """From now on the agent answers in this conversation, and its first message there is the task, sent once this
+    run ends (core/conversation/queued.py). While a restart is pending, which holds queued messages back, nothing is
+    handed over unless the user chose when: now, the restart waiting for the task (core/ending.py), or after it, the
+    handoff kept with the task, so neither goes without the other."""
+    asked = ending.current()
+    if asked is not None and when == "ask":
+        return await _restart_question(asked, where, agent.name)
+    if rejection := _approve(tasks, agent.server, f"Hand this conversation to {agent.name} in {folder}", task):
+        return rejection
     store = require_store(get_store())
-    folder = str(Path(repository).expanduser())
-    handoff = Handoff(agent.server, agent.command, agent.name, folder)
+    handoff = Handoff(agent.server, agent.command, agent.name, str(folder))
+    if asked is not None and when == "after_restart":
+        later = Queued(where.channel, task, brief=agent.name, hand_to=handoff)
+        await queued.add(store, where.user_id, where.thread_id, later)
+        return (
+            f"Kept the task for after the {asked.ending}: once lo9i is back, this conversation is handed to "
+            f"{agent.name} in {folder} and the task sent to it together. Until then the conversation stays yours. Say "
+            "so in one short line; don't call start_task again."
+        )
     await handoffs.hand(store, where.user_id, where.thread_id, handoff)
     await queued.add(store, where.user_id, where.thread_id, Queued(where.channel, task, brief=agent.name))
+    # Should a restart be asked for before it's sent, it waits for this task all the same.
+    ending.send_first(where.thread_id)
+    waits = f" The pending {asked.ending} waits until the task ends." if asked else ""
+    return (
+        f"This conversation is now handed to {agent.name} in {folder}, which gets the task as soon as this reply "
+        f"ends; the user sees its work here.{waits} Say so in one short line; don't call start_task again."
+    )
+
+
+async def _restart_question(asked: AskedEnding, where: Origin, agent: str) -> str:
+    """Nothing was handed over: what the assistant tells the user, and how to go on once they choose."""
+    store = require_store(get_store())
+    note = await restart_note(asked, store, where.user_id, where.thread_id)
+    return (
+        f"{note}\n\nNothing was handed over and the task wasn't queued: it would wait for the {asked.ending}, "
+        f"and {agent} would get nothing meanwhile. Tell the user and ask which they want: send it now (the "
+        f"{asked.ending} waits until the task ends), or after the {asked.ending} (the conversation is handed to "
+        f"{agent} with the task once lo9i is back). Then call start_task again with the same arguments and "
+        'when_restart_pending set to "send_now" or "after_restart".'
+    )
 
 
 def _shown_within(call_id: str, shown: list[str]) -> Report:

@@ -531,5 +531,7 @@
   "Live voice calls need an OpenAI API key: add one in Settings → Audio.": "Las llamadas de voz en vivo necesitan una clave de API de OpenAI: agrega una en Ajustes → Audio.",
   "Open a conversation to start a call in it.": "Abre una conversación para empezar una llamada en ella.",
   "A call is already on in this conversation.": "Ya hay una llamada en curso en esta conversación.",
-  "Unknown voice {voice}. Choose one of: {voices}.": "Voz desconocida {voice}. Elige una de: {voices}."
+  "Unknown voice {voice}. Choose one of: {voices}.": "Voz desconocida {voice}. Elige una de: {voices}.",
+  "The task for {agent} wasn't sent: the conversation was taken back from it before it went. Ask for it again to start it.": "La tarea para {agent} no se envió: la conversación se le quitó antes de que saliera. Pídela de nuevo para empezarla.",
+  "Task not sent": "Tarea no enviada"
 }

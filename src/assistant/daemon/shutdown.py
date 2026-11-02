@@ -82,11 +82,18 @@ class _NoUpdates:
 
 
 class Recorded(Protocol):
-    """Where the rest of lo9i reads what's asked for (core/ending.py::EndingState)."""
+    """Where the rest of lo9i reads what's asked for, and the conversations whose queued messages go first, which it
+    waits for too (core/ending.py::EndingState)."""
 
     def asked(self, ending: str, by: str) -> None: ...
 
     def taken_back(self) -> None: ...
+
+    def sending_first(self) -> bool: ...
+
+    async def until_sent(self) -> None: ...
+
+    def let_go(self) -> None: ...
 
 
 class _NotRecorded:
@@ -94,6 +101,15 @@ class _NotRecorded:
         return
 
     def taken_back(self) -> None:
+        return
+
+    def sending_first(self) -> bool:
+        return False
+
+    async def until_sent(self) -> None:
+        return
+
+    def let_go(self) -> None:
         return
 
 
@@ -254,14 +270,20 @@ class Shutdown:
         Raises NoEndingError when none is waiting."""
         if self.pending() is None:
             raise NoEndingError(said("No restart or stop is waiting for runs."))
+        self._recorded.let_go()
         cancelled = self._runs.cancel_runs()
         logger.info("%s cancelled %s run(s) so the %s goes ahead now.", by or "A client", cancelled, self._wanted)
         return cancelled
 
     async def _until_nothing_in_progress(self) -> None:
-        """No run and no update in progress. Runs may start while an update installs, so it looks again after."""
+        """No run, no queued message that goes first and no update in progress. Runs may start meanwhile (a coding
+        task the user chose to send now, the runs an update held), so it looks again after each."""
         while True:
             await self._runs.until_no_runs()
+            if self._recorded.sending_first():
+                logger.info("The %s waits for the queued messages sent before it.", self._wanted)
+                await self._recorded.until_sent()
+                continue
             if not self._update.installing():
                 return
             logger.info("The %s waits for the update being installed.", self._wanted)
