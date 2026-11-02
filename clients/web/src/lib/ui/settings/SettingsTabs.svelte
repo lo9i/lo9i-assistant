@@ -17,6 +17,7 @@
     { id: "mcp", label: "settings.tabs.mcp", href: resolve("/mcp") },
     { id: "skills", label: "settings.tabs.skills", href: resolve("/skills") },
     { id: "system", label: "settings.tabs.system", href: `${resolve("/settings")}?tab=system` },
+    { id: "clients", label: "settings.tabs.clients", href: `${resolve("/settings")}?tab=clients` },
     { id: "logs", label: "settings.tabs.logs", href: resolve("/logs") },
     { id: "doctor", label: "settings.tabs.doctor", href: resolve("/doctor") },
   ];

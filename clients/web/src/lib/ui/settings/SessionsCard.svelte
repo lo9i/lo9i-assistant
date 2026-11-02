@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The clients connected to the daemon now (browser tabs, terminal apps), in Settings → System.
+  // The clients connected to the daemon now (browser tabs, terminal apps), in Settings → Connected clients.
   import Globe from "@lucide/svelte/icons/globe";
   import MonitorSmartphone from "@lucide/svelte/icons/monitor-smartphone";
   import SquareTerminal from "@lucide/svelte/icons/square-terminal";

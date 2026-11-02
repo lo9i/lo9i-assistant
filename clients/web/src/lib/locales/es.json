@@ -1213,6 +1213,7 @@
       "mcp": "Servidores MCP",
       "skills": "Skills",
       "system": "Sistema",
+      "clients": "Clientes conectados",
       "logs": "Logs",
       "doctor": "Salud"
     },

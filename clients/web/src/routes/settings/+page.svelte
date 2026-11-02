@@ -23,7 +23,7 @@
   import { t, type Key } from "$lib/i18n.svelte";
   import { theme, type ThemePreference } from "$lib/theme.svelte";
 
-  const TABS = ["general", "model", "prompt", "audio", "system"];
+  const TABS = ["general", "model", "prompt", "audio", "system", "clients"];
   const THEMES: Array<[ThemePreference, Key]> = [
     ["dark", "settings.dark"],
     ["light", "settings.light"],
@@ -88,6 +88,7 @@
         <KeptKeysCard />
       </div>
     </div>
+  {:else if tab === "clients"}
     <!-- The whole width: the table needs room. -->
     <SessionsCard />
   {:else}
