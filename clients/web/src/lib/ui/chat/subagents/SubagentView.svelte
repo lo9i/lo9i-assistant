@@ -4,7 +4,7 @@
   import Wrench from "@lucide/svelte/icons/wrench";
   import { untrack } from "svelte";
   import type { Decision, SubagentChanged, SubagentDetails, SubagentStepTaken } from "$lib/api/types";
-  import { asked, withStep, working } from "$lib/chat/subagents";
+  import { asked, asks, withStep, working } from "$lib/chat/subagents";
   import { inlineArg } from "$lib/chat/transcript";
   import { clock } from "$lib/clock.svelte";
   import { useDaemon } from "$lib/daemon.svelte";
@@ -120,7 +120,7 @@
       </div>
       {#if question}
         <p class="waiting">
-          {t("subagents.asks", { what: String(question.request.command ?? question.request.message ?? question.request.reason ?? "") })}
+          {t("subagents.asks", { what: asks(question.request) })}
         </p>
       {/if}
       {#if subagent.status === "done"}

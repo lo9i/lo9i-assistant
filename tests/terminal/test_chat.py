@@ -4,7 +4,7 @@ import asyncio
 from dataclasses import replace
 
 from textual.containers import VerticalScroll
-from textual.widgets import Button, Checkbox, Input, Markdown, Select
+from textual.widgets import Button, Checkbox, Input, Markdown, Select, Static
 
 from assistant.client import DaemonUnavailableError, clipboard
 from assistant.core.agent import ShownMessage
@@ -90,6 +90,25 @@ async def test_turn_with_approval(app, client):
         assert [t.title for t in app.query(ToolCall)] == ["✓ bash(ls -la)", "✓ bash(rm -rf build)"]
         assert app.query_one(AssistantMessage).source == "## Done\n\nListed **1 file**."
         assert "backend engineer" in str(app.query_one("#memory-body").render())
+
+
+async def test_an_mcp_tools_call_is_asked_in_words(app, client):
+    call = {
+        "server": "billing",
+        "tool": "setup",
+        "does": "See or change the setup.",
+        "arguments": [],
+        "why": "untrusted",
+    }
+    client.waiting_for = {"tool": "mcp__billing__setup", "command": "{}", "reason": "untrusted", "call": call}
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"set up billing", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ApprovalScreen))
+        shown = str(app.screen.query_one("#approval-call", Static).render())
+        assert "See or change the setup." in shown and "No arguments: it runs with its defaults." in shown
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: not app._busy)
 
 
 async def test_new_conversation_clears_the_chat(app):

@@ -1,5 +1,6 @@
-"""MCP tools as LangChain tools: approval on untrusted servers and for the tools a plugin says ask first,
-a retry only where it's safe, what the server asks during a call answered by the user or the model (answers.py),
+"""MCP tools as LangChain tools: approval on untrusted servers and for the tools a plugin says ask first, each
+request saying what the call does (described.py), a retry only where it's safe, what the server asks during a
+call answered by the user or the model (answers.py),
 and results cleaned and cut to size. Images and audio in results are saved, not put in the checkpoint
 (core/mcp/media.py). The tools lo9i adds for a server's resources and prompts (listings.py) run the same way."""
 
@@ -29,6 +30,7 @@ from assistant.core.hidden_text import strip_hidden
 from assistant.core.mcp import listings
 from assistant.core.mcp.answers import RunAnswers
 from assistant.core.mcp.connection import ConnectionLostError, McpConnection, NotConnectedError
+from assistant.core.mcp.described import ASKS_FIRST, UNTRUSTED, described
 from assistant.core.mcp.media import ToolMedia
 from assistant.core.mcp.sampling import Sampler
 from assistant.core.mcp.servers import McpServer
@@ -55,6 +57,9 @@ class McpTool(BaseTool):
     # Annotations are hints a server could lie about: on an untrusted server, a false read-only
     # claim can at most skip approval for that tool.
     read_only: bool = False
+    # The arguments a call may give and still only read (hub.py::read_only_with): setup without any only shows
+    # it. None where the tool alone says whether it reads.
+    read_only_with: frozenset[str] | None = None
     trusted: bool = False
     # Its plugin asks for approval before each call, trusted or not (McpServer.approve).
     asks_first: bool = False
@@ -69,23 +74,31 @@ class McpTool(BaseTool):
         return await self._call(arguments)
 
     def _approve(self, arguments: dict[str, Any]) -> str | None:
-        reason = self._approval_reason()
+        reason = self._approval_reason(arguments)
         if reason is None:
             return None
+        server = self.connection.server.name
         request = {
             "tool": self.name,
             "command": json.dumps(arguments, indent=2, ensure_ascii=False),
             "reason": reason,
+            "call": described(self, server, self.remote_name, arguments, ASKS_FIRST if self.asks_first else UNTRUSTED),
         }
         return ask(request, get_runtime(Context).context)
 
-    def _approval_reason(self) -> str | None:
+    def _approval_reason(self, arguments: dict[str, Any]) -> str | None:
         server = self.connection.server.name
         if self.asks_first:
             return f"{server} asks for approval each time this tool runs"
-        if self.trusted or self.read_only:
+        if self.trusted or self._reads_only(arguments):
             return None
         return f"{server} isn't a trusted MCP server and this tool can change things"
+
+    def _reads_only(self, arguments: dict[str, Any]) -> bool:
+        """An argument given as null counts as left out, as a tool's optional arguments take it."""
+        if self.read_only or self.read_only_with is None:
+            return self.read_only
+        return {name for name, value in arguments.items() if value is not None} <= self.read_only_with
 
     async def _call(self, arguments: dict[str, Any]) -> Output:
         server = self.connection.server.name
@@ -101,7 +114,7 @@ class McpTool(BaseTool):
     async def _after_lost(self, arguments: dict[str, Any], error: str) -> Output:
         """Only a read-only call is safe to repeat: a write may already have happened."""
         server = self.connection.server.name
-        if not self.read_only:
+        if not self._reads_only(arguments):
             uncertain = (
                 f"Outcome uncertain: the connection to {server} dropped during the call ({error}). "
                 "Check whether it took effect before calling it again."

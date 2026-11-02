@@ -66,7 +66,8 @@ async def test_an_answer_to_an_approval_sent_while_runs_are_held_answers_it_late
     service.release_runs()
     [kept] = await service.held_runs("owner")
     events = await collect(service.run_held(session, kept))
-    assert events[0] == ToolFinished("bash", "The user rejected this (not now).") and isinstance(events[-1], Done)
+    assert isinstance(events[0], ToolFinished) and events[0].output.startswith("The user rejected this (not now).")
+    assert isinstance(events[-1], Done)
 
 
 async def test_what_waits_is_listed_in_its_conversation_marked_until_it_runs(service, script):

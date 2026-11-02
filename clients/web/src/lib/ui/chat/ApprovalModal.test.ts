@@ -1,6 +1,6 @@
 import { render } from "svelte/server";
 import { describe, expect, it, vi } from "vitest";
-import type { FoundServer } from "$lib/api/types";
+import type { ApprovalCall, FoundServer } from "$lib/api/types";
 import ApprovalModal from "./ApprovalModal.svelte";
 
 // The installed servers a resource reads, as the daemon lists them.
@@ -63,5 +63,36 @@ describe("ApprovalModal for a plugin's setup", () => {
     const { body } = render(ApprovalModal, { props: { approval, onanswer: () => {} } });
     expect(body).toContain("Settings");
     installed.servers = undefined;
+  });
+});
+
+describe("ApprovalModal for an MCP tool's call", () => {
+  const ask = (call: ApprovalCall, command: string) => ({
+    type: "ApprovalRequired" as const,
+    interrupt_id: "i1",
+    request: { tool: `mcp__${call.server}__${call.tool}`, command, reason: "billing isn't a trusted MCP server", call },
+  });
+
+  it("says what it does and what each argument is, with the exact call kept apart", () => {
+    const call: ApprovalCall = {
+      server: "billing",
+      tool: "setup",
+      does: "See or change the issuer's setup.",
+      arguments: [{ name: "cuit", about: "The issuer's CUIT", value: "20-12345678-6" }],
+      why: "untrusted",
+    };
+    const { body } = render(ApprovalModal, { props: { approval: ask(call, '{"cuit": "20-12345678-6"}'), onanswer: () => {} } });
+    expect(body).toContain("Approve setup from billing?");
+    expect(body).toContain("billing isn't trusted, and this tool can change things.");
+    expect(body).toContain("See or change the issuer's setup.");
+    expect(body).toContain("The issuer's CUIT");
+    expect(body).toContain("Exact call");
+  });
+
+  it("explains a call with no arguments and a tool that always asks", () => {
+    const call: ApprovalCall = { server: "billing", tool: "create_invoice", does: "", arguments: [], why: "asks_first" };
+    const { body } = render(ApprovalModal, { props: { approval: ask(call, "{}"), onanswer: () => {} } });
+    expect(body).toContain("No arguments: it runs with its defaults.");
+    expect(body).toContain("billing asks before each use of this tool.");
   });
 });

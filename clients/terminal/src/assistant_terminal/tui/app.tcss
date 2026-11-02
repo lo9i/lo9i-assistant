@@ -319,6 +319,11 @@ ApprovalScreen {
     background: $dialog-background;
 }
 
+#approval-call {
+    margin: 1 0 0 0;
+    padding: 0 1;
+}
+
 #approval-command {
     margin: 1 0;
     padding: 0 1;

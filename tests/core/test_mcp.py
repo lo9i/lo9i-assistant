@@ -6,7 +6,7 @@ import base64
 import json
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Annotated, Any
 
 import pytest
 from langchain_core.messages import ToolMessage
@@ -14,6 +14,7 @@ from langgraph.store.memory import InMemoryStore
 from mcp import Client
 from mcp.server import MCPServer
 from mcp.types import AudioContent, CallToolResult, ImageContent, TextContent, ToolAnnotations
+from pydantic import Field
 
 from assistant.core import plugin_loading
 from assistant.core.agent import AssistantService, McpServer, McpServerChanges, McpServerError, Session
@@ -68,6 +69,22 @@ def _notes_server(notes: list[str]) -> MCPServer:
     return server
 
 
+def _prefs_server(prefs: dict[str, str]) -> MCPServer:
+    """A server whose one tool only reads when given no arguments, as billing's setup."""
+    server = MCPServer("prefs")
+
+    @server.tool(meta={hub_module.READ_ONLY_WITH: []})
+    def settings(color: Annotated[str | None, Field(description="The color to use")] = None) -> str:
+        """See or change the settings. Without arguments, it only shows them.
+
+        Colors are names."""
+        if color is not None:
+            prefs["color"] = color
+        return f"color: {prefs.get('color', 'none')}"
+
+    return server
+
+
 @pytest.fixture
 def notes() -> list[str]:
     return []
@@ -76,12 +93,12 @@ def notes() -> list[str]:
 @pytest.fixture
 async def service(script, digests, summaries, titles, notes, monkeypatch) -> AsyncIterator[AssistantService]:
     """The service with its MCP hub running, every server connecting to the in-process notes server."""
-    fake = _notes_server(notes)
+    fakes = {"notes": _notes_server(notes), "prefs": _prefs_server({})}
     monkeypatch.setattr(
         hub_module,
         "open_client",
         lambda server, handler, auth, extensions, in_flight=None: Client(
-            fake, message_handler=handler, extensions=extensions
+            fakes[server.name], message_handler=handler, extensions=extensions
         ),
     )
     async with AssistantService.open() as svc:
@@ -92,10 +109,10 @@ async def service(script, digests, summaries, titles, notes, monkeypatch) -> Asy
         await task
 
 
-async def _add(service: AssistantService, **fields: Any) -> None:
-    await service.add_mcp_server(McpServer(name="notes", command="notes-server", **fields))
+async def _add(service: AssistantService, name: str = "notes", **fields: Any) -> None:
+    await service.add_mcp_server(McpServer(name=name, command=f"{name}-server", **fields))
     for _ in range(100):
-        if (await service.mcp_servers())[0].status == "connected":
+        if all(s.status == "connected" for s in await service.mcp_servers()):
             return
         await asyncio.sleep(0.02)
     raise TimeoutError("the server never connected")
@@ -278,8 +295,31 @@ async def test_write_tools_of_an_untrusted_server_need_approval(service, script,
     events = await collect(service.send(session, "note milk"))
     approval = next(e for e in events if isinstance(e, ApprovalRequired))
     assert approval.request["tool"] == ADD and '"milk"' in approval.request["command"]
+    # In words for the apps: what the tool does and what it's given.
+    assert approval.request["call"] == {
+        "server": "notes",
+        "tool": "add_note",
+        "does": "Add a note.",
+        "arguments": [{"name": "text", "about": "", "value": "milk"}],
+        "why": "untrusted",
+    }
     events = await collect(service.resume(session, {approval.interrupt_id: {"approved": True}}))
     assert events[0] == ToolFinished(ADD, "added milk") and notes == ["milk"]
+
+
+async def test_a_tool_that_only_reads_without_arguments_asks_only_when_given_some(service, script):
+    await _add(service, name="prefs")
+    settings_tool = "mcp__prefs__settings"
+    script.call(settings_tool).call(settings_tool, color=None).call(settings_tool, color="teal").reply("done")
+    session = await service.session("owner", "cli")
+    events = await collect(service.send(session, "show my settings, then use teal"))
+    finished = [e.output for e in events if isinstance(e, ToolFinished)]
+    assert finished == ["color: none", "color: none"]
+    approval = next(e for e in events if isinstance(e, ApprovalRequired))
+    assert approval.request["call"]["does"] == "See or change the settings. Without arguments, it only shows them."
+    assert approval.request["call"]["arguments"] == [{"name": "color", "about": "The color to use", "value": "teal"}]
+    # Only a call that reads as a whole is offered to subagents and Home.
+    assert settings_tool not in _names(service.mcp.read_only_definitions())
 
 
 async def test_trusted_servers_and_read_only_tools_run_without_approval(service, script, notes):
@@ -387,7 +427,7 @@ class _DroppingConnection(McpConnection):
         return True
 
 
-def _tool(connection: McpConnection, read_only: bool) -> McpTool:
+def _tool(connection: McpConnection, read_only: bool, read_only_with: frozenset[str] | None = None) -> McpTool:
     return McpTool(
         name="mcp__flaky__t",
         description="t",
@@ -396,6 +436,7 @@ def _tool(connection: McpConnection, read_only: bool) -> McpTool:
         media=ToolMedia(FakeTranscriber(), InMemoryStore()),
         remote_name="t",
         read_only=read_only,
+        read_only_with=read_only_with,
         trusted=True,
     )
 
@@ -403,6 +444,12 @@ def _tool(connection: McpConnection, read_only: bool) -> McpTool:
 async def test_a_dropped_read_only_call_is_retried():
     connection = _DroppingConnection()
     assert await _tool(connection, read_only=True).ainvoke({}) == "fine"
+    assert connection.calls == 2
+
+
+async def test_a_dropped_call_that_only_reads_with_its_arguments_is_retried():
+    connection = _DroppingConnection()
+    assert await _tool(connection, read_only=False, read_only_with=frozenset()).ainvoke({}) == "fine"
     assert connection.calls == 2
 
 

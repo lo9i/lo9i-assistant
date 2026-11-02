@@ -14,7 +14,7 @@ import logging
 from collections.abc import Collection
 from dataclasses import dataclass
 from functools import partial
-from typing import Any
+from typing import Any, cast
 
 from langgraph.store.base import BaseStore
 from mcp.client.session import IncomingMessage
@@ -52,6 +52,8 @@ from assistant.core.secret_store import SecretBox
 logger = logging.getLogger(__name__)
 
 _PROBE_SECONDS = 60
+# A tool's `_meta` key for the arguments its calls may give and still only read (read_only_with).
+READ_ONLY_WITH = "lo9i/read_only_with"
 # Changing these needs a new connection; the others (tool selection, trust) apply at once.
 _CONNECTION_FIELDS = ("command", "args", "env", "url", "headers")
 
@@ -360,6 +362,7 @@ class McpHub(McpStarts):
         tools[name] = McpTool(
             **common,
             read_only=_read_only(server, tool),
+            read_only_with=read_only_with(server, tool),
             trusted=server.trusted,
             asks_first=server.asks_first(tool.name),
         )
@@ -390,6 +393,18 @@ def _read_only(server: McpServer, tool: Tool) -> bool:
     call cut short isn't repeated."""
     annotated = bool(tool.annotations and tool.annotations.read_only_hint)
     return annotated and not server.asks_first(tool.name)
+
+
+def read_only_with(server: McpServer, tool: Tool) -> frozenset[str] | None:
+    """The arguments a call may give and still only read, which a tool whose reading depends on them lists in
+    `_meta["lo9i/read_only_with"]` (MCP's read-only hint is for the tool as a whole): billing's setup, `[]`, only
+    shows the setup without arguments. A claim like the hint, which on an untrusted server can at most skip
+    approval for those calls; a tool that asks first asks whatever it's given."""
+    given = (tool.meta or {}).get(READ_ONLY_WITH)
+    if server.asks_first(tool.name) or not isinstance(given, list):
+        return None
+    names = cast(list[object], given)
+    return frozenset(cast(list[str], names)) if all(isinstance(n, str) for n in names) else None
 
 
 def _same_connection(old: McpServer, new: McpServer) -> bool:

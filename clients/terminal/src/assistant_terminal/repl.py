@@ -29,6 +29,7 @@ from assistant.core.events import (
 )
 from assistant.core.usage.limits import SpendingLimitsError
 from assistant_terminal import i18n
+from assistant_terminal.approval_text import approval_title, approval_why, call_lines, call_of
 from assistant_terminal.channels_text import describe as describe_channel
 from assistant_terminal.commands import GET_TO_KNOW_ME, agent_commands, help_lines
 from assistant_terminal.conversations_text import listed_title, when
@@ -504,12 +505,21 @@ async def _collect_decisions(approvals: list[ApprovalRequired]) -> dict[str, dic
             print(paint(YELLOW, f"\n{offer}"))
             decisions[approval.interrupt_id] = {"installed": False}
             continue
-        asked = t("Approve {tool} ({reason}):", tool=request.get("tool"), reason=request.get("reason"))
-        print(paint(YELLOW, f"\n{asked} {request.get('command')}"))
+        print(paint(YELLOW, f"\n{_asked(request)}"))
         answer = await _read_line(t("[y/N or reason to reject] ")) or ""
         approved = answer.lower() in ("y", "yes", t("y"), t("yes"))
         decisions[approval.interrupt_id] = {"approved": approved, "reason": None if approved else answer}
     return decisions
+
+
+def _asked(request: dict) -> str:
+    """An MCP tool's call in words before its arguments' JSON (approval_text.py); any other request in a line."""
+    call = call_of(request)
+    if call is None:
+        asked = t("Approve {tool} ({reason}):", tool=request.get("tool"), reason=request.get("reason"))
+        return f"{asked} {request.get('command')}"
+    lines = [f"{approval_title(request)} {approval_why(request)}", *call_lines(call), str(request.get("command"))]
+    return "\n".join(lines)
 
 
 async def _answer_form(request: dict) -> dict:

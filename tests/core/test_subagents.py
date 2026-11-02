@@ -60,7 +60,7 @@ async def test_an_approval_inside_resumes_the_subagent_where_it_stopped(service,
     events = await collect(service.resume(session, {approval.interrupt_id: {"approved": False, "reason": "no"}}))
     # One more subagent call and the main agent's: nothing before the approval ran again.
     assert len(script.requests) == asked + 2
-    assert "The user rejected this (no)." in _tool_results(script.requests[-2])
+    assert any(r.startswith("The user rejected this (no).") for r in _tool_results(script.requests[-2]))
     assert ToolFinished("delegate", "Cleaned.") in events and isinstance(events[-1], Done)
 
 

@@ -4,7 +4,12 @@ conversation, approval and question buttons, and long replies split."""
 import asyncio
 
 from assistant.core.channels.chat.answers import parse_pick
-from assistant.core.channels.chat.approvals import job_approval_buttons, parse_decision, parse_job_decision
+from assistant.core.channels.chat.approvals import (
+    approval_text,
+    job_approval_buttons,
+    parse_decision,
+    parse_job_decision,
+)
 from assistant.core.channels.chat.port import ChatLimits
 from assistant.core.channels.chat.questions import (
     answered_text,
@@ -171,6 +176,26 @@ def test_buttons_and_answers_are_in_the_language_chosen():
     spanish = texts("es")
     assert question_buttons(spanish, "q1", _QUESTION)[-1][0] == "✅ Listo"
     assert answered_text(spanish, ["X"]) == "Elegido: X."
+
+
+def test_an_mcp_tools_call_is_asked_in_words_in_the_language_chosen():
+    call = {
+        "server": "billing",
+        "tool": "setup",
+        "does": "See or change the setup.",
+        "arguments": [],
+        "why": "untrusted",
+    }
+    request = {"tool": "mcp__billing__setup", "command": "{}", "reason": "untrusted", "call": call}
+    assert approval_text(texts("es"), request) == (
+        "¿Aprobar setup de billing?\n"
+        "billing no es de confianza y esta herramienta puede cambiar cosas.\n"
+        "\nSee or change the setup.\n"
+        "\n"
+        "Sin argumentos: se ejecuta con sus valores predeterminados."
+    )
+    given = {**call, "arguments": [{"name": "cuit", "about": "The issuer's CUIT", "value": "20-1"}]}
+    assert approval_text(EN, {**request, "call": given}).endswith("• cuit: 20-1 (The issuer's CUIT)")
 
 
 def test_buttons_are_told_apart_by_their_data():

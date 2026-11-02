@@ -11,6 +11,22 @@
   let { approval, onanswer }: { approval: ApprovalRequired; onanswer: (d: Decision) => void } = $props();
   let reason = $state("");
   const request = $derived(approval.request);
+  // An MCP tool's call comes in words (core/mcp/described.py): its title and why it asks, then what it does.
+  const call = $derived(request.call);
+  const title = $derived(
+    call
+      ? t("chat.approveCall", { tool: call.tool, server: call.server })
+      : request.tool
+        ? t("chat.approveTool", { tool: String(request.tool) })
+        : t("chat.approveAction"),
+  );
+  const why = $derived(
+    call
+      ? t(call.why === "asks_first" ? "chat.asksFirstCall" : "chat.untrustedCall", { server: call.server })
+      : request.reason
+        ? String(request.reason)
+        : undefined,
+  );
   const reject = () => onanswer({ approved: false, reason: reason.trim() || null });
 </script>
 
@@ -23,11 +39,29 @@
 {:else if request.kind === "plugin_setup" && request.server}
   <PluginSetupModal server={request.server} settings ondone={() => onanswer({ done: true })} />
 {:else}
-  <Modal
-    title={request.tool ? t("chat.approveTool", { tool: String(request.tool) }) : t("chat.approveAction")}
-    description={request.reason ? String(request.reason) : undefined}
-  >
-    <pre>{request.command ?? JSON.stringify(request, null, 2)}</pre>
+  <Modal {title} description={why}>
+    {#if call}
+      {#if call.does}<p>{call.does}</p>{/if}
+      {#if call.arguments.length}
+        <dl>
+          {#each call.arguments as argument (argument.name)}
+            <dt>
+              <code>{argument.name}</code>
+              {#if argument.about}<span class="text-caption">{argument.about}</span>{/if}
+            </dt>
+            <dd>{argument.value}</dd>
+          {/each}
+        </dl>
+      {:else}
+        <p class="text-caption">{t("chat.noArguments")}</p>
+      {/if}
+      <details>
+        <summary class="text-caption">{t("chat.exactCall")}</summary>
+        <pre>{request.command}</pre>
+      </details>
+    {:else}
+      <pre>{request.command ?? JSON.stringify(request, null, 2)}</pre>
+    {/if}
     <input class="input" placeholder={t("chat.rejectReason")} bind:value={reason} onkeydown={(e) => e.key === "Enter" && reject()} />
     {#snippet footer()}
       <button class="btn btn--danger" onclick={reject}>{t("chat.reject")}</button>
@@ -36,3 +70,31 @@
     {/snippet}
   </Modal>
 {/if}
+
+<style>
+  p {
+    margin: 0;
+  }
+  dl {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+  }
+  dt {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 8px;
+  }
+  dd {
+    margin: 2px 0 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  summary {
+    cursor: pointer;
+  }
+  details pre {
+    margin-top: 6px;
+  }
+</style>

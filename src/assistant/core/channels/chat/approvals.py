@@ -2,18 +2,44 @@
 `r:<interrupt id>` for the chat's own conversation, `ja:` or `jr:` for a scheduled job's run
 (core/approvals.py)."""
 
-from typing import Any
+from typing import Any, cast
 
 from assistant.core.channels.chat.port import Buttons
-from assistant.core.i18n import Texts
+from assistant.core.i18n import Texts, translatable
+from assistant.core.mcp.described import ASKS_FIRST
 
 _APPROVE, _REJECT = "a", "r"
 _JOB_APPROVE, _JOB_REJECT = "ja", "jr"
 
 
 def approval_text(t: Texts, request: dict[str, Any]) -> str:
+    call = request.get("call")
+    if isinstance(call, dict):
+        return _call_text(t, cast(dict[str, Any], call))
     asked = t("Approve {tool}? ({reason})", tool=request.get("tool"), reason=request.get("reason"))
     return f"{asked}\n\n{request.get('command', request)}"
+
+
+def _call_text(t: Texts, call: dict[str, Any]) -> str:
+    """An MCP tool's call in words (core/mcp/described.py): what it does and what it's given."""
+    server = call.get("server")
+    why = t(_ASKS_FIRST if call.get("why") == ASKS_FIRST else _UNTRUSTED, server=server)
+    lines = [t("Approve {tool} from {server}?", tool=call.get("tool"), server=server), why]
+    if call.get("does"):
+        lines.append(f"\n{call['does']}")
+    arguments = call.get("arguments") or []
+    lines.append("")
+    lines.extend([_argument(a) for a in arguments] or [t("No arguments: it runs with its defaults.")])
+    return "\n".join(lines)
+
+
+def _argument(argument: dict[str, str]) -> str:
+    about = f" ({argument['about']})" if argument.get("about") else ""
+    return f"• {argument.get('name')}: {argument.get('value')}{about}"
+
+
+_UNTRUSTED = translatable("{server} isn't trusted, and this tool can change things.")
+_ASKS_FIRST = translatable("{server} asks before each use of this tool.")
 
 
 def approval_buttons(t: Texts, interrupt_id: str) -> Buttons:

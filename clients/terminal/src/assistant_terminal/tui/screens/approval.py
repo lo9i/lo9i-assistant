@@ -1,4 +1,5 @@
-"""Modal that asks the user to approve or reject a tool call."""
+"""Modal that asks the user to approve or reject a tool call: an MCP tool's call in words first (approval_text.py),
+then its exact arguments."""
 
 from typing import Any, ClassVar
 
@@ -9,6 +10,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Static
 
+from assistant_terminal.approval_text import approval_title, approval_why, call_lines, call_of
 from assistant_terminal.i18n import t, translatable
 
 
@@ -26,8 +28,10 @@ class ApprovalScreen(ModalScreen[dict[str, Any]]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="approval"):
-            tool, reason = escape(str(self._request.get("tool"))), escape(str(self._request.get("reason")))
-            yield Static(f"[b]{t('Approve {tool}?', tool=tool)}[/b]  [dim]{reason}[/dim]")
+            title, why = escape(approval_title(self._request)), escape(approval_why(self._request))
+            yield Static(f"[b]{title}[/b]  [dim]{why}[/dim]")
+            if call := call_of(self._request):
+                yield Static("\n".join(call_lines(call)), id="approval-call", markup=False)
             yield Static(str(self._request.get("command", self._request)), id="approval-command", markup=False)
             yield Input(placeholder=t("Reason, if you reject (optional)"), id="approval-reason")
             with Horizontal(id="approval-buttons"):

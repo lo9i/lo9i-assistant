@@ -2,8 +2,10 @@
 long it's been at it and what it's doing, and one's steps and answer."""
 
 from datetime import UTC, datetime
+from typing import Any
 
 from assistant.core.agent import BackgroundStep, BackgroundSubagent, Conversation
+from assistant_terminal.approval_text import approval_title, call_of
 from assistant_terminal.conversations_text import listed_title
 from assistant_terminal.i18n import t, translatable
 
@@ -51,12 +53,19 @@ def subagent_detail(subagent: BackgroundSubagent, steps: list[BackgroundStep], n
     if subagent.step:
         lines.append(t("Now: {step}", step=subagent.step))
     for asked in subagent.waiting:
-        lines.append(t("Asks: {what}", what=asked.request.get("command") or asked.request.get("reason") or ""))
+        lines.append(t("Asks: {what}", what=_asks(asked.request)))
     if steps:
         lines += ["", t("Steps:"), *(_step_line(s) for s in steps)]
     if subagent.result:
         lines += ["", t("Answer:") if subagent.status == "done" else t("What went wrong:"), subagent.result]
     return "\n".join(lines)
+
+
+def _asks(request: dict[str, Any]) -> str:
+    """An MCP tool's call by its tool and server, as its approval says; anything else by its command."""
+    if call_of(request):
+        return approval_title(request)
+    return str(request.get("command") or request.get("reason") or "")
 
 
 def running_line(subagents: list[BackgroundSubagent]) -> str:

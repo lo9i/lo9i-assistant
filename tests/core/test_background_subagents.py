@@ -108,7 +108,7 @@ async def test_an_approval_pauses_only_the_subagent(service, script):
         after = service.bus.last_id
         assert await service.answer_subagent(subagent_id, asked.interrupt_id, {"approved": False, "reason": "no"})
         await _status(service, after, "done")
-    assert "The user rejected this (no)." in _results(script.requests[-1])
+    assert any(r.startswith("The user rejected this (no).") for r in _results(script.requests[-1]))
     assert not await service.answer_subagent(subagent_id, asked.interrupt_id, {"approved": True})
 
 

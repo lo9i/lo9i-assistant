@@ -150,7 +150,19 @@ export type ApprovalRequest = {
   message?: string;
   fields?: FormField[];
   url?: string;
+  // An MCP tool's call in words (core/mcp/described.py), shown before its JSON (`command`).
+  call?: ApprovalCall;
 } & Record<string, unknown>;
+/** What an MCP tool's call does: its server and tool, the tool's description, each argument it's given (null ones
+ *  left out) with that argument's description, and why it asks: an untrusted server, or a tool whose plugin asks
+ *  before each call. */
+export type ApprovalCall = {
+  server: string;
+  tool: string;
+  does: string;
+  arguments: { name: string; about: string; value: string }[];
+  why: "untrusted" | "asks_first";
+};
 /** A field of an MCP server's form (core/mcp/elicitation.py). */
 export type FormField = {
   key: string;

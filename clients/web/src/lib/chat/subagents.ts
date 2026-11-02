@@ -29,6 +29,12 @@ export function asked(subagent: BackgroundSubagent): ApprovalRequired[] {
   }));
 }
 
+/** What one of those asks, in a line: an MCP tool's call as its approval is titled, anything else by its command. */
+export function asks(request: ApprovalRequest): string {
+  if (request.call) return t("chat.approveCall", { tool: request.call.tool, server: request.call.server });
+  return String(request.command ?? request.message ?? request.reason ?? "");
+}
+
 /** Its steps with one an event brought: a new one added in its place, one that finished replacing itself. */
 export function withStep(steps: BackgroundStep[], step: BackgroundStep): BackgroundStep[] {
   return [...steps.filter((s) => s.index !== step.index), step].sort((a, b) => a.index - b.index);

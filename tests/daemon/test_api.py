@@ -385,7 +385,7 @@ async def test_send_with_attachment_approve_and_resume(client, script):
     approval = next(e for e in events if isinstance(e, ApprovalRequired))
     assert await client.conversations.pending_approvals(session.thread_id) == [approval]
     events = await collect(client.resume(session, {approval.interrupt_id: {"approved": False, "reason": "no"}}))
-    assert events[0] == ToolFinished("bash", "The user rejected this (no).")
+    assert isinstance(events[0], ToolFinished) and events[0].output.startswith("The user rejected this (no).")
     assert await client.conversations.pending_approvals(session.thread_id) == []
 
 

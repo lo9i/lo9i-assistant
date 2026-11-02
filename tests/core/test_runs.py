@@ -24,7 +24,10 @@ async def test_dangerous_bash_waits_for_approval_and_rejection_reaches_the_model
     assert approval.request == {"tool": "bash", "command": "rm -rf build", "reason": "recursive delete"}
 
     events = await collect(service.resume(session, {approval.interrupt_id: {"approved": False, "reason": "no"}}))
-    assert events[0] == ToolFinished("bash", "The user rejected this (no).")
+    # The model stops and asks rather than trying another way.
+    rejected = events[0]
+    assert isinstance(rejected, ToolFinished) and rejected.output.startswith("The user rejected this (no). Stop")
+    assert "Ask the user how they want to go on" in rejected.output
     assert isinstance(events[-1], Done)
 
 
@@ -33,8 +36,10 @@ async def test_a_new_message_while_an_approval_waits_rejects_it_and_is_answered(
     session = await service.session("u", "cli")
     await collect(service.send(session, "clean up"))
     events = await collect(service.send(session, "hello?"))
-    rejected = f"The user rejected this ({MOVED_ON})."
-    assert events[0] == ToolFinished("bash", rejected) and isinstance(events[-1], Done)
+    finished = events[0]
+    assert isinstance(finished, ToolFinished) and finished.output.startswith(f"The user rejected this ({MOVED_ON}).")
+    assert "answer their new message" in finished.output and isinstance(events[-1], Done)
+    rejected = finished.output
     assert not any(isinstance(e, ApprovalRequired) for e in events)
     # The model reads the rejection and the new message together, in one call.
     assert len(script.requests) == 2
