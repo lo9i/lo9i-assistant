@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { DaemonUnavailableError } from "./api/errors";
+import { ApiError, DaemonUnavailableError } from "./api/errors";
 import type { FoundServer } from "./api/types";
 import { pluginsOf } from "./plugins";
-import { type CheckState, type UpdateStep, checkRepositories, updateEach } from "./pluginUpdates";
+import { type CheckState, type UpdateStep, checkRepositories, needsValues, updateEach } from "./pluginUpdates";
 
 const server = (name: string): FoundServer => ({
   name,
@@ -78,5 +78,13 @@ describe("checkRepositories", () => {
 
   it("leaves an unreachable daemon to the app's banner", async () => {
     expect(await states(() => Promise.reject(new DaemonUnavailableError("down")))).toEqual(["checking", "idle"]);
+  });
+});
+
+describe("needsValues", () => {
+  it("is an update refused only for a value not given yet", () => {
+    expect(needsValues(new ApiError(409, "The new version of hello needs Your city."))).toBe(true);
+    expect(needsValues(new ApiError(400, "The repository doesn't have hello any more."))).toBe(false);
+    expect(needsValues(new DaemonUnavailableError())).toBe(false);
   });
 });

@@ -1063,7 +1063,11 @@
     "checkFailedHint": "The repositories couldn't be reached; this is the list from the last check.",
     "checkFailed": "Couldn't check for updates",
     "checkedAgo": " · checked {ago}",
-    "checked": "Checked {ago}"
+    "checked": "Checked {ago}",
+    "valuesDescription": "Its new version asks for something it wasn't given when it was installed.",
+    "updateNow": "Update",
+    "busy": "Updating…",
+    "available": "Update available: {from} → {to}. Click to update."
   },
   "plugins": {
     "official": "Official",

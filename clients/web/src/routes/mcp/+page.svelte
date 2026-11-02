@@ -14,7 +14,10 @@
   import { failures } from "$lib/health";
   import { t } from "$lib/i18n.svelte";
   import { STATUS_TONES, selectionFor, statusLabel, trustText, withTools } from "$lib/mcp";
+  import { describe } from "$lib/notices";
   import { redirectUri } from "$lib/oauth";
+  import { needsValues } from "$lib/pluginUpdates";
+  import UpdateValuesDialog from "$lib/ui/plugins/UpdateValuesDialog.svelte";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import Toggle from "$lib/ui/Toggle.svelte";
@@ -57,11 +60,14 @@
     action().catch(notices.report);
   }
 
+  // A server whose new version asks for a value it wasn't given, with what its update said.
+  let askingUpdate = $state<{ name: string; reason: string } | null>(null);
+
   function updateFromRepository(name: string): void {
-    change(async () => {
-      await client.mcp.updateFromRepository(name);
-      notices.notify(t("mcp.updated", { name }));
-    });
+    client.mcp.updateFromRepository(name).then(
+      () => notices.notify(t("mcp.updated", { name })),
+      (e: unknown) => (needsValues(e) ? (askingUpdate = { name, reason: describe(e) }) : notices.report(e)),
+    );
   }
 
   /** Opens the server's sign-in page; the /oauth page finishes it and the server connects here. */
@@ -276,6 +282,18 @@
     onanswer={(yes) => {
       removing = false;
       if (yes) change(async () => keptKeys.ask(await client.mcp.remove(server.name)));
+    }}
+  />
+{/if}
+
+{#if askingUpdate}
+  {@const name = askingUpdate.name}
+  <UpdateValuesDialog
+    plugin={name}
+    reason={askingUpdate.reason}
+    onclose={(updated) => {
+      askingUpdate = null;
+      if (updated) notices.notify(t("mcp.updated", { name }));
     }}
   />
 {/if}

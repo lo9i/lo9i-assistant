@@ -308,6 +308,11 @@ class PluginSettingsChange(BaseModel):
     clear: list[str] = []
 
 
+class PluginUpdateValues(BaseModel):
+    # Values for the fields the new version asks for, by key; the kept ones stay for the rest.
+    values: dict[str, str] = {}
+
+
 class EmailRecipients(BaseModel):
     addresses: list[str]
 
@@ -1868,13 +1873,18 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
             raise HTTPException(404, message(e)) from e
 
     @app.post("/mcp/servers/{name}/update")
-    async def update_mcp_server_from_repository(name: str, texts: _Answering) -> McpServerStatus:
-        """Install the server again from its repository. 404: no such server. 400: not installed
-        from one, the repository can't be read, or the new version needs a value not given yet."""
+    async def update_mcp_server_from_repository(
+        name: str, texts: _Answering, body: PluginUpdateValues | None = None
+    ) -> McpServerStatus:
+        """Install the server again from its repository; `values` for the fields its new version asks for. 404: no
+        such server. 409: the new version needs a value not given yet (its fields are in the repository's listing).
+        400: not installed from one, a field it doesn't have, or the repository can't be read."""
         if name not in {s.name for s in await service.mcp_servers()}:
             raise HTTPException(404, said("No MCP server named {name}.", name=name))
         try:
-            return texts.within(await service.update_mcp_server_from_repository(name))
+            return texts.within(await service.update_mcp_server_from_repository(name, body.values if body else None))
+        except server_install.UpdateNeedsValuesError as e:
+            raise HTTPException(409, message(e)) from e
         except (McpServerError, RepositoryError) as e:
             raise HTTPException(400, message(e)) from e
 

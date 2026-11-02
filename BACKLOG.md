@@ -4,6 +4,10 @@ Open work, tackled one at a time. Finished items are deleted and the remaining c
 for something to happen before they're worth doing are under To revisit, with what brings them back.
 A = action, L = to revisit later, G = memory gap, H = context improvement, Q = open question, R = risk.
 
+## Actions
+
+- A1. The terminal app's plugin updates (`/plugins`, `/mcp`) still only say a new version needs a value, with "remove it and install it again": ask for the new version's fields not set yet and update with them, as the web app's `UpdateValuesDialog.svelte` does (`POST /mcp/servers/<name>/update` takes `values`; it answers 409 while one is missing, which `client/daemon_client/mcp.py` maps to `McpServerError` today). The same in the web app's Update all/selected, which reports it as a failure.
+
 ## To revisit
 
 Not worth doing yet; each item says what was done and when to look at it again.

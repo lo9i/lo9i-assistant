@@ -1063,7 +1063,11 @@
     "checkFailedHint": "No se pudo acceder a los repositorios; esta es la lista de la última comprobación.",
     "checkFailed": "No se pudo buscar actualizaciones",
     "checkedAgo": " · comprobado {ago}",
-    "checked": "Comprobado {ago}"
+    "checked": "Comprobado {ago}",
+    "valuesDescription": "Su nueva versión pide algo que no se le dio al instalarlo.",
+    "updateNow": "Actualizar",
+    "busy": "Actualizando…",
+    "available": "Actualización disponible: {from} → {to}. Haz clic para actualizar."
   },
   "plugins": {
     "official": "Oficial",

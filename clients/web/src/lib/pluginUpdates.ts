@@ -1,4 +1,4 @@
-import { DaemonUnavailableError } from "./api/errors";
+import { ApiError, DaemonUnavailableError } from "./api/errors";
 import { type Plugin, keyOf } from "./plugins";
 
 /** The background check of the repositories: running, or failed (the list kept from the last read stays). */
@@ -49,4 +49,10 @@ export async function updateEach(
     }
   }
   return { updated, failed };
+}
+
+/** The update failed only because the new version asks for a value the plugin wasn't given: ask for it and update
+ * with it (UpdateValuesDialog) instead of saying it failed. */
+export function needsValues(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 409;
 }

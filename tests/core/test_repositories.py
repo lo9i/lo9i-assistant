@@ -183,12 +183,24 @@ async def test_updating_a_server_keeps_the_values_and_choices_of_the_user(servic
     assert (status.trusted, status.include) == (True, ["whoami"])
 
 
-async def test_a_server_whose_new_version_needs_a_new_value_isnt_updated(service, repo):
+async def test_a_server_whose_new_version_needs_a_new_value_isnt_updated_until_its_given(service, repo):
     await service.install_from_repository(URL, [], [HELLO])
     manifest = _MANIFEST + "  - {key: HELLO_CITY, label: Your city}\n"
     (repo / "other" / "general" / "hello" / "server.yaml").write_text(manifest)
-    with pytest.raises(McpServerError, match="needs Your city: remove it and install it again"):
+    with pytest.raises(install.UpdateNeedsValuesError, match="needs Your city"):
         await service.update_mcp_server_from_repository("hello")
+    with pytest.raises(install.UpdateNeedsValuesError):
+        await service.update_mcp_server_from_repository("hello", {"HELLO_CITY": "  "})
+    with pytest.raises(McpServerError, match="has no setting HELLO_TOWN"):
+        await service.update_mcp_server_from_repository("hello", {"HELLO_TOWN": "Rosario"})
+    assert install.installed_fields("hello", "en")[-1].key == "HELLO_TOKEN"
+    await service.update_mcp_server_from_repository("hello", {"HELLO_CITY": " Rosario "})
+    server = await keys.fill(service.store, service.secrets, await servers.load(service.store, "hello"))
+    assert (server.env["HELLO_CITY"], server.env["HELLO_USER"], server.env["HELLO_TOKEN"]) == (
+        "Rosario",
+        "Ana",
+        "s3cret",
+    )
     await service.add_mcp_server(McpServer("mine", command="mine"))
     with pytest.raises(McpServerError, match="wasn't installed"):
         await service.update_mcp_server_from_repository("mine")

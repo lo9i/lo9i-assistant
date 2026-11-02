@@ -647,9 +647,10 @@ export class RepositoriesGroup {
 export class McpGroup {
   constructor(private readonly transport: Transport) {}
 
-  /** Install the server again from its repository, keeping the values and choices made here. */
-  updateFromRepository(name: string): Promise<McpServerStatus> {
-    return this.transport.request("POST", `/mcp/servers/${encodeURIComponent(name)}/update`);
+  /** Install the server again from its repository, keeping the values and choices made here; `values` for the fields
+   * its new version asks for. Throws ApiError (409) while the new version needs a value not given yet. */
+  updateFromRepository(name: string, values?: Record<string, string>): Promise<McpServerStatus> {
+    return this.transport.request("POST", `/mcp/servers/${encodeURIComponent(name)}/update`, values ? { values } : undefined);
   }
 
   servers(): Promise<McpServerStatus[]> {

@@ -90,7 +90,9 @@ class McpApi:
 
     async def update_from_repository(self, name: str) -> McpServerStatus:
         """Install the server again from its repository. Raises McpServerError."""
-        data = await self._transport.request("POST", f"/mcp/servers/{name}/update", errors=_ERRORS, timeout=_DOWNLOAD)
+        # 409: the new version needs a value not given yet; its message says which.
+        errors = {**_ERRORS, 409: McpServerError}
+        data = await self._transport.request("POST", f"/mcp/servers/{name}/update", errors=errors, timeout=_DOWNLOAD)
         return status_from_json(data)
 
     async def remove(self, name: str, delete_data: bool = False) -> KeptKeys | None:

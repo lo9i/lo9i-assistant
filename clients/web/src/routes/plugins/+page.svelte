@@ -37,7 +37,9 @@
   import PluginSetup from "$lib/ui/plugins/PluginSetup.svelte";
   import PluginUpdates from "$lib/ui/plugins/PluginUpdates.svelte";
   import RepositoryCheck from "$lib/ui/plugins/RepositoryCheck.svelte";
-  import { type CheckState, type UpdateStep, checkRepositories, updateEach } from "$lib/pluginUpdates";
+  import { describe as describeError } from "$lib/notices";
+  import { type CheckState, type UpdateStep, checkRepositories, needsValues, updateEach } from "$lib/pluginUpdates";
+  import UpdateValuesDialog from "$lib/ui/plugins/UpdateValuesDialog.svelte";
   import RepositoriesDialog from "$lib/ui/repositories/RepositoriesDialog.svelte";
 
   const { client, notices } = useDaemon();
@@ -84,11 +86,12 @@
   // Until one is picked: the first in the list.
   const plugin = $derived(all?.find((p) => keyOf(p) === picked) ?? shown[0]?.plugins[0]);
 
-  async function act(action: () => Promise<unknown>, done: string): Promise<void> {
+  /** `done`: what to say once it worked, when the action doesn't say it itself. */
+  async function act(action: () => Promise<unknown>, done?: string): Promise<void> {
     busy = true;
     try {
       await action();
-      notices.notify(done);
+      if (done) notices.notify(done);
     } catch (e) {
       notices.report(e);
     } finally {
@@ -114,7 +117,18 @@
   }
 
   const updateOne = (p: Plugin) => (p.kind === "server" ? client.mcp.updateFromRepository(p.name) : client.skills.updateInstalled(p.name));
-  const update = (p: Plugin) => act(() => updateOne(p), t("pluginsPage.updated", { names: p.name }));
+  // A plugin whose new version asks for a value it wasn't given, with what its update said.
+  let askingUpdate = $state<{ name: string; reason: string } | null>(null);
+  const update = (p: Plugin) =>
+    act(() =>
+      updateOne(p).then(
+        () => notices.notify(t("pluginsPage.updated", { names: p.name })),
+        (e: unknown) => {
+          if (!needsValues(e)) throw e;
+          askingUpdate = { name: p.name, reason: describeError(e) };
+        },
+      ),
+    );
   // Installed plugins the extras have a newer version of, for the Updates table.
   const newer = $derived((all ?? []).filter(hasNewer));
 
@@ -288,6 +302,19 @@
     onclose={(installed) => {
       asking = null;
       if (installed) notices.notify(t("pluginsPage.installed", { names: formatList(installed) }));
+      listing.reload();
+    }}
+  />
+{/if}
+
+{#if askingUpdate}
+  {@const name = askingUpdate.name}
+  <UpdateValuesDialog
+    plugin={name}
+    reason={askingUpdate.reason}
+    onclose={(updated) => {
+      askingUpdate = null;
+      if (updated) notices.notify(t("pluginsPage.updated", { names: name }));
       listing.reload();
     }}
   />

@@ -4548,7 +4548,7 @@
     "/mcp/servers/{name}/update": {
       "post": {
         "summary": "Update Mcp Server From Repository",
-        "description": "Install the server again from its repository. 404: no such server. 400: not installed\nfrom one, the repository can't be read, or the new version needs a value not given yet.",
+        "description": "Install the server again from its repository; `values` for the fields its new version asks for. 404: no\nsuch server. 409: the new version needs a value not given yet (its fields are in the repository's listing).\n400: not installed from one, a field it doesn't have, or the repository can't be read.",
         "operationId": "update_mcp_server_from_repository_mcp_servers__name__update_post",
         "parameters": [
           {
@@ -4561,6 +4561,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/PluginUpdateValues"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -11404,6 +11421,20 @@
           "enabled"
         ],
         "title": "PluginUpdateChecks"
+      },
+      "PluginUpdateValues": {
+        "properties": {
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Values",
+            "default": {}
+          }
+        },
+        "type": "object",
+        "title": "PluginUpdateValues"
       },
       "ProfileItems": {
         "properties": {

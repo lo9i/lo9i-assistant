@@ -32,6 +32,7 @@
   import { t, type Key } from "$lib/i18n.svelte";
   import { pageLabel } from "$lib/pages";
   import PluginIcon from "./PluginIcon.svelte";
+  import AppUpdate from "./plugins/AppUpdate.svelte";
   import { columnsOf } from "$lib/chat/cardLayout";
   import { counts } from "$lib/chat/subagents";
   import { conversationLayout } from "$lib/conversationLayout.svelte";
@@ -63,6 +64,8 @@
   const alerts = resource((c) => c.alerts.list(), ["mcp", "skills", "doctor"]);
   // A new listing of the extras, an install or update, or the setting changes what's newer.
   const updates = resource((c) => c.repositories.updates(), ["plugins", "mcp", "skills", "settings"]);
+  // The apps whose plugin has one, by name: their icon offers it.
+  const appUpdates = $derived(new Map((updates.data ?? []).filter((u) => u.kind === "server").map((u) => [u.name, u])));
   // Job results and background work that ended, counted until the Notifications page is seen.
   const notifications = resource((c) => c.notifications.list(), ["notifications"]);
   const unread = $derived((notifications.data ?? []).filter((n) => !n.read).length);
@@ -236,6 +239,7 @@
     {#if pages.length}<hr class="divider" />{/if}
     {#each pages as p (p.name)}
       {@const href = resolve("/pages/[name]", { name: p.name })}
+      {@const update = appUpdates.get(p.name)}
       <div
         class="nav-row app-row"
         class:drop-target={overApp === p.name && draggingApp !== p.name}
@@ -267,6 +271,7 @@
           <PluginIcon icon={p.icon} size={20} />
           <span class="label">{pageLabel(p.name)}</span>
         </a>
+        {#if update}<AppUpdate {update} />{/if}
       </div>
     {/each}
   </nav>

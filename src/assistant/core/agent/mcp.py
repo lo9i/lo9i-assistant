@@ -202,11 +202,13 @@ class McpMixin(ServiceBase):
             return None
         return await listed.after_removal(self._storage.store, name, removed.source)
 
-    async def update_mcp_server_from_repository(self, name: str) -> McpServerStatus:
-        """Install the server again from its repository, keeping what the user set.
-        Raises McpServerError or RepositoryError."""
+    async def update_mcp_server_from_repository(
+        self, name: str, values: dict[str, str] | None = None
+    ) -> McpServerStatus:
+        """Install the server again from its repository, keeping what the user set; `values` for the fields its new
+        version asks for. Raises McpServerError (UpdateNeedsValuesError while one is missing) or RepositoryError."""
         tokens = await listed.tokens(self._storage.store, self.secrets)
-        server = await install.update(self._storage.store, self.secrets, name, tokens)
+        server = await install.update(self._storage.store, self.secrets, name, tokens, values)
         # Same command and settings, new code: both run again.
         await self.mcp.restart(name)
         await self.pages.restart(name)

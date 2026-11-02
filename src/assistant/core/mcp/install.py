@@ -306,9 +306,22 @@ async def install(candidate: Candidate, values: dict[str, str], url: str, commit
     return server
 
 
-async def update(store: BaseStore, box: SecretBox, name: str, tokens: dict[str, str] | None = None) -> McpServer:
+class UpdateNeedsValuesError(McpServerError):
+    """The new version has a required field the installed one has no value for: the update goes once it's given
+    (update's `values`)."""
+
+
+async def update(
+    store: BaseStore,
+    box: SecretBox,
+    name: str,
+    tokens: dict[str, str] | None = None,
+    values: dict[str, str] | None = None,
+) -> McpServer:
     """Install the server again from its repository, keeping the values the user gave (its keys) and
-    their choices (on or off, trusted, tools). `tokens`: private repositories' tokens, by address."""
+    their choices (on or off, trusted, tools). `tokens`: private repositories' tokens, by address. `values`: for
+    fields the new version asks for, over the kept ones; raises UpdateNeedsValuesError while a required one has
+    none."""
     current = await keys.fill(store, box, await servers.load(store, name))
     source = await asyncio.to_thread(folder_source.read, folders.code(name))
     if not current.source or source is None:
@@ -317,9 +330,10 @@ async def update(store: BaseStore, box: SecretBox, name: str, tokens: dict[str, 
         )
     async with checkout(source.url, (tokens or {}).get(source.url, "")) as (root, commit):
         candidate = await asyncio.to_thread(_find_at, root, source.url, source.path, name)
-        values = current.headers if current.url else current.env
+        given = _given(candidate, values or {})
+        values = {**(current.headers if current.url else current.env), **given}
         if (missing := _missing(candidate, values)) is not None:
-            raise McpServerError(
+            raise UpdateNeedsValuesError(
                 said(
                     "The new version of {name} needs {label}: remove it and install it again.",
                     name=name,
@@ -430,6 +444,15 @@ def _skill_taken(name: str) -> bool:
         return skills.load(name).server != name
     except SkillError:
         return False
+
+
+def _given(candidate: Candidate, values: dict[str, str]) -> dict[str, str]:
+    """The values given for the new version's fields, those left empty out. Raises McpServerError for a field it
+    doesn't have."""
+    name = candidate.found.name
+    if unknown := sorted(set(values) - {f.key for f in candidate.found.fields}):
+        raise McpServerError(said("{name} has no setting {unknown}.", name=name, unknown=", ".join(unknown)))
+    return {k: v.strip() for k, v in values.items() if v.strip()}
 
 
 def _missing(candidate: Candidate, values: dict[str, str]) -> ServerField | None:

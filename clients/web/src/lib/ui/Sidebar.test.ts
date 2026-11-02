@@ -14,13 +14,22 @@ const state = (threadId: string): ChatSnapshot => ({
   queued: [],
 });
 const quick = { subscribe: () => () => {}, getSnapshot: () => state("inbox") };
-const daemon = vi.hoisted(() => ({ open: { chats: [], activeKey: null, moving: null } as OpenChatsSnapshot }));
+const daemon = vi.hoisted(() => ({
+  open: { chats: [], activeKey: null, moving: null } as OpenChatsSnapshot,
+  // What each of the client's calls the sidebar loads answers, by "group.method"; [] for the rest.
+  loaded: {} as Record<string, unknown>,
+}));
+// A client whose every call answers what `daemon.loaded` says for it.
+const client = new Proxy(
+  {},
+  { get: (_, group) => new Proxy({}, { get: (_, method) => () => daemon.loaded[`${String(group)}.${String(method)}`] ?? [] }) },
+);
 
 vi.mock("$app/navigation", () => ({ goto: vi.fn() }));
 vi.mock("$app/paths", () => ({ resolve: (path: string) => `/app${path}` }));
 vi.mock("$app/state", () => ({ page: { url: new URL("http://localhost/app/conversations") } }));
 vi.mock("$lib/daemon.svelte", () => ({
-  resource: () => ({ data: [] }),
+  resource: (load: (c: unknown) => unknown) => ({ data: load(client) }),
   external: (_subscribe: unknown, get: () => unknown) => ({ current: get() }),
   useDaemon: () => ({
     chats: { subscribe: () => () => {}, getSnapshot: () => daemon.open },
@@ -51,5 +60,23 @@ describe("Sidebar", () => {
     daemon.open = { chats: [], activeKey: null, moving: null };
     const { body } = render(Sidebar, { props: { name: "lo9i" } });
     expect(body).toContain('href="/app/subagents"');
+  });
+
+  it("offers an app's update on its icon, saying the versions", () => {
+    daemon.open = { chats: [], activeKey: null, moving: null };
+    daemon.loaded = {
+      "mcp.servers": [{ name: "watchlist", page: true, enabled: true, icon: null }],
+      "repositories.updates": [{ kind: "server", name: "watchlist", installed_version: "1.0.0", version: "1.1.0" }],
+    };
+    const { body } = render(Sidebar, { props: { name: "lo9i" } });
+    expect(body).toContain('class="app-update');
+    expect(body).toContain("Update available: 1.0.0 → 1.1.0. Click to update.");
+  });
+
+  it("shows no update on an app that has none", () => {
+    daemon.loaded = { "mcp.servers": [{ name: "watchlist", page: true, enabled: true, icon: null }] };
+    const { body } = render(Sidebar, { props: { name: "lo9i" } });
+    expect(body).toContain("Watchlist");
+    expect(body).not.toContain("app-update");
   });
 });

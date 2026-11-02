@@ -1923,8 +1923,9 @@ export interface paths {
         put?: never;
         /**
          * Update Mcp Server From Repository
-         * @description Install the server again from its repository. 404: no such server. 400: not installed
-         *     from one, the repository can't be read, or the new version needs a value not given yet.
+         * @description Install the server again from its repository; `values` for the fields its new version asks for. 404: no
+         *     such server. 409: the new version needs a value not given yet (its fields are in the repository's listing).
+         *     400: not installed from one, a field it doesn't have, or the repository can't be read.
          */
         post: operations["update_mcp_server_from_repository_mcp_servers__name__update_post"];
         delete?: never;
@@ -5354,6 +5355,16 @@ export interface components {
         PluginUpdateChecks: {
             /** Enabled */
             enabled: boolean;
+        };
+        /** PluginUpdateValues */
+        PluginUpdateValues: {
+            /**
+             * Values
+             * @default {}
+             */
+            values: {
+                [key: string]: string;
+            };
         };
         /** ProfileItems */
         ProfileItems: {
@@ -9850,7 +9861,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PluginUpdateValues"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
