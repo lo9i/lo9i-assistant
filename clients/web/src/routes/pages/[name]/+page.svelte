@@ -4,7 +4,8 @@
   import FileX from "@lucide/svelte/icons/file-x";
   import { resource } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
-  import { pageLabel, pagesOrigin, pageUrl, themeMessage } from "$lib/pages";
+  import { pagesOrigin, pageUrl, themeMessage } from "$lib/pages";
+  import { pluginLabel } from "$lib/plugins";
   import { theme } from "$lib/theme.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
 
@@ -40,7 +41,7 @@
     <EmptyState icon={FileX} title={t("pagesPage.off")} text={t("pagesPage.offHint", { name })} />
   {:else}
     <!-- The page's own origin (daemon/pages.py): it can't reach the web app or its API. -->
-    <iframe bind:this={frame} title={pageLabel(name)} {src}></iframe>
+    <iframe bind:this={frame} title={pluginLabel(name)} {src}></iframe>
   {/if}
 </div>
 

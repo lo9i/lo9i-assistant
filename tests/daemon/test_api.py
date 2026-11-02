@@ -22,6 +22,7 @@ from assistant.core.agent import (
     InvalidNameError,
     InvalidSearchKeyError,
     LanguageError,
+    McpServer,
     Session,
     ShownStep,
     SpeechSettingsError,
@@ -37,6 +38,7 @@ from assistant.core.events import ApprovalRequired, Cancelled, Dispatched, Done,
 from assistant.core.home import results
 from assistant.core.internet import brave_key
 from assistant.core.logs import LogWriter, log_sources
+from assistant.core.mcp import servers
 from assistant.core.speech.heard import HeardOnce
 from assistant.core.usage.limits import SpendingLimits, SpendingLimitsError
 from assistant.daemon.api import create_app
@@ -301,6 +303,18 @@ async def test_a_routes_answer_is_in_the_language_the_app_shows(app):
     async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1", headers=headers) as http:
         [anthropic, *_] = (await http.get("/settings/model/providers")).json()
     assert anthropic["fields"][0]["label"] == "Clave de API"
+
+
+async def test_email_providers_are_in_the_language_the_app_shows(app, service):
+    gmail = {"id": "gmail", "name": "Gmail", "host": "smtp.gmail.com", "port": 587, "imap_host": "imap.gmail.com"}
+    spanish = {"es": {"name": "", "password_help": "Crea una."}}
+    help_ = {"password_help": "Create an app password.", "translations": spanish}
+    await servers.save(service.store, McpServer("gmail", email_providers=[gmail | help_]))
+    transport = httpx.ASGITransport(app=trusted(app))
+    headers = {CLIENT_HEADER: "web", LANGUAGE_HEADER: "es"}
+    async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1", headers=headers) as http:
+        [provider] = (await http.get("/integrations/email/providers")).json()
+    assert (provider["name"], provider["password_help"]) == ("Gmail", "Crea una.")
 
 
 async def test_every_json_response_has_a_typed_schema(service):

@@ -496,6 +496,8 @@
   "its translations must be a section per language, like es:": "sus translations deben ser una sección por idioma, como es:",
   "its translations' fields must be a section per field key": "los fields de sus translations deben ser una sección por clave de campo",
   "its translations' steps must be a list": "los steps de sus translations deben ser una lista",
+  "its translations' email must be a section per provider id": "el email de sus translations debe ser una sección por id de proveedor",
+  "its translations name email providers it doesn't have: {ids}": "sus translations nombran proveedores de correo que no tiene: {ids}",
   "Fill it in in the app, where this conversation shows it. Writing here again skips it.": "Complétalo en la app, donde se muestra esta conversación. Escribir aquí de nuevo lo omite.",
   "Open the link, then Approve; Reject declines it.": "Abre el enlace y luego Aprobar; Rechazar lo declina.",
   "{server} asks:": "{server} pregunta:",

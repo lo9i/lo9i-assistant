@@ -9,6 +9,7 @@ import {
   kindOf,
   missingField,
   optional,
+  pluginLabel,
   pluginsOf,
   runsOf,
   sharedLogin,
@@ -57,6 +58,14 @@ const contents: RepositoryContents = {
   ],
   checked: "",
 };
+
+group("pluginLabel", () => {
+  it("reads a plugin's name as a title", () => {
+    expect(pluginLabel("microsoft")).toBe("Microsoft");
+    expect(pluginLabel("custom-email")).toBe("Custom email");
+    expect(pluginLabel("home_assistant")).toBe("Home assistant");
+  });
+});
 
 group("pluginsOf", () => {
   it("lists servers, then skills, with their state", () => {

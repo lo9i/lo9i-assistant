@@ -30,7 +30,7 @@
   import X from "@lucide/svelte/icons/x";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { t, type Key } from "$lib/i18n.svelte";
-  import { pageLabel } from "$lib/pages";
+  import { pluginLabel } from "$lib/plugins";
   import PluginIcon from "./PluginIcon.svelte";
   import AppUpdate from "./plugins/AppUpdate.svelte";
   import { columnsOf } from "$lib/chat/cardLayout";
@@ -266,10 +266,10 @@
           class="nav-item"
           draggable="false"
           aria-current={page.url.pathname === href ? "page" : undefined}
-          title={`${pageLabel(p.name)} · ${t("nav.dragToReorder")}`}
+          title={`${pluginLabel(p.name)} · ${t("nav.dragToReorder")}`}
         >
           <PluginIcon icon={p.icon} size={20} />
-          <span class="label">{pageLabel(p.name)}</span>
+          <span class="label">{pluginLabel(p.name)}</span>
         </a>
         {#if update}<AppUpdate {update} />{/if}
       </div>

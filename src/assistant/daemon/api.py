@@ -125,6 +125,7 @@ from assistant.core.conversation.dispatch_setting import DispatchSetting, Dispat
 from assistant.core.conversation.held import from_app
 from assistant.core.events import ApprovalRequired
 from assistant.core.i18n import Said, Texts, holds_said, message, said
+from assistant.core.integrations.email import providers as email_presets
 from assistant.core.logs import (
     MAX_LINES,
     LogEntry,
@@ -1538,9 +1539,9 @@ def _add_speech_routes(app: FastAPI, service: AssistantService) -> None:
 
 def _add_email_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/integrations/email/providers")
-    async def email_providers() -> list[EmailProvider]:
-        """The presets of the email plugins that are on."""
-        return await service.email_providers()
+    async def email_providers(texts: _Answering) -> list[EmailProvider]:
+        """The presets of the email plugins that are on, in the app's language where their plugin translates them."""
+        return [email_presets.in_language(p, texts.language) for p in await service.email_providers()]
 
     @app.get("/integrations/email/accounts")
     async def email_accounts() -> list[EmailAccount]:

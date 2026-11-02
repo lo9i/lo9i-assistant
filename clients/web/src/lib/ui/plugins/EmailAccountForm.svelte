@@ -1,8 +1,11 @@
 <script lang="ts">
+  import Field from "../Field.svelte";
   import SecretInput from "../SecretInput.svelte";
+  import OAuthAppFields from "./OAuthAppFields.svelte";
   import type { EmailAccount, EmailProvider, EmailSettings } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { t, type Key } from "$lib/i18n.svelte";
+  import { markdownLinkingOut } from "$lib/markdown";
   import { describe } from "$lib/notices";
   import { redirectUri } from "$lib/oauth";
 
@@ -57,8 +60,6 @@
   // Signing in (OAuth): the user's own OAuth app. The secret is typed here and goes to the daemon.
   let clientId = $state("");
   let clientSecret = $state("");
-  // Where Google or Microsoft send the browser back; the user registers this with their OAuth app.
-  const redirect = redirectUri();
   const providerName = $derived(provider?.oauth === "microsoft" ? "Microsoft" : "Google");
   // Signing an existing account in again reuses the app it signed in with.
   const again = $derived(account?.auth === "oauth" && account.oauth_provider === provider?.oauth);
@@ -76,7 +77,7 @@
     if (!provider) return;
     saving = true;
     try {
-      const body = { provider: provider.oauth, client_id: clientId, client_secret: clientSecret, redirect_uri: redirect };
+      const body = { provider: provider.oauth, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri() };
       const url = await client.email.startSignIn({ ...body, address, label, account_id: account?.id ?? "", plugin });
       window.open(url, "_blank", "noopener");
       message = t("email.finishSignIn", { provider: providerName });
@@ -100,68 +101,75 @@
   }
 </script>
 
+{#snippet named()}
+  <Field label={t("email.nameLabel")}>
+    <input class="input" placeholder={t("email.namePlaceholder")} bind:value={label} />
+  </Field>
+{/snippet}
+
+{#snippet addressed()}
+  <Field label={t("email.addressLabel")}>
+    <input class="input" type="email" placeholder={t("email.addressPlaceholder")} autocomplete="email" bind:value={address} />
+  </Field>
+{/snippet}
+
+{#snippet buttons(submit: string, disabled: boolean)}
+  <div class="row">
+    <button class="btn btn--primary" type="submit" {disabled}>{submit}</button>
+    {#if oncancel}<button class="btn btn--ghost" type="button" onclick={oncancel}>{t("common.cancel")}</button>{/if}
+  </div>
+{/snippet}
+
 <div class="fields">
   {#if providers.length > 1}
-    <select class="input" bind:value={choice} aria-label={t("email.howToConnect")}>
-      <option value="" disabled>{t("email.chooseHow")}</option>
-      {#each providers as p (p.id)}
-        <option value={p.id}>{p.name}</option>
-      {/each}
-    </select>
+    <Field label={t("email.howToConnect")}>
+      <select class="input" bind:value={choice}>
+        <option value="" disabled>{t("email.chooseHow")}</option>
+        {#each providers as p (p.id)}
+          <option value={p.id}>{p.name}</option>
+        {/each}
+      </select>
+    </Field>
   {/if}
-  {#if provider}
-    <p class="text-label">
-      {provider.password_help}
-      {#if provider.password_url}<a href={provider.password_url} target="_blank" rel="noreferrer">{t("email.createHere")}</a>.{/if}
-    </p>
+  {#if provider?.password_help}
+    <div class="prose text-label help">{@html markdownLinkingOut(provider.password_help)}</div>
+  {/if}
+  {#if provider?.password_url}
+    <p class="text-label"><a href={provider.password_url} target="_blank" rel="noreferrer">{t("email.createHere")}</a></p>
   {/if}
   {#if provider?.oauth}
     <form class="fields" onsubmit={signIn}>
-      <input class="input" placeholder={t("email.accountNamePlaceholder")} aria-label={t("email.accountName")} bind:value={label} />
-      <input class="input" type="email" placeholder={t("email.address")} aria-label={t("email.address")} bind:value={address} />
-      <div class="fields">
-        <span class="text-caption">{t("email.redirect")}</span>
-        <code class="uri">{redirect}</code>
-      </div>
-      <input
-        class="input"
-        placeholder={again ? t("email.clientIdKeep") : t("email.clientId")}
-        aria-label={t("email.clientId")}
-        bind:value={clientId}
-      />
-      <SecretInput
-        label={t("email.clientSecret")}
-        placeholder={again ? t("email.clientSecretKeep") : t("email.clientSecret")}
-        bind:value={clientSecret}
-      />
-      <div class="row">
-        <button class="btn btn--primary" type="submit" disabled={saving || !address.includes("@") || (!clientId.trim() && !again)}
-          >{saving ? t("email.opening") : t("email.signInWith", { provider: providerName })}</button
-        >
-        {#if oncancel}<button class="btn btn--ghost" type="button" onclick={oncancel}>{t("common.cancel")}</button>{/if}
-      </div>
+      {@render named()}
+      {@render addressed()}
+      <OAuthAppFields bind:clientId bind:clientSecret keep={again} />
+      {@render buttons(
+        saving ? t("email.opening") : t("email.signInWith", { provider: providerName }),
+        saving || !address.includes("@") || (!clientId.trim() && !again),
+      )}
     </form>
   {:else if provider?.supported}
     <form class="fields" onsubmit={save}>
-      <input class="input" placeholder={t("email.accountNamePlaceholder")} aria-label={t("email.accountName")} bind:value={label} />
+      {@render named()}
       {#if !byHand}
-        <input class="input" type="email" placeholder={t("email.address")} aria-label={t("email.address")} bind:value={address} />
-        <SecretInput label={t("email.appPassword")} placeholder={t("email.appPassword")} bind:value={form.password} />
+        {@render addressed()}
+        <Field label={t("email.appPassword")}>
+          <SecretInput label={t("email.appPassword")} placeholder={account ? t("email.keepSaved") : ""} bind:value={form.password} />
+        </Field>
       {:else}
         {#each FIELDS as f (f.key)}
-          {#if f.type === "password"}
-            <SecretInput label={t(f.label)} placeholder={t(f.label)} bind:value={form[f.key]} />
-          {:else}
-            <input class="input" placeholder={t(f.label)} aria-label={t(f.label)} bind:value={form[f.key]} />
-          {/if}
+          <Field label={t(f.label)}>
+            {#if f.type === "password"}
+              <SecretInput label={t(f.label)} placeholder={account ? t("email.keepSaved") : ""} bind:value={form[f.key]} />
+            {:else}
+              <input class="input" bind:value={form[f.key]} />
+            {/if}
+          </Field>
         {/each}
-        <input class="input" type="number" placeholder={t("email.portPlaceholder")} aria-label={t("email.port")} bind:value={form.port} />
+        <Field label={t("email.port")}>
+          <input class="input" type="number" placeholder={t("email.portPlaceholder")} bind:value={form.port} />
+        </Field>
       {/if}
-      {#if account}<p class="text-caption">{t("email.keepPassword")}</p>{/if}
-      <div class="row">
-        <button class="btn btn--primary" type="submit" disabled={saving}>{saving ? t("webSearch.checking") : t("email.connect")}</button>
-        {#if oncancel}<button class="btn btn--ghost" type="button" onclick={oncancel}>{t("common.cancel")}</button>{/if}
-      </div>
+      {@render buttons(saving ? t("webSearch.checking") : t("email.connect"), saving)}
     </form>
   {/if}
   {#if message}<p class="error-text">{message}</p>{/if}
@@ -171,7 +179,7 @@
   .fields {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
   }
   .row {
     display: flex;
@@ -180,8 +188,10 @@
   p {
     margin: 0;
   }
-  .uri {
-    overflow-wrap: anywhere;
-    user-select: all;
+  /* A provider's steps: a numbered list, a link where each is done. */
+  .help :global(ol) {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
 </style>

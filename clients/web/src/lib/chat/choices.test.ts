@@ -29,6 +29,9 @@ describe("withoutMarkers", () => {
     expect(withoutMarkers("1 < 2 <!-- note -->")).toBe("1 < 2 <!-- note -->");
   });
   it("takes only the last marker when the text quotes one earlier", () => {
-    expect(answerable("A line like `<!-- choices: Yes | No -->` shows buttons. Go?\n<!-- choices: Yes | No -->").choices).toEqual(["Yes", "No"]);
+    expect(answerable("A line like `<!-- choices: Yes | No -->` shows buttons. Go?\n<!-- choices: Yes | No -->").choices).toEqual([
+      "Yes",
+      "No",
+    ]);
   });
 });

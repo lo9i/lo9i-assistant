@@ -12,7 +12,8 @@
   import type { HomeCard, PluginIcon as Icon } from "$lib/api/types";
   import { MAX_COLUMNS as MAX, cardColumns, itemWhen, linked, snappedColumns } from "$lib/home";
   import { t } from "$lib/i18n.svelte";
-  import { pageHref, pageLabel } from "$lib/pages";
+  import { pageHref } from "$lib/pages";
+  import { pluginLabel } from "$lib/plugins";
   import PluginIcon from "../PluginIcon.svelte";
 
   type Props = {
@@ -159,8 +160,8 @@
         <a
           class="btn btn--icon"
           href={resolve("/pages/[name]", { name: result.page })}
-          title={t("home.openPage", { page: pageLabel(result.page) })}
-          aria-label={t("home.openPage", { page: pageLabel(result.page) })}><ExternalLink size={16} /></a
+          title={t("home.openPage", { page: pluginLabel(result.page) })}
+          aria-label={t("home.openPage", { page: pluginLabel(result.page) })}><ExternalLink size={16} /></a
         >
       {/if}
       <button

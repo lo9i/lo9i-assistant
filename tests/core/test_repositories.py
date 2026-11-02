@@ -18,6 +18,7 @@ from assistant.core.agent import (
     ServerValues,
     SkillError,
 )
+from assistant.core.integrations.email import providers
 from assistant.core.mcp import data_key, folders, install, keys, servers
 from assistant.core.repositories import categories, check, checkout, formats
 from assistant.core.repositories.icons import PluginIcon
@@ -676,6 +677,34 @@ async def test_an_email_plugin_offers_its_providers_once_installed(service, repo
         ("gmail", "", "gmail"),
         ("gmail-oauth", "google", "gmail"),
     ]
+
+
+_TRANSLATED_EMAIL = """
+description: Send and read Outlook mail
+email:
+  - {id: outlook, name: Outlook, host: smtp.office365.com, imap_host: outlook.office365.com, oauth: microsoft,
+     password_help: "1. Register an app."}
+translations:
+  es:
+    description: Envía y lee correo de Outlook
+    email: {outlook: {password_help: "1. Registra una app."}}
+"""
+
+
+async def test_an_email_providers_help_is_shown_in_the_language_its_server_yaml_translates_it_to(service, repo):
+    _write(repo / "communications" / "email" / "microsoft", {"server.yaml": _TRANSLATED_EMAIL})
+    await service.install_from_repository(URL, [], [ServerValues("microsoft")])
+    [outlook] = await service.email_providers()
+    assert (outlook.name, outlook.password_help) == ("Outlook", "1. Register an app.")
+    spanish = providers.in_language(outlook, "es")
+    assert (spanish.name, spanish.password_help) == ("Outlook", "1. Registra una app.")
+    assert providers.in_language(outlook, "fr") == outlook
+
+
+async def test_translations_of_an_email_provider_it_doesnt_have_are_the_plugins_problem(service, repo):
+    written = _TRANSLATED_EMAIL.replace("email: {outlook:", "email: {hotmail:")
+    _write(repo / "communications" / "email" / "microsoft", {"server.yaml": written})
+    assert "its translations name email providers it doesn't have: hotmail" in await _problems(service)
 
 
 async def test_a_custom_email_plugin_takes_the_accounts_that_belong_to_no_plugin(service, repo, monkeypatch):

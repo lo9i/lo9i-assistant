@@ -5,7 +5,7 @@
   import { useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
-  import { pageLabel } from "$lib/pages";
+  import { pluginLabel } from "$lib/plugins";
   import { needsValues } from "$lib/pluginUpdates";
   import UpdateValuesDialog from "./UpdateValuesDialog.svelte";
 
@@ -36,12 +36,12 @@
 
   function finished(): void {
     done = update.version;
-    notices.notify(t("pluginsPage.updated", { names: pageLabel(update.name) }));
+    notices.notify(t("pluginsPage.updated", { names: pluginLabel(update.name) }));
   }
 
   const hint = $derived(
     busy
-      ? t("pluginUpdates.updating", { name: pageLabel(update.name) })
+      ? t("pluginUpdates.updating", { name: pluginLabel(update.name) })
       : t("pluginUpdates.available", { from: update.installed_version || "–", to: update.version }),
   );
 </script>

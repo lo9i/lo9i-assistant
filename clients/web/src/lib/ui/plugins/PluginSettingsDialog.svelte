@@ -4,6 +4,7 @@
   import type { PluginFieldValue, PluginSettings } from "$lib/api/types";
   import { useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
+  import { pluginLabel } from "$lib/plugins";
   import { describe } from "$lib/notices";
   import { settingsChange } from "$lib/pluginSettings";
   import Modal from "../Modal.svelte";
@@ -71,7 +72,7 @@
 </script>
 
 <Modal
-  title={t("pluginSettings.title", { name: plugin })}
+  title={t("pluginSettings.title", { name: pluginLabel(plugin) })}
   description={t("pluginSettings.description")}
   width={560}
   onclose={() => onclose()}

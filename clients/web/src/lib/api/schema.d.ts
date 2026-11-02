@@ -1462,7 +1462,7 @@ export interface paths {
         };
         /**
          * Email Providers
-         * @description The presets of the email plugins that are on.
+         * @description The presets of the email plugins that are on, in the app's language where their plugin translates them.
          */
         get: operations["email_providers_integrations_email_providers_get"];
         put?: never;
@@ -3927,6 +3927,12 @@ export interface components {
              * @default false
              */
             custom: boolean;
+            /** Translations */
+            translations?: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
         };
         /** EmailRecipients */
         EmailRecipients: {

@@ -71,12 +71,14 @@ code from it. In its commands, arguments and env values:
                                    # (repositories/icons.py); its category's icon if absent
     steps:                         # optional: how to get what it asks for, shown when installing
       - In your provider's settings, create an app password.
-    translations:                  # optional: its description, steps and fields in the apps' other languages
-      es:                          # (core/language.py), shown in the one the app shows; English where it lacks one
-        description: Envía y lee correo
+    translations:                  # optional: its description, steps, fields and email providers in the apps' other
+      es:                          # languages (core/language.py), shown in the one the app shows; English where
+        description: Envía y lee correo   # it lacks one
         steps: [En los ajustes de tu proveedor, crea una contraseña de aplicación.]
         fields: {SMTP_PASSWORD: {label: Contraseña de aplicación, help: https://…}}
-    email:                         # optional: email providers it offers (core/integrations/email/providers.py)
+        email: {gmail: {name: Gmail, password_help: Gmail necesita una contraseña de aplicación.}}
+    email:                         # optional: email providers it offers (core/integrations/email/providers.py),
+                                   # password_help in Markdown: its steps as a numbered list, a link where it's done
       - {id: gmail, name: Gmail, host: smtp.gmail.com, port: 587, imap_host: imap.gmail.com,
          password_help: Gmail needs an app password., password_url: https://myaccount.google.com/apppasswords}
 """
@@ -542,7 +544,7 @@ def _template(data: dict[str, Any], name: str) -> McpServer:
         channel_args=[str(a) for a in data.get("channel", {}).get("args", [])],
         channel_style=str(data.get("channel", {}).get("style", "")).strip(),
         channel_protocol=_channel_protocol(data.get("channel", {}).get("protocol")),
-        email_providers=[asdict(p) for p in email_providers.parse(data.get("email"), name)],
+        email_providers=[asdict(p) for p in email_providers.parse(data.get("email"), name, _email_texts(data))],
         model_login=logins.parse(data.get("model_login")),
         ssh_agent=ssh_agent.parse(data.get("ssh_agent")),
         login_session=login_session.parse(data.get("login_session")),
@@ -551,6 +553,11 @@ def _template(data: dict[str, Any], name: str) -> McpServer:
         **_agent(data.get("agent")),
         **checks.parse(data.get("check")),
     )
+
+
+def _email_texts(data: dict[str, Any]) -> dict[str, dict[str, dict[str, str]]]:
+    """Its email providers' texts in `translations:`, by language and then provider id."""
+    return {language: texts["email"] for language, texts in _translations(data.get("translations")).items()}
 
 
 def _oauth(value: object) -> dict[str, Any]:
@@ -634,6 +641,7 @@ def _translation(texts: dict[str, Any]) -> dict[str, Any]:
         "description": str(texts.get("description") or "").strip(),
         "steps": [str(s).strip() for s in steps if str(s).strip()],
         "fields": {str(k): {p: str(f.get(p) or "") for p in ("label", "help")} for k, f in fields.items()},
+        "email": email_providers.translated(texts.get("email")),
     }
 
 

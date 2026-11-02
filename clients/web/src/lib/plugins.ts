@@ -9,6 +9,11 @@ export type Plugin =
   | { kind: "server"; name: string; installed: boolean; server: FoundServer; repository: Repository }
   | { kind: "skill"; name: string; installed: boolean; skill: FoundSkill; repository: Repository };
 
+/** A plugin's name as a title, for the sidebar and dialogs: "microsoft" → "Microsoft", "home_assistant" → "Home assistant". */
+export function pluginLabel(name: string): string {
+  return name.charAt(0).toUpperCase() + name.slice(1).replace(/[-_]/g, " ");
+}
+
 export function pluginsOf(contents: Offered, repository: Repository = EXTRAS): Plugin[] {
   return [
     ...contents.servers.map((server): Plugin => ({

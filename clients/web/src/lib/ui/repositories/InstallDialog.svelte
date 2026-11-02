@@ -5,7 +5,7 @@
   import { useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
-  import { emptyHint, loginSessionNote, missingField, optional, sharedLogin, sshAgentNote } from "$lib/plugins";
+  import { emptyHint, loginSessionNote, missingField, optional, pluginLabel, sharedLogin, sshAgentNote } from "$lib/plugins";
   import Modal from "../Modal.svelte";
 
   // `kind`: only MCP servers (the MCP servers page) or only skills (the Skills page). `server` or
@@ -151,7 +151,7 @@
 {/snippet}
 
 <Modal
-  title={only ? t("install.title", { name: only.name }) : t("install.titleAny")}
+  title={only ? t("install.title", { name: pluginLabel(only.name) }) : t("install.titleAny")}
   description={only ? only.description : t("install.description")}
   width={600}
   onclose={() => onclose()}

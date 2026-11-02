@@ -34,8 +34,3 @@ export function pageHref(base: string, path = ""): string {
 export function themeMessage(theme: ResolvedTheme): { type: "lo9i:theme"; theme: ResolvedTheme } {
   return { type: "lo9i:theme", theme };
 }
-
-/** "expenses" → "Expenses", for the sidebar. */
-export function pageLabel(name: string): string {
-  return name.charAt(0).toUpperCase() + name.slice(1).replace(/[-_]/g, " ");
-}

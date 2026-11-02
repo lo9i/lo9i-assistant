@@ -31,15 +31,19 @@
       <p class="text-meta">{t("email.noAccount")}</p>
     {/if}
     {#if adding}
-      <EmailAccountForm
-        {plugin}
-        onsaved={(account) => {
-          adding = false;
-          added = account.id;
-          accounts.reload();
-        }}
-        oncancel={() => (adding = false)}
-      />
+      <!-- Framed with its own heading, so its Cancel reads as dropping this account, not closing the setup. -->
+      <section class="new" aria-label={t("email.newAccount")}>
+        <h4 class="text-heading">{t("email.newAccount")}</h4>
+        <EmailAccountForm
+          {plugin}
+          onsaved={(account) => {
+            adding = false;
+            added = account.id;
+            accounts.reload();
+          }}
+          oncancel={() => (adding = false)}
+        />
+      </section>
     {:else}
       <div><button class="btn btn--neutral btn--sm" onclick={() => (adding = true)}><Plus size={14} />{t("email.addAccount")}</button></div>
     {/if}
@@ -54,11 +58,25 @@
     padding-top: 16px;
     border-top: 1px solid var(--color-border);
   }
+  /* Nothing above it to set it apart from (a dialog showing only the accounts). */
+  .accounts:first-child {
+    padding-top: 0;
+    border-top: none;
+  }
   .list {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
   }
+  .new {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+  }
   h3,
+  h4,
   p {
     margin: 0;
   }

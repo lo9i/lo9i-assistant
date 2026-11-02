@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pageHref, pageLabel, pageUrl, themeMessage } from "./pages";
+import { pageHref, pageUrl, themeMessage } from "./pages";
 
 describe("pageUrl", () => {
   it("opens the page at a place on it, never outside it", () => {
@@ -22,12 +22,5 @@ describe("pageUrl", () => {
     const local = { protocol: "http:", hostname: "127.0.0.1", port: "8765" };
     expect(pageUrl("hosts", local, "light")).toBe("http://127.0.0.1:8766/hosts/?theme=light");
     expect(themeMessage("dark")).toEqual({ type: "lo9i:theme", theme: "dark" });
-  });
-});
-
-describe("pageLabel", () => {
-  it("reads like a page name", () => {
-    expect(pageLabel("expenses")).toBe("Expenses");
-    expect(pageLabel("home_assistant")).toBe("Home assistant");
   });
 });

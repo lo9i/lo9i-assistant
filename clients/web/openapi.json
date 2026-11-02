@@ -3284,7 +3284,7 @@
     "/integrations/email/providers": {
       "get": {
         "summary": "Email Providers",
-        "description": "The presets of the email plugins that are on.",
+        "description": "The presets of the email plugins that are on, in the app's language where their plugin translates them.",
         "operationId": "email_providers_integrations_email_providers_get",
         "responses": {
           "200": {
@@ -8647,6 +8647,16 @@
             "type": "boolean",
             "title": "Custom",
             "default": false
+          },
+          "translations": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Translations"
           }
         },
         "type": "object",

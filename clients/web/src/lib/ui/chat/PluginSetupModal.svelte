@@ -3,6 +3,7 @@
   import type { FoundServer } from "$lib/api/types";
   import { resource } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
+  import { pluginLabel } from "$lib/plugins";
   import Modal from "../Modal.svelte";
   import PluginSettingsDialog from "../plugins/PluginSettingsDialog.svelte";
   import PluginSetup from "../plugins/PluginSetup.svelte";
@@ -19,7 +20,7 @@
 {#if configuring}
   <PluginSettingsDialog plugin={server.name} onclose={() => (configuring = false)} />
 {:else}
-  <Modal title={t("chat.setUp", { name: server.name })} description={server.description} width={600} onclose={ondone}>
+  <Modal title={t("chat.setUp", { name: pluginLabel(server.name) })} description={server.description} width={600} onclose={ondone}>
     {#if hasSettings}
       <div>
         <button class="btn btn--neutral btn--sm" onclick={() => (configuring = true)}

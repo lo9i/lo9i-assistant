@@ -5,7 +5,7 @@
   import { useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
-  import { fromRepositories } from "$lib/plugins";
+  import { fromRepositories, pluginLabel } from "$lib/plugins";
   import Modal from "../Modal.svelte";
 
   // A plugin whose new version asks for values it wasn't given (its update answered 409): the new version's fields
@@ -39,7 +39,7 @@
   async function update(): Promise<void> {
     const empty = (fields ?? []).find((f) => !f.optional && !values[f.key]?.trim());
     if (empty) {
-      error = t("install.needs", { name: plugin, field: empty.label });
+      error = t("install.needs", { name: pluginLabel(plugin), field: empty.label });
       return;
     }
     busy = true;
@@ -61,7 +61,7 @@
 </script>
 
 <Modal
-  title={t("pluginUpdates.update", { name: plugin })}
+  title={t("pluginUpdates.update", { name: pluginLabel(plugin) })}
   description={t("pluginUpdates.valuesDescription")}
   width={560}
   onclose={() => onclose()}

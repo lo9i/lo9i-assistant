@@ -1,8 +1,9 @@
 <script lang="ts">
-  import SecretInput from "../SecretInput.svelte";
+  import OAuthAppFields from "./OAuthAppFields.svelte";
   import type { SignInRefused } from "$lib/api/types";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
+  import { pluginLabel } from "$lib/plugins";
   import { describe } from "$lib/notices";
   import { redirectUri } from "$lib/oauth";
 
@@ -30,8 +31,6 @@
   const status = $derived(servers.data?.find((s) => s.name === plugin));
   const signedIn = $derived(status?.signed_in_as ?? "");
   const providerName = $derived(NAMES[provider] ?? provider);
-  // Where the provider sends the browser back; the user registers this with their OAuth app.
-  const redirect = redirectUri();
   let clientId = $state("");
   let clientSecret = $state("");
   // Signed in, the form shows only to sign in again.
@@ -45,7 +44,7 @@
     e.preventDefault();
     busy = true;
     try {
-      const body = { client_id: clientId, client_secret: clientSecret, redirect_uri: redirect };
+      const body = { client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri() };
       window.open(await client.mcp.startPluginSignIn(plugin, body), "_blank", "noopener");
       message = t("pluginSignIn.finish", { provider: providerName });
       failed = again = false;
@@ -86,29 +85,22 @@
         </div>
       {/if}
     {:else}
-      <p class="text-meta">{t("pluginSignIn.notSignedIn", { name: plugin, provider: providerName })}</p>
+      <p class="text-meta">{t("pluginSignIn.notSignedIn", { name: pluginLabel(plugin), provider: providerName })}</p>
     {/if}
     {#if !signedIn || again}
       <form class="fields" onsubmit={signIn}>
-        <p class="text-label">
-          {t("pluginSignIn.help")}
-          {#if CONSOLES[provider]}<a href={CONSOLES[provider]} target="_blank" rel="noreferrer">{t("email.createHere")}</a>.{/if}
-        </p>
-        <div class="fields">
-          <span class="text-caption">{t("email.redirect")}</span>
-          <code class="uri">{redirect}</code>
+        <div class="text-label">
+          <p>{t("pluginSignIn.help")}</p>
+          <ol class="steps">
+            <li>
+              {t("pluginSignIn.createClient")}
+              {#if CONSOLES[provider]}<a href={CONSOLES[provider]} target="_blank" rel="noreferrer">{t("pluginSignIn.openConsole")}</a>{/if}
+            </li>
+            <li>{t("pluginSignIn.addRedirect")}</li>
+            <li>{t("pluginSignIn.pasteClient")}</li>
+          </ol>
         </div>
-        <input
-          class="input"
-          placeholder={signedIn ? t("email.clientIdKeep") : t("email.clientId")}
-          aria-label={t("email.clientId")}
-          bind:value={clientId}
-        />
-        <SecretInput
-          label={t("email.clientSecret")}
-          placeholder={signedIn ? t("email.clientSecretKeep") : t("email.clientSecret")}
-          bind:value={clientSecret}
-        />
+        <OAuthAppFields bind:clientId bind:clientSecret keep={!!signedIn} />
         <div class="row">
           <button class="btn btn--primary" type="submit" disabled={busy || (!clientId.trim() && !signedIn)}
             >{busy ? t("email.opening") : t("email.signInWith", { provider: providerName })}</button
@@ -129,6 +121,11 @@
     padding-top: 16px;
     border-top: 1px solid var(--color-border);
   }
+  /* Nothing above it to set it apart from (a dialog showing only this). */
+  .sign-in:first-child {
+    padding-top: 0;
+    border-top: none;
+  }
   .fields {
     display: flex;
     flex-direction: column;
@@ -142,8 +139,11 @@
   p {
     margin: 0;
   }
-  .uri {
-    overflow-wrap: anywhere;
-    user-select: all;
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 6px 0 0;
+    padding-left: 20px;
   }
 </style>

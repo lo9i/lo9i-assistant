@@ -2,6 +2,7 @@
   import type { FoundServer } from "$lib/api/types";
   import { resource } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
+  import { pluginLabel } from "$lib/plugins";
   import ChannelSetup from "./ChannelSetup.svelte";
   import EmailAccounts from "./EmailAccounts.svelte";
   import PluginSignIn from "./PluginSignIn.svelte";
@@ -18,7 +19,7 @@
 {#if channel}
   <ChannelSetup {channel} />
 {:else if server.channel}
-  <p class="text-meta">{t("pluginSetup.starting", { name: server.name })}</p>
+  <p class="text-meta">{t("pluginSetup.starting", { name: pluginLabel(server.name) })}</p>
 {/if}
 {#if server.email}<EmailAccounts plugin={server.name} title={t("email.accounts")} />{/if}
 {#if server.oauth}<PluginSignIn plugin={server.name} provider={server.oauth} />{/if}

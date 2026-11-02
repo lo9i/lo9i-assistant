@@ -3,6 +3,7 @@
 import { encode } from "uqr";
 import type { ChannelStatus, SetupItem } from "./api/types";
 import { t, type Key } from "./i18n.svelte";
+import { pluginLabel } from "./plugins";
 
 const STATES: Record<ReturnType<typeof stateOf>, Key> = {
   Off: "channelSetup.off",
@@ -19,11 +20,6 @@ export function stateLabel(state: ReturnType<typeof stateOf>): string {
 export function stateOf(channel: ChannelStatus): "Off" | "Connected" | "Not connected" {
   if (!channel.enabled) return "Off";
   return channel.connected ? "Connected" : "Not connected";
-}
-
-/** A channel's name as a title: "telegram" → "Telegram". */
-export function titleOf(name: string): string {
-  return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
 /** A text item as one line: "label: value", or the value alone. */
@@ -55,5 +51,5 @@ function darkRuns(row: boolean[]): Array<[number, number]> {
  *  set stays offered after its channel is removed, so the account still shows it. */
 export function alertOptions(channels: string[], current: string): Array<{ value: string; label: string }> {
   const names = current === "" || channels.includes(current) ? channels : [...channels, current];
-  return [{ value: "", label: t("channelSetup.dontAnnounce") }, ...names.map((name) => ({ value: name, label: titleOf(name) }))];
+  return [{ value: "", label: t("channelSetup.dontAnnounce") }, ...names.map((name) => ({ value: name, label: pluginLabel(name) }))];
 }

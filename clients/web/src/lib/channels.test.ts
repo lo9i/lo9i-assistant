@@ -1,7 +1,7 @@
 import { describe as group, expect, it } from "vitest";
 import type { ChannelStatus } from "./api/types";
 import { encode } from "uqr";
-import { alertOptions, lineOf, qrOf, stateOf, titleOf } from "./channels";
+import { alertOptions, lineOf, qrOf, stateOf } from "./channels";
 
 const channel = (enabled: boolean, connected: boolean): ChannelStatus => ({ name: "telegram", enabled, connected, items: [] });
 
@@ -12,7 +12,6 @@ group("channels", () => {
       "Connected",
       "Not connected",
     ]);
-    expect(titleOf("telegram")).toBe("Telegram");
   });
 
   it("shows a text item with its label when it has one", () => {

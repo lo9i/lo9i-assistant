@@ -1,7 +1,8 @@
 <script lang="ts">
   import Copy from "@lucide/svelte/icons/copy";
   import type { ChannelStatus, SetupItem } from "$lib/api/types";
-  import { lineOf, qrOf, stateLabel, stateOf, titleOf } from "$lib/channels";
+  import { lineOf, qrOf, stateLabel, stateOf } from "$lib/channels";
+  import { pluginLabel } from "$lib/plugins";
   import { useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
@@ -35,7 +36,7 @@
   }
 </script>
 
-<section class="channel" aria-label={t("channelSetup.label", { name: titleOf(channel.name) })}>
+<section class="channel" aria-label={t("channelSetup.label", { name: pluginLabel(channel.name) })}>
   <header>
     <h3 class="micro-label">{t("channelSetup.setup")}</h3>
     <span class="pill" class:pill--accent={connection === "Connected"}>
@@ -76,7 +77,7 @@
         <button
           class="btn btn--neutral btn--sm"
           disabled={!channel.connected}
-          title={channel.connected ? undefined : t("channelSetup.notConnectedName", { name: titleOf(channel.name) })}
+          title={channel.connected ? undefined : t("channelSetup.notConnectedName", { name: pluginLabel(channel.name) })}
           onclick={() => press(item)}>{item.label}</button
         >
       {/each}
@@ -92,6 +93,11 @@
     gap: 12px;
     padding-top: 16px;
     border-top: 1px solid var(--color-border);
+  }
+  /* Nothing above it to set it apart from (a dialog showing only this). */
+  .channel:first-child {
+    padding-top: 0;
+    border-top: none;
   }
   header {
     display: flex;
