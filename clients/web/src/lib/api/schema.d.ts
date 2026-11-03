@@ -1527,7 +1527,8 @@ export interface paths {
         /**
          * Start Email Sign In
          * @description The provider's sign-in page; the browser comes back to `redirect_uri`. 400: unknown
-         *     provider or missing values. 404: unknown account.
+         *     provider, missing values, or lo9i's own app asked to send the browser back off this computer. 404: unknown
+         *     account.
          */
         post: operations["start_email_sign_in_integrations_email_oauth_start_post"];
         delete?: never;
@@ -3934,6 +3935,11 @@ export interface components {
                     [key: string]: string;
                 };
             };
+            /**
+             * Oauth Built In
+             * @default false
+             */
+            oauth_built_in: boolean;
         };
         /** EmailRecipients */
         EmailRecipients: {
@@ -3977,7 +3983,10 @@ export interface components {
         EmailSignIn: {
             /** Provider */
             provider: string;
-            /** Client Id */
+            /**
+             * Client Id
+             * @default
+             */
             client_id: string;
             /**
              * Client Secret

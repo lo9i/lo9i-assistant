@@ -4,9 +4,9 @@ sign-in, where each one's new mail is announced.
 An account uses one of its plugin's providers, so only the address and the password are typed; a
 custom provider (the custom-email plugin) has no servers, so its accounts take the ones typed: SMTP to
 send, IMAP to read (without IMAP the assistant only sends).
-Google and Microsoft can sign in instead (OAuth), with the user's own OAuth app: the browser is sent
-back to the daemon's web app on this computer, which finishes it, or the user pastes the address it
-ended on.
+Google and Microsoft can sign in instead (OAuth): Microsoft with lo9i's own app unless the user gives
+theirs, Google with the user's own OAuth app. The browser is sent back to the daemon's web app on this
+computer, which finishes it, or the user pastes the address it ended on.
 """
 
 import webbrowser
@@ -46,6 +46,11 @@ _FIELDS = {
     "email-client-id": (translatable("Your OAuth app's client ID"), False),
     "email-client-secret": (translatable("Your OAuth app's client secret"), True),
     "email-returned": (translatable("Paste the address your browser ended on, if it didn't finish by itself"), False),
+}
+# With lo9i's own app for the provider, the user's own is an option.
+_OWN_APP = {
+    "email-client-id": translatable("Your own app's client ID (optional)"),
+    "email-client-secret": translatable("Its client secret, if it has one"),
 }
 _PRESET_FIELDS = {"email-label", "email-address", "email-password"}
 _OAUTH_FIELDS = {"email-label", "email-address", "email-client-id", "email-client-secret"}
@@ -319,6 +324,9 @@ class EmailScreen(ModalScreen[None]):
         self.query_one("#finish").display = self._signing
         oauth = self._providers.get(self._choice or "")
         self.query_one("#connect", Button).label = t("Sign in") if oauth is not None and oauth.oauth else t("Connect")
+        for field_id, own in _OWN_APP.items():
+            built_in = oauth is not None and oauth.oauth_built_in
+            self.query_one(f"#{field_id}", Input).placeholder = t(own if built_in else _FIELDS[field_id][0])
         self.query_one("#email-account").display = bool(self._accounts)
         for widget_id in _ACCOUNT_BUTTONS:
             self.query_one(widget_id).display = account is not None and not self._editing
@@ -375,7 +383,13 @@ def _help(provider: EmailProvider | None, editing: bool) -> str:
         keep = "\n\n" + t("Leave the client ID and secret empty to keep the saved ones.") if editing else ""
         where = "\n\n" + t("Set it up at {url}", url=provider.password_url) if provider.password_url else ""
         redirect = t("Redirect URI to register: {uri}", uri=f"`{REDIRECT}`")
-        return f"{provider.password_help}{where}\n\n{redirect}{keep}"
+        own = f"{provider.password_help}{where}\n\n{redirect}{keep}"
+        if provider.oauth_built_in:
+            # lo9i's own app signs in from the address alone; the plugin's help is how to use one's own instead.
+            name = provider.oauth.capitalize()
+            intro = t("Type your address, then sign in with {provider} on the page that opens.", provider=name)
+            return f"{intro}\n\n### {t('Your own {provider} app', provider=name)}\n\n{own}"
+        return own
     link = "\n\n" + t("Create it at {url}", url=provider.password_url) if provider.password_url else ""
     return provider.password_help + link + keep
 

@@ -1,17 +1,21 @@
 """Signing in to Google and Microsoft mail with OAuth: the authorization code flow with PKCE, then
 XOAUTH2 with an access token where other accounts use a password.
 
-The user registers their own OAuth app (a shared one would need Google's paid review for mail
-scopes) and gives its client id and secret. The provider sends the browser back to the web app's
-/app/oauth page, which hands the code to the daemon with the one-time `state` (core/oauth.py). The refresh token is
-the account's secret, encrypted like a password; access tokens are refreshed when they expire.
+Microsoft signs in with lo9i's own app (`OAuthProvider.built_in_client_id`), a public client: no secret, PKCE only,
+so the user types just their address. It sends the browser back only to this computer (a localhost redirect, whose
+port Microsoft ignores), so a web app open at another address signs in with it only from localhost. Anyone may give
+an app of their own instead (an organization that blocks apps it hasn't approved), with its secret if it has one;
+Google always takes the user's own (a shared one would need Google's paid review for mail scopes). The provider sends
+the browser back to the web app's /app/oauth page, which hands the code to the daemon with the one-time `state`
+(core/oauth.py). The refresh token is the account's secret, encrypted like a password, kept with the app it was
+issued to; access tokens are refreshed when they expire, with that app's secret when it has one.
 """
 
 import json
 import secrets
 import time
 from dataclasses import asdict, dataclass
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 import httpx
 
@@ -22,6 +26,8 @@ from assistant.core.oauth import challenge, expiry
 _TIMEOUT = 20
 # Refreshed this long before it expires, so a token never runs out mid-connection.
 _MARGIN_SECONDS = 120
+# Where a built-in app may send the browser back: this computer.
+_LOCAL_HOSTS = ("localhost", "127.0.0.1")
 
 
 @dataclass(frozen=True)
@@ -36,6 +42,9 @@ class OAuthProvider:
     imap_host: str
     # Extra parameters for the sign-in page (Google returns a refresh token only when asked).
     extra: tuple[tuple[str, str], ...] = ()
+    # lo9i's own app with the provider, signed in with when the user gives none of theirs: a public client (no
+    # secret), whose only redirects are on localhost. "" where there's none.
+    built_in_client_id: str = ""
 
 
 PROVIDERS = {
@@ -60,6 +69,7 @@ PROVIDERS = {
         587,
         "outlook.office365.com",
         (("prompt", "select_account"),),
+        built_in_client_id="efc568cc-f1c9-4e57-9229-aeed617aec8c",
     ),
 }
 
@@ -140,22 +150,39 @@ def _endpoint(url: str, personal: bool) -> str:
 def new_sign_in(
     provider: str, client_id: str, client_secret: str, redirect_uri: str, address: str, label: str, account_id: str
 ) -> SignIn:
-    """Raises EmailError for an unknown provider or missing values."""
-    provider_for(provider)
-    if not client_id.strip() or not redirect_uri.strip() or "@" not in address:
-        raise EmailError(said("Enter the email address and your OAuth app's client ID."))
+    """With the user's own app (`client_id`), else the provider's built-in one. Raises EmailError for an unknown
+    provider, missing values, or a built-in app asked to send the browser back somewhere other than this computer."""
+    found = provider_for(provider)
+    client_id = client_id.strip() or found.built_in_client_id
+    if "@" not in address or not redirect_uri.strip():
+        raise EmailError(said("Enter the email address."))
+    if not client_id:
+        raise EmailError(said("Enter your OAuth app's client ID."))
+    if client_id == found.built_in_client_id:
+        _check_local(found, redirect_uri)
+        # A public client: Microsoft refuses a secret from it.
+        client_secret = ""
     verifier = secrets.token_urlsafe(64)
     return SignIn(
-        provider,
-        client_id.strip(),
-        client_secret.strip(),
-        redirect_uri,
-        verifier,
-        address.strip(),
-        label,
-        account_id,
-        expiry(),
+        provider, client_id, client_secret.strip(), redirect_uri, verifier, address.strip(), label, account_id, expiry()
     )
+
+
+def local_redirect(redirect_uri: str) -> bool:
+    """Whether `redirect_uri` sends the browser back to this computer, the only place a built-in app may."""
+    parts = urlsplit(redirect_uri)
+    return parts.scheme == "http" and parts.hostname in _LOCAL_HOSTS
+
+
+def _check_local(provider: OAuthProvider, redirect_uri: str) -> None:
+    if not local_redirect(redirect_uri):
+        raise EmailError(
+            said(
+                "lo9i's {name} app can only send you back to lo9i on the computer it runs on. Open lo9i there "
+                "(http://localhost) for this step, or use your own {name} app.",
+                name=provider.name,
+            )
+        )
 
 
 async def exchange(sign_in: SignIn, code: str) -> Tokens:
@@ -183,6 +210,12 @@ async def refresh(tokens: Tokens) -> Tokens:
     # Microsoft sends a new refresh token each time; Google keeps the old one.
     tokens.refresh_token = answer.get("refresh_token") or tokens.refresh_token
     return _with_access(tokens, answer)
+
+
+def has_built_in(provider_id: str) -> bool:
+    """Whether lo9i has an app of its own for `provider_id` ("" for none), so the user needn't register one."""
+    provider = PROVIDERS.get(provider_id)
+    return provider is not None and bool(provider.built_in_client_id)
 
 
 def provider_for(provider_id: str) -> OAuthProvider:

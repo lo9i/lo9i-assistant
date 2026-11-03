@@ -3453,7 +3453,7 @@
     "/integrations/email/oauth/start": {
       "post": {
         "summary": "Start Email Sign In",
-        "description": "The provider's sign-in page; the browser comes back to `redirect_uri`. 400: unknown\nprovider or missing values. 404: unknown account.",
+        "description": "The provider's sign-in page; the browser comes back to `redirect_uri`. 400: unknown\nprovider, missing values, or lo9i's own app asked to send the browser back off this computer. 404: unknown\naccount.",
         "operationId": "start_email_sign_in_integrations_email_oauth_start_post",
         "requestBody": {
           "content": {
@@ -8657,6 +8657,11 @@
             },
             "type": "object",
             "title": "Translations"
+          },
+          "oauth_built_in": {
+            "type": "boolean",
+            "title": "Oauth Built In",
+            "default": false
           }
         },
         "type": "object",
@@ -8746,7 +8751,8 @@
           },
           "client_id": {
             "type": "string",
-            "title": "Client Id"
+            "title": "Client Id",
+            "default": ""
           },
           "client_secret": {
             "type": "string",
@@ -8780,7 +8786,6 @@
         "type": "object",
         "required": [
           "provider",
-          "client_id",
           "redirect_uri",
           "address"
         ],

@@ -122,8 +122,9 @@ class EmailMixin(ChannelsMixin):
         plugin: str = "",
     ) -> str:
         """The provider's sign-in page for a new account of `plugin`, or `account_id` signing in
-        again. The browser comes back to `redirect_uri` (the web app's /app/oauth), which calls
-        finish_sign_in. Raises EmailError."""
+        again. An empty `client_id` signs an account in again with the app it used, else with lo9i's own app
+        for the provider (oauth.py). The browser comes back to `redirect_uri` (the web app's /app/oauth), which
+        calls finish_sign_in. Raises EmailError."""
         await self._check_plugin(plugin)
         if account_id:
             await self._email(account_id)

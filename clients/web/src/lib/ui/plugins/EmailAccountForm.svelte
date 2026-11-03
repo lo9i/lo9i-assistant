@@ -7,7 +7,7 @@
   import { t, type Key } from "$lib/i18n.svelte";
   import { markdownLinkingOut } from "$lib/markdown";
   import { describe } from "$lib/notices";
-  import { redirectUri } from "$lib/oauth";
+  import { onThisComputer, redirectUri } from "$lib/oauth";
 
   const FIELDS: Array<{ key: Exclude<keyof EmailSettings, "port" | "imap_port" | "label">; label: Key; type?: string }> = [
     { key: "host", label: "email.smtpHost" },
@@ -30,12 +30,12 @@
   const { client } = useDaemon();
   const loaded = resource((c) => c.email.providers(), []);
   const providers = $derived((loaded.data ?? []).filter((p) => p.plugin === plugin));
-  let choice = $state("");
+  let picked = $state("");
   // A plugin with one provider starts on it; an account that signed in with OAuth on its provider, to sign in again.
-  $effect(() => {
+  const choice = $derived.by(() => {
+    if (picked) return picked;
     const signedIn = account?.auth === "oauth" ? providers.find((p) => p.oauth === account.oauth_provider) : undefined;
-    const only = providers.length === 1 ? providers[0] : undefined;
-    if (!choice && (signedIn ?? only)) choice = (signedIn ?? only)!.id;
+    return (signedIn ?? (providers.length === 1 ? providers[0] : undefined))?.id ?? "";
   });
   const provider = $derived<EmailProvider | undefined>(providers.find((p) => p.id === choice));
   // A custom provider has no servers: they're entered here.
@@ -57,12 +57,19 @@
   });
   let message = $state("");
   let saving = $state(false);
-  // Signing in (OAuth): the user's own OAuth app. The secret is typed here and goes to the daemon.
+  // Signing in (OAuth): lo9i's own app where it has one (Microsoft), else the user's own OAuth app, which they can
+  // pick instead (`ownApp`). The secret is typed here and goes to the daemon.
   let clientId = $state("");
   let clientSecret = $state("");
+  let ownApp = $state(false);
+  const builtIn = $derived(!!provider?.oauth_built_in && !ownApp);
   const providerName = $derived(provider?.oauth === "microsoft" ? "Microsoft" : "Google");
   // Signing an existing account in again reuses the app it signed in with.
   const again = $derived(account?.auth === "oauth" && account.oauth_provider === provider?.oauth);
+  // lo9i's app sends the browser back only to this computer; an account signing in again may use its own app, which
+  // the daemon checks.
+  const offComputer = $derived(builtIn && !again && !onThisComputer());
+  const canSignIn = $derived(address.includes("@") && !offComputer && (builtIn || again || !!clientId.trim()));
 
   /** A provider's user name and sender are the address; a custom one takes the servers entered. */
   function settings(): EmailSettings {
@@ -77,7 +84,8 @@
     if (!provider) return;
     saving = true;
     try {
-      const body = { provider: provider.oauth, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri() };
+      const app = builtIn ? { client_id: "", client_secret: "" } : { client_id: clientId, client_secret: clientSecret };
+      const body = { provider: provider.oauth, ...app, redirect_uri: redirectUri() };
       const url = await client.email.startSignIn({ ...body, address, label, account_id: account?.id ?? "", plugin });
       window.open(url, "_blank", "noopener");
       message = t("email.finishSignIn", { provider: providerName });
@@ -123,7 +131,7 @@
 <div class="fields">
   {#if providers.length > 1}
     <Field label={t("email.howToConnect")}>
-      <select class="input" bind:value={choice}>
+      <select class="input" value={choice} onchange={(e) => (picked = e.currentTarget.value)}>
         <option value="" disabled>{t("email.chooseHow")}</option>
         {#each providers as p (p.id)}
           <option value={p.id}>{p.name}</option>
@@ -131,7 +139,9 @@
       </select>
     </Field>
   {/if}
-  {#if provider?.password_help}
+  {#if provider?.oauth_built_in}
+    <p class="text-label">{t("email.builtInHint", { provider: providerName })}</p>
+  {:else if provider?.password_help}
     <div class="prose text-label help">{@html markdownLinkingOut(provider.password_help)}</div>
   {/if}
   {#if provider?.password_url}
@@ -141,11 +151,20 @@
     <form class="fields" onsubmit={signIn}>
       {@render named()}
       {@render addressed()}
-      <OAuthAppFields bind:clientId bind:clientSecret keep={again} />
-      {@render buttons(
-        saving ? t("email.opening") : t("email.signInWith", { provider: providerName }),
-        saving || !address.includes("@") || (!clientId.trim() && !again),
-      )}
+      {#if !builtIn}
+        <!-- With lo9i's own app there, the plugin's help is how to register one's own instead. -->
+        {#if provider.oauth_built_in && provider.password_help}
+          <div class="prose text-label help">{@html markdownLinkingOut(provider.password_help)}</div>
+        {/if}
+        <OAuthAppFields bind:clientId bind:clientSecret keep={again} secretOptional={provider.oauth_built_in} />
+      {/if}
+      {#if offComputer}<p class="error-text">{t("email.notOnThisComputer", { provider: providerName })}</p>{/if}
+      {@render buttons(saving ? t("email.opening") : t("email.signInWith", { provider: providerName }), saving || !canSignIn)}
+      {#if provider.oauth_built_in}
+        <button class="btn btn--ghost btn--sm own-app" type="button" onclick={() => (ownApp = !ownApp)}
+          >{ownApp ? t("email.builtInApp", { provider: providerName }) : t("email.ownApp", { provider: providerName })}</button
+        >
+      {/if}
     </form>
   {:else if provider?.supported}
     <form class="fields" onsubmit={save}>
@@ -187,6 +206,9 @@
   }
   p {
     margin: 0;
+  }
+  .own-app {
+    align-self: flex-start;
   }
   /* A provider's steps: a numbered list, a link where each is done. */
   .help :global(ol) {

@@ -31,6 +31,15 @@ async def test_providers_are_the_presets_of_the_email_plugins_that_are_on(servic
     assert (gmail.id, gmail.name, gmail.plugin, gmail.imap_host) == ("gmail", "Gmail", "gmail", "imap.gmail.com")
 
 
+async def test_a_microsoft_preset_signs_in_with_lo9is_own_app_however_old_its_install(service):
+    # Saved by a version from before lo9i had its own Microsoft app: nothing says so in the record.
+    outlook = {**_GMAIL, "id": "microsoft", "oauth": "microsoft", "plugin": "microsoft"}
+    await servers.save(service.store, McpServer("microsoft", email_providers=[outlook]))
+    await _plugin(service)
+    shown = {p.id: p.oauth_built_in for p in await service.email_providers()}
+    assert shown == {"microsoft": True, "gmail": False}
+
+
 async def test_an_account_belongs_to_its_plugin_and_needs_it_installed(service, smtp):
     with pytest.raises(EmailError, match="gmail isn't an email plugin"):
         await _add(service, "me@gmail.com", "gmail")

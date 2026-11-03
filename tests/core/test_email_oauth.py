@@ -20,7 +20,7 @@ def provider(monkeypatch) -> dict:
     """The provider's token endpoint: what it was asked, and whether it refuses."""
     seen: dict = {"requests": [], "refuse": False, "n": 0}
 
-    async def token_request(provider_id, client_id, client_secret, data):
+    async def token_request(provider_id, client_id, client_secret, data, personal=False):
         seen["requests"].append({"provider": provider_id, "client_id": client_id, "secret": client_secret, **data})
         if seen["refuse"]:
             raise EmailError("Google refused the sign-in: invalid_grant")
@@ -189,3 +189,68 @@ async def test_the_token_request_sends_the_app_and_reads_the_providers_refusal(m
     assert str(seen[0].url) == oauth.PROVIDERS["microsoft"].token_url
     with pytest.raises(EmailError, match="Token has been revoked"):
         await oauth.refresh(oauth.Tokens("google", "c", "s", "gone"))
+
+
+_BUILT_IN = oauth.PROVIDERS["microsoft"].built_in_client_id
+_LOCAL = "http://localhost:8765/app/oauth"
+
+
+def _token_endpoint(monkeypatch, seen: list) -> None:
+    """Microsoft's token endpoint, recording each request."""
+    import httpx
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"access_token": "a", "refresh_token": "r2", "expires_in": 60})
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(oauth.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(answer), **kw))
+
+
+async def test_microsoft_signs_in_with_lo9is_public_app_sending_no_secret(monkeypatch):
+    seen: list = []
+    _token_endpoint(monkeypatch, seen)
+    # A secret typed without a client ID of one's own isn't sent: Microsoft refuses one from a public client.
+    sign_in = oauth.new_sign_in("microsoft", "", "stray", _LOCAL, "me@hotmail.com", "", "")
+    query = parse_qs(urlparse(oauth.authorization_url(sign_in, "s1")).query)
+    assert query["client_id"] == [_BUILT_IN] and query["code_challenge_method"] == ["S256"]
+    tokens = await oauth.exchange(sign_in, "code-1")
+    form = parse_qs(seen[0].content.decode())
+    assert form["client_id"] == [_BUILT_IN] and "client_secret" not in form and form["code_verifier"]
+    assert str(seen[0].url).startswith("https://login.microsoftonline.com/consumers/")
+    assert (tokens.client_id, tokens.client_secret, tokens.refresh_token) == (_BUILT_IN, "", "r2")
+    await oauth.refresh(tokens)
+    assert "client_secret" not in parse_qs(seen[1].content.decode())
+
+
+async def test_an_account_signed_in_with_its_own_app_refreshes_with_that_apps_secret(monkeypatch):
+    seen: list = []
+    _token_endpoint(monkeypatch, seen)
+    saved = oauth.Tokens("microsoft", "own-app", "own-secret", "r1", personal=True).to_secret()
+    refreshed = await oauth.refresh(oauth.Tokens.from_secret(saved))
+    form = parse_qs(seen[0].content.decode())
+    assert form["client_id"] == ["own-app"] and form["client_secret"] == ["own-secret"]
+    assert str(seen[0].url).startswith("https://login.microsoftonline.com/consumers/")
+    assert (refreshed.client_id, refreshed.client_secret, refreshed.refresh_token) == ("own-app", "own-secret", "r2")
+
+
+def test_lo9is_app_sends_the_browser_back_only_to_this_computer():
+    for redirect in (_LOCAL, "http://127.0.0.1:8765/app/oauth"):
+        assert oauth.new_sign_in("microsoft", "", "", redirect, "me@outlook.com", "", "").client_id == _BUILT_IN
+    with pytest.raises(EmailError, match="on the computer it runs on"):
+        oauth.new_sign_in("microsoft", "", "", REDIRECT, "me@outlook.com", "", "")
+    # One's own app goes wherever it was registered to, with its secret.
+    own = oauth.new_sign_in("microsoft", "own-app", "own-secret", REDIRECT, "me@contoso.com", "", "")
+    assert (own.client_id, own.client_secret) == ("own-app", "own-secret")
+    # Google has no app of lo9i's.
+    with pytest.raises(EmailError, match="client ID"):
+        oauth.new_sign_in("google", "", "", _LOCAL, "me@gmail.com", "", "")
+
+
+async def test_signing_in_again_keeps_the_app_the_account_signed_in_with(service, provider, servers):
+    first = await service.start_email_sign_in("microsoft", "own-app", "own-secret", REDIRECT, "me@hotmail.com")
+    account = await _finish(service, parse_qs(urlparse(first).query)["state"][0], "code-1")
+    again = await service.start_email_sign_in("microsoft", "", "", REDIRECT, "me@hotmail.com", account_id=account.id)
+    assert parse_qs(urlparse(again).query)["client_id"] == ["own-app"]
+    await _finish(service, parse_qs(urlparse(again).query)["state"][0], "code-2")
+    assert provider["requests"][-1]["secret"] == "own-secret"

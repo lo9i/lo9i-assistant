@@ -266,8 +266,9 @@ class EmailAccountName(BaseModel):
 class EmailSignIn(BaseModel):
     # google or microsoft.
     provider: str
-    # The user's OAuth app; the secret is typed in the dialog and stays in the daemon.
-    client_id: str
+    # The user's own OAuth app; the secret is typed in the dialog and stays in the daemon. Empty: the app an account
+    # signing in again used, else lo9i's own for the provider (Microsoft), which takes only a localhost redirect.
+    client_id: str = ""
     client_secret: str = ""
     # Where the provider sends the browser back: the web app's /app/oauth page.
     redirect_uri: str
@@ -1584,7 +1585,8 @@ def _add_email_routes(app: FastAPI, service: AssistantService) -> None:
     @app.post("/integrations/email/oauth/start")
     async def start_email_sign_in(body: EmailSignIn) -> SignInPage:
         """The provider's sign-in page; the browser comes back to `redirect_uri`. 400: unknown
-        provider or missing values. 404: unknown account."""
+        provider, missing values, or lo9i's own app asked to send the browser back off this computer. 404: unknown
+        account."""
         page = await _email(
             service.start_email_sign_in(
                 body.provider,

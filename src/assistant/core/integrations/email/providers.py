@@ -36,6 +36,9 @@ class EmailProvider:
     custom: bool = False
     # Its name and help in the apps' other languages, by language (`translations:` in its plugin's server.yaml).
     translations: dict[str, dict[str, str]] = field(default_factory=dict)
+    # Signs in with lo9i's own app unless the user gives theirs (oauth.py's built_in_client_id), so the apps ask
+    # only for the address, the user's own app being an option. Set as it's shown (plugins.py), not as installed.
+    oauth_built_in: bool = False
 
 
 def in_language(provider: EmailProvider, language: str) -> EmailProvider:

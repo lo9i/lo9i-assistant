@@ -696,6 +696,9 @@ async def test_an_email_providers_help_is_shown_in_the_language_its_server_yaml_
     await service.install_from_repository(URL, [], [ServerValues("microsoft")])
     [outlook] = await service.email_providers()
     assert (outlook.name, outlook.password_help) == ("Outlook", "1. Register an app.")
+    assert (outlook.plugin, outlook.custom, outlook.oauth_built_in) == ("microsoft", False, True)
+    [parsed] = providers.parse([{"id": "x", "name": "X", "host": "h", "imap_host": "i"}], "mail", {})
+    assert (parsed.plugin, parsed.custom, parsed.oauth_built_in) == ("mail", False, False)
     spanish = providers.in_language(outlook, "es")
     assert (spanish.name, spanish.password_help) == ("Outlook", "1. Registra una app.")
     assert providers.in_language(outlook, "fr") == outlook

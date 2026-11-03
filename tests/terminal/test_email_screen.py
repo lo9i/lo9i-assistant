@@ -4,6 +4,7 @@
 from textual.widgets import Button, Input, Markdown, Select
 
 from assistant.core.agent import FoundServer
+from assistant_terminal.sign_in_text import REDIRECT
 from assistant_terminal.tui.screens import EmailScreen, PluginsScreen
 from assistant_terminal.tui.screens.email import _alert_options
 from tests.terminal.conftest import wait_for
@@ -59,7 +60,22 @@ async def test_a_plugin_lists_only_its_own_accounts(app, client):
         assert not other.query_one("#email-account").display
 
 
-async def test_microsoft_signs_in_with_the_users_oauth_app(app, client, monkeypatch):
+async def test_microsoft_signs_in_with_lo9is_app_from_the_address_alone(app, client, monkeypatch):
+    monkeypatch.setattr("assistant_terminal.tui.screens.email.webbrowser.open", lambda url: False)
+    async with app.run_test(size=(110, 50)) as pilot:
+        screen = await _open(pilot, app, client, "microsoft")
+        help_text = screen.query_one("#email-help", Markdown)
+        await wait_for(
+            pilot, lambda: "sign in with Microsoft" in help_text.source and "own Microsoft app" in help_text.source
+        )
+        assert screen.query_one("#email-client-id", Input).placeholder == "Your own app's client ID (optional)"
+        screen.query_one("#email-address", Input).value = "me@hotmail.com"
+        screen.query_one("#connect", Button).press()
+        await wait_for(pilot, lambda: screen.query_one("#finish").display)
+        assert client.email.sign_in[:5] == ("microsoft", "", "", REDIRECT, "me@hotmail.com")
+
+
+async def test_microsoft_signs_in_with_the_users_own_app_when_given(app, client, monkeypatch):
     opened: list[str] = []
     monkeypatch.setattr("assistant_terminal.tui.screens.email.webbrowser.open", lambda url: opened.append(url) or False)
     async with app.run_test(size=(110, 50)) as pilot:

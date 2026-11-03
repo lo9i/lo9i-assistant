@@ -335,8 +335,9 @@ _PROVIDERS = [
         "smtp.office365.com",
         587,
         "outlook.office365.com",
-        "Microsoft needs an app registration.",
+        "Sign in with your Microsoft account.",
         oauth="microsoft",
+        oauth_built_in=True,
         plugin="microsoft",
     ),
     EmailProvider("custom", "Other server", "", 587, "", "Use an app password.", plugin="custom-email", custom=True),
@@ -387,8 +388,9 @@ class FakeEmail:
     async def start_sign_in(
         self, provider, client_id, client_secret, redirect_uri, address, label="", account_id="", plugin=""
     ):
-        if not client_id and not account_id:
-            raise EmailError("Enter the email address and your OAuth app's client ID.")
+        # Microsoft signs in with lo9i's own app when no app of the user's is given.
+        if not client_id and not account_id and provider != "microsoft":
+            raise EmailError("Enter your OAuth app's client ID.")
         self.sign_in = (provider, client_id, client_secret, redirect_uri, address, label, account_id, plugin)
         return f"https://login.example.com/authorize?state=s1&redirect_uri={redirect_uri}"
 
