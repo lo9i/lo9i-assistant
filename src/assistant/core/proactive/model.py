@@ -82,6 +82,9 @@ class OpenLoop(BaseModel):
     reminded_at: str = ""
     # What it's known by: a loop is added once per key, so one closed or dismissed doesn't come back.
     key: str
+    # The plugin whose list for the day it came from (core/mcp/today.py), which closes it once the list no longer has
+    # it (the bill was paid); "" for one from anywhere else.
+    plugin: str = ""
 
 
 class LoopDraft(BaseModel):
@@ -123,15 +126,20 @@ class Suggestion(BaseModel):
     text: str = Field(description="The suggestion in one or two short lines, in the user's language.")
 
 
-class BriefingDraft(BaseModel):
-    """What the briefing model writes."""
+class MailPick(BaseModel):
+    account: str = Field(description="Its account, as given in brackets.")
+    uid: int = Field(description="Its uid, as given in brackets.")
+    line: str = Field(description="Who wrote and what about, in a few words in the user's language.")
+    asks: bool = Field(description="Whether it asks the user something or waits for their answer.")
 
-    text: str = Field(
-        description="The briefing as a short chat message in the user's language, or empty when there's nothing "
-        "worth telling."
-    )
-    reminders: list[LoopDraft] = Field(
-        default=[], description="What needs doing that was found in the plugins and isn't an open loop yet."
+
+class MailDraft(BaseModel):
+    """What the briefing's one model call answers: which unread mail matters."""
+
+    important: list[MailPick] = Field(
+        default=[],
+        description="At most five messages from people worth the user's attention today, the most important first; "
+        "none from newsletters, notifications, receipts or ads. Usually few or none.",
     )
 
 

@@ -38,6 +38,14 @@ def _calendar(created: list[str]) -> MCPServer:
         """Today's events."""
         return "Standup at 09:00"
 
+    @server.tool(annotations=ToolAnnotations(read_only_hint=True))
+    def today(day: str, language: str) -> dict:
+        """The day, for lo9i."""
+        return {
+            "heading": "Calendar",
+            "items": [{"title": "Standup", "date": day, "time": "09:00", "kind": "calendar"}],
+        }
+
     @server.tool()
     def create_event(title: str) -> str:
         """Add an event."""
@@ -72,6 +80,8 @@ async def service(script, digests, summaries, titles, formats, created, monkeypa
 
 
 async def _install_calendar(service: AssistantService, **fields: Any) -> None:
+    """It lists its day for lo9i (core/mcp/today.py), which `_only`'s sections don't use: they ask for the model."""
+    fields.setdefault("today_tool", "today")
     await servers.save(service.store, McpServer(name="calendar", command="calendar-mcp", **fields))
     await service.mcp.reload()
     for _ in range(100):
@@ -84,7 +94,8 @@ async def _install_calendar(service: AssistantService, **fields: Any) -> None:
 async def _only(service: AssistantService, *titles: str) -> None:
     """Home with these sections, each reading the calendar, built once."""
     sections = [
-        HomeSection(id=t.lower(), title=t, prompt=f"{t}: today's events.", plugins=["calendar"]) for t in titles
+        HomeSection(id=t.lower(), title=t, prompt=f"{t}: today's events.", plugins=["calendar"], use_model=True)
+        for t in titles
     ]
     await service.save_home_sections("owner", sections)
     await service.home_refresh.wait("owner")
@@ -245,8 +256,10 @@ async def test_saving_builds_new_and_changed_sections_and_forgets_removed_ones(s
     await _install_calendar(service)
     await _only(service, "Agenda", "Work")
     assert len(formats.requests) == 2
-    agenda = HomeSection(id="agenda", title="My day", prompt="Agenda: today's events.", plugins=["calendar"])
-    trips = HomeSection(title="Trips", prompt="Flights this month.", plugins=["calendar"])
+    agenda = HomeSection(
+        id="agenda", title="My day", prompt="Agenda: today's events.", plugins=["calendar"], use_model=True
+    )
+    trips = HomeSection(title="Trips", prompt="Flights this month.", plugins=["calendar"], use_model=True)
     await service.save_home_sections("owner", [agenda, trips])
     await service.home_refresh.wait("owner")
     assert len(formats.requests) == 3 and "Section: Trips\n" in formats.requests[-1][-1].text
@@ -334,3 +347,27 @@ def test_a_refresh_from_before_midnight_isnt_current_after_it(monkeypatch):
     assert within(before_midnight, before_midnight + timedelta(minutes=4), FRESH_MINUTES)
     assert not within(before_midnight, before_midnight + timedelta(minutes=6), FRESH_MINUTES)
     assert not within(None, before_midnight, FRESH_MINUTES)
+
+
+async def test_a_section_of_a_plugin_that_lists_its_day_shows_that_list_without_the_model(service, script, formats):
+    await _install_calendar(service)
+    assert "mcp__calendar__today" not in _bound_names(service.mcp.read_only_definitions())
+    section = HomeSection(id="agenda", title="Agenda", prompt="Today's events.", plugins=["calendar"])
+    await service.save_home_sections("owner", [section])
+    await service.home_refresh.wait("owner")
+    assert script.requests == [] and formats.requests == []
+    result = (await service.home("owner")).cards[0].result
+    assert result is not None and result.status == "ok"
+    assert [(i.title, i.time) for i in result.items] == [("Standup", "09:00")]
+
+
+async def test_the_model_builds_it_from_its_instructions_when_the_user_asks(service, script, formats):
+    await _install_calendar(service)
+    script.call(LIST).reply("Standup, today 09:00.")
+    formats.answers.append(SectionContent(items=[HomeItem(title="Standup by the model")]))
+    section = HomeSection(id="agenda", title="Agenda", prompt="Today's events.", plugins=["calendar"], use_model=True)
+    await service.save_home_sections("owner", [section])
+    await service.home_refresh.wait("owner")
+    assert _bound_names(script.bound[0]) == {LIST}
+    result = (await service.home("owner")).cards[0].result
+    assert result is not None and [i.title for i in result.items] == ["Standup by the model"]

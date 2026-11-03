@@ -43,6 +43,8 @@
   const home = resource((c) => c.home.get(), ["home"]);
   const servers = resource((c) => c.mcp.servers(), ["mcp"]);
   const plugins = $derived((servers.data ?? []).filter((s) => s.transport !== "none").map((s) => s.name));
+  // Those that list their day for lo9i, whose section shows that list without the model.
+  const listing = $derived((servers.data ?? []).filter((s) => s.lists_today).map((s) => s.name));
   const sections = $derived(home.data?.cards.map((c) => c.section) ?? []);
   const refreshing = $derived(home.data?.refreshing ?? false);
   // Moving, removing and saving a section build on the list last asked for, so quick clicks add up.
@@ -297,6 +299,7 @@
   <SectionEditor
     section={editing}
     {plugins}
+    {listing}
     error={editError}
     onsave={saveEdited}
     onclose={() => (editing = undefined)}

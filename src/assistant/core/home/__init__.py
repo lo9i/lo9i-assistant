@@ -6,4 +6,6 @@ items with their date and time (model.py). The last result of each section is ke
 so Home shows it at once; a refresh runs in the background and each section's result is saved as it's ready
 (refresh.py). A section whose plugins aren't there, or whose building fails, says so without stopping the others.
 A few built-in sections are built by code instead, from what the daemon already knows, without the model (coded.py).
+A section of one plugin that lists its day (core/mcp/today.py) shows that list as the plugin gives it, without the
+model too, unless the user asks for the model (`HomeSection.use_model`).
 """

@@ -1,5 +1,5 @@
-"""What the briefing and the reviews read besides their sources: the habits the reviews saved, the language to write
-in, and the kinds of suggestion the user muted.
+"""What the briefing and the reviews read besides the plugins' lists and mail: the habits the reviews saved, the
+language to write in, and the kinds of suggestion the user muted.
 
 Habits are saved facts (core/memory/facts.py) starting with HABIT, as the About you answers are profile items starting
 with their label: they're memory like any fact (search_memory finds them, the system prompt lists the recent ones,

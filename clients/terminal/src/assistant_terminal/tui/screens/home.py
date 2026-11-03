@@ -22,10 +22,10 @@ from assistant_terminal.home_text import describe, updated
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
-from assistant_terminal.tui.screens.home_section import HomeSectionScreen
+from assistant_terminal.tui.screens.home_section import HomePlugins, HomeSectionScreen
 
-# The plugins with tools, which a section may read.
-type Plugins = Callable[[], Awaitable[list[str]]]
+# The plugins a section may read.
+type Plugins = Callable[[], Awaitable[HomePlugins]]
 
 _EMPTY = translatable("No sections. Add one, or reset to the built-in ones.")
 

@@ -1,17 +1,16 @@
 """Gathering with the worker model and tools that only read: a small graph like a subagent's (core/subagent.py) calls
-the tools it's offered for at most MAX_STEPS model calls, then answers with what it found. Home's sections
-(core/home/builder.py) and the briefing and reviews (core/proactive/) gather this way, each with its own instructions.
+the tools it's offered for at most MAX_STEPS model calls, then answers with what it found, for a Home section
+(core/home/builder.py) built by the model. A plugin's list for the day (core/mcp/today.py) needs none of this.
 
 Only the tools offered run, so gathering never changes anything and never waits for an approval: plugins' read-only
-tools, looked up live (core/graph.py::mcp_calls), and the assistant's own tools it's built with (reading mail). A
-call refused as too large is made again with the tool results left out (core/conversation/oversized.py)."""
+tools, looked up live (core/graph.py::mcp_calls). A call refused as too large is made again with the tool results
+left out (core/conversation/oversized.py)."""
 
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
-from langchain_core.tools import BaseTool
 from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
@@ -36,7 +35,7 @@ _AGENT, _TOOLS = "gather", "gather_tools"
 
 class _GatherState(MessagesState):
     system: str
-    # The tools offered: plugins' read-only ones and the assistant's own it was built with.
+    # The tools offered: plugins' read-only ones.
     tools: list[dict[str, Any]]
     steps: int
     # Before which tool results are sent as stubs: the end, once a call was refused as too large.
@@ -57,14 +56,11 @@ class Gatherer:
         return _answer(state["messages"])
 
 
-def build_gatherer(
-    storage: Storage, choice: ModelChoice, mcp: McpTools, meter: TokenMeter, own: Sequence[BaseTool] = ()
-) -> Gatherer:
-    """`own`: the assistant's tools it may run when they're offered, which get the Store and the run's context."""
+def build_gatherer(storage: Storage, choice: ModelChoice, mcp: McpTools, meter: TokenMeter) -> Gatherer:
     llm = metered(build_llm(choice, choice.worker_model), meter)
     builder = StateGraph(_GatherState, context_schema=Context)
     builder.add_node(_AGENT, _agent_node(llm))
-    builder.add_node(_TOOLS, ToolNode(list(own), awrap_tool_call=_limited(_offered(mcp_calls(mcp)))))
+    builder.add_node(_TOOLS, ToolNode([], awrap_tool_call=_limited(_offered(mcp_calls(mcp)))))
     builder.add_edge(START, _AGENT)
     builder.add_conditional_edges(_AGENT, _until_limit(each_tool_call(_TOOLS)), [_TOOLS, END])
     builder.add_edge(_TOOLS, _AGENT)

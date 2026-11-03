@@ -31,7 +31,7 @@ from assistant.core.handed_folder import trash
 from assistant.core.home.model import SectionContent
 from assistant.core.llm import windows
 from assistant.core.memory.embedder import EmbeddingError
-from assistant.core.proactive.model import BriefingDraft, ReviewDraft
+from assistant.core.proactive.model import MailDraft, ReviewDraft
 
 
 @pytest.fixture(autouse=True)
@@ -224,7 +224,7 @@ def script(monkeypatch: pytest.MonkeyPatch) -> Script:
     # So does gathering for Home's sections; their format step finds nothing unless a test uses `formats`.
     monkeypatch.setattr(gathering_module, "build_llm", lambda choice, model: script.model())
     monkeypatch.setattr(home_builder_module, "build_structured", lambda choice, model, schema, meter=None: Formats())
-    # The briefing's and the reviews' writers write nothing unless a test uses `drafts`.
+    # The briefing's mail picks and the reviews' writer answer nothing unless a test uses `drafts`.
     monkeypatch.setattr(
         proactive_writing_module, "build_structured", lambda choice, model, schema, meter=None: Drafts(schema)
     )
@@ -262,8 +262,8 @@ def formats(monkeypatch: pytest.MonkeyPatch, script: Script) -> Formats:
 
 
 class Drafts:
-    """The briefing's or the reviews' writer (core/proactive/writing.py): the queued answers in order (an exception is
-    raised), then an empty one of its schema. Records each request."""
+    """The briefing's mail picks or the reviews' writer (core/proactive/writing.py): the queued answers in order (an
+    exception is raised), then an empty one of its schema. Records each request."""
 
     def __init__(self, schema: Any = None) -> None:
         self.schema = schema
@@ -278,14 +278,14 @@ class Drafts:
         return answer
 
     def _empty(self) -> Any:
-        return BriefingDraft(text="") if self.schema is BriefingDraft else ReviewDraft(summary="")
+        return MailDraft() if self.schema is MailDraft else ReviewDraft(summary="")
 
 
 class ProactiveDrafts:
-    """The briefing's writer and the reviews', each a Drafts."""
+    """The briefing's mail picks and the reviews' writer, each a Drafts."""
 
     def __init__(self) -> None:
-        self.briefing = Drafts(BriefingDraft)
+        self.mail = Drafts(MailDraft)
         self.review = Drafts(ReviewDraft)
 
 
@@ -295,7 +295,7 @@ def drafts(monkeypatch: pytest.MonkeyPatch, script: Script) -> ProactiveDrafts:
     monkeypatch.setattr(
         proactive_writing_module,
         "build_structured",
-        lambda choice, model, schema, meter=None: drafts.briefing if schema is BriefingDraft else drafts.review,
+        lambda choice, model, schema, meter=None: drafts.mail if schema is MailDraft else drafts.review,
     )
     return drafts
 

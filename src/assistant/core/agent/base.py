@@ -28,6 +28,7 @@ from assistant.core.llm.windows import ContextWindows
 from assistant.core.mcp.checks import PluginChecks
 from assistant.core.mcp.hub import McpHub
 from assistant.core.mcp.pages import McpPages
+from assistant.core.mcp.today import TodayLists
 from assistant.core.memory.indexer import MemoryIndexer
 from assistant.core.memory.recall import MemoryRecall
 from assistant.core.oauth import SignIns
@@ -101,6 +102,8 @@ class ServiceBase:
     background_subagents: BackgroundSubagents
     # Picks where a message goes (core/conversation/dispatch.py) outside the graph; rebuilt with it.
     _classify: Classifier
+    # The plugins' lists for the day (core/mcp/today.py): Home, the briefing and the nightly review read them.
+    today_lists: TodayLists
     # Builds Home's sections in the background (core/home/), with the builder of the model in use. Requests start
     # its refreshes; the daemon doesn't run it as a task.
     home_refresh: HomeRefresh

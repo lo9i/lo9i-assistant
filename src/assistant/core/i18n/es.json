@@ -545,5 +545,15 @@
   "Reminder": "Recordatorio",
   "Reminder: {text}": "Recordatorio: {text}",
   " (due {day})": " (vence el {day})",
-  "No open loop {loop_id}.": "No hay ningún pendiente {loop_id}."
+  "No open loop {loop_id}.": "No hay ningún pendiente {loop_id}.",
+  "Mail": "Correo",
+  "Open loops": "Pendientes",
+  "Suggestions": "Sugerencias",
+  "Last week": "La semana pasada",
+  "Couldn't read": "No se pudo leer",
+  "{plugin} couldn't list its day: {error}": "{plugin} no pudo listar su día: {error}",
+  "{plugin} listed its day in a form lo9i can't read: {error}": "{plugin} listó su día de una forma que lo9i no puede leer: {error}",
+  "{plugin} doesn't list its day, or is off.": "{plugin} no lista su día, o está apagado.",
+  "its today section must name a tool": "su sección today debe nombrar una herramienta",
+  "its today list is a tool, which needs an MCP server (command or url)": "su lista del día es una herramienta, que necesita un servidor MCP (command o url)"
 }

@@ -130,7 +130,7 @@ class ModelMixin(ServiceBase):
         self._subagents = build_subagents(self._storage, model, self._plugin_tools)
         self._classify = build_classifier(model, self._storage.usage)
         self._home_builder = build_section_builder(self._storage, model, self._plugin_tools)
-        self._proactive_models = build_proactive_models(self._storage, model, self._plugin_tools)
+        self._proactive_models = build_proactive_models(self._storage, model)
 
 
 async def usable_choice(store: BaseStore, secrets: SecretBox) -> ModelChoice:

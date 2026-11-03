@@ -896,3 +896,15 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
 .briefing-row Label {
     padding: 1 0 0 1;
 }
+
+/* A section of one plugin that lists its day: whether the model builds it instead. */
+#home-section-model {
+    height: auto;
+}
+#home-section-model Label {
+    padding: 1 0 0 1;
+}
+#home-section-model-note {
+    height: auto;
+    color: $text-muted;
+}

@@ -635,7 +635,10 @@
       "one": "{count} column",
       "other": "{count} columns"
     },
-    "widthHint": "On a narrower screen it takes as many as there are. Dragging the card's right edge sets it too."
+    "widthHint": "On a narrower screen it takes as many as there are. Dragging the card's right edge sets it too.",
+    "useModel": "Use the model",
+    "useModelOff": "Off: it shows {plugin}'s own list for the day, with no model call; the text above isn't used.",
+    "useModelOn": "On: the model builds it from the text above, which costs a model call each time it's built."
   },
   "homePage": {
     "add": "Add section",

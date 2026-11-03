@@ -18,13 +18,14 @@ from assistant.core import i18n
 from assistant.core.bus import EventBus
 from assistant.core.home import results, sections
 from assistant.core.home.builder import SectionBuilder
-from assistant.core.home.clock import within
+from assistant.core.home.clock import day_of, within
 from assistant.core.home.coded import CodedSection
-from assistant.core.home.model import HomeCard, HomePage, HomeSection, SectionResult
+from assistant.core.home.model import HomeCard, HomeItem, HomePage, HomeSection, SectionResult
 from assistant.core.i18n import message, said
 from assistant.core.mcp import servers
 from assistant.core.mcp.sanitize import tool_name
 from assistant.core.mcp.servers import McpServer
+from assistant.core.mcp.today import TodayListError, TodayLists
 
 logger = logging.getLogger(__name__)
 
@@ -47,14 +48,17 @@ class HomeRefresh:
         builder: Callable[[], SectionBuilder],
         tools: ReadOnlyTools,
         coded: Mapping[str, CodedSection],
+        lists: TodayLists,
     ) -> None:
         """`builder` gives the section builder of the model in use, which changes when the user picks another.
-        `coded`: the sections built by code, by id (coded.py)."""
+        `coded`: the sections built by code, by id (coded.py). `lists`: the plugins' lists for the day, which a
+        section of one plugin that has one shows without the model (core/mcp/today.py)."""
         self._store = store
         self._bus = bus
         self._builder = builder
         self._tools = tools
         self._coded = coded
+        self._lists = lists
         # The refresh running for each user.
         self._running: dict[str, asyncio.Task] = {}
 
@@ -109,6 +113,8 @@ class HomeRefresh:
         tools = _tools_of(section, self._tools.read_only_definitions())
         if (coded := self._coded.get(section.id)) is not None:
             result = await self._built_by_code(user_id, section, coded, now)
+        elif (listing := _listing(section, installed)) is not None:
+            result = await self._listed(user_id, section, listing, now)
         elif not tools:
             result = _unavailable(section, installed, now)
         else:
@@ -136,6 +142,27 @@ class HomeRefresh:
             page=page,
             at=now.isoformat(),
         )
+
+    async def _listed(self, user_id: str, section: HomeSection, server: McpServer, now: datetime) -> SectionResult:
+        """The plugin's list for the day, as it gives it: no model reads it."""
+        page = _page(section, [server])
+        try:
+            listed = await self._lists.of(server.name, day_of(now).isoformat(), await self._language())
+        except TodayListError as e:
+            logger.info("Couldn't build the Home section %s: %s", section.title, e)
+            return await self._failed(user_id, section, message(e), now, page)
+        return SectionResult(
+            section_id=section.id,
+            title=section.title,
+            status="ok",
+            items=[HomeItem.model_validate(i.model_dump(include=set(HomeItem.model_fields))) for i in listed.items],
+            note=listed.note,
+            page=page,
+            at=now.isoformat(),
+        )
+
+    async def _language(self) -> str:
+        return (await i18n.chosen(self._store)).language
 
     async def _built_by_code(
         self, user_id: str, section: HomeSection, coded: CodedSection, now: datetime
@@ -170,6 +197,14 @@ class HomeRefresh:
             page=page,
             at=now.isoformat(),
         )
+
+
+def _listing(section: HomeSection, installed: list[McpServer]) -> McpServer | None:
+    """The plugin whose list for the day the section shows: its one plugin, when that has one and the user didn't ask
+    for the model."""
+    if section.use_model or len(section.plugins) != 1:
+        return None
+    return next((s for s in installed if s.name == section.plugins[0] and s.today_tool), None)
 
 
 def _tools_of(section: HomeSection, definitions: list[dict[str, Any]]) -> list[dict[str, Any]]:

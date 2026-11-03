@@ -1,8 +1,9 @@
 """/home: Home's sections with what the assistant last built, refreshed, added, edited, moved and removed."""
 
+from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 
-from textual.widgets import Button, Input, Markdown, SelectionList, Static, TextArea
+from textual.widgets import Button, Input, Markdown, SelectionList, Static, Switch, TextArea
 
 from assistant.core.agent import HomeCard, HomeItem, HomeSection, SectionResult
 from assistant_terminal.home_text import describe, item_when, updated
@@ -152,3 +153,27 @@ async def test_sections_are_moved_removed_and_reset(app, client):
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
         await pilot.press("y")
         await wait_for(pilot, lambda: [s.id for s in client.home.sections] == ["calendar"])
+
+
+async def test_a_section_of_a_plugin_that_lists_its_day_can_ask_for_the_model(app, client):
+    client.mcp.items["notes"] = replace(client.mcp.items["notes"], lists_today=True)
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/home", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, HomeScreen))
+        home = app.screen
+        home.query_one("#add", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, HomeSectionScreen))
+        editor = app.screen
+        assert not editor.query_one("#home-section-model").display
+        editor.query_one("#home-section-name", Input).value = "Notes"
+        editor.query_one("#home-section-prompt", TextArea).text = "My latest notes."
+        editor.query_one("#home-section-plugins", SelectionList).select("notes")
+        await wait_for(pilot, lambda: editor.query_one("#home-section-model").display)
+        note = editor.query_one("#home-section-model-note", Static)
+        assert "notes's own list for the day, with no model call" in str(note.render())
+        editor.query_one("#home-section-use-model", Switch).value = True
+        await wait_for(pilot, lambda: "the model builds it" in str(note.render()))
+        editor.query_one("#save", Button).press()
+        await wait_for(pilot, lambda: app.screen is home)
+        assert [(s.title, s.use_model) for s in client.home.sections] == [("Calendar", False), ("Notes", True)]

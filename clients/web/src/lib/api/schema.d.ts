@@ -4545,6 +4545,11 @@ export interface components {
              */
             columns: number;
             /**
+             * Use Model
+             * @default false
+             */
+            use_model: boolean;
+            /**
              * Coded
              * @default false
              */
@@ -5042,6 +5047,11 @@ export interface components {
              * @default false
              */
             settings: boolean;
+            /**
+             * Lists Today
+             * @default false
+             */
+            lists_today: boolean;
             /** Offers */
             offers?: string[];
             /**
@@ -5350,6 +5360,11 @@ export interface components {
             reminded_at: string;
             /** Key */
             key: string;
+            /**
+             * Plugin
+             * @default
+             */
+            plugin: string;
         };
         /** PairRequest */
         PairRequest: {

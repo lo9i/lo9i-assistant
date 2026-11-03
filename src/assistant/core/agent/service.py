@@ -84,6 +84,7 @@ from assistant.core.mcp.media import ToolMedia
 from assistant.core.mcp.oauth import McpAuth
 from assistant.core.mcp.pages import McpPages
 from assistant.core.mcp.sampling import Sampler
+from assistant.core.mcp.today import TodayLists
 from assistant.core.memory import profile
 from assistant.core.memory.e5 import E5Embedder
 from assistant.core.memory.indexer import MemoryIndexer
@@ -93,6 +94,7 @@ from assistant.core.outbox import Outbox
 from assistant.core.passkeys import Ceremonies
 from assistant.core.plugin_tools import PluginTools
 from assistant.core.proactive.briefing import Briefer
+from assistant.core.proactive.mail import UnreadMail
 from assistant.core.proactive.reminders import Reminders
 from assistant.core.proactive.review import Reviewer
 from assistant.core.proactive.schedule import ProactiveRuns, ProactiveSchedule
@@ -193,7 +195,10 @@ class AssistantService(
                 storage.store, settings.owner_id, lambda: self.list_conversations(settings.owner_id)
             ),
         }
-        self.home_refresh = HomeRefresh(storage.store, bus, lambda: self._home_builder, self._plugin_tools, coded)
+        self.today_lists = TodayLists(storage.store, self.mcp)
+        self.home_refresh = HomeRefresh(
+            storage.store, bus, lambda: self._home_builder, self._plugin_tools, coded, self.today_lists
+        )
         self.home_schedule = HomeSchedule(storage.store, self.home_refresh, settings.owner_id, bus)
         self.copilot_watch = CopilotWatch(
             storage.store,
@@ -217,18 +222,16 @@ class AssistantService(
             lambda: self._windows.of(self._model),
         )
         self.doctor_schedule = DoctorSchedule(storage.store, self.doctor, settings.owner_id)
-        teller = Teller(storage.store, self.outbox, settings.owner_id)
+        teller, unread = Teller(storage.store, self.outbox, settings.owner_id), UnreadMail(storage.store, secrets)
         self.proactive_runs = ProactiveRuns(
             bus,
-            Briefer(
-                storage.store, lambda: self._proactive_models, self._plugin_tools, secrets, teller, settings.owner_id
-            ),
+            Briefer(storage.store, lambda: self._proactive_models, self.today_lists, unread, teller, settings.owner_id),
             Reviewer(
                 storage.store,
                 storage.checkpointer,
                 lambda: self._proactive_models,
-                self._plugin_tools,
-                secrets,
+                self.today_lists,
+                unread,
                 settings.owner_id,
             ),
         )

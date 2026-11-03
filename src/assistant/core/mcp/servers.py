@@ -94,6 +94,9 @@ class McpServer:
     check_command: str = ""
     check_args: list[str] = field(default_factory=list)
     check_tool: str = ""
+    # Its list for the day, a tool of its MCP server lo9i calls itself (core/mcp/today.py), which the agent never gets;
+    # "" for none.
+    today_tool: str = ""
     # Which env or header values are the user's keys (keys.py): its fields, for a plugin installed
     # from a repository. One added by hand has all of them as keys.
     keys: list[str] = field(default_factory=list)
@@ -115,12 +118,17 @@ class McpServer:
         return bool(self.command or self.url)
 
     def selects(self, tool: str) -> bool:
-        """Whether the agent gets this tool of the server. Never its check, which only lo9i calls."""
-        if self.checks_with(tool):
+        """Whether the agent gets this tool of the server. Never its check or its list for the day, which only lo9i
+        calls."""
+        if self.only_lo9i_calls(tool):
             return False
         if self.include:
             return _matches(tool, self.include)
         return not _matches(tool, self.exclude)
+
+    def only_lo9i_calls(self, tool: str) -> bool:
+        """Its check and its list for the day (core/mcp/today.py): lo9i calls them itself; the apps don't list them."""
+        return self.checks_with(tool) or (bool(self.today_tool) and tool == self.today_tool)
 
     def checks_with(self, tool: str) -> bool:
         """Whether this tool is the check of the values its plugin was given (core/mcp/checks.py)."""

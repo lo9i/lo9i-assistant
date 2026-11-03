@@ -376,9 +376,9 @@ def _definition(tool: McpTool | McpListingTool) -> dict[str, Any]:
 
 
 def _infos(server: McpServer, tools: list[Tool]) -> list[McpToolInfo]:
-    """Its tools as the apps list them: all but its check (checks.py), which only lo9i calls, and those lo9i adds
-    for its resources and prompts, which the apps show as switches (listings.py)."""
-    return [_info(server, t) for t in tools if not server.checks_with(t.name) and listings.kind(t) is None]
+    """Its tools as the apps list them: all but its check (checks.py) and its list for the day (today.py), which only
+    lo9i calls, and those lo9i adds for its resources and prompts, which the apps show as switches (listings.py)."""
+    return [_info(server, t) for t in tools if not server.only_lo9i_calls(t.name) and listings.kind(t) is None]
 
 
 def _info(server: McpServer, tool: Tool) -> McpToolInfo:

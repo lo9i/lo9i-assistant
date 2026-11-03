@@ -48,7 +48,7 @@ async def get(store: BaseStore, user_id: str, loop_id: str) -> OpenLoop | None:
 
 
 async def add(
-    store: BaseStore, user_id: str, draft: LoopDraft, source: LoopSource, thread_id: str = ""
+    store: BaseStore, user_id: str, draft: LoopDraft, source: LoopSource, thread_id: str = "", plugin: str = ""
 ) -> OpenLoop | None:
     """None when it's empty, or a loop with its key was added before, whatever became of it."""
     text = " ".join(draft.text.split())[:_TEXT_CHARS]
@@ -65,6 +65,7 @@ async def add(
         due=draft.due,
         remind_at=_utc(draft.remind_at),
         key=key,
+        plugin=plugin,
     )
     await _save(store, user_id, loop)
     return loop

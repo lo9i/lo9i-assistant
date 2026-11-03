@@ -635,7 +635,10 @@
       "one": "{count} columna",
       "other": "{count} columnas"
     },
-    "widthHint": "En una pantalla más angosta ocupa las que haya. Arrastrar el borde derecho de la tarjeta también lo cambia."
+    "widthHint": "En una pantalla más angosta ocupa las que haya. Arrastrar el borde derecho de la tarjeta también lo cambia.",
+    "useModel": "Usar el modelo",
+    "useModelOff": "Apagado: muestra la lista del día de {plugin}, sin llamar al modelo; el texto de arriba no se usa.",
+    "useModelOn": "Encendido: el modelo la arma a partir del texto de arriba, lo que cuesta una llamada al modelo cada vez que se arma."
   },
   "homePage": {
     "add": "Agregar sección",

@@ -3,12 +3,16 @@
   import { MAX_COLUMNS } from "$lib/home";
   import { t } from "$lib/i18n.svelte";
   import Modal from "../Modal.svelte";
+  import Toggle from "../Toggle.svelte";
 
   type Props = {
     // null for a new section.
     section: HomeSection | null;
     // The installed plugins with tools, to pick from.
     plugins: string[];
+    // Those that list their day for lo9i: a section of one of them shows that list, without the model, unless it asks for
+    // the model.
+    listing: string[];
     // Why the last save was refused.
     error: string;
     onsave: (section: HomeSection) => void;
@@ -16,7 +20,7 @@
     /** Given for a new section while Home has no Conversations card: adds it instead. */
     onaddconversations?: () => void;
   };
-  let { section, plugins, error, onsave, onclose, onaddconversations }: Props = $props();
+  let { section, plugins, listing, error, onsave, onclose, onaddconversations }: Props = $props();
 
   // svelte-ignore state_referenced_locally
   let title = $state(section?.title ?? "");
@@ -26,6 +30,10 @@
   let picked = $state<string[]>([...(section?.plugins ?? [])]);
   // svelte-ignore state_referenced_locally
   let columns = $state(section?.columns ?? 0);
+  // svelte-ignore state_referenced_locally
+  let useModel = $state(section?.use_model ?? false);
+  // The plugin whose own list it can show: its one plugin, when that lists its day.
+  const listed = $derived(picked.length === 1 && listing.includes(picked[0]) ? picked[0] : null);
   const widths = Array.from({ length: MAX_COLUMNS }, (_, i) => i + 1);
   // A plugin the section names that isn't installed stays listed, so saving doesn't drop it unseen.
   const choices = $derived([...new Set([...plugins, ...picked])].sort());
@@ -35,7 +43,7 @@
   }
 
   function save(): void {
-    onsave({ id: section?.id ?? "", title, prompt, plugins: picked, columns, coded: section?.coded ?? false });
+    onsave({ id: section?.id ?? "", title, prompt, plugins: picked, columns, coded: section?.coded ?? false, use_model: useModel });
   }
 </script>
 
@@ -84,6 +92,15 @@
         <p class="text-meta">{t("home.nonePicked")}</p>
       {/if}
     </fieldset>
+    {#if listed}
+      <div class="field">
+        <div class="switch">
+          <span class="text-label">{t("home.useModel")}</span>
+          <Toggle checked={useModel} label={t("home.useModel")} onchange={(on) => (useModel = on)} />
+        </div>
+        <span class="text-caption">{useModel ? t("home.useModelOn") : t("home.useModelOff", { plugin: listed })}</span>
+      </div>
+    {/if}
   {/if}
   <label class="field">
     <span class="micro-label">{t("home.width")}</span>
@@ -103,6 +120,12 @@
 </Modal>
 
 <style>
+  .switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
   .offer {
     display: flex;
     align-items: center;

@@ -56,6 +56,8 @@ code from it. In its commands, arguments and env values:
     oauth:                         # optional, format 5: the user signs in with their own OAuth app in its setup, and
       provider: google             # its processes get the sign-in in LO9I_OAUTH (plugin_oauth.py)
       scopes: [https://www.googleapis.com/auth/drive]
+    today:                         # optional: its list for the day, a read-only tool lo9i calls itself for the
+      tool: today                  # morning briefing, the nightly review and Home (today.py, docs/today-lists.md)
     check:                         # optional: checks the values it was given before they're saved, so a wrong key
       command: "{bin}/my-check"    # shows in the install dialog (checks.py); or `tool: check_account`, a tool of
                                    # its MCP server that the agent never gets
@@ -111,6 +113,7 @@ from assistant.core.mcp import (
     servers,
     ssh_agent,
     subagents,
+    today,
 )
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.repositories import categories, formats, icons, platforms
@@ -523,6 +526,8 @@ def _parse(data: dict[str, Any], name: str, root: Path, folder: Path) -> Candida
         raise ValueError(said("it has tools that ask first (approve:), which needs format: 7"))
     if template.check_tool and not template.is_mcp:
         raise ValueError(said("its check is a tool, which needs an MCP server (command or url)"))
+    if template.today_tool and not template.is_mcp:
+        raise ValueError(said("its today list is a tool, which needs an MCP server (command or url)"))
     return Candidate(found, template, folder, folder.relative_to(root).as_posix(), systems, version)
 
 
@@ -552,6 +557,7 @@ def _template(data: dict[str, Any], name: str) -> McpServer:
         **_oauth(data.get("oauth")),
         **_agent(data.get("agent")),
         **checks.parse(data.get("check")),
+        **today.parse(data.get("today")),
     )
 
 

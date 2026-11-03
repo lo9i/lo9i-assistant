@@ -74,6 +74,8 @@ class McpServerStatus:
     signed_in_as: str = ""
     # A plugin with fields of its own, which its settings change (core/mcp/plugin_settings.py).
     settings: bool = False
+    # It lists the user's day for lo9i (core/mcp/today.py): Home builds a section of it without the model.
+    lists_today: bool = False
     # What the server has besides tools (resources, prompts), as of its last connection; and whether the agent
     # gets tools for them (core/mcp/listings.py), which the user turns on.
     offers: list[str] = field(default_factory=list)
@@ -266,6 +268,7 @@ async def mcp_status(hub: McpHub, server: McpServer, signed_in_as: str = "") -> 
         oauth=server.oauth_provider,
         signed_in_as=signed_in_as,
         settings=plugin_settings.has_settings(server),
+        lists_today=bool(server.today_tool),
         offers=hub.offers(server.name),
         resources=server.resources,
         prompts=server.prompts,

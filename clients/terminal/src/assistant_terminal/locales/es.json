@@ -1049,5 +1049,8 @@
   "Write the time as HH:MM, like 08:00.": "Escribe la hora como HH:MM, por ejemplo 08:00.",
   "Writing…": "Escribiendo…",
   "{added} loops added, {closed} closed": "{added} pendientes agregados, {closed} cerrados",
-  "Open the briefing": "Abrir el resumen"
+  "Open the briefing": "Abrir el resumen",
+  "Use the model": "Usar el modelo",
+  "Off: it shows {plugin}'s own list for the day, with no model call; the text above isn't used.": "Apagado: muestra la lista del día de {plugin}, sin llamar al modelo; el texto de arriba no se usa.",
+  "On: the model builds it from the text above, which costs a model call each time it's built.": "Encendido: el modelo la arma a partir del texto de arriba, lo que cuesta una llamada al modelo cada vez que se arma."
 }

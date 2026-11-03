@@ -101,6 +101,7 @@ from assistant_terminal.tui.screens import (
     UsageScreen,
     WebSearchScreen,
 )
+from assistant_terminal.tui.screens.home_section import HomePlugins
 from assistant_terminal.tui.screens.host import ending_text
 from assistant_terminal.tui.theme import NAME as THEME_NAME
 from assistant_terminal.tui.theme import THEME
@@ -1204,9 +1205,10 @@ class AssistantApp(App):
     async def _command_home(self, _: str) -> None:
         self.push_screen(HomeScreen(self._service.home, self._plugins_with_tools))
 
-    async def _plugins_with_tools(self) -> list[str]:
-        """The plugins a Home section may read: those with tools."""
-        return [s.name for s in await self._service.mcp.servers() if s.transport != "none"]
+    async def _plugins_with_tools(self) -> HomePlugins:
+        """The plugins a Home section may read: those with tools, and those of them that list their day."""
+        found = [s for s in await self._service.mcp.servers() if s.transport != "none"]
+        return HomePlugins([s.name for s in found], [s.name for s in found if s.lists_today])
 
     async def _command_startup(self, _: str) -> None:
         self.push_screen(StartupScreen(self._service.system))

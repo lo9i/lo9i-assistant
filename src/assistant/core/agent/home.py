@@ -88,5 +88,10 @@ class HomeMixin(ServiceBase):
 
 
 def _changed(before: dict[str, HomeSection], now: list[HomeSection]) -> Collection[str]:
-    """New sections, and those whose instructions or plugins changed: a new title alone needs no new result."""
-    return [s.id for s in now if (b := before.get(s.id)) is None or (b.prompt, b.plugins) != (s.prompt, s.plugins)]
+    """New sections, and those whose instructions, plugins or way of building changed: a new title alone needs no new
+    result."""
+    return [s.id for s in now if (b := before.get(s.id)) is None or _built_from(b) != _built_from(s)]
+
+
+def _built_from(section: HomeSection) -> tuple[str, list[str], bool]:
+    return section.prompt, section.plugins, section.use_model

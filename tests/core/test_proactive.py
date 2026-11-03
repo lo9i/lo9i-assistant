@@ -1,53 +1,72 @@
 """The assistant's own initiative (core/proactive/): open loops, the morning briefing and its schedule, the nightly and
-weekly reviews, reminders, muted kinds of suggestion, and open loops kept from conversations' archived parts. The
-calendar plugin runs in-process; the writers are the `drafts` fakes."""
+weekly reviews, reminders, muted kinds of suggestion, and open loops kept from conversations' archived parts. A plugin
+listing its day runs in-process (core/mcp/today.py); the mail picks and the reviews are the `drafts` fakes."""
 
 import asyncio
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import pytest
 from mcp import Client
 from mcp.server import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
 from assistant.core import conversations, notifications
 from assistant.core.agent import AssistantService, McpServer, Session
 from assistant.core.config import settings
 from assistant.core.conversation.digest import MemoryDigest
-from assistant.core.integrations.email import accounts as email_accounts
-from assistant.core.integrations.email.accounts import EmailConfig
 from assistant.core.jobs import store as jobs
 from assistant.core.jobs.store import Job, RunRecord
 from assistant.core.mcp import hub as hub_module
 from assistant.core.mcp import servers
 from assistant.core.memory import facts
-from assistant.core.proactive import loops, records, sources
-from assistant.core.proactive.model import BriefingDraft, LoopDraft, ProactiveSettings, ReviewDraft, Suggestion
+from assistant.core.proactive import loops, records
+from assistant.core.proactive.mail import Unread, UnreadMail
+from assistant.core.proactive.model import LoopDraft, MailDraft, MailPick, ProactiveSettings, ReviewDraft, Suggestion
 from assistant.core.proactive.reminders import PER_DAY
 from tests.conftest import collect
 
-LIST = "mcp__calendar__list_events"
-CREATE = "mcp__calendar__create_event"
 # A Sunday.
 SUNDAY = datetime(2026, 11, 1, tzinfo=UTC)
+DENTIST = {"title": "Dentist", "subtitle": "Clinic", "time": "10:00", "kind": "calendar", "key": "event 1"}
+BILL = {
+    "title": "Electricity",
+    "subtitle": "$ 61,000",
+    "date": "2026-11-03",
+    "needs": "Pay the electricity bill",
+    "kind": "bill due",
+    "key": "bill 7",
+}
 
 
-def _calendar() -> MCPServer:
-    server = MCPServer("calendar")
+class _Planner:
+    """What the plugin lists for a day, and the days and languages it was asked for; `failing` has it answer an
+    error."""
 
-    @server.tool(annotations=ToolAnnotations(read_only_hint=True))
-    def list_events() -> str:
-        """Today's events."""
-        return "Dentist at 10:00"
+    def __init__(self) -> None:
+        self.items: list[dict[str, Any]] = [DENTIST, BILL]
+        self.asked: list[tuple[str, str]] = []
+        self.failing = False
 
-    @server.tool()
-    def create_event(title: str) -> str:
-        """Add an event."""
-        return f"created {title}"
+    def server(self) -> MCPServer:
+        server = MCPServer("planner")
 
-    return server
+        @server.tool(annotations=ToolAnnotations(read_only_hint=True))
+        def today(day: str, language: str) -> dict:
+            """The day."""
+            self.asked.append((day, language))
+            if self.failing:
+                raise ToolError("the database is locked")
+            return {"heading": "Planner", "items": self.items, "note": ""}
+
+        @server.tool(annotations=ToolAnnotations(read_only_hint=True))
+        def list_events() -> str:
+            """Today's events."""
+            return "Dentist at 10:00"
+
+        return server
 
 
 class _Chat:
@@ -62,9 +81,28 @@ class _Chat:
 
 
 @pytest.fixture
-async def service(script, digests, summaries, titles, drafts, monkeypatch) -> AsyncIterator[AssistantService]:
-    """The service with its MCP hub running; every server is the in-process calendar."""
-    fake = _calendar()
+def planner() -> _Planner:
+    return _Planner()
+
+
+@pytest.fixture
+def inbox(monkeypatch: pytest.MonkeyPatch) -> list[Unread]:
+    """The unread mail every account has: none unless a test adds some."""
+    unread: list[Unread] = []
+
+    async def since(self: UnreadMail, day: date) -> list[Unread]:
+        return list(unread)
+
+    monkeypatch.setattr(UnreadMail, "since", since)
+    return unread
+
+
+@pytest.fixture
+async def service(
+    script, digests, summaries, titles, drafts, planner, inbox, monkeypatch
+) -> AsyncIterator[AssistantService]:
+    """The service with its MCP hub running; every server is the in-process planner."""
+    fake = planner.server()
     monkeypatch.setattr(
         hub_module,
         "open_client",
@@ -87,14 +125,14 @@ def chat(service: AssistantService) -> _Chat:
     return chat
 
 
-async def _install_calendar(service: AssistantService) -> None:
-    await servers.save(service.store, McpServer(name="calendar", command="calendar-mcp", trusted=True))
+async def _install_planner(service: AssistantService) -> None:
+    await servers.save(service.store, McpServer(name="planner", command="planner-mcp", today_tool="today"))
     await service.mcp.reload()
     for _ in range(100):
-        if service.mcp.state("calendar")[0] == "connected":
+        if service.mcp.state("planner")[0] == "connected":
             return
         await asyncio.sleep(0.02)
-    raise TimeoutError("the calendar never connected")
+    raise TimeoutError("the planner never connected")
 
 
 async def _run(service: AssistantService, work: Any, now: datetime) -> None:
@@ -107,8 +145,10 @@ async def _tick(service: AssistantService, now: datetime) -> None:
     await service.proactive_runs.wait()
 
 
-def _bound_names(tools: list[Any]) -> set[str]:
-    return {t["function"]["name"] for t in tools}
+async def _told(service: AssistantService) -> str:
+    briefing = await records.latest_briefing(service.store, "owner")
+    assert briefing is not None
+    return briefing.text
 
 
 # Open loops.
@@ -180,47 +220,96 @@ async def test_the_nightly_review_comes_at_its_time_and_the_weekly_after_it_on_i
 # The briefing.
 
 
-async def test_the_briefing_reads_the_calendar_and_tells_what_it_wrote(service, script, drafts, chat):
-    await _install_calendar(service)
-    script.call(LIST).reply("Dentist today 10:00.")
-    reminder = LoopDraft(text="Gas bill due Thursday", kind="bill due", key="gas 2026-11", due="2026-11-05")
-    drafts.briefing.answers.append(BriefingDraft(text="Today: dentist at 10:00.", reminders=[reminder]))
+async def test_the_briefing_lays_out_the_plugins_lists_without_the_model(service, script, drafts, planner, chat):
+    await _install_planner(service)
     await _run(service, "briefing", SUNDAY.replace(hour=8))
-    assert _bound_names(script.bound[0]) == {LIST}
-    assert "Calendar: today's events" in script.requests[0][-1].text
-    assert "Dentist today 10:00." in drafts.briefing.requests[0][-1].text
-    briefing = await records.latest_briefing(service.store, "owner")
-    assert briefing is not None and briefing.status == "sent" and briefing.channels == ["telegram"]
-    assert chat.sent == ["Today: dentist at 10:00."]
+    assert planner.asked == [("2026-11-01", "en")] and script.requests == [] and drafts.mail.requests == []
+    text = "Planner\n- 10:00 Dentist · Clinic\n- Tue 03 Nov Electricity · $ 61,000 → Pay the electricity bill"
+    assert chat.sent == [text] and await _told(service) == text
     [told] = await notifications.recent(service.store, "owner")
-    assert (told.kind, told.title, told.text) == ("briefing", "Morning briefing", "Today: dentist at 10:00.")
+    assert (told.kind, told.title, told.text) == ("briefing", "Morning briefing", text)
     [loop] = await loops.open_loops(service.store, "owner")
-    assert (loop.text, loop.source, loop.due, loop.kind) == (
-        "Gas bill due Thursday",
-        "briefing",
-        "2026-11-05",
+    assert (loop.text, loop.kind, loop.due, loop.plugin) == (
+        "Pay the electricity bill",
         "bill due",
+        "2026-11-03",
+        "planner",
     )
 
 
-async def test_nothing_is_written_when_there_is_nothing_to_tell(service, script, drafts, chat):
+async def test_a_loop_from_a_plugins_list_closes_when_the_list_no_longer_has_it(service, planner):
+    await _install_planner(service)
     await _run(service, "briefing", SUNDAY.replace(hour=8))
-    assert script.requests == [] and drafts.briefing.requests == []
+    await _run(service, "briefing", SUNDAY.replace(hour=8) + timedelta(days=1))
+    assert [o.text for o in await loops.open_loops(service.store, "owner")] == ["Pay the electricity bill"]
+    planner.items = [DENTIST]
+    await _run(service, "briefing", SUNDAY.replace(hour=8) + timedelta(days=2))
+    assert await loops.open_loops(service.store, "owner") == []
+    [paid] = await loops.all_loops(service.store, "owner")
+    assert paid.status == "done"
+
+
+async def test_a_list_that_cant_be_read_says_so_and_closes_nothing(service, planner):
+    await _install_planner(service)
+    await _run(service, "briefing", SUNDAY.replace(hour=8))
+    planner.failing = True
+    await _run(service, "briefing", SUNDAY.replace(hour=8) + timedelta(days=1))
+    assert "Couldn't read\n- planner: planner couldn't list its day:" in await _told(service)
+    assert "the database is locked" in await _told(service)
+    assert [o.text for o in await loops.open_loops(service.store, "owner")] == ["Pay the electricity bill"]
+
+
+async def test_nothing_is_sent_when_there_is_nothing_to_tell(service, script, drafts, chat):
+    await _run(service, "briefing", SUNDAY.replace(hour=8))
+    assert script.requests == [] and drafts.mail.requests == []
     assert chat.sent == [] and await notifications.recent(service.store, "owner") == []
+    briefing = await records.latest_briefing(service.store, "owner")
+    assert briefing is not None and briefing.status == "nothing"
 
 
-async def test_open_loops_of_a_muted_kind_are_left_out(service, drafts):
+async def test_items_and_loops_of_a_muted_kind_are_left_out(service, planner):
+    await _install_planner(service)
     await loops.add(service.store, "owner", LoopDraft(text="Answer Ana", kind="unanswered mail"), "briefing")
-    await loops.add(service.store, "owner", LoopDraft(text="Renew passport"), "assistant")
+    await loops.add(service.store, "owner", LoopDraft(text="Renew passport", due="2026-11-20"), "assistant")
     await records.mute(service.store, "owner", "unanswered mail")
+    await records.mute(service.store, "owner", "bill due")
     await _run(service, "briefing", SUNDAY.replace(hour=8))
-    written = drafts.briefing.requests[0][-1].text
-    assert "Renew passport" in written and "Answer Ana" not in written and "unanswered mail" in written
+    text = await _told(service)
+    assert text == "Planner\n- 10:00 Dentist · Clinic\n\nOpen loops\n- Renew passport (due Fri 20 Nov)"
 
 
-async def test_a_failed_briefing_is_recorded(service, drafts):
-    await loops.add(service.store, "owner", LoopDraft(text="Renew passport"), "assistant")
-    drafts.briefing.answers.append(RuntimeError("the model is down"))
+async def test_the_briefing_is_in_the_language_chosen(service, planner):
+    await service.set_language("es")
+    await loops.add(service.store, "owner", LoopDraft(text="Renovar el pasaporte"), "assistant")
+    await _install_planner(service)
+    await _run(service, "briefing", SUNDAY.replace(hour=8))
+    assert planner.asked == [("2026-11-01", "es")]
+    assert "mar 03 nov Electricity" in await _told(service)
+    assert "Pendientes\n- Renovar el pasaporte" in await _told(service)
+
+
+async def test_the_mail_that_matters_is_picked_by_one_model_call(service, drafts, inbox, chat):
+    inbox.append(Unread("Work", 5, "Ana <ana@x.com>", "Friday?", "2026-10-29T09:00:00+00:00"))
+    inbox.append(Unread("Work", 6, "News <n@x.com>", "Weekly digest", "2026-10-31T09:00:00+00:00"))
+    picks = [MailPick(account="Work", uid=5, line="Ana asks if Friday works", asks=True)]
+    drafts.mail.answers.append(MailDraft(important=[*picks, MailPick(account="Work", uid=99, line="x", asks=False)]))
+    await _run(service, "briefing", SUNDAY.replace(hour=8))
+    assert "[Work 5]" in drafts.mail.requests[0][-1].text and "Weekly digest" in drafts.mail.requests[0][-1].text
+    assert chat.sent == ["Mail\n- Ana asks if Friday works"]
+    [loop] = await loops.open_loops(service.store, "owner")
+    assert (loop.text, loop.kind, loop.key) == ("Ana asks if Friday works", "unanswered mail", "mail work 5")
+
+
+async def test_mail_isnt_read_by_the_model_when_its_muted(service, drafts, inbox):
+    inbox.append(Unread("Work", 5, "Ana <ana@x.com>", "Friday?", "2026-10-29T09:00:00+00:00"))
+    await records.mute(service.store, "owner", "important mail")
+    await _run(service, "briefing", SUNDAY.replace(hour=8))
+    assert drafts.mail.requests == []
+
+
+async def test_a_failed_briefing_is_recorded(service, drafts, inbox):
+    inbox.append(Unread("Work", 5, "Ana <ana@x.com>", "Friday?", "2026-10-29T09:00:00+00:00"))
+    drafts.mail.answers.append(RuntimeError("the model is down"))
     await _run(service, "briefing", SUNDAY.replace(hour=8))
     briefing = await records.latest_briefing(service.store, "owner")
     assert briefing is not None and briefing.status == "failed" and "the model is down" in briefing.error
@@ -229,7 +318,11 @@ async def test_a_failed_briefing_is_recorded(service, drafts):
 # The reviews.
 
 
-async def test_the_nightly_review_keeps_loops_habits_and_suggestions_for_the_next_briefing(service, drafts, chat):
+async def test_the_nightly_review_keeps_loops_habits_and_suggestions_for_the_next_briefing(
+    service, drafts, planner, inbox, chat
+):
+    await _install_planner(service)
+    inbox.append(Unread("Work", 5, "Ana <ana@x.com>", "Friday?", "2026-11-01T09:00:00+00:00"))
     at = SUNDAY.replace(hour=12).isoformat()
     await conversations.save(service.store, "owner", conversations.Conversation("t1", "Invoices", at, at))
     job = Job("backup", "owner", "0 3 * * *", "UTC", "back up", "", runs=[RunRecord(at, "failed", "disk full")])
@@ -252,6 +345,7 @@ async def test_the_nightly_review_keeps_loops_habits_and_suggestions_for_the_nex
     await _run(service, "nightly", SUNDAY.replace(hour=23))
     read = drafts.review.requests[0][-1].text
     assert "## Invoices" in read and "backup" in read and "disk full" in read and "Send the contract" in read
+    assert "Planner\n- 10:00 Dentist · Clinic" in read and "[Work 5]" in read and "Friday?" in read
     assert [o.text for o in await loops.open_loops(service.store, "owner")] == ["Book the flight"]
     assert [f.text for f in await facts.load_all(service.store, "owner")] == [
         "Habit: Issues invoices on the 1st of each month"
@@ -259,12 +353,10 @@ async def test_the_nightly_review_keeps_loops_habits_and_suggestions_for_the_nex
     [review] = await records.reviews(service.store, "owner")
     assert [s.text for s in review.suggestions] == ["Add the flight to the calendar?"] and not review.briefed
     assert (review.added, review.closed) == (1, 1)
-    drafts.briefing.answers.append(BriefingDraft(text="Add the flight to the calendar?"))
+    inbox.clear()
     await _run(service, "briefing", SUNDAY.replace(hour=8) + timedelta(days=1))
-    written = drafts.briefing.requests[0][-1].text
-    assert "Add the flight to the calendar?" in written and "Issues invoices on the 1st" in written
+    assert "Suggestions\n- Add the flight to the calendar?" in await _told(service)
     assert (await records.reviews(service.store, "owner"))[0].briefed
-    assert chat.sent == ["Add the flight to the calendar?"]
 
 
 async def test_the_weekly_review_reads_the_weeks_nightly_ones_and_feeds_the_monday_briefing(service, drafts):
@@ -274,7 +366,7 @@ async def test_the_weekly_review_reads_the_weeks_nightly_ones_and_feeds_the_mond
     await _run(service, "weekly", SUNDAY.replace(hour=23, minute=5))
     assert "2026-11-01: Quiet day." in drafts.review.requests[1][-1].text
     await _run(service, "briefing", SUNDAY.replace(hour=8) + timedelta(days=1))
-    assert "# Last week\n- A week of invoices." in drafts.briefing.requests[0][-1].text
+    assert await _told(service) == "Last week\n- A week of invoices."
 
 
 # Reminders.
@@ -286,6 +378,7 @@ async def test_reminders_go_at_their_time_within_the_day_a_few_a_day(service, ch
     await loops.add(
         service.store, "owner", LoopDraft(text="Muted", kind="bill due", remind_at="2026-11-02T09:00"), "assistant"
     )
+    await records.save_settings(service.store, "owner", ProactiveSettings(briefing=False))
     await records.mute(service.store, "owner", "bill due")
     monday = SUNDAY + timedelta(days=1)
     await _tick(service, monday.replace(hour=8, minute=59))
@@ -339,31 +432,3 @@ async def test_the_page_closes_and_opens_loops_again(service):
     assert page.loops[0].status == "done" and page.settings.muted == ["recurring task"]
     page = await service.close_loop("owner", loop.id, "open")
     assert page.loops[0].status == "open" and page.loops[0].closed_at == ""
-
-
-class _Tools:
-    def __init__(self, names: list[str]) -> None:
-        self._names = names
-
-    def read_only_definitions(self) -> list[dict[str, Any]]:
-        return [{"type": "function", "function": {"name": n}} for n in self._names]
-
-    def plugin_of(self, name: str) -> str | None:
-        return name.split("__")[1]
-
-
-async def test_only_the_days_plugins_and_readable_mail_are_asked(service, monkeypatch):
-    tools = _Tools(["mcp__calendar__list_events", "mcp__watchlist__list_titles", "mcp__billing__prepare_month"])
-    found = await sources.available(service.store, tools)
-    assert found.names == ["billing", "calendar"] and len(found.tools) == 2
-    readable = EmailConfig(host="smtp", sender="me@x.com", imap_host="imap", label="Work")
-
-    async def accounts(store: Any) -> list[EmailConfig]:
-        return [readable, EmailConfig(host="smtp", sender="out@x.com", label="Send only")]
-
-    monkeypatch.setattr(email_accounts, "list_accounts", accounts)
-    found = await sources.available(service.store, tools)
-    assert found.names == ["billing", "calendar", "mail"] and found.accounts == ["Work <me@x.com>"]
-    assert _bound_names(found.tools) == {"mcp__calendar__list_events", "mcp__billing__prepare_month", "search_email"}
-    asked = sources.asked(found, {"billing": "B", "calendar": "C", "mail": "M in {accounts}"})
-    assert asked == "- B\n- C\n- M in Work <me@x.com>"

@@ -1,8 +1,8 @@
-"""The morning briefing: today's calendar, what's due, important mail, the open loops that matter now and the reviews'
-suggestions, in one short message. Gathering reads the sources the user has (sources.py) with the worker model, then
-one structured call writes the message and the reminders it found (a bill due, invoices to issue, a mail to answer),
-which are kept as open loops. Nothing is gathered or written when the user has no source, no open loop and no
-suggestion waiting: there's nothing to tell.
+"""The morning briefing: each plugin's list for the day (core/mcp/today.py: today's events, bills coming due, invoices
+to issue), the unread mail that matters, the open loops that matter now and the reviews' suggestions, laid out by code
+(laid_out.py) in the language the apps show. What a plugin says needs doing is kept as an open loop. The one model call
+picks the unread mail worth the user's attention, made only when there's unread mail and the user didn't mute it.
+Nothing is sent when there's nothing to tell.
 
 The message goes to the notifications feed, which the apps show, and to the user's own chat on every chat channel
 connected (core/conversation/sent.py), where a reply to it arrives with it in its turn header. It never fails the
@@ -11,37 +11,33 @@ schedule: a failure is recorded on the briefing, which the apps show."""
 import asyncio
 import logging
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.store.base import BaseStore
 
 from assistant.core import i18n
-from assistant.core.context import UNATTENDED_CHANNEL, Context
 from assistant.core.conversation import prompts
-from assistant.core.proactive import clock, inputs, loops, records, sources
+from assistant.core.i18n import Texts
+from assistant.core.mcp.today import Listed, TodayItem, TodayLists
+from assistant.core.proactive import clock, inputs, loops, records
 from assistant.core.proactive.failures import SECONDS, reason
-from assistant.core.proactive.model import Briefing, BriefingDraft, ProactiveSettings, Review
-from assistant.core.proactive.sources import ReadOnlyTools, Sources
+from assistant.core.proactive.laid_out import Part, compose, item_line, loop_line
+from assistant.core.proactive.mail import Unread, UnreadMail, render
+from assistant.core.proactive.model import Briefing, LoopDraft, MailDraft, MailPick, ProactiveSettings
 from assistant.core.proactive.telling import Teller
 from assistant.core.proactive.writing import ProactiveModels
-from assistant.core.secret_store import SecretBox
 
 logger = logging.getLogger(__name__)
 
-_ASKS = {
-    "calendar": "Calendar: today's events from every calendar, in order of time, and tomorrow's before 10:00.",
-    "expenses": "Bills: those not paid that are overdue or due by {week} (month_summary has the unpaid ones), each "
-    "with its amount and due day; recurring obligations due by then with no bill yet.",
-    "billing": "Invoices: those of the last period that ended (prepare_month shows each one's status) not issued yet.",
-    sources.MAIL: "Mail in {accounts}: unread messages since {mail_since} (search_email with unread_only and since). "
-    "Say which come from a person and look important, and which ask the user something and are 2 days old or more.",
-}
-
-
-def _to_tell(review: Review) -> bool:
-    """Its suggestions, and a weekly review's look back, go into the next briefing."""
-    return bool(review.suggestions) or (review.kind == "weekly" and bool(review.summary))
+IMPORTANT_MAIL = "important mail"
+UNANSWERED_MAIL = "unanswered mail"
+# Unread mail the briefing looks at, and how old one asking something is before it's an open loop.
+MAIL_DAYS = 3
+ANSWER_DAYS = 2
+# Open loops it lists at most: those due first, then the oldest.
+LOOPS_SHOWN = 5
+_PICKS = 5
 
 
 class Briefer:
@@ -49,16 +45,16 @@ class Briefer:
         self,
         store: BaseStore,
         models: Callable[[], ProactiveModels],
-        tools: ReadOnlyTools,
-        secrets: SecretBox,
+        lists: TodayLists,
+        mail: UnreadMail,
         teller: Teller,
         user_id: str,
     ) -> None:
         """`models` gives those of the model in use, which changes when the user picks another."""
         self._store = store
         self._models = models
-        self._tools = tools
-        self._secrets = secrets
+        self._lists = lists
+        self._mail = mail
         self._teller = teller
         self._user_id = user_id
 
@@ -67,69 +63,118 @@ class Briefer:
         day, at = clock.day_of(now), datetime.now(UTC).isoformat()
         try:
             async with asyncio.timeout(SECONDS):
-                draft = await self._draft(now)
+                text = await self._text(now)
         except Exception as e:
             logger.warning("Couldn't write the briefing: %s", e, exc_info=not isinstance(e, TimeoutError))
             error = (await i18n.chosen(self._store)).shown(reason(e))
             briefing = Briefing(day=day, at=at, status="failed", error=error)
         else:
-            briefing = await self._told(day, at, draft)
+            briefing = await self._told(day, at, text)
         await records.save_briefing(self._store, self._user_id, briefing)
         return briefing
 
-    async def _draft(self, now: datetime) -> BriefingDraft | None:
-        """None when there's nothing to tell."""
-        chosen = await records.load_settings(self._store, self._user_id)
-        found = await sources.available(self._store, self._tools)
+    async def _text(self, now: datetime) -> str:
+        chosen, t = await records.load_settings(self._store, self._user_id), await i18n.chosen(self._store)
+        today = clock.local(now).date()
+        listed = await self._lists.every(today.isoformat(), t.language)
+        items = [i for found in listed if found.today for i in found.today.items if i.kind not in chosen.muted]
+        for found in listed:
+            await self._follow(found, chosen)
+        mail = await self._mail_picks(now, chosen)
         waiting = [r for r in await records.reviews(self._store, self._user_id) if not r.briefed]
-        open_now = [o for o in await loops.open_loops(self._store, self._user_id) if o.kind not in chosen.muted]
-        if not found.tools and not open_now and not any(_to_tell(r) for r in waiting):
-            return None
-        gathered = await self._gathered(found, now)
-        draft = BriefingDraft.model_validate(
-            await self._models().briefing.ainvoke(
-                [
-                    SystemMessage(await self._system()),
-                    HumanMessage(await self._input(now, gathered, chosen, loops.render(open_now), waiting)),
-                ]
-            )
-        )
-        for reminder in draft.reminders:
-            await loops.add(self._store, self._user_id, reminder, "briefing")
-        await records.mark_briefed(self._store, self._user_id, waiting)
-        return draft
-
-    async def _gathered(self, found: Sources, now: datetime) -> str:
-        if not found.tools:
-            return "(no plugin or mail account to read)"
-        values = {"week": clock.days_from(now, 7), "mail_since": clock.days_from(now, -3)}
-        task = f"Now: {clock.stamp(now)}.\nFind:\n{sources.asked(found, _ASKS, **values)}"
-        context = Context(self._user_id, UNATTENDED_CHANNEL, secrets=self._secrets)
-        return await self._models().gatherer.gather(context, prompts.load("proactive_gather"), task, found.tools)
-
-    async def _system(self) -> str:
-        return prompts.load("briefing").format(language=await inputs.language(self._store, self._user_id))
-
-    async def _input(
-        self, now: datetime, gathered: str, chosen: ProactiveSettings, open_loops: str, waiting: list[Review]
-    ) -> str:
-        weekly = [r.summary for r in waiting if r.kind == "weekly" and r.summary]
-        suggestions = [f"[{s.kind}] {s.text}" for r in waiting for s in r.suggestions]
         parts = [
-            f"Now: {clock.stamp(now)}.",
-            f"# Found in the plugins and mail\n{gathered}",
-            f"# Open loops\n{open_loops}",
-            f"# Suggestions from the reviews\n{inputs.listed(suggestions)}",
-            *([f"# Last week\n{inputs.listed(weekly)}"] if weekly else []),
-            f"# Habits\n{inputs.listed(await inputs.habits(self._store, self._user_id))}",
-            f"# Muted kinds\n{inputs.muted(chosen)}",
+            *_plugin_parts(t, listed, chosen, today),
+            Part(t("Mail"), [p.line for p in mail]),
+            Part(t("Open loops"), await self._loop_lines(t, chosen, {*map(_key_of, items), *map(_mail_key, mail)})),
+            Part(t("Suggestions"), [s.text for r in waiting for s in r.suggestions]),
+            Part(t("Last week"), [r.summary for r in waiting if r.kind == "weekly" and r.summary]),
+            Part(t("Couldn't read"), [f"{found.plugin}: {found.error}" for found in listed if found.error]),
         ]
-        return "\n\n".join(parts)
+        await records.mark_briefed(self._store, self._user_id, waiting)
+        return compose(parts)
 
-    async def _told(self, day: str, at: str, draft: BriefingDraft | None) -> Briefing:
-        text = draft.text.strip() if draft else ""
+    async def _follow(self, found: Listed, chosen: ProactiveSettings) -> None:
+        """What the plugin says needs doing is kept as an open loop, once; one it kept that its list no longer has (the
+        bill was paid) is done. Nothing changes for a list that couldn't be read."""
+        if found.today is None:
+            return
+        needs = [i for i in found.today.items if i.needs and i.kind not in chosen.muted]
+        for item in needs:
+            draft = LoopDraft(text=item.needs, kind=item.kind, key=_key_of(item), due=item.date)
+            await loops.add(self._store, self._user_id, draft, "briefing", plugin=found.plugin)
+        listed = {_key_of(i) for i in found.today.items}
+        for gone in await loops.open_loops(self._store, self._user_id):
+            if gone.plugin == found.plugin and gone.key not in listed:
+                await loops.close(self._store, self._user_id, gone.id, "done")
+
+    async def _loop_lines(self, t: Texts, chosen: ProactiveSettings, listed_keys: set[str]) -> list[str]:
+        """The open loops not of a muted kind and not already in a plugin's list: due first, then the oldest."""
+        found = [
+            o
+            for o in await loops.open_loops(self._store, self._user_id)
+            if o.kind not in chosen.muted and o.key not in listed_keys
+        ]
+        found.sort(key=lambda o: (o.due or "9999", o.created_at))
+        return [loop_line(t, o) for o in found[:LOOPS_SHOWN]]
+
+    async def _mail_picks(self, now: datetime, chosen: ProactiveSettings) -> list[MailPick]:
+        if IMPORTANT_MAIL in chosen.muted:
+            return []
+        unread = await self._mail.since(clock.local(now).date() - timedelta(days=MAIL_DAYS))
+        if not unread:
+            return []
+        picks = await self._picked(now, unread)
+        if UNANSWERED_MAIL not in chosen.muted:
+            await self._keep_unanswered(now, unread, picks)
+        return picks
+
+    async def _picked(self, now: datetime, unread: list[Unread]) -> list[MailPick]:
+        """The model's picks among the unread mail, only those it was given."""
+        system = prompts.load("briefing_mail").format(language=await inputs.language(self._store, self._user_id))
+        message = HumanMessage(f"Now: {clock.stamp(now)}.\n\n# Unread mail\n{render(unread)}")
+        draft = MailDraft.model_validate(await self._models().mail.ainvoke([SystemMessage(system), message]))
+        given = {(m.account, m.uid) for m in unread}
+        return [p for p in draft.important if (p.account, p.uid) in given][:_PICKS]
+
+    async def _keep_unanswered(self, now: datetime, unread: list[Unread], picks: list[MailPick]) -> None:
+        """Mail asking the user something, unread for ANSWER_DAYS or more, is kept as an open loop."""
+        received = {(m.account, m.uid): m.date for m in unread}
+        before = clock.local(now).date() - timedelta(days=ANSWER_DAYS)
+        for pick in (p for p in picks if p.asks and _day(received[(p.account, p.uid)]) <= before):
+            draft = LoopDraft(text=pick.line, kind=UNANSWERED_MAIL, key=_mail_key(pick))
+            await loops.add(self._store, self._user_id, draft, "briefing")
+
+    async def _told(self, day: str, at: str, text: str) -> Briefing:
         if not text:
             return Briefing(day=day, at=at, status="nothing")
         t = await i18n.chosen(self._store)
         channels = await self._teller.tell("briefing", t("Morning briefing"), text)
         return Briefing(day=day, at=at, status="sent", text=text, channels=channels)
+
+
+def _plugin_parts(t: Texts, listed: list[Listed], chosen: ProactiveSettings, today: date) -> list[Part]:
+    """A part per plugin's list, under the heading it gives, without the items of a muted kind."""
+    return [
+        Part(
+            found.today.heading or found.plugin,
+            [item_line(t, i, today) for i in found.today.items if i.kind not in chosen.muted],
+        )
+        for found in listed
+        if found.today
+    ]
+
+
+def _key_of(item: TodayItem) -> str:
+    return loops.key_of(item.key or item.needs or item.title)
+
+
+def _mail_key(pick: MailPick) -> str:
+    return loops.key_of(f"mail {pick.account} {pick.uid}")
+
+
+def _day(received: str) -> date:
+    """The day a message was received; one whose date can't be read counts as new, so it isn't kept as unanswered."""
+    try:
+        return datetime.fromisoformat(received).date()
+    except ValueError:
+        return date.max

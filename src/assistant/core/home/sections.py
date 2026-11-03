@@ -109,6 +109,7 @@ def _cleaned(section: HomeSection, t: Texts) -> HomeSection:
         prompt=section.prompt.strip(),
         plugins=plugins,
         columns=section.columns,
+        use_model=section.use_model,
     )
     return _as_coded(cleaned, t)
 
