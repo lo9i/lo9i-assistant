@@ -112,3 +112,16 @@ def test_a_message_the_agent_gets_to_later_shows_waiting_until_its_taken_step_wh
     assert events == [UserSaid("skip the slow ones", waiting=True), UserTaken("m1")]
     assert cast(UserSaid, events[0]).id == "m1"
     assert [json.loads(kept)["kind"] for kept in steps.lines] == ["user", "taken"]  # history knows it was taken
+
+
+def test_a_message_shown_as_it_was_sent_shows_once_and_the_workers_step_for_it_says_it_was_taken():
+    steps = AgentSteps("Claude Code")
+    events = _events(
+        steps,
+        {"kind": "user", "text": "continue", "id": "m1", "waiting": True},  # the daemon's, as it's sent
+        {"kind": "user", "text": "continue", "id": "m1", "waiting": True},  # the worker passes it on, still waiting
+        {"kind": "user", "text": "continue", "id": "m1"},  # the next task takes it
+        {"kind": "user", "text": "continue", "id": "m1"},
+    )
+    assert events == [UserSaid("continue", waiting=True), UserTaken("m1")]
+    assert [json.loads(kept)["kind"] for kept in steps.lines] == ["user", "taken"]

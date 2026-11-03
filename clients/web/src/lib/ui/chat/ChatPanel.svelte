@@ -167,10 +167,12 @@
     }
   }
 
-  /** Passes a message and its files on to the working agent; what it can't take goes back in the box. */
+  /** Passes a message and its files on to the working agent. What it can't take now waits in the conversation's queue,
+   * shown there, and goes to it once the run ends; what couldn't be sent goes back in the box. */
   async function steer(text: string, files: File[]): Promise<void> {
-    const taken = await tellAgent(() => client.conversations.messageAgent(threadId, text, files), notices);
-    if (!taken) putBack(box, text, files);
+    const told = await tellAgent(() => client.conversations.messageAgent(threadId, text, files), notices);
+    if (told === "later") enqueue(text, files);
+    else if (told === "failed") putBack(box, text, files);
   }
 
   function dragenter(e: DragEvent): void {

@@ -360,29 +360,50 @@ async def _working(service, session, tmp_path) -> str:
 
 
 async def _taking_messages(service, session, tmp_path) -> str:
+    """The agent's task, once it takes messages and the run has shown its first step: a message sent then shows
+    after it."""
     task = await _working(service, session, tmp_path)
     async with asyncio.timeout(10):
         while not (folders.data("claude-code") / "tasks" / task / "inbox").is_dir():
             await asyncio.sleep(0.02)
+        while not any(e.kind == "agent_task_progress" for e in service.bus._history):
+            await asyncio.sleep(0.02)
     return task
+
+
+async def _showing(run: AsyncIterator, events: list) -> None:
+    async for event in run:
+        events.append(event)
+
+
+async def _seen(events: list, kinds: type | tuple[type, ...], count: int = 1) -> None:
+    async with asyncio.timeout(10):
+        while sum(isinstance(e, kinds) for e in events) < count:
+            await asyncio.sleep(0.02)
 
 
 async def test_messages_sent_while_the_agent_works_reach_it_and_show_among_its_steps(service, tmp_path):
     session = await _handed(service, tmp_path)
-    run = asyncio.create_task(collect(service.send(session, "take messages")))
+    events: list = []
+    run = asyncio.create_task(_showing(service.send(session, "take messages"), events))
     await _taking_messages(service, session, tmp_path)
     await service.message_agent("owner", session.thread_id, "skip the slow tests")
+    await _seen(events, UserTaken)
     await service.interrupt_agent("owner", session.thread_id)
+    await _seen(events, ToolFinished)
     await service.message_agent("owner", session.thread_id, "that's all")
-    events = await run
-    said = [e for e in events if isinstance(e, TextDelta | UserSaid)]
+    await run
+    said = [e for e in events if isinstance(e, TextDelta | UserSaid | UserTaken)]
+    skip, done = (cast(UserSaid, e).id for e in said if isinstance(e, UserSaid))
     assert said == [
         TextDelta("Working."),
-        UserSaid("skip the slow tests"),
-        UserSaid("that's all"),
+        UserSaid("skip the slow tests", waiting=True),  # shown as it's sent, until the agent takes it
+        UserTaken(skip),
+        UserSaid("that's all", waiting=True),
+        UserTaken(done),
         TextDelta("Took 3 messages."),  # its reply answers the last message
     ]
-    assert ToolStarted("Interrupted", {}, within=events[2].id) in events and events[-1] == Done()
+    assert ToolStarted("Interrupted", {}, within=events[3].id) in events and events[-1] == Done()
     shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
     assert shown[-6:] == [  # in order, after a reload
         ("user", "take messages"),
@@ -417,9 +438,9 @@ async def test_files_sent_while_the_agent_works_are_saved_and_it_gets_where(serv
     await service.message_agent("owner", session.thread_id, "", [Attachment("log.txt", "text/plain", b"log")])
     await service.message_agent("owner", session.thread_id, "that's all")
     assert [e for e in await run if isinstance(e, UserSaid)] == [
-        UserSaid("see this", ["shot.png"]),  # as the user sent it, its files shown as files
-        UserSaid("", ["log.txt"]),
-        UserSaid("that's all"),
+        UserSaid("see this", ["shot.png"], waiting=True),  # as the user sent it, its files shown as files
+        UserSaid("", ["log.txt"], waiting=True),
+        UserSaid("that's all", waiting=True),
     ]
     got = [s["text"] for s in _progress(task) if s.get("kind") == "user"]  # what the agent got: where they are
     assert got[0].startswith("see this\n\n[File shot.png (image/png) saved at ")
@@ -624,13 +645,14 @@ async def test_a_message_written_as_the_task_ends_is_answered_next(service, tmp_
     def as_it_ends(self, task_id, message):
         (tmp_path / "release").write_text("")  # the task ends after the check that it runs, before the write
         read.wait(timeout=2)  # long enough for its untaken messages to be read, were they read meanwhile
-        write(self, task_id, message)
+        return write(self, task_id, message)
 
     monkeypatch.setattr(TaskStore, "untaken", reading)
     monkeypatch.setattr(TaskStore, "add_message", as_it_ends)
     await service.message_agent("owner", session.thread_id, "one more")
     events = await run
-    assert UserSaid("one more") in events
+    said = next(e for e in events if isinstance(e, UserSaid))
+    assert said == UserSaid("one more", waiting=True) and UserTaken(said.id) in events  # the next task took it
     assert TextDelta(f"Done in {tmp_path}: one more") in events and events[-1] == Done()
 
 
@@ -761,10 +783,9 @@ async def test_a_message_the_agent_gets_to_later_shows_as_waiting_until_it_takes
     run = asyncio.create_task(showing())
     await _taking_messages(service, session, tmp_path)
     await service.message_agent("owner", session.thread_id, "take a look at the docs")
+    await _seen(events, UserTaken)
     await service.message_agent("owner", session.thread_id, "skip the slow tests")
-    async with asyncio.timeout(10):
-        while sum(isinstance(e, UserSaid | UserTaken) for e in events) < 3:
-            await asyncio.sleep(0.02)
+    await _seen(events, UserSaid, 2)
     assert await service.cancel(session.thread_id)
     await run
     said = [e for e in events if isinstance(e, UserSaid | UserTaken)]
@@ -780,6 +801,33 @@ async def test_a_message_the_agent_gets_to_later_shows_as_waiting_until_it_takes
         ("user", "skip the slow tests", True),
         ("assistant", "[stopped before Claude Code replied]", False),
     ]
+
+
+async def test_messages_show_as_they_are_sent_even_when_the_agent_never_passes_them_on(service, tmp_path):
+    """A worker stuck on a request writes no step for what the user sends: the messages show at once all the same,
+    waiting, and once the run is stopped they go to the agent next."""
+    session = await _handed(service, tmp_path)
+    events: list = []
+    run = asyncio.create_task(_showing(service.send(session, "leave messages"), events))
+    await _taking_messages(service, session, tmp_path)
+    await service.message_agent("owner", session.thread_id, "continue")
+    await service.message_agent("owner", session.thread_id, "so?")
+    await _seen(events, UserSaid, 2)
+    assert await service.cancel(session.thread_id)
+    await run
+    assert [e for e in events if isinstance(e, UserSaid | UserTaken)] == [
+        UserSaid("continue", waiting=True),
+        UserSaid("so?", waiting=True),
+    ]
+    assert isinstance(events[-1], Cancelled)
+    shown = [(m.role, m.text, m.untaken) for m in await service.conversation_messages(session.thread_id)]
+    assert shown[-3:] == [  # once each after a reload too
+        ("user", "continue", True),
+        ("user", "so?", True),
+        ("assistant", "[stopped before Claude Code replied]", False),
+    ]
+    waiting = await service.next_queued("owner", session.thread_id)
+    assert waiting is not None and (waiting.text, waiting.resent) == ("continue\n\nso?", True)
 
 
 async def test_the_messages_it_hadnt_taken_go_to_the_agent_only_once(service, tmp_path):

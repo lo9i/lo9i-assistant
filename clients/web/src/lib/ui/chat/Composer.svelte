@@ -120,7 +120,7 @@
       files = [];
       return;
     }
-    // While the agent works it gets the message; what it can't take comes back in the box (ChatPanel's steer).
+    // While the agent works it gets the message; what it can't take now waits in the queue (ChatPanel's steer).
     if (steering) steering.onsteer(text.trim(), files);
     else onsend(text.trim(), files);
     type("");

@@ -1,19 +1,25 @@
 // Talking to the agent a conversation is handed to (/claude) while it works on the last message: what's typed
 // goes to it between its steps (core/agent/handoffs.py).
+import { ApiError } from "../api/errors";
 import type { RunningTask } from "../api/types";
 import { describe } from "../notices";
 
 type Notices = { notify(text: string, level: "info" | "warning"): void };
 
-/** Runs a call to the working agent. When it can't take it (it just finished, or its plugin is older), says why
- * as a warning and returns false. */
-export async function tellAgent(call: () => Promise<void>, notices: Notices): Promise<boolean> {
+/** What became of a message for the working agent: it has it ("taken", shown among its steps as it's sent), it can't
+ * take it now ("later": between two tasks, just finished, or its plugin is older), so it waits in the conversation's
+ * queue for the run to end, or it couldn't be sent ("failed"). */
+export type Told = "taken" | "later" | "failed";
+
+/** Runs a call to the working agent. When the call itself fails, says why as a warning. */
+export async function tellAgent(call: () => Promise<void>, notices: Notices): Promise<Told> {
   try {
     await call();
-    return true;
+    return "taken";
   } catch (error) {
+    if (error instanceof ApiError && error.status === 409) return "later";
     notices.notify(describe(error), "warning");
-    return false;
+    return "failed";
   }
 }
 

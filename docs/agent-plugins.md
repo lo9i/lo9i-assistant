@@ -77,8 +77,10 @@ it started would end on it).
 
 An agent that gets to a message only later (Claude Code takes what it's sent once it's done with the turn in
 progress) marks its `user` step `"waiting": true`, and writes a `taken` step with the message's id once the
-agent gets to it. A `user` step without `waiting` counts as taken. The apps show a waiting message as waiting
-until its `taken` step.
+agent gets to it. A `user` step without `waiting` counts as taken. The daemon shows each message in the
+conversation as soon as it writes it, waiting, without waiting for the worker's `user` step (a worker stuck on a
+request never writes one); the apps show it as waiting until the worker's `user` step without `waiting`, or its
+`taken` step, says the agent took it.
 
 The task ends once the agent has answered every message it was sent. Messages left in `inbox/` without a
 `user` step when it ends (sent just as it finished) go to the agent next, as a follow-up in the same

@@ -49,14 +49,21 @@ class AgentSteps:
         self.spoke = False
         # Every step so far but the streamed words, as written, to keep with the reply.
         self.lines: list[str] = []
+        # The messages the user sent it shown so far, by id: whether each still waits for the agent to take it.
+        self._sent: dict[str, bool] = {}
 
     def events(self, message: str) -> list[Event]:
         step = parse(message)
-        kind = step.get("kind", "")
+        kind, message_id = step.get("kind", ""), step.get("id", "")
+        if kind == "user" and message_id in self._sent:
+            return self._shown_again(message_id, waiting(step))
         if kind == TAKEN:
             # Says when the agent got to a message already shown, waiting: kept, so history knows it was taken.
             self.lines.append(message)
-            return [UserTaken(step.get("id", ""))]
+            self._sent[message_id] = False
+            return [UserTaken(message_id)]
+        if kind == "user" and message_id:
+            self._sent[message_id] = waiting(step)
         if kind not in _DELTAS:
             self.lines.append(message)
         events = self._events(step, files_of(message))
@@ -64,6 +71,13 @@ class AgentSteps:
             block = _DELTAS.get(kind, kind)
             self._last = _SHOWN_AS.get(block, block)
         return events
+
+    def _shown_again(self, message_id: str, still_waiting: bool) -> list[Event]:
+        """A message shown already: the daemon shows each as it's sent (AgentTasks.message), and the worker's step
+        when it passes it on comes after. Taken now unless it still waits, or was taken already."""
+        if still_waiting or not self._sent[message_id]:
+            return []
+        return self.events(json.dumps({"kind": TAKEN, "id": message_id}))
 
     def reply(self, text: str) -> list[Event]:
         """The reply, when it said nothing else, set apart from the thinking shown before it."""

@@ -101,6 +101,8 @@ class Untaken:
     """A message sent to a task that its agent didn't take, as the daemon wrote it in the inbox."""
 
     message: dict[str, Any]
+    # Its id in the inbox.
+    id: str
     # Its worker passed it on, so a `user` step shows it; the agent hadn't got to it.
     passed_on: bool
 
@@ -182,9 +184,12 @@ class TaskStore:
         """Its worker takes messages while it works: it made the inbox."""
         return (self.folder(task_id) / _INBOX).is_dir()
 
-    def add_message(self, task_id: str, message: dict[str, Any]) -> None:
-        """A message for the worker (docs/agent-plugins.md), named so it sorts after the ones before."""
-        _write_json(self.folder(task_id) / _INBOX / f"{time.time_ns()}-{uuid.uuid4().hex[:6]}.json", message)
+    def add_message(self, task_id: str, message: dict[str, Any]) -> str:
+        """A message for the worker (docs/agent-plugins.md), named so it sorts after the ones before. Returns its
+        id, which the worker's `user` step for it carries."""
+        message_id = f"{time.time_ns()}-{uuid.uuid4().hex[:6]}"
+        _write_json(self.folder(task_id) / _INBOX / f"{message_id}.json", message)
+        return message_id
 
     def message(self, task_id: str, message_id: str) -> dict[str, Any] | None:
         """The message sent to it under that id (a `user` step's), or None when there's none."""
@@ -202,7 +207,7 @@ class TaskStore:
         passed = {step.get("id"): waiting(step) for step in steps if step.get("kind") == "user"}
         taken = {step.get("id") for step in steps if step.get("kind") == TAKEN}
         left = [
-            Untaken(json.loads(path.read_text()), path.stem in passed)
+            Untaken(json.loads(path.read_text()), path.stem, path.stem in passed)
             for path in sorted((folder / _INBOX).glob("*.json"))
             if passed.get(path.stem, True) and path.stem not in taken
         ]

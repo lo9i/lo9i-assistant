@@ -60,6 +60,10 @@ class AgentTasks:
         # Held while a message is written to a task's inbox, and while the messages a task ended without
         # taking are read: a message is then either among them or refused as sent to a task that has ended.
         self._inboxes = asyncio.Lock()
+        # The report of each task a conversation's run follows (`converse`), by task id: a message sent to it shows
+        # there as soon as it's written, waiting until the agent takes it, however long its worker takes to pass it
+        # on, or if it never does (a worker stuck on a request).
+        self._followed: dict[str, Report] = {}
 
     async def reload(self) -> None:
         """Brings the agents in line with the saved plugins. Called after every change."""
@@ -124,8 +128,9 @@ class AgentTasks:
 
     async def message(self, task_id: str, text: str, said: str, files: list[Upload]) -> None:
         """Passes `text` on to a running task, whose agent takes it between its steps; its step shows what
-        the user `said` and the `files` they sent instead (sent.py). Raises AgentTaskError for an unknown task,
-        one that isn't running, or an agent that takes no messages while it works."""
+        the user `said` and the `files` they sent instead (sent.py), at once in the run following the task, waiting
+        until the agent takes it. Raises AgentTaskError for an unknown task, one that isn't running, or an agent
+        that takes no messages while it works."""
         await self._tell(task_id, sent.message(text, said, files))
 
     async def interrupt(self, task_id: str) -> None:
@@ -175,6 +180,7 @@ class AgentTasks:
         """The task's state once it ends, and the messages it ended without taking; stopping the wait stops
         the task, and the steps it wrote that weren't read yet and its untaken messages are reported all the same."""
         followed = _Followed(_as_sent(tasks, task_id, report))
+        self._followed[task_id] = report
         try:
             state = await until_ended(tasks, task_id, followed, measured)
         except BaseException:
@@ -182,7 +188,10 @@ class AgentTasks:
             await followed.rest(tasks, task_id)
             await self._untaken(tasks, task_id, report, answered_next=False)
             raise
-        return state, await self._untaken(tasks, task_id, report, answered_next=state.status == "done")
+        else:
+            return state, await self._untaken(tasks, task_id, report, answered_next=state.status == "done")
+        finally:
+            self._followed.pop(task_id, None)
 
     async def _untaken(
         self, tasks: TaskStore, task_id: str, report: Report, answered_next: bool
@@ -194,7 +203,7 @@ class AgentTasks:
             left = await asyncio.to_thread(tasks.untaken, task_id)
         for untaken in left:
             if not untaken.passed_on:
-                await report(sent.user_step(untaken.message, waiting=not answered_next))
+                await report(sent.user_step(untaken.message, untaken.id, waiting=not answered_next))
         return [untaken.message for untaken in left]
 
     async def take_waiting(self, agent: str, conversation: str, folder: str) -> list[dict[str, Any]]:
@@ -217,7 +226,8 @@ class AgentTasks:
 
     async def _tell(self, task_id: str, message: dict[str, Any]) -> None:
         """The check that it runs and the write are one step for `_untaken`: a task that ends in between still
-        has the message among those it didn't take, which its conversation answers next."""
+        has the message among those it didn't take, which its conversation answers next. A message shows in the run
+        following the task before its worker is woken, so before the worker's own step for it."""
         server = await self._owner(task_id)
         tasks = _tasks(server)
         async with self._inboxes:
@@ -230,7 +240,9 @@ class AgentTasks:
                         agent_name=server.agent_name,
                     )
                 )
-            await asyncio.to_thread(tasks.add_message, task_id, message)
+            message_id = await asyncio.to_thread(tasks.add_message, task_id, message)
+            if message.get("kind") == "message" and (report := self._followed.get(task_id)) is not None:
+                await report(sent.user_step(message, message_id, waiting=True))
         if (pid := await asyncio.to_thread(tasks.pid, task_id)) is not None:
             await asyncio.to_thread(workers.wake, pid)
 
