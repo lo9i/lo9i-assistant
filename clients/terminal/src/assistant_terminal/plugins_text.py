@@ -4,7 +4,15 @@ and the ones the user added), and one plugin's details."""
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from assistant.core.agent import FoundServer, FoundSkill, Repository, RepositoryContents, RepositoryPlugins
+from assistant.core.agent import (
+    FoundServer,
+    FoundSkill,
+    PluginSettings,
+    Repository,
+    RepositoryContents,
+    RepositoryPlugins,
+    ServerField,
+)
 from assistant.core.repositories.known import EXTRAS
 from assistant_terminal.i18n import t, translatable
 
@@ -92,6 +100,14 @@ def update_label(plugin: Plugin) -> str:
     none = t("none")
     installed, available = (found.installed_version or none, found.version) if found else (none, "")
     return f"{plugin.name}  {installed} → {available}"
+
+
+def missing_fields(found: list[Plugin], name: str, installed: PluginSettings) -> list[ServerField]:
+    """The fields the newer version of the installed server `name` has and the installed one has no value for: what
+    its update asks for (as the web app's UpdateValuesDialog reads it)."""
+    newer = next((p.server for p in found if p.server and p.installed and p.name == name), None)
+    given = {f.key for f in installed.fields if f.set}
+    return [f for f in newer.fields if f.key not in given] if newer else []
 
 
 def plugins(contents: RepositoryContents, repository: Repository = _EXTRAS) -> list[Plugin]:

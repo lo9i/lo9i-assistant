@@ -51,6 +51,7 @@ from assistant.core.agent.mcp import (
     McpServerStatus,
     McpToolInfo,
     PluginIcon,
+    UpdateNeedsValuesError,
 )
 from assistant.core.agent.memory import Episode, Fact, MemoryEditError, MemoryNotFoundError
 from assistant.core.agent.model import ModelOption, ModelProvider, ModelSettingsError, ModelStatus, ProviderField
@@ -231,6 +232,7 @@ __all__ = [
     "SynthesisError",
     "TokenReport",
     "UnknownPromptError",
+    "UpdateNeedsValuesError",
     "UploadedFile",
     "UsageReport",
     "VoiceCallError",

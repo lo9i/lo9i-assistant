@@ -1117,7 +1117,8 @@
     "valuesDescription": "Su nueva versión pide algo que no se le dio al instalarlo.",
     "updateNow": "Actualizar",
     "busy": "Actualizando…",
-    "available": "Actualización disponible: {from} → {to}. Haz clic para actualizar."
+    "available": "Actualización disponible: {from} → {to}. Haz clic para actualizar.",
+    "needsValues": "Necesita un valor"
   },
   "plugins": {
     "official": "Oficial",

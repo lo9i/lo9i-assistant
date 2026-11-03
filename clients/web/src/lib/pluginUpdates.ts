@@ -19,22 +19,27 @@ export async function checkRepositories(read: () => Promise<unknown>, onstate: (
   }
 }
 
-/** Where a plugin picked for an update is: its turn to come, updating now, or how it went. */
-export type UpdateStep = "waiting" | "updating" | "updated" | "failed";
+/** Where a plugin picked for an update is: its turn to come, updating now, or how it went; `values` when its new
+ * version asks for a value it wasn't given (needsValues), which the page asks for once the others are done. */
+export type UpdateStep = "waiting" | "updating" | "updated" | "failed" | "values";
+
+/** A plugin whose update asks for values, with what its update said. */
+export type AskingValues = { name: string; key: string; reason: string };
 
 /**
  * Update the plugins one after the other, since an update restarts the plugin; one that fails doesn't stop the
  * rest. `onstep` hears every plugin's step by its key (keyOf), every one waiting first, so a page can show each
- * row's progress. Returns the names of those updated and those that failed.
+ * row's progress. Returns the names of those updated and those that failed, and those that ask for values.
  */
 export async function updateEach(
   picked: Plugin[],
   updateOne: (p: Plugin) => Promise<unknown>,
   onstep: (key: string, step: UpdateStep) => void,
   onerror: (e: unknown) => void = () => {},
-): Promise<{ updated: string[]; failed: string[] }> {
+): Promise<{ updated: string[]; failed: string[]; asking: AskingValues[] }> {
   const updated: string[] = [];
   const failed: string[] = [];
+  const asking: AskingValues[] = [];
   for (const p of picked) onstep(keyOf(p), "waiting");
   for (const p of picked) {
     onstep(keyOf(p), "updating");
@@ -43,16 +48,21 @@ export async function updateEach(
       updated.push(p.name);
       onstep(keyOf(p), "updated");
     } catch (e) {
+      if (needsValues(e)) {
+        asking.push({ name: p.name, key: keyOf(p), reason: e.detail });
+        onstep(keyOf(p), "values");
+        continue;
+      }
       failed.push(p.name);
       onstep(keyOf(p), "failed");
       onerror(e);
     }
   }
-  return { updated, failed };
+  return { updated, failed, asking };
 }
 
 /** The update failed only because the new version asks for a value the plugin wasn't given: ask for it and update
  * with it (UpdateValuesDialog) instead of saying it failed. */
-export function needsValues(error: unknown): boolean {
+export function needsValues(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === 409;
 }

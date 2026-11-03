@@ -98,6 +98,8 @@
                 <span class="done"><Check size={14} aria-hidden="true" />{t("pluginUpdates.updated")}</span>
               {:else if step === "failed"}
                 <span class="failed">{t("pluginUpdates.failed")}</span>
+              {:else if step === "values"}
+                <span class="values">{t("pluginUpdates.needsValues")}</span>
               {/if}
             </td>
           {/if}
@@ -181,5 +183,8 @@
   }
   .failed {
     color: var(--color-danger);
+  }
+  .values {
+    color: var(--color-warn);
   }
 </style>

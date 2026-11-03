@@ -5,14 +5,17 @@ from textual.widgets import Button, Checkbox, Input, Markdown, OptionList
 
 from assistant.core.agent import (
     FoundServer,
+    PluginFieldValue,
+    PluginSettings,
     PluginUpdate,
     Repository,
     RepositoryContents,
     RepositoryPlugins,
     ServerField,
+    UpdateNeedsValuesError,
 )
 from assistant.core.repositories.known import EXTRAS
-from assistant_terminal.plugins_text import Plugin, by_category, describe, from_repositories
+from assistant_terminal.plugins_text import Plugin, by_category, describe, from_repositories, missing_fields
 from assistant_terminal.tui.screens import PluginSettingsScreen, PluginsScreen
 from assistant_terminal.tui.screens.confirm import ConfirmWithOptionScreen
 from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen, _field_input
@@ -425,3 +428,53 @@ async def test_settings_show_only_for_an_installed_plugin_with_fields_of_its_own
         client.mcp.items["calendar"] = replace(_mcp_status("calendar", source=EXTRAS), settings=True)
         await screen.reload()
         await wait_for(pilot, lambda: screen.query_one("#plugin-settings").display)
+
+
+def test_an_update_asks_for_the_new_versions_fields_the_installed_one_has_no_value_for():
+    city, key = ServerField("CITY", "Your city"), ServerField("KEY", "API key", secret=True)
+    newer = FoundServer("radar", "Radar", "stdio", [key, city], False, installed=True)
+    found = [Plugin("radar", True, server=newer), Plugin("other", True, server=replace(newer, name="other"))]
+    installed = PluginSettings("radar", [PluginFieldValue("KEY", "API key", secret=True, set=True)])
+    assert missing_fields(found, "radar", installed) == [city]
+    assert missing_fields(found, "gone", installed) == []
+
+
+async def test_updates_ask_for_a_value_the_new_version_needs_then_update_with_it(app, client):
+    from assistant_terminal.tui.screens.plugin_updates import PluginUpdatesScreen
+    from assistant_terminal.tui.screens.update_values import UpdateValuesScreen
+
+    calls = []
+
+    async def update(name, values=None):
+        calls.append((name, values))
+        if name == "radar" and not values:
+            raise UpdateNeedsValuesError("The new version of radar needs Your city.")
+        return client.mcp.items[name]
+
+    client.mcp.update_from_repository = update
+    for name in ("weather", "radar"):
+        client.mcp.items[name] = _mcp_status(name)
+    city = ServerField("CITY", "Your city")
+    client.repositories.more = [
+        FoundServer(
+            "radar", "Radar", "stdio", [city], False, installed=True, version="2.0.0", installed_version="1.0.0"
+        )
+    ]
+    client.mcp.settings["radar"] = PluginSettings("radar", [])
+    async with app.run_test(size=(120, 40)) as pilot:
+        screen = await _open(pilot, app)
+        updates = screen.query_one("#updates", Button)
+        await wait_for(pilot, lambda: updates.display and str(updates.label) == "Updates (2)")
+        updates.press()
+        await wait_for(pilot, lambda: isinstance(app.screen, PluginUpdatesScreen))
+        app.screen.query_one("#update-all", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, UpdateValuesScreen))
+        asking = app.screen
+        field = asking.query_one("#update-field-CITY", Input)
+        await wait_for(pilot, lambda: field.display)
+        asking.query_one("#update", Button).press()
+        await wait_for(pilot, lambda: "needs Your city" in asking.query_one("#update-values-message", Markdown).source)
+        field.value = "Rosario"
+        asking.query_one("#update", Button).press()
+        await wait_for(pilot, lambda: app.screen is screen)
+        assert calls == [("weather", None), ("radar", None), ("radar", {"CITY": "Rosario"})]

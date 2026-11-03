@@ -133,6 +133,38 @@ async def test_a_server_installed_from_the_extras_is_updated_here(app, client):
         await wait_for(pilot, lambda: getattr(client.mcp, "updated", None) == "calendar")
 
 
+async def test_an_update_that_needs_a_value_asks_for_it_here(app, client):
+    from assistant.core.agent import PluginFieldValue, PluginSettings, ServerValues, UpdateNeedsValuesError
+    from assistant_terminal.tui.screens.update_values import UpdateValuesScreen
+
+    calls = []
+
+    async def update(name, values=None):
+        calls.append(values)
+        if not values:
+            raise UpdateNeedsValuesError("The new version of calendar needs Password.")
+        return client.mcp.items[name]
+
+    async with app.run_test(size=(120, 50)) as pilot:
+        screen = await _open(pilot, app)
+        await client.repositories.install([], [ServerValues("calendar", {"CAL_USER": "ana", "CAL_PASSWORD": "pw"})])
+        client.mcp.items["calendar"].plugin = "calendar"
+        client.mcp.update_from_repository = update
+        client.mcp.settings["calendar"] = PluginSettings("calendar", [PluginFieldValue("CAL_USER", "User", set=True)])
+        await screen.reload()
+        screen.query_one("#mcp-list", OptionList).highlighted = 1
+        await wait_for(pilot, lambda: screen.query_one("#update").display)
+        screen.query_one("#update", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, UpdateValuesScreen))
+        asking = app.screen
+        field = asking.query_one("#update-field-CAL_PASSWORD", Input)
+        assert field.password and not asking.query("#update-field-CAL_USER")
+        field.value = "pw"
+        asking.query_one("#update", Button).press()
+        await wait_for(pilot, lambda: app.screen is screen)
+        assert calls == [None, {"CAL_PASSWORD": "pw"}]
+
+
 def test_a_failing_server_is_marked_and_its_last_failure_shown():
     server = _mcp_status("notes")
     server.failures, server.failure, server.failed_at = 3, "add_note: disk full", "2026-10-03T12:00:00+00:00"

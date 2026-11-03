@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ApiError, DaemonUnavailableError } from "./api/errors";
 import type { FoundServer } from "./api/types";
-import { pluginsOf } from "./plugins";
+import { keyOf, pluginsOf } from "./plugins";
 import { type CheckState, type UpdateStep, checkRepositories, needsValues, updateEach } from "./pluginUpdates";
 
 const server = (name: string): FoundServer => ({
@@ -56,8 +56,30 @@ describe("updateEach", () => {
       ["notes", "updating"],
       ["notes", "updated"],
     ]);
-    expect(got).toEqual({ updated: ["watchlist", "notes"], failed: ["expenses"] });
+    expect(got).toEqual({ updated: ["watchlist", "notes"], failed: ["expenses"], asking: [] });
     expect(errors).toEqual([new Error("no network")]);
+  });
+
+  it("leaves one whose new version asks for a value to ask for, not as a failure", async () => {
+    const steps: [string, UpdateStep][] = [];
+    const errors: unknown[] = [];
+    const got = await updateEach(
+      plugins,
+      async (p) => {
+        if (p.name === "expenses") throw new ApiError(409, "The new version of expenses needs Your bank.");
+      },
+      (key, step) => steps.push([key.split(":")[1], step]),
+      (e) => errors.push(e),
+    );
+    expect(steps.filter(([name]) => name === "expenses")).toEqual([
+      ["expenses", "waiting"],
+      ["expenses", "updating"],
+      ["expenses", "values"],
+    ]);
+    expect(got.updated).toEqual(["watchlist", "notes"]);
+    expect(got.failed).toEqual([]);
+    expect(got.asking).toEqual([{ name: "expenses", key: keyOf(plugins[1]), reason: "The new version of expenses needs Your bank." }]);
+    expect(errors).toEqual([]);
   });
 });
 

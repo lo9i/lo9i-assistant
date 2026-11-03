@@ -795,7 +795,7 @@ class FakeMcp:
         # What a removed plugin leaves kept, as the daemon reports it.
         return KeptKeys(name, ["API_KEY"]) if getattr(self, "keeps_keys", False) else None
 
-    async def update_from_repository(self, name):
+    async def update_from_repository(self, name, values=None):
         self.updated = name
         return self.items[name]
 

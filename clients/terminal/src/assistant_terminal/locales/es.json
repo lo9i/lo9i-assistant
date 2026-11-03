@@ -1055,5 +1055,9 @@
   "Off: it shows {plugin}'s own list for the day, with no model call; the text above isn't used.": "Apagado: muestra la lista del día de {plugin}, sin llamar al modelo; el texto de arriba no se usa.",
   "On: the model builds it from the text above, which costs a model call each time it's built.": "Encendido: el modelo la arma a partir del texto de arriba, lo que cuesta una llamada al modelo cada vez que se arma.",
   "Delete {name}? It's removed from this computer; the message it came with stays, without it.": "¿Borrar {name}? Se quita de esta computadora; el mensaje con el que llegó queda, sin él.",
-  "Deleted {name}.": "Se borró {name}."
+  "Deleted {name}.": "Se borró {name}.",
+  "Update {name}": "Actualizar {name}",
+  "Updating…": "Actualizando…",
+  "{name} needs {field}.": "{name} necesita {field}.",
+  "Its new version asks for something it wasn't given when it was installed.": "Su nueva versión pide algo que no se le dio al instalarlo."
 }

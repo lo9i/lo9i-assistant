@@ -15,7 +15,7 @@ from textual.widgets import Button, Markdown, OptionList, SelectionList, Static
 from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import McpApi, OAuthApi, RepositoriesApi
-from assistant.core.agent import McpServerChanges, McpServerError, McpServerStatus
+from assistant.core.agent import McpServerChanges, McpServerError, McpServerStatus, UpdateNeedsValuesError
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.mcp_text import (
     ADDED,
@@ -33,6 +33,7 @@ from assistant_terminal.tui.screens.kept_keys import ask_about_keys
 from assistant_terminal.tui.screens.mcp_add import McpAddScreen
 from assistant_terminal.tui.screens.mcp_secrets import McpSecretsScreen
 from assistant_terminal.tui.screens.mcp_sign_in import McpSignInScreen
+from assistant_terminal.tui.screens.update_values import UpdateValuesScreen
 
 
 class McpScreen(ModalScreen[None]):
@@ -118,13 +119,25 @@ class McpScreen(ModalScreen[None]):
             await self.reload()
 
     @on(Button.Pressed, "#update")
+    @work
     @reports_daemon_unavailable
     async def _update(self) -> None:
+        """A new version that asks for a value not given yet asks for it, then updates with it."""
         server = self._current()
-        if server is not None:
-            await self._run(
-                lambda: self._mcp.update_from_repository(server.name), t("Updated {name}.", name=server.name)
-            )
+        if server is None:
+            return
+        try:
+            await self._mcp.update_from_repository(server.name)
+            updated = True
+        except UpdateNeedsValuesError as e:
+            screen = UpdateValuesScreen(self._mcp, self._repositories, server.name, str(e))
+            updated = await self.app.push_screen_wait(screen)
+        except McpServerError as e:
+            self.notify(str(e), severity="error")
+            updated = False
+        if updated:
+            self.notify(t("Updated {name}.", name=server.name))
+        await self.reload()
 
     @on(Button.Pressed, "#save-tools")
     @reports_daemon_unavailable

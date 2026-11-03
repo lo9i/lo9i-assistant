@@ -38,7 +38,7 @@
   import PluginUpdates from "$lib/ui/plugins/PluginUpdates.svelte";
   import RepositoryCheck from "$lib/ui/plugins/RepositoryCheck.svelte";
   import { describe as describeError } from "$lib/notices";
-  import { type CheckState, type UpdateStep, checkRepositories, needsValues, updateEach } from "$lib/pluginUpdates";
+  import { type AskingValues, type CheckState, type UpdateStep, checkRepositories, needsValues, updateEach } from "$lib/pluginUpdates";
   import UpdateValuesDialog from "$lib/ui/plugins/UpdateValuesDialog.svelte";
   import RepositoriesDialog from "$lib/ui/repositories/RepositoriesDialog.svelte";
 
@@ -117,15 +117,16 @@
   }
 
   const updateOne = (p: Plugin) => (p.kind === "server" ? client.mcp.updateFromRepository(p.name) : client.skills.updateInstalled(p.name));
-  // A plugin whose new version asks for a value it wasn't given, with what its update said.
-  let askingUpdate = $state<{ name: string; reason: string } | null>(null);
+  // The plugins whose new version asks for a value they weren't given, with what their update said: a dialog for
+  // each in turn, the first one shown.
+  let askingUpdates = $state<AskingValues[]>([]);
   const update = (p: Plugin) =>
     act(() =>
       updateOne(p).then(
         () => notices.notify(t("pluginsPage.updated", { names: p.name })),
         (e: unknown) => {
           if (!needsValues(e)) throw e;
-          askingUpdate = { name: p.name, reason: describeError(e) };
+          askingUpdates = [{ name: p.name, key: keyOf(p), reason: describeError(e) }];
         },
       ),
     );
@@ -138,7 +139,7 @@
   async function updateMany(picked: Plugin[]): Promise<void> {
     busy = true;
     steps = {};
-    const { updated } = await updateEach(
+    const { updated, asking } = await updateEach(
       picked,
       updateOne,
       (key, step) => (steps = { ...steps, [key]: step }),
@@ -146,6 +147,16 @@
     );
     busy = false;
     if (updated.length) notices.notify(t("pluginsPage.updated", { names: formatList(updated) }));
+    askingUpdates = asking;
+    listing.reload();
+  }
+
+  function valuesAnswered(asked: AskingValues, updated: boolean | undefined): void {
+    askingUpdates = askingUpdates.slice(1);
+    if (updated) {
+      notices.notify(t("pluginsPage.updated", { names: asked.name }));
+      if (steps[asked.key]) steps = { ...steps, [asked.key]: "updated" };
+    }
     listing.reload();
   }
   const remove = (p: Plugin, deleteData: boolean) =>
@@ -307,17 +318,11 @@
   />
 {/if}
 
-{#if askingUpdate}
-  {@const name = askingUpdate.name}
-  <UpdateValuesDialog
-    plugin={name}
-    reason={askingUpdate.reason}
-    onclose={(updated) => {
-      askingUpdate = null;
-      if (updated) notices.notify(t("pluginsPage.updated", { names: name }));
-      listing.reload();
-    }}
-  />
+{#if askingUpdates.length}
+  {@const asked = askingUpdates[0]}
+  {#key asked.key}
+    <UpdateValuesDialog plugin={asked.name} reason={asked.reason} onclose={(updated) => valuesAnswered(asked, updated)} />
+  {/key}
 {/if}
 
 {#if configuring}

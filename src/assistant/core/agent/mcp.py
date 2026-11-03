@@ -11,6 +11,7 @@ from assistant.core.integrations.email import accounts as email_accounts
 from assistant.core.mcp import data_key, install, keys, plugin_oauth, plugin_settings, servers
 from assistant.core.mcp.checks import CheckFailedError
 from assistant.core.mcp.hub import McpHub, McpProbe, McpToolInfo
+from assistant.core.mcp.install import UpdateNeedsValuesError
 from assistant.core.mcp.plugin_oauth import PluginSignIn
 from assistant.core.mcp.servers import McpServer, McpServerError
 from assistant.core.mcp.sign_in import McpSignIn
@@ -28,6 +29,7 @@ __all__ = [
     "McpServerStatus",
     "McpToolInfo",
     "PluginIcon",
+    "UpdateNeedsValuesError",
     "mcp_status",
 ]
 

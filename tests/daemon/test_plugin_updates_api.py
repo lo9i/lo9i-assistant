@@ -2,6 +2,7 @@
 and send it with the update."""
 
 import httpx
+import pytest
 
 from assistant.daemon.api import create_app
 from assistant.daemon.auth import trusted
@@ -28,3 +29,22 @@ async def test_an_update_that_needs_a_value_answers_409_and_goes_once_its_given(
         assert unknown.status_code == 400
         updated = await http.post("/mcp/servers/hello/update", json={"values": {"HELLO_CITY": "Rosario"}})
         assert updated.status_code == 200
+
+
+async def test_the_client_says_an_update_needs_values_and_sends_them(service, repo):  # noqa: F811
+    from assistant.client.daemon_client import DaemonClient
+    from assistant.core.agent import UpdateNeedsValuesError
+
+    await service.install_from_repository(URL, [], [HELLO])
+    (repo / "other" / "general" / "hello" / "server.yaml").write_text(
+        _MANIFEST + "  - {key: HELLO_CITY, label: Your city}\n"
+    )
+    transport = httpx.ASGITransport(app=trusted(create_app(service, RunHub())))
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}
+    ) as http:
+        client = DaemonClient(http)
+        with pytest.raises(UpdateNeedsValuesError, match="needs Your city"):
+            await client.mcp.update_from_repository("hello")
+        updated = await client.mcp.update_from_repository("hello", {"HELLO_CITY": "Rosario"})
+    assert updated.name == "hello"

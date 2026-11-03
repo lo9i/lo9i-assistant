@@ -19,7 +19,14 @@ from textual.widgets.option_list import Option
 
 from assistant.client import DaemonUnavailableError
 from assistant.client.daemon_client import ChannelsApi, EmailApi, McpApi, OAuthApi, RepositoriesApi, SkillsApi
-from assistant.core.agent import McpServerError, RepositoryError, RepositoryPlugins, ServerValues, SkillError
+from assistant.core.agent import (
+    McpServerError,
+    RepositoryError,
+    RepositoryPlugins,
+    ServerValues,
+    SkillError,
+    UpdateNeedsValuesError,
+)
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.plugins_text import (
     Plugin,
@@ -44,6 +51,7 @@ from assistant_terminal.tui.screens.plugin_sign_in import PluginSignInScreen
 from assistant_terminal.tui.screens.plugin_updates import PluginUpdatesScreen
 from assistant_terminal.tui.screens.repositories import RepositoriesScreen
 from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
+from assistant_terminal.tui.screens.update_values import UpdateValuesScreen
 
 _CATEGORY = "category:"
 
@@ -236,12 +244,12 @@ class PluginsScreen(ModalScreen[None]):
         )
 
     @on(Button.Pressed, "#update")
+    @work
     @reports_daemon_unavailable
     async def _update(self) -> None:
         plugin = self._current()
         if plugin is not None:
-            update = self._mcp.update_from_repository if plugin.server else self._skills.update_installed
-            await self._run(lambda: update(plugin.name), t("Updated {name}.", name=plugin.name))
+            await self._update_many([plugin])
 
     @on(Button.Pressed, "#updates")
     @work
@@ -252,15 +260,22 @@ class PluginsScreen(ModalScreen[None]):
             await self._update_many(picked)
 
     async def _update_many(self, picked: list[Plugin]) -> None:
-        """One after the other: an update restarts the plugin. One that fails doesn't stop the rest."""
-        updated = []
+        """One after the other: an update restarts the plugin. One that fails doesn't stop the rest; one whose new
+        version asks for a value it wasn't given asks for it once the others are done."""
+        updated: list[str] = []
+        asking: list[tuple[str, str]] = []
         for plugin in picked:
             update = self._mcp.update_from_repository if plugin.server else self._skills.update_installed
             try:
                 await update(plugin.name)
                 updated.append(plugin.name)
+            except UpdateNeedsValuesError as e:
+                asking.append((plugin.name, str(e)))
             except (RepositoryError, McpServerError, SkillError) as e:
                 self.notify(f"{plugin.name}: {e}", severity="error")
+        for name, reason in asking:
+            if await self.app.push_screen_wait(UpdateValuesScreen(self._mcp, self._repositories, name, reason)):
+                updated.append(name)
         if updated:
             self.notify(t("Updated {name}.", name=", ".join(updated)))
         await self._load()
