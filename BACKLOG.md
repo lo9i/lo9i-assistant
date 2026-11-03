@@ -7,6 +7,7 @@ A = action, L = to revisit later, G = memory gap, H = context improvement, Q = o
 ## Actions
 
 - A1. The terminal app's plugin updates (`/plugins`, `/mcp`) still only say a new version needs a value, with "remove it and install it again": ask for the new version's fields not set yet and update with them, as the web app's `UpdateValuesDialog.svelte` does (`POST /mcp/servers/<name>/update` takes `values`; it answers 409 while one is missing, which `client/daemon_client/mcp.py` maps to `McpServerError` today). The same in the web app's Update all/selected, which reports it as a failure.
+- A2. Hotmail/Outlook.com accounts can't be connected: the extras' `microsoft` email plugin asks each user to register their own app in Microsoft Entra, which a personal account can't do without an Azure directory. Register one lo9i app instead (free Azure account; Entra app for personal and work accounts, public client with no secret, `http://localhost` redirect, SMTP/IMAP send and read plus offline access), ship its client ID in lo9i and sign in through the browser, reusing whatever `oauth: microsoft` already does. Until it's publisher verified (Microsoft Partner account, email on lo9i.com.ar) sign-in shows an "unverified app" warning, and some Microsoft 365 tenants block it.
 
 ## To revisit
 
