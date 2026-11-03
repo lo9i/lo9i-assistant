@@ -2217,6 +2217,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/proactive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Proactive */
+        get: operations["proactive_proactive_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proactive/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Proactive Settings */
+        put: operations["save_proactive_settings_proactive_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proactive/run/{work}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Proactive
+         * @description Writes the briefing (and sends it) or a review now, in the background, unless it runs already.
+         */
+        post: operations["start_proactive_proactive_run__work__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proactive/loops/{loop_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close Loop
+         * @description Done, dismissed or open again. 404: no such loop.
+         */
+        post: operations["close_loop_proactive_loops__loop_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proactive/muted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mute Kind
+         * @description Stops (or starts again) suggesting that kind of thing.
+         */
+        post: operations["mute_kind_proactive_muted_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/agent-tasks/running": {
         parameters: {
             query?: never;
@@ -3483,6 +3577,33 @@ export interface components {
             /** Key */
             key: string;
         };
+        /** Briefing */
+        Briefing: {
+            /** Day */
+            day: string;
+            /** At */
+            at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "sent" | "nothing" | "failed";
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /**
+             * Channels
+             * @default []
+             */
+            channels: string[];
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+        };
         /** CancelResult */
         CancelResult: {
             /** Cancelled */
@@ -4728,6 +4849,19 @@ export interface components {
             /** Entries */
             entries: components["schemas"]["LogEntry"][];
         };
+        /** LoopClosing */
+        LoopClosing: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "done" | "dismissed";
+            /**
+             * Stop Suggesting
+             * @default false
+             */
+            stop_suggesting: boolean;
+        };
         /** McpProbe */
         McpProbe: {
             /** Tools */
@@ -5096,6 +5230,16 @@ export interface components {
              */
             id: string;
         };
+        /** MutedKind */
+        MutedKind: {
+            /** Kind */
+            kind: string;
+            /**
+             * Muted
+             * @default true
+             */
+            muted: boolean;
+        };
         /** NewMailAlerts */
         NewMailAlerts: {
             /** Channel */
@@ -5111,7 +5255,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "job" | "background" | "doctor" | "copilot" | "spending";
+            kind: "job" | "background" | "doctor" | "copilot" | "spending" | "briefing" | "reminder";
             /** Title */
             title: string;
             /** Text */
@@ -5151,6 +5295,61 @@ export interface components {
              * @default true
              */
             ok: boolean;
+        };
+        /**
+         * OpenLoop
+         * @description Something still to do, waiting on someone, or promised to the user.
+         */
+        OpenLoop: {
+            /** Id */
+            id: string;
+            /** Text */
+            text: string;
+            /**
+             * Kind
+             * @default
+             */
+            kind: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "conversation" | "review" | "briefing" | "assistant";
+            /**
+             * Thread Id
+             * @default
+             */
+            thread_id: string;
+            /** Created At */
+            created_at: string;
+            /**
+             * Status
+             * @default open
+             * @enum {string}
+             */
+            status: "open" | "done" | "dismissed";
+            /**
+             * Closed At
+             * @default
+             */
+            closed_at: string;
+            /**
+             * Due
+             * @default
+             */
+            due: string;
+            /**
+             * Remind At
+             * @default
+             */
+            remind_at: string;
+            /**
+             * Reminded At
+             * @default
+             */
+            reminded_at: string;
+            /** Key */
+            key: string;
         };
         /** PairRequest */
         PairRequest: {
@@ -5382,6 +5581,72 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /**
+         * ProactivePage
+         * @description What the apps show: the settings, the loops, the latest briefing and reviews, and what runs now.
+         */
+        ProactivePage: {
+            settings: components["schemas"]["ProactiveSettings"];
+            /** Loops */
+            loops: components["schemas"]["OpenLoop"][];
+            briefing?: components["schemas"]["Briefing"] | null;
+            /**
+             * Reviews
+             * @default []
+             */
+            reviews: components["schemas"]["Review"][];
+            /**
+             * Running
+             * @default []
+             */
+            running: ("briefing" | "nightly" | "weekly")[];
+        };
+        /**
+         * ProactiveSettings
+         * @description On by default, at the user's times (their time zone, settings.timezone).
+         */
+        ProactiveSettings: {
+            /**
+             * Briefing
+             * @default true
+             */
+            briefing: boolean;
+            /**
+             * Briefing Time
+             * @default 08:00
+             */
+            briefing_time: string;
+            /**
+             * Nightly
+             * @default true
+             */
+            nightly: boolean;
+            /**
+             * Nightly Time
+             * @default 23:00
+             */
+            nightly_time: string;
+            /**
+             * Weekly
+             * @default true
+             */
+            weekly: boolean;
+            /**
+             * Weekly Day
+             * @default 6
+             */
+            weekly_day: number;
+            /**
+             * Reminders
+             * @default true
+             */
+            reminders: boolean;
+            /**
+             * Muted
+             * @default []
+             */
+            muted: string[];
+        };
         /** ProfileItems */
         ProfileItems: {
             /** Items */
@@ -5534,6 +5799,53 @@ export interface components {
         RepositoryUrl: {
             /** Url */
             url: string;
+        };
+        /** Review */
+        Review: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "nightly" | "weekly";
+            /** Day */
+            day: string;
+            /** At */
+            at: string;
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
+            /**
+             * Suggestions
+             * @default []
+             */
+            suggestions: components["schemas"]["Suggestion"][];
+            /**
+             * Habits
+             * @default []
+             */
+            habits: string[];
+            /**
+             * Added
+             * @default 0
+             */
+            added: number;
+            /**
+             * Closed
+             * @default 0
+             */
+            closed: number;
+            /**
+             * Briefed
+             * @default false
+             */
+            briefed: boolean;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
         };
         /** Revoked */
         Revoked: {
@@ -6107,6 +6419,19 @@ export interface components {
             servers: components["schemas"]["FoundServer"][];
             /** Skills */
             skills: components["schemas"]["FoundSkill"][];
+        };
+        /** Suggestion */
+        Suggestion: {
+            /**
+             * Kind
+             * @description Its kind in a few words, from the kinds listed when one fits.
+             */
+            kind: string;
+            /**
+             * Text
+             * @description The suggestion in one or two short lines, in the user's language.
+             */
+            text: string;
         };
         /** ThreadCreated */
         ThreadCreated: {
@@ -10375,6 +10700,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HomePins"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    proactive_proactive_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProactivePage"];
+                };
+            };
+        };
+    };
+    save_proactive_settings_proactive_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProactiveSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProactivePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_proactive_proactive_run__work__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                work: "briefing" | "nightly" | "weekly";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProactivePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    close_loop_proactive_loops__loop_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                loop_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoopClosing"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProactivePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mute_kind_proactive_muted_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MutedKind"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProactivePage"];
                 };
             };
             /** @description Validation Error */

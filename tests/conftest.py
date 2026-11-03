@@ -17,8 +17,10 @@ from pydantic import Field
 
 import assistant.core.agent.model as model_module
 import assistant.core.agent.service as service_module
+import assistant.core.gathering as gathering_module
 import assistant.core.graph as graph_module
 import assistant.core.home.builder as home_builder_module
+import assistant.core.proactive.writing as proactive_writing_module
 import assistant.core.subagent as subagent_module
 from assistant.core.agent import AssistantService
 from assistant.core.config import settings
@@ -29,6 +31,7 @@ from assistant.core.handed_folder import trash
 from assistant.core.home.model import SectionContent
 from assistant.core.llm import windows
 from assistant.core.memory.embedder import EmbeddingError
+from assistant.core.proactive.model import BriefingDraft, ReviewDraft
 
 
 @pytest.fixture(autouse=True)
@@ -218,9 +221,13 @@ def script(monkeypatch: pytest.MonkeyPatch) -> Script:
     monkeypatch.setattr(graph_module, "build_llm", lambda choice, model: script.model())
     # Subagents answer from the same script, in the order the calls happen.
     monkeypatch.setattr(subagent_module, "build_llm", lambda choice, model: script.model())
-    # So do Home's sections; their format step finds nothing unless a test uses `formats`.
-    monkeypatch.setattr(home_builder_module, "build_llm", lambda choice, model: script.model())
+    # So does gathering for Home's sections; their format step finds nothing unless a test uses `formats`.
+    monkeypatch.setattr(gathering_module, "build_llm", lambda choice, model: script.model())
     monkeypatch.setattr(home_builder_module, "build_structured", lambda choice, model, schema, meter=None: Formats())
+    # The briefing's and the reviews' writers write nothing unless a test uses `drafts`.
+    monkeypatch.setattr(
+        proactive_writing_module, "build_structured", lambda choice, model, schema, meter=None: Drafts(schema)
+    )
     return script
 
 
@@ -252,6 +259,45 @@ def formats(monkeypatch: pytest.MonkeyPatch, script: Script) -> Formats:
     formats = Formats()
     monkeypatch.setattr(home_builder_module, "build_structured", lambda choice, model, schema, meter=None: formats)
     return formats
+
+
+class Drafts:
+    """The briefing's or the reviews' writer (core/proactive/writing.py): the queued answers in order (an exception is
+    raised), then an empty one of its schema. Records each request."""
+
+    def __init__(self, schema: Any = None) -> None:
+        self.schema = schema
+        self.answers: deque[Any] = deque()
+        self.requests: list[list[BaseMessage]] = []
+
+    async def ainvoke(self, messages: list[BaseMessage]) -> Any:
+        self.requests.append(messages)
+        answer = self.answers.popleft() if self.answers else self._empty()
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    def _empty(self) -> Any:
+        return BriefingDraft(text="") if self.schema is BriefingDraft else ReviewDraft(summary="")
+
+
+class ProactiveDrafts:
+    """The briefing's writer and the reviews', each a Drafts."""
+
+    def __init__(self) -> None:
+        self.briefing = Drafts(BriefingDraft)
+        self.review = Drafts(ReviewDraft)
+
+
+@pytest.fixture
+def drafts(monkeypatch: pytest.MonkeyPatch, script: Script) -> ProactiveDrafts:
+    drafts = ProactiveDrafts()
+    monkeypatch.setattr(
+        proactive_writing_module,
+        "build_structured",
+        lambda choice, model, schema, meter=None: drafts.briefing if schema is BriefingDraft else drafts.review,
+    )
+    return drafts
 
 
 class Digests:

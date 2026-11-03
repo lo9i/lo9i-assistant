@@ -4,7 +4,7 @@ The service is a facade (`service.py`) composed of mixins, one per concern:
 threads, channel threads, files, the handed folder, memory, the About you step, channels, email, mcp, sign-ins,
 alerts, doctor, notifications, home, follow-ups, held runs, tasks, background subagents, repositories, model,
 devices, passkeys, identity, prompts, speech, log level, language, web search, skills, skill imports, pinned skills,
-jobs, usage, live voice calls, messaging, runs and locking.
+jobs, proactive (briefing, reviews, open loops), usage, live voice calls, messaging, runs and locking.
 """
 
 from assistant.core.agent.about_you import AboutYou, AboutYouStatus, Suggested
@@ -57,6 +57,16 @@ from assistant.core.agent.model import ModelOption, ModelProvider, ModelSettings
 from assistant.core.agent.notifications import Notification
 from assistant.core.agent.passkeys import Passkey, PasskeyError, Site
 from assistant.core.agent.plugin_settings import PluginFieldValue, PluginSettings
+from assistant.core.agent.proactive import (
+    Briefing,
+    LoopNotFoundError,
+    LoopStatus,
+    OpenLoop,
+    ProactivePage,
+    ProactiveSettings,
+    Review,
+    Suggestion,
+)
 from assistant.core.agent.prompts import PromptEditError, PromptSection, UnknownPromptError
 from assistant.core.agent.repositories import (
     FoundServer,
@@ -100,6 +110,7 @@ __all__ = [
     "AssistantService",
     "BackgroundStep",
     "BackgroundSubagent",
+    "Briefing",
     "Cause",
     "ChannelNotConnectedError",
     "ChannelStatus",
@@ -154,6 +165,8 @@ __all__ = [
     "Language",
     "LanguageError",
     "ListedFolder",
+    "LoopNotFoundError",
+    "LoopStatus",
     "McpProbe",
     "McpServer",
     "McpServerChanges",
@@ -170,6 +183,7 @@ __all__ = [
     "ModelStatus",
     "NotHandedError",
     "Notification",
+    "OpenLoop",
     "OutsideFolderError",
     "PairingCode",
     "Passkey",
@@ -178,6 +192,8 @@ __all__ = [
     "PluginIcon",
     "PluginSettings",
     "PluginUpdate",
+    "ProactivePage",
+    "ProactiveSettings",
     "PromptEditError",
     "PromptSection",
     "ProviderField",
@@ -185,6 +201,7 @@ __all__ = [
     "RepositoryContents",
     "RepositoryError",
     "RepositoryPlugins",
+    "Review",
     "RunRecord",
     "RunningTask",
     "SectionResult",
@@ -210,6 +227,7 @@ __all__ = [
     "SubagentError",
     "SubagentNotFoundError",
     "Suggested",
+    "Suggestion",
     "SynthesisError",
     "TokenReport",
     "UnknownPromptError",

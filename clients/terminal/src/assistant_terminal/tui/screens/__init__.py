@@ -7,6 +7,7 @@ from assistant_terminal.tui.screens.about_you import AboutYouScreen, SuggestedPl
 from assistant_terminal.tui.screens.agent_folder import AgentFolderScreen
 from assistant_terminal.tui.screens.approval import ApprovalScreen
 from assistant_terminal.tui.screens.audio import AudioScreen
+from assistant_terminal.tui.screens.briefing import BriefingScreen
 from assistant_terminal.tui.screens.channel_setup import ChannelSetupScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 from assistant_terminal.tui.screens.conversations import ConversationsScreen
@@ -47,6 +48,7 @@ __all__ = [
     "AgentFolderScreen",
     "ApprovalScreen",
     "AudioScreen",
+    "BriefingScreen",
     "ChannelSetupScreen",
     "ConfirmScreen",
     "ConversationsScreen",

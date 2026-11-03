@@ -65,6 +65,7 @@ from assistant_terminal.tui.screens import (
     AgentFolderScreen,
     ApprovalScreen,
     AudioScreen,
+    BriefingScreen,
     ChannelSetupScreen,
     ConversationsScreen,
     DevicesScreen,
@@ -207,6 +208,7 @@ class AssistantApp(App):
             "/usage": self._command_usage,
             "/logs": self._command_logs,
             "/doctor": self._command_doctor,
+            "/briefing": self._command_briefing,
             "/profile": self._command_profile,
             "/sessions": self._command_sessions,
             "/keys": self._command_keys,
@@ -945,7 +947,9 @@ class AssistantApp(App):
         self.push_screen(screen, self._resume)
 
     async def _command_notifications(self, _: str) -> None:
-        screen = NotificationsScreen(self._service.notifications, self._service.jobs, self._service.doctor)
+        screen = NotificationsScreen(
+            self._service.notifications, self._service.jobs, self._service.doctor, self._service.proactive
+        )
         self.push_screen(screen, self._resume)
 
     @reports_daemon_unavailable
@@ -1184,6 +1188,9 @@ class AssistantApp(App):
 
     async def _command_doctor(self, _: str) -> None:
         self.push_screen(DoctorScreen(self._service.doctor))
+
+    async def _command_briefing(self, _: str) -> None:
+        self.push_screen(BriefingScreen(self._service.proactive))
 
     async def _command_profile(self, _: str) -> None:
         self.push_screen(ProfileScreen(self._service.memory))

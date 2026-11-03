@@ -26,10 +26,11 @@ async def record(store: BaseStore, user_id: str, channel: str, text: str, at: da
     await store.aput(_namespace(user_id, channel), uuid.uuid4().hex, {"at": at.isoformat(), "text": text})
 
 
-async def tell_every_channel(store: BaseStore, outbox: Outbox, user_id: str, text: str, at: datetime) -> None:
+async def tell_every_channel(store: BaseStore, outbox: Outbox, user_id: str, text: str, at: datetime) -> list[str]:
     """To the user's own chat on every chat channel connected now, each recorded for the turn header of their next
     message there. A channel that doesn't take it misses it: what tells everyone this way (an alert) is in the
-    notifications feed too."""
+    notifications feed too. Returns the channels that took it."""
+    took: list[str] = []
     for channel in outbox.channels:
         try:
             await outbox.send(channel, text)
@@ -37,6 +38,8 @@ async def tell_every_channel(store: BaseStore, outbox: Outbox, user_id: str, tex
             logger.info("Couldn't send an alert on %s: %s", channel, e)
             continue
         await record(store, user_id, channel, text, at)
+        took.append(channel)
+    return took
 
 
 async def take(store: BaseStore, user_id: str, channel: str) -> list[dict[str, str]]:

@@ -983,7 +983,12 @@
       "one": "{count} trabajando",
       "other": "{count} trabajando"
     },
-    "dragToReorder": "Arrastrá para reordenar"
+    "dragToReorder": "Arrastrá para reordenar",
+    "briefing": "Resumen",
+    "openCount": {
+      "one": "{count} pendiente",
+      "other": "{count} pendientes"
+    }
   },
   "notificationsPage": {
     "copilot": "Cupo de Copilot",
@@ -1004,7 +1009,10 @@
     "noneSelectedHint": "Aquí aparecen los resultados de tareas programadas y el trabajo en segundo plano terminado.",
     "clearTitle": "¿Borrar todas las notificaciones?",
     "clearText": "Las tareas programadas y el trabajo del que tratan no se tocan.",
-    "spending": "Límite de gasto"
+    "spending": "Límite de gasto",
+    "briefing": "Resumen de la mañana",
+    "reminder": "Recordatorio",
+    "openBriefing": "Abrir el resumen"
   },
   "oauth": {
     "finishing": "Terminando el inicio de sesión…",
@@ -1653,5 +1661,69 @@
     "cost": "OpenAI cobra las llamadas por el audio que llevan, aparte de lo que usa tu modelo.",
     "voice": "Voz",
     "voiceHint": "Las llamadas la usan desde la próxima. OpenAI recomienda Marin y Cedar para la mejor calidad."
+  },
+  "proactiveCard": {
+    "title": "Resumen y revisiones",
+    "sub": "Lo que el asistente hace por su cuenta, a las horas de abajo, en la zona horaria de la computadora del asistente. Sugiere; nunca actúa por ti.",
+    "briefing": "Resumen de la mañana",
+    "briefingHint": "Calendario, vencimientos, correo importante y pendientes, enviado a tus canales de chat y a Notificaciones.",
+    "nightly": "Revisión nocturna",
+    "nightlyHint": "Repasa el día buscando trabajo olvidado y hábitos; sus sugerencias van al próximo resumen.",
+    "weekly": "Revisión semanal",
+    "weeklyHint": "Un repaso más largo, después de la revisión nocturna de su día; alimenta el próximo resumen.",
+    "reminders": "Recordatorios urgentes",
+    "remindersHint": "Pendientes con hora, enviados en el momento entre el resumen y la revisión nocturna, unos pocos por día.",
+    "time": "Hora",
+    "day": "Día",
+    "muted": "Ya no se sugiere",
+    "mutedHint": "Tipos que pediste dejar de ver (\"menos de esto\", o Dejar de sugerir en un pendiente).",
+    "noneMuted": "Nada silenciado.",
+    "unmute": "Volver a sugerir {kind}"
+  },
+  "briefingPage": {
+    "title": "Resumen",
+    "briefNow": "Resumir ahora",
+    "briefing": "Escribiendo…",
+    "loops": "Pendientes",
+    "loopsHint": "Lo que falta hacer o esperas, de tus conversaciones, el resumen y las revisiones. Haz clic en uno para verlo a la derecha.",
+    "open": "Abiertos",
+    "done": "Hechos",
+    "dismissed": "Descartados",
+    "what": "Qué",
+    "kind": "Tipo",
+    "due": "Vence",
+    "from": "De",
+    "since": "Desde",
+    "remindAt": "Recordatorio",
+    "none": "Nada pendiente",
+    "noneHint": "Aquí aparece lo que quedó por hacer en tus conversaciones, las facturas por vencer y el correo por responder.",
+    "noneClosed": "Nada aquí",
+    "noneClosedHint": "Aquí aparecen los pendientes que cierras.",
+    "noneSelected": "Ningún pendiente elegido",
+    "noneSelectedHint": "Elige uno para cerrarlo, descartarlo o abrir su conversación.",
+    "markDone": "Hecho",
+    "dismiss": "Descartar",
+    "stopSuggesting": "Descartar y dejar de sugerir “{kind}”",
+    "reopen": "Volver a abrir",
+    "sources": {
+      "conversation": "Una conversación",
+      "review": "Una revisión",
+      "briefing": "El resumen",
+      "assistant": "El asistente"
+    },
+    "latest": "Último resumen",
+    "notYet": "Todavía no hay resumen",
+    "notYetHint": "El primero llega a las {time}, o ahora con Resumir ahora.",
+    "sentTo": "Enviado a {channels}",
+    "onlyHere": "Solo en Notificaciones: no había ningún canal de chat conectado.",
+    "nothing": "Nada que valiera la pena contar ese día.",
+    "failed": "Falló: {error}",
+    "review": "Última revisión",
+    "nightly": "Revisión nocturna",
+    "weekly": "Revisión semanal",
+    "reviewNow": "Revisar ahora",
+    "noReview": "Todavía no hay revisión.",
+    "suggestions": "Sugerencias para el próximo resumen",
+    "reviewed": "{added} pendientes agregados, {closed} cerrados"
   }
 }

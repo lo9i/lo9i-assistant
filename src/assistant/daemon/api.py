@@ -64,6 +64,8 @@ from assistant.core.agent import (
     KeptKeys,
     Language,
     LanguageError,
+    LoopNotFoundError,
+    LoopStatus,
     McpProbe,
     McpServer,
     McpServerChanges,
@@ -81,6 +83,8 @@ from assistant.core.agent import (
     Notification,
     PluginSettings,
     PluginUpdate,
+    ProactivePage,
+    ProactiveSettings,
     PromptEditError,
     PromptSection,
     Repository,
@@ -141,6 +145,7 @@ from assistant.core.logs import (
 from assistant.core.mcp import install as server_install
 from assistant.core.memory.about_you import HelpTopic, ReplyLength
 from assistant.core.memory.profile import MAX_ITEMS, Section
+from assistant.core.proactive.schedule import Work
 from assistant.core.repositories import contents, listed
 from assistant.core.repositories.known import EXTRAS
 from assistant.core.usage.limits import SpendingLimits, SpendingLimitsError
@@ -401,6 +406,17 @@ class HomeSections(BaseModel):
 class HomePins(BaseModel):
     # The conversations pinned to Home, the first pinned first.
     threads: list[str]
+
+
+class LoopClosing(BaseModel):
+    status: LoopStatus
+    # Mute the loop's kind too: nothing of it is suggested again.
+    stop_suggesting: bool = False
+
+
+class MutedKind(BaseModel):
+    kind: str
+    muted: bool = True
 
 
 class SkillChange(BaseModel):
@@ -730,6 +746,7 @@ def create_app(
     _add_doctor_routes(app, service)
     _add_notification_routes(app, service)
     _add_home_routes(app, service)
+    _add_proactive_routes(app, service)
     _add_task_routes(app, service)
     _add_subagent_routes(app, service)
     _add_repository_routes(app, service)
@@ -2024,6 +2041,37 @@ def _add_home_routes(app: FastAPI, service: AssistantService) -> None:
     @app.delete("/home/pins/{thread_id}")
     async def unpin_from_home(thread_id: str) -> HomePins:
         return HomePins(threads=await service.unpin_from_home(settings.owner_id, thread_id))
+
+
+def _add_proactive_routes(app: FastAPI, service: AssistantService) -> None:
+    """The assistant's own initiative (core/proactive/): the morning briefing, the nightly and weekly reviews and their
+    settings, the open loops and the kinds of suggestion muted. Each change publishes `proactive`."""
+
+    @app.get("/proactive")
+    async def proactive() -> ProactivePage:
+        return await service.proactive_page(settings.owner_id)
+
+    @app.put("/proactive/settings")
+    async def save_proactive_settings(body: ProactiveSettings) -> ProactivePage:
+        return await service.save_proactive_settings(settings.owner_id, body)
+
+    @app.post("/proactive/run/{work}")
+    async def start_proactive(work: Work) -> ProactivePage:
+        """Writes the briefing (and sends it) or a review now, in the background, unless it runs already."""
+        return await service.start_proactive(settings.owner_id, work)
+
+    @app.post("/proactive/loops/{loop_id}")
+    async def close_loop(loop_id: str, body: LoopClosing) -> ProactivePage:
+        """Done, dismissed or open again. 404: no such loop."""
+        try:
+            return await service.close_loop(settings.owner_id, loop_id, body.status, body.stop_suggesting)
+        except LoopNotFoundError as e:
+            raise HTTPException(404, message(e)) from e
+
+    @app.post("/proactive/muted")
+    async def mute_kind(body: MutedKind) -> ProactivePage:
+        """Stops (or starts again) suggesting that kind of thing."""
+        return await service.mute_kind(settings.owner_id, body.kind, body.muted)
 
 
 def _add_task_routes(app: FastAPI, service: AssistantService) -> None:

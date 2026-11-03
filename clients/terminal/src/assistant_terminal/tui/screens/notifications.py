@@ -13,15 +13,19 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, OptionList, Static
 from textual.widgets.option_list import Option
 
-from assistant.client.daemon_client import DoctorApi, JobsApi, NotificationsApi
+from assistant.client.daemon_client import DoctorApi, JobsApi, NotificationsApi, ProactiveApi
 from assistant.core.agent import Notification
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.notifications_text import notification_line
 from assistant_terminal.paging import Pages
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.paged_list import PagedOptionList
+from assistant_terminal.tui.screens.briefing import BriefingScreen
 from assistant_terminal.tui.screens.doctor import DoctorScreen
 from assistant_terminal.tui.screens.jobs import JobsScreen
+
+# What the briefing page opens on: the briefing itself and an open loop's reminder.
+_BRIEFING = ("briefing", "reminder")
 
 
 class NotificationsScreen(ModalScreen[str | None]):
@@ -31,11 +35,14 @@ class NotificationsScreen(ModalScreen[str | None]):
     ]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"notifications"})
 
-    def __init__(self, notifications: NotificationsApi, jobs: JobsApi, doctor: DoctorApi) -> None:
+    def __init__(
+        self, notifications: NotificationsApi, jobs: JobsApi, doctor: DoctorApi, proactive: ProactiveApi
+    ) -> None:
         super().__init__()
         self._notifications = notifications
         self._jobs = jobs
         self._doctor = doctor
+        self._proactive = proactive
         self._pages = Pages(lambda offset, limit: notifications.list(offset, limit), lambda n: n.id)
         self._selected: str | None = None
 
@@ -90,6 +97,8 @@ class NotificationsScreen(ModalScreen[str | None]):
             self.app.push_screen(JobsScreen(self._jobs, notification.job, notification.run_at))
         elif notification is not None and notification.kind == "doctor":
             self.app.push_screen(DoctorScreen(self._doctor))
+        elif notification is not None and notification.kind in _BRIEFING:
+            self.app.push_screen(BriefingScreen(self._proactive))
 
     @on(Button.Pressed, "#close")
     def action_close(self) -> None:
@@ -117,11 +126,15 @@ class NotificationsScreen(ModalScreen[str | None]):
         notification = self._shown[notification_id]
         opening = self.query_one("#open", Button)
         opening.label = _opening(notification)
-        opening.disabled = not (notification.thread_id or notification.job or notification.kind == "doctor")
+        opening.disabled = not (
+            notification.thread_id or notification.job or notification.kind in ("doctor", *_BRIEFING)
+        )
         opening.tooltip = None if not opening.disabled else t("It has nothing to open.")
 
 
 def _opening(notification: Notification) -> str:
     if notification.job:
         return t("Open the job")
+    if notification.kind in _BRIEFING:
+        return t("Open the briefing")
     return t("Open the health check") if notification.kind == "doctor" else t("Open its conversation")

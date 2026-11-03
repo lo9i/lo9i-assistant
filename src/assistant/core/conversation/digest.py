@@ -7,7 +7,7 @@ second with what the first one's digest left (the profile, the facts, its episod
 and the two joined into one."""
 
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field, ValidationError
@@ -20,6 +20,8 @@ from assistant.core.llm.errors import too_large
 from assistant.core.memory.facts import Fact
 from assistant.core.memory.facts import render as render_facts
 from assistant.core.memory.profile import Profile
+from assistant.core.proactive import loops
+from assistant.core.proactive.model import LoopDraft, OpenLoop
 from assistant.core.usage.log import UsageLog
 from assistant.core.usage.meter import TokenMeter
 
@@ -31,6 +33,14 @@ class MemoryDigest(BaseModel):
         description="Lasting details about the user that are not saved yet, as the rules allow; usually none."
     )
     outdated_fact_ids: list[str] = Field(description="Ids of saved facts the transcript shows are wrong or outdated.")
+    open_items: list[LoopDraft] = Field(
+        default=[],
+        description="What the transcript leaves for the user to do or wait for, or promised to them, that isn't an "
+        "open loop yet; usually none.",
+    )
+    done_loop_ids: list[str] = Field(
+        default=[], description="Ids of open loops the transcript shows are done or no longer needed."
+    )
 
 
 @dataclass
@@ -39,6 +49,8 @@ class DigestInput:
     profile: Profile
     facts: list[Fact]
     transcript: str
+    # The user's open loops (core/proactive/loops.py), which it adds to and closes.
+    open_loops: list[OpenLoop] = field(default_factory=list)
 
 
 Digester = Callable[[DigestInput], Awaitable[MemoryDigest]]
@@ -88,7 +100,8 @@ def _after(data: DigestInput, first: MemoryDigest, transcript: str) -> DigestInp
     kept = [fact for fact in data.facts if fact.id not in first.outdated_fact_ids]
     found = [Fact(f"{_FOUND}{i}", text) for i, text in enumerate(first.new_facts)]
     before = "\n\n".join(filter(None, [data.previous_summary, first.episode_summary]))
-    return DigestInput(before, first.profile, [*kept, *found], transcript)
+    still_open = [loop for loop in data.open_loops if loop.id not in first.done_loop_ids]
+    return DigestInput(before, first.profile, [*kept, *found], transcript, still_open)
 
 
 def _joined(first: MemoryDigest, second: MemoryDigest) -> MemoryDigest:
@@ -103,6 +116,8 @@ def _joined(first: MemoryDigest, second: MemoryDigest) -> MemoryDigest:
             *first.outdated_fact_ids,
             *(i for i in second.outdated_fact_ids if not i.startswith(_FOUND)),
         ],
+        open_items=[*first.open_items, *second.open_items],
+        done_loop_ids=[*first.done_loop_ids, *second.done_loop_ids],
     )
 
 
@@ -111,5 +126,6 @@ def _prompt(data: DigestInput) -> str:
         previous_summary=data.previous_summary or "(none)",
         profile=data.profile.model_dump_json(indent=2),
         facts=render_facts(data.facts),
+        open_loops=loops.render(data.open_loops),
         transcript=data.transcript,
     )

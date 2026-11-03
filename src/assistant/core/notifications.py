@@ -1,5 +1,6 @@
 """The notifications feed: scheduled jobs' results, background work that ended (core/background.py), health checks,
-the Copilot allowance's alerts (core/copilot_quota/) and spending limits nearly reached (core/usage/alerts.py),
+the Copilot allowance's alerts (core/copilot_quota/), spending limits nearly reached (core/usage/alerts.py), and the
+morning briefing and reminders (core/proactive/),
 listed by the apps apart from any conversation (the web app's Notifications page, /notifications in the terminal
 app), newest first, besides the toast or chat message each one also gets. Each names the conversation its work was
 started in, when there is one, so the apps open it from there; a job's run names its job and run instead, which the
@@ -16,7 +17,7 @@ from langgraph.store.base import BaseStore, PutOp
 _KEPT = 200
 _SCAN_LIMIT = 10_000
 
-Kind = Literal["job", "background", "doctor", "copilot", "spending"]
+Kind = Literal["job", "background", "doctor", "copilot", "spending", "briefing", "reminder"]
 
 
 @dataclass
@@ -27,7 +28,8 @@ class Notification:
     # job: a scheduled job's run; background: work that ended after the call that started it; doctor: the daily
     # health check (core/doctor/), which the apps open on its page; copilot: the Copilot allowance running low or out
     # (core/copilot_quota/alerts.py), which opens nothing; spending: a spending limit nearly reached
-    # (core/usage/alerts.py), which opens the conversation for a conversation's limit.
+    # (core/usage/alerts.py), which opens the conversation for a conversation's limit; briefing: the morning
+    # briefing, and reminder: an open loop's reminder (core/proactive/), which the apps open on the briefing page.
     kind: Kind
     title: str
     text: str

@@ -11,6 +11,7 @@
   import DispatchCard from "$lib/ui/settings/DispatchCard.svelte";
   import ModelCard from "$lib/ui/settings/ModelCard.svelte";
   import PromptCard from "$lib/ui/settings/PromptCard.svelte";
+  import ProactiveCard from "$lib/ui/settings/ProactiveCard.svelte";
   import SessionsCard from "$lib/ui/settings/SessionsCard.svelte";
   import SpeechCard from "$lib/ui/settings/SpeechCard.svelte";
   import SpendingLimitsCard from "$lib/ui/settings/SpendingLimitsCard.svelte";
@@ -52,7 +53,7 @@
     </div>
   </div>
   {#if tab === "general"}
-    <!-- Two balanced columns: assistant, language, agent notices and the folder panel; startup, search, email. -->
+    <!-- Two balanced columns: assistant, language, agent notices and the folder panel; briefing, startup, search, email. -->
     <div class="grid">
       <div class="stack">
         <AssistantCard />
@@ -61,6 +62,7 @@
         <FolderPanelCard />
       </div>
       <div class="stack">
+        <ProactiveCard />
         <StartupCard />
         <WebSearchCard />
         <EmailCard />

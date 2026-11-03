@@ -26,6 +26,7 @@
   import MessageCircle from "@lucide/svelte/icons/message-circle";
   import Plus from "@lucide/svelte/icons/plus";
   import Settings from "@lucide/svelte/icons/settings";
+  import Sunrise from "@lucide/svelte/icons/sunrise";
   import Sparkles from "@lucide/svelte/icons/sparkles";
   import X from "@lucide/svelte/icons/x";
   import { resource, useDaemon } from "$lib/daemon.svelte";
@@ -72,6 +73,9 @@
   // Every conversation's background subagents, counted while they work.
   const subagents = resource((c) => c.subagents.list(), ["subagents"]);
   const subagentsWorking = $derived(counts(subagents.data ?? []).working);
+  // The open loops the Briefing page lists, counted on its item.
+  const proactive = resource((c) => c.proactive.get(), ["proactive"]);
+  const openLoops = $derived((proactive.data?.loops ?? []).filter((l) => (l.status ?? "open") === "open").length);
 
   // Chat is the list of conversations. Under it: the ones open in this tab, side by side, and any other with
   // a reply or a coding task running, whoever started it. Open one to show it; the others keep going. Open beside, or
@@ -134,6 +138,8 @@
       count: () => open.waiting,
       counted: "nav.waitingCount",
     },
+    // The morning briefing, the reviews and the open loops; its count is the loops still open.
+    { href: resolve("/briefing"), label: "nav.briefing", Icon: Sunrise, count: () => openLoops, counted: "nav.openCount" },
     { href: resolve("/subagents"), label: "nav.subagents", Icon: Bot, count: () => subagentsWorking, counted: "nav.workingCount" },
     { href: resolve("/files"), label: "nav.files", Icon: Files },
     { href: resolve("/usage"), label: "nav.usage", Icon: ChartColumn },

@@ -983,7 +983,12 @@
       "one": "{count} working",
       "other": "{count} working"
     },
-    "dragToReorder": "Drag to reorder"
+    "dragToReorder": "Drag to reorder",
+    "briefing": "Briefing",
+    "openCount": {
+      "one": "{count} open loop",
+      "other": "{count} open loops"
+    }
   },
   "notificationsPage": {
     "copilot": "Copilot allowance",
@@ -1004,7 +1009,10 @@
     "noneSelectedHint": "Job results and finished background work show here.",
     "clearTitle": "Clear every notification?",
     "clearText": "The jobs and the work they're about aren't touched.",
-    "spending": "Spending limit"
+    "spending": "Spending limit",
+    "briefing": "Morning briefing",
+    "reminder": "Reminder",
+    "openBriefing": "Open the briefing"
   },
   "oauth": {
     "finishing": "Finishing the sign-in…",
@@ -1653,5 +1661,69 @@
     "cost": "OpenAI bills calls by the audio they carry, apart from what your model uses.",
     "voice": "Voice",
     "voiceHint": "Calls use it from the next one. OpenAI recommends Marin and Cedar for the best quality."
+  },
+  "proactiveCard": {
+    "title": "Briefing and reviews",
+    "sub": "What the assistant does on its own, at the times below, in the assistant computer's time zone. It suggests; it never acts for you.",
+    "briefing": "Morning briefing",
+    "briefingHint": "Calendar, what's due, important mail and open loops, sent to your chat channels and Notifications.",
+    "nightly": "Nightly review",
+    "nightlyHint": "Looks back at the day for forgotten work and habits; its suggestions go into the next briefing.",
+    "weekly": "Weekly review",
+    "weeklyHint": "A longer look back, after the nightly review of its day; it feeds the next briefing.",
+    "reminders": "Urgent reminders",
+    "remindersHint": "Open loops with a time, sent right away between the briefing and the nightly review, a few a day.",
+    "time": "Time",
+    "day": "Day",
+    "muted": "Not suggested any more",
+    "mutedHint": "Kinds you asked to stop (\"less of this\", or Stop suggesting on an open loop).",
+    "noneMuted": "Nothing muted.",
+    "unmute": "Suggest {kind} again"
+  },
+  "briefingPage": {
+    "title": "Briefing",
+    "briefNow": "Brief me now",
+    "briefing": "Writing…",
+    "loops": "Open loops",
+    "loopsHint": "What's still to do or waiting, from your conversations, the briefing and the reviews. Click one to see it on the right.",
+    "open": "Open",
+    "done": "Done",
+    "dismissed": "Dismissed",
+    "what": "What",
+    "kind": "Kind",
+    "due": "Due",
+    "from": "From",
+    "since": "Since",
+    "remindAt": "Reminder",
+    "none": "Nothing open",
+    "noneHint": "Things left to do in your conversations, bills due and mail to answer show up here.",
+    "noneClosed": "Nothing here",
+    "noneClosedHint": "Loops you close show here.",
+    "noneSelected": "No loop selected",
+    "noneSelectedHint": "Pick one to close it, dismiss it or open its conversation.",
+    "markDone": "Done",
+    "dismiss": "Dismiss",
+    "stopSuggesting": "Dismiss and stop suggesting “{kind}”",
+    "reopen": "Open again",
+    "sources": {
+      "conversation": "A conversation",
+      "review": "A review",
+      "briefing": "The briefing",
+      "assistant": "The assistant"
+    },
+    "latest": "Latest briefing",
+    "notYet": "No briefing yet",
+    "notYetHint": "The first one comes at {time}, or now with Brief me now.",
+    "sentTo": "Sent to {channels}",
+    "onlyHere": "Only in Notifications: no chat channel was connected.",
+    "nothing": "Nothing worth telling that day.",
+    "failed": "Failed: {error}",
+    "review": "Latest review",
+    "nightly": "Nightly review",
+    "weekly": "Weekly review",
+    "reviewNow": "Review now",
+    "noReview": "No review yet.",
+    "suggestions": "Suggestions for the next briefing",
+    "reviewed": "{added} loops added, {closed} closed"
   }
 }

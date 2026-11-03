@@ -34,6 +34,8 @@ from assistant.core.oauth import SignIns
 from assistant.core.outbox import Outbox
 from assistant.core.passkeys import Ceremonies
 from assistant.core.plugin_tools import PluginTools
+from assistant.core.proactive.schedule import ProactiveRuns, ProactiveSchedule
+from assistant.core.proactive.writing import ProactiveModels
 from assistant.core.repositories.checker import UpdateChecker
 from assistant.core.secret_store import SecretBox
 from assistant.core.speech.synthesizer import Synthesizer
@@ -112,6 +114,12 @@ class ServiceBase:
     # Checks each day once it ended. The daemon runs it as a supervised task.
     doctor_schedule: DoctorSchedule
     _home_builder: SectionBuilder
+    # The briefing and reviews running now (core/proactive/); requests start them too.
+    proactive_runs: ProactiveRuns
+    # Runs them at the user's times and sends reminders. The daemon runs it as a supervised task.
+    proactive_schedule: ProactiveSchedule
+    # The worker model's gathering and writers they use, rebuilt with the model.
+    _proactive_models: ProactiveModels
     # OpenAI's Realtime API, for live voice calls (core/voice/); the tests fake it.
     realtime: Realtime
     # The voice model's tool calls by their id, so one made again gets the first result (core/voice/tool_calls.py).

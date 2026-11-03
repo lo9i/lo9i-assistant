@@ -23,6 +23,7 @@ from assistant.core.llm.choice import ModelChoice
 from assistant.core.llm.listing import ModelListError, ModelOption, available
 from assistant.core.llm.packages import PackageError
 from assistant.core.llm.providers import PROVIDERS, ModelProvider, ProviderField, provider
+from assistant.core.proactive.writing import build_proactive_models
 from assistant.core.secret_store import SecretBox
 from assistant.core.subagent import build_subagents
 from assistant.core.usage.meter import TokenMeter
@@ -129,6 +130,7 @@ class ModelMixin(ServiceBase):
         self._subagents = build_subagents(self._storage, model, self._plugin_tools)
         self._classify = build_classifier(model, self._storage.usage)
         self._home_builder = build_section_builder(self._storage, model, self._plugin_tools)
+        self._proactive_models = build_proactive_models(self._storage, model, self._plugin_tools)
 
 
 async def usable_choice(store: BaseStore, secrets: SecretBox) -> ModelChoice:

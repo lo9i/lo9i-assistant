@@ -16,6 +16,7 @@ from assistant.core.agent import (
     AgentFolders,
     BackgroundStep,
     BackgroundSubagent,
+    Briefing,
     ChannelNotConnectedError,
     ChannelStatus,
     Conversation,
@@ -61,12 +62,15 @@ from assistant.core.agent import (
     ModelSettingsError,
     ModelStatus,
     Notification,
+    OpenLoop,
     PairingCode,
     Passkey,
     PasskeyError,
     PluginFieldValue,
     PluginSettings,
     PluginUpdate,
+    ProactivePage,
+    ProactiveSettings,
     PromptEditError,
     PromptSection,
     Repository,
@@ -1304,6 +1308,54 @@ class FakeOAuth:
         raise SignInError("This sign-in has expired or was already used.")
 
 
+class FakeProactive:
+    """The briefing was sent this morning, one loop is open and nothing is muted."""
+
+    def __init__(self):
+        self.settings = ProactiveSettings()
+        self.loops = [
+            OpenLoop(
+                id="l1",
+                text="Pay the gas bill",
+                kind="bill due",
+                source="briefing",
+                created_at="2026-11-02T08:00:00+00:00",
+                due="2026-11-05",
+                key="gas",
+            )
+        ]
+        self.briefing = Briefing(
+            day="2026-11-03", at="2026-11-03T08:00:00+00:00", status="sent", text="Gas due Thu.", channels=["telegram"]
+        )
+        self.runs: list[str] = []
+
+    def _page(self) -> ProactivePage:
+        return ProactivePage(settings=self.settings, loops=list(self.loops), briefing=self.briefing)
+
+    async def get(self):
+        return self._page()
+
+    async def save_settings(self, wanted):
+        self.settings = wanted
+        return self._page()
+
+    async def run(self, work):
+        self.runs.append(work)
+        return self._page().model_copy(update={"running": [work]})
+
+    async def close_loop(self, loop_id, status, stop_suggesting=False):
+        loop = next(o for o in self.loops if o.id == loop_id)
+        self.loops = [loop.model_copy(update={"status": status})]
+        if stop_suggesting:
+            self.settings = self.settings.model_copy(update={"muted": [*self.settings.muted, loop.kind]})
+        return self._page()
+
+    async def mute(self, kind, muted=True):
+        kinds = [k for k in self.settings.muted if k != kind] + ([kind] if muted else [])
+        self.settings = self.settings.model_copy(update={"muted": kinds})
+        return self._page()
+
+
 class FakeDoctor:
     """The latest check found a growing failure and a warning, and nothing is known noise yet."""
 
@@ -1455,6 +1507,7 @@ class FakeClient:
         self.web_search = FakeWebSearch()
         self.notifications = FakeNotifications()
         self.doctor = FakeDoctor()
+        self.proactive = FakeProactive()
         self.prompts = FakePrompts()
         # When set, the inbox sends the next message on there instead of running it.
         self.dispatch_to: Dispatched | None = None

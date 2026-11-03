@@ -5175,6 +5175,196 @@
         }
       }
     },
+    "/proactive": {
+      "get": {
+        "summary": "Proactive",
+        "operationId": "proactive_proactive_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProactivePage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/proactive/settings": {
+      "put": {
+        "summary": "Save Proactive Settings",
+        "operationId": "save_proactive_settings_proactive_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProactiveSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProactivePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/proactive/run/{work}": {
+      "post": {
+        "summary": "Start Proactive",
+        "description": "Writes the briefing (and sends it) or a review now, in the background, unless it runs already.",
+        "operationId": "start_proactive_proactive_run__work__post",
+        "parameters": [
+          {
+            "name": "work",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "briefing",
+                "nightly",
+                "weekly"
+              ],
+              "type": "string",
+              "title": "Work"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProactivePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/proactive/loops/{loop_id}": {
+      "post": {
+        "summary": "Close Loop",
+        "description": "Done, dismissed or open again. 404: no such loop.",
+        "operationId": "close_loop_proactive_loops__loop_id__post",
+        "parameters": [
+          {
+            "name": "loop_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Loop Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoopClosing"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProactivePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/proactive/muted": {
+      "post": {
+        "summary": "Mute Kind",
+        "description": "Stops (or starts again) suggesting that kind of thing.",
+        "operationId": "mute_kind_proactive_muted_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutedKind"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProactivePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/agent-tasks/running": {
       "get": {
         "summary": "Running Tasks",
@@ -7829,6 +8019,52 @@
         ],
         "title": "BraveKey"
       },
+      "Briefing": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "title": "Day"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "sent",
+              "nothing",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          },
+          "channels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Channels",
+            "default": []
+          },
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "at",
+          "status"
+        ],
+        "title": "Briefing"
+      },
       "CancelResult": {
         "properties": {
           "cancelled": {
@@ -10223,6 +10459,29 @@
         "title": "LogPage",
         "description": "The latest matching entries, oldest first."
       },
+      "LoopClosing": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "done",
+              "dismissed"
+            ],
+            "title": "Status"
+          },
+          "stop_suggesting": {
+            "type": "boolean",
+            "title": "Stop Suggesting",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "LoopClosing"
+      },
       "McpProbe": {
         "properties": {
           "tools": {
@@ -10961,6 +11220,24 @@
         ],
         "title": "Moving"
       },
+      "MutedKind": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "muted": {
+            "type": "boolean",
+            "title": "Muted",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "MutedKind"
+      },
       "NewMailAlerts": {
         "properties": {
           "channel": {
@@ -10991,7 +11268,9 @@
               "background",
               "doctor",
               "copilot",
-              "spending"
+              "spending",
+              "briefing",
+              "reminder"
             ],
             "title": "Kind"
           },
@@ -11054,6 +11333,86 @@
         },
         "type": "object",
         "title": "Ok"
+      },
+      "OpenLoop": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "default": ""
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "conversation",
+              "review",
+              "briefing",
+              "assistant"
+            ],
+            "title": "Source"
+          },
+          "thread_id": {
+            "type": "string",
+            "title": "Thread Id",
+            "default": ""
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "done",
+              "dismissed"
+            ],
+            "title": "Status",
+            "default": "open"
+          },
+          "closed_at": {
+            "type": "string",
+            "title": "Closed At",
+            "default": ""
+          },
+          "due": {
+            "type": "string",
+            "title": "Due",
+            "default": ""
+          },
+          "remind_at": {
+            "type": "string",
+            "title": "Remind At",
+            "default": ""
+          },
+          "reminded_at": {
+            "type": "string",
+            "title": "Reminded At",
+            "default": ""
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "text",
+          "source",
+          "created_at",
+          "key"
+        ],
+        "title": "OpenLoop",
+        "description": "Something still to do, waiting on someone, or promised to the user."
       },
       "PairRequest": {
         "properties": {
@@ -11451,6 +11810,110 @@
         "type": "object",
         "title": "PluginUpdateValues"
       },
+      "ProactivePage": {
+        "properties": {
+          "settings": {
+            "$ref": "#/components/schemas/ProactiveSettings"
+          },
+          "loops": {
+            "items": {
+              "$ref": "#/components/schemas/OpenLoop"
+            },
+            "type": "array",
+            "title": "Loops"
+          },
+          "briefing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Briefing"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reviews": {
+            "items": {
+              "$ref": "#/components/schemas/Review"
+            },
+            "type": "array",
+            "title": "Reviews",
+            "default": []
+          },
+          "running": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "briefing",
+                "nightly",
+                "weekly"
+              ]
+            },
+            "type": "array",
+            "title": "Running",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "settings",
+          "loops"
+        ],
+        "title": "ProactivePage",
+        "description": "What the apps show: the settings, the loops, the latest briefing and reviews, and what runs now."
+      },
+      "ProactiveSettings": {
+        "properties": {
+          "briefing": {
+            "type": "boolean",
+            "title": "Briefing",
+            "default": true
+          },
+          "briefing_time": {
+            "type": "string",
+            "title": "Briefing Time",
+            "default": "08:00"
+          },
+          "nightly": {
+            "type": "boolean",
+            "title": "Nightly",
+            "default": true
+          },
+          "nightly_time": {
+            "type": "string",
+            "title": "Nightly Time",
+            "default": "23:00"
+          },
+          "weekly": {
+            "type": "boolean",
+            "title": "Weekly",
+            "default": true
+          },
+          "weekly_day": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 0.0,
+            "title": "Weekly Day",
+            "default": 6
+          },
+          "reminders": {
+            "type": "boolean",
+            "title": "Reminders",
+            "default": true
+          },
+          "muted": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Muted",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "ProactiveSettings",
+        "description": "On by default, at the user's times (their time zone, settings.timezone)."
+      },
       "ProfileItems": {
         "properties": {
           "items": {
@@ -11773,6 +12236,74 @@
           "url"
         ],
         "title": "RepositoryUrl"
+      },
+      "Review": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "nightly",
+              "weekly"
+            ],
+            "title": "Kind"
+          },
+          "day": {
+            "type": "string",
+            "title": "Day"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "default": ""
+          },
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/Suggestion"
+            },
+            "type": "array",
+            "title": "Suggestions",
+            "default": []
+          },
+          "habits": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Habits",
+            "default": []
+          },
+          "added": {
+            "type": "integer",
+            "title": "Added",
+            "default": 0
+          },
+          "closed": {
+            "type": "integer",
+            "title": "Closed",
+            "default": 0
+          },
+          "briefed": {
+            "type": "boolean",
+            "title": "Briefed",
+            "default": false
+          },
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "day",
+          "at"
+        ],
+        "title": "Review"
       },
       "Revoked": {
         "properties": {
@@ -12869,6 +13400,26 @@
         ],
         "title": "Suggested",
         "description": "The plugins for one topic not installed here."
+      },
+      "Suggestion": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Its kind in a few words, from the kinds listed when one fits."
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "The suggestion in one or two short lines, in the user's language."
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "text"
+        ],
+        "title": "Suggestion"
       },
       "ThreadCreated": {
         "properties": {

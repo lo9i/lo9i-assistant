@@ -16,8 +16,8 @@
   import { openConversation } from "$lib/ui/openConversation";
   import TopBar from "$lib/ui/TopBar.svelte";
 
-  // Scheduled jobs' results, background work that ended, health checks, Copilot allowance alerts and spending limits
-  // nearly reached (core/notifications.py), apart from any conversation. Each opens the conversation its work was started in,
+  // Scheduled jobs' results, background work that ended, health checks, Copilot allowance alerts, spending limits
+  // nearly reached, the morning briefing and reminders (core/notifications.py), apart from any conversation. Each opens the conversation its work was started in,
   // when it has one, and a job's run opens on the Jobs page with its whole reply. Seen here, they're read. A page at a time as the table is scrolled.
   const { client, chats, notices } = useDaemon();
   const notifications = pagedResource(
@@ -45,7 +45,11 @@
           ? t("notificationsPage.copilot")
           : n.kind === "spending"
             ? t("notificationsPage.spending")
-            : t("notificationsPage.background");
+            : n.kind === "briefing"
+              ? t("notificationsPage.briefing")
+              : n.kind === "reminder"
+                ? t("notificationsPage.reminder")
+                : t("notificationsPage.background");
   }
 
   function jobLink(n: Notification): string {
@@ -149,6 +153,8 @@
             <a class="btn btn--neutral btn--sm" href={jobLink(shown)}>{t("notificationsPage.openJob")}</a>
           {:else if shown.kind === "doctor"}
             <a class="btn btn--neutral btn--sm" href={resolve("/doctor")}>{t("notificationsPage.openHealth")}</a>
+          {:else if shown.kind === "briefing" || shown.kind === "reminder"}
+            <a class="btn btn--neutral btn--sm" href={resolve("/briefing")}>{t("notificationsPage.openBriefing")}</a>
           {/if}
           <button class="btn btn--ghost btn--sm" onclick={() => dismiss(shown)}>{t("common.dismiss")}</button>
         </div>

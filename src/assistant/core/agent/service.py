@@ -32,6 +32,7 @@ from assistant.core.agent.notifications import NotificationsMixin
 from assistant.core.agent.passkeys import PasskeysMixin
 from assistant.core.agent.pinned import PinnedSkillsMixin
 from assistant.core.agent.plugin_settings import PluginSettingsMixin
+from assistant.core.agent.proactive import ProactiveMixin
 from assistant.core.agent.prompts import PromptsMixin
 from assistant.core.agent.repositories import RepositoriesMixin
 from assistant.core.agent.runs import RunsMixin
@@ -91,6 +92,11 @@ from assistant.core.oauth import SignIns
 from assistant.core.outbox import Outbox
 from assistant.core.passkeys import Ceremonies
 from assistant.core.plugin_tools import PluginTools
+from assistant.core.proactive.briefing import Briefer
+from assistant.core.proactive.reminders import Reminders
+from assistant.core.proactive.review import Reviewer
+from assistant.core.proactive.schedule import ProactiveRuns, ProactiveSchedule
+from assistant.core.proactive.telling import Teller
 from assistant.core.repositories.checker import UpdateChecker
 from assistant.core.secret_store import SecretBox
 from assistant.core.speech.heard import HeardOnce
@@ -121,6 +127,7 @@ class AssistantService(
     DoctorMixin,
     NotificationsMixin,
     HomeMixin,
+    ProactiveMixin,
     FollowUpsMixin,
     HeldRunsMixin,
     TasksMixin,
@@ -210,6 +217,24 @@ class AssistantService(
             lambda: self._windows.of(self._model),
         )
         self.doctor_schedule = DoctorSchedule(storage.store, self.doctor, settings.owner_id)
+        teller = Teller(storage.store, self.outbox, settings.owner_id)
+        self.proactive_runs = ProactiveRuns(
+            bus,
+            Briefer(
+                storage.store, lambda: self._proactive_models, self._plugin_tools, secrets, teller, settings.owner_id
+            ),
+            Reviewer(
+                storage.store,
+                storage.checkpointer,
+                lambda: self._proactive_models,
+                self._plugin_tools,
+                secrets,
+                settings.owner_id,
+            ),
+        )
+        self.proactive_schedule = ProactiveSchedule(
+            storage.store, self.proactive_runs, Reminders(storage.store, teller, settings.owner_id), settings.owner_id
+        )
         self.pages = McpPages(storage.store, environments, secrets)
         self.channels_hub = ChannelHub(
             self.outbox, self.approvals, bus, self.assistant_name, self.channel_commands, self.texts

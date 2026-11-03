@@ -58,6 +58,11 @@ COMMANDS = [
         "/folder",
         translatable("The folder this conversation is handed to, and what changed there; else your home folder"),
     ),
+    Command(
+        "/briefing",
+        "/briefing",
+        translatable("The morning briefing, the reviews and your open loops, and when they run"),
+    ),
     Command("/jobs", "/jobs", translatable("Scheduled jobs")),
     Command("/usage", "/usage", translatable("Tool and skill usage")),
     Command("/logs", "/logs", translatable("The daemon's log, followed live if you like")),

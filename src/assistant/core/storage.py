@@ -47,6 +47,8 @@ _CHANGE_EVENTS = {
     "home": "home",
     # The health checks' reports and the causes marked as known noise (core/doctor/).
     "doctor": "doctor",
+    # The briefing, reviews, open loops and their settings (core/proactive/).
+    "proactive": "proactive",
     # Skills pinned to a conversation (core/conversation/pinned.py).
     "pinned_skills": "pinned_skills",
     # Conversations handed to a plugin's agent (core/conversation/handoffs.py).

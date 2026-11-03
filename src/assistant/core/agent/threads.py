@@ -13,6 +13,7 @@ from assistant.core.config import settings
 from assistant.core.conversation import choices, ended, file_index, handoffs, moved, pinned, queued, summaries
 from assistant.core.home import pins as home_pins
 from assistant.core.i18n import said
+from assistant.core.proactive import loops
 from assistant.core.voice import notes as voice_notes
 from assistant.core.voice.spoken import without_spoken
 
@@ -115,6 +116,7 @@ class ThreadsMixin(ArchiveMixin, ThreadFilesMixin):
             await voice_notes.forget(self._storage.store, user_id, thread_id)
             await queued.forget(self._storage.store, user_id, thread_id)
             await notifications.forget_conversation(self._storage.store, user_id, thread_id)
+            await loops.forget_conversation(self._storage.store, user_id, thread_id)
             await chat_threads.forget(self._storage.store, user_id, listed.channels, thread_id)
         await asyncio.to_thread(_delete_files, referenced(messages), await self._files_elsewhere(user_id, thread_id))
         self.bus.publish("conversations")

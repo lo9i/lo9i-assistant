@@ -18,8 +18,8 @@ from mcp.types import ToolAnnotations
 
 from assistant.core.agent import AssistantService, HomeItem, HomeSection, HomeSectionsError, McpServer
 from assistant.core.config import settings
+from assistant.core.gathering import LIMIT_REACHED, MAX_STEPS
 from assistant.core.home import results
-from assistant.core.home.builder import LIMIT_REACHED, MAX_STEPS
 from assistant.core.home.clock import within
 from assistant.core.home.model import MAX_COLUMNS, SectionContent
 from assistant.core.home.refresh import FRESH_MINUTES
@@ -137,7 +137,7 @@ async def test_a_tool_that_can_change_things_never_runs(service, script, created
     await _only(service, "Agenda")
     assert created == []
     refused = [m.text for m in script.requests[1] if isinstance(m, ToolMessage)]
-    assert refused == [f"{CREATE} isn't available here: only the section's read-only tools are."]
+    assert refused == [f"{CREATE} isn't available here: only the read-only tools offered are."]
 
 
 async def test_the_gathering_stops_at_its_step_limit(service, script):

@@ -15,6 +15,10 @@ import type {
   ApprovalRequired,
   BackgroundSubagent,
   DoctorPage,
+  LoopStatus,
+  ProactivePage,
+  ProactiveSettings,
+  ProactiveWork,
   Notification,
   HomePage,
   HomeSection,
@@ -752,6 +756,38 @@ export class DoctorGroup {
   }
 }
 
+/** The assistant's own initiative (core/proactive/): the morning briefing, the nightly and weekly reviews and their
+ * settings, the open loops and the kinds of suggestion muted. A `proactive` event says one changed. */
+export class ProactiveGroup {
+  constructor(private readonly transport: Transport) {}
+
+  get(): Promise<ProactivePage> {
+    return this.transport.request("GET", "/proactive");
+  }
+
+  saveSettings(wanted: ProactiveSettings): Promise<ProactivePage> {
+    return this.transport.request("PUT", "/proactive/settings", wanted);
+  }
+
+  /** Writes the briefing (and sends it) or a review now, in the background, unless it runs already. */
+  run(work: ProactiveWork): Promise<ProactivePage> {
+    return this.transport.request("POST", `/proactive/run/${work}`);
+  }
+
+  /** Done, dismissed or open again; `stopSuggesting` mutes its kind. Throws ApiError (404) for one that isn't there. */
+  closeLoop(loopId: string, status: LoopStatus, stopSuggesting = false): Promise<ProactivePage> {
+    return this.transport.request("POST", `/proactive/loops/${encodeURIComponent(loopId)}`, {
+      status,
+      stop_suggesting: stopSuggesting,
+    });
+  }
+
+  /** Stops (or starts again) suggesting that kind of thing. */
+  mute(kind: string, muted = true): Promise<ProactivePage> {
+    return this.transport.request("POST", "/proactive/muted", { kind, muted });
+  }
+}
+
 /** The notifications feed: job results and background work that ended, newest first (core/notifications.py). */
 export class NotificationsGroup {
   constructor(private readonly transport: Transport) {}
@@ -1232,6 +1268,7 @@ export class DaemonClient {
   readonly doctor: DoctorGroup;
   readonly notifications: NotificationsGroup;
   readonly home: HomeGroup;
+  readonly proactive: ProactiveGroup;
   readonly tasks: TasksGroup;
   readonly subagents: SubagentsGroup;
   readonly runs: RunsGroup;
@@ -1272,6 +1309,7 @@ export class DaemonClient {
     this.doctor = new DoctorGroup(transport);
     this.notifications = new NotificationsGroup(transport);
     this.home = new HomeGroup(transport);
+    this.proactive = new ProactiveGroup(transport);
     this.tasks = new TasksGroup(transport);
     this.subagents = new SubagentsGroup(transport);
     this.runs = new RunsGroup(transport);

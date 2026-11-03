@@ -1,5 +1,6 @@
 """Digests archived parts of conversations (pending.py) into memory: an episode, profile updates
-and facts (digest.py). Off the reply's path, so a new epoch waits only for its summary.
+and facts (digest.py), and the open loops they leave or close (core/proactive/loops.py). Off the reply's
+path, so a new epoch waits only for its summary.
 
 The daemon runs it as a supervised task: it writes at start, which catches parts the daemon stopped
 before digesting, and again after every new part. One part at a time, so two digests never save
@@ -27,6 +28,7 @@ from assistant.core.conversation.transcript import render
 from assistant.core.memory import episodes, facts, profile
 from assistant.core.memory.embedder import EmbeddingError
 from assistant.core.memory.facts import Fact
+from assistant.core.proactive import loops
 from assistant.core.waiting import first
 
 logger = logging.getLogger(__name__)
@@ -95,6 +97,7 @@ class MemoryWriter:
             profile=await profile.load(self._store, user_id),
             facts=await self._facts(user_id, messages),
             transcript=render(messages),
+            open_loops=await loops.open_loops(self._store, user_id),
         )
 
     async def _facts(self, user_id: str, messages: Sequence[BaseMessage]) -> list[Fact]:
@@ -122,6 +125,15 @@ class MemoryWriter:
         await episodes.save(
             self._store, user_id, episodes.Episode(part.started_at, part.ended_at, digest.episode_summary)
         )
+        await self._keep_loops(user_id, part, digest)
+
+    async def _keep_loops(self, user_id: str, part: PendingPart, digest: MemoryDigest) -> None:
+        """What the part left open becomes open loops of its conversation; what it shows done is closed."""
+        for item in digest.open_items:
+            await loops.add(self._store, user_id, item, "conversation", part.thread_id)
+        still_open = {loop.id for loop in await loops.open_loops(self._store, user_id)}
+        for loop_id in dict.fromkeys(i for i in digest.done_loop_ids if i in still_open):
+            await loops.close(self._store, user_id, loop_id, "done")
 
     async def _next_part(self, after: int) -> None:
         async for event in self._bus.subscribe(after):
