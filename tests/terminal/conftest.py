@@ -1163,6 +1163,11 @@ class FakeFiles:
     async def content(self, file):
         return b"buy milk"
 
+    async def delete(self, paths):
+        deleted = [f.path for f in self.items if f.path in paths]
+        self.items = [f for f in self.items if f.path not in paths]
+        return deleted
+
 
 class FakeShownFolder:
     """A folder the panel shows, from `files` (path → text, None for a deleted one git lists) and `changes`."""

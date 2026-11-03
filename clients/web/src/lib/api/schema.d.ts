@@ -1251,6 +1251,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/files/count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * File Count
+         * @description How many files match `q`, for the apps' page controls.
+         */
+        get: operations["file_count_files_count_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/files/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete Files
+         * @description Deletes those of the files from disk; the messages that refer to them stay. Only paths the list has:
+         *     others (gone already, or never one of the user's files) are left out of `deleted`.
+         */
+        post: operations["delete_files_files_delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/files/content": {
         parameters: {
             query?: never;
@@ -3861,6 +3902,11 @@ export interface components {
             /** Thread Ids */
             thread_ids: string[];
         };
+        /** DeletedFiles */
+        DeletedFiles: {
+            /** Deleted */
+            deleted: string[];
+        };
         /** DeliveryResult */
         DeliveryResult: {
             /**
@@ -4175,6 +4221,11 @@ export interface components {
              */
             status: "modified" | "added" | "deleted" | "untracked";
         };
+        /** FileCount */
+        FileCount: {
+            /** Total */
+            total: number;
+        };
         /** FileDiff */
         FileDiff: {
             /** Path */
@@ -4188,6 +4239,11 @@ export interface components {
             text: string | null;
             /** Truncated */
             truncated: boolean;
+        };
+        /** FilePaths */
+        FilePaths: {
+            /** Paths */
+            paths: string[];
         };
         /** FilePreview */
         FilePreview: {
@@ -8832,6 +8888,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UploadedFile"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    file_count_files_count_get: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileCount"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_files_files_delete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FilePaths"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletedFiles"];
                 };
             };
             /** @description Validation Error */

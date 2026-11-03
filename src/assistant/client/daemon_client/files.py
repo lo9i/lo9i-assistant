@@ -1,3 +1,5 @@
+import builtins
+
 from assistant.client.daemon_client.paging import page_params
 from assistant.client.daemon_client.transport import Transport
 from assistant.core.agent import FileUnavailableError, UploadedFile
@@ -13,6 +15,15 @@ class FilesApi:
         """Newest first: those matching `query`, from `offset`, at most `limit` (all without it)."""
         params = page_params(offset, limit) | ({"q": query} if query else {})
         return [UploadedFile(**f) for f in await self._transport.request("GET", "/files", params=params)]
+
+    async def count(self, query: str = "") -> int:
+        """How many files match `query`."""
+        params = {"q": query} if query else {}
+        return (await self._transport.request("GET", "/files/count", params=params))["total"]
+
+    async def delete(self, paths: builtins.list[str]) -> builtins.list[str]:
+        """Deletes those files from disk; returns the paths deleted (not those the list doesn't have)."""
+        return (await self._transport.request("POST", "/files/delete", json={"paths": paths}))["deleted"]
 
     async def content(self, file: UploadedFile) -> bytes:
         """The file's bytes, to open or save. Raises FileUnavailableError."""

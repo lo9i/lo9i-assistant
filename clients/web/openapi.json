@@ -2771,6 +2771,86 @@
         }
       }
     },
+    "/files/count": {
+      "get": {
+        "summary": "File Count",
+        "description": "How many files match `q`, for the apps' page controls.",
+        "operationId": "file_count_files_count_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileCount"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/files/delete": {
+      "post": {
+        "summary": "Delete Files",
+        "description": "Deletes those of the files from disk; the messages that refer to them stay. Only paths the list has:\nothers (gone already, or never one of the user's files) are left out of `deleted`.",
+        "operationId": "delete_files_files_delete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilePaths"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletedFiles"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/files/content": {
       "get": {
         "summary": "File Content",
@@ -8581,6 +8661,22 @@
         ],
         "title": "ConversationsContaining"
       },
+      "DeletedFiles": {
+        "properties": {
+          "deleted": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted"
+        ],
+        "title": "DeletedFiles"
+      },
       "DeliveryResult": {
         "properties": {
           "error": {
@@ -9137,6 +9233,19 @@
         ],
         "title": "FileChange"
       },
+      "FileCount": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total"
+        ],
+        "title": "FileCount"
+      },
       "FileDiff": {
         "properties": {
           "path": {
@@ -9177,6 +9286,23 @@
           "truncated"
         ],
         "title": "FileDiff"
+      },
+      "FilePaths": {
+        "properties": {
+          "paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Paths"
+          }
+        },
+        "type": "object",
+        "required": [
+          "paths"
+        ],
+        "title": "FilePaths"
       },
       "FilePreview": {
         "properties": {

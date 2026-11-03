@@ -497,7 +497,28 @@
     "size": "Tamaño",
     "added": "Agregado",
     "noneSelected": "Ningún archivo elegido",
-    "pickOne": "Elige uno de la tabla."
+    "pickOne": "Elige uno de la tabla.",
+    "select": "Seleccionar {name}",
+    "selectPage": "Seleccionar todos los de esta página",
+    "selected": {
+      "one": "{count} seleccionado",
+      "other": "{count} seleccionados"
+    },
+    "clearSelection": "Quitar la selección",
+    "deleteSelected": "Borrar los seleccionados",
+    "deleteOne": "Borrar {name}",
+    "deleteQuestionOne": "¿Borrar {name}?",
+    "deleteQuestion": {
+      "one": "¿Borrar {count} archivo?",
+      "other": "¿Borrar {count} archivos?"
+    },
+    "deleteText": "Los archivos borrados se quitan de esta computadora. Los mensajes con los que llegaron quedan, sin ellos.",
+    "deleting": "Borrando…",
+    "deleted": {
+      "one": "Se borró {count} archivo.",
+      "other": "Se borraron {count} archivos."
+    },
+    "actions": "Acciones"
   },
   "find": {
     "placeholder": "Buscar en la conversación",

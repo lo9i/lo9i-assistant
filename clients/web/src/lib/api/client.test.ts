@@ -158,6 +158,25 @@ describe("SystemGroup's pending ending", () => {
   });
 });
 
+describe("files", () => {
+  it("count those matching a search, and delete by path", async () => {
+    const { transport, request } = recording();
+    request
+      .mockResolvedValueOnce({ total: 3 })
+      .mockResolvedValueOnce({ total: 1 })
+      .mockResolvedValueOnce({ deleted: ["a/x.txt"] });
+    const files = new FilesGroup(transport);
+    expect(await files.count()).toBe(3);
+    expect(await files.count("tax pdf")).toBe(1);
+    expect(await files.delete(["a/x.txt", "b/y.txt"])).toEqual(["a/x.txt"]);
+    expect(request.mock.calls.map((call) => call.slice(0, 3))).toEqual([
+      ["GET", "/files/count"],
+      ["GET", "/files/count?q=tax+pdf"],
+      ["POST", "/files/delete", { paths: ["a/x.txt", "b/y.txt"] }],
+    ]);
+  });
+});
+
 describe("paged lists", () => {
   it("ask for the whole list without a page, as before", async () => {
     const { transport, request } = recording();

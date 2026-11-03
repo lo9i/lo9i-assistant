@@ -497,7 +497,28 @@
     "size": "Size",
     "added": "Added",
     "noneSelected": "No file selected",
-    "pickOne": "Pick one from the table."
+    "pickOne": "Pick one from the table.",
+    "select": "Select {name}",
+    "selectPage": "Select all on this page",
+    "selected": {
+      "one": "{count} selected",
+      "other": "{count} selected"
+    },
+    "clearSelection": "Clear selection",
+    "deleteSelected": "Delete selected",
+    "deleteOne": "Delete {name}",
+    "deleteQuestionOne": "Delete {name}?",
+    "deleteQuestion": {
+      "one": "Delete {count} file?",
+      "other": "Delete {count} files?"
+    },
+    "deleteText": "Deleted files are removed from this computer. The messages they came with stay, without them.",
+    "deleting": "Deleting…",
+    "deleted": {
+      "one": "Deleted {count} file.",
+      "other": "Deleted {count} files."
+    },
+    "actions": "Actions"
   },
   "find": {
     "placeholder": "Find in conversation",

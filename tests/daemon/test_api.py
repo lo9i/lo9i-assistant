@@ -1078,6 +1078,23 @@ async def test_files_come_in_pages_and_searched_by_the_daemon(client):
     assert await client.files.list("nothing like it") == []
 
 
+async def test_files_are_counted_and_deleted_through_the_client(client):
+    session = await _new_session(client)
+    for name in ("a.txt", "b.txt"):
+        await collect(client.send(session, "keep this", [Attachment(name, "text/plain", name.encode())]))
+    assert await client.files.count() == 2
+    assert await client.files.count("a.txt") == 1
+    a = next(f for f in await client.files.list() if f.name == "a.txt")
+    assert await client.files.delete([a.path, "../../lo9i.db"]) == [a.path]
+    assert [f.name for f in await client.files.list()] == ["b.txt"]
+    assert await client.files.count() == 1
+
+
+async def test_files_to_delete_come_at_most_200_at_a_time(client):
+    with pytest.raises(httpx.HTTPStatusError):
+        await client.files.delete(["x"] * 201)
+
+
 async def test_notifications_come_in_pages(client, service):
     for title in ("First", "Second", "Third"):
         await notifications.add(service.store, "owner", "job", title, "Done.", True)

@@ -1,12 +1,13 @@
 """The files in the user's conversations, sent by them or brought by tool results, newest first, to save
-to Downloads or open in their app on this computer. Refreshes when a conversation changes."""
+to Downloads, open in their app on this computer or delete. Refreshes when a conversation changes or files are
+deleted."""
 
 import asyncio
 import webbrowser
 from pathlib import Path
 from typing import ClassVar
 
-from textual import on
+from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -22,13 +23,14 @@ from assistant_terminal.i18n import t, translatable
 from assistant_terminal.paging import Pages
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.paged_list import PagedOptionList
+from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 _EMPTY = translatable("No files yet. Files you attach to a message, and the ones tools bring in, show up here.")
 
 
 class FilesScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
-    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"conversations"})
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"conversations", "files"})
 
     def __init__(self, files: FilesApi) -> None:
         super().__init__()
@@ -47,6 +49,7 @@ class FilesScreen(ModalScreen[None]):
             with Horizontal(id="files-buttons"):
                 yield Button(t("Open"), id="open")
                 yield Button(t("Save to Downloads"), variant="success", id="save")
+                yield Button(t("Delete"), variant="error", id="delete")
                 yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
@@ -55,7 +58,8 @@ class FilesScreen(ModalScreen[None]):
 
     @reports_daemon_unavailable
     async def reload(self) -> None:
-        """Called when a conversation changes: a message brought a file, or one was deleted with its files."""
+        """Called when a conversation changes (a message brought a file, or one was deleted with its files) and when
+        files are deleted."""
         options = self.query_one("#files-list", PagedOptionList)
         files = await options.reload()
         if self._selected not in self._shown:
@@ -93,6 +97,25 @@ class FilesScreen(ModalScreen[None]):
         saved = await self._download()
         if saved is not None and not webbrowser.open(saved.as_uri()):
             self.notify(t("Saved to {path}, but nothing here opens it.", path=saved), severity="warning")
+
+    @on(Button.Pressed, "#delete")
+    def _delete(self) -> None:
+        file = self._shown.get(self._selected or "")
+        if file is not None:
+            self._confirm_delete(file)
+
+    @work
+    @reports_daemon_unavailable
+    async def _confirm_delete(self, file: UploadedFile) -> None:
+        question = t(
+            "Delete {name}? It's removed from this computer; the message it came with stays, without it.",
+            name=file.name,
+        )
+        if not await self.app.push_screen_wait(ConfirmScreen(question, t("Delete"))):
+            return
+        await self._files.delete([file.path])
+        self.notify(t("Deleted {name}.", name=file.name))
+        await self.reload()
 
     async def _download(self) -> Path | None:
         file = self._shown.get(self._selected or "")

@@ -1053,5 +1053,7 @@
   "Open the briefing": "Abrir el resumen",
   "Use the model": "Usar el modelo",
   "Off: it shows {plugin}'s own list for the day, with no model call; the text above isn't used.": "Apagado: muestra la lista del día de {plugin}, sin llamar al modelo; el texto de arriba no se usa.",
-  "On: the model builds it from the text above, which costs a model call each time it's built.": "Encendido: el modelo la arma a partir del texto de arriba, lo que cuesta una llamada al modelo cada vez que se arma."
+  "On: the model builds it from the text above, which costs a model call each time it's built.": "Encendido: el modelo la arma a partir del texto de arriba, lo que cuesta una llamada al modelo cada vez que se arma.",
+  "Delete {name}? It's removed from this computer; the message it came with stays, without it.": "¿Borrar {name}? Se quita de esta computadora; el mensaje con el que llegó queda, sin él.",
+  "Deleted {name}.": "Se borró {name}."
 }

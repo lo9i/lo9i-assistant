@@ -452,6 +452,19 @@ class FolderDeleting(BaseModel):
     enabled: bool
 
 
+class FileCount(BaseModel):
+    total: int
+
+
+class FilePaths(BaseModel):
+    # Paths as the Files list gives them; the apps send a page's worth at most.
+    paths: list[str] = Field(max_length=200)
+
+
+class DeletedFiles(BaseModel):
+    deleted: list[str]
+
+
 class ServerValuesBody(BaseModel):
     name: str
     # Values for the server's fields (env values or headers); secrets, never shown again.
@@ -1331,6 +1344,17 @@ def _add_file_routes(app: FastAPI, service: AssistantService) -> None:
         matching `q` (name, type, where it came from or conversation), from `offset`, at most `limit` (all
         without it)."""
         return await service.files_page(settings.owner_id, q, offset, limit)
+
+    @app.get("/files/count")
+    async def file_count(q: str = "") -> FileCount:
+        """How many files match `q`, for the apps' page controls."""
+        return FileCount(total=await service.count_files(settings.owner_id, q))
+
+    @app.post("/files/delete")
+    async def delete_files(body: FilePaths) -> DeletedFiles:
+        """Deletes those of the files from disk; the messages that refer to them stay. Only paths the list has:
+        others (gone already, or never one of the user's files) are left out of `deleted`."""
+        return DeletedFiles(deleted=await service.delete_files(settings.owner_id, body.paths))
 
     @app.get("/files/content", response_class=Response, responses=_FILE)
     async def file_content(path: str) -> Response:

@@ -59,9 +59,26 @@ class FilesMixin(ThreadFilesMixin):
     ) -> list[UploadedFile]:
         """The files matching `query` (by name, type, where they came from or conversation), newest first, from
         `offset`: at most `limit`, all of them with None."""
-        words = query.strip().lower()
-        matching = [f for f in await self.list_files(user_id) if words in _searched(f)]
+        matching = await self._matching(user_id, query)
         return matching[offset : None if limit is None else offset + limit]
+
+    async def count_files(self, user_id: str, query: str = "") -> int:
+        """How many files match `query`, for the pages of them the apps show."""
+        return len(await self._matching(user_id, query))
+
+    async def _matching(self, user_id: str, query: str) -> list[UploadedFile]:
+        words = query.strip().lower()
+        return [f for f in await self.list_files(user_id) if words in _searched(f)]
+
+    async def delete_files(self, user_id: str, paths: list[str]) -> list[str]:
+        """Deletes those of the files from disk, wherever they're referred to: their messages stay, and say the file
+        is no longer available (attachments.hydrate). Only paths the list has, inside the uploads folder, so nothing
+        else there or outside it can be deleted through it; the others are left. Returns the paths deleted."""
+        listed = {f.path for f in await self.list_files(user_id)}
+        deleted = await asyncio.to_thread(_delete, [p for p in dict.fromkeys(paths) if p in listed])
+        if deleted:
+            self.bus.publish("files")
+        return deleted
 
     async def file_content(self, user_id: str, path: str) -> tuple[UploadedFile, bytes]:
         """A file from the list, to view or download. Only paths the list has, so nothing else in the
@@ -78,6 +95,13 @@ def _searched(file: UploadedFile) -> str:
     mcp = _MCP_TOOL.match(file.tool)
     source = f"{mcp[1]}: {mcp[2]}" if mcp else file.tool or "You"
     return f"{file.name} {file.media_type} {source} {file.conversation}".lower()
+
+
+def _delete(paths: list[str]) -> list[str]:
+    deleted = [p for p in paths if uploads.within(p)]
+    for path in deleted:
+        uploads.delete(path)
+    return deleted
 
 
 def _once(files: list[UploadedFile]) -> list[UploadedFile]:

@@ -127,3 +127,43 @@ async def test_a_deleted_conversations_files_leave_the_index(service):
     await collect(service.send(session, "read this", [NOTE]))
     await service.delete_conversation("owner", session.thread_id)
     assert session.thread_id not in await file_index.of_user(service.store, "owner")
+
+
+async def test_counts_the_files_matching_a_search(service):
+    session = await service.session("owner", "cli")
+    await collect(service.send(session, "read this", [NOTE]))
+    await collect(service.send(session, "look", [PNG]))
+    assert await service.count_files("owner") == 2
+    assert await service.count_files("owner", "image/") == 1
+    assert await service.count_files("owner", "nothing like it") == 0
+
+
+async def test_deletes_listed_files_from_disk_and_says_so(service):
+    session = await service.session("owner", "cli")
+    await collect(service.send(session, "read this", [NOTE]))
+    await collect(service.send(session, "look", [PNG]))
+    note, png = sorted(await service.list_files("owner"), key=lambda f: f.name)
+    heard = service.bus.subscribe(service.bus.last_id)
+    assert await service.delete_files("owner", [note.path, note.path]) == [note.path]
+    assert not uploads.absolute(note.path).exists()
+    assert not uploads.absolute(note.path).parent.exists()
+    assert [f.path for f in await service.list_files("owner")] == [png.path]
+    assert (await anext(heard)).kind == "files"
+
+
+async def test_deletes_only_files_the_list_has(service, tmp_path):
+    session = await service.session("owner", "cli")
+    await collect(service.send(session, "read this", [NOTE]))
+    stray = uploads.save("other.txt", b"not in a conversation")
+    outside = tmp_path / "outside.txt"
+    outside.write_text("keep")
+    assert await service.delete_files("owner", [stray, "../outside.txt", str(outside), ""]) == []
+    assert uploads.absolute(stray).is_file() and outside.is_file()
+    assert len(await service.list_files("owner")) == 1
+
+
+def test_a_path_leading_out_of_the_uploads_folder_isnt_within_it():
+    assert uploads.within("abc/notes.txt")
+    assert not uploads.within("../lo9i.db")
+    assert not uploads.within("abc/../../lo9i.db")
+    assert not uploads.within("")

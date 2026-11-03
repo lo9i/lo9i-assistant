@@ -2,7 +2,7 @@
 
 from textual.widgets import Markdown, OptionList
 
-from assistant_terminal.tui.screens import FilesScreen
+from assistant_terminal.tui.screens import ConfirmScreen, FilesScreen
 from tests.terminal.conftest import wait_for
 
 
@@ -37,3 +37,17 @@ async def test_a_file_is_saved_to_downloads(app, client, tmp_path, monkeypatch):
         app.screen.query_one("#save").press()
         await wait_for(pilot, lambda: (tmp_path / "Downloads" / "notes.txt").exists())
         assert (tmp_path / "Downloads" / "notes.txt").read_bytes() == b"buy milk"
+
+
+async def test_a_file_is_deleted_once_confirmed(app, client):
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/files", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, FilesScreen))
+        screen = app.screen
+        await wait_for(pilot, lambda: "notes.txt" in screen.query_one("#file-body", Markdown).source)
+        screen.query_one("#delete").press()
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: "chart.png" in screen.query_one("#file-body", Markdown).source)
+        assert [f.name for f in client.files.items] == ["chart.png"]

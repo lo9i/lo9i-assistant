@@ -288,6 +288,18 @@ export class FilesGroup {
     return this.transport.request("GET", `/files${pageQuery(page, query ? { q: query } : {})}`);
   }
 
+  /** How many files match `query`, for the page controls. */
+  async count(query = ""): Promise<number> {
+    const path = `/files/count${pageQuery(undefined, query ? { q: query } : {})}`;
+    return (await this.transport.request<Schemas["FileCount"]>("GET", path)).total;
+  }
+
+  /** Deletes those files from disk; the messages that refer to them stay. Returns the paths deleted, which leave out
+   * those the list doesn't have (gone already). */
+  async delete(paths: string[]): Promise<string[]> {
+    return (await this.transport.request<Schemas["DeletedFiles"]>("POST", "/files/delete", { paths })).deleted;
+  }
+
   /** A file's content, to show or save. Throws ApiError (404) when it isn't there any more. */
   content(file: UploadedFile): Promise<Blob> {
     return this.transport.blob("GET", `/files/content?path=${encodeURIComponent(file.path)}`);

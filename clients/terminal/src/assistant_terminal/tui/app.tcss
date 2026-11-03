@@ -600,7 +600,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     margin-top: 1;
 }
 
-#skills-buttons Button, #jobs-buttons Button, #conversations-buttons Button, #devices-buttons Button, #keys-buttons Button, #home-buttons Button, #doctor-buttons Button, #briefing-buttons Button, #usage-buttons Button, #mcp-buttons Button, #plugins-buttons Button, #notifications-buttons Button, #prompts-buttons Button, #subagents-buttons Button {
+#skills-buttons Button, #jobs-buttons Button, #conversations-buttons Button, #devices-buttons Button, #keys-buttons Button, #home-buttons Button, #doctor-buttons Button, #briefing-buttons Button, #files-buttons Button, #usage-buttons Button, #mcp-buttons Button, #plugins-buttons Button, #notifications-buttons Button, #prompts-buttons Button, #subagents-buttons Button {
     margin-right: 2;
 }
 
