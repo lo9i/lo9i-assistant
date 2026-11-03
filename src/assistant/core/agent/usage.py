@@ -2,6 +2,7 @@
 limits (core/usage/limits.py)."""
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from assistant.core import conversations
 from assistant.core.agent.conversations import ConversationsMixin
@@ -56,12 +57,14 @@ class UsageMixin(ConversationsMixin):
         await limits.save(self._storage.store, changed)
         return await self.spending()
 
-    async def usage_report(self, days: int = 7) -> UsageReport:
-        return await self._storage.usage.report(days)
+    async def usage_report(self, days: int = 7, since: datetime | None = None) -> UsageReport:
+        """The last `days` days, or since `since` when given (the start of the user's day, for today)."""
+        return await self._storage.usage.report(days, since)
 
-    async def token_report(self, days: int = 7) -> TokenReport:
-        """Tokens and cost by day, model, purpose, channel, conversation (with titles), job, skill and tool."""
-        report = await self._storage.usage.token_report(days)
+    async def token_report(self, days: int = 7, since: datetime | None = None) -> TokenReport:
+        """Tokens and cost by day, model, purpose, channel, conversation (with titles), job, skill and tool, over the
+        last `days` days or since `since`."""
+        report = await self._storage.usage.token_report(days, since)
         titles = {c.thread_id: c.title for c in await conversations.recent(self._storage.store, settings.owner_id)}
         for row in report.by_conversation:
             row.label = titles.get(row.name, "")

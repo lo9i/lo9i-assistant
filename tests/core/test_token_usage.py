@@ -2,6 +2,8 @@
 tokens split among the system prompt, history, the user's message, tools and the reply, and the
 report by day, model, conversation, job, skill and tool, with cost where the model has a price."""
 
+from datetime import UTC, datetime, timedelta, timezone
+
 import pytest
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.messages.ai import UsageMetadata
@@ -77,6 +79,18 @@ async def test_replies_are_recorded_with_their_conversation_tools_and_skill(serv
     assert [(r.name, r.calls) for r in report.by_skill] == [("nope", 1)]
     assert [r.name for r in report.by_tool] == ["use_skill"]
     assert report.estimated_calls == 0
+
+
+async def test_a_report_since_a_time_leaves_out_what_came_before(service, script):
+    script.call("bash", command="echo hi").reply("done")
+    await collect(service.send(await service.session("owner", "cli"), "go"))
+    # Midnight somewhere west of UTC, given in its own timezone: compared in UTC as calls are recorded.
+    before = (datetime.now(UTC) - timedelta(hours=1)).astimezone(timezone(timedelta(hours=-3)))
+    after = datetime.now(UTC) + timedelta(hours=1)
+    assert (await service.token_report(1, since=before)).total.calls == 2
+    assert (await service.token_report(1, since=after)).total.calls == 0
+    assert [t.name for t in (await service.usage_report(1, since=before)).tools] == ["bash"]
+    assert (await service.usage_report(1, since=after)).tools == []
 
 
 async def test_a_call_without_reported_usage_is_estimated(service, script):

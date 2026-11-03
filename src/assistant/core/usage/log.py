@@ -214,10 +214,11 @@ class UsageLog:
             [(cursor.lastrowid, p.kind, p.name, p.input_tokens, p.output_tokens) for p in parts],
         )
 
-    async def token_report(self, days: int) -> TokenReport:
-        since = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+    async def token_report(self, days: int, since: datetime | None = None) -> TokenReport:
+        """The calls of the last `days` days, or since `since` when given (the start of the user's day, for today)."""
+        start = _start(days, since)
         by = {
-            group: await self._token_rows(column, since)
+            group: await self._token_rows(column, start)
             for group, column in (
                 ("day", "substr(at, 1, 10)"),
                 ("model", "model"),
@@ -228,7 +229,7 @@ class UsageLog:
                 ("skill", "skill"),
             )
         }
-        totals = await self._token_rows("'total'", since)
+        totals = await self._token_rows("'total'", start)
         return TokenReport(
             days,
             totals[0] if totals else TokenRow("total"),
@@ -239,8 +240,8 @@ class UsageLog:
             by_conversation=[r for r in by["conversation"] if r.name][:_TOP],
             by_job=[r for r in by["job"] if r.name],
             by_skill=[r for r in by["skill"] if r.name],
-            by_tool=(await self._tool_rows(since))[:_TOP],
-            estimated_calls=await self._estimated_calls(since),
+            by_tool=(await self._tool_rows(start))[:_TOP],
+            estimated_calls=await self._estimated_calls(start),
         )
 
     async def thread_usage(self, thread_id: str) -> ThreadUsage:
@@ -312,10 +313,11 @@ class UsageLog:
             row = await cursor.fetchone()
         return int(row[0]) if row else 0
 
-    async def report(self, days: int) -> UsageReport:
-        since = (datetime.now(UTC) - timedelta(days=days)).isoformat()
-        tools = await self._summary("tool", "at >= ?", since)
-        skills = await self._summary("skill", "at >= ? AND skill IS NOT NULL", since)
+    async def report(self, days: int, since: datetime | None = None) -> UsageReport:
+        """The tool and skill calls of the last `days` days, or since `since` when given."""
+        start = _start(days, since)
+        tools = await self._summary("tool", "at >= ?", start)
+        skills = await self._summary("skill", "at >= ? AND skill IS NOT NULL", start)
         return UsageReport(days, tools, skills)
 
     async def _summary(self, column: str, where: str, since: str) -> list[ToolUsage]:
@@ -328,3 +330,8 @@ class UsageLog:
         return [
             ToolUsage(name, calls, errors, denied, round(avg), last) for name, calls, errors, denied, avg, last in rows
         ]
+
+
+def _start(days: int, since: datetime | None) -> str:
+    """Where a report starts, in UTC as calls are recorded, so it compares as text with their `at`."""
+    return (since or datetime.now(UTC) - timedelta(days=days)).astimezone(UTC).isoformat()

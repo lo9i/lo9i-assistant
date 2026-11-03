@@ -2966,7 +2966,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Usage */
+        /**
+         * Usage
+         * @description Tool and skill calls of the last `days` days, or since `since` (the start of the user's day, for today,
+         *     which the app works out in its own timezone).
+         */
         get: operations["usage_usage_get"];
         put?: never;
         post?: never;
@@ -2985,7 +2989,8 @@ export interface paths {
         };
         /**
          * Token Usage
-         * @description Tokens and cost of the model calls, by day, model, purpose, channel, conversation, job, skill and tool.
+         * @description Tokens and cost of the model calls, by day, model, purpose, channel, conversation, job, skill and tool,
+         *     over the last `days` days or since `since`.
          */
         get: operations["token_usage_usage_tokens_get"];
         put?: never;
@@ -12118,6 +12123,7 @@ export interface operations {
         parameters: {
             query?: {
                 days?: number;
+                since?: string | null;
             };
             header?: never;
             path?: never;
@@ -12149,6 +12155,7 @@ export interface operations {
         parameters: {
             query?: {
                 days?: number;
+                since?: string | null;
             };
             header?: never;
             path?: never;

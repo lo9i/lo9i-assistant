@@ -732,6 +732,7 @@
   "Updates: {count} plugins have a newer version in the extras.": "Actualizaciones: {count} plugins tienen una versión nueva en los extras.",
   "Uptime": "Tiempo encendido",
   "Usage, last {days} days": "Uso, últimos {days} días",
+  "Usage, today": "Uso, hoy",
   "Use .env instead": "Usar .env en su lugar",
   "Use /mouse, /mouse on or /mouse off.": "Usa /mouse, /mouse on o /mouse off.",
   "Use Change sign-in.": "Usa Cambiar el inicio de sesión.",

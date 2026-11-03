@@ -1,14 +1,22 @@
 """Usage report as Markdown tables, shared by the /usage screen and the plain REPL."""
 
+from datetime import datetime
+
 from assistant.core.agent import TokenReport, UsageReport
 from assistant.core.usage.log import TokenRow, ToolUsage
 from assistant_terminal.i18n import decimal, t
 
 
-def describe(report: UsageReport, tokens: TokenReport) -> str:
+def start_of_today() -> datetime:
+    """Midnight where this computer is, which a report of today starts at."""
+    return datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def describe(report: UsageReport, tokens: TokenReport, today: bool = False) -> str:
+    """`today`: the reports start at today's midnight instead of `days` ago."""
     return "\n\n".join(
         [
-            "## " + t("Usage, last {days} days", days=report.days),
+            "## " + (t("Usage, today") if today else t("Usage, last {days} days", days=report.days)),
             *_tokens(tokens),
             "### " + t("Tool calls"),
             _table(report.tools, t("Tool")),

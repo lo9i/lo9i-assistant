@@ -10,8 +10,11 @@
   import ArrowDownToLine from "@lucide/svelte/icons/arrow-down-to-line";
   import ArrowUpFromLine from "@lucide/svelte/icons/arrow-up-from-line";
   import CircleDollarSign from "@lucide/svelte/icons/circle-dollar-sign";
+  import { usageRange, type UsagePeriod } from "$lib/usagePeriod";
 
-  let { days }: { days: number } = $props();
+  let { period }: { period: UsagePeriod } = $props();
+  const today = $derived(period === "today");
+  const days = $derived(usageRange(period).days);
 
   type Group = "by_model" | "by_purpose" | "by_conversation" | "by_job" | "by_skill" | "by_tool" | "by_channel" | "by_day";
   const GROUPS: { id: Group; label: Key; column: Key }[] = [
@@ -36,7 +39,13 @@
   const COST_COLOR = "var(--color-warn)";
 
   let group = $state<Group>("by_model");
-  const report = resource((c) => c.usage.tokens(days), ["run_finished"]);
+  const report = resource(
+    (c) => {
+      const range = usageRange(period);
+      return c.usage.tokens(range.days, range.since);
+    },
+    ["run_finished"],
+  );
   const total = $derived(report.data?.total);
   const rows = $derived<TokenRow[]>((report.data as TokenReport | undefined)?.[group] ?? []);
   const column = $derived.by(() => {
@@ -87,19 +96,21 @@
       <span class="tile-head"><Activity size={15} class="tile-icon" aria-hidden="true" />{t("tokens.modelCalls")}</span>
       <div class="tile-body">
         <span class="big">{formatNumber(total.calls)}</span>
-        <div class="chart"><TokenBars points={callSeries} label={t("tokens.modelCallsPerDay")} /></div>
+        {#if !today}<div class="chart"><TokenBars points={callSeries} label={t("tokens.modelCallsPerDay")} /></div>{/if}
       </div>
       <span class="text-caption"
         >{report.data?.estimated_calls
           ? t("tokens.estimated", { count: report.data.estimated_calls })
-          : t("tokens.lastDays", { days })}</span
+          : today
+            ? t("tokens.today")
+            : t("tokens.lastDays", { days })}</span
       >
     </div>
     <div class="tile surface--glass">
       <span class="tile-head"><ArrowDownToLine size={15} class="tile-icon" aria-hidden="true" />{t("tokens.inputTokens")}</span>
       <div class="tile-body">
         <span class="big">{count(total.input_tokens)}</span>
-        <div class="chart"><TokenLine points={inputSeries} label={t("tokens.inputPerDay")} /></div>
+        {#if !today}<div class="chart"><TokenLine points={inputSeries} label={t("tokens.inputPerDay")} /></div>{/if}
       </div>
       <span class="text-caption">
         {t("tokens.fromCachePercent", {
@@ -111,7 +122,9 @@
       <span class="tile-head"><ArrowUpFromLine size={15} class="tile-icon" aria-hidden="true" />{t("tokens.outputTokens")}</span>
       <div class="tile-body">
         <span class="big">{count(total.output_tokens)}</span>
-        <div class="chart"><TokenLine points={outputSeries} label={t("tokens.outputPerDay")} color={OUTPUT_COLOR} /></div>
+        {#if !today}
+          <div class="chart"><TokenLine points={outputSeries} label={t("tokens.outputPerDay")} color={OUTPUT_COLOR} /></div>
+        {/if}
       </div>
       <span class="text-caption">{t("tokens.outputHint")}</span>
     </div>
@@ -119,7 +132,7 @@
       <span class="tile-head"><CircleDollarSign size={15} class="tile-icon" aria-hidden="true" />{t("tokens.cost")}</span>
       <div class="tile-body">
         <span class="big">{money(total.cost)}</span>
-        <div class="chart"><TokenLine points={costSeries} label={t("tokens.costPerDay")} color={COST_COLOR} /></div>
+        {#if !today}<div class="chart"><TokenLine points={costSeries} label={t("tokens.costPerDay")} color={COST_COLOR} /></div>{/if}
       </div>
       <span class="text-caption">{t("tokens.costHint")}</span>
     </div>
@@ -130,7 +143,13 @@
       <div>
         <h2 class="text-heading">{t("tokens.title")}</h2>
         <p class="text-meta">
-          {group === "by_tool" ? t("tokens.byToolHint") : group === "by_skill" ? t("tokens.bySkillHint") : t("tokens.hint", { days })}
+          {group === "by_tool"
+            ? t("tokens.byToolHint")
+            : group === "by_skill"
+              ? t("tokens.bySkillHint")
+              : today
+                ? t("tokens.hintToday")
+                : t("tokens.hint", { days })}
         </p>
       </div>
       <div class="tabs" role="radiogroup" aria-label={t("tokens.groupBy")}>
@@ -142,7 +161,11 @@
       </div>
     </header>
     {#if rows.length === 0}
-      <EmptyState icon={Coins} title={t("tokens.nothingYet")} text={t("tokens.nothingYetHint", { days })} />
+      <EmptyState
+        icon={Coins}
+        title={t("tokens.nothingYet")}
+        text={today ? t("tokens.nothingYetHintToday") : t("tokens.nothingYetHint", { days })}
+      />
     {:else}
       <table class="data-table">
         <thead>

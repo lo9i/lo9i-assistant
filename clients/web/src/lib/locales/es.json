@@ -1481,7 +1481,10 @@
     "calls": "Llamadas",
     "input": "Entrada",
     "fromCache": "De la caché",
-    "output": "Salida"
+    "output": "Salida",
+    "today": "hoy",
+    "hintToday": "Lo que ocuparon las llamadas al modelo hoy.",
+    "nothingYetHintToday": "No hubo llamadas al modelo en este grupo hoy."
   },
   "updates": {
     "unknown": "Desconocida",
@@ -1510,7 +1513,11 @@
     "notUsedHint": "Nada en los últimos {days} días.",
     "errors": "Errores",
     "denied": "Denegadas",
-    "avgTime": "Tiempo medio"
+    "avgTime": "Tiempo medio",
+    "today": "Hoy",
+    "hintToday": "Cuántas veces el asistente usó cada una hoy.",
+    "noMatchesHintToday": "Nada de lo usado hoy coincide con «{query}».",
+    "notUsedHintToday": "Nada hoy."
   },
   "webSearch": {
     "title": "Búsqueda web",

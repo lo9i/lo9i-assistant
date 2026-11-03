@@ -9,10 +9,10 @@
   import SearchField from "$lib/ui/SearchField.svelte";
   import TokenUsage from "$lib/ui/TokenUsage.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
+  import { USAGE_PERIODS, usageRange, type UsagePeriod } from "$lib/usagePeriod";
 
   type Kind = "tool" | "skill";
   type Filter = "all" | Kind;
-  const PERIODS = [7, 30, 90];
   const FILTERS: { id: Filter; label: Key }[] = [
     { id: "all", label: "usagePage.all" },
     { id: "tool", label: "usagePage.tools" },
@@ -21,11 +21,19 @@
   const KINDS: Record<Kind, Key> = { tool: "tokens.tool", skill: "tokens.skill" };
   const PAGE_SIZE = 20;
 
-  let days = $state(7);
+  let period = $state<UsagePeriod>(7);
+  const today = $derived(period === "today");
+  const days = $derived(usageRange(period).days);
   let filter = $state<Filter>("all");
   let query = $state("");
   let page = $state(0);
-  const report = resource((c) => c.usage.report(days), ["run_finished"]);
+  const report = resource(
+    (c) => {
+      const range = usageRange(period);
+      return c.usage.report(range.days, range.since);
+    },
+    ["run_finished"],
+  );
   // Tools and skills in one list, most used first.
   const rows = $derived.by(() => {
     if (!report.data) return undefined;
@@ -42,7 +50,7 @@
 
   // A new period, filter or search starts from the first page.
   $effect(() => {
-    void [days, filter, query];
+    void [period, filter, query];
     page = 0;
   });
 
@@ -54,9 +62,9 @@
 <TopBar title={t("nav.usage")}>
   {#snippet actions()}
     <div class="tabs" role="radiogroup" aria-label={t("usagePage.period")}>
-      {#each PERIODS as d (d)}
-        <button role="radio" aria-checked={d === days} class:active={d === days} onclick={() => (days = d)}
-          >{t("usagePage.days", { days: d })}</button
+      {#each USAGE_PERIODS as p (p)}
+        <button role="radio" aria-checked={p === period} class:active={p === period} onclick={() => (period = p)}
+          >{p === "today" ? t("usagePage.today") : t("usagePage.days", { days: p })}</button
         >
       {/each}
     </div>
@@ -64,12 +72,12 @@
 </TopBar>
 
 <div class="shell">
-  <TokenUsage {days} />
+  <TokenUsage {period} />
   <section class="table-card surface--glass">
     <header class="toolbar">
       <div>
         <h2 class="text-heading">{t("usagePage.title")}</h2>
-        <p class="text-meta">{t("usagePage.hint", { days })}</p>
+        <p class="text-meta">{today ? t("usagePage.hintToday") : t("usagePage.hint", { days })}</p>
       </div>
       <div class="controls">
         <SearchField bind:value={query} label={t("usagePage.search")} />
@@ -86,9 +94,19 @@
     {#if report.error}
       <p class="error-text pad">{report.error}</p>
     {:else if rows?.length === 0 && query.trim()}
-      <EmptyState icon={ChartColumn} title={t("usagePage.noMatches")} text={t("usagePage.noMatchesHint", { days, query: query.trim() })} />
+      <EmptyState
+        icon={ChartColumn}
+        title={t("usagePage.noMatches")}
+        text={today
+          ? t("usagePage.noMatchesHintToday", { query: query.trim() })
+          : t("usagePage.noMatchesHint", { days, query: query.trim() })}
+      />
     {:else if rows?.length === 0}
-      <EmptyState icon={ChartColumn} title={t("usagePage.notUsed")} text={t("usagePage.notUsedHint", { days })} />
+      <EmptyState
+        icon={ChartColumn}
+        title={t("usagePage.notUsed")}
+        text={today ? t("usagePage.notUsedHintToday") : t("usagePage.notUsedHint", { days })}
+      />
     {:else if rows && shown}
       <table class="data-table">
         <colgroup>

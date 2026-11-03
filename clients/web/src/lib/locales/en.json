@@ -1481,7 +1481,10 @@
     "calls": "Calls",
     "input": "Input",
     "fromCache": "From cache",
-    "output": "Output"
+    "output": "Output",
+    "today": "today",
+    "hintToday": "What the model calls took today.",
+    "nothingYetHintToday": "No model calls in this group today."
   },
   "updates": {
     "unknown": "Unknown",
@@ -1510,7 +1513,11 @@
     "notUsedHint": "Nothing in the last {days} days.",
     "errors": "Errors",
     "denied": "Denied",
-    "avgTime": "Avg time"
+    "avgTime": "Avg time",
+    "today": "Today",
+    "hintToday": "How often the assistant used each one today.",
+    "noMatchesHintToday": "Nothing used today matches “{query}”.",
+    "notUsedHintToday": "Nothing today."
   },
   "webSearch": {
     "title": "Web search",

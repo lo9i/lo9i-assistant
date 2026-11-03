@@ -1,4 +1,5 @@
 from dataclasses import asdict
+from datetime import datetime
 from typing import Any
 
 from assistant.client.daemon_client.transport import Transport
@@ -15,14 +16,15 @@ class UsageApi:
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
 
-    async def report(self, days: int = 7) -> UsageReport:
-        data = await self._transport.request("GET", "/usage", params={"days": days})
+    async def report(self, days: int = 7, since: datetime | None = None) -> UsageReport:
+        """The last `days` days, or since `since` (timezone-aware) when given."""
+        data = await self._transport.request("GET", "/usage", params=_period(days, since))
         return UsageReport(
             data["days"], [ToolUsage(**t) for t in data["tools"]], [ToolUsage(**s) for s in data["skills"]]
         )
 
-    async def tokens(self, days: int = 7) -> TokenReport:
-        data = await self._transport.request("GET", "/usage/tokens", params={"days": days})
+    async def tokens(self, days: int = 7, since: datetime | None = None) -> TokenReport:
+        data = await self._transport.request("GET", "/usage/tokens", params=_period(days, since))
         groups = {group: _rows(data[group]) for group in _GROUPS}
         return TokenReport(data["days"], TokenRow(**data["total"]), **groups, estimated_calls=data["estimated_calls"])
 
@@ -35,6 +37,10 @@ class UsageApi:
             "PUT", "/settings/spending-limits", json=asdict(limits), errors={400: SpendingLimitsError}
         )
         return _spending(changed)
+
+
+def _period(days: int, since: datetime | None) -> dict[str, Any]:
+    return {"days": days, "since": since.isoformat()} if since else {"days": days}
 
 
 def _spending(data: dict[str, Any]) -> SpendingStatus:

@@ -74,6 +74,8 @@ async def test_usage_screen_shows_tools_and_skills(app, client):
         )
         screen.query_one("#days-30", Button).press()
         await wait_for(pilot, lambda: "last 30 days" in body() and "| news-digest | 12 |" in body())
+        screen.query_one("#today", Button).press()
+        await wait_for(pilot, lambda: "Usage, today" in body())
 
 
 async def test_memory_panel_lists_skills(app):

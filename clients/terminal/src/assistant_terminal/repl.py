@@ -50,6 +50,7 @@ from assistant_terminal.skill_imports_text import detail, label, numbers, outcom
 from assistant_terminal.style import GREEN, RESET, YELLOW, code, paint
 from assistant_terminal.subagents_text import conversation_titles, subagent_detail, subagent_line
 from assistant_terminal.usage_text import describe as describe_usage
+from assistant_terminal.usage_text import start_of_today
 from assistant_terminal.web_search_text import describe as describe_web_search
 
 _USER_PROMPT = f"\n{paint(GREEN, '> ')}{code(GREEN)}"
@@ -339,8 +340,12 @@ class Repl:
         print("\n".join(f"{j.name}: {jobs_summary(j)}" for j in jobs) or t("No scheduled jobs."))
 
     async def _usage(self, arg: str) -> None:
-        days = int(arg) if arg.isdigit() else 7
-        print(describe_usage(await self._service.usage.report(days), await self._service.usage.tokens(days)))
+        """/usage [days|today]"""
+        today = arg.strip().lower() in ("today", t("Today").lower())
+        since = start_of_today() if today else None
+        days = 1 if today else int(arg) if arg.isdigit() else 7
+        usage = self._service.usage
+        print(describe_usage(await usage.report(days, since), await usage.tokens(days, since), today=today))
 
     async def _limits(self, arg: str) -> None:
         """/limits shows the spending limits; /limits <job-run|job-day|conversation|day> <amount|off> sets one."""

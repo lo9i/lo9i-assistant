@@ -266,7 +266,7 @@ class FakeUsage:
         self.limits = limits
         return await self.spending()
 
-    async def report(self, days=7):
+    async def report(self, days=7, since=None):
         tools = [
             ToolUsage("bash", 12, 1, 2, 850, "2026-09-30T09:00:00"),
             ToolUsage("web_search", 5, 0, 0, 1800, "2026-09-30T09:01:00"),
@@ -275,7 +275,7 @@ class FakeUsage:
             days, tools, [ToolUsage("news-digest", 3 if days == 7 else 12, 0, 0, 5, "2026-09-30T09:00:00")]
         )
 
-    async def tokens(self, days=7):
+    async def tokens(self, days=7, since=None):
         total = TokenRow(
             "total", calls=4, input_tokens=52_000, cache_read_tokens=40_000, output_tokens=1_800, cost=0.07
         )

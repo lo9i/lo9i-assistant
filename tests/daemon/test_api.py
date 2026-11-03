@@ -5,7 +5,7 @@ import json
 import os
 from contextlib import asynccontextmanager
 from dataclasses import replace
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -722,6 +722,9 @@ async def test_skills_and_usage_endpoints(client, script, isolated_settings, mon
     assert (await client.skills.get("news-digest")).instructions == "1. Search"
     report = await client.usage.report(7)
     assert report.skills[0].name == "news-digest" and report.tools[0].name == "use_skill"
+    later = datetime.now(UTC) + timedelta(hours=1)
+    assert (await client.usage.report(1, since=later)).tools == []
+    assert (await client.usage.tokens(1, since=later)).total.calls == 0
     await client.skills.delete("news-digest")
     with pytest.raises(SkillError):
         await client.skills.get("news-digest")

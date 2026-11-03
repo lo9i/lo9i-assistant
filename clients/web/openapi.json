@@ -6799,6 +6799,7 @@
     "/usage": {
       "get": {
         "summary": "Usage",
+        "description": "Tool and skill calls of the last `days` days, or since `since` (the start of the user's day, for today,\nwhich the app works out in its own timezone).",
         "operationId": "usage_usage_get",
         "parameters": [
           {
@@ -6809,6 +6810,23 @@
               "type": "integer",
               "default": 7,
               "title": "Days"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
             }
           }
         ],
@@ -6839,7 +6857,7 @@
     "/usage/tokens": {
       "get": {
         "summary": "Token Usage",
-        "description": "Tokens and cost of the model calls, by day, model, purpose, channel, conversation, job, skill and tool.",
+        "description": "Tokens and cost of the model calls, by day, model, purpose, channel, conversation, job, skill and tool,\nover the last `days` days or since `since`.",
         "operationId": "token_usage_usage_tokens_get",
         "parameters": [
           {
@@ -6850,6 +6868,23 @@
               "type": "integer",
               "default": 7,
               "title": "Days"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
             }
           }
         ],

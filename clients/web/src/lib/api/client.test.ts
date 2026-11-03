@@ -104,6 +104,20 @@ describe("FoldersGroup.home", () => {
   });
 });
 
+describe("UsageGroup reports", () => {
+  it("asks for the days, and for today from where it starts", async () => {
+    const { transport, request } = recording();
+    request.mockResolvedValue({});
+    const usage = new UsageGroup(transport);
+    await usage.report(7);
+    await usage.tokens(1, new Date("2026-11-03T03:00:00Z"));
+    expect(request.mock.calls).toEqual([
+      ["GET", "/usage?days=7"],
+      ["GET", "/usage/tokens?days=1&since=2026-11-03T03%3A00%3A00.000Z"],
+    ]);
+  });
+});
+
 describe("UsageGroup spending limits", () => {
   it("reads them and sets them", async () => {
     const { transport, request } = recording();

@@ -12,7 +12,7 @@ from urllib.parse import quote
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel, Field
+from pydantic import AwareDatetime, BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from assistant.core.agent import (
@@ -2207,13 +2207,16 @@ def _add_prompt_routes(app: FastAPI, service: AssistantService) -> None:
 
 def _add_usage_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/usage")
-    async def usage(days: int = 7) -> UsageReport:
-        return await service.usage_report(days)
+    async def usage(days: int = 7, since: AwareDatetime | None = None) -> UsageReport:
+        """Tool and skill calls of the last `days` days, or since `since` (the start of the user's day, for today,
+        which the app works out in its own timezone)."""
+        return await service.usage_report(days, since)
 
     @app.get("/usage/tokens")
-    async def token_usage(days: int = 7) -> TokenReport:
-        """Tokens and cost of the model calls, by day, model, purpose, channel, conversation, job, skill and tool."""
-        return await service.token_report(days)
+    async def token_usage(days: int = 7, since: AwareDatetime | None = None) -> TokenReport:
+        """Tokens and cost of the model calls, by day, model, purpose, channel, conversation, job, skill and tool,
+        over the last `days` days or since `since`."""
+        return await service.token_report(days, since)
 
     @app.get("/settings/spending-limits")
     async def spending_limits() -> SpendingStatus:

@@ -1014,13 +1014,14 @@ export class MemoryGroup {
 export class UsageGroup {
   constructor(private readonly transport: Transport) {}
 
-  report(days: number): Promise<UsageReport> {
-    return this.transport.request("GET", `/usage?days=${days}`);
+  /** The last `days` days, or since `since` when given (today's midnight, for today). */
+  report(days: number, since?: Date): Promise<UsageReport> {
+    return this.transport.request("GET", `/usage?${usagePeriod(days, since)}`);
   }
 
   /** Tokens and cost of the model calls, grouped every way the report offers. */
-  tokens(days: number): Promise<TokenReport> {
-    return this.transport.request("GET", `/usage/tokens?days=${days}`);
+  tokens(days: number, since?: Date): Promise<TokenReport> {
+    return this.transport.request("GET", `/usage/tokens?${usagePeriod(days, since)}`);
   }
 
   /** The limits on what model calls spend, in US dollars (null for none), and what was spent today. */
@@ -1150,6 +1151,12 @@ export class LogsGroup {
   follow(name: string, query: LogQuery, signal: AbortSignal): AsyncGenerator<LogEvent> {
     return this.following.follow(name, query, signal);
   }
+}
+
+function usagePeriod(days: number, since: Date | undefined): URLSearchParams {
+  const params = new URLSearchParams({ days: String(days) });
+  if (since) params.set("since", since.toISOString());
+  return params;
 }
 
 function logPath(name: string): string {
