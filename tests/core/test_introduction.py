@@ -1,10 +1,10 @@
 """Getting to know the user: the one-time offer after setup, and the built-in skills it uses."""
 
-from assistant.core.agent import Session
-from assistant.core.context import UNATTENDED_CHANNEL
-from assistant.core.memory import profile
-from assistant.core.memory.profile import Profile
-from assistant.core.skills import store
+from lo9i.core.agent import Session
+from lo9i.core.context import UNATTENDED_CHANNEL
+from lo9i.core.memory import profile
+from lo9i.core.memory.profile import Profile
+from lo9i.core.skills import store
 from tests.conftest import collect
 
 _OFFER = "[Note for you, not from the user:]"

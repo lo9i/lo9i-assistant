@@ -16,15 +16,15 @@ from mcp import Client
 from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
 
-from assistant.core.agent import AssistantService, HomeItem, HomeSection, HomeSectionsError, McpServer
-from assistant.core.config import settings
-from assistant.core.gathering import LIMIT_REACHED, MAX_STEPS
-from assistant.core.home import results
-from assistant.core.home.clock import within
-from assistant.core.home.model import MAX_COLUMNS, SectionContent
-from assistant.core.home.refresh import FRESH_MINUTES
-from assistant.core.mcp import hub as hub_module
-from assistant.core.mcp import servers
+from lo9i.core.agent import AssistantService, HomeItem, HomeSection, HomeSectionsError, McpServer
+from lo9i.core.config import settings
+from lo9i.core.gathering import LIMIT_REACHED, MAX_STEPS
+from lo9i.core.home import results
+from lo9i.core.home.clock import within
+from lo9i.core.home.model import MAX_COLUMNS, SectionContent
+from lo9i.core.home.refresh import FRESH_MINUTES
+from lo9i.core.mcp import hub as hub_module
+from lo9i.core.mcp import servers
 
 LIST = "mcp__calendar__list_events"
 CREATE = "mcp__calendar__create_event"

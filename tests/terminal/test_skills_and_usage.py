@@ -2,17 +2,17 @@ from types import SimpleNamespace
 
 from textual.widgets import Button, Checkbox, Input, Markdown, OptionList, SelectionList, Static
 
-from assistant.core.agent import Session, Skill
-from assistant.core.usage.limits import SpendingLimits
-from assistant_terminal.repl import Repl
-from assistant_terminal.tui.screens import (
+from lo9i.core.agent import Session, Skill
+from lo9i.core.usage.limits import SpendingLimits
+from lo9i_terminal.repl import Repl
+from lo9i_terminal.tui.screens import (
     ConfirmScreen,
     SkillImportsScreen,
     SkillsSection,
     SpendingLimitsSection,
     UsageScreen,
 )
-from assistant_terminal.tui.section import SettingsSection
+from lo9i_terminal.tui.section import SettingsSection
 from tests.terminal.conftest import FakeSkills, FakeUsage, section_shown, wait_for, wait_for_section
 
 
@@ -112,7 +112,7 @@ async def test_close_closes_settings_from_the_empty_skills(app, client):
 async def test_skills_are_edited_but_built_in_ones_only_read(app, client):
     from textual.widgets import Input, TextArea
 
-    from assistant_terminal.tui.screens.skill_edit import SkillEditScreen
+    from lo9i_terminal.tui.screens.skill_edit import SkillEditScreen
 
     async with app.run_test(size=(120, 44)) as pilot:
         screen = await _open_section(pilot, app, "/skills", SkillsSection)
@@ -135,7 +135,7 @@ async def test_skills_are_edited_but_built_in_ones_only_read(app, client):
 
 
 async def test_a_skill_installed_from_the_extras_is_updated_here(app, client):
-    from assistant.core.repositories.known import EXTRAS
+    from lo9i.core.repositories.known import EXTRAS
 
     async with app.run_test(size=(120, 50)) as pilot:
         screen = await _open_section(pilot, app, "/skills", SkillsSection)

@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
-from assistant.core.voice.realtime import Answer, RealtimeError
+from lo9i.core.voice.realtime import Answer, RealtimeError
 
 GOOD_KEY = "sk-good"
 

@@ -6,11 +6,11 @@ import shutil
 
 import pytest
 
-from assistant.core.mcp import environment
-from assistant.core.mcp.environment import Environments
-from assistant.core.mcp.process import ProcessSpec, keep_running
-from assistant.core.mcp.servers import McpServerError
-from assistant.core.uv import find as find_uv
+from lo9i.core.mcp import environment
+from lo9i.core.mcp.environment import Environments
+from lo9i.core.mcp.process import ProcessSpec, keep_running
+from lo9i.core.mcp.servers import McpServerError
+from lo9i.core.uv import find as find_uv
 
 _PROJECT = """
 [project]

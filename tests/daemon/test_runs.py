@@ -1,7 +1,7 @@
 import asyncio
 
-from assistant.core.events import Done, TextDelta
-from assistant.daemon.runs import RunHub
+from lo9i.core.events import Done, TextDelta
+from lo9i.daemon.runs import RunHub
 
 
 async def _events():
@@ -32,7 +32,7 @@ async def test_a_failing_run_reports_an_error():
 
 
 async def test_starting_a_run_is_announced_on_the_bus():
-    from assistant.core.bus import EventBus
+    from lo9i.core.bus import EventBus
 
     bus = EventBus()
     run = RunHub(bus).start("t1", _events(), channel="web", client_id="tab-1", text="hi")
@@ -52,7 +52,7 @@ async def test_starting_a_run_is_announced_on_the_bus():
 
 
 async def test_finishing_a_run_is_announced_with_an_excerpt():
-    from assistant.core.bus import EventBus
+    from lo9i.core.bus import EventBus
 
     bus = EventBus()
     run = RunHub(bus).start("t1", _events(), channel="cli")
@@ -63,8 +63,8 @@ async def test_finishing_a_run_is_announced_with_an_excerpt():
 
 
 async def test_a_cancelled_run_is_announced_as_cancelled():
-    from assistant.core.bus import EventBus
-    from assistant.core.events import Cancelled
+    from lo9i.core.bus import EventBus
+    from lo9i.core.events import Cancelled
 
     async def stopped():
         yield TextDelta("a")

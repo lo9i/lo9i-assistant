@@ -15,11 +15,11 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
 
-from assistant.core.passkeys import Ceremonies, PasskeyError, Site, site_for
-from assistant.daemon.api import create_app
-from assistant.daemon.auth import trusted
-from assistant.daemon.runs import RunHub
-from assistant.protocol import CLIENT_HEADER
+from lo9i.core.passkeys import Ceremonies, PasskeyError, Site, site_for
+from lo9i.daemon.api import create_app
+from lo9i.daemon.auth import trusted
+from lo9i.daemon.runs import RunHub
+from lo9i.protocol import CLIENT_HEADER
 
 _UP, _UV, _AT = 0x01, 0x04, 0x40
 

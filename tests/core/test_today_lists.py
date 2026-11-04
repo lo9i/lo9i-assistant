@@ -7,9 +7,9 @@ from typing import Any
 import pytest
 from mcp.types import CallToolResult, TextContent
 
-from assistant.core.mcp import today
-from assistant.core.mcp.servers import McpServer
-from assistant.core.mcp.today import MAX_ITEMS, TodayListError
+from lo9i.core.mcp import today
+from lo9i.core.mcp.servers import McpServer
+from lo9i.core.mcp.today import MAX_ITEMS, TodayListError
 
 PLANNER = McpServer(name="planner", command="planner-mcp", today_tool="today")
 

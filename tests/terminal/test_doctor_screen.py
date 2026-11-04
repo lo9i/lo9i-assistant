@@ -5,9 +5,9 @@ from datetime import datetime
 
 from textual.widgets import Button, Markdown, OptionList
 
-from assistant.core.agent import Notification
-from assistant_terminal.doctor_text import cause_line, overview, times
-from assistant_terminal.tui.screens import DoctorSection, NotificationsScreen
+from lo9i.core.agent import Notification
+from lo9i_terminal.doctor_text import cause_line, overview, times
+from lo9i_terminal.tui.screens import DoctorSection, NotificationsScreen
 from tests.terminal.conftest import FakeDoctor, wait_for, wait_for_section
 
 
@@ -39,7 +39,7 @@ async def test_the_health_check_shows_its_causes_checks_now_and_marks_noise(app,
         assert not screen.query_one("#known").display
         screen.query_one("#doctor-list", OptionList).highlighted = 2
         await wait_for(pilot, lambda: "**Poll failed**" in body())
-        assert "`assistant.core.channels.telegram`" in body()
+        assert "`lo9i.core.channels.telegram`" in body()
         screen.query_one("#known", Button).press()
         await wait_for(pilot, lambda: [k.id for k in client.doctor.known] == ["c2"])
         listed = screen.query_one("#doctor-list", OptionList)

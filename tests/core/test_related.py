@@ -1,6 +1,6 @@
 """Matching a message in the inbox to the conversations it may continue (core/conversation/related.py)."""
 
-from assistant.core.conversation.related import matches
+from lo9i.core.conversation.related import matches
 
 _TAGS = {
     "ferro": ["ferro carril oeste", "ferro", "primera nacional", "fútbol", "football"],

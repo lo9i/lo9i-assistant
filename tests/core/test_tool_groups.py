@@ -3,9 +3,9 @@ plugin's: listed by group in the system prompt, offered once a conversation load
 
 from typing import Any
 
-from assistant.core.events import ToolFinished
-from assistant.core.plugin_loading import LOAD_TOOLS
-from assistant.core.tools.registry import offered_tools, tool_groups
+from lo9i.core.events import ToolFinished
+from lo9i.core.plugin_loading import LOAD_TOOLS
+from lo9i.core.tools.registry import offered_tools, tool_groups
 from tests.conftest import collect
 
 

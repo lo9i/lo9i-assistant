@@ -5,10 +5,10 @@ from dataclasses import replace
 
 import pytest
 
-from assistant.core.agent import EmailError, McpServer
-from assistant.core.conversation.prompt import build_system_prompt
-from assistant.core.integrations.email import accounts
-from assistant.core.mcp import servers
+from lo9i.core.agent import EmailError, McpServer
+from lo9i.core.conversation.prompt import build_system_prompt
+from lo9i.core.integrations.email import accounts
+from lo9i.core.mcp import servers
 
 _GMAIL = {"id": "gmail", "name": "Gmail", "host": "smtp.gmail.com", "port": 587, "imap_host": "imap.gmail.com"}
 

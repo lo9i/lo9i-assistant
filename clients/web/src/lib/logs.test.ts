@@ -6,7 +6,7 @@ import type { LogEntry, LogPage } from "./api/types";
 import { applyLogEvent, fileSize, levelLabel, logLine, tone } from "./logs";
 
 function entry(message: string, level = "INFO"): LogEntry {
-  return { time: "2026-10-07 10:00:00,000", level, logger: "assistant.core.mcp.hub", component: "mcp", message };
+  return { time: "2026-10-07 10:00:00,000", level, logger: "lo9i.core.mcp.hub", component: "mcp", message };
 }
 
 function page(...entries: LogEntry[]): LogPage {
@@ -30,7 +30,7 @@ describe("log lines", () => {
   });
 
   it("reads like the file", () => {
-    expect(logLine(entry("ready"))).toBe("2026-10-07 10:00:00,000 INFO assistant.core.mcp.hub: ready");
+    expect(logLine(entry("ready"))).toBe("2026-10-07 10:00:00,000 INFO lo9i.core.mcp.hub: ready");
     expect(logLine({ ...entry("crash before logging"), level: "", time: "", logger: "" })).toBe("crash before logging");
     expect(levelLabel("WARNING")).toBe("Warning");
     expect(fileSize(2048)).toBe("2.0 KB");

@@ -7,15 +7,15 @@ import asyncio
 import httpx
 import pytest
 
-from assistant.client.daemon_client import DaemonClient
-from assistant.core.agent import Session, VoiceCallError, VoiceChoiceError, VoiceKeyError
-from assistant.core.voice.realtime import RealtimeError, SidebandLostError
-from assistant.daemon import voice_calls
-from assistant.daemon.api import create_app
-from assistant.daemon.auth import trusted
-from assistant.daemon.runs import RunHub
-from assistant.daemon.voice_calls import VoiceCalls
-from assistant.protocol import CLIENT_HEADER, CLIENT_ID_HEADER
+from lo9i.client.daemon_client import DaemonClient
+from lo9i.core.agent import Session, VoiceCallError, VoiceChoiceError, VoiceKeyError
+from lo9i.core.voice.realtime import RealtimeError, SidebandLostError
+from lo9i.daemon import voice_calls
+from lo9i.daemon.api import create_app
+from lo9i.daemon.auth import trusted
+from lo9i.daemon.runs import RunHub
+from lo9i.daemon.voice_calls import VoiceCalls
+from lo9i.protocol import CLIENT_HEADER, CLIENT_ID_HEADER
 from tests.conftest import collect
 from tests.core.fake_realtime import GOOD_KEY, FakeRealtime, asked, user_said, voice_said
 

@@ -24,11 +24,11 @@ from mcp.types import (
 )
 from pydantic import BaseModel
 
-from assistant.core.agent import AssistantService, McpServer, McpServerChanges, Session
-from assistant.core.events import ApprovalRequired, TextDelta, ToolFinished
-from assistant.core.mcp import asking, elicitation
-from assistant.core.mcp import hub as hub_module
-from assistant.core.mcp import sampling as sampling_module
+from lo9i.core.agent import AssistantService, McpServer, McpServerChanges, Session
+from lo9i.core.events import ApprovalRequired, TextDelta, ToolFinished
+from lo9i.core.mcp import asking, elicitation
+from lo9i.core.mcp import hub as hub_module
+from lo9i.core.mcp import sampling as sampling_module
 from tests.conftest import collect, waiting_on_queues
 
 ORDER = "mcp__shop__order"

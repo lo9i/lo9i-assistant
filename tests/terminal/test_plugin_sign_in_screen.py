@@ -5,8 +5,8 @@ from dataclasses import replace
 
 from textual.widgets import Button, Input, Markdown
 
-from assistant.core.agent import FoundServer
-from assistant_terminal.tui.screens import PluginSignInScreen, PluginsSection
+from lo9i.core.agent import FoundServer
+from lo9i_terminal.tui.screens import PluginSignInScreen, PluginsSection
 from tests.terminal.conftest import _mcp_status, wait_for, wait_for_section
 
 

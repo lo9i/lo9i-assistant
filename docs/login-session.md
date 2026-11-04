@@ -7,7 +7,7 @@ it starts at boot (`/startup`, a LaunchDaemon, `daemon/launchd.py`), it runs bef
 session: `open` fails there, as there's no screen to show anything on.
 
 For that case lo9i installs the session helper with start at boot: a LaunchAgent (`daemon/session_agent.py`) that
-launchd runs in the user's session while they're logged in (`python -m assistant.session`, `src/assistant/session/`).
+launchd runs in the user's session while they're logged in (`python -m lo9i.session`, `src/lo9i/session/`).
 It opens links and apps for the plugins that ask, and links the session's ssh agent for the plugins that ask for the
 agent (`ssh_agent: true`), which a daemon from boot has none of (`core/mcp/ssh_agent.py`).
 

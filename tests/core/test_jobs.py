@@ -4,11 +4,11 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from assistant.core import notifications
-from assistant.core.jobs import store
-from assistant.core.jobs.schedule import next_runs
-from assistant.core.jobs.store import Job, JobError, RunRecord
-from assistant.daemon.scheduler import Scheduler
+from lo9i.core import notifications
+from lo9i.core.jobs import store
+from lo9i.core.jobs.schedule import next_runs
+from lo9i.core.jobs.store import Job, JobError, RunRecord
+from lo9i.daemon.scheduler import Scheduler
 from tests.conftest import collect
 
 

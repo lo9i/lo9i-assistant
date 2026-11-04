@@ -1,4 +1,4 @@
-// The daemon's HTTP API for the web UI, grouped like src/assistant/client/daemon_client: the
+// The daemon's HTTP API for the web UI, grouped like src/lo9i/client/daemon_client: the
 // conversation on the client, every other area as a group.
 import type { components } from "./schema";
 import { resumableEvents, type ReconnectPolicy } from "./reconnect";
@@ -1102,7 +1102,7 @@ export class SystemGroup {
     return cancelled.cancelled;
   }
 
-  /** The version the daemon runs and, as of the last check, what's new (src/assistant/daemon/updates.py). */
+  /** The version the daemon runs and, as of the last check, what's new (src/lo9i/daemon/updates.py). */
   updateStatus(): Promise<UpdateStatus> {
     return this.transport.request("GET", "/system/update");
   }

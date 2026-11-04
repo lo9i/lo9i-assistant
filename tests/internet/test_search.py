@@ -3,11 +3,11 @@
 import httpx
 import pytest
 
-from assistant.core.config import settings
-from assistant.core.internet.keyless import ExaProvider, KeenableProvider, ParallelProvider
-from assistant.core.internet.providers import BraveProvider, SearchError
-from assistant.core.internet.results import SearchResult
-from assistant.core.internet.service import WebService
+from lo9i.core.config import settings
+from lo9i.core.internet.keyless import ExaProvider, KeenableProvider, ParallelProvider
+from lo9i.core.internet.providers import BraveProvider, SearchError
+from lo9i.core.internet.results import SearchResult
+from lo9i.core.internet.service import WebService
 
 
 async def test_brave_request_and_parsing(monkeypatch):
@@ -82,7 +82,7 @@ async def test_live_keyless_provider_returns_results(provider):
 
 @pytest.mark.live
 async def test_live_render_of_a_javascript_page(monkeypatch):
-    from assistant.core.internet import browser
+    from lo9i.core.internet import browser
 
     if not browser.installed():
         pytest.skip("headless browser not installed")

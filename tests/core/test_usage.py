@@ -1,8 +1,8 @@
 """Every tool call is recorded: status, skill name for use_skill, and approvals counted once."""
 
-from assistant.core.config import settings
-from assistant.core.events import ApprovalRequired
-from assistant.core.skills import store as skills
+from lo9i.core.config import settings
+from lo9i.core.events import ApprovalRequired
+from lo9i.core.skills import store as skills
 from tests.conftest import collect
 
 

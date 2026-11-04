@@ -6,9 +6,9 @@ from typing import cast
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from assistant.core.conversation.trim import trim_update, trimmed
-from assistant.core.llm.choice import ModelChoice, prompt_cache_minutes
-from assistant.core.llm.providers import CACHE_MINUTES
+from lo9i.core.conversation.trim import trim_update, trimmed
+from lo9i.core.llm.choice import ModelChoice, prompt_cache_minutes
+from lo9i.core.llm.providers import CACHE_MINUTES
 from tests.conftest import collect
 
 _LONG = "python3 -c \"print('x' * 3000)\""

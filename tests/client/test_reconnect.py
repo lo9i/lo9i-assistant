@@ -3,9 +3,9 @@
 import httpx
 import pytest
 
-from assistant.client.daemon_client.reconnect import ReconnectPolicy, resumable_events
-from assistant.client.daemon_client.transport import Transport
-from assistant.client.errors import DaemonUnavailableError
+from lo9i.client.daemon_client.reconnect import ReconnectPolicy, resumable_events
+from lo9i.client.daemon_client.transport import Transport
+from lo9i.client.errors import DaemonUnavailableError
 
 _NOW = ReconnectPolicy(delay_seconds=0, attempts=3)
 

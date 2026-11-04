@@ -1,7 +1,7 @@
 import { language } from "../i18n.svelte";
 import { ApiError, DaemonUnavailableError, isAbort } from "./errors";
 
-// Every request carries these (see src/assistant/protocol.py).
+// Every request carries these (see src/lo9i/protocol.py).
 const CLIENT_HEADER = "X-Lo9i-Client";
 const CLIENT_ID_HEADER = "X-Lo9i-Client-Id";
 // The language the app shows, auto settled by the browser's: the daemon writes its errors in it.

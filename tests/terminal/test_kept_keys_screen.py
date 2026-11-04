@@ -2,8 +2,8 @@
 
 from textual.widgets import Button, Markdown
 
-from assistant.core.agent import KeptKeys
-from assistant_terminal.tui.screens import ConfirmScreen, KeptKeysListSection
+from lo9i.core.agent import KeptKeys
+from lo9i_terminal.tui.screens import ConfirmScreen, KeptKeysListSection
 from tests.terminal.conftest import wait_for, wait_for_section
 
 HELLO = KeptKeys("hello", ["HELLO_TOKEN", "HELLO_USER"])

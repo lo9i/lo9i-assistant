@@ -3,9 +3,9 @@
 from textual.app import App
 from textual.drivers.linux_driver import LinuxDriver
 
-from assistant_terminal.preferences import Preferences
-from assistant_terminal.tui.mouse import switch_mouse
-from assistant_terminal.tui.widgets import MouseStatus
+from lo9i_terminal.preferences import Preferences
+from lo9i_terminal.tui.mouse import switch_mouse
+from lo9i_terminal.tui.widgets import MouseStatus
 from tests.terminal.conftest import wait_for
 
 

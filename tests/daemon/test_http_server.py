@@ -11,12 +11,12 @@ import httpx
 import pytest
 from sse_starlette.sse import AppStatus
 
-from assistant.daemon import server
-from assistant.daemon.api import create_app
-from assistant.daemon.auth import trusted
-from assistant.daemon.http_server import GRACEFUL_SECONDS, HttpServer, Listener
-from assistant.daemon.runs import RunHub
-from assistant.protocol import CLIENT_HEADER
+from lo9i.daemon import server
+from lo9i.daemon.api import create_app
+from lo9i.daemon.auth import trusted
+from lo9i.daemon.http_server import GRACEFUL_SECONDS, HttpServer, Listener
+from lo9i.daemon.runs import RunHub
+from lo9i.protocol import CLIENT_HEADER
 
 
 async def test_the_api_and_its_event_stream_over_the_socket_and_a_stop_that_ends_the_stream(service):

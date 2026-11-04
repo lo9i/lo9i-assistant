@@ -1,0 +1,241 @@
+"""AssistantService: the only core API the daemon uses.
+
+The service is a facade (`service.py`) composed of mixins, one per concern:
+threads, channel threads, files, the handed folder, memory, the About you step, channels, email, mcp, sign-ins,
+alerts, doctor, notifications, home, follow-ups, held runs, tasks, background subagents, repositories, model,
+devices, passkeys, identity, prompts, speech, log level, language, web search, skills, skill imports, pinned skills,
+jobs, proactive (briefing, reviews, open loops), usage, live voice calls, messaging, runs and locking.
+"""
+
+from lo9i.core.agent.about_you import AboutYou, AboutYouStatus, Suggested
+from lo9i.core.agent.alerts import Alert, AlertArea
+from lo9i.core.agent.channels import ChannelNotConnectedError, ChannelStatus, SetupItem
+from lo9i.core.agent.conversations import Conversation, ShownCall, ShownMessage, ShownStep
+from lo9i.core.agent.devices import Device, DeviceError, PairingCode
+from lo9i.core.agent.doctor import Cause, ContextPart, DoctorPage, DoctorReport, KnownCause, StartingContext
+from lo9i.core.agent.email import EmailAccount, EmailAccountNotFoundError, EmailError, EmailProvider
+from lo9i.core.agent.files import FileUnavailableError, UploadedFile
+from lo9i.core.agent.handed_folder import (
+    DeletingOffError,
+    FileChange,
+    FileDiff,
+    FilePreview,
+    FolderChanges,
+    FolderContents,
+    FolderEntry,
+    FolderRefresh,
+    HandedFolderError,
+    ListedFolder,
+    MissingPathError,
+    NotHandedError,
+    OutsideFolderError,
+)
+from lo9i.core.agent.handoffs import Agent, AgentFolders, FolderError, FolderListing, Handoff, HandoffError
+from lo9i.core.agent.home import (
+    HomeCard,
+    HomeItem,
+    HomePage,
+    HomeSection,
+    HomeSectionsError,
+    SectionResult,
+)
+from lo9i.core.agent.identity import InvalidNameError
+from lo9i.core.agent.jobs import Job, JobError, RunRecord
+from lo9i.core.agent.language import Language, LanguageError
+from lo9i.core.agent.mcp import (
+    McpProbe,
+    McpServer,
+    McpServerChanges,
+    McpServerError,
+    McpServerStatus,
+    McpToolInfo,
+    PluginIcon,
+    UpdateNeedsValuesError,
+)
+from lo9i.core.agent.memory import Episode, Fact, MemoryEditError, MemoryNotFoundError
+from lo9i.core.agent.model import ModelOption, ModelProvider, ModelSettingsError, ModelStatus, ProviderField
+from lo9i.core.agent.notifications import Notification
+from lo9i.core.agent.passkeys import Passkey, PasskeyError, Site
+from lo9i.core.agent.plugin_settings import PluginFieldValue, PluginSettings
+from lo9i.core.agent.proactive import (
+    Briefing,
+    LoopNotFoundError,
+    LoopStatus,
+    OpenLoop,
+    ProactivePage,
+    ProactiveSettings,
+    Review,
+    Suggestion,
+)
+from lo9i.core.agent.prompts import PromptEditError, PromptSection, UnknownPromptError
+from lo9i.core.agent.repositories import (
+    FoundServer,
+    InstalledFromRepository,
+    KeptKeys,
+    PluginUpdate,
+    Repository,
+    RepositoryContents,
+    RepositoryError,
+    RepositoryPlugins,
+    ServerField,
+    ServerValues,
+)
+from lo9i.core.agent.service import AssistantService
+from lo9i.core.agent.session import Session
+from lo9i.core.agent.sign_ins import SignedIn, SignInError
+from lo9i.core.agent.skill_imports import Importable, Importables, ImportOutcome
+from lo9i.core.agent.skills import FoundSkill, Skill, SkillError, SkillSummary
+from lo9i.core.agent.snapshot import MemorySnapshot
+from lo9i.core.agent.speech import Decoding, SpeechSettingsError, SpeechStatus, SpokenReplies, SynthesisError
+from lo9i.core.agent.subagents import (
+    BackgroundStep,
+    BackgroundSubagent,
+    SubagentDetails,
+    SubagentError,
+    SubagentNotFoundError,
+)
+from lo9i.core.agent.tasks import RunningTask
+from lo9i.core.agent.threads import ConversationBusyError, ConversationError
+from lo9i.core.agent.usage import ConversationStats, SpendingStatus, TokenReport, UsageReport
+from lo9i.core.agent.voice_calls import VoiceCallError, VoiceCallSettings, VoiceChoiceError, VoiceKeyError
+from lo9i.core.agent.web_search import InvalidSearchKeyError, WebSearchStatus
+
+__all__ = [
+    "AboutYou",
+    "AboutYouStatus",
+    "Agent",
+    "AgentFolders",
+    "Alert",
+    "AlertArea",
+    "AssistantService",
+    "BackgroundStep",
+    "BackgroundSubagent",
+    "Briefing",
+    "Cause",
+    "ChannelNotConnectedError",
+    "ChannelStatus",
+    "ContextPart",
+    "Conversation",
+    "ConversationBusyError",
+    "ConversationError",
+    "ConversationStats",
+    "Decoding",
+    "DeletingOffError",
+    "Device",
+    "DeviceError",
+    "DoctorPage",
+    "DoctorReport",
+    "EmailAccount",
+    "EmailAccountNotFoundError",
+    "EmailError",
+    "EmailProvider",
+    "Episode",
+    "Fact",
+    "FileChange",
+    "FileDiff",
+    "FilePreview",
+    "FileUnavailableError",
+    "FolderChanges",
+    "FolderContents",
+    "FolderEntry",
+    "FolderError",
+    "FolderListing",
+    "FolderRefresh",
+    "FoundServer",
+    "FoundSkill",
+    "HandedFolderError",
+    "Handoff",
+    "HandoffError",
+    "HomeCard",
+    "HomeItem",
+    "HomePage",
+    "HomeSection",
+    "HomeSectionsError",
+    "ImportOutcome",
+    "Importable",
+    "Importables",
+    "InstalledFromRepository",
+    "InvalidNameError",
+    "InvalidSearchKeyError",
+    "Job",
+    "JobError",
+    "KeptKeys",
+    "KnownCause",
+    "Language",
+    "LanguageError",
+    "ListedFolder",
+    "LoopNotFoundError",
+    "LoopStatus",
+    "McpProbe",
+    "McpServer",
+    "McpServerChanges",
+    "McpServerError",
+    "McpServerStatus",
+    "McpToolInfo",
+    "MemoryEditError",
+    "MemoryNotFoundError",
+    "MemorySnapshot",
+    "MissingPathError",
+    "ModelOption",
+    "ModelProvider",
+    "ModelSettingsError",
+    "ModelStatus",
+    "NotHandedError",
+    "Notification",
+    "OpenLoop",
+    "OutsideFolderError",
+    "PairingCode",
+    "Passkey",
+    "PasskeyError",
+    "PluginFieldValue",
+    "PluginIcon",
+    "PluginSettings",
+    "PluginUpdate",
+    "ProactivePage",
+    "ProactiveSettings",
+    "PromptEditError",
+    "PromptSection",
+    "ProviderField",
+    "Repository",
+    "RepositoryContents",
+    "RepositoryError",
+    "RepositoryPlugins",
+    "Review",
+    "RunRecord",
+    "RunningTask",
+    "SectionResult",
+    "ServerField",
+    "ServerValues",
+    "Session",
+    "SetupItem",
+    "ShownCall",
+    "ShownMessage",
+    "ShownStep",
+    "SignInError",
+    "SignedIn",
+    "Site",
+    "Skill",
+    "SkillError",
+    "SkillSummary",
+    "SpeechSettingsError",
+    "SpeechStatus",
+    "SpendingStatus",
+    "SpokenReplies",
+    "StartingContext",
+    "SubagentDetails",
+    "SubagentError",
+    "SubagentNotFoundError",
+    "Suggested",
+    "Suggestion",
+    "SynthesisError",
+    "TokenReport",
+    "UnknownPromptError",
+    "UpdateNeedsValuesError",
+    "UploadedFile",
+    "UsageReport",
+    "VoiceCallError",
+    "VoiceCallSettings",
+    "VoiceChoiceError",
+    "VoiceKeyError",
+    "WebSearchStatus",
+]

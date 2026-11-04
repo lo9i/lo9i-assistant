@@ -6,14 +6,14 @@ import json
 import httpx
 from starlette.requests import Request
 
-from assistant.core.bus import EventBus
-from assistant.core.devices import Device
-from assistant.core.i18n import said
-from assistant.daemon.api import _bus_events, _client, create_app, resume_point
-from assistant.daemon.auth import trusted
-from assistant.daemon.clients import ClientRegistry
-from assistant.daemon.runs import RunHub
-from assistant.protocol import CLIENT_HEADER, LANGUAGE_HEADER
+from lo9i.core.bus import EventBus
+from lo9i.core.devices import Device
+from lo9i.core.i18n import said
+from lo9i.daemon.api import _bus_events, _client, create_app, resume_point
+from lo9i.daemon.auth import trusted
+from lo9i.daemon.clients import ClientRegistry
+from lo9i.daemon.runs import RunHub
+from lo9i.protocol import CLIENT_HEADER, LANGUAGE_HEADER
 
 
 async def test_a_client_is_listed_while_it_reads_events(service):

@@ -5,10 +5,10 @@ from datetime import date, datetime, timedelta, timezone
 
 from textual.widgets import Button, Input, Markdown, OptionList, SelectionList, Static, Switch, TextArea
 
-from assistant.core.agent import Conversation, HomeCard, HomeItem, HomeSection, SectionResult
-from assistant_terminal.home_text import describe, item_when, updated
-from assistant_terminal.tui.screens import ConfirmScreen, HomeScreen
-from assistant_terminal.tui.screens.home_section import HomeSectionScreen
+from lo9i.core.agent import Conversation, HomeCard, HomeItem, HomeSection, SectionResult
+from lo9i_terminal.home_text import describe, item_when, updated
+from lo9i_terminal.tui.screens import ConfirmScreen, HomeScreen
+from lo9i_terminal.tui.screens.home_section import HomeSectionScreen
 from tests.terminal.conftest import wait_for
 
 TODAY = date(2026, 10, 24)

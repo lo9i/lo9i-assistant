@@ -1,5 +1,5 @@
 // MCP servers' web pages are served by the daemon on the web app's port plus this
-// (src/assistant/daemon/pages.py), a different origin, so their scripts can't call the API as the user.
+// (src/lo9i/daemon/pages.py), a different origin, so their scripts can't call the API as the user.
 import type { ResolvedTheme } from "./theme.svelte";
 
 export const PAGES_PORT_OFFSET = 1;
@@ -13,7 +13,7 @@ export function pagesOrigin(location: Location): string {
   return `${location.protocol}//${host}:${port}`;
 }
 
-// A place on a page, as the daemon checks a Home item's page_path (src/assistant/core/home/model.py).
+// A place on a page, as the daemon checks a Home item's page_path (src/lo9i/core/home/model.py).
 const PAGE_PATH = /^[A-Za-z0-9][A-Za-z0-9_\-./]{0,199}$/;
 
 /** Where a server's page is, seen from the web app at `location`, with the app's theme when given: a page can't

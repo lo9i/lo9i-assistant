@@ -4,12 +4,12 @@ for answered, stopping it and removing it once it ended."""
 import httpx
 import pytest
 
-from assistant.client.daemon_client import DaemonClient
-from assistant.core.agent import SubagentError
-from assistant.daemon.api import create_app
-from assistant.daemon.auth import trusted
-from assistant.daemon.runs import RunHub
-from assistant.protocol import CLIENT_HEADER
+from lo9i.client.daemon_client import DaemonClient
+from lo9i.core.agent import SubagentError
+from lo9i.daemon.api import create_app
+from lo9i.daemon.auth import trusted
+from lo9i.daemon.runs import RunHub
+from lo9i.protocol import CLIENT_HEADER
 from tests.core.test_background_subagents import _sent_off, _status, _until, _working
 
 

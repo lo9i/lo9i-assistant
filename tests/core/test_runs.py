@@ -4,7 +4,7 @@ import asyncio
 
 from langchain_core.messages import ToolMessage
 
-from assistant.core.events import MOVED_ON, ApprovalRequired, Done, Held, ToolFinished, ToolStarted
+from lo9i.core.events import MOVED_ON, ApprovalRequired, Done, Held, ToolFinished, ToolStarted
 from tests.conftest import collect, written
 
 
@@ -90,7 +90,7 @@ async def test_every_user_message_starts_with_a_turn_header(service, script):
 
 
 async def test_unattended_runs_deny_instead_of_asking(service, script):
-    from assistant.core.tools.approval import UNATTENDED_DENIAL
+    from lo9i.core.tools.approval import UNATTENDED_DENIAL
 
     script.call("bash", command="rm -rf build").reply("could not")
     events = await collect(service.send(await service.session("u", "worker"), "clean up"))

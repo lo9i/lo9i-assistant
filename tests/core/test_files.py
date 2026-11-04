@@ -3,12 +3,12 @@ conversation they're in."""
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from assistant.core import uploads
-from assistant.core.agent import Session
-from assistant.core.agent.files import UploadedFile, _searched
-from assistant.core.attachments import TOOL_MEDIA_SENDER, Attachment, reference, tool_uploads, user_uploads
-from assistant.core.conversation import file_index
-from assistant.core.events import Dispatched
+from lo9i.core import uploads
+from lo9i.core.agent import Session
+from lo9i.core.agent.files import UploadedFile, _searched
+from lo9i.core.attachments import TOOL_MEDIA_SENDER, Attachment, reference, tool_uploads, user_uploads
+from lo9i.core.conversation import file_index
+from lo9i.core.events import Dispatched
 from tests.conftest import collect
 
 NOTE = Attachment("notes.txt", "text/plain", b"buy milk")

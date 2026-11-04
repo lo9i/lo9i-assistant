@@ -4,15 +4,15 @@ isn't installed points to the offer."""
 
 import pytest
 
-from assistant.core.conversation.prompt import build_system_prompt
-from assistant.core.events import ApprovalRequired, Done, ToolFinished, is_plugin_offer
-from assistant.core.mcp import servers
-from assistant.core.mcp.install import FoundServer, ServerField
-from assistant.core.mcp.servers import McpServer
-from assistant.core.repositories import cache, checkout
-from assistant.core.repositories.errors import RepositoryError
-from assistant.core.repositories.known import EXTRAS
-from assistant.core.skills.install import FoundSkill
+from lo9i.core.conversation.prompt import build_system_prompt
+from lo9i.core.events import ApprovalRequired, Done, ToolFinished, is_plugin_offer
+from lo9i.core.mcp import servers
+from lo9i.core.mcp.install import FoundServer, ServerField
+from lo9i.core.mcp.servers import McpServer
+from lo9i.core.repositories import cache, checkout
+from lo9i.core.repositories.errors import RepositoryError
+from lo9i.core.repositories.known import EXTRAS
+from lo9i.core.skills.install import FoundSkill
 from tests.conftest import collect
 
 _TELEGRAM = FoundServer(
@@ -122,8 +122,8 @@ async def test_a_failed_send_on_a_channel_not_installed_points_to_the_offer(serv
 
 
 async def test_the_setup_opens_in_the_conversation_and_tells_what_it_left(service, script, extras, monkeypatch):
-    from assistant.core.events import is_plugin_setup
-    from assistant.core.integrations.email import smtp
+    from lo9i.core.events import is_plugin_setup
+    from lo9i.core.integrations.email import smtp
 
     async def verify(config):
         pass
@@ -144,7 +144,7 @@ async def test_the_setup_opens_in_the_conversation_and_tells_what_it_left(servic
 
 
 async def test_the_setup_opens_a_plugins_settings_when_its_installed_version_has_fields(service, script, extras):
-    from assistant.core.events import is_plugin_setup
+    from lo9i.core.events import is_plugin_setup
 
     weather = FoundServer("weather", "Weather", "stdio", [], False, installed=True)
     await cache.save(service.store, EXTRAS, cache.Listing("c1", [_NOTES], [_TELEGRAM, weather]))
@@ -208,8 +208,8 @@ async def mail_extras(service, isolated_settings, monkeypatch):
 async def test_set_up_email_asks_the_provider_installs_it_and_opens_its_accounts(
     service, script, mail_extras, monkeypatch
 ):
-    from assistant.core.events import is_plugin_setup, is_question
-    from assistant.core.integrations.email import smtp
+    from lo9i.core.events import is_plugin_setup, is_question
+    from lo9i.core.integrations.email import smtp
 
     async def verify(config):
         pass

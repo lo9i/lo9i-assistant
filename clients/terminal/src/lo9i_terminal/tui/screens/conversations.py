@@ -1,0 +1,183 @@
+"""The conversations, newest activity first, the inbox among them, each listed only by when it was last active, on
+one line, and found by searching: titles match as it's typed, what was said in them once the daemon answers. Pick
+one to see its title and how it ended beside the list, then open or delete it. Returns the chosen conversation's
+thread id, or None. The conversation this app is on can't be deleted from here: /clear moves off it first."""
+
+from typing import ClassVar
+
+from textual import on, work
+from textual.app import ComposeResult
+from textual.binding import Binding, BindingType
+from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.widgets import Button, Input, Markdown, OptionList, Static
+from textual.widgets.option_list import Option
+
+from lo9i.client.daemon_client import ConversationsApi
+from lo9i.core.agent import Conversation, ConversationError
+from lo9i_terminal.conversations_text import matching, message_search, preview, when
+from lo9i_terminal.i18n import t, translatable
+from lo9i_terminal.tui.daemon_errors import reports_daemon_unavailable
+from lo9i_terminal.tui.page import PageScreen
+from lo9i_terminal.tui.screens.confirm import ConfirmScreen
+
+
+class ConversationsScreen(PageScreen[str | None]):
+    PAGE = "conversations"
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding("escape", "close", translatable("Close")),
+        # Priority, so it runs before the list's own Enter, which also fires on a click: a click
+        # only shows the conversation, Enter resumes it.
+        Binding("enter", "resume", show=False, priority=True),
+    ]
+    # The list, not the search above it: the keys move through it from the start.
+    AUTO_FOCUS = "#conversations-list"
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"conversations"})
+
+    def __init__(self, conversations: ConversationsApi, current: str) -> None:
+        super().__init__()
+        self._conversations = conversations
+        self._current = current
+        self._all: list[Conversation] = []
+        self._shown: dict[str, Conversation] = {}
+        # The ids of those whose messages hold the search, as the daemon last answered.
+        self._found: set[str] = set()
+        self._selected: str | None = None
+
+    def compose_page(self) -> ComposeResult:
+        with Vertical(id="conversations"):
+            yield Static(t("Conversations"), id="conversations-title")
+            yield Static(t("No conversations yet."), id="conversations-empty")
+            yield Input(placeholder=t("Search conversations"), id="conversations-search")
+            with Horizontal(id="conversations-main"):
+                yield OptionList(id="conversations-list")
+                yield Static(classes="divider")
+                with VerticalScroll(id="conversations-detail"):
+                    yield Markdown(id="conversation-body")
+            with Horizontal(id="conversations-buttons"):
+                yield Button(t("Open"), variant="success", id="resume")
+                yield Button(t("Delete"), variant="error", id="delete")
+                yield Button(t("Close"), id="close")
+
+    @reports_daemon_unavailable
+    async def on_mount(self) -> None:
+        await self.reload()
+
+    @reports_daemon_unavailable
+    async def reload(self) -> None:
+        """Called when a conversation changes (a message anywhere updates the list, and what the search finds)."""
+        self._all = await self._conversations.recent()
+        await self._find_in_messages()
+        await self._list()
+
+    async def _list(self) -> None:
+        """Those the search matches; focus stays in the search while it's typed in."""
+        shown = matching(self._all, self._query, self._found)
+        self._shown = {c.thread_id: c for c in shown}
+        options = self.query_one("#conversations-list", OptionList)
+        options.clear_options()
+        options.add_options([Option(self._label(c), id=c.thread_id) for c in shown])
+        self.query_one("#conversations").set_class(not self._all, "empty")
+        for button in ("#resume", "#delete"):
+            self.query_one(button).display = bool(shown)
+        if not shown:
+            await self._show_none()
+            return
+        keep = self._selected if self._selected in self._shown else shown[0].thread_id
+        options.highlighted = list(self._shown).index(keep)
+        if not self._searching:
+            options.focus()
+        await self._show(keep)
+
+    async def _show_none(self) -> None:
+        self._selected = None
+        await self.query_one("#conversation-body", Markdown).update(t("No conversations match.") if self._all else "")
+        if not self._searching:
+            self.query_one("#close", Button).focus()
+
+    @property
+    def _query(self) -> str:
+        return self.query_one("#conversations-search", Input).value
+
+    @property
+    def _searching(self) -> bool:
+        return self.focused is self.query_one("#conversations-search", Input)
+
+    async def _find_in_messages(self) -> None:
+        words = message_search(self._query)
+        self._found = set(await self._conversations.containing(words)) if words else set()
+
+    @on(Input.Changed, "#conversations-search")
+    async def _search(self) -> None:
+        """Titles match at once; the daemon's answer for what was said lists the rest when it comes."""
+        await self._list()
+        self._search_messages()
+
+    @work(exclusive=True, group="search")
+    @reports_daemon_unavailable
+    async def _search_messages(self) -> None:
+        await self._find_in_messages()
+        await self._list()
+
+    @on(Input.Submitted, "#conversations-search")
+    def _to_list(self) -> None:
+        if self._shown:
+            self.query_one("#conversations-list", OptionList).focus()
+
+    @reports_daemon_unavailable
+    async def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
+        """Only for one the list still shows: typing in the search builds it again for each letter, so a highlight
+        can come in after the list it was made in."""
+        if event.option.id in self._shown:
+            await self._show(event.option.id)
+
+    def _label(self, conversation: Conversation) -> str:
+        """When it was last active; its title heads the preview beside the list."""
+        return when(conversation)
+
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        """Enter resumes only from the list; on a button it presses the button."""
+        if action == "resume":
+            return self.focused is self.query_one("#conversations-list")
+        return True
+
+    @on(Button.Pressed, "#resume")
+    def action_resume(self) -> None:
+        self.dismiss(self._selected)
+
+    @on(Button.Pressed, "#close")
+    def action_close(self) -> None:
+        self.dismiss(None)
+
+    @on(Button.Pressed, "#delete")
+    def _delete(self) -> None:
+        if self._selected is not None:
+            self._confirm_delete(self._selected)
+
+    @work
+    @reports_daemon_unavailable
+    async def _confirm_delete(self, thread_id: str) -> None:
+        question = t(
+            "Delete this conversation? Its messages and the files sent in it are deleted; "
+            "what the assistant learned from it stays in memory."
+        )
+        if not await self.app.push_screen_wait(ConfirmScreen(question, t("Delete"))):
+            return
+        try:
+            await self._conversations.delete(thread_id)
+        except ConversationError as e:
+            self.notify(str(e), severity="error")
+        else:
+            self.notify(t("Deleted the conversation."))
+        await self.reload()
+
+    async def _show(self, thread_id: str) -> None:
+        self._selected = thread_id
+        conversation = self._shown[thread_id]
+        current = thread_id == self._current
+        self.query_one("#resume", Button).disabled = current
+        delete = self.query_one("#delete", Button)
+        delete.disabled = current
+        delete.tooltip = t("You're on this conversation: /clear first, then delete it.") if current else None
+        messages = await self._conversations.messages(thread_id)
+        if self._selected == thread_id:  # not one picked before it, whose messages came later
+            await self.query_one("#conversation-body", Markdown).update(preview(conversation, messages))

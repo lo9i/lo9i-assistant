@@ -1,0 +1,277 @@
+"""MCP servers from any client: adding one after a look at its tools, signing in to a remote one or with a
+plugin's own OAuth app, choosing which tools the agent gets, trusting it or not, and removing it. Env values,
+headers and sign-ins never leave the daemon."""
+
+import asyncio
+from dataclasses import dataclass, field, fields, replace
+
+from lo9i.core.agent.base import ServiceBase
+from lo9i.core.i18n import message, said
+from lo9i.core.integrations.email import accounts as email_accounts
+from lo9i.core.mcp import data_key, install, keys, plugin_oauth, plugin_settings, servers
+from lo9i.core.mcp.checks import CheckFailedError
+from lo9i.core.mcp.hub import McpHub, McpProbe, McpToolInfo
+from lo9i.core.mcp.install import UpdateNeedsValuesError
+from lo9i.core.mcp.plugin_oauth import PluginSignIn
+from lo9i.core.mcp.servers import McpServer, McpServerError
+from lo9i.core.mcp.sign_in import McpSignIn
+from lo9i.core.oauth import new_state
+from lo9i.core.repositories import listed
+from lo9i.core.repositories.icons import PluginIcon
+from lo9i.core.repositories.listed import KeptKeys
+
+__all__ = [
+    "McpMixin",
+    "McpProbe",
+    "McpServer",
+    "McpServerChanges",
+    "McpServerError",
+    "McpServerStatus",
+    "McpToolInfo",
+    "PluginIcon",
+    "UpdateNeedsValuesError",
+    "mcp_status",
+]
+
+
+@dataclass
+class McpServerStatus:
+    """What a client shows. Has the names of env values and headers, never the values."""
+
+    name: str
+    transport: str
+    command: str
+    args: list[str]
+    url: str
+    env_keys: list[str]
+    header_keys: list[str]
+    enabled: bool
+    trusted: bool
+    include: list[str]
+    exclude: list[str]
+    # connecting, connected, failed, needs_sign_in (a remote server waiting for the user to sign in),
+    # idle (a local server stopped until a call starts it, core/mcp/on_demand.py), off
+    status: str
+    error: str
+    tools: list[McpToolInfo]
+    # The repository it was installed from; "" when added by hand.
+    source: str = ""
+    # The plugin that added it (core/mcp/install.py); "" when it was added here, by hand.
+    plugin: str = ""
+    # It comes with a web page, shown in the web app (daemon/pages.py).
+    page: bool = False
+    # It's a chat channel (core/channels/), set up in its plugin's details in the apps.
+    channel: bool = False
+    # Failed connection attempts and calls in a row (core/health.py), and the last failure.
+    failures: int = 0
+    failure: str = ""
+    failed_at: str = ""
+    # At least FAILING_AFTER in a row: the user was alerted.
+    failing: bool = False
+    # What the apps show beside it; empty for one added by hand (core/repositories/icons.py).
+    icon: PluginIcon = field(default_factory=PluginIcon)
+    # The provider a plugin signs in to in its setup (core/mcp/plugin_oauth.py), and the account it's signed in
+    # with; "" when it doesn't sign in, or isn't signed in.
+    oauth: str = ""
+    signed_in_as: str = ""
+    # A plugin with fields of its own, which its settings change (core/mcp/plugin_settings.py).
+    settings: bool = False
+    # It lists the user's day for lo9i (core/mcp/today.py): Home builds a section of it without the model.
+    lists_today: bool = False
+    # What the server has besides tools (resources, prompts), as of its last connection; and whether the agent
+    # gets tools for them (core/mcp/listings.py), which the user turns on.
+    offers: list[str] = field(default_factory=list)
+    resources: bool = False
+    prompts: bool = False
+
+
+@dataclass
+class McpServerChanges:
+    """Fields to change; None keeps the current value."""
+
+    command: str | None = None
+    args: list[str] | None = None
+    env: dict[str, str] | None = None
+    url: str | None = None
+    headers: dict[str, str] | None = None
+    enabled: bool | None = None
+    trusted: bool | None = None
+    include: list[str] | None = None
+    exclude: list[str] | None = None
+    resources: bool | None = None
+    prompts: bool | None = None
+
+
+class McpMixin(ServiceBase):
+    async def mcp_servers(self) -> list[McpServerStatus]:
+        return [await self._mcp_status(s) for s in await servers.load_all(self._storage.store)]
+
+    async def probe_mcp_server(self, server: McpServer) -> McpProbe:
+        """The server's tools, to choose from before adding it, or that it asks to sign in.
+        Raises McpServerError."""
+        return await self.mcp.probe(server)
+
+    async def add_mcp_server(self, server: McpServer) -> McpServerStatus:
+        """Raises McpServerError for invalid settings or a name in use."""
+        if server.name in {s.name for s in await servers.load_all(self._storage.store)}:
+            raise McpServerError(said("There's already an MCP server named {name}.", name=server.name))
+        return await self._save_mcp_server(server)
+
+    async def update_mcp_server(self, name: str, changes: McpServerChanges) -> McpServerStatus:
+        """Raises McpServerError for an unknown server or invalid settings, and CheckFailedError when its plugin's
+        check says new env or header values don't work."""
+        server = await keys.fill(self._storage.store, self.secrets, await servers.load(self._storage.store, name))
+        values = {f.name: v for f in fields(changes) if (v := getattr(changes, f.name)) is not None}
+        changed = replace(server, **(values | _merged(server, changes)))
+        if changes.env is not None or changes.headers is not None:
+            # Its plugin's check says before they're saved whether the new values work (core/mcp/checks.py).
+            await self._plugin_checks.run(changed)
+        if changes.url is not None and changes.url != server.url:
+            # A sign-in belongs to the server at the old URL.
+            await self.mcp.sign_out(name)
+        return await self._save_mcp_server(changed)
+
+    async def start_mcp_sign_in(self, name: str, redirect_uri: str) -> str:
+        """The server's sign-in page. The browser comes back to `redirect_uri` (the web app's
+        /app/oauth), which calls finish_sign_in. Raises McpServerError."""
+        server = await keys.fill(self._storage.store, self.secrets, await servers.load(self._storage.store, name))
+        started = await self.mcp.start_sign_in(server, redirect_uri)
+        self._sign_ins.add(started.state, started)
+        return started.page
+
+    async def _finish_mcp_sign_in(self, started: McpSignIn, code: str) -> McpServerStatus:
+        """Raises SignInError. The server connects again with the new sign-in."""
+        await self.mcp.finish_sign_in(started, code)
+        return await self._mcp_status(await servers.load(self._storage.store, started.server))
+
+    async def start_plugin_sign_in(self, name: str, client_id: str, client_secret: str, redirect_uri: str) -> str:
+        """The provider's sign-in page for a plugin that signs in with the user's own OAuth app; an empty client ID
+        signs in again with the app it signed in with. The browser comes back to `redirect_uri` (the web app's
+        /app/oauth), which calls finish_sign_in. Raises McpServerError."""
+        server = await servers.load(self._storage.store, name)
+        if not client_id.strip() and (saved := await plugin_oauth.login(self._storage.store, self.secrets, name)):
+            client_id, client_secret = saved.client_id, saved.client_secret
+        sign_in = plugin_oauth.new_sign_in(server, client_id, client_secret, redirect_uri)
+        state = new_state()
+        self._sign_ins.add(state, sign_in)
+        return plugin_oauth.authorization_url(sign_in, state)
+
+    async def _finish_plugin_sign_in(self, sign_in: PluginSignIn, code: str) -> McpServerStatus:
+        """Raises SignInError, McpServerError when the plugin went or stopped signing in meanwhile, or
+        CheckFailedError when its check says the account doesn't work for it, and the sign-in isn't kept. Its
+        processes start again with the sign-in."""
+        login = await plugin_oauth.exchange(sign_in, code)
+        server = await keys.fill(
+            self._storage.store, self.secrets, await servers.load(self._storage.store, sign_in.plugin)
+        )
+        if plugin_oauth.ENV not in server.keys:
+            raise McpServerError(said("{name} doesn't sign in to anything any more.", name=server.name))
+        signed_in = replace(server, env={**server.env, plugin_oauth.ENV: login.to_env()})
+        # Its check says now whether the account works for it, not its first use (core/mcp/checks.py).
+        try:
+            await self._plugin_checks.run(signed_in)
+        except CheckFailedError as e:
+            refused = CheckFailedError(f"The sign-in wasn't kept. {e}")
+            # The browser's page says so; an app waiting for the sign-in hears it too.
+            self.bus.publish("sign_in_refused", name=server.name, error=message(refused))
+            raise refused from e
+        return await self._save_mcp_server(signed_in)
+
+    async def sign_out_plugin(self, name: str) -> McpServerStatus:
+        """Forget a plugin's sign-in; its processes start again without it. Raises McpServerError for an unknown
+        plugin."""
+        server = await servers.load(self._storage.store, name)
+        await keys.forget(self._storage.store, self.secrets, name, plugin_oauth.ENV)
+        await self._servers_changed()
+        return await self._mcp_status(server)
+
+    async def remove_mcp_server(self, name: str, delete_data: bool = False) -> KeptKeys | None:
+        """Its data stays, for installing it again, unless `delete_data`. A plugin's keys stay too, and
+        what's kept is returned for the user to keep or delete (forget_keys); one added by hand has
+        nothing to install again, so its keys go. Raises McpServerError for an unknown server."""
+        removed = await servers.load(self._storage.store, name)
+        await servers.remove(self._storage.store, name)
+        await asyncio.to_thread(install.uninstall, name)
+        await self.mcp.forget(name)
+        await self._servers_changed()
+        # After the server and its page stopped, so nothing writes there any more. An email
+        # plugin's accounts are its data too: without it they're kept, unused, for installing it again.
+        if delete_data:
+            await asyncio.to_thread(install.delete_data, name)
+            await email_accounts.remove_plugin_accounts(self._storage.store, name)
+            # What it encrypted is gone with it.
+            await data_key.delete(self._storage.store, name)
+        if not removed.source:
+            await keys.delete(self._storage.store, name)
+            return None
+        return await listed.after_removal(self._storage.store, name, removed.source)
+
+    async def update_mcp_server_from_repository(
+        self, name: str, values: dict[str, str] | None = None
+    ) -> McpServerStatus:
+        """Install the server again from its repository, keeping what the user set; `values` for the fields its new
+        version asks for. Raises McpServerError (UpdateNeedsValuesError while one is missing) or RepositoryError."""
+        tokens = await listed.tokens(self._storage.store, self.secrets)
+        server = await install.update(self._storage.store, self.secrets, name, tokens, values)
+        # Same command and settings, new code: both run again.
+        await self.mcp.restart(name)
+        await self.pages.restart(name)
+        await self.channel_processes.restart(name)
+        await self._servers_changed()
+        return await self._mcp_status(server)
+
+    async def _save_mcp_server(self, server: McpServer) -> McpServerStatus:
+        await keys.save(self._storage.store, self.secrets, server)
+        await self._servers_changed()
+        return await self._mcp_status(server)
+
+    async def _mcp_status(self, server: McpServer) -> McpServerStatus:
+        return await mcp_status(
+            self.mcp, server, await plugin_oauth.signed_in_as(self._storage.store, self.secrets, server)
+        )
+
+
+def _merged(server: McpServer, changes: McpServerChanges) -> dict[str, dict[str, str]]:
+    """A plugin's env or headers given on the MCP page go over the ones it has, so the values its server.yaml sets
+    stay; one added by hand takes them as given, all of them being the user's."""
+    if not server.source:
+        return {}
+    given = {"env": changes.env, "headers": changes.headers}
+    return {name: {**getattr(server, name), **value} for name, value in given.items() if value is not None}
+
+
+async def mcp_status(hub: McpHub, server: McpServer, signed_in_as: str = "") -> McpServerStatus:
+    status, error, tools = hub.state(server.name)
+    health = await hub.health(server.name)
+    return McpServerStatus(
+        name=server.name,
+        transport=server.transport,
+        command=server.command,
+        args=server.args,
+        url=server.url,
+        env_keys=sorted(server.env),
+        header_keys=sorted(server.headers),
+        enabled=server.enabled,
+        trusted=server.trusted,
+        include=server.include,
+        exclude=server.exclude,
+        status=status,
+        error=error,
+        tools=tools,
+        source=server.source,
+        plugin=server.name if server.source else "",
+        page=bool(server.page_command),
+        channel=bool(server.channel_command),
+        failures=health.failures,
+        failure=health.error,
+        failed_at=health.at,
+        failing=health.failing,
+        icon=PluginIcon(**server.icon),
+        oauth=server.oauth_provider,
+        signed_in_as=signed_in_as,
+        settings=plugin_settings.has_settings(server),
+        lists_today=bool(server.today_tool),
+        offers=hub.offers(server.name),
+        resources=server.resources,
+        prompts=server.prompts,
+    )

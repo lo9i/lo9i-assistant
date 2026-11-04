@@ -4,12 +4,12 @@ built again while a client shows Home when the loops change."""
 import asyncio
 from datetime import UTC, datetime
 
-from assistant.core.agent import AssistantService
-from assistant.core.config import settings
-from assistant.core.home import results, sections
-from assistant.core.home.loops import BILL_DUE, LoopsSection
-from assistant.core.proactive import loops
-from assistant.core.proactive.model import LoopDraft
+from lo9i.core.agent import AssistantService
+from lo9i.core.config import settings
+from lo9i.core.home import results, sections
+from lo9i.core.home.loops import BILL_DUE, LoopsSection
+from lo9i.core.proactive import loops
+from lo9i.core.proactive.model import LoopDraft
 
 OWNER = settings.owner_id
 

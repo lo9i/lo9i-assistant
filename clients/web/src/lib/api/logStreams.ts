@@ -1,4 +1,4 @@
-// The logs a tab follows, over its one /events stream (src/assistant/daemon/follows.py), as its runs are
+// The logs a tab follows, over its one /events stream (src/lo9i/daemon/follows.py), as its runs are
 // (runStreams.ts): a stream of its own per log took one more of the six HTTP/1.1 connections a browser keeps open to a
 // plain-HTTP origin. Each log followed is asked for under an id of its own; its page and then each new entry come down
 // the event stream, and each time that stream opens again every log is asked for again and starts with a new page.

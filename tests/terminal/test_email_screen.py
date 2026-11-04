@@ -3,10 +3,10 @@
 
 from textual.widgets import Button, Input, Markdown, Select
 
-from assistant.core.agent import FoundServer
-from assistant_terminal.sign_in_text import REDIRECT
-from assistant_terminal.tui.screens import EmailScreen, PluginsSection
-from assistant_terminal.tui.screens.email import _alert_options
+from lo9i.core.agent import FoundServer
+from lo9i_terminal.sign_in_text import REDIRECT
+from lo9i_terminal.tui.screens import EmailScreen, PluginsSection
+from lo9i_terminal.tui.screens.email import _alert_options
 from tests.terminal.conftest import wait_for, wait_for_section
 
 
@@ -61,7 +61,7 @@ async def test_a_plugin_lists_only_its_own_accounts(app, client):
 
 
 async def test_microsoft_signs_in_with_lo9is_app_from_the_address_alone(app, client, monkeypatch):
-    monkeypatch.setattr("assistant_terminal.tui.screens.email.webbrowser.open", lambda url: False)
+    monkeypatch.setattr("lo9i_terminal.tui.screens.email.webbrowser.open", lambda url: False)
     async with app.run_test(size=(110, 50)) as pilot:
         screen = await _open(pilot, app, client, "microsoft")
         help_text = screen.query_one("#email-help", Markdown)
@@ -77,7 +77,7 @@ async def test_microsoft_signs_in_with_lo9is_app_from_the_address_alone(app, cli
 
 async def test_microsoft_signs_in_with_the_users_own_app_when_given(app, client, monkeypatch):
     opened: list[str] = []
-    monkeypatch.setattr("assistant_terminal.tui.screens.email.webbrowser.open", lambda url: opened.append(url) or False)
+    monkeypatch.setattr("lo9i_terminal.tui.screens.email.webbrowser.open", lambda url: opened.append(url) or False)
     async with app.run_test(size=(110, 50)) as pilot:
         screen = await _open(pilot, app, client, "microsoft")
         help_text = screen.query_one("#email-help", Markdown)
@@ -123,7 +123,7 @@ async def test_a_custom_provider_asks_for_the_servers(app, client):
 
 
 async def test_email_saves_who_the_assistant_emails_without_asking(app, client):
-    from assistant_terminal.tui.screens import EmailRecipientsSection
+    from lo9i_terminal.tui.screens import EmailRecipientsSection
 
     async with app.run_test(size=(110, 44)) as pilot:
         await pilot.click("#prompt")

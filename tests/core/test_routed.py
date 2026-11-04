@@ -2,8 +2,8 @@
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from assistant.core.conversation.dispatched import DISPATCH_ID
-from assistant.core.conversation.routed import without_routed
+from lo9i.core.conversation.dispatched import DISPATCH_ID
+from lo9i.core.conversation.routed import without_routed
 
 
 def _line(text: str) -> AIMessage:

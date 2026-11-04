@@ -4,9 +4,9 @@ import json
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 
-from assistant.core import uploads
-from assistant.core.attachments import TOOL_MEDIA_SENDER, Attachment, hydrate, reference, upload_paths
-from assistant.core.events import Error
+from lo9i.core import uploads
+from lo9i.core.attachments import TOOL_MEDIA_SENDER, Attachment, hydrate, reference, upload_paths
+from lo9i.core.events import Error
 from tests.conftest import collect
 
 PNG = Attachment("shot.png", "image/png", b"\x89PNG fake")

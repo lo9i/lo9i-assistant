@@ -36,10 +36,10 @@ check_model() {
   fi
 }
 
-# Builds the web UI into the daemon package (src/assistant/daemon/webui), which serves it at /app/.
+# Builds the web UI into the daemon package (src/lo9i/daemon/webui), which serves it at /app/.
 # Without npm the build is skipped and /app/ says the page isn't built; the CLI still works.
 # `build_web_ui ci` installs the packages exactly as package-lock.json has them, never rewriting it: in a clone the
-# app updates, a changed lock would stop every later update (src/assistant/daemon/updates.py). Without it, a
+# app updates, a changed lock would stop every later update (src/lo9i/daemon/updates.py). Without it, a
 # checkout someone works in installs as usual, keeping node_modules and the lock in line with package.json.
 build_web_ui() {
   if ! command -v npm >/dev/null; then
@@ -61,7 +61,7 @@ build_web_ui() {
 
 # Whether the web UI is missing or older than any of the files it's built from.
 web_ui_outdated() {
-  local built=src/assistant/daemon/webui/_app/version.json
+  local built=src/lo9i/daemon/webui/_app/version.json
   [[ ! -f "$built" ]] && return 0
   [[ -n "$(find clients/web/src clients/web/static clients/web/package.json clients/web/package-lock.json \
     clients/web/svelte.config.js clients/web/vite.config.ts -type f -newer "$built" -print -quit)" ]]

@@ -2,7 +2,7 @@
 
 from textual.widgets import Markdown, OptionList
 
-from assistant_terminal.tui.screens import ConfirmScreen, FilesScreen
+from lo9i_terminal.tui.screens import ConfirmScreen, FilesScreen
 from tests.terminal.conftest import wait_for
 
 
@@ -56,7 +56,7 @@ async def test_a_file_is_deleted_once_confirmed(app, client):
 async def test_a_double_click_opens_the_file_and_one_click_only_picks_it(app, client, tmp_path, monkeypatch):
     from pathlib import Path
 
-    from assistant_terminal.tui.screens import files
+    from lo9i_terminal.tui.screens import files
 
     opened: list[str] = []
     monkeypatch.setattr(Path, "home", lambda: tmp_path)

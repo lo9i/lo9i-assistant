@@ -4,9 +4,9 @@ import asyncio
 
 from langchain_core.messages import ToolMessage
 
-from assistant.core.config import settings
-from assistant.core.memory import episodes, facts
-from assistant.core.memory.episodes import Episode
+from lo9i.core.config import settings
+from lo9i.core.memory import episodes, facts
+from lo9i.core.memory.episodes import Episode
 from tests.conftest import collect
 
 
@@ -157,7 +157,7 @@ async def _archive_saying(service, texts):
 
 async def test_the_digest_also_gets_older_facts_close_to_what_the_user_said(service, digests, monkeypatch):
     monkeypatch.setattr(settings, "memory_max_facts", 1)
-    monkeypatch.setattr("assistant.core.conversation.memory_writer._RELATED_PER_MESSAGE", 1)
+    monkeypatch.setattr("lo9i.core.conversation.memory_writer._RELATED_PER_MESSAGE", 1)
     await _fact(service, "the car goes to the garage on Tuesday")
     await _fact(service, "likes jazz records")
     await _fact(service, "prefers window seats")  # the most recent, the one the digest always gets
@@ -168,7 +168,7 @@ async def test_the_digest_also_gets_older_facts_close_to_what_the_user_said(serv
 
 
 async def test_without_the_embedding_model_the_digest_gets_the_recent_facts(service, digests, monkeypatch):
-    from assistant.core.memory.embedder import EmbeddingError
+    from lo9i.core.memory.embedder import EmbeddingError
 
     async def unavailable(user_id, texts, limit_each):
         raise EmbeddingError("the model is still downloading")

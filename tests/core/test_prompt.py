@@ -1,7 +1,7 @@
 """System prompt contents: persona file, channel hints, prompt files."""
 
-from assistant.core.conversation import prompts
-from assistant.core.conversation.prompt import build_system_prompt
+from lo9i.core.conversation import prompts
+from lo9i.core.conversation.prompt import build_system_prompt
 
 
 async def test_persona_file_replaces_the_default(service, isolated_settings):

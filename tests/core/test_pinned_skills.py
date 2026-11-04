@@ -3,15 +3,15 @@ nothing summarized away, and a note in that message's turn header."""
 
 import pytest
 
-from assistant.core.agent import Session
-from assistant.core.skills import store
-from assistant.core.skills.store import SkillError
+from lo9i.core.agent import Session
+from lo9i.core.skills import store
+from lo9i.core.skills.store import SkillError
 from tests.conftest import collect
 
 
 @pytest.fixture
 def coding(isolated_settings, monkeypatch):
-    monkeypatch.setattr("assistant.core.config.settings.skills_dir", str(isolated_settings / "skills"))
+    monkeypatch.setattr("lo9i.core.config.settings.skills_dir", str(isolated_settings / "skills"))
     store.save("coding", "Programming help", "Run the tests before saying it works.")
 
 

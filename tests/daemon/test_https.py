@@ -11,9 +11,9 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 
-from assistant.core.config import settings
-from assistant.daemon import https
-from assistant.daemon.http_server import HttpServer, Listener
+from lo9i.core.config import settings
+from lo9i.daemon import https
+from lo9i.daemon.http_server import HttpServer, Listener
 
 
 def _write_certificate(folder, name: str) -> None:

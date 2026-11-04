@@ -3,7 +3,7 @@ again."""
 
 from textual.widgets import Button, Input, OptionList, Switch
 
-from assistant_terminal.tui.screens import BriefingSection
+from lo9i_terminal.tui.screens import BriefingSection
 from tests.terminal.conftest import wait_for, wait_for_section
 
 

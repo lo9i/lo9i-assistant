@@ -7,12 +7,12 @@ from types import SimpleNamespace
 
 from textual.widgets import Button, OptionList, Static
 
-from assistant.core.agent import BackgroundStep, BackgroundSubagent, Conversation, Session
-from assistant.core.background_subagents.records import Status
-from assistant.core.events import ApprovalRequired
-from assistant_terminal.repl import Repl
-from assistant_terminal.subagents_text import conversation_titles, elapsed, running_line, subagent_line
-from assistant_terminal.tui.screens import ApprovalScreen, SubagentsScreen
+from lo9i.core.agent import BackgroundStep, BackgroundSubagent, Conversation, Session
+from lo9i.core.background_subagents.records import Status
+from lo9i.core.events import ApprovalRequired
+from lo9i_terminal.repl import Repl
+from lo9i_terminal.subagents_text import conversation_titles, elapsed, running_line, subagent_line
+from lo9i_terminal.tui.screens import ApprovalScreen, SubagentsScreen
 from tests.terminal.conftest import FakeConversations, FakeSubagents, wait_for
 
 _NOW = datetime(2026, 11, 1, 10, 5, tzinfo=UTC)

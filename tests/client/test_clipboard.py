@@ -2,8 +2,8 @@
 
 import pytest
 
-from assistant.client import clipboard
-from assistant.client.clipboard import linux, process
+from lo9i.client import clipboard
+from lo9i.client.clipboard import linux, process
 
 _PNG = bytes.fromhex("89504E470D0A1A0A")
 

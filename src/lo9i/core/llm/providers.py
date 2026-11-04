@@ -1,0 +1,298 @@
+"""The model providers clients offer: the four lo9i builds itself (Anthropic with prompt caching,
+GitHub Copilot with its token exchange, OpenAI-compatible servers, OpenRouter with its reasoning and
+attribution headers) and every provider LangChain's
+`init_chat_model` supports, each with the fields it needs (core/llm/__init__.py builds them).
+
+A provider's package is installed when it's first chosen (core/llm/packages.py), so only the ones
+in use take space. Field keys are the chat model's own keyword arguments. Left out:
+`huggingface`, which runs models on this computer, not through an API.
+"""
+
+from dataclasses import dataclass
+
+from lo9i.core.i18n import said
+
+# Prompt caching, token exchange, server URLs or headers that lo9i handles itself (core/llm/__init__.py).
+NATIVE = ("anthropic", "copilot", "openai", "openrouter")
+# How long a prompt cache lasts after its last use, in minutes, unless a provider says otherwise:
+# Anthropic's default cache, the one lo9i asks for, lasts 5 minutes, and OpenAI's in-memory one "around
+# 5 to 10 minutes of inactivity". Old tool results are trimmed only once it has expired (core/conversation/trim.py).
+CACHE_MINUTES = 5.0
+# OpenAI's own API keeps prompts in its extended retention by default, which "typically keeps entries available
+# for around 30 minutes"; servers that only speak its API (Ollama, vLLM) keep theirs as above.
+OPENAI_CACHE_MINUTES = 30.0
+# Anthropic's prompt cache: 5 minutes, or an hour, whose writes cost twice the input price instead of 1.25 times, so
+# a conversation picked up again within the hour reads it back instead of writing it all again.
+PROMPT_CACHE = "prompt_cache"
+CACHE_FIVE_MINUTES = "5 minutes"
+CACHE_ONE_HOUR = "1 hour"
+# Providers whose API takes images inside tool results. Others get images from tools in a message
+# after the results (core/attachments.py): OpenAI-style APIs accept images only in user messages.
+IMAGES_IN_TOOL_RESULTS = frozenset({"anthropic"})
+
+
+@dataclass(frozen=True)
+class ProviderField:
+    # The chat model's keyword argument.
+    key: str
+    label: str
+    secret: bool = False
+    required: bool = True
+    help: str = ""
+    # The values it takes, picked from a list; the first when none is picked. Empty: typed freely.
+    options: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ModelProvider:
+    """A provider clients offer, with what it asks for and the models to suggest."""
+
+    id: str
+    name: str
+    fields: list[ProviderField]
+    model: str = ""
+    worker_model: str = ""
+    # How to get the values, or where models are listed.
+    help: str = ""
+    # The pip requirement installed on first use; "" when it ships with the assistant.
+    package: str = ""
+    # The module that shows the package is installed.
+    module: str = ""
+    # The keyword for the reply length limit; "" when the model takes none.
+    max_tokens_key: str = "max_tokens"
+    # Also passed the model id under this keyword (Azure OpenAI's deployment).
+    model_key: str = ""
+    # Set when the list is sent to clients: whether the package is installed (core/llm/packages.py).
+    installed: bool = True
+    # How long its prompt cache lasts after its last use, in minutes.
+    prompt_cache_minutes: float = CACHE_MINUTES
+
+
+_API_KEY = said("API key")
+_SERVER_URL = said("Server URL")
+
+
+def _key(label: str = _API_KEY, help: str = "") -> ProviderField:
+    return ProviderField("api_key", label, secret=True, help=help)
+
+
+def _url(key: str = "base_url", label: str = _SERVER_URL, help: str = "") -> ProviderField:
+    return ProviderField(key, label, required=False, help=help)
+
+
+_AWS = [
+    ProviderField("region_name", said("AWS region"), help=said("Like us-east-1.")),
+    ProviderField("aws_access_key_id", said("Access key ID"), secret=True),
+    ProviderField("aws_secret_access_key", said("Secret access key"), secret=True),
+]
+
+_VERTEX = [
+    ProviderField("project", said("Google Cloud project ID")),
+    ProviderField("location", said("Region"), help=said("Like us-central1.")),
+    ProviderField(
+        "service_account_json",
+        said("Service account key (JSON)"),
+        secret=True,
+        help=said("Paste the whole JSON key of a service account with the Vertex AI User role."),
+    ),
+]
+
+
+def _lc(
+    id: str,
+    name: str,
+    package: str,
+    module: str,
+    fields: list[ProviderField],
+    help: str = "",
+    max_tokens_key: str = "max_tokens",
+    model_key: str = "",
+    prompt_cache_minutes: float = CACHE_MINUTES,
+) -> ModelProvider:
+    return ModelProvider(
+        id,
+        name,
+        fields,
+        help=help,
+        package=package,
+        module=module,
+        max_tokens_key=max_tokens_key,
+        model_key=model_key,
+        prompt_cache_minutes=prompt_cache_minutes,
+    )
+
+
+NATIVE_PROVIDERS = [
+    ModelProvider(
+        "anthropic",
+        "Anthropic",
+        [
+            _key(help=said("Create one at https://console.anthropic.com/settings/keys.")),
+            ProviderField(
+                PROMPT_CACHE,
+                said("Prompt cache"),
+                required=False,
+                options=(CACHE_FIVE_MINUTES, CACHE_ONE_HOUR),
+                help=said(
+                    "How long a conversation stays cached after its last reply. 1 hour costs twice the input price"
+                    " to write instead of 1.25 times, and saves writing it all again when you reply after a pause."
+                ),
+            ),
+        ],
+        "claude-opus-5-5",
+        "claude-sonnet-5-5",
+    ),
+    ModelProvider(
+        "copilot",
+        "GitHub Copilot",
+        [_key(said("GitHub token"), said("A GitHub token of an account with a Copilot subscription."))],
+        "claude-opus-5.5",
+        "claude-sonnet-5.5",
+        help=said("Copilot's model ids use dots."),
+    ),
+    ModelProvider(
+        "openai",
+        "OpenAI-compatible",
+        [
+            _key(help=said("For Ollama or another server without keys, any text.")),
+            _url(help=said("Empty for OpenAI. Ollama: http://localhost:11434/v1.")),
+        ],
+    ),
+    ModelProvider(
+        "openrouter",
+        "OpenRouter",
+        [_key(help=said("Create one at https://openrouter.ai/settings/keys."))],
+        "anthropic/claude-opus-5.5",
+        "anthropic/claude-sonnet-5.5",
+        help=said(
+            "Model ids name their provider, like anthropic/claude-opus-5.5. Only models that take tools are listed."
+        ),
+    ),
+]
+
+LANGCHAIN_PROVIDERS = [
+    _lc(
+        "google_genai",
+        "Google Gemini",
+        "langchain-google-genai>=4.4,<5",
+        "langchain_google_genai",
+        [_key(help=said("Create one at https://aistudio.google.com/apikey."))],
+        max_tokens_key="max_output_tokens",
+    ),
+    _lc(
+        "google_vertexai",
+        "Google Vertex AI",
+        "langchain-google-vertexai>=3.2,<4",
+        "langchain_google_vertexai",
+        _VERTEX,
+        max_tokens_key="max_output_tokens",
+    ),
+    _lc(
+        "google_anthropic_vertex",
+        "Claude on Google Vertex AI",
+        "langchain-google-vertexai>=3.2,<4",
+        "langchain_google_vertexai",
+        _VERTEX,
+        max_tokens_key="max_output_tokens",
+    ),
+    _lc(
+        "azure_openai",
+        "Azure OpenAI",
+        "",
+        "langchain_openai",
+        [
+            ProviderField("azure_endpoint", said("Endpoint"), help=said("Like https://my-resource.openai.azure.com/.")),
+            _key(),
+            ProviderField("api_version", said("API version"), help=said("Like 2024-10-21.")),
+        ],
+        help=said("The model is the deployment's name."),
+        model_key="azure_deployment",
+        max_tokens_key="max_completion_tokens",
+    ),
+    _lc(
+        "azure_ai",
+        "Azure AI Foundry",
+        "langchain-azure-ai>=1.2,<2",
+        "langchain_azure_ai",
+        [ProviderField("endpoint", said("Endpoint")), ProviderField("credential", said("API key"), secret=True)],
+    ),
+    _lc("bedrock_converse", "Amazon Bedrock", "langchain-aws>=1.8,<2", "langchain_aws", _AWS),
+    _lc("bedrock", "Amazon Bedrock (InvokeModel)", "langchain-aws>=1.8,<2", "langchain_aws", _AWS),
+    _lc("anthropic_bedrock", "Claude on Amazon Bedrock", "langchain-aws>=1.8,<2", "langchain_aws", _AWS),
+    _lc("bedrock_mantle_anthropic", "Claude on Amazon Bedrock Mantle", "langchain-aws>=1.8,<2", "langchain_aws", _AWS),
+    _lc(
+        "bedrock_mantle_openai",
+        "OpenAI models on Amazon Bedrock Mantle",
+        "langchain-aws>=1.8,<2",
+        "langchain_aws",
+        _AWS,
+    ),
+    _lc("mistralai", "Mistral AI", "langchain-mistralai>=1.1,<2", "langchain_mistralai", [_key()]),
+    _lc("groq", "Groq", "langchain-groq>=1.1,<2", "langchain_groq", [_key()]),
+    # Its cache is cleared "usually within a few hours to a few days" after its last use.
+    _lc("deepseek", "DeepSeek", "langchain-deepseek>=1.1,<2", "langchain_deepseek", [_key()], prompt_cache_minutes=60),
+    _lc("xai", "xAI (Grok)", "langchain-xai>=1.3,<2", "langchain_xai", [_key()]),
+    _lc("together", "Together AI", "langchain-together>=0.4,<1", "langchain_together", [_key()]),
+    _lc("fireworks", "Fireworks AI", "langchain-fireworks>=1.7,<2", "langchain_fireworks", [_key()]),
+    _lc("perplexity", "Perplexity", "langchain-perplexity>=1.4,<2", "langchain_perplexity", [_key()]),
+    _lc(
+        "cohere",
+        "Cohere",
+        "langchain-cohere>=0.6,<1",
+        "langchain_cohere",
+        [ProviderField("cohere_api_key", said("API key"), secret=True)],
+        max_tokens_key="",
+    ),
+    _lc(
+        "nvidia",
+        "NVIDIA",
+        "langchain-nvidia-ai-endpoints>=1.4,<2",
+        "langchain_nvidia_ai_endpoints",
+        [_key(), _url(help=said("Empty for NVIDIA's hosted API; a self-hosted NIM's URL otherwise."))],
+        max_tokens_key="max_completion_tokens",
+    ),
+    _lc("upstage", "Upstage", "langchain-upstage>=0.7,<1", "langchain_upstage", [_key()]),
+    _lc("baseten", "Baseten", "langchain-baseten>=0.2.4,<1", "langchain_baseten", [_key()]),
+    _lc("meta", "Meta Llama API", "langchain-meta>=0.5,<1", "langchain_meta", [_key()]),
+    _lc(
+        "ibm",
+        "IBM watsonx.ai",
+        "langchain-ibm>=1.1,<2",
+        "langchain_ibm",
+        [
+            ProviderField("url", said("Service URL"), help=said("Like https://us-south.ml.cloud.ibm.com.")),
+            ProviderField("apikey", said("API key"), secret=True),
+            ProviderField("project_id", said("Project ID")),
+        ],
+    ),
+    _lc(
+        "ollama",
+        "Ollama",
+        "langchain-ollama>=1.1,<2",
+        "langchain_ollama",
+        [_url(help=said("Empty for Ollama on this computer (http://localhost:11434)."))],
+        max_tokens_key="num_predict",
+    ),
+    _lc(
+        "litellm",
+        "LiteLLM",
+        "langchain-litellm>=0.6.4,<1",
+        "langchain_litellm",
+        [ProviderField("api_key", said("API key"), secret=True, required=False), _url("api_base", said("Proxy URL"))],
+        help=said("Model ids name their provider, like openai/gpt-4o."),
+    ),
+    _lc(
+        "langsmith",
+        "LangSmith gateway",
+        "",
+        "langchain_openai",
+        [_key(said("LangSmith API key"))],
+        max_tokens_key="max_completion_tokens",
+    ),
+]
+
+PROVIDERS = NATIVE_PROVIDERS + LANGCHAIN_PROVIDERS
+
+
+def provider(provider_id: str) -> ModelProvider | None:
+    return next((p for p in PROVIDERS if p.id == provider_id), None)

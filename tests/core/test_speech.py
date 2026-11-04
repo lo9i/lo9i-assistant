@@ -6,13 +6,13 @@ from typing import cast
 
 import pytest
 
-from assistant.core.agent import Decoding, SpeechSettingsError
-from assistant.core.attachments import Attachment
-from assistant.core.config import settings
-from assistant.core.events import Transcribed
-from assistant.core.speech.preferences import SpeechSettings
-from assistant.core.speech.transcriber import Transcript
-from assistant.core.speech.voice import transcribe_voice
+from lo9i.core.agent import Decoding, SpeechSettingsError
+from lo9i.core.attachments import Attachment
+from lo9i.core.config import settings
+from lo9i.core.events import Transcribed
+from lo9i.core.speech.preferences import SpeechSettings
+from lo9i.core.speech.transcriber import Transcript
+from lo9i.core.speech.voice import transcribe_voice
 from tests.conftest import collect
 
 VOICE = Attachment("voice.ogg", "audio/ogg", b"fake audio")
@@ -83,7 +83,7 @@ async def test_fast_transcription_keeps_one_candidate(service, script, monkeypat
 @pytest.mark.live
 @pytest.mark.skipif(shutil.which("say") is None, reason="needs macOS `say` to generate speech")
 async def test_real_transcription_of_spanish(tmp_path):
-    from assistant.core.speech.whisper import FasterWhisperTranscriber
+    from lo9i.core.speech.whisper import FasterWhisperTranscriber
 
     audio = tmp_path / "es.aiff"
     subprocess.run(

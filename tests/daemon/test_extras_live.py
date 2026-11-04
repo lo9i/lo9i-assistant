@@ -9,10 +9,10 @@ from pathlib import Path
 import httpx
 import pytest
 
-from assistant.core.agent import ServerValues
-from assistant.core.mcp import folders, servers
-from assistant.daemon.auth import COOKIE
-from assistant.daemon.pages import create_pages_app
+from lo9i.core.agent import ServerValues
+from lo9i.core.mcp import folders, servers
+from lo9i.daemon.auth import COOKIE
+from lo9i.daemon.pages import create_pages_app
 
 EXTRAS = "https://github.com/lo9i/lo9i-assistant-extras"
 
@@ -21,7 +21,7 @@ EXTRAS = "https://github.com/lo9i/lo9i-assistant-extras"
 def short_data_dir(monkeypatch):
     # Under /tmp: macOS limits socket paths to 104 characters, and pytest's tmp_path is longer.
     folder = tempfile.mkdtemp(dir="/tmp")
-    monkeypatch.setattr("assistant.core.config.settings.mcp_data_dir", folder)
+    monkeypatch.setattr("lo9i.core.config.settings.mcp_data_dir", folder)
     yield Path(folder)
     shutil.rmtree(folder, ignore_errors=True)
 

@@ -1,4 +1,4 @@
-// Plugins' icons (src/assistant/core/repositories/icons.py): a Lucide icon by name, or the plugin's own SVG.
+// Plugins' icons (src/lo9i/core/repositories/icons.py): a Lucide icon by name, or the plugin's own SVG.
 import PanelsTopLeft from "@lucide/svelte/icons/panels-top-left";
 import type { Component } from "svelte";
 import type { McpServerStatus, PluginIcon } from "./api/types";

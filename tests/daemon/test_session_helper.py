@@ -11,11 +11,11 @@ from pathlib import Path
 
 import pytest
 
-from assistant.core import login_session
-from assistant.daemon import session_agent
-from assistant.daemon.session_agent import SessionAgent
-from assistant.session.helper import SessionHelper
-from assistant.session.protocol import HelperUnavailableError, ask, code_digest, open_arguments
+from lo9i.core import login_session
+from lo9i.daemon import session_agent
+from lo9i.daemon.session_agent import SessionAgent
+from lo9i.session.helper import SessionHelper
+from lo9i.session.protocol import HelperUnavailableError, ask, code_digest, open_arguments
 
 
 @pytest.fixture
@@ -90,7 +90,7 @@ async def test_it_says_its_version_and_quits_when_asked(helper, folder):
 
 def test_the_agent_runs_this_python_in_a_session_with_a_screen():
     plist = plistlib.loads(session_agent.agent_plist())
-    assert plist["ProgramArguments"] == [sys.executable, "-m", "assistant.session"]
+    assert plist["ProgramArguments"] == [sys.executable, "-m", "lo9i.session"]
     assert plist["LimitLoadToSessionType"] == "Aqua" and plist["KeepAlive"] is True
 
 

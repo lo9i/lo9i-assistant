@@ -1,6 +1,6 @@
 from textual.widgets import Button, Markdown, Select, SelectionList
 
-from assistant_terminal.tui.screens import AudioSection
+from lo9i_terminal.tui.screens import AudioSection
 from tests.terminal.conftest import wait_for, wait_for_section
 
 

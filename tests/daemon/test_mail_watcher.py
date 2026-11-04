@@ -6,15 +6,15 @@ from contextlib import asynccontextmanager
 
 import pytest
 
-from assistant.core.i18n import texts
-from assistant.core.integrations.email import imap, smtp
-from assistant.core.integrations.email.imap import MailSummary
-from assistant.core.jobs import store
-from assistant.core.jobs.store import Job
-from assistant.core.mcp import servers
-from assistant.core.mcp.servers import McpServer
-from assistant.daemon import mail_watcher
-from assistant.daemon.mail_watcher import MailWatcher
+from lo9i.core.i18n import texts
+from lo9i.core.integrations.email import imap, smtp
+from lo9i.core.integrations.email.imap import MailSummary
+from lo9i.core.jobs import store
+from lo9i.core.jobs.store import Job
+from lo9i.core.mcp import servers
+from lo9i.core.mcp.servers import McpServer
+from lo9i.daemon import mail_watcher
+from lo9i.daemon.mail_watcher import MailWatcher
 from tests.conftest import collect
 
 

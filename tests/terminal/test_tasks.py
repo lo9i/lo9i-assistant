@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
-from assistant.core.agent import RunningTask
-from assistant_terminal.tasks_text import task_line
+from lo9i.core.agent import RunningTask
+from lo9i_terminal.tasks_text import task_line
 from tests.terminal.conftest import wait_for
 
 _NOW = datetime(2026, 10, 9, 10, 18, tzinfo=UTC)

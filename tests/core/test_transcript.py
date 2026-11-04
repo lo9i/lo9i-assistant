@@ -2,7 +2,7 @@
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from assistant.core.conversation.transcript import render
+from lo9i.core.conversation.transcript import render
 
 
 def test_tool_output_lines_cannot_pass_for_user_lines():

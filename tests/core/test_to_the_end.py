@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from assistant.core.to_the_end import to_the_end
+from lo9i.core.to_the_end import to_the_end
 
 
 async def test_work_finishes_before_a_caller_cancelled_twice_is_cancelled():

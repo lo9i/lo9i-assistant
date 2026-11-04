@@ -5,7 +5,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from assistant.core.ending import AskedEnding, EndingState
+from lo9i.core.ending import AskedEnding, EndingState
 
 
 def test_a_pending_restart_is_written_with_who_asked_when_and_the_runs_it_waits_for(tmp_path: Path):

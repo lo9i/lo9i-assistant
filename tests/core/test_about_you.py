@@ -3,15 +3,15 @@ suggests, and the get-to-know-you offer that still comes after it."""
 
 import pytest
 
-from assistant.core.agent import AboutYou, MemoryEditError
-from assistant.core.mcp import servers
-from assistant.core.mcp.install import FoundServer
-from assistant.core.mcp.servers import McpServer
-from assistant.core.memory import about_you, facts, profile
-from assistant.core.memory.profile import MAX_ITEMS, Profile
-from assistant.core.repositories import cache, checkout
-from assistant.core.repositories.known import EXTRAS
-from assistant.core.skills.install import FoundSkill
+from lo9i.core.agent import AboutYou, MemoryEditError
+from lo9i.core.mcp import servers
+from lo9i.core.mcp.install import FoundServer
+from lo9i.core.mcp.servers import McpServer
+from lo9i.core.memory import about_you, facts, profile
+from lo9i.core.memory.profile import MAX_ITEMS, Profile
+from lo9i.core.repositories import cache, checkout
+from lo9i.core.repositories.known import EXTRAS
+from lo9i.core.skills.install import FoundSkill
 from tests.conftest import collect
 
 _ANSWERS = AboutYou("Ana", "Spanish", "short", ["email", "media"], "planning trips")

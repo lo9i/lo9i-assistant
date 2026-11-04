@@ -1,7 +1,7 @@
 from textual.widgets import Button, Input, Label, Markdown, Select
 
-from assistant.core.conversation.dispatch_setting import DispatchSetting
-from assistant_terminal.tui.screens import ModelSection
+from lo9i.core.conversation.dispatch_setting import DispatchSetting
+from lo9i_terminal.tui.screens import ModelSection
 from tests.terminal.conftest import wait_for, wait_for_section
 
 

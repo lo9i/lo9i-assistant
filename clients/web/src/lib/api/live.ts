@@ -1,4 +1,4 @@
-// The conversation the page shows, like src/assistant/client/live.py: which conversation this
+// The conversation the page shows, like src/lo9i/client/live.py: which conversation this
 // client is on, which runs in it come from elsewhere (another client, or a channel like Telegram),
 // and which replies were left running after moving to another conversation.
 import type { RunAnnounced, RunFinished, SentOn, Session } from "./types";

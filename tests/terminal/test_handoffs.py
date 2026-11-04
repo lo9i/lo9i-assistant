@@ -2,12 +2,12 @@ from textual.app import App, ComposeResult
 from textual.containers import VerticalScroll
 from textual.widgets import Button, Input, OptionList
 
-from assistant.core.agent import ShownMessage
-from assistant.core.events import Cancelled, UserSaid, UserTaken
-from assistant_terminal.tui.history import Loaders, show_history
-from assistant_terminal.tui.screens import AgentFolderScreen
-from assistant_terminal.tui.turn import TurnView
-from assistant_terminal.tui.widgets import StatusLine, UserMessage
+from lo9i.core.agent import ShownMessage
+from lo9i.core.events import Cancelled, UserSaid, UserTaken
+from lo9i_terminal.tui.history import Loaders, show_history
+from lo9i_terminal.tui.screens import AgentFolderScreen
+from lo9i_terminal.tui.turn import TurnView
+from lo9i_terminal.tui.widgets import StatusLine, UserMessage
 from tests.terminal.conftest import wait_for
 
 

@@ -1,6 +1,6 @@
 """send_message: the agent reaches the user on another channel through the service's outbox."""
 
-from assistant.core.outbox import DeliveryError
+from lo9i.core.outbox import DeliveryError
 from tests.conftest import collect
 
 

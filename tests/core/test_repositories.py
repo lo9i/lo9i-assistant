@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from cryptography.fernet import Fernet
 
-from assistant.core.agent import (
+from lo9i.core.agent import (
     McpServer,
     McpServerChanges,
     McpServerError,
@@ -18,14 +18,14 @@ from assistant.core.agent import (
     ServerValues,
     SkillError,
 )
-from assistant.core.integrations.email import providers
-from assistant.core.mcp import data_key, folders, install, keys, servers
-from assistant.core.repositories import categories, check, checkout, formats
-from assistant.core.repositories.icons import PluginIcon
-from assistant.core.repositories.source import Source
-from assistant.core.skills import install as skill_install
-from assistant.core.skills import store
-from assistant.core.uv import find as find_uv
+from lo9i.core.integrations.email import providers
+from lo9i.core.mcp import data_key, folders, install, keys, servers
+from lo9i.core.repositories import categories, check, checkout, formats
+from lo9i.core.repositories.icons import PluginIcon
+from lo9i.core.repositories.source import Source
+from lo9i.core.skills import install as skill_install
+from lo9i.core.skills import store
+from lo9i.core.uv import find as find_uv
 from tests.core.test_plugin_icons import BRAND
 
 URL = "https://example.com/me/lo9i-extras.git"
@@ -285,7 +285,7 @@ page:
 
 
 async def test_a_server_gets_its_folders_uv_and_page_filled_in(service, repo, isolated_settings, monkeypatch):
-    from assistant.core.mcp import install as server_install
+    from lo9i.core.mcp import install as server_install
 
     monkeypatch.setattr(server_install, "find_uv", lambda: "/opt/uv")
     _write(repo / "other" / "general" / "ledger", {"server.yaml": _WITH_PAGE})
@@ -302,7 +302,7 @@ async def test_a_server_gets_its_folders_uv_and_page_filled_in(service, repo, is
 
 
 async def test_a_server_that_runs_with_uv_needs_uv(service, repo, monkeypatch):
-    from assistant.core.mcp import install as server_install
+    from lo9i.core.mcp import install as server_install
 
     monkeypatch.setattr(server_install, "find_uv", lambda: None)
     _write(repo / "other" / "general" / "ledger", {"server.yaml": _WITH_PAGE})
@@ -344,7 +344,7 @@ async def test_a_server_runs_from_its_own_environment_built_when_installed(servi
 
 
 async def test_a_server_with_an_environment_needs_uv(service, repo, monkeypatch):
-    from assistant.core.mcp import install as server_install
+    from lo9i.core.mcp import install as server_install
 
     monkeypatch.setattr(server_install, "find_uv", lambda: None)
     _write(repo / "other" / "general" / "ledger", {"server.yaml": _IN_ENVIRONMENT})
@@ -458,7 +458,7 @@ async def test_a_category_not_in_the_list_is_refused(service, repo):
 
 @pytest.mark.parametrize("system", ["darwin", "linux"])
 async def test_plugins_for_another_system_arent_listed_or_installed(service, repo, monkeypatch, system):
-    monkeypatch.setattr("assistant.core.repositories.platforms.sys.platform", system)
+    monkeypatch.setattr("lo9i.core.repositories.platforms.sys.platform", system)
     _write(repo / "phone", {"server.yaml": "url: https://phone.example.com/mcp\nplatforms: [macos]"})
     _write(repo / "anywhere", {"server.yaml": "url: https://anywhere.example.com/mcp\nplatforms: [linux, macos]"})
     _write(
@@ -488,7 +488,7 @@ def test_a_skill_with_a_platform_not_in_the_list_has_a_problem(tmp_path):
 
 
 async def test_an_update_that_drops_this_system_keeps_the_installed_version(service, repo, monkeypatch):
-    monkeypatch.setattr("assistant.core.repositories.platforms.sys.platform", "linux")
+    monkeypatch.setattr("lo9i.core.repositories.platforms.sys.platform", "linux")
     await service.install_from_repository(URL, ["expenses"], [])
     manifest = repo / "other" / "general" / "expenses" / "SKILL.md"
     manifest.write_text(manifest.read_text().replace("description:", "platforms: [macos]\ndescription:"))
@@ -711,7 +711,7 @@ async def test_translations_of_an_email_provider_it_doesnt_have_are_the_plugins_
 
 
 async def test_a_custom_email_plugin_takes_the_accounts_that_belong_to_no_plugin(service, repo, monkeypatch):
-    from assistant.core.integrations.email import smtp
+    from lo9i.core.integrations.email import smtp
 
     async def verify(config):
         pass
@@ -897,7 +897,7 @@ async def test_what_a_plugin_added_is_told_apart_from_what_was_added_here(servic
 
 
 async def test_the_assistant_cant_delete_a_skill_a_plugin_installed(service, repo, script):
-    from assistant.core.events import ToolFinished
+    from lo9i.core.events import ToolFinished
     from tests.conftest import collect
 
     await service.install_from_repository(URL, ["expenses"], [])

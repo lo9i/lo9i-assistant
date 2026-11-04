@@ -11,10 +11,10 @@ from langchain_core.tools import tool
 from langchain_openrouter import ChatOpenRouter
 from pydantic import BaseModel
 
-from assistant.core.config import settings
-from assistant.core.llm import build_llm, build_structured, choice, connections, openrouter
-from assistant.core.llm.choice import ModelChoice
-from assistant.core.llm.openrouter import OpenRouterError
+from lo9i.core.config import settings
+from lo9i.core.llm import build_llm, build_structured, choice, connections, openrouter
+from lo9i.core.llm.choice import ModelChoice
+from lo9i.core.llm.openrouter import OpenRouterError
 
 _KEY = "sk-or-v1-right"
 _MODEL = "anthropic/claude-opus-5.5"
@@ -204,7 +204,7 @@ async def test_a_models_context_window_comes_from_openrouters_model_list():
 
 
 async def test_the_app_lists_openrouters_models_without_a_key(service, monkeypatch):
-    from assistant.core.agent import ModelOption, ModelSettingsError
+    from lo9i.core.agent import ModelOption, ModelSettingsError
 
     async def list_models(transport=None):
         return [("anthropic/claude-opus-5.5", "Claude Opus 5.5")]

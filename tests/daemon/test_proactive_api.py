@@ -4,14 +4,14 @@ and a briefing started now."""
 import httpx
 import pytest
 
-from assistant.client.daemon_client import DaemonClient
-from assistant.core.agent import LoopNotFoundError, ProactiveSettings
-from assistant.core.proactive import loops
-from assistant.core.proactive.model import LoopDraft
-from assistant.daemon.api import create_app
-from assistant.daemon.auth import trusted
-from assistant.daemon.runs import RunHub
-from assistant.protocol import CLIENT_HEADER
+from lo9i.client.daemon_client import DaemonClient
+from lo9i.core.agent import LoopNotFoundError, ProactiveSettings
+from lo9i.core.proactive import loops
+from lo9i.core.proactive.model import LoopDraft
+from lo9i.daemon.api import create_app
+from lo9i.daemon.auth import trusted
+from lo9i.daemon.runs import RunHub
+from lo9i.protocol import CLIENT_HEADER
 
 
 @pytest.fixture

@@ -8,22 +8,22 @@ import sys
 
 import pytest
 
-from assistant.core.approvals import RemoteApprovals
-from assistant.core.bus import EventBus
-from assistant.core.channels import hub as hub_module
-from assistant.core.channels import legacy
-from assistant.core.channels.chat.port import ChatLimits, Delivered
-from assistant.core.channels.hub import ChannelHub, ChannelNotConnectedError, SetupItem
-from assistant.core.channels.processes import ChannelProcesses
-from assistant.core.conversation.prompt import build_system_prompt
-from assistant.core.i18n import Texts, texts
-from assistant.core.language import Shown
-from assistant.core.logs import component_of
-from assistant.core.mcp import folders, keys, servers
-from assistant.core.mcp.environment import Environments
-from assistant.core.mcp.install import ServerValues
-from assistant.core.mcp.servers import McpServer, McpServerError
-from assistant.core.outbox import DeliveryError, Outbox
+from lo9i.core.approvals import RemoteApprovals
+from lo9i.core.bus import EventBus
+from lo9i.core.channels import hub as hub_module
+from lo9i.core.channels import legacy
+from lo9i.core.channels.chat.port import ChatLimits, Delivered
+from lo9i.core.channels.hub import ChannelHub, ChannelNotConnectedError, SetupItem
+from lo9i.core.channels.processes import ChannelProcesses
+from lo9i.core.conversation.prompt import build_system_prompt
+from lo9i.core.i18n import Texts, texts
+from lo9i.core.language import Shown
+from lo9i.core.logs import component_of
+from lo9i.core.mcp import folders, keys, servers
+from lo9i.core.mcp.environment import Environments
+from lo9i.core.mcp.install import ServerValues
+from lo9i.core.mcp.servers import McpServer, McpServerError
+from lo9i.core.outbox import DeliveryError, Outbox
 
 _COMMANDS = [{"command": "clear", "description": "Start a new conversation with your next message"}]
 
@@ -252,7 +252,7 @@ async def test_the_channel_process_runs_with_the_daemons_address_and_its_token(s
 
 
 async def test_a_channel_processs_output_is_logged_as_the_channels(service, caplog):
-    caplog.set_level(logging.INFO, logger="assistant.core.channels")
+    caplog.set_level(logging.INFO, logger="lo9i.core.channels")
     server = McpServer(
         "telegram", channel_command=sys.executable, channel_args=["-c", "print('polling')"], channel_protocol=2
     )
@@ -267,7 +267,7 @@ async def test_a_channel_processs_output_is_logged_as_the_channels(service, capl
     stop.set()
     await running
     record = next(r for r in caplog.records if r.getMessage() == "polling")
-    assert record.name == "assistant.core.channels.telegram" and component_of(record.name) == "channels"
+    assert record.name == "lo9i.core.channels.telegram" and component_of(record.name) == "channels"
 
 
 def test_a_plugin_is_an_mcp_server_a_channel_or_both():
@@ -319,7 +319,7 @@ async def test_a_channel_plugin_is_installed_with_the_old_settings(service, isol
     import shutil
     from pathlib import Path
 
-    from assistant.core.repositories import checkout
+    from lo9i.core.repositories import checkout
 
     remote = isolated_settings / "remote"
     (remote / "communications" / "chat" / "telegram").mkdir(parents=True)

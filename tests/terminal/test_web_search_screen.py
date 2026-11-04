@@ -1,6 +1,6 @@
 from textual.widgets import Input, Markdown
 
-from assistant_terminal.tui.screens import WebSearchSection
+from lo9i_terminal.tui.screens import WebSearchSection
 from tests.terminal.conftest import wait_for, wait_for_section
 
 

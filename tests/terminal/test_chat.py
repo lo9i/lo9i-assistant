@@ -6,11 +6,11 @@ from dataclasses import replace
 from textual.containers import VerticalScroll
 from textual.widgets import Button, Checkbox, Input, Markdown, Select, Static
 
-from assistant.client import DaemonUnavailableError, clipboard
-from assistant.core.agent import ShownMessage
-from assistant.core.attachments import Attachment
-from assistant.core.conversations import Conversation
-from assistant.core.events import (
+from lo9i.client import DaemonUnavailableError, clipboard
+from lo9i.core.agent import ShownMessage
+from lo9i.core.attachments import Attachment
+from lo9i.core.conversations import Conversation
+from lo9i.core.events import (
     Cancelled,
     Dispatched,
     Done,
@@ -19,10 +19,10 @@ from assistant.core.events import (
     ToolFinished,
     ToolStarted,
 )
-from assistant.protocol import event_to_dict
-from assistant_terminal.tui.attachments import AttachmentBar
-from assistant_terminal.tui.history import Loaders, show_history
-from assistant_terminal.tui.screens import (
+from lo9i.protocol import event_to_dict
+from lo9i_terminal.tui.attachments import AttachmentBar
+from lo9i_terminal.tui.history import Loaders, show_history
+from lo9i_terminal.tui.screens import (
     ApprovalScreen,
     ConversationsScreen,
     FormScreen,
@@ -30,7 +30,7 @@ from assistant_terminal.tui.screens import (
     NotificationsScreen,
     QuestionScreen,
 )
-from assistant_terminal.tui.widgets import (
+from lo9i_terminal.tui.widgets import (
     AssistantMessage,
     ChoicesNote,
     StoppedNote,
@@ -223,7 +223,7 @@ async def test_attachment_can_be_sent_without_text(app, client, tmp_path):
 
 
 async def test_live_events_update_the_app(app, client):
-    from assistant.core.events import Done, TextDelta
+    from lo9i.core.events import Done, TextDelta
     from tests.terminal.conftest import wait_for
 
     async def other_terminal_run():
@@ -393,8 +393,8 @@ async def test_get_to_know_me_starts_its_own_conversation(app, client):
 async def test_a_plugin_the_agent_offers_is_installed_in_the_dialog(app, client):
     from dataclasses import asdict
 
-    from assistant.core.agent import FoundServer, ServerField
-    from assistant_terminal.tui.screens import ChannelSetupScreen, RepositoryInstallScreen
+    from lo9i.core.agent import FoundServer, ServerField
+    from lo9i_terminal.tui.screens import ChannelSetupScreen, RepositoryInstallScreen
 
     fields = [ServerField("TELEGRAM_TOKEN", "Bot token", secret=True)]
     steps = ["Open @BotFather and send /newbot."]
@@ -446,8 +446,8 @@ async def test_files_dropped_on_the_window_are_attached_and_text_is_typed(app, c
 async def test_the_agent_opens_a_plugins_setup_in_the_conversation(app, client):
     from dataclasses import asdict
 
-    from assistant.core.agent import FoundServer
-    from assistant_terminal.tui.screens import EmailScreen
+    from lo9i.core.agent import FoundServer
+    from lo9i_terminal.tui.screens import EmailScreen
 
     gmail = FoundServer("gmail", "Send and read Gmail", "none", [], False, installed=True, email=True)
     client.waiting_for = {
@@ -468,8 +468,8 @@ async def test_the_agent_opens_a_plugins_setup_in_the_conversation(app, client):
 async def test_a_plugins_setup_opened_later_offers_its_settings_first(app, client):
     from dataclasses import asdict, replace
 
-    from assistant.core.agent import FoundServer
-    from assistant_terminal.tui.screens import PluginSettingsScreen
+    from lo9i.core.agent import FoundServer
+    from lo9i_terminal.tui.screens import PluginSettingsScreen
     from tests.terminal.conftest import _mcp_status
 
     calendar = FoundServer("calendar", "Calendar", "stdio", [], False, installed=True)
@@ -531,8 +531,8 @@ async def test_a_handed_off_agent_shows_its_thinking_text_and_tool_calls_in_orde
 
 
 async def test_an_approval_a_run_started_elsewhere_waits_for_is_asked_on_opening_its_conversation(app, client):
-    from assistant.core.agent import Conversation
-    from assistant.core.events import ApprovalRequired
+    from lo9i.core.agent import Conversation
+    from lo9i.core.events import ApprovalRequired
 
     at = "2030-01-01T09:00:00+00:00"
     client.conversations.items.append(Conversation("owner:b", "clean up", at, at))
@@ -550,7 +550,7 @@ async def test_an_approval_a_run_started_elsewhere_waits_for_is_asked_on_opening
 
 
 async def test_a_run_that_ends_in_this_conversation_is_asked_about_when_it_waits(app, client):
-    from assistant.core.events import ApprovalRequired
+    from lo9i.core.events import ApprovalRequired
 
     request = {"tool": "bash", "command": "rm -rf build", "reason": "recursive delete"}
     async with app.run_test(size=(120, 36)) as pilot:
@@ -565,7 +565,7 @@ async def test_a_run_that_ends_in_this_conversation_is_asked_about_when_it_waits
 
 
 async def test_a_follow_up_run_shows_what_it_follows_up_on_as_it_starts(app, client):
-    from assistant_terminal.tui.widgets import FollowUpNote
+    from lo9i_terminal.tui.widgets import FollowUpNote
 
     async def follow_up():
         yield TextDelta("The conversion failed; I'll retry with a smaller file.")
@@ -582,7 +582,7 @@ async def test_a_follow_up_run_shows_what_it_follows_up_on_as_it_starts(app, cli
 
 
 async def test_a_run_of_a_message_the_inbox_sent_on_shows_the_exchange_it_carried_first(app, client):
-    from assistant_terminal.tui.widgets import CarriedNote
+    from lo9i_terminal.tui.widgets import CarriedNote
 
     async def answer():
         yield TextDelta("Colder.")
@@ -600,8 +600,8 @@ async def test_a_run_of_a_message_the_inbox_sent_on_shows_the_exchange_it_carrie
 
 
 async def test_a_message_kept_while_an_update_installs_shows_once_when_its_run_comes(app, client):
-    from assistant.core.events import Held
-    from assistant_terminal.tui.widgets import HeldNote
+    from lo9i.core.events import Held
+    from lo9i_terminal.tui.widgets import HeldNote
 
     async def kept():
         yield Held("h1")
@@ -624,8 +624,8 @@ async def test_a_message_kept_while_an_update_installs_shows_once_when_its_run_c
 
 
 async def test_each_kept_message_shows_after_the_replies_of_the_ones_kept_before_it(app, client):
-    from assistant.core.events import Held
-    from assistant_terminal.tui.widgets import HeldNote
+    from lo9i.core.events import Held
+    from lo9i_terminal.tui.widgets import HeldNote
 
     def kept(held_id):
         async def run():
@@ -660,7 +660,7 @@ async def test_each_kept_message_shows_after_the_replies_of_the_ones_kept_before
 
 
 async def test_what_waits_for_an_update_shows_marked_in_history_and_once_when_its_run_comes(app, client):
-    from assistant_terminal.tui.widgets import HeldNote
+    from lo9i_terminal.tui.widgets import HeldNote
 
     async def after_the_update():
         yield TextDelta("Back, and yes.")
@@ -719,7 +719,7 @@ async def test_a_message_written_in_the_inbox_during_an_update_takes_the_app_whe
 
 
 async def test_a_task_for_the_agent_shows_as_its_brief_not_as_the_users_message(app, client):
-    from assistant_terminal.tui.widgets import BriefNote
+    from lo9i_terminal.tui.widgets import BriefNote
 
     async def agent_reply():
         yield TextDelta("Fixed the tests.")
@@ -737,7 +737,7 @@ async def test_a_task_for_the_agent_shows_as_its_brief_not_as_the_users_message(
 
 
 async def test_a_conversation_opened_while_its_reply_runs_shows_it_from_its_start_once(app, client):
-    from assistant.core.agent import ShownMessage
+    from lo9i.core.agent import ShownMessage
 
     release = asyncio.Event()
 
@@ -778,8 +778,8 @@ async def test_the_inbox_shows_its_reply_in_progress_at_start(app, client):
 
 def _waiting_in_b(client):
     """A conversation whose run waits on an approval, as `owner:b`."""
-    from assistant.core.agent import Conversation
-    from assistant.core.events import ApprovalRequired
+    from lo9i.core.agent import Conversation
+    from lo9i.core.events import ApprovalRequired
 
     at = "2030-01-01T09:00:00+00:00"
     client.conversations.items.append(Conversation("owner:b", "clean up", at, at))
@@ -794,7 +794,7 @@ async def _answer_in_b(app, pilot):
 
 
 async def test_leaving_while_an_answered_approval_runs_stops_showing_it(app, client):
-    from assistant.core.events import ApprovalRequired
+    from lo9i.core.events import ApprovalRequired
 
     _waiting_in_b(client)
     release, resumed = asyncio.Event(), []
@@ -906,9 +906,9 @@ async def test_an_approval_answered_in_another_app_closes_the_dialog_and_shows_i
 async def test_a_plugin_install_answered_in_another_app_closes_the_dialog_and_shows_its_run(app, client):
     from dataclasses import asdict
 
-    from assistant.core.agent import Conversation, FoundServer
-    from assistant.core.events import ApprovalRequired
-    from assistant_terminal.tui.screens import RepositoryInstallScreen
+    from lo9i.core.agent import Conversation, FoundServer
+    from lo9i.core.events import ApprovalRequired
+    from lo9i_terminal.tui.screens import RepositoryInstallScreen
 
     at = "2030-01-01T09:00:00+00:00"
     client.conversations.items.append(Conversation("owner:b", "notes", at, at))

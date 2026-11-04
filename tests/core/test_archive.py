@@ -2,7 +2,7 @@
 
 import asyncio
 
-from assistant.core.agent import Session
+from lo9i.core.agent import Session
 from tests.conftest import collect
 
 

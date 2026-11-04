@@ -1,0 +1,51 @@
+"""Who the assistant emails without asking, from any account: one list shared by every email plugin's
+accounts (the web app's Settings → General → Email). Anyone else needs the user's approval."""
+
+from textual import on
+from textual.app import ComposeResult
+from textual.containers import Horizontal, Vertical
+from textual.widgets import Button, Input, Markdown
+
+from lo9i.client.daemon_client import EmailApi
+from lo9i_terminal.i18n import t, translatable
+from lo9i_terminal.tui.daemon_errors import reports_daemon_unavailable
+from lo9i_terminal.tui.section import SettingsSection
+
+_INTRO = translatable(
+    "The assistant emails these addresses without asking, from any account. Your own accounts are always allowed; "
+    "anyone else needs your approval."
+)
+
+
+class EmailRecipientsSection(SettingsSection):
+    def __init__(self, email: EmailApi) -> None:
+        super().__init__()
+        self._email = email
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="email-recipients"):
+            yield Markdown("## " + t("Email") + f"\n\n{t(_INTRO)}", id="email-recipients-body")
+            yield Input(placeholder=t("Addresses, comma-separated"), id="email-recipients-input")
+            yield Markdown(id="email-recipients-message")
+            with Horizontal(id="email-recipients-buttons"):
+                yield Button(t("Save"), variant="success", id="save")
+                yield Button(t("Close"), id="close")
+
+    @reports_daemon_unavailable
+    async def on_mount(self) -> None:
+        self.query_one(Input).value = ", ".join(await self._email.recipients())
+
+    @on(Button.Pressed, "#close")
+    def _close(self) -> None:
+        self.close()
+
+    @on(Button.Pressed, "#save")
+    @reports_daemon_unavailable
+    async def _save(self) -> None:
+        saved = await self._email.set_recipients(self.query_one(Input).value.split(","))
+        self.query_one(Input).value = ", ".join(saved)
+        await self.query_one("#email-recipients-message", Markdown).update(t("Saved."))
+
+    @reports_daemon_unavailable
+    async def on_input_submitted(self, _: Input.Submitted) -> None:
+        await self._save()

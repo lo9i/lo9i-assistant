@@ -2,13 +2,13 @@
 logged with where its message ended up, and the band of closeness the logged picks trust routes without a model
 call. The embedder is the fake one (tests/conftest.py), whose vectors come from the words."""
 
-from assistant.core import conversations
-from assistant.core.agent import AssistantService, Session
-from assistant.core.conversation import routing_picks
-from assistant.core.conversation.dispatch import QUICK, Pick
-from assistant.core.conversation.routing_picks import MIN_PICKS, Logged, MeaningPick, Trust, calibrate
-from assistant.core.conversations import Conversation
-from assistant.core.events import Dispatched
+from lo9i.core import conversations
+from lo9i.core.agent import AssistantService, Session
+from lo9i.core.conversation import routing_picks
+from lo9i.core.conversation.dispatch import QUICK, Pick
+from lo9i.core.conversation.routing_picks import MIN_PICKS, Logged, MeaningPick, Trust, calibrate
+from lo9i.core.conversations import Conversation
+from lo9i.core.events import Dispatched
 from tests.conftest import collect
 
 

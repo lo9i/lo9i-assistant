@@ -1,0 +1,160 @@
+from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import Any
+from urllib.parse import quote
+
+from lo9i.client.daemon_client.transport import Transport
+from lo9i.core.agent import (
+    Agent,
+    AgentFolders,
+    Conversation,
+    ConversationError,
+    ConversationStats,
+    FolderError,
+    FolderListing,
+    Handoff,
+    HandoffError,
+    ShownCall,
+    ShownMessage,
+    ShownStep,
+    SkillError,
+)
+from lo9i.core.attachments import Attachment
+from lo9i.core.events import ApprovalRequired
+
+
+@dataclass(frozen=True)
+class OpenedConversation:
+    """A conversation as a client opens it while runs may be in progress there."""
+
+    # Its messages up to the first run in progress.
+    messages: list[ShownMessage]
+    # Those runs, oldest first, as their `run` events announced them (run_id, thread_id, channel, client_id,
+    # text, notice): a client follows them from their start (`follow_run`), as if it had been watching.
+    runs: list[dict[str, Any]]
+
+
+class ConversationsApi:
+    """Earlier conversations: the list, what was said in one, deleting one, and the skills pinned to
+    one. Resuming one is a conversation call on the client (`resume_thread`)."""
+
+    def __init__(self, transport: Transport) -> None:
+        self._transport = transport
+
+    async def recent(self) -> list[Conversation]:
+        """Newest activity first."""
+        return [Conversation(**c) for c in await self._transport.request("GET", "/conversations")]
+
+    async def containing(self, text: str) -> list[str]:
+        """The ids of the conversations whose messages hold every word of `text`, each as the start of a word."""
+        found = await self._transport.request("GET", "/conversations/containing", params={"q": text})
+        return found["thread_ids"]
+
+    async def get(self, thread_id: str) -> Conversation | None:
+        """One conversation as `recent` lists it; None while it isn't listed (a new one before its first message)."""
+        try:
+            found = await self._transport.request("GET", f"/conversations/{thread_id}", errors={404: ConversationError})
+        except ConversationError:
+            return None
+        return Conversation(**found)
+
+    async def messages(self, thread_id: str) -> list[ShownMessage]:
+        return [_shown(m) for m in await self._transport.request("GET", f"/conversations/{thread_id}/messages")]
+
+    async def live(self, thread_id: str) -> OpenedConversation:
+        """Its messages up to its runs in progress, and those runs."""
+        found = await self._transport.request("GET", f"/conversations/{thread_id}/live")
+        return OpenedConversation([_shown(m) for m in found["messages"]], found["runs"])
+
+    async def tool_call(self, thread_id: str, call_id: str) -> ShownCall:
+        """A tool call in full, which `messages` shows only the start of when it's `partial`. Raises
+        ConversationError when the conversation has no such call."""
+        path = f"/conversations/{thread_id}/tool-calls/{quote(call_id, safe='')}"
+        return ShownCall(**await self._transport.request("GET", path, errors={404: ConversationError}))
+
+    async def tool_call_step(self, thread_id: str, call_id: str, index: int) -> ShownCall:
+        """A step inside a tool call in full, by its place from 0, which `messages` shows only the start of when
+        it's `partial`. Raises ConversationError when the call has no such step."""
+        path = f"/conversations/{thread_id}/tool-calls/{quote(call_id, safe='')}/steps/{index}"
+        return ShownCall(**await self._transport.request("GET", path, errors={404: ConversationError}))
+
+    async def stats(self, thread_id: str) -> ConversationStats:
+        """Its messages, tokens and tool calls, and when it started and was last written in."""
+        return ConversationStats(**await self._transport.request("GET", f"/conversations/{thread_id}/stats"))
+
+    async def pending_approvals(self, thread_id: str) -> list[ApprovalRequired]:
+        """What its run stopped to ask and still waits for, whoever started it; answered with `resume`."""
+        return [
+            ApprovalRequired(**a) for a in await self._transport.request("GET", f"/conversations/{thread_id}/approvals")
+        ]
+
+    async def delete(self, thread_id: str) -> None:
+        """Raises ConversationError when it doesn't exist, a client is on it or a reply is running."""
+        errors = {404: ConversationError, 409: ConversationError}
+        await self._transport.request("DELETE", f"/conversations/{thread_id}", errors=errors)
+
+    async def pinned(self, thread_id: str) -> list[str]:
+        """The skills pinned to the conversation, in the order they were pinned."""
+        return (await self._transport.request("GET", f"/conversations/{thread_id}/pinned"))["skills"]
+
+    async def pin(self, thread_id: str, name: str) -> list[str]:
+        """Raises SkillError for an unknown skill. Returns the pinned skills."""
+        path = f"/conversations/{thread_id}/pinned/{name}"
+        return (await self._transport.request("PUT", path, errors={404: SkillError}))["skills"]
+
+    async def unpin(self, thread_id: str, name: str) -> list[str]:
+        """Returns the pinned skills."""
+        return (await self._transport.request("DELETE", f"/conversations/{thread_id}/pinned/{name}"))["skills"]
+
+    async def agents(self) -> list[Agent]:
+        """The agents installed plugins bring: /<command> hands a conversation to one."""
+        return [Agent(**a) for a in await self._transport.request("GET", "/agents")]
+
+    async def agent_folders(self) -> AgentFolders:
+        """The folders to offer for /<command>: the workspace and the ones used before."""
+        return AgentFolders(**await self._transport.request("GET", "/agents/folders"))
+
+    async def child_folders(self, path: str, hidden: bool = False) -> FolderListing:
+        """The folders inside `path`, to browse to one; hidden ones too when `hidden`. Raises FolderError."""
+        params = {"path": path, "hidden": "true"} if hidden else {"path": path}
+        found = await self._transport.request(
+            "GET", "/agents/folders/children", params=params, errors={400: FolderError}
+        )
+        return FolderListing(**found)
+
+    async def agent(self, thread_id: str) -> Handoff | None:
+        """The agent the conversation is handed to; None while the assistant answers."""
+        found = (await self._transport.request("GET", f"/conversations/{thread_id}/agent"))["handoff"]
+        return Handoff(**found) if found else None
+
+    async def hand_to(self, thread_id: str, command: str, folder: str) -> Handoff:
+        """From the next message, the agent answers in `folder`. Raises HandoffError."""
+        body = {"command": command, "folder": folder}
+        path = f"/conversations/{thread_id}/agent"
+        found = await self._transport.request("PUT", path, json=body, errors={400: HandoffError})
+        return Handoff(**found["handoff"])
+
+    async def take_back(self, thread_id: str) -> None:
+        """The assistant answers again from the next message."""
+        await self._transport.request("DELETE", f"/conversations/{thread_id}/agent")
+
+    async def message_agent(self, thread_id: str, text: str, attachments: Sequence[Attachment] = ()) -> None:
+        """Passes `text` and the files with it on to the agent while it works on the conversation's last
+        message; it takes it between its steps. Raises HandoffError when it isn't working, or can't take
+        messages while it works."""
+        path = f"/conversations/{thread_id}/agent/messages"
+        files = [("files", (a.name, a.data, a.media_type)) for a in attachments]
+        await self._transport.request(
+            "POST", path, data={"text": text}, files=files or None, errors={409: HandoffError}
+        )
+
+    async def interrupt_agent(self, thread_id: str) -> None:
+        """Stops the agent's step in progress; it waits for the next message. Raises HandoffError as
+        message_agent does."""
+        path = f"/conversations/{thread_id}/agent/interrupt"
+        await self._transport.request("POST", path, errors={409: HandoffError})
+
+
+def _shown(message: dict) -> ShownMessage:
+    steps = [ShownStep(**step) for step in message.pop("steps", [])]
+    return ShownMessage(**message, steps=steps)

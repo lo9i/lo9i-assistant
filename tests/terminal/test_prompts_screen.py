@@ -2,7 +2,7 @@
 
 from textual.widgets import Button, OptionList, Static, TextArea
 
-from assistant_terminal.tui.screens import ConfirmScreen, PromptsSection
+from lo9i_terminal.tui.screens import ConfirmScreen, PromptsSection
 from tests.terminal.conftest import wait_for, wait_for_section
 
 

@@ -4,9 +4,9 @@ from dataclasses import replace
 
 from textual.widgets import Button
 
-from assistant.client import DaemonUnavailableError
-from assistant.core.agent import ChannelStatus, FoundServer, SetupItem
-from assistant_terminal.tui.screens import PluginsSection
+from lo9i.client import DaemonUnavailableError
+from lo9i.core.agent import ChannelStatus, FoundServer, SetupItem
+from lo9i_terminal.tui.screens import PluginsSection
 from tests.terminal.conftest import section_shown, wait_for
 
 _DOWN = "Can't reach the daemon."

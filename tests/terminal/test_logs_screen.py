@@ -1,6 +1,6 @@
 from textual.widgets import RichLog, Select, Static, Switch
 
-from assistant_terminal.tui.screens import LogsSection
+from lo9i_terminal.tui.screens import LogsSection
 from tests.terminal.conftest import _log, wait_for, wait_for_section
 
 

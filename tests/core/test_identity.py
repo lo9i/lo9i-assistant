@@ -1,7 +1,7 @@
 """Renaming the assistant: the name enters the system prompt at the next message, with nothing
 summarized away."""
 
-from assistant.core import identity
+from lo9i.core import identity
 from tests.conftest import collect
 
 

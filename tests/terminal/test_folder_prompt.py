@@ -1,7 +1,7 @@
 """The plain REPL's folder picker for /claude alone: the workspace, the folders used before, or browsing to one,
 hidden folders only after Show hidden, as the full app's picker."""
 
-from assistant_terminal.folder_prompt import FolderPrompt
+from lo9i_terminal.folder_prompt import FolderPrompt
 
 
 def _answers(*lines: str):

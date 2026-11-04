@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from assistant.core.handed_folder import changes, contents, deleting, diff, paths, preview, tree
-from assistant.core.handed_folder.changes import FileChange, parse_status
-from assistant.core.handed_folder.paths import HandedFolderError, MissingPathError, OutsideFolderError
+from lo9i.core.handed_folder import changes, contents, deleting, diff, paths, preview, tree
+from lo9i.core.handed_folder.changes import FileChange, parse_status
+from lo9i.core.handed_folder.paths import HandedFolderError, MissingPathError, OutsideFolderError
 
 
 @pytest.fixture(autouse=True)

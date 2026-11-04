@@ -1,0 +1,55 @@
+"""Modal that asks the user to approve or reject a tool call: an MCP tool's call in words first (approval_text.py),
+then its exact arguments."""
+
+from typing import Any, ClassVar
+
+from rich.markup import escape
+from textual.app import ComposeResult
+from textual.binding import Binding, BindingType
+from textual.containers import Horizontal, Vertical
+from textual.screen import ModalScreen
+from textual.widgets import Button, Input, Static
+
+from lo9i_terminal.approval_text import approval_title, approval_why, call_lines, call_of
+from lo9i_terminal.i18n import t, translatable
+
+
+class ApprovalScreen(ModalScreen[dict[str, Any]]):
+    """Returns {"approved": bool, "reason": str | None}."""
+
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding("y", "approve", translatable("Approve")),
+        Binding("escape", "reject", translatable("Reject")),
+    ]
+
+    def __init__(self, request: dict[str, Any]) -> None:
+        super().__init__()
+        self._request = request
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="approval"):
+            title, why = escape(approval_title(self._request)), escape(approval_why(self._request))
+            yield Static(f"[b]{title}[/b]  [dim]{why}[/dim]")
+            if call := call_of(self._request):
+                yield Static("\n".join(call_lines(call)), id="approval-call", markup=False)
+            yield Static(str(self._request.get("command", self._request)), id="approval-command", markup=False)
+            yield Input(placeholder=t("Reason, if you reject (optional)"), id="approval-reason")
+            with Horizontal(id="approval-buttons"):
+                yield Button(t("Approve (y)"), variant="success", id="approve")
+                yield Button(t("Reject (esc)"), variant="error", id="reject")
+
+    def on_mount(self) -> None:
+        self.query_one("#approve", Button).focus()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        self.action_approve() if event.button.id == "approve" else self.action_reject()
+
+    def on_input_submitted(self, _: Input.Submitted) -> None:
+        self.action_reject()
+
+    def action_approve(self) -> None:
+        self.dismiss({"approved": True, "reason": None})
+
+    def action_reject(self) -> None:
+        reason = self.query_one("#approval-reason", Input).value.strip()
+        self.dismiss({"approved": False, "reason": reason or None})

@@ -52,7 +52,7 @@ function lastChecked(read: RepositoryPlugins[]): string {
   return times.includes("") ? "" : times.reduce((a, b) => (a < b ? a : b), times[0] ?? "");
 }
 
-/** What the apps show beside it: its own icon, or its category's (src/assistant/core/repositories/icons.py). */
+/** What the apps show beside it: its own icon, or its category's (src/lo9i/core/repositories/icons.py). */
 export function iconOf(p: Plugin): PluginIcon | undefined {
   return p.kind === "server" ? p.server.icon : p.skill.icon;
 }
@@ -170,7 +170,7 @@ export function categoryLabel(category: string): string {
     .join(" / ");
 }
 
-// The parts of the daemon's fixed list of categories (src/assistant/core/repositories/categories.py).
+// The parts of the daemon's fixed list of categories (src/lo9i/core/repositories/categories.py).
 const CATEGORY_PARTS: Record<string, Key> = {
   agents: "categories.agents",
   apps: "categories.apps",

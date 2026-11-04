@@ -3,8 +3,8 @@
 import json
 from typing import cast
 
-from assistant.core.agent_tasks.steps import AgentSteps, line
-from assistant.core.events import TextDelta, ToolFinished, ToolStarted, UserSaid, UserTaken, UserWithdrawn
+from lo9i.core.agent_tasks.steps import AgentSteps, line
+from lo9i.core.events import TextDelta, ToolFinished, ToolStarted, UserSaid, UserTaken, UserWithdrawn
 
 
 def _events(steps: AgentSteps, *messages: dict | str) -> list:
@@ -74,7 +74,7 @@ def test_words_stream_and_their_whole_block_isnt_shown_again():
 
 
 def test_a_tasks_latest_steps_leave_out_the_streamed_words(tmp_path):
-    from assistant.core.agent_tasks.records import TaskStore
+    from lo9i.core.agent_tasks.records import TaskStore
 
     store = TaskStore(tmp_path)
     task = store.create("/repo", "fix it")

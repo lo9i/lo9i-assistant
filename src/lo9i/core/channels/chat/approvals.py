@@ -1,0 +1,73 @@
+"""Approval messages with Approve / Reject buttons. Button data is `a:<interrupt id>` or
+`r:<interrupt id>` for the chat's own conversation, `ja:` or `jr:` for a scheduled job's run
+(core/approvals.py)."""
+
+from typing import Any, cast
+
+from lo9i.core.channels.chat.port import Buttons
+from lo9i.core.i18n import Texts, translatable
+from lo9i.core.mcp.described import ASKS_FIRST
+
+_APPROVE, _REJECT = "a", "r"
+_JOB_APPROVE, _JOB_REJECT = "ja", "jr"
+
+
+def approval_text(t: Texts, request: dict[str, Any]) -> str:
+    call = request.get("call")
+    if isinstance(call, dict):
+        return _call_text(t, cast(dict[str, Any], call))
+    asked = t("Approve {tool}? ({reason})", tool=request.get("tool"), reason=request.get("reason"))
+    return f"{asked}\n\n{request.get('command', request)}"
+
+
+def _call_text(t: Texts, call: dict[str, Any]) -> str:
+    """An MCP tool's call in words (core/mcp/described.py): what it does and what it's given."""
+    server = call.get("server")
+    why = t(_ASKS_FIRST if call.get("why") == ASKS_FIRST else _UNTRUSTED, server=server)
+    lines = [t("Approve {tool} from {server}?", tool=call.get("tool"), server=server), why]
+    if call.get("does"):
+        lines.append(f"\n{call['does']}")
+    arguments = call.get("arguments") or []
+    lines.append("")
+    lines.extend([_argument(a) for a in arguments] or [t("No arguments: it runs with its defaults.")])
+    return "\n".join(lines)
+
+
+def _argument(argument: dict[str, str]) -> str:
+    about = f" ({argument['about']})" if argument.get("about") else ""
+    return f"• {argument.get('name')}: {argument.get('value')}{about}"
+
+
+_UNTRUSTED = translatable("{server} isn't trusted, and this tool can change things.")
+_ASKS_FIRST = translatable("{server} asks before each use of this tool.")
+
+
+def approval_buttons(t: Texts, interrupt_id: str) -> Buttons:
+    return [(t("✅ Approve"), f"{_APPROVE}:{interrupt_id}"), (t("❌ Reject"), f"{_REJECT}:{interrupt_id}")]
+
+
+def parse_decision(data: str, place: str) -> tuple[str, dict[str, Any]] | None:
+    """(interrupt id, decision) from button data, or None if it isn't an approval button. `place`
+    names where a rejection happened, for example "Telegram"."""
+    return _parse(data, _APPROVE, _REJECT, place)
+
+
+def job_approval_text(t: Texts, title: str, request: dict[str, Any]) -> str:
+    return f"{t('{title} is waiting for you.', title=title)}\n\n{approval_text(t, request)}"
+
+
+def job_approval_buttons(t: Texts, interrupt_id: str) -> Buttons:
+    return [(t("✅ Approve"), f"{_JOB_APPROVE}:{interrupt_id}"), (t("❌ Reject"), f"{_JOB_REJECT}:{interrupt_id}")]
+
+
+def parse_job_decision(data: str, place: str) -> tuple[str, dict[str, Any]] | None:
+    """Like `parse_decision`, for the buttons of a scheduled job's request."""
+    return _parse(data, _JOB_APPROVE, _JOB_REJECT, place)
+
+
+def _parse(data: str, approve: str, reject: str, place: str) -> tuple[str, dict[str, Any]] | None:
+    action, _, interrupt_id = data.partition(":")
+    if action not in (approve, reject) or not interrupt_id:
+        return None
+    approved = action == approve
+    return interrupt_id, {"approved": approved, "reason": "" if approved else f"rejected in {place}"}

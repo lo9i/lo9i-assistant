@@ -1,5 +1,5 @@
-from assistant_terminal import i18n
-from assistant_terminal.approval_text import approval_title, approval_why, call_lines
+from lo9i_terminal import i18n
+from lo9i_terminal.approval_text import approval_title, approval_why, call_lines
 
 _CALL = {
     "server": "billing",

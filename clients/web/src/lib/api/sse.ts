@@ -1,7 +1,7 @@
 /** One Server-Sent Event. */
 export type ServerEvent = { id: string; event: string; data: string };
 
-/** Reads a Server-Sent Events body into events, like src/assistant/client/sse.py. */
+/** Reads a Server-Sent Events body into events, like src/lo9i/client/sse.py. */
 export async function* readEvents(body: ReadableStream<Uint8Array>): AsyncGenerator<ServerEvent> {
   for await (const batch of readEventBatches(body)) yield* batch;
 }

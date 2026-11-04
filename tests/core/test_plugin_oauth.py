@@ -9,14 +9,14 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-from assistant.core.agent import McpServerError, ServerValues, SignInError
-from assistant.core.events import ApprovalRequired, is_plugin_setup
-from assistant.core.mcp import keys, plugin_oauth, servers
-from assistant.core.mcp.checks import CheckFailedError
-from assistant.core.mcp.install import FoundServer
-from assistant.core.mcp.servers import McpServer
-from assistant.core.repositories import cache
-from assistant.core.repositories.known import EXTRAS
+from lo9i.core.agent import McpServerError, ServerValues, SignInError
+from lo9i.core.events import ApprovalRequired, is_plugin_setup
+from lo9i.core.mcp import keys, plugin_oauth, servers
+from lo9i.core.mcp.checks import CheckFailedError
+from lo9i.core.mcp.install import FoundServer
+from lo9i.core.mcp.servers import McpServer
+from lo9i.core.repositories import cache
+from lo9i.core.repositories.known import EXTRAS
 from tests.conftest import collect
 from tests.core.test_repositories import HELLO, URL, _problems, _write, repo  # noqa: F401 (a fixture, used by `drive`)
 

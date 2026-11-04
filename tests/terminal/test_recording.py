@@ -3,11 +3,11 @@
 import sys
 import types
 
-import assistant_terminal.tui.app as app_module
-from assistant.core.agent import Session
-from assistant_terminal.history import History
-from assistant_terminal.preferences import Preferences
-from assistant_terminal.tui.widgets import TranscriptNote, UserMessage
+import lo9i_terminal.tui.app as app_module
+from lo9i.core.agent import Session
+from lo9i_terminal.history import History
+from lo9i_terminal.preferences import Preferences
+from lo9i_terminal.tui.widgets import TranscriptNote, UserMessage
 from tests.terminal.conftest import wait_for
 
 

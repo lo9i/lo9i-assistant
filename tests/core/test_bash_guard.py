@@ -1,6 +1,6 @@
 import pytest
 
-from assistant.core.tools.bash_guard import find_danger
+from lo9i.core.tools.bash_guard import find_danger
 
 
 @pytest.mark.parametrize(

@@ -1,6 +1,6 @@
 from textual.widgets import Input, Markdown, OptionList, Select
 
-from assistant_terminal.tui.screens import ProfileSection
+from lo9i_terminal.tui.screens import ProfileSection
 from tests.terminal.conftest import wait_for, wait_for_section
 
 

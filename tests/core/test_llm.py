@@ -4,9 +4,9 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 
-from assistant.core.llm import build_llm
-from assistant.core.llm.choice import ModelChoice, prompt_cache_minutes
-from assistant.core.llm.providers import CACHE_ONE_HOUR, PROMPT_CACHE
+from lo9i.core.llm import build_llm
+from lo9i.core.llm.choice import ModelChoice, prompt_cache_minutes
+from lo9i.core.llm.providers import CACHE_ONE_HOUR, PROMPT_CACHE
 
 
 def test_anthropic_requests_enable_caching_and_fallbacks(monkeypatch):
@@ -65,7 +65,7 @@ def _openai() -> ChatOpenAI:
 def test_other_providers_are_built_by_langchain_with_their_values():
     from langchain_openai import AzureChatOpenAI
 
-    from assistant.core.config import settings
+    from lo9i.core.config import settings
 
     values = {"azure_endpoint": "https://r.openai.azure.com/", "api_key": "k", "api_version": "2024-10-21"}
     model = build_llm(ModelChoice("azure_openai", "gpt-4o", "gpt-4o", values), "gpt-4o")

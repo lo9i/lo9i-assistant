@@ -1,0 +1,115 @@
+"""Tools to create, run and delete skills. Saving and deleting need the user's approval: a skill
+changes what the assistant does in every later conversation, so text the agent read somewhere
+(a web page, an email) must not be able to plant one."""
+
+import asyncio
+
+from langchain_core.tools import tool
+from langgraph.prebuilt import ToolRuntime
+
+from lo9i.core.context import Context
+from lo9i.core.skills import store
+from lo9i.core.skills.instructions import render as render_skill
+from lo9i.core.skills.store import Skill, SkillError
+from lo9i.core.tools.approval import ask
+from lo9i.core.tools.registry import register
+
+
+@register("skills", group="skill-writing")
+@tool
+async def save_skill(
+    name: str,
+    description: str,
+    instructions: str,
+    runtime: ToolRuntime[Context],
+    files: dict[str, str] | None = None,
+) -> str:
+    """Create or replace a skill (step-by-step instructions for a task you'll do again); the user approves it.
+    `name`: a slug. `description`: one line, when to use it. `instructions`: the steps. `files`: {relative
+    path: content} kept in its folder, replacing all of them; left out, they stay. How to write one: the
+    writing-skills skill."""
+    try:
+        await asyncio.to_thread(store.check, name, files)
+        await asyncio.to_thread(store.check_content, name, instructions, files)
+        existing = await _existing(name)
+    except SkillError as e:
+        return str(e)
+    rejection = ask(_save_request(name, description, instructions, files, existing), runtime.context)
+    if rejection:
+        return rejection
+    await asyncio.to_thread(store.save, name, description, instructions, files)
+    _changed(runtime.context)
+    return f"Saved skill {name}. It shows up in the skill list from the next epoch; use_skill works now."
+
+
+@register("skills", subagents=True)
+@tool
+async def use_skill(name: str) -> str:
+    """Load a skill's full instructions. Follow them step by step."""
+    try:
+        skill = await asyncio.to_thread(store.load, name)
+    except SkillError as e:
+        return str(e)
+    # The graph loads the tools of the plugin it comes with after this call (core/plugin_loading.py).
+    loaded = f"\n\n(The {skill.server} plugin's tools come with this skill: they're yours from your next step.)"
+    return f"# Skill: {skill.name}\n\n{render_skill(skill)}{loaded if skill.server else ''}"
+
+
+@register("skills", group="skill-writing")
+@tool
+async def delete_skill(name: str, runtime: ToolRuntime[Context]) -> str:
+    """Delete a skill. The user approves it first."""
+    try:
+        await asyncio.to_thread(store.check, name)
+        skill = await asyncio.to_thread(store.load, name)
+    except SkillError as e:
+        return str(e)
+    if skill.plugin:
+        return (
+            f"{name} was installed by the {skill.plugin} plugin. The user removes it by removing the plugin in the app."
+        )
+    rejection = ask(
+        {"tool": "delete_skill", "reason": "a deleted skill can't be restored", "command": name}, runtime.context
+    )
+    if rejection:
+        return rejection
+    await asyncio.to_thread(store.delete, name)
+    _changed(runtime.context)
+    return f"Deleted skill {name}."
+
+
+@register("skills", subagents=True)
+@tool
+async def list_skills() -> str:
+    """List the saved skills with their descriptions (current, including ones saved in this conversation)."""
+    skills = await asyncio.to_thread(store.list_skills)
+    return "\n".join(f"- {s.name}: {s.description}" for s in skills) or "No skills saved yet."
+
+
+async def _existing(name: str) -> Skill | None:
+    try:
+        return await asyncio.to_thread(store.load, name)
+    except SkillError:
+        return None
+
+
+def _save_request(
+    name: str, description: str, instructions: str, files: dict[str, str] | None, existing: Skill | None
+) -> dict[str, str]:
+    """What the user sees before approving: the whole skill, files included."""
+    action = "replaces the skill" if existing else "a new skill"
+    parts = [f"{name} ({action}): {description.strip()}", instructions.strip()]
+    if files is not None:
+        parts += [f"--- {path} ---\n{content}" for path, content in files.items()]
+    elif existing and existing.files:
+        parts.append(f"Keeps its files: {', '.join(existing.files)}")
+    return {
+        "tool": "save_skill",
+        "reason": "a skill changes what the assistant does in later conversations",
+        "command": "\n\n".join(parts),
+    }
+
+
+def _changed(context: Context) -> None:
+    if context.bus is not None:
+        context.bus.publish("skills")

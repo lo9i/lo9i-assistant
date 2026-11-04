@@ -13,15 +13,15 @@ import pytest
 from langchain_core.messages import BaseMessage, HumanMessage
 from langgraph.store.memory import InMemoryStore
 
-from assistant.core import notifications
-from assistant.core.agent import AssistantService, McpServer, Session
-from assistant.core.agent_tasks.reports import TaskReports
-from assistant.core.background import BackgroundEnds, Ended, Origin
-from assistant.core.conversation import ended, queued
-from assistant.core.conversation.queued import Queued
-from assistant.core.events import ToolFinished
-from assistant.core.mcp import folders
-from assistant.core.mcp.on_demand import OnDemand
+from lo9i.core import notifications
+from lo9i.core.agent import AssistantService, McpServer, Session
+from lo9i.core.agent_tasks.reports import TaskReports
+from lo9i.core.background import BackgroundEnds, Ended, Origin
+from lo9i.core.conversation import ended, queued
+from lo9i.core.conversation.queued import Queued
+from lo9i.core.events import ToolFinished
+from lo9i.core.mcp import folders
+from lo9i.core.mcp.on_demand import OnDemand
 from tests.conftest import collect
 from tests.core.test_handoffs import agent_plugin, asked
 

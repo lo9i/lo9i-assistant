@@ -16,11 +16,11 @@ from websockets.asyncio.client import connect, unix_connect
 from websockets.asyncio.connection import Connection
 from websockets.exceptions import ConnectionClosed, InvalidStatus
 
-from assistant.core.agent import McpServer
-from assistant.core.config import settings
-from assistant.core.mcp import folders
-from assistant.daemon.auth import COOKIE, DeviceStreams
-from assistant.daemon.pages import PORT_OFFSET, create_pages_app
+from lo9i.core.agent import McpServer
+from lo9i.core.config import settings
+from lo9i.core.mcp import folders
+from lo9i.daemon.auth import COOKIE, DeviceStreams
+from lo9i.daemon.pages import PORT_OFFSET, create_pages_app
 
 # Says what it saw, echoes what it gets, and does what some messages ask. Writes how the browser left to
 # the file in argv[2].
@@ -70,7 +70,7 @@ class _Server(uvicorn.Server):
 def short_dir(monkeypatch):
     # Under /tmp: macOS limits socket paths to 104 characters, and pytest's tmp_path is longer.
     folder = Path(tempfile.mkdtemp(dir="/tmp"))
-    monkeypatch.setattr("assistant.core.config.settings.mcp_data_dir", str(folder))
+    monkeypatch.setattr("lo9i.core.config.settings.mcp_data_dir", str(folder))
     yield folder
     shutil.rmtree(folder, ignore_errors=True)
 
@@ -148,7 +148,7 @@ async def test_a_paired_device_talks_to_the_page_both_ways_under_its_prefix(serv
 
 
 async def test_it_stays_open_past_the_time_a_request_gets(service, page, pages_port, monkeypatch):
-    monkeypatch.setattr("assistant.daemon.pages.FIRST_BYTE_SECONDS", 0.1)
+    monkeypatch.setattr("lo9i.daemon.pages.FIRST_BYTE_SECONDS", 0.1)
     _, token = await _paired(service)
     async with _open(pages_port, "/notes/", token, _page_origin()) as ws:
         await _seen(ws)

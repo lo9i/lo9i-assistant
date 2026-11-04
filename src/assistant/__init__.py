@@ -1,3 +1,2 @@
-"""The assistant: the daemon, the core it runs, and the client library. The apps that use it are in
-clients/: the terminal app and the web app. Chat channels (Telegram, Slack) are plugins the daemon runs
-(core/channels/)."""
+"""The package's name before it was lo9i, kept only so what still starts `python -m assistant.daemon` reaches the
+daemon (daemon/__main__.py)."""

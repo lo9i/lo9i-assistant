@@ -10,14 +10,14 @@ import httpx
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
-from assistant.core.agent import Session, VoiceCallError, VoiceChoiceError, VoiceKeyError
-from assistant.core.config import settings
-from assistant.core.llm.choice import ModelChoice
-from assistant.core.voice import key as voice_key
-from assistant.core.voice.heard import Heard, Line
-from assistant.core.voice.realtime import MODEL, OpenAIRealtime, RealtimeError
-from assistant.core.voice.spoken import VOICE_CHANNEL, message, without_spoken
-from assistant.core.voice.tool_calls import KEPT, ToolCalls
+from lo9i.core.agent import Session, VoiceCallError, VoiceChoiceError, VoiceKeyError
+from lo9i.core.config import settings
+from lo9i.core.llm.choice import ModelChoice
+from lo9i.core.voice import key as voice_key
+from lo9i.core.voice.heard import Heard, Line
+from lo9i.core.voice.realtime import MODEL, OpenAIRealtime, RealtimeError
+from lo9i.core.voice.spoken import VOICE_CHANNEL, message, without_spoken
+from lo9i.core.voice.tool_calls import KEPT, ToolCalls
 from tests.conftest import collect
 from tests.core.fake_realtime import GOOD_KEY, FakeRealtime
 

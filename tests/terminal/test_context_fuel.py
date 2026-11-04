@@ -1,8 +1,8 @@
 """How full the conversation's context is, in the footer, as the web app's status bar shows it."""
 
-from assistant.core.agent import ConversationStats
-from assistant_terminal.context_text import UNKNOWN, compact, detail, fuel
-from assistant_terminal.tui.widgets import ContextFuel
+from lo9i.core.agent import ConversationStats
+from lo9i_terminal.context_text import UNKNOWN, compact, detail, fuel
+from lo9i_terminal.tui.widgets import ContextFuel
 from tests.terminal.conftest import wait_for
 
 

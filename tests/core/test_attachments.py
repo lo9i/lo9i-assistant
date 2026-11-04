@@ -6,7 +6,7 @@ from typing import Any, cast
 import pytest
 from langchain_core.messages import AIMessage, ToolMessage
 
-from assistant.core.attachments import Attachment, hydrate, reference
+from lo9i.core.attachments import Attachment, hydrate, reference
 
 
 @pytest.mark.parametrize("images_in_tool_results", [True, False])

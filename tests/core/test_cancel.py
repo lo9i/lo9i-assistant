@@ -5,7 +5,7 @@ import os
 
 from langchain_core.messages import ToolMessage
 
-from assistant.core.events import Cancelled
+from lo9i.core.events import Cancelled
 from tests.conftest import collect, written
 
 

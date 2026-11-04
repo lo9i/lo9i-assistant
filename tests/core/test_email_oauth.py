@@ -8,9 +8,9 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-from assistant.core.agent import EmailAccount, EmailError, SignInError
-from assistant.core.integrations.email import accounts, imap, oauth, smtp
-from assistant.core.integrations.email.accounts import EmailConfig
+from lo9i.core.agent import EmailAccount, EmailError, SignInError
+from lo9i.core.integrations.email import accounts, imap, oauth, smtp
+from lo9i.core.integrations.email.accounts import EmailConfig
 
 REDIRECT = "https://board.ts.net:8443/app/oauth"
 
@@ -154,7 +154,7 @@ async def test_smtp_and_imap_log_in_with_the_token(monkeypatch):
 
 
 async def _secret(service, account_id: str) -> str:
-    from assistant.core import accounts as core_accounts
+    from lo9i.core import accounts as core_accounts
 
     account = await core_accounts.get(service.store, "email", account_id)
     assert account is not None
@@ -162,7 +162,7 @@ async def _secret(service, account_id: str) -> str:
 
 
 async def _save_secret(service, account_id: str, text: str) -> None:
-    from assistant.core import accounts as core_accounts
+    from lo9i.core import accounts as core_accounts
 
     account = await core_accounts.get(service.store, "email", account_id)
     assert account is not None

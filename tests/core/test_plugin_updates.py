@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from assistant.core.agent import PluginUpdate
-from assistant.core.repositories.known import EXTRAS
+from lo9i.core.agent import PluginUpdate
+from lo9i.core.repositories.known import EXTRAS
 from tests.core.test_repositories import HELLO, REMOTE, repo  # noqa: F401 (a fixture, used by `extras`)
 
 

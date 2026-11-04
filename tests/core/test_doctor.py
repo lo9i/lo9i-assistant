@@ -10,26 +10,26 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.types import StateSnapshot
 
-from assistant.core import conversations, notifications
-from assistant.core.config import settings
-from assistant.core.conversation.turn_header import header_block
-from assistant.core.conversations import Conversation
-from assistant.core.doctor import conversation_causes, records
-from assistant.core.doctor.causes import Occurrence, group
-from assistant.core.doctor.changes import CONTEXT_ALERT
-from assistant.core.doctor.clock import day_of
-from assistant.core.doctor.context import CORE_TOOLS
-from assistant.core.doctor.model import ThreadRef
-from assistant.core.jobs import store as jobs
-from assistant.core.jobs.store import Job, RunRecord
-from assistant.core.logs import LOG_FILES
-from assistant.core.memory import facts, profile
+from lo9i.core import conversations, notifications
+from lo9i.core.config import settings
+from lo9i.core.conversation.turn_header import header_block
+from lo9i.core.conversations import Conversation
+from lo9i.core.doctor import conversation_causes, records
+from lo9i.core.doctor.causes import Occurrence, group
+from lo9i.core.doctor.changes import CONTEXT_ALERT
+from lo9i.core.doctor.clock import day_of
+from lo9i.core.doctor.context import CORE_TOOLS
+from lo9i.core.doctor.model import ThreadRef
+from lo9i.core.jobs import store as jobs
+from lo9i.core.jobs.store import Job, RunRecord
+from lo9i.core.logs import LOG_FILES
+from lo9i.core.memory import facts, profile
 from tests.conftest import collect
 
 OWNER = settings.owner_id
 DAY = date(2026, 10, 24)
 NEXT = DAY + timedelta(days=1)
-HUB = "/home/me/lo9i/src/assistant/core/mcp/hub.py"
+HUB = "/home/me/lo9i/src/lo9i/core/mcp/hub.py"
 
 
 def _at(day: date, hour: int, minute: int = 0) -> datetime:
@@ -51,7 +51,7 @@ def _failed(at: datetime, error: str, path: str = HUB, function: str = "_connect
         "    raise error\n"
         f"{error}"
     )
-    return _record(at, "ERROR", "assistant.core.mcp.hub", traceback)
+    return _record(at, "ERROR", "lo9i.core.mcp.hub", traceback)
 
 
 def _write(name: str, *records: str) -> None:
@@ -70,9 +70,9 @@ async def test_the_days_log_records_are_grouped_by_cause(service):
         "daemon",
         _failed(_at(DAY - timedelta(days=1), 23), "ConnectionError: attempt 9 failed"),
         _failed(_at(DAY, 9), "ConnectionError: attempt 1 failed"),
-        _record(_at(DAY, 9, 30), "INFO", "assistant.daemon.server", "Daemon ready"),
+        _record(_at(DAY, 9, 30), "INFO", "lo9i.daemon.server", "Daemon ready"),
         _failed(_at(DAY, 10), "ConnectionError: attempt 2 failed"),
-        _record(_at(DAY, 10, 30), "WARNING", "assistant.core.channels.telegram", "Poll failed (retry 5)"),
+        _record(_at(DAY, 10, 30), "WARNING", "lo9i.core.channels.telegram", "Poll failed (retry 5)"),
         _failed(_at(DAY, 11), "ConnectionError: attempt 3 failed"),
     )
     # errors.log keeps the same errors: each counts once.
@@ -81,13 +81,13 @@ async def test_the_days_log_records_are_grouped_by_cause(service):
     causes = _by_title(report)
     assert set(causes) == {"ConnectionError: attempt 3 failed", "Poll failed (retry 5)"}
     failing = causes["ConnectionError: attempt 3 failed"]
-    assert (failing.count, failing.level, failing.where) == (3, "ERROR", "assistant/core/mcp/hub.py in _connect")
+    assert (failing.count, failing.level, failing.where) == (3, "ERROR", "lo9i/core/mcp/hub.py in _connect")
     # The same instants, in whichever time zone the records are read in.
     assert datetime.fromisoformat(failing.first) == _at(DAY, 9)
     assert datetime.fromisoformat(failing.last) == _at(DAY, 11)
     assert "Couldn't connect to notes" in failing.example
     polling = causes["Poll failed (retry 5)"]
-    assert (polling.count, polling.level, polling.where) == (1, "WARNING", "assistant.core.channels.telegram")
+    assert (polling.count, polling.level, polling.where) == (1, "WARNING", "lo9i.core.channels.telegram")
 
 
 async def test_a_cause_is_new_or_growing_against_the_day_before_and_gone_once_it_stops(service):
@@ -124,7 +124,7 @@ async def test_a_cause_is_new_or_growing_against_the_day_before_and_gone_once_it
 async def test_known_noise_is_left_out_until_it_is_forgotten(service):
     _write(
         "daemon",
-        _record(_at(DAY, 9), "WARNING", "assistant.core.channels.telegram", "Poll failed (retry 1)"),
+        _record(_at(DAY, 9), "WARNING", "lo9i.core.channels.telegram", "Poll failed (retry 1)"),
         _failed(_at(DAY, 10), "ConnectionError: refused"),
     )
     report = await service.doctor.check(OWNER, DAY, whole_day=True)

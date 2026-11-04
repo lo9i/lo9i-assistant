@@ -12,9 +12,9 @@ from zoneinfo import ZoneInfo
 import httpx
 import pytest
 
-from assistant.client.daemon_client import DaemonClient
-from assistant.core import conversations, notifications
-from assistant.core.agent import (
+from lo9i.client.daemon_client import DaemonClient
+from lo9i.core import conversations, notifications
+from lo9i.core.agent import (
     ConversationError,
     HomeSection,
     HomeSectionsError,
@@ -26,25 +26,25 @@ from assistant.core.agent import (
     ShownStep,
     SpeechSettingsError,
 )
-from assistant.core.attachments import Attachment
-from assistant.core.config import settings
-from assistant.core.conversation import held, queued
-from assistant.core.conversation.dispatch import Pick
-from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
-from assistant.core.conversation.queued import Queued
-from assistant.core.conversations import Conversation
-from assistant.core.events import ApprovalRequired, Cancelled, Dispatched, Done, ToolFinished
-from assistant.core.home import results
-from assistant.core.internet import brave_key
-from assistant.core.logs import LogWriter, log_sources
-from assistant.core.mcp import servers
-from assistant.core.speech.heard import HeardOnce
-from assistant.core.usage.limits import SpendingLimits, SpendingLimitsError
-from assistant.daemon.api import create_app
-from assistant.daemon.auth import trusted
-from assistant.daemon.runs import RunHub
-from assistant.daemon.shutdown import Ending, Pending
-from assistant.protocol import (
+from lo9i.core.attachments import Attachment
+from lo9i.core.config import settings
+from lo9i.core.conversation import held, queued
+from lo9i.core.conversation.dispatch import Pick
+from lo9i.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
+from lo9i.core.conversation.queued import Queued
+from lo9i.core.conversations import Conversation
+from lo9i.core.events import ApprovalRequired, Cancelled, Dispatched, Done, ToolFinished
+from lo9i.core.home import results
+from lo9i.core.internet import brave_key
+from lo9i.core.logs import LogWriter, log_sources
+from lo9i.core.mcp import servers
+from lo9i.core.speech.heard import HeardOnce
+from lo9i.core.usage.limits import SpendingLimits, SpendingLimitsError
+from lo9i.daemon.api import create_app
+from lo9i.daemon.auth import trusted
+from lo9i.daemon.runs import RunHub
+from lo9i.daemon.shutdown import Ending, Pending
+from lo9i.protocol import (
     CLIENT_HEADER,
     CLIENT_ID_HEADER,
     LANGUAGE_HEADER,
@@ -492,12 +492,12 @@ async def test_notifications_are_listed_read_and_dismissed(client, service):
 
 
 async def test_the_health_check_runs_on_demand_and_known_noise_is_marked(client, service):
-    from assistant.core.logs import LOG_FILES
+    from lo9i.core.logs import LOG_FILES
 
     path = LOG_FILES["daemon"].path()
     path.parent.mkdir(parents=True, exist_ok=True)
     local = datetime.now().astimezone()
-    path.write_text(f"{local:%Y-%m-%d %H:%M:%S},000 WARNING assistant.core.channels.telegram: Poll failed\n")
+    path.write_text(f"{local:%Y-%m-%d %H:%M:%S},000 WARNING lo9i.core.channels.telegram: Poll failed\n")
     assert (await client.doctor.get()).report is None
     assert (await client.doctor.check()).checking
     await service.doctor.wait()
@@ -515,8 +515,8 @@ async def test_the_health_check_runs_on_demand_and_known_noise_is_marked(client,
 
 
 async def test_a_job_runs_reply_is_read_and_a_missing_run_is_a_job_error(client, service):
-    from assistant.core.jobs import store
-    from assistant.core.jobs.store import Job, JobError, RunRecord
+    from lo9i.core.jobs import store
+    from lo9i.core.jobs.store import Job, JobError, RunRecord
 
     at = "2026-10-24T09:00:00+00:00"
     job = Job("news", "owner", "0 9 * * *", "UTC", "Read the news.", at)
@@ -671,7 +671,7 @@ async def test_a_profile_edit_with_an_unknown_section_or_too_many_items_is_422(a
 
 
 async def test_the_about_you_step_goes_to_the_profile(client, app):
-    from assistant.core.agent import AboutYou, MemoryEditError
+    from lo9i.core.agent import AboutYou, MemoryEditError
 
     assert (await client.memory.about_you()).needed
     assert await client.memory.save_about_you(AboutYou("Ana", "Spanish", "short", other_help="taxes")) == []
@@ -708,9 +708,9 @@ async def test_a_message_to_the_agent_is_edited_or_taken_back_only_while_it_wait
 
 
 async def test_skills_and_usage_endpoints(client, script, isolated_settings, monkeypatch):
-    from assistant.core.agent import SkillError
-    from assistant.core.config import settings
-    from assistant.core.skills import store as skills
+    from lo9i.core.agent import SkillError
+    from lo9i.core.config import settings
+    from lo9i.core.skills import store as skills
 
     monkeypatch.setattr(settings, "skills_dir", str(isolated_settings / "skills"))
     skills.save("news-digest", "Daily news", "1. Search")
@@ -729,8 +729,8 @@ async def test_skills_and_usage_endpoints(client, script, isolated_settings, mon
 
 
 async def test_a_conversation_is_handed_to_an_agent_and_back(client, service, tmp_path):
-    from assistant.core.agent import HandoffError
-    from assistant.core.mcp.servers import McpServer
+    from lo9i.core.agent import HandoffError
+    from lo9i.core.mcp.servers import McpServer
 
     await service.add_mcp_server(
         McpServer(
@@ -760,7 +760,7 @@ async def test_a_conversation_is_handed_to_an_agent_and_back(client, service, tm
 
 
 async def test_the_folders_inside_one_are_listed_to_browse_to(client, tmp_path):
-    from assistant.core.agent import FolderError
+    from lo9i.core.agent import FolderError
 
     root = tmp_path / "browsed"
     (root / "project").mkdir(parents=True)
@@ -771,10 +771,10 @@ async def test_the_folders_inside_one_are_listed_to_browse_to(client, tmp_path):
 
 
 async def test_facts_and_episodes_are_edited_and_deleted(client, service):
-    from assistant.core.agent import MemoryEditError, MemoryNotFoundError
-    from assistant.core.config import settings
-    from assistant.core.memory import episodes, facts
-    from assistant.core.memory.episodes import Episode
+    from lo9i.core.agent import MemoryEditError, MemoryNotFoundError
+    from lo9i.core.config import settings
+    from lo9i.core.memory import episodes, facts
+    from lo9i.core.memory.episodes import Episode
 
     fact_id = await facts.add(service.store, settings.owner_id, "likes jazz")
     await episodes.save(service.store, settings.owner_id, Episode("2026-10-01T09:00", "2026-10-01T10:00", "A trip"))
@@ -792,8 +792,8 @@ async def test_facts_and_episodes_are_edited_and_deleted(client, service):
 
 
 async def test_skills_from_other_agents_are_listed_and_imported(client, service, tmp_path, monkeypatch):
-    from assistant.core.config import settings
-    from assistant.core.conversation import agent_folders
+    from lo9i.core.config import settings
+    from lo9i.core.conversation import agent_folders
 
     home, project = tmp_path / "home", tmp_path / "project"
     for folder, name in (
@@ -817,9 +817,9 @@ async def test_skills_from_other_agents_are_listed_and_imported(client, service,
 
 
 async def test_skills_are_pinned_to_a_conversation(client, isolated_settings, monkeypatch):
-    from assistant.core.agent import SkillError
-    from assistant.core.config import settings
-    from assistant.core.skills import store as skills
+    from lo9i.core.agent import SkillError
+    from lo9i.core.config import settings
+    from lo9i.core.skills import store as skills
 
     monkeypatch.setattr(settings, "skills_dir", str(isolated_settings / "skills"))
     skills.save("coding", "Programming help", "Run the tests.")
@@ -834,8 +834,8 @@ async def test_skills_are_pinned_to_a_conversation(client, isolated_settings, mo
 async def test_skills_and_servers_are_installed_from_a_repository_and_updated(client, isolated_settings, monkeypatch):
     import shutil
 
-    from assistant.core.agent import McpServerError, RepositoryError, ServerValues, SkillError
-    from assistant.core.repositories import checkout
+    from lo9i.core.agent import McpServerError, RepositoryError, ServerValues, SkillError
+    from lo9i.core.repositories import checkout
 
     remote = isolated_settings / "remote"
     (remote / "other" / "general" / "expenses" / "scripts").mkdir(parents=True)
@@ -873,8 +873,8 @@ async def test_skills_and_servers_are_installed_from_a_repository_and_updated(cl
 
 
 async def test_repositories_are_added_listed_and_removed(client, monkeypatch):
-    from assistant.core.agent import RepositoryError
-    from assistant.core.repositories import contents
+    from lo9i.core.agent import RepositoryError
+    from lo9i.core.repositories import contents
 
     async def browse(store, url, token=""):
         if "broken" in url:
@@ -906,7 +906,7 @@ async def test_plugin_update_routes(client):
 
 
 async def test_prompt_texts_are_listed_edited_and_reset(client):
-    from assistant.core.agent import PromptEditError, UnknownPromptError
+    from lo9i.core.agent import PromptEditError, UnknownPromptError
 
     listed = await client.prompts.list()
     assert [s.name for s in listed] == ["persona", "operating", "channels"]
@@ -948,7 +948,7 @@ async def test_mcp_servers_through_the_client(client, service, monkeypatch, isol
     from mcp import Client
     from mcp.server import MCPServer
 
-    from assistant.core.agent import McpServer, McpServerChanges, McpServerError
+    from lo9i.core.agent import McpServer, McpServerChanges, McpServerError
 
     fake = MCPServer("notes")
 
@@ -980,8 +980,8 @@ async def test_mcp_servers_through_the_client(client, service, monkeypatch, isol
 async def test_a_plugins_sign_in_through_the_client(client, service):
     from urllib.parse import parse_qs, urlparse
 
-    from assistant.core.agent import McpServer, McpServerError
-    from assistant.core.mcp import keys, plugin_oauth
+    from lo9i.core.agent import McpServer, McpServerError
+    from lo9i.core.mcp import keys, plugin_oauth
 
     drive = McpServer(
         "drive",
@@ -1011,8 +1011,8 @@ async def test_a_plugins_sign_in_through_the_client(client, service):
 async def test_the_model_through_the_client(client, monkeypatch):
     from langchain_core.messages import AIMessage
 
-    import assistant.core.agent.model as model_module
-    from assistant.core.agent import ModelSettingsError
+    import lo9i.core.agent.model as model_module
+    from lo9i.core.agent import ModelSettingsError
 
     class _Answers:
         async def ainvoke(self, messages, config=None):
@@ -1034,7 +1034,7 @@ async def test_the_model_through_the_client(client, monkeypatch):
 
 
 async def test_a_conversation_a_client_is_on_cant_be_deleted(client, service):
-    from assistant.core.agent import ConversationError
+    from lo9i.core.agent import ConversationError
 
     session = await _new_session(client)
     await collect(client.send(session, "hello"))
@@ -1048,7 +1048,7 @@ async def test_a_conversation_a_client_is_on_cant_be_deleted(client, service):
 
 
 async def test_files_through_the_client(client):
-    from assistant.core.attachments import Attachment
+    from lo9i.core.attachments import Attachment
 
     session = await _new_session(client)
     await collect(client.send(session, "read this", [Attachment("notes.txt", "text/plain", b"buy milk")]))
@@ -1057,7 +1057,7 @@ async def test_files_through_the_client(client):
     assert await client.files.content(listed) == b"buy milk"
     from dataclasses import replace
 
-    from assistant.core.agent import FileUnavailableError
+    from lo9i.core.agent import FileUnavailableError
 
     with pytest.raises(FileUnavailableError):
         await client.files.content(replace(listed, path="../../lo9i.db"))
@@ -1167,8 +1167,8 @@ async def test_a_step_inside_a_delegate_call_loads_in_full_through_the_client(cl
 
 
 async def test_kept_keys_are_listed_and_deleted_through_the_client(client, service):
-    from assistant.core.agent import KeptKeys
-    from assistant.core.mcp import keys
+    from lo9i.core.agent import KeptKeys
+    from lo9i.core.mcp import keys
 
     await keys.put(service.store, service.secrets, "hello", keys.Keys({"HELLO_TOKEN": "s3cret"}))
     assert await client.repositories.kept_keys() == [KeptKeys("hello", ["HELLO_TOKEN"])]

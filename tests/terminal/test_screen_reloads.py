@@ -4,8 +4,8 @@ only (AssistantApp.reload_screen)."""
 import inspect
 from typing import cast
 
-from assistant_terminal.tui import screens
-from assistant_terminal.tui.live import LiveApp, handlers
+from lo9i_terminal.tui import screens
+from lo9i_terminal.tui.live import LiveApp, handlers
 
 
 class _App:

@@ -3,7 +3,7 @@ from dataclasses import replace
 
 from textual.widgets import Button, Checkbox, Input, Markdown, OptionList
 
-from assistant.core.agent import (
+from lo9i.core.agent import (
     FoundServer,
     PluginFieldValue,
     PluginSettings,
@@ -14,11 +14,11 @@ from assistant.core.agent import (
     ServerField,
     UpdateNeedsValuesError,
 )
-from assistant.core.repositories.known import EXTRAS
-from assistant_terminal.plugins_text import Plugin, by_category, describe, from_repositories, missing_fields
-from assistant_terminal.tui.screens import PluginSettingsScreen, PluginsSection
-from assistant_terminal.tui.screens.confirm import ConfirmWithOptionScreen
-from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen, _field_input
+from lo9i.core.repositories.known import EXTRAS
+from lo9i_terminal.plugins_text import Plugin, by_category, describe, from_repositories, missing_fields
+from lo9i_terminal.tui.screens import PluginSettingsScreen, PluginsSection
+from lo9i_terminal.tui.screens.confirm import ConfirmWithOptionScreen
+from lo9i_terminal.tui.screens.repository_install import RepositoryInstallScreen, _field_input
 from tests.terminal.conftest import _mcp_status, wait_for, wait_for_section
 
 
@@ -149,8 +149,8 @@ def test_a_value_the_daemon_already_has_may_be_left_empty():
 
 
 def test_an_optional_field_and_the_shared_copilot_login_are_explained():
-    from assistant.core.agent import RepositoryContents
-    from assistant_terminal.tui.screens.repository_install import _guide
+    from lo9i.core.agent import RepositoryContents
+    from lo9i_terminal.tui.screens.repository_install import _guide
 
     token = ServerField("CLAUDE_TOKEN", "Claude token", secret=True, optional=True)
     coder = FoundServer(
@@ -170,7 +170,7 @@ def test_an_optional_field_and_the_shared_copilot_login_are_explained():
 async def test_updates_lists_the_newer_plugins_and_updates_the_picked_ones(app, client):
     from textual.widgets import SelectionList
 
-    from assistant_terminal.tui.screens.plugin_updates import PluginUpdatesScreen
+    from lo9i_terminal.tui.screens.plugin_updates import PluginUpdatesScreen
     from tests.terminal.conftest import _mcp_status
 
     updated = []
@@ -198,7 +198,7 @@ async def test_updates_lists_the_newer_plugins_and_updates_the_picked_ones(app, 
 
 
 async def test_repositories_are_added_and_removed_and_their_plugins_listed(app, client):
-    from assistant_terminal.tui.screens.repositories import RepositoriesScreen
+    from lo9i_terminal.tui.screens.repositories import RepositoriesScreen
 
     mine = "https://github.com/me/plugins"
     client.repositories.mine = [FoundServer("journal", "My journal", "stdio", [], False, category="other/general")]
@@ -232,7 +232,7 @@ async def test_a_repository_that_cant_be_read_is_told(app, client):
 
 
 async def test_a_private_repository_is_added_with_its_token(app, client):
-    from assistant_terminal.tui.screens.repositories import RepositoriesScreen
+    from lo9i_terminal.tui.screens.repositories import RepositoriesScreen
 
     private = "https://github.com/me/private"
     async with app.run_test(size=(120, 44)) as pilot:
@@ -250,7 +250,7 @@ async def test_a_private_repository_is_added_with_its_token(app, client):
 
 
 async def test_removing_a_plugin_asks_whether_to_keep_its_keys(app, client):
-    from assistant_terminal.tui.screens.kept_keys import KeptKeysScreen
+    from lo9i_terminal.tui.screens.kept_keys import KeptKeysScreen
 
     client.mcp.keeps_keys = True
     client.mcp.items["weather"] = client.mcp.items["notes"]
@@ -306,7 +306,7 @@ async def test_a_check_that_cant_reach_the_repositories_keeps_the_list_from_the_
 def test_the_last_check_is_the_oldest_and_none_while_one_never_was():
     from datetime import UTC, datetime
 
-    from assistant_terminal.plugins_text import checked_line, last_checked
+    from lo9i_terminal.plugins_text import checked_line, last_checked
 
     extras = Repository(EXTRAS, "lo9i/lo9i-assistant-extras", True)
     older, newer = "2030-01-01T09:00:00+00:00", "2030-01-01T10:00:00+00:00"
@@ -349,8 +349,8 @@ async def test_only_changes_to_plugins_read_them_again_and_an_error_is_told_once
 
 
 async def test_reading_the_plugins_again_doesnt_hold_up_the_other_events(app, client):
-    from assistant.core.events import Done, TextDelta
-    from assistant_terminal.tui.widgets import AssistantMessage
+    from lo9i.core.events import Done, TextDelta
+    from lo9i_terminal.tui.widgets import AssistantMessage
 
     # Set while the list reads at once; cleared, the next read waits.
     reading = asyncio.Event()
@@ -439,8 +439,8 @@ def test_an_update_asks_for_the_new_versions_fields_the_installed_one_has_no_val
 
 
 async def test_updates_ask_for_a_value_the_new_version_needs_then_update_with_it(app, client):
-    from assistant_terminal.tui.screens.plugin_updates import PluginUpdatesScreen
-    from assistant_terminal.tui.screens.update_values import UpdateValuesScreen
+    from lo9i_terminal.tui.screens.plugin_updates import PluginUpdatesScreen
+    from lo9i_terminal.tui.screens.update_values import UpdateValuesScreen
 
     calls = []
 

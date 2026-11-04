@@ -4,8 +4,8 @@ from dataclasses import replace
 
 from textual.widgets import OptionList
 
-from assistant_terminal.paging import PAGE_MAX, Pages
-from assistant_terminal.tui.screens import FilesScreen, NotificationsScreen
+from lo9i_terminal.paging import PAGE_MAX, Pages
+from lo9i_terminal.tui.screens import FilesScreen, NotificationsScreen
 from tests.terminal.conftest import wait_for
 
 

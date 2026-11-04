@@ -4,13 +4,13 @@ a channel's chat or a job's run left to whoever shows it there."""
 
 import asyncio
 
-from assistant.core.agent import Session
-from assistant.core.conversation import held
-from assistant.core.conversation.held import HeldRun, Origin
-from assistant.core.events import Dispatched
-from assistant.daemon.held import HeldRuns
-from assistant.daemon.runs import RunHub
-from assistant.protocol import event_from_dict
+from lo9i.core.agent import Session
+from lo9i.core.conversation import held
+from lo9i.core.conversation.held import HeldRun, Origin
+from lo9i.core.events import Dispatched
+from lo9i.daemon.held import HeldRuns
+from lo9i.daemon.runs import RunHub
+from lo9i.protocol import event_from_dict
 from tests.conftest import collect
 
 

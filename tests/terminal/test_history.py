@@ -2,9 +2,9 @@
 
 from textual.widgets import Input
 
-from assistant_terminal.history import History
-from assistant_terminal.tui.command_menu import CommandMenu
-from assistant_terminal.tui.widgets import SystemNote
+from lo9i_terminal.history import History
+from lo9i_terminal.tui.command_menu import CommandMenu
+from lo9i_terminal.tui.widgets import SystemNote
 from tests.terminal.conftest import wait_for
 
 

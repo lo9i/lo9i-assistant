@@ -5,12 +5,12 @@ import subprocess
 import httpx
 import pytest
 
-from assistant.client.daemon_client import DaemonClient
-from assistant.core.agent import DeletingOffError, HandedFolderError, MissingPathError, Session
-from assistant.daemon.api import create_app
-from assistant.daemon.auth import trusted
-from assistant.daemon.runs import RunHub
-from assistant.protocol import CLIENT_HEADER
+from lo9i.client.daemon_client import DaemonClient
+from lo9i.core.agent import DeletingOffError, HandedFolderError, MissingPathError, Session
+from lo9i.daemon.api import create_app
+from lo9i.daemon.auth import trusted
+from lo9i.daemon.runs import RunHub
+from lo9i.protocol import CLIENT_HEADER
 from tests.core.test_handoffs import agent_plugin
 
 

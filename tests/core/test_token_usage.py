@@ -9,11 +9,11 @@ from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, Sys
 from langchain_core.messages.ai import UsageMetadata
 from langchain_core.outputs import ChatGenerationChunk
 
-import assistant.core.graph as graph_module
-from assistant.core.agent import Session
-from assistant.core.config import settings
-from assistant.core.usage import prices
-from assistant.core.usage.tokens import active_skill, input_parts, job_of, output_parts
+import lo9i.core.graph as graph_module
+from lo9i.core.agent import Session
+from lo9i.core.config import settings
+from lo9i.core.usage import prices
+from lo9i.core.usage.tokens import active_skill, input_parts, job_of, output_parts
 from tests.conftest import Script, ScriptedModel, collect
 
 
@@ -101,8 +101,8 @@ async def test_a_call_without_reported_usage_is_estimated(service, script):
 
 
 async def test_titles_are_recorded_as_titles_outside_any_conversation(service, monkeypatch):
-    import assistant.core.conversation.titles as titles_module
-    from assistant.core.llm.choice import ModelChoice
+    import lo9i.core.conversation.titles as titles_module
+    from lo9i.core.llm.choice import ModelChoice
 
     script = Script()
     script.reply("Trip to Rome\nTags: rome", usage_metadata=_usage(300, 5))
@@ -129,7 +129,7 @@ class _Streaming(ScriptedModel):
 
 
 async def test_metered_replies_still_stream_and_record_the_streamed_usage(service, monkeypatch):
-    from assistant.core.events import TextDelta
+    from lo9i.core.events import TextDelta
 
     script = Script()
     script.reply("hello there")

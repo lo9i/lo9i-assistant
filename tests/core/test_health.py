@@ -9,17 +9,17 @@ import pytest
 from mcp import Client
 from mcp.server import MCPServer
 
-from assistant.core.agent import AssistantService, McpServer, McpServerChanges
-from assistant.core.health import FAILING_AFTER
-from assistant.core.mcp import hub as hub_module
-from assistant.core.skills import store
-from assistant.core.skills.errors import SkillError
+from lo9i.core.agent import AssistantService, McpServer, McpServerChanges
+from lo9i.core.health import FAILING_AFTER
+from lo9i.core.mcp import hub as hub_module
+from lo9i.core.skills import store
+from lo9i.core.skills.errors import SkillError
 from tests.conftest import collect
 
 
 @pytest.fixture
 def skills_dir(isolated_settings, monkeypatch):
-    monkeypatch.setattr("assistant.core.config.settings.skills_dir", str(isolated_settings / "skills"))
+    monkeypatch.setattr("lo9i.core.config.settings.skills_dir", str(isolated_settings / "skills"))
     return isolated_settings / "skills"
 
 

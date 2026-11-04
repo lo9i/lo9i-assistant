@@ -4,10 +4,10 @@ once and kept; EPOCH_MAX_TOKENS where it isn't known. Compaction doesn't follow 
 from datetime import date
 from typing import Any
 
-from assistant.core.config import settings
-from assistant.core.llm import copilot
-from assistant.core.llm.choice import ModelChoice
-from assistant.core.llm.windows import ContextWindows
+from lo9i.core.config import settings
+from lo9i.core.llm import copilot
+from lo9i.core.llm.choice import ModelChoice
+from lo9i.core.llm.windows import ContextWindows
 from tests.conftest import collect
 
 OPUS = ModelChoice("anthropic", "claude-opus-5-5", "claude-sonnet-5-5")

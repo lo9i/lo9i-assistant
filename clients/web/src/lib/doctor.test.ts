@@ -7,7 +7,7 @@ const cause: Cause = {
   kind: "log",
   level: "ERROR",
   title: "ConnectionError: refused",
-  where: "assistant/core/mcp/hub.py in _connect",
+  where: "lo9i/core/mcp/hub.py in _connect",
   count: 3,
   first: "2026-10-24T09:00:00+00:00",
   last: "2026-10-24T11:00:00+00:00",

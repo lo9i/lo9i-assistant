@@ -19,7 +19,7 @@ DIR="${2:-lo9i-assistant}"
 
 build_web_ui
 # The commit this copy comes from, which the host's Settings → System shows as its version (daemon/updates.py).
-uv run --quiet python -m assistant.daemon.updates
+uv run --quiet python -m lo9i.daemon.updates
 # Not .git: the host runs the files, not the repository, and from a worktree .git is a file pointing at
 # this computer, which breaks git (installing plugins) in the daemon's folder on the host.
 rsync -az --delete \

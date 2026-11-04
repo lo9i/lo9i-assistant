@@ -1,4 +1,4 @@
-from assistant.core.integrations.email import oauth
+from lo9i.core.integrations.email import oauth
 
 
 def _sign_in(address):

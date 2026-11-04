@@ -3,8 +3,8 @@ confirming."""
 
 from textual.widgets import Button, Markdown
 
-from assistant.client import clipboard
-from assistant_terminal.tui.screens import ConfirmScreen, DevicesScreen
+from lo9i.client import clipboard
+from lo9i_terminal.tui.screens import ConfirmScreen, DevicesScreen
 from tests.terminal.conftest import wait_for
 
 

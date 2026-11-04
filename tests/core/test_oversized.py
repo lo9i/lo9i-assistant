@@ -15,21 +15,21 @@ from langchain_core.exceptions import ContextOverflowError
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from PIL import Image
 
-from assistant.core import images
-from assistant.core.attachments import Attachment, hydrate, reference
-from assistant.core.conversation import digest as digest_module
-from assistant.core.conversation import summary as summary_module
-from assistant.core.conversation.digest import DigestInput, MemoryDigest, build_digester
-from assistant.core.conversation.oversized import ConversationTooLargeError, within_size
-from assistant.core.conversation.summary import build_summarizer
-from assistant.core.conversation.transcript import halves
-from assistant.core.conversation.trim import trimmed
-from assistant.core.events import Error
-from assistant.core.llm.choice import ModelChoice
-from assistant.core.llm.errors import too_large
-from assistant.core.memory.facts import Fact
-from assistant.core.memory.profile import Profile
-from assistant.core.subagent import TOO_LARGE
+from lo9i.core import images
+from lo9i.core.attachments import Attachment, hydrate, reference
+from lo9i.core.conversation import digest as digest_module
+from lo9i.core.conversation import summary as summary_module
+from lo9i.core.conversation.digest import DigestInput, MemoryDigest, build_digester
+from lo9i.core.conversation.oversized import ConversationTooLargeError, within_size
+from lo9i.core.conversation.summary import build_summarizer
+from lo9i.core.conversation.transcript import halves
+from lo9i.core.conversation.trim import trimmed
+from lo9i.core.events import Error
+from lo9i.core.llm.choice import ModelChoice
+from lo9i.core.llm.errors import too_large
+from lo9i.core.memory.facts import Fact
+from lo9i.core.memory.profile import Profile
+from lo9i.core.subagent import TOO_LARGE
 from tests.conftest import collect
 
 _LONG = "python3 -c \"print('x' * 3000)\""

@@ -1,6 +1,6 @@
 from textual.widgets import Button, Markdown, OptionList
 
-from assistant_terminal.tui.screens import ConfirmScreen, JobsScreen
+from lo9i_terminal.tui.screens import ConfirmScreen, JobsScreen
 from tests.terminal.conftest import wait_for
 
 
@@ -61,7 +61,7 @@ async def test_refreshes_when_a_job_changes(app, client):
 
 
 def test_schedules_read_as_words():
-    from assistant_terminal.jobs_text import frequency
+    from lo9i_terminal.jobs_text import frequency
 
     assert frequency("0 9 * * *") == "At 09:00, every day"
     assert frequency("*/15 * * * *") == "Every 15 minutes"

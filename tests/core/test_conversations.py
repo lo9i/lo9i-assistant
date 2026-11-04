@@ -4,9 +4,9 @@ import asyncio
 
 import pytest
 
-from assistant.core import conversations
-from assistant.core.agent import ConversationError, Session
-from assistant.core.context import UNATTENDED_CHANNEL
+from lo9i.core import conversations
+from lo9i.core.agent import ConversationError, Session
+from lo9i.core.context import UNATTENDED_CHANNEL
 from tests.conftest import collect
 
 
@@ -188,7 +188,7 @@ async def test_conversations_saved_before_the_list_are_indexed(service, script):
 
 
 def test_a_model_reply_becomes_a_clean_title_and_tags():
-    from assistant.core.conversation.titles import Titled, _parse
+    from lo9i.core.conversation.titles import Titled, _parse
 
     assert _parse('\n"Trip to Rome."\nTags: Rome,  hotel booking , viaje,') == Titled(
         "Trip to Rome", ["rome", "hotel booking", "viaje"]
@@ -197,7 +197,7 @@ def test_a_model_reply_becomes_a_clean_title_and_tags():
 
 
 async def test_deleting_removes_the_messages_the_listing_and_the_files(service, script, isolated_settings):
-    from assistant.core.attachments import Attachment
+    from lo9i.core.attachments import Attachment
     from tests.core.test_speech import FakeTranscriber
 
     service._transcriber = FakeTranscriber()
@@ -216,7 +216,7 @@ async def test_deleting_removes_the_messages_the_listing_and_the_files(service, 
 
 
 async def test_deleting_an_unknown_or_busy_conversation_is_refused(service):
-    from assistant.core.agent import ConversationBusyError
+    from lo9i.core.agent import ConversationBusyError
 
     with pytest.raises(ConversationError, match="No conversation"):
         await service.delete_conversation("owner", "owner:nope")

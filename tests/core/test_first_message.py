@@ -1,6 +1,6 @@
-from assistant.core import conversations
-from assistant.core.conversation.dispatch import QUICK, Pick
-from assistant.core.conversations import Conversation
+from lo9i.core import conversations
+from lo9i.core.conversation.dispatch import QUICK, Pick
+from lo9i.core.conversations import Conversation
 
 
 async def _side(service, thread_id: str, title: str, tags: list[str]) -> None:

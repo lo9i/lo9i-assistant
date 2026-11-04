@@ -20,8 +20,8 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from assistant.core import secret_store
-from assistant.core.agent import (
+from lo9i.core import secret_store
+from lo9i.core.agent import (
     Alert,
     AssistantService,
     McpServer,
@@ -29,7 +29,7 @@ from assistant.core.agent import (
     McpServerError,
     SignInError,
 )
-from assistant.core.mcp import hub as hub_module
+from lo9i.core.mcp import hub as hub_module
 
 URL = "https://notes.test/mcp"
 ISSUER = "https://auth.test"

@@ -1,8 +1,8 @@
 from textual.widgets import Input
 
-from assistant_terminal.commands import COMMANDS, help_lines
-from assistant_terminal.tui.command_menu import CommandMenu
-from assistant_terminal.tui.widgets import SystemNote
+from lo9i_terminal.commands import COMMANDS, help_lines
+from lo9i_terminal.tui.command_menu import CommandMenu
+from lo9i_terminal.tui.widgets import SystemNote
 
 
 async def test_menu_filters_moves_and_completes(app):

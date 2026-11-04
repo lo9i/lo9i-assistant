@@ -5,14 +5,14 @@ import json
 import aiosqlite
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from assistant.core import subagent_steps
-from assistant.core.agent import Session
-from assistant.core.agent_tasks.steps import STEPS
-from assistant.core.context import UNATTENDED_CHANNEL
-from assistant.core.conversation import search
-from assistant.core.conversation.search import MessageIndex
-from assistant.core.subagent_steps import SubagentAnswer, SubagentStep
-from assistant.core.tools import memory
+from lo9i.core import subagent_steps
+from lo9i.core.agent import Session
+from lo9i.core.agent_tasks.steps import STEPS
+from lo9i.core.context import UNATTENDED_CHANNEL
+from lo9i.core.conversation import search
+from lo9i.core.conversation.search import MessageIndex
+from lo9i.core.subagent_steps import SubagentAnswer, SubagentStep
+from lo9i.core.tools import memory
 from tests.conftest import collect
 
 

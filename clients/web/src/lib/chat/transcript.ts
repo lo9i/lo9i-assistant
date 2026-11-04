@@ -1,5 +1,5 @@
 // What the chat shows: past messages, then each run's events as they arrive (like
-// clients/terminal/src/assistant_terminal/tui/turn.py). Pure functions, so the rules are testable without a page.
+// clients/terminal/src/lo9i_terminal/tui/turn.py). Pure functions, so the rules are testable without a page.
 import type { RunEvent, ShownCall, ShownMessage } from "../api/types";
 import { withoutMarkers } from "./choices";
 

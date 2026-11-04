@@ -1,6 +1,6 @@
 // Reading a daemon event stream that survives dropped connections: after a drop it reconnects and
 // resumes after the last event received, so nothing is missed or repeated (like
-// src/assistant/client/daemon_client/reconnect.py).
+// src/lo9i/client/daemon_client/reconnect.py).
 import { ApiError, DaemonUnavailableError, isAbort } from "./errors";
 import { readEventBatches, type ServerEvent } from "./sse";
 import type { Transport } from "./transport";

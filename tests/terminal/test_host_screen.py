@@ -1,8 +1,8 @@
 from textual.widgets import Button, Markdown
 
-from assistant.protocol import Commit, PendingEnding
-from assistant_terminal.tui.screens import ConfirmScreen, HostSection
-from assistant_terminal.tui.screens.host import pending_detail
+from lo9i.protocol import Commit, PendingEnding
+from lo9i_terminal.tui.screens import ConfirmScreen, HostSection
+from lo9i_terminal.tui.screens.host import pending_detail
 from tests.terminal.conftest import ending_event, wait_for, wait_for_section
 
 
@@ -151,7 +151,7 @@ async def test_the_restart_an_installed_update_needs_offers_now_but_no_cancel(ap
 
 
 async def test_the_app_says_while_the_assistant_cant_be_reached_and_when_its_back(app, client):
-    from assistant_terminal.tui.widgets import ConnectionNote
+    from lo9i_terminal.tui.widgets import ConnectionNote
     from tests.terminal.conftest import LOST, OPEN
 
     async with app.run_test(size=(110, 40)) as pilot:

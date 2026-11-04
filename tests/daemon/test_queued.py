@@ -2,11 +2,11 @@
 
 import asyncio
 
-from assistant.core.conversation import handoffs, queued
-from assistant.core.conversation.handoffs import Handoff
-from assistant.core.conversation.queued import Queued
-from assistant.daemon.queued import QueuedMessages
-from assistant.daemon.runs import Run, RunHub
+from lo9i.core.conversation import handoffs, queued
+from lo9i.core.conversation.handoffs import Handoff
+from lo9i.core.conversation.queued import Queued
+from lo9i.daemon.queued import QueuedMessages
+from lo9i.daemon.runs import Run, RunHub
 
 
 class _Ending:
@@ -67,7 +67,7 @@ async def test_a_waiting_message_is_sent_once_the_run_ends_and_one_left_at_start
 
 
 async def test_a_follow_up_runs_at_once_where_nothing_runs_and_isnt_shown_as_the_users(service, script):
-    from assistant.core.conversation import ended
+    from lo9i.core.conversation import ended
 
     stop = asyncio.Event()
     sending = asyncio.create_task(QueuedMessages(service, RunHub(service.bus), NOT_ENDING, NO_MIRRORS).run(stop))

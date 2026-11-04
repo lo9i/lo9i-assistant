@@ -4,9 +4,9 @@ import sys
 
 import pytest
 
-from assistant.core.llm import packages
-from assistant.core.llm.packages import PackageError
-from assistant.core.llm.providers import provider
+from lo9i.core.llm import packages
+from lo9i.core.llm.packages import PackageError
+from lo9i.core.llm.providers import provider
 
 
 @pytest.fixture
@@ -52,7 +52,7 @@ async def test_without_uv_or_a_working_package_it_says_why(uv, monkeypatch):
 
 
 def test_every_provider_names_a_package_for_its_module():
-    from assistant.core.llm.providers import LANGCHAIN_PROVIDERS
+    from lo9i.core.llm.providers import LANGCHAIN_PROVIDERS
 
     for p in LANGCHAIN_PROVIDERS:
         if p.package:

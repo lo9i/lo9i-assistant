@@ -2,7 +2,7 @@
 
 import asyncio
 
-from assistant.core.bus import EventBus
+from lo9i.core.bus import EventBus
 from tests.conftest import collect
 
 

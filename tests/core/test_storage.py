@@ -7,8 +7,8 @@ import aiosqlite
 import pytest
 from langgraph.store.base import PutOp
 
-from assistant.core.bus import EventBus
-from assistant.core.storage import open_storage
+from lo9i.core.bus import EventBus
+from lo9i.core.storage import open_storage
 
 # Long enough for a write on another connection that isn't held back to commit.
 _COMMITS_WITHIN = 0.5

@@ -2,9 +2,9 @@
 
 import pytest
 
-from assistant.core.agent import MemoryEditError, MemoryNotFoundError
-from assistant.core.memory import episodes, facts
-from assistant.core.memory.episodes import Episode
+from lo9i.core.agent import MemoryEditError, MemoryNotFoundError
+from lo9i.core.memory import episodes, facts
+from lo9i.core.memory.episodes import Episode
 
 
 async def test_facts_are_listed_newest_first_and_an_edit_keeps_when_it_was_saved(service):

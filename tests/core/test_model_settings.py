@@ -5,13 +5,13 @@ shown."""
 import pytest
 from langchain_core.messages import AIMessage
 
-import assistant.core.agent.model as model_module
-import assistant.core.graph as graph_module
-from assistant.core.agent import AssistantService, ModelSettingsError
-from assistant.core.config import settings
-from assistant.core.llm import packages
-from assistant.core.llm.choice import ModelChoice
-from assistant.core.llm.packages import PackageError
+import lo9i.core.agent.model as model_module
+import lo9i.core.graph as graph_module
+from lo9i.core.agent import AssistantService, ModelSettingsError
+from lo9i.core.config import settings
+from lo9i.core.llm import packages
+from lo9i.core.llm.choice import ModelChoice
+from lo9i.core.llm.packages import PackageError
 from tests.conftest import collect
 
 
@@ -123,8 +123,8 @@ async def test_secrets_are_kept_encrypted_apart_from_the_settings(service, check
 
 
 async def test_a_choice_saved_before_providers_had_fields_is_moved_over(service):
-    from assistant.core import secret_store
-    from assistant.core.llm import choice
+    from lo9i.core import secret_store
+    from lo9i.core.llm import choice
 
     old = {"provider": "openai", "api_key": "", "base_url": "http://x/v1", "model": "m", "worker_model": "w"}
     await service.store.aput(("settings",), "model", old)
@@ -188,8 +188,8 @@ async def test_a_saved_provider_whose_package_is_gone_falls_back_to_env_at_start
 async def test_available_models_use_the_saved_key_and_are_empty_where_they_cant_be_listed(service, monkeypatch):
     import pytest
 
-    from assistant.core.agent import ModelOption, ModelSettingsError
-    from assistant.core.llm import copilot
+    from lo9i.core.agent import ModelOption, ModelSettingsError
+    from lo9i.core.llm import copilot
 
     seen: list[str] = []
 

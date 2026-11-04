@@ -9,13 +9,13 @@ from typing import Any
 import httpx
 import pytest
 
-from assistant.core.events import Done, TextDelta
-from assistant.core.logs import LogEntry, LogFileInfo, LogPage, LogQuery
-from assistant.daemon.api import create_app
-from assistant.daemon.auth import trusted
-from assistant.daemon.follows import LOG_ENTRY, LOG_PAGE, RUN_END, RUN_EVENTS, StreamFollows, log_source, run_source
-from assistant.daemon.runs import RunHub
-from assistant.protocol import CLIENT_HEADER, CLIENT_ID_HEADER
+from lo9i.core.events import Done, TextDelta
+from lo9i.core.logs import LogEntry, LogFileInfo, LogPage, LogQuery
+from lo9i.daemon.api import create_app
+from lo9i.daemon.auth import trusted
+from lo9i.daemon.follows import LOG_ENTRY, LOG_PAGE, RUN_END, RUN_EVENTS, StreamFollows, log_source, run_source
+from lo9i.daemon.runs import RunHub
+from lo9i.protocol import CLIENT_HEADER, CLIENT_ID_HEADER
 from tests.conftest import waiting_on_queues
 
 KEY = ("dev1", "tab-1")
@@ -163,7 +163,7 @@ class _Log:
 
 
 def _entry(message: str, level: str = "INFO") -> LogEntry:
-    return LogEntry("2026-10-30 10:00:00", level, "assistant.core.mcp.process", "mcp", message)
+    return LogEntry("2026-10-30 10:00:00", level, "lo9i.core.mcp.process", "mcp", message)
 
 
 async def _next_sent(stream: AsyncIterator[dict[str, Any]]) -> tuple[str, dict[str, Any]]:

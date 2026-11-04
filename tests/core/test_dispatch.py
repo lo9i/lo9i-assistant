@@ -5,15 +5,15 @@ included. A quick exchange that goes on is carried to a new conversation."""
 
 from langchain_openai.chat_models.base import _convert_message_to_dict
 
-from assistant.core import conversations
-from assistant.core.agent import AssistantService, Session
-from assistant.core.attachments import Attachment, is_reference
-from assistant.core.conversation import dispatch_setting, ended
-from assistant.core.conversation.dispatch import FOLLOW_UP, QUICK, Candidate, Pick, candidates, parse
-from assistant.core.conversation.dispatch_nodes import INBOX_TURNS
-from assistant.core.conversation.dispatch_setting import DispatchSetting
-from assistant.core.conversations import Conversation
-from assistant.core.events import ApprovalRequired, Dispatched, Error
+from lo9i.core import conversations
+from lo9i.core.agent import AssistantService, Session
+from lo9i.core.attachments import Attachment, is_reference
+from lo9i.core.conversation import dispatch_setting, ended
+from lo9i.core.conversation.dispatch import FOLLOW_UP, QUICK, Candidate, Pick, candidates, parse
+from lo9i.core.conversation.dispatch_nodes import INBOX_TURNS
+from lo9i.core.conversation.dispatch_setting import DispatchSetting
+from lo9i.core.conversations import Conversation
+from lo9i.core.events import ApprovalRequired, Dispatched, Error
 from tests.conftest import collect
 
 _CANDIDATES = [Candidate("t1", "Trip to Rome", ["rome"], ""), Candidate("t2", "Taxes", ["taxes"], "")]

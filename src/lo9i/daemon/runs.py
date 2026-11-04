@@ -1,0 +1,157 @@
+"""Runs outlive the request that started them. Events are buffered per run, so a client that
+disconnects, or a second client, can replay them by id and then follow along live."""
+
+import asyncio
+import logging
+from collections.abc import AsyncIterator
+from dataclasses import dataclass, field
+from functools import partial
+from typing import Any
+from uuid import uuid4
+
+from lo9i.core.bus import EventBus
+from lo9i.core.events import Cancelled, Error, Event, TextDelta
+from lo9i.protocol import event_to_dict
+
+logger = logging.getLogger(__name__)
+
+# Finished runs stay replayable this long.
+_KEEP_SECONDS = 600
+# Reply characters included when a run's end is announced.
+_EXCERPT = 300
+
+
+@dataclass
+class Run:
+    id: str
+    thread_id: str
+    channel: str = ""
+    # The client that started it, what the user wrote and the notice of a follow-up, as announced (`start`), for a
+    # coding task the assistant wrote, its agent, and for a run kept while an update installed, its id; `resent`
+    # when `text` is messages a handed-off agent hadn't taken, sent again; `carried`, the quick exchange the inbox
+    # carried with a message it sent on.
+    client_id: str = ""
+    text: str = ""
+    notice: str = ""
+    brief: str = ""
+    held: str = ""
+    resent: bool = False
+    carried: str = ""
+    events: list[dict[str, Any]] = field(default_factory=list)
+    finished: bool = False
+    changed: asyncio.Condition = field(default_factory=asyncio.Condition)
+
+
+class RunHub:
+    def __init__(self, bus: EventBus | None = None) -> None:
+        self._bus = bus
+        self._runs: dict[str, Run] = {}
+        self._tasks: set[asyncio.Task] = set()
+
+    def start(
+        self,
+        thread_id: str,
+        events: AsyncIterator[Event],
+        channel: str = "",
+        client_id: str = "",
+        text: str = "",
+        notice: str = "",
+        brief: str = "",
+        held: str = "",
+        resent: bool = False,
+        carried: str = "",
+    ) -> Run:
+        """Start consuming a run. Other clients hear about it on the bus, so a conversation shown
+        in several places (two terminals, Telegram) updates everywhere. `client_id` names the
+        client that started it, which already shows it. `text` is what the user wrote; `notice`, for a
+        follow-up the assistant runs on its own (core/agent/follow_ups.py), what it follows up on, which the
+        apps show where the user's message would be; `brief`, when `text` is a coding task the assistant wrote and
+        not the user (core/conversation/briefs.py), the agent it's for; `held`, for a run kept while an update
+        installed (core/conversation/held.py), the id its Held event gave, so an app that showed the user's
+        message then doesn't show it again; `resent`, when `text` is messages a handed-off agent hadn't taken, sent
+        again (core/conversation/resent.py), which the apps show as those and not as new ones; `carried`, for a message
+        the inbox sent on, the quick exchange it carried with it as Markdown (core/conversation/carried.py), which the
+        apps show before it."""
+        run = Run(uuid4().hex, thread_id, channel, client_id, text, notice, brief, held, resent, carried)
+        shown = {"client_id": client_id, "text": text, "notice": notice, "brief": brief, "held": held}
+        shown |= {"resent": resent, "carried": carried}
+        self._runs[run.id] = run
+        if self._bus is not None:
+            self._bus.publish("run", run_id=run.id, thread_id=thread_id, channel=channel, **shown)
+        task = asyncio.create_task(self._consume(run, events))
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+        return run
+
+    def get(self, run_id: str) -> Run | None:
+        return self._runs.get(run_id)
+
+    def running(self, thread_id: str | None = None) -> list[Run]:
+        """The runs still in progress, in `thread_id` or in any conversation, oldest first."""
+        return [r for r in self._runs.values() if not r.finished and thread_id in (None, r.thread_id)]
+
+    async def follow(self, run: Run, after: int) -> AsyncIterator[tuple[int, dict[str, Any] | None]]:
+        """(event id, event) for events after `after`, then (id, None) once the run is finished."""
+        async for start, pending, finished in self.batches(run, after):
+            for index, event in enumerate(pending, start + 1):
+                yield index, event
+            if finished:
+                yield start + len(pending) + 1, None
+
+    async def batches(self, run: Run, after: int) -> AsyncIterator[tuple[int, list[dict[str, Any]], bool]]:
+        """(events before them, the events, whether they're the run's last) each time it has news after `after`,
+        until it's finished."""
+        index = after
+        while True:
+            async with run.changed:
+                await run.changed.wait_for(partial(_has_news, run, index))
+                pending, finished = run.events[index:], run.finished
+            yield index, pending, finished
+            if finished:
+                return
+            index += len(pending)
+
+    async def _consume(self, run: Run, events: AsyncIterator[Event]) -> None:
+        try:
+            async for event in events:
+                await self._append(run, event_to_dict(event))
+        except Exception as e:
+            logger.exception("Run %s failed", run.id)
+            await self._append(run, event_to_dict(Error(f"{type(e).__name__}: {e}")))
+        finally:
+            async with run.changed:
+                run.finished = True
+                run.changed.notify_all()
+            self._announce_finished(run)
+            asyncio.get_running_loop().call_later(_KEEP_SECONDS, self._runs.pop, run.id, None)
+
+    def _announce_finished(self, run: Run) -> None:
+        """Lets clients that stopped watching (for example after /clear) know the run is done."""
+        if self._bus is None:
+            return
+        reply = "".join(e["text"] for e in run.events if e["type"] == TextDelta.__name__).strip()
+        self._bus.publish(
+            "run_finished",
+            run_id=run.id,
+            thread_id=run.thread_id,
+            channel=run.channel,
+            status=_status(run),
+            reply=reply[-_EXCERPT:],
+        )
+
+    @staticmethod
+    async def _append(run: Run, event: dict[str, Any]) -> None:
+        async with run.changed:
+            run.events.append(event)
+            run.changed.notify_all()
+
+
+def _status(run: Run) -> str:
+    kinds = {e["type"] for e in run.events}
+    if Cancelled.__name__ in kinds:
+        return "cancelled"
+    return "failed" if Error.__name__ in kinds else "ok"
+
+
+def _has_news(run: Run, seen: int) -> bool:
+    return len(run.events) > seen or run.finished

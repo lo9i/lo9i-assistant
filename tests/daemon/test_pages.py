@@ -14,10 +14,10 @@ import httpx
 import pytest
 from starlette.types import Message, Scope
 
-from assistant.core.agent import McpServer, McpServerChanges
-from assistant.core.mcp import folders
-from assistant.daemon.auth import COOKIE, DeviceStreams
-from assistant.daemon.pages import create_pages_app
+from lo9i.core.agent import McpServer, McpServerChanges
+from lo9i.core.mcp import folders
+from lo9i.daemon.auth import COOKIE, DeviceStreams
+from lo9i.daemon.pages import create_pages_app
 
 # Answers every request with what it received, and tries to set a cookie the daemon must drop.
 _PAGE = """
@@ -51,7 +51,7 @@ uvicorn.run(app, uds=sys.argv[1], log_level="warning")
 def short_data_dir(monkeypatch):
     # Under /tmp: macOS limits socket paths to 104 characters, and pytest's tmp_path is longer.
     folder = tempfile.mkdtemp(dir="/tmp")
-    monkeypatch.setattr("assistant.core.config.settings.mcp_data_dir", folder)
+    monkeypatch.setattr("lo9i.core.config.settings.mcp_data_dir", folder)
     yield Path(folder)
     shutil.rmtree(folder, ignore_errors=True)
 
@@ -121,7 +121,7 @@ async def test_a_browser_that_leaves_before_sending_its_request_is_let_go_quietl
 
 
 async def test_a_page_streams_for_as_long_as_it_writes_once_it_started_in_time(pages, monkeypatch):
-    from assistant.daemon import pages as page_proxy
+    from lo9i.daemon import pages as page_proxy
 
     monkeypatch.setattr(page_proxy, "FIRST_BYTE_SECONDS", 0.5)
     async with _http(pages, await _paired(pages)) as http:
@@ -152,7 +152,7 @@ async def test_unknown_or_turned_off_pages_are_not_found(pages):
 
 
 async def test_a_browser_opening_a_page_that_isnt_answering_gets_a_notice_that_tries_again(pages, monkeypatch):
-    from assistant.daemon import pages as page_proxy
+    from lo9i.daemon import pages as page_proxy
 
     monkeypatch.setattr(page_proxy, "FIRST_BYTE_SECONDS", 0.5)
     browser = {"Accept": "text/html,application/xhtml+xml"}
@@ -169,7 +169,7 @@ async def test_a_browser_opening_a_page_that_isnt_answering_gets_a_notice_that_t
 
 
 async def test_a_page_that_exits_is_started_again(pages, monkeypatch):
-    monkeypatch.setattr("assistant.core.mcp.process._FIRST_RETRY_SECONDS", 0.1)
+    monkeypatch.setattr("lo9i.core.mcp.process._FIRST_RETRY_SECONDS", 0.1)
     socket = folders.page_socket("notes")
     async with _http(pages, await _paired(pages)) as http:
         await http.get("/notes/quit")

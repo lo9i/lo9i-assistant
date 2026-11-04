@@ -3,10 +3,10 @@ to switch between, as the web app's sidebar lists them under Chat."""
 
 from textual.widgets import Button, OptionList
 
-from assistant.core.agent import Conversation, RunningTask
-from assistant.core.events import ApprovalRequired
-from assistant_terminal.open_text import OpenItem, line, open_list
-from assistant_terminal.tui.screens import ConversationsScreen, OpenConversationsScreen
+from lo9i.core.agent import Conversation, RunningTask
+from lo9i.core.events import ApprovalRequired
+from lo9i_terminal.open_text import OpenItem, line, open_list
+from lo9i_terminal.tui.screens import ConversationsScreen, OpenConversationsScreen
 from tests.terminal.conftest import wait_for
 
 _WHEN = "2026-10-29T10:00:00+00:00"

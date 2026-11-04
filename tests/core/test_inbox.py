@@ -6,11 +6,11 @@ import asyncio
 
 import pytest
 
-from assistant.core import conversations, inbox
-from assistant.core.agent import HandoffError, Session
-from assistant.core.context import UNATTENDED_CHANNEL
-from assistant.core.conversation.dispatch import FOLLOW_UP, QUICK, Pick
-from assistant.core.events import ApprovalRequired, Dispatched, ToolFinished
+from lo9i.core import conversations, inbox
+from lo9i.core.agent import HandoffError, Session
+from lo9i.core.context import UNATTENDED_CHANNEL
+from lo9i.core.conversation.dispatch import FOLLOW_UP, QUICK, Pick
+from lo9i.core.events import ApprovalRequired, Dispatched, ToolFinished
 from tests.conftest import collect
 from tests.core.test_handoffs import agent_plugin
 

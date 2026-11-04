@@ -6,15 +6,15 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from assistant.core import uploads
-from assistant.core.agent import AssistantService, Session
-from assistant.core.agent_tasks.service import AgentTaskError
-from assistant.core.context import UNATTENDED_CHANNEL
-from assistant.core.conversation import queued
-from assistant.core.conversation.queued import Queued
-from assistant.core.events import ApprovalRequired, Dispatched, ToolFinished, ToolStarted
-from assistant.core.mcp import folders
-from assistant.core.plugin_loading import LOAD_TOOLS
+from lo9i.core import uploads
+from lo9i.core.agent import AssistantService, Session
+from lo9i.core.agent_tasks.service import AgentTaskError
+from lo9i.core.context import UNATTENDED_CHANNEL
+from lo9i.core.conversation import queued
+from lo9i.core.conversation.queued import Queued
+from lo9i.core.events import ApprovalRequired, Dispatched, ToolFinished, ToolStarted
+from lo9i.core.mcp import folders
+from lo9i.core.plugin_loading import LOAD_TOOLS
 from tests.conftest import collect
 from tests.core.test_handoffs import agent_plugin
 
@@ -280,8 +280,8 @@ async def test_the_steps_a_waiting_task_status_showed_show_again_after_a_reload(
 
 
 def test_an_agents_worker_needs_format_3_and_libraries_arent_installed(tmp_path):
-    from assistant.core.mcp import install
-    from assistant.core.repositories.errors import RepositoryError
+    from lo9i.core.mcp import install
+    from lo9i.core.repositories.errors import RepositoryError
 
     folder = tmp_path / "assistant" / "agents" / "claude-code"
     folder.mkdir(parents=True)
@@ -315,8 +315,8 @@ def test_a_worker_that_writes_its_result_and_exits_between_two_reads_isnt_lost(t
     so one read just before the result was written doesn't call a task that ended well lost."""
     import json
 
-    from assistant.core.agent_tasks import records
-    from assistant.core.agent_tasks.records import TaskStore
+    from lo9i.core.agent_tasks import records
+    from lo9i.core.agent_tasks.records import TaskStore
 
     tasks = TaskStore(tmp_path)
     task = tasks.create(str(tmp_path), "fix it")
@@ -334,7 +334,7 @@ def test_a_worker_that_writes_its_result_and_exits_between_two_reads_isnt_lost(t
 
 @pytest.mark.parametrize("written", ["{not json", '{"tokens": 5}', '{"tokens": "many", "window": 10}', "[1, 2]"])
 def test_a_context_the_worker_wrote_that_cant_be_read_counts_as_none(tmp_path, caplog, written):
-    from assistant.core.agent_tasks.records import Context, TaskStore
+    from lo9i.core.agent_tasks.records import Context, TaskStore
 
     tasks = TaskStore(tmp_path)
     first = tasks.create(str(tmp_path), "fix it")

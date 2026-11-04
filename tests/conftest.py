@@ -15,23 +15,23 @@ from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from pydantic import Field
 
-import assistant.core.agent.model as model_module
-import assistant.core.agent.service as service_module
-import assistant.core.gathering as gathering_module
-import assistant.core.graph as graph_module
-import assistant.core.home.builder as home_builder_module
-import assistant.core.proactive.writing as proactive_writing_module
-import assistant.core.subagent as subagent_module
-from assistant.core.agent import AssistantService
-from assistant.core.config import settings
-from assistant.core.conversation.digest import DigestInput, MemoryDigest
-from assistant.core.conversation.dispatch import QUICK, Candidate, Pick
-from assistant.core.conversation.titles import Titled
-from assistant.core.handed_folder import trash
-from assistant.core.home.model import SectionContent
-from assistant.core.llm import windows
-from assistant.core.memory.embedder import EmbeddingError
-from assistant.core.proactive.model import MailDraft, ReviewDraft
+import lo9i.core.agent.model as model_module
+import lo9i.core.agent.service as service_module
+import lo9i.core.gathering as gathering_module
+import lo9i.core.graph as graph_module
+import lo9i.core.home.builder as home_builder_module
+import lo9i.core.proactive.writing as proactive_writing_module
+import lo9i.core.subagent as subagent_module
+from lo9i.core.agent import AssistantService
+from lo9i.core.config import settings
+from lo9i.core.conversation.digest import DigestInput, MemoryDigest
+from lo9i.core.conversation.dispatch import QUICK, Candidate, Pick
+from lo9i.core.conversation.titles import Titled
+from lo9i.core.handed_folder import trash
+from lo9i.core.home.model import SectionContent
+from lo9i.core.llm import windows
+from lo9i.core.memory.embedder import EmbeddingError
+from lo9i.core.proactive.model import MailDraft, ReviewDraft
 
 
 @pytest.fixture(autouse=True)

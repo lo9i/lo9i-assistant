@@ -6,9 +6,9 @@ from typing import Any
 
 from langchain_core.messages import AIMessage
 
-from assistant.core.conversation import failed
-from assistant.core.events import Error
-from assistant.core.memory import profile
+from lo9i.core.conversation import failed
+from lo9i.core.events import Error
+from lo9i.core.memory import profile
 from tests.conftest import collect
 
 

@@ -4,9 +4,9 @@ import segno
 from rich.text import Text
 from textual.widgets import Button, Markdown, Static, TextArea
 
-from assistant.core.agent import ChannelStatus, FoundServer, SetupItem
-from assistant_terminal.channels_text import describe, qr_lines
-from assistant_terminal.tui.screens import PluginsSection
+from lo9i.core.agent import ChannelStatus, FoundServer, SetupItem
+from lo9i_terminal.channels_text import describe, qr_lines
+from lo9i_terminal.tui.screens import PluginsSection
 from tests.terminal.conftest import wait_for, wait_for_section
 
 _PAIRING = [

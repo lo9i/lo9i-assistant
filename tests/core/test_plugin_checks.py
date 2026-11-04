@@ -5,10 +5,10 @@ import sys
 
 import pytest
 
-from assistant.core.agent import McpServerChanges, ServerValues
-from assistant.core.mcp import checks, folders, keys, servers
-from assistant.core.mcp.checks import CheckFailedError
-from assistant.core.mcp.servers import McpServer
+from lo9i.core.agent import McpServerChanges, ServerValues
+from lo9i.core.mcp import checks, folders, keys, servers
+from lo9i.core.mcp.checks import CheckFailedError
+from lo9i.core.mcp.servers import McpServer
 from tests.core.test_repositories import URL, _write, repo  # noqa: F401 (a fixture)
 
 _FIELDS = """

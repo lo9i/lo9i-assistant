@@ -1,6 +1,6 @@
 from textual.widgets import Button, Markdown
 
-from assistant_terminal.tui.screens import StartupSection
+from lo9i_terminal.tui.screens import StartupSection
 from tests.terminal.conftest import wait_for, wait_for_section
 
 
@@ -32,7 +32,7 @@ async def _open(pilot, app) -> StartupSection:
 
 
 async def test_on_linux_it_explains_the_service_and_lingering(app, client):
-    from assistant.protocol import StartupStatus
+    from lo9i.protocol import StartupStatus
 
     client.system.platform, client.system.lingering = "linux", False
     client.system.state = StartupStatus(False, False, False, "linux", False)
@@ -49,7 +49,7 @@ async def test_on_linux_it_explains_the_service_and_lingering(app, client):
 
 
 async def test_unsupported_systems_offer_no_buttons(app, client):
-    from assistant.protocol import StartupStatus
+    from lo9i.protocol import StartupStatus
 
     client.system.state = StartupStatus(False, False, False, "unsupported")
     async with app.run_test(size=(110, 40)) as pilot:

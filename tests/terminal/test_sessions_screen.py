@@ -1,7 +1,7 @@
 from textual.widgets import Button, Markdown
 
-from assistant.protocol import ConnectedClient
-from assistant_terminal.tui.screens import SessionsSection
+from lo9i.protocol import ConnectedClient
+from lo9i_terminal.tui.screens import SessionsSection
 from tests.terminal.conftest import section_shown, wait_for, wait_for_section
 
 

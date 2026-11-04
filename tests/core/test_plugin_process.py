@@ -7,7 +7,7 @@ import sys
 
 import pytest
 
-from assistant.core.mcp import process
+from lo9i.core.mcp import process
 
 
 @pytest.mark.parametrize("gone", [ProcessLookupError(errno.ESRCH, "No such process"), PermissionError(errno.EPERM, "")])

@@ -13,19 +13,19 @@ from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
-from assistant.core import conversations, notifications
-from assistant.core.agent import AssistantService, McpServer, Session
-from assistant.core.config import settings
-from assistant.core.conversation.digest import MemoryDigest
-from assistant.core.jobs import store as jobs
-from assistant.core.jobs.store import Job, RunRecord
-from assistant.core.mcp import hub as hub_module
-from assistant.core.mcp import servers
-from assistant.core.memory import facts
-from assistant.core.proactive import loops, records
-from assistant.core.proactive.mail import Unread, UnreadMail
-from assistant.core.proactive.model import LoopDraft, MailDraft, MailPick, ProactiveSettings, ReviewDraft, Suggestion
-from assistant.core.proactive.reminders import PER_DAY
+from lo9i.core import conversations, notifications
+from lo9i.core.agent import AssistantService, McpServer, Session
+from lo9i.core.config import settings
+from lo9i.core.conversation.digest import MemoryDigest
+from lo9i.core.jobs import store as jobs
+from lo9i.core.jobs.store import Job, RunRecord
+from lo9i.core.mcp import hub as hub_module
+from lo9i.core.mcp import servers
+from lo9i.core.memory import facts
+from lo9i.core.proactive import loops, records
+from lo9i.core.proactive.mail import Unread, UnreadMail
+from lo9i.core.proactive.model import LoopDraft, MailDraft, MailPick, ProactiveSettings, ReviewDraft, Suggestion
+from lo9i.core.proactive.reminders import PER_DAY
 from tests.conftest import collect
 
 # A Sunday.

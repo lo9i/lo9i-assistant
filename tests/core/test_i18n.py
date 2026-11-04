@@ -9,9 +9,9 @@ from string import Formatter
 import pytest
 from langgraph.store.memory import InMemoryStore
 
-from assistant.core import i18n, language
-from assistant.core.i18n import holds_said, message, read_tables, said, texts
-from assistant.core.language import LanguageError
+from lo9i.core import i18n, language
+from lo9i.core.i18n import holds_said, message, read_tables, said, texts
+from lo9i.core.language import LanguageError
 from tests.translations import marked_texts
 
 _SPANISH = read_tables(Path(i18n.__file__).parent)["es"]

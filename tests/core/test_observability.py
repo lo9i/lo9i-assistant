@@ -1,4 +1,4 @@
-from assistant.core.observability import mask
+from lo9i.core.observability import mask
 
 
 def test_mask_hides_keys_tokens_and_emails():

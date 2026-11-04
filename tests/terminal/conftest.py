@@ -9,9 +9,9 @@ import pytest
 from textual.widget import Widget
 from textual.widgets import TabbedContent
 
-import assistant_terminal.tui.app as app_module
-from assistant.client.daemon_client.conversations import OpenedConversation
-from assistant.core.agent import (
+import lo9i_terminal.tui.app as app_module
+from lo9i.client.daemon_client.conversations import OpenedConversation
+from lo9i.core.agent import (
     AboutYou,
     AboutYouStatus,
     Agent,
@@ -101,18 +101,18 @@ from assistant.core.agent import (
     UsageReport,
     WebSearchStatus,
 )
-from assistant.core.agent.skill_imports import Importable, Importables, ImportOutcome
-from assistant.core.agent.skills import FoundSkill, SkillSummary
-from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
-from assistant.core.doctor.model import Cause, ContextPart, DoctorPage, DoctorReport, KnownCause, StartingContext
-from assistant.core.events import ApprovalRequired, Dispatched, Done, TextDelta, ToolFinished, ToolStarted, Transcribed
-from assistant.core.integrations.email.providers import EmailProvider
-from assistant.core.llm.choice import PROVIDERS as PROVIDERS_FOR_MODEL
-from assistant.core.logs import COMPONENTS, LogEntry, LogFileInfo, LogOptions, LogPage, LogQuery
-from assistant.core.repositories.known import EXTRAS
-from assistant.core.usage.limits import SpendingLimits, SpendingLimitsError
-from assistant.core.usage.log import TokenRow, ToolUsage
-from assistant.protocol import (
+from lo9i.core.agent.skill_imports import Importable, Importables, ImportOutcome
+from lo9i.core.agent.skills import FoundSkill, SkillSummary
+from lo9i.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
+from lo9i.core.doctor.model import Cause, ContextPart, DoctorPage, DoctorReport, KnownCause, StartingContext
+from lo9i.core.events import ApprovalRequired, Dispatched, Done, TextDelta, ToolFinished, ToolStarted, Transcribed
+from lo9i.core.integrations.email.providers import EmailProvider
+from lo9i.core.llm.choice import PROVIDERS as PROVIDERS_FOR_MODEL
+from lo9i.core.logs import COMPONENTS, LogEntry, LogFileInfo, LogOptions, LogPage, LogQuery
+from lo9i.core.repositories.known import EXTRAS
+from lo9i.core.usage.limits import SpendingLimits, SpendingLimitsError
+from lo9i.core.usage.log import TokenRow, ToolUsage
+from lo9i.protocol import (
     Commit,
     ConnectedClient,
     HostStatus,
@@ -125,10 +125,10 @@ from assistant.protocol import (
     UpdateError,
     UpdateStatus,
 )
-from assistant_terminal import i18n
-from assistant_terminal.history import History
-from assistant_terminal.preferences import Preferences
-from assistant_terminal.tui.screens import SettingsScreen
+from lo9i_terminal import i18n
+from lo9i_terminal.history import History
+from lo9i_terminal.preferences import Preferences
+from lo9i_terminal.tui.screens import SettingsScreen
 
 _NEXT = "2030-01-01T09:00:00+00:00"
 # Put on FakeClient.bus: the event stream drops, then opens again.
@@ -456,7 +456,7 @@ class FakeEmail:
 
 class FakeSpeech:
     def __init__(self):
-        from assistant.core.agent.speech import LanguageOption, VoiceOption
+        from lo9i.core.agent.speech import LanguageOption, VoiceOption
 
         self.state = SpeechStatus(
             model="small",
@@ -1255,7 +1255,7 @@ class FakeClients:
 
 
 def _log(level: str, message: str, component: str = "mcp") -> LogEntry:
-    return LogEntry("2026-10-07 10:00:00,000", level, f"assistant.core.{component}.x", component, message)
+    return LogEntry("2026-10-07 10:00:00,000", level, f"lo9i.core.{component}.x", component, message)
 
 
 class FakeLogs:
@@ -1383,7 +1383,7 @@ class FakeDoctor:
             compared_with="2026-10-23",
             causes=[
                 _cause("c1", "ConnectionError: refused", 3, change="growing", before=1),
-                _cause("c2", "Poll failed", 1, level="WARNING", where="assistant.core.channels.telegram"),
+                _cause("c2", "Poll failed", 1, level="WARNING", where="lo9i.core.channels.telegram"),
             ],
             gone=[_cause("c3", "KeyError: 'title'", 1)],
             context=StartingContext(
@@ -1421,7 +1421,7 @@ class FakeDoctor:
 
 def _cause(id: str, title: str, count: int, **fields) -> Cause:
     times = {"first": "2026-10-24T09:00:00+00:00", "last": "2026-10-24T11:00:00+00:00"}
-    defaults = {"kind": "log", "level": "ERROR", "where": "assistant/core/mcp/hub.py in _connect"}
+    defaults = {"kind": "log", "level": "ERROR", "where": "lo9i/core/mcp/hub.py in _connect"}
     return Cause.model_validate({"id": id, "title": title, "count": count, **times, **defaults, **fields})
 
 

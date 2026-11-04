@@ -6,11 +6,11 @@ from pathlib import Path
 
 import httpx
 
-from assistant.daemon.api import create_app
-from assistant.daemon.auth import trusted
-from assistant.daemon.http_server import HttpServer, Listener
-from assistant.daemon.runs import RunHub
-from assistant.protocol import CLIENT_HEADER
+from lo9i.daemon.api import create_app
+from lo9i.daemon.auth import trusted
+from lo9i.daemon.http_server import HttpServer, Listener
+from lo9i.daemon.runs import RunHub
+from lo9i.protocol import CLIENT_HEADER
 
 
 def _http(app, host: str = "127.0.0.1", **headers: str) -> httpx.AsyncClient:

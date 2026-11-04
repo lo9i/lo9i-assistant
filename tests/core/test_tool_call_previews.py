@@ -7,11 +7,11 @@ from datetime import UTC, datetime
 
 from langchain_core.messages import AIMessage, ToolMessage
 
-from assistant.core import subagent_steps
-from assistant.core.agent_tasks.steps import STEPS, AgentSteps
-from assistant.core.conversation import called_at
-from assistant.core.conversation.display import ShownCall, shown, tool_call, tool_call_step
-from assistant.core.subagent_steps import SubagentAnswer, SubagentStep
+from lo9i.core import subagent_steps
+from lo9i.core.agent_tasks.steps import STEPS, AgentSteps
+from lo9i.core.conversation import called_at
+from lo9i.core.conversation.display import ShownCall, shown, tool_call, tool_call_step
+from lo9i.core.subagent_steps import SubagentAnswer, SubagentStep
 
 
 def _call(args: dict, output: str | None, call_id: str = "c1") -> list:

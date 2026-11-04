@@ -4,8 +4,8 @@ test_repositories.py."""
 
 import pytest
 
-from assistant.core.repositories import icons
-from assistant.core.repositories.icons import PluginIcon
+from lo9i.core.repositories import icons
+from lo9i.core.repositories.icons import PluginIcon
 
 LUCIDE_LIKE = (
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">'

@@ -1,5 +1,5 @@
 // The tree of the folder a conversation is handed to, as the side panel shows it: each folder listed by the daemon
-// when it's first opened (src/assistant/core/handed_folder/contents.py), and listed again, with every open one, on
+// when it's first opened (src/lo9i/core/handed_folder/contents.py), and listed again, with every open one, on
 // a refresh, so files the agent added or removed show: all of them in one request where the daemon reads them
 // together (the handed folder's, which asks git once), else one at a time.
 import type { FolderContents } from "$lib/api/types";

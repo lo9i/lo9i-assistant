@@ -5,8 +5,8 @@ from dataclasses import replace
 
 from textual.widgets import Button, Markdown
 
-from assistant_terminal.tui.paged_list import PagedOptionList
-from assistant_terminal.tui.screens import HomeScreen, NotificationsScreen
+from lo9i_terminal.tui.paged_list import PagedOptionList
+from lo9i_terminal.tui.screens import HomeScreen, NotificationsScreen
 from tests.terminal.conftest import wait_for
 
 _LONG = "The final diff waits for you.\nThe judge: " + "it matches the plan, " * 20 + "the end."

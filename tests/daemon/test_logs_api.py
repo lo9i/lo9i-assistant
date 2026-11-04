@@ -9,8 +9,8 @@ import httpx
 import pytest
 import uvicorn
 
-from assistant.client.daemon_client import DaemonClient
-from assistant.core.logs import (
+from lo9i.client.daemon_client import DaemonClient
+from lo9i.core.logs import (
     LogEntry,
     LogLevelError,
     LogPage,
@@ -20,10 +20,10 @@ from assistant.core.logs import (
     log_sources,
     output_path,
 )
-from assistant.daemon.api import create_app
-from assistant.daemon.auth import trusted
-from assistant.daemon.runs import RunHub
-from assistant.protocol import CLIENT_HEADER
+from lo9i.daemon.api import create_app
+from lo9i.daemon.auth import trusted
+from lo9i.daemon.runs import RunHub
+from lo9i.protocol import CLIENT_HEADER
 
 
 @pytest.fixture
@@ -35,7 +35,7 @@ def writer() -> Iterator[LogWriter]:
 
 @pytest.fixture
 def logger(writer) -> Iterator[logging.Logger]:
-    logger = logging.getLogger("assistant.core.mcp.process")
+    logger = logging.getLogger("lo9i.core.mcp.process")
     logger.handlers, logger.propagate = [writer], False
     logger.setLevel(logging.DEBUG)
     yield logger
@@ -80,7 +80,7 @@ async def test_the_output_reads_like_a_log(client):
 
 
 async def test_the_level_the_daemon_records_at_changes_at_once(client):
-    own = logging.getLogger("assistant")
+    own = logging.getLogger("lo9i")
     saved = own.level, logging.getLogger().level
     try:
         assert await client.logs.level() == "INFO"

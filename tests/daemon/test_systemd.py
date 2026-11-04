@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from assistant.daemon import startup, systemd
-from assistant.protocol import StartupError, StartupStatus
+from lo9i.daemon import startup, systemd
+from lo9i.protocol import StartupError, StartupStatus
 
 
 @pytest.fixture
@@ -40,7 +40,7 @@ def commands(home: Path, monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, ...
 
 def test_the_unit_runs_this_python_from_here_and_marks_the_daemon_as_managed():
     unit = systemd.unit()
-    assert f'ExecStart="{sys.executable}" -m assistant.daemon' in unit
+    assert f'ExecStart="{sys.executable}" -m lo9i.daemon' in unit
     assert f"Environment={systemd.MANAGED_ENV}=1" in unit and "Restart=always" in unit
     assert "WantedBy=default.target" in unit
 

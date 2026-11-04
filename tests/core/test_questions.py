@@ -1,9 +1,9 @@
 """Questions with options from the agent (ask_user): the run waits like for an approval, and the
 picked options reach the model."""
 
-from assistant.core.agent import Session
-from assistant.core.context import UNATTENDED_CHANNEL
-from assistant.core.events import ApprovalRequired, Done, ToolFinished, is_question
+from lo9i.core.agent import Session
+from lo9i.core.context import UNATTENDED_CHANNEL
+from lo9i.core.events import ApprovalRequired, Done, ToolFinished, is_question
 from tests.conftest import collect
 
 _SOURCES = ["Google", "LinkedIn", "GitHub"]

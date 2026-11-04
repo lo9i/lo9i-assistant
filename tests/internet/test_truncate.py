@@ -1,6 +1,6 @@
-from assistant.core.config import settings
-from assistant.core.internet.results import Page
-from assistant.core.internet.truncate import fit
+from lo9i.core.config import settings
+from lo9i.core.internet.results import Page
+from lo9i.core.internet.truncate import fit
 
 
 def test_short_pages_are_returned_whole():

@@ -5,9 +5,9 @@ from rich.console import Group
 from rich.syntax import Syntax
 from textual.widgets import Button, Checkbox, OptionList, Static, Tree
 
-from assistant.core.agent import FileChange, FolderEntry, Handoff
-from assistant_terminal.folder_text import ChangeMarks, entry_label
-from assistant_terminal.tui.screens import ConfirmScreen, FolderScreen
+from lo9i.core.agent import FileChange, FolderEntry, Handoff
+from lo9i_terminal.folder_text import ChangeMarks, entry_label
+from lo9i_terminal.tui.screens import ConfirmScreen, FolderScreen
 from tests.terminal.conftest import wait_for
 
 

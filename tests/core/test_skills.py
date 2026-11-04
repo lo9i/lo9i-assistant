@@ -2,16 +2,16 @@ import sys
 
 import pytest
 
-from assistant.core.conversation.prompt import build_system_prompt
-from assistant.core.events import ApprovalRequired, ToolFinished
-from assistant.core.skills import store
-from assistant.core.tools.approval import UNATTENDED_DENIAL
+from lo9i.core.conversation.prompt import build_system_prompt
+from lo9i.core.events import ApprovalRequired, ToolFinished
+from lo9i.core.skills import store
+from lo9i.core.tools.approval import UNATTENDED_DENIAL
 from tests.conftest import collect
 
 
 @pytest.fixture
 def skills_dir(isolated_settings, monkeypatch):
-    monkeypatch.setattr("assistant.core.config.settings.skills_dir", str(isolated_settings / "skills"))
+    monkeypatch.setattr("lo9i.core.config.settings.skills_dir", str(isolated_settings / "skills"))
     return isolated_settings / "skills"
 
 
@@ -86,7 +86,7 @@ async def test_deleting_a_skill_needs_approval_and_is_denied_unattended(service,
 
 
 def test_invalid_names_are_refused(isolated_settings, monkeypatch):
-    monkeypatch.setattr("assistant.core.config.settings.skills_dir", str(isolated_settings / "skills"))
+    monkeypatch.setattr("lo9i.core.config.settings.skills_dir", str(isolated_settings / "skills"))
     import pytest
 
     with pytest.raises(store.SkillError):
@@ -96,9 +96,9 @@ def test_invalid_names_are_refused(isolated_settings, monkeypatch):
 def test_the_setup_skill_is_built_in_and_covers_every_setup_command(isolated_settings, monkeypatch):
     import pytest
 
-    from assistant_terminal.commands import COMMANDS
+    from lo9i_terminal.commands import COMMANDS
 
-    monkeypatch.setattr("assistant.core.config.settings.skills_dir", str(isolated_settings / "skills"))
+    monkeypatch.setattr("lo9i.core.config.settings.skills_dir", str(isolated_settings / "skills"))
     setup = store.load(store.SETUP)
     assert setup.builtin and next(s for s in store.list_skills() if s.name == store.SETUP).builtin
     assert "Settings → Plugins" in setup.instructions and "Settings → General → Email" in setup.instructions
@@ -131,7 +131,7 @@ async def test_send_email_points_to_setting_up_email_when_none_is_connected(serv
 async def test_saved_skills_are_edited_and_built_in_ones_refused(service, isolated_settings, monkeypatch):
     import pytest
 
-    monkeypatch.setattr("assistant.core.config.settings.skills_dir", str(isolated_settings / "skills"))
+    monkeypatch.setattr("lo9i.core.config.settings.skills_dir", str(isolated_settings / "skills"))
     store.save("news-digest", "Daily news", "1. Search")
     edited = await service.update_skill("news-digest", "Morning news", "1. Search\n2. Send")
     assert (edited.description, edited.instructions) == ("Morning news", "1. Search\n2. Send")
@@ -145,7 +145,7 @@ async def test_saved_skills_are_edited_and_built_in_ones_refused(service, isolat
 
 
 async def test_clients_list_only_saved_skills_while_the_assistant_sees_all(service, isolated_settings, monkeypatch):
-    monkeypatch.setattr("assistant.core.config.settings.skills_dir", str(isolated_settings / "skills"))
+    monkeypatch.setattr("lo9i.core.config.settings.skills_dir", str(isolated_settings / "skills"))
     store.save("news-digest", "Daily news", "1. Search")
     assert [s.name for s in await service.list_skills()] == ["news-digest"]
     assert (await service.memory_snapshot("owner")).skills == ["news-digest"]

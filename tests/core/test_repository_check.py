@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from assistant.core.repositories.check import problems
+from lo9i.core.repositories.check import problems
 
 
 def _write(path: Path, text: str) -> None:

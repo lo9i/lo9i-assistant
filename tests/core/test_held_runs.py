@@ -3,10 +3,10 @@ an answer to an approval. Each runs later as it would have then, in the order it
 
 import asyncio
 
-from assistant.core.agent import Session
-from assistant.core.attachments import Attachment
-from assistant.core.conversation.held import CHAT, Origin
-from assistant.core.events import ApprovalRequired, Done, Held, ToolFinished
+from lo9i.core.agent import Session
+from lo9i.core.attachments import Attachment
+from lo9i.core.conversation.held import CHAT, Origin
+from lo9i.core.events import ApprovalRequired, Done, Held, ToolFinished
 from tests.conftest import collect
 
 

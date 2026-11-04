@@ -12,14 +12,14 @@ from typing import cast
 
 import pytest
 
-from assistant.core.agent import AssistantService, FolderError, HandoffError, Session, ShownStep
-from assistant.core.agent.handoffs import _StepReader
-from assistant.core.agent_tasks import workers
-from assistant.core.agent_tasks.records import TaskStore
-from assistant.core.attachments import Attachment
-from assistant.core.config import settings
-from assistant.core.conversation import file_index, queued
-from assistant.core.events import (
+from lo9i.core.agent import AssistantService, FolderError, HandoffError, Session, ShownStep
+from lo9i.core.agent.handoffs import _StepReader
+from lo9i.core.agent_tasks import workers
+from lo9i.core.agent_tasks.records import TaskStore
+from lo9i.core.attachments import Attachment
+from lo9i.core.config import settings
+from lo9i.core.conversation import file_index, queued
+from lo9i.core.events import (
     Cancelled,
     Done,
     Error,
@@ -31,12 +31,12 @@ from assistant.core.events import (
     UserTaken,
     UserWithdrawn,
 )
-from assistant.core.mcp import folders, servers
-from assistant.core.mcp.servers import McpServer
-from assistant.daemon.managers import ByHand
-from assistant.daemon.queued import QueuedMessages
-from assistant.daemon.runs import RunHub
-from assistant.daemon.shutdown import Ending, Shutdown
+from lo9i.core.mcp import folders, servers
+from lo9i.core.mcp.servers import McpServer
+from lo9i.daemon.managers import ByHand
+from lo9i.daemon.queued import QueuedMessages
+from lo9i.daemon.runs import RunHub
+from lo9i.daemon.shutdown import Ending, Shutdown
 from tests.conftest import collect
 from tests.daemon.test_queued import NO_MIRRORS, NOT_ENDING
 
@@ -225,7 +225,7 @@ async def test_with_no_run_in_progress_a_restart_is_at_once(service):
 
 
 async def test_the_workspace_is_created_when_handed_to_and_not_listed_as_recent(service):
-    from assistant.core.config import settings
+    from lo9i.core.config import settings
 
     session = Session("owner", "cli", await service.new_thread("owner"))
     workspace = str(Path(settings.agent_workspace_dir))

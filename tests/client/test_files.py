@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from assistant.client.files import dropped_paths, save_download
+from lo9i.client.files import dropped_paths, save_download
 
 
 def test_pasted_paths_of_existing_files_are_files(tmp_path: Path):

@@ -5,13 +5,13 @@ from datetime import UTC, datetime, timedelta
 import httpx
 import pytest
 
-from assistant.client.daemon_client import DaemonClient
-from assistant.core.agent import Job, JobError
-from assistant.core.jobs import store
-from assistant.daemon.api import create_app
-from assistant.daemon.auth import trusted
-from assistant.daemon.runs import RunHub
-from assistant.protocol import CLIENT_HEADER
+from lo9i.client.daemon_client import DaemonClient
+from lo9i.core.agent import Job, JobError
+from lo9i.core.jobs import store
+from lo9i.daemon.api import create_app
+from lo9i.daemon.auth import trusted
+from lo9i.daemon.runs import RunHub
+from lo9i.protocol import CLIENT_HEADER
 
 _LONG_AGO = "2020-01-01T09:00:00+00:00"
 

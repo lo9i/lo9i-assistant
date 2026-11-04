@@ -6,7 +6,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from assistant.core.logs import (
+from lo9i.core.logs import (
     LOG_FILES,
     LogEntry,
     LogFile,
@@ -25,7 +25,7 @@ from assistant.core.logs import (
 @pytest.fixture
 def levels() -> Iterator[None]:
     """The levels the test changes, put back after it."""
-    own, root = logging.getLogger("assistant"), logging.getLogger()
+    own, root = logging.getLogger("lo9i"), logging.getLogger()
     saved = own.level, root.level
     yield
     own.setLevel(saved[0])
@@ -48,22 +48,22 @@ def _logger(writer: LogWriter, name: str) -> logging.Logger:
 
 
 def test_components_come_from_the_logger_names():
-    assert component_of("assistant.core.mcp.process") == "mcp"
-    assert component_of("assistant.core.agent.archive") == "agent"
-    assert component_of("assistant.core.conversation.memory_writer") == "memory"
-    assert component_of("assistant.daemon.scheduler") == "scheduler"
-    assert component_of("assistant.daemon.server") == "daemon"
-    assert component_of("assistant.core.channels.telegram") == "channels"
-    assert component_of("assistant.core.channels.hub") == "channels"
+    assert component_of("lo9i.core.mcp.process") == "mcp"
+    assert component_of("lo9i.core.agent.archive") == "agent"
+    assert component_of("lo9i.core.conversation.memory_writer") == "memory"
+    assert component_of("lo9i.daemon.scheduler") == "scheduler"
+    assert component_of("lo9i.daemon.server") == "daemon"
+    assert component_of("lo9i.core.channels.telegram") == "channels"
+    assert component_of("lo9i.core.channels.hub") == "channels"
     assert component_of("uvicorn.error") == "other"
-    assert component_of("assistant.core.mcpx") == "other"
+    assert component_of("lo9i.core.mcpx") == "other"
 
 
 def test_a_traceback_stays_with_its_record():
     text = (
         "Traceback before any record\n"
-        "2026-10-07 10:00:00,001 INFO assistant.daemon.server: Daemon ready\n"
-        "2026-10-07 10:00:01,002 ERROR assistant.core.mcp.hub: Couldn't connect\n"
+        "2026-10-07 10:00:00,001 INFO lo9i.daemon.server: Daemon ready\n"
+        "2026-10-07 10:00:01,002 ERROR lo9i.core.mcp.hub: Couldn't connect\n"
         "Traceback (most recent call last):\n"
         "  ValueError: no\n"
     )
@@ -73,14 +73,14 @@ def test_a_traceback_stays_with_its_record():
     assert entries[2] == LogEntry(
         "2026-10-07 10:00:01,002",
         "ERROR",
-        "assistant.core.mcp.hub",
+        "lo9i.core.mcp.hub",
         "mcp",
         "Couldn't connect\nTraceback (most recent call last):\n  ValueError: no",
     )
 
 
 async def test_records_go_to_every_file_that_keeps_their_level(writer):
-    logger = _logger(writer, "assistant.core.mcp.test_logs")
+    logger = _logger(writer, "lo9i.core.mcp.test_logs")
     logger.info("started notes")
     try:
         raise ValueError("boom")
@@ -94,7 +94,7 @@ async def test_records_go_to_every_file_that_keeps_their_level(writer):
 
 
 async def test_a_query_picks_the_level_the_component_and_the_latest_lines(writer):
-    mcp, daemon = _logger(writer, "assistant.core.mcp.test_logs"), _logger(writer, "assistant.daemon.test_logs")
+    mcp, daemon = _logger(writer, "lo9i.core.mcp.test_logs"), _logger(writer, "lo9i.daemon.test_logs")
     for n in range(5):
         mcp.info("mcp %s", n)
         daemon.warning("daemon %s", n)
@@ -112,7 +112,7 @@ async def test_the_latest_lines_reach_into_rotated_parts(tmp_path):
     small = LogFile("small", "", logging.NOTSET, 200, 2)
     writer = LogWriter([small])
     try:
-        logger = _logger(writer, "assistant.daemon.test_logs")
+        logger = _logger(writer, "lo9i.daemon.test_logs")
         for n in range(10):
             logger.info("line %s", n)
         assert small.path().with_name("small.log.1").exists()
@@ -137,7 +137,7 @@ def test_unknown_queries_are_refused():
 
 
 async def test_following_starts_with_the_latest_entries_then_each_new_one(writer):
-    logger = _logger(writer, "assistant.core.agent.test_logs")
+    logger = _logger(writer, "lo9i.core.agent.test_logs")
     logger.info("before")
     stream = writer.follow(LOG_FILES["daemon"], LogQuery(level="INFO"))
     page = await anext(stream)
@@ -150,7 +150,7 @@ async def test_following_starts_with_the_latest_entries_then_each_new_one(writer
 
 
 async def test_records_from_other_threads_reach_a_follower(writer):
-    logger = _logger(writer, "assistant.daemon.test_logs")
+    logger = _logger(writer, "lo9i.daemon.test_logs")
     stream = writer.follow(LOG_FILES["errors"], LogQuery())
     page = await anext(stream)
     assert isinstance(page, LogPage) and page.entries == []
@@ -165,11 +165,11 @@ async def test_the_level_is_info_until_the_user_picks_one(service, levels):
     assert await level.load(service.store) == "INFO"
     assert await level.save(service.store, "DEBUG") == "DEBUG"
     assert await level.load(service.store) == "DEBUG"
-    assert logging.getLogger("assistant.core.mcp.hub").isEnabledFor(logging.DEBUG)
+    assert logging.getLogger("lo9i.core.mcp.hub").isEnabledFor(logging.DEBUG)
     # Libraries stay at INFO: at DEBUG some log every step.
     assert not logging.getLogger("watchfiles.main").isEnabledFor(logging.DEBUG)
     await level.save(service.store, "ERROR")
-    assert not logging.getLogger("assistant.core.mcp.hub").isEnabledFor(logging.WARNING)
+    assert not logging.getLogger("lo9i.core.mcp.hub").isEnabledFor(logging.WARNING)
     assert not logging.getLogger("uvicorn.x").isEnabledFor(logging.WARNING)
     with pytest.raises(LogLevelError, match="Choose one of"):
         await level.save(service.store, "LOUD")
@@ -179,4 +179,4 @@ async def test_the_level_is_info_until_the_user_picks_one(service, levels):
 async def test_the_saved_level_applies_when_the_daemon_starts(service, levels):
     await service.store.aput(("settings",), "logging", {"level": "WARNING"})
     await service.apply_log_level()
-    assert logging.getLogger("assistant").level == logging.WARNING
+    assert logging.getLogger("lo9i").level == logging.WARNING

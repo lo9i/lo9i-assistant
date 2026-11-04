@@ -1,4 +1,4 @@
-// The conversation on the page, like the chat parts of clients/terminal/src/assistant_terminal/tui/app.py:
+// The conversation on the page, like the chat parts of clients/terminal/src/lo9i_terminal/tui/app.py:
 // sending, approvals, stopping, moving between conversations, and showing runs started elsewhere
 // (another client, or a channel like Telegram). React reads it through subscribe/getSnapshot (useSyncExternalStore).
 import { ApiError } from "../api/errors";

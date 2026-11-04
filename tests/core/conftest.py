@@ -1,7 +1,7 @@
 import pytest
 
-import assistant.core.integrations.email.smtp as sending
-from assistant.core.agent import EmailError
+import lo9i.core.integrations.email.smtp as sending
+from lo9i.core.agent import EmailError
 
 
 @pytest.fixture

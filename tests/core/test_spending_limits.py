@@ -8,14 +8,14 @@ import pytest
 from langchain_core.messages import AIMessage
 from langchain_core.messages.ai import UsageMetadata
 
-from assistant.core import notifications
-from assistant.core.config import settings
-from assistant.core.events import Error
-from assistant.core.jobs import store
-from assistant.core.usage.budget import OverBudgetError
-from assistant.core.usage.limits import SpendingLimits, SpendingLimitsError
-from assistant.core.usage.log import ModelCall
-from assistant.daemon.scheduler import Scheduler
+from lo9i.core import notifications
+from lo9i.core.config import settings
+from lo9i.core.events import Error
+from lo9i.core.jobs import store
+from lo9i.core.usage.budget import OverBudgetError
+from lo9i.core.usage.limits import SpendingLimits, SpendingLimitsError
+from lo9i.core.usage.log import ModelCall
+from lo9i.daemon.scheduler import Scheduler
 from tests.conftest import collect
 from tests.core.test_jobs import _job_due
 

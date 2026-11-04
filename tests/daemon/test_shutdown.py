@@ -9,10 +9,10 @@ from dataclasses import replace
 
 import pytest
 
-from assistant.core.agent.session import Session
-from assistant.daemon import launchd, managers, server, systemd
-from assistant.daemon.shutdown import Ending, Pending, Shutdown
-from assistant.protocol import NoEndingError, StartupStatus, StopRefusedError
+from lo9i.core.agent.session import Session
+from lo9i.daemon import launchd, managers, server, systemd
+from lo9i.daemon.shutdown import Ending, Pending, Shutdown
+from lo9i.protocol import NoEndingError, StartupStatus, StopRefusedError
 from tests.conftest import collect, written
 
 
@@ -204,7 +204,7 @@ async def test_a_stop_that_fails_is_no_longer_recorded():
 
 
 async def test_a_restart_waits_for_the_queued_messages_sent_before_it_and_their_runs(tmp_path):
-    from assistant.core.ending import EndingState
+    from lo9i.core.ending import EndingState
 
     runs, stop = _Runs(running=1), asyncio.Event()
     state = EndingState(tmp_path / "restart-pending.json", lambda: [])
@@ -227,7 +227,7 @@ async def test_a_restart_waits_for_the_queued_messages_sent_before_it_and_their_
 
 
 async def test_now_doesnt_wait_for_the_queued_messages_sent_before_it(tmp_path):
-    from assistant.core.ending import EndingState
+    from lo9i.core.ending import EndingState
 
     runs, stop = _Runs(running=1), asyncio.Event()
     state = EndingState(tmp_path / "restart-pending.json", lambda: [])
@@ -492,7 +492,7 @@ def test_a_daemon_that_found_another_running_exits_so_its_service_manager_tries_
 
 
 async def test_the_log_says_who_asked_for_a_restart_or_stop_and_when_it_goes_ahead(caplog):
-    caplog.set_level("INFO", logger="assistant.daemon.shutdown")
+    caplog.set_level("INFO", logger="lo9i.daemon.shutdown")
     stop = asyncio.Event()
     Shutdown(_Runs(), stop, _Manager()).request(Ending.RESTART, "web (device Mac)")
     await asyncio.wait_for(stop.wait(), 1)
@@ -506,7 +506,7 @@ async def test_the_log_says_who_asked_for_a_restart_or_stop_and_when_it_goes_ahe
 
 
 def test_the_log_says_which_signal_stopped_the_daemon(caplog):
-    caplog.set_level("INFO", logger="assistant.daemon.server")
+    caplog.set_level("INFO", logger="lo9i.daemon.server")
     stop = asyncio.Event()
     server._stopped_by(signal.SIGTERM, stop)
     assert stop.is_set() and "Stopping: SIGTERM received" in caplog.text
@@ -514,7 +514,7 @@ def test_the_log_says_which_signal_stopped_the_daemon(caplog):
 
 async def test_a_stop_that_takes_long_says_what_it_still_waits_for_and_where(caplog, monkeypatch):
     monkeypatch.setattr(server, "_SLOW_STOP_SECONDS", 0.05)
-    caplog.set_level("WARNING", logger="assistant.daemon.server")
+    caplog.set_level("WARNING", logger="lo9i.daemon.server")
     answered = asyncio.Event()
 
     async def _never_answers() -> None:
@@ -536,7 +536,7 @@ async def test_a_stop_that_takes_long_says_what_it_still_waits_for_and_where(cap
 
 def test_a_restart_drops_what_dotenv_added_so_it_is_read_afresh(monkeypatch):
     """A line removed from .env is gone after a restart, while what the shell set stays."""
-    from assistant.daemon import shutdown
+    from lo9i.daemon import shutdown
 
     monkeypatch.setenv("EPOCH_MAX_TOKENS", "22000")
     monkeypatch.setenv("FROM_SHELL", "kept")

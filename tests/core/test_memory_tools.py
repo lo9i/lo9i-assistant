@@ -1,6 +1,6 @@
 """The agent's memory tools, the memory snapshot and profile edits from the apps."""
 
-from assistant.core.memory import profile
+from lo9i.core.memory import profile
 from tests.conftest import collect
 
 
@@ -40,7 +40,7 @@ async def test_old_profiles_move_into_the_current_sections(service):
 
 
 async def test_the_user_orders_the_profile_sections_and_new_ones_come_after(service):
-    from assistant.core.memory.profile import Profile
+    from lo9i.core.memory.profile import Profile
 
     every = list(Profile.model_fields)
     snapshot = await service.set_profile_order("u", ["work", "about", "work"])

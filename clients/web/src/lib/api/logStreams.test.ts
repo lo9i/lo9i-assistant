@@ -11,7 +11,7 @@ function streams(): { logs: LogStreams; request: ReturnType<typeof vi.fn> } {
 }
 
 function entry(message: string): LogEntry {
-  return { time: "2026-10-30 10:00:00,000", level: "INFO", logger: "assistant.core.mcp.hub", component: "mcp", message };
+  return { time: "2026-10-30 10:00:00,000", level: "INFO", logger: "lo9i.core.mcp.hub", component: "mcp", message };
 }
 
 function page(...entries: LogEntry[]): LogPage {

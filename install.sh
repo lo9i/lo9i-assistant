@@ -9,7 +9,7 @@
 # - The first time, asks for the model provider and its key and writes .env (only on this
 #   computer). Without a terminal to ask in, it writes .env from .env.example and stops.
 # - Once, when Claude Code or Codex have skills on this computer, asks whether to import them into the
-#   assistant's (all, pick or skip; src/assistant/core/skills/imports/setup.py). Without a terminal it doesn't ask.
+#   assistant's (all, pick or skip; src/lo9i/core/skills/imports/setup.py). Without a terminal it doesn't ask.
 # - On Linux with systemd, runs the daemon as the systemd user service lo9i-assistant, the one
 #   /startup in the app controls. Elsewhere, says how to start it.
 # - Run it again to update: it pulls, reinstalls and restarts.
@@ -126,7 +126,7 @@ system_timezone() {
 # Asks once, and only when there's a terminal to ask in and skills to import.
 ask_skill_imports() {
   { : </dev/tty; } 2>/dev/null || return 0
-  .venv/bin/python -m assistant.core.skills.imports.setup </dev/tty
+  .venv/bin/python -m lo9i.core.skills.imports.setup </dev/tty
 }
 
 # --- Starting -------------------------------------------------------------------------------
@@ -136,8 +136,8 @@ has_systemd() {
 }
 
 start_service() {
-  # The same service the app's /startup installs (src/assistant/daemon/systemd.py).
-  .venv/bin/python -m assistant.daemon.systemd >/dev/null
+  # The same service the app's /startup installs (src/lo9i/daemon/systemd.py).
+  .venv/bin/python -m lo9i.daemon.systemd >/dev/null
   systemctl --user restart "$SERVICE"
   if [[ "$(loginctl show-user "$USER" -p Linger --value 2>/dev/null)" != "yes" ]]; then
     say "Note: lingering is off, so the assistant only runs while $USER is logged in."

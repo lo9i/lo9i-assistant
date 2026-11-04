@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from assistant.daemon import updates
-from assistant.daemon.updates import VERSION_FILE, Step, Updates
-from assistant.protocol import Commit, UpdateError, UpdateStatus
+from lo9i.daemon import updates
+from lo9i.daemon.updates import VERSION_FILE, Step, Updates
+from lo9i.protocol import Commit, UpdateError, UpdateStatus
 from tests.conftest import written
 
 

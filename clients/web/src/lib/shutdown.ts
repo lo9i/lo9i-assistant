@@ -1,4 +1,4 @@
-// Restarting or stopping the daemon from the Assistant card (src/assistant/daemon/shutdown.py). Either waits for
+// Restarting or stopping the daemon from the Assistant card (src/lo9i/daemon/shutdown.py). Either waits for
 // the runs in progress to end; the page reloads once the daemon is back.
 import { formatDate, formatList, t } from "./i18n.svelte";
 

@@ -8,16 +8,16 @@ from string import Formatter
 
 from textual.widgets._footer import FooterKey
 
-import assistant_terminal
-from assistant.core.i18n import read_tables
-from assistant_terminal import i18n
-from assistant_terminal.commands import COMMANDS, help_lines
-from assistant_terminal.i18n import short_date, t
-from assistant_terminal.tui.prompt import PromptInput
+import lo9i_terminal
+from lo9i.core.i18n import read_tables
+from lo9i_terminal import i18n
+from lo9i_terminal.commands import COMMANDS, help_lines
+from lo9i_terminal.i18n import short_date, t
+from lo9i_terminal.tui.prompt import PromptInput
 from tests.terminal.conftest import wait_for
 from tests.translations import marked_texts
 
-_PACKAGE = Path(assistant_terminal.__file__).parent
+_PACKAGE = Path(lo9i_terminal.__file__).parent
 _SPANISH = read_tables(_PACKAGE / "locales")["es"]
 
 

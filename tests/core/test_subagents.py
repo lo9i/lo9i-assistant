@@ -3,12 +3,12 @@ conversation; approvals inside it pause the run and resume it where it stopped."
 
 from langchain_core.messages import HumanMessage, ToolMessage
 
-from assistant.core import subagent_steps
-from assistant.core.agent import Session, ShownStep
-from assistant.core.config import settings
-from assistant.core.context import UNATTENDED_CHANNEL
-from assistant.core.events import ApprovalRequired, Done, ToolFinished, ToolStarted
-from assistant.core.subagent import LIMIT_REACHED
+from lo9i.core import subagent_steps
+from lo9i.core.agent import Session, ShownStep
+from lo9i.core.config import settings
+from lo9i.core.context import UNATTENDED_CHANNEL
+from lo9i.core.events import ApprovalRequired, Done, ToolFinished, ToolStarted
+from lo9i.core.subagent import LIMIT_REACHED
 from tests.conftest import collect
 
 

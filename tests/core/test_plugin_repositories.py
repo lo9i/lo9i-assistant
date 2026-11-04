@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from assistant.core.agent import FoundServer, PluginUpdate, Repository, RepositoryError, RepositoryPlugins
-from assistant.core.mcp import servers
-from assistant.core.repositories import cache, offers
-from assistant.core.repositories.known import EXTRAS
+from lo9i.core.agent import FoundServer, PluginUpdate, Repository, RepositoryError, RepositoryPlugins
+from lo9i.core.mcp import servers
+from lo9i.core.repositories import cache, offers
+from lo9i.core.repositories.known import EXTRAS
 from tests.core.test_repositories import HELLO, REMOTE, repo  # noqa: F401 (a fixture, used by `remote`)
 
 MINE = "https://github.com/me/my-plugins.git"
@@ -138,7 +138,7 @@ TOKEN = "ghp_secret"
 @pytest.fixture
 def private(remote, monkeypatch):
     """PRIVATE answers only with TOKEN, the way git fails without it."""
-    from assistant.core.repositories import checkout
+    from lo9i.core.repositories import checkout
 
     fetch, latest = checkout._fetch, checkout.latest_commit
 
@@ -194,7 +194,7 @@ async def test_removing_a_private_repository_deletes_its_token(service, private)
 def test_a_token_reaches_git_as_a_header_for_the_repositorys_host_only():
     import base64
 
-    from assistant.core.repositories.checkout import _auth
+    from lo9i.core.repositories.checkout import _auth
 
     assert _auth(PRIVATE, "") == {}
     env = _auth(PRIVATE, TOKEN)

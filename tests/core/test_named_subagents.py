@@ -3,11 +3,11 @@ handed tasks with delegate's `agent`, each working with its own instructions, mo
 
 from langchain_core.messages import SystemMessage
 
-from assistant.core import subagent as subagent_module
-from assistant.core.agent import McpServerChanges, ServerValues
-from assistant.core.conversation.prompt import build_system_prompt
-from assistant.core.events import ToolFinished
-from assistant.core.mcp import subagents
+from lo9i.core import subagent as subagent_module
+from lo9i.core.agent import McpServerChanges, ServerValues
+from lo9i.core.conversation.prompt import build_system_prompt
+from lo9i.core.events import ToolFinished
+from lo9i.core.mcp import subagents
 from tests.conftest import collect
 from tests.core.test_repositories import URL, _problems, _write, repo  # noqa: F401 (a fixture, used by `researcher`)
 

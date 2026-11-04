@@ -1,5 +1,5 @@
 // Answer buttons: a reply that ends with a question with a few clear answers lists them in a marker at its end,
-// `<!-- choices: Yes | No -->` (src/assistant/core/conversation/choices.py, prompts/operating.md). The marker never
+// `<!-- choices: Yes | No -->` (src/lo9i/core/conversation/choices.py, prompts/operating.md). The marker never
 // shows; its choices show as buttons under the reply.
 
 const MARKER = /<!--\s*choices:[\s\S]*?-->/gi;

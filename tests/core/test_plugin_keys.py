@@ -6,8 +6,8 @@ import json
 
 import pytest
 
-from assistant.core.agent import KeptKeys, McpServer, McpServerChanges, ServerValues
-from assistant.core.mcp import keys, servers
+from lo9i.core.agent import KeptKeys, McpServer, McpServerChanges, ServerValues
+from lo9i.core.mcp import keys, servers
 from tests.core.test_plugin_repositories import PRIVATE, TOKEN, private, remote  # noqa: F401 (fixtures)
 from tests.core.test_repositories import HELLO, URL, repo  # noqa: F401 (a fixture, used by `remote`)
 

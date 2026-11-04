@@ -1,6 +1,6 @@
 """The answer buttons' marker: taken out of what the user reads, also while the reply streams."""
 
-from assistant.core.conversation import choices
+from lo9i.core.conversation import choices
 
 
 def test_the_marker_at_the_end_is_taken_out():

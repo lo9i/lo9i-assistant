@@ -1,4 +1,4 @@
-// What git says changed in the folder a conversation is handed to (src/assistant/core/handed_folder/changes.py), as
+// What git says changed in the folder a conversation is handed to (src/lo9i/core/handed_folder/changes.py), as
 // the side panel marks it in the tree: a file by its change, a folder with changes inside by a dot.
 import type { FileChange } from "$lib/api/types";
 

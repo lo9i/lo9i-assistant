@@ -7,10 +7,10 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from langchain_core.messages import AIMessage
 
-from assistant.core.config import settings
-from assistant.core.conversation import pending, summaries
-from assistant.core.conversation.digest import MemoryDigest
-from assistant.core.conversation.epochs import cut_index, estimate_tokens, usage_anchor
+from lo9i.core.config import settings
+from lo9i.core.conversation import pending, summaries
+from lo9i.core.conversation.digest import MemoryDigest
+from lo9i.core.conversation.epochs import cut_index, estimate_tokens, usage_anchor
 from tests.conftest import collect
 
 

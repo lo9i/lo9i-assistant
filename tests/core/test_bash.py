@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-import assistant.core.tools.bash as bash_module
-from assistant.core.config import settings
+import lo9i.core.tools.bash as bash_module
+from lo9i.core.config import settings
 
 
 async def test_commands_run_in_the_workspace_with_the_users_home(monkeypatch, tmp_path):

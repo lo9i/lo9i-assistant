@@ -6,13 +6,13 @@ from datetime import UTC, datetime
 
 import pytest
 
-from assistant.core.agent import Session
-from assistant.core.config import settings
-from assistant.core.integrations.email.imap import MailSummary
-from assistant.core.jobs import active, store
-from assistant.core.jobs.active import ActiveRun
-from assistant.core.jobs.store import Job
-from assistant.daemon.scheduler import Scheduler
+from lo9i.core.agent import Session
+from lo9i.core.config import settings
+from lo9i.core.integrations.email.imap import MailSummary
+from lo9i.core.jobs import active, store
+from lo9i.core.jobs.active import ActiveRun
+from lo9i.core.jobs.store import Job
+from lo9i.daemon.scheduler import Scheduler
 from tests.conftest import collect
 
 

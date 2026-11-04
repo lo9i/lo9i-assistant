@@ -7,9 +7,9 @@ import sqlite3
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from assistant.core.conversation.unanswered import answered
-from assistant.core.events import Error
-from assistant.core.memory import profile
+from lo9i.core.conversation.unanswered import answered
+from lo9i.core.events import Error
+from lo9i.core.memory import profile
 from tests.conftest import collect
 
 

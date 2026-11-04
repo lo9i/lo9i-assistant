@@ -1,12 +1,12 @@
 import adapter from "@sveltejs/adapter-static";
 
 // A single-page app: built into the daemon package, which serves it at /app/ and answers every
-// path under it with index.html (src/assistant/daemon/web_ui.py).
+// path under it with index.html (src/lo9i/daemon/web_ui.py).
 const config = {
   kit: {
     adapter: adapter({
-      pages: "../../src/assistant/daemon/webui",
-      assets: "../../src/assistant/daemon/webui",
+      pages: "../../src/lo9i/daemon/webui",
+      assets: "../../src/lo9i/daemon/webui",
       fallback: "index.html",
       strict: false,
     }),

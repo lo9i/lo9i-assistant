@@ -4,10 +4,10 @@ saved; and the MCP page's env change, which keeps what a plugin's server.yaml se
 
 import pytest
 
-from assistant.core.agent import McpServer, McpServerChanges, McpServerError, ServerValues
-from assistant.core.mcp import keys, plugin_settings, servers
-from assistant.core.mcp.checks import CheckFailedError
-from assistant.core.mcp.install import ServerField
+from lo9i.core.agent import McpServer, McpServerChanges, McpServerError, ServerValues
+from lo9i.core.mcp import keys, plugin_settings, servers
+from lo9i.core.mcp.checks import CheckFailedError
+from lo9i.core.mcp.install import ServerField
 from tests.core.test_repositories import URL, _write, repo  # noqa: F401 (a fixture)
 
 # The check refuses any token but "good", and a region it doesn't know.

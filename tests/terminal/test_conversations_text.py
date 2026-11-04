@@ -1,5 +1,5 @@
-from assistant.core.agent import Conversation
-from assistant_terminal.conversations_text import matching, message_search, preview
+from lo9i.core.agent import Conversation
+from lo9i_terminal.conversations_text import matching, message_search, preview
 
 
 def _conversation(tags: list[str]) -> Conversation:

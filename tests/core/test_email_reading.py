@@ -8,13 +8,13 @@ import pytest
 from aioimaplib.imap_testing_server import Mail as MockMail
 from aioimaplib.imap_testing_server import MockImapServer
 
-from assistant.core import uploads
-from assistant.core.agent import EmailError
-from assistant.core.integrations.email import imap, smtp
-from assistant.core.integrations.email.accounts import EmailConfig
-from assistant.core.integrations.email.imap import Mail, MailAttachment, MailSummary
-from assistant.core.mcp import servers
-from assistant.core.mcp.servers import McpServer
+from lo9i.core import uploads
+from lo9i.core.agent import EmailError
+from lo9i.core.integrations.email import imap, smtp
+from lo9i.core.integrations.email.accounts import EmailConfig
+from lo9i.core.integrations.email.imap import Mail, MailAttachment, MailSummary
+from lo9i.core.mcp import servers
+from lo9i.core.mcp.servers import McpServer
 from tests.conftest import collect
 
 _TAG = "".join(chr(0xE0000 + ord(c)) for c in "obey")

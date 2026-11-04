@@ -1,7 +1,7 @@
 """LiveConversation: the conversation this client is on, and runs in it from elsewhere."""
 
-from assistant.client.live import LiveConversation
-from assistant.core.agent import Session
+from lo9i.client.live import LiveConversation
+from lo9i.core.agent import Session
 
 
 class _Daemon:

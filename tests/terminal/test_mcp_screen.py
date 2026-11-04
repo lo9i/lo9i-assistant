@@ -2,10 +2,10 @@ from dataclasses import replace
 
 from textual.widgets import Button, Input, Markdown, OptionList, Select, SelectionList, TextArea
 
-from assistant_terminal.mcp_text import describe, parse_command, parse_pairs, selection, summary, tool_label
-from assistant_terminal.tui.screens import ConfirmScreen, McpSection
-from assistant_terminal.tui.screens.mcp_add import McpAddScreen
-from assistant_terminal.tui.screens.mcp_sign_in import McpSignInScreen
+from lo9i_terminal.mcp_text import describe, parse_command, parse_pairs, selection, summary, tool_label
+from lo9i_terminal.tui.screens import ConfirmScreen, McpSection
+from lo9i_terminal.tui.screens.mcp_add import McpAddScreen
+from lo9i_terminal.tui.screens.mcp_sign_in import McpSignInScreen
 from tests.terminal.conftest import _mcp_status, wait_for, wait_for_section
 
 
@@ -59,7 +59,7 @@ async def test_adds_a_local_server_after_looking_at_its_tools(app, client):
 async def test_a_remote_server_that_asks_to_sign_in_is_added_then_signed_in(app, client, monkeypatch):
     opened: list[str] = []
     monkeypatch.setattr(
-        "assistant_terminal.tui.screens.mcp_sign_in.webbrowser.open", lambda url: opened.append(url) or False
+        "lo9i_terminal.tui.screens.mcp_sign_in.webbrowser.open", lambda url: opened.append(url) or False
     )
     async with app.run_test(size=(140, 45)) as pilot:
         screen = await _open(pilot, app)
@@ -103,7 +103,7 @@ def test_parsing_what_the_user_types():
 
 
 def test_the_checked_tools_become_include_and_exclude_lists():
-    from assistant.core.agent import McpToolInfo
+    from lo9i.core.agent import McpToolInfo
 
     tools = [McpToolInfo("a", "", True, True), McpToolInfo("b", "", False, True)]
     assert selection(tools, {"a", "b"}) == ([], [])  # tools added later are offered too
@@ -112,8 +112,8 @@ def test_the_checked_tools_become_include_and_exclude_lists():
 
 
 async def test_a_server_installed_from_the_extras_is_updated_here(app, client):
-    from assistant.core.agent import ServerValues
-    from assistant.core.repositories.known import EXTRAS
+    from lo9i.core.agent import ServerValues
+    from lo9i.core.repositories.known import EXTRAS
 
     async with app.run_test(size=(120, 50)) as pilot:
         screen = await _open(pilot, app)
@@ -133,8 +133,8 @@ async def test_a_server_installed_from_the_extras_is_updated_here(app, client):
 
 
 async def test_an_update_that_needs_a_value_asks_for_it_here(app, client):
-    from assistant.core.agent import PluginFieldValue, PluginSettings, ServerValues, UpdateNeedsValuesError
-    from assistant_terminal.tui.screens.update_values import UpdateValuesScreen
+    from lo9i.core.agent import PluginFieldValue, PluginSettings, ServerValues, UpdateNeedsValuesError
+    from lo9i_terminal.tui.screens.update_values import UpdateValuesScreen
 
     calls = []
 

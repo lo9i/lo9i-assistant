@@ -5,10 +5,10 @@ import json
 import httpx
 import pytest
 
-from assistant.core.internet import keyless
-from assistant.core.internet.keyless import ExaProvider, KeenableProvider, ParallelProvider
-from assistant.core.internet.providers import SearchError
-from assistant.core.internet.results import SearchResult
+from lo9i.core.internet import keyless
+from lo9i.core.internet.keyless import ExaProvider, KeenableProvider, ParallelProvider
+from lo9i.core.internet.providers import SearchError
+from lo9i.core.internet.results import SearchResult
 
 _EXA = (
     """Title: Coroutines and tasks

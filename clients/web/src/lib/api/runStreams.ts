@@ -1,4 +1,4 @@
-// The runs a tab follows, over its one /events stream (src/assistant/daemon/run_follows.py). A browser keeps at most
+// The runs a tab follows, over its one /events stream (src/lo9i/daemon/run_follows.py). A browser keeps at most
 // six HTTP/1.1 connections open to a plain-HTTP origin across all its tabs, and a stream per run used them up, so
 // every other request of the page waited. Each run followed is asked for under an id of its own; its events come down
 // the event stream with how many came before them, and each time that stream opens again every run is asked for

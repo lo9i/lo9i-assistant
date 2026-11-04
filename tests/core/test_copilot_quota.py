@@ -9,17 +9,17 @@ import httpx
 import pytest
 from langgraph.store.memory import InMemoryStore
 
-from assistant.core import language, notifications
-from assistant.core.copilot_quota import records
-from assistant.core.copilot_quota.alerts import SentAlerts, after, due
-from assistant.core.copilot_quota.quota import CopilotQuota, QuotaCheckError, fetch, parse
-from assistant.core.copilot_quota.section import CopilotSection, items
-from assistant.core.copilot_quota.watch import CHECK_HOURS, CopilotWatch
-from assistant.core.home import sections
-from assistant.core.home.model import HomeSection
-from assistant.core.i18n import texts
-from assistant.core.llm.choice import ModelChoice
-from assistant.core.outbox import Outbox
+from lo9i.core import language, notifications
+from lo9i.core.copilot_quota import records
+from lo9i.core.copilot_quota.alerts import SentAlerts, after, due
+from lo9i.core.copilot_quota.quota import CopilotQuota, QuotaCheckError, fetch, parse
+from lo9i.core.copilot_quota.section import CopilotSection, items
+from lo9i.core.copilot_quota.watch import CHECK_HOURS, CopilotWatch
+from lo9i.core.home import sections
+from lo9i.core.home.model import HomeSection
+from lo9i.core.i18n import texts
+from lo9i.core.llm.choice import ModelChoice
+from lo9i.core.outbox import Outbox
 
 NOW = datetime(2026, 10, 29, 12, tzinfo=UTC)
 ES = texts("es")

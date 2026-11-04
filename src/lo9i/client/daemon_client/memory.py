@@ -1,0 +1,71 @@
+from dataclasses import asdict
+
+from lo9i.client.daemon_client.repositories import suggested_from
+from lo9i.client.daemon_client.transport import Transport
+from lo9i.core.agent import (
+    AboutYou,
+    AboutYouStatus,
+    Episode,
+    Fact,
+    MemoryEditError,
+    MemoryNotFoundError,
+    MemorySnapshot,
+    Suggested,
+)
+
+_ERRORS = {404: MemoryNotFoundError, 400: MemoryEditError}
+
+
+class MemoryApi:
+    """What the assistant remembers about the user."""
+
+    def __init__(self, transport: Transport) -> None:
+        self._transport = transport
+
+    async def snapshot(self) -> MemorySnapshot:
+        return MemorySnapshot(**await self._transport.request("GET", "/memory"))
+
+    async def set_profile_section(self, section: str, items: list[str]) -> MemorySnapshot:
+        body = {"items": items}
+        return MemorySnapshot(**await self._transport.request("PUT", f"/memory/profile/{section}", json=body))
+
+    async def set_profile_order(self, sections: list[str]) -> MemorySnapshot:
+        """The order the apps show the profile's sections in."""
+        body = {"sections": sections}
+        return MemorySnapshot(**await self._transport.request("PUT", "/memory/profile-order", json=body))
+
+    async def about_you(self) -> AboutYouStatus:
+        """The About you step's answers as the profile holds them; `needed` while it has no name."""
+        data = await self._transport.request("GET", "/memory/about-you")
+        return AboutYouStatus(AboutYou(**data["answers"]), data["needed"])
+
+    async def save_about_you(self, answers: AboutYou) -> list[Suggested]:
+        """Writes them to the profile; returns the extras' plugins to offer for what the user wants help with.
+        Raises MemoryEditError without a name."""
+        data = await self._transport.request("PUT", "/memory/about-you", json=asdict(answers), errors=_ERRORS)
+        return [suggested_from(s) for s in data["suggestions"]]
+
+    async def facts(self) -> list[Fact]:
+        """Every saved fact, newest first."""
+        return [Fact(**f) for f in await self._transport.request("GET", "/memory/facts")]
+
+    async def edit_fact(self, fact_id: str, text: str) -> Fact:
+        """It gets a new id. Raises MemoryNotFoundError, or MemoryEditError for empty text."""
+        body = {"text": text}
+        return Fact(**await self._transport.request("PUT", f"/memory/facts/{fact_id}", json=body, errors=_ERRORS))
+
+    async def delete_fact(self, fact_id: str) -> None:
+        await self._transport.request("DELETE", f"/memory/facts/{fact_id}", errors=_ERRORS)
+
+    async def episodes(self) -> list[Episode]:
+        """Every summary of a past conversation, newest first."""
+        return [Episode(**e) for e in await self._transport.request("GET", "/memory/episodes")]
+
+    async def edit_episode(self, episode_id: str, summary: str) -> Episode:
+        """It gets a new id. Raises MemoryNotFoundError, or MemoryEditError for empty text."""
+        body = {"text": summary}
+        path = f"/memory/episodes/{episode_id}"
+        return Episode(**await self._transport.request("PUT", path, json=body, errors=_ERRORS))
+
+    async def delete_episode(self, episode_id: str) -> None:
+        await self._transport.request("DELETE", f"/memory/episodes/{episode_id}", errors=_ERRORS)

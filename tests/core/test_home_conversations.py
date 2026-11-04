@@ -4,14 +4,14 @@ import asyncio
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
-from assistant.core import conversations
-from assistant.core.agent import AssistantService
-from assistant.core.config import settings
-from assistant.core.conversations import Conversation
-from assistant.core.home import results, sections
-from assistant.core.home.conversations import RECENT, shown
-from assistant.core.home.model import HomeSection
-from assistant.core.home.sections import CONVERSATIONS
+from lo9i.core import conversations
+from lo9i.core.agent import AssistantService
+from lo9i.core.config import settings
+from lo9i.core.conversations import Conversation
+from lo9i.core.home import results, sections
+from lo9i.core.home.conversations import RECENT, shown
+from lo9i.core.home.model import HomeSection
+from lo9i.core.home.sections import CONVERSATIONS
 
 OWNER = settings.owner_id
 

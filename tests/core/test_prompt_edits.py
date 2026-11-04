@@ -3,8 +3,8 @@ an edit starts a new epoch at the next message with nothing summarized."""
 
 import pytest
 
-from assistant.core.conversation import prompt_edits, prompts
-from assistant.core.conversation.prompt_edits import PromptEditError, UnknownPromptError
+from lo9i.core.conversation import prompt_edits, prompts
+from lo9i.core.conversation.prompt_edits import PromptEditError, UnknownPromptError
 from tests.conftest import collect
 
 

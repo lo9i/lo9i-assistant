@@ -1,5 +1,5 @@
 // The /claude folder picker (ui/chat/AgentFolderModal.svelte): what it offers at each point, from what the daemon
-// listed (src/assistant/core/conversation/agent_folders.py). Picking a folder hands the conversation to the agent
+// listed (src/lo9i/core/conversation/agent_folders.py). Picking a folder hands the conversation to the agent
 // there; browsing lists the folders inside one.
 import type { AgentFolders, FolderListing } from "./api/types";
 import { t } from "./i18n.svelte";

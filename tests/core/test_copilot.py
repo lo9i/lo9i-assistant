@@ -8,10 +8,10 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from pydantic import BaseModel
 
-from assistant.core.attachments import Attachment, hydrate, reference
-from assistant.core.llm import build_structured, copilot
-from assistant.core.llm.choice import ModelChoice
-from assistant.core.llm.copilot import CopilotAuthError, CopilotTokens
+from lo9i.core.attachments import Attachment, hydrate, reference
+from lo9i.core.llm import build_structured, copilot
+from lo9i.core.llm.choice import ModelChoice
+from lo9i.core.llm.copilot import CopilotAuthError, CopilotTokens
 
 _EXCHANGE = "https://api.github.com/copilot_internal/v2/token"
 _HOST = "api.business.githubcopilot.com"

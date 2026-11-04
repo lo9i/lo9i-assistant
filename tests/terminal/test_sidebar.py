@@ -4,12 +4,12 @@ counts show beside the pages, and F4 collapses it to its glyphs, kept for the ne
 
 from textual.widgets import Tab, Tabs
 
-from assistant.core.agent import Conversation
-from assistant.core.events import ApprovalRequired
-from assistant_terminal.nav import OPEN, SETTINGS_TABS
-from assistant_terminal.preferences import Preferences
-from assistant_terminal.tui.page import PageScreen
-from assistant_terminal.tui.screens import (
+from lo9i.core.agent import Conversation
+from lo9i.core.events import ApprovalRequired
+from lo9i_terminal.nav import OPEN, SETTINGS_TABS
+from lo9i_terminal.preferences import Preferences
+from lo9i_terminal.tui.page import PageScreen
+from lo9i_terminal.tui.screens import (
     BriefingSection,
     EmailRecipientsSection,
     LanguageSection,
@@ -18,7 +18,7 @@ from assistant_terminal.tui.screens import (
     PluginsSection,
     SettingsScreen,
 )
-from assistant_terminal.tui.sidebar import Sidebar
+from lo9i_terminal.tui.sidebar import Sidebar
 from tests.terminal.conftest import section_shown, wait_for, wait_for_section
 
 _AT = "2030-01-01T09:00:00+00:00"

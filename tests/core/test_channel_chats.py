@@ -7,14 +7,14 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from assistant.core.agent import Session
-from assistant.core.approvals import RemoteApprovals
-from assistant.core.channels.chat.conversations import GREETING, ChannelChats
-from assistant.core.channels.chat.port import ChatLimits, Delivered
-from assistant.core.conversation.dispatch import FOLLOW_UP, QUICK, Pick
-from assistant.core.events import Done, Event, TextDelta
-from assistant.core.outbox import DeliveryError
-from assistant.core.skills import store
+from lo9i.core.agent import Session
+from lo9i.core.approvals import RemoteApprovals
+from lo9i.core.channels.chat.conversations import GREETING, ChannelChats
+from lo9i.core.channels.chat.port import ChatLimits, Delivered
+from lo9i.core.conversation.dispatch import FOLLOW_UP, QUICK, Pick
+from lo9i.core.events import Done, Event, TextDelta
+from lo9i.core.outbox import DeliveryError
+from lo9i.core.skills import store
 from tests.conftest import collect
 from tests.core.test_handoffs import agent_plugin
 
@@ -113,7 +113,7 @@ def chats(service, runs, channel, jobs) -> ChannelChats:
 
 @pytest.fixture
 def coding(isolated_settings, monkeypatch):
-    monkeypatch.setattr("assistant.core.config.settings.skills_dir", str(isolated_settings / "skills"))
+    monkeypatch.setattr("lo9i.core.config.settings.skills_dir", str(isolated_settings / "skills"))
     store.save("coding", "Programming help", "Run the tests before saying it works.")
 
 
@@ -238,9 +238,9 @@ async def test_a_run_the_daemon_starts_in_a_channels_conversation_shows_in_the_u
 async def test_a_run_the_daemon_starts_shows_in_its_channels_chat_only_while_that_channel_is_connected(
     channel, jobs, service
 ):
-    from assistant.core.outbox import Outbox
-    from assistant.daemon.channel_runs import ChannelMirrors, ChannelRuns
-    from assistant.daemon.runs import RunHub
+    from lo9i.core.outbox import Outbox
+    from lo9i.daemon.channel_runs import ChannelMirrors, ChannelRuns
+    from lo9i.daemon.runs import RunHub
 
     async def run(text):
         yield TextDelta(text)

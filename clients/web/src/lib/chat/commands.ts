@@ -1,4 +1,4 @@
-// The web UI's slash commands, like clients/terminal/src/assistant_terminal/commands.py. The terminal's /mouse
+// The web UI's slash commands, like clients/terminal/src/lo9i_terminal/commands.py. The terminal's /mouse
 // and /quit have no meaning in a browser; /settings opens the settings page.
 
 import type { Agent } from "$lib/api/types";

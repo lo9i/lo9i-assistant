@@ -7,14 +7,14 @@ from pathlib import Path
 import certifi
 import pytest
 
-import assistant.core.integrations.email.smtp as sending
-from assistant.core.agent import EmailAccountNotFoundError, EmailError, Session
-from assistant.core.config import settings
-from assistant.core.context import UNATTENDED_CHANNEL
-from assistant.core.conversation.prompt import build_system_prompt
-from assistant.core.events import ApprovalRequired
-from assistant.core.integrations.email import accounts
-from assistant.core.tools.approval import UNATTENDED_DENIAL
+import lo9i.core.integrations.email.smtp as sending
+from lo9i.core.agent import EmailAccountNotFoundError, EmailError, Session
+from lo9i.core.config import settings
+from lo9i.core.context import UNATTENDED_CHANNEL
+from lo9i.core.conversation.prompt import build_system_prompt
+from lo9i.core.events import ApprovalRequired
+from lo9i.core.integrations.email import accounts
+from lo9i.core.tools.approval import UNATTENDED_DENIAL
 from tests.conftest import collect
 
 

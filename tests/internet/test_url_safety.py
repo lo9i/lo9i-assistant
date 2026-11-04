@@ -1,8 +1,8 @@
 import pytest
 
-from assistant.core.config import settings
-from assistant.core.internet.policy import BlockedDomainError, check_allowed
-from assistant.core.internet.url_safety import UnsafeUrlError, check_url
+from lo9i.core.config import settings
+from lo9i.core.internet.policy import BlockedDomainError, check_allowed
+from lo9i.core.internet.url_safety import UnsafeUrlError, check_url
 
 
 @pytest.mark.parametrize(

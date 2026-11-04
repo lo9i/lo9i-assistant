@@ -9,12 +9,12 @@ import httpx
 import pytest
 import uvicorn
 
-from assistant.core.channels.chat.port import ChatLimits
-from assistant.core.mcp import servers
-from assistant.core.mcp.servers import McpServer
-from assistant.daemon.api import create_app
-from assistant.daemon.runs import RunHub
-from assistant.protocol import CLIENT_HEADER
+from lo9i.core.channels.chat.port import ChatLimits
+from lo9i.core.mcp import servers
+from lo9i.core.mcp.servers import McpServer
+from lo9i.daemon.api import create_app
+from lo9i.daemon.runs import RunHub
+from lo9i.protocol import CLIENT_HEADER
 
 
 @pytest.fixture
@@ -41,7 +41,7 @@ async def test_a_channels_token_reaches_only_its_own_routes(app, service):
 
 
 async def test_a_device_cant_use_a_channels_routes(app, service):
-    from assistant.daemon.auth import trusted
+    from lo9i.daemon.auth import trusted
 
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=trusted(app)), base_url="http://127.0.0.1", headers={CLIENT_HEADER: "test"}

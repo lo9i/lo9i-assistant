@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from assistant.core.logs import Journal, LogEntry, LogPage, LogQuery, OutputFile, output_path, process_output
-from assistant.core.logs.output import stderr_is_journal
+from lo9i.core.logs import Journal, LogEntry, LogPage, LogQuery, OutputFile, output_path, process_output
+from lo9i.core.logs.output import stderr_is_journal
 
 
 def _append(path: Path, text: str) -> None:

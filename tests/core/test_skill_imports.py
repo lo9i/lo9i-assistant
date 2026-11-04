@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from assistant.core.events import ApprovalRequired, ToolFinished
-from assistant.core.skills import store
-from assistant.core.skills.imports import formats, importing, listing, places, setup
+from lo9i.core.events import ApprovalRequired, ToolFinished
+from lo9i.core.skills import store
+from lo9i.core.skills.imports import formats, importing, listing, places, setup
 from tests.conftest import collect
 
 

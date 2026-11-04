@@ -20,10 +20,10 @@ from langchain_core.messages import HumanMessage
 from langchain_openai import AzureChatOpenAI
 from pydantic import SecretStr
 
-import assistant.core.llm as llm_module
-from assistant.core.llm import build_llm, connections
-from assistant.core.llm.choice import ModelChoice
-from assistant.core.llm.claude import KeptAliveChatAnthropic
+import lo9i.core.llm as llm_module
+from lo9i.core.llm import build_llm, connections
+from lo9i.core.llm.choice import ModelChoice
+from lo9i.core.llm.claude import KeptAliveChatAnthropic
 
 
 def test_connections_probe_the_provider_once_idle():

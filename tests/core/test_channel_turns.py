@@ -3,24 +3,24 @@ conversation, approval and question buttons, and long replies split."""
 
 import asyncio
 
-from assistant.core.channels.chat.answers import parse_pick
-from assistant.core.channels.chat.approvals import (
+from lo9i.core.channels.chat.answers import parse_pick
+from lo9i.core.channels.chat.approvals import (
     approval_text,
     job_approval_buttons,
     parse_decision,
     parse_job_decision,
 )
-from assistant.core.channels.chat.port import ChatLimits
-from assistant.core.channels.chat.questions import (
+from lo9i.core.channels.chat.port import ChatLimits
+from lo9i.core.channels.chat.questions import (
     answered_text,
     choices,
     parse_press,
     question_buttons,
     question_text,
 )
-from assistant.core.channels.chat.split import split_text
-from assistant.core.channels.chat.turn import ChatTurn
-from assistant.core.events import (
+from lo9i.core.channels.chat.split import split_text
+from lo9i.core.channels.chat.turn import ChatTurn
+from lo9i.core.events import (
     ApprovalRequired,
     Done,
     Error,
@@ -30,7 +30,7 @@ from assistant.core.events import (
     ToolStarted,
     Transcribed,
 )
-from assistant.core.i18n import texts
+from lo9i.core.i18n import texts
 
 LIMITS = ChatLimits(edit_seconds=0, draft_limit=3500, message_limit=3500)
 EN = texts("en")

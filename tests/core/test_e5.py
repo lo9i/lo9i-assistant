@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from assistant.core.memory.e5 import E5Embedder
+from lo9i.core.memory.e5 import E5Embedder
 
 pytestmark = pytest.mark.live
 

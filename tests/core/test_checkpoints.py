@@ -4,14 +4,14 @@ and what an interrupted run resumes from."""
 import pytest
 from langgraph.channels import DeltaChannel
 
-from assistant.core import checkpoints
-from assistant.core.events import ApprovalRequired, ToolFinished
+from lo9i.core import checkpoints
+from lo9i.core.events import ApprovalRequired, ToolFinished
 from tests.conftest import collect
 
 
 @pytest.fixture
 def skills_dir(isolated_settings, monkeypatch):
-    monkeypatch.setattr("assistant.core.config.settings.skills_dir", str(isolated_settings / "skills"))
+    monkeypatch.setattr("lo9i.core.config.settings.skills_dir", str(isolated_settings / "skills"))
 
 
 async def _counts(service, thread_id):

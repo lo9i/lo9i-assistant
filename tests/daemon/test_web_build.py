@@ -4,8 +4,8 @@ import asyncio
 import shutil
 from pathlib import Path
 
-from assistant.core.bus import EventBus
-from assistant.daemon.web_build import WebBuildWatcher
+from lo9i.core.bus import EventBus
+from lo9i.daemon.web_build import WebBuildWatcher
 
 
 def _build(directory: Path, version: str) -> None:

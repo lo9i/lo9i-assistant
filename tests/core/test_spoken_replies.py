@@ -7,10 +7,10 @@ import av
 import numpy as np
 import pytest
 
-from assistant.core.agent import SpeechSettingsError, SynthesisError
-from assistant.core.speech.encode import to_ogg_opus, to_wav
-from assistant.core.speech.speakable import MAX_CHARS, speakable
-from assistant.core.speech.synthesizer import Speech
+from lo9i.core.agent import SpeechSettingsError, SynthesisError
+from lo9i.core.speech.encode import to_ogg_opus, to_wav
+from lo9i.core.speech.speakable import MAX_CHARS, speakable
+from lo9i.core.speech.synthesizer import Speech
 
 _TONE = Speech(np.sin(np.linspace(0, 440 * 2 * np.pi, 24000)).astype(np.float32) * 0.3, 24000)
 
@@ -75,8 +75,8 @@ def test_telegram_gets_ogg_opus():
 
 @pytest.mark.live
 async def test_kokoro_speaks_spanish_that_whisper_understands():
-    from assistant.core.speech.kokoro import KokoroSynthesizer
-    from assistant.core.speech.whisper import FasterWhisperTranscriber
+    from lo9i.core.speech.kokoro import KokoroSynthesizer
+    from lo9i.core.speech.whisper import FasterWhisperTranscriber
 
     speech = await KokoroSynthesizer().synthesize("Tengo turno con el dentista el viernes.", "ef_dora")
     heard = await FasterWhisperTranscriber().transcribe(to_wav(speech), "small", ["es", "en"], 5)

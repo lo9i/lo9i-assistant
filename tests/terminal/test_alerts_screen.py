@@ -4,9 +4,9 @@ or cause, picked, and Dismiss and Dismiss all take them off."""
 
 from textual.widgets import Button, Input, Markdown, OptionList
 
-from assistant.core.agent import Alert
-from assistant_terminal.tui.screens import AlertsScreen, BriefingSection, ConfirmScreen, DoctorSection, SkillsSection
-from assistant_terminal.tui.sidebar import Sidebar
+from lo9i.core.agent import Alert
+from lo9i_terminal.tui.screens import AlertsScreen, BriefingSection, ConfirmScreen, DoctorSection, SkillsSection
+from lo9i_terminal.tui.sidebar import Sidebar
 from tests.terminal.conftest import wait_for, wait_for_section
 
 _AT = "2030-01-01T09:00:00+00:00"

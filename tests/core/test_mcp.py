@@ -16,26 +16,26 @@ from mcp.server import MCPServer
 from mcp.types import AudioContent, CallToolResult, ImageContent, TextContent, ToolAnnotations
 from pydantic import Field
 
-from assistant.core import plugin_loading
-from assistant.core.agent import AssistantService, McpServer, McpServerChanges, McpServerError, Session
-from assistant.core.bus import EventBus
-from assistant.core.config import settings
-from assistant.core.events import ApprovalRequired, ToolFinished
-from assistant.core.health import HealthLog
-from assistant.core.hidden_text import strip_hidden
-from assistant.core.mcp import hub as hub_module
-from assistant.core.mcp import servers
-from assistant.core.mcp.connection import ConnectionLostError, McpConnection, NotConnectedError, list_tools
-from assistant.core.mcp.install import FoundServer
-from assistant.core.mcp.media import ToolMedia
-from assistant.core.mcp.oauth import McpAuth
-from assistant.core.mcp.on_demand import OnDemand
-from assistant.core.mcp.tools import McpTool
-from assistant.core.repositories import cache, checkout, source
-from assistant.core.repositories.known import EXTRAS
-from assistant.core.skills import store as skills
-from assistant.core.speech.voice import audio_paths
-from assistant.core.tools.approval import UNATTENDED_DENIAL
+from lo9i.core import plugin_loading
+from lo9i.core.agent import AssistantService, McpServer, McpServerChanges, McpServerError, Session
+from lo9i.core.bus import EventBus
+from lo9i.core.config import settings
+from lo9i.core.events import ApprovalRequired, ToolFinished
+from lo9i.core.health import HealthLog
+from lo9i.core.hidden_text import strip_hidden
+from lo9i.core.mcp import hub as hub_module
+from lo9i.core.mcp import servers
+from lo9i.core.mcp.connection import ConnectionLostError, McpConnection, NotConnectedError, list_tools
+from lo9i.core.mcp.install import FoundServer
+from lo9i.core.mcp.media import ToolMedia
+from lo9i.core.mcp.oauth import McpAuth
+from lo9i.core.mcp.on_demand import OnDemand
+from lo9i.core.mcp.tools import McpTool
+from lo9i.core.repositories import cache, checkout, source
+from lo9i.core.repositories.known import EXTRAS
+from lo9i.core.skills import store as skills
+from lo9i.core.speech.voice import audio_paths
+from lo9i.core.tools.approval import UNATTENDED_DENIAL
 from tests.conftest import collect
 from tests.core.test_speech import FakeTranscriber
 
@@ -496,8 +496,8 @@ async def test_audio_from_a_tool_is_transcribed_and_kept_after_a_retry(isolated_
 
 
 async def test_a_server_asking_for_the_copilot_login_gets_it_while_the_model_is_copilot(service):
-    from assistant.core.llm.choice import ModelChoice
-    from assistant.core.mcp.logins import ENV
+    from lo9i.core.llm.choice import ModelChoice
+    from lo9i.core.mcp.logins import ENV
 
     def env() -> dict[str, str]:
         return service.mcp._running["notes"].connection.server.env
@@ -513,7 +513,7 @@ async def test_a_server_asking_for_the_copilot_login_gets_it_while_the_model_is_
 
 
 async def test_a_server_that_asks_for_the_ssh_agent_gets_its_socket_and_others_dont(service, monkeypatch):
-    from assistant.core.mcp import pages, ssh_agent
+    from lo9i.core.mcp import pages, ssh_agent
 
     monkeypatch.setenv(ssh_agent.ENV, "/tmp/agent.sock")
     await _add(service, ssh_agent=True)
@@ -527,7 +527,7 @@ async def test_a_server_that_asks_for_the_ssh_agent_gets_its_socket_and_others_d
 
 
 async def test_a_server_that_asks_for_a_data_key_gets_it_when_it_starts_and_others_dont(service):
-    from assistant.core.mcp import data_key, pages
+    from lo9i.core.mcp import data_key, pages
 
     await data_key.ensure(service.store, service.secrets, McpServer(name="notes", data_key=True))
     await _add(service, data_key=True)

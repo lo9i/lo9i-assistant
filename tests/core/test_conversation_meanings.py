@@ -4,13 +4,13 @@ message continues in words its tags don't have is still offered to the model."""
 
 from langchain_core.messages import HumanMessage
 
-from assistant.core import conversations
-from assistant.core.agent import AssistantService, Session
-from assistant.core.conversation import summaries
-from assistant.core.conversation.dispatch import candidates
-from assistant.core.conversation.meanings import KIND
-from assistant.core.conversations import Conversation
-from assistant.core.memory import facts
+from lo9i.core import conversations
+from lo9i.core.agent import AssistantService, Session
+from lo9i.core.conversation import summaries
+from lo9i.core.conversation.dispatch import candidates
+from lo9i.core.conversation.meanings import KIND
+from lo9i.core.conversations import Conversation
+from lo9i.core.memory import facts
 from tests.conftest import collect
 
 

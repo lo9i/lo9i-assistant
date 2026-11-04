@@ -6,12 +6,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-from assistant.daemon import launchd
+from lo9i.daemon import launchd
 
 
 def test_daemon_plist_runs_this_python_as_this_user_from_boot():
     plist = plistlib.loads(launchd.daemon_plist())
-    assert plist["ProgramArguments"] == [sys.executable, "-m", "assistant.daemon"]
+    assert plist["ProgramArguments"] == [sys.executable, "-m", "lo9i.daemon"]
     assert plist["RunAtLoad"] and plist["UserName"]
     assert plist["EnvironmentVariables"][launchd.MANAGED_ENV] == "1"
 
@@ -47,7 +47,7 @@ def test_applescript_escaping():
 
 
 _MOVE = (
-    "import sys; from assistant.daemon import launchd; "
+    "import sys; from lo9i.daemon import launchd; "
     "print('before', file=sys.stderr, flush=True); moved = launchd.move_legacy_output(); "
     "print('after', moved, file=sys.stderr)"
 )

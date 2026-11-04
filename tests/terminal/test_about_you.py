@@ -3,8 +3,8 @@ then the plugins it suggests, each installed only when picked."""
 
 from textual.widgets import Input, OptionList, RadioSet, SelectionList
 
-from assistant.core.agent import AboutYou, FoundServer, Suggested
-from assistant_terminal.tui.screens import AboutYouScreen, RepositoryInstallScreen, SuggestedPluginsScreen
+from lo9i.core.agent import AboutYou, FoundServer, Suggested
+from lo9i_terminal.tui.screens import AboutYouScreen, RepositoryInstallScreen, SuggestedPluginsScreen
 from tests.terminal.conftest import wait_for
 
 

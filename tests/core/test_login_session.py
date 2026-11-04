@@ -6,10 +6,10 @@ import sys
 
 import pytest
 
-from assistant.core import login_session
-from assistant.core.mcp import pages, ssh_agent
-from assistant.core.mcp.servers import McpServer
-from assistant.core.mcp.user import with_user
+from lo9i.core import login_session
+from lo9i.core.mcp import pages, ssh_agent
+from lo9i.core.mcp.servers import McpServer
+from lo9i.core.mcp.user import with_user
 
 
 @pytest.fixture

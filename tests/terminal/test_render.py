@@ -1,7 +1,7 @@
 """The plain REPL's printer: what a run waits on and where home sent its message on."""
 
-from assistant.core.events import ApprovalRequired, Dispatched, Done, UserSaid, UserTaken, UserWithdrawn
-from assistant_terminal.render import render
+from lo9i.core.events import ApprovalRequired, Dispatched, Done, UserSaid, UserTaken, UserWithdrawn
+from lo9i_terminal.render import render
 
 
 async def _events(*events):

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import daemon from "../../../../src/assistant/core/repositories/lucide_icons.json";
+import daemon from "../../../../src/lo9i/core/repositories/lucide_icons.json";
 import { genericIcon, lucideIcon, lucideNames, svgUrl } from "./pluginIcons";
 
 describe("plugins' icons", () => {
   it("names the same Lucide icons the daemon checks plugins against", () => {
-    // After a Lucide update, write the new list to src/assistant/core/repositories/lucide_icons.json.
+    // After a Lucide update, write the new list to src/lo9i/core/repositories/lucide_icons.json.
     expect(lucideNames()).toEqual(daemon);
   });
 

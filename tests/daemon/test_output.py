@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 _START = (
-    "import sys; from pathlib import Path; from assistant.daemon import output; "
+    "import sys; from pathlib import Path; from lo9i.daemon import output; "
     "print('before', file=sys.stderr, flush=True); rotated = output.rotate(Path(sys.argv[1]), limit=int(sys.argv[2])); "
     "print('after', rotated, file=sys.stderr)"
 )

@@ -10,14 +10,14 @@ from typing import Any
 import pytest
 from langchain_core.messages import ToolMessage
 
-from assistant.core import notifications
-from assistant.core.agent import AssistantService, Session, SubagentError
-from assistant.core.approvals import RemoteApprovals
-from assistant.core.background_subagents import records
-from assistant.core.config import settings
-from assistant.core.context import UNATTENDED_CHANNEL
-from assistant.core.conversation import ended, queued
-from assistant.core.events import Done, ToolFinished
+from lo9i.core import notifications
+from lo9i.core.agent import AssistantService, Session, SubagentError
+from lo9i.core.approvals import RemoteApprovals
+from lo9i.core.background_subagents import records
+from lo9i.core.config import settings
+from lo9i.core.context import UNATTENDED_CHANNEL
+from lo9i.core.conversation import ended, queued
+from lo9i.core.events import Done, ToolFinished
 from tests.conftest import collect
 
 

@@ -4,10 +4,10 @@ and send it with the update."""
 import httpx
 import pytest
 
-from assistant.daemon.api import create_app
-from assistant.daemon.auth import trusted
-from assistant.daemon.runs import RunHub
-from assistant.protocol import CLIENT_HEADER
+from lo9i.daemon.api import create_app
+from lo9i.daemon.auth import trusted
+from lo9i.daemon.runs import RunHub
+from lo9i.protocol import CLIENT_HEADER
 from tests.core.test_repositories import _MANIFEST, HELLO, URL, repo  # noqa: F401 (a fixture)
 
 
@@ -32,8 +32,8 @@ async def test_an_update_that_needs_a_value_answers_409_and_goes_once_its_given(
 
 
 async def test_the_client_says_an_update_needs_values_and_sends_them(service, repo):  # noqa: F811
-    from assistant.client.daemon_client import DaemonClient
-    from assistant.core.agent import UpdateNeedsValuesError
+    from lo9i.client.daemon_client import DaemonClient
+    from lo9i.core.agent import UpdateNeedsValuesError
 
     await service.install_from_repository(URL, [], [HELLO])
     (repo / "other" / "general" / "hello" / "server.yaml").write_text(
