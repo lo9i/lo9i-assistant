@@ -89,7 +89,7 @@ async def test_settings_shows_its_sections_as_tabs(app, client):
         assert app.screen is settings
 
 
-async def test_a_tab_of_several_sections_stacks_them_with_one_close(app, client):
+async def test_a_tab_of_several_sections_stacks_them_as_cards_with_one_close(app, client):
     async with app.run_test(size=(160, 40)) as pilot:
         await pilot.click("#prompt")
         await pilot.press(*"/email", "enter")
@@ -99,13 +99,15 @@ async def test_a_tab_of_several_sections_stacks_them_with_one_close(app, client)
         settings = app.screen
         assert isinstance(settings, SettingsScreen) and settings.shown == "general"
         await wait_for(pilot, lambda: email.region.height > 0)  # scrolled to it
-        closes = [b for b in settings.query("#close").results(Button) if b.display]
-        assert closes == [email.query_one("#close", Button)]  # only the last section's
+        assert not any(b.display for b in settings.query("#close").results(Button))  # the cards' own give way
+        assert email.styles.border_top[0] == "round"  # a card
+        closes = [b for b in settings.query(".settings-close").results(Button) if b.display]
+        assert len(closes) == 1  # the tab's, under its cards
         await app._commands["/limits"]("")
         limits = await wait_for_section(pilot, app, SpendingLimitsSection)
         assert section_shown(app, ModelSection) is not None and settings.shown == "model"
         await wait_for(pilot, lambda: limits.region.y < 10)  # scrolled to it, under the tabs
-        limits.query_one("#close", Button).press()
+        settings.query_one("#settings-model .settings-close", Button).press()
         await wait_for(pilot, lambda: app.screen is app.screen_stack[0])
 
 

@@ -99,9 +99,9 @@ Sidebar.collapsed {
     max-height: 100%;
 }
 
-/* A tab of several sections stacks them in one scroll, as the web app's cards, each as tall as what it shows; Kept
-   keys, a list beside its detail, takes the room left, at least enough to pick from. Only the last section keeps its
-   Close, so the tab has one. */
+/* A tab of several sections stacks them in one scroll, each a card as the web app's are, as tall as what it shows and
+   framed in the focus color while something in it has the focus; Kept keys, a list beside its detail, takes the room
+   left, at least enough to pick from. The cards' own Close buttons give way to the tab's one under them. */
 #page-body #settings-tabs .settings-stack Vertical, #page-body #settings-tabs .settings-stack VerticalScroll, #page-body #settings-tabs .settings-stack Horizontal {
     height: auto;
 }
@@ -114,12 +114,31 @@ Sidebar.collapsed {
     min-height: 16;
 }
 
+#page-body #settings-tabs .settings-stack {
+    padding: 1 1 0 0;
+}
+
+#page-body #settings-tabs .settings-stack SettingsSection {
+    border: round $line;
+    padding: 0 1;
+    margin-bottom: 1;
+}
+
+#page-body #settings-tabs .settings-stack SettingsSection:focus-within {
+    border: round $line-focus;
+}
+
+#page-body #settings-tabs .settings-stack SettingsSection > * {
+    padding: 0;
+}
+
 #settings-tabs .settings-stack SettingsSection #close {
     display: none;
 }
 
-#settings-tabs .settings-stack SettingsSection:last-child #close {
-    display: block;
+#page-body #settings-tabs .settings-stack-buttons {
+    height: auto;
+    margin-bottom: 1;
 }
 
 /* The tabs: muted, the one shown in the main text with the accent under it; while they have the focus, it's picked as
@@ -1037,6 +1056,7 @@ JobsScreen, ConversationsScreen, DevicesScreen, HomeScreen, UsageScreen, Notific
     height: auto;
 }
 #briefing-intro {
+    width: 1fr;
     margin-bottom: 1;
 }
 .briefing-row {
