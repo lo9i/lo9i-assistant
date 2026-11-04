@@ -69,6 +69,7 @@ import type {
   Passkey,
   PasskeyCeremony,
   PendingEnding,
+  PluginBadges,
   PluginSettings,
   PluginSettingsChange,
   PluginSignInStart,
@@ -706,6 +707,12 @@ export class McpGroup {
 
   servers(): Promise<McpServerStatus[]> {
     return this.transport.request("GET", "/mcp/servers");
+  }
+
+  /** The plugins' counts beside their pages in the sidebar, only those above 0; a `badges` event says when one may have
+   * changed, and `next_day_in` when the day's counts start over. */
+  badges(): Promise<PluginBadges> {
+    return this.transport.request("GET", "/mcp/badges");
   }
 
   /** Connects once and lists the server's tools, or says it asks to sign in, without saving it.

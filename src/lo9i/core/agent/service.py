@@ -79,6 +79,7 @@ from lo9i.core.llm.windows import ContextWindows
 from lo9i.core.mcp import folders, logins
 from lo9i.core.mcp import install as plugin_install
 from lo9i.core.mcp import keys as plugin_keys
+from lo9i.core.mcp.badges import Badges
 from lo9i.core.mcp.checks import PluginChecks
 from lo9i.core.mcp.environment import Environments
 from lo9i.core.mcp.hub import McpHub
@@ -200,6 +201,7 @@ class AssistantService(
             home_sections.LOOPS: LoopsSection(storage.store, settings.owner_id),
         }
         self.today_lists = TodayLists(storage.store, self.mcp)
+        self.badges = Badges(storage.store, self.mcp)
         self.home_refresh = HomeRefresh(
             storage.store, bus, lambda: self._home_builder, self._plugin_tools, coded, self.today_lists
         )

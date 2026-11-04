@@ -9,6 +9,7 @@ from lo9i.core.agent.base import ServiceBase
 from lo9i.core.i18n import message, said
 from lo9i.core.integrations.email import accounts as email_accounts
 from lo9i.core.mcp import data_key, install, keys, plugin_oauth, plugin_settings, servers
+from lo9i.core.mcp.badges import PluginBadges
 from lo9i.core.mcp.checks import CheckFailedError
 from lo9i.core.mcp.hub import McpHub, McpProbe, McpToolInfo
 from lo9i.core.mcp.install import UpdateNeedsValuesError
@@ -78,6 +79,8 @@ class McpServerStatus:
     settings: bool = False
     # It lists the user's day for lo9i (core/mcp/today.py): Home builds a section of it without the model.
     lists_today: bool = False
+    # It counts something beside its page in the web app's sidebar (core/mcp/badges.py).
+    badge: bool = False
     # What the server has besides tools (resources, prompts), as of its last connection; and whether the agent
     # gets tools for them (core/mcp/listings.py), which the user turns on.
     offers: list[str] = field(default_factory=list)
@@ -105,6 +108,11 @@ class McpServerChanges:
 class McpMixin(ServiceBase):
     async def mcp_servers(self) -> list[McpServerStatus]:
         return [await self._mcp_status(s) for s in await servers.load_all(self._storage.store)]
+
+    async def plugin_badges(self, language: str) -> PluginBadges:
+        """The plugins' counts beside their pages in the web app's sidebar (core/mcp/badges.py), labeled in
+        `language`."""
+        return await self.badges.every(language)
 
     async def probe_mcp_server(self, server: McpServer) -> McpProbe:
         """The server's tools, to choose from before adding it, or that it asks to sign in.
@@ -271,6 +279,7 @@ async def mcp_status(hub: McpHub, server: McpServer, signed_in_as: str = "") -> 
         signed_in_as=signed_in_as,
         settings=plugin_settings.has_settings(server),
         lists_today=bool(server.today_tool),
+        badge=bool(server.badge_tool),
         offers=hub.offers(server.name),
         resources=server.resources,
         prompts=server.prompts,

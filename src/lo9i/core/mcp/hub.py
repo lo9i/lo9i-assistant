@@ -27,7 +27,7 @@ from lo9i.core.context import McpStarts
 from lo9i.core.health import Health, HealthLog
 from lo9i.core.hidden_text import strip_hidden
 from lo9i.core.i18n import said
-from lo9i.core.mcp import background, data_key, keys, listings, logins, servers, sign_in, tool_cache, user
+from lo9i.core.mcp import background, badges, data_key, keys, listings, logins, servers, sign_in, tool_cache, user
 from lo9i.core.mcp.background import WorkFinished
 from lo9i.core.mcp.connection import (
     ClientFactory,
@@ -293,6 +293,7 @@ class McpHub(McpStarts):
             self._prepare,
             on_demand,
             self._work_finished,
+            self._called,
         )
         stop = asyncio.Event()
         self._running[server.name] = _Running(connection, stop, asyncio.create_task(connection.run(stop)))
@@ -307,6 +308,13 @@ class McpHub(McpStarts):
     async def _work_finished(self, server: McpServer, finished: WorkFinished) -> None:
         if self._background is not None:
             await self._background.deliver(finished.origin, background.ended(server.name, finished))
+
+    def _called(self, server: McpServer, tool: str) -> None:
+        """A call that may have changed what the server's badge counts has the apps count it again (badges.py)."""
+        running = self._running.get(server.name)
+        found = next((t for t in running.connection.state.tools if t.name == tool), None) if running else None
+        if badges.recounts_after(server, tool, found is not None and _read_only(server, found)):
+            self._bus.publish(badges.EVENT, plugin=server.name)
 
     async def _prepare(self, server: McpServer) -> None:
         if self._environments is not None:

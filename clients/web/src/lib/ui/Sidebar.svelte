@@ -50,6 +50,23 @@
   // MCP servers that come with a web page, shown in an iframe (routes/pages/[name]).
   const servers = resource((c) => c.mcp.servers(), ["mcp"]);
   const pages = $derived(appOrder.sort((servers.data ?? []).filter((s) => s.page && s.enabled)));
+  // What the apps' plugins count beside them (core/mcp/badges.py: the bills due today), asked for when the apps that
+  // count change, when a `badges` event says a count may have, and when the user's day ends. Not on `mcp` events:
+  // counting starts the plugin, which is one.
+  const counting = $derived(
+    pages
+      .filter((p) => p.badge)
+      .map((p) => p.name)
+      .join(),
+  );
+  const badges = resource((c) => (counting ? c.mcp.badges() : Promise.resolve(null)), ["badges"]);
+  const badgeOf = $derived(new Map((badges.data?.badges ?? []).map((b) => [b.name, b])));
+  $effect(() => {
+    const seconds = badges.data?.next_day_in;
+    if (!seconds) return;
+    const timer = setTimeout(() => badges.reload(), seconds * 1000);
+    return () => clearTimeout(timer);
+  });
   // The app being dragged to a new place among the apps, and the one it's over.
   let draggingApp = $state<string | null>(null);
   let overApp = $state<string | null>(null);
@@ -251,6 +268,7 @@
     {#each pages as p (p.name)}
       {@const href = resolve("/pages/[name]", { name: p.name })}
       {@const update = appUpdates.get(p.name)}
+      {@const badge = badgeOf.get(p.name)}
       <div
         class="nav-row app-row"
         class:drop-target={overApp === p.name && draggingApp !== p.name}
@@ -277,10 +295,11 @@
           class="nav-item"
           draggable="false"
           aria-current={page.url.pathname === href ? "page" : undefined}
-          title={`${pluginLabel(p.name)} · ${t("nav.dragToReorder")}`}
+          title={[pluginLabel(p.name), badge?.label, t("nav.dragToReorder")].filter(Boolean).join(" · ")}
         >
           <PluginIcon icon={p.icon} size={20} />
           <span class="label">{pluginLabel(p.name)}</span>
+          {#if badge}<span class="badge" aria-label={badge.label || t("nav.pluginCount", { count: badge.count })}>{badge.count}</span>{/if}
         </a>
         {#if update}<AppUpdate {update} />{/if}
       </div>
@@ -508,6 +527,43 @@
     font-weight: 700;
     line-height: 16px;
     text-align: center;
+  }
+  /* A plugin's count: quiet, a faint tint of the theme's teal, at the row's end; on the icon's corner collapsed. */
+  .badge {
+    flex: none;
+    min-width: 18px;
+    margin-left: auto;
+    padding: 0 6px;
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--glow) 18%, transparent);
+    color: var(--color-text-primary);
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 18px;
+    text-align: center;
+  }
+  :global(.collapsed) .badge {
+    position: absolute;
+    top: 4px;
+    left: 26px;
+    min-width: 15px;
+    padding: 0 3px;
+    background: color-mix(in srgb, var(--glow) 30%, var(--surface-raised-bg));
+    font-size: 9px;
+    line-height: 15px;
+  }
+  @media (max-width: 680px) {
+    .badge {
+      position: absolute;
+      top: 4px;
+      left: 26px;
+      min-width: 15px;
+      padding: 0 3px;
+      background: color-mix(in srgb, var(--glow) 30%, var(--surface-raised-bg));
+      font-size: 9px;
+      line-height: 15px;
+    }
   }
   .add {
     position: absolute;

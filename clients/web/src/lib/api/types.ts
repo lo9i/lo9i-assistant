@@ -119,6 +119,7 @@ export type UpdateStatus = Schemas["UpdateStatus"];
 export type Commit = Schemas["Commit"];
 export type ConnectedClient = Schemas["ConnectedClient"];
 export type McpServerStatus = Schemas["McpServerStatus"];
+export type PluginBadges = Schemas["PluginBadges"];
 export type McpToolInfo = Schemas["McpToolInfo"];
 export type McpProbe = Schemas["McpProbe"];
 export type SignedIn = Schemas["SignedIn"];

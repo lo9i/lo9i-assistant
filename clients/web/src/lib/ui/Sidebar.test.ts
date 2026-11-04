@@ -73,6 +73,29 @@ describe("Sidebar", () => {
     expect(body).toContain("Update available: 1.0.0 → 1.1.0. Click to update.");
   });
 
+  it("shows the count an app's plugin gives beside it, labeled as the plugin says", () => {
+    daemon.loaded = {
+      "mcp.servers": [
+        { name: "expenses", page: true, enabled: true, icon: null, badge: true },
+        { name: "watchlist", page: true, enabled: true, icon: null, badge: false },
+      ],
+      "mcp.badges": { badges: [{ name: "expenses", count: 2, label: "2 bills due today" }], next_day_in: 3600 },
+    };
+    const { body } = render(Sidebar, { props: { name: "lo9i" } });
+    expect(body.match(/class="badge[^"]*"/g)).toHaveLength(1);
+    expect(body).toMatch(/aria-label="2 bills due today"[^>]*>2<\/span>/);
+    expect(body).toContain('title="Expenses · 2 bills due today · ');
+  });
+
+  it("asks for no counts when no app's plugin counts anything", () => {
+    daemon.loaded = {
+      "mcp.servers": [{ name: "watchlist", page: true, enabled: true, icon: null, badge: false }],
+      "mcp.badges": { badges: [{ name: "watchlist", count: 2, label: "" }], next_day_in: 3600 },
+    };
+    const { body } = render(Sidebar, { props: { name: "lo9i" } });
+    expect(body).not.toContain('class="badge');
+  });
+
   it("shows no update on an app that has none", () => {
     daemon.loaded = { "mcp.servers": [{ name: "watchlist", page: true, enabled: true, icon: null }] };
     const { body } = render(Sidebar, { props: { name: "lo9i" } });

@@ -61,6 +61,9 @@ class McpPages:
         for name, running in list(self._running.items()):
             if name not in wanted or not _same_page(running.server, wanted[name]):
                 await self._stop(name)
+            else:
+                # What isn't its page may have changed (its badge).
+                running.server = wanted[name]
         for name, server in wanted.items():
             if name not in self._running:
                 self._start(server)
@@ -74,6 +77,12 @@ class McpPages:
     def socket(self, name: str) -> Path | None:
         """Where a running page listens, or None if the server has no page running."""
         return folders.page_socket(name) if name in self._running else None
+
+    def counts(self, name: str) -> bool:
+        """Whether the server of a running page has a badge (core/mcp/badges.py), which a change made on it may
+        change."""
+        running = self._running.get(name)
+        return running is not None and bool(running.server.badge_tool)
 
     def _start(self, server: McpServer) -> None:
         stop = asyncio.Event()

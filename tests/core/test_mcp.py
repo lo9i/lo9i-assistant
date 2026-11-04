@@ -635,6 +635,17 @@ async def test_a_server_on_demand_with_unknown_tools_starts_at_once_and_keeps_th
     await running
 
 
+async def test_a_call_that_may_change_what_a_plugin_counts_has_the_apps_count_it_again(service, monkeypatch):
+    await _add(service, badge_tool="chart")
+    heard: list[tuple[str, dict[str, Any]]] = []
+    monkeypatch.setattr(service.bus, "publish", lambda kind, **data: heard.append((kind, data)))
+    await service.mcp.call("notes", "read_notes", {})
+    await service.mcp.call("notes", "chart", {})
+    assert [kind for kind, _ in heard if kind == "badges"] == []
+    await service.mcp.call("notes", "add_note", {"text": "milk"})
+    assert ("badges", {"plugin": "notes"}) in heard
+
+
 async def test_tools_learned_by_the_hub_are_offered_after_a_restart_without_starting_the_server(service):
     await _add(service)
     stop = asyncio.Event()

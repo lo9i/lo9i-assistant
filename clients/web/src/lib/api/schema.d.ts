@@ -1903,6 +1903,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/mcp/badges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plugin Badges
+         * @description The plugins' counts beside their pages in the sidebar (core/mcp/badges.py), each labeled in the language of
+         *     the app that asked; a `badges` event says when one may have changed.
+         */
+        get: operations["plugin_badges_mcp_badges_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/mcp/probe": {
         parameters: {
             query?: never;
@@ -5160,6 +5181,11 @@ export interface components {
              * @default false
              */
             lists_today: boolean;
+            /**
+             * Badge
+             * @default false
+             */
+            badge: boolean;
             /** Offers */
             offers?: string[];
             /**
@@ -5587,6 +5613,28 @@ export interface components {
         PinnedSkills: {
             /** Skills */
             skills: string[];
+        };
+        /** PluginBadge */
+        PluginBadge: {
+            /** Name */
+            name: string;
+            /** Count */
+            count: number;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+        };
+        /** PluginBadges */
+        PluginBadges: {
+            /** Badges */
+            badges?: components["schemas"]["PluginBadge"][];
+            /**
+             * Next Day In
+             * @default 0
+             */
+            next_day_in: number;
         };
         /**
          * PluginFieldValue
@@ -10277,6 +10325,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plugin_badges_mcp_badges_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginBadges"];
                 };
             };
         };

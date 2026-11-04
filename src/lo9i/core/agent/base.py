@@ -25,6 +25,7 @@ from lo9i.core.home.refresh import HomeRefresh
 from lo9i.core.home.schedule import HomeSchedule
 from lo9i.core.llm.choice import ModelChoice
 from lo9i.core.llm.windows import ContextWindows
+from lo9i.core.mcp.badges import Badges
 from lo9i.core.mcp.checks import PluginChecks
 from lo9i.core.mcp.hub import McpHub
 from lo9i.core.mcp.pages import McpPages
@@ -104,6 +105,8 @@ class ServiceBase:
     _classify: Classifier
     # The plugins' lists for the day (core/mcp/today.py): Home, the briefing and the nightly review read them.
     today_lists: TodayLists
+    # The plugins' counts beside their pages in the web app's sidebar (core/mcp/badges.py).
+    badges: Badges
     # Builds Home's sections in the background (core/home/), with the builder of the model in use. Requests start
     # its refreshes; the daemon doesn't run it as a task.
     home_refresh: HomeRefresh

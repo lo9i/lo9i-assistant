@@ -1014,6 +1014,10 @@
       "one": "{count} new",
       "other": "{count} new"
     },
+    "pluginCount": {
+      "one": "{count} to see",
+      "other": "{count} to see"
+    },
     "files": "Files",
     "usage": "Usage",
     "sessions": "Active sessions",

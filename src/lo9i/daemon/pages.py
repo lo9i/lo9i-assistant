@@ -34,6 +34,7 @@ from starlette.websockets import WebSocket
 
 from lo9i.core.agent import AssistantService, Device
 from lo9i.core.config import settings
+from lo9i.core.mcp import badges
 from lo9i.daemon import https, page_sockets
 from lo9i.daemon.auth import DeviceStreams, token_of
 from lo9i.daemon.http_server import Listener
@@ -48,6 +49,8 @@ FIRST_BYTE_SECONDS = 30
 _REQUEST_DROPPED = {"host", "cookie", "authorization", "x-forwarded-prefix", "content-length", "connection"}
 _RESPONSE_DROPPED = {"set-cookie", "content-length", "transfer-encoding", "connection", "content-encoding"}
 _METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"]
+# What only reads: any other request may change what the page's plugin counts beside it (core/mcp/badges.py).
+_READING = {"GET", "HEAD"}
 _NOT_PAIRED = "Open this page from the assistant's web app on a paired device."
 # What the answer to a request whose browser left says, for the record (nginx's "client closed request").
 _CLIENT_GONE = 499
@@ -66,7 +69,8 @@ def create_pages_app(service: AssistantService, streams: DeviceStreams | None = 
         if socket is None:
             why = "Its page isn't running: it may be starting."
             return _framed(_unavailable(request, 404, f"{name} has no page running.", why))
-        return _framed(await _forward(request, socket, name, path, lambda body: streams.guard(body, device)))
+        changed = None if request.method in _READING else lambda: _maybe_recount(service, name)
+        return _framed(await _forward(request, socket, name, path, lambda body: streams.guard(body, device), changed))
 
     async def bare(request: Request) -> Response:
         return RedirectResponse(f"/{request.path_params['name']}/", 307)
@@ -108,9 +112,15 @@ async def _device(service: AssistantService, request: HTTPConnection) -> Device 
 
 
 async def _forward(
-    request: Request, socket: Path, name: str, path: str, guard: Callable[[AsyncIterator[bytes]], AsyncIterator[bytes]]
+    request: Request,
+    socket: Path,
+    name: str,
+    path: str,
+    guard: Callable[[AsyncIterator[bytes]], AsyncIterator[bytes]],
+    answered: Callable[[], None] | None = None,
 ) -> Response:
-    """`guard` ends the answer's body early, when its device is revoked."""
+    """`guard` ends the answer's body early, when its device is revoked. `answered` runs once the page answered all
+    of it."""
     try:
         body = await request.body()
     except ClientDisconnect:
@@ -129,7 +139,7 @@ async def _forward(
         await http.aclose()
         return _not_answering(request, name, e)
     kept = {k: v for k, v in answer.headers.items() if k.lower() not in _RESPONSE_DROPPED}
-    closed = BackgroundTask(_close, answer, http)
+    closed = BackgroundTask(_close, answer, http, answered)
     return StreamingResponse(guard(answer.aiter_bytes()), answer.status_code, headers=kept, background=closed)
 
 
@@ -201,10 +211,18 @@ p {{ margin: 0; color: var(--muted); }}
 """
 
 
-async def _close(answer: httpx.Response, http: httpx.AsyncClient) -> None:
+async def _close(answer: httpx.Response, http: httpx.AsyncClient, answered: Callable[[], None] | None) -> None:
     """Once the answer was passed on, or the browser left in the middle of it."""
     await answer.aclose()
     await http.aclose()
+    if answered is not None:
+        answered()
+
+
+def _maybe_recount(service: AssistantService, name: str) -> None:
+    """A change made on a page may change what its plugin counts beside it in the sidebar (core/mcp/badges.py)."""
+    if service.pages.counts(name):
+        service.bus.publish(badges.EVENT, plugin=name)
 
 
 def _framed(response: Response) -> Response:

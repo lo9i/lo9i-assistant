@@ -144,6 +144,7 @@ from lo9i.core.logs import (
     log_options,
 )
 from lo9i.core.mcp import install as server_install
+from lo9i.core.mcp.badges import PluginBadges
 from lo9i.core.memory.about_you import HelpTopic, ReplyLength
 from lo9i.core.memory.profile import MAX_ITEMS, Section
 from lo9i.core.proactive.schedule import Work
@@ -1898,6 +1899,12 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/mcp/servers")
     async def mcp_servers(texts: _Answering) -> list[McpServerStatus]:
         return texts.within(await service.mcp_servers())
+
+    @app.get("/mcp/badges")
+    async def plugin_badges(texts: _Answering) -> PluginBadges:
+        """The plugins' counts beside their pages in the sidebar (core/mcp/badges.py), each labeled in the language of
+        the app that asked; a `badges` event says when one may have changed."""
+        return await service.plugin_badges(texts.language)
 
     @app.post("/mcp/probe")
     async def probe_mcp_server(body: McpServerSettings) -> McpProbe:

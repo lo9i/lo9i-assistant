@@ -4475,6 +4475,25 @@
         }
       }
     },
+    "/mcp/badges": {
+      "get": {
+        "summary": "Plugin Badges",
+        "description": "The plugins' counts beside their pages in the sidebar (core/mcp/badges.py), each labeled in the language of\nthe app that asked; a `badges` event says when one may have changed.",
+        "operationId": "plugin_badges_mcp_badges_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginBadges"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/mcp/probe": {
       "post": {
         "summary": "Probe Mcp Server",
@@ -11183,6 +11202,11 @@
             "title": "Lists Today",
             "default": false
           },
+          "badge": {
+            "type": "boolean",
+            "title": "Badge",
+            "default": false
+          },
           "offers": {
             "items": {
               "type": "string"
@@ -11971,6 +11995,47 @@
           "skills"
         ],
         "title": "PinnedSkills"
+      },
+      "PluginBadge": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "count"
+        ],
+        "title": "PluginBadge"
+      },
+      "PluginBadges": {
+        "properties": {
+          "badges": {
+            "items": {
+              "$ref": "#/components/schemas/PluginBadge"
+            },
+            "type": "array",
+            "title": "Badges"
+          },
+          "next_day_in": {
+            "type": "integer",
+            "title": "Next Day In",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "PluginBadges"
       },
       "PluginFieldValue": {
         "properties": {

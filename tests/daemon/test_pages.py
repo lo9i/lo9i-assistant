@@ -8,6 +8,7 @@ import shutil
 import sys
 import tempfile
 from collections.abc import Iterator
+from dataclasses import replace
 from pathlib import Path
 
 import httpx
@@ -15,7 +16,7 @@ import pytest
 from starlette.types import Message, Scope
 
 from lo9i.core.agent import McpServer, McpServerChanges
-from lo9i.core.mcp import folders
+from lo9i.core.mcp import folders, servers
 from lo9i.daemon.auth import COOKIE, DeviceStreams
 from lo9i.daemon.pages import create_pages_app
 
@@ -97,6 +98,22 @@ async def test_a_paired_device_sees_the_page_under_its_prefix_without_the_daemon
     assert "cookie" not in seen["headers"]
     assert "set-cookie" not in answer.headers
     assert answer.headers["content-security-policy"].startswith("frame-ancestors http://127.0.0.1:")
+
+
+async def test_a_change_made_on_the_page_of_a_plugin_that_counts_has_the_apps_count_it_again(pages, monkeypatch):
+    heard: list[str] = []
+    monkeypatch.setattr(pages.bus, "publish", lambda kind, **data: heard.append(kind))
+    token = await _paired(pages)
+    async with _http(pages, token) as http:
+        await http.post("/notes/save", content=b"x")
+    assert "badges" not in heard
+    await servers.save(pages.store, replace(await servers.load(pages.store, "notes"), badge_tool="count"))
+    await pages.pages.reload()
+    async with _http(pages, token) as http:
+        await http.get("/notes/bills")
+        assert "badges" not in heard
+        await http.post("/notes/save", content=b"x")
+    assert heard.count("badges") == 1
 
 
 async def test_a_browser_that_leaves_before_sending_its_request_is_let_go_quietly(pages, caplog):

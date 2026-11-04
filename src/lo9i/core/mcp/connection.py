@@ -129,11 +129,14 @@ class McpConnection:
         prepare: Callable[[McpServer], Awaitable[None]] | None = None,
         on_demand: OnDemand | None = None,
         work_finished: WorkFinishedFn | None = None,
+        called: Callable[[McpServer, str], None] | None = None,
     ) -> None:
         """`prepare` runs before every attempt to connect (core/mcp/environment.py rebuilds a lost environment).
         With `on_demand`, it runs only while calls use it or it has background work in progress.
-        `work_finished` gets the server's reports that background work finished."""
+        `work_finished` gets the server's reports that background work finished; `called`, each tool that a call
+        ran without an error."""
         self.server = server
+        self._called = called
         self._work_finished = work_finished
         self._prepare = prepare
         self._on_demand = on_demand
@@ -223,6 +226,8 @@ class McpConnection:
             )
         else:
             await self._health.succeeded("mcp", self.server.name)
+            if self._called is not None:
+                self._called(self.server, tool)
         return result
 
     async def read_resource(self, uri: str, asker: Asker | None = None) -> ReadResourceResult:
