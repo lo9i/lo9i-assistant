@@ -1,8 +1,6 @@
 <script lang="ts">
   import Bot from "@lucide/svelte/icons/bot";
-  import Clock from "@lucide/svelte/icons/clock";
   import FolderTreeIcon from "@lucide/svelte/icons/folder-tree";
-  import X from "@lucide/svelte/icons/x";
   import { untrack } from "svelte";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
@@ -10,6 +8,9 @@
   import { hiddenAsks } from "$lib/chat/hiddenAsks.svelte";
   import { carriesFiles, droppedFiles } from "$lib/chat/dropped";
   import { putBack, tellAgent, workingIn } from "$lib/chat/agentWork";
+  import { queueEntries, type QueueEntry } from "$lib/chat/queue";
+  import { ApiError } from "$lib/api/errors";
+  import { describe } from "$lib/notices";
   import { agentCommands } from "$lib/chat/commands";
   import { startGetToKnowYou } from "$lib/chat/getToKnowYou";
   import { sentTexts } from "$lib/chat/history";
@@ -32,6 +33,7 @@
   import HandedFolder from "./folder/HandedFolder.svelte";
   import HelpModal from "./HelpModal.svelte";
   import PinnedSkills from "./PinnedSkills.svelte";
+  import QueueBar from "./QueueBar.svelte";
   import StatusBar from "./StatusBar.svelte";
   import SubagentsPanel from "./subagents/SubagentsPanel.svelte";
   import WorkingStatus from "./WorkingStatus.svelte";
@@ -159,11 +161,28 @@
   function enqueue(text: string, files: File[]): void {
     shown().queue(text, files, (chat) => speak(chat, files));
   }
-  function unqueue(index: number): void {
-    const item = shown().unqueue(index);
-    if (item && !box.text.trim()) {
-      box.text = item.text;
-      box.files = item.files;
+  // The queue above the message box: what the agent hasn't got to, then what waits here for the reply to end.
+  const queue = $derived(queueEntries(snapshot.current.transcript.waiting, snapshot.current.queued));
+
+  /** Changes a queued message before it's read. One read meanwhile is in the chat already: the queue no longer has
+   * it, and the user hears why nothing changed. */
+  async function editQueued(entry: QueueEntry, text: string): Promise<void> {
+    if ("agent" in entry) return tellQueued(() => client.conversations.editAgentMessage(threadId, entry.agent, text));
+    if (!shown().editQueued(entry.queued, text)) notices.notify(t("queue.sentAlready"), "info");
+  }
+
+  async function removeQueued(entry: QueueEntry): Promise<void> {
+    if ("agent" in entry) return tellQueued(() => client.conversations.withdrawAgentMessage(threadId, entry.agent));
+    if (!shown().unqueue(entry.queued)) notices.notify(t("queue.sentAlready"), "info");
+  }
+
+  /** The daemon answers 409 when the agent got to the message first (its UserTaken event moves it to the chat). */
+  async function tellQueued(call: () => Promise<void>): Promise<void> {
+    try {
+      await call();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) notices.notify(describe(error), "info");
+      else notices.report(error);
     }
   }
 
@@ -337,19 +356,6 @@
       loadStep={(callId, index) => client.conversations.toolCallStep(threadId, callId, index)}
       {findable}
     />
-    {#if snapshot.current.queued.length}
-      <ul class="queued" aria-label={t("chat.queued")}>
-        {#each snapshot.current.queued as item, i (i)}
-          <li>
-            <Clock size={12} /><span>{item.text || item.files.map((f) => f.name).join(", ")}</span>
-            <!-- One the inbox sent on here can't be taken back: it was already written. -->
-            {#if !item.dispatched}
-              <button aria-label={t("chat.takeBack")} title={t("chat.takeBackHint")} onclick={() => unqueue(i)}><X size={12} /></button>
-            {/if}
-          </li>
-        {/each}
-      </ul>
-    {/if}
     <PinnedSkills skills={pinned.data ?? []} onunpin={unpin} />
     {#if asked && hiddenAsks.has(asked.approval.interrupt_id)}
       {@const id = asked.approval.interrupt_id}
@@ -367,6 +373,7 @@
         }}
       />
     {/if}
+    <QueueBar entries={queue} onedit={editQueued} onremove={removeQueued} />
     <Composer
       bind:text={box.text}
       bind:files={box.files}
@@ -496,39 +503,6 @@
   }
   .asked {
     padding: 0 16px 8px;
-  }
-  .queued {
-    list-style: none;
-    margin: 0;
-    padding: 0 16px;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 4px;
-  }
-  .queued li {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    max-width: 70%;
-    padding: 4px 6px 4px 10px;
-    border: 1px dashed var(--color-border);
-    border-radius: var(--radius-sm);
-    color: var(--color-text-muted);
-    font-size: var(--font-size-xs);
-  }
-  .queued span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .queued button {
-    display: flex;
-    border: 0;
-    background: none;
-    color: inherit;
-    cursor: pointer;
-    padding: 2px;
   }
   /* The context bar at the status bar's right end. */
   /* A box of its own, centred in the bar: inline, the ring (no text, so no baseline) would sit on the line's

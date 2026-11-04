@@ -99,6 +99,32 @@ class HandoffsMixin(RunsMixin):
 
         await self._tell_agent(user_id, thread_id, tell)
 
+    async def withdraw_agent_message(self, user_id: str, thread_id: str, message_id: str) -> None:
+        """Takes back a message sent to the agent working in the conversation (message_agent) before it gets to it:
+        the agent never sees it. Raises HandoffError when it already took it, or as message_agent does."""
+
+        async def withdraw(task: str) -> None:
+            await self.agent_tasks.withdraw(task, message_id)
+
+        await self._tell_agent(user_id, thread_id, withdraw)
+
+    async def edit_agent_message(self, user_id: str, thread_id: str, channel: str, message_id: str, text: str) -> None:
+        """Sends `text` instead of a message sent to the agent working in the conversation, before it gets to it: the
+        message is taken back and `text` sent as a new one, with the files sent with it. When the agent ends its task
+        between the two, `text` waits in the conversation's queue and goes to it next, sent from `channel`. Raises
+        HandoffError when it already took the message, or as message_agent does."""
+
+        async def edit(task: str) -> None:
+            kept = await self.agent_tasks.withdraw(task, message_id)
+            files = kept.get("files", [])
+            try:
+                await self.agent_tasks.message(task, _with_files(text, files), text.strip(), files)
+            except AgentTaskError:
+                later = Queued(channel, text.strip(), files=files)
+                await queued.add(self._storage.store, user_id, thread_id, later)
+
+        await self._tell_agent(user_id, thread_id, edit)
+
     async def interrupt_agent(self, user_id: str, thread_id: str) -> None:
         """Stops the step the agent's task in the conversation is taking; the task waits for the user's
         next message (message_agent). Raises HandoffError as message_agent does."""

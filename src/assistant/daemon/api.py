@@ -585,6 +585,11 @@ class HandTo(BaseModel):
     folder: str
 
 
+class AgentMessageEdit(BaseModel):
+    # What the message says instead; its files stay.
+    text: str
+
+
 class PinnedSkills(BaseModel):
     # In the order they were pinned.
     skills: list[str]
@@ -1151,6 +1156,28 @@ def _add_handoff_routes(app: FastAPI, service: AssistantService) -> None:
         attachments = [await _attachment(f) for f in files or []]
         try:
             await service.message_agent(settings.owner_id, thread_id, text, attachments)
+        except HandoffError as e:
+            raise HTTPException(409, message(e)) from e
+        return Ok()
+
+    @app.put("/conversations/{thread_id}/agent/messages/{message_id}")
+    async def edit_agent_message(thread_id: str, message_id: str, body: AgentMessageEdit, request: Request) -> Ok:
+        """Sends `text` instead of a message the agent hasn't got to yet, with its files. 400: no text. 409: it took the
+        message already, isn't working, or can't take messages back."""
+        if not body.text.strip():
+            raise HTTPException(400, said("Write a message."))
+        channel = request.headers.get(CLIENT_HEADER, "")
+        try:
+            await service.edit_agent_message(settings.owner_id, thread_id, channel, message_id, body.text)
+        except HandoffError as e:
+            raise HTTPException(409, message(e)) from e
+        return Ok()
+
+    @app.delete("/conversations/{thread_id}/agent/messages/{message_id}")
+    async def withdraw_agent_message(thread_id: str, message_id: str) -> Ok:
+        """Takes back a message the agent hasn't got to yet. 409 as for editing it."""
+        try:
+            await service.withdraw_agent_message(settings.owner_id, thread_id, message_id)
         except HandoffError as e:
             raise HTTPException(409, message(e)) from e
         return Ok()

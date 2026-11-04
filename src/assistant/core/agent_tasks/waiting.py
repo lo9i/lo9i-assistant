@@ -47,6 +47,31 @@ async def at_most(store: TaskStore, task_id: str, seconds: int, report: Report |
         return
 
 
+async def withdrawal(store: TaskStore, task_id: str, message_id: str, seconds: float) -> bool | None:
+    """Whether the worker took back the message sent under `message_id` (TaskStore.withdrawal): True once it did, False
+    once the agent took it or the task ended without either; None when `seconds` pass first."""
+    try:
+        async with asyncio.timeout(seconds):
+            return await _until_withdrawn(store, task_id, message_id)
+    except TimeoutError:
+        return None
+
+
+async def _until_withdrawn(store: TaskStore, task_id: str, message_id: str) -> bool:
+    async def look() -> bool | None:
+        if (found := await asyncio.to_thread(store.withdrawal, task_id, message_id)) is not None:
+            return found
+        state = await asyncio.to_thread(store.state, task_id, 0)
+        return None if state.status == "running" else False
+
+    if (found := await look()) is not None:
+        return found
+    async for _ in awatch(store.folder(task_id), yield_on_timeout=True, rust_timeout=_RECHECK_MS, step=20):
+        if (found := await look()) is not None:
+            return found
+    return False
+
+
 class _Look:
     """The task's state, after reporting the progress lines written since the last look and telling of a
     context the task wrote since."""

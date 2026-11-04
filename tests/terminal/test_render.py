@@ -1,6 +1,6 @@
 """The plain REPL's printer: what a run waits on and where home sent its message on."""
 
-from assistant.core.events import ApprovalRequired, Dispatched, Done, UserSaid, UserTaken
+from assistant.core.events import ApprovalRequired, Dispatched, Done, UserSaid, UserTaken, UserWithdrawn
 from assistant_terminal.render import render
 
 
@@ -26,3 +26,8 @@ async def test_a_message_the_agent_gets_to_later_says_its_waiting_and_then_that_
     await render(_events(UserSaid("skip the slow tests\nplease", id="m1", waiting=True), UserTaken("m1"), Done()))
     out = capsys.readouterr().out
     assert "waiting for the agent to get to it" in out and "The agent got to: skip the slow tests" in out
+
+
+async def test_a_message_taken_back_before_the_agent_got_to_it_says_so(capsys):
+    await render(_events(UserSaid("skip the slow tests", id="m1", waiting=True), UserWithdrawn("m1"), Done()))
+    assert "Taken back before the agent got to it: skip the slow tests" in capsys.readouterr().out

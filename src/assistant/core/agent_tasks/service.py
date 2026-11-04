@@ -15,7 +15,7 @@ from assistant.core.agent_tasks import sent, workers
 from assistant.core.agent_tasks.records import Context, Task, TaskState, TaskStore, lost
 from assistant.core.agent_tasks.sessions import Sessions
 from assistant.core.agent_tasks.steps import Upload
-from assistant.core.agent_tasks.waiting import Measured, Report, at_most, until_ended
+from assistant.core.agent_tasks.waiting import Measured, Report, at_most, until_ended, withdrawal
 from assistant.core.config import settings
 from assistant.core.i18n import message, said
 from assistant.core.mcp import data_key, folders, keys, logins, servers, user
@@ -26,6 +26,9 @@ from assistant.core.secret_store import SecretBox
 
 # The longest a status call waits for a task to finish.
 MAX_WAIT_SECONDS = 600
+
+# The longest a withdrawal waits for the worker to say whether it took the message back.
+WITHDRAW_SECONDS = 10
 
 # Where the files the user sends an agent are saved, given to its worker (docs/agent-plugins.md).
 UPLOADS_ENV = "LO9I_UPLOADS"
@@ -133,6 +136,30 @@ class AgentTasks:
         that takes no messages while it works."""
         await self._tell(task_id, sent.message(text, said, files))
 
+    async def withdraw(self, task_id: str, message_id: str) -> dict[str, Any]:
+        """Takes back the message sent to a running task under `message_id` before its agent gets to it, and returns it
+        as it was written in the inbox (sent.py): the agent never sees it, and the run following the task shows it
+        gone (a `withdrawn` step). Raises AgentTaskError for an unknown task or message, one that isn't running, a
+        worker that can't take messages back, and when the agent took it first or the worker didn't answer in
+        WITHDRAW_SECONDS."""
+        server = await self._owner(task_id)
+        tasks = _tasks(server)
+        async with self._inboxes:
+            await _check_takes_messages(server, tasks, task_id)
+            kept = await _withdrawable(server, tasks, task_id, message_id)
+            await asyncio.to_thread(tasks.add_message, task_id, {"kind": "withdraw", "id": message_id})
+        await _wake(tasks, task_id)
+        found = await withdrawal(tasks, task_id, message_id, WITHDRAW_SECONDS)
+        if found is None:
+            raise AgentTaskError(
+                said(
+                    "{agent_name} didn't answer in time: the message may still reach it.", agent_name=server.agent_name
+                )
+            )
+        if not found:
+            raise AgentTaskError(said("{agent_name} already took that message.", agent_name=server.agent_name))
+        return kept
+
     async def interrupt(self, task_id: str) -> None:
         """Stops the step a running task is taking; it then waits for the user's next message. Raises
         AgentTaskError as `message` does."""
@@ -231,20 +258,11 @@ class AgentTasks:
         server = await self._owner(task_id)
         tasks = _tasks(server)
         async with self._inboxes:
-            if (await asyncio.to_thread(tasks.state, task_id, 0)).status != "running":
-                raise AgentTaskError(said("{agent_name} has already finished that task.", agent_name=server.agent_name))
-            if not await asyncio.to_thread(tasks.takes_messages, task_id):
-                raise AgentTaskError(
-                    said(
-                        "{agent_name} can't take messages while it works. Wait for it to finish.",
-                        agent_name=server.agent_name,
-                    )
-                )
+            await _check_takes_messages(server, tasks, task_id)
             message_id = await asyncio.to_thread(tasks.add_message, task_id, message)
             if message.get("kind") == "message" and (report := self._followed.get(task_id)) is not None:
                 await report(sent.user_step(message, message_id, waiting=True))
-        if (pid := await asyncio.to_thread(tasks.pid, task_id)) is not None:
-            await asyncio.to_thread(workers.wake, pid)
+        await _wake(tasks, task_id)
 
     async def _next_in_conversation(self, server: McpServer, conversation: str, folder: str, message: str) -> Task:
         tasks, sessions = _tasks(server), _sessions(server)
@@ -326,6 +344,40 @@ def _existing_folder(path: str) -> Path:
     if not folder.is_absolute() or not folder.is_dir():
         raise AgentTaskError(said("{path} isn't an existing folder. Give an absolute path.", path=path))
     return folder
+
+
+async def _withdrawable(server: McpServer, tasks: TaskStore, task_id: str, message_id: str) -> dict[str, Any]:
+    """The message, while the agent hasn't got to it and the worker takes messages back."""
+    kept = await asyncio.to_thread(tasks.message, task_id, message_id)
+    if kept is None or kept.get("kind") != "message":
+        raise AgentTaskError(said("No message {message_id} was sent to that task.", message_id=message_id))
+    if not await asyncio.to_thread(tasks.withdraws, task_id):
+        raise AgentTaskError(
+            said(
+                "{agent_name} can't take a message back once it's sent. Update its plugin in Plugins.",
+                agent_name=server.agent_name,
+            )
+        )
+    if await asyncio.to_thread(tasks.withdrawal, task_id, message_id) is not None:
+        raise AgentTaskError(said("{agent_name} already took that message.", agent_name=server.agent_name))
+    return kept
+
+
+async def _check_takes_messages(server: McpServer, tasks: TaskStore, task_id: str) -> None:
+    if (await asyncio.to_thread(tasks.state, task_id, 0)).status != "running":
+        raise AgentTaskError(said("{agent_name} has already finished that task.", agent_name=server.agent_name))
+    if not await asyncio.to_thread(tasks.takes_messages, task_id):
+        raise AgentTaskError(
+            said(
+                "{agent_name} can't take messages while it works. Wait for it to finish.",
+                agent_name=server.agent_name,
+            )
+        )
+
+
+async def _wake(tasks: TaskStore, task_id: str) -> None:
+    if (pid := await asyncio.to_thread(tasks.pid, task_id)) is not None:
+        await asyncio.to_thread(workers.wake, pid)
 
 
 async def _stop(tasks: TaskStore, task_id: str) -> None:

@@ -2196,6 +2196,112 @@
         }
       }
     },
+    "/conversations/{thread_id}/agent/messages/{message_id}": {
+      "put": {
+        "summary": "Edit Agent Message",
+        "description": "Sends `text` instead of a message the agent hasn't got to yet, with its files. 400: no text. 409: it took the\nmessage already, isn't working, or can't take messages back.",
+        "operationId": "edit_agent_message_conversations__thread_id__agent_messages__message_id__put",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          },
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Message Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentMessageEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Withdraw Agent Message",
+        "description": "Takes back a message the agent hasn't got to yet. 409 as for editing it.",
+        "operationId": "withdraw_agent_message_conversations__thread_id__agent_messages__message_id__delete",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          },
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Message Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/conversations/{thread_id}/agent/interrupt": {
       "post": {
         "summary": "Interrupt Agent",
@@ -7748,6 +7854,19 @@
         ],
         "title": "AgentFolders"
       },
+      "AgentMessageEdit": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "AgentMessageEdit"
+      },
       "Alert": {
         "properties": {
           "area": {
@@ -12902,6 +13021,11 @@
           "voice": {
             "type": "string",
             "title": "Voice",
+            "default": ""
+          },
+          "at": {
+            "type": "string",
+            "title": "At",
             "default": ""
           }
         },

@@ -1034,6 +1034,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations/{thread_id}/agent/messages/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Agent Message
+         * @description Sends `text` instead of a message the agent hasn't got to yet, with its files. 400: no text. 409: it took the
+         *     message already, isn't working, or can't take messages back.
+         */
+        put: operations["edit_agent_message_conversations__thread_id__agent_messages__message_id__put"];
+        post?: never;
+        /**
+         * Withdraw Agent Message
+         * @description Takes back a message the agent hasn't got to yet. 409 as for editing it.
+         */
+        delete: operations["withdraw_agent_message_conversations__thread_id__agent_messages__message_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/conversations/{thread_id}/agent/interrupt": {
         parameters: {
             query?: never;
@@ -3420,6 +3445,11 @@ export interface components {
             recent: string[];
             /** Home */
             home: string;
+        };
+        /** AgentMessageEdit */
+        AgentMessageEdit: {
+            /** Text */
+            text: string;
         };
         /** Alert */
         Alert: {
@@ -6189,6 +6219,11 @@ export interface components {
              * @default
              */
             voice: string;
+            /**
+             * At
+             * @default
+             */
+            at: string;
         };
         /**
          * ShownStep
@@ -8474,6 +8509,74 @@ export interface operations {
                 "multipart/form-data": components["schemas"]["Body_message_agent_conversations__thread_id__agent_messages_post"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_agent_message_conversations__thread_id__agent_messages__message_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentMessageEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    withdraw_agent_message_conversations__thread_id__agent_messages__message_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

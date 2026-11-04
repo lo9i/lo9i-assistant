@@ -3,11 +3,13 @@ when it's opened, and each step inside a delegate call or a handed-off agent's c
 (core/conversation/display.py)."""
 
 import json
+from datetime import UTC, datetime
 
 from langchain_core.messages import AIMessage, ToolMessage
 
 from assistant.core import subagent_steps
-from assistant.core.agent_tasks.steps import STEPS
+from assistant.core.agent_tasks.steps import STEPS, AgentSteps
+from assistant.core.conversation import called_at
 from assistant.core.conversation.display import ShownCall, shown, tool_call, tool_call_step
 from assistant.core.subagent_steps import SubagentAnswer, SubagentStep
 
@@ -42,6 +44,22 @@ def test_several_arguments_read_as_one_line_and_load_in_full():
 def test_a_call_without_arguments_or_a_result_has_nothing_more_to_load():
     [call] = shown(_call({}, None))
     assert (call.detail, call.output, call.partial) == ("", "", False)
+
+
+def test_a_call_shows_when_the_model_asked_for_it_and_one_from_before_shows_no_time():
+    messages = _call({"command": "ls"}, "a.txt")
+    called_at.stamp(messages[0], datetime(2026, 11, 4, 9, 30, tzinfo=UTC))
+    [call] = shown(messages)
+    assert call.at == "2026-11-04T09:30:00+00:00"
+    assert shown(_call({"command": "ls"}, "a.txt"))[0].at == ""
+
+
+def test_a_handed_off_agents_call_shows_when_the_daemon_read_it():
+    steps = AgentSteps("Claude Code")
+    steps.events(json.dumps({"kind": "tool", "tool": "Bash", "detail": "pytest", "id": "t1"}))
+    reply = AIMessage("Done.", response_metadata={STEPS: steps.lines}, id="r1")
+    [call, _] = shown([reply])
+    assert call.role == "tool" and datetime.fromisoformat(call.at).tzinfo is not None
 
 
 def test_the_whole_call_is_found_by_its_id():

@@ -29,6 +29,7 @@ from assistant.core.events import (
     ToolStarted,
     UserSaid,
     UserTaken,
+    UserWithdrawn,
 )
 from assistant.core.mcp import folders, servers
 from assistant.core.mcp.servers import McpServer
@@ -756,12 +757,13 @@ async def test_stopped_with_several_messages_waiting_they_go_to_the_agent_as_one
     assert waiting.text == "skip the slow tests\n\nunread: and run the linter"
     assert [f["name"] for f in waiting.files] == ["shot.png"]
     shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
-    assert shown[-4:] == [  # the stopped turn keeps every message it was sent
+    # The stopped turn keeps every message it was sent: the one it got to where it got to it.
+    assert sorted(shown[-4:-1]) == [
         ("user", "skip the slow tests\n[attachment shot.png]"),
         ("user", "take a look at the docs"),
         ("user", "unread: and run the linter"),
-        ("assistant", "[stopped before Claude Code replied]"),
     ]
+    assert shown[-1] == ("assistant", "[stopped before Claude Code replied]")
     events = await collect(service.send(session, waiting.text, brief=waiting.brief, saved=waiting.files))
     assert events[-1] == Done()
     resumed = asked()[-1]
@@ -800,6 +802,100 @@ async def test_a_message_the_agent_gets_to_later_shows_as_waiting_until_it_takes
         ("user", "take a look at the docs", False),
         ("user", "skip the slow tests", True),
         ("assistant", "[stopped before Claude Code replied]", False),
+    ]
+
+
+async def _holding(service, session, tmp_path, events: list) -> asyncio.Task:
+    """A run of the worker that holds what it's sent until it's told to take it, once it takes messages."""
+    run = asyncio.create_task(_showing(service.send(session, "hold messages"), events))
+    await _taking_messages(service, session, tmp_path)
+    return run
+
+
+async def _stopped(service, session, run: asyncio.Task) -> None:
+    assert await service.cancel(session.thread_id)
+    await run
+
+
+async def test_a_message_the_agent_hasnt_got_to_is_taken_back_and_never_sent_again(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    events: list = []
+    run = await _holding(service, session, tmp_path, events)
+    await service.message_agent("owner", session.thread_id, "skip the slow tests")
+    await _seen(events, UserSaid)
+    sent = next(e for e in events if isinstance(e, UserSaid))
+    await service.withdraw_agent_message("owner", session.thread_id, sent.id)
+    await _seen(events, UserWithdrawn)
+    await _stopped(service, session, run)
+    assert UserWithdrawn(sent.id) in events
+    shown = [m.text for m in await service.conversation_messages(session.thread_id)]
+    assert "skip the slow tests" not in shown  # after a reload it isn't there
+    assert await service.next_queued("owner", session.thread_id) is None  # nor sent to the agent after the stop
+
+
+async def test_an_edited_message_goes_to_the_agent_with_its_new_text_and_its_files(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    events: list = []
+    run = await _holding(service, session, tmp_path, events)
+    shot = Attachment("shot.png", "image/png", b"png")
+    await service.message_agent("owner", session.thread_id, "skip the slow tests", [shot])
+    await _seen(events, UserSaid)
+    first = next(e for e in events if isinstance(e, UserSaid))
+    await service.edit_agent_message("owner", session.thread_id, "web", first.id, "run only the fast tests")
+    await _seen(events, UserSaid, 2)
+    edited = [e for e in events if isinstance(e, UserSaid)][-1]
+    assert UserWithdrawn(first.id) in events
+    assert edited == UserSaid("run only the fast tests", ["shot.png"], waiting=True) and edited.id != first.id
+    await _stopped(service, session, run)
+    waiting = await service.next_queued("owner", session.thread_id)
+    assert waiting is not None and waiting.text == "run only the fast tests"
+    assert [f["name"] for f in waiting.files] == ["shot.png"]
+
+
+async def test_a_message_the_agent_took_already_cant_be_taken_back(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    events: list = []
+    run = await _holding(service, session, tmp_path, events)
+    await service.message_agent("owner", session.thread_id, "take a look at the docs")
+    await _seen(events, UserTaken)
+    taken = next(e for e in events if isinstance(e, UserSaid))
+    with pytest.raises(HandoffError, match="already took"):
+        await service.withdraw_agent_message("owner", session.thread_id, taken.id)
+    with pytest.raises(HandoffError, match="already took"):
+        await service.edit_agent_message("owner", session.thread_id, "web", taken.id, "the docs and the tests")
+    await _stopped(service, session, run)
+    assert not any(isinstance(e, UserWithdrawn) for e in events)
+
+
+async def test_a_worker_that_cant_take_messages_back_is_asked_nothing(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    events: list = []
+    run = asyncio.create_task(_showing(service.send(session, "take messages"), events))
+    task = await _taking_messages(service, session, tmp_path)
+    await service.message_agent("owner", session.thread_id, "skip the slow tests")
+    sent = next(e for e in events if isinstance(e, UserSaid))
+    with pytest.raises(HandoffError, match="Update its plugin"):
+        await service.withdraw_agent_message("owner", session.thread_id, sent.id)
+    inbox = TaskStore(folders.data("claude-code") / "tasks").folder(task) / "inbox"
+    assert [json.loads(p.read_text())["kind"] for p in inbox.glob("*.json")] == ["message"]  # no withdraw for it
+    await _stopped(service, session, run)
+
+
+async def test_a_message_the_agent_got_to_later_shows_where_it_got_to_it_after_a_reload(service, tmp_path):
+    session = await _handed(service, tmp_path)
+    events: list = []
+    run = await _holding(service, session, tmp_path, events)
+    await service.message_agent("owner", session.thread_id, "skip the slow tests")
+    await _seen(events, UserSaid)
+    await service.message_agent("owner", session.thread_id, "take all")
+    await _seen(events, UserTaken, 2)
+    await _stopped(service, session, run)
+    shown = [(m.role, m.text) for m in await service.conversation_messages(session.thread_id)]
+    assert shown[-4:] == [
+        ("assistant", "Working.\n\nGetting to them."),
+        ("user", "skip the slow tests"),  # as live: where the agent took it, not where it was sent
+        ("user", "take all"),
+        ("assistant", "[stopped before Claude Code replied]"),
     ]
 
 

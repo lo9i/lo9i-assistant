@@ -12,9 +12,10 @@ tools each reads as one line (`line`). The steps of a handed-off reply are kept 
 
 import json
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
-from assistant.core.events import Event, TextDelta, ToolFinished, ToolStarted, UserSaid, UserTaken
+from assistant.core.events import Event, TextDelta, ToolFinished, ToolStarted, UserSaid, UserTaken, UserWithdrawn
 from assistant.core.subagent_steps import SubagentStep
 
 _LINE = 200
@@ -28,6 +29,9 @@ Upload = dict[str, str]
 # The step a worker writes once the agent takes a message it passed on with a `user` step marked `waiting`: the
 # agent was working and gets to it only later (docs/agent-plugins.md).
 TAKEN = "taken"
+# The step a worker writes once it took back a message the user withdrew before the agent got to it: removed, or
+# edited, its new text then sent as a message of its own (docs/agent-plugins.md).
+WITHDRAWN = "withdrawn"
 
 
 # The words of a text or a thinking as they're written, before the whole of it comes as one step.
@@ -47,7 +51,7 @@ class AgentSteps:
         self._open = ""
         # It said something since the user's last message: its reply, its last text, has been shown with it.
         self.spoke = False
-        # Every step so far but the streamed words, as written, to keep with the reply.
+        # Every step so far but the streamed words, as written with when they were read (`at`), to keep with the reply.
         self.lines: list[str] = []
         # The messages the user sent it shown so far, by id: whether each still waits for the agent to take it.
         self._sent: dict[str, bool] = {}
@@ -62,10 +66,15 @@ class AgentSteps:
             self.lines.append(message)
             self._sent[message_id] = False
             return [UserTaken(message_id)]
+        if kind == WITHDRAWN:
+            # Kept too, so history leaves the message out; a step of the worker's for it after this shows nothing.
+            self.lines.append(message)
+            self._sent[message_id] = False
+            return [UserWithdrawn(message_id)]
         if kind == "user" and message_id:
             self._sent[message_id] = waiting(step)
         if kind not in _DELTAS:
-            self.lines.append(message)
+            self.lines.append(_stamped(message))
         events = self._events(step, files_of(message))
         if events:
             block = _DELTAS.get(kind, kind)
@@ -198,6 +207,18 @@ def waiting(step: dict[str, str]) -> bool:
     """A `user` step for a message the agent takes only later, which a `taken` step then says (`parse` keeps
     every field as a string)."""
     return step.get("kind") == "user" and step.get("waiting") == str(True)
+
+
+def _stamped(message: str) -> str:
+    """A step as written, with when the daemon read it (`at`, ISO 8601), which history shows a tool call with; a line
+    that isn't a JSON step as it is."""
+    try:
+        step: Any = json.loads(message)
+    except json.JSONDecodeError:
+        return message
+    if not isinstance(step, dict) or "at" in step:
+        return message
+    return json.dumps(step | {"at": datetime.now(UTC).isoformat()}, ensure_ascii=False)
 
 
 def parse(message: str) -> dict[str, str]:

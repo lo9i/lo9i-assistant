@@ -16,6 +16,7 @@ _EVENT_TYPES = {
         events.ToolFinished,
         events.UserSaid,
         events.UserTaken,
+        events.UserWithdrawn,
         events.ApprovalRequired,
         events.Transcribed,
         events.Dispatched,

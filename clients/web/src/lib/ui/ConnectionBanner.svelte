@@ -4,10 +4,11 @@
   import Power from "@lucide/svelte/icons/power";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import WifiOff from "@lucide/svelte/icons/wifi-off";
+  import X from "@lucide/svelte/icons/x";
   import { DaemonUnavailableError } from "$lib/api/errors";
   import { external, useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
-  import { answerable, coming as comingOf, comingText, pendingDetail, pendingTitle, type Coming } from "$lib/shutdown";
+  import { answerable, coming as comingOf, comingText, noticeShown, pendingDetail, pendingTitle, type Coming } from "$lib/shutdown";
 
   // Says, on every page, what the daemon is up to when the page can't simply go on: a restart or stop coming (an
   // `ending` event, whoever asked for it), the daemon away while its event stream is lost (a restart, a computer
@@ -18,6 +19,13 @@
   const connection = external(hub.subscribeConnection, hub.getConnection);
   let coming = $state<Coming | null>(null);
   let newVersion = $state(false);
+  // The notice the user put away, so it no longer covers the message box: until what it says changes (another kind
+  // of ending, the daemon back, a newer build).
+  let dismissed = $state("");
+  const shown = $derived(noticeShown(connection.current === "lost", coming, newVersion));
+  $effect(() => {
+    if (!shown) dismissed = "";
+  });
 
   // The event says what's coming at once; who asked, when, and the queued messages come from the daemon after it.
   $effect(() => {
@@ -81,8 +89,16 @@
   );
 </script>
 
-{#if connection.current === "lost"}
-  <div class="banner surface--glass" role="status" aria-live="polite">
+{#snippet dismiss()}
+  <button class="dismiss" aria-label={t("common.dismiss")} title={t("common.dismiss")} onclick={() => (dismissed = shown)}>
+    <X size={14} />
+  </button>
+{/snippet}
+
+{#if shown === dismissed}
+  <!-- Put away by the user. -->
+{:else if connection.current === "lost"}
+  <div class="banner" role="status" aria-live="polite">
     {#if coming?.ending === "stop"}
       <Power size={16} />
       <span><strong>{t("banner.stopped", { name })}</strong> {t("banner.stoppedHint")}</span>
@@ -94,9 +110,10 @@
       <span><strong>{t("banner.unreachable", { name })}</strong> {t("banner.unreachableHint")}</span>
     {/if}
     <span class="spin"><LoaderCircle size={16} /></span>
+    {@render dismiss()}
   </div>
 {:else if coming}
-  <div class="banner surface--glass" role="status" aria-live="polite">
+  <div class="banner" role="status" aria-live="polite">
     <RefreshCw size={16} />
     <span>
       <strong>{pendingTitle(coming)}</strong>
@@ -109,12 +126,14 @@
     {#if answerable(coming).now}
       <button class="btn btn--sm btn--danger" onclick={now} disabled={answering}>{t("banner.now")}</button>
     {/if}
+    {@render dismiss()}
   </div>
 {:else if newVersion}
-  <div class="banner surface--glass fresh" role="status" aria-live="polite">
+  <div class="banner fresh" role="status" aria-live="polite">
     <RefreshCw size={16} />
     <span><strong>{t("banner.newVersion", { name })}</strong> {t("banner.reloadToUse")}</span>
     <button class="btn btn--sm btn--primary" onclick={() => location.reload()}>{t("banner.reload")}</button>
+    {@render dismiss()}
   </div>
 {/if}
 
@@ -129,15 +148,36 @@
     align-items: center;
     gap: 10px;
     max-width: calc(100vw - 32px);
-    padding: 10px 16px;
-    border-color: color-mix(in srgb, var(--color-warn) 45%, var(--surface-glass-border));
+    padding: 10px 10px 10px 16px;
+    /* Solid and tinted, so it reads as a notice of its own, not as part of the message box under it. */
+    border: 1px solid color-mix(in srgb, var(--color-warn) 60%, transparent);
+    border-radius: var(--radius-lg, 16px);
+    background: color-mix(in srgb, var(--color-warn) 16%, var(--surface-raised-bg));
+    box-shadow: var(--shadow-popover);
     color: var(--color-warn);
     font-size: var(--font-size-sm);
     animation: drop 0.18s ease;
   }
   .fresh {
-    border-color: color-mix(in srgb, var(--color-accent) 45%, var(--surface-glass-border));
+    border-color: color-mix(in srgb, var(--color-accent) 60%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 14%, var(--surface-raised-bg));
     color: var(--color-accent);
+  }
+  .dismiss {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+  }
+  .dismiss:hover {
+    background: var(--color-bg-hover-ghost);
+    color: var(--color-text-primary);
   }
   strong {
     font-weight: 600;

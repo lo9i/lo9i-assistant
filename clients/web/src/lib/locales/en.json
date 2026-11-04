@@ -172,9 +172,25 @@
     "conversation": "Conversation",
     "theAssistant": "the assistant",
     "queued": "Queued messages",
-    "takeBack": "Take back",
-    "takeBackHint": "Take back to edit",
     "dropHint": "Drop files to attach them"
+  },
+  "queue": {
+    "count": {
+      "one": "{count} queued",
+      "other": "{count} queued"
+    },
+    "show": "Show the queued messages",
+    "hide": "Hide the queued messages",
+    "edit": "Edit",
+    "editing": "Edit the queued message",
+    "remove": "Remove from the queue",
+    "save": "Save",
+    "sentOn": "The inbox sent it on here: it can't be changed",
+    "sentAlready": "It was sent before the change",
+    "files": {
+      "one": "{count} file",
+      "other": "{count} files"
+    }
   },
   "pending": {
     "waiting": "Waiting for your answer",
@@ -1448,8 +1464,6 @@
     "thinking": "Thinking",
     "taskFor": "Task for {agent}",
     "fromInbox": "From the inbox",
-    "waiting": "Waiting for the agent to get to it",
-    "untaken": "Not taken: sent again below",
     "resent": "Sent again",
     "stoppedTag": "stopped",
     "steps": {

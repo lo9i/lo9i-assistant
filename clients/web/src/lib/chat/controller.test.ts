@@ -46,6 +46,7 @@ class FakeDaemon implements ChatClient {
           untaken: false,
           resent: false,
           voice: "",
+          at: "",
         },
         ...(this.held.get(threadId) ?? []),
       ];
@@ -436,6 +437,7 @@ describe("ChatController", () => {
       untaken: false,
       resent: false,
       voice: "",
+      at: "",
     };
     daemon.held.set("t1", [{ ...waiting, held: "h1" }]);
     daemon.runs = [[{ type: "TextDelta", text: "back" }, { type: "Done" }]];
@@ -460,6 +462,7 @@ describe("ChatController", () => {
       untaken: false,
       resent: false,
       voice: "",
+      at: "",
     });
     daemon.held.set("t1", [kept("first?", "h1"), kept("second?", "h2")]);
     daemon.runs = [
@@ -533,7 +536,8 @@ describe("ChatController with messages waiting for the reply before them", () =>
     await inbox.send("flights?", []);
     expect(inbox.getSnapshot().busy).toBe(false);
     expect(there.getSnapshot().queued).toMatchObject([{ text: "flights?", dispatched }]);
-    expect(there.unqueue(0)).toBeNull();
+    expect(there.unqueue(there.getSnapshot().queued[0].id)).toBeNull();
+    expect(there.editQueued(there.getSnapshot().queued[0].id, "trains?")).toBe(false);
     there.answer({ approved: true, reason: null });
     await asking;
     await until(() => finalReply(there.getSnapshot().transcript) === "Two flights.");
@@ -576,6 +580,28 @@ describe("ChatController with messages waiting for the reply before them", () =>
     await until(() => !chat.getSnapshot().busy);
     chat.queue("now", []);
     expect(daemon.sent).toEqual(["t1: next", "t1: now"]);
+  });
+
+  it("sends a queued message as it was edited, and not one removed from the queue", async () => {
+    const daemon = new FakeDaemon();
+    let release = () => {};
+    daemon.holding = new Promise((resolve) => (release = resolve));
+    daemon.runs = [[{ type: "TextDelta", text: "from telegram" }]];
+    const chat = await ChatController.open(daemon, "web", "t1", board);
+    const mirrored = chat.mirror({ run_id: "r", thread_id: "t1", channel: "telegram", client_id: "", text: "hi" });
+    await until(() => chat.getSnapshot().mirroring);
+    chat.queue("first", []);
+    chat.queue("second", []);
+    const [first, second] = chat.getSnapshot().queued;
+    expect(chat.editQueued(first.id, "first, edited")).toBe(true);
+    expect(chat.unqueue(second.id)?.text).toBe("second");
+    expect(chat.getSnapshot().queued.map((q) => q.text)).toEqual(["first, edited"]);
+    daemon.holding = null;
+    release();
+    await mirrored;
+    await until(() => daemon.sent.length === 1);
+    expect(daemon.sent).toEqual(["t1: first, edited"]);
+    expect(chat.editQueued(first.id, "too late")).toBe(false); // it went meanwhile
   });
 });
 

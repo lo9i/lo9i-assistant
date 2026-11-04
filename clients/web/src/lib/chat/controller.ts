@@ -52,9 +52,18 @@ type Start = (signal: AbortSignal) => AsyncIterable<RunEvent>;
 /** A run to show from its start, as its `run` event announced it or the conversation lists it in progress. */
 type Followed = Pick<RunAnnounced, "run_id" | "channel" | "client_id" | "text" | "notice" | "brief" | "held" | "resent" | "carried">;
 
-/** A message waiting for the reply before it to finish. One the inbox sent on here (`dispatched`) can't be taken
- * back: the daemon keeps it as sent on. `after` is called once its own reply has finished. */
-export type Queued = { text: string; files: File[]; dispatched?: Dispatched; after?: (chat: ChatController) => unknown };
+/** A message waiting for the reply before it to finish, by `id` while it waits. One the inbox sent on here
+ * (`dispatched`) can't be changed or taken back: the daemon keeps it as sent on. `after` is called once its own reply
+ * has finished. */
+export type Queued = {
+  id: number;
+  text: string;
+  files: File[];
+  dispatched?: Dispatched;
+  after?: (chat: ChatController) => unknown;
+};
+
+let queuedSoFar = 0;
 
 export type ChatSnapshot = {
   threadId: string;
@@ -216,7 +225,7 @@ export class ChatController {
   async sendDispatched(dispatched: Dispatched, started: () => void = () => {}, following: Queued[] = []): Promise<void> {
     const { text, carried, brief } = dispatched;
     if (this.ownRun !== null || this.mirrors.size > 0) {
-      this.set({ queued: [...this.state.queued, { text, files: [], dispatched }, ...following] });
+      this.set({ queued: [...this.state.queued, { id: ++queuedSoFar, text, files: [], dispatched }, ...following] });
       return started();
     }
     this.set({ queued: [...this.state.queued, ...following] });
@@ -229,16 +238,29 @@ export class ChatController {
   /** Sends `text` and `files` once nothing runs here, after the messages queued before it; at once when nothing does.
    * `after` is called once its reply has finished. */
   queue(text: string, files: File[], after?: (chat: ChatController) => unknown): void {
-    this.set({ queued: [...this.state.queued, { text, files, after }] });
+    this.set({ queued: [...this.state.queued, { id: ++queuedSoFar, text, files, after }] });
     this.sendQueued();
   }
 
-  /** Takes back the queued message at `index` and returns it; not one the inbox sent on, which stays. */
-  unqueue(index: number): Queued | null {
-    const item = this.state.queued[index];
-    if (!item || item.dispatched) return null;
-    this.set({ queued: this.state.queued.filter((_, i) => i !== index) });
+  /** Takes the queued message `id` out of the queue and returns it; not one the inbox sent on, which stays, nor one
+   * that went meanwhile (null for those). */
+  unqueue(id: number): Queued | null {
+    const item = this.changeable(id);
+    if (item) this.set({ queued: this.state.queued.filter((q) => q !== item) });
     return item;
+  }
+
+  /** Has the queued message `id` say `text` instead, keeping its place and files; whether it was still queued and
+   * could be changed (not one the inbox sent on). */
+  editQueued(id: number, text: string): boolean {
+    const item = this.changeable(id);
+    if (item) this.set({ queued: this.state.queued.map((q) => (q === item ? { ...q, text } : q)) });
+    return item !== null;
+  }
+
+  private changeable(id: number): Queued | null {
+    const item = this.state.queued.find((q) => q.id === id);
+    return item && !item.dispatched ? item : null;
   }
 
   /** Asks in the inbox where a message it sent on goes instead (the last one for ""), and sends it there. */

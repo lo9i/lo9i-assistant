@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answerable, coming, comingText, endingText, pendingDetail, pendingTitle, waitingText, type Coming } from "./shutdown";
+import { answerable, coming, comingText, endingText, noticeShown, pendingDetail, pendingTitle, waitingText, type Coming } from "./shutdown";
 
 const runs = (ending: "restart" | "stop", waiting: number, more: Partial<Coming> = {}): Coming => ({
   ending,
@@ -86,5 +86,16 @@ describe("waitingText and answerable", () => {
   it("offers Cancel but not Now while it waits only for an update being installed", () => {
     expect(answerable(runs("restart", 0, { update: true }))).toEqual({ cancel: true, now: false });
     expect(answerable(runs("restart", 0))).toEqual({ cancel: false, now: false });
+  });
+});
+
+describe("noticeShown", () => {
+  it("names the notice, so one put away stays away only until it says something else", () => {
+    expect(noticeShown(false, runs("restart", 1), true)).toBe("coming:restart");
+    expect(noticeShown(false, runs("restart", 3), false)).toBe("coming:restart"); // fewer runs to wait for: the same
+    expect(noticeShown(false, runs("stop", 1), false)).toBe("coming:stop");
+    expect(noticeShown(true, runs("restart", 0), false)).toBe("lost:restart"); // now restarting
+    expect(noticeShown(false, null, true)).toBe("fresh");
+    expect(noticeShown(false, null, false)).toBe("");
   });
 });

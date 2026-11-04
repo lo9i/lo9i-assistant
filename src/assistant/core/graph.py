@@ -19,7 +19,7 @@ from assistant.core import plugin_loading
 from assistant.core.attachments import hydrate
 from assistant.core.config import settings
 from assistant.core.context import Context, require_store
-from assistant.core.conversation import failed
+from assistant.core.conversation import called_at, failed
 from assistant.core.conversation.dispatch import build_classifier
 from assistant.core.conversation.dispatch_nodes import ASK, DISPATCH, SEND, dispatch_nodes
 from assistant.core.conversation.epochs import (
@@ -323,10 +323,13 @@ def _agent_node(llm: BaseChatModel, tools: Sequence[BaseTool], images_in_tool_re
             response = await bound.ainvoke([SystemMessage(state["system_prompt"]), *messages])
         except Exception as e:
             return _refused(state, e)
+        now = datetime.now(UTC)
+        if isinstance(response, AIMessage):
+            called_at.stamp(response, now)
         return {
             "messages": [response],
             "usage_anchor": usage_anchor(response, len(state["messages"]) + 1),
-            "last_model_call": datetime.now(UTC).isoformat(),
+            "last_model_call": now.isoformat(),
         }
 
     return _agent

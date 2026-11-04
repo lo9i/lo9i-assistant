@@ -4,7 +4,7 @@ import json
 from typing import cast
 
 from assistant.core.agent_tasks.steps import AgentSteps, line
-from assistant.core.events import TextDelta, ToolFinished, ToolStarted, UserSaid, UserTaken
+from assistant.core.events import TextDelta, ToolFinished, ToolStarted, UserSaid, UserTaken, UserWithdrawn
 
 
 def _events(steps: AgentSteps, *messages: dict | str) -> list:
@@ -112,6 +112,18 @@ def test_a_message_the_agent_gets_to_later_shows_waiting_until_its_taken_step_wh
     assert events == [UserSaid("skip the slow ones", waiting=True), UserTaken("m1")]
     assert cast(UserSaid, events[0]).id == "m1"
     assert [json.loads(kept)["kind"] for kept in steps.lines] == ["user", "taken"]  # history knows it was taken
+
+
+def test_a_message_taken_back_before_the_agent_got_to_it_goes_and_a_later_step_for_it_shows_nothing():
+    steps = AgentSteps("Claude Code")
+    events = _events(
+        steps,
+        {"kind": "user", "text": "skip the slow ones", "id": "m1", "waiting": True},
+        {"kind": "withdrawn", "id": "m1"},
+        {"kind": "user", "text": "skip the slow ones", "id": "m1"},
+    )
+    assert events == [UserSaid("skip the slow ones", waiting=True), UserWithdrawn("m1")]
+    assert [json.loads(kept)["kind"] for kept in steps.lines] == ["user", "withdrawn"]  # history leaves it out
 
 
 def test_a_message_shown_as_it_was_sent_shows_once_and_the_workers_step_for_it_says_it_was_taken():

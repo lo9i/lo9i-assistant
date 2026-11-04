@@ -239,6 +239,21 @@ export class ConversationsGroup {
     await this.transport.request("POST", `${this.agentPath(threadId)}/interrupt`);
   }
 
+  /** Sends `text` instead of a message the agent hasn't got to yet (its id, as UserSaid gave it), with its files.
+   * Throws ApiError: 409 when the agent took it first, isn't working, or can't take messages back. */
+  async editAgentMessage(threadId: string, messageId: string, text: string): Promise<void> {
+    await this.transport.request("PUT", this.agentMessagePath(threadId, messageId), { text });
+  }
+
+  /** Takes back a message the agent hasn't got to yet. Throws ApiError (409) as editAgentMessage. */
+  async withdrawAgentMessage(threadId: string, messageId: string): Promise<void> {
+    await this.transport.request("DELETE", this.agentMessagePath(threadId, messageId));
+  }
+
+  private agentMessagePath(threadId: string, messageId: string): string {
+    return `${this.agentPath(threadId)}/messages/${encodeURIComponent(messageId)}`;
+  }
+
   /** The files and folders in `path` of the folder the conversation is handed to ("" for itself), folders first.
    * Throws ApiError: 400 for a path outside it or one it hides, 404 when it isn't handed over or the path is gone. */
   agentFolder(threadId: string, path = ""): Promise<FolderContents> {

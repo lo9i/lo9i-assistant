@@ -172,9 +172,25 @@
     "conversation": "Conversación",
     "theAssistant": "el asistente",
     "queued": "Mensajes en cola",
-    "takeBack": "Retirar",
-    "takeBackHint": "Retirar para editar",
     "dropHint": "Suelta archivos para adjuntarlos"
+  },
+  "queue": {
+    "count": {
+      "one": "{count} en cola",
+      "other": "{count} en cola"
+    },
+    "show": "Mostrar los mensajes en cola",
+    "hide": "Ocultar los mensajes en cola",
+    "edit": "Editar",
+    "editing": "Editar el mensaje en cola",
+    "remove": "Quitar de la cola",
+    "save": "Guardar",
+    "sentOn": "La bandeja de entrada lo envió aquí: no se puede cambiar",
+    "sentAlready": "Se envió antes del cambio",
+    "files": {
+      "one": "{count} archivo",
+      "other": "{count} archivos"
+    }
   },
   "pending": {
     "waiting": "Esperando tu respuesta",
@@ -1448,8 +1464,6 @@
     "thinking": "Pensando",
     "taskFor": "Tarea para {agent}",
     "fromInbox": "Desde la bandeja de entrada",
-    "waiting": "Esperando a que el agente llegue a él",
-    "untaken": "No lo tomó: se envió de nuevo abajo",
     "resent": "Enviado de nuevo",
     "stoppedTag": "detenida",
     "steps": {

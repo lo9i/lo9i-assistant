@@ -43,6 +43,7 @@ in and try again." Wait at most a few seconds for an answer.
 ```python
 import asyncio, json, os
 
+
 async def open_in_session(url: str) -> None:
     reader, writer = await asyncio.open_unix_connection(os.environ["LO9I_LOGIN_SESSION"])
     writer.write(json.dumps({"op": "open", "url": url}).encode() + b"\n")

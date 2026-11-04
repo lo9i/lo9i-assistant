@@ -1,7 +1,12 @@
 """Transport-neutral events streamed from the service to gateways."""
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
+
+
+def _now() -> str:
+    return datetime.now(UTC).isoformat()
 
 
 @dataclass
@@ -25,6 +30,8 @@ class ToolStarted:
     id: str = field(default="", compare=False)
     # The id of the delegate call whose subagent made this call; empty for the agent's own calls.
     within: str = ""
+    # When it started, as ISO 8601: the apps show it on the call, and replaying the run keeps it.
+    at: str = field(default_factory=_now, compare=False)
 
 
 @dataclass
@@ -53,6 +60,14 @@ class UserSaid:
 @dataclass
 class UserTaken:
     """The agent got to a message the user sent it that was waiting (UserSaid.waiting)."""
+
+    id: str
+
+
+@dataclass
+class UserWithdrawn:
+    """A message the user sent an agent that was waiting (UserSaid.waiting) was taken back before the agent got to it:
+    removed, or edited, which sends its new text as a message of its own (AgentTasks.withdraw)."""
 
     id: str
 
@@ -184,6 +199,7 @@ Event = (
     | ToolFinished
     | UserSaid
     | UserTaken
+    | UserWithdrawn
     | ApprovalRequired
     | Transcribed
     | Dispatched

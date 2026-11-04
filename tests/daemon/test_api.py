@@ -709,6 +709,18 @@ async def test_a_message_to_the_agent_with_neither_text_nor_files_is_400(app):
         assert response.status_code == 400 and "attach a file" in response.text
 
 
+async def test_a_message_to_the_agent_is_edited_or_taken_back_only_while_it_waits_for_it(app):
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=trusted(app)), base_url="http://127.0.0.1", headers={CLIENT_HEADER: "t"}
+    ) as http:
+        empty = await http.put("/conversations/t/agent/messages/1-a", json={"text": " "})
+        assert empty.status_code == 400 and "Write a message" in empty.text
+        edited = await http.put("/conversations/t/agent/messages/1-a", json={"text": "the fast tests"})
+        assert edited.status_code == 409 and "isn't handed to an agent" in edited.text
+        withdrawn = await http.delete("/conversations/t/agent/messages/1-a")
+        assert withdrawn.status_code == 409 and "isn't handed to an agent" in withdrawn.text
+
+
 async def test_skills_and_usage_endpoints(client, script, isolated_settings, monkeypatch):
     from assistant.core.agent import SkillError
     from assistant.core.config import settings

@@ -14,6 +14,7 @@
   import Wrench from "@lucide/svelte/icons/wrench";
   import { tick, type Snippet } from "svelte";
   import type { ShownCall } from "$lib/api/types";
+  import { callTime } from "$lib/chat/callTime";
   import { answerable } from "$lib/chat/choices";
   import { isFindKey, onMac } from "$lib/chat/find";
   import { inlineArg, pinnable, withWhole, withWholeStep, type CallPart, type ChatItem, type UserNote } from "$lib/chat/transcript";
@@ -48,8 +49,8 @@
   const wholes = new WholeCalls();
 
   const SUGGESTIONS: Key[] = ["thread.suggestMemory", "thread.suggestNews", "thread.suggestSearch"];
-  // Where a message the user sent a handed-off agent while it worked is.
-  const USER_NOTES: Record<UserNote, Key> = { waiting: "thread.waiting", untaken: "thread.untaken", resent: "thread.resent" };
+  // The messages a handed-off agent hadn't got to, sent to it again.
+  const USER_NOTES: Record<UserNote, Key> = { resent: "thread.resent" };
   // A live voice call's messages (core/voice/); a run of the voice's request shows live with its channel.
   const CALL_PARTS: Record<CallPart, Key> = { said: "voiceCall.said", asked: "voiceCall.asked" };
   const VOICE_CHANNEL = "voice";
@@ -229,6 +230,7 @@
         {@const whole = wholes.get(item.callId)}
         {@const call = whole?.state === "loaded" ? withWhole(item, whole.call) : item}
         {@const arg = inlineArg(call.args)}
+        {@const started = callTime(call.at)}
         <details class="tool {call.state}" ontoggle={(e) => e.currentTarget.open && loadCall && wholes.open(item, loadCall)}>
           <summary>
             <Wrench size={12} />
@@ -237,6 +239,7 @@
             {#if call.state === "running"}<span class="dots"><i></i><i></i><i></i></span>{/if}
             {#if call.state === "cancelled"}<span class="stopped">{t("thread.stoppedTag")}</span>{/if}
             {#if call.steps?.length}<span class="steps-count">{t("thread.steps", { count: call.steps.length })}</span>{/if}
+            {#if started}<time class="started" datetime={call.at} title={started.whole}>{started.shown}</time>{/if}
             {#if call.args || call.output || call.steps?.length}<span class="chevron"><ChevronRight size={12} /></span>{/if}
           </summary>
           {#if call.args && Object.keys(call.args).length && !arg}<pre>{JSON.stringify(call.args, null, 2)}</pre>{/if}
@@ -645,6 +648,12 @@
   }
   .steps-count {
     color: var(--color-text-muted);
+  }
+  .started {
+    flex: none;
+    color: var(--color-text-faint);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
   }
   .steps {
     display: flex;

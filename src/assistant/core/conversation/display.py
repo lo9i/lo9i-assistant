@@ -16,8 +16,18 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMe
 from langchain_core.messages.tool import ToolCall
 
 from assistant.core import subagent_steps
-from assistant.core.agent_tasks.steps import STEPS, TAKEN, UNANSWERED, Upload, args_of, files_of, parse, waiting
-from assistant.core.conversation import briefs, carried, ended, failed, resent
+from assistant.core.agent_tasks.steps import (
+    STEPS,
+    TAKEN,
+    UNANSWERED,
+    WITHDRAWN,
+    Upload,
+    args_of,
+    files_of,
+    parse,
+    waiting,
+)
+from assistant.core.conversation import briefs, called_at, carried, ended, failed, resent
 from assistant.core.conversation.dispatched import DISPATCH_ID
 from assistant.core.conversation.turn_header import channel_of, is_header
 from assistant.core.voice import spoken
@@ -77,6 +87,8 @@ class ShownMessage:
     # A live voice call's (core/voice/): "said" in it, by the user or the voice, or "asked", the voice's request to the
     # assistant.
     voice: str = ""
+    # A tool call: when it started, as ISO 8601; "" for one from before that was kept.
+    at: str = ""
 
 
 @dataclass
@@ -110,7 +122,8 @@ def _shown(message: BaseMessage, results: dict[str, ToolMessage]) -> list[ShownM
         return [_cut(m) for m in _agent_reply(steps, _text(message.content), message.id or "", unanswered)]
     if isinstance(message, AIMessage):
         text = _text(message.content)
-        calls = [_call(call, results.get(call["id"] or "")) for call in message.tool_calls]
+        at = called_at.of(message)
+        calls = [replace(_call(call, results.get(call["id"] or "")), at=at) for call in message.tool_calls]
         dispatch_id = message.response_metadata.get(DISPATCH_ID, "")
         said = ShownMessage("assistant", text, dispatch_id=dispatch_id, voice=_voice(message))
         return [*([said] if text else []), *calls]
@@ -243,22 +256,31 @@ def _agent_reply(lines: list[str], reply: str, message_id: str, unanswered: bool
     said it. Its thinking reads as what it says, as it was shown live (core/agent_tasks/steps.py). Each tool
     call is named after the reply (`message_id`) and its place, to load it whole. When it ended `unanswered`,
     the reply is the note saying how, always shown on its own after the steps, and the messages the user sent it
-    that it never got to say so."""
+    that it never got to say so. A message the agent got to only later shows where it got to it; one the user took
+    back doesn't show."""
     shown: list[ShownMessage] = []
     calls: dict[str, ShownMessage] = {}
     steps = [parse(line) for line in lines]
     taken = {step.get("id") for step in steps if step.get("kind") == TAKEN}
+    withdrawn = {step.get("id") for step in steps if step.get("kind") == WITHDRAWN}
+    # The messages that waited for the agent, shown where it took them, as live.
+    held: dict[str, ShownMessage] = {}
     for line, step in zip(lines, steps, strict=True):
+        kind, message = step.get("kind"), step.get("id", "")
         if within := step.get("within"):
             _add_inner(calls.get(within), step)
-        elif step.get("kind") == TAKEN:
-            continue
-        elif step.get("kind") == "user":
+        elif kind == TAKEN and message in held:
+            shown.append(held.pop(message))
+        elif kind == "user" and message not in withdrawn:
             # An answered turn's agent took every message: steps kept before `taken` steps were don't say so.
-            untaken = unanswered and waiting(step) and step.get("id") not in taken
+            untaken = unanswered and waiting(step) and message not in taken
             text = _with_attachments(step.get("text", ""), files_of(line))
-            shown.append(ShownMessage("user", text, untaken=untaken))
-        else:
+            user = ShownMessage("user", text, untaken=untaken)
+            if waiting(step) and message in taken:
+                held[message] = user
+            else:
+                shown.append(user)
+        elif kind not in (TAKEN, WITHDRAWN, "user"):
             _add_step(shown, step, calls)
     if unanswered:
         shown.append(ShownMessage("assistant", reply))
@@ -295,12 +317,14 @@ def _add_step(shown: list[ShownMessage], step: dict[str, str], calls: dict[str, 
     elif kind in ("text", "thinking"):
         shown.append(ShownMessage("assistant", text))
     elif kind == "tool":
-        shown.append(call := ShownMessage("tool", step.get("tool", ""), detail=step.get("detail", "")))
+        shown.append(
+            call := ShownMessage("tool", step.get("tool", ""), detail=step.get("detail", ""), at=step.get("at", ""))
+        )
         calls[step.get("id") or f"#{len(calls)}"] = call
     elif kind == "result":
         _finish(shown, step.get("tool", ""), text)
     else:
-        shown.append(ShownMessage("tool", text))
+        shown.append(ShownMessage("tool", text, at=step.get("at", "")))
 
 
 def _with_attachments(text: str, files: list[Upload]) -> str:

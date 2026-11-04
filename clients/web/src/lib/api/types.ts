@@ -210,13 +210,16 @@ export type RunEvent =
   | { type: "TextDelta"; text: string }
   // A handed-off agent's reasoning, shown apart from its reply.
   | { type: "Thinking"; text: string }
-  // `within`: the id of the delegate call whose subagent made this call; empty for the agent's own.
-  | { type: "ToolStarted"; name: string; args: Record<string, unknown>; id?: string; within?: string }
+  // `within`: the id of the delegate call whose subagent made this call; empty for the agent's own. `at`: when it
+  // started, ISO 8601.
+  | { type: "ToolStarted"; name: string; args: Record<string, unknown>; id?: string; within?: string; at?: string }
   | { type: "ToolFinished"; name: string; output: string; within?: string }
   // A message the user sent the agent the conversation is handed to while it worked, where it was passed on. `id`: its
   // id in the task's inbox; `waiting`: the agent gets to it only later, which a UserTaken with its id says.
   | { type: "UserSaid"; text: string; files?: string[]; id?: string; waiting?: boolean }
   | { type: "UserTaken"; id: string }
+  // One that waited was taken back before the agent got to it: removed, or edited, its new text a UserSaid of its own.
+  | { type: "UserWithdrawn"; id: string }
   | ApprovalRequired
   | { type: "Transcribed"; text: string; language: string }
   | Dispatched

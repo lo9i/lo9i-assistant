@@ -42,6 +42,14 @@ export function coming(data: Record<string, unknown>): Coming | null {
   };
 }
 
+/** Which notice every page shows: the daemon away (`lost`, while a restart or stop of it or anything else), a restart
+ * or stop coming, or a new build of the page; "" for none. A notice the user dismissed stays away until this changes. */
+export function noticeShown(lost: boolean, c: Coming | null, newVersion: boolean): string {
+  if (lost) return `lost:${c?.ending ?? ""}`;
+  if (c) return `coming:${c.ending}`;
+  return newVersion ? "fresh" : "";
+}
+
 /** The pending restart or stop as a title, for the notice every page shows. */
 export function pendingTitle(c: Coming): string {
   return c.ending === "restart" ? t("shutdown.restartPending") : t("shutdown.stopPending");

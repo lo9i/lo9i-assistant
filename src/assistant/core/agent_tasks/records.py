@@ -12,6 +12,8 @@
   daemon writes it before the worker starts.
 - inbox/: what the user sends the task while it works. The worker makes the folder once it takes them;
   the daemon writes each message in it as a file of its own, then wakes the worker (workers.wake).
+- withdraws: the worker takes back a message the user withdraws before the agent gets to it. The worker
+  writes it with inbox/.
 - sent_on: the messages it ended without taking went to the agent next (AgentTasks.take_waiting). The daemon
   writes it.
 - worker.log: the worker's output, for finding out why one failed.
@@ -33,7 +35,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from assistant.core.agent_tasks.steps import TAKEN, parse, streamed, waiting
+from assistant.core.agent_tasks.steps import TAKEN, WITHDRAWN, parse, streamed, waiting
 from assistant.core.i18n import said
 
 logger = logging.getLogger(__name__)
@@ -48,6 +50,7 @@ _CONTEXT = "context.json"
 _STOPPED = "stopped"
 _CONVERSATION = "conversation"
 _INBOX = "inbox"
+_WITHDRAWS = "withdraws"
 _SENT_ON = "sent_on"
 # How long a task may go without its worker's pid before it counts as a worker that never started.
 _START_SECONDS = 60
@@ -184,6 +187,23 @@ class TaskStore:
         """Its worker takes messages while it works: it made the inbox."""
         return (self.folder(task_id) / _INBOX).is_dir()
 
+    def withdraws(self, task_id: str) -> bool:
+        """Its worker takes back a message the user withdraws before the agent gets to it."""
+        return (self.folder(task_id) / _WITHDRAWS).is_file()
+
+    def withdrawal(self, task_id: str, message_id: str) -> bool | None:
+        """What became of the message sent under `message_id`, as the worker's steps say: True once it took it back
+        (a `withdrawn` step), False once the agent took it (a `taken` step, or a `user` step not marked `waiting`),
+        None while neither has been written."""
+        for step in (parse(line) for line in _tail(self.folder(task_id) / _PROGRESS, None)):
+            if step.get("id") != message_id:
+                continue
+            if step.get("kind") == WITHDRAWN:
+                return True
+            if step.get("kind") == TAKEN or (step.get("kind") == "user" and not waiting(step)):
+                return False
+        return None
+
     def add_message(self, task_id: str, message: dict[str, Any]) -> str:
         """A message for the worker (docs/agent-plugins.md), named so it sorts after the ones before. Returns its
         id, which the worker's `user` step for it carries."""
@@ -201,15 +221,15 @@ class TaskStore:
     def untaken(self, task_id: str) -> list[Untaken]:
         """The messages sent to it that its agent didn't take, oldest first: those its worker never passed on, and
         those it passed on while the agent was working that it hadn't got to (a `user` step marked `waiting` with
-        no `taken` step after)."""
+        no `taken` step after). Not those the user withdrew."""
         folder = self.folder(task_id)
         steps = [parse(line) for line in _tail(folder / _PROGRESS, None)]
         passed = {step.get("id"): waiting(step) for step in steps if step.get("kind") == "user"}
-        taken = {step.get("id") for step in steps if step.get("kind") == TAKEN}
+        settled = {step.get("id") for step in steps if step.get("kind") in (TAKEN, WITHDRAWN)}
         left = [
             Untaken(json.loads(path.read_text()), path.stem, path.stem in passed)
             for path in sorted((folder / _INBOX).glob("*.json"))
-            if passed.get(path.stem, True) and path.stem not in taken
+            if passed.get(path.stem, True) and path.stem not in settled
         ]
         return [untaken for untaken in left if untaken.message.get("kind") == "message"]
 

@@ -8,7 +8,7 @@ import { withoutMarkers } from "./choices";
 export type CallPart = "said" | "asked";
 
 export type ChatItem =
-  | { kind: "user"; id: number; text: string; files: string[]; channel?: string; note?: UserNote; messageId?: string; voice?: CallPart }
+  | { kind: "user"; id: number; text: string; files: string[]; channel?: string; note?: UserNote; voice?: CallPart }
   // A coding task the assistant wrote for the agent (`agent`) it handed the conversation to: not the user's.
   | { kind: "brief"; id: number; text: string; agent: string }
   // `dispatchId`: the inbox's record of a message it sent on, which can be moved.
@@ -27,14 +27,18 @@ export type ChatItem =
 
 export type ToolState = "running" | "done" | "cancelled";
 
-/** Where a message the user sent a handed-off agent while it worked is: still waiting for it to get to it, never got
- * to (the run was stopped or failed, so it went to the agent as the next message), or that next message, those
- * messages sent again. */
-export type UserNote = "waiting" | "untaken" | "resent";
+/** The messages a handed-off agent hadn't got to when its run was stopped or failed, sent to it again as the next
+ * message. */
+export type UserNote = "resent";
 
-/** A tool call. A delegate call's subagent reports its own calls as `steps`. One from history that's `partial`
- * shows its arguments on one line and the start of its output: the whole call loads by `callId` when opened. */
-export type ToolItem = ToolStep & { kind: "tool"; id: number; callId?: string; partial?: boolean; steps?: ToolStep[] };
+/** A message the user sent a handed-off agent while it worked, waiting for it to get to it (`messageId`, its id in the
+ * task's inbox). It shows in the queue above the message box, not in the chat, until the agent takes it. */
+export type Waiting = { messageId: string; text: string; files: string[] };
+
+/** A tool call, started `at` (ISO 8601; none for one from before that was kept). A delegate call's subagent reports
+ * its own calls as `steps`. One from history that's `partial` shows its arguments on one line and the start of its
+ * output: the whole call loads by `callId` when opened. */
+export type ToolItem = ToolStep & { kind: "tool"; id: number; callId?: string; partial?: boolean; steps?: ToolStep[]; at?: string };
 
 /** One from history that's `partial` shows the start of its arguments and output: it loads whole by its call's
  * `callId` and its place when opened. */
@@ -47,9 +51,11 @@ export type Transcript = {
   streaming: number | null;
   // Tool results carry only the tool name, so they are matched to calls in order.
   pending: Record<string, number[]>;
+  // What the user sent the agent that it hasn't got to yet, oldest first.
+  waiting: Waiting[];
 };
 
-export const empty: Transcript = { items: [], nextId: 1, streaming: null, pending: {} };
+export const empty: Transcript = { items: [], nextId: 1, streaming: null, pending: {}, waiting: [] };
 
 export function fromHistory(messages: ShownMessage[]): Transcript {
   return messages.reduce(addShownHeld, empty);
@@ -123,16 +129,18 @@ export function apply(t: Transcript, event: RunEvent): Transcript {
   switch (event.type) {
     case "ToolStarted":
       if (event.within) return stepStarted(ended, event.within, { name: event.name, args: event.args, state: "running" });
-      return toolStarted(ended, event.name, event.args, event.id);
+      return toolStarted(ended, event.name, event.args, event.id, event.at);
     case "ToolFinished":
       if (event.within) return stepFinished(ended, event.within, event.name, event.output);
       return toolFinished(ended, event.name, event.output);
     case "Thinking":
       return addThinking(ended, event.text);
     case "UserSaid":
-      return add(ended, { kind: "user", text: event.text, files: event.files ?? [], ...saidNote(event) });
+      return event.waiting ? waitFor(ended, event) : add(ended, { kind: "user", text: event.text, files: event.files ?? [] });
     case "UserTaken":
-      return { ...ended, items: ended.items.map((item) => (waitingFor(item, event.id) ? taken(item) : item)) };
+      return taken(ended, event.id);
+    case "UserWithdrawn":
+      return { ...ended, waiting: ended.waiting.filter((w) => w.messageId !== event.id) };
     case "Transcribed":
       return add(ended, { kind: "transcript", text: event.text, language: event.language });
     case "Dispatched":
@@ -166,9 +174,9 @@ export function endText(t: Transcript): Transcript {
   return { ...t, streaming: null };
 }
 
-/** The turn ended, or the page stopped showing it. */
+/** The turn ended, or the page stopped showing it: what the agent hadn't got to is no longer shown as waiting. */
 export function endRun(t: Transcript): Transcript {
-  return { ...t, streaming: null, pending: {} };
+  return { ...t, streaming: null, pending: {}, waiting: [] };
 }
 
 type NewItem = ChatItem extends infer I ? (I extends ChatItem ? Omit<I, "id"> : never) : never;
@@ -208,7 +216,12 @@ function shownTool(message: ShownMessage): Omit<ToolItem, "id"> {
     ...(s.partial ? { partial: true } : {}),
   }));
   const item = { kind: "tool" as const, name: message.text, args, output: message.output || undefined, state: "done" as const };
-  const call = { ...item, ...(message.call_id ? { callId: message.call_id } : {}), ...(message.partial ? { partial: true } : {}) };
+  const call = {
+    ...item,
+    ...(message.call_id ? { callId: message.call_id } : {}),
+    ...(message.partial ? { partial: true } : {}),
+    ...(message.at ? { at: message.at } : {}),
+  };
   return steps?.length ? { ...call, steps } : call;
 }
 
@@ -237,9 +250,9 @@ function addText(t: Transcript, text: string): Transcript {
   return update(t, t.streaming, (item) => (item.kind === "assistant" ? { ...item, text: item.text + text } : item));
 }
 
-function toolStarted(t: Transcript, name: string, args: Record<string, unknown>, callId?: string): Transcript {
+function toolStarted(t: Transcript, name: string, args: Record<string, unknown>, callId?: string, at?: string): Transcript {
   const pending = { ...t.pending, [name]: [...(t.pending[name] ?? []), t.nextId] };
-  return add({ ...t, pending }, { kind: "tool", name, args, callId, state: "running" });
+  return add({ ...t, pending }, { kind: "tool", name, args, callId, state: "running", ...(at ? { at } : {}) });
 }
 
 function stepStarted(t: Transcript, within: string, step: ToolStep): Transcript {
@@ -268,27 +281,26 @@ function toolFinished(t: Transcript, name: string, output: string): Transcript {
   return { ...finished, pending: { ...t.pending, [name]: rest } };
 }
 
-function saidNote(said: Extract<RunEvent, { type: "UserSaid" }>): { note?: UserNote; messageId?: string } {
-  return said.waiting ? { note: "waiting", messageId: said.id ?? "" } : {};
-}
-
 function shownNote(message: ShownMessage): { note?: UserNote } {
-  if (message.untaken) return { note: "untaken" };
   return message.resent ? { note: "resent" } : {};
 }
 
-function waitingFor(item: ChatItem, messageId: string): boolean {
-  return item.kind === "user" && item.note === "waiting" && item.messageId === messageId;
+function waitFor(t: Transcript, said: Extract<RunEvent, { type: "UserSaid" }>): Transcript {
+  return { ...t, waiting: [...t.waiting, { messageId: said.id ?? "", text: said.text, files: said.files ?? [] }] };
 }
 
-function taken(item: ChatItem): ChatItem {
-  return item.kind === "user" ? { ...item, note: undefined, messageId: undefined } : item;
+/** The agent got to a message that waited: it leaves the queue and shows in the chat, where the agent took it. */
+function taken(t: Transcript, messageId: string): Transcript {
+  const message = t.waiting.find((w) => w.messageId === messageId);
+  if (!message) return t;
+  const rest = { ...t, waiting: t.waiting.filter((w) => w !== message) };
+  return add(rest, { kind: "user", text: message.text, files: message.files });
 }
 
-/** The run ended before the agent got to the messages still waiting: they go to it as the next message, so they leave here. */
+/** The run ended before the agent got to the messages still waiting: they go to it as the next message, so they leave
+ * the queue. */
 function notTaken(t: Transcript): Transcript {
-  const items = t.items.filter((item) => !(item.kind === "user" && item.note === "waiting"));
-  return { ...t, items };
+  return { ...t, waiting: [] };
 }
 
 function cancelled(t: Transcript): Transcript {

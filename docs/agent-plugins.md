@@ -50,6 +50,7 @@ Each task is a folder under the plugin's data folder, `tasks/<id>/`. Every file 
 | `sent_on` | daemon | The messages the task ended without taking went to the agent next (below), so they go only once. |
 | `conversation` | daemon | The conversation handed to the agent that the task answers in. The worker doesn't read it. |
 | `inbox/` | worker makes it, daemon writes in it | What the user sends the task while it works (below). |
+| `withdraws` | worker, optional | Written with `inbox/` by a worker that takes back a message the user withdraws before the agent gets to it (below). |
 | `worker.log` | the worker's output | For finding out why a worker failed. |
 
 The daemon starts the worker detached, so it outlives a restart of the daemon. Stopping a task signals
@@ -74,6 +75,7 @@ it started would end on it).
 |---|---|
 | `{"kind": "message", "text"}` | Passes it on to the agent, which takes it between its steps, and writes a `user` step with the file's name (without `.json`) as its `id`. The daemon also writes `said` and `files` (what the user wrote and the files they sent, which `text` names with where they're saved): they're its own, for showing the step as the user sent it (`core/agent_tasks/sent.py`); a worker leaves them alone. |
 | `{"kind": "interrupt"}` | Stops the agent's step in progress; the task stays running and waits for the next message. |
+| `{"kind": "withdraw", "id"}` | Only to a worker that wrote `withdraws`. Takes back the message whose id is `id` if the agent hasn't got to it, and writes a `withdrawn` step with that id; once the agent got to it, writes nothing (its `taken` step says so). |
 
 An agent that gets to a message only later (Claude Code takes what it's sent once it's done with the turn in
 progress) marks its `user` step `"waiting": true`, and writes a `taken` step with the message's id once the
@@ -82,10 +84,17 @@ conversation as soon as it writes it, waiting, without waiting for the worker's 
 request never writes one); the apps show it as waiting until the worker's `user` step without `waiting`, or its
 `taken` step, says the agent took it.
 
+While a message waits, the user can remove it or change its text (`DELETE`, `PUT
+/conversations/<id>/agent/messages/<message id>`; `AgentTasks.withdraw`): the daemon writes a `withdraw` for it
+and waits up to `WITHDRAW_SECONDS` for the worker's `withdrawn` step, or its `taken` one when the agent got to it
+first, which refuses the change. A changed text goes to the agent as a message of its own, with the files sent with
+the one it replaces. Claude Code's worker sends each message with a uuid and takes it back with Claude Code's
+`cancel_async_message`, which drops it from Claude Code's queue unless it was already taken.
+
 The task ends once the agent has answered every message it was sent. Messages left in `inbox/` without a
 `user` step when it ends (sent just as it finished) go to the agent next, as a follow-up in the same
 session, in the same run. When the user stops the run, or the task fails, the messages the agent hadn't taken
-(left in `inbox/` without a `user` step, or with a `waiting` one and no `taken` step) go to it next, together as
+(left in `inbox/` without a `user` step, or with a `waiting` one and no `taken` or `withdrawn` step) go to it next, together as
 one message following up the task in its session, as a run of their own once that one ends
 (`core/conversation/queued.py`); the conversation stays handed to the agent. The apps show them as not taken in
 the run that ended and that message as them sent again (`core/conversation/resent.py`), not as new ones.
@@ -105,6 +114,7 @@ Each line of `progress.log` is a JSON object with a `kind`; fields that are empt
 | `thinking_delta` | `text` | Words of a thinking as they're written. The whole thinking follows as a `thinking` step. |
 | `user` | `text`, `id`, `waiting` | A message the user sent while it worked, passed on to the agent; `id` is its file in `inbox/`. `waiting`: the agent gets to it only later (above). |
 | `taken` | `id` | The agent got to a message whose `user` step was `waiting`: it no longer shows as waiting. |
+| `withdrawn` | `id` | The worker took back a message whose `user` step was `waiting`, as a `withdraw` asked: the agent never gets it. |
 
 `within` on any step is the id of the tool call whose subagent took it. In a conversation handed to the
 agent, the daemon shows text as the reply, thinking apart, and each tool call with its result

@@ -109,21 +109,42 @@ def _take_messages(folder: Path) -> tuple[bool, str]:
 def _hold_messages(folder: Path) -> tuple[bool, str]:
     """Passes on what the user sends while it works, as an agent that gets to it only once it's done with the step
     in progress, which never ends: each message's `user` step is marked `waiting`. A message starting with "take"
-    it gets to at once (a `taken` step); one starting with "unread" it never passes on."""
+    it gets to at once (a `taken` step), "take all" with every one waiting before it, after saying so; one starting
+    with "unread" it never passes on. It takes back a message the user withdraws while it waits."""
     signal.signal(signal.SIGUSR1, lambda *_: None)
     (folder / "inbox").mkdir()
+    (folder / "withdraws").write_text("")
     _steps(folder, [json.dumps({"kind": "text", "text": "Working."})])
-    passed: set[str] = set()
+    seen: set[str] = set()
+    waiting: list[str] = []
     while True:
         for path in sorted((folder / "inbox").glob("*.json")):
-            text = json.loads(path.read_text()).get("text", "")
-            if path.stem in passed or text.startswith("unread"):
+            message = json.loads(path.read_text())
+            if path.stem in seen or message.get("text", "").startswith("unread"):
                 continue
-            passed.add(path.stem)
-            steps = [{"kind": "user", "text": text, "id": path.stem, "waiting": True}]
-            steps += [{"kind": "taken", "id": path.stem}] if text.startswith("take") else []
-            _steps(folder, [json.dumps(step) for step in steps])
+            seen.add(path.stem)
+            _steps(folder, [json.dumps(step) for step in _held(path.stem, message, waiting)])
         time.sleep(0.02)
+
+
+def _held(message_id: str, message: dict, waiting: list[str]) -> list[dict]:
+    """The steps for a message of `_hold_messages`, and the ones still `waiting` after it."""
+    if message["kind"] == "withdraw":
+        if message["id"] not in waiting:
+            return []
+        waiting.remove(message["id"])
+        return [{"kind": "withdrawn", "id": message["id"]}]
+    text = message["text"]
+    steps = [{"kind": "user", "text": text, "id": message_id, "waiting": True}]
+    if text == "take all":
+        steps += [{"kind": "text", "text": "Getting to them."}]
+        steps += [{"kind": "taken", "id": taken} for taken in [*waiting, message_id]]
+        waiting.clear()
+    elif text.startswith("take"):
+        steps += [{"kind": "taken", "id": message_id}]
+    else:
+        waiting.append(message_id)
+    return steps
 
 
 def _leave_messages(folder: Path, repository: Path, ok: bool) -> tuple[bool, str]:
