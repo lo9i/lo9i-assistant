@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { answerable, coming, comingText, endingText, noticeShown, pendingDetail, pendingTitle, waitingText, type Coming } from "./shutdown";
+import {
+  answerable,
+  coming,
+  comingText,
+  endingText,
+  noticeShown,
+  pendingDetail,
+  pendingTitle,
+  stillPutAway,
+  waitingText,
+  type Coming,
+} from "./shutdown";
 
 const runs = (ending: "restart" | "stop", waiting: number, more: Partial<Coming> = {}): Coming => ({
   ending,
@@ -97,5 +108,14 @@ describe("noticeShown", () => {
     expect(noticeShown(true, runs("restart", 0), false)).toBe("lost:restart"); // now restarting
     expect(noticeShown(false, null, true)).toBe("fresh");
     expect(noticeShown(false, null, false)).toBe("");
+  });
+});
+
+describe("stillPutAway", () => {
+  it("keeps a notice put away only while the same one shows", () => {
+    expect(stillPutAway("coming:restart", "coming:restart")).toBe("coming:restart"); // the same restart asked again
+    expect(stillPutAway("fresh", "coming:restart")).toBe(""); // taken back, the New version notice under it
+    expect(stillPutAway("", "coming:restart")).toBe("");
+    expect(stillPutAway("lost:restart", "coming:restart")).toBe(""); // now restarting
   });
 });

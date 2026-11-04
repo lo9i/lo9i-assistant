@@ -50,6 +50,12 @@ export function noticeShown(lost: boolean, c: Coming | null, newVersion: boolean
   return newVersion ? "fresh" : "";
 }
 
+/** The notice still put away: only while the same one shows. Once it says something else (a restart taken back,
+ * the New version notice under it showing), it's forgotten, so a restart asked for later shows again. */
+export function stillPutAway(shown: string, dismissed: string): string {
+  return shown === dismissed ? dismissed : "";
+}
+
 /** The pending restart or stop as a title, for the notice every page shows. */
 export function pendingTitle(c: Coming): string {
   return c.ending === "restart" ? t("shutdown.restartPending") : t("shutdown.stopPending");

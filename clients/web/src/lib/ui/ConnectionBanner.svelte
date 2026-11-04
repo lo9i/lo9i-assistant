@@ -9,7 +9,16 @@
   import { external, useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
   import { putAway, type PutAway } from "$lib/putAway.svelte";
-  import { answerable, coming as comingOf, comingText, noticeShown, pendingDetail, pendingTitle, type Coming } from "$lib/shutdown";
+  import {
+    answerable,
+    coming as comingOf,
+    comingText,
+    noticeShown,
+    pendingDetail,
+    pendingTitle,
+    stillPutAway,
+    type Coming,
+  } from "$lib/shutdown";
 
   // Says, on every page, what the daemon is up to when the page can't simply go on: a restart or stop coming (an
   // `ending` event, whoever asked for it), the daemon away while its event stream is lost (a restart, a computer
@@ -21,12 +30,12 @@
   let coming = $state<Coming | null>(null);
   let newVersion = $state(false);
   // The notice the user put away, so it no longer covers the message box: until what it says changes (another kind
-  // of ending, the daemon back, a newer build). Asking for the same restart again doesn't bring it back: a tag at the
-  // top of the page says it's still coming, and opens it again.
+  // of ending, taken back, the daemon back, a newer build). Asking for the same restart again while it's pending doesn't
+  // bring it back: the sidebar's badge says it's still coming, and opens it again.
   let dismissed = $state("");
   const shown = $derived(noticeShown(connection.current === "lost", coming, newVersion));
   $effect(() => {
-    if (!shown) dismissed = "";
+    dismissed = stillPutAway(shown, dismissed);
   });
   // What the sidebar's badge shows while the notice is put away, and how it brings it back.
   $effect(() => {
