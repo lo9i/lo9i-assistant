@@ -668,8 +668,12 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     height: auto;
 }
 
-#plugins-search {
+#plugins-search, #conversations-search {
     margin: 0 0 1 0;
+}
+
+#conversations.empty #conversations-search {
+    display: none;
 }
 
 #profile-items {

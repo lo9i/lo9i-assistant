@@ -1,5 +1,6 @@
 """The conversations, newest activity first, the inbox among them, each listed only by when it was last active, on
-one line: pick one to see its title and how it ended beside the list, then open,
+one line, and found by searching: titles match as it's typed, what was said in them once the daemon answers. Pick
+one to see its title and how it ended beside the list, then open,
 pin to Home (its Conversations card, `/home`) or delete it. Returns the chosen conversation's thread id, or None.
 The conversation this app is on can't be deleted from here: /clear moves off it first."""
 
@@ -10,12 +11,12 @@ from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import Button, Markdown, OptionList, Static
+from textual.widgets import Button, Input, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import ConversationsApi, HomeApi
 from assistant.core.agent import Conversation, ConversationError, HomePinError
-from assistant_terminal.conversations_text import preview, when
+from assistant_terminal.conversations_text import matching, message_search, preview, when
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
@@ -29,6 +30,8 @@ class ConversationsScreen(ModalScreen[str | None]):
         Binding("enter", "resume", show=False, priority=True),
         Binding("p", "pin", translatable("Pin to Home")),
     ]
+    # The list, not the search above it: the keys move through it from the start.
+    AUTO_FOCUS = "#conversations-list"
     # Pins change Home's record (a `home` event).
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"conversations", "home"})
 
@@ -37,7 +40,10 @@ class ConversationsScreen(ModalScreen[str | None]):
         self._conversations = conversations
         self._home = home
         self._current = current
+        self._all: list[Conversation] = []
         self._shown: dict[str, Conversation] = {}
+        # The ids of those whose messages hold the search, as the daemon last answered.
+        self._found: set[str] = set()
         self._pinned: list[str] = []
         self._selected: str | None = None
 
@@ -45,6 +51,7 @@ class ConversationsScreen(ModalScreen[str | None]):
         with Vertical(id="conversations"):
             yield Static(t("Conversations"), id="conversations-title")
             yield Static(t("No conversations yet."), id="conversations-empty")
+            yield Input(placeholder=t("Search conversations"), id="conversations-search")
             with Horizontal(id="conversations-main"):
                 yield OptionList(id="conversations-list")
                 yield Static(classes="divider")
@@ -62,22 +69,64 @@ class ConversationsScreen(ModalScreen[str | None]):
 
     @reports_daemon_unavailable
     async def reload(self) -> None:
-        """Called when a conversation changes (a message anywhere updates the list)."""
-        items, self._pinned = await self._conversations.recent(), await self._home.pins()
-        self._shown = {c.thread_id: c for c in items}
+        """Called when a conversation changes (a message anywhere updates the list, and what the search finds)."""
+        self._all, self._pinned = await self._conversations.recent(), await self._home.pins()
+        await self._find_in_messages()
+        await self._list()
+
+    async def _list(self) -> None:
+        """Those the search matches; focus stays in the search while it's typed in."""
+        shown = matching(self._all, self._query, self._found)
+        self._shown = {c.thread_id: c for c in shown}
         options = self.query_one("#conversations-list", OptionList)
         options.clear_options()
-        options.add_options([Option(self._label(c), id=c.thread_id) for c in items])
-        self.query_one("#conversations").set_class(not items, "empty")
+        options.add_options([Option(self._label(c), id=c.thread_id) for c in shown])
+        self.query_one("#conversations").set_class(not self._all, "empty")
         for button in ("#resume", "#pin", "#delete"):
-            self.query_one(button).display = bool(items)
-        if not items:
-            self.query_one("#close", Button).focus()
+            self.query_one(button).display = bool(shown)
+        if not shown:
+            await self._show_none()
             return
-        keep = self._selected if self._selected in self._shown else items[0].thread_id
+        keep = self._selected if self._selected in self._shown else shown[0].thread_id
         options.highlighted = list(self._shown).index(keep)
-        options.focus()
+        if not self._searching:
+            options.focus()
         await self._show(keep)
+
+    async def _show_none(self) -> None:
+        self._selected = None
+        await self.query_one("#conversation-body", Markdown).update(t("No conversations match.") if self._all else "")
+        if not self._searching:
+            self.query_one("#close", Button).focus()
+
+    @property
+    def _query(self) -> str:
+        return self.query_one("#conversations-search", Input).value
+
+    @property
+    def _searching(self) -> bool:
+        return self.focused is self.query_one("#conversations-search", Input)
+
+    async def _find_in_messages(self) -> None:
+        words = message_search(self._query)
+        self._found = set(await self._conversations.containing(words)) if words else set()
+
+    @on(Input.Changed, "#conversations-search")
+    async def _search(self) -> None:
+        """Titles match at once; the daemon's answer for what was said lists the rest when it comes."""
+        await self._list()
+        self._search_messages()
+
+    @work(exclusive=True, group="search")
+    @reports_daemon_unavailable
+    async def _search_messages(self) -> None:
+        await self._find_in_messages()
+        await self._list()
+
+    @on(Input.Submitted, "#conversations-search")
+    def _to_list(self) -> None:
+        if self._shown:
+            self.query_one("#conversations-list", OptionList).focus()
 
     @reports_daemon_unavailable
     async def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:

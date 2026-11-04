@@ -1,6 +1,6 @@
 """The /conversations dialog: moving through the list with the keys or clicks, previewing, and resuming."""
 
-from textual.widgets import Markdown, OptionList
+from textual.widgets import Input, Markdown, OptionList
 
 from assistant.core.agent import Conversation, ShownCall, ShownMessage, ShownStep
 from assistant_terminal.tui.screens import ConversationsScreen
@@ -186,3 +186,25 @@ async def test_a_conversation_is_pinned_to_home_and_unpinned_from_the_list_but_n
         await wait_for(pilot, lambda: str(pin.label) == "Unpin from Home")
         pin.press()
         await wait_for(pilot, lambda: client.home.pinned == [])
+
+
+async def test_search_finds_by_title_at_once_and_by_what_was_said(app, client):
+    client.conversations.items = [
+        Conversation(f"owner:{n}", title, _AT, _AT) for n, title in enumerate(("Taxes", "Trip"))
+    ]
+    client.conversations.said["owner:0"] = [ShownMessage("user", "the hotel in Rome")]
+    async with app.run_test() as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/conversations", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
+        options, body = app.screen.query_one(OptionList), app.screen.query_one("#conversation-body", Markdown)
+        await pilot.click("#conversations-search")
+        await pilot.press(*"trip")
+        await wait_for(pilot, lambda: options.option_count == 1 and "Trip" in body.source)
+        await pilot.press(*["backspace"] * 4, *"hotel")
+        await wait_for(pilot, lambda: options.option_count == 1 and "Taxes" in body.source)
+        assert isinstance(app.focused, Input)  # typing stays in the search
+        await pilot.press(*"xyz")
+        await wait_for(pilot, lambda: options.option_count == 0 and "No conversations match." in body.source)
+        await pilot.press(*["backspace"] * 8, "enter")
+        await wait_for(pilot, lambda: options.option_count == 2 and app.focused is options)

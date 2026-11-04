@@ -1031,6 +1031,16 @@ class FakeConversations:
     async def recent(self):
         return list(self.items)
 
+    async def containing(self, text):
+        """As the daemon: every word of `text` starts a word of the conversation's messages."""
+        words = text.lower().split()
+
+        def holds(messages):
+            said = " ".join(m.text.lower() for m in messages).split()
+            return all(any(w.startswith(word) for w in said) for word in words)
+
+        return [thread_id for thread_id, messages in self.said.items() if holds(messages)]
+
     async def get(self, thread_id):
         return next((c for c in self.items if c.thread_id == thread_id), None)
 
