@@ -1,6 +1,8 @@
 /* Dialogs are a gray panel over the terminal's background, so they stand apart from the chat.
    What sits inside them is transparent, so the panel shows through. */
 $dialog-background: #333333;
+/* The brand's teal-gray, behind the row picked where a list sets its own text colors (theme.py's shades). */
+$brand: #364445;
 
 Screen {
     layout: vertical;
@@ -568,10 +570,30 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     background: transparent;
 }
 
+/* One line per notification, cut with an ellipsis; its whole text shows below the list. */
 #notifications-list {
     height: 1fr;
     border: none;
     background: transparent;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+}
+
+#notifications-list > .option-list--option-highlighted, #notifications-list:focus > .option-list--option-highlighted {
+    background: $brand;
+    text-style: none;
+}
+
+#notifications-detail {
+    height: auto;
+    max-height: 40%;
+    margin-top: 1;
+    padding: 1 1 0 1;
+    border-top: solid ansi_bright_black;
+}
+
+#notifications.empty #notifications-detail {
+    display: none;
 }
 
 #jobs-list, #devices-list, #keys-list, #home-list, #doctor-list, #briefing-list, #files-list, #skills-list, #mcp-list, #plugins-list, #prompts-list {

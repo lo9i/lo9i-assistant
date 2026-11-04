@@ -1,14 +1,16 @@
-"""The notifications feed: scheduled jobs' results, background work that ended and health checks, newest first.
+"""The notifications feed: scheduled jobs' results, background work that ended and health checks, newest first,
+one line each (when, what it's about, what it says), with the whole of the one picked below the list.
 Enter (or Open) goes to the conversation the work was started in, when it has one, opens a job's run in /jobs with
 its whole reply, or a health check in /doctor; Dismiss and Clear remove them. Returns the conversation's thread id
 to open, or None. Opening the screen marks them read."""
 
 from typing import ClassVar
 
+from rich.text import Text
 from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, OptionList, Static
 from textual.widgets.option_list import Option
@@ -16,13 +18,14 @@ from textual.widgets.option_list import Option
 from assistant.client.daemon_client import DoctorApi, JobsApi, NotificationsApi, ProactiveApi
 from assistant.core.agent import Notification
 from assistant_terminal.i18n import t, translatable
-from assistant_terminal.notifications_text import notification_line
+from assistant_terminal.notifications_text import notified_at, one_line
 from assistant_terminal.paging import Pages
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.paged_list import PagedOptionList
 from assistant_terminal.tui.screens.briefing import BriefingScreen
 from assistant_terminal.tui.screens.doctor import DoctorScreen
 from assistant_terminal.tui.screens.jobs import JobsScreen
+from assistant_terminal.tui.theme import FAINT, MUTED, TEXT
 
 # What the briefing page opens on: the briefing itself and an open loop's reminder.
 _BRIEFING = ("briefing", "reminder")
@@ -50,7 +53,9 @@ class NotificationsScreen(ModalScreen[str | None]):
         with Vertical(id="notifications"):
             yield Static(t("Notifications"), id="notifications-title")
             yield Static(t("No notifications."), id="notifications-empty")
-            yield PagedOptionList(self._pages, lambda n: Option(notification_line(n), id=n.id), id="notifications-list")
+            yield PagedOptionList(self._pages, lambda n: Option(_row(n), id=n.id), id="notifications-list")
+            with VerticalScroll(id="notifications-detail"):
+                yield Static(id="notifications-text")
             with Horizontal(id="notifications-buttons"):
                 yield Button(t("Open its conversation"), variant="success", id="open")
                 yield Button(t("Dismiss"), id="dismiss")
@@ -130,6 +135,31 @@ class NotificationsScreen(ModalScreen[str | None]):
             notification.thread_id or notification.job or notification.kind in ("doctor", *_BRIEFING)
         )
         opening.tooltip = None if not opening.disabled else t("It has nothing to open.")
+        self.query_one("#notifications-text", Static).update(_detail(notification))
+        self.query_one("#notifications-detail", VerticalScroll).scroll_home(animate=False)
+
+
+def _row(notification: Notification) -> Text:
+    """One line, which the list cuts to its width: a dot when unread, when, what it's about, what it says."""
+    return Text.assemble(
+        ("• " if not notification.read else "  ", f"bold {TEXT}"),
+        (notified_at(notification), FAINT),
+        ("  ", ""),
+        (one_line(notification.title), f"bold {TEXT}"),
+        ("  ", ""),
+        (one_line(notification.text), MUTED),
+    )
+
+
+def _detail(notification: Notification) -> Text:
+    """The whole notification: when, what it's about, and all it says."""
+    return Text.assemble(
+        (notified_at(notification), FAINT),
+        ("\n", ""),
+        (notification.title, f"bold {TEXT}"),
+        ("\n\n", ""),
+        (notification.text, TEXT),
+    )
 
 
 def _opening(notification: Notification) -> str:
