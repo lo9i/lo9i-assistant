@@ -93,8 +93,8 @@
     width: 18px;
     height: 18px;
     border-radius: var(--radius-full);
-    background: var(--color-accent);
-    color: #fff;
+    background: var(--glow);
+    color: #0b0d12;
   }
   /* Only the icons show: on the icon's corner, as the counts are. */
   :global(.collapsed) .app-update {

@@ -135,7 +135,7 @@
     count?: () => number;
     // What the count counts, for screen readers; "new" when not given.
     counted?: Key;
-    // A count of news rather than of something to act on (plugin updates): blue instead of red.
+    // A count of news rather than of something to act on (plugin updates): the theme teal instead of red.
     news?: boolean;
     also?: string[];
     // Active only on this exact path, for a page with pages under it that have their own item.
@@ -534,7 +534,8 @@
     text-align: center;
   }
   .count.news {
-    background: var(--color-brand);
+    background: var(--glow);
+    color: #0b0d12;
   }
   /* A plugin's count: quiet, a faint tint of the theme's teal, at the row's end; on the icon's corner collapsed. */
   .badge {
