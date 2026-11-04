@@ -141,12 +141,13 @@
 {/if}
 
 <style>
+  /* Lined up on the right, as the user's own messages are, with no box around them. */
   .queue {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
     margin: 0 16px 6px;
-    padding: 4px 6px 4px 10px;
-    border: 1px solid color-mix(in srgb, var(--glow) 35%, var(--color-border));
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--glow) 7%, var(--color-bg-card));
     color: var(--color-text-muted);
     font-size: var(--font-size-sm);
   }
@@ -154,8 +155,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    min-height: 24px;
-    color: color-mix(in srgb, var(--glow) 75%, var(--color-text-primary));
+    color: var(--color-text-faint);
     font-size: var(--font-size-xs);
     font-weight: 600;
   }
@@ -165,7 +165,6 @@
   .fold {
     display: grid;
     place-items: center;
-    margin-left: auto;
     padding: 2px;
     border: 0;
     border-radius: 6px;
@@ -175,28 +174,34 @@
     transition: transform 0.15s ease;
   }
   .fold.folded {
-    transform: rotate(-90deg);
+    transform: rotate(90deg);
   }
   ul {
     list-style: none;
     margin: 0;
-    padding: 0 0 2px;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    align-items: flex-end;
+    gap: 4px;
+    width: 100%;
     max-height: 30vh;
     overflow-y: auto;
   }
+  /* A user's message waiting: the bubble they're shown in, a little faded. */
   li {
     display: flex;
     align-items: center;
-    gap: 6px;
-    min-height: 28px;
-    padding: 0 0 0 19px;
-    border-radius: 8px;
+    gap: 4px;
+    max-width: 70%;
+    min-height: 32px;
+    padding: 2px 4px 2px 14px;
+    border-radius: 16px;
+    border-bottom-right-radius: 8px;
+    background: color-mix(in srgb, var(--color-action-primary) 8%, transparent);
   }
-  li:hover {
-    background: var(--color-bg-hover-ghost);
+  li:has(textarea) {
+    width: 70%;
   }
   li.busy {
     opacity: 0.55;

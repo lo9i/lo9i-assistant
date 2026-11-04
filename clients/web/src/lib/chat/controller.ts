@@ -80,6 +80,8 @@ export type ChatSnapshot = {
 };
 
 const EXCERPT = 160;
+// The channel the web app sends its messages from (routes/+layout.svelte), so its own runs are announced with it.
+const WEB_CHANNEL = "web";
 
 export class ChatController {
   private state: ChatSnapshot;
@@ -543,7 +545,8 @@ export class ChatController {
       return;
     }
     if (run.carried) this.set({ transcript: addCarried(this.state.transcript, run.carried) });
-    const channel = run.client_id === this.client.clientId ? undefined : run.channel;
+    // Where it was written, when that wasn't here: a chat channel or the terminal app, never the web app itself.
+    const channel = run.client_id === this.client.clientId || run.channel === WEB_CHANNEL ? undefined : run.channel;
     if (run.text && run.brief) this.set({ transcript: addBrief(this.state.transcript, run.text, run.brief) });
     else if (run.text) this.set({ transcript: addUser(this.state.transcript, run.text, [], channel, run.resent ? "resent" : undefined) });
     if (run.notice) this.set({ transcript: addNotice(this.state.transcript, run.notice) });
