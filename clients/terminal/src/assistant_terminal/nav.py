@@ -28,7 +28,6 @@ PAGES: tuple[Page, ...] = (
     Page("home", translatable("Home"), "⌂"),
     Page(CHAT, translatable("Chat"), "✎"),
     Page("conversations", translatable("Conversations"), "≡"),
-    Page("briefing", translatable("Briefing"), "☼"),
     Page("subagents", translatable("Subagents"), "◈"),
     Page("files", translatable("Files"), "▤"),
     Page("usage", translatable("Usage"), "▥"),
@@ -42,6 +41,7 @@ PAGES: tuple[Page, ...] = (
 # Settings' sections, in the web app's order: its General tab's cards first, then its other tabs.
 SETTINGS_PAGES: tuple[Page, ...] = (
     Page("language", translatable("Language"), "·"),
+    Page("briefing", translatable("Briefing and reviews"), "·"),
     Page("websearch", translatable("Web search"), "·"),
     Page("email", translatable("Email"), "·"),
     Page("startup", translatable("Start at boot"), "·"),
@@ -66,7 +66,7 @@ _SETTINGS_KEYS = frozenset(p.key for p in SETTINGS_PAGES)
 @dataclass(frozen=True)
 class NavState:
     """What the sidebar shows besides its pages: the conversations open, and a count beside a page (those waiting for
-    an answer beside Chat, the open loops beside Briefing, the subagents working, the notifications unread, what needs
+    an answer beside Chat, the subagents working, the notifications unread, what needs
     attention beside Alerts, the plugin updates beside Settings)."""
 
     open: tuple[OpenItem, ...] = ()

@@ -3,9 +3,9 @@
 from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 
-from textual.widgets import Button, Input, Markdown, SelectionList, Static, Switch, TextArea
+from textual.widgets import Button, Input, Markdown, OptionList, SelectionList, Static, Switch, TextArea
 
-from assistant.core.agent import HomeCard, HomeItem, HomeSection, SectionResult
+from assistant.core.agent import Conversation, HomeCard, HomeItem, HomeSection, SectionResult
 from assistant_terminal.home_text import describe, item_when, updated
 from assistant_terminal.tui.screens import ConfirmScreen, HomeScreen
 from assistant_terminal.tui.screens.home_section import HomeSectionScreen
@@ -177,3 +177,36 @@ async def test_a_section_of_a_plugin_that_lists_its_day_can_ask_for_the_model(ap
         editor.query_one("#save", Button).press()
         await wait_for(pilot, lambda: app.screen is home)
         assert [(s.title, s.use_model) for s in client.home.sections] == [("Calendar", False), ("Notes", True)]
+
+
+async def test_the_open_loops_card_lists_its_loops_to_mark_done_or_open_their_conversation(app, client):
+    loops = HomeSection(id="loops", title="Open loops", prompt="Built by lo9i.", coded=True)
+    client.home.sections = [*client.home.sections, loops]
+    client.conversations.items = [
+        Conversation("t1", "The bank", "2026-11-01T10:00:00+00:00", "2026-11-01T10:00:00+00:00")
+    ]
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/home", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, HomeScreen))
+        screen = app.screen
+        listed = screen.query_one("#home-list", OptionList)
+        # The bill is left out, as the card leaves it out: it's the Expenses card's.
+        await wait_for(pilot, lambda: listed.option_count == 3)
+        assert "Call the bank" in str(listed.get_option_at_index(2).prompt)
+        listed.highlighted = 2
+        body = screen.query_one("#home-body", Markdown)
+        await wait_for(pilot, lambda: "## Call the bank" in body.source and screen.query_one("#open").display)
+        assert not screen.query_one("#edit").display
+        screen.query_one("#open", Button).press()
+        await wait_for(pilot, lambda: client.active_thread == "t1")
+        await pilot.press(*"/home", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, HomeScreen))
+        screen = app.screen
+        listed = screen.query_one("#home-list", OptionList)
+        await wait_for(pilot, lambda: listed.option_count == 3)
+        listed.highlighted = 2
+        await wait_for(pilot, lambda: screen.query_one("#done").display)
+        screen.query_one("#done", Button).press()
+        await wait_for(pilot, lambda: listed.option_count == 2)
+        assert [o.status for o in client.proactive.loops] == ["open", "done"]

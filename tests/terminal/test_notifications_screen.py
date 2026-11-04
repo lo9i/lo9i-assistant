@@ -3,10 +3,10 @@ whole of the one picked beside the list."""
 
 from dataclasses import replace
 
-from textual.widgets import Markdown
+from textual.widgets import Button, Markdown
 
 from assistant_terminal.tui.paged_list import PagedOptionList
-from assistant_terminal.tui.screens import NotificationsScreen
+from assistant_terminal.tui.screens import HomeScreen, NotificationsScreen
 from tests.terminal.conftest import wait_for
 
 _LONG = "The final diff waits for you.\nThe judge: " + "it matches the plan, " * 20 + "the end."
@@ -41,3 +41,13 @@ async def test_the_one_picked_shows_whole_beside_the_list(app, client):
         await pilot.press("down")
         await wait_for(pilot, lambda: "Sent the digest." in body.source)
         assert "Job daily-news" in body.source
+
+
+async def test_the_briefing_opens_home_where_its_open_loops_are(app, client):
+    client.notifications.items[0] = replace(client.notifications.items[0], kind="briefing", thread_id="")
+    async with app.run_test(size=(120, 40)) as pilot:
+        await _open(app, pilot)
+        opening = app.screen.query_one("#open", Button)
+        await wait_for(pilot, lambda: str(opening.label) == "Open Home" and not opening.disabled)
+        opening.press()
+        await wait_for(pilot, lambda: isinstance(app.screen, HomeScreen))

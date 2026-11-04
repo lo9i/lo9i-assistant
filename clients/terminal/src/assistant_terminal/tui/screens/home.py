@@ -2,7 +2,9 @@
 the plugins. Showing it asks for a refresh in the background (the daemon skips one under ten minutes old) and
 tells the daemon this app shows Home, so it keeps it current until the screen closes; each section's new result
 shows as it's saved (a `home` event). Refresh builds every section again now. Sections are added, edited,
-moved, removed, or reset to the built-in ones."""
+moved, removed, or reset to the built-in ones. Under the Open loops card, each open loop (but bills, as the card
+shows them) is listed by its text, with Done and Open its conversation; returns that conversation's thread id to
+open, or None."""
 
 from collections.abc import Awaitable, Callable
 from datetime import datetime
@@ -15,10 +17,13 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
-from assistant.client.daemon_client import HomeApi
-from assistant.core.agent import HomePage, HomeSection, HomeSectionsError
+from assistant.client.daemon_client import HomeApi, ProactiveApi
+from assistant.core.agent import HomePage, HomeSection, HomeSectionsError, OpenLoop, ProactivePage
+from assistant.core.home.loops import shown
+from assistant.core.home.sections import LOOPS
 from assistant_terminal.home_text import describe, updated
 from assistant_terminal.i18n import t, translatable
+from assistant_terminal.loops_text import describe_loop, loop_line
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
@@ -28,18 +33,22 @@ from assistant_terminal.tui.screens.home_section import HomePlugins, HomeSection
 type Plugins = Callable[[], Awaitable[HomePlugins]]
 
 _EMPTY = translatable("No sections. Add one, or reset to the built-in ones.")
+# A loop's entry under the Open loops card: this prefix and its id.
+_LOOP = "loop:"
 
 
-class HomeScreen(PageScreen[None]):
+class HomeScreen(PageScreen[str | None]):
     PAGE = "home"
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
-    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"home"})
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "close", translatable("Close"))]
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"home", "proactive"})
 
-    def __init__(self, home: HomeApi, plugins: Plugins) -> None:
+    def __init__(self, home: HomeApi, plugins: Plugins, proactive: ProactiveApi) -> None:
         super().__init__()
         self._home = home
         self._plugins = plugins
+        self._proactive = proactive
         self._page: HomePage | None = None
+        self._loops: list[OpenLoop] = []
         self._selected = ""
 
     def compose_page(self) -> ComposeResult:
@@ -52,6 +61,8 @@ class HomeScreen(PageScreen[None]):
                     yield Markdown(id="home-body")
             with Horizontal(id="home-buttons"):
                 yield Button(t("Refresh"), variant="primary", id="refresh")
+                yield Button(t("Done"), variant="success", id="done")
+                yield Button(t("Open its conversation"), id="open")
                 yield Button(t("Add"), id="add")
                 yield Button(t("Edit"), id="edit")
                 yield Button(t("Up"), id="up")
@@ -63,6 +74,7 @@ class HomeScreen(PageScreen[None]):
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
         await self._home.watch()
+        self._keep_loops(await self._proactive.get())
         await self._show(await self._home.refresh(False))
 
     @reports_daemon_unavailable
@@ -71,31 +83,51 @@ class HomeScreen(PageScreen[None]):
 
     @reports_daemon_unavailable
     async def reload(self) -> None:
-        """Called when a section's result or the sections change."""
+        """Called when a section's result, the sections or the loops change."""
+        self._keep_loops(await self._proactive.get())
         await self._show(await self._home.get())
+
+    def _keep_loops(self, page: ProactivePage) -> None:
+        self._loops = shown(page.loops)
 
     async def _show(self, page: HomePage) -> None:
         self._page = page
-        ids = [c.section.id for c in page.cards]
+        options = self._options(page)
+        ids = [o.id for o in options]
         if self._selected not in ids:
-            self._selected = ids[0] if ids else ""
-        options = self.query_one("#home-list", OptionList)
-        options.clear_options()
-        options.add_options([Option(c.section.title, id=c.section.id) for c in page.cards])
+            self._selected = next((i for i in ids if i), "")
+        listed = self.query_one("#home-list", OptionList)
+        listed.clear_options()
+        listed.add_options(options)
         if self._selected:
-            options.highlighted = ids.index(self._selected)
-        for button in ("#edit", "#up", "#down", "#remove"):
-            self.query_one(button).display = bool(ids)
+            listed.highlighted = ids.index(self._selected)
         refreshing = self.query_one("#refresh", Button)
         refreshing.disabled, refreshing.label = page.refreshing, t("Refreshing…") if page.refreshing else t("Refresh")
         await self._body()
 
+    def _options(self, page: HomePage) -> list[Option]:
+        """Each card, and under the Open loops card its loops."""
+        options = []
+        for card in page.cards:
+            options.append(Option(card.section.title, id=card.section.id))
+            if card.section.id == LOOPS:
+                options += [Option(f"  {loop_line(o)}", id=_LOOP + o.id) for o in self._loops]
+        return options
+
     async def _body(self) -> None:
-        page, now = self._page, datetime.now().astimezone()
+        page, now, loop = self._page, datetime.now().astimezone(), self._loop()
         card = next((c for c in page.cards if c.section.id == self._selected), None) if page else None
         title = " · ".join(filter(None, [t("Home"), updated(page.updated_at, now) if page else ""]))
         self.query_one("#home-title", Static).update(title)
-        await self.query_one("#home-body", Markdown).update(describe(card, now.date()) if card else t(_EMPTY))
+        for button in ("#edit", "#up", "#down", "#remove"):
+            self.query_one(button).display = card is not None
+        self.query_one("#done").display = loop is not None
+        self.query_one("#open").display = loop is not None and bool(loop.thread_id)
+        shown_text = describe_loop(loop) if loop else describe(card, now.date()) if card else t(_EMPTY)
+        await self.query_one("#home-body", Markdown).update(shown_text)
+
+    def _loop(self) -> OpenLoop | None:
+        return next((o for o in self._loops if _LOOP + o.id == self._selected), None)
 
     async def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
         self._selected = event.option.id or ""
@@ -105,6 +137,22 @@ class HomeScreen(PageScreen[None]):
     @reports_daemon_unavailable
     async def _refresh(self) -> None:
         await self._show(await self._home.refresh(True))
+
+    @on(Button.Pressed, "#done")
+    @reports_daemon_unavailable
+    async def _done(self) -> None:
+        loop = self._loop()
+        if loop is not None:
+            self._keep_loops(await self._proactive.close_loop(loop.id, "done"))
+            self._selected = LOOPS
+            if self._page is not None:
+                await self._show(self._page)
+
+    @on(Button.Pressed, "#open")
+    def _open(self) -> None:
+        loop = self._loop()
+        if loop is not None and loop.thread_id:
+            self.dismiss(loop.thread_id)
 
     @on(Button.Pressed, "#add")
     def _add(self) -> None:
@@ -133,8 +181,8 @@ class HomeScreen(PageScreen[None]):
         self._confirm(t("Reset Home to the built-in sections? Yours are removed."), t("Reset"), None)
 
     @on(Button.Pressed, "#close")
-    def _close(self) -> None:
-        self.dismiss()
+    def action_close(self) -> None:
+        self.dismiss(None)
 
     @work
     @reports_daemon_unavailable

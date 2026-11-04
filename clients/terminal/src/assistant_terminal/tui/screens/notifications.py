@@ -2,9 +2,10 @@
 each listed only by when it came, on one line, with the whole of the one picked (what it's about, all it says)
 beside the list, as /conversations lays them out.
 Enter (or Open) goes to the conversation the work was started in, when it has one, opens a job's run in /jobs with
-its whole reply, or a health check in /doctor; Dismiss and Clear remove them. Returns the conversation's thread id
-to open, or None. Opening the screen marks them read."""
+its whole reply, a health check in /doctor, or Home for the briefing and a reminder; Dismiss and Clear remove them.
+Returns the conversation's thread id to open, or None. Opening the screen marks them read."""
 
+from collections.abc import Callable
 from typing import ClassVar
 
 from textual import on
@@ -14,7 +15,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
-from assistant.client.daemon_client import DoctorApi, JobsApi, NotificationsApi, ProactiveApi
+from assistant.client.daemon_client import DoctorApi, JobsApi, NotificationsApi
 from assistant.core.agent import Notification
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.notifications_text import notified_at
@@ -22,12 +23,11 @@ from assistant_terminal.paging import Pages
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.paged_list import PagedOptionList
-from assistant_terminal.tui.screens.briefing import BriefingScreen
 from assistant_terminal.tui.screens.doctor import DoctorScreen
 from assistant_terminal.tui.screens.jobs import JobsScreen
 
-# What the briefing page opens on: the briefing itself and an open loop's reminder.
-_BRIEFING = ("briefing", "reminder")
+# What opens Home, whose Open loops card has the loops: the briefing, and a reminder of a loop without a conversation.
+_HOME = ("briefing", "reminder")
 
 
 class NotificationsScreen(PageScreen[str | None]):
@@ -39,13 +39,14 @@ class NotificationsScreen(PageScreen[str | None]):
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"notifications"})
 
     def __init__(
-        self, notifications: NotificationsApi, jobs: JobsApi, doctor: DoctorApi, proactive: ProactiveApi
+        self, notifications: NotificationsApi, jobs: JobsApi, doctor: DoctorApi, open_home: Callable[[], object]
     ) -> None:
+        """`open_home`: has the app show Home in this page's place, once this page's handler is done."""
         super().__init__()
         self._notifications = notifications
         self._jobs = jobs
         self._doctor = doctor
-        self._proactive = proactive
+        self._open_home = open_home
         self._pages = Pages(lambda offset, limit: notifications.list(offset, limit), lambda n: n.id)
         self._selected: str | None = None
 
@@ -105,8 +106,8 @@ class NotificationsScreen(PageScreen[str | None]):
             self.app.push_screen(JobsScreen(self._jobs, notification.job, notification.run_at))
         elif notification is not None and notification.kind == "doctor":
             self.app.push_screen(DoctorScreen(self._doctor))
-        elif notification is not None and notification.kind in _BRIEFING:
-            self.app.push_screen(BriefingScreen(self._proactive))
+        elif notification is not None and notification.kind in _HOME:
+            self._open_home()
 
     @on(Button.Pressed, "#close")
     def action_close(self) -> None:
@@ -134,9 +135,7 @@ class NotificationsScreen(PageScreen[str | None]):
         notification = self._shown[notification_id]
         opening = self.query_one("#open", Button)
         opening.label = _opening(notification)
-        opening.disabled = not (
-            notification.thread_id or notification.job or notification.kind in ("doctor", *_BRIEFING)
-        )
+        opening.disabled = not (notification.thread_id or notification.job or notification.kind in ("doctor", *_HOME))
         opening.tooltip = None if not opening.disabled else t("It has nothing to open.")
         await self.query_one("#notifications-body", Markdown).update(_detail(notification))
         self.query_one("#notifications-detail", VerticalScroll).scroll_home(animate=False)
@@ -155,6 +154,6 @@ def _detail(notification: Notification) -> str:
 def _opening(notification: Notification) -> str:
     if notification.job:
         return t("Open the job")
-    if notification.kind in _BRIEFING:
-        return t("Open the briefing")
+    if notification.kind in _HOME:
+        return t("Open Home")
     return t("Open the health check") if notification.kind == "doctor" else t("Open its conversation")

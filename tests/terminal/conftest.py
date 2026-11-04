@@ -1326,7 +1326,7 @@ class FakeOAuth:
 
 
 class FakeProactive:
-    """The briefing was sent this morning, one loop is open and nothing is muted."""
+    """The briefing was sent this morning, a bill and a loop from a conversation are open and nothing is muted."""
 
     def __init__(self):
         self.settings = ProactiveSettings()
@@ -1339,7 +1339,15 @@ class FakeProactive:
                 created_at="2026-11-02T08:00:00+00:00",
                 due="2026-11-05",
                 key="gas",
-            )
+            ),
+            OpenLoop(
+                id="l2",
+                text="Call the bank",
+                source="conversation",
+                thread_id="t1",
+                created_at="2026-11-01T10:00:00+00:00",
+                key="call the bank",
+            ),
         ]
         self.briefing = Briefing(
             day="2026-11-03", at="2026-11-03T08:00:00+00:00", status="sent", text="Gas due Thu.", channels=["telegram"]
@@ -1362,7 +1370,7 @@ class FakeProactive:
 
     async def close_loop(self, loop_id, status, stop_suggesting=False):
         loop = next(o for o in self.loops if o.id == loop_id)
-        self.loops = [loop.model_copy(update={"status": status})]
+        self.loops = [o.model_copy(update={"status": status}) if o.id == loop_id else o for o in self.loops]
         if stop_suggesting:
             self.settings = self.settings.model_copy(update={"muted": [*self.settings.muted, loop.kind]})
         return self._page()

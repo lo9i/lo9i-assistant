@@ -135,17 +135,17 @@ _DEFAULT_TITLE = "lo9i assistant"
 _NAV_EVENTS = frozenset(
     {
         "notifications",
-        "proactive",
         "plugins",
         "subagents",
         "run",
         "run_finished",
         "agent_task_reports",
         # Alerts: failures are kept with the servers and skills, the health check's with its reports, and the
-        # briefing's and reviews' with them (proactive, above).
+        # briefing's and reviews' with them.
         "mcp",
         "skills",
         "doctor",
+        "proactive",
     }
 )
 
@@ -1030,9 +1030,15 @@ class AssistantApp(App):
 
     async def _command_notifications(self, _: str) -> None:
         screen = NotificationsScreen(
-            self._service.notifications, self._service.jobs, self._service.doctor, self._service.proactive
+            self._service.notifications, self._service.jobs, self._service.doctor, self._open_home
         )
         await self._show_page(screen)
+
+    @work(group="pages")
+    async def _open_home(self) -> None:
+        """Home in the Notifications page's place: as the app's own work, so the page that asked has finished
+        handling its button before it's closed."""
+        await self._command_home("")
 
     async def _command_alerts(self, _: str) -> None:
         await self._show_page(AlertsScreen(self._service.alerts, self._open_alert))
@@ -1040,8 +1046,9 @@ class AssistantApp(App):
     @work(group="pages")
     @reports_daemon_unavailable
     async def _open_alert(self, alert: Alert) -> None:
-        """Its MCP server, skill or health check cause, picked, or the briefing, in the Alerts page's place: as the
-        app's own work, so the Alerts page that asked has finished handling its button before it's closed."""
+        """Its MCP server, skill or health check cause, picked, or the briefing's settings, in the Alerts page's
+        place: as the app's own work, so the Alerts page that asked has finished handling its button before it's
+        closed."""
         service = self._service
         if alert.area == "mcp":
             await self._show_page(McpScreen(service.mcp, service.oauth, service.repositories, selected=alert.name))
@@ -1304,7 +1311,7 @@ class AssistantApp(App):
         await self._show_page(KeptKeysListScreen(self._service.repositories))
 
     async def _command_home(self, _: str) -> None:
-        await self._show_page(HomeScreen(self._service.home, self._plugins_with_tools))
+        await self._show_page(HomeScreen(self._service.home, self._plugins_with_tools, self._service.proactive))
 
     async def _plugins_with_tools(self) -> HomePlugins:
         """The plugins a Home section may read: those with tools, and those of them that list their day."""

@@ -969,9 +969,12 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     margin-right: 2;
 }
 
-/* The briefing's settings: a switch beside each feature, the times and the weekly day under them. */
+/* The briefing's settings: what they are, a switch beside each feature, the times and the weekly day under them. */
 #briefing-settings {
     height: auto;
+}
+#briefing-intro {
+    margin-bottom: 1;
 }
 .briefing-row {
     height: auto;

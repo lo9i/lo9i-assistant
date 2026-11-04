@@ -30,7 +30,7 @@ class Notification:
     # (core/copilot_quota/alerts.py), which opens nothing; spending: a spending limit nearly reached
     # (core/usage/alerts.py), which opens the conversation for a conversation's limit; briefing: the morning
     # briefing, and reminder: an open loop's reminder (core/proactive/), which opens the loop's conversation when it
-    # has one; the web app opens Home otherwise (its Open loops card), the terminal app the briefing.
+    # has one, and Home otherwise (its Open loops card).
     kind: Kind
     title: str
     text: str

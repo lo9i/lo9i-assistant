@@ -2,7 +2,7 @@
 by when it last happened with the whole of it beside the list, counted in the sidebar; Open goes to its skill, server
 or cause, picked, and Dismiss and Dismiss all take them off."""
 
-from textual.widgets import Button, Markdown, OptionList
+from textual.widgets import Button, Input, Markdown, OptionList
 
 from assistant.core.agent import Alert
 from assistant_terminal.tui.screens import AlertsScreen, BriefingScreen, ConfirmScreen, DoctorScreen, SkillsScreen
@@ -75,7 +75,7 @@ async def test_dismiss_takes_one_off_and_dismiss_all_asks_first(app, client):
         await wait_for(pilot, lambda: client.alerts.items == [] and screen.query_one("#alerts").has_class("empty"))
 
 
-async def test_a_failed_review_is_shown_by_its_name_and_opens_the_briefing(app, client):
+async def test_a_failed_review_is_shown_by_its_name_and_opens_the_briefings_settings(app, client):
     client.alerts.items = [
         Alert("proactive", "nightly", 1, "the model is down", _AT),
         Alert("skill", "weekly-review", 3, "exit code 1", _AT),
@@ -87,4 +87,4 @@ async def test_a_failed_review_is_shown_by_its_name_and_opens_the_briefing(app, 
         screen.query_one("#open", Button).press()
         await wait_for(pilot, lambda: isinstance(app.screen, BriefingScreen))
         briefing = app.screen
-        await wait_for(pilot, lambda: "Gas due Thu." in briefing.query_one("#briefing-body", Markdown).source)
+        await wait_for(pilot, lambda: briefing.query_one("#briefing-time", Input).value == "08:00")

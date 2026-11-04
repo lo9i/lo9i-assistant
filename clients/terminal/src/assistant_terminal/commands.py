@@ -64,7 +64,7 @@ COMMANDS = [
     Command(
         "/briefing",
         "/briefing",
-        translatable("The morning briefing, the reviews and your open loops, and when they run"),
+        translatable("When the morning briefing and the reviews run, and the kinds of suggestion muted"),
     ),
     Command("/jobs", "/jobs", translatable("Scheduled jobs")),
     Command("/usage", "/usage", translatable("Tool and skill usage")),

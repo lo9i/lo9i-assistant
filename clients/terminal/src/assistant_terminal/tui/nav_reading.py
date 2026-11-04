@@ -18,10 +18,8 @@ async def read_open(service: DaemonClient, opened: list[str], current: str, inbo
 
 async def read_nav(service: DaemonClient, opened: list[str], current: str, inbox: str) -> NavState:
     items = await read_open(service, opened, current, inbox)
-    loops = (await service.proactive.get()).loops
     counts = {
         CHAT: sum(item.waiting for item in items),
-        "briefing": sum(loop.status == "open" for loop in loops),
         "subagents": sum(s.status in ("running", "waiting") for s in await service.subagents.list()),
         "notifications": sum(not n.read for n in await service.notifications.list()),
         "alerts": len(await service.alerts.list()),
