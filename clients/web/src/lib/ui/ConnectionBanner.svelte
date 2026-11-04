@@ -20,7 +20,8 @@
   let coming = $state<Coming | null>(null);
   let newVersion = $state(false);
   // The notice the user put away, so it no longer covers the message box: until what it says changes (another kind
-  // of ending, the daemon back, a newer build).
+  // of ending, the daemon back, a newer build). Asking for the same restart again doesn't bring it back: a tag at the
+  // top of the page says it's still coming, and opens it again.
   let dismissed = $state("");
   const shown = $derived(noticeShown(connection.current === "lost", coming, newVersion));
   $effect(() => {
@@ -96,7 +97,16 @@
 {/snippet}
 
 {#if shown === dismissed}
-  <!-- Put away by the user. -->
+  <button class="tag" class:fresh={!coming && connection.current !== "lost"} title={t("banner.tag.show")} onclick={() => (dismissed = "")}>
+    {#if connection.current === "lost"}
+      <span class="spin"><LoaderCircle size={12} /></span>{t("banner.reconnecting")}
+    {:else if coming}
+      <RefreshCw size={12} />{t(coming.ending === "stop" ? "banner.tag.stop" : "banner.tag.restart")}
+      {#if coming.waiting}<span class="waiting">{coming.waiting}</span>{/if}
+    {:else}
+      <RefreshCw size={12} />{t("banner.tag.fresh")}
+    {/if}
+  </button>
 {:else if connection.current === "lost"}
   <div class="banner surface--glass" role="status" aria-live="polite">
     {#if coming?.ending === "stop"}
@@ -157,6 +167,39 @@
   .fresh {
     border-color: color-mix(in srgb, var(--color-accent) 45%, var(--surface-glass-border));
     color: var(--color-accent);
+  }
+  /* What a notice put away leaves: a small tag at the top of the page, out of the way of the message box. */
+  .tag {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: var(--z-popover);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border: 1px solid color-mix(in srgb, var(--color-warn) 55%, transparent);
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--color-warn) 14%, var(--surface-raised-bg));
+    color: var(--color-warn);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .tag.fresh {
+    border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 12%, var(--surface-raised-bg));
+    color: var(--color-accent);
+  }
+  .tag .waiting {
+    min-width: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--color-warn) 25%, transparent);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
   }
   .dismiss {
     display: grid;

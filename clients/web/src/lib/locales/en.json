@@ -62,7 +62,7 @@
     "dismissAllTitle": "Dismiss every alert?",
     "dismissAllText": "They come back if the problem happens again.",
     "title": "Needs attention",
-    "hint": "MCP servers and skills that keep failing or need you to sign in again, and what the health check found new or growing. Click one to see it on the right.",
+    "hint": "MCP servers and skills that keep failing or need you to sign in again, what the health check found new or growing, and the briefing or a review that failed. Click one to see it on the right.",
     "nothing": "Nothing needs attention",
     "nothingHint": "MCP servers and skills that keep failing, and servers that need you to sign in again, show up here.",
     "name": "Name",
@@ -70,7 +70,13 @@
     "problem": "Problem",
     "when": "When",
     "noneSelected": "No alert selected",
-    "noneSelectedHint": "Alerts show here when something keeps failing or needs you to sign in again."
+    "noneSelectedHint": "Alerts show here when something keeps failing or needs you to sign in again.",
+    "briefing": "Morning briefing",
+    "nightlyReview": "Nightly review",
+    "weeklyReview": "Weekly review",
+    "briefingAndReviews": "Briefing and reviews",
+    "failedLastTime": "Failed the last time it ran",
+    "failed": "failed"
   },
   "app": {
     "tryingAgain": "Trying again…",
@@ -99,7 +105,13 @@
     "now": "Now",
     "newVersion": "A new version of {name} is ready.",
     "reloadToUse": "Reload to use it.",
-    "reload": "Reload"
+    "reload": "Reload",
+    "tag": {
+      "restart": "Restart pending",
+      "stop": "Stop pending",
+      "fresh": "New version",
+      "show": "Show the notice again"
+    }
   },
   "categories": {
     "agents": "Agents",
@@ -635,6 +647,12 @@
     "offer": "Or add the Conversations card: the conversations you pin to Home, live.",
     "add": "Add it"
   },
+  "homeLoops": {
+    "title": "Open loops",
+    "none": "Nothing open.",
+    "markDone": "Mark as done",
+    "offer": "Or add the Open loops card: what's still to do or waiting, from your conversations and the reviews."
+  },
   "home": {
     "today": "Today",
     "tomorrow": "Tomorrow",
@@ -1025,12 +1043,7 @@
       "one": "{count} working",
       "other": "{count} working"
     },
-    "dragToReorder": "Drag to reorder",
-    "briefing": "Briefing",
-    "openCount": {
-      "one": "{count} open loop",
-      "other": "{count} open loops"
-    }
+    "dragToReorder": "Drag to reorder"
   },
   "notificationsPage": {
     "copilot": "Copilot allowance",
@@ -1054,7 +1067,7 @@
     "spending": "Spending limit",
     "briefing": "Morning briefing",
     "reminder": "Reminder",
-    "openBriefing": "Open the briefing"
+    "openHome": "Open Home"
   },
   "oauth": {
     "finishing": "Finishing the sign-in…",
@@ -1724,55 +1737,8 @@
     "time": "Time",
     "day": "Day",
     "muted": "Not suggested any more",
-    "mutedHint": "Kinds you asked to stop (\"less of this\", or Stop suggesting on an open loop).",
+    "mutedHint": "Kinds you asked to stop (\"less of this\").",
     "noneMuted": "Nothing muted.",
     "unmute": "Suggest {kind} again"
-  },
-  "briefingPage": {
-    "title": "Briefing",
-    "briefNow": "Brief me now",
-    "briefing": "Writing…",
-    "loops": "Open loops",
-    "loopsHint": "What's still to do or waiting, from your conversations, the briefing and the reviews. Click one to see it on the right.",
-    "open": "Open",
-    "done": "Done",
-    "dismissed": "Dismissed",
-    "what": "What",
-    "kind": "Kind",
-    "due": "Due",
-    "from": "From",
-    "since": "Since",
-    "remindAt": "Reminder",
-    "none": "Nothing open",
-    "noneHint": "Things left to do in your conversations, bills due and mail to answer show up here.",
-    "noneClosed": "Nothing here",
-    "noneClosedHint": "Loops you close show here.",
-    "noneSelected": "No loop selected",
-    "noneSelectedHint": "Pick one to close it, dismiss it or open its conversation.",
-    "markDone": "Done",
-    "markDoneThis": "Mark as done",
-    "dismiss": "Dismiss",
-    "stopSuggesting": "Dismiss and stop suggesting “{kind}”",
-    "reopen": "Open again",
-    "sources": {
-      "conversation": "A conversation",
-      "review": "A review",
-      "briefing": "The briefing",
-      "assistant": "The assistant"
-    },
-    "latest": "Latest briefing",
-    "notYet": "No briefing yet",
-    "notYetHint": "The first one comes at {time}, or now with Brief me now.",
-    "sentTo": "Sent to {channels}",
-    "onlyHere": "Only in Notifications: no chat channel was connected.",
-    "nothing": "Nothing worth telling that day.",
-    "failed": "Failed: {error}",
-    "review": "Latest review",
-    "nightly": "Nightly review",
-    "weekly": "Weekly review",
-    "reviewNow": "Review now",
-    "noReview": "No review yet.",
-    "suggestions": "Suggestions for the next briefing",
-    "reviewed": "{added} loops added, {closed} closed"
   }
 }

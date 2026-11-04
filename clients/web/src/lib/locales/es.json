@@ -62,7 +62,7 @@
     "dismissAllTitle": "¿Descartar todas las alertas?",
     "dismissAllText": "Vuelven si el problema ocurre de nuevo.",
     "title": "Requiere atención",
-    "hint": "Servidores MCP y habilidades que siguen fallando o necesitan que vuelvas a iniciar sesión, y lo que el chequeo de salud encontró nuevo o en aumento. Haz clic en una para verla a la derecha.",
+    "hint": "Servidores MCP y habilidades que siguen fallando o necesitan que vuelvas a iniciar sesión, lo que el chequeo de salud encontró nuevo o en aumento, y el resumen o una revisión que falló. Haz clic en una para verla a la derecha.",
     "nothing": "Nada requiere atención",
     "nothingHint": "Aquí aparecen los servidores MCP y las habilidades que siguen fallando, y los servidores que necesitan que vuelvas a iniciar sesión.",
     "name": "Nombre",
@@ -70,7 +70,13 @@
     "problem": "Problema",
     "when": "Cuándo",
     "noneSelected": "Ninguna alerta elegida",
-    "noneSelectedHint": "Las alertas aparecen aquí cuando algo sigue fallando o necesita que vuelvas a iniciar sesión."
+    "noneSelectedHint": "Las alertas aparecen aquí cuando algo sigue fallando o necesita que vuelvas a iniciar sesión.",
+    "briefing": "Resumen de la mañana",
+    "nightlyReview": "Revisión nocturna",
+    "weeklyReview": "Revisión semanal",
+    "briefingAndReviews": "Resumen y revisiones",
+    "failedLastTime": "Falló la última vez que se ejecutó",
+    "failed": "falló"
   },
   "app": {
     "tryingAgain": "Volviendo a intentar…",
@@ -99,7 +105,13 @@
     "now": "Ahora",
     "newVersion": "Hay una nueva versión de {name} lista.",
     "reloadToUse": "Recarga para usarla.",
-    "reload": "Recargar"
+    "reload": "Recargar",
+    "tag": {
+      "restart": "Reinicio pendiente",
+      "stop": "Detención pendiente",
+      "fresh": "Nueva versión",
+      "show": "Volver a mostrar el aviso"
+    }
   },
   "categories": {
     "agents": "Agentes",
@@ -635,6 +647,12 @@
     "offer": "O agrega la tarjeta de conversaciones: las que fijas al Inicio, en vivo.",
     "add": "Agregarla"
   },
+  "homeLoops": {
+    "title": "Pendientes",
+    "none": "Nada pendiente.",
+    "markDone": "Marcar como hecho",
+    "offer": "O agrega la tarjeta de pendientes: lo que queda por hacer o está en espera, de tus conversaciones y las revisiones."
+  },
   "home": {
     "today": "Hoy",
     "tomorrow": "Mañana",
@@ -1025,12 +1043,7 @@
       "one": "{count} trabajando",
       "other": "{count} trabajando"
     },
-    "dragToReorder": "Arrastrá para reordenar",
-    "briefing": "Resumen",
-    "openCount": {
-      "one": "{count} pendiente",
-      "other": "{count} pendientes"
-    }
+    "dragToReorder": "Arrastrá para reordenar"
   },
   "notificationsPage": {
     "copilot": "Cupo de Copilot",
@@ -1054,7 +1067,7 @@
     "spending": "Límite de gasto",
     "briefing": "Resumen de la mañana",
     "reminder": "Recordatorio",
-    "openBriefing": "Abrir el resumen"
+    "openHome": "Abrir el Inicio"
   },
   "oauth": {
     "finishing": "Terminando el inicio de sesión…",
@@ -1724,55 +1737,8 @@
     "time": "Hora",
     "day": "Día",
     "muted": "Ya no se sugiere",
-    "mutedHint": "Tipos que pediste dejar de ver (\"menos de esto\", o Dejar de sugerir en un pendiente).",
+    "mutedHint": "Tipos que pediste dejar de ver (\"menos de esto\").",
     "noneMuted": "Nada silenciado.",
     "unmute": "Volver a sugerir {kind}"
-  },
-  "briefingPage": {
-    "title": "Resumen",
-    "briefNow": "Resumir ahora",
-    "briefing": "Escribiendo…",
-    "loops": "Pendientes",
-    "loopsHint": "Lo que falta hacer o esperas, de tus conversaciones, el resumen y las revisiones. Haz clic en uno para verlo a la derecha.",
-    "open": "Abiertos",
-    "done": "Hechos",
-    "dismissed": "Descartados",
-    "what": "Qué",
-    "kind": "Tipo",
-    "due": "Vence",
-    "from": "De",
-    "since": "Desde",
-    "remindAt": "Recordatorio",
-    "none": "Nada pendiente",
-    "noneHint": "Aquí aparece lo que quedó por hacer en tus conversaciones, las facturas por vencer y el correo por responder.",
-    "noneClosed": "Nada aquí",
-    "noneClosedHint": "Aquí aparecen los pendientes que cierras.",
-    "noneSelected": "Ningún pendiente elegido",
-    "noneSelectedHint": "Elige uno para cerrarlo, descartarlo o abrir su conversación.",
-    "markDone": "Hecho",
-    "markDoneThis": "Marcar como hecho",
-    "dismiss": "Descartar",
-    "stopSuggesting": "Descartar y dejar de sugerir “{kind}”",
-    "reopen": "Volver a abrir",
-    "sources": {
-      "conversation": "Una conversación",
-      "review": "Una revisión",
-      "briefing": "El resumen",
-      "assistant": "El asistente"
-    },
-    "latest": "Último resumen",
-    "notYet": "Todavía no hay resumen",
-    "notYetHint": "El primero llega a las {time}, o ahora con Resumir ahora.",
-    "sentTo": "Enviado a {channels}",
-    "onlyHere": "Solo en Notificaciones: no había ningún canal de chat conectado.",
-    "nothing": "Nada que valiera la pena contar ese día.",
-    "failed": "Falló: {error}",
-    "review": "Última revisión",
-    "nightly": "Revisión nocturna",
-    "weekly": "Revisión semanal",
-    "reviewNow": "Revisar ahora",
-    "noReview": "Todavía no hay revisión.",
-    "suggestions": "Sugerencias para el próximo resumen",
-    "reviewed": "{added} pendientes agregados, {closed} cerrados"
   }
 }
