@@ -188,7 +188,7 @@
     max-height: 30vh;
     overflow-y: auto;
   }
-  /* A user's message waiting: the bubble they're shown in, a little faded. */
+  /* A user's message waiting: the shape of the bubble they're shown in, only outlined in dashes, not sent yet. */
   li {
     display: flex;
     align-items: center;
@@ -196,9 +196,9 @@
     max-width: 70%;
     min-height: 32px;
     padding: 2px 4px 2px 14px;
+    border: 1px dashed var(--color-border);
     border-radius: 16px;
     border-bottom-right-radius: 8px;
-    background: color-mix(in srgb, var(--color-action-primary) 8%, transparent);
   }
   li:has(textarea) {
     width: 70%;
