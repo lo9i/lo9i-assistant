@@ -675,7 +675,6 @@ class FakeHome:
         self.refreshes: list[bool] = []
         self.watching = False
         self.refusal = ""
-        self.pinned: list[str] = []
 
     def _page(self) -> HomePage:
         cards = [HomeCard(section=s, result=self.results.get(s.id)) for s in self.sections]
@@ -703,17 +702,6 @@ class FakeHome:
     async def reset_sections(self):
         self.sections = _built_in_home()
         return self._page()
-
-    async def pins(self):
-        return list(self.pinned)
-
-    async def pin(self, thread_id):
-        self.pinned += [] if thread_id in self.pinned else [thread_id]
-        return list(self.pinned)
-
-    async def unpin(self, thread_id):
-        self.pinned = [t for t in self.pinned if t != thread_id]
-        return list(self.pinned)
 
 
 class FakeMcp:

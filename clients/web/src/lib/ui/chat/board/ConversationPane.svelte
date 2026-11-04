@@ -7,7 +7,6 @@
   import type { CardStatus } from "$lib/chat/cards";
   import type { ChatController } from "$lib/chat/controller";
   import { t } from "$lib/i18n.svelte";
-  import PinToHome from "../../PinToHome.svelte";
   import ChatPanel from "../ChatPanel.svelte";
   import StatusPill from "./StatusPill.svelte";
 
@@ -25,14 +24,11 @@
     onopen?: () => void;
     /** /clear in it: a new conversation in its place. */
     onclear: () => void;
-    /** It's pinned to Home. */
-    pinned: boolean;
-    onpin: () => void;
     /** Given for a pane side by side: closing it, and its header dragging it. */
     onclose?: () => void;
     ondragstart?: (e: DragEvent) => void;
   };
-  let { chat, title, status, maximized, findable, onmaximize, onopen, onclear, pinned, onpin, onclose, ondragstart }: Props = $props();
+  let { chat, title, status, maximized, findable, onmaximize, onopen, onclear, onclose, ondragstart }: Props = $props();
 </script>
 
 <section class="pane" class:maximized aria-label={title}>
@@ -43,7 +39,6 @@
     <h2 class="text-heading">{title}</h2>
     <StatusPill {status} />
     <span class="spacer"></span>
-    <PinToHome {pinned} ontoggle={onpin} />
     {#if onopen}
       <button class="btn btn--ghost btn--icon btn--sm" aria-label={t("board.openFull")} title={t("board.openFull")} onclick={onopen}
         ><ExternalLink size={14} /></button

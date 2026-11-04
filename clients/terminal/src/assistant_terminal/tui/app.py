@@ -985,7 +985,7 @@ class AssistantApp(App):
                 self.notify(str(e), severity="error", timeout=10)
 
     async def _command_conversations(self, _: str) -> None:
-        screen = ConversationsScreen(self._service.conversations, self._service.home, self._live.session.thread_id)
+        screen = ConversationsScreen(self._service.conversations, self._live.session.thread_id)
         await self._show_page(screen)
 
     async def _command_close(self, _: str) -> None:

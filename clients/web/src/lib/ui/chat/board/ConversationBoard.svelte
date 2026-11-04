@@ -10,7 +10,6 @@
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { restoresOnEscape } from "$lib/fullScreen";
   import { t } from "$lib/i18n.svelte";
-  import { homePins } from "../../homePins.svelte";
   import EmptyState from "../../EmptyState.svelte";
   import SearchField from "../../SearchField.svelte";
   import { openBeside, openConversation } from "../../openConversation";
@@ -32,7 +31,6 @@
   const runs = resource((c) => c.runs.inProgress(), ["run", "run_finished"]);
   const tasks = resource((c) => c.tasks.running(), ["agent_task_progress", "agent_task_reports", "background_ended"]);
   const name = resource((c) => c.identity.name(), ["settings"]);
-  const pins = homePins();
 
   const layout = $derived(conversationLayout.current);
   const working = $derived(new Set([...(runs.data ?? []), ...(tasks.data ?? [])].map((r) => r.thread_id)));
@@ -173,8 +171,6 @@
               live={live.get(id) ?? null}
               working={working.has(id)}
               name={name.data || t("chat.theAssistant")}
-              pinned={pins.has(id)}
-              onpin={() => pins.toggle(id)}
               onopen={() => openConversation(chats, notices, id)}
               onbeside={() => openBeside(chats, notices, conversationLayout, id)}
               onmaximize={() => maximize(id)}
@@ -199,8 +195,6 @@
       onmaximize={() => maximize(id)}
       onopen={() => openConversation(chats, notices, id)}
       onclear={() => clearIn(id)}
-      pinned={pins.has(id)}
-      onpin={() => pins.toggle(id)}
     />
   </div>
 {/if}

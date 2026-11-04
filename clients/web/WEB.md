@@ -57,10 +57,8 @@ moved up into a hole (`packed` in `src/lib/home.ts`), so its arrows move it past
 moves by dragging its header or with its arrows (for keyboards and phones), resizes by dragging its right edge, and
 shows full screen with its button until pressed again or Esc (`src/lib/fullScreen.ts`; a full-screen
 card is drawn outside the grid, whose container query would hold it). The Conversations card (`CONVERSATIONS`) is
-drawn live instead of from its result (`src/lib/ui/home/HomeConversations.svelte`): the conversations pinned to Home,
-or the most recent while none is (`src/lib/homeConversations.ts`); removed, the editor of a new section offers it
-back. Pin to Home (`PinToHome.svelte`, `homePins()`)
-sits on every conversation: the list's details, its card and pane, the open conversation's top bar.
+drawn live instead of from its result (`src/lib/ui/home/HomeConversations.svelte`): the most recent conversations
+(`src/lib/homeConversations.ts`); removed, the editor of a new section offers it back.
 
 Settings-style forms (connecting a service, preferences) stay as cards in the settings page grid.
 

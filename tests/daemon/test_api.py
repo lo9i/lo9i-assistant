@@ -16,7 +16,6 @@ from assistant.client.daemon_client import DaemonClient
 from assistant.core import conversations, notifications
 from assistant.core.agent import (
     ConversationError,
-    HomePinError,
     HomeSection,
     HomeSectionsError,
     InvalidNameError,
@@ -462,19 +461,6 @@ async def test_home_is_shown_refreshed_and_its_sections_edited(client, service):
     page = await client.home.get()
     assert page.updated_at and page.cards[0].result is not None and page.cards[0].result.status == "unavailable"
     assert len((await client.home.reset_sections()).cards) == len(built_in)
-
-
-async def test_conversations_are_pinned_to_home_and_unpinned(client, service):
-    await conversations.save(service.store, "owner", Conversation("t1", "Trip", "2026-10-22", "2026-10-22"))
-    assert await client.home.pins() == []
-    assert await client.home.pin("t1") == ["t1"]
-    with pytest.raises(ConversationError):
-        await client.home.pin("nowhere")
-    inbox = await client.inbox_thread("owner")
-    await conversations.save(service.store, "owner", Conversation(inbox, "", "2026-10-22", "2026-10-22"))
-    with pytest.raises(HomePinError):
-        await client.home.pin(inbox)
-    assert await client.home.unpin("t1") == []
 
 
 async def test_a_client_showing_home_keeps_it_current_until_it_stops(client, service):

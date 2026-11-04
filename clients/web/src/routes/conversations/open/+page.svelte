@@ -12,9 +12,7 @@
   import BesidePicker from "$lib/ui/chat/BesidePicker.svelte";
   import Columns from "$lib/ui/chat/board/Columns.svelte";
   import OpenSwitcher from "$lib/ui/chat/OpenSwitcher.svelte";
-  import { homePins } from "$lib/ui/homePins.svelte";
   import { leaveInbox, startNewHere } from "$lib/ui/openConversation";
-  import PinToHome from "$lib/ui/PinToHome.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
   const { chats, notices } = useDaemon();
@@ -30,8 +28,6 @@
   const columns = $derived(snapshot.current ? columnsOf(conversationLayout.current, snapshot.current.threadId) : []);
   // Several shown, the page is named after none of them: each column has its own title.
   const title = $derived(columns.length > 1 ? t("board.showing", { count: columns.length }) : listed?.title || t("nav.newConversation"));
-  // Pinned to Home, once it's listed: a new conversation is, from its first message.
-  const pins = homePins();
   const stacked = $derived(conversationLayout.current.arrange === "stacked");
   let picking = $state(false);
 
@@ -57,11 +53,6 @@
 {#if shown}
   <TopBar {title}>
     {#snippet actions()}
-      <!-- With several shown, each column has its own Pin to Home. -->
-      {#if columns.length < 2 && listed && !listed.inbox}<PinToHome
-          pinned={pins.has(listed.thread_id)}
-          ontoggle={() => pins.toggle(listed.thread_id)}
-        />{/if}
       {#if columns.length > 1}
         <!-- Shows the arrangement it switches to. -->
         <button

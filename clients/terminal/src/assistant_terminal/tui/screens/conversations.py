@@ -1,8 +1,7 @@
 """The conversations, newest activity first, the inbox among them, each listed only by when it was last active, on
 one line, and found by searching: titles match as it's typed, what was said in them once the daemon answers. Pick
-one to see its title and how it ended beside the list, then open,
-pin to Home (its Conversations card, `/home`) or delete it. Returns the chosen conversation's thread id, or None.
-The conversation this app is on can't be deleted from here: /clear moves off it first."""
+one to see its title and how it ended beside the list, then open or delete it. Returns the chosen conversation's
+thread id, or None. The conversation this app is on can't be deleted from here: /clear moves off it first."""
 
 from typing import ClassVar
 
@@ -13,8 +12,8 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Input, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
-from assistant.client.daemon_client import ConversationsApi, HomeApi
-from assistant.core.agent import Conversation, ConversationError, HomePinError
+from assistant.client.daemon_client import ConversationsApi
+from assistant.core.agent import Conversation, ConversationError
 from assistant_terminal.conversations_text import matching, message_search, preview, when
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
@@ -29,23 +28,19 @@ class ConversationsScreen(PageScreen[str | None]):
         # Priority, so it runs before the list's own Enter, which also fires on a click: a click
         # only shows the conversation, Enter resumes it.
         Binding("enter", "resume", show=False, priority=True),
-        Binding("p", "pin", translatable("Pin to Home")),
     ]
     # The list, not the search above it: the keys move through it from the start.
     AUTO_FOCUS = "#conversations-list"
-    # Pins change Home's record (a `home` event).
-    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"conversations", "home"})
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"conversations"})
 
-    def __init__(self, conversations: ConversationsApi, home: HomeApi, current: str) -> None:
+    def __init__(self, conversations: ConversationsApi, current: str) -> None:
         super().__init__()
         self._conversations = conversations
-        self._home = home
         self._current = current
         self._all: list[Conversation] = []
         self._shown: dict[str, Conversation] = {}
         # The ids of those whose messages hold the search, as the daemon last answered.
         self._found: set[str] = set()
-        self._pinned: list[str] = []
         self._selected: str | None = None
 
     def compose_page(self) -> ComposeResult:
@@ -60,7 +55,6 @@ class ConversationsScreen(PageScreen[str | None]):
                     yield Markdown(id="conversation-body")
             with Horizontal(id="conversations-buttons"):
                 yield Button(t("Open"), variant="success", id="resume")
-                yield Button(t("Pin to Home"), id="pin")
                 yield Button(t("Delete"), variant="error", id="delete")
                 yield Button(t("Close"), id="close")
 
@@ -71,7 +65,7 @@ class ConversationsScreen(PageScreen[str | None]):
     @reports_daemon_unavailable
     async def reload(self) -> None:
         """Called when a conversation changes (a message anywhere updates the list, and what the search finds)."""
-        self._all, self._pinned = await self._conversations.recent(), await self._home.pins()
+        self._all = await self._conversations.recent()
         await self._find_in_messages()
         await self._list()
 
@@ -83,7 +77,7 @@ class ConversationsScreen(PageScreen[str | None]):
         options.clear_options()
         options.add_options([Option(self._label(c), id=c.thread_id) for c in shown])
         self.query_one("#conversations").set_class(not self._all, "empty")
-        for button in ("#resume", "#pin", "#delete"):
+        for button in ("#resume", "#delete"):
             self.query_one(button).display = bool(shown)
         if not shown:
             await self._show_none()
@@ -141,9 +135,8 @@ class ConversationsScreen(PageScreen[str | None]):
         return when(conversation)
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
-        """Enter resumes only from the list; on a button it presses the button. P pins only from the list, so it
-        types in a field."""
-        if action in ("resume", "pin"):
+        """Enter resumes only from the list; on a button it presses the button."""
+        if action == "resume":
             return self.focused is self.query_one("#conversations-list")
         return True
 
@@ -154,25 +147,6 @@ class ConversationsScreen(PageScreen[str | None]):
     @on(Button.Pressed, "#close")
     def action_close(self) -> None:
         self.dismiss(None)
-
-    @on(Button.Pressed, "#pin")
-    def action_pin(self) -> None:
-        if self._selected is not None and not self._shown[self._selected].inbox:
-            self._toggle_pin(self._selected)
-
-    @work
-    @reports_daemon_unavailable
-    async def _toggle_pin(self, thread_id: str) -> None:
-        """Pins it to Home after the others, or unpins it; the list shows it once the `home` event reloads it."""
-        try:
-            if thread_id in self._pinned:
-                await self._home.unpin(thread_id)
-                self.notify(t("Unpinned from Home."))
-            else:
-                await self._home.pin(thread_id)
-                self.notify(t("Pinned to Home."))
-        except (ConversationError, HomePinError) as e:
-            self.notify(str(e), severity="error")
 
     @on(Button.Pressed, "#delete")
     def _delete(self) -> None:
@@ -201,9 +175,6 @@ class ConversationsScreen(PageScreen[str | None]):
         conversation = self._shown[thread_id]
         current = thread_id == self._current
         self.query_one("#resume", Button).disabled = current
-        pin = self.query_one("#pin", Button)
-        pin.label = t("Unpin from Home") if thread_id in self._pinned else t("Pin to Home")
-        pin.disabled = conversation.inbox
         delete = self.query_one("#delete", Button)
         delete.disabled = current
         delete.tooltip = t("You're on this conversation: /clear first, then delete it.") if current else None

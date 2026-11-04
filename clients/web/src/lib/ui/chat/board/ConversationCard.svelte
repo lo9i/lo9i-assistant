@@ -10,7 +10,6 @@
   import { useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
   import { markdown } from "$lib/markdown";
-  import PinToHome from "../../PinToHome.svelte";
   import Composer from "../Composer.svelte";
   import StatusPill from "./StatusPill.svelte";
 
@@ -29,17 +28,13 @@
     working: boolean;
     /** The assistant's name, over its messages. */
     name: string;
-    /** It's pinned to Home. */
-    pinned: boolean;
-    onpin: () => void;
     onopen: () => void;
     onbeside: () => void;
     onmaximize: () => void;
     /** Its header is what drags it. */
     ondragstart: (e: DragEvent) => void;
   };
-  let { threadId, title, archived, updatedAt, live, working, name, pinned, onpin, onopen, onbeside, onmaximize, ondragstart }: Props =
-    $props();
+  let { threadId, title, archived, updatedAt, live, working, name, onopen, onbeside, onmaximize, ondragstart }: Props = $props();
 
   const { chats, notices } = useDaemon();
   const box = $derived(draft.of(threadId));
@@ -90,7 +85,6 @@
   <header draggable="true" {ondragstart} title={t("board.move")}>
     <span class="grip" aria-hidden="true"><GripVertical size={14} /></span>
     <button class="title" onclick={onopen} title={t("board.openFull")}>{title}</button>
-    <PinToHome {pinned} ontoggle={onpin} />
     <button class="btn btn--ghost btn--icon" aria-label={t("board.openBeside")} title={t("board.openBesideCard")} onclick={onbeside}
       ><Columns2 size={14} /></button
     >

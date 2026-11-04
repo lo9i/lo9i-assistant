@@ -39,8 +39,8 @@ _CODED = (
         CONVERSATIONS,
         translatable("Conversations"),
         translatable(
-            "Built by lo9i, without the model: the conversations pinned to Home (Pin to Home in Chat), or the most "
-            "recent ones while none is, each with its latest message and whether it's working or waiting for you."
+            "Built by lo9i, without the model: the most recent conversations, each with its latest message and "
+            "whether it's working or waiting for you."
         ),
     ),
     (

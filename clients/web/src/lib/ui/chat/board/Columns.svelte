@@ -25,7 +25,6 @@
   import { NARROW } from "$lib/folderPanel.svelte";
   import { restoresOnEscape } from "$lib/fullScreen";
   import { t } from "$lib/i18n.svelte";
-  import { homePins } from "../../homePins.svelte";
   import { CONVERSATION_DRAG } from "../../openConversation";
   import PendingAsk from "../PendingAsk.svelte";
   import ChatPanel from "../ChatPanel.svelte";
@@ -48,7 +47,6 @@
   const conversations = resource((c) => c.conversations.list(), ["conversations"]);
   const runs = resource((c) => c.runs.inProgress(), ["run", "run_finished"]);
   const tasks = resource((c) => c.tasks.running(), ["agent_task_progress", "agent_task_reports", "background_ended"]);
-  const pins = homePins();
   const narrow = new MediaQuery(NARROW);
 
   const layout = $derived(conversationLayout.current);
@@ -301,8 +299,6 @@
       findable={layout.maximized === null ? (focused ?? current) === id : layout.maximized === id}
       onmaximize={() => change(toggledMax(layout, id))}
       onclear={() => clearIn(id)}
-      pinned={pins.has(id)}
-      onpin={() => pins.toggle(id)}
       onclose={() => close(id)}
       ondragstart={narrow.current ? undefined : (e) => dragStart(e, id)}
     />

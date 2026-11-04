@@ -12,7 +12,6 @@
   import ConversationBoard from "$lib/ui/chat/board/ConversationBoard.svelte";
   import ConversationPreview from "$lib/ui/chat/ConversationPreview.svelte";
   import ConversationsTable from "$lib/ui/chat/ConversationsTable.svelte";
-  import { homePins } from "$lib/ui/homePins.svelte";
   import { openConversation } from "$lib/ui/openConversation";
   import OpenSwitcher from "$lib/ui/chat/OpenSwitcher.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
@@ -28,7 +27,6 @@
   const listed = $derived(conversations.data?.filter((c) => !c.inbox));
   const clients = resource((c) => c.clients.list(), ["clients"]);
   const devices = resource((c) => c.devices.list(), ["devices"]);
-  const pins = homePins();
   // Links from other pages (Active sessions, Notifications) pick a conversation with ?c=<thread id>.
   let picked = $state<string | null>(page.url.searchParams.get("c"));
 
@@ -118,8 +116,6 @@
         devices={devices.data}
         oncontinue={continueWith}
         ondelete={remove}
-        pinned={selected !== null && pins.has(selected)}
-        onpin={(id) => pins.toggle(id)}
       />
     </div>
   {/if}

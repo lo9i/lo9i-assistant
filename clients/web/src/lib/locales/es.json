@@ -633,18 +633,10 @@
     "paste": "Adjuntar una captura o imagen copiada",
     "pasteKey": "Pegar"
   },
-  "pins": {
-    "pin": "Fijar al Inicio",
-    "unpin": "Quitar del Inicio",
-    "pinned": "Fijada al Inicio.",
-    "unpinned": "Quitada del Inicio."
-  },
   "homeConversations": {
     "none": "Todavía no hay conversaciones.",
-    "recent": "Recientes",
-    "recentHint": "No hay ninguna fijada: estas son las más recientes. Fija una conversación al Inicio desde el chat para tenerla aquí.",
     "title": "Conversaciones",
-    "offer": "O agrega la tarjeta de conversaciones: las que fijas al Inicio, en vivo.",
+    "offer": "O agrega la tarjeta de conversaciones: tus conversaciones más recientes, en vivo.",
     "add": "Agregarla"
   },
   "homeLoops": {
