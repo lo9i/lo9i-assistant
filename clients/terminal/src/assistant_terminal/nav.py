@@ -35,6 +35,7 @@ PAGES: tuple[Page, ...] = (
     Page("jobs", translatable("Jobs"), "◷"),
     Page("devices", translatable("Devices"), "▣"),
     Page("notifications", translatable("Notifications"), "✉"),
+    Page("alerts", translatable("Alerts"), "!"),
     Page(SETTINGS, translatable("Settings"), "✱"),
 )
 
@@ -65,8 +66,8 @@ _SETTINGS_KEYS = frozenset(p.key for p in SETTINGS_PAGES)
 @dataclass(frozen=True)
 class NavState:
     """What the sidebar shows besides its pages: the conversations open, and a count beside a page (those waiting for
-    an answer beside Chat, the open loops beside Briefing, the subagents working, the notifications unread, the plugin
-    updates beside Settings)."""
+    an answer beside Chat, the open loops beside Briefing, the subagents working, the notifications unread, what needs
+    attention beside Alerts, the plugin updates beside Settings)."""
 
     open: tuple[OpenItem, ...] = ()
     counts: Mapping[str, int] = field(default_factory=dict)

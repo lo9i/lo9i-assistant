@@ -24,6 +24,7 @@ from assistant.client.recorder import Recorder, RecordingUnavailableError
 from assistant.client.recorder import available as recording_available
 from assistant.core.agent import (
     Agent,
+    Alert,
     Conversation,
     ConversationError,
     FoundServer,
@@ -68,6 +69,7 @@ from assistant_terminal.tui.prompt import PromptInput
 from assistant_terminal.tui.screens import (
     AboutYouScreen,
     AgentFolderScreen,
+    AlertsScreen,
     ApprovalScreen,
     AudioScreen,
     BriefingScreen,
@@ -137,7 +139,19 @@ _LISTED = 8
 _LIST_NOTE = "conversations-note"
 # Events that change what the sidebar counts or lists.
 _NAV_EVENTS = frozenset(
-    {"notifications", "proactive", "plugins", "subagents", "run", "run_finished", "agent_task_reports"}
+    {
+        "notifications",
+        "proactive",
+        "plugins",
+        "subagents",
+        "run",
+        "run_finished",
+        "agent_task_reports",
+        # Alerts: failures are kept with the servers and skills, and the health check's with its reports.
+        "mcp",
+        "skills",
+        "doctor",
+    }
 )
 
 
@@ -205,6 +219,7 @@ class AssistantApp(App):
             "/conversations": self._command_conversations,
             "/open": self._command_open,
             "/notifications": self._command_notifications,
+            "/alerts": self._command_alerts,
             "/subagents": self._command_subagents,
             "/attach": self._command_attach,
             "/mcp": self._command_mcp,
@@ -1046,6 +1061,24 @@ class AssistantApp(App):
             self._service.notifications, self._service.jobs, self._service.doctor, self._service.proactive
         )
         await self._show_page(screen)
+
+    async def _command_alerts(self, _: str) -> None:
+        await self._show_page(AlertsScreen(self._service.alerts, self._open_alert))
+
+    @work(group="pages")
+    @reports_daemon_unavailable
+    async def _open_alert(self, alert: Alert) -> None:
+        """Its MCP server, skill or health check cause, picked, in the Alerts page's place: as the app's own work, so
+        the Alerts page that asked has finished handling its button before it's closed."""
+        service = self._service
+        if alert.area == "mcp":
+            await self._show_page(McpScreen(service.mcp, service.oauth, service.repositories, selected=alert.name))
+        elif alert.area == "skill":
+            await self._show_page(SkillsScreen(service.skills, service.repositories, selected=alert.name))
+        elif alert.kind == "context":
+            await self._show_page(DoctorScreen(service.doctor))
+        else:
+            await self._show_page(DoctorScreen(service.doctor, selected=alert.name))
 
     @reports_daemon_unavailable
     async def _resume(self, thread_id: str | None) -> None:

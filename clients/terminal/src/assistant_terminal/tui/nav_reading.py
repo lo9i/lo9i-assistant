@@ -24,6 +24,7 @@ async def read_nav(service: DaemonClient, opened: list[str], current: str, inbox
         "briefing": sum(loop.status == "open" for loop in loops),
         "subagents": sum(s.status in ("running", "waiting") for s in await service.subagents.list()),
         "notifications": sum(not n.read for n in await service.notifications.list()),
+        "alerts": len(await service.alerts.list()),
         SETTINGS: len(await service.repositories.updates()),
     }
     return NavState(tuple(items), counts)

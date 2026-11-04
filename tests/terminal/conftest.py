@@ -14,6 +14,7 @@ from assistant.core.agent import (
     AboutYouStatus,
     Agent,
     AgentFolders,
+    Alert,
     BackgroundStep,
     BackgroundSubagent,
     Briefing,
@@ -1425,6 +1426,19 @@ def _cause(id: str, title: str, count: int, **fields) -> Cause:
     return Cause.model_validate({"id": id, "title": title, "count": count, **times, **defaults, **fields})
 
 
+class FakeAlerts:
+    """None at first; a test adds what needs attention."""
+
+    def __init__(self):
+        self.items: list[Alert] = []
+
+    async def list(self):
+        return list(self.items)
+
+    async def dismiss(self, area, name):
+        self.items = [a for a in self.items if (a.area, a.name) != (area, name)]
+
+
 class FakeNotifications:
     def __init__(self):
         self.pages = []
@@ -1522,6 +1536,7 @@ class FakeClient:
         self.speech = FakeSpeech()
         self.web_search = FakeWebSearch()
         self.notifications = FakeNotifications()
+        self.alerts = FakeAlerts()
         self.doctor = FakeDoctor()
         self.proactive = FakeProactive()
         self.prompts = FakePrompts()

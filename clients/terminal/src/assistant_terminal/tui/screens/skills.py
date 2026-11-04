@@ -26,14 +26,15 @@ class SkillsScreen(PageScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"skills"})
 
-    def __init__(self, skills: SkillsApi, repositories: RepositoriesApi) -> None:
+    def __init__(self, skills: SkillsApi, repositories: RepositoriesApi, selected: str | None = None) -> None:
+        """`selected`: the skill to open on (an alert's), else the first."""
         super().__init__()
         self._skills = skills
         # For deleting what a removed skill left kept (its private repository's token).
         self._repositories = repositories
         self._names: list[str] = []
         self._summaries: dict[str, SkillSummary] = {}
-        self._selected: str | None = None
+        self._selected: str | None = selected
         self._skill: Skill | None = None
 
     def compose_page(self) -> ComposeResult:

@@ -39,6 +39,9 @@ COMMANDS = [
     Command("/inbox", "/inbox", translatable("Back to the inbox: the next message goes where it belongs")),
     Command("/move", "/move", translatable("Move the last message the inbox sent on to another conversation")),
     Command("/notifications", "/notifications", translatable("Job results and background work that ended")),
+    Command(
+        "/alerts", "/alerts", translatable("What keeps failing, needs signing in again, or the health check found")
+    ),
     # Optional `all` stays out of its usage, so Enter on the menu runs it at once.
     Command(
         "/subagents",

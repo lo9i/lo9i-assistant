@@ -41,14 +41,17 @@ class McpScreen(PageScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"mcp"})
 
-    def __init__(self, mcp: McpApi, oauth: OAuthApi, repositories: RepositoriesApi) -> None:
+    def __init__(
+        self, mcp: McpApi, oauth: OAuthApi, repositories: RepositoriesApi, selected: str | None = None
+    ) -> None:
+        """`selected`: the server to open on (an alert's), else the first."""
         super().__init__()
         self._mcp = mcp
         self._oauth = oauth
         # For deleting what a removed plugin left kept.
         self._repositories = repositories
         self._shown: dict[str, McpServerStatus] = {}
-        self._selected: str | None = None
+        self._selected: str | None = selected
 
     def compose_page(self) -> ComposeResult:
         with Vertical(id="mcp"):

@@ -5,6 +5,7 @@ prompt texts, approvals, questions and the folder an agent works in."""
 
 from assistant_terminal.tui.screens.about_you import AboutYouScreen, SuggestedPluginsScreen
 from assistant_terminal.tui.screens.agent_folder import AgentFolderScreen
+from assistant_terminal.tui.screens.alerts import AlertsScreen
 from assistant_terminal.tui.screens.approval import ApprovalScreen
 from assistant_terminal.tui.screens.audio import AudioScreen
 from assistant_terminal.tui.screens.briefing import BriefingScreen
@@ -47,6 +48,7 @@ from assistant_terminal.tui.screens.web_search import WebSearchScreen
 __all__ = [
     "AboutYouScreen",
     "AgentFolderScreen",
+    "AlertsScreen",
     "ApprovalScreen",
     "AudioScreen",
     "BriefingScreen",

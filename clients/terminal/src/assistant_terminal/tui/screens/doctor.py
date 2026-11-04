@@ -28,11 +28,12 @@ class DoctorScreen(PageScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"doctor"})
 
-    def __init__(self, doctor: DoctorApi) -> None:
+    def __init__(self, doctor: DoctorApi, selected: str = _OVERVIEW) -> None:
+        """`selected`: the cause to open on (an alert's), else the overview."""
         super().__init__()
         self._doctor = doctor
         self._page: DoctorPage | None = None
-        self._selected = _OVERVIEW
+        self._selected = selected
 
     def compose_page(self) -> ComposeResult:
         with Vertical(id="doctor"):

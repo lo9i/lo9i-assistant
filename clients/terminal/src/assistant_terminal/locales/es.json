@@ -1079,5 +1079,15 @@
   "Subagents": "Subagentes",
   "System": "Sistema",
   "The language of the apps' own text, in every app. Auto follows each browser's language, and is English where there's no browser. The assistant replies in the language you write.": "El idioma del texto propio de las apps, en todas. Automático sigue el idioma de cada navegador, y es inglés donde no hay navegador. El asistente responde en el idioma en que escribes.",
-  "Usage": "Uso"
+  "Usage": "Uso",
+  "Alerts": "Alertas",
+  "Dismiss all": "Descartar todas",
+  "Dismiss every alert? They come back if the problem happens again.": "¿Descartar todas las alertas? Vuelven si el problema ocurre de nuevo.",
+  "Last: {when}": "Última: {when}",
+  "Needs attention": "Requiere atención",
+  "Nothing needs attention.": "Nada requiere atención.",
+  "Problem: {problem}": "Problema: {problem}",
+  "Sign in again.": "Vuelve a iniciar sesión.",
+  "The context a new conversation starts with is large.": "El contexto con el que empieza una conversación nueva es grande.",
+  "What keeps failing, needs signing in again, or the health check found": "Lo que sigue fallando, necesita volver a iniciar sesión o encontró el chequeo de salud"
 }
