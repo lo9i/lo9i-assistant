@@ -40,10 +40,16 @@ It downloads the assistant into `~/lo9i-assistant`, installs uv and the dependen
 ## Setup from a checkout
 
 ```bash
-./install.sh            # or: cp .env.example .env, fill it in, then scripts/run.sh
+git clone https://github.com/lo9i/lo9i-assistant.git
+cd lo9i-assistant
+scripts/run.sh
 ```
 
-`scripts/run.sh` builds the web app, then opens the terminal app, which starts the daemon. The daemon keeps running after the terminal app closes. Its log is `~/.lo9i/logs/daemon.log` (Logs in the web app, `/logs` in the terminal app); a crash before logging starts is in `~/.lo9i/logs/output.log`, shown there as `output`.
+The first run installs what's missing and asks for your model provider and its key. After that, `scripts/run.sh` opens the terminal app, building the web app first only when its code changed. The terminal app starts the daemon if it isn't running, and the daemon keeps running after the app closes, so the web app stays up at http://127.0.0.1:8765/app/.
+
+`scripts/run.sh` never restarts a running daemon. After pulling or changing code, run `scripts/restart.sh`, which restarts it once no reply is in progress.
+
+The daemon's log is `~/.lo9i/logs/daemon.log` (Logs in the web app, `/logs` in the terminal app). A crash before logging starts is in `~/.lo9i/logs/output.log`, shown there as `output`.
 
 The model provider is set in the app (`/model`, or Settings → General → Model), which tests the key before saving, or in `.env`. The app's setting wins:
 

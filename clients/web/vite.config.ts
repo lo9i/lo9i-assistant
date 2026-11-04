@@ -6,6 +6,10 @@ const DAEMON = "http://127.0.0.1:8765";
 
 export default defineConfig({
   plugins: [sveltekit()],
+  build: {
+    // The time goes in SvelteKit's own plugins, so the report that says so has nothing to act on.
+    rolldownOptions: { checks: { pluginTimings: false } },
+  },
   server: {
     proxy: {
       "^/(?!app(/|$)).*": { target: DAEMON, changeOrigin: true },

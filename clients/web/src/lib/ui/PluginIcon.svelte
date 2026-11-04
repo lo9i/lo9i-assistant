@@ -1,8 +1,7 @@
 <script lang="ts">
-  import PanelsTopLeft from "@lucide/svelte/icons/panels-top-left";
   import type { Component } from "svelte";
   import type { PluginIcon } from "$lib/api/types";
-  import { lucideIcon, svgUrl } from "$lib/pluginIcons";
+  import { genericIcon as Generic, lucideIcon, svgUrl } from "$lib/pluginIcons";
 
   // A plugin's icon: its Lucide icon, loaded when first shown, or its own SVG, only ever as an image or as a mask
   // (one drawn in currentColor, painted in the text colour like the app's icons). Without one, the generic icon.
@@ -27,7 +26,7 @@
   {@const Named = named}
   <Named {size} />
 {:else}
-  <PanelsTopLeft {size} />
+  <Generic {size} />
 {/if}
 
 <style>

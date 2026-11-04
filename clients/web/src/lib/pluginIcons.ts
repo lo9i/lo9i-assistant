@@ -1,11 +1,23 @@
 // Plugins' icons (src/assistant/core/repositories/icons.py): a Lucide icon by name, or the plugin's own SVG.
+import PanelsTopLeft from "@lucide/svelte/icons/panels-top-left";
 import type { Component } from "svelte";
 import type { McpServerStatus, PluginIcon } from "./api/types";
 
 // Every Lucide icon, each its own small file, loaded the first time a plugin's icon names it, so naming any
 // of them costs the app nothing until it's shown.
 const ICONS = "/node_modules/@lucide/svelte/dist/icons/";
-const lucide = import.meta.glob<{ default: Component }>("/node_modules/@lucide/svelte/dist/icons/*.svelte");
+type LoadIcon = () => Promise<{ default: Component }>;
+
+/** The icon of a plugin without one. It shows at once, so it's in the app; a dynamic import of it would do nothing. */
+export const genericIcon: Component = PanelsTopLeft;
+
+const lucide: Record<string, LoadIcon> = {
+  ...import.meta.glob<{ default: Component }>([
+    "/node_modules/@lucide/svelte/dist/icons/*.svelte",
+    "!/node_modules/@lucide/svelte/dist/icons/panels-top-left.svelte",
+  ]),
+  [`${ICONS}panels-top-left.svelte`]: async () => ({ default: genericIcon }),
+};
 
 /** The Lucide icon with this name, or null for a name it doesn't have. */
 export async function lucideIcon(name: string): Promise<Component | null> {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import daemon from "../../../../src/assistant/core/repositories/lucide_icons.json";
-import { lucideIcon, lucideNames, svgUrl } from "./pluginIcons";
+import { genericIcon, lucideIcon, lucideNames, svgUrl } from "./pluginIcons";
 
 describe("plugins' icons", () => {
   it("names the same Lucide icons the daemon checks plugins against", () => {
@@ -11,6 +11,10 @@ describe("plugins' icons", () => {
   it("loads a Lucide icon by name, and nothing for a name it doesn't have", async () => {
     expect(await lucideIcon("tv")).toBeTypeOf("function");
     expect(await lucideIcon("not-an-icon")).toBeNull();
+  });
+
+  it("gives the generic icon by its name too, as it's the one Lucide icon the app holds already", async () => {
+    expect(await lucideIcon("panels-top-left")).toBe(genericIcon);
   });
 
   it("gives an SVG as a data URL, whatever its characters", () => {

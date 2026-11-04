@@ -159,7 +159,7 @@ next_steps() {
   say ""
   if has_systemd; then
     say "The assistant is running. Log: ~/.lo9i/logs/daemon.log (Logs in the web app, /logs in the terminal app)"
-    say "Chat in the terminal:  cd $PWD && uv run --package assistant-terminal assistant"
+    say "Chat in the terminal:  cd $PWD && scripts/run.sh"
   else
     say "Installed. Start it (this opens the chat, and the daemon keeps running after it):"
     say "  cd $PWD && scripts/run.sh"
