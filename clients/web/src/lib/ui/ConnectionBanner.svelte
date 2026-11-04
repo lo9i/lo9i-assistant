@@ -96,7 +96,7 @@
   </button>
 {/snippet}
 
-{#if shown === dismissed}
+{#if shown && shown === dismissed}
   <button class="tag" class:fresh={!coming && connection.current !== "lost"} title={t("banner.tag.show")} onclick={() => (dismissed = "")}>
     {#if connection.current === "lost"}
       <span class="spin"><LoaderCircle size={12} /></span>{t("banner.reconnecting")}
