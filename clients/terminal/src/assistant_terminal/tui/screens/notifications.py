@@ -85,7 +85,8 @@ class NotificationsScreen(ModalScreen[str | None]):
         await self._select(keep)
 
     async def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
-        if event.option.id is not None:
+        """Only for one the list still shows: a highlight can come in after Dismiss built the list again."""
+        if event.option.id in self._shown:
             await self._select(event.option.id)
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:

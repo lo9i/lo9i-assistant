@@ -1,12 +1,26 @@
 """The /conversations dialog: moving through the list with the keys or clicks, previewing, and resuming."""
 
+import asyncio
+
 from textual.widgets import Input, Markdown, OptionList
+from textual.widgets.option_list import Option
 
 from assistant.core.agent import Conversation, ShownCall, ShownMessage, ShownStep
 from assistant_terminal.tui.screens import ConversationsScreen
 from tests.terminal.conftest import wait_for
 
 _AT = "2030-01-01T09:00:00+00:00"
+
+
+def _slow(api, *names: str) -> None:
+    for name in names:
+        answer = getattr(api, name)
+
+        async def later(*args, _answer=answer):
+            await asyncio.sleep(0.03)
+            return await _answer(*args)
+
+        setattr(api, name, later)
 
 
 async def test_arrows_and_clicks_show_a_conversation_and_enter_resumes(app, client):
@@ -208,3 +222,26 @@ async def test_search_finds_by_title_at_once_and_by_what_was_said(app, client):
         await wait_for(pilot, lambda: options.option_count == 0 and "No conversations match." in body.source)
         await pilot.press(*["backspace"] * 8, "enter")
         await wait_for(pilot, lambda: options.option_count == 2 and app.focused is options)
+
+
+async def test_typing_fast_in_the_search_never_shows_a_conversation_the_list_dropped(app, client):
+    titles = ("lo9i notifications", "lo9i tool", "lo9i-tool search", "Trip", "Taxes")
+    client.conversations.items = [Conversation(f"owner:{n}", title, _AT, _AT) for n, title in enumerate(titles)]
+    client.conversations.said = {f"owner:{n}": [ShownMessage("user", title)] for n, title in enumerate(titles)}
+    _slow(client.conversations, "messages", "containing")  # as the daemon: answers come while typing goes on
+    async with app.run_test() as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/conversations", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
+        screen, options = app.screen, app.screen.query_one(OptionList)
+        await pilot.click("#conversations-search")
+        await pilot.press(*"lo9i-tool")
+        await wait_for(pilot, lambda: options.option_count == 1)
+        body = screen.query_one("#conversation-body", Markdown)
+        await wait_for(pilot, lambda: "lo9i-tool search" in body.source)
+        # What typing fast leaves behind: the highlight of a list built for an earlier letter, handled after the
+        # list was built again for the next one.
+        screen.post_message(OptionList.OptionHighlighted(options, Option("", id="owner:3"), 0))
+        await pilot.pause(0.2)
+        assert app.screen is screen and app.return_code is None
+        assert "lo9i-tool search" in body.source

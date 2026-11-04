@@ -130,7 +130,9 @@ class ConversationsScreen(ModalScreen[str | None]):
 
     @reports_daemon_unavailable
     async def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
-        if event.option.id is not None:
+        """Only for one the list still shows: typing in the search builds it again for each letter, so a highlight
+        can come in after the list it was made in."""
+        if event.option.id in self._shown:
             await self._show(event.option.id)
 
     def _label(self, conversation: Conversation) -> str:
@@ -205,4 +207,5 @@ class ConversationsScreen(ModalScreen[str | None]):
         delete.disabled = current
         delete.tooltip = t("You're on this conversation: /clear first, then delete it.") if current else None
         messages = await self._conversations.messages(thread_id)
-        await self.query_one("#conversation-body", Markdown).update(preview(conversation, messages))
+        if self._selected == thread_id:  # not one picked before it, whose messages came later
+            await self.query_one("#conversation-body", Markdown).update(preview(conversation, messages))
