@@ -557,14 +557,9 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     border: none;
 }
 
-/* Each conversation's title over when it was last written in. */
-#conversations-list {
-    width: 36;
-}
-
-/* Things that happened at a time are listed only by when, on one line: "• Wed 30 Sep 09:00". */
-#notifications-list {
-    width: 22;
+/* Listed only by when, on one line: "Wed 30 Sep 09:00". */
+#conversations-list, #notifications-list {
+    width: 20;
 }
 
 /* Each one's status, time and task. */

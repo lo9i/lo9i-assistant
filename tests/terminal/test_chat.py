@@ -156,13 +156,13 @@ async def test_sending_a_message_takes_the_list_away(app, client):
         assert not app.query(SystemNote)
 
 
-async def test_conversations_list_titles_and_open_one(app, client):
+async def test_conversations_show_the_title_of_the_one_picked(app, client):
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.click("#prompt")
         await pilot.press(*"/conversations", "enter")
         await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
-        options = app.screen.query_one("#conversations-list")
-        assert "plan my trip" in str(options.get_option_at_index(0).prompt)
+        body = app.screen.query_one("#conversation-body", Markdown)
+        await wait_for(pilot, lambda: "plan my trip" in body.source)
 
 
 async def test_a_notification_opens_the_conversation_its_work_started_in(app, client):

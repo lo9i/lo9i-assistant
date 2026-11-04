@@ -23,11 +23,10 @@ async def _open(app, pilot) -> PagedOptionList:
 
 async def test_each_notification_is_listed_by_when_it_came_on_one_line(app, client):
     client.notifications.items[0] = replace(client.notifications.items[0], text=_LONG)
-    client.notifications.items[1] = replace(client.notifications.items[1], read=True)
     async with app.run_test(size=(120, 40)) as pilot:
         options = await _open(app, pilot)
         await pilot.pause()
-        assert [options.render_line(y).text.strip() for y in range(3)] == ["• Tue 01 Jan 09:00", "Tue 01 Jan 09:00", ""]
+        assert [options.render_line(y).text.strip() for y in range(3)] == ["Tue 01 Jan 09:00", "Tue 01 Jan 09:00", ""]
         detail = app.screen.query_one("#notifications-detail")
         assert detail.region.x > options.region.right  # beside the list, not below it
 

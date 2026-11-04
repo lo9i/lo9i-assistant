@@ -1,4 +1,5 @@
-"""The conversations, newest activity first, the inbox among them: pick one to see how it ended, then open,
+"""The conversations, newest activity first, the inbox among them, each listed only by when it was last active, on
+one line: pick one to see its title and how it ended beside the list, then open,
 pin to Home (its Conversations card, `/home`) or delete it. Returns the chosen conversation's thread id, or None.
 The conversation this app is on can't be deleted from here: /clear moves off it first."""
 
@@ -14,7 +15,7 @@ from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import ConversationsApi, HomeApi
 from assistant.core.agent import Conversation, ConversationError, HomePinError
-from assistant_terminal.conversations_text import listed_title, preview, when
+from assistant_terminal.conversations_text import preview, when
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
@@ -84,8 +85,8 @@ class ConversationsScreen(ModalScreen[str | None]):
             await self._show(event.option.id)
 
     def _label(self, conversation: Conversation) -> str:
-        pinned = " 📌" if conversation.thread_id in self._pinned else ""
-        return f"{listed_title(conversation)}{pinned}\n{when(conversation)}"
+        """When it was last active; its title heads the preview beside the list."""
+        return when(conversation)
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         """Enter resumes only from the list; on a button it presses the button. P pins only from the list, so it

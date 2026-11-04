@@ -141,9 +141,8 @@ class NotificationsScreen(ModalScreen[str | None]):
 
 
 def _row(notification: Notification) -> str:
-    """When it came, a dot before it while it's unread; what it's about shows beside the list."""
-    unread = "• " if not notification.read else "  "
-    return f"{unread}{notified_at(notification)}"
+    """When it came; what it's about shows beside the list."""
+    return notified_at(notification)
 
 
 def _detail(notification: Notification) -> str:

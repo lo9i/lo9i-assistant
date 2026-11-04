@@ -17,11 +17,11 @@ async def test_arrows_and_clicks_show_a_conversation_and_enter_resumes(app, clie
         await pilot.press(*"/conversations", "enter")
         await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
         options = app.screen.query_one(OptionList)
-        assert str(options.get_option_at_index(0).prompt) == "trip abc\nTue 01 Jan 09:00"
+        assert str(options.get_option_at_index(0).prompt) == "Tue 01 Jan 09:00"
         await pilot.press("down")
         body = app.screen.query_one("#conversation-body", Markdown)
         await wait_for(pilot, lambda: options.highlighted == 1 and "book the hotel" in body.source)
-        await pilot.click(options, offset=(2, 4))  # the third (two lines each): shown, not resumed
+        await pilot.click(options, offset=(2, 2))  # the third (a line each): shown, not resumed
         await wait_for(pilot, lambda: options.highlighted == 2)
         assert isinstance(app.screen, ConversationsScreen)
         await pilot.press("up", "enter")
@@ -182,7 +182,7 @@ async def test_a_conversation_is_pinned_to_home_and_unpinned_from_the_list_but_n
         await pilot.press("p")
         await wait_for(pilot, lambda: client.home.pinned == ["owner:trip"])
         await client.bus.put(("home", {}))  # as the daemon announces the pin
-        await wait_for(pilot, lambda: "📌" in str(options.get_option_at_index(1).prompt))
+        assert str(options.get_option_at_index(1).prompt) == "Tue 01 Jan 09:00"
         await wait_for(pilot, lambda: str(pin.label) == "Unpin from Home")
         pin.press()
         await wait_for(pilot, lambda: client.home.pinned == [])
