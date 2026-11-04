@@ -51,3 +51,24 @@ async def test_a_file_is_deleted_once_confirmed(app, client):
         await pilot.press("y")
         await wait_for(pilot, lambda: "chart.png" in screen.query_one("#file-body", Markdown).source)
         assert [f.name for f in client.files.items] == ["chart.png"]
+
+
+async def test_a_double_click_opens_the_file_and_one_click_only_picks_it(app, client, tmp_path, monkeypatch):
+    from pathlib import Path
+
+    from assistant_terminal.tui.screens import files
+
+    opened: list[str] = []
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(files.webbrowser, "open", lambda uri: opened.append(uri) or True)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/files", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, FilesScreen))
+        screen = app.screen
+        await wait_for(pilot, lambda: "notes.txt" in screen.query_one("#file-body", Markdown).source)
+        await pilot.click("#files-list", offset=(2, 1))
+        await wait_for(pilot, lambda: "chart.png" in screen.query_one("#file-body", Markdown).source)
+        assert opened == []
+        await pilot.double_click("#files-list", offset=(2, 1))
+        await wait_for(pilot, lambda: opened == [(tmp_path / "Downloads" / "chart.png").as_uri()])

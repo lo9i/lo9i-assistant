@@ -7,7 +7,7 @@ import webbrowser
 from pathlib import Path
 from typing import ClassVar
 
-from textual import on, work
+from textual import events, on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -79,6 +79,14 @@ class FilesScreen(PageScreen[None]):
         if event.option.id in self._shown:
             self._selected = event.option.id
             await self._body(describe(self._shown[event.option.id]))
+
+    @on(events.Click, "#files-list")
+    async def _open_on_double_click(self, event: events.Click) -> None:
+        """A double click opens the file clicked, as Open does; one click only picks it."""
+        option = self.query_one("#files-list", OptionList).highlighted_option
+        if event.chain == 2 and option is not None and option.id in self._shown:
+            self._selected = option.id
+            await self._open()
 
     @on(Button.Pressed, "#close")
     def _close(self) -> None:
