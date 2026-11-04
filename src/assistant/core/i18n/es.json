@@ -8,7 +8,7 @@
   "Couldn't check it again: {error}": "No se pudo volver a consultar: {error}",
   "Plan: {plan}": "Plan: {plan}",
   "Chat: {left}": "Chat: {left}",
-  "Resets": "Se renueva",
+  "Renews on {day}": "Se renueva el {day}",
   "the new conversation": "la conversación nueva",
   "{credits} credits used": "{credits} créditos usados",
   "Premium requests: {left}": "Solicitudes premium: {left}",

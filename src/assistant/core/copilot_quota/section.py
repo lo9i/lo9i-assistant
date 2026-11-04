@@ -1,6 +1,7 @@
 """Home's Copilot card, built by code from the last check (core/home/coded.py): the plan, the premium requests
 left, the credits used and when they reset. No model call, so it shows when the model is out of quota too."""
 
+import datetime as dt
 from collections.abc import Callable
 
 from langgraph.store.base import BaseStore
@@ -38,7 +39,8 @@ def items(t: Texts, quota: CopilotQuota) -> list[HomeItem]:
     if quota.chat and not quota.chat.unlimited:
         shown.append(HomeItem(title=t("Chat: {left}", left=_left(t, quota.chat))))
     if quota.reset_date:
-        shown.append(HomeItem(title=t("Resets"), date=quota.reset_date))
+        day = t.day(dt.date.fromisoformat(quota.reset_date))
+        shown.append(HomeItem(title=t("Renews on {day}", day=day)))
     return shown
 
 

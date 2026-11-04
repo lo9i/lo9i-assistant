@@ -115,7 +115,7 @@ def test_the_card_shows_the_plan_whats_left_credits_and_reset():
     assert [(i.title, i.subtitle, i.date) for i in limited] == [
         ("Plan: business", "", ""),
         ("Premium requests: 15% left (45 of 300)", "2,361 credits used", ""),
-        ("Resets", "", "2026-11-01"),
+        ("Renews on Sun 01 Nov", "", ""),
     ]
     unlimited = items(texts("en"), parse(_report(_snapshot(unlimited=True, credits_used=2361))))
     assert unlimited[1].title == "Premium requests: Unlimited"
