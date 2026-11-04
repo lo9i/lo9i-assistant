@@ -1,4 +1,4 @@
-"""The /notifications screen, laid out as /conversations: each listed by what it's about over when it came, and the
+"""The /notifications screen, laid out as /conversations: each listed only by when it came, on one line, and the
 whole of the one picked beside the list."""
 
 from dataclasses import replace
@@ -21,14 +21,13 @@ async def _open(app, pilot) -> PagedOptionList:
     return options
 
 
-async def test_each_notification_is_listed_by_what_its_about_over_when_it_came(app, client):
+async def test_each_notification_is_listed_by_when_it_came_on_one_line(app, client):
     client.notifications.items[0] = replace(client.notifications.items[0], text=_LONG)
+    client.notifications.items[1] = replace(client.notifications.items[1], read=True)
     async with app.run_test(size=(120, 40)) as pilot:
         options = await _open(app, pilot)
         await pilot.pause()
-        lines = [options.render_line(y).text.strip() for y in range(4)]
-        assert "plan my trip" in lines[0] and "the end." not in " ".join(lines)
-        assert any("Job daily-news" in line for line in lines[1:])
+        assert [options.render_line(y).text.strip() for y in range(3)] == ["• Tue 01 Jan 09:00", "Tue 01 Jan 09:00", ""]
         detail = app.screen.query_one("#notifications-detail")
         assert detail.region.x > options.region.right  # beside the list, not below it
 

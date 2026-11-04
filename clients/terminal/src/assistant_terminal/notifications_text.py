@@ -17,8 +17,3 @@ def notification_line(notification: Notification) -> str:
 def notified_at(notification: Notification) -> str:
     """When it came, in the user's timezone: "Wed 30 Sep 09:00", the same width for every one."""
     return short_date(datetime.fromisoformat(notification.at).astimezone(ZoneInfo(settings.timezone)))
-
-
-def one_line(text: str) -> str:
-    """`text` with its line breaks and runs of spaces as single spaces, for a row of a list."""
-    return " ".join(text.split())

@@ -1,6 +1,6 @@
 """The notifications feed: scheduled jobs' results, background work that ended and health checks, newest first,
-each listed by what it's about over when it came, with the whole of the one picked beside the list, as
-/conversations lays them out.
+each listed only by when it came, on one line, with the whole of the one picked (what it's about, all it says)
+beside the list, as /conversations lays them out.
 Enter (or Open) goes to the conversation the work was started in, when it has one, opens a job's run in /jobs with
 its whole reply, or a health check in /doctor; Dismiss and Clear remove them. Returns the conversation's thread id
 to open, or None. Opening the screen marks them read."""
@@ -18,7 +18,7 @@ from textual.widgets.option_list import Option
 from assistant.client.daemon_client import DoctorApi, JobsApi, NotificationsApi, ProactiveApi
 from assistant.core.agent import Notification
 from assistant_terminal.i18n import t, translatable
-from assistant_terminal.notifications_text import notified_at, one_line
+from assistant_terminal.notifications_text import notified_at
 from assistant_terminal.paging import Pages
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.paged_list import PagedOptionList
@@ -141,9 +141,9 @@ class NotificationsScreen(ModalScreen[str | None]):
 
 
 def _row(notification: Notification) -> str:
-    """What it's about over when it came, a dot before it while it's unread."""
-    unread = "• " if not notification.read else ""
-    return f"{unread}{one_line(notification.title)}\n{notified_at(notification)}"
+    """When it came, a dot before it while it's unread; what it's about shows beside the list."""
+    unread = "• " if not notification.read else "  "
+    return f"{unread}{notified_at(notification)}"
 
 
 def _detail(notification: Notification) -> str:
