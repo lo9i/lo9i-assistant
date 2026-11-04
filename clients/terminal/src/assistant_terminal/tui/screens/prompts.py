@@ -12,7 +12,6 @@ from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
-from textual.screen import ModalScreen
 from textual.widgets import Button, OptionList, Static, TextArea
 from textual.widgets.option_list import Option
 
@@ -20,10 +19,12 @@ from assistant.client.daemon_client import PromptsApi
 from assistant.core.agent import PromptEditError, PromptSection, UnknownPromptError
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 
-class PromptsScreen(ModalScreen[None]):
+class PromptsScreen(PageScreen[None]):
+    PAGE = "prompt"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "close", translatable("Close"))]
     # The daemon events that change what it shows (AssistantApp.reload_screen).
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"prompts"})
@@ -36,7 +37,7 @@ class PromptsScreen(ModalScreen[None]):
         # What was typed and not saved, by text.
         self._drafts: dict[str, str] = {}
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="prompts"):
             yield Static(t("System prompt"), id="prompts-title")
             with Horizontal(id="prompts-main"):

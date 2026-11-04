@@ -13,7 +13,6 @@ from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
@@ -43,6 +42,7 @@ from assistant_terminal.plugins_text import (
 )
 from assistant_terminal.tui.channel_setup import ChannelSetup
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen, ConfirmWithOptionScreen
 from assistant_terminal.tui.screens.email import EmailScreen
 from assistant_terminal.tui.screens.kept_keys import ask_about_keys
@@ -56,7 +56,8 @@ from assistant_terminal.tui.screens.update_values import UpdateValuesScreen
 _CATEGORY = "category:"
 
 
-class PluginsScreen(ModalScreen[None]):
+class PluginsScreen(PageScreen[None]):
+    PAGE = "plugins"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     # The daemon events that change what it shows (AssistantApp.reload_screen): a check that found something new
     # or kept keys (`plugins`), MCP servers installed or removed (`mcp`), skills installed or removed (`skills`), a
@@ -85,7 +86,7 @@ class PluginsScreen(ModalScreen[None]):
         # Installed plugins with fields of their own, as installed: the ones Settings opens for.
         self._with_settings: set[str] = set()
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="plugins"):
             yield Static(
                 t("Plugins: MCP servers, chat channels and skills from the official extras and your repositories"),
@@ -107,7 +108,7 @@ class PluginsScreen(ModalScreen[None]):
                 yield Button(t("Remove"), variant="error", id="remove")
                 yield Button(t("Accounts"), id="email-accounts")
                 yield Button(t("Sign in"), id="plugin-sign-in")
-                yield Button(t("Repositories"), id="repositories")
+                yield Button(t("Repositories"), id="manage-repositories")
                 yield Button(t("Refresh"), id="refresh")
                 yield Button(t("Daily update checks"), id="checks")
                 yield Button(t("Close"), id="close")
@@ -162,7 +163,7 @@ class PluginsScreen(ModalScreen[None]):
         line = checked_line(self._checked, checking, failed, datetime.now(UTC))
         self.query_one("#plugins-checked", Static).update(line)
 
-    @on(Button.Pressed, "#repositories")
+    @on(Button.Pressed, "#manage-repositories")
     @work
     async def _manage_repositories(self) -> None:
         await self.app.push_screen_wait(RepositoriesScreen(self._repositories))

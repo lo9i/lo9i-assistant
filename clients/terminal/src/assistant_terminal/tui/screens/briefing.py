@@ -9,7 +9,6 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Markdown, OptionList, Select, Static, Switch
 from textual.widgets.option_list import Option
 
@@ -18,6 +17,7 @@ from assistant.core.agent import ProactivePage, ProactiveSettings
 from assistant_terminal.briefing_text import describe_loop, loop_line, overview
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 
 _OVERVIEW = "overview"
 _SETTINGS = "settings"
@@ -40,7 +40,8 @@ _DAYS = (
 )
 
 
-class BriefingScreen(ModalScreen[None]):
+class BriefingScreen(PageScreen[None]):
+    PAGE = "briefing"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"proactive"})
 
@@ -50,7 +51,7 @@ class BriefingScreen(ModalScreen[None]):
         self._page: ProactivePage | None = None
         self._selected = _OVERVIEW
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="briefing"):
             yield Static(t("Briefing"), id="briefing-title")
             with Horizontal(id="briefing-main"):

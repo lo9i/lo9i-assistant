@@ -6,8 +6,59 @@ Screen {
     layout: vertical;
 }
 
+#body {
+    height: 1fr;
+}
+
+#chat-column {
+    width: 1fr;
+}
+
 #main {
     height: 1fr;
+}
+
+/* The navigation on the left of the chat and of every page; collapsed (F4), each page's glyph. Its lines are one
+   each, cut to its width: an open conversation's title can be long. */
+Sidebar {
+    width: 26;
+    height: 1fr;
+    padding: 0 1;
+    border: none;
+    border-right: solid ansi_bright_black;
+    background: transparent;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+}
+
+Sidebar:focus {
+    border: none;
+    border-right: solid ansi_bright_black;
+}
+
+Sidebar.collapsed {
+    width: 5;
+}
+
+/* A page fills the room beside the sidebar: what was a dialog's panel (its border, width and background) gives way. */
+#page-row {
+    height: 1fr;
+}
+
+#page-body {
+    width: 1fr;
+    height: 1fr;
+}
+
+#page-row > #page-body > * {
+    width: 1fr;
+    height: 1fr;
+    max-width: 100%;
+    max-height: 100%;
+    margin: 0;
+    border: none;
+    background: transparent;
+    padding: 1 2;
 }
 
 #chat {
@@ -216,7 +267,7 @@ ProfileScreen, WebSearchScreen, EmailScreen, EmailRecipientsScreen, ChannelSetup
 }
 
 /* Dialogs already have top padding; a heading's default top margin would add two more empty rows. */
-ModalScreen Markdown > MarkdownHeader:first-child {
+ModalScreen Markdown > MarkdownHeader:first-child, PageScreen Markdown > MarkdownHeader:first-child {
     margin-top: 0;
 }
 
@@ -477,7 +528,7 @@ Button.-error {
     color: ansi_red;
 }
 
-ModalScreen Input, ModalScreen OptionList, ModalScreen MarkdownHeader {
+ModalScreen Input, ModalScreen OptionList, ModalScreen MarkdownHeader, PageScreen Input, PageScreen OptionList, PageScreen MarkdownHeader {
     background: transparent;
 }
 

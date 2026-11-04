@@ -7,7 +7,6 @@ from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
@@ -16,12 +15,14 @@ from assistant.core.agent import Skill, SkillError, SkillSummary
 from assistant_terminal.health_text import failures_line, label
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 from assistant_terminal.tui.screens.kept_keys import ask_about_keys
 from assistant_terminal.tui.screens.skill_edit import SkillEditScreen
 
 
-class SkillsScreen(ModalScreen[None]):
+class SkillsScreen(PageScreen[None]):
+    PAGE = "skills"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"skills"})
 
@@ -35,7 +36,7 @@ class SkillsScreen(ModalScreen[None]):
         self._selected: str | None = None
         self._skill: Skill | None = None
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="skills"):
             yield Static(t("Skills"), id="skills-title")
             yield Static(

@@ -1061,5 +1061,21 @@
   "Update {name}": "Actualizar {name}",
   "Updating…": "Actualizando…",
   "{name} needs {field}.": "{name} necesita {field}.",
-  "Its new version asks for something it wasn't given when it was installed.": "Su nueva versión pide algo que no se le dio al instalarlo."
+  "Its new version asks for something it wasn't given when it was installed.": "Su nueva versión pide algo que no se le dio al instalarlo.",
+  "Auto": "Automático",
+  "Clients": "Clientes",
+  "F4 collapse or expand the sidebar": "F4 contrae o expande la barra lateral",
+  "F5 move to the sidebar and back": "F5 va a la barra lateral y vuelve",
+  "Health": "Salud",
+  "Jobs": "Programadas",
+  "Language": "Idioma",
+  "Logs": "Logs",
+  "Navigate": "Navegar",
+  "Plugins": "Plugins",
+  "Sidebar": "Barra lateral",
+  "Start at boot": "Inicio con el sistema",
+  "Subagents": "Subagentes",
+  "System": "Sistema",
+  "The language of the apps' own text, in every app. Auto follows each browser's language, and is English where there's no browser. The assistant replies in the language you write.": "El idioma del texto propio de las apps, en todas. Automático sigue el idioma de cada navegador, y es inglés donde no hay navegador. El asistente responde en el idioma en que escribes.",
+  "Usage": "Uso"
 }

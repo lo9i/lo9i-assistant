@@ -7,17 +7,18 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
-from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Markdown
 
 from assistant.client.daemon_client import WebSearchApi
 from assistant.core.agent import InvalidSearchKeyError, WebSearchStatus
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.web_search_text import describe
 
 
-class WebSearchScreen(ModalScreen[None]):
+class WebSearchScreen(PageScreen[None]):
+    PAGE = "websearch"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"settings"})
 
@@ -26,7 +27,7 @@ class WebSearchScreen(ModalScreen[None]):
         self._web_search = web_search
         self._error = ""
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="web-search"):
             yield Markdown(id="web-search-body")
             yield Input(placeholder=t("Brave Search API key"), password=True, id="web-search-key")

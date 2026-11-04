@@ -12,7 +12,6 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
-from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Markdown, Select
 
 from assistant.client.daemon_client import ModelApi
@@ -20,9 +19,11 @@ from assistant.core.agent import ModelProvider, ModelSettingsError, ModelStatus,
 from assistant.core.conversation.dispatch_setting import DispatchSetting, DispatchSettingError
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 
 
-class ModelScreen(ModalScreen[None]):
+class ModelScreen(PageScreen[None]):
+    PAGE = "model"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"settings"})
 
@@ -35,7 +36,7 @@ class ModelScreen(ModalScreen[None]):
         # The shown provider's field inputs, by field key: a list to pick from for a field with options.
         self._inputs: dict[str, Input | Select[str]] = {}
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="model"):
             yield Markdown(id="model-body")
             yield Select[str]([], prompt=t("Provider"), id="model-provider")

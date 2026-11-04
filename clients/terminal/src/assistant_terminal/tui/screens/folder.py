@@ -15,7 +15,6 @@ from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, OptionList, Static, Tree
 from textual.widgets.option_list import Option
 from textual.widgets.tree import TreeNode
@@ -33,6 +32,7 @@ from assistant.core.agent import (
 from assistant_terminal.folder_text import CHANGES, WHOLE_FILE, ChangeMarks, change_label, entry_label
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 _PICK = translatable("Pick a file to see it here.")
@@ -42,7 +42,7 @@ _TRUNCATED = translatable("Too big to show whole: this is its start.")
 _THEME = "ansi_dark"
 
 
-class FolderScreen(ModalScreen[None]):
+class FolderScreen(PageScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding("escape", "dismiss", translatable("Close")),
         Binding("r", "reload", translatable("Refresh")),
@@ -61,7 +61,7 @@ class FolderScreen(ModalScreen[None]):
         self._view = "text"
         self._deleting = False
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="folder"):
             yield Static(self._title, id="folder-title", markup=False)
             with Horizontal(id="folder-main"):

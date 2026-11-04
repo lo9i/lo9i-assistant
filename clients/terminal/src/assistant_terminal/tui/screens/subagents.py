@@ -11,7 +11,7 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen, Screen
+from textual.screen import Screen
 from textual.widgets import Button, OptionList, Static
 from textual.widgets.option_list import Option
 
@@ -20,9 +20,11 @@ from assistant.core.agent import BackgroundSubagent, SubagentError
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.subagents_text import conversation_titles, subagent_detail, subagent_line
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 
 
-class SubagentsScreen(ModalScreen[str | None]):
+class SubagentsScreen(PageScreen[str | None]):
+    PAGE = "subagents"
     """Dismissed with the id of the conversation to open, or None."""
 
     BINDINGS: ClassVar[list[BindingType]] = [
@@ -50,7 +52,7 @@ class SubagentsScreen(ModalScreen[str | None]):
         self._shown: dict[str, BackgroundSubagent] = {}
         self._selected: str | None = None
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="subagents"):
             yield Static(id="subagents-title")
             yield Static(id="subagents-empty")

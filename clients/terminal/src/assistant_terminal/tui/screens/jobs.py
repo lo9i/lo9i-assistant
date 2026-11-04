@@ -9,7 +9,6 @@ from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
@@ -18,10 +17,12 @@ from assistant.core.agent import Job, JobError
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.jobs_text import describe, with_reply
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 
-class JobsScreen(ModalScreen[None]):
+class JobsScreen(PageScreen[None]):
+    PAGE = "jobs"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"jobs"})
 
@@ -33,7 +34,7 @@ class JobsScreen(ModalScreen[None]):
         # The run whose whole reply shows, by when it started.
         self._run = run
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="jobs"):
             yield Static(t("Scheduled jobs"), id="jobs-title")
             yield Static(

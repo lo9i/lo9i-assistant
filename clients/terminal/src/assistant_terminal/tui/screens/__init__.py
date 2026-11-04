@@ -1,7 +1,7 @@
-"""Modal screens opened from the chat: setup (the model, audio, web search, chat channels, email, MCP
-servers, start at boot), browsing (plugins, skills, jobs, files, usage, the daemon's log, connected
-clients, notifications, the health check), the About you step, the profile, the system prompt texts,
-approvals, questions and the folder an agent works in."""
+"""The app's pages (page.py) and the dialogs opened from them and from the chat: setup (the model, audio, web
+search, chat channels, email, MCP servers, start at boot), browsing (plugins, skills, jobs, files, usage, the
+daemon's log, connected clients, notifications, the health check), the About you step, the profile, the system
+prompt texts, approvals, questions and the folder an agent works in."""
 
 from assistant_terminal.tui.screens.about_you import AboutYouScreen, SuggestedPluginsScreen
 from assistant_terminal.tui.screens.agent_folder import AgentFolderScreen
@@ -22,6 +22,7 @@ from assistant_terminal.tui.screens.home import HomeScreen
 from assistant_terminal.tui.screens.host import HostScreen
 from assistant_terminal.tui.screens.jobs import JobsScreen
 from assistant_terminal.tui.screens.kept_keys_list import KeptKeysListScreen
+from assistant_terminal.tui.screens.language import LanguageScreen
 from assistant_terminal.tui.screens.logs import LogsScreen
 from assistant_terminal.tui.screens.mcp import McpScreen
 from assistant_terminal.tui.screens.model import ModelScreen
@@ -63,6 +64,7 @@ __all__ = [
     "HostScreen",
     "JobsScreen",
     "KeptKeysListScreen",
+    "LanguageScreen",
     "LogsScreen",
     "McpScreen",
     "ModelScreen",

@@ -93,4 +93,5 @@ async def test_notifications_load_the_next_page_as_the_list_is_scrolled(app, cli
         await wait_for(pilot, lambda: options.option_count == 50)
         await pilot.press("end")
         await wait_for(pilot, lambda: options.option_count == 70)
-        assert client.notifications.pages[:2] == [(0, 50), (50, 50)]
+        paged = [page for page in client.notifications.pages if page[1] is not None]  # not the sidebar's unread count
+        assert paged[:2] == [(0, 50), (50, 50)]

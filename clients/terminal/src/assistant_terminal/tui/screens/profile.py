@@ -9,7 +9,6 @@ from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
-from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Markdown, OptionList, Select
 
 from assistant.client.daemon_client import MemoryApi
@@ -18,6 +17,7 @@ from assistant.core.memory.profile import MAX_ITEMS
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.profile_text import section_label
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 _ABOUT = translatable("Always in the assistant's mind. Changes apply from the next conversation.")
@@ -55,7 +55,8 @@ class _Saved:
             await self._memory.delete_episode(item_id)
 
 
-class ProfileScreen(ModalScreen[None]):
+class ProfileScreen(PageScreen[None]):
+    PAGE = "profile"
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding("escape", "dismiss", translatable("Close")),
         Binding("delete", "remove", translatable("Remove item")),
@@ -71,7 +72,7 @@ class ProfileScreen(ModalScreen[None]):
         self._editing: int | None = None
         self._message = ""
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="profile"):
             yield Markdown(id="profile-body")
             yield Select[str]([], prompt=t("Section"), id="profile-section")

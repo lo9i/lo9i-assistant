@@ -206,7 +206,7 @@ async def test_repositories_are_added_and_removed_and_their_plugins_listed(app, 
     async with app.run_test(size=(120, 44)) as pilot:
         screen = await _open(pilot, app)
         await wait_for(pilot, lambda: "Source: Official" in _body(screen))
-        screen.query_one("#repositories", Button).press()
+        screen.query_one("#manage-repositories", Button).press()
         await wait_for(pilot, lambda: isinstance(app.screen, RepositoriesScreen))
         repositories = app.screen
         listed = repositories.query_one("#repositories-list", OptionList)
@@ -238,7 +238,7 @@ async def test_a_private_repository_is_added_with_its_token(app, client):
     private = "https://github.com/me/private"
     async with app.run_test(size=(120, 44)) as pilot:
         screen = await _open(pilot, app)
-        screen.query_one("#repositories", Button).press()
+        screen.query_one("#manage-repositories", Button).press()
         await wait_for(pilot, lambda: isinstance(app.screen, RepositoriesScreen))
         repositories = app.screen
         token = repositories.query_one("#repository-token", Input)

@@ -7,23 +7,24 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown
 
 from assistant.client.daemon_client import UsageApi
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.usage_text import describe, start_of_today
 
 
-class UsageScreen(ModalScreen[None]):
+class UsageScreen(PageScreen[None]):
+    PAGE = "usage"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
 
     def __init__(self, usage: UsageApi) -> None:
         super().__init__()
         self._usage = usage
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="usage"):
             with VerticalScroll(id="usage-scroll"):
                 yield Markdown(id="usage-body")

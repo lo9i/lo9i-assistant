@@ -10,7 +10,6 @@ from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
-from textual.screen import ModalScreen
 from textual.widgets import Button, Label, RichLog, Select, Static, Switch
 
 from assistant.client.daemon_client import LogsApi
@@ -18,6 +17,7 @@ from assistant.core.logs import LogEntry, LogOptions, LogPage
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.logs_text import log_line
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 
 LINES = (50, 100, 200, 500)
 _DEFAULT_LINES = 100
@@ -38,14 +38,15 @@ def _level(level: str) -> str:
     return t(_LEVELS[level]) if level in _LEVELS else level.title()
 
 
-class LogsScreen(ModalScreen[None]):
+class LogsScreen(PageScreen[None]):
+    PAGE = "logs"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
 
     def __init__(self, logs: LogsApi) -> None:
         super().__init__()
         self._logs = logs
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="logs"):
             with Horizontal(id="logs-filters"):
                 # Until the daemon lists its files: the one it always has.

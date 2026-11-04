@@ -8,7 +8,6 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
-from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Markdown
 
 from assistant.client.daemon_client import UsageApi
@@ -17,16 +16,18 @@ from assistant.core.usage.limits import SpendingLimits, SpendingLimitsError
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.limits_text import LIMITS, NotAnAmountError, amount_of, describe
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 
 
-class SpendingLimitsScreen(ModalScreen[None]):
+class SpendingLimitsScreen(PageScreen[None]):
+    PAGE = "limits"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
 
     def __init__(self, usage: UsageApi) -> None:
         super().__init__()
         self._usage = usage
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="spending"):
             yield Markdown(id="spending-body")
             for kind, (_, label) in LIMITS.items():

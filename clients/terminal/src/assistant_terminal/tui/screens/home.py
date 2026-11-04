@@ -12,7 +12,6 @@ from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
@@ -21,6 +20,7 @@ from assistant.core.agent import HomePage, HomeSection, HomeSectionsError
 from assistant_terminal.home_text import describe, updated
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 from assistant_terminal.tui.screens.home_section import HomePlugins, HomeSectionScreen
 
@@ -30,7 +30,8 @@ type Plugins = Callable[[], Awaitable[HomePlugins]]
 _EMPTY = translatable("No sections. Add one, or reset to the built-in ones.")
 
 
-class HomeScreen(ModalScreen[None]):
+class HomeScreen(PageScreen[None]):
+    PAGE = "home"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"home"})
 
@@ -41,7 +42,7 @@ class HomeScreen(ModalScreen[None]):
         self._page: HomePage | None = None
         self._selected = ""
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="home"):
             yield Static(t("Home"), id="home-title")
             with Horizontal(id="home-main"):

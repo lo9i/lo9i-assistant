@@ -10,7 +10,6 @@ from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
@@ -19,10 +18,12 @@ from assistant.core.agent import Conversation, ConversationError, HomePinError
 from assistant_terminal.conversations_text import matching, message_search, preview, when
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 
-class ConversationsScreen(ModalScreen[str | None]):
+class ConversationsScreen(PageScreen[str | None]):
+    PAGE = "conversations"
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding("escape", "close", translatable("Close")),
         # Priority, so it runs before the list's own Enter, which also fires on a click: a click
@@ -47,7 +48,7 @@ class ConversationsScreen(ModalScreen[str | None]):
         self._pinned: list[str] = []
         self._selected: str | None = None
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="conversations"):
             yield Static(t("Conversations"), id="conversations-title")
             yield Static(t("No conversations yet."), id="conversations-empty")

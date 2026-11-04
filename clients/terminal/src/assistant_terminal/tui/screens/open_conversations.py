@@ -15,8 +15,9 @@ from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import DaemonClient
 from assistant_terminal.i18n import t, translatable
-from assistant_terminal.open_text import OpenItem, line, open_list
+from assistant_terminal.open_text import OpenItem, line
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.nav_reading import read_open
 
 
 class OpenConversationsScreen(ModalScreen[str | None]):
@@ -62,12 +63,7 @@ class OpenConversationsScreen(ModalScreen[str | None]):
 
     @reports_daemon_unavailable
     async def reload(self) -> None:
-        conversations = await self._service.conversations.recent()
-        runs = await self._service.runs_in_progress()
-        tasks = await self._service.tasks.running()
-        working = {r["thread_id"] for r in runs} | {task.thread_id for task in tasks if task.thread_id}
-        waiting = {i for i in self._opened if await self._service.conversations.pending_approvals(i)}
-        self._items = open_list(self._opened, self._current, self._inbox, conversations, working, waiting)
+        self._items = await read_open(self._service, self._opened, self._current, self._inbox)
         options = self.query_one("#open-conversations-list", OptionList)
         highlighted = options.highlighted
         options.clear_options()

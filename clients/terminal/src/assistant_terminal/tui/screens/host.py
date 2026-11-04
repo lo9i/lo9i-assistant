@@ -11,7 +11,6 @@ from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
-from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown
 
 from assistant.client.daemon_client import SystemApi
@@ -26,6 +25,7 @@ from assistant.protocol import (
 )
 from assistant_terminal.i18n import decimal, short_date, t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 _RESTART = translatable("Restart the assistant? It stops and starts again once the runs in progress end.")
@@ -43,7 +43,8 @@ _STOP = translatable(
 )
 
 
-class HostScreen(ModalScreen[None]):
+class HostScreen(PageScreen[None]):
+    PAGE = "host"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"update"})
 
@@ -51,7 +52,7 @@ class HostScreen(ModalScreen[None]):
         super().__init__()
         self._system = system
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="host"):
             yield Markdown("## " + t("Host") + "\n\n" + t("Loading…"), id="host-body")
             with Horizontal(id="host-buttons"):

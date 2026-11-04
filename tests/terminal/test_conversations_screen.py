@@ -30,7 +30,7 @@ async def test_arrows_and_clicks_show_a_conversation_and_enter_resumes(app, clie
         await pilot.click("#prompt")
         await pilot.press(*"/conversations", "enter")
         await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
-        options = app.screen.query_one(OptionList)
+        options = app.screen.query_one("#conversations-list", OptionList)
         assert str(options.get_option_at_index(0).prompt) == "Tue 01 Jan 09:00"
         await pilot.press("down")
         body = app.screen.query_one("#conversation-body", Markdown)
@@ -56,7 +56,9 @@ async def test_delete_asks_first_and_isnt_offered_for_the_current_one(app, clien
         await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
         screen = app.screen
         delete = screen.query_one("#delete", Button)
-        await wait_for(pilot, lambda: screen.query_one(OptionList).highlighted == 0 and delete.disabled)
+        await wait_for(
+            pilot, lambda: screen.query_one("#conversations-list", OptionList).highlighted == 0 and delete.disabled
+        )
         await pilot.press("down")
         await wait_for(pilot, lambda: not delete.disabled)
         delete.press()
@@ -188,7 +190,7 @@ async def test_a_conversation_is_pinned_to_home_and_unpinned_from_the_list_but_n
         await pilot.click("#prompt")
         await pilot.press(*"/conversations", "enter")
         await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
-        screen, options = app.screen, app.screen.query_one(OptionList)
+        screen, options = app.screen, app.screen.query_one("#conversations-list", OptionList)
         pin = screen.query_one("#pin", Button)
         await wait_for(pilot, lambda: options.highlighted == 0 and pin.disabled)  # the inbox
         await pilot.press("down")
@@ -211,7 +213,10 @@ async def test_search_finds_by_title_at_once_and_by_what_was_said(app, client):
         await pilot.click("#prompt")
         await pilot.press(*"/conversations", "enter")
         await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
-        options, body = app.screen.query_one(OptionList), app.screen.query_one("#conversation-body", Markdown)
+        options, body = (
+            app.screen.query_one("#conversations-list", OptionList),
+            app.screen.query_one("#conversation-body", Markdown),
+        )
         await pilot.click("#conversations-search")
         await pilot.press(*"trip")
         await wait_for(pilot, lambda: options.option_count == 1 and "Trip" in body.source)
@@ -233,7 +238,7 @@ async def test_typing_fast_in_the_search_never_shows_a_conversation_the_list_dro
         await pilot.click("#prompt")
         await pilot.press(*"/conversations", "enter")
         await wait_for(pilot, lambda: isinstance(app.screen, ConversationsScreen))
-        screen, options = app.screen, app.screen.query_one(OptionList)
+        screen, options = app.screen, app.screen.query_one("#conversations-list", OptionList)
         await pilot.click("#conversations-search")
         await pilot.press(*"lo9i-tool")
         await wait_for(pilot, lambda: options.option_count == 1)

@@ -8,7 +8,6 @@ from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
@@ -18,12 +17,14 @@ from assistant.core.agent import Device, DeviceError, PairingCode, Passkey, Pass
 from assistant_terminal.devices_text import describe, pairing
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 _EMPTY = translatable("No devices paired yet. Pair a browser to use the assistant from another computer.")
 
 
-class DevicesScreen(ModalScreen[None]):
+class DevicesScreen(PageScreen[None]):
+    PAGE = "devices"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"devices"})
 
@@ -36,7 +37,7 @@ class DevicesScreen(ModalScreen[None]):
         # The code shown, while it is.
         self._code: PairingCode | None = None
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="devices"):
             yield Static(t("Devices"), id="devices-title")
             with Horizontal(id="devices-main"):

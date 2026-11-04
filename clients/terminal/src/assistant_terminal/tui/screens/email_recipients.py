@@ -7,12 +7,12 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
-from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Markdown
 
 from assistant.client.daemon_client import EmailApi
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 
 _INTRO = translatable(
     "The assistant emails these addresses without asking, from any account. Your own accounts are always allowed; "
@@ -20,14 +20,15 @@ _INTRO = translatable(
 )
 
 
-class EmailRecipientsScreen(ModalScreen[None]):
+class EmailRecipientsScreen(PageScreen[None]):
+    PAGE = "email"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
 
     def __init__(self, email: EmailApi) -> None:
         super().__init__()
         self._email = email
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="email-recipients"):
             yield Markdown("## " + t("Email") + f"\n\n{t(_INTRO)}", id="email-recipients-body")
             yield Input(placeholder=t("Addresses, comma-separated"), id="email-recipients-input")

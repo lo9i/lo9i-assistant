@@ -8,13 +8,13 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, VerticalScroll
-from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown, Select, SelectionList, Static
 
 from assistant.client.daemon_client import SpeechApi
 from assistant.core.agent import SpeechSettingsError, SpeechStatus, SpokenReplies
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 
 _MODEL_NOTES = {
     "tiny": translatable("fastest, least accurate"),
@@ -62,7 +62,8 @@ def _language(code: str, name: str) -> str:
     return t(_LANGUAGES[code]) if code in _LANGUAGES else name
 
 
-class AudioScreen(ModalScreen[None]):
+class AudioScreen(PageScreen[None]):
+    PAGE = "audio"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"settings"})
 
@@ -71,7 +72,7 @@ class AudioScreen(ModalScreen[None]):
         self._speech = speech
         self._message = ""
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with VerticalScroll(id="audio"):
             yield Markdown(id="audio-body")
             yield Static(t("Speech to text"), classes="audio-heading")

@@ -5,16 +5,17 @@ from typing import ClassVar
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown
 
 from assistant.client.daemon_client import ClientsApi
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.sessions_text import describe
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 
 
-class SessionsScreen(ModalScreen[None]):
+class SessionsScreen(PageScreen[None]):
+    PAGE = "sessions"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"clients"})
 
@@ -22,7 +23,7 @@ class SessionsScreen(ModalScreen[None]):
         super().__init__()
         self._clients = clients
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="sessions"):
             with VerticalScroll(id="sessions-scroll"):
                 yield Markdown(id="sessions-body")

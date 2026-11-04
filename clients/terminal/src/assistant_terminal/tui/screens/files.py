@@ -11,7 +11,6 @@ from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
@@ -22,13 +21,15 @@ from assistant_terminal.files_text import describe
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.paging import Pages
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.paged_list import PagedOptionList
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 
 _EMPTY = translatable("No files yet. Files you attach to a message, and the ones tools bring in, show up here.")
 
 
-class FilesScreen(ModalScreen[None]):
+class FilesScreen(PageScreen[None]):
+    PAGE = "files"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"conversations", "files"})
 
@@ -38,7 +39,7 @@ class FilesScreen(ModalScreen[None]):
         self._pages = Pages(lambda offset, limit: files.list(offset=offset, limit=limit), lambda f: f.path)
         self._selected: str | None = None
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="files"):
             yield Static(t("Files"), id="files-title")
             with Horizontal(id="files-main"):

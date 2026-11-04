@@ -11,7 +11,6 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
@@ -21,6 +20,7 @@ from assistant_terminal.i18n import t, translatable
 from assistant_terminal.notifications_text import notified_at
 from assistant_terminal.paging import Pages
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.paged_list import PagedOptionList
 from assistant_terminal.tui.screens.briefing import BriefingScreen
 from assistant_terminal.tui.screens.doctor import DoctorScreen
@@ -30,7 +30,8 @@ from assistant_terminal.tui.screens.jobs import JobsScreen
 _BRIEFING = ("briefing", "reminder")
 
 
-class NotificationsScreen(ModalScreen[str | None]):
+class NotificationsScreen(PageScreen[str | None]):
+    PAGE = "notifications"
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding("escape", "close", translatable("Close")),
         Binding("enter", "open", show=False, priority=True),
@@ -48,7 +49,7 @@ class NotificationsScreen(ModalScreen[str | None]):
         self._pages = Pages(lambda offset, limit: notifications.list(offset, limit), lambda n: n.id)
         self._selected: str | None = None
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="notifications"):
             yield Static(t("Notifications"), id="notifications-title")
             yield Static(t("No notifications."), id="notifications-empty")

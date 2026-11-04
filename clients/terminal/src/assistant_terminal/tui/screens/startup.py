@@ -7,13 +7,13 @@ from typing import ClassVar
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
-from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown
 
 from assistant.client.daemon_client import SystemApi
 from assistant.protocol import StartupError, StartupStatus
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 
 _ABOUT = {
     "macos": translatable(
@@ -42,7 +42,8 @@ _NO_LINGER = translatable(
 )
 
 
-class StartupScreen(ModalScreen[None]):
+class StartupScreen(PageScreen[None]):
+    PAGE = "startup"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
 
     def __init__(self, system: SystemApi) -> None:
@@ -50,7 +51,7 @@ class StartupScreen(ModalScreen[None]):
         self._system = system
         self._message = ""
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="startup"):
             yield Markdown(id="startup-body")
             with Horizontal(id="startup-buttons"):

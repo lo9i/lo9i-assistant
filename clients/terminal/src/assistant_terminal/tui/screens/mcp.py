@@ -10,7 +10,6 @@ from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen
 from textual.widgets import Button, Markdown, OptionList, SelectionList, Static
 from textual.widgets.option_list import Option
 
@@ -28,6 +27,7 @@ from assistant_terminal.mcp_text import (
     tool_label,
 )
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
+from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 from assistant_terminal.tui.screens.kept_keys import ask_about_keys
 from assistant_terminal.tui.screens.mcp_add import McpAddScreen
@@ -36,7 +36,8 @@ from assistant_terminal.tui.screens.mcp_sign_in import McpSignInScreen
 from assistant_terminal.tui.screens.update_values import UpdateValuesScreen
 
 
-class McpScreen(ModalScreen[None]):
+class McpScreen(PageScreen[None]):
+    PAGE = "mcp"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"mcp"})
 
@@ -49,7 +50,7 @@ class McpScreen(ModalScreen[None]):
         self._shown: dict[str, McpServerStatus] = {}
         self._selected: str | None = None
 
-    def compose(self) -> ComposeResult:
+    def compose_page(self) -> ComposeResult:
         with Vertical(id="mcp"):
             yield Static(t("MCP servers"), id="mcp-title")
             yield Static(t("No MCP servers. Add one to give the assistant its tools."), id="mcp-empty")

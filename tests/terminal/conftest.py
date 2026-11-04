@@ -1018,7 +1018,8 @@ class FakeConversations:
         self.context: dict[str, tuple[int, int, str]] = {}
 
     async def pending_approvals(self, thread_id):
-        return self.waiting.pop(thread_id, [])
+        """As the daemon: what waits stays until it's answered (`FakeClient.resume`)."""
+        return list(self.waiting.get(thread_id, []))
 
     async def tool_call(self, thread_id, call_id):
         if (thread_id, call_id) not in self.calls:
@@ -1543,6 +1544,7 @@ class FakeClient:
 
     async def resume(self, session, decisions):
         self.decisions = decisions
+        self.conversations.waiting.pop(session.thread_id, None)
         yield ToolFinished("bash", "exit code: 0")
         for word in ["## Done\n\n", "Listed **1 file**."]:
             await asyncio.sleep(0)

@@ -1,4 +1,4 @@
-"""Terminal app preferences the user changes from inside the app (/mouse), kept by the client
+"""Terminal app preferences the user changes from inside the app (/mouse, F4 for the sidebar), kept by the client
 across sessions in a small JSON file."""
 
 import json
@@ -18,6 +18,15 @@ class Preferences:
 
     def set_mouse(self, on: bool) -> None:
         self._values["mouse"] = on
+        self._save()
+
+    @property
+    def sidebar_collapsed(self) -> bool:
+        """The navigation on the left shown by its glyphs only (F4), leaving the page more room."""
+        return bool(self._values.get("sidebar_collapsed", False))
+
+    def set_sidebar_collapsed(self, collapsed: bool) -> None:
+        self._values["sidebar_collapsed"] = collapsed
         self._save()
 
     def _load(self) -> dict[str, object]:
