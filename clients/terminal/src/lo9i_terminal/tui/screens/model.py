@@ -43,7 +43,6 @@ class ModelSection(SettingsSection):
             yield Input(placeholder=t("Worker model (summaries, titles)"), id="model-worker")
             with Horizontal(id="model-buttons"):
                 yield Button(t("Save and test"), variant="success", id="save")
-                yield Button(t("Use .env instead"), id="reset")
                 yield Button(t("Close"), id="close")
             with Horizontal(id="model-dispatch"):
                 yield Label(t("Continue a conversation from"))
@@ -117,15 +116,6 @@ class ModelSection(SettingsSection):
             self._message = f"**{e}**"
         await self._show()
 
-    @on(Button.Pressed, "#reset")
-    @reports_daemon_unavailable
-    async def _reset(self) -> None:
-        self._status = await self._model.reset()
-        self._message = t("Using the model from .env again.")
-        select = self.query_one("#model-provider", Select)
-        select.value = self._status.provider
-        await self._show_provider(self._status.provider)
-
     async def _show_provider(self, provider_id: str) -> None:
         """Show a provider's fields: the current values for the one in use, its suggestions otherwise."""
         provider, status = self._providers.get(provider_id), self._status
@@ -145,7 +135,6 @@ class ModelSection(SettingsSection):
         status = self._status
         if status is None:
             return
-        self.query_one("#reset").display = status.source == "app"
         name = self._providers[status.provider].name if status.provider in self._providers else status.provider
         source = t("set here") if status.source == "app" else t("from .env")
         lines = [
