@@ -26,6 +26,8 @@ import type {
   ChannelStatus,
   ConnectedClient,
   Conversation,
+  ConversationModel,
+  ConversationModels,
   ConversationStats,
   Decision,
   Device,
@@ -188,6 +190,24 @@ export class ConversationsGroup {
   async unpin(threadId: string, name: string): Promise<string[]> {
     const path = `${this.pinPath(threadId)}/${encodeURIComponent(name)}`;
     return (await this.transport.request<Schemas["PinnedSkills"]>("DELETE", path)).skills;
+  }
+
+  /** The model the conversation answers with: the main one (`main`) until another is picked. */
+  model(threadId: string): Promise<ConversationModel> {
+    return this.transport.request("GET", `/conversations/${encodeURIComponent(threadId)}/model`);
+  }
+
+  /** The models a conversation can answer with, and the main one's id. Throws ApiError (400) when the provider
+   * couldn't say. */
+  models(): Promise<ConversationModels> {
+    return this.transport.request("GET", "/models");
+  }
+
+  /** From the next message on; "" goes back to the main model. In a conversation with messages, the model gets a
+   * summary of them instead, and a note there says so. Throws ApiError (409) while a reply runs there or waits for an
+   * answer. */
+  setModel(threadId: string, model: string): Promise<ConversationModel> {
+    return this.transport.request("PUT", `/conversations/${encodeURIComponent(threadId)}/model`, { model });
   }
 
   /** The agents installed plugins bring: /<command> hands a conversation to one. */

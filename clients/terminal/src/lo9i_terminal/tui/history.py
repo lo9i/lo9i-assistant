@@ -24,6 +24,7 @@ from lo9i_terminal.tui.widgets import (
     ErrorMessage,
     FollowUpNote,
     HeldNote,
+    ModelChangedNote,
     PartialToolCall,
     ThinkingNote,
     ToolCall,
@@ -90,6 +91,8 @@ def _widget(message: ShownMessage, load: Loaders):
         return BriefNote(message.text, message.agent)
     if message.role == "notice":
         return FollowUpNote(message.text)
+    if message.role == "model":
+        return ModelChangedNote(message.text)
     if message.role == "error":
         return ErrorMessage(message.text)
     if message.partial and message.call_id:

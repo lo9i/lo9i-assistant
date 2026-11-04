@@ -18,6 +18,8 @@ export type ChatItem =
   | { kind: "carried"; id: number; text: string }
   // Background work that ended, which the assistant followed up on without a message from the user.
   | { kind: "notice"; id: number; text: string }
+  // The user changed the conversation's model to `name`: it got a summary of the messages before instead of them.
+  | { kind: "model"; id: number; name: string }
   // An update installs: what the user sent is kept, and runs once lo9i is back (`heldId`, as its run says).
   | { kind: "held"; id: number; heldId: string }
   | ToolItem
@@ -193,6 +195,7 @@ function addShown(t: Transcript, message: ShownMessage): Transcript {
   if (message.role === "thinking") return add(t, { kind: "thinking", text: message.text });
   if (message.role === "carried") return add(t, { kind: "carried", text: message.text });
   if (message.role === "notice") return add(t, { kind: "notice", text: message.text });
+  if (message.role === "model") return add(t, { kind: "model", name: message.text });
   // A run that failed: what it ended with, as it showed live.
   if (message.role === "error") return add(t, { kind: "error", message: message.text });
   if (message.role === "tool") return add(t, shownTool(message));

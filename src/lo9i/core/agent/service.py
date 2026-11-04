@@ -29,6 +29,7 @@ from lo9i.core.agent.memory import MemoryMixin
 from lo9i.core.agent.messaging import MessagingMixin
 from lo9i.core.agent.model import ModelMixin, usable_choice
 from lo9i.core.agent.notifications import NotificationsMixin
+from lo9i.core.agent.own_model import OwnModelMixin
 from lo9i.core.agent.passkeys import PasskeysMixin
 from lo9i.core.agent.pinned import PinnedSkillsMixin
 from lo9i.core.agent.plugin_settings import PluginSettingsMixin
@@ -149,6 +150,7 @@ class AssistantService(
     SkillsMixin,
     SkillImportsMixin,
     PinnedSkillsMixin,
+    OwnModelMixin,
     JobsMixin,
     UsageMixin,
     VoiceCallsMixin,

@@ -10,7 +10,7 @@ from lo9i.core.agent.session import Session
 from lo9i.core.agent.thread_files import ThreadFilesMixin, referenced
 from lo9i.core.channels.chat import threads as chat_threads
 from lo9i.core.config import settings
-from lo9i.core.conversation import choices, ended, file_index, handoffs, moved, pinned, queued, summaries
+from lo9i.core.conversation import choices, ended, file_index, handoffs, moved, own_model, pinned, queued, summaries
 from lo9i.core.i18n import said
 from lo9i.core.proactive import loops
 from lo9i.core.voice import notes as voice_notes
@@ -106,6 +106,7 @@ class ThreadsMixin(ArchiveMixin, ThreadFilesMixin):
             await self._forget_channel_pointers(user_id, thread_id)
             await inbox.forget(self._storage.store, user_id, thread_id)
             await pinned.forget(self._storage.store, user_id, thread_id)
+            await own_model.forget(self._storage.store, user_id, thread_id)
             await summaries.forget(self._storage.store, user_id, thread_id)
             await file_index.forget(self._storage.store, user_id, thread_id)
             await handoffs.forget(self._storage.store, user_id, thread_id)
@@ -131,7 +132,8 @@ class ThreadsMixin(ArchiveMixin, ThreadFilesMixin):
     async def last_reply(self, thread_id: str) -> str:
         """The text of the conversation's last assistant message, not counting what a voice call's voice said."""
         state = await self._graph.aget_state({"configurable": {"thread_id": thread_id}})
-        replies = [m for m in without_spoken(state.values.get("messages", [])) if isinstance(m, AIMessage)]
+        messages = own_model.without_marks(without_spoken(state.values.get("messages", [])))
+        replies = [m for m in messages if isinstance(m, AIMessage)]
         return choices.without_markers(replies[-1].text).strip() if replies else ""
 
 

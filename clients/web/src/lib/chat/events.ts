@@ -12,13 +12,16 @@ type VoiceCallEvent = { thread_id: string; call_id?: string; live?: boolean };
 
 /** Shows runs started elsewhere, goes where a message held while an update installed was sent on after it, and
  * reports replies left running; shows what a live voice call said once it's kept, and ends this tab's call when the
- * daemon says it ended. Returns what stops it. */
+ * daemon says it ended; shows the note a change of a conversation's model leaves. Returns what stops it. */
 export function followRuns(hub: EventHub, chats: Chats): () => void {
   const stops = [
     hub.on(["run"], (data) => chats.all().forEach((chat) => chat.mirror(data as RunAnnounced))),
     hub.on(["run_finished"], (data) => chats.all().forEach((chat) => chat.runFinished(data as RunFinished))),
     hub.on(["sent_on"], (data) => chats.all().forEach((chat) => void chat.sentOn(data as SentOn))),
     hub.on(["voice_said"], (data) => chats.all().forEach((chat) => void chat.voiceSaid((data as VoiceCallEvent).thread_id))),
+    hub.on(["conversation_model"], (data) =>
+      chats.all().forEach((chat) => void chat.modelChanged((data as { thread_id: string }).thread_id)),
+    ),
     hub.on(["voice_call"], (data) => {
       const call = data as VoiceCallEvent;
       if (!call.live && call.call_id) voiceCall.ended(call.call_id);

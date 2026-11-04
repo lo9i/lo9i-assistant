@@ -1,13 +1,13 @@
 """Usage for clients: tool and skill calls, the tokens model calls took, one conversation's stats, and the spending
 limits (core/usage/limits.py)."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 
 from lo9i.core import conversations
 from lo9i.core.agent.conversations import ConversationsMixin
 from lo9i.core.config import settings
-from lo9i.core.conversation import handoffs
+from lo9i.core.conversation import handoffs, own_model
 from lo9i.core.conversation.epochs import estimate_tokens
 from lo9i.core.usage import limits
 from lo9i.core.usage.limits import SpendingLimits
@@ -97,4 +97,7 @@ class UsageMixin(ConversationsMixin):
             used = await self.agent_tasks.context(handoff.server, thread_id, handoff.folder)
             return (used.tokens, used.window, handoff.name) if used else (0, 0, handoff.name)
         state = (await self._graph.aget_state({"configurable": {"thread_id": thread_id}})).values
-        return (estimate_tokens(state) if state.get("messages") else 0), await self._windows.of(self._model), ""
+        # Against the model the conversation answers with (conversation/own_model.py).
+        own = await own_model.for_run(self._storage.store, user_id, thread_id, self._model.provider)
+        model = replace(self._model, model=own or self._model.model)
+        return (estimate_tokens(state) if state.get("messages") else 0), await self._windows.of(model), ""

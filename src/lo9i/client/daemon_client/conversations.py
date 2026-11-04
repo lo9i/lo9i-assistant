@@ -8,12 +8,16 @@ from lo9i.core.agent import (
     Agent,
     AgentFolders,
     Conversation,
+    ConversationBusyError,
     ConversationError,
+    ConversationModel,
     ConversationStats,
     FolderError,
     FolderListing,
     Handoff,
     HandoffError,
+    ModelChangeError,
+    ModelOption,
     ShownCall,
     ShownMessage,
     ShownStep,
@@ -21,6 +25,15 @@ from lo9i.core.agent import (
 )
 from lo9i.core.attachments import Attachment
 from lo9i.core.events import ApprovalRequired
+
+
+@dataclass(frozen=True)
+class ConversationModels:
+    """The models a conversation can answer with."""
+
+    # The main model's id, which a conversation answers with until another is picked.
+    main: str
+    models: list[ModelOption]
 
 
 @dataclass(frozen=True)
@@ -35,8 +48,8 @@ class OpenedConversation:
 
 
 class ConversationsApi:
-    """Earlier conversations: the list, what was said in one, deleting one, and the skills pinned to
-    one. Resuming one is a conversation call on the client (`resume_thread`)."""
+    """Earlier conversations: the list, what was said in one, deleting one, the skills pinned to one and the model it
+    answers with. Resuming one is a conversation call on the client (`resume_thread`)."""
 
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
@@ -105,6 +118,23 @@ class ConversationsApi:
     async def unpin(self, thread_id: str, name: str) -> list[str]:
         """Returns the pinned skills."""
         return (await self._transport.request("DELETE", f"/conversations/{thread_id}/pinned/{name}"))["skills"]
+
+    async def model(self, thread_id: str) -> ConversationModel:
+        """The model the conversation answers with: the main one until another is picked."""
+        return ConversationModel(**await self._transport.request("GET", f"/conversations/{thread_id}/model"))
+
+    async def models(self) -> ConversationModels:
+        """The models a conversation can answer with. Raises ModelChangeError when the provider couldn't say."""
+        found = await self._transport.request("GET", "/models", errors={400: ModelChangeError})
+        return ConversationModels(found["main"], [ModelOption(**m) for m in found["models"]])
+
+    async def set_model(self, thread_id: str, model: str) -> ConversationModel:
+        """From the next message on; "" goes back to the main model. In a conversation with messages, the model gets a
+        summary of them instead, and a note says so. Raises ModelChangeError for a model it can't answer with, and
+        ConversationBusyError while a reply runs there or waits for an answer."""
+        errors = {400: ModelChangeError, 409: ConversationBusyError}
+        path = f"/conversations/{thread_id}/model"
+        return ConversationModel(**await self._transport.request("PUT", path, json={"model": model}, errors=errors))
 
     async def agents(self) -> list[Agent]:
         """The agents installed plugins bring: /<command> hands a conversation to one."""

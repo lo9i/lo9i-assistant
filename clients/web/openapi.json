@@ -1659,6 +1659,112 @@
         }
       }
     },
+    "/models": {
+      "get": {
+        "summary": "Conversation Models",
+        "description": "The models a conversation can answer with. 400: the provider couldn't say which.",
+        "operationId": "conversation_models_models_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationModels"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{thread_id}/model": {
+      "get": {
+        "summary": "Conversation Model",
+        "operationId": "conversation_model_conversations__thread_id__model_get",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Conversation Model",
+        "description": "From the next message on. 400: not a model it can answer with. 409: a reply runs there or waits for an\nanswer.",
+        "operationId": "set_conversation_model_conversations__thread_id__model_put",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelPick"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationModel"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/memory/about-you": {
       "get": {
         "summary": "About You",
@@ -8604,6 +8710,50 @@
         "type": "object",
         "title": "ConversationAgent"
       },
+      "ConversationModel": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "main": {
+            "type": "boolean",
+            "title": "Main"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "name",
+          "main"
+        ],
+        "title": "ConversationModel"
+      },
+      "ConversationModels": {
+        "properties": {
+          "main": {
+            "type": "string",
+            "title": "Main"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelOption"
+            },
+            "type": "array",
+            "title": "Models"
+          }
+        },
+        "type": "object",
+        "required": [
+          "main",
+          "models"
+        ],
+        "title": "ConversationModels"
+      },
       "ConversationStats": {
         "properties": {
           "thread_id": {
@@ -11248,6 +11398,19 @@
           "name"
         ],
         "title": "ModelOption"
+      },
+      "ModelPick": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model"
+        ],
+        "title": "ModelPick"
       },
       "ModelProvider": {
         "properties": {

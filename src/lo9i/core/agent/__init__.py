@@ -4,7 +4,8 @@ The service is a facade (`service.py`) composed of mixins, one per concern:
 threads, channel threads, files, the handed folder, memory, the About you step, channels, email, mcp, sign-ins,
 alerts, doctor, notifications, home, follow-ups, held runs, tasks, background subagents, repositories, model,
 devices, passkeys, identity, prompts, speech, log level, language, web search, skills, skill imports, pinned skills,
-jobs, proactive (briefing, reviews, open loops), usage, live voice calls, messaging, runs and locking.
+a conversation's own model, jobs, proactive (briefing, reviews, open loops), usage, live voice calls, messaging, runs
+and locking.
 """
 
 from lo9i.core.agent.about_you import AboutYou, AboutYouStatus, Suggested
@@ -55,6 +56,7 @@ from lo9i.core.agent.mcp import (
 from lo9i.core.agent.memory import Episode, Fact, MemoryEditError, MemoryNotFoundError
 from lo9i.core.agent.model import ModelOption, ModelProvider, ModelSettingsError, ModelStatus, ProviderField
 from lo9i.core.agent.notifications import Notification
+from lo9i.core.agent.own_model import ConversationModel, ModelChangeError
 from lo9i.core.agent.passkeys import Passkey, PasskeyError, Site
 from lo9i.core.agent.plugin_settings import PluginFieldValue, PluginSettings
 from lo9i.core.agent.proactive import (
@@ -118,6 +120,7 @@ __all__ = [
     "Conversation",
     "ConversationBusyError",
     "ConversationError",
+    "ConversationModel",
     "ConversationStats",
     "Decoding",
     "DeletingOffError",
@@ -176,6 +179,7 @@ __all__ = [
     "MemoryNotFoundError",
     "MemorySnapshot",
     "MissingPathError",
+    "ModelChangeError",
     "ModelOption",
     "ModelProvider",
     "ModelSettingsError",

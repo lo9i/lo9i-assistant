@@ -100,6 +100,14 @@ class FollowUpNote(Static):
         super().__init__(f"↳ {escape(notice)}", classes="follow-up-note")
 
 
+class ModelChangedNote(Static):
+    """The user changed the conversation's model: the one it changed to got a summary of the messages before."""
+
+    def __init__(self, model: str) -> None:
+        text = t("Model changed to {model}. It doesn't see earlier messages; it got a summary of them.", model=model)
+        super().__init__(f"⇄ {escape(text)}", classes="follow-up-note")
+
+
 class HeldNote(Static):
     """An update installs: what the user sent is kept, and runs once lo9i is back, announced with `held_id`."""
 

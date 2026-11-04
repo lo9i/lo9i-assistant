@@ -77,6 +77,27 @@ describe("transcript", () => {
     expect(addNotice(empty, "⚠️ convert: it failed").items[0]).toMatchObject({ kind: "notice", text: "⚠️ convert: it failed" });
   });
 
+  it("shows a change of the conversation's model where it was made, naming the model", () => {
+    const t = fromHistory([
+      {
+        role: "model",
+        text: "Fast One",
+        detail: "",
+        output: "",
+        dispatch_id: "",
+        call_id: "",
+        partial: false,
+        agent: "",
+        held: "",
+        untaken: false,
+        resent: false,
+        voice: "",
+        at: "",
+      },
+    ]);
+    expect(t.items[0]).toMatchObject({ kind: "model", name: "Fast One" });
+  });
+
   it("marks what waits for an update to install as it was marked when it was sent", () => {
     const t = fromHistory([
       {

@@ -10,10 +10,12 @@ from lo9i.client.files import load_attachment
 from lo9i.core.agent import (
     Agent,
     BackgroundSubagent,
+    ConversationError,
     HandoffError,
     Importable,
     InvalidNameError,
     LanguageError,
+    ModelChangeError,
     Session,
     SkillError,
 )
@@ -41,6 +43,7 @@ from lo9i_terminal.limits_text import describe as describe_limits
 from lo9i_terminal.logs_text import log_line
 from lo9i_terminal.mcp_text import shown as shown_servers
 from lo9i_terminal.mcp_text import summary as mcp_summary
+from lo9i_terminal.models_text import model_lines
 from lo9i_terminal.notifications_text import notification_line
 from lo9i_terminal.plugins_text import checked_line, from_repositories, last_checked, source
 from lo9i_terminal.profile_text import section_label
@@ -85,6 +88,7 @@ class Repl:
             "/language": self._language,
             "/pin": self._pin,
             "/unpin": self._unpin,
+            "/use": self._use,
             "/get-to-know-me": self._get_to_know_me,
             "/about-you": self._about_you,
             "/jobs": self._jobs,
@@ -334,6 +338,27 @@ class Repl:
             return
         await self._service.conversations.unpin(self._session.thread_id, arg)
         print(t("Unpinned {skill}, from your next message.", skill=arg))
+
+    async def _use(self, arg: str) -> None:
+        """/use lists the models this conversation can answer with, numbered, the one it answers with marked; /use
+        <number>, <model> or main changes it from the next message."""
+        try:
+            offered = await self._service.conversations.models()
+        except ModelChangeError as e:
+            print(e)
+            return
+        lines = model_lines(offered, await self._service.conversations.model(self._session.thread_id))
+        if not arg:
+            print("\n".join(f"{i}. {line.strip()}" for i, line in enumerate(lines, 1)))
+            return
+        ids = list(lines.values())
+        model = ids[int(arg) - 1] if arg.isdigit() and 0 < int(arg) <= len(ids) else "" if arg == "main" else arg
+        try:
+            changed = await self._service.conversations.set_model(self._session.thread_id, model)
+        except (ModelChangeError, ConversationError) as e:
+            print(e)
+            return
+        print(t("This conversation answers with {model} from your next message.", model=changed.name))
 
     async def _jobs(self, _: str) -> None:
         jobs = await self._service.jobs.list()

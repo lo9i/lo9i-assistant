@@ -29,6 +29,7 @@ from lo9i.core.agent import (
     Conversation,
     ConversationBusyError,
     ConversationError,
+    ConversationModel,
     ConversationStats,
     Decoding,
     DeletingOffError,
@@ -74,6 +75,7 @@ from lo9i.core.agent import (
     MemoryNotFoundError,
     MemorySnapshot,
     MissingPathError,
+    ModelChangeError,
     ModelOption,
     ModelProvider,
     ModelSettingsError,
@@ -589,6 +591,17 @@ class PinnedSkills(BaseModel):
     skills: list[str]
 
 
+class ModelPick(BaseModel):
+    # One of /models' ids; "" for the main model (Settings → Model).
+    model: str
+
+
+class ConversationModels(BaseModel):
+    # The main model's id, which a conversation answers with until another is picked.
+    main: str
+    models: list[ModelOption]
+
+
 class RunStarted(BaseModel):
     run_id: str
 
@@ -738,6 +751,7 @@ def create_app(
     _add_run_follow_routes(app, hub, follows)
     _add_conversation_routes(app, service, clients)
     _add_pinned_skill_routes(app, service)
+    _add_conversation_model_routes(app, service)
     _add_memory_routes(app, service)
     _add_handoff_routes(app, service)
     _add_handed_folder_routes(app, service)
@@ -1257,6 +1271,34 @@ def _add_pinned_skill_routes(app: FastAPI, service: AssistantService) -> None:
     @app.delete("/conversations/{thread_id}/pinned/{name}")
     async def unpin_skill(thread_id: str, name: str) -> PinnedSkills:
         return PinnedSkills(skills=await service.unpin_skill(settings.owner_id, thread_id, name))
+
+
+def _add_conversation_model_routes(app: FastAPI, service: AssistantService) -> None:
+    """The model a conversation answers with instead of the main one (core/conversation/own_model.py)."""
+
+    @app.get("/models")
+    async def conversation_models() -> ConversationModels:
+        """The models a conversation can answer with. 400: the provider couldn't say which."""
+        try:
+            models = await service.conversation_models()
+        except ModelChangeError as e:
+            raise HTTPException(400, message(e)) from e
+        return ConversationModels(main=(await service.model_status()).model, models=models)
+
+    @app.get("/conversations/{thread_id}/model")
+    async def conversation_model(thread_id: str) -> ConversationModel:
+        return await service.conversation_model(settings.owner_id, thread_id)
+
+    @app.put("/conversations/{thread_id}/model")
+    async def set_conversation_model(thread_id: str, body: ModelPick) -> ConversationModel:
+        """From the next message on. 400: not a model it can answer with. 409: a reply runs there or waits for an
+        answer."""
+        try:
+            return await service.set_conversation_model(settings.owner_id, thread_id, body.model)
+        except ModelChangeError as e:
+            raise HTTPException(400, message(e)) from e
+        except ConversationBusyError as e:
+            raise HTTPException(409, message(e)) from e
 
 
 def _refuse_if_open(clients: ClientRegistry, thread_id: str, caller: str) -> None:

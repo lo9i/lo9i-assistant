@@ -30,6 +30,7 @@ from lo9i.core.agent import (
     HandoffError,
     InvalidNameError,
     LanguageError,
+    ModelChangeError,
     Session,
     SkillError,
 )
@@ -48,6 +49,7 @@ from lo9i_terminal.commands import GET_TO_KNOW_ME, Command, agent_commands, help
 from lo9i_terminal.history import History
 from lo9i_terminal.i18n import t, translatable
 from lo9i_terminal.jobs_text import status as job_status
+from lo9i_terminal.models_text import model_lines
 from lo9i_terminal.nav import CHAT, OPEN, SETTINGS, SETTINGS_TABS, NavState
 from lo9i_terminal.preferences import Preferences
 from lo9i_terminal.subagents_text import running_line
@@ -124,6 +126,7 @@ from lo9i_terminal.tui.widgets import (
     ContextFuel,
     FollowUpNote,
     HeldNote,
+    ModelChangedNote,
     MouseStatus,
     StatusLine,
     SystemNote,
@@ -231,6 +234,7 @@ class AssistantApp(App):
             "/language": self._command_language,
             "/pin": self._command_pin,
             "/unpin": self._command_unpin,
+            "/use": self._command_use,
             "/get-to-know-me": self._command_get_to_know_me,
             "/about-you": self._command_about_you,
             "/mouse": self._command_mouse,
@@ -769,12 +773,14 @@ class AssistantApp(App):
             self._opened.append(thread_id)
         handoff = await self._service.conversations.agent(thread_id)
         pinned = await self._service.conversations.pinned(thread_id)
+        model = await self._service.conversations.model(thread_id)
         running = await self._service.tasks.running()
         subagents = running_line(await self._service.subagents.list(thread_id))
         parts = [
             await self._conversation_name(thread_id),
             *([t("talking to {agent} in {folder}", agent=handoff.name, folder=handoff.folder)] if handoff else []),
             *([t("pinned: {skills}", skills=", ".join(pinned))] if pinned else []),
+            *([t("model: {model}", model=model.name)] if not model.main else []),
             *(task_line(task, thread_id) for task in running),
             *([subagents] if subagents else []),
         ]
@@ -1211,6 +1217,41 @@ class AssistantApp(App):
             return
         await self._service.conversations.unpin(self._live.session.thread_id, arg)
         self.notify(t("Unpinned {skill}. It takes effect from your next message.", skill=arg))
+
+    async def _command_use(self, arg: str) -> None:
+        """`/use <model>` answers with it in this conversation from the next message, `/use main` with the main model;
+        alone it picks one of the models it can answer with."""
+        if arg:
+            await self._use_model("" if arg.lower() == "main" else arg)
+            return
+        try:
+            offered = await self._service.conversations.models()
+        except ModelChangeError as e:
+            self.notify(str(e), severity="error")
+            return
+        current = await self._service.conversations.model(self._live.session.thread_id)
+        lines = model_lines(offered, current)
+        question = {"question": t("The model this conversation answers with"), "options": list(lines)}
+        self.push_screen(QuestionScreen(question), lambda answer: self._picked_model(lines, answer))
+
+    async def _picked_model(self, lines: dict[str, str], answer: dict[str, Any] | None) -> None:
+        if answer and answer.get("choices"):
+            await self._use_model(lines[answer["choices"][0]])
+
+    @reports_daemon_unavailable
+    async def _use_model(self, model: str) -> None:
+        try:
+            changed = await self._service.conversations.set_model(self._live.session.thread_id, model)
+        except (ModelChangeError, ConversationError) as e:
+            self.notify(str(e), severity="error")
+            return
+        self.notify(t("This conversation answers with {model} from your next message.", model=changed.name))
+
+    def model_changed(self, changed: dict[str, Any]) -> None:
+        """A conversation's model changed: the note it left shows in it here, unless a turn here is showing."""
+        if changed["thread_id"] == self._live.session.thread_id and changed.get("noted") and not self._busy:
+            self._chat.mount(ModelChangedNote(changed.get("name", "")))
+            self._chat.scroll_end(animate=False)
 
     async def _command_agent(self, name: str, arg: str) -> None:
         """`/claude <folder>` hands the conversation to the agent, `/claude off` back; alone it picks the folder."""

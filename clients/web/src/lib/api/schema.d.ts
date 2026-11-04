@@ -834,6 +834,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Conversation Models
+         * @description The models a conversation can answer with. 400: the provider couldn't say which.
+         */
+        get: operations["conversation_models_models_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{thread_id}/model": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Conversation Model */
+        get: operations["conversation_model_conversations__thread_id__model_get"];
+        /**
+         * Set Conversation Model
+         * @description From the next message on. 400: not a model it can answer with. 409: a reply runs there or waits for an
+         *     answer.
+         */
+        put: operations["set_conversation_model_conversations__thread_id__model_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/memory/about-you": {
         parameters: {
             query?: never;
@@ -3851,6 +3893,22 @@ export interface components {
         ConversationAgent: {
             handoff?: components["schemas"]["Handoff"] | null;
         };
+        /** ConversationModel */
+        ConversationModel: {
+            /** Model */
+            model: string;
+            /** Name */
+            name: string;
+            /** Main */
+            main: boolean;
+        };
+        /** ConversationModels */
+        ConversationModels: {
+            /** Main */
+            main: string;
+            /** Models */
+            models: components["schemas"]["ModelOption"][];
+        };
         /**
          * ConversationStats
          * @description `input_tokens` counts the cache reads too. `started_at` is None for a conversation not in the list
@@ -5190,6 +5248,11 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+        };
+        /** ModelPick */
+        ModelPick: {
+            /** Model */
+            model: string;
         };
         /**
          * ModelProvider
@@ -8052,6 +8115,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PinnedSkills"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    conversation_models_models_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationModels"];
+                };
+            };
+        };
+    };
+    conversation_model_conversations__thread_id__model_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_conversation_model_conversations__thread_id__model_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelPick"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationModel"];
                 };
             };
             /** @description Validation Error */

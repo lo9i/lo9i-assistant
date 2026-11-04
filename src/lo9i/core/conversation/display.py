@@ -27,7 +27,7 @@ from lo9i.core.agent_tasks.steps import (
     parse,
     waiting,
 )
-from lo9i.core.conversation import briefs, called_at, carried, ended, failed, resent
+from lo9i.core.conversation import briefs, called_at, carried, ended, failed, own_model, resent
 from lo9i.core.conversation.dispatched import DISPATCH_ID
 from lo9i.core.conversation.turn_header import channel_of, is_header
 from lo9i.core.voice import spoken
@@ -57,7 +57,8 @@ class ShownMessage:
     # user | assistant | tool | thinking | carried (Markdown of a quick exchange from the inbox) | notice
     # (background work that ended, which the assistant followed up on unasked) | error (what a run that failed
     # ended with, conversation/failed.py) | brief (a coding task the assistant wrote for the agent it handed the
-    # conversation to, conversation/briefs.py; `agent` names it)
+    # conversation to, conversation/briefs.py; `agent` names it) | model (the user changed the conversation's model to
+    # the one `text` names, conversation/own_model.py)
     role: str
     # A tool's name for a tool.
     text: str
@@ -117,6 +118,8 @@ def _shown(message: BaseMessage, results: dict[str, ToolMessage]) -> list[ShownM
         return [*before, ShownMessage("user", text, resent=resent.of(message), voice=_voice(message))]
     if (mark := failed.of(message)) is not None:
         return [ShownMessage("error", str(mark.get("error", "")))]
+    if (changed := own_model.of(message)) is not None:
+        return [ShownMessage("model", str(changed.get("name", "")))]
     if isinstance(message, AIMessage) and (steps := message.response_metadata.get(STEPS)):
         unanswered = bool(message.response_metadata.get(UNANSWERED))
         return [_cut(m) for m in _agent_reply(steps, _text(message.content), message.id or "", unanswered)]

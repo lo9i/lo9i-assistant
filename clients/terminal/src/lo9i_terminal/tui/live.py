@@ -2,10 +2,10 @@
 background work, MCP servers or skills that keep failing, MCP servers whose sign-in stopped working, a plugin's
 sign-in its check refused and new plugin updates show a notification, changes refresh an open screen that shows them
 (its `RELOADS_ON`, in the background), a rename updates the title, a new language is used for what shows after it,
-pinning or unpinning a skill, titling the conversation and background subagents update the subtitle (one waiting for
-the user says so), runs started elsewhere in this conversation appear in the chat live, a message written in the
-inbox while an update installed goes where the daemon sent it on after it, and a conversation left with /clear while
-its reply was running reports when it finishes."""
+pinning or unpinning a skill, changing the conversation's model (with the note it leaves), titling the conversation
+and background subagents update the subtitle (one waiting for the user says so), runs started elsewhere in this
+conversation appear in the chat live, a message written in the inbox while an update installed goes where the daemon
+sent it on after it, and a conversation left with /clear while its reply was running reports when it finishes."""
 
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
@@ -16,6 +16,7 @@ class LiveApp(Protocol):
     def refresh_title(self) -> Awaitable[None]: ...
     def refresh_language(self) -> Awaitable[None]: ...
     def refresh_thread(self) -> Awaitable[None]: ...
+    def model_changed(self, changed: dict[str, Any]) -> None: ...
     def refresh_agents(self) -> Awaitable[None]: ...
     def refresh_plugin_updates(self) -> Awaitable[None]: ...
     def mirror_run(self, run: dict[str, Any]) -> None: ...
@@ -73,6 +74,11 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         await app.refresh_thread()
         app.reload_screen("conversations")
 
+    async def conversation_model(data: dict[str, Any]) -> None:
+        """A conversation's model changed: the note it left, and the subtitle."""
+        app.model_changed(data)
+        await app.refresh_thread()
+
     async def ending(data: dict[str, Any]) -> None:
         """A restart or stop asked for or taken back: said, and shown in /host."""
         app.show_ending(data)
@@ -126,6 +132,7 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         "plugins": plugins,
         "pinned_skills": thread,
         "handoffs": thread,
+        "conversation_model": conversation_model,
         "agent_task_progress": tasks("agent_task_progress"),
         "agent_task_reports": tasks("agent_task_reports"),
         "agent_context": agent_context,

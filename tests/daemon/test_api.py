@@ -831,6 +831,25 @@ async def test_skills_are_pinned_to_a_conversation(client, isolated_settings, mo
     assert await client.conversations.unpin(thread_id, "coding") == []
 
 
+async def test_a_conversation_gets_a_model_of_its_own(client, service, monkeypatch):
+    from lo9i.core.agent import ModelChangeError, ModelOption
+    from lo9i.core.agent import own_model as own_model_mixin
+
+    async def available(provider, values):
+        return [ModelOption("fast-1", "Fast One")]
+
+    monkeypatch.setattr(own_model_mixin, "available", available)
+    thread_id = (await _new_session(client)).thread_id
+    assert (await client.conversations.model(thread_id)).main
+    offered = await client.conversations.models()
+    assert offered.main == "claude-opus-5-5" and [m.id for m in offered.models] == ["fast-1"]
+    changed = await client.conversations.set_model(thread_id, "fast-1")
+    assert (changed.model, changed.name, changed.main) == ("fast-1", "Fast One", False)
+    with pytest.raises(ModelChangeError):
+        await client.conversations.set_model(thread_id, "nope")
+    assert (await client.conversations.set_model(thread_id, "")).main
+
+
 async def test_skills_and_servers_are_installed_from_a_repository_and_updated(client, isolated_settings, monkeypatch):
     import shutil
 

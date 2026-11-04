@@ -154,7 +154,11 @@
   },
   "chat": {
     "setUp": "Set up {name}",
-    "modelTip": "Provider: {provider} · worker: {worker}",
+    "modelPick": "The model this conversation answers with",
+    "modelBusy": "The model can be changed once the reply ends",
+    "modelsLoading": "Loading models…",
+    "modelMain": "{model} (main model)",
+    "modelHint": "Changing it after messages: the new model gets a summary of them, not the messages.",
     "agentIn": "{agent} in {folder}",
     "backToAssistant": "Assistant",
     "backToAssistantHint": "Back to the assistant: its own model answers again, with its memory and tools (/{command} off)",
@@ -1483,6 +1487,7 @@
     "somethingWrong": "Something went wrong",
     "stopped": "Stopped.",
     "held": "An update is being installed. This runs once it's done.",
+    "modelChanged": "Model changed to {model}. It doesn't see earlier messages; it got a summary of them.",
     "goToMessage": "Go to your message",
     "goToBottom": "Go to bottom"
   },

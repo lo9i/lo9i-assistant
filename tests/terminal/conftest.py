@@ -10,7 +10,7 @@ from textual.widget import Widget
 from textual.widgets import TabbedContent
 
 import lo9i_terminal.tui.app as app_module
-from lo9i.client.daemon_client.conversations import OpenedConversation
+from lo9i.client.daemon_client.conversations import ConversationModels, OpenedConversation
 from lo9i.core.agent import (
     AboutYou,
     AboutYouStatus,
@@ -24,6 +24,7 @@ from lo9i.core.agent import (
     ChannelStatus,
     Conversation,
     ConversationError,
+    ConversationModel,
     ConversationStats,
     Device,
     DeviceError,
@@ -62,6 +63,8 @@ from lo9i.core.agent import (
     MemoryEditError,
     MemorySnapshot,
     MissingPathError,
+    ModelChangeError,
+    ModelOption,
     ModelSettingsError,
     ModelStatus,
     Notification,
@@ -1008,6 +1011,20 @@ class FakeConversations:
         self.in_progress: dict[str, list[dict]] = {}
         # How full each conversation's context is: tokens, limit, and the agent's name while handed to one.
         self.context: dict[str, tuple[int, int, str]] = {}
+        # The model each conversation picked; the others answer with the main one.
+        self.picked: dict[str, str] = {}
+        self.offered = ConversationModels("main-1", [ModelOption("main-1", "Main One"), ModelOption("fast-1", "Fast")])
+
+    async def model(self, thread_id):
+        picked = self.picked.get(thread_id, "")
+        name = next(m.name for m in self.offered.models if m.id == (picked or self.offered.main))
+        return ConversationModel(picked or self.offered.main, name, main=not picked)
+
+    async def set_model(self, thread_id, model):
+        if model and model not in {m.id for m in self.offered.models}:
+            raise ModelChangeError(f"{model} isn't a model this conversation can answer with.")
+        self.picked[thread_id] = "" if model == self.offered.main else model
+        return await self.model(thread_id)
 
     async def pending_approvals(self, thread_id):
         """As the daemon: what waits stays until it's answered (`FakeClient.resume`)."""
@@ -1090,6 +1107,9 @@ class FakeConversations:
     async def unpin(self, thread_id, name):
         self.pins[thread_id] = [s for s in self.pins.get(thread_id, []) if s != name]
         return await self.pinned(thread_id)
+
+    async def models(self):
+        return self.offered
 
 
 class FakeDevices:

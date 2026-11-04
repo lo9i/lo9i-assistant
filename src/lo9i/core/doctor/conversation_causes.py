@@ -16,7 +16,7 @@ from langgraph.store.base import BaseStore
 from langgraph.types import StateSnapshot
 
 from lo9i.core import conversations
-from lo9i.core.conversation import failed
+from lo9i.core.conversation import failed, own_model
 from lo9i.core.conversation.turn_header import said, sent_at
 from lo9i.core.conversation.unanswered import unanswered
 from lo9i.core.doctor.causes import Occurrence
@@ -91,7 +91,7 @@ def _turn(
             Occurrence(f"{c['name']} never got a result: its run ended with an error", c["name"], at, thread=thread)
             for c in calls
         ]
-    if not any(isinstance(m, AIMessage) and failed.of(m) is None for m in turn[1:]):
+    if not any(isinstance(m, AIMessage) and failed.of(m) is None and own_model.of(m) is None for m in turn[1:]):
         return [Occurrence(NO_REPLY, "", at, example=_said(turn[0]), thread=thread)]
     return []
 

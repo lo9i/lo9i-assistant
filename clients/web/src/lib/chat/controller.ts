@@ -447,6 +447,15 @@ export class ChatController {
     if (this.ownRun === null) await this.guarded(() => this.showHistory());
   }
 
+  /** The user changed `threadId`'s model: once this chat shows it and its own reply isn't running, history shows the
+   * note it left there. A first message written here after isn't routed elsewhere: the model was picked for here. */
+  async modelChanged(threadId: string): Promise<void> {
+    if (threadId !== this.state.threadId) return;
+    this.fresh = null;
+    await this.loaded();
+    if (this.ownRun === null) await this.guarded(() => this.showHistory());
+  }
+
   runFinished(run: RunFinished): void {
     // A run started anywhere, this page watching it or not, may have stopped to ask the user.
     if (run.thread_id === this.live.session.thread_id) void this.answerPending();

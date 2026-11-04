@@ -560,5 +560,8 @@
   "{plugin} listed its day in a form lo9i can't read: {error}": "{plugin} listó su día de una forma que lo9i no puede leer: {error}",
   "{plugin} doesn't list its day, or is off.": "{plugin} no lista su día, o está apagado.",
   "its today section must name a tool": "su sección today debe nombrar una herramienta",
-  "its today list is a tool, which needs an MCP server (command or url)": "su lista del día es una herramienta, que necesita un servidor MCP (command o url)"
+  "its today list is a tool, which needs an MCP server (command or url)": "su lista del día es una herramienta, que necesita un servidor MCP (command o url)",
+  "A reply is running in this conversation. Change the model once it ends.": "Hay una respuesta en curso en esta conversación. Cambia el modelo cuando termine.",
+  "{model} isn't a model this conversation can answer with.": "{model} no es un modelo con el que pueda responder esta conversación.",
+  "This conversation waits for your answer. Answer it first.": "Esta conversación espera tu respuesta. Respóndela primero."
 }

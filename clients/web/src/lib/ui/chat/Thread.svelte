@@ -5,6 +5,7 @@
   import ClipboardList from "@lucide/svelte/icons/clipboard-list";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Copy from "@lucide/svelte/icons/copy";
+  import Cpu from "@lucide/svelte/icons/cpu";
   import Forward from "@lucide/svelte/icons/forward";
   import Hourglass from "@lucide/svelte/icons/hourglass";
   import Inbox from "@lucide/svelte/icons/inbox";
@@ -278,6 +279,8 @@
         </details>
       {:else if item.kind === "notice"}
         <p class="text-caption notice" data-findable><Inbox size={12} />{item.text}</p>
+      {:else if item.kind === "model"}
+        <p class="text-caption notice" data-findable><Cpu size={12} />{t("thread.modelChanged", { model: item.name })}</p>
       {:else if item.kind === "held"}
         <p class="text-caption notice"><Hourglass size={12} />{t("thread.held")}</p>
       {:else if item.kind === "transcript"}

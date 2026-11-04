@@ -154,7 +154,11 @@
   },
   "chat": {
     "setUp": "Configurar {name}",
-    "modelTip": "Proveedor: {provider} · auxiliar: {worker}",
+    "modelPick": "El modelo con el que responde esta conversación",
+    "modelBusy": "El modelo se puede cambiar cuando termine la respuesta",
+    "modelsLoading": "Cargando modelos…",
+    "modelMain": "{model} (modelo principal)",
+    "modelHint": "Si lo cambias cuando ya hay mensajes, el nuevo modelo recibe un resumen de ellos, no los mensajes.",
     "agentIn": "{agent} en {folder}",
     "backToAssistant": "Asistente",
     "backToAssistantHint": "Volver al asistente: responde de nuevo su propio modelo, con su memoria y sus herramientas (/{command} off)",
@@ -1483,6 +1487,7 @@
     "somethingWrong": "Algo salió mal",
     "stopped": "Detenido.",
     "held": "Se está instalando una actualización. Esto se ejecuta cuando termine.",
+    "modelChanged": "Modelo cambiado a {model}. No ve los mensajes anteriores; recibió un resumen de ellos.",
     "goToMessage": "Ir a tu mensaje",
     "goToBottom": "Ir al final"
   },

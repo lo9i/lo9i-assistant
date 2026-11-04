@@ -19,7 +19,7 @@ from lo9i.core import plugin_loading
 from lo9i.core.attachments import hydrate
 from lo9i.core.config import settings
 from lo9i.core.context import Context, require_store
-from lo9i.core.conversation import called_at, failed
+from lo9i.core.conversation import called_at, failed, own_model
 from lo9i.core.conversation.dispatch import build_classifier
 from lo9i.core.conversation.dispatch_nodes import ASK, DISPATCH, SEND, dispatch_nodes
 from lo9i.core.conversation.epochs import (
@@ -91,6 +91,9 @@ class AgentState(MessagesState):
     # last shrunk for it (conversation/oversized.py), so it's shrunk once before a call is given up on.
     request_too_large: bool
     shrunk_at: int
+    # The model the conversation answers with: the main model, or the one the user picked for it
+    # (conversation/own_model.py).
+    model: str
 
 
 Graph = CompiledStateGraph[AgentState, Context, AgentState, AgentState]
@@ -117,11 +120,11 @@ class McpTools(Protocol):
 def build_graph(storage: Storage, choice: ModelChoice, summarizer: Summarizer, mcp: McpTools) -> Graph:
     tools = tools_for(settings.toolsets)
     builder = StateGraph(AgentState, context_schema=Context)
-    builder.add_node("epoch", _epoch_node(summarizer, mcp, prompt_cache_minutes(choice)))
-    llm = metered(build_llm(choice, choice.model), TokenMeter(storage.usage, "reply"))
+    builder.add_node("epoch", _epoch_node(summarizer, mcp, choice))
     # The groups loaded on demand come with the plugins' tools (core/plugin_tools.py); every tool runs.
     offered = offered_tools(settings.toolsets)
-    builder.add_node("agent", _agent_node(llm, offered, choice.provider in IMAGES_IN_TOOL_RESULTS))
+    models = _reply_models(storage, choice)
+    builder.add_node("agent", _agent_node(models, offered, choice.provider in IMAGES_IN_TOOL_RESULTS))
     builder.add_node("tools", ToolNode(tools, awrap_tool_call=mcp_calls(mcp)))
     builder.add_node("installed", _loaded_node(mcp))
     builder.add_node("shrink", _shrink_node(summarizer, mcp))
@@ -138,13 +141,31 @@ def build_graph(storage: Storage, choice: ModelChoice, summarizer: Summarizer, m
     return builder.compile(checkpointer=storage.checkpointer, store=storage.store)
 
 
-def _epoch_node(summarizer: Summarizer, mcp: McpTools, cache_minutes: float) -> Node:
+def _reply_models(storage: Storage, choice: ModelChoice) -> Callable[[str], BaseChatModel]:
+    """The models replies are written with, by id: the main model, built now, and those conversations picked
+    (conversation/own_model.py), each built the first time it's used."""
+    meter = TokenMeter(storage.usage, "reply")
+    built = {choice.model: metered(build_llm(choice, choice.model), meter)}
+
+    def _model(model: str) -> BaseChatModel:
+        model = model or choice.model
+        if model not in built:
+            built[model] = metered(build_llm(choice, model), meter)
+        return built[model]
+
+    return _model
+
+
+def _epoch_node(summarizer: Summarizer, mcp: McpTools, choice: ModelChoice) -> Node:
     """Runs once per user message: opens the first epoch, or starts a new one when needed, and trims old
-    tool results once the model's prompt cache, which lasts `cache_minutes`, has expired."""
+    tool results once the model's prompt cache has expired. Says which model the conversation answers with."""
+    cache_minutes = prompt_cache_minutes(choice)
 
     async def _epoch(state: AgentState, runtime: Runtime[Context], config: RunnableConfig) -> dict:
         now = datetime.now(UTC)
         thread_id = config.get("configurable", {})["thread_id"]
+        user_id, store = runtime.context.user_id, require_store(runtime.store)
+        model = await own_model.for_run(store, user_id, thread_id, choice.provider) or choice.model
         trim = trim_update(state, now, cache_minutes)
         catalog = mcp.catalog()
         update = await _epoch_update(
@@ -153,7 +174,7 @@ def _epoch_node(summarizer: Summarizer, mcp: McpTools, cache_minutes: float) -> 
         if "system_prompt" in update:
             named = await _named_plugins(state, runtime, catalog)
             update |= await _plugins_update(state, update, mcp, catalog, named)
-        return {**trim, **update, "last_activity": now.isoformat()}
+        return {**trim, **update, "model": model, "last_activity": now.isoformat()}
 
     return _epoch
 
@@ -170,6 +191,8 @@ async def _epoch_update(
     user_id, store = runtime.context.user_id, require_store(runtime.store)
     if not state.get("system_prompt"):
         return await open_epoch(store, user_id, thread_id, now, catalog)
+    if own_model.changed_since(state["messages"], state.get("epoch_start", 0)):
+        return await _model_changed(state, store, user_id, thread_id, summarizer, now, catalog)
     if is_idle(state, now) or is_too_large(state):
         update = await compact(state, store, user_id, thread_id, summarizer, now, catalog)
         if update:
@@ -177,6 +200,21 @@ async def _epoch_update(
     if await _prompt_changed(state, store, user_id, thread_id, mcp, catalog):
         return await reopen(state, store, user_id, thread_id, now, catalog)
     return {}
+
+
+async def _model_changed(
+    state: AgentState,
+    store: BaseStore,
+    user_id: str,
+    thread_id: str,
+    summarizer: Summarizer,
+    now: datetime,
+    catalog: dict[str, list[str]],
+) -> dict:
+    """The user changed the conversation's model since the epoch started: a new one starts at this message, with
+    everything before summarized, so the model it changed to gets the summary instead of the earlier messages."""
+    update = await compact(state, store, user_id, thread_id, summarizer, now, catalog, keep_turns=1)
+    return update or await reopen(state, store, user_id, thread_id, now, catalog)
 
 
 async def _plugins_update(
@@ -313,11 +351,16 @@ def mcp_calls(mcp: McpTools) -> AsyncToolCallWrapper:
     return _wrap
 
 
-def _agent_node(llm: BaseChatModel, tools: Sequence[BaseTool], images_in_tool_results: bool) -> Node:
+def _agent_node(
+    models: Callable[[str], BaseChatModel], tools: Sequence[BaseTool], images_in_tool_results: bool
+) -> Node:
+    """`models`: the model by its id; the conversation's is the one its epoch says (`_epoch_node`)."""
+
     async def _agent(state: AgentState) -> dict:
         kept = trimmed(state["messages"], state.get("epoch_start", 0), state.get("trimmed_before", 0))
-        epoch = answered(failed.without_marks(without_routed(without_spoken(kept))))
+        epoch = answered(own_model.without_marks(failed.without_marks(without_routed(without_spoken(kept)))))
         messages = await asyncio.to_thread(hydrate, epoch, images_in_tool_results)
+        llm = models(state.get("model", ""))
         bound = llm.bind_tools([*tools, *state.get("mcp_tools", [])])
         try:
             response = await bound.ainvoke([SystemMessage(state["system_prompt"]), *messages])

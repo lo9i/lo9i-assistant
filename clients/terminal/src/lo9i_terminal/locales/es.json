@@ -1071,5 +1071,11 @@
   "What keeps failing, needs signing in again, or the health check found": "Lo que sigue fallando, necesita volver a iniciar sesión o encontró el chequeo de salud",
   "Open Home": "Abrir el Inicio",
   "What the assistant does on its own, at the times below, in the assistant computer's time zone. It suggests; it never acts for you.": "Lo que el asistente hace por su cuenta, a las horas de abajo, en la zona horaria de la computadora del asistente. Sugiere; nunca actúa por ti.",
-  "When the morning briefing and the reviews run, and the kinds of suggestion muted": "Cuándo se ejecutan el resumen de la mañana y las revisiones, y los tipos de sugerencia silenciados"
+  "When the morning briefing and the reviews run, and the kinds of suggestion muted": "Cuándo se ejecutan el resumen de la mañana y las revisiones, y los tipos de sugerencia silenciados",
+  "Answer with another model in this conversation (/use <model>, /use main)": "Responder con otro modelo en esta conversación (/use <modelo>, /use main)",
+  "Model changed to {model}. It doesn't see earlier messages; it got a summary of them.": "Modelo cambiado a {model}. No ve los mensajes anteriores; recibió un resumen de ellos.",
+  "model: {model}": "modelo: {model}",
+  "The model this conversation answers with": "El modelo con el que responde esta conversación",
+  "This conversation answers with {model} from your next message.": "Esta conversación responde con {model} desde tu próximo mensaje.",
+  "{model} (main model)": "{model} (modelo principal)"
 }

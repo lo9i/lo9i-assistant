@@ -100,6 +100,8 @@ COMMANDS = [
         "/pin", "/pin [skill]", translatable("Keep a skill's instructions on for this conversation; alone, list them")
     ),
     Command("/unpin", "/unpin <skill>", translatable("Turn a pinned skill off for this conversation")),
+    # Its model or `main` stays out of its usage, so Enter on the menu opens the list at once.
+    Command("/use", "/use", translatable("Answer with another model in this conversation (/use <model>, /use main)")),
     Command("/profile", "/profile", translatable("What the assistant knows about you: add, edit and remove")),
     Command("/about-you", "/about-you", translatable("Your name, how to reply and what you want help with")),
     Command("/get-to-know-me", "/get-to-know-me", translatable("Let the assistant get to know you")),

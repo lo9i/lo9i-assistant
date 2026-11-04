@@ -28,7 +28,7 @@
   import PendingCard from "./PendingCard.svelte";
   import Composer from "./Composer.svelte";
   import ConversationStats from "./ConversationStats.svelte";
-  import ModelStatus from "./ModelStatus.svelte";
+  import ModelPicker from "./ModelPicker.svelte";
   import ContextFuel from "./ContextFuel.svelte";
   import HandedFolder from "./folder/HandedFolder.svelte";
   import HelpModal from "./HelpModal.svelte";
@@ -409,7 +409,7 @@
           >
         </AgentStatus>
       {:else}
-        <ModelStatus />
+        <ModelPicker {threadId} running={snapshot.current.busy || snapshot.current.mirroring} />
         <button
           type="button"
           class="btn btn--ghost btn--sm home-folder folder-button"
