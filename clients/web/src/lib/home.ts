@@ -103,11 +103,11 @@ export function withoutSection(sections: HomeSection[], id: string): HomeSection
   return sections.filter((s) => s.id !== id);
 }
 
-/** The Conversations card added at the end, titled `title`, unless Home has it. The daemon gives it its own text
- * (a section built by code). */
-export function withConversations(sections: HomeSection[], title: string): HomeSection[] {
-  if (sections.some((s) => s.id === CONVERSATIONS)) return sections;
-  return [...sections, { id: CONVERSATIONS, title, prompt: title, plugins: [], columns: 0, use_model: false, coded: true }];
+/** The card built by code with that `id` (the Conversations card, the Open loops card) added at the end, titled
+ * `title`, unless Home has it. The daemon gives it its own text. */
+export function withCoded(sections: HomeSection[], id: string, title: string): HomeSection[] {
+  if (sections.some((s) => s.id === id)) return sections;
+  return [...sections, { id, title, prompt: title, plugins: [], columns: 0, use_model: false, coded: true }];
 }
 
 /** The section with its card `columns` wide. */

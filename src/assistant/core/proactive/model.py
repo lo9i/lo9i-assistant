@@ -167,6 +167,8 @@ class Briefing(BaseModel):
     # The chat channels that took it; none means it's only in the notifications feed.
     channels: list[str] = []
     error: str = ""
+    # The user dismissed the alert of its failure (failed.py).
+    dismissed: bool = False
 
 
 ReviewKind = Literal["nightly", "weekly"]
@@ -185,6 +187,8 @@ class Review(BaseModel):
     # Its suggestions went into a briefing.
     briefed: bool = False
     error: str = ""
+    # The user dismissed the alert of its failure (failed.py).
+    dismissed: bool = False
 
 
 class ProactivePage(BaseModel):

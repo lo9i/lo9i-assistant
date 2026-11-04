@@ -6,7 +6,7 @@ Nothing is sent when there's nothing to tell.
 
 The message goes to the notifications feed, which the apps show, and to the user's own chat on every chat channel
 connected (core/conversation/sent.py), where a reply to it arrives with it in its turn header. It never fails the
-schedule: a failure is recorded on the briefing, which the apps show."""
+schedule: a failure is recorded on the briefing, which the apps show as an alert (failed.py)."""
 
 import asyncio
 import logging

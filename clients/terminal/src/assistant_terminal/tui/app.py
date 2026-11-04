@@ -141,7 +141,8 @@ _NAV_EVENTS = frozenset(
         "run",
         "run_finished",
         "agent_task_reports",
-        # Alerts: failures are kept with the servers and skills, and the health check's with its reports.
+        # Alerts: failures are kept with the servers and skills, the health check's with its reports, and the
+        # briefing's and reviews' with them (proactive, above).
         "mcp",
         "skills",
         "doctor",
@@ -1039,13 +1040,15 @@ class AssistantApp(App):
     @work(group="pages")
     @reports_daemon_unavailable
     async def _open_alert(self, alert: Alert) -> None:
-        """Its MCP server, skill or health check cause, picked, in the Alerts page's place: as the app's own work, so
-        the Alerts page that asked has finished handling its button before it's closed."""
+        """Its MCP server, skill or health check cause, picked, or the briefing, in the Alerts page's place: as the
+        app's own work, so the Alerts page that asked has finished handling its button before it's closed."""
         service = self._service
         if alert.area == "mcp":
             await self._show_page(McpScreen(service.mcp, service.oauth, service.repositories, selected=alert.name))
         elif alert.area == "skill":
             await self._show_page(SkillsScreen(service.skills, service.repositories, selected=alert.name))
+        elif alert.area == "proactive":
+            await self._show_page(BriefingScreen(service.proactive))
         elif alert.kind == "context":
             await self._show_page(DoctorScreen(service.doctor))
         else:

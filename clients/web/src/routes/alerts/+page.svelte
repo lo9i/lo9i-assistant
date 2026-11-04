@@ -7,15 +7,21 @@
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { doctorProblem } from "$lib/doctor";
   import { localTime } from "$lib/health";
-  import { t } from "$lib/i18n.svelte";
+  import { t, type Key } from "$lib/i18n.svelte";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
 
   const { client, notices } = useDaemon();
-  // Failures are stored with the servers and skills, and the health check's with its reports, so their events refresh
-  // the list.
-  const alerts = resource((c) => c.alerts.list(), ["mcp", "skills", "doctor"]);
+  // Failures are stored with the servers and skills, the health check's with its reports, and the briefing's and
+  // reviews' with them, so their events refresh the list.
+  const alerts = resource((c) => c.alerts.list(), ["mcp", "skills", "doctor", "proactive"]);
+  // The briefing's and reviews' alerts, named after the work that failed.
+  const WORK: Record<string, Key> = {
+    briefing: "alerts.briefing",
+    nightly: "alerts.nightlyReview",
+    weekly: "alerts.weeklyReview",
+  };
   let picked = $state<string | null>(null);
   let clearing = $state(false);
   // Until one is picked: the newest.
@@ -25,27 +31,34 @@
     return `${a.area}/${a.name}`;
   }
 
-  /** A health check's alert names a cause by its id: its title is what to show. */
+  /** A health check's alert names a cause by its id: its title is what to show. The briefing's or a review's, the work. */
   function label(a: Alert): string {
+    if (a.area === "proactive") return WORK[a.name] ? t(WORK[a.name]) : a.name;
     return a.title || a.name;
   }
 
   function kind(a: Alert): string {
+    if (a.area === "proactive") return t("alerts.briefingAndReviews");
     return a.area === "mcp" ? t("plugins.kinds.server") : a.area === "skill" ? t("plugins.kinds.skill") : t("alerts.healthCheck");
   }
 
-  /** Failures in a row, that a remote server waits for the user to sign in again, or the health check's change. */
+  /** Failures in a row, that a remote server waits for the user to sign in again, the health check's change, or that
+   * the briefing or a review failed. */
   function problem(a: Alert): string {
     if (a.area === "doctor") return doctorProblem(a);
+    if (a.area === "proactive") return t("alerts.failedLastTime");
     return a.kind === "signed_out" ? t("alerts.signInAgain") : t("alerts.inARow", { count: a.failures });
   }
 
   function pill(a: Alert): string {
+    if (a.area === "proactive") return t("alerts.failed");
     if (a.area === "doctor") return a.kind === "context" ? t("alerts.large") : a.kind === "new" ? t("alerts.new") : t("alerts.growing");
     return a.kind === "signed_out" ? t("alerts.signedOut") : t("skills.failing");
   }
 
+  /** The briefing's and reviews' settings, for the briefing or a review. */
   function href(a: Alert): string {
+    if (a.area === "proactive") return `${resolve("/settings")}#briefing`;
     if (a.area === "doctor") return a.kind === "context" ? resolve("/doctor") : `${resolve("/doctor")}?c=${encodeURIComponent(a.name)}`;
     return `${a.area === "mcp" ? resolve("/mcp") : resolve("/skills")}?s=${encodeURIComponent(a.name)}`;
   }

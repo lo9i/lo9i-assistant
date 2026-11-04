@@ -4824,7 +4824,8 @@
               "enum": [
                 "mcp",
                 "skill",
-                "doctor"
+                "doctor",
+                "proactive"
               ],
               "type": "string",
               "title": "Area"
@@ -7874,7 +7875,8 @@
             "enum": [
               "mcp",
               "skill",
-              "doctor"
+              "doctor",
+              "proactive"
             ],
             "title": "Area"
           },
@@ -8289,6 +8291,11 @@
             "type": "string",
             "title": "Error",
             "default": ""
+          },
+          "dismissed": {
+            "type": "boolean",
+            "title": "Dismissed",
+            "default": false
           }
         },
         "type": "object",
@@ -12590,6 +12597,11 @@
             "type": "string",
             "title": "Error",
             "default": ""
+          },
+          "dismissed": {
+            "type": "boolean",
+            "title": "Dismissed",
+            "default": false
           }
         },
         "type": "object",

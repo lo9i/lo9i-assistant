@@ -5,7 +5,7 @@ or cause, picked, and Dismiss and Dismiss all take them off."""
 from textual.widgets import Button, Markdown, OptionList
 
 from assistant.core.agent import Alert
-from assistant_terminal.tui.screens import AlertsScreen, ConfirmScreen, DoctorScreen, SkillsScreen
+from assistant_terminal.tui.screens import AlertsScreen, BriefingScreen, ConfirmScreen, DoctorScreen, SkillsScreen
 from assistant_terminal.tui.sidebar import Sidebar
 from tests.terminal.conftest import wait_for
 
@@ -73,3 +73,18 @@ async def test_dismiss_takes_one_off_and_dismiss_all_asks_first(app, client):
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
         await pilot.press("y")
         await wait_for(pilot, lambda: client.alerts.items == [] and screen.query_one("#alerts").has_class("empty"))
+
+
+async def test_a_failed_review_is_shown_by_its_name_and_opens_the_briefing(app, client):
+    client.alerts.items = [
+        Alert("proactive", "nightly", 1, "the model is down", _AT),
+        Alert("skill", "weekly-review", 3, "exit code 1", _AT),
+    ]
+    async with app.run_test(size=(120, 40)) as pilot:
+        screen = await _open(app, pilot)
+        body = screen.query_one("#alerts-body", Markdown)
+        await wait_for(pilot, lambda: "Nightly review" in body.source and "Failed the last time it ran." in body.source)
+        screen.query_one("#open", Button).press()
+        await wait_for(pilot, lambda: isinstance(app.screen, BriefingScreen))
+        briefing = app.screen
+        await wait_for(pilot, lambda: "Gas due Thu." in briefing.query_one("#briefing-body", Markdown).source)

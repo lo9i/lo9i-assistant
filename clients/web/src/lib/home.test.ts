@@ -15,7 +15,7 @@ import {
   updatedLabel,
   whileVisible,
   withColumns,
-  withConversations,
+  withCoded,
   withSection,
   withoutSection,
 } from "./home";
@@ -139,11 +139,11 @@ describe("editing the sections", () => {
     expect(withoutSection(sections, "b").map((s) => s.id)).toEqual(["a", "c"]);
   });
 
-  it("adds the Conversations card back at the end, once", () => {
-    const added = withConversations(sections, "Conversations");
+  it("adds a card built by code back at the end, once", () => {
+    const added = withCoded(sections, CONVERSATIONS, "Conversations");
     expect(added.map((s) => s.id)).toEqual(["a", "b", "c", CONVERSATIONS]);
-    expect(added[3]).toMatchObject({ title: "Conversations", plugins: [], columns: 0 });
-    expect(withConversations(added, "Again")).toBe(added);
+    expect(added[3]).toMatchObject({ title: "Conversations", plugins: [], columns: 0, coded: true });
+    expect(withCoded(added, CONVERSATIONS, "Again")).toBe(added);
   });
 
   it("moves one up or down, and leaves the ends alone", () => {

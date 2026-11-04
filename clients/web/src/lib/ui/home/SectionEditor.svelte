@@ -17,10 +17,11 @@
     error: string;
     onsave: (section: HomeSection) => void;
     onclose: () => void;
-    /** Given for a new section while Home has no Conversations card: adds it instead. */
-    onaddconversations?: () => void;
+    /** For a new section, the cards built by code that Home doesn't have (Conversations, Open loops): each says what it
+     * is and adds it instead. */
+    offers?: Array<{ id: string; text: string; add: () => void }>;
   };
-  let { section, plugins, listing, error, onsave, onclose, onaddconversations }: Props = $props();
+  let { section, plugins, listing, error, onsave, onclose, offers = [] }: Props = $props();
 
   // svelte-ignore state_referenced_locally
   let title = $state(section?.title ?? "");
@@ -53,12 +54,12 @@
   width={600}
   {onclose}
 >
-  {#if onaddconversations}
+  {#each offers as offer (offer.id)}
     <div class="offer">
-      <p class="text-meta">{t("homeConversations.offer")}</p>
-      <button class="btn btn--neutral btn--sm" onclick={onaddconversations}>{t("homeConversations.add")}</button>
+      <p class="text-meta">{offer.text}</p>
+      <button class="btn btn--neutral btn--sm" onclick={offer.add}>{t("homeConversations.add")}</button>
     </div>
-  {/if}
+  {/each}
   <label class="field">
     <span class="micro-label">{t("home.title")}</span>
     <input class="input" bind:value={title} placeholder={t("home.titlePlaceholder")} />

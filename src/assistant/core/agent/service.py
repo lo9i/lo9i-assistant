@@ -69,6 +69,7 @@ from assistant.core.ending import EndingState
 from assistant.core.health import HealthLog
 from assistant.core.home import sections as home_sections
 from assistant.core.home.conversations import ConversationsSection
+from assistant.core.home.loops import LoopsSection
 from assistant.core.home.refresh import HomeRefresh
 from assistant.core.home.schedule import HomeSchedule
 from assistant.core.llm import choice
@@ -194,6 +195,7 @@ class AssistantService(
             home_sections.CONVERSATIONS: ConversationsSection(
                 storage.store, settings.owner_id, lambda: self.list_conversations(settings.owner_id)
             ),
+            home_sections.LOOPS: LoopsSection(storage.store, settings.owner_id),
         }
         self.today_lists = TodayLists(storage.store, self.mcp)
         self.home_refresh = HomeRefresh(

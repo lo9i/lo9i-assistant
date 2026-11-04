@@ -3457,7 +3457,7 @@ export interface components {
              * Area
              * @enum {string}
              */
-            area: "mcp" | "skill" | "doctor";
+            area: "mcp" | "skill" | "doctor" | "proactive";
             /** Name */
             name: string;
             /** Failures */
@@ -3679,6 +3679,11 @@ export interface components {
              * @default
              */
             error: string;
+            /**
+             * Dismissed
+             * @default false
+             */
+            dismissed: boolean;
         };
         /** CancelResult */
         CancelResult: {
@@ -5952,6 +5957,11 @@ export interface components {
              * @default
              */
             error: string;
+            /**
+             * Dismissed
+             * @default false
+             */
+            dismissed: boolean;
         };
         /** Revoked */
         Revoked: {
@@ -10496,7 +10506,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                area: "mcp" | "skill" | "doctor";
+                area: "mcp" | "skill" | "doctor" | "proactive";
                 name: string;
             };
             cookie?: never;

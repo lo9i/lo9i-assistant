@@ -450,7 +450,7 @@ async def test_a_new_conversations_first_voice_message_is_routed_by_what_it_says
 
 
 async def test_home_is_shown_refreshed_and_its_sections_edited(client, service):
-    built_in = ["Calendar", "Watchlist", "Expenses", "Copilot", "Conversations"]
+    built_in = ["Calendar", "Watchlist", "Expenses", "Copilot", "Conversations", "Open loops"]
     assert [c.section.title for c in (await client.home.get()).cards] == built_in
     with pytest.raises(HomeSectionsError, match="Every section needs a title"):
         await client.home.save_sections([HomeSection(title="", prompt="x")])

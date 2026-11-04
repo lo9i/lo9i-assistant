@@ -1,5 +1,5 @@
-"""The assistant's own initiative, on for every user and changed from the apps (the web app's Briefing page and
-Settings → General, the terminal app's /briefing):
+"""The assistant's own initiative, on for every user and changed from the apps (the web app's Settings → General and
+Home's Open loops card, the terminal app's /briefing):
 
 - the morning briefing (briefing.py): each plugin's list for the day (core/mcp/today.py), the unread mail that matters,
   the open loops that matter now and the reviews' suggestions, laid out by code, sent to the user's chat channels and
@@ -11,4 +11,4 @@ Settings → General, the terminal app's /briefing):
 - the kinds of suggestion the user muted (`ProactiveSettings.muted`), never made again.
 
 The plugins' lists are read by code, never by a model; the worker model only picks the unread mail that matters and
-writes the reviews."""
+writes the reviews. The briefing or a review that fails is an alert (failed.py)."""

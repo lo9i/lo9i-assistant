@@ -1,5 +1,6 @@
 """Alerts as text, for the Alerts page (the web app's /alerts): MCP servers and skills that keep failing or need the
-user to sign in again, and what the health check found new or growing, or the starting context too large."""
+user to sign in again, what the health check found new or growing, or the starting context too large, and the
+briefing or a review that failed."""
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -8,7 +9,18 @@ from assistant.core.agent import Alert
 from assistant.core.config import settings
 from assistant_terminal.i18n import short_date, t, translatable
 
-_KINDS = {"mcp": translatable("MCP server"), "skill": translatable("Skill"), "doctor": translatable("Health check")}
+_KINDS = {
+    "mcp": translatable("MCP server"),
+    "skill": translatable("Skill"),
+    "doctor": translatable("Health check"),
+    "proactive": translatable("Briefing and reviews"),
+}
+# The briefing's and reviews' alerts are named after the work that failed.
+_WORK = {
+    "briefing": translatable("Morning briefing"),
+    "nightly": translatable("Nightly review"),
+    "weekly": translatable("Weekly review"),
+}
 
 
 def alerted_at(alert: Alert) -> str:
@@ -17,11 +29,16 @@ def alerted_at(alert: Alert) -> str:
 
 
 def label(alert: Alert) -> str:
-    """A health check's alert names a cause by its id: its title is what to show."""
+    """A health check's alert names a cause by its id: its title is what to show. The briefing's or a review's, the
+    work."""
+    if alert.area == "proactive":
+        return t(_WORK[alert.name]) if alert.name in _WORK else alert.name
     return alert.title or alert.name
 
 
 def problem(alert: Alert) -> str:
+    if alert.area == "proactive":
+        return t("Failed the last time it ran.")
     if alert.area == "doctor" and alert.kind == "context":
         return t("The context a new conversation starts with is large.")
     if alert.area == "doctor":

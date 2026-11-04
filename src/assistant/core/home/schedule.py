@@ -4,7 +4,8 @@ while a client shows it (the web app says so while its Home tab is visible, and 
 disconnects). Ticks read the wall clock, so a computer waking from sleep catches up within a tick.
 
 While a client shows it, the Conversations card, built by code without the model (conversations.py), is built again
-each time a conversation changes, so the times it shows keep up with them."""
+each time a conversation changes, so the times it shows keep up with them; the Open loops card (loops.py) each time
+the loops change."""
 
 import asyncio
 import contextlib
@@ -20,6 +21,8 @@ from assistant.core.waiting import first
 
 WATCHED_MINUTES = 30
 _TICK_SECONDS = 30
+# The cards built by code that are built again while a client shows Home, by the event that changes them.
+_FOLLOWED = {"conversations": sections.CONVERSATIONS, "proactive": sections.LOOPS}
 
 
 class HomeSchedule:
@@ -51,8 +54,8 @@ class HomeSchedule:
 
     async def _following(self, after: int) -> None:
         async for event in self._bus.subscribe(after):
-            if event.kind == "conversations" and self._watchers:
-                await self._refresh.refresh(self._user_id, only=[sections.CONVERSATIONS])
+            if event.kind in _FOLLOWED and self._watchers:
+                await self._refresh.refresh(self._user_id, only=[_FOLLOWED[event.kind]])
 
     async def tick(self, now: datetime) -> None:
         if await self._due(now):

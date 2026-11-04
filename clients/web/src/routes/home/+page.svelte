@@ -20,17 +20,19 @@
     updatedLabel,
     whileVisible,
     withColumns,
-    withConversations,
+    withCoded,
     withSection,
     withoutSection,
   } from "$lib/home";
   import { t } from "$lib/i18n.svelte";
+  import { LOOPS } from "$lib/homeLoops";
   import { HomeSaves } from "$lib/homeSaves.svelte";
   import { describe } from "$lib/notices";
   import { installedIcon } from "$lib/pluginIcons";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import HomeConversations from "$lib/ui/home/HomeConversations.svelte";
+  import HomeLoops from "$lib/ui/home/HomeLoops.svelte";
   import SectionCard from "$lib/ui/home/SectionCard.svelte";
   import SectionEditor from "$lib/ui/home/SectionEditor.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
@@ -161,11 +163,18 @@
     editing = section;
   }
 
-  // Built in, it can be removed; the editor of a new section offers it back.
-  const hasConversations = $derived(sections.some((s) => s.id === CONVERSATIONS));
-  async function addConversations(): Promise<void> {
+  // Built in, they can be removed; the editor of a new section offers them back.
+  const offers = $derived(
+    [
+      { id: CONVERSATIONS, title: t("homeConversations.title"), text: t("homeConversations.offer") },
+      { id: LOOPS, title: t("homeLoops.title"), text: t("homeLoops.offer") },
+    ]
+      .filter((card) => !sections.some((s) => s.id === card.id))
+      .map(({ id, title, text }) => ({ id, text, add: () => addCoded(id, title) })),
+  );
+  async function addCoded(id: string, title: string): Promise<void> {
     editing = undefined;
-    await change((latest) => withConversations(latest, t("homeConversations.title")));
+    await change((latest) => withCoded(latest, id, title));
   }
 
   function keydown(e: KeyboardEvent): void {
@@ -246,12 +255,16 @@
     ondragover={(e) => dragOver(e, id)}
     ondrop={(e) => dropOn(e, id)}
     drop={full ? null : dropMark(id)}
-    children={id === CONVERSATIONS ? conversations : undefined}
+    children={id === CONVERSATIONS ? conversations : id === LOOPS ? openLoops : undefined}
   />
 {/snippet}
 
 {#snippet conversations()}
   <HomeConversations />
+{/snippet}
+
+{#snippet openLoops()}
+  <HomeLoops {today} />
 {/snippet}
 
 <TopBar title={t("nav.home")}>
@@ -303,7 +316,7 @@
     error={editError}
     onsave={saveEdited}
     onclose={() => (editing = undefined)}
-    onaddconversations={editing === null && !hasConversations ? addConversations : undefined}
+    offers={editing === null ? offers : []}
   />
 {/if}
 

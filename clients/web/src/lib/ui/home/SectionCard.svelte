@@ -42,7 +42,7 @@
     ondrop?: (e: DragEvent) => void;
     /** Where a card dragged over it would go: before it, after it, or nowhere. */
     drop?: "before" | "after" | null;
-    /** What it shows instead of its result's items (the Conversations card, drawn live). */
+    /** What it shows instead of its result's items (the Conversations and Open loops cards, drawn live). */
     children?: Snippet;
   };
   let {

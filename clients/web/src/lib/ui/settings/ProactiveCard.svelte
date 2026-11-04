@@ -8,8 +8,8 @@
   import SettingRow from "./SettingRow.svelte";
 
   // What the assistant does on its own (core/proactive/): the morning briefing, the nightly and weekly reviews, urgent
-  // reminders, and the kinds of suggestion muted. On by default; kept by the daemon, so it holds for every device. On
-  // the Briefing page and in Settings → General.
+  // reminders, and the kinds of suggestion muted. On by default; kept by the daemon, so it holds for every device. In
+  // Settings → General; the open loops are Home's Open loops card.
   const { client, notices } = useDaemon();
   const proactive = resource((c) => c.proactive.get(), ["proactive"]);
   const chosen = $derived(proactive.data?.settings);

@@ -44,7 +44,7 @@ async def _card(service: AssistantService):
 
 async def test_home_has_a_conversations_card_built_in(service):
     titles = [c.section.title for c in (await service.home(OWNER)).cards]
-    assert titles[-1] == "Conversations"
+    assert "Conversations" in titles
 
 
 async def test_conversations_are_pinned_once_in_the_order_pinned_and_unpinned(service):
@@ -148,7 +148,7 @@ async def test_the_card_joins_sections_saved_before_it(service):
     mine = HomeSection(id="news", title="News", prompt="Today's news.")
     record = {"sections": [mine.model_dump()], "coded": [sections.COPILOT]}
     await service.store.aput(sections.namespace(OWNER), "sections", record)
-    assert [s.id for s in await sections.load(service.store, OWNER)] == ["news", CONVERSATIONS]
+    assert [s.id for s in await sections.load(service.store, OWNER)] == ["news", CONVERSATIONS, sections.LOOPS]
 
 
 async def test_a_removed_card_is_added_back_by_its_id_with_its_own_text(service):

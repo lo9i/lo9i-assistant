@@ -30,7 +30,7 @@ class AlertsScreen(PageScreen[None]):
     PAGE = "alerts"
     BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
     # Failures are kept with the servers and skills, and the health check's with its reports.
-    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"mcp", "skills", "doctor"})
+    RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"mcp", "skills", "doctor", "proactive"})
 
     def __init__(self, alerts: AlertsApi, open_alert: Callable[[Alert], object]) -> None:
         """`open_alert`: has the app show its server, skill or the health check's cause in this page's place, once

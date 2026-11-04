@@ -154,7 +154,8 @@
           {:else if shown.kind === "doctor"}
             <a class="btn btn--neutral btn--sm" href={resolve("/doctor")}>{t("notificationsPage.openHealth")}</a>
           {:else if shown.kind === "briefing" || shown.kind === "reminder"}
-            <a class="btn btn--neutral btn--sm" href={resolve("/briefing")}>{t("notificationsPage.openBriefing")}</a>
+            <!-- The open loops are Home's Open loops card. -->
+            <a class="btn btn--neutral btn--sm" href={resolve("/home")}>{t("notificationsPage.openHome")}</a>
           {/if}
           <button class="btn btn--ghost btn--sm" onclick={() => dismiss(shown)}>{t("common.dismiss")}</button>
         </div>

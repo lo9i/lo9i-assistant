@@ -39,6 +39,7 @@ class Reminders:
     async def _remind(self, loop: OpenLoop, now: datetime, day: str) -> None:
         t = await i18n.chosen(self._store)
         due = t(" (due {day})", day=loop.due) if loop.due else ""
-        await self._teller.tell("reminder", t("Reminder"), t("Reminder: {text}", text=loop.text) + due)
+        text = t("Reminder: {text}", text=loop.text) + due
+        await self._teller.tell("reminder", t("Reminder"), text, loop.thread_id)
         await loops.mark_reminded(self._store, self._user_id, loop, now)
         await records.count_reminder(self._store, self._user_id, day)

@@ -553,6 +553,8 @@
   "No open loop {loop_id}.": "No hay ningún pendiente {loop_id}.",
   "Mail": "Correo",
   "Open loops": "Pendientes",
+  "Nothing open.": "Nada pendiente.",
+  "Built by lo9i, without the model: what's still to do or waiting, from your conversations, the reviews and the assistant, those due first, each with its conversation and a button to mark it done. Bills due show in the Expenses card instead.": "Lo arma lo9i, sin el modelo: lo que queda por hacer o está en espera, de tus conversaciones, las revisiones y el asistente, primero lo que tiene vencimiento, cada uno con su conversación y un botón para marcarlo hecho. Las facturas por vencer se muestran en la tarjeta de Gastos.",
   "Suggestions": "Sugerencias",
   "Last week": "La semana pasada",
   "Couldn't read": "No se pudo leer",

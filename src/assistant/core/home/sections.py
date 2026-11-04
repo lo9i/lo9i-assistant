@@ -23,6 +23,7 @@ _BUILT_IN = (
 )
 COPILOT = "copilot"
 CONVERSATIONS = "conversations"
+LOOPS = "loops"
 # Built in and built by code: id, title, and what the apps show as what it shows (no model reads it), which only
 # the code changes.
 _CODED = (
@@ -40,6 +41,15 @@ _CODED = (
         translatable(
             "Built by lo9i, without the model: the conversations pinned to Home (Pin to Home in Chat), or the most "
             "recent ones while none is, each with its latest message and whether it's working or waiting for you."
+        ),
+    ),
+    (
+        LOOPS,
+        translatable("Open loops"),
+        translatable(
+            "Built by lo9i, without the model: what's still to do or waiting, from your conversations, the reviews "
+            "and the assistant, those due first, each with its conversation and a button to mark it done. Bills due "
+            "show in the Expenses card instead."
         ),
     ),
 )

@@ -315,6 +315,22 @@ async def test_a_failed_briefing_is_recorded(service, drafts, inbox):
     assert briefing is not None and briefing.status == "failed" and "the model is down" in briefing.error
 
 
+async def test_a_failed_briefing_or_review_is_an_alert_until_dismissed_or_the_next_one_works(service, drafts, inbox):
+    inbox.append(Unread("Work", 5, "Ana <ana@x.com>", "Friday?", "2026-10-29T09:00:00+00:00"))
+    drafts.mail.answers.append(RuntimeError("the model is down"))
+    drafts.review.answers.append(RuntimeError("the model is down"))
+    await _run(service, "briefing", SUNDAY.replace(hour=8))
+    await _run(service, "nightly", SUNDAY.replace(hour=23))
+    alerts = [a for a in await service.alerts() if a.area == "proactive"]
+    assert sorted(a.name for a in alerts) == ["briefing", "nightly"]
+    assert all("the model is down" in a.error for a in alerts)
+    await service.dismiss_alert("proactive", "briefing")
+    assert [a.name for a in await service.alerts() if a.area == "proactive"] == ["nightly"]
+    drafts.review.answers.append(ReviewDraft(summary="Quiet day."))
+    await _run(service, "nightly", SUNDAY.replace(hour=23) + timedelta(days=1))
+    assert [a for a in await service.alerts() if a.area == "proactive"] == []
+
+
 # The reviews.
 
 
@@ -388,6 +404,15 @@ async def test_reminders_go_at_their_time_within_the_day_a_few_a_day(service, ch
     assert len(chat.sent) == PER_DAY and all(s.startswith("Reminder: Call") for s in chat.sent)
     await _tick(service, monday.replace(hour=8, minute=1) + timedelta(days=1))
     assert len(chat.sent) == PER_DAY + 1 and not any("Muted" in s for s in chat.sent)
+
+
+async def test_a_reminder_opens_the_conversation_its_loop_came_from(service):
+    draft = LoopDraft(text="Call the bank", remind_at="2026-11-02T09:00")
+    await loops.add(service.store, "owner", draft, "conversation", thread_id="t1")
+    await records.save_settings(service.store, "owner", ProactiveSettings(briefing=False))
+    await _tick(service, SUNDAY.replace(hour=9, minute=1) + timedelta(days=1))
+    [told] = [n for n in await notifications.recent(service.store, "owner") if n.kind == "reminder"]
+    assert told.thread_id == "t1"
 
 
 # Conversations and the assistant's tools.
