@@ -105,6 +105,7 @@
     "agents": "Agentes",
     "apps": "Apps",
     "assistant": "Asistente",
+    "browser": "Navegador",
     "calendar": "Calendario",
     "chat": "Chat",
     "communications": "Comunicaciones",
@@ -124,7 +125,8 @@
     "productivity": "Productividad",
     "remote": "Remoto",
     "software": "Software",
-    "video": "Video"
+    "video": "Video",
+    "web": "Web"
   },
   "channelSetup": {
     "off": "Apagado",

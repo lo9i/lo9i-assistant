@@ -175,6 +175,7 @@ const CATEGORY_PARTS: Record<string, Key> = {
   agents: "categories.agents",
   apps: "categories.apps",
   assistant: "categories.assistant",
+  browser: "categories.browser",
   calendar: "categories.calendar",
   chat: "categories.chat",
   communications: "categories.communications",
@@ -194,6 +195,7 @@ const CATEGORY_PARTS: Record<string, Key> = {
   remote: "categories.remote",
   software: "categories.software",
   video: "categories.video",
+  web: "categories.web",
 };
 
 /** The plugins grouped by their category's group, in alphabetical order with "other" last, keeping their order within a group. */

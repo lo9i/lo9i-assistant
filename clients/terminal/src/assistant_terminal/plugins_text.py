@@ -182,6 +182,7 @@ _CATEGORY_PARTS = {
     "agents": translatable("Agents"),
     "apps": translatable("Apps"),
     "assistant": translatable("Assistant"),
+    "browser": translatable("Browser"),
     "calendar": translatable("Calendar"),
     "chat": translatable("Chat"),
     "communications": translatable("Communications"),
@@ -202,6 +203,7 @@ _CATEGORY_PARTS = {
     "remote": translatable("Remote"),
     "software": translatable("Software"),
     "video": translatable("Video"),
+    "web": translatable("Web"),
 }
 
 

@@ -27,6 +27,7 @@ CATEGORIES = (
     "productivity/documents",
     "productivity/maps",
     "software/factory",
+    "web/browser",
 )
 DEFAULT = "other/general"
 # The category a plugin with that section of server.yaml is in.

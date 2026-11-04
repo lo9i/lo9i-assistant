@@ -40,6 +40,7 @@ CATEGORY_ICONS = {
     "productivity/documents": "file-text",
     "productivity/maps": "map",
     "software/factory": "factory",
+    "web/browser": "globe",
 }
 _SVG_NS = "{http://www.w3.org/2000/svg}"
 _XLINK_HREF = "{http://www.w3.org/1999/xlink}href"
