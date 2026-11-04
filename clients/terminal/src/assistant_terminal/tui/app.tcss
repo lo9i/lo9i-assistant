@@ -74,6 +74,43 @@ Sidebar.collapsed {
     padding: 1 2;
 }
 
+/* Settings: a tab per section along the top, the section shown under it filling the rest of the page as a page's
+   content does; its panel (border, width, background) gives way too. */
+#page-row > #page-body > #settings-tabs {
+    padding: 0 1;
+}
+
+#settings-tabs > ContentSwitcher, #settings-tabs TabPane, #settings-tabs SettingsSection {
+    height: 1fr;
+    padding: 0;
+}
+
+#page-body #settings-tabs SettingsSection > * {
+    width: 1fr;
+    height: 1fr;
+    max-width: 100%;
+    max-height: 100%;
+    margin: 0;
+    border: none;
+    background: transparent;
+    padding: 1 1 0 1;
+}
+
+/* The tabs: muted, the one shown in the main text with the accent under it; while they have the focus, it's picked as
+   in every list. */
+#settings-tabs Tab {
+    color: $text-muted;
+}
+
+#settings-tabs Tab:hover, #settings-tabs Tab.-active {
+    color: $text-main;
+}
+
+#settings-tabs Underline > .underline--bar {
+    color: $accent-color;
+    background: $line;
+}
+
 #chat {
     width: 1fr;
     padding: 0 1;
@@ -251,7 +288,7 @@ AttachmentBar .tag {
     text-style: bold;
 }
 
-ProfileScreen, WebSearchScreen, EmailScreen, EmailRecipientsScreen, ChannelSetupScreen, StartupScreen, McpAddScreen, McpSecretsScreen, ModelScreen, AudioScreen, SkillEditScreen, SpendingLimitsScreen {
+EmailScreen, ChannelSetupScreen, McpAddScreen, McpSecretsScreen, SkillEditScreen {
     align: center middle;
 }
 
@@ -556,7 +593,7 @@ ModalScreen Input, ModalScreen OptionList, ModalScreen MarkdownHeader, PageScree
     border: round $line-focus;
 }
 
-SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen, HomeScreen, DoctorScreen, UsageScreen, SessionsScreen, McpScreen, LogsScreen, NotificationsScreen, SubagentsScreen {
+JobsScreen, ConversationsScreen, DevicesScreen, HomeScreen, UsageScreen, NotificationsScreen, SubagentsScreen {
     align: center middle;
 }
 

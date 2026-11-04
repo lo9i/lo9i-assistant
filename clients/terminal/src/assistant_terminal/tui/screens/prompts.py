@@ -1,8 +1,8 @@
 """The system prompt texts the user edits, as in the web app's Settings → System prompt: the persona, the
 operating instructions and the channel hints. Pick one, edit its text, save it or reset it to the built-in
 text; an edit applies from the next message in each conversation. When an update changed the built-in text an
-edit hides, it says how, with Keep my edit. What's typed and not saved is kept per text while the screen is
-open, and closing with any asks first. Refreshes when the texts change elsewhere (the `prompts` event), keeping
+edit hides, it says how, with Keep my edit. What's typed and not saved is kept per text while Settings is
+open, and closing it with any asks first. Refreshes when the texts change elsewhere (the `prompts` event), keeping
 the focus and what's being typed."""
 
 from collections.abc import Awaitable
@@ -10,22 +10,19 @@ from typing import ClassVar
 
 from textual import on, work
 from textual.app import ComposeResult
-from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, OptionList, Static, TextArea
 from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import PromptsApi
 from assistant.core.agent import PromptEditError, PromptSection, UnknownPromptError
-from assistant_terminal.i18n import t, translatable
+from assistant_terminal.i18n import t
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
-from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
+from assistant_terminal.tui.section import SettingsSection
 
 
-class PromptsScreen(PageScreen[None]):
-    PAGE = "prompt"
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "close", translatable("Close"))]
+class PromptsSection(SettingsSection):
     # The daemon events that change what it shows (AssistantApp.reload_screen).
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"prompts"})
 
@@ -37,7 +34,7 @@ class PromptsScreen(PageScreen[None]):
         # What was typed and not saved, by text.
         self._drafts: dict[str, str] = {}
 
-    def compose_page(self) -> ComposeResult:
+    def compose(self) -> ComposeResult:
         with Vertical(id="prompts"):
             yield Static(t("System prompt"), id="prompts-title")
             with Horizontal(id="prompts-main"):
@@ -56,7 +53,6 @@ class PromptsScreen(PageScreen[None]):
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
         await self.reload()
-        self.query_one("#prompts-list", OptionList).focus()
 
     @reports_daemon_unavailable
     async def reload(self) -> None:
@@ -107,8 +103,8 @@ class PromptsScreen(PageScreen[None]):
             self._confirm_reset(section)
 
     @on(Button.Pressed, "#close")
-    def action_close(self) -> None:
-        self._close()
+    def _close(self) -> None:
+        self.close()
 
     @work
     @reports_daemon_unavailable
@@ -119,12 +115,10 @@ class PromptsScreen(PageScreen[None]):
         if await self.app.push_screen_wait(ConfirmScreen(question, t("Reset"))):
             await self._change(section.name, self._prompts.reset(section.name), t("back to the built-in text."))
 
-    @work
-    async def _close(self) -> None:
+    async def may_close(self) -> bool:
         unsaved = ", ".join(self._shown[name].title for name in self._drafts if name in self._shown)
         question = t("Close without saving your changes to {sections}?", sections=unsaved)
-        if not unsaved or await self.app.push_screen_wait(ConfirmScreen(question, t("Close"))):
-            self.dismiss()
+        return not unsaved or bool(await self.app.push_screen_wait(ConfirmScreen(question, t("Close"))))
 
     async def _change(self, name: str, change: Awaitable[PromptSection], done: str) -> None:
         """Saves or resets a text and says so; the reason when it couldn't."""

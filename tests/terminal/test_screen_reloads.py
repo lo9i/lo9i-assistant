@@ -44,4 +44,4 @@ async def test_skills_memory_and_health_checks_reload_the_screens_showing_them()
         if result is not None:
             await result
     assert app.reloaded == ["skills", "memory", "doctor"]
-    assert "skills" in screens.PluginsScreen.RELOADS_ON and "skills" in screens.SkillsScreen.RELOADS_ON
+    assert "skills" in screens.PluginsSection.RELOADS_ON and "skills" in screens.SkillsSection.RELOADS_ON

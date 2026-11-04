@@ -5,9 +5,9 @@ or cause, picked, and Dismiss and Dismiss all take them off."""
 from textual.widgets import Button, Input, Markdown, OptionList
 
 from assistant.core.agent import Alert
-from assistant_terminal.tui.screens import AlertsScreen, BriefingScreen, ConfirmScreen, DoctorScreen, SkillsScreen
+from assistant_terminal.tui.screens import AlertsScreen, BriefingSection, ConfirmScreen, DoctorSection, SkillsSection
 from assistant_terminal.tui.sidebar import Sidebar
-from tests.terminal.conftest import wait_for
+from tests.terminal.conftest import wait_for, wait_for_section
 
 _AT = "2030-01-01T09:00:00+00:00"
 
@@ -48,7 +48,7 @@ async def test_open_goes_to_its_skill_or_cause_picked(app, client):
     async with app.run_test(size=(120, 40)) as pilot:
         screen = await _open(app, pilot)
         screen.query_one("#open", Button).press()
-        await wait_for(pilot, lambda: isinstance(app.screen, SkillsScreen))
+        await wait_for_section(pilot, app, SkillsSection)
         skills = app.screen.query_one("#skills-list", OptionList)
         await wait_for(
             pilot, lambda: skills.highlighted_option is not None and skills.highlighted_option.id == "weekly-review"
@@ -58,7 +58,7 @@ async def test_open_goes_to_its_skill_or_cause_picked(app, client):
         screen = await _open(app, pilot)
         await pilot.press("down")
         screen.query_one("#open", Button).press()
-        await wait_for(pilot, lambda: isinstance(app.screen, DoctorScreen))
+        await wait_for_section(pilot, app, DoctorSection)
         causes = app.screen.query_one("#doctor-list", OptionList)
         await wait_for(pilot, lambda: causes.highlighted_option is not None and causes.highlighted_option.id == "c2")
 
@@ -85,6 +85,5 @@ async def test_a_failed_review_is_shown_by_its_name_and_opens_the_briefings_sett
         body = screen.query_one("#alerts-body", Markdown)
         await wait_for(pilot, lambda: "Nightly review" in body.source and "Failed the last time it ran." in body.source)
         screen.query_one("#open", Button).press()
-        await wait_for(pilot, lambda: isinstance(app.screen, BriefingScreen))
-        briefing = app.screen
+        briefing = await wait_for_section(pilot, app, BriefingSection)
         await wait_for(pilot, lambda: briefing.query_one("#briefing-time", Input).value == "08:00")

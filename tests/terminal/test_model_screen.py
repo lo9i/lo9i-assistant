@@ -1,15 +1,14 @@
 from textual.widgets import Button, Input, Label, Markdown, Select
 
 from assistant.core.conversation.dispatch_setting import DispatchSetting
-from assistant_terminal.tui.screens import ModelScreen
-from tests.terminal.conftest import wait_for
+from assistant_terminal.tui.screens import ModelSection
+from tests.terminal.conftest import wait_for, wait_for_section
 
 
-async def _open(pilot, app) -> ModelScreen:
+async def _open(pilot, app) -> ModelSection:
     await pilot.click("#prompt")
     await pilot.press(*"/model", "enter")
-    await wait_for(pilot, lambda: isinstance(app.screen, ModelScreen))
-    return app.screen
+    return await wait_for_section(pilot, app, ModelSection)
 
 
 async def test_switch_to_copilot_after_a_failed_test_then_back_to_env(app, client):

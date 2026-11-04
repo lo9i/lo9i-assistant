@@ -17,8 +17,8 @@ from assistant.core.memory.profile import MAX_ITEMS
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.profile_text import section_label
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
-from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
+from assistant_terminal.tui.section import SettingsSection
 
 _ABOUT = translatable("Always in the assistant's mind. Changes apply from the next conversation.")
 _KEYS = translatable("Enter on an item edits it, Delete removes it. Type below and press Enter to add one.")
@@ -55,10 +55,8 @@ class _Saved:
             await self._memory.delete_episode(item_id)
 
 
-class ProfileScreen(PageScreen[None]):
-    PAGE = "profile"
+class ProfileSection(SettingsSection):
     BINDINGS: ClassVar[list[BindingType]] = [
-        Binding("escape", "dismiss", translatable("Close")),
         Binding("delete", "remove", translatable("Remove item")),
     ]
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"memory"})
@@ -72,7 +70,7 @@ class ProfileScreen(PageScreen[None]):
         self._editing: int | None = None
         self._message = ""
 
-    def compose_page(self) -> ComposeResult:
+    def compose(self) -> ComposeResult:
         with Vertical(id="profile"):
             yield Markdown(id="profile-body")
             yield Select[str]([], prompt=t("Section"), id="profile-section")
@@ -187,7 +185,7 @@ class ProfileScreen(PageScreen[None]):
 
     @on(Button.Pressed, "#close")
     def _close(self) -> None:
-        self.dismiss()
+        self.close()
 
     async def _save(self, items: list[str]) -> None:
         if self._section is None:

@@ -2,32 +2,27 @@
 conversation and overall a day, in US dollars, each empty for none (core/usage/limits.py)."""
 
 from dataclasses import replace
-from typing import ClassVar
 
 from textual import on
 from textual.app import ComposeResult
-from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Input, Label, Markdown
 
 from assistant.client.daemon_client import UsageApi
 from assistant.core.agent import SpendingStatus
 from assistant.core.usage.limits import SpendingLimits, SpendingLimitsError
-from assistant_terminal.i18n import t, translatable
+from assistant_terminal.i18n import t
 from assistant_terminal.limits_text import LIMITS, NotAnAmountError, amount_of, describe
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
-from assistant_terminal.tui.page import PageScreen
+from assistant_terminal.tui.section import SettingsSection
 
 
-class SpendingLimitsScreen(PageScreen[None]):
-    PAGE = "limits"
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
-
+class SpendingLimitsSection(SettingsSection):
     def __init__(self, usage: UsageApi) -> None:
         super().__init__()
         self._usage = usage
 
-    def compose_page(self) -> ComposeResult:
+    def compose(self) -> ComposeResult:
         with Vertical(id="spending"):
             yield Markdown(id="spending-body")
             for kind, (_, label) in LIMITS.items():
@@ -44,7 +39,7 @@ class SpendingLimitsScreen(PageScreen[None]):
 
     @on(Button.Pressed, "#close")
     def _close(self) -> None:
-        self.dismiss()
+        self.close()
 
     @reports_daemon_unavailable
     async def on_input_submitted(self, _: Input.Submitted) -> None:

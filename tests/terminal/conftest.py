@@ -6,6 +6,8 @@ from pathlib import Path
 
 import httpx
 import pytest
+from textual.widget import Widget
+from textual.widgets import TabbedContent
 
 import assistant_terminal.tui.app as app_module
 from assistant.client.daemon_client.conversations import OpenedConversation
@@ -126,6 +128,7 @@ from assistant.protocol import (
 from assistant_terminal import i18n
 from assistant_terminal.history import History
 from assistant_terminal.preferences import Preferences
+from assistant_terminal.tui.screens import SettingsScreen
 
 _NEXT = "2030-01-01T09:00:00+00:00"
 # Put on FakeClient.bus: the event stream drops, then opens again.
@@ -1636,3 +1639,20 @@ async def wait_for(pilot, condition, seconds=5.0):
             return
         await pilot.pause(0.05)
     raise AssertionError("condition not met in time")
+
+
+def section_shown[T: Widget](app, kind: type[T]) -> T | None:
+    """The section of that kind Settings shows (its tab picked), or None while it shows another or isn't open."""
+    screen = app.screen
+    if not isinstance(screen, SettingsScreen):
+        return None
+    pane = screen.query_one(TabbedContent).active_pane
+    found = [] if pane is None else list(pane.query(kind))
+    return found[0] if found else None
+
+
+async def wait_for_section[T: Widget](pilot, app, kind: type[T]) -> T:
+    await wait_for(pilot, lambda: section_shown(app, kind) is not None)
+    shown = section_shown(app, kind)
+    assert shown is not None
+    return shown

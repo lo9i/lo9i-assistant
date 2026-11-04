@@ -5,7 +5,6 @@ from typing import ClassVar
 
 from textual import on, work
 from textual.app import ComposeResult
-from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
@@ -13,17 +12,15 @@ from textual.widgets.option_list import Option
 from assistant.client.daemon_client import RepositoriesApi, SkillsApi
 from assistant.core.agent import Skill, SkillError, SkillSummary
 from assistant_terminal.health_text import failures_line, label
-from assistant_terminal.i18n import t, translatable
+from assistant_terminal.i18n import t
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
-from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
 from assistant_terminal.tui.screens.kept_keys import ask_about_keys
 from assistant_terminal.tui.screens.skill_edit import SkillEditScreen
+from assistant_terminal.tui.section import SettingsSection
 
 
-class SkillsScreen(PageScreen[None]):
-    PAGE = "skills"
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
+class SkillsSection(SettingsSection):
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"skills"})
 
     def __init__(self, skills: SkillsApi, repositories: RepositoriesApi, selected: str | None = None) -> None:
@@ -37,7 +34,7 @@ class SkillsScreen(PageScreen[None]):
         self._selected: str | None = selected
         self._skill: Skill | None = None
 
-    def compose_page(self) -> ComposeResult:
+    def compose(self) -> ComposeResult:
         with Vertical(id="skills"):
             yield Static(t("Skills"), id="skills-title")
             yield Static(
@@ -72,13 +69,12 @@ class SkillsScreen(PageScreen[None]):
         options.clear_options()
         # Only names and whether it's broken; the rest is in the detail next to the list.
         options.add_options([Option(f"{s.name}{_state(s)}", id=s.name) for s in skills])
-        # Empty: just the message, and the dialog shrinks to fit.
+        # Empty: just the message.
         self.query_one("#skills").set_class(not skills, "empty")
         if not skills:
             for button in ("#delete", "#edit", "#update"):
                 self.query_one(button).display = False
             self._selected = None
-            self.query_one("#close", Button).focus()
             return
         keep = self._selected if self._selected in self._names else self._names[0]
         options.highlighted = self._names.index(keep)
@@ -91,7 +87,7 @@ class SkillsScreen(PageScreen[None]):
 
     @on(Button.Pressed, "#close")
     def _close(self) -> None:
-        self.dismiss()
+        self.close()
 
     @on(Button.Pressed, "#edit")
     @work

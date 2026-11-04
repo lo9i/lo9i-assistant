@@ -3,17 +3,16 @@ from dataclasses import replace
 from textual.widgets import Button, Input, Markdown, OptionList, Select, SelectionList, TextArea
 
 from assistant_terminal.mcp_text import describe, parse_command, parse_pairs, selection, summary, tool_label
-from assistant_terminal.tui.screens import ConfirmScreen, McpScreen
+from assistant_terminal.tui.screens import ConfirmScreen, McpSection
 from assistant_terminal.tui.screens.mcp_add import McpAddScreen
 from assistant_terminal.tui.screens.mcp_sign_in import McpSignInScreen
-from tests.terminal.conftest import _mcp_status, wait_for
+from tests.terminal.conftest import _mcp_status, wait_for, wait_for_section
 
 
-async def _open(pilot, app) -> McpScreen:
+async def _open(pilot, app) -> McpSection:
     await pilot.click("#prompt")
     await pilot.press(*"/mcp", "enter")
-    await wait_for(pilot, lambda: isinstance(app.screen, McpScreen))
-    return app.screen
+    return await wait_for_section(pilot, app, McpSection)
 
 
 async def test_shows_a_server_chooses_tools_trusts_and_removes(app, client):
@@ -51,7 +50,7 @@ async def test_adds_a_local_server_after_looking_at_its_tools(app, client):
         await wait_for(pilot, lambda: tools.display and len(tools.selected) == 2)
         tools.deselect("delete")
         dialog.query_one("#add", Button).press()
-        await wait_for(pilot, lambda: app.screen is screen and "github" in client.mcp.items)
+        await wait_for(pilot, lambda: app.screen is screen.screen and "github" in client.mcp.items)
         added = client.mcp.added[0]
         assert (added.command, added.args) == ("npx", ["-y", "@modelcontextprotocol/server-github"])
         assert added.env == {"GITHUB_TOKEN": "secret"} and added.include == ["search"] and not added.trusted
@@ -74,7 +73,7 @@ async def test_a_remote_server_that_asks_to_sign_in_is_added_then_signed_in(app,
         message = dialog.query_one("#mcp-add-message", Markdown)
         await wait_for(pilot, lambda: "asks you to sign in" in message.source and dialog.query_one("#add").display)
         dialog.query_one("#add", Button).press()
-        await wait_for(pilot, lambda: app.screen is screen and "linear" in client.mcp.items)
+        await wait_for(pilot, lambda: app.screen is screen.screen and "linear" in client.mcp.items)
         client.mcp.items["linear"].status = "needs_sign_in"
         await screen.reload()
         screen.query_one("#mcp-list", OptionList).highlighted = list(client.mcp.items).index("linear")
@@ -87,7 +86,7 @@ async def test_a_remote_server_that_asks_to_sign_in_is_added_then_signed_in(app,
         assert client.mcp.signing_in == ("linear", "http://localhost:8765/app/oauth")
         sign_in.query_one("#mcp-returned", Input).value = "http://localhost:8765/app/oauth?code=c1&state=m1"
         sign_in.query_one("#finish", Button).press()
-        await wait_for(pilot, lambda: app.screen is screen and client.mcp.items["linear"].status == "connected")
+        await wait_for(pilot, lambda: app.screen is screen.screen and client.mcp.items["linear"].status == "connected")
         assert not screen.query_one("#sign-in").display
 
 
@@ -161,7 +160,7 @@ async def test_an_update_that_needs_a_value_asks_for_it_here(app, client):
         assert field.password and not asking.query("#update-field-CAL_USER")
         field.value = "pw"
         asking.query_one("#update", Button).press()
-        await wait_for(pilot, lambda: app.screen is screen)
+        await wait_for(pilot, lambda: app.screen is screen.screen)
         assert calls == [None, {"CAL_PASSWORD": "pw"}]
 
 

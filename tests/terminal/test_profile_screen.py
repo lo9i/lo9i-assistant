@@ -1,15 +1,14 @@
 from textual.widgets import Input, Markdown, OptionList, Select
 
-from assistant_terminal.tui.screens import ProfileScreen
-from tests.terminal.conftest import wait_for
+from assistant_terminal.tui.screens import ProfileSection
+from tests.terminal.conftest import wait_for, wait_for_section
 
 
 async def test_add_edit_and_remove_profile_items(app, client):
     async with app.run_test(size=(110, 40)) as pilot:
         await pilot.click("#prompt")
         await pilot.press(*"/profile", "enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, ProfileScreen))
-        screen = app.screen
+        screen = await wait_for_section(pilot, app, ProfileSection)
 
         def body() -> str:
             return screen.query_one("#profile-body", Markdown).source
@@ -42,8 +41,7 @@ async def test_a_full_section_takes_no_more_items(app, client):
     async with app.run_test(size=(110, 40)) as pilot:
         await pilot.click("#prompt")
         await pilot.press(*"/profile", "enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, ProfileScreen))
-        screen = app.screen
+        screen = await wait_for_section(pilot, app, ProfileSection)
         prompt = screen.query_one("#profile-input", Input)
         prompt.focus()
         prompt.value = "one more"
@@ -56,8 +54,7 @@ async def test_saved_facts_are_edited_and_deleted_after_confirming(app, client):
     async with app.run_test(size=(110, 40)) as pilot:
         await pilot.click("#prompt")
         await pilot.press(*"/profile", "enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, ProfileScreen))
-        screen = app.screen
+        screen = await wait_for_section(pilot, app, ProfileSection)
         screen.query_one("#profile-section", Select).value = "saved:facts"
         await wait_for(pilot, lambda: "1 saved." in screen.query_one("#profile-body", Markdown).source)
 
@@ -80,6 +77,6 @@ async def test_saved_facts_are_edited_and_deleted_after_confirming(app, client):
         items.focus()
         items.highlighted = 0
         await pilot.press("delete")
-        await wait_for(pilot, lambda: app.screen is not screen)
+        await wait_for(pilot, lambda: app.screen is not screen.screen)
         await pilot.press("y")
         await wait_for(pilot, lambda: client.memory.saved_facts == [])

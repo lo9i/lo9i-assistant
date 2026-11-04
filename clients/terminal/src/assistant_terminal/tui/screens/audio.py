@@ -6,7 +6,6 @@ from typing import ClassVar
 
 from textual import on
 from textual.app import ComposeResult
-from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Button, Markdown, Select, SelectionList, Static
 
@@ -14,7 +13,7 @@ from assistant.client.daemon_client import SpeechApi
 from assistant.core.agent import SpeechSettingsError, SpeechStatus, SpokenReplies
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
-from assistant_terminal.tui.page import PageScreen
+from assistant_terminal.tui.section import SettingsSection
 
 _MODEL_NOTES = {
     "tiny": translatable("fastest, least accurate"),
@@ -62,9 +61,7 @@ def _language(code: str, name: str) -> str:
     return t(_LANGUAGES[code]) if code in _LANGUAGES else name
 
 
-class AudioScreen(PageScreen[None]):
-    PAGE = "audio"
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
+class AudioSection(SettingsSection):
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"settings"})
 
     def __init__(self, speech: SpeechApi) -> None:
@@ -72,7 +69,7 @@ class AudioScreen(PageScreen[None]):
         self._speech = speech
         self._message = ""
 
-    def compose_page(self) -> ComposeResult:
+    def compose(self) -> ComposeResult:
         with VerticalScroll(id="audio"):
             yield Markdown(id="audio-body")
             yield Static(t("Speech to text"), classes="audio-heading")
@@ -119,7 +116,7 @@ class AudioScreen(PageScreen[None]):
 
     @on(Button.Pressed, "#close")
     def _close(self) -> None:
-        self.dismiss()
+        self.close()
 
     @on(Button.Pressed, "#save-stt")
     @reports_daemon_unavailable

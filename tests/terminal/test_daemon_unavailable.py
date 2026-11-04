@@ -6,8 +6,8 @@ from textual.widgets import Button
 
 from assistant.client import DaemonUnavailableError
 from assistant.core.agent import ChannelStatus, FoundServer, SetupItem
-from assistant_terminal.tui.screens import PluginsScreen
-from tests.terminal.conftest import wait_for
+from assistant_terminal.tui.screens import PluginsSection
+from tests.terminal.conftest import section_shown, wait_for
 
 _DOWN = "Can't reach the daemon."
 
@@ -29,11 +29,13 @@ async def test_a_screen_button_reports_it(app, client):
         telegram = FoundServer("telegram", "", "none", [], True, channel=True, installed=True)
         client.repositories.more = [replace(telegram, category="communications/chat")]
         await pilot.press(*"/plugins", "enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, PluginsScreen) and app.screen.query(".channel-action"))
+        await wait_for(
+            pilot, lambda: section_shown(app, PluginsSection) is not None and app.screen.query(".channel-action")
+        )
         client.channels.press = _unavailable
         app.screen.query_one(".channel-action", Button).press()
         await wait_for(pilot, lambda: _reported(app))
-        assert isinstance(app.screen, PluginsScreen)
+        assert section_shown(app, PluginsSection) is not None
 
 
 async def test_a_background_event_reports_it(app, client):

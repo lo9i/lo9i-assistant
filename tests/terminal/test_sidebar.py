@@ -1,15 +1,25 @@
 """The navigation on the left: the chat and every page show it, picking a page opens it in the chat's place and Chat
-goes back, Settings opens into its sections, the conversations open here show under Chat with what they're doing,
+goes back, Settings shows its sections as tabs, the conversations open here show under Chat with what they're doing,
 counts show beside the pages, and F4 collapses it to its glyphs, kept for the next start."""
+
+from textual.widgets import Tab, Tabs
 
 from assistant.core.agent import Conversation
 from assistant.core.events import ApprovalRequired
-from assistant_terminal.nav import OPEN
+from assistant_terminal.nav import OPEN, SETTINGS_TABS
 from assistant_terminal.preferences import Preferences
 from assistant_terminal.tui.page import PageScreen
-from assistant_terminal.tui.screens import LanguageScreen, NotificationsScreen, PluginsScreen
+from assistant_terminal.tui.screens import (
+    BriefingSection,
+    EmailRecipientsSection,
+    LanguageSection,
+    ModelSection,
+    NotificationsScreen,
+    PluginsSection,
+    SettingsScreen,
+)
 from assistant_terminal.tui.sidebar import Sidebar
-from tests.terminal.conftest import wait_for
+from tests.terminal.conftest import section_shown, wait_for, wait_for_section
 
 _AT = "2030-01-01T09:00:00+00:00"
 
@@ -49,24 +59,55 @@ async def test_a_slash_command_opens_its_page_and_esc_goes_back(app, client):
         await wait_for(pilot, lambda: app.screen is app.screen_stack[0])
 
 
-async def test_settings_opens_into_its_sections(app, client):
-    async with app.run_test(size=(120, 40)) as pilot:
-        assert "   Plugins" not in _lines(app.screen.query_one(Sidebar))
+async def test_settings_shows_its_sections_as_tabs(app, client):
+    async with app.run_test(size=(160, 40)) as pilot:
         _pick(app.screen.query_one(Sidebar), "settings")
-        await wait_for(pilot, lambda: isinstance(app.screen, LanguageScreen))
-        sidebar = app.screen.query_one(Sidebar)
-        assert "   Plugins" in _lines(sidebar) and "   Health" in _lines(sidebar)
-        _pick(sidebar, "plugins")
-        await wait_for(pilot, lambda: isinstance(app.screen, PluginsScreen))
+        language = await wait_for_section(pilot, app, LanguageSection)
+        settings = app.screen
+        assert isinstance(settings, SettingsScreen)
+        sidebar = settings.query_one(Sidebar)
+        assert sidebar.highlighted_option is not None and sidebar.highlighted_option.id == "settings"
+        assert not any(line.startswith("   ") for line in _lines(sidebar))  # no sections under Settings any more
+        tabs = settings.query_one(Tabs)
+        assert [str(tab.label) for tab in tabs.query(Tab)] == [tab.label for tab in SETTINGS_TABS]
+        await wait_for(pilot, lambda: tabs.has_focus)  # ← and → move between sections from the start
+        await pilot.press("right")
+        await wait_for_section(pilot, app, BriefingSection)
+        await pilot.press("tab")
+        await wait_for(pilot, lambda: app.focused is not None and settings.shown == "briefing")
+        assert app.focused is not tabs and app.focused in settings.query_one(BriefingSection).query("*")
+        await pilot.press("shift+tab", "left")
+        assert await wait_for_section(pilot, app, LanguageSection) is language  # built once, kept
+        await pilot.click("#--content-tab-settings-email")
+        await wait_for_section(pilot, app, EmailRecipientsSection)
+        assert app.screen is settings
+
+
+async def test_a_sections_command_shows_its_tab_on_the_settings_shown(app, client):
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/model", "enter")
+        await wait_for_section(pilot, app, ModelSection)
+        settings = app.screen
+        await app._commands["/plugins"]("")
+        await wait_for_section(pilot, app, PluginsSection)
+        assert app.screen is settings and sum(isinstance(s, PageScreen) for s in app.screen_stack) == 1
+        _pick(settings.query_one(Sidebar), "settings")  # stays on the section shown
+        await pilot.pause()
+        assert section_shown(app, PluginsSection) is not None
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: app.screen is app.screen_stack[0])
 
 
 async def test_the_language_page_sets_it(app, client):
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.click("#prompt")
         await pilot.press(*"/language", "enter", "enter")  # the first completes it: it takes a language too
-        await wait_for(pilot, lambda: isinstance(app.screen, LanguageScreen))
+        await wait_for_section(pilot, app, LanguageSection)
         choices = app.screen.query_one("#language-choices")
-        await wait_for(pilot, lambda: choices.has_focus and choices.option_count == 3)
+        await wait_for(pilot, lambda: choices.option_count == 3)
+        await pilot.press("tab")  # from the tabs into the section
+        await wait_for(pilot, lambda: choices.has_focus)
         await pilot.press("down", "down", "enter")
         await wait_for(pilot, lambda: client.language.current == "es")
         assert str(choices.get_option_at_index(2).prompt) == "● Español"

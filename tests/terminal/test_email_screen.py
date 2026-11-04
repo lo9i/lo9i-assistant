@@ -5,9 +5,9 @@ from textual.widgets import Button, Input, Markdown, Select
 
 from assistant.core.agent import FoundServer
 from assistant_terminal.sign_in_text import REDIRECT
-from assistant_terminal.tui.screens import EmailScreen, PluginsScreen
+from assistant_terminal.tui.screens import EmailScreen, PluginsSection
 from assistant_terminal.tui.screens.email import _alert_options
-from tests.terminal.conftest import wait_for
+from tests.terminal.conftest import wait_for, wait_for_section
 
 
 async def _open(pilot, app, client, plugin: str) -> EmailScreen:
@@ -123,12 +123,12 @@ async def test_a_custom_provider_asks_for_the_servers(app, client):
 
 
 async def test_email_saves_who_the_assistant_emails_without_asking(app, client):
-    from assistant_terminal.tui.screens import EmailRecipientsScreen
+    from assistant_terminal.tui.screens import EmailRecipientsSection
 
     async with app.run_test(size=(110, 44)) as pilot:
         await pilot.click("#prompt")
         await pilot.press(*"/email", "enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, EmailRecipientsScreen))
+        await wait_for_section(pilot, app, EmailRecipientsSection)
         app.screen.query_one(Input).value = "friend@test.com"
         app.screen.query_one("#save", Button).press()
         await wait_for(pilot, lambda: client.email.allowed == ["friend@test.com"])
@@ -184,14 +184,14 @@ async def test_plugins_open_an_email_plugins_accounts_and_email_opens_the_shared
     async with app.run_test(size=(120, 44)) as pilot:
         await pilot.click("#prompt")
         await pilot.press(*"/plugins", "enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, PluginsScreen))
-        plugins = app.screen
+        plugins = await wait_for_section(pilot, app, PluginsSection)
         await wait_for(pilot, lambda: plugins.query_one("#email-accounts").display)
         assert "Kind: Email provider" in plugins.query_one("#plugin-body", Markdown).source
         plugins.query_one("#email-accounts", Button).press()
         await wait_for(pilot, lambda: isinstance(app.screen, EmailScreen) and app.screen._plugin == "gmail")
         await pilot.press("escape")
-        await wait_for(pilot, lambda: app.screen is plugins)
+        settings = plugins.screen
+        await wait_for(pilot, lambda: app.screen is settings)
         await pilot.press("escape")
-        await wait_for(pilot, lambda: app.screen is not plugins)
+        await wait_for(pilot, lambda: app.screen is not settings)
         assert not isinstance(app.screen, EmailScreen)

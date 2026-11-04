@@ -5,7 +5,7 @@ from textual.message import Message
 from textual.widgets import OptionList
 from textual.widgets.option_list import Option
 
-from assistant_terminal.nav import SETTINGS, NavState, entries, in_settings
+from assistant_terminal.nav import NavState, entries
 
 
 class Sidebar(OptionList):
@@ -42,8 +42,7 @@ class Sidebar(OptionList):
         lines = entries(self._page, self._state, self.collapsed)
         self.add_options([Option(text, id=key) for key, text in lines])
         ids = [key for key, _ in lines]
-        here = self._page if self._page in ids else SETTINGS if in_settings(self._page) else None
-        self.highlighted = ids.index(kept) if kept in ids else ids.index(here) if here in ids else None
+        self.highlighted = ids.index(kept) if kept in ids else ids.index(self._page) if self._page in ids else None
 
     def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
         """Its own: the page it's on handles its list's highlights, not these."""

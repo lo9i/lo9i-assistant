@@ -2,10 +2,7 @@
 service (lo9i-assistant); the text explains the one this daemon's system uses. One installed by an older
 version says how it differs, and Install again replaces it."""
 
-from typing import ClassVar
-
 from textual.app import ComposeResult
-from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Markdown
 
@@ -13,7 +10,7 @@ from assistant.client.daemon_client import SystemApi
 from assistant.protocol import StartupError, StartupStatus
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
-from assistant_terminal.tui.page import PageScreen
+from assistant_terminal.tui.section import SettingsSection
 
 _ABOUT = {
     "macos": translatable(
@@ -42,16 +39,13 @@ _NO_LINGER = translatable(
 )
 
 
-class StartupScreen(PageScreen[None]):
-    PAGE = "startup"
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
-
+class StartupSection(SettingsSection):
     def __init__(self, system: SystemApi) -> None:
         super().__init__()
         self._system = system
         self._message = ""
 
-    def compose_page(self) -> ComposeResult:
+    def compose(self) -> ComposeResult:
         with Vertical(id="startup"):
             yield Markdown(id="startup-body")
             with Horizontal(id="startup-buttons"):
@@ -67,7 +61,7 @@ class StartupScreen(PageScreen[None]):
     @reports_daemon_unavailable
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "close":
-            self.dismiss()
+            self.close()
             return
         if event.button.id == "reinstall":
             await self._reinstall()

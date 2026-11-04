@@ -1,16 +1,15 @@
-from textual.widgets import Markdown
+from textual.widgets import Button, Markdown
 
 from assistant.protocol import ConnectedClient
-from assistant_terminal.tui.screens import SessionsScreen
-from tests.terminal.conftest import wait_for
+from assistant_terminal.tui.screens import SessionsSection
+from tests.terminal.conftest import section_shown, wait_for, wait_for_section
 
 
 async def test_sessions_screen_lists_clients_and_follows_changes(app, client):
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.click("#prompt")
         await pilot.press(*"/sessions", "enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, SessionsScreen))
-        screen = app.screen
+        screen = await wait_for_section(pilot, app, SessionsSection)
 
         def body() -> str:
             return screen.query_one("#sessions-body", Markdown).source
@@ -19,5 +18,5 @@ async def test_sessions_screen_lists_clients_and_follows_changes(app, client):
         client.clients.connected.append(ConnectedClient("web", "web", "127.0.0.1:50123", "2026-09-30T09:05:00+00:00"))
         await client.bus.put(("clients", {}))
         await wait_for(pilot, lambda: "| web | 127.0.0.1:50123 |" in body())
-        await pilot.press("enter")
-        await wait_for(pilot, lambda: not isinstance(app.screen, SessionsScreen))
+        screen.query_one("#close", Button).press()
+        await wait_for(pilot, lambda: section_shown(app, SessionsSection) is None)

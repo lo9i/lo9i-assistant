@@ -48,7 +48,7 @@ from assistant_terminal.commands import GET_TO_KNOW_ME, Command, agent_commands,
 from assistant_terminal.history import History
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.jobs_text import status as job_status
-from assistant_terminal.nav import CHAT, OPEN, SETTINGS, NavState, first_settings_page
+from assistant_terminal.nav import CHAT, OPEN, SETTINGS, SETTINGS_TABS, NavState
 from assistant_terminal.preferences import Preferences
 from assistant_terminal.subagents_text import running_line
 from assistant_terminal.tasks_text import task_line
@@ -69,46 +69,48 @@ from assistant_terminal.tui.screens import (
     AgentFolderScreen,
     AlertsScreen,
     ApprovalScreen,
-    AudioScreen,
-    BriefingScreen,
+    AudioSection,
+    BriefingSection,
     ChannelSetupScreen,
     ConversationsScreen,
     DevicesScreen,
-    DoctorScreen,
-    EmailRecipientsScreen,
+    DoctorSection,
+    EmailRecipientsSection,
     EmailScreen,
     FilesScreen,
     FolderScreen,
     FormScreen,
     HomeScreen,
-    HostScreen,
+    HostSection,
     JobsScreen,
-    KeptKeysListScreen,
-    LanguageScreen,
-    LogsScreen,
-    McpScreen,
-    ModelScreen,
+    KeptKeysListSection,
+    LanguageSection,
+    LogsSection,
+    McpSection,
+    ModelSection,
     NotificationsScreen,
     OpenConversationsScreen,
     PluginSettingsScreen,
     PluginSignInScreen,
-    PluginsScreen,
-    ProfileScreen,
-    PromptsScreen,
+    PluginsSection,
+    ProfileSection,
+    PromptsSection,
     QuestionScreen,
     RepositoryInstallScreen,
-    SessionsScreen,
+    SessionsSection,
+    SettingsScreen,
     SkillImportsScreen,
-    SkillsScreen,
-    SpendingLimitsScreen,
-    StartupScreen,
+    SkillsSection,
+    SpendingLimitsSection,
+    StartupSection,
     SubagentsScreen,
     SuggestedPluginsScreen,
     UsageScreen,
-    WebSearchScreen,
+    WebSearchSection,
 )
 from assistant_terminal.tui.screens.home_section import HomePlugins
 from assistant_terminal.tui.screens.host import ending_text
+from assistant_terminal.tui.section import SettingsSection
 from assistant_terminal.tui.sidebar import Sidebar
 from assistant_terminal.tui.theme import NAME as THEME_NAME
 from assistant_terminal.tui.theme import THEME
@@ -202,6 +204,8 @@ class AssistantApp(App):
         self._agents: dict[str, Agent] = {}
         # What the sidebar lists and counts (refresh_nav), and the focus F5 took it from.
         self._nav_state = NavState()
+        # While the event stream is lost (ConnectionNote): calls that fail then don't each say so.
+        self.daemon_lost = False
         self._before_sidebar: Widget | None = None
         self._plugin_updates = PluginUpdates(service.repositories, lambda text: self.notify(text, timeout=10))
         self._commands: dict[str, Callable[[str], Awaitable[None]]] = {
@@ -215,32 +219,16 @@ class AssistantApp(App):
             "/alerts": self._command_alerts,
             "/subagents": self._command_subagents,
             "/attach": self._command_attach,
-            "/mcp": self._command_mcp,
-            "/model": self._command_model,
-            "/audio": self._command_audio,
-            "/websearch": self._command_web_search,
-            "/limits": self._command_limits,
-            "/email": self._command_email,
-            "/startup": self._command_startup,
-            "/host": self._command_host,
-            "/skills": self._command_skills,
             "/import-skills": self._command_import_skills,
-            "/plugins": self._command_plugins,
             "/jobs": self._command_jobs,
             "/devices": self._command_devices,
             "/files": self._command_files,
             "/folder": self._command_folder,
             "/usage": self._command_usage,
-            "/logs": self._command_logs,
-            "/doctor": self._command_doctor,
-            "/briefing": self._command_briefing,
-            "/profile": self._command_profile,
-            "/sessions": self._command_sessions,
-            "/keys": self._command_keys,
             "/home": self._command_home,
             "/name": self._command_name,
+            **{f"/{tab.key}": self._settings_command(tab.key) for tab in SETTINGS_TABS},
             "/language": self._command_language,
-            "/prompt": self._command_prompt,
             "/pin": self._command_pin,
             "/unpin": self._command_unpin,
             "/get-to-know-me": self._command_get_to_know_me,
@@ -321,8 +309,8 @@ class AssistantApp(App):
 
     async def reload_host(self) -> None:
         """The runs a restart or stop waits for changed: /host says how many are left."""
-        if isinstance(self.screen, HostScreen):
-            await self.screen.reload()
+        for host in self.screen.query(HostSection):
+            await host.reload()
 
     def reload_screen(self, kind: str) -> None:
         """The open screen reads what the event `kind` changed again, if it shows that: each screen that reloads
@@ -331,9 +319,10 @@ class AssistantApp(App):
         if kind in _NAV_EVENTS:
             self.refresh_nav()
         screen = self.screen
-        reload = getattr(screen, "reload", None)
-        if reload is not None and kind in getattr(screen, "RELOADS_ON", ()):
-            screen.run_worker(reload, group="reload", exclusive=True)
+        for shown in (screen, *(screen.sections if isinstance(screen, SettingsScreen) else ())):
+            reload = getattr(shown, "reload", None)
+            if reload is not None and kind in getattr(shown, "RELOADS_ON", ()):
+                shown.run_worker(reload, group="reload", exclusive=True)
 
     def _stop_showing_turn(self) -> None:
         """Leaving the conversation: stop showing everything tied to it, the reply in progress, an approval
@@ -884,17 +873,18 @@ class AssistantApp(App):
 
     @reports_daemon_unavailable
     async def on_sidebar_picked(self, picked: Sidebar.Picked) -> None:
-        """Chat goes back to the conversation shown, an open conversation to it, Settings to its first section, and
-        any other page opens as its slash command opens it."""
+        """Chat goes back to the conversation shown, an open conversation to it, Settings to its first section (or
+        stays on the one shown), and any other page opens as its slash command opens it."""
         target = picked.target
         if target == CHAT:
             await self._show_chat()
         elif target.startswith(OPEN):
             await self._show_chat()
             await self._resume(target.removeprefix(OPEN))
+        elif target == SETTINGS:
+            await self._show_settings()
         else:
-            key = first_settings_page() if target == SETTINGS else target
-            await self._commands[f"/{key}"]("")
+            await self._commands[f"/{target}"]("")
 
     async def _show_page(self, page: PageScreen[Any]) -> None:
         """In place of the page open, if one is; Esc on it goes back to the chat. A page that picks a conversation
@@ -902,6 +892,44 @@ class AssistantApp(App):
         while isinstance(self.screen, PageScreen):
             await self.pop_screen()
         await self.push_screen(page, self._resume)
+
+    async def _show_settings(self, key: str | None = None, section: SettingsSection | None = None) -> None:
+        """Settings on that section's tab (its first without one); in place when Settings shows already."""
+        if isinstance(self.screen, SettingsScreen):
+            await self.screen.show(key or self.screen.shown, section)
+            return
+        await self._show_page(SettingsScreen(self._settings_section, key or SETTINGS_TABS[0].key, section))
+
+    def _settings_command(self, key: str) -> Callable[[str], Awaitable[None]]:
+        async def command(_: str) -> None:
+            await self._show_settings(key)
+
+        return command
+
+    def _settings_section(self, key: str) -> SettingsSection:
+        """A section of Settings by its key (nav.SETTINGS_TABS), built when its tab first shows."""
+        s = self._service
+        sections: dict[str, Callable[[], SettingsSection]] = {
+            "language": lambda: LanguageSection(s.language, self.refresh_language),
+            "briefing": lambda: BriefingSection(s.proactive),
+            "websearch": lambda: WebSearchSection(s.web_search),
+            "email": lambda: EmailRecipientsSection(s.email),
+            "startup": lambda: StartupSection(s.system),
+            "profile": lambda: ProfileSection(s.memory),
+            "model": lambda: ModelSection(s.model),
+            "limits": lambda: SpendingLimitsSection(s.usage),
+            "prompt": lambda: PromptsSection(s.prompts),
+            "audio": lambda: AudioSection(s.speech),
+            "plugins": lambda: PluginsSection(s.repositories, s.mcp, s.skills, s.channels, s.email, s.oauth),
+            "mcp": lambda: McpSection(s.mcp, s.oauth, s.repositories),
+            "skills": lambda: SkillsSection(s.skills, s.repositories),
+            "host": lambda: HostSection(s.system),
+            "keys": lambda: KeptKeysListSection(s.repositories),
+            "sessions": lambda: SessionsSection(s.clients),
+            "logs": lambda: LogsSection(s.logs),
+            "doctor": lambda: DoctorSection(s.doctor),
+        }
+        return sections[key]()
 
     async def _show_chat(self) -> None:
         while isinstance(self.screen, PageScreen):
@@ -1030,7 +1058,7 @@ class AssistantApp(App):
 
     async def _command_notifications(self, _: str) -> None:
         screen = NotificationsScreen(
-            self._service.notifications, self._service.jobs, self._service.doctor, self._open_home
+            self._service.notifications, self._service.jobs, self._open_home, self._open_health
         )
         await self._show_page(screen)
 
@@ -1039,6 +1067,11 @@ class AssistantApp(App):
         """Home in the Notifications page's place: as the app's own work, so the page that asked has finished
         handling its button before it's closed."""
         await self._command_home("")
+
+    @work(group="pages")
+    async def _open_health(self) -> None:
+        """Settings' health check in the Notifications page's place, as Home is."""
+        await self._show_settings("doctor")
 
     async def _command_alerts(self, _: str) -> None:
         await self._show_page(AlertsScreen(self._service.alerts, self._open_alert))
@@ -1051,15 +1084,15 @@ class AssistantApp(App):
         closed."""
         service = self._service
         if alert.area == "mcp":
-            await self._show_page(McpScreen(service.mcp, service.oauth, service.repositories, selected=alert.name))
+            await self._show_settings("mcp", McpSection(service.mcp, service.oauth, service.repositories, alert.name))
         elif alert.area == "skill":
-            await self._show_page(SkillsScreen(service.skills, service.repositories, selected=alert.name))
+            await self._show_settings("skills", SkillsSection(service.skills, service.repositories, alert.name))
         elif alert.area == "proactive":
-            await self._show_page(BriefingScreen(service.proactive))
+            await self._show_settings("briefing")
         elif alert.kind == "context":
-            await self._show_page(DoctorScreen(service.doctor))
+            await self._show_settings("doctor")
         else:
-            await self._show_page(DoctorScreen(service.doctor, selected=alert.name))
+            await self._show_settings("doctor", DoctorSection(service.doctor, selected=alert.name))
 
     @reports_daemon_unavailable
     async def _resume(self, thread_id: str | None) -> None:
@@ -1145,9 +1178,9 @@ class AssistantApp(App):
         self.notify(t("Renamed to {name}. It takes effect from your next message.", name=name))
 
     async def _command_language(self, arg: str) -> None:
-        """/language opens Settings' Language page; /language es sets it, for every app."""
+        """/language opens Settings' Language tab; /language es sets it, for every app."""
         if not arg:
-            await self._show_page(LanguageScreen(self._service.language, self.refresh_language))
+            await self._show_settings("language")
             return
         try:
             chosen = await self._service.language.set(arg)
@@ -1246,26 +1279,8 @@ class AssistantApp(App):
         commands, keys_label = t("Commands"), t("Keys:")
         await self._chat.mount(SystemNote(f"## {commands}\n\n```\n{body}\n```\n\n**{keys_label}** {', '.join(keys)}"))
 
-    async def _command_plugins(self, _: str) -> None:
-        await self._show_page(
-            PluginsScreen(
-                self._service.repositories,
-                self._service.mcp,
-                self._service.skills,
-                self._service.channels,
-                self._service.email,
-                self._service.oauth,
-            )
-        )
-
-    async def _command_skills(self, _: str) -> None:
-        await self._show_page(SkillsScreen(self._service.skills, self._service.repositories))
-
     async def _command_import_skills(self, _: str) -> None:
         self.push_screen(SkillImportsScreen(self._service.skills))
-
-    async def _command_prompt(self, _: str) -> None:
-        await self._show_page(PromptsScreen(self._service.prompts))
 
     async def _command_jobs(self, _: str) -> None:
         await self._show_page(JobsScreen(self._service.jobs))
@@ -1292,24 +1307,6 @@ class AssistantApp(App):
     async def _command_usage(self, _: str) -> None:
         await self._show_page(UsageScreen(self._service.usage))
 
-    async def _command_logs(self, _: str) -> None:
-        await self._show_page(LogsScreen(self._service.logs))
-
-    async def _command_doctor(self, _: str) -> None:
-        await self._show_page(DoctorScreen(self._service.doctor))
-
-    async def _command_briefing(self, _: str) -> None:
-        await self._show_page(BriefingScreen(self._service.proactive))
-
-    async def _command_profile(self, _: str) -> None:
-        await self._show_page(ProfileScreen(self._service.memory))
-
-    async def _command_sessions(self, _: str) -> None:
-        await self._show_page(SessionsScreen(self._service.clients))
-
-    async def _command_keys(self, _: str) -> None:
-        await self._show_page(KeptKeysListScreen(self._service.repositories))
-
     async def _command_home(self, _: str) -> None:
         await self._show_page(HomeScreen(self._service.home, self._plugins_with_tools, self._service.proactive))
 
@@ -1317,31 +1314,6 @@ class AssistantApp(App):
         """The plugins a Home section may read: those with tools, and those of them that list their day."""
         found = [s for s in await self._service.mcp.servers() if s.transport != "none"]
         return HomePlugins([s.name for s in found], [s.name for s in found if s.lists_today])
-
-    async def _command_startup(self, _: str) -> None:
-        await self._show_page(StartupScreen(self._service.system))
-
-    async def _command_host(self, _: str) -> None:
-        await self._show_page(HostScreen(self._service.system))
-
-    async def _command_audio(self, _: str) -> None:
-        await self._show_page(AudioScreen(self._service.speech))
-
-    async def _command_email(self, _: str) -> None:
-        """Who the assistant emails without asking: the web app's Settings → General → Email."""
-        await self._show_page(EmailRecipientsScreen(self._service.email))
-
-    async def _command_limits(self, _: str) -> None:
-        await self._show_page(SpendingLimitsScreen(self._service.usage))
-
-    async def _command_web_search(self, _: str) -> None:
-        await self._show_page(WebSearchScreen(self._service.web_search))
-
-    async def _command_model(self, _: str) -> None:
-        await self._show_page(ModelScreen(self._service.model))
-
-    async def _command_mcp(self, _: str) -> None:
-        await self._show_page(McpScreen(self._service.mcp, self._service.oauth, self._service.repositories))
 
     async def _command_quit(self, _: str) -> None:
         self.exit()

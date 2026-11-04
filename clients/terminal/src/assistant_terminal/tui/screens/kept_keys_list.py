@@ -6,7 +6,6 @@ from typing import ClassVar
 
 from textual import on, work
 from textual.app import ComposeResult
-from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
@@ -15,8 +14,8 @@ from assistant.client.daemon_client import RepositoriesApi
 from assistant.core.agent import KeptKeys
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
-from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
+from assistant_terminal.tui.section import SettingsSection
 
 _EMPTY = translatable("Nothing kept. Removing a plugin asks whether to keep its keys for installing it again.")
 
@@ -38,9 +37,7 @@ def describe(kept: KeptKeys) -> str:
     return f"{given}\n\n{keys}"
 
 
-class KeptKeysListScreen(PageScreen[None]):
-    PAGE = "keys"
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
+class KeptKeysListSection(SettingsSection):
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"mcp", "plugins"})
 
     def __init__(self, repositories: RepositoriesApi) -> None:
@@ -48,7 +45,7 @@ class KeptKeysListScreen(PageScreen[None]):
         self._repositories = repositories
         self._shown: list[KeptKeys] = []
 
-    def compose_page(self) -> ComposeResult:
+    def compose(self) -> ComposeResult:
         with Vertical(id="keys"):
             yield Static(t("Kept keys"), id="keys-title")
             with Horizontal(id="keys-main"):
@@ -87,7 +84,7 @@ class KeptKeysListScreen(PageScreen[None]):
 
     @on(Button.Pressed, "#close")
     def _close(self) -> None:
-        self.dismiss()
+        self.close()
 
     @work
     @reports_daemon_unavailable

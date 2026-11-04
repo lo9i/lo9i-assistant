@@ -5,21 +5,18 @@ from typing import ClassVar
 
 from textual import on
 from textual.app import ComposeResult
-from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Input, Markdown
 
 from assistant.client.daemon_client import WebSearchApi
 from assistant.core.agent import InvalidSearchKeyError, WebSearchStatus
-from assistant_terminal.i18n import t, translatable
+from assistant_terminal.i18n import t
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
-from assistant_terminal.tui.page import PageScreen
+from assistant_terminal.tui.section import SettingsSection
 from assistant_terminal.web_search_text import describe
 
 
-class WebSearchScreen(PageScreen[None]):
-    PAGE = "websearch"
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
+class WebSearchSection(SettingsSection):
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"settings"})
 
     def __init__(self, web_search: WebSearchApi) -> None:
@@ -27,7 +24,7 @@ class WebSearchScreen(PageScreen[None]):
         self._web_search = web_search
         self._error = ""
 
-    def compose_page(self) -> ComposeResult:
+    def compose(self) -> ComposeResult:
         with Vertical(id="web-search"):
             yield Markdown(id="web-search-body")
             yield Input(placeholder=t("Brave Search API key"), password=True, id="web-search-key")
@@ -47,7 +44,7 @@ class WebSearchScreen(PageScreen[None]):
 
     @on(Button.Pressed, "#close")
     def _close(self) -> None:
-        self.dismiss()
+        self.close()
 
     @reports_daemon_unavailable
     async def on_input_submitted(self, _: Input.Submitted) -> None:

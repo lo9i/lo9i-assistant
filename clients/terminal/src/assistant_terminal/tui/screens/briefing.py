@@ -6,7 +6,6 @@ from typing import ClassVar
 
 from textual import on
 from textual.app import ComposeResult
-from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Input, Label, Markdown, OptionList, Select, Static, Switch
 from textual.widgets.option_list import Option
@@ -15,7 +14,7 @@ from assistant.client.daemon_client import ProactiveApi
 from assistant.core.agent import ProactivePage, ProactiveSettings
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
-from assistant_terminal.tui.page import PageScreen
+from assistant_terminal.tui.section import SettingsSection
 
 _SETTINGS = "settings"
 _MUTED = "muted:"
@@ -40,9 +39,7 @@ _DAYS = (
 )
 
 
-class BriefingScreen(PageScreen[None]):
-    PAGE = "briefing"
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
+class BriefingSection(SettingsSection):
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"proactive"})
 
     def __init__(self, proactive: ProactiveApi) -> None:
@@ -51,7 +48,7 @@ class BriefingScreen(PageScreen[None]):
         self._page: ProactivePage | None = None
         self._selected = _SETTINGS
 
-    def compose_page(self) -> ComposeResult:
+    def compose(self) -> ComposeResult:
         with Vertical(id="briefing"):
             yield Static(t("Briefing and reviews"), id="briefing-title")
             with Horizontal(id="briefing-main"):
@@ -158,4 +155,4 @@ class BriefingScreen(PageScreen[None]):
 
     @on(Button.Pressed, "#close")
     def _close(self) -> None:
-        self.dismiss(None)
+        self.close()

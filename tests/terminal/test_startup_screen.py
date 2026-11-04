@@ -1,15 +1,14 @@
 from textual.widgets import Button, Markdown
 
-from assistant_terminal.tui.screens import StartupScreen
-from tests.terminal.conftest import wait_for
+from assistant_terminal.tui.screens import StartupSection
+from tests.terminal.conftest import wait_for, wait_for_section
 
 
 async def test_enable_cancel_and_disable(app, client):
     async with app.run_test(size=(110, 40)) as pilot:
         await pilot.click("#prompt")
         await pilot.press(*"/startup", "enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, StartupScreen))
-        screen = app.screen
+        screen = await wait_for_section(pilot, app, StartupSection)
 
         def body() -> str:
             return screen.query_one("#startup-body", Markdown).source
@@ -26,11 +25,10 @@ async def test_enable_cancel_and_disable(app, client):
         await wait_for(pilot, lambda: "Start at boot: **off**" in body())
 
 
-async def _open(pilot, app) -> StartupScreen:
+async def _open(pilot, app) -> StartupSection:
     await pilot.click("#prompt")
     await pilot.press(*"/startup", "enter")
-    await wait_for(pilot, lambda: isinstance(app.screen, StartupScreen))
-    return app.screen
+    return await wait_for_section(pilot, app, StartupSection)
 
 
 async def test_on_linux_it_explains_the_service_and_lingering(app, client):

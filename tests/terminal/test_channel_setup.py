@@ -6,8 +6,8 @@ from textual.widgets import Button, Markdown, Static, TextArea
 
 from assistant.core.agent import ChannelStatus, FoundServer, SetupItem
 from assistant_terminal.channels_text import describe, qr_lines
-from assistant_terminal.tui.screens import PluginsScreen
-from tests.terminal.conftest import wait_for
+from assistant_terminal.tui.screens import PluginsSection
+from tests.terminal.conftest import wait_for, wait_for_section
 
 _PAIRING = [
     SetupItem("text", "", "Bot: @lo9i_bot"),
@@ -22,13 +22,12 @@ def _channel(name: str, installed: bool = True) -> FoundServer:
     )
 
 
-async def _open(pilot, app, client, *channels: FoundServer) -> PluginsScreen:
+async def _open(pilot, app, client, *channels: FoundServer) -> PluginsSection:
     """Communications comes first, so its first channel is shown."""
     client.repositories.more = list(channels)
     await pilot.click("#prompt")
     await pilot.press(*"/plugins", "enter")
-    await wait_for(pilot, lambda: isinstance(app.screen, PluginsScreen))
-    return app.screen
+    return await wait_for_section(pilot, app, PluginsSection)
 
 
 def _text(screen) -> str:

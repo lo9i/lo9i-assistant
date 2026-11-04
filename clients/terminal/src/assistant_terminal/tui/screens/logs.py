@@ -3,12 +3,11 @@ and how many, or followed live while Follow is on (a stream from the daemon, not
 the lowest level the daemon writes, at once."""
 
 from contextlib import aclosing
-from typing import Any, ClassVar
+from typing import Any
 
 from rich.text import Text
 from textual import on, work
 from textual.app import ComposeResult
-from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Label, RichLog, Select, Static, Switch
 
@@ -17,7 +16,7 @@ from assistant.core.logs import LogEntry, LogOptions, LogPage
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.logs_text import log_line
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
-from assistant_terminal.tui.page import PageScreen
+from assistant_terminal.tui.section import SettingsSection
 
 LINES = (50, 100, 200, 500)
 _DEFAULT_LINES = 100
@@ -38,15 +37,12 @@ def _level(level: str) -> str:
     return t(_LEVELS[level]) if level in _LEVELS else level.title()
 
 
-class LogsScreen(PageScreen[None]):
-    PAGE = "logs"
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
-
+class LogsSection(SettingsSection):
     def __init__(self, logs: LogsApi) -> None:
         super().__init__()
         self._logs = logs
 
-    def compose_page(self) -> ComposeResult:
+    def compose(self) -> ComposeResult:
         with Vertical(id="logs"):
             with Horizontal(id="logs-filters"):
                 # Until the daemon lists its files: the one it always has.
@@ -91,7 +87,7 @@ class LogsScreen(PageScreen[None]):
 
     @on(Button.Pressed, "#close")
     def _close(self) -> None:
-        self.dismiss()
+        self.close()
 
     @on(Button.Pressed, "#refresh")
     @reports_daemon_unavailable

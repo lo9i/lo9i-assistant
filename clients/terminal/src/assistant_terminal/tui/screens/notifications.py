@@ -15,7 +15,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
-from assistant.client.daemon_client import DoctorApi, JobsApi, NotificationsApi
+from assistant.client.daemon_client import JobsApi, NotificationsApi
 from assistant.core.agent import Notification
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.notifications_text import notified_at
@@ -23,7 +23,6 @@ from assistant_terminal.paging import Pages
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
 from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.paged_list import PagedOptionList
-from assistant_terminal.tui.screens.doctor import DoctorScreen
 from assistant_terminal.tui.screens.jobs import JobsScreen
 
 # What opens Home, whose Open loops card has the loops: the briefing, and a reminder of a loop without a conversation.
@@ -39,14 +38,19 @@ class NotificationsScreen(PageScreen[str | None]):
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"notifications"})
 
     def __init__(
-        self, notifications: NotificationsApi, jobs: JobsApi, doctor: DoctorApi, open_home: Callable[[], object]
+        self,
+        notifications: NotificationsApi,
+        jobs: JobsApi,
+        open_home: Callable[[], object],
+        open_health: Callable[[], object],
     ) -> None:
-        """`open_home`: has the app show Home in this page's place, once this page's handler is done."""
+        """`open_home` and `open_health`: have the app show Home, or Settings' health check, in this page's place,
+        once this page's handler is done."""
         super().__init__()
         self._notifications = notifications
         self._jobs = jobs
-        self._doctor = doctor
         self._open_home = open_home
+        self._open_health = open_health
         self._pages = Pages(lambda offset, limit: notifications.list(offset, limit), lambda n: n.id)
         self._selected: str | None = None
 
@@ -105,7 +109,7 @@ class NotificationsScreen(PageScreen[str | None]):
         elif notification is not None and notification.job:
             self.app.push_screen(JobsScreen(self._jobs, notification.job, notification.run_at))
         elif notification is not None and notification.kind == "doctor":
-            self.app.push_screen(DoctorScreen(self._doctor))
+            self._open_health()
         elif notification is not None and notification.kind in _HOME:
             self._open_home()
 

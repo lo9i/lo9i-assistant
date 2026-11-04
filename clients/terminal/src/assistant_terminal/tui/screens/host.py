@@ -9,7 +9,6 @@ from typing import ClassVar
 
 from textual import on, work
 from textual.app import ComposeResult
-from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Markdown
 
@@ -25,8 +24,8 @@ from assistant.protocol import (
 )
 from assistant_terminal.i18n import decimal, short_date, t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
-from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen
+from assistant_terminal.tui.section import SettingsSection
 
 _RESTART = translatable("Restart the assistant? It stops and starts again once the runs in progress end.")
 _UPDATE = translatable(
@@ -43,16 +42,14 @@ _STOP = translatable(
 )
 
 
-class HostScreen(PageScreen[None]):
-    PAGE = "host"
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
+class HostSection(SettingsSection):
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"update"})
 
     def __init__(self, system: SystemApi) -> None:
         super().__init__()
         self._system = system
 
-    def compose_page(self) -> ComposeResult:
+    def compose(self) -> ComposeResult:
         with Vertical(id="host"):
             yield Markdown("## " + t("Host") + "\n\n" + t("Loading…"), id="host-body")
             with Horizontal(id="host-buttons"):
@@ -70,7 +67,7 @@ class HostScreen(PageScreen[None]):
 
     @on(Button.Pressed, "#close")
     def _close(self) -> None:
-        self.dismiss()
+        self.close()
 
     @on(Button.Pressed, "#refresh")
     async def _refresh_pressed(self) -> None:

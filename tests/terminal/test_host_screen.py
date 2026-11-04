@@ -1,17 +1,16 @@
 from textual.widgets import Button, Markdown
 
 from assistant.protocol import Commit, PendingEnding
-from assistant_terminal.tui.screens import ConfirmScreen, HostScreen
+from assistant_terminal.tui.screens import ConfirmScreen, HostSection
 from assistant_terminal.tui.screens.host import pending_detail
-from tests.terminal.conftest import ending_event, wait_for
+from tests.terminal.conftest import ending_event, wait_for, wait_for_section
 
 
 async def test_shows_the_host_and_reads_it_again_on_refresh(app, client):
     async with app.run_test(size=(110, 40)) as pilot:
         await pilot.click("#prompt")
         await pilot.press(*"/host", "enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, HostScreen))
-        screen = app.screen
+        screen = await wait_for_section(pilot, app, HostSection)
 
         def body() -> str:
             return screen.query_one("#host-body", Markdown).source
@@ -23,11 +22,10 @@ async def test_shows_the_host_and_reads_it_again_on_refresh(app, client):
         await wait_for(pilot, lambda: client.system.host_reads == 2)
 
 
-async def _host_screen(pilot, app) -> HostScreen:
+async def _host_screen(pilot, app) -> HostSection:
     await pilot.click("#prompt")
     await pilot.press(*"/host", "enter")
-    await wait_for(pilot, lambda: isinstance(app.screen, HostScreen))
-    return app.screen
+    return await wait_for_section(pilot, app, HostSection)
 
 
 def _notices(app) -> str:
@@ -40,7 +38,7 @@ async def test_restart_and_stop_ask_first(app, client):
         screen.query_one("#restart", Button).press()
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
         await pilot.press("escape")
-        await wait_for(pilot, lambda: app.screen is screen)
+        await wait_for(pilot, lambda: app.screen is screen.screen)
         assert client.system.endings == []
         screen.query_one("#restart", Button).press()
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))

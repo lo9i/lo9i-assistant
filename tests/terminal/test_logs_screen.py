@@ -1,18 +1,17 @@
 from textual.widgets import RichLog, Select, Static, Switch
 
-from assistant_terminal.tui.screens import LogsScreen
-from tests.terminal.conftest import _log, wait_for
+from assistant_terminal.tui.screens import LogsSection
+from tests.terminal.conftest import _log, wait_for, wait_for_section
 
 
-def _text(screen: LogsScreen) -> str:
+def _text(screen: LogsSection) -> str:
     return "\n".join(line.text for line in screen.query_one("#logs-body", RichLog).lines)
 
 
-async def _open(pilot, app) -> LogsScreen:
+async def _open(pilot, app) -> LogsSection:
     await pilot.click("#prompt")
     await pilot.press(*"/logs", "enter")
-    await wait_for(pilot, lambda: isinstance(app.screen, LogsScreen))
-    return app.screen
+    return await wait_for_section(pilot, app, LogsSection)
 
 
 async def test_it_shows_the_daemon_log_and_filters_it(app):

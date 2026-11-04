@@ -7,7 +7,6 @@ from typing import ClassVar
 
 from textual import on
 from textual.app import ComposeResult
-from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
@@ -15,17 +14,15 @@ from textual.widgets.option_list import Option
 from assistant.client.daemon_client import DoctorApi
 from assistant.core.agent import DoctorPage
 from assistant_terminal.doctor_text import cause_line, describe_cause, describe_known, known_line, overview
-from assistant_terminal.i18n import t, translatable
+from assistant_terminal.i18n import t
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
-from assistant_terminal.tui.page import PageScreen
+from assistant_terminal.tui.section import SettingsSection
 
 _OVERVIEW = "overview"
 _KNOWN = "known:"
 
 
-class DoctorScreen(PageScreen[None]):
-    PAGE = "doctor"
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
+class DoctorSection(SettingsSection):
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"doctor"})
 
     def __init__(self, doctor: DoctorApi, selected: str = _OVERVIEW) -> None:
@@ -35,7 +32,7 @@ class DoctorScreen(PageScreen[None]):
         self._page: DoctorPage | None = None
         self._selected = selected
 
-    def compose_page(self) -> ComposeResult:
+    def compose(self) -> ComposeResult:
         with Vertical(id="doctor"):
             yield Static(t("Health check"), id="doctor-title")
             with Horizontal(id="doctor-main"):
@@ -111,4 +108,4 @@ class DoctorScreen(PageScreen[None]):
 
     @on(Button.Pressed, "#close")
     def _close(self) -> None:
-        self.dismiss(None)
+        self.close()

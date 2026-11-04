@@ -1,18 +1,15 @@
 """Who the assistant emails without asking, from any account: one list shared by every email plugin's
 accounts (the web app's Settings → General → Email). Anyone else needs the user's approval."""
 
-from typing import ClassVar
-
 from textual import on
 from textual.app import ComposeResult
-from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Input, Markdown
 
 from assistant.client.daemon_client import EmailApi
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
-from assistant_terminal.tui.page import PageScreen
+from assistant_terminal.tui.section import SettingsSection
 
 _INTRO = translatable(
     "The assistant emails these addresses without asking, from any account. Your own accounts are always allowed; "
@@ -20,15 +17,12 @@ _INTRO = translatable(
 )
 
 
-class EmailRecipientsScreen(PageScreen[None]):
-    PAGE = "email"
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
-
+class EmailRecipientsSection(SettingsSection):
     def __init__(self, email: EmailApi) -> None:
         super().__init__()
         self._email = email
 
-    def compose_page(self) -> ComposeResult:
+    def compose(self) -> ComposeResult:
         with Vertical(id="email-recipients"):
             yield Markdown("## " + t("Email") + f"\n\n{t(_INTRO)}", id="email-recipients-body")
             yield Input(placeholder=t("Addresses, comma-separated"), id="email-recipients-input")
@@ -43,7 +37,7 @@ class EmailRecipientsScreen(PageScreen[None]):
 
     @on(Button.Pressed, "#close")
     def _close(self) -> None:
-        self.dismiss()
+        self.close()
 
     @on(Button.Pressed, "#save")
     @reports_daemon_unavailable

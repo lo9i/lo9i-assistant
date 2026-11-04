@@ -16,17 +16,16 @@ from assistant.core.agent import (
 )
 from assistant.core.repositories.known import EXTRAS
 from assistant_terminal.plugins_text import Plugin, by_category, describe, from_repositories, missing_fields
-from assistant_terminal.tui.screens import PluginSettingsScreen, PluginsScreen
+from assistant_terminal.tui.screens import PluginSettingsScreen, PluginsSection
 from assistant_terminal.tui.screens.confirm import ConfirmWithOptionScreen
 from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen, _field_input
-from tests.terminal.conftest import _mcp_status, wait_for
+from tests.terminal.conftest import _mcp_status, wait_for, wait_for_section
 
 
-async def _open(pilot, app) -> PluginsScreen:
+async def _open(pilot, app) -> PluginsSection:
     await pilot.click("#prompt")
     await pilot.press(*"/plugins", "enter")
-    await wait_for(pilot, lambda: isinstance(app.screen, PluginsScreen))
-    return app.screen
+    return await wait_for_section(pilot, app, PluginsSection)
 
 
 def _body(screen) -> str:
@@ -70,7 +69,7 @@ async def test_a_plugin_that_asks_for_values_gets_a_screen_for_just_those(app, c
         fields = list(install.query("#repository-fields Input").results(Input))
         fields[0].value, fields[1].value = "ana", "pw"
         install.query_one("#install", Button).press()
-        await wait_for(pilot, lambda: app.screen is screen and "calendar" in client.mcp.items)
+        await wait_for(pilot, lambda: app.screen is screen.screen and "calendar" in client.mcp.items)
         assert client.repositories.installed[-1][0] == EXTRAS
 
 
@@ -216,7 +215,7 @@ async def test_repositories_are_added_and_removed_and_their_plugins_listed(app, 
         repositories.query_one("#add", Button).press()
         await wait_for(pilot, lambda: listed.option_count == 2 and client.repositories.added == [mine])
         repositories.query_one("#close", Button).press()
-        await wait_for(pilot, lambda: app.screen is screen)
+        await wait_for(pilot, lambda: app.screen is screen.screen)
         screen.query_one("#plugins-search", Input).value = "journal"
         await wait_for(pilot, lambda: "## journal" in _body(screen))
         assert "Source: me/plugins (not official)" in _body(screen)
@@ -409,7 +408,7 @@ async def test_an_installed_plugins_settings_change_what_it_was_given(app, clien
         client.mcp.check_refusal = ""
         settings.query_one("#plugin-clear-CAL_PIN", Checkbox).value = True
         settings.query_one("#save", Button).press()
-        await wait_for(pilot, lambda: app.screen is screen)
+        await wait_for(pilot, lambda: app.screen is screen.screen)
         # The secret left empty isn't sent, which keeps it.
         assert client.mcp.saved_settings == ("calendar", {"CAL_USER": "you"}, ["CAL_PIN"])
 
@@ -476,5 +475,5 @@ async def test_updates_ask_for_a_value_the_new_version_needs_then_update_with_it
         await wait_for(pilot, lambda: "needs Your city" in asking.query_one("#update-values-message", Markdown).source)
         field.value = "Rosario"
         asking.query_one("#update", Button).press()
-        await wait_for(pilot, lambda: app.screen is screen)
+        await wait_for(pilot, lambda: app.screen is screen.screen)
         assert calls == [("weather", None), ("radar", None), ("radar", {"CITY": "Rosario"})]

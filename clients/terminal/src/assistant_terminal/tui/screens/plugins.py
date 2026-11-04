@@ -11,7 +11,6 @@ from typing import ClassVar
 import httpx
 from textual import on, work
 from textual.app import ComposeResult
-from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Input, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
@@ -26,7 +25,7 @@ from assistant.core.agent import (
     SkillError,
     UpdateNeedsValuesError,
 )
-from assistant_terminal.i18n import t, translatable
+from assistant_terminal.i18n import t
 from assistant_terminal.plugins_text import (
     Plugin,
     by_category,
@@ -42,7 +41,6 @@ from assistant_terminal.plugins_text import (
 )
 from assistant_terminal.tui.channel_setup import ChannelSetup
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
-from assistant_terminal.tui.page import PageScreen
 from assistant_terminal.tui.screens.confirm import ConfirmScreen, ConfirmWithOptionScreen
 from assistant_terminal.tui.screens.email import EmailScreen
 from assistant_terminal.tui.screens.kept_keys import ask_about_keys
@@ -52,13 +50,12 @@ from assistant_terminal.tui.screens.plugin_updates import PluginUpdatesScreen
 from assistant_terminal.tui.screens.repositories import RepositoriesScreen
 from assistant_terminal.tui.screens.repository_install import RepositoryInstallScreen
 from assistant_terminal.tui.screens.update_values import UpdateValuesScreen
+from assistant_terminal.tui.section import SettingsSection
 
 _CATEGORY = "category:"
 
 
-class PluginsScreen(PageScreen[None]):
-    PAGE = "plugins"
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
+class PluginsSection(SettingsSection):
     # The daemon events that change what it shows (AssistantApp.reload_screen): a check that found something new
     # or kept keys (`plugins`), MCP servers installed or removed (`mcp`), skills installed or removed (`skills`), a
     # channel's setup (`channels`), the repositories listed (`settings`).
@@ -86,7 +83,7 @@ class PluginsScreen(PageScreen[None]):
         # Installed plugins with fields of their own, as installed: the ones Settings opens for.
         self._with_settings: set[str] = set()
 
-    def compose_page(self) -> ComposeResult:
+    def compose(self) -> ComposeResult:
         with Vertical(id="plugins"):
             yield Static(
                 t("Plugins: MCP servers, chat channels and skills from the official extras and your repositories"),
@@ -220,7 +217,7 @@ class PluginsScreen(PageScreen[None]):
 
     @on(Button.Pressed, "#close")
     def _close(self) -> None:
-        self.dismiss()
+        self.close()
 
     @on(Button.Pressed, "#refresh")
     def _refresh(self) -> None:

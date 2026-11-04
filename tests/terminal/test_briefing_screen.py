@@ -3,8 +3,8 @@ again."""
 
 from textual.widgets import Button, Input, OptionList, Switch
 
-from assistant_terminal.tui.screens import BriefingScreen
-from tests.terminal.conftest import wait_for
+from assistant_terminal.tui.screens import BriefingSection
+from tests.terminal.conftest import wait_for, wait_for_section
 
 
 async def test_the_settings_change_and_a_muted_kind_is_suggested_again(app, client):
@@ -12,8 +12,7 @@ async def test_the_settings_change_and_a_muted_kind_is_suggested_again(app, clie
     async with app.run_test(size=(140, 44)) as pilot:
         await pilot.click("#prompt")
         await pilot.press(*"/briefing", "enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, BriefingScreen))
-        screen = app.screen
+        screen = await wait_for_section(pilot, app, BriefingSection)
         listed = screen.query_one("#briefing-list", OptionList)
         await wait_for(pilot, lambda: listed.option_count == 2 and screen.query_one("#briefing-settings").display)
         screen.query_one("#switch-nightly", Switch).value = False

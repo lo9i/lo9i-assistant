@@ -7,8 +7,8 @@ from textual.widgets import Button, Markdown, OptionList
 
 from assistant.core.agent import Notification
 from assistant_terminal.doctor_text import cause_line, overview, times
-from assistant_terminal.tui.screens import DoctorScreen, NotificationsScreen
-from tests.terminal.conftest import FakeDoctor, wait_for
+from assistant_terminal.tui.screens import DoctorSection, NotificationsScreen
+from tests.terminal.conftest import FakeDoctor, wait_for, wait_for_section
 
 
 def test_a_cause_says_how_it_changed_and_how_often():
@@ -30,8 +30,7 @@ async def test_the_health_check_shows_its_causes_checks_now_and_marks_noise(app,
     async with app.run_test(size=(140, 44)) as pilot:
         await pilot.click("#prompt")
         await pilot.press(*"/doctor", "enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, DoctorScreen))
-        screen = app.screen
+        screen = await wait_for_section(pilot, app, DoctorSection)
 
         def body() -> str:
             return screen.query_one("#doctor-body", Markdown).source
@@ -62,4 +61,4 @@ async def test_a_health_checks_notification_opens_it(app, client):
         await wait_for(pilot, lambda: isinstance(app.screen, NotificationsScreen))
         await wait_for(pilot, lambda: str(app.screen.query_one("#open", Button).label) == "Open the health check")
         await pilot.press("enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, DoctorScreen))
+        await wait_for_section(pilot, app, DoctorSection)

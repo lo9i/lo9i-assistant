@@ -6,8 +6,8 @@ from dataclasses import replace
 from textual.widgets import Button, Input, Markdown
 
 from assistant.core.agent import FoundServer
-from assistant_terminal.tui.screens import PluginSignInScreen, PluginsScreen
-from tests.terminal.conftest import _mcp_status, wait_for
+from assistant_terminal.tui.screens import PluginSignInScreen, PluginsSection
+from tests.terminal.conftest import _mcp_status, wait_for, wait_for_section
 
 
 async def test_signs_in_with_the_users_oauth_app_and_out(app, client, monkeypatch):
@@ -50,8 +50,7 @@ async def test_plugins_open_the_sign_in_of_an_installed_plugin_that_signs_in(app
     async with app.run_test(size=(120, 44)) as pilot:
         await pilot.click("#prompt")
         await pilot.press(*"/plugins", "enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, PluginsScreen))
-        plugins = app.screen
+        plugins = await wait_for_section(pilot, app, PluginsSection)
         await wait_for(pilot, lambda: plugins.query_one("#plugin-sign-in").display)
         assert not plugins.query_one("#email-accounts").display
         plugins.query_one("#plugin-sign-in", Button).press()

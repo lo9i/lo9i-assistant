@@ -2,15 +2,14 @@
 
 from textual.widgets import Button, OptionList, Static, TextArea
 
-from assistant_terminal.tui.screens import ConfirmScreen, PromptsScreen
-from tests.terminal.conftest import wait_for
+from assistant_terminal.tui.screens import ConfirmScreen, PromptsSection
+from tests.terminal.conftest import wait_for, wait_for_section
 
 
-async def _open(pilot, app) -> PromptsScreen:
+async def _open(pilot, app) -> PromptsSection:
     await pilot.click("#prompt")
     await pilot.press(*"/prompt", "enter")
-    await wait_for(pilot, lambda: isinstance(app.screen, PromptsScreen))
-    return app.screen
+    return await wait_for_section(pilot, app, PromptsSection)
 
 
 async def test_a_text_is_edited_saved_and_reset(app, client):
@@ -56,7 +55,7 @@ async def test_an_empty_text_isnt_saved_and_unsaved_text_is_kept_across_texts(ap
         await pilot.press("escape")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
         await pilot.press("y")
-        await wait_for(pilot, lambda: not isinstance(app.screen, (PromptsScreen, ConfirmScreen)))
+        await wait_for(pilot, lambda: not isinstance(app.screen, (PromptsSection, ConfirmScreen)))
 
 
 async def test_a_change_of_the_built_in_text_is_shown_until_the_edit_is_kept(app, client):

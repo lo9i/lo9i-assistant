@@ -1,6 +1,7 @@
 """The terminal app's navigation, as the web app's sidebar has it (its lib/ui/Sidebar.svelte): Home, Chat with the
-conversations open under it, the pages, and Settings, which opens into its sections as the web app's Settings tabs do.
-Each page has a key the sidebar and the slash commands open it by; collapsed, the sidebar shows each by its glyph."""
+conversations open under it, the pages, and Settings, whose sections are tabs on its page (screens/settings.py).
+Each page and section has a key the sidebar and the slash commands open it by; collapsed, the sidebar shows each page
+by its glyph."""
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -38,29 +39,36 @@ PAGES: tuple[Page, ...] = (
     Page(SETTINGS, translatable("Settings"), "✱"),
 )
 
-# Settings' sections, in the web app's order: its General tab's cards first, then its other tabs.
-SETTINGS_PAGES: tuple[Page, ...] = (
-    Page("language", translatable("Language"), "·"),
-    Page("briefing", translatable("Briefing and reviews"), "·"),
-    Page("websearch", translatable("Web search"), "·"),
-    Page("email", translatable("Email"), "·"),
-    Page("startup", translatable("Start at boot"), "·"),
-    Page("profile", translatable("About you"), "·"),
-    Page("model", translatable("Model"), "·"),
-    Page("limits", translatable("Spending limits"), "·"),
-    Page("prompt", translatable("System prompt"), "·"),
-    Page("audio", translatable("Audio"), "·"),
-    Page("plugins", translatable("Plugins"), "·"),
-    Page("mcp", translatable("MCP servers"), "·"),
-    Page("skills", translatable("Skills"), "·"),
-    Page("host", translatable("System"), "·"),
-    Page("keys", translatable("Kept keys"), "·"),
-    Page("sessions", translatable("Clients"), "·"),
-    Page("logs", translatable("Logs"), "·"),
-    Page("doctor", translatable("Health"), "·"),
-)
 
-_SETTINGS_KEYS = frozenset(p.key for p in SETTINGS_PAGES)
+@dataclass(frozen=True)
+class SettingsTab:
+    """A section of Settings: its key is its slash command's name."""
+
+    key: str
+    label: str
+
+
+# Settings' sections, one tab each, in the web app's order: its General tab's cards first, then its other tabs.
+SETTINGS_TABS: tuple[SettingsTab, ...] = (
+    SettingsTab("language", translatable("Language")),
+    SettingsTab("briefing", translatable("Briefing and reviews")),
+    SettingsTab("websearch", translatable("Web search")),
+    SettingsTab("email", translatable("Email")),
+    SettingsTab("startup", translatable("Start at boot")),
+    SettingsTab("profile", translatable("About you")),
+    SettingsTab("model", translatable("Model")),
+    SettingsTab("limits", translatable("Spending limits")),
+    SettingsTab("prompt", translatable("System prompt")),
+    SettingsTab("audio", translatable("Audio")),
+    SettingsTab("plugins", translatable("Plugins")),
+    SettingsTab("mcp", translatable("MCP servers")),
+    SettingsTab("skills", translatable("Skills")),
+    SettingsTab("host", translatable("System")),
+    SettingsTab("keys", translatable("Kept keys")),
+    SettingsTab("sessions", translatable("Clients")),
+    SettingsTab("logs", translatable("Logs")),
+    SettingsTab("doctor", translatable("Health")),
+)
 
 
 @dataclass(frozen=True)
@@ -73,27 +81,15 @@ class NavState:
     counts: Mapping[str, int] = field(default_factory=dict)
 
 
-def in_settings(page: str) -> bool:
-    return page == SETTINGS or page in _SETTINGS_KEYS
-
-
-def first_settings_page() -> str:
-    return SETTINGS_PAGES[0].key
-
-
 def entries(page: str, state: NavState, collapsed: bool) -> list[tuple[str, Text]]:
     """The sidebar's lines on `page`, each with its id: a page's (its key), an open conversation's (`OPEN` and its
-    thread id). Settings' sections show while one of them is open; collapsed, only the pages' glyphs."""
+    thread id); collapsed, only the pages' glyphs."""
     lines: list[tuple[str, Text]] = []
     for item in PAGES:
         line = _page_line(item, state.counts.get(item.key, 0), collapsed)
         lines.append((item.key, _here(line) if item.key == page else line))
-        if collapsed:
-            continue
-        if item.key == CHAT:
+        if item.key == CHAT and not collapsed:
             lines += [(OPEN + o.thread_id, _open_line(o)) for o in state.open]
-        if item.key == SETTINGS and in_settings(page):
-            lines += [(s.key, _settings_line(s, page)) for s in SETTINGS_PAGES]
     return lines
 
 
@@ -101,11 +97,6 @@ def _here(line: Text) -> Text:
     """The page shown, wherever the sidebar's highlight is."""
     line.stylize("bold underline")
     return line
-
-
-def _settings_line(section: Page, page: str) -> Text:
-    label = Text(t(section.label))
-    return Text("   ") + (_here(label) if section.key == page else label)
 
 
 def _page_line(page: Page, count: int, collapsed: bool) -> Text:

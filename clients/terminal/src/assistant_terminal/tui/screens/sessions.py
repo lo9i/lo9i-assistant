@@ -3,27 +3,24 @@
 from typing import ClassVar
 
 from textual.app import ComposeResult
-from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Markdown
 
 from assistant.client.daemon_client import ClientsApi
-from assistant_terminal.i18n import t, translatable
+from assistant_terminal.i18n import t
 from assistant_terminal.sessions_text import describe
 from assistant_terminal.tui.daemon_errors import reports_daemon_unavailable
-from assistant_terminal.tui.page import PageScreen
+from assistant_terminal.tui.section import SettingsSection
 
 
-class SessionsScreen(PageScreen[None]):
-    PAGE = "sessions"
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
+class SessionsSection(SettingsSection):
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"clients"})
 
     def __init__(self, clients: ClientsApi) -> None:
         super().__init__()
         self._clients = clients
 
-    def compose_page(self) -> ComposeResult:
+    def compose(self) -> ComposeResult:
         with Vertical(id="sessions"):
             with VerticalScroll(id="sessions-scroll"):
                 yield Markdown(id="sessions-body")
@@ -32,7 +29,6 @@ class SessionsScreen(PageScreen[None]):
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
-        self.query_one("#close", Button).focus()
         await self.reload()
 
     @reports_daemon_unavailable
@@ -42,4 +38,4 @@ class SessionsScreen(PageScreen[None]):
         await self.query_one("#sessions-body", Markdown).update(describe(clients, self._clients.own_id))
 
     def on_button_pressed(self, _: Button.Pressed) -> None:
-        self.dismiss()
+        self.close()

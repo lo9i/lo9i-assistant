@@ -1,15 +1,14 @@
 from textual.widgets import Button, Markdown, Select, SelectionList
 
-from assistant_terminal.tui.screens import AudioScreen
-from tests.terminal.conftest import wait_for
+from assistant_terminal.tui.screens import AudioSection
+from tests.terminal.conftest import wait_for, wait_for_section
 
 
 async def test_speech_to_text_and_spoken_replies_are_saved(app, client):
     async with app.run_test(size=(110, 50)) as pilot:
         await pilot.click("#prompt")
         await pilot.press(*"/audio", "enter")
-        await wait_for(pilot, lambda: isinstance(app.screen, AudioScreen))
-        screen = app.screen
+        screen = await wait_for_section(pilot, app, AudioSection)
 
         def body() -> str:
             return screen.query_one("#audio-body", Markdown).source

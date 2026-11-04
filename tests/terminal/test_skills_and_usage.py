@@ -8,11 +8,12 @@ from assistant_terminal.repl import Repl
 from assistant_terminal.tui.screens import (
     ConfirmScreen,
     SkillImportsScreen,
-    SkillsScreen,
-    SpendingLimitsScreen,
+    SkillsSection,
+    SpendingLimitsSection,
     UsageScreen,
 )
-from tests.terminal.conftest import FakeSkills, FakeUsage, wait_for
+from assistant_terminal.tui.section import SettingsSection
+from tests.terminal.conftest import FakeSkills, FakeUsage, section_shown, wait_for, wait_for_section
 
 
 async def _open(pilot, app, command, screen_type):
@@ -22,9 +23,15 @@ async def _open(pilot, app, command, screen_type):
     return app.screen
 
 
+async def _open_section[T: SettingsSection](pilot, app, command: str, kind: type[T]) -> T:
+    await pilot.click("#prompt")
+    await pilot.press(*command, "enter")
+    return await wait_for_section(pilot, app, kind)
+
+
 async def test_skills_screen_lists_shows_and_deletes(app, client):
     async with app.run_test(size=(120, 40)) as pilot:
-        screen = await _open(pilot, app, "/skills", SkillsScreen)
+        screen = await _open_section(pilot, app, "/skills", SkillsSection)
 
         def body() -> str:
             return screen.query_one("#skill-body", Markdown).source
@@ -36,7 +43,7 @@ async def test_skills_screen_lists_shows_and_deletes(app, client):
         screen.query_one("#delete", Button).press()
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
         await pilot.press("escape")
-        await wait_for(pilot, lambda: app.screen is screen)
+        await wait_for(pilot, lambda: app.screen is screen.screen)
         assert len(client.skills.items) == 2
         screen.query_one("#delete", Button).press()
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmScreen))
@@ -50,7 +57,7 @@ async def test_skills_screen_shows_failing_skills_and_problems(app, client):
         "weekly-review", "Friday", "Run scripts/a.py", problems=["Missing a.py."]
     )
     async with app.run_test(size=(120, 40)) as pilot:
-        screen = await _open(pilot, app, "/skills", SkillsScreen)
+        screen = await _open_section(pilot, app, "/skills", SkillsSection)
         options = screen.query_one("#skills-list", OptionList)
         await wait_for(pilot, lambda: "Failed 3 times in a row" in screen.query_one("#skill-body", Markdown).source)
         assert str(options.get_option_at_index(0).prompt) == "news-digest · failing"
@@ -83,21 +90,23 @@ async def test_memory_panel_lists_skills(app):
         await wait_for(pilot, lambda: "news-digest" in str(app.query_one("#memory-body").render()))
 
 
-async def test_empty_skills_dialog_shows_only_the_message(app, client):
+async def test_empty_skills_show_only_the_message(app, client):
     client.skills.items = {}
     async with app.run_test(size=(120, 40)) as pilot:
-        screen = await _open(pilot, app, "/skills", SkillsScreen)
+        screen = await _open_section(pilot, app, "/skills", SkillsSection)
         await wait_for(pilot, lambda: screen.query_one("#skills").has_class("empty"))
         assert screen.query_one("#skills-empty").display and not screen.query_one("#delete").display
 
 
-async def test_enter_closes_the_empty_skills_dialog(app, client):
+async def test_close_closes_settings_from_the_empty_skills(app, client):
     client.skills.items = {}
     async with app.run_test() as pilot:
-        await _open(pilot, app, "/skills", SkillsScreen)
+        skills = await _open_section(pilot, app, "/skills", SkillsSection)
+        await wait_for(pilot, lambda: skills.query_one("#skills").has_class("empty"))
+        await pilot.press("tab")  # from the tabs to the one button left
         await wait_for(pilot, lambda: app.focused is not None and app.focused.id == "close")
         await pilot.press("enter")
-        await wait_for(pilot, lambda: not isinstance(app.screen, SkillsScreen))
+        await wait_for(pilot, lambda: section_shown(app, SkillsSection) is None)
 
 
 async def test_skills_are_edited_but_built_in_ones_only_read(app, client):
@@ -106,7 +115,7 @@ async def test_skills_are_edited_but_built_in_ones_only_read(app, client):
     from assistant_terminal.tui.screens.skill_edit import SkillEditScreen
 
     async with app.run_test(size=(120, 44)) as pilot:
-        screen = await _open(pilot, app, "/skills", SkillsScreen)
+        screen = await _open_section(pilot, app, "/skills", SkillsSection)
 
         def body() -> str:
             return screen.query_one("#skill-body", Markdown).source
@@ -121,7 +130,7 @@ async def test_skills_are_edited_but_built_in_ones_only_read(app, client):
         dialog.query_one("#skill-edit-description", Input).value = "Morning news"
         dialog.query_one("#skill-edit-instructions", TextArea).text = "1. Search news\n2. Send it on Telegram"
         dialog.query_one("#save", Button).press()
-        await wait_for(pilot, lambda: app.screen is screen and "Send it on Telegram" in body())
+        await wait_for(pilot, lambda: app.screen is screen.screen and "Send it on Telegram" in body())
         assert client.skills.items["news-digest"].description == "Morning news"
 
 
@@ -129,7 +138,7 @@ async def test_a_skill_installed_from_the_extras_is_updated_here(app, client):
     from assistant.core.repositories.known import EXTRAS
 
     async with app.run_test(size=(120, 50)) as pilot:
-        screen = await _open(pilot, app, "/skills", SkillsScreen)
+        screen = await _open_section(pilot, app, "/skills", SkillsSection)
         assert not screen.query("#install")  # the extras are installed from /plugins
         await client.repositories.install(["expenses"], [])
         await screen.reload()
@@ -174,7 +183,7 @@ async def test_the_plain_repls_import_skills_lists_them_numbered_and_imports_by_
 async def test_limits_screen_shows_and_sets_the_spending_limits(app, client):
     client.usage.limits = SpendingLimits(day=5.0)
     async with app.run_test(size=(120, 40)) as pilot:
-        screen = await _open(pilot, app, "/limits", SpendingLimitsScreen)
+        screen = await _open_section(pilot, app, "/limits", SpendingLimitsSection)
 
         def body() -> str:
             return screen.query_one("#spending-body", Markdown).source

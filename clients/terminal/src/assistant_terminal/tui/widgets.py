@@ -3,7 +3,7 @@
 import json
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, Protocol, cast
 
 from rich.markup import escape
 from textual import work
@@ -235,6 +235,12 @@ class MouseStatus(Static):
         self.update((t("mouse on") if active else t("mouse off")) + after)
 
 
+class _Connection(Protocol):
+    """What the note tells the app: while it's lost, calls that fail don't each say so too (daemon_errors.py)."""
+
+    daemon_lost: bool
+
+
 class ConnectionNote(Static):
     """Says the assistant can't be reached while the app's event stream is lost (a restart, a computer that slept),
     as the web app's banner does, and that it's back."""
@@ -247,10 +253,10 @@ class ConnectionNote(Static):
 
     def lost(self) -> None:
         self.display = True
-        self.app.daemon_lost = True
+        cast(_Connection, self.app).daemon_lost = True
 
     def back(self) -> None:
-        self.app.daemon_lost = False
+        cast(_Connection, self.app).daemon_lost = False
         if self.display:
             self.display = False
             self.app.notify(t("Connected to the assistant again."))

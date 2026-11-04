@@ -7,7 +7,8 @@ from typing import ClassVar
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
-from textual.screen import ModalScreen, Screen
+from textual.screen import ModalScreen
+from textual.widget import Widget
 from textual.widgets import Button, Static
 
 from assistant.client.daemon_client import RepositoriesApi
@@ -55,9 +56,9 @@ def question(kept: KeptKeys) -> str:
     return t("Keep the keys of {plugin}?", plugin=kept.plugin) + f" {kept_text}"
 
 
-async def ask_about_keys(screen: Screen, repositories: RepositoriesApi, kept: KeptKeys | None) -> None:
+async def ask_about_keys(asking: Widget, repositories: RepositoriesApi, kept: KeptKeys | None) -> None:
     """After a removal: asks, and deletes them when the user says so. Call it from a worker."""
-    if kept is None or not await screen.app.push_screen_wait(KeptKeysScreen(kept)):
+    if kept is None or not await asking.app.push_screen_wait(KeptKeysScreen(kept)):
         return
     await repositories.forget_keys(kept)
-    screen.notify(t("Deleted the keys of {plugin}.", plugin=kept.plugin))
+    asking.notify(t("Deleted the keys of {plugin}.", plugin=kept.plugin))
