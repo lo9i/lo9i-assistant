@@ -98,7 +98,7 @@
 {#if shown === dismissed}
   <!-- Put away by the user. -->
 {:else if connection.current === "lost"}
-  <div class="banner" role="status" aria-live="polite">
+  <div class="banner surface--glass" role="status" aria-live="polite">
     {#if coming?.ending === "stop"}
       <Power size={16} />
       <span><strong>{t("banner.stopped", { name })}</strong> {t("banner.stoppedHint")}</span>
@@ -113,7 +113,7 @@
     {@render dismiss()}
   </div>
 {:else if coming}
-  <div class="banner" role="status" aria-live="polite">
+  <div class="banner surface--glass" role="status" aria-live="polite">
     <RefreshCw size={16} />
     <span>
       <strong>{pendingTitle(coming)}</strong>
@@ -129,7 +129,7 @@
     {@render dismiss()}
   </div>
 {:else if newVersion}
-  <div class="banner fresh" role="status" aria-live="polite">
+  <div class="banner surface--glass fresh" role="status" aria-live="polite">
     <RefreshCw size={16} />
     <span><strong>{t("banner.newVersion", { name })}</strong> {t("banner.reloadToUse")}</span>
     <button class="btn btn--sm btn--primary" onclick={() => location.reload()}>{t("banner.reload")}</button>
@@ -149,18 +149,13 @@
     gap: 10px;
     max-width: calc(100vw - 32px);
     padding: 10px 10px 10px 16px;
-    /* Solid and tinted, so it reads as a notice of its own, not as part of the message box under it. */
-    border: 1px solid color-mix(in srgb, var(--color-warn) 60%, transparent);
-    border-radius: var(--radius-lg, 16px);
-    background: color-mix(in srgb, var(--color-warn) 16%, var(--surface-raised-bg));
-    box-shadow: var(--shadow-popover);
+    border-color: color-mix(in srgb, var(--color-warn) 45%, var(--surface-glass-border));
     color: var(--color-warn);
     font-size: var(--font-size-sm);
     animation: drop 0.18s ease;
   }
   .fresh {
-    border-color: color-mix(in srgb, var(--color-accent) 60%, transparent);
-    background: color-mix(in srgb, var(--color-accent) 14%, var(--surface-raised-bg));
+    border-color: color-mix(in srgb, var(--color-accent) 45%, var(--surface-glass-border));
     color: var(--color-accent);
   }
   .dismiss {
