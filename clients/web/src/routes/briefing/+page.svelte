@@ -30,11 +30,11 @@
   // The right column scrolls; picking a row brings its card (at the top) back into view.
   let column = $state<HTMLDivElement>();
   function pick(id: string) {
-    picked = id;
+    picked = picked === id ? null : id;
     column?.scrollTo({ top: 0, behavior: "smooth" });
   }
   const listed = $derived((proactive.data?.loops ?? []).filter((l) => (l.status ?? "open") === filter));
-  const loop = $derived(listed.find((l) => l.id === picked) ?? listed[0]);
+  const loop = $derived(listed.find((l) => l.id === picked));
   const briefing = $derived(proactive.data?.briefing);
   const review = $derived(proactive.data?.reviews?.[0]);
   const running = $derived(proactive.data?.running ?? []);
@@ -93,7 +93,7 @@
         {:else}
           <EmptyState icon={ListTodo} title={t("briefingPage.noneClosed")} text={t("briefingPage.noneClosedHint")} />
         {/if}
-      {:else if loop}
+      {:else if listed.length}
         <table class="data-table">
           <thead
             ><tr
@@ -104,7 +104,7 @@
           >
           <tbody>
             {#each listed as l (l.id)}
-              <tr class:selected={l.id === loop.id} onclick={() => pick(l.id)}>
+              <tr class:selected={l.id === loop?.id} onclick={() => pick(l.id)}>
                 <td><button class="row-button" onclick={() => pick(l.id)}>{l.text}</button></td>
                 <td class="hide-narrow text-label">{l.kind}</td>
                 <td class="text-label">{l.due}</td>
@@ -168,11 +168,7 @@
           {/if}
         </div>
       </section>
-    {:else if proactive.data}
-      <section class="details surface--glass">
-        <EmptyState icon={ListTodo} title={t("briefingPage.noneSelected")} text={t("briefingPage.noneSelectedHint")} />
-      </section>
-    {/if}
+    {:else}
 
     <section class="details surface--glass">
       <h2 class="text-heading">{t("briefingPage.latest")}</h2>
@@ -221,6 +217,7 @@
     </section>
 
     <ProactiveCard />
+    {/if}
   </div>
 </div>
 
