@@ -135,6 +135,8 @@
     count?: () => number;
     // What the count counts, for screen readers; "new" when not given.
     counted?: Key;
+    // A count of news rather than of something to act on (plugin updates): blue instead of red.
+    news?: boolean;
     also?: string[];
     // Active only on this exact path, for a page with pages under it that have their own item.
     exact?: boolean;
@@ -168,6 +170,7 @@
       Icon: Settings,
       also: [resolve("/memory"), resolve("/skills"), resolve("/plugins"), resolve("/mcp"), resolve("/logs"), resolve("/doctor")],
       count: () => updates.data?.length ?? 0,
+      news: true,
     },
   ];
 
@@ -204,8 +207,10 @@
         <a href={item.href} class="nav-item" aria-current={active ? "page" : undefined} title={t(item.label)}>
           <item.Icon size={20} />
           <span class="label">{t(item.label)}</span>
-          {#if item.count?.()}<span class="count" aria-label={t(item.counted ?? "nav.newCount", { count: item.count() })}
-              >{item.count()}</span
+          {#if item.count?.()}<span
+              class="count"
+              class:news={item.news}
+              aria-label={t(item.counted ?? "nav.newCount", { count: item.count() })}>{item.count()}</span
             >{/if}
         </a>
         {#if item.add}
@@ -527,6 +532,9 @@
     font-weight: 700;
     line-height: 16px;
     text-align: center;
+  }
+  .count.news {
+    background: var(--color-brand);
   }
   /* A plugin's count: quiet, a faint tint of the theme's teal, at the row's end; on the icon's corner collapsed. */
   .badge {
