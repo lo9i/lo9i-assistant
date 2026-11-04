@@ -26,7 +26,10 @@
   import MessageCircle from "@lucide/svelte/icons/message-circle";
   import Plus from "@lucide/svelte/icons/plus";
   import Settings from "@lucide/svelte/icons/settings";
+  import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Sparkles from "@lucide/svelte/icons/sparkles";
+  import WifiOff from "@lucide/svelte/icons/wifi-off";
+  import { putAway } from "$lib/putAway.svelte";
   import X from "@lucide/svelte/icons/x";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { t, type Key } from "$lib/i18n.svelte";
@@ -157,6 +160,14 @@
 <aside class="sidebar">
   <div class="brand">
     <span class="mark"><Sparkles size={16} /></span>
+    <!-- The notice every page shows, put away: a restart coming, a new version, the daemon away. Click: shown again. -->
+    {#if putAway.current}
+      {@const away = putAway.current}
+      {@const said = away.waiting ? `${away.label} (${away.waiting})` : away.label}
+      <button class="away {away.kind}" aria-label={`${said}. ${t("banner.tag.show")}`} title={said} onclick={() => putAway.reopen()}>
+        {#if away.kind === "lost"}<WifiOff size={10} />{:else}<RefreshCw size={10} />{/if}
+      </button>
+    {/if}
     <span class="brand-name label">{name}</span>
     <button
       class="collapse"
@@ -372,6 +383,7 @@
     background: var(--sidebar-bg);
   }
   .brand {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -387,6 +399,28 @@
     border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--color-brand) 18%, transparent);
     color: var(--color-brand);
+  }
+  /* On the mark's top right corner, ringed in the sidebar's colour so it reads as a badge. */
+  .away {
+    position: absolute;
+    top: 5px;
+    left: 34px;
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 2px solid var(--surface-raised-bg);
+    border-radius: 50%;
+    background: var(--color-warn);
+    color: #1a1a1a;
+    cursor: pointer;
+  }
+  .away.fresh {
+    background: var(--color-accent);
+  }
+  .away.lost {
+    background: var(--color-text-muted);
   }
   .brand-name {
     flex: 1;
@@ -624,6 +658,12 @@
   :global(.collapsed) .brand {
     justify-content: center;
     padding: 10px 0;
+  }
+  /* The mark is hidden: the badge sits on the button that opens the sidebar. */
+  :global(.collapsed) .away {
+    left: auto;
+    right: 6px;
+    top: 3px;
   }
   :global(.collapsed) .collapse {
     transform: rotate(180deg);

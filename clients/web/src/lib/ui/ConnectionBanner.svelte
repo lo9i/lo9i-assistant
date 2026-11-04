@@ -8,6 +8,7 @@
   import { DaemonUnavailableError } from "$lib/api/errors";
   import { external, useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
+  import { putAway, type PutAway } from "$lib/putAway.svelte";
   import { answerable, coming as comingOf, comingText, noticeShown, pendingDetail, pendingTitle, type Coming } from "$lib/shutdown";
 
   // Says, on every page, what the daemon is up to when the page can't simply go on: a restart or stop coming (an
@@ -27,6 +28,18 @@
   $effect(() => {
     if (!shown) dismissed = "";
   });
+  // What the sidebar's badge shows while the notice is put away, and how it brings it back.
+  $effect(() => {
+    putAway.current = shown && shown === dismissed ? awayAs() : null;
+  });
+  putAway.reopen = () => (dismissed = "");
+
+  function awayAs(): PutAway {
+    if (connection.current === "lost") return { kind: "lost", label: t("banner.reconnecting"), waiting: 0 };
+    if (coming?.ending === "stop") return { kind: "stop", label: t("banner.tag.stop"), waiting: coming.waiting };
+    if (coming) return { kind: "restart", label: t("banner.tag.restart"), waiting: coming.waiting };
+    return { kind: "fresh", label: t("banner.tag.fresh"), waiting: 0 };
+  }
 
   // The event says what's coming at once; who asked, when, and the queued messages come from the daemon after it.
   $effect(() => {
@@ -97,16 +110,7 @@
 {/snippet}
 
 {#if shown && shown === dismissed}
-  <button class="tag" class:fresh={!coming && connection.current !== "lost"} title={t("banner.tag.show")} onclick={() => (dismissed = "")}>
-    {#if connection.current === "lost"}
-      <span class="spin"><LoaderCircle size={12} /></span>{t("banner.reconnecting")}
-    {:else if coming}
-      <RefreshCw size={12} />{t(coming.ending === "stop" ? "banner.tag.stop" : "banner.tag.restart")}
-      {#if coming.waiting}<span class="waiting">{coming.waiting}</span>{/if}
-    {:else}
-      <RefreshCw size={12} />{t("banner.tag.fresh")}
-    {/if}
-  </button>
+  <!-- Put away: the badge on the assistant's mark in the sidebar says it's still there (putAway). -->
 {:else if connection.current === "lost"}
   <div class="banner surface--glass" role="status" aria-live="polite">
     {#if coming?.ending === "stop"}
@@ -167,39 +171,6 @@
   .fresh {
     border-color: color-mix(in srgb, var(--color-accent) 45%, var(--surface-glass-border));
     color: var(--color-accent);
-  }
-  /* What a notice put away leaves: a small tag at the top of the page, out of the way of the message box. */
-  .tag {
-    position: fixed;
-    top: 14px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: var(--z-popover);
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 10px;
-    border: 1px solid color-mix(in srgb, var(--color-warn) 55%, transparent);
-    border-radius: var(--radius-full);
-    background: color-mix(in srgb, var(--color-warn) 14%, var(--surface-raised-bg));
-    color: var(--color-warn);
-    font: inherit;
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .tag.fresh {
-    border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
-    background: color-mix(in srgb, var(--color-accent) 12%, var(--surface-raised-bg));
-    color: var(--color-accent);
-  }
-  .tag .waiting {
-    min-width: 16px;
-    padding: 0 4px;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--color-warn) 25%, transparent);
-    font-variant-numeric: tabular-nums;
-    text-align: center;
   }
   .dismiss {
     display: grid;
