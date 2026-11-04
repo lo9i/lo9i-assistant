@@ -550,7 +550,7 @@
     cursor: pointer;
   }
   /* A long command must not squeeze the icon, name or time out of the row: only the glimpse shrinks. */
-  .tool summary > :not(.detail) {
+  .tool summary > :global(:not(.detail)) {
     flex-shrink: 0;
   }
   .tool summary::-webkit-details-marker {
