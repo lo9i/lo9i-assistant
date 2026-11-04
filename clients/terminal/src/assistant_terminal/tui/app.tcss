@@ -1,9 +1,22 @@
-/* Dialogs are a gray panel over the terminal's background, so they stand apart from the chat.
-   What sits inside them is transparent, so the panel shows through. */
-$dialog-background: #333333;
+/* The app's own colors, the same in every terminal (theme.py has them too; keep them in step): light text on a dark
+   ground, gray structure, the brand's teal-gray behind what's picked, color for meaning only. Dialogs are a lighter
+   panel over the page, so they stand apart; what sits inside them is transparent, so the panel shows through. */
+$ground: #1e2425;
+$text-main: #d9dfdf;
+$text-muted: #8c999a;
+$line: #4b5657;
+$line-focus: #8c999a;
+$brand: #364445;
+$accent-color: #8fc4cf;
+$user-color: #9ccfae;
+$warning-color: #e3bd6b;
+$error-color: #e8806f;
+$dialog-background: #283031;
 
 Screen {
     layout: vertical;
+    background: $ground;
+    color: $text-main;
 }
 
 #body {
@@ -25,7 +38,7 @@ Sidebar {
     height: 1fr;
     padding: 0 1;
     border: none;
-    border-right: solid ansi_bright_black;
+    border-right: solid $line;
     background: transparent;
     text-wrap: nowrap;
     text-overflow: ellipsis;
@@ -33,7 +46,7 @@ Sidebar {
 
 Sidebar:focus {
     border: none;
-    border-right: solid ansi_bright_black;
+    border-right: solid $line;
 }
 
 Sidebar.collapsed {
@@ -68,7 +81,7 @@ Sidebar.collapsed {
 
 MemoryPanel {
     width: 40;
-    border-left: solid ansi_bright_black;
+    border-left: solid $line;
     padding: 0 1;
 }
 
@@ -77,7 +90,7 @@ MemoryPanel.hidden {
 }
 
 UserMessage {
-    color: ansi_green;
+    color: $user-color;
     margin: 1 0 0 0;
 }
 
@@ -85,7 +98,7 @@ AssistantMessage {
     margin: 1 0 0 0;
     padding: 0 0 0 1;
     background: transparent;
-    border-left: outer ansi_bright_black;
+    border-left: outer $line;
 }
 
 /* Markdown blocks keep a blank line below them; the reply's last one doesn't need it. */
@@ -94,11 +107,11 @@ AssistantMessage > MarkdownBlock:last-child {
 }
 
 AssistantMessage MarkdownParagraph, AssistantMessage MarkdownBullet, AssistantMessage MarkdownListItem {
-    color: ansi_white;
+    color: $text-main;
 }
 
 TranscriptNote, ToolNote, StoppedNote, ChoicesNote {
-    color: ansi_bright_black;
+    color: $text-muted;
     padding: 0 0 0 2;
 }
 
@@ -106,11 +119,11 @@ SystemNote {
     margin: 1 0 0 0;
     padding: 0 1;
     background: transparent;
-    border: round ansi_bright_black;
+    border: round $line;
 }
 
 ErrorMessage {
-    color: ansi_red;
+    color: $error-color;
     margin: 1 0 0 0;
 }
 
@@ -126,7 +139,7 @@ ThinkingNote {
     padding: 0;
     border: none;
     background: transparent;
-    color: ansi_bright_black;
+    color: $text-muted;
     text-style: italic;
 }
 
@@ -136,7 +149,7 @@ ThinkingNote .thinking-text {
 
 .follow-up-note {
     margin: 1 0 0 0;
-    color: ansi_bright_black;
+    color: $text-muted;
 }
 
 CarriedNote, BriefNote {
@@ -144,7 +157,7 @@ CarriedNote, BriefNote {
     padding: 0;
     border: none;
     background: transparent;
-    color: ansi_bright_black;
+    color: $text-muted;
 }
 
 CarriedNote .carried-text, BriefNote .brief-text {
@@ -153,21 +166,21 @@ CarriedNote .carried-text, BriefNote .brief-text {
 }
 
 ToolCall .tool-result {
-    color: ansi_bright_black;
+    color: $text-muted;
     padding: 0 0 0 2;
 }
 
 ConnectionNote {
     height: 1;
     padding: 0 1;
-    color: ansi_yellow;
+    color: $warning-color;
 }
 
 StatusLine {
     height: 1;
     margin-top: 1;
     padding: 0 1;
-    color: ansi_bright_black;
+    color: $text-muted;
 }
 
 CommandMenu {
@@ -175,7 +188,7 @@ CommandMenu {
     height: auto;
     max-height: 10;
     padding: 0 1;
-    color: ansi_default;
+    color: $text-main;
 }
 
 .command-row {
@@ -184,9 +197,9 @@ CommandMenu {
 }
 
 .command-row.highlighted {
-    /* The color the memory panel headings ("Profile") show in the user's terminal. */
-    background: #0078ab;
-    color: #ffffff;
+    /* What's picked, as in every list. */
+    background: $brand;
+    color: $text-main;
 }
 
 CommandMenu.visible {
@@ -211,16 +224,16 @@ ContextFuel {
 MouseStatus {
     width: auto;
     padding: 0 1;
-    color: ansi_bright_black;
+    color: $text-muted;
 }
 
 #prompt-box {
     height: auto;
-    border: round ansi_bright_black;
+    border: round $line;
 }
 
 #prompt-box:focus-within {
-    border: round #2f343f;
+    border: round $line-focus;
 }
 
 /* Inside the box's border, so the message box itself has none. */
@@ -244,7 +257,7 @@ AttachmentBar.visible {
 AttachmentBar .tag {
     width: auto;
     margin-right: 1;
-    color: ansi_bright_black;
+    color: $text-muted;
     text-style: bold;
 }
 
@@ -257,7 +270,7 @@ ProfileScreen, WebSearchScreen, EmailScreen, EmailRecipientsScreen, ChannelSetup
     max-width: 100;
     height: auto;
     padding: 1 2;
-    border: round ansi_bright_black;
+    border: round $line;
     background: $dialog-background;
 }
 
@@ -344,7 +357,7 @@ ModalScreen Markdown > MarkdownHeader:first-child, PageScreen Markdown > Markdow
 
 .channel-setup .channel-copy {
     height: 8;
-    border: round ansi_bright_black;
+    border: round $line;
     background: transparent;
 }
 
@@ -366,7 +379,7 @@ ApprovalScreen {
     max-width: 100;
     height: auto;
     padding: 1 2;
-    border: round ansi_yellow;
+    border: round $warning-color;
     background: $dialog-background;
 }
 
@@ -379,7 +392,7 @@ ApprovalScreen {
     margin: 1 0;
     padding: 0 1;
     background: transparent;
-    color: ansi_yellow;
+    color: $warning-color;
 }
 
 #approval-buttons {
@@ -400,7 +413,7 @@ QuestionScreen, FormScreen, PluginUpdatesScreen, AgentFolderScreen, SkillImports
     max-width: 100;
     height: auto;
     padding: 1 2;
-    border: round ansi_cyan;
+    border: round $accent-color;
     background: $dialog-background;
 }
 
@@ -427,7 +440,7 @@ SideConversationScreen {
     max-width: 100;
     height: auto;
     padding: 1 2;
-    border: round ansi_cyan;
+    border: round $accent-color;
     background: $dialog-background;
 }
 
@@ -452,7 +465,7 @@ ConfirmScreen {
     max-width: 70;
     height: auto;
     padding: 1 2;
-    border: round ansi_red;
+    border: round $error-color;
     background: $dialog-background;
 }
 
@@ -466,24 +479,24 @@ ConfirmScreen {
 }
 
 Toast {
-    background: ansi_default;
-    color: ansi_default;
-    border: round ansi_bright_black;
+    background: $dialog-background;
+    color: $text-main;
+    border: round $line;
     padding: 0 1;
     max-width: 60;
 }
 
 Toast.-warning {
-    border: round ansi_yellow;
+    border: round $warning-color;
 }
 
 Toast.-error {
-    border: round ansi_red;
+    border: round $error-color;
 }
 
 /* Markdown everywhere: default text color, dim structure, no colored inline code or headings. */
 Markdown {
-    color: ansi_default;
+    color: $text-main;
 }
 
 MarkdownH1, MarkdownH2, MarkdownH3 {
@@ -491,11 +504,11 @@ MarkdownH1, MarkdownH2, MarkdownH3 {
 }
 
 MarkdownBullet {
-    color: ansi_bright_black;
+    color: $text-muted;
 }
 
 Markdown MarkdownBlock > .code_inline {
-    color: ansi_default !important;
+    color: $text-main !important;
     background: transparent !important;
     text-style: bold;
 }
@@ -503,35 +516,36 @@ Markdown MarkdownBlock > .code_inline {
 /* Buttons: gray outline, bold when focused; red text only for destructive actions. */
 Button {
     background: transparent;
-    color: ansi_default;
-    border: round ansi_bright_black;
+    color: $text-main;
+    border: round $line;
     text-style: none;
 }
 
 Button:focus {
-    border: round ansi_default;
+    border: round $line-focus;
     text-style: bold;
 }
 
 Button:hover {
     background: transparent;
-    border: round ansi_default;
+    border: round $line-focus;
 }
 
 Button.-success, Button.-primary {
     background: transparent;
-    color: ansi_default;
+    color: $text-main;
 }
 
 Button.-error {
     background: transparent;
-    color: ansi_red;
+    color: $error-color;
 }
 
 /* A compact button is one line in a bar of them: no border, so the focus shows on its label. */
 Button.-textual-compact, Button.-textual-compact:hover {
     border: none;
     height: 1;
+    color: $accent-color;
 }
 
 Button.-textual-compact:focus {
@@ -544,12 +558,12 @@ ModalScreen Input, ModalScreen OptionList, ModalScreen MarkdownHeader, PageScree
 }
 
 #profile Input, #profile SelectCurrent, #web-search Input, #home-section Input, #email Input, #email SelectCurrent, #mcp-add Input, #mcp-add SelectCurrent, #mcp-sign-in Input, #plugin-sign-in Input, #model Input, #model SelectCurrent, #audio SelectCurrent, #skill-edit Input, #repository-install Input, #plugin-settings Input, #update-values Input, #spending Input {
-    border: round ansi_bright_black;
+    border: round $line;
     background: transparent;
 }
 
 #profile Input:focus, #web-search Input:focus, #home-section Input:focus, #email Input:focus, #mcp-add Input:focus, #mcp-sign-in Input:focus, #plugin-sign-in Input:focus, #model Input:focus, #skill-edit Input:focus, #repository-install Input:focus, #plugin-settings Input:focus, #update-values Input:focus, #spending Input:focus {
-    border: round #2f343f;
+    border: round $line-focus;
 }
 
 SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen, HomeScreen, DoctorScreen, UsageScreen, SessionsScreen, McpScreen, LogsScreen, NotificationsScreen, SubagentsScreen {
@@ -561,7 +575,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     max-width: 120;
     height: 80%;
     padding: 1 2;
-    border: round ansi_bright_black;
+    border: round $line;
     background: $dialog-background;
 }
 
@@ -609,7 +623,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
 
 #skills-list, #jobs-list, #conversations-list, #devices-list, #keys-list, #home-list, #doctor-list, #briefing-list, #files-list, #plugins-list {
     width: 36;
-    border: round ansi_bright_black;
+    border: round $line;
     background: transparent;
 }
 
@@ -637,14 +651,14 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
 /* "Last active" is underlined across the preview, separating it from what was said. A Markdown
    rule would leave an empty line above itself. */
 #conversation-body > MarkdownParagraph:first-of-type {
-    border-bottom: solid ansi_bright_black;
+    border-bottom: solid $line;
 }
 
 #conversations-main .divider, #jobs-main .divider, #devices-main .divider, #keys-main .divider, #home-main .divider, #doctor-main .divider, #briefing-main .divider, #files-main .divider, #skills-main .divider, #mcp-main .divider, #plugins-main .divider, #prompts-main .divider, #subagents-main .divider, #notifications-main .divider {
     width: 1;
     height: 1fr;
     margin: 1 1 1 0;
-    border-left: solid ansi_bright_black;
+    border-left: solid $line;
 }
 
 #skills-detail, #jobs-detail, #conversations-detail, #devices-detail, #keys-detail, #home-detail, #doctor-detail, #briefing-detail, #files-detail, #mcp-detail, #plugins-detail, #prompts-detail, #subagents-detail, #notifications-detail {
@@ -662,13 +676,13 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
 
 /* Scrollbars in gray, like the rest of the structure. */
 * {
-    scrollbar-color: ansi_bright_black;
-    scrollbar-color-hover: ansi_white;
-    scrollbar-color-active: ansi_white;
-    scrollbar-background: ansi_default;
-    scrollbar-background-hover: ansi_default;
-    scrollbar-background-active: ansi_default;
-    scrollbar-corner-color: ansi_default;
+    scrollbar-color: $text-muted;
+    scrollbar-color-hover: $line-focus;
+    scrollbar-color-active: $line-focus;
+    scrollbar-background: $ground;
+    scrollbar-background-hover: $ground;
+    scrollbar-background-active: $ground;
+    scrollbar-corner-color: $ground;
 }
 
 #mcp-tools, #mcp-add-tools, #repository-found {
@@ -704,7 +718,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
 }
 
 #audio .audio-note {
-    color: ansi_bright_black;
+    color: $text-muted;
 }
 
 #audio-languages {
@@ -732,12 +746,12 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
 
 #plugins-search, #conversations-search {
     margin: 0 0 1 0;
-    border: round ansi_bright_black;
+    border: round $line;
     background: transparent;
 }
 
 #plugins-search:focus, #conversations-search:focus {
-    border: round #2f343f;
+    border: round $line-focus;
 }
 
 /* When the plugins were last checked, then the buttons for all of them, on one line. */
@@ -762,7 +776,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     height: auto;
     max-height: 12;
     margin: 1 0;
-    border: round ansi_bright_black;
+    border: round $line;
     background: transparent;
 }
 
@@ -777,7 +791,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
 }
 
 #logs SelectCurrent {
-    border: round ansi_bright_black;
+    border: round $line;
     background: transparent;
 }
 
@@ -790,7 +804,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
 #logs-body {
     height: 1fr;
     background: transparent;
-    border: round ansi_bright_black;
+    border: round $line;
 }
 
 #logs-buttons {
@@ -820,7 +834,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
 #prompt-about {
     height: auto;
     margin-bottom: 1;
-    color: ansi_bright_black;
+    color: $text-muted;
 }
 
 #prompt-text {
@@ -842,7 +856,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
 #home-section-shows {
     height: auto;
     margin-top: 1;
-    color: ansi_bright_black;
+    color: $text-muted;
 }
 
 #home-section-note {
@@ -883,7 +897,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     max-width: 160;
     height: 90%;
     padding: 1 2;
-    border: round ansi_bright_black;
+    border: round $line;
     background: $dialog-background;
 }
 
@@ -899,13 +913,13 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
 
 #folder-side {
     width: 40;
-    border-right: solid ansi_bright_black;
+    border-right: solid $line;
     padding-right: 1;
 }
 
 #folder-changed-title {
     height: auto;
-    color: ansi_bright_black;
+    color: $text-muted;
 }
 
 #folder-changes {
@@ -943,7 +957,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
 }
 
 #form-url {
-    color: ansi_cyan;
+    color: $accent-color;
 }
 
 #form-fields {

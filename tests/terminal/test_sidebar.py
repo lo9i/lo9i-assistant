@@ -29,15 +29,14 @@ async def test_a_page_opens_beside_the_sidebar_and_chat_goes_back(app, client):
         assert "⌂ Home" in _lines(sidebar) and "✱ Settings" in _lines(sidebar)
         _pick(sidebar, "notifications")
         await wait_for(pilot, lambda: isinstance(app.screen, NotificationsScreen))
-        page_sidebar = app.screen.query_one(Sidebar)
+        page_sidebar, listed = app.screen.query_one(Sidebar), app.screen.query_one("#notifications-list")
+        await wait_for(pilot, lambda: listed.has_focus)  # the page's own list, not the sidebar
         assert page_sidebar.highlighted_option is not None and page_sidebar.highlighted_option.id == "notifications"
-        assert app.screen.query_one("#notifications-list").has_focus  # the page's own list, not the sidebar
         _pick(page_sidebar, "jobs")
         await wait_for(pilot, lambda: type(app.screen).__name__ == "JobsScreen")
         assert sum(isinstance(s, PageScreen) for s in app.screen_stack) == 1  # in the last one's place
         _pick(app.screen.query_one(Sidebar), "chat")
-        await wait_for(pilot, lambda: app.screen is app.screen_stack[0])
-        assert app.focused is app.query_one("#prompt")
+        await wait_for(pilot, lambda: app.screen is app.screen_stack[0] and app.focused is app.query_one("#prompt"))
 
 
 async def test_a_slash_command_opens_its_page_and_esc_goes_back(app, client):

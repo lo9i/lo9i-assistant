@@ -168,8 +168,8 @@ class AssistantApp(App):
 
     def __init__(self, service: DaemonClient, session: Session, history: History, preferences: Preferences) -> None:
         super().__init__()
-        # Use the terminal's own background and color palette instead of Textual's theme colors.
-        self.ansi_color = True
+        # The app's own colors (theme.py), not the terminal's palette, so it looks the same in every terminal.
+        self.ansi_color = False
         self._service = service
         self._live = LiveConversation(service, session, service.clients.own_id)
         # The app starts on the inbox (main.py); a message there goes where it belongs.

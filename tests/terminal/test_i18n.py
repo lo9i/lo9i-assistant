@@ -55,7 +55,7 @@ async def test_language_command_says_and_sets_the_language(app, client):
 
 async def test_the_key_bindings_and_the_message_box_follow_a_language_change_at_once(app, client):
     async with app.run_test() as pilot:
-        assert "New conversation" in _footer(app)
+        await wait_for(pilot, lambda: "New conversation" in _footer(app))
         await pilot.click("#prompt")
         await pilot.press(*"/language es", "enter")
         await wait_for(pilot, lambda: "Nueva conversación" in _footer(app))
