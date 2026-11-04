@@ -651,7 +651,9 @@
   }
   .started {
     flex: none;
-    color: var(--color-text-faint);
+    padding-left: 6px;
+    border-left: 1px solid var(--color-border);
+    color: var(--color-text-muted);
     font-size: var(--font-size-xs);
     font-variant-numeric: tabular-nums;
   }
