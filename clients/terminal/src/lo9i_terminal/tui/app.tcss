@@ -87,13 +87,39 @@ Sidebar.collapsed {
 
 #page-body #settings-tabs SettingsSection > * {
     width: 1fr;
-    height: 1fr;
     max-width: 100%;
-    max-height: 100%;
     margin: 0;
     border: none;
     background: transparent;
     padding: 1 1 0 1;
+}
+
+#page-body #settings-tabs TabPane > SettingsSection > * {
+    height: 1fr;
+    max-height: 100%;
+}
+
+/* A tab of several sections stacks them in one scroll, as the web app's cards, each as tall as what it shows; Kept
+   keys, a list beside its detail, takes the room left, at least enough to pick from. Only the last section keeps its
+   Close, so the tab has one. */
+#page-body #settings-tabs .settings-stack Vertical, #page-body #settings-tabs .settings-stack VerticalScroll, #page-body #settings-tabs .settings-stack Horizontal {
+    height: auto;
+}
+
+#page-body #settings-tabs .settings-stack #settings-section-keys, #page-body #settings-tabs .settings-stack #keys, #page-body #settings-tabs .settings-stack #keys-main {
+    height: 1fr;
+}
+
+#page-body #settings-tabs .settings-stack #settings-section-keys {
+    min-height: 16;
+}
+
+#settings-tabs .settings-stack SettingsSection #close {
+    display: none;
+}
+
+#settings-tabs .settings-stack SettingsSection:last-child #close {
+    display: block;
 }
 
 /* The tabs: muted, the one shown in the main text with the accent under it; while they have the focus, it's picked as

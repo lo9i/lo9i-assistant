@@ -1,8 +1,8 @@
 """The navigation on the left: the chat and every page show it, picking a page opens it in the chat's place and Chat
-goes back, Settings shows its sections as tabs, the conversations open here show under Chat with what they're doing,
-counts show beside the pages, and F4 collapses it to its glyphs, kept for the next start."""
+goes back, Settings shows its sections in the web app's tabs, the conversations open here show under Chat with what
+they're doing, counts show beside the pages, and F4 collapses it to its glyphs, kept for the next start."""
 
-from textual.widgets import Tab, Tabs
+from textual.widgets import Button, Tab, Tabs
 
 from lo9i.core.agent import Conversation
 from lo9i.core.events import ApprovalRequired
@@ -12,11 +12,15 @@ from lo9i_terminal.tui.page import PageScreen
 from lo9i_terminal.tui.screens import (
     BriefingSection,
     EmailRecipientsSection,
+    HostSection,
+    KeptKeysListSection,
     LanguageSection,
     ModelSection,
     NotificationsScreen,
     PluginsSection,
+    ProfileSection,
     SettingsScreen,
+    SpendingLimitsSection,
 )
 from lo9i_terminal.tui.sidebar import Sidebar
 from tests.terminal.conftest import section_shown, wait_for, wait_for_section
@@ -71,16 +75,38 @@ async def test_settings_shows_its_sections_as_tabs(app, client):
         tabs = settings.query_one(Tabs)
         assert [str(tab.label) for tab in tabs.query(Tab)] == [tab.label for tab in SETTINGS_TABS]
         await wait_for(pilot, lambda: tabs.has_focus)  # ← and → move between sections from the start
+        assert [str(tab.label) for tab in tabs.query(Tab)][:3] == ["General", "About you", "Model"]
         await pilot.press("right")
-        await wait_for_section(pilot, app, BriefingSection)
+        await wait_for_section(pilot, app, ProfileSection)
         await pilot.press("tab")
-        await wait_for(pilot, lambda: app.focused is not None and settings.shown == "briefing")
-        assert app.focused is not tabs and app.focused in settings.query_one(BriefingSection).query("*")
+        await wait_for(pilot, lambda: app.focused is not None and settings.shown == "memory")
+        assert app.focused is not tabs and app.focused in settings.query_one(ProfileSection).query("*")
         await pilot.press("shift+tab", "left")
         assert await wait_for_section(pilot, app, LanguageSection) is language  # built once, kept
-        await pilot.click("#--content-tab-settings-email")
-        await wait_for_section(pilot, app, EmailRecipientsSection)
+        await pilot.click("#--content-tab-settings-system")
+        await wait_for_section(pilot, app, KeptKeysListSection)
+        assert section_shown(app, HostSection) is not None  # stacked above it, as the web app's cards
         assert app.screen is settings
+
+
+async def test_a_tab_of_several_sections_stacks_them_with_one_close(app, client):
+    async with app.run_test(size=(160, 40)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/email", "enter")
+        email = await wait_for_section(pilot, app, EmailRecipientsSection)
+        for kind in (LanguageSection, BriefingSection):
+            assert section_shown(app, kind) is not None  # the General tab's other cards, in the same tab
+        settings = app.screen
+        assert isinstance(settings, SettingsScreen) and settings.shown == "general"
+        await wait_for(pilot, lambda: email.region.height > 0)  # scrolled to it
+        closes = [b for b in settings.query("#close").results(Button) if b.display]
+        assert closes == [email.query_one("#close", Button)]  # only the last section's
+        await app._commands["/limits"]("")
+        limits = await wait_for_section(pilot, app, SpendingLimitsSection)
+        assert section_shown(app, ModelSection) is not None and settings.shown == "model"
+        await wait_for(pilot, lambda: limits.region.y < 10)  # scrolled to it, under the tabs
+        limits.query_one("#close", Button).press()
+        await wait_for(pilot, lambda: app.screen is app.screen_stack[0])
 
 
 async def test_a_sections_command_shows_its_tab_on_the_settings_shown(app, client):

@@ -1,7 +1,7 @@
 """The terminal app's navigation, as the web app's sidebar has it (its lib/ui/Sidebar.svelte): Home, Chat with the
-conversations open under it, the pages, and Settings, whose sections are tabs on its page (screens/settings.py).
-Each page and section has a key the sidebar and the slash commands open it by; collapsed, the sidebar shows each page
-by its glyph."""
+conversations open under it, the pages, and Settings, whose sections are grouped in tabs on its page as the web app's
+are (screens/settings.py). Each page and section has a key the sidebar and the slash commands open it by; collapsed,
+the sidebar shows each page by its glyph."""
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -42,33 +42,37 @@ PAGES: tuple[Page, ...] = (
 
 @dataclass(frozen=True)
 class SettingsTab:
-    """A section of Settings: its key is its slash command's name."""
+    """A tab of Settings, as the web app's: its sections, stacked in it as the web app's cards are. A section's key is
+    its slash command's name."""
 
     key: str
     label: str
+    sections: tuple[str, ...]
 
 
-# Settings' sections, one tab each, in the web app's order: its General tab's cards first, then its other tabs.
+# Settings' tabs, with the web app's order and labels (its lib/ui/settings/SettingsTabs.svelte).
 SETTINGS_TABS: tuple[SettingsTab, ...] = (
-    SettingsTab("language", translatable("Language")),
-    SettingsTab("briefing", translatable("Briefing and reviews")),
-    SettingsTab("websearch", translatable("Web search")),
-    SettingsTab("email", translatable("Email")),
-    SettingsTab("startup", translatable("Start at boot")),
-    SettingsTab("profile", translatable("About you")),
-    SettingsTab("model", translatable("Model")),
-    SettingsTab("limits", translatable("Spending limits")),
-    SettingsTab("prompt", translatable("System prompt")),
-    SettingsTab("audio", translatable("Audio")),
-    SettingsTab("plugins", translatable("Plugins")),
-    SettingsTab("mcp", translatable("MCP servers")),
-    SettingsTab("skills", translatable("Skills")),
-    SettingsTab("host", translatable("System")),
-    SettingsTab("keys", translatable("Kept keys")),
-    SettingsTab("sessions", translatable("Clients")),
-    SettingsTab("logs", translatable("Logs")),
-    SettingsTab("doctor", translatable("Health")),
+    SettingsTab("general", translatable("General"), ("language", "briefing", "startup", "websearch", "email")),
+    SettingsTab("memory", translatable("About you"), ("profile",)),
+    SettingsTab("model", translatable("Model"), ("model", "limits")),
+    SettingsTab("prompt", translatable("System prompt"), ("prompt",)),
+    SettingsTab("audio", translatable("Audio"), ("audio",)),
+    SettingsTab("plugins", translatable("Plugins"), ("plugins",)),
+    SettingsTab("mcp", translatable("MCP servers"), ("mcp",)),
+    SettingsTab("skills", translatable("Skills"), ("skills",)),
+    SettingsTab("system", translatable("System"), ("host", "keys")),
+    SettingsTab("clients", translatable("Clients"), ("sessions",)),
+    SettingsTab("logs", translatable("Logs"), ("logs",)),
+    SettingsTab("doctor", translatable("Health"), ("doctor",)),
 )
+
+# Every section's key, in the order the tabs show them.
+SETTINGS_SECTIONS: tuple[str, ...] = tuple(key for tab in SETTINGS_TABS for key in tab.sections)
+
+
+def settings_tab(section: str) -> SettingsTab:
+    """The tab a section shows in."""
+    return next(tab for tab in SETTINGS_TABS if section in tab.sections)
 
 
 @dataclass(frozen=True)

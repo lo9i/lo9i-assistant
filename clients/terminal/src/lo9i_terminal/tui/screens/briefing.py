@@ -1,6 +1,6 @@
 """The briefing and the reviews, as the web app's Settings → General → Briefing and reviews: each feature on or off,
-the briefing's and the nightly review's times, the weekly review's day, and the kinds muted, each with Suggest again. The open
-loops are Home's Open loops card (/home); a briefing or review that fails is an alert (/alerts)."""
+the briefing's and the nightly review's times, the weekly review's day, and the kinds muted, each with Suggest again.
+The open loops are Home's Open loops card (/home); a briefing or review that fails is an alert (/alerts)."""
 
 from typing import ClassVar
 
@@ -98,7 +98,9 @@ class BriefingSection(SettingsSection):
             return
         rows: list[Widget] = [Label(t("Not suggested any more"), classes="briefing-muted-title")]
         for n, kind in enumerate(muted):
-            rows.append(Horizontal(Label(kind), Button(t("Suggest again"), id=f"unmute-{n}"), classes="briefing-muted-row"))
+            rows.append(
+                Horizontal(Label(kind), Button(t("Suggest again"), id=f"unmute-{n}"), classes="briefing-muted-row")
+            )
         await box.mount_all(rows)
 
     @on(Switch.Changed)

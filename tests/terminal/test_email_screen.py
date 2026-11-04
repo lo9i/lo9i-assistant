@@ -128,9 +128,9 @@ async def test_email_saves_who_the_assistant_emails_without_asking(app, client):
     async with app.run_test(size=(110, 44)) as pilot:
         await pilot.click("#prompt")
         await pilot.press(*"/email", "enter")
-        await wait_for_section(pilot, app, EmailRecipientsSection)
-        app.screen.query_one(Input).value = "friend@test.com"
-        app.screen.query_one("#save", Button).press()
+        section = await wait_for_section(pilot, app, EmailRecipientsSection)  # under General's other cards
+        section.query_one(Input).value = "friend@test.com"
+        section.query_one("#save", Button).press()
         await wait_for(pilot, lambda: client.email.allowed == ["friend@test.com"])
 
 

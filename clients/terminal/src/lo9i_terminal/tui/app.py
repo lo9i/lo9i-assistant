@@ -50,7 +50,7 @@ from lo9i_terminal.history import History
 from lo9i_terminal.i18n import t, translatable
 from lo9i_terminal.jobs_text import status as job_status
 from lo9i_terminal.models_text import model_lines
-from lo9i_terminal.nav import CHAT, OPEN, SETTINGS, SETTINGS_TABS, NavState
+from lo9i_terminal.nav import CHAT, OPEN, SETTINGS, SETTINGS_SECTIONS, NavState
 from lo9i_terminal.preferences import Preferences
 from lo9i_terminal.subagents_text import running_line
 from lo9i_terminal.tasks_text import task_line
@@ -230,7 +230,7 @@ class AssistantApp(App):
             "/usage": self._command_usage,
             "/home": self._command_home,
             "/name": self._command_name,
-            **{f"/{tab.key}": self._settings_command(tab.key) for tab in SETTINGS_TABS},
+            **{f"/{key}": self._settings_command(key) for key in SETTINGS_SECTIONS},
             "/language": self._command_language,
             "/pin": self._command_pin,
             "/unpin": self._command_unpin,
@@ -900,11 +900,13 @@ class AssistantApp(App):
         await self.push_screen(page, self._resume)
 
     async def _show_settings(self, key: str | None = None, section: SettingsSection | None = None) -> None:
-        """Settings on that section's tab (its first without one); in place when Settings shows already."""
+        """Settings on that section's tab (its first without one); in place when Settings shows already, staying on the
+        tab shown without one."""
         if isinstance(self.screen, SettingsScreen):
-            await self.screen.show(key or self.screen.shown, section)
+            if key is not None:
+                await self.screen.show(key, section)
             return
-        await self._show_page(SettingsScreen(self._settings_section, key or SETTINGS_TABS[0].key, section))
+        await self._show_page(SettingsScreen(self._settings_section, key or SETTINGS_SECTIONS[0], section))
 
     def _settings_command(self, key: str) -> Callable[[str], Awaitable[None]]:
         async def command(_: str) -> None:
@@ -913,7 +915,7 @@ class AssistantApp(App):
         return command
 
     def _settings_section(self, key: str) -> SettingsSection:
-        """A section of Settings by its key (nav.SETTINGS_TABS), built when its tab first shows."""
+        """A section of Settings by its key (nav.SETTINGS_SECTIONS), built when its tab first shows."""
         s = self._service
         sections: dict[str, Callable[[], SettingsSection]] = {
             "language": lambda: LanguageSection(s.language, self.refresh_language),
