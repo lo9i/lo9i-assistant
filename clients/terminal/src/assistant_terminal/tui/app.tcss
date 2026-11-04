@@ -995,3 +995,12 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     height: auto;
     color: $text-muted;
 }
+
+/* Simple line border for every form control (Textual's default "tall" border shows as stray dashes). */
+Input, Switch, RadioSet, SelectCurrent, TextArea {
+    border: round $line;
+}
+
+Input:focus, Switch:focus, RadioSet:focus, Select:focus > SelectCurrent, TextArea:focus {
+    border: round $line-focus;
+}
