@@ -1034,10 +1034,10 @@ JobsScreen, ConversationsScreen, DevicesScreen, HomeScreen, UsageScreen, Notific
 }
 
 /* Simple line border for every form control (Textual's default "tall" border shows as stray dashes). */
-Input, Switch, RadioSet, SelectCurrent, TextArea {
+Input, Switch, RadioSet, OptionList, SelectCurrent, TextArea {
     border: round $line;
 }
 
-Input:focus, Switch:focus, RadioSet:focus, Select:focus > SelectCurrent, TextArea:focus {
+Input:focus, Switch:focus, RadioSet:focus, OptionList:focus, Select:focus > SelectCurrent, TextArea:focus {
     border: round $line-focus;
 }
