@@ -7,14 +7,12 @@ from typing import Any
 
 from rich.markup import escape
 from textual import work
-from textual.containers import VerticalScroll
 from textual.widgets import Collapsible, Markdown, Static
 
 from assistant.client.errors import DaemonUnavailableError
-from assistant.core.agent import ConversationError, ConversationStats, MemorySnapshot, ShownCall
+from assistant.core.agent import ConversationError, ConversationStats, ShownCall
 from assistant_terminal.context_text import detail, fuel
 from assistant_terminal.i18n import t, translatable
-from assistant_terminal.profile_text import section_label
 
 _FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
@@ -284,26 +282,6 @@ class StatusLine(Static):
         elapsed = int(time.monotonic() - self._started)
         hint = f"  ({self._hint})" if self._hint else ""
         self.update(f"{_FRAMES[self._frame % len(_FRAMES)]} {self._label}… {elapsed}s{hint}")
-
-
-class MemoryPanel(VerticalScroll):
-    """Read-only view of the profile and skills."""
-
-    def compose(self):
-        yield Static(id="memory-body")
-
-    def show(self, snapshot: MemorySnapshot) -> None:
-        self.query_one("#memory-body", Static).update(_render_snapshot(snapshot))
-
-
-def _render_snapshot(snapshot: MemorySnapshot) -> str:
-    profile = [f"[b]{section_label(name)}[/b]: {escape('; '.join(items))}" for name, items in snapshot.profile.items()]
-    sections = [
-        (t("Profile"), profile),
-        (t("Skills"), [f"• {escape(s)}" for s in snapshot.skills]),
-    ]
-    empty = "[dim]" + t("(empty)") + "[/]"
-    return "\n\n".join(f"[b]{title}[/b]\n" + ("\n".join(lines) or empty) for title, lines in sections)
 
 
 def _describe(args: dict[str, Any]) -> str:

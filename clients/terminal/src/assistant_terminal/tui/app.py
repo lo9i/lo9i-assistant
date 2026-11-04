@@ -1,5 +1,5 @@
-"""Full-screen terminal app: the navigation on the left (sidebar.py), the chat beside it with the memory on the right,
-and each page in the chat's place when it's picked there or by its slash command (page.py)."""
+"""Full-screen terminal app: the navigation on the left (sidebar.py), the chat beside it, and each page in the chat's
+place when it's picked there or by its slash command (page.py)."""
 
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import contextmanager
@@ -25,7 +25,6 @@ from assistant.client.recorder import available as recording_available
 from assistant.core.agent import (
     Agent,
     Alert,
-    Conversation,
     ConversationError,
     FoundServer,
     HandoffError,
@@ -46,7 +45,6 @@ from assistant.core.events import (
 from assistant.protocol import event_from_dict
 from assistant_terminal import i18n
 from assistant_terminal.commands import GET_TO_KNOW_ME, Command, agent_commands, help_lines
-from assistant_terminal.conversations_text import listed_title, when
 from assistant_terminal.history import History
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.jobs_text import status as job_status
@@ -124,7 +122,6 @@ from assistant_terminal.tui.widgets import (
     ContextFuel,
     FollowUpNote,
     HeldNote,
-    MemoryPanel,
     MouseStatus,
     StatusLine,
     SystemNote,
@@ -134,9 +131,6 @@ from assistant_terminal.tui.widgets import (
 _MIN_RECORDING_SECONDS = 0.5
 # The title when the user hasn't named the assistant.
 _DEFAULT_TITLE = "lo9i assistant"
-# Conversations the chat opens to, in a note that goes once a message is sent.
-_LISTED = 8
-_LIST_NOTE = "conversations-note"
 # Events that change what the sidebar counts or lists.
 _NAV_EVENTS = frozenset(
     {
@@ -163,8 +157,6 @@ class AssistantApp(App):
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding("ctrl+n", "new_thread", translatable("New conversation")),
         Binding("ctrl+o", "open_conversations", translatable("Open conversations")),
-        # Not ctrl+b: that is the prefix key of tmux and herdr.
-        Binding("f2", "toggle_memory", translatable("Memory panel")),
         Binding("f3", "toggle_recording", translatable("Record voice")),
         Binding("f4", "toggle_sidebar", translatable("Sidebar")),
         Binding("f5", "focus_sidebar", translatable("Navigate")),
@@ -264,7 +256,6 @@ class AssistantApp(App):
             with Vertical(id="chat-column"):
                 with Horizontal(id="main"):
                     yield VerticalScroll(id="chat")
-                    yield MemoryPanel(id="memory")
                 yield ConnectionNote()
                 yield StatusLine(id="status")
                 yield CommandMenu(id="command-menu")
@@ -282,11 +273,9 @@ class AssistantApp(App):
         self.register_theme(THEME)
         self.theme = THEME_NAME
         await self.refresh_thread()
-        await self._show_conversations()
         self.query_one("#chat", VerticalScroll).anchor()
         self.query_one("#prompt", Input).focus()
         self._listen()
-        await self.refresh_memory()
         await self.refresh_title()
         await self.refresh_plugin_updates()
         await self.refresh_agents()
@@ -624,7 +613,6 @@ class AssistantApp(App):
         if self._busy:
             self.notify(t("The assistant is still working on the last message."), severity="warning")
             return False
-        await self._chat.query(f".{_LIST_NOTE}").remove()
         await self._chat.query(ChoicesNote).remove()
         await self._chat.mount(UserMessage(text or _attachment_label(attachments), [a.name for a in attachments]))
         self._run_turn(text, attachments)
@@ -652,7 +640,6 @@ class AssistantApp(App):
         while approvals:
             decisions = {a.interrupt_id: await self._decide(a.request) for a in approvals}
             approvals = await view.render(self._service.resume(session, decisions))
-        await self.refresh_memory()
         if view.dispatched is not None:
             await self._go_on(view.dispatched)
 
@@ -852,11 +839,6 @@ class AssistantApp(App):
     async def refresh_plugin_updates(self) -> None:
         await self._plugin_updates.refresh()
 
-    @reports_daemon_unavailable
-    async def refresh_memory(self) -> None:
-        snapshot = await self._service.memory.snapshot()
-        self.query_one(MemoryPanel).show(snapshot)
-
     @property
     def _chat(self) -> VerticalScroll:
         return self.query_one("#chat", VerticalScroll)
@@ -929,9 +911,6 @@ class AssistantApp(App):
     async def action_new_thread(self) -> None:
         await self._command_clear("")
 
-    def action_toggle_memory(self) -> None:
-        self.query_one(MemoryPanel).toggle_class("hidden")
-
     async def action_toggle_recording(self) -> None:
         if self._recorder.recording:
             await self._finish_recording()
@@ -977,21 +956,13 @@ class AssistantApp(App):
         await self._live.go_inbox(leave_running=still_running)
         self._inbox_id = self._live.session.thread_id
         await self.refresh_thread()
-        await self._show_conversations()
+        await self._chat.remove_children()
         await self._follow_in_progress()
         self.notify(
             t("In the inbox: the next message goes where it belongs. The previous reply keeps running.")
             if still_running
             else t("In the inbox: the next message goes where it belongs.")
         )
-
-    @reports_daemon_unavailable
-    async def _show_conversations(self) -> None:
-        """What the chat opens to: the latest conversations, newest first, instead of the inbox's own
-        messages."""
-        listed = [c for c in await self._service.conversations.recent() if not c.inbox][:_LISTED]
-        await self._chat.remove_children()
-        await self._chat.mount(SystemNote(_conversations_note(listed), classes=_LIST_NOTE))
 
     async def _command_move(self, _: str) -> None:
         """Asks in the inbox where the last message it sent on goes instead, and goes there."""
@@ -1254,7 +1225,6 @@ class AssistantApp(App):
 
     async def _command_help(self, _: str) -> None:
         keys = [
-            t("F2 memory panel"),
             t("F3 record voice"),
             t("F4 collapse or expand the sidebar"),
             t("F5 move to the sidebar and back"),
@@ -1378,15 +1348,3 @@ def _screen_for(request: dict[str, Any]) -> ApprovalScreen | QuestionScreen | Fo
     if is_form(request):
         return FormScreen(request)
     return ApprovalScreen(request)
-
-
-def _conversations_note(listed: list[Conversation]) -> str:
-    """Markdown: the conversations by title and when, and how to go on."""
-    lines = [f"- **{listed_title(c)}** · {when(c)}" for c in listed]
-    hint = t(
-        "Write a message: it goes on in the conversation it's about, or starts a new one. "
-        "/conversations opens one, /clear starts one, /notifications shows what finished."
-    )
-    if not lines:
-        return "### " + t("No conversations yet") + f"\n\n{hint}"
-    return "\n".join(["### " + t("Conversations"), *lines, "", hint])

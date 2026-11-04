@@ -79,16 +79,6 @@ Sidebar.collapsed {
     padding: 0 1;
 }
 
-MemoryPanel {
-    width: 40;
-    border-left: solid $line;
-    padding: 0 1;
-}
-
-MemoryPanel.hidden {
-    display: none;
-}
-
 UserMessage {
     color: $user-color;
     margin: 1 0 0 0;

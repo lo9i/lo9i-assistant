@@ -24,6 +24,7 @@ from assistant.core.events import (
     Transcribed,
     UserSaid,
     UserTaken,
+    UserWithdrawn,
 )
 from assistant_terminal.i18n import t, translatable
 from assistant_terminal.tui.widgets import (
@@ -104,6 +105,8 @@ class TurnView:
                 await self._user_said(UserMessage(text, files, WAITING if waiting else ""), message_id, waiting)
             case UserTaken(message_id):
                 self._taken(message_id)
+            case UserWithdrawn(message_id):
+                await self._withdrawn(message_id)
             case Dispatched():
                 self.dispatched = event
                 await self._chat.mount(AssistantMessage(event.line))
@@ -126,6 +129,12 @@ class TurnView:
     def _taken(self, message_id: str) -> None:
         for shown in [shown for shown in self._waiting if shown[0] == message_id]:
             shown[1].note("")
+            self._waiting.remove(shown)
+
+    async def _withdrawn(self, message_id: str) -> None:
+        """Taken back before the agent got to it (removed, or edited, its new text then a message of its own)."""
+        for shown in [shown for shown in self._waiting if shown[0] == message_id]:
+            await shown[1].remove()
             self._waiting.remove(shown)
 
     def _not_taken(self) -> None:

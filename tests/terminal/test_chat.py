@@ -34,7 +34,6 @@ from assistant_terminal.tui.widgets import (
     AssistantMessage,
     ChoicesNote,
     StoppedNote,
-    SystemNote,
     ThinkingNote,
     ToolCall,
     UserMessage,
@@ -89,7 +88,6 @@ async def test_turn_with_approval(app, client):
         assert [type(w) for w in chat.children] == [UserMessage, ToolCall, ToolCall, AssistantMessage]
         assert [t.title for t in app.query(ToolCall)] == ["✓ bash(ls -la)", "✓ bash(rm -rf build)"]
         assert app.query_one(AssistantMessage).source == "## Done\n\nListed **1 file**."
-        assert "backend engineer" in str(app.query_one("#memory-body").render())
 
 
 async def test_an_mcp_tools_call_is_asked_in_words(app, client):
@@ -133,27 +131,17 @@ async def test_the_subtitle_names_the_conversation_by_its_title_once_it_has_one(
         await wait_for(pilot, lambda: app.sub_title == "Trip to Rome")
 
 
-async def test_the_app_opens_to_the_conversations_and_inbox_shows_them_again(app, client):
+async def test_the_app_opens_on_the_inbox_and_inbox_goes_back_to_it(app, client):
+    """The inbox's chat starts empty, not with its own messages: the sidebar's Conversations lists the others."""
     async with app.run_test() as pilot:
-        await wait_for(pilot, lambda: bool(app.query(SystemNote)))
-        assert app.sub_title == "inbox"
-        listed = app.query_one(SystemNote).source
-        assert "**plan my trip**" in listed and "/conversations opens one" in listed
+        await wait_for(pilot, lambda: app.sub_title == "inbox")
+        assert not app.query_one("#chat").children
         await pilot.press("ctrl+n")
         await wait_for(pilot, lambda: app.sub_title == "new conversation")
         await pilot.click("#prompt")
         await pilot.press(*"/inbox", "enter")
-        await wait_for(pilot, lambda: app.sub_title == "inbox" and app.query(SystemNote))
-        assert not app.query(UserMessage)  # the list, not the inbox's own messages
-
-
-async def test_sending_a_message_takes_the_list_away(app, client):
-    async with app.run_test() as pilot:
-        await wait_for(pilot, lambda: bool(app.query(SystemNote)))
-        await pilot.click("#prompt")
-        await pilot.press(*"hi", "enter")
-        await wait_for(pilot, lambda: bool(app.query(UserMessage)))
-        assert not app.query(SystemNote)
+        await wait_for(pilot, lambda: app.sub_title == "inbox")
+        assert not app.query(UserMessage)
 
 
 async def test_conversations_show_the_title_of_the_one_picked(app, client):
@@ -868,8 +856,8 @@ async def test_a_run_finished_while_an_approval_is_asked_doesnt_replace_the_dial
         await wait_for(pilot, lambda: client.decisions is not None and not app._busy)
         assert client.decisions == {"i9": {"approved": True, "reason": None}}
         assert not isinstance(app.screen, ApprovalScreen)
-        # The answered run went on to its end here: memory read again after it.
-        assert "backend engineer" in str(app.query_one("#memory-body").render())
+        # The answered run went on to its end here.
+        assert app.query_one(AssistantMessage).source == "## Done\n\nListed **1 file**."
 
 
 async def test_the_run_finished_of_the_answer_running_here_lets_it_end(app, client):
@@ -891,9 +879,9 @@ async def test_the_run_finished_of_the_answer_running_here_lets_it_end(app, clie
         run = {"run_id": "r2", "thread_id": "owner:b", "channel": "cli", "status": "ok", "reply": "Cleaned up."}
         await client.bus.put(("run_finished", run))
         await pilot.pause(0.2)
+        assert app._busy  # its run_finished didn't end it
         release.set()
-        await wait_for(pilot, lambda: "backend engineer" in str(app.query_one("#memory-body").render()))
-        assert not app._busy
+        await wait_for(pilot, lambda: not app._busy)
 
 
 async def test_an_approval_answered_in_another_app_closes_the_dialog_and_shows_its_run(app, client):

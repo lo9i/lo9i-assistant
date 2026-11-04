@@ -23,6 +23,7 @@ from assistant.core.events import (
     Transcribed,
     UserSaid,
     UserTaken,
+    UserWithdrawn,
 )
 from assistant_terminal.i18n import t
 from assistant_terminal.spinner import Spinner
@@ -102,6 +103,9 @@ class _Printer:
             case UserTaken(message_id) if message_id in self._waiting:
                 taken = self._waiting.pop(message_id)
                 _write(paint(DIM, _INDENT + t("The agent got to: {text}", text=taken)) + "\n")
+            case UserWithdrawn(message_id) if message_id in self._waiting:
+                withdrawn = self._waiting.pop(message_id)
+                _write(paint(DIM, _INDENT + t("Taken back before the agent got to it: {text}", text=withdrawn)) + "\n")
             case Dispatched(line=line):
                 _write(f"{_BULLET}{line}\n")
             case Held():

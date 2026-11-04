@@ -1,18 +1,17 @@
-"""Reacts to daemon events while the app is open: memory and skills reload the panel, finished jobs and background work,
-MCP servers or skills that keep failing, MCP servers whose sign-in stopped working, a plugin's sign-in its check
-refused and new plugin updates show a notification, changes refresh an open screen that shows them (its `RELOADS_ON`,
-in the background), a rename updates the title, a new language is used for what shows after it, pinning or unpinning
-a skill, titling the conversation and background subagents update the subtitle (one waiting for the user says so),
-runs started elsewhere in this conversation appear in the chat live, a message written in the inbox while an update
-installed goes where the daemon sent it on after it, and a conversation left with /clear while its reply was running
-reports when it finishes."""
+"""Reacts to daemon events while the app is open: memory and skills reload the pages that show them, finished jobs and
+background work, MCP servers or skills that keep failing, MCP servers whose sign-in stopped working, a plugin's
+sign-in its check refused and new plugin updates show a notification, changes refresh an open screen that shows them
+(its `RELOADS_ON`, in the background), a rename updates the title, a new language is used for what shows after it,
+pinning or unpinning a skill, titling the conversation and background subagents update the subtitle (one waiting for
+the user says so), runs started elsewhere in this conversation appear in the chat live, a message written in the
+inbox while an update installed goes where the daemon sent it on after it, and a conversation left with /clear while
+its reply was running reports when it finishes."""
 
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
 
 
 class LiveApp(Protocol):
-    def refresh_memory(self) -> Awaitable[None]: ...
     def reload_screen(self, kind: str) -> None: ...
     def refresh_title(self) -> Awaitable[None]: ...
     def refresh_language(self) -> Awaitable[None]: ...
@@ -35,14 +34,12 @@ class LiveApp(Protocol):
 
 
 def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[None] | None]]:
-    async def memory(_: dict[str, Any]) -> None:
-        """The panel, and /profile."""
-        await app.refresh_memory()
+    def memory(_: dict[str, Any]) -> None:
+        """About you (/profile)."""
         app.reload_screen("memory")
 
-    async def skills(_: dict[str, Any]) -> None:
-        """The panel, and /skills and /plugins."""
-        await app.refresh_memory()
+    def skills(_: dict[str, Any]) -> None:
+        """/skills and /plugins."""
         app.reload_screen("skills")
 
     def screen(kind: str) -> Callable[[dict[str, Any]], None]:
