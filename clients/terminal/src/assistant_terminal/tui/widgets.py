@@ -247,8 +247,10 @@ class ConnectionNote(Static):
 
     def lost(self) -> None:
         self.display = True
+        self.app.daemon_lost = True
 
     def back(self) -> None:
+        self.app.daemon_lost = False
         if self.display:
             self.display = False
             self.app.notify(t("Connected to the assistant again."))

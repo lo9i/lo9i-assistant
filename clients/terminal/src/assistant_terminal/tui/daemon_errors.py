@@ -21,6 +21,9 @@ def reports_daemon_unavailable[Owner: (Widget, App), **P](
         try:
             await handler(owner, *args, **kwargs)
         except DaemonUnavailableError as e:
+            app = owner if isinstance(owner, App) else owner.app
+            if getattr(app, "daemon_lost", False):
+                return  # the connection note already says it's down (a restart); one message, not one per call
             owner.notify(str(e), title=t("Daemon unavailable"), severity="error", timeout=10)
 
     return _handler
