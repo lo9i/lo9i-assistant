@@ -547,12 +547,12 @@ ModalScreen Input, ModalScreen OptionList, ModalScreen MarkdownHeader, PageScree
     background: transparent;
 }
 
-#profile Input, #profile SelectCurrent, #web-search Input, #home-section Input, #email Input, #email SelectCurrent, #mcp-add Input, #mcp-add SelectCurrent, #mcp-sign-in Input, #plugin-sign-in Input, #model Input, #model SelectCurrent, #audio SelectCurrent, #skill-edit Input, #repository-install Input, #plugin-settings Input, #update-values Input, #spending Input {
+#profile Input, #profile SelectCurrent, #web-search Input, #home-section Input, #email Input, #email SelectCurrent, #mcp-add Input, #mcp-add SelectCurrent, #mcp-sign-in Input, #plugin-sign-in Input, #model Input, #model SelectCurrent, #audio SelectCurrent, #skill-edit Input, #repository-install Input, #plugin-settings Input, #update-values Input, #spending Input, #briefing Input, #briefing SelectCurrent, #briefing Switch {
     border: round $line;
     background: transparent;
 }
 
-#profile Input:focus, #web-search Input:focus, #home-section Input:focus, #email Input:focus, #mcp-add Input:focus, #mcp-sign-in Input:focus, #plugin-sign-in Input:focus, #model Input:focus, #skill-edit Input:focus, #repository-install Input:focus, #plugin-settings Input:focus, #update-values Input:focus, #spending Input:focus {
+#profile Input:focus, #web-search Input:focus, #home-section Input:focus, #email Input:focus, #mcp-add Input:focus, #mcp-sign-in Input:focus, #plugin-sign-in Input:focus, #model Input:focus, #skill-edit Input:focus, #repository-install Input:focus, #plugin-settings Input:focus, #update-values Input:focus, #spending Input:focus, #briefing Input:focus, #briefing Switch:focus, #briefing Select:focus > SelectCurrent {
     border: round $line-focus;
 }
 
