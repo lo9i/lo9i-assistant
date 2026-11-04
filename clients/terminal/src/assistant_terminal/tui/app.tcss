@@ -1,8 +1,6 @@
 /* Dialogs are a gray panel over the terminal's background, so they stand apart from the chat.
    What sits inside them is transparent, so the panel shows through. */
 $dialog-background: #333333;
-/* The brand's teal-gray, behind the row picked where a list sets its own text colors (theme.py's shades). */
-$brand: #364445;
 
 Screen {
     layout: vertical;
@@ -505,7 +503,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     background: $dialog-background;
 }
 
-#skills Markdown, #jobs Markdown, #conversations Markdown, #devices Markdown, #keys Markdown, #home Markdown, #doctor Markdown, #briefing Markdown, #files Markdown, #usage Markdown, #sessions Markdown, #mcp Markdown, #plugins Markdown {
+#skills Markdown, #jobs Markdown, #conversations Markdown, #devices Markdown, #keys Markdown, #home Markdown, #doctor Markdown, #briefing Markdown, #files Markdown, #usage Markdown, #sessions Markdown, #mcp Markdown, #plugins Markdown, #notifications Markdown {
     background: transparent;
     margin: 0;
 }
@@ -525,7 +523,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     height: auto;
 }
 
-#skills.empty #skills-main, #jobs.empty #jobs-main, #conversations.empty #conversations-main, #mcp.empty #mcp-main, #plugins.empty #plugins-main, #notifications.empty #notifications-list, #open-conversations.empty #open-conversations-list, #subagents.empty #subagents-main {
+#skills.empty #skills-main, #jobs.empty #jobs-main, #conversations.empty #conversations-main, #mcp.empty #mcp-main, #plugins.empty #plugins-main, #notifications.empty #notifications-main, #open-conversations.empty #open-conversations-list, #subagents.empty #subagents-main {
     display: none;
 }
 
@@ -533,7 +531,7 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     display: block;
 }
 
-#skills-main, #jobs-main, #conversations-main, #devices-main, #keys-main, #home-main, #doctor-main, #briefing-main, #files-main, #mcp-main, #usage-scroll, #plugins-main, #prompts-main, #subagents-main {
+#skills-main, #jobs-main, #conversations-main, #devices-main, #keys-main, #home-main, #doctor-main, #briefing-main, #files-main, #mcp-main, #usage-scroll, #plugins-main, #prompts-main, #subagents-main, #notifications-main {
     height: 1fr;
 }
 
@@ -555,12 +553,12 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
 
 /* Lists of short labels (dates, job and skill names) have no frame; a divider sets them apart from the
    detail next to them. */
-#conversations-list, #jobs-list, #devices-list, #keys-list, #home-list, #doctor-list, #briefing-list, #files-list, #skills-list, #mcp-list, #plugins-list, #prompts-list, #subagents-list {
+#conversations-list, #jobs-list, #devices-list, #keys-list, #home-list, #doctor-list, #briefing-list, #files-list, #skills-list, #mcp-list, #plugins-list, #prompts-list, #subagents-list, #notifications-list {
     border: none;
 }
 
-/* Each conversation's title over when it was last written in. */
-#conversations-list {
+/* Each conversation's title over when it was last written in, each notification's the same way. */
+#conversations-list, #notifications-list {
     width: 36;
 }
 
@@ -568,32 +566,6 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
 #subagents-list {
     width: 48;
     background: transparent;
-}
-
-/* One line per notification, cut with an ellipsis; its whole text shows below the list. */
-#notifications-list {
-    height: 1fr;
-    border: none;
-    background: transparent;
-    text-wrap: nowrap;
-    text-overflow: ellipsis;
-}
-
-#notifications-list > .option-list--option-highlighted, #notifications-list:focus > .option-list--option-highlighted {
-    background: $brand;
-    text-style: none;
-}
-
-#notifications-detail {
-    height: auto;
-    max-height: 40%;
-    margin-top: 1;
-    padding: 1 1 0 1;
-    border-top: solid ansi_bright_black;
-}
-
-#notifications.empty #notifications-detail {
-    display: none;
 }
 
 #jobs-list, #devices-list, #keys-list, #home-list, #doctor-list, #briefing-list, #files-list, #skills-list, #mcp-list, #plugins-list, #prompts-list {
@@ -606,14 +578,14 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
     border-bottom: solid ansi_bright_black;
 }
 
-#conversations-main .divider, #jobs-main .divider, #devices-main .divider, #keys-main .divider, #home-main .divider, #doctor-main .divider, #briefing-main .divider, #files-main .divider, #skills-main .divider, #mcp-main .divider, #plugins-main .divider, #prompts-main .divider, #subagents-main .divider {
+#conversations-main .divider, #jobs-main .divider, #devices-main .divider, #keys-main .divider, #home-main .divider, #doctor-main .divider, #briefing-main .divider, #files-main .divider, #skills-main .divider, #mcp-main .divider, #plugins-main .divider, #prompts-main .divider, #subagents-main .divider, #notifications-main .divider {
     width: 1;
     height: 1fr;
     margin: 1 1 1 0;
     border-left: solid ansi_bright_black;
 }
 
-#skills-detail, #jobs-detail, #conversations-detail, #devices-detail, #keys-detail, #home-detail, #doctor-detail, #briefing-detail, #files-detail, #mcp-detail, #plugins-detail, #prompts-detail, #subagents-detail {
+#skills-detail, #jobs-detail, #conversations-detail, #devices-detail, #keys-detail, #home-detail, #doctor-detail, #briefing-detail, #files-detail, #mcp-detail, #plugins-detail, #prompts-detail, #subagents-detail, #notifications-detail {
     padding: 0 1;
 }
 

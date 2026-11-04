@@ -1,9 +1,9 @@
-"""The /notifications screen: one line per notification, cut to the list's width, and the whole of the one picked
-below the list."""
+"""The /notifications screen, laid out as /conversations: each listed by what it's about over when it came, and the
+whole of the one picked beside the list."""
 
 from dataclasses import replace
 
-from textual.widgets import Static
+from textual.widgets import Markdown
 
 from assistant_terminal.tui.paged_list import PagedOptionList
 from assistant_terminal.tui.screens import NotificationsScreen
@@ -21,23 +21,25 @@ async def _open(app, pilot) -> PagedOptionList:
     return options
 
 
-async def test_each_notification_is_one_line_cut_to_the_width(app, client):
+async def test_each_notification_is_listed_by_what_its_about_over_when_it_came(app, client):
     client.notifications.items[0] = replace(client.notifications.items[0], text=_LONG)
     async with app.run_test(size=(120, 40)) as pilot:
         options = await _open(app, pilot)
         await pilot.pause()
-        first, second = (options.render_line(y).text for y in range(2))
-        assert "plan my trip" in first and first.rstrip().endswith("…")
-        assert "Job daily-news" in second and "Sent the digest." in second
+        lines = [options.render_line(y).text.strip() for y in range(4)]
+        assert "plan my trip" in lines[0] and "the end." not in " ".join(lines)
+        assert any("Job daily-news" in line for line in lines[1:])
+        detail = app.screen.query_one("#notifications-detail")
+        assert detail.region.x > options.region.right  # beside the list, not below it
 
 
-async def test_the_one_picked_shows_whole_below_the_list(app, client):
+async def test_the_one_picked_shows_whole_beside_the_list(app, client):
     client.notifications.items[0] = replace(client.notifications.items[0], text=_LONG)
     async with app.run_test(size=(120, 40)) as pilot:
         await _open(app, pilot)
-        detail = app.screen.query_one("#notifications-text", Static)
-        await wait_for(pilot, lambda: "the end." in str(detail.render()))
-        assert "plan my trip" in str(detail.render())
+        body = app.screen.query_one("#notifications-body", Markdown)
+        await wait_for(pilot, lambda: "the end." in body.source)
+        assert "plan my trip" in body.source
         await pilot.press("down")
-        await wait_for(pilot, lambda: "Sent the digest." in str(detail.render()))
-        assert "Job daily-news" in str(detail.render())
+        await wait_for(pilot, lambda: "Sent the digest." in body.source)
+        assert "Job daily-news" in body.source

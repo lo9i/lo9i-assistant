@@ -9,13 +9,6 @@ NAME = "lo9i"
 
 _GRAY = "ansi_bright_black"
 
-# Text shades for rows that mark their parts apart (the notifications), set rather than the terminal's own
-# foreground, which may be any color. They read on the dialogs' gray and on the brand's teal-gray behind the row
-# picked ($brand in app.tcss).
-TEXT = "#e6eaea"
-MUTED = "#a3afb0"
-FAINT = "#7f8c8d"
-
 THEME: Theme = replace(
     BUILTIN_THEMES["ansi-dark"],
     name=NAME,

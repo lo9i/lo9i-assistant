@@ -1,18 +1,18 @@
 """The notifications feed: scheduled jobs' results, background work that ended and health checks, newest first,
-one line each (when, what it's about, what it says), with the whole of the one picked below the list.
+each listed by what it's about over when it came, with the whole of the one picked beside the list, as
+/conversations lays them out.
 Enter (or Open) goes to the conversation the work was started in, when it has one, opens a job's run in /jobs with
 its whole reply, or a health check in /doctor; Dismiss and Clear remove them. Returns the conversation's thread id
 to open, or None. Opening the screen marks them read."""
 
 from typing import ClassVar
 
-from rich.text import Text
 from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import Button, OptionList, Static
+from textual.widgets import Button, Markdown, OptionList, Static
 from textual.widgets.option_list import Option
 
 from assistant.client.daemon_client import DoctorApi, JobsApi, NotificationsApi, ProactiveApi
@@ -25,7 +25,6 @@ from assistant_terminal.tui.paged_list import PagedOptionList
 from assistant_terminal.tui.screens.briefing import BriefingScreen
 from assistant_terminal.tui.screens.doctor import DoctorScreen
 from assistant_terminal.tui.screens.jobs import JobsScreen
-from assistant_terminal.tui.theme import FAINT, MUTED, TEXT
 
 # What the briefing page opens on: the briefing itself and an open loop's reminder.
 _BRIEFING = ("briefing", "reminder")
@@ -53,9 +52,11 @@ class NotificationsScreen(ModalScreen[str | None]):
         with Vertical(id="notifications"):
             yield Static(t("Notifications"), id="notifications-title")
             yield Static(t("No notifications."), id="notifications-empty")
-            yield PagedOptionList(self._pages, lambda n: Option(_row(n), id=n.id), id="notifications-list")
-            with VerticalScroll(id="notifications-detail"):
-                yield Static(id="notifications-text")
+            with Horizontal(id="notifications-main"):
+                yield PagedOptionList(self._pages, lambda n: Option(_row(n), id=n.id), id="notifications-list")
+                yield Static(classes="divider")
+                with VerticalScroll(id="notifications-detail"):
+                    yield Markdown(id="notifications-body")
             with Horizontal(id="notifications-buttons"):
                 yield Button(t("Open its conversation"), variant="success", id="open")
                 yield Button(t("Dismiss"), id="dismiss")
@@ -81,11 +82,11 @@ class NotificationsScreen(ModalScreen[str | None]):
         keep = self._selected if self._selected in self._shown else items[0].id
         options.highlighted = options.get_option_index(keep)
         options.focus()
-        self._select(keep)
+        await self._select(keep)
 
-    def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
+    async def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
         if event.option.id is not None:
-            self._select(event.option.id)
+            await self._select(event.option.id)
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         """Enter opens only from the list; on a button it presses the button."""
@@ -126,7 +127,7 @@ class NotificationsScreen(ModalScreen[str | None]):
     def _shown(self) -> dict[str, Notification]:
         return {n.id: n for n in self._pages.items}
 
-    def _select(self, notification_id: str) -> None:
+    async def _select(self, notification_id: str) -> None:
         self._selected = notification_id
         notification = self._shown[notification_id]
         opening = self.query_one("#open", Button)
@@ -135,31 +136,19 @@ class NotificationsScreen(ModalScreen[str | None]):
             notification.thread_id or notification.job or notification.kind in ("doctor", *_BRIEFING)
         )
         opening.tooltip = None if not opening.disabled else t("It has nothing to open.")
-        self.query_one("#notifications-text", Static).update(_detail(notification))
+        await self.query_one("#notifications-body", Markdown).update(_detail(notification))
         self.query_one("#notifications-detail", VerticalScroll).scroll_home(animate=False)
 
 
-def _row(notification: Notification) -> Text:
-    """One line, which the list cuts to its width: a dot when unread, when, what it's about, what it says."""
-    return Text.assemble(
-        ("• " if not notification.read else "  ", f"bold {TEXT}"),
-        (notified_at(notification), FAINT),
-        ("  ", ""),
-        (one_line(notification.title), f"bold {TEXT}"),
-        ("  ", ""),
-        (one_line(notification.text), MUTED),
-    )
+def _row(notification: Notification) -> str:
+    """What it's about over when it came, a dot before it while it's unread."""
+    unread = "• " if not notification.read else ""
+    return f"{unread}{one_line(notification.title)}\n{notified_at(notification)}"
 
 
-def _detail(notification: Notification) -> Text:
-    """The whole notification: when, what it's about, and all it says."""
-    return Text.assemble(
-        (notified_at(notification), FAINT),
-        ("\n", ""),
-        (notification.title, f"bold {TEXT}"),
-        ("\n\n", ""),
-        (notification.text, TEXT),
-    )
+def _detail(notification: Notification) -> str:
+    """The whole notification, as Markdown: what it's about, when it came, and all it says."""
+    return f"### {notification.title}\n\n{notified_at(notification)}\n\n{notification.text}"
 
 
 def _opening(notification: Notification) -> str:

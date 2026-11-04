@@ -117,6 +117,8 @@ def handlers(app: LiveApp) -> dict[str, Callable[[dict[str, Any]], Awaitable[Non
         "jobs": screen("jobs"),
         "conversations": conversations,
         "notifications": screen("notifications"),
+        # Files deleted from the Files list: /files.
+        "files": screen("files"),
         "home": screen("home"),
         "doctor": screen("doctor"),
         "proactive": screen("proactive"),
