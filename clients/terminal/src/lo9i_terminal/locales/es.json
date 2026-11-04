@@ -1024,7 +1024,6 @@
   "Muted: {kind}": "Silenciado: {kind}",
   "Nightly review": "Revisión nocturna",
   "Nightly review time (HH:MM, Enter to save)": "Hora de la revisión nocturna (HH:MM, Enter para guardar)",
-  "Not suggested any more: {kind}.": "Ya no se sugiere: {kind}.",
   "Reminder": "Recordatorio",
   "Since": "Desde",
   "Suggest again": "Volver a sugerir",
@@ -1077,5 +1076,6 @@
   "model: {model}": "modelo: {model}",
   "The model this conversation answers with": "El modelo con el que responde esta conversación",
   "This conversation answers with {model} from your next message.": "Esta conversación responde con {model} desde tu próximo mensaje.",
-  "{model} (main model)": "{model} (modelo principal)"
+  "{model} (main model)": "{model} (modelo principal)",
+  "Not suggested any more": "Ya no se sugieren"
 }

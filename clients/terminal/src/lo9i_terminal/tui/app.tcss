@@ -1020,6 +1020,20 @@ JobsScreen, ConversationsScreen, DevicesScreen, HomeScreen, UsageScreen, Notific
 .briefing-row Label {
     padding: 1 0 0 1;
 }
+#briefing-muted {
+    height: auto;
+    margin-top: 1;
+}
+.briefing-muted-title {
+    text-style: bold;
+}
+.briefing-muted-row {
+    height: auto;
+}
+.briefing-muted-row Label {
+    width: 1fr;
+    padding: 1 0 0 0;
+}
 
 /* A section of one plugin that lists its day: whether the model builds it instead. */
 #home-section-model {
