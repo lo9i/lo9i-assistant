@@ -27,6 +27,12 @@
   ];
   let filter = $state<LoopStatus>("open");
   let picked = $state<string | null>(page.url.searchParams.get("loop"));
+  // The right column scrolls; picking a row brings its card (at the top) back into view.
+  let column = $state<HTMLDivElement>();
+  function pick(id: string) {
+    picked = id;
+    column?.scrollTo({ top: 0, behavior: "smooth" });
+  }
   const listed = $derived((proactive.data?.loops ?? []).filter((l) => (l.status ?? "open") === filter));
   const loop = $derived(listed.find((l) => l.id === picked) ?? listed[0]);
   const briefing = $derived(proactive.data?.briefing);
@@ -98,8 +104,8 @@
           >
           <tbody>
             {#each listed as l (l.id)}
-              <tr class:selected={l.id === loop.id} onclick={() => (picked = l.id)}>
-                <td><button class="row-button" onclick={() => (picked = l.id)}>{l.text}</button></td>
+              <tr class:selected={l.id === loop.id} onclick={() => pick(l.id)}>
+                <td><button class="row-button" onclick={() => pick(l.id)}>{l.text}</button></td>
                 <td class="hide-narrow text-label">{l.kind}</td>
                 <td class="text-label">{l.due}</td>
                 <td class="hide-narrow text-label">{source(l)}</td>
@@ -121,7 +127,7 @@
     </div>
   </section>
 
-  <div class="column">
+  <div class="column" bind:this={column}>
     {#if loop}
       <section class="details surface--glass">
         <h2 class="text-heading">{loop.text}</h2>
