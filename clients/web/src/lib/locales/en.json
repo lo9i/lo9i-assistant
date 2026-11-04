@@ -1736,6 +1736,7 @@
     "noneSelected": "No loop selected",
     "noneSelectedHint": "Pick one to close it, dismiss it or open its conversation.",
     "markDone": "Done",
+    "markDoneThis": "Mark as done",
     "dismiss": "Dismiss",
     "stopSuggesting": "Dismiss and stop suggesting “{kind}”",
     "reopen": "Open again",

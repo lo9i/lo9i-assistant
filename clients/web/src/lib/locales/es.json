@@ -1736,6 +1736,7 @@
     "noneSelected": "Ningún pendiente elegido",
     "noneSelectedHint": "Elige uno para cerrarlo, descartarlo o abrir su conversación.",
     "markDone": "Hecho",
+    "markDoneThis": "Marcar como hecho",
     "dismiss": "Descartar",
     "stopSuggesting": "Descartar y dejar de sugerir “{kind}”",
     "reopen": "Volver a abrir",

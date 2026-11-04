@@ -93,7 +93,7 @@
             ><tr
               ><th>{t("briefingPage.what")}</th><th class="hide-narrow">{t("briefingPage.kind")}</th><th>{t("briefingPage.due")}</th><th
                 class="hide-narrow">{t("briefingPage.from")}</th
-              ></tr
+              >{#if filter === "open"}<th class="quick" aria-label={t("briefingPage.markDone")}></th>{/if}</tr
             ></thead
           >
           <tbody>
@@ -103,6 +103,16 @@
                 <td class="hide-narrow text-label">{l.kind}</td>
                 <td class="text-label">{l.due}</td>
                 <td class="hide-narrow text-label">{source(l)}</td>
+                {#if filter === "open"}
+                  <td class="quick">
+                    <button
+                      class="btn btn--icon"
+                      aria-label={t("briefingPage.markDoneThis")}
+                      title={t("briefingPage.markDoneThis")}
+                      onclick={(e) => (e.stopPropagation(), close(l, "done"))}><CircleCheck size={16} /></button
+                    >
+                  </td>
+                {/if}
               </tr>
             {/each}
           </tbody>
@@ -282,6 +292,15 @@
     font-weight: 500;
     text-align: left;
     cursor: pointer;
+  }
+  /* Marking a loop done from its row; the negative margin keeps the row as tall as the others. */
+  .quick {
+    width: 1%;
+    text-align: right;
+  }
+  .quick .btn {
+    --btn-icon-size: 28px;
+    margin: -6px 0;
   }
   .details {
     flex: none;
