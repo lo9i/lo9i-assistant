@@ -528,6 +528,17 @@ Button.-error {
     color: ansi_red;
 }
 
+/* A compact button is one line in a bar of them: no border, so the focus shows on its label. */
+Button.-textual-compact, Button.-textual-compact:hover {
+    border: none;
+    height: 1;
+}
+
+Button.-textual-compact:focus {
+    border: none;
+    text-style: bold underline;
+}
+
 ModalScreen Input, ModalScreen OptionList, ModalScreen MarkdownHeader, PageScreen Input, PageScreen OptionList, PageScreen MarkdownHeader {
     background: transparent;
 }
@@ -721,6 +732,26 @@ SkillsScreen, JobsScreen, ConversationsScreen, DevicesScreen, KeptKeysListScreen
 
 #plugins-search, #conversations-search {
     margin: 0 0 1 0;
+    border: round ansi_bright_black;
+    background: transparent;
+}
+
+#plugins-search:focus, #conversations-search:focus {
+    border: round #2f343f;
+}
+
+/* When the plugins were last checked, then the buttons for all of them, on one line. */
+#plugins-bar {
+    height: 1;
+    margin-bottom: 1;
+}
+
+#plugins-checked {
+    width: 1fr;
+}
+
+#plugins-bar Button {
+    margin-left: 2;
 }
 
 #conversations.empty #conversations-search {

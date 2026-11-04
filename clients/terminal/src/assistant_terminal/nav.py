@@ -103,8 +103,8 @@ def _here(line: Text) -> Text:
 
 
 def _settings_line(section: Page, page: str) -> Text:
-    line = Text(f"   {t(section.label)}")
-    return _here(line) if section.key == page else line
+    label = Text(t(section.label))
+    return Text("   ") + (_here(label) if section.key == page else label)
 
 
 def _page_line(page: Page, count: int, collapsed: bool) -> Text:

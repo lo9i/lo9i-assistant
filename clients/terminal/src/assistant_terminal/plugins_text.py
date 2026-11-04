@@ -205,10 +205,15 @@ _CATEGORY_PARTS = {
 }
 
 
+# Marks a plugin from a repository the user added; which one is in its details, since a repository's name, wrapped onto
+# a line of its own in the narrow list, read as another category.
+_ADDED = "◇"
+
+
 def label(plugin: Plugin) -> str:
-    """Its row in the list: the name, and the repository it's from when that isn't the official
-    extras. Its version and state are in its details beside it."""
-    return plugin.name if plugin.repository.official else f"{plugin.name}  [dim]{plugin.repository.name}[/dim]"
+    """Its row in the list: the name, marked when it's from a repository the user added rather than the official
+    extras; which one, its version and state are in its details beside it."""
+    return plugin.name if plugin.repository.official else f"{plugin.name} [dim]{_ADDED}[/dim]"
 
 
 def matches(plugin: Plugin, query: str) -> bool:

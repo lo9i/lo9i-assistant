@@ -92,7 +92,13 @@ class PluginsScreen(PageScreen[None]):
                 t("Plugins: MCP servers, chat channels and skills from the official extras and your repositories"),
                 id="plugins-title",
             )
-            yield Static("", id="plugins-checked")
+            # What concerns every plugin, above the list; what concerns the one picked, under it.
+            with Horizontal(id="plugins-bar"):
+                yield Static("", id="plugins-checked")
+                yield Button(t("Updates"), variant="primary", id="updates", compact=True)
+                yield Button(t("Repositories"), id="manage-repositories", compact=True)
+                yield Button(t("Refresh"), id="refresh", compact=True)
+                yield Button(t("Daily update checks"), id="checks", compact=True)
             yield Input(placeholder=t("Search plugins"), id="plugins-search")
             with Horizontal(id="plugins-main"):
                 yield OptionList(id="plugins-list")
@@ -101,16 +107,12 @@ class PluginsScreen(PageScreen[None]):
                     yield Markdown(t("Looking at the extras…"), id="plugin-body")
                     yield Vertical(id="plugin-setup")
             with Horizontal(id="plugins-buttons"):
-                yield Button(t("Updates"), variant="primary", id="updates")
                 yield Button(t("Install"), variant="success", id="install")
                 yield Button(t("Settings"), id="plugin-settings")
                 yield Button(t("Update"), id="update")
                 yield Button(t("Remove"), variant="error", id="remove")
                 yield Button(t("Accounts"), id="email-accounts")
                 yield Button(t("Sign in"), id="plugin-sign-in")
-                yield Button(t("Repositories"), id="manage-repositories")
-                yield Button(t("Refresh"), id="refresh")
-                yield Button(t("Daily update checks"), id="checks")
                 yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
