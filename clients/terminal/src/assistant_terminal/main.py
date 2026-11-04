@@ -1,5 +1,5 @@
-"""CLI entry point. `assistant` opens the chat, starting the daemon if it isn't running;
-`assistant daemon` runs the daemon in the foreground; `assistant daemon restart` restarts the running one
+"""CLI entry point. `lo9i` opens the chat, starting the daemon if it isn't running;
+`lo9i daemon` runs the daemon in the foreground; `lo9i daemon restart` restarts the running one
 once no run is in progress."""
 
 import asyncio

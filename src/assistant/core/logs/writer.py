@@ -94,7 +94,7 @@ class LogWriter(logging.Handler):
 
 
 def configure(writer: LogWriter, level: int = logging.INFO) -> None:
-    """The daemon's logging: every record goes to the log files. In a terminal (`assistant daemon`)
+    """The daemon's logging: every record goes to the log files. In a terminal (`lo9i daemon`)
     records show there too; started in the background, its output is only what isn't a record."""
     root = logging.getLogger()
     root.setLevel(level)

@@ -1,5 +1,5 @@
 """Where the daemon's process output is read from: the journal when systemd connected its stderr to
-it, the output file (files.py::output_path) otherwise. In a terminal (`assistant daemon`) the output
+it, the output file (files.py::output_path) otherwise. In a terminal (`lo9i daemon`) the output
 shows there, and the file holds what daemons started in the background printed before."""
 
 import os

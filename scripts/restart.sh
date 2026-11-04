@@ -8,4 +8,4 @@
 # Usage: scripts/restart.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
-uv run --quiet assistant daemon restart
+uv run --quiet lo9i daemon restart

@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [project.scripts]
-assistant = "assistant_terminal.main:run"
+lo9i = "assistant_terminal.main:run"
 
 [tool.uv.sources]
 assistant = { workspace = true }

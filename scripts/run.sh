@@ -28,4 +28,4 @@ fi
 if web_ui_outdated; then
   build_web_ui
 fi
-exec uv run --package assistant-terminal --env-file .env assistant
+exec uv run --package assistant-terminal --env-file .env lo9i

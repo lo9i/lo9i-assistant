@@ -1,4 +1,4 @@
-"""Restarting or stopping the daemon on request (Settings → General's Assistant card, `/host`, `assistant daemon
+"""Restarting or stopping the daemon on request (Settings → General's Assistant card, `/host`, `lo9i daemon
 restart`, POST /system/restart and /system/stop). It waits until no run is in progress: an agent a conversation is
 handed to (/claude) answers inside a run, so stopping the daemon under it would stop the agent before it replies.
 While it waits it's pending (GET /system/ending): it can be taken back, or made to go ahead now by cancelling the
