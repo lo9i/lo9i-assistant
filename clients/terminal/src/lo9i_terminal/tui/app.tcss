@@ -758,9 +758,9 @@ JobsScreen, ConversationsScreen, DevicesScreen, HomeScreen, UsageScreen, Notific
     background: transparent;
 }
 
-/* Lists of short labels (dates, job and skill names) have no frame; a divider sets them apart from the
-   detail next to them. */
-#conversations-list, #jobs-list, #devices-list, #keys-list, #home-list, #doctor-list, #briefing-list, #files-list, #skills-list, #mcp-list, #plugins-list, #prompts-list, #subagents-list, #notifications-list, #alerts-list {
+/* A list inside a card (Kept keys, the skills, the system prompt) has no frame of its own; a divider sets it apart
+   from the detail next to it. The pages' lists are cards of their own (below). */
+#keys-list, #skills-list, #prompts-list {
     border: none;
 }
 
@@ -794,6 +794,36 @@ JobsScreen, ConversationsScreen, DevicesScreen, HomeScreen, UsageScreen, Notific
 
 #skills-detail, #jobs-detail, #conversations-detail, #devices-detail, #keys-detail, #home-detail, #doctor-detail, #briefing-detail, #files-detail, #mcp-detail, #plugins-detail, #prompts-detail, #subagents-detail, #notifications-detail, #alerts-detail {
     padding: 0 1;
+}
+
+/* The pages' lists as the web app's: the list in a card beside the card of the entry picked (its table and details
+   cards) in place of the divider, each framed in the focus color while it has the focus. Inside a card already (Kept
+   keys, the skills, the system prompt) the divider stays. */
+#conversations-list, #jobs-list, #devices-list, #home-list, #doctor-list, #files-list, #mcp-list, #plugins-list, #subagents-list, #notifications-list, #alerts-list, #conversations-detail, #jobs-detail, #devices-detail, #home-detail, #doctor-detail, #files-detail, #mcp-detail, #plugins-detail, #subagents-detail, #notifications-detail, #alerts-detail {
+    border: round $line;
+}
+
+#conversations-list:focus, #jobs-list:focus, #devices-list:focus, #home-list:focus, #doctor-list:focus, #files-list:focus, #mcp-list:focus, #plugins-list:focus, #subagents-list:focus, #notifications-list:focus, #alerts-list:focus, #conversations-detail:focus-within, #jobs-detail:focus-within, #devices-detail:focus-within, #home-detail:focus-within, #doctor-detail:focus-within, #files-detail:focus-within, #mcp-detail:focus-within, #plugins-detail:focus-within, #subagents-detail:focus-within, #notifications-detail:focus-within, #alerts-detail:focus-within {
+    border: round $line-focus;
+}
+
+#conversations-list, #jobs-list, #devices-list, #home-list, #doctor-list, #files-list, #mcp-list, #plugins-list, #subagents-list, #notifications-list, #alerts-list {
+    height: 1fr;
+    margin-right: 1;
+}
+
+#conversations-main .divider, #jobs-main .divider, #devices-main .divider, #home-main .divider, #doctor-main .divider, #files-main .divider, #mcp-main .divider, #plugins-main .divider, #subagents-main .divider, #notifications-main .divider, #alerts-main .divider {
+    display: none;
+}
+
+/* Usage's report, a card as the web app's. */
+#usage-scroll {
+    border: round $line;
+    padding: 0 1;
+}
+
+#usage-scroll:focus-within {
+    border: round $line-focus;
 }
 
 #skills-buttons, #jobs-buttons, #conversations-buttons, #devices-buttons, #keys-buttons, #home-buttons, #doctor-buttons, #briefing-buttons, #files-buttons, #usage-buttons, #sessions-buttons, #mcp-buttons, #plugins-buttons, #notifications-buttons, #prompts-buttons, #subagents-buttons, #alerts-buttons {

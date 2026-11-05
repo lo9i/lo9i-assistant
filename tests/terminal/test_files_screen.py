@@ -67,8 +67,8 @@ async def test_a_double_click_opens_the_file_and_one_click_only_picks_it(app, cl
         await wait_for(pilot, lambda: isinstance(app.screen, FilesScreen))
         screen = app.screen
         await wait_for(pilot, lambda: "notes.txt" in screen.query_one("#file-body", Markdown).source)
-        await pilot.click("#files-list", offset=(2, 1))
+        await pilot.click("#files-list", offset=(2, 2))  # the second, under its card's top line
         await wait_for(pilot, lambda: "chart.png" in screen.query_one("#file-body", Markdown).source)
         assert opened == []
-        await pilot.double_click("#files-list", offset=(2, 1))
+        await pilot.double_click("#files-list", offset=(2, 2))
         await wait_for(pilot, lambda: opened == [(tmp_path / "Downloads" / "chart.png").as_uri()])

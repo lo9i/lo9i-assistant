@@ -35,7 +35,9 @@ async def test_arrows_and_clicks_show_a_conversation_and_enter_resumes(app, clie
         await pilot.press("down")
         body = app.screen.query_one("#conversation-body", Markdown)
         await wait_for(pilot, lambda: options.highlighted == 1 and "book the hotel" in body.source)
-        await pilot.click(options, offset=(2, 2))  # the third (a line each): shown, not resumed
+        await pilot.click(
+            options, offset=(2, 3)
+        )  # the third (under its card's top line, a line each): shown, not resumed
         await wait_for(pilot, lambda: options.highlighted == 2)
         assert isinstance(app.screen, ConversationsScreen)
         await pilot.press("up", "enter")
