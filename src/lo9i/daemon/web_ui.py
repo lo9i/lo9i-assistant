@@ -62,4 +62,4 @@ class _SinglePageApp(StaticFiles):
 def _add_not_built(app: FastAPI) -> None:
     @app.get(PREFIX + "/{path:path}", include_in_schema=False)
     async def not_built(path: str) -> PlainTextResponse:
-        return PlainTextResponse("The web UI isn't built. scripts/run.sh builds it.", status_code=404)
+        return PlainTextResponse("The web UI isn't built. lo9i (or scripts/run.sh) builds it.", status_code=404)

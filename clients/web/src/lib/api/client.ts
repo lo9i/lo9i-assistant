@@ -15,6 +15,7 @@ import type {
   ApprovalRequired,
   BackgroundSubagent,
   DoctorPage,
+  SetupReport,
   LoopStatus,
   ProactivePage,
   ProactiveSettings,
@@ -810,6 +811,16 @@ export class DoctorGroup {
   }
 }
 
+/** The setup check (core/setup_check/): whether lo9i is installed and set up to work, each part with a fix. */
+export class SetupCheckGroup {
+  constructor(private readonly transport: Transport) {}
+
+  /** Asks the model's provider whether the key works, so it takes a moment. */
+  run(): Promise<SetupReport> {
+    return this.transport.request("GET", "/setup-check");
+  }
+}
+
 /** The assistant's own initiative (core/proactive/): the morning briefing, the nightly and weekly reviews and their
  * settings, the open loops and the kinds of suggestion muted. A `proactive` event says one changed. */
 export class ProactiveGroup {
@@ -1313,6 +1324,7 @@ export class DaemonClient {
   readonly mcp: McpGroup;
   readonly alerts: AlertsGroup;
   readonly doctor: DoctorGroup;
+  readonly setupCheck: SetupCheckGroup;
   readonly notifications: NotificationsGroup;
   readonly home: HomeGroup;
   readonly proactive: ProactiveGroup;
@@ -1354,6 +1366,7 @@ export class DaemonClient {
     this.mcp = new McpGroup(transport);
     this.alerts = new AlertsGroup(transport);
     this.doctor = new DoctorGroup(transport);
+    this.setupCheck = new SetupCheckGroup(transport);
     this.notifications = new NotificationsGroup(transport);
     this.home = new HomeGroup(transport);
     this.proactive = new ProactiveGroup(transport);

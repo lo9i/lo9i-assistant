@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Alert, Cause } from "./api/types";
-import { changeLabel, contextShare, doctorProblem, partSize, times } from "./doctor";
+import { changeLabel, contextShare, doctorProblem, partSize, setupSummary, times } from "./doctor";
 
 const cause: Cause = {
   id: "c1",
@@ -41,5 +41,14 @@ describe("doctorProblem", () => {
     expect(doctorProblem(alert)).toBe("Growing, 3 times");
     expect(doctorProblem({ ...alert, kind: "new", failures: 1 })).toBe("New, once");
     expect(doctorProblem({ ...alert, kind: "context" })).toBe("Starting context large");
+  });
+});
+
+describe("the setup check", () => {
+  it("sums up what fails first, then what warns", () => {
+    const check = (status: "ok" | "warn" | "fail") => ({ id: status, title: "x", status, detail: "", fix: "" });
+    expect(setupSummary([check("ok"), check("warn"), check("fail")])).toEqual({ label: "1 failing", tone: "danger" });
+    expect(setupSummary([check("warn"), check("warn")])).toEqual({ label: "2 warnings", tone: "warn" });
+    expect(setupSummary([check("ok")])).toEqual({ label: "All ok", tone: "accent" });
   });
 });

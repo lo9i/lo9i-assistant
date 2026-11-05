@@ -2163,6 +2163,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/setup-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Setup Check
+         * @description The setup check (core/setup_check/): each part ok, a warning or failing, with a fix. It asks the model's
+         *     provider whether the key works, so it runs only when asked.
+         */
+        get: operations["setup_check_setup_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notifications": {
         parameters: {
             query?: never;
@@ -6193,6 +6214,25 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /** SetupCheck */
+        SetupCheck: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "warn" | "fail";
+            /** Detail */
+            detail: string;
+            /**
+             * Fix
+             * @default
+             */
+            fix: string;
+        };
         /**
          * SetupItem
          * @description A line the apps show for a channel: text, a code to read out, a value to copy, a QR code to scan
@@ -6211,6 +6251,13 @@ export interface components {
              * @default
              */
             value: string;
+        };
+        /** SetupReport */
+        SetupReport: {
+            /** Checks */
+            checks: components["schemas"]["SetupCheck"][];
+            /** At */
+            at?: string;
         };
         /**
          * ShownCall
@@ -10802,6 +10849,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    setup_check_setup_check_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupReport"];
                 };
             };
         };

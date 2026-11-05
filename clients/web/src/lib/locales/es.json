@@ -444,7 +444,25 @@
     "gone": "Desaparecidas desde {day}",
     "known": "Ruido conocido",
     "knownHint": "Fuera de cada revisión. No es ruido lo vuelve a mostrar desde la próxima revisión.",
-    "notNoise": "No es ruido"
+    "notNoise": "No es ruido",
+    "setup": "Instalación",
+    "setupHint": "Revisa el daemon, la clave del modelo, los plugins, el correo, los canales de chat, la app web, el espacio en disco y el comando lo9i. lo9i doctor hace lo mismo en una terminal.",
+    "setupChecked": "Revisado {when}.",
+    "checkSetup": "Revisar instalación",
+    "checkingSetup": "Revisando…",
+    "setupAllOk": "Todo bien",
+    "setupFailing": {
+      "one": "{count} falla",
+      "other": "{count} fallan"
+    },
+    "setupWarnings": {
+      "one": "{count} advertencia",
+      "other": "{count} advertencias"
+    },
+    "statusOk": "Bien",
+    "statusWarn": "Advertencia",
+    "statusFail": "Falla",
+    "fix": "Cómo arreglarlo: {fix}"
   },
   "duration": {
     "underAMinute": "< 1 min",

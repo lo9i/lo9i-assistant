@@ -1,5 +1,6 @@
-// The daemon's health checks (core/doctor/), as the Health page and the alerts show them.
-import type { Alert, Cause, ContextPart, StartingContext } from "./api/types";
+// The daemon's health checks (core/doctor/), as the Health page and the alerts show them, and the setup check
+// (core/setup_check/), the page's Setup card.
+import type { Alert, Cause, ContextPart, SetupCheck, StartingContext } from "./api/types";
 import { compact } from "./conversationStats";
 import { t } from "./i18n.svelte";
 
@@ -32,4 +33,18 @@ export function doctorProblem(alert: Alert): string {
   if (alert.kind === "context") return t("doctor.contextLarge");
   const count = t("doctor.timesLower", { count: alert.failures });
   return `${alert.kind === "new" ? t("doctor.new") : t("doctor.growing")}, ${count}`;
+}
+
+/** The setup check at a glance: how many fail, else how many warn, else all ok, with its pill's tone. */
+export function setupSummary(checks: SetupCheck[]): { label: string; tone: "danger" | "warn" | "accent" } {
+  const failing = checks.filter((c) => c.status === "fail").length;
+  if (failing) return { label: t("doctorPage.setupFailing", { count: failing }), tone: "danger" };
+  const warnings = checks.filter((c) => c.status === "warn").length;
+  if (warnings) return { label: t("doctorPage.setupWarnings", { count: warnings }), tone: "warn" };
+  return { label: t("doctorPage.setupAllOk"), tone: "accent" };
+}
+
+/** A part's status in words, for its pill. */
+export function setupStatus(check: SetupCheck): string {
+  return t(check.status === "fail" ? "doctorPage.statusFail" : check.status === "warn" ? "doctorPage.statusWarn" : "doctorPage.statusOk");
 }

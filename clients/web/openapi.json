@@ -5105,6 +5105,25 @@
         }
       }
     },
+    "/setup-check": {
+      "get": {
+        "summary": "Setup Check",
+        "description": "The setup check (core/setup_check/): each part ok, a warning or failing, with a fix. It asks the model's\nprovider whether the key works, so it runs only when asked.",
+        "operationId": "setup_check_setup_check_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/notifications": {
       "get": {
         "summary": "Notification List",
@@ -13003,6 +13022,44 @@
         ],
         "title": "ServerValuesBody"
       },
+      "SetupCheck": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "warn",
+              "fail"
+            ],
+            "title": "Status"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "fix": {
+            "type": "string",
+            "title": "Fix",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "status",
+          "detail"
+        ],
+        "title": "SetupCheck"
+      },
       "SetupItem": {
         "properties": {
           "kind": {
@@ -13033,6 +13090,26 @@
         ],
         "title": "SetupItem",
         "description": "A line the apps show for a channel: text, a code to read out, a value to copy, a QR code to scan\n(`value` is what it encodes; each app draws it) or a button (`value` is the action it sends back)."
+      },
+      "SetupReport": {
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/SetupCheck"
+            },
+            "type": "array",
+            "title": "Checks"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "checks"
+        ],
+        "title": "SetupReport"
       },
       "ShownCall": {
         "properties": {

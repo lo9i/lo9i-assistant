@@ -113,6 +113,7 @@ from lo9i.core.integrations.email.providers import EmailProvider
 from lo9i.core.llm.choice import PROVIDERS as PROVIDERS_FOR_MODEL
 from lo9i.core.logs import COMPONENTS, LogEntry, LogFileInfo, LogOptions, LogPage, LogQuery
 from lo9i.core.repositories.known import EXTRAS
+from lo9i.core.setup_check import SetupCheck, SetupReport
 from lo9i.core.usage.limits import SpendingLimits, SpendingLimitsError
 from lo9i.core.usage.log import TokenRow, ToolUsage
 from lo9i.protocol import (
@@ -1445,6 +1446,23 @@ def _cause(id: str, title: str, count: int, **fields) -> Cause:
     return Cause.model_validate({"id": id, "title": title, "count": count, **times, **defaults, **fields})
 
 
+class FakeSetupCheck:
+    """The daemon answers, the model's key was refused, and the rest is fine."""
+
+    def __init__(self):
+        self.runs = 0
+
+    async def run(self):
+        self.runs += 1
+        return SetupReport(
+            [
+                SetupCheck("daemon", "Daemon", "ok", "Answering on /tmp/daemon.sock."),
+                SetupCheck("model", "Model", "fail", "Anthropic refused the key: HTTP 401", "Enter a working key."),
+            ],
+            "2026-10-24T23:59:00+00:00",
+        )
+
+
 class FakeAlerts:
     """None at first; a test adds what needs attention."""
 
@@ -1557,6 +1575,7 @@ class FakeClient:
         self.notifications = FakeNotifications()
         self.alerts = FakeAlerts()
         self.doctor = FakeDoctor()
+        self.setup_check = FakeSetupCheck()
         self.proactive = FakeProactive()
         self.prompts = FakePrompts()
         # When set, the inbox sends the next message on there instead of running it.

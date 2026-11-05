@@ -37,6 +37,7 @@ from lo9i.core.agent.proactive import ProactiveMixin
 from lo9i.core.agent.prompts import PromptsMixin
 from lo9i.core.agent.repositories import RepositoriesMixin
 from lo9i.core.agent.runs import RunsMixin
+from lo9i.core.agent.setup_check import SetupCheckMixin
 from lo9i.core.agent.sign_ins import SignInsMixin
 from lo9i.core.agent.skill_imports import SkillImportsMixin
 from lo9i.core.agent.skills import SkillsMixin
@@ -130,6 +131,7 @@ class AssistantService(
     McpMixin,
     AlertsMixin,
     DoctorMixin,
+    SetupCheckMixin,
     NotificationsMixin,
     HomeMixin,
     ProactiveMixin,

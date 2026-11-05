@@ -28,7 +28,22 @@ Linux, macOS, WSL2
 curl -fsSL https://raw.githubusercontent.com/lo9i/lo9i-assistant/main/install.sh | bash
 ```
 
-It downloads the assistant into `~/lo9i-assistant`, installs uv and the dependencies, and asks for your model provider and its key, which it saves in `.env` on that computer. On Linux it starts the assistant as a service that runs at boot; on macOS it tells you how to start it. Run it again to update.
+It downloads the assistant into `~/lo9i-assistant`, installs uv and the dependencies, and asks for your model provider and its key, which it saves in `.env` on that computer. It links the `lo9i` command into `~/.local/bin` (adding that folder to PATH in your shell's profile when it isn't there) and installs its completion for bash, zsh or fish. On Linux it starts the assistant as a service that runs at boot; on macOS it tells you how to start it. Run it again to update.
+
+`--dry-run` says what it would do and changes nothing; `--no-path`, `--no-completion` and `--skip-shell` (no shell profile changed) leave those parts out. Piped, pass them after `bash -s --`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lo9i/lo9i-assistant/main/install.sh | bash -s -- --help
+```
+
+## The lo9i command
+
+| Command | What it does |
+|---|---|
+| `lo9i` | Opens the chat in the terminal, starting the daemon if it isn't running (and Ollama, when `.env` points at it; the web app is built first when its code changed) |
+| `lo9i doctor` | Checks the setup: the daemon answering, the model's key, each plugin, email accounts, chat channels, the web app built, free disk space and the command on PATH, each with a fix. It works while the daemon is down too; `--json` prints it as JSON, and it exits with 1 when something fails. The apps show the same under Settings → Health (Check setup) |
+| `lo9i daemon` | Runs the daemon in the foreground; `lo9i daemon restart` restarts the running one once no reply is in progress |
+| `lo9i completion bash\|zsh\|fish` | Prints the shell completion script |
 
 ## Requirements
 
@@ -45,7 +60,7 @@ cd lo9i-assistant
 scripts/run.sh
 ```
 
-The first run installs what's missing and asks for your model provider and its key. After that, `scripts/run.sh` opens the terminal app, building the web app first only when its code changed. The terminal app starts the daemon if it isn't running, and the daemon keeps running after the app closes, so the web app stays up at http://127.0.0.1:8765/app/.
+The first run installs what's missing and asks for your model provider and its key. After that, `scripts/run.sh` opens the terminal app as `lo9i` does, building the web app first only when its code changed. The terminal app starts the daemon if it isn't running, and the daemon keeps running after the app closes, so the web app stays up at http://127.0.0.1:8765/app/.
 
 `scripts/run.sh` never restarts a running daemon. After pulling or changing code, run `scripts/restart.sh`, which restarts it once no reply is in progress.
 

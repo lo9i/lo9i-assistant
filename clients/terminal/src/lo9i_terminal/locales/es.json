@@ -1074,5 +1074,11 @@
   "The model this conversation answers with": "El modelo con el que responde esta conversación",
   "This conversation answers with {model} from your next message.": "Esta conversación responde con {model} desde tu próximo mensaje.",
   "{model} (main model)": "{model} (modelo principal)",
-  "Not suggested any more": "Ya no se sugieren"
+  "Not suggested any more": "Ya no se sugieren",
+  "Check setup": "Revisar instalación",
+  "Checked {when}. {summary}": "Revisado {when}. {summary}",
+  "Fix: {fix}": "Cómo arreglarlo: {fix}",
+  "Not checked yet. Check setup checks the daemon, the model's key, the plugins, email, chat channels, the web app, disk space and the lo9i command.": "Todavía no se revisó. Revisar instalación revisa el daemon, la clave del modelo, los plugins, el correo, los canales de chat, la app web, el espacio en disco y el comando lo9i.",
+  "Setup": "Instalación",
+  "{ok} ok, {warn} warning(s), {fail} failing.": "{ok} bien, {warn} advertencia(s), {fail} con fallas."
 }

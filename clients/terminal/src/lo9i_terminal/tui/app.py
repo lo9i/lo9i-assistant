@@ -937,7 +937,7 @@ class AssistantApp(App):
             "keys": lambda: KeptKeysListSection(s.repositories),
             "sessions": lambda: SessionsSection(s.clients),
             "logs": lambda: LogsSection(s.logs),
-            "doctor": lambda: DoctorSection(s.doctor),
+            "doctor": lambda: DoctorSection(s.doctor, s.setup_check),
         }
         return sections[key]()
 
@@ -1102,7 +1102,7 @@ class AssistantApp(App):
         elif alert.kind == "context":
             await self._show_settings("doctor")
         else:
-            await self._show_settings("doctor", DoctorSection(service.doctor, selected=alert.name))
+            await self._show_settings("doctor", DoctorSection(service.doctor, service.setup_check, selected=alert.name))
 
     @reports_daemon_unavailable
     async def _resume(self, thread_id: str | None) -> None:

@@ -444,7 +444,25 @@
     "gone": "Gone since {day}",
     "known": "Known noise",
     "knownHint": "Left out of every check. Not noise shows it again from the next check.",
-    "notNoise": "Not noise"
+    "notNoise": "Not noise",
+    "setup": "Setup",
+    "setupHint": "Checks the daemon, the model's key, the plugins, email, chat channels, the web app, disk space and the lo9i command. lo9i doctor does the same in a terminal.",
+    "setupChecked": "Checked {when}.",
+    "checkSetup": "Check setup",
+    "checkingSetup": "Checking…",
+    "setupAllOk": "All ok",
+    "setupFailing": {
+      "one": "{count} failing",
+      "other": "{count} failing"
+    },
+    "setupWarnings": {
+      "one": "{count} warning",
+      "other": "{count} warnings"
+    },
+    "statusOk": "OK",
+    "statusWarn": "Warning",
+    "statusFail": "Failing",
+    "fix": "Fix: {fix}"
   },
   "duration": {
     "underAMinute": "< 1 min",

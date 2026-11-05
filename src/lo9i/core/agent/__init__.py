@@ -2,10 +2,10 @@
 
 The service is a facade (`service.py`) composed of mixins, one per concern:
 threads, channel threads, files, the handed folder, memory, the About you step, channels, email, mcp, sign-ins,
-alerts, doctor, notifications, home, follow-ups, held runs, tasks, background subagents, repositories, model,
-devices, passkeys, identity, prompts, speech, log level, language, web search, skills, skill imports, pinned skills,
-a conversation's own model, jobs, proactive (briefing, reviews, open loops), usage, live voice calls, messaging, runs
-and locking.
+alerts, doctor, the setup check, notifications, home, follow-ups, held runs, tasks, background subagents,
+repositories, model, devices, passkeys, identity, prompts, speech, log level, language, web search, skills, skill
+imports, pinned skills, a conversation's own model, jobs, proactive (briefing, reviews, open loops), usage, live voice
+calls, messaging, runs and locking.
 """
 
 from lo9i.core.agent.about_you import AboutYou, AboutYouStatus, Suggested
@@ -84,6 +84,7 @@ from lo9i.core.agent.repositories import (
 )
 from lo9i.core.agent.service import AssistantService
 from lo9i.core.agent.session import Session
+from lo9i.core.agent.setup_check import SetupCheck, SetupReport
 from lo9i.core.agent.sign_ins import SignedIn, SignInError
 from lo9i.core.agent.skill_imports import Importable, Importables, ImportOutcome
 from lo9i.core.agent.skills import FoundSkill, Skill, SkillError, SkillSummary
@@ -211,7 +212,9 @@ __all__ = [
     "ServerField",
     "ServerValues",
     "Session",
+    "SetupCheck",
     "SetupItem",
+    "SetupReport",
     "ShownCall",
     "ShownMessage",
     "ShownStep",

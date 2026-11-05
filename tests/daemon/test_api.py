@@ -514,6 +514,27 @@ async def test_the_health_check_runs_on_demand_and_known_noise_is_marked(client,
     await client.alerts.dismiss("doctor", "context")
 
 
+async def test_the_setup_check_lists_each_part_in_the_language_asked(app, client, service, monkeypatch):
+    from lo9i.core.llm import key_check
+    from lo9i.core.llm.choice import ModelChoice
+
+    async def refused(values, transport):
+        return key_check.KeyVerdict("refused", "HTTP 401")
+
+    monkeypatch.setattr(key_check, "_CHECKERS", {"anthropic": refused})
+    monkeypatch.setattr(service, "_model", ModelChoice("anthropic", "claude-opus-5-5", "w", {"api_key": "k"}))
+    report = await client.setup_check.run()
+    checks = {c.id: c for c in report.checks}
+    assert list(checks) == ["daemon", "model", "web_app", "disk", "command"]
+    assert checks["daemon"].status == "ok"
+    assert checks["model"].status == "fail" and checks["model"].detail == "Anthropic refused the key: HTTP 401"
+    transport = httpx.ASGITransport(app=trusted(app))
+    headers = {CLIENT_HEADER: "web", LANGUAGE_HEADER: "es"}
+    async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1", headers=headers) as http:
+        spanish = (await http.get("/setup-check")).json()["checks"][1]
+    assert spanish["title"] == "Modelo" and spanish["detail"] == "Anthropic rechazó la clave: HTTP 401"
+
+
 async def test_a_job_runs_reply_is_read_and_a_missing_run_is_a_job_error(client, service):
     from lo9i.core.jobs import store
     from lo9i.core.jobs.store import Job, JobError, RunRecord

@@ -24,11 +24,16 @@ _READY_CHECK_SECONDS = 0.25
 
 
 @asynccontextmanager
-async def connect() -> AsyncIterator[DaemonClient]:
-    transport = httpx.AsyncHTTPTransport(uds=str(Path(settings.daemon_socket).expanduser()))
+async def connect(start: bool = True) -> AsyncIterator[DaemonClient]:
+    """`start`: start the daemon when it isn't answering; without it, raise DaemonUnavailableError instead (`lo9i
+    doctor`, which checks it as it is)."""
+    socket = Path(settings.daemon_socket).expanduser()
+    transport = httpx.AsyncHTTPTransport(uds=str(socket))
     headers = {CLIENT_HEADER: "cli", CLIENT_ID_HEADER: uuid4().hex}
     async with httpx.AsyncClient(transport=transport, base_url=_BASE, timeout=_TIMEOUT, headers=headers) as http:
         if not await _is_ready(http):
+            if not start:
+                raise DaemonUnavailableError(f"The daemon isn't answering on {socket}.")
             _start_daemon()
             await _wait_until_ready(http)
         yield DaemonClient(http)

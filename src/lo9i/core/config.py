@@ -18,8 +18,13 @@ def system_timezone() -> str:
     return name if name in available_timezones() else "UTC"
 
 
+# The checkout's .env, so `lo9i` linked onto PATH reads it from any folder, and so does the daemon it starts there; one
+# in the folder it runs in goes over it.
+_CHECKOUT_ENV = Path(__file__).resolve().parents[3] / ".env"
+
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=(_CHECKOUT_ENV, ".env"), extra="ignore")
 
     # Everything the daemon keeps lives under ~/.lo9i.
     database_path: str = "~/.lo9i/lo9i.db"

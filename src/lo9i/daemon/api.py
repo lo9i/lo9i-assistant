@@ -96,6 +96,7 @@ from lo9i.core.agent import (
     ServerValues,
     Session,
     SetupItem,
+    SetupReport,
     ShownCall,
     ShownMessage,
     SignedIn,
@@ -771,6 +772,7 @@ def create_app(
     _add_mcp_routes(app, service)
     _add_alert_routes(app, service)
     _add_doctor_routes(app, service)
+    _add_setup_check_route(app, service, web_ui)
     _add_notification_routes(app, service)
     _add_home_routes(app, service)
     _add_proactive_routes(app, service)
@@ -2051,6 +2053,14 @@ def _add_doctor_routes(app: FastAPI, service: AssistantService) -> None:
         if not await service.forget_known(settings.owner_id, cause_id):
             raise HTTPException(404, said("No known cause {cause}.", cause=cause_id))
         return await service.doctor_page(settings.owner_id)
+
+
+def _add_setup_check_route(app: FastAPI, service: AssistantService, web_ui: Path) -> None:
+    @app.get("/setup-check")
+    async def setup_check(texts: _Answering) -> SetupReport:
+        """The setup check (core/setup_check/): each part ok, a warning or failing, with a fix. It asks the model's
+        provider whether the key works, so it runs only when asked."""
+        return texts.within(await service.check_setup(web_ui))
 
 
 def _add_notification_routes(app: FastAPI, service: AssistantService) -> None:

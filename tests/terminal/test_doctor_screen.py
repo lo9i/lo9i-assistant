@@ -37,19 +37,35 @@ async def test_the_health_check_shows_its_causes_checks_now_and_marks_noise(app,
 
         await wait_for(pilot, lambda: "Starting context" in body())
         assert not screen.query_one("#known").display
-        screen.query_one("#doctor-list", OptionList).highlighted = 2
+        screen.query_one("#doctor-list", OptionList).highlighted = 3
         await wait_for(pilot, lambda: "**Poll failed**" in body())
         assert "`lo9i.core.channels.telegram`" in body()
         screen.query_one("#known", Button).press()
         await wait_for(pilot, lambda: [k.id for k in client.doctor.known] == ["c2"])
         listed = screen.query_one("#doctor-list", OptionList)
-        await wait_for(pilot, lambda: "Known: Poll failed" in str(listed.get_option_at_index(2).prompt))
-        listed.highlighted = 2
+        await wait_for(pilot, lambda: "Known: Poll failed" in str(listed.get_option_at_index(3).prompt))
+        listed.highlighted = 3
         await wait_for(pilot, lambda: screen.query_one("#forget").display)
         screen.query_one("#forget", Button).press()
         await wait_for(pilot, lambda: client.doctor.known == [])
         screen.query_one("#check", Button).press()
         await wait_for(pilot, lambda: client.doctor.checks == 1 and screen.query_one("#check", Button).disabled)
+
+
+async def test_check_setup_lists_each_part_with_its_fix(app, client):
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/doctor", "enter")
+        screen = await wait_for_section(pilot, app, DoctorSection)
+        screen.query_one("#doctor-list", OptionList).highlighted = 1
+        await wait_for(pilot, lambda: screen.query_one("#check-setup").display)
+        assert not screen.query_one("#check").display
+        assert screen.query_one("#doctor-body", Markdown).source.startswith("Not checked yet.")
+        screen.query_one("#check-setup", Button).press()
+        body = screen.query_one("#doctor-body", Markdown)
+        await wait_for(pilot, lambda: "Anthropic refused the key" in body.source)
+        assert "1 ok, 0 warning(s), 1 failing." in body.source and "Fix: Enter a working key." in body.source
+        assert client.setup_check.runs == 1
 
 
 async def test_a_health_checks_notification_opens_it(app, client):

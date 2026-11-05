@@ -25,6 +25,7 @@ from lo9i.client.daemon_client.prompts import PromptsApi
 from lo9i.client.daemon_client.repositories import RepositoriesApi
 from lo9i.client.daemon_client.runs import RunsMixin
 from lo9i.client.daemon_client.sessions import SessionsMixin
+from lo9i.client.daemon_client.setup_check import SetupCheckApi
 from lo9i.client.daemon_client.skills import SkillsApi
 from lo9i.client.daemon_client.speech import SpeechApi
 from lo9i.client.daemon_client.subagents import SubagentsApi
@@ -61,6 +62,7 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         self.mcp = McpApi(transport)
         self.alerts = AlertsApi(transport)
         self.doctor = DoctorApi(transport)
+        self.setup_check = SetupCheckApi(transport)
         self.notifications = NotificationsApi(transport)
         self.prompts = PromptsApi(transport)
         self.home = HomeApi(transport)

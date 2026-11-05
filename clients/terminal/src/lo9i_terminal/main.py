@@ -1,8 +1,10 @@
-"""CLI entry point. `lo9i` opens the chat, starting the daemon if it isn't running;
-`lo9i daemon` runs the daemon in the foreground; `lo9i daemon restart` restarts the running one
-once no run is in progress."""
+"""CLI entry point (its arguments in cli.py). `lo9i` opens the chat, starting the daemon if it isn't running, after
+what the checkout's scripts/prepare.sh does (Ollama, the web app built); `lo9i daemon` runs the daemon in the
+foreground; `lo9i daemon restart` restarts the running one once no run is in progress; `lo9i doctor` checks the
+setup (setup_check_command.py); `lo9i completion <shell>` prints a completion script."""
 
 import asyncio
+import subprocess
 import sys
 from pathlib import Path
 
@@ -10,10 +12,13 @@ from lo9i.client import DaemonClient, DaemonUnavailableError, connect
 from lo9i.core.agent import Session
 from lo9i.core.config import settings
 from lo9i_terminal import i18n
+from lo9i_terminal.cli import CHECKOUT, Command, parse
+from lo9i_terminal.completion import script
 from lo9i_terminal.history import History
 from lo9i_terminal.i18n import t
 from lo9i_terminal.preferences import Preferences
 from lo9i_terminal.repl import Repl
+from lo9i_terminal.setup_check_command import doctor
 from lo9i_terminal.tui.app import AssistantApp
 
 
@@ -46,13 +51,39 @@ async def _restart() -> None:
     )
 
 
-def run() -> None:
-    if sys.argv[1:] == ["daemon"]:
-        from lo9i.daemon.server import run as run_daemon
+def run() -> int:
+    command = parse(sys.argv[1:])
+    match command.name:
+        case "completion":
+            print(script(command.argument), end="")
+            return 0
+        case "daemon" if not command.argument:
+            from lo9i.daemon.server import run as run_daemon
 
-        run_daemon()
-        return
+            run_daemon()
+            return 0
+        case "chat":
+            _prepare()
     try:
-        asyncio.run(_restart() if sys.argv[1:] == ["daemon", "restart"] else _chat())
+        return asyncio.run(_command(command))
     except DaemonUnavailableError as e:
         sys.exit(str(e))
+
+
+async def _command(command: Command) -> int:
+    match command.name:
+        case "doctor":
+            return await doctor(command.json)
+        case "daemon":
+            await _restart()
+        case _:
+            await _chat()
+    return 0
+
+
+def _prepare() -> None:
+    """Ollama started and the web app built, as scripts/run.sh did before opening the chat; a checkout without the
+    script (an installed package) has neither to do."""
+    prepare = CHECKOUT / "scripts" / "prepare.sh"
+    if prepare.is_file() and subprocess.run([str(prepare)]).returncode != 0:
+        sys.exit(1)

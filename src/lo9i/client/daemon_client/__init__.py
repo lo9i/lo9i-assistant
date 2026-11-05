@@ -27,6 +27,7 @@ from lo9i.client.daemon_client.oauth import OAuthApi
 from lo9i.client.daemon_client.proactive import ProactiveApi
 from lo9i.client.daemon_client.prompts import PromptsApi
 from lo9i.client.daemon_client.repositories import RepositoriesApi, offered_plugin
+from lo9i.client.daemon_client.setup_check import OlderDaemonError, SetupCheckApi
 from lo9i.client.daemon_client.skills import SkillsApi
 from lo9i.client.daemon_client.speech import SpeechApi
 from lo9i.client.daemon_client.subagents import SubagentsApi
@@ -55,9 +56,11 @@ __all__ = [
     "ModelApi",
     "NotificationsApi",
     "OAuthApi",
+    "OlderDaemonError",
     "ProactiveApi",
     "PromptsApi",
     "RepositoriesApi",
+    "SetupCheckApi",
     "ShownFolder",
     "SkillsApi",
     "SpeechApi",

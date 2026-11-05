@@ -4,10 +4,10 @@
   import CircleCheck from "@lucide/svelte/icons/circle-check";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Stethoscope from "@lucide/svelte/icons/stethoscope";
-  import type { Cause } from "$lib/api/types";
+  import type { Cause, SetupReport } from "$lib/api/types";
   import { compact } from "$lib/conversationStats";
   import { resource, useDaemon } from "$lib/daemon.svelte";
-  import { changeLabel, contextShare, partSize, times } from "$lib/doctor";
+  import { changeLabel, contextShare, partSize, setupStatus, setupSummary, times } from "$lib/doctor";
   import { runQuery } from "$lib/jobs";
   import { localTime } from "$lib/health";
   import { formatDate, t } from "$lib/i18n.svelte";
@@ -20,12 +20,29 @@
   // The daemon's health check (core/doctor/): the day's problems in its log and its conversations, grouped by cause,
   // and the context a new conversation starts with, each against the day before. The daemon checks each day once it
   // ended; Check now checks today so far. A cause that's only noise is marked as known and left out from then on.
+  // The Setup card is the setup check (core/setup_check/): whether lo9i is installed and set up to work, run when
+  // asked since it asks the model's provider whether the key works.
   const { client, chats, notices } = useDaemon();
   const doctor = resource((c) => c.doctor.get(), ["doctor"]);
   const report = $derived(doctor.data?.report ?? null);
   // Until one is picked: the one an alert opened, or the first.
   let picked = $state<string | null>(page.url.searchParams.get("c"));
   const cause = $derived(report?.causes.find((c) => c.id === picked) ?? report?.causes[0]);
+
+  let setup = $state<SetupReport | null>(null);
+  let checkingSetup = $state(false);
+  const setupPill = $derived(setup ? setupSummary(setup.checks) : null);
+
+  async function checkSetup(): Promise<void> {
+    checkingSetup = true;
+    try {
+      setup = await client.setupCheck.run();
+    } catch (e) {
+      notices.report(e);
+    } finally {
+      checkingSetup = false;
+    }
+  }
 
   async function act(action: () => Promise<unknown>): Promise<void> {
     try {
@@ -113,6 +130,38 @@
     </section>
 
     <div class="column">
+      <section class="details surface--glass">
+        <header>
+          <h2 class="text-heading">{t("doctorPage.setup")}</h2>
+          {#if setupPill}<span class="pill pill--{setupPill.tone}">{setupPill.label}</span>{/if}
+        </header>
+        <p class="text-meta">
+          {setup?.at ? t("doctorPage.setupChecked", { when: localTime(setup.at) }) : t("doctorPage.setupHint")}
+        </p>
+        {#if setup}
+          <ul class="setup">
+            {#each setup.checks as check (check.id)}
+              <li>
+                <div class="setup-line">
+                  <span class="text-label">{check.title}</span>
+                  <span class="pill" class:pill--danger={check.status === "fail"} class:pill--warn={check.status === "warn"}
+                    >{setupStatus(check)}</span
+                  >
+                </div>
+                <span class="text-meta">{check.detail}</span>
+                {#if check.fix}<span class="fix">{t("doctorPage.fix", { fix: check.fix })}</span>{/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+        <div class="actions">
+          <button class="btn btn--neutral btn--sm" disabled={checkingSetup} onclick={checkSetup}>
+            <RefreshCw size={16} />
+            {checkingSetup ? t("doctorPage.checkingSetup") : t("doctorPage.checkSetup")}
+          </button>
+        </div>
+      </section>
+
       {#if cause}
         <section class="details surface--glass">
           <header>
@@ -352,6 +401,29 @@
     justify-content: space-between;
     gap: 8px;
     overflow-wrap: anywhere;
+  }
+  .setup {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .setup li {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow-wrap: anywhere;
+  }
+  .setup-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .fix {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
   }
   /* Stacked, the page scrolls: each part takes its own height instead of a share of the screen. */
   @media (max-width: 900px) {
