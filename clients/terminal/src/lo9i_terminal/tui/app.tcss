@@ -118,7 +118,11 @@ Sidebar.collapsed {
     padding: 1 1 0 0;
 }
 
+/* Half the tab's width, but never narrower than a card's controls need. */
 #page-body #settings-tabs .settings-stack SettingsSection {
+    width: 50%;
+    min-width: 60;
+    max-width: 100%;
     border: round $line;
     padding: 0 1;
     margin-bottom: 1;
@@ -134,6 +138,19 @@ Sidebar.collapsed {
 
 #settings-tabs .settings-stack SettingsSection #close {
     display: none;
+}
+
+/* What doesn't fit in one row of a half-width card: the assistant's buttons two a row, and the confidence's box
+   taking the room its label and button leave. */
+#page-body #settings-tabs .settings-stack #host-buttons {
+    layout: grid;
+    grid-size: 2;
+    grid-rows: 3;
+    grid-gutter: 1 0;
+}
+
+#page-body #settings-tabs .settings-stack #model-dispatch Input {
+    width: 1fr;
 }
 
 #page-body #settings-tabs .settings-stack-buttons {
