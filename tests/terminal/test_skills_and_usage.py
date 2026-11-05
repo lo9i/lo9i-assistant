@@ -7,7 +7,7 @@ from lo9i.core.usage.limits import SpendingLimits
 from lo9i_terminal.repl import Repl
 from lo9i_terminal.tui.screens import (
     ConfirmScreen,
-    SkillImportsScreen,
+    SkillImportsSection,
     SkillsSection,
     SpendingLimitsSection,
     UsageScreen,
@@ -103,8 +103,8 @@ async def test_close_closes_settings_from_the_empty_skills(app, client):
     async with app.run_test() as pilot:
         skills = await _open_section(pilot, app, "/skills", SkillsSection)
         await wait_for(pilot, lambda: skills.query_one("#skills").has_class("empty"))
-        await pilot.press("tab")  # from the tabs to the one button left
-        await wait_for(pilot, lambda: app.focused is not None and app.focused.id == "close")
+        close = app.screen.query_one("#settings-skills .settings-close", Button)  # the tab's, under its cards
+        close.focus()
         await pilot.press("enter")
         await wait_for(pilot, lambda: section_shown(app, SkillsSection) is None)
 
@@ -154,7 +154,8 @@ async def test_a_skill_installed_from_the_extras_is_updated_here(app, client):
 
 async def test_import_skills_lists_other_agents_skills_and_imports_the_picked_ones(app, client):
     async with app.run_test(size=(120, 40)) as pilot:
-        screen = await _open(pilot, app, "/import-skills", SkillImportsScreen)
+        screen = await _open_section(pilot, app, "/import-skills", SkillImportsSection)
+        assert section_shown(app, SkillsSection) is not None  # a card under the skills, as the web app's
         options = screen.query_one("#skill-imports-list", SelectionList)
         await wait_for(pilot, lambda: options.option_count == 2)
         assert str(options.get_option_at_index(1).prompt) == "edit (Codex) · for a coding agent"

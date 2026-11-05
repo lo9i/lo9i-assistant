@@ -41,6 +41,8 @@ async def test_draws_what_a_channel_sends_and_presses_its_buttons(app, client):
         client.channels.items["telegram"] = ChannelStatus("telegram", True, True, _PAIRING)
         await client.bus.put(("channels", {}))  # the plugin connected and sent its pairing code
         await wait_for(pilot, lambda: "Pairing code: lo9i-4821" in _text(screen))
+        # Its buttons are drawn again after its text, enabled now it's connected.
+        await wait_for(pilot, lambda: any(not b.disabled for b in screen.query(".channel-action").results(Button)))
         assert "Telegram · connected ✓" in _text(screen) and "Bot: @lo9i_bot" in _text(screen)
         screen.query_one(".channel-action", Button).press()
         await wait_for(pilot, lambda: client.channels.pressed == [("telegram", "new_pairing_code")])

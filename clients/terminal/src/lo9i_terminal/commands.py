@@ -78,6 +78,7 @@ COMMANDS = [
     Command("/devices", "/devices", translatable("Browsers allowed in over the network")),
     Command("/model", "/model", translatable("The model provider, key and models")),
     Command("/audio", "/audio", translatable("Speech to text and spoken replies")),
+    Command("/spoken", "/spoken", translatable("Spoken replies: when replies are spoken, in which voice")),
     Command("/websearch", "/websearch", translatable("Web search: the Brave Search API key")),
     Command(
         "/limits", "/limits", translatable("Spending limits: what model calls may spend per job, conversation and day")

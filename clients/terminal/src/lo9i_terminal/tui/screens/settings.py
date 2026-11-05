@@ -86,7 +86,8 @@ class SettingsScreen(PageScreen[None]):
     def _content(self, tab: SettingsTab, given: dict[str, SettingsSection]) -> Widget:
         """The tab's sections, built but those given: one alone fills the tab, several are cards in columns."""
         if len(tab.sections) == 1:
-            return self._section(tab.sections[0], given.get(tab.sections[0]))
+            alone = self._section(tab.sections[0], given.get(tab.sections[0]))
+            return alone.set_class(tab.card, "settings-card")
         columns = _Columns(*(self._column(keys, given) for keys in tab.columns), classes="settings-columns")
         close = Horizontal(Button(t("Close"), classes="settings-close"), classes="settings-stack-buttons")
         # Not focused itself, so Tab from the tabs goes into the first section as in a tab of one; focus scrolls it.

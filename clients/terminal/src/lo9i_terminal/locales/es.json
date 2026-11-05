@@ -604,6 +604,7 @@
   "Speak replies to voice messages": "Leer las respuestas a mensajes de voz",
   "Speech to text": "Voz a texto",
   "Speech to text and spoken replies": "Voz a texto y respuestas habladas",
+  "Spoken replies: when replies are spoken, in which voice": "Respuestas habladas: cuándo se dicen las respuestas y con qué voz",
   "Spoken replies": "Respuestas habladas",
   "Spoken replies play in the web chat and come as Telegram voice notes; this app doesn't play them. Until you pick a voice, it follows the apps' language (/language).": "Las respuestas habladas suenan en el chat web y llegan como notas de voz de Telegram; esta app no las reproduce. Hasta que elijas una voz, sigue el idioma de las apps (/language).",
   "Spoken replies: {mode}, voice {voice}.": "Respuestas habladas: {mode}, voz {voice}.",

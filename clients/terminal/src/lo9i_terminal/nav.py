@@ -42,12 +42,14 @@ PAGES: tuple[Page, ...] = (
 
 @dataclass(frozen=True)
 class SettingsTab:
-    """A tab of Settings, as the web app's: its sections in columns, as the web app's cards are (one section alone fills
-    the tab). A section's key is its slash command's name."""
+    """A tab of Settings, as the web app's: its sections in columns, as the web app's cards are. One section alone fills
+    the tab, framed as a card where the web app shows one (`card`) and not where it shows a page of its own (Plugins,
+    Logs). A section's key is its slash command's name."""
 
     key: str
     label: str
     columns: tuple[tuple[str, ...], ...]
+    card: bool = False
 
     @property
     def sections(self) -> tuple[str, ...]:
@@ -59,20 +61,21 @@ def _alone(key: str) -> tuple[tuple[str, ...], ...]:
     return ((key,),)
 
 
-# Settings' tabs, with the web app's order and labels (its lib/ui/settings/SettingsTabs.svelte) and its two columns
-# (routes/settings/+page.svelte): General's balanced as the web app's are, since its own first column's cards (the
-# assistant, the agent notices, the folder panel) are elsewhere here or the browser's.
+# Settings' tabs, with the web app's order and labels (its lib/ui/settings/SettingsTabs.svelte) and its cards' columns
+# (routes/settings/+page.svelte, routes/skills): General's balanced as the web app's are, since its own first column's
+# cards (the assistant, the agent notices, the folder panel) are elsewhere here or the browser's, and Audio without
+# the cards of what only a browser does (live voice calls, the microphone).
 SETTINGS_TABS: tuple[SettingsTab, ...] = (
     SettingsTab("general", translatable("General"), (("language", "briefing"), ("startup", "websearch", "email"))),
     SettingsTab("memory", translatable("About you"), _alone("profile")),
     SettingsTab("model", translatable("Model"), (("model",), ("limits",))),
-    SettingsTab("prompt", translatable("System prompt"), _alone("prompt")),
-    SettingsTab("audio", translatable("Audio"), _alone("audio")),
+    SettingsTab("prompt", translatable("System prompt"), _alone("prompt"), card=True),
+    SettingsTab("audio", translatable("Audio"), (("audio",), ("spoken",))),
     SettingsTab("plugins", translatable("Plugins"), _alone("plugins")),
     SettingsTab("mcp", translatable("MCP servers"), _alone("mcp")),
-    SettingsTab("skills", translatable("Skills"), _alone("skills")),
+    SettingsTab("skills", translatable("Skills"), (("skills", "import-skills"),)),
     SettingsTab("system", translatable("System"), (("host",), ("keys",))),
-    SettingsTab("clients", translatable("Clients"), _alone("sessions")),
+    SettingsTab("clients", translatable("Clients"), _alone("sessions"), card=True),
     SettingsTab("logs", translatable("Logs"), _alone("logs")),
     SettingsTab("doctor", translatable("Health"), _alone("doctor")),
 )

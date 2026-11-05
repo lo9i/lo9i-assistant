@@ -1,26 +1,25 @@
 """Claude Code's and Codex's skills on this computer, to pick the ones to copy into the assistant's: whether each was
-imported or changed since, and what may stop it working here, as the web app's Skills from other agents card.
-Nothing is picked at first; a changed one imported again is updated."""
+imported or changed since, and what may stop it working here, as the web app's Skills from other agents card, under
+the skills in Settings → Skills (/import-skills). Nothing is picked at first; a changed one imported again is
+updated."""
 
 from typing import ClassVar
 
 from textual import on
 from textual.app import ComposeResult
-from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
-from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, SelectionList, Static
 from textual.widgets.selection_list import Selection
 
 from lo9i.client.daemon_client import SkillsApi
 from lo9i.core.agent import Importable
-from lo9i_terminal.i18n import t, translatable
+from lo9i_terminal.i18n import t
 from lo9i_terminal.skill_imports_text import detail, label, outcome, selectable, suggestions
 from lo9i_terminal.tui.daemon_errors import reports_daemon_unavailable
+from lo9i_terminal.tui.section import SettingsSection
 
 
-class SkillImportsScreen(ModalScreen[None]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "dismiss", translatable("Close"))]
+class SkillImportsSection(SettingsSection):
     RELOADS_ON: ClassVar[frozenset[str]] = frozenset({"skills"})
 
     def __init__(self, skills: SkillsApi) -> None:
@@ -38,12 +37,11 @@ class SkillImportsScreen(ModalScreen[None]):
             yield Checkbox(t("Replace a skill of yours with the same name instead of adding the agent's"), id="replace")
             with Horizontal(id="skill-imports-buttons"):
                 yield Button(t("Import"), variant="success", id="import")
-                yield Button(t("Close (esc)"), id="close")
+                yield Button(t("Close"), id="close")
 
     @reports_daemon_unavailable
     async def on_mount(self) -> None:
         await self.reload()
-        self.query_one("#skill-imports-list").focus()
 
     @reports_daemon_unavailable
     async def reload(self) -> None:
@@ -63,7 +61,7 @@ class SkillImportsScreen(ModalScreen[None]):
 
     @on(Button.Pressed, "#close")
     def _close(self) -> None:
-        self.dismiss()
+        self.close()
 
     @on(Button.Pressed, "#import")
     @reports_daemon_unavailable

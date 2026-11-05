@@ -71,7 +71,6 @@ from lo9i_terminal.tui.screens import (
     AgentFolderScreen,
     AlertsScreen,
     ApprovalScreen,
-    AudioSection,
     BriefingSection,
     ChannelSetupScreen,
     ConversationsScreen,
@@ -101,9 +100,11 @@ from lo9i_terminal.tui.screens import (
     RepositoryInstallScreen,
     SessionsSection,
     SettingsScreen,
-    SkillImportsScreen,
+    SkillImportsSection,
     SkillsSection,
+    SpeechToTextSection,
     SpendingLimitsSection,
+    SpokenRepliesSection,
     StartupSection,
     SubagentsScreen,
     SuggestedPluginsScreen,
@@ -222,7 +223,6 @@ class AssistantApp(App):
             "/alerts": self._command_alerts,
             "/subagents": self._command_subagents,
             "/attach": self._command_attach,
-            "/import-skills": self._command_import_skills,
             "/jobs": self._command_jobs,
             "/devices": self._command_devices,
             "/files": self._command_files,
@@ -927,10 +927,12 @@ class AssistantApp(App):
             "model": lambda: ModelSection(s.model),
             "limits": lambda: SpendingLimitsSection(s.usage),
             "prompt": lambda: PromptsSection(s.prompts),
-            "audio": lambda: AudioSection(s.speech),
+            "audio": lambda: SpeechToTextSection(s.speech),
+            "spoken": lambda: SpokenRepliesSection(s.speech),
             "plugins": lambda: PluginsSection(s.repositories, s.mcp, s.skills, s.channels, s.email, s.oauth),
             "mcp": lambda: McpSection(s.mcp, s.oauth, s.repositories),
             "skills": lambda: SkillsSection(s.skills, s.repositories),
+            "import-skills": lambda: SkillImportsSection(s.skills),
             "host": lambda: HostSection(s.system),
             "keys": lambda: KeptKeysListSection(s.repositories),
             "sessions": lambda: SessionsSection(s.clients),
@@ -1321,9 +1323,6 @@ class AssistantApp(App):
         body = "\n".join(help_lines(self._agent_commands))
         commands, keys_label = t("Commands"), t("Keys:")
         await self._chat.mount(SystemNote(f"## {commands}\n\n```\n{body}\n```\n\n**{keys_label}** {', '.join(keys)}"))
-
-    async def _command_import_skills(self, _: str) -> None:
-        self.push_screen(SkillImportsScreen(self._service.skills))
 
     async def _command_jobs(self, _: str) -> None:
         await self._show_page(JobsScreen(self._service.jobs))

@@ -106,9 +106,18 @@ Sidebar.collapsed {
     height: auto;
 }
 
-/* Kept keys, a list beside its detail, as tall as a few to pick from; the list scrolls past them. */
+/* A list beside its detail among the cards (Kept keys, the skills), as tall as a few to pick from; the list and the
+   detail scroll past them. */
 #page-body #settings-tabs .settings-stack #keys-main {
     height: 12;
+}
+
+#page-body #settings-tabs .settings-stack #skills-main {
+    height: 16;
+}
+
+#page-body #settings-tabs .settings-stack #keys-detail, #page-body #settings-tabs .settings-stack #skills-detail {
+    height: 1fr;
 }
 
 #page-body #settings-tabs .settings-column {
@@ -117,6 +126,10 @@ Sidebar.collapsed {
 
 #page-body #settings-tabs .settings-column:first-child {
     margin-right: 1;
+}
+
+#page-body #settings-tabs .settings-column:last-child {
+    margin-right: 0;
 }
 
 #page-body #settings-tabs .settings-columns.-one-column {
@@ -138,6 +151,22 @@ Sidebar.collapsed {
 }
 
 #page-body #settings-tabs .settings-stack SettingsSection:focus-within {
+    border: round $line-focus;
+}
+
+/* A section alone in its tab where the web app shows it as a card (the system prompt, the clients): the editor fills
+   the tab, the clients' table is as tall as it is. */
+#page-body #settings-tabs SettingsSection.settings-card {
+    border: round $line;
+    margin-top: 1;
+}
+
+#page-body #settings-tabs #settings-section-sessions, #page-body #settings-tabs #settings-section-sessions > #sessions {
+    height: auto;
+    max-height: 100%;
+}
+
+#page-body #settings-tabs SettingsSection.settings-card:focus-within {
     border: round $line-focus;
 }
 
@@ -372,7 +401,7 @@ EmailScreen, ChannelSetupScreen, McpAddScreen, McpSecretsScreen, SkillEditScreen
     background: $dialog-background;
 }
 
-#about-you Markdown, #suggested-plugins Markdown, #profile Markdown, #web-search Markdown, #home-section Markdown, #email Markdown, #email-recipients Markdown, #channel-setup-dialog Markdown, #startup Markdown, #host Markdown, #mcp-add Markdown, #mcp-secrets-dialog Markdown, #mcp-sign-in Markdown, #plugin-sign-in Markdown, #model Markdown, #audio Markdown, #skill-edit Markdown, #repository-install Markdown, #plugin-settings Markdown, #update-values Markdown, #spending Markdown {
+#about-you Markdown, #suggested-plugins Markdown, #profile Markdown, #web-search Markdown, #home-section Markdown, #email Markdown, #email-recipients Markdown, #channel-setup-dialog Markdown, #startup Markdown, #host Markdown, #mcp-add Markdown, #mcp-secrets-dialog Markdown, #mcp-sign-in Markdown, #plugin-sign-in Markdown, #model Markdown, #audio Markdown, #spoken Markdown, #skill-edit Markdown, #repository-install Markdown, #plugin-settings Markdown, #update-values Markdown, #spending Markdown {
     background: transparent;
     margin: 0;
 }
@@ -502,7 +531,7 @@ ApprovalScreen {
     margin-right: 2;
 }
 
-QuestionScreen, FormScreen, PluginUpdatesScreen, AgentFolderScreen, SkillImportsScreen {
+QuestionScreen, FormScreen, PluginUpdatesScreen, AgentFolderScreen {
     align: center middle;
 }
 
@@ -519,6 +548,10 @@ QuestionScreen, FormScreen, PluginUpdatesScreen, AgentFolderScreen, SkillImports
     height: auto;
     max-height: 14;
     margin: 1 0;
+}
+
+#skill-imports-title {
+    text-style: bold;
 }
 
 #question-buttons, #plugin-updates-buttons, #agent-folder-buttons, #repositories-buttons, #skill-imports-buttons {
@@ -806,17 +839,17 @@ JobsScreen, ConversationsScreen, DevicesScreen, HomeScreen, UsageScreen, Notific
     text-style: bold;
 }
 
-#audio {
-    max-height: 90%;
+.audio-note {
+    color: $text-muted;
 }
 
-#audio .audio-heading {
-    text-style: bold;
+.audio-buttons {
+    height: auto;
     margin-top: 1;
 }
 
-#audio .audio-note {
-    color: $text-muted;
+.audio-buttons Button {
+    margin-right: 2;
 }
 
 #audio-languages {
@@ -825,9 +858,6 @@ JobsScreen, ConversationsScreen, DevicesScreen, HomeScreen, UsageScreen, Notific
     background: transparent;
 }
 
-#save-stt, #save-replies {
-    margin-top: 1;
-}
 
 #skill-edit-title {
     text-style: bold;
@@ -1120,10 +1150,10 @@ JobsScreen, ConversationsScreen, DevicesScreen, HomeScreen, UsageScreen, Notific
 }
 
 /* Simple line border for every form control (Textual's default "tall" border shows as stray dashes). */
-Input, Switch, RadioSet, OptionList, SelectCurrent, TextArea {
+Input, Switch, RadioSet, OptionList, SelectCurrent, TextArea, Checkbox {
     border: round $line;
 }
 
-Input:focus, Switch:focus, RadioSet:focus, OptionList:focus, Select:focus > SelectCurrent, TextArea:focus {
+Input:focus, Switch:focus, RadioSet:focus, OptionList:focus, Select:focus > SelectCurrent, TextArea:focus, Checkbox:focus {
     border: round $line-focus;
 }

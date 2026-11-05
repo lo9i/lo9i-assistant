@@ -8,7 +8,7 @@ from lo9i_terminal.tui.screens.about_you import AboutYouScreen, SuggestedPlugins
 from lo9i_terminal.tui.screens.agent_folder import AgentFolderScreen
 from lo9i_terminal.tui.screens.alerts import AlertsScreen
 from lo9i_terminal.tui.screens.approval import ApprovalScreen
-from lo9i_terminal.tui.screens.audio import AudioSection
+from lo9i_terminal.tui.screens.audio import SpeechToTextSection, SpokenRepliesSection
 from lo9i_terminal.tui.screens.briefing import BriefingSection
 from lo9i_terminal.tui.screens.channel_setup import ChannelSetupScreen
 from lo9i_terminal.tui.screens.confirm import ConfirmScreen
@@ -39,7 +39,7 @@ from lo9i_terminal.tui.screens.question import QuestionScreen
 from lo9i_terminal.tui.screens.repository_install import RepositoryInstallScreen
 from lo9i_terminal.tui.screens.sessions import SessionsSection
 from lo9i_terminal.tui.screens.settings import SettingsScreen
-from lo9i_terminal.tui.screens.skill_imports import SkillImportsScreen
+from lo9i_terminal.tui.screens.skill_imports import SkillImportsSection
 from lo9i_terminal.tui.screens.skills import SkillsSection
 from lo9i_terminal.tui.screens.spending import SpendingLimitsSection
 from lo9i_terminal.tui.screens.startup import StartupSection
@@ -52,7 +52,6 @@ __all__ = [
     "AgentFolderScreen",
     "AlertsScreen",
     "ApprovalScreen",
-    "AudioSection",
     "BriefingSection",
     "ChannelSetupScreen",
     "ConfirmScreen",
@@ -83,9 +82,11 @@ __all__ = [
     "RepositoryInstallScreen",
     "SessionsSection",
     "SettingsScreen",
-    "SkillImportsScreen",
+    "SkillImportsSection",
     "SkillsSection",
+    "SpeechToTextSection",
     "SpendingLimitsSection",
+    "SpokenRepliesSection",
     "StartupSection",
     "SubagentsScreen",
     "SuggestedPluginsScreen",
