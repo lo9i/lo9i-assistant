@@ -42,28 +42,39 @@ PAGES: tuple[Page, ...] = (
 
 @dataclass(frozen=True)
 class SettingsTab:
-    """A tab of Settings, as the web app's: its sections, stacked in it as the web app's cards are. A section's key is
-    its slash command's name."""
+    """A tab of Settings, as the web app's: its sections in columns, as the web app's cards are (one section alone fills
+    the tab). A section's key is its slash command's name."""
 
     key: str
     label: str
-    sections: tuple[str, ...]
+    columns: tuple[tuple[str, ...], ...]
+
+    @property
+    def sections(self) -> tuple[str, ...]:
+        """Its sections' keys, a column after the other."""
+        return tuple(key for column in self.columns for key in column)
 
 
-# Settings' tabs, with the web app's order and labels (its lib/ui/settings/SettingsTabs.svelte).
+def _alone(key: str) -> tuple[tuple[str, ...], ...]:
+    return ((key,),)
+
+
+# Settings' tabs, with the web app's order and labels (its lib/ui/settings/SettingsTabs.svelte) and its two columns
+# (routes/settings/+page.svelte): General's balanced as the web app's are, since its own first column's cards (the
+# assistant, the agent notices, the folder panel) are elsewhere here or the browser's.
 SETTINGS_TABS: tuple[SettingsTab, ...] = (
-    SettingsTab("general", translatable("General"), ("language", "briefing", "startup", "websearch", "email")),
-    SettingsTab("memory", translatable("About you"), ("profile",)),
-    SettingsTab("model", translatable("Model"), ("model", "limits")),
-    SettingsTab("prompt", translatable("System prompt"), ("prompt",)),
-    SettingsTab("audio", translatable("Audio"), ("audio",)),
-    SettingsTab("plugins", translatable("Plugins"), ("plugins",)),
-    SettingsTab("mcp", translatable("MCP servers"), ("mcp",)),
-    SettingsTab("skills", translatable("Skills"), ("skills",)),
-    SettingsTab("system", translatable("System"), ("host", "keys")),
-    SettingsTab("clients", translatable("Clients"), ("sessions",)),
-    SettingsTab("logs", translatable("Logs"), ("logs",)),
-    SettingsTab("doctor", translatable("Health"), ("doctor",)),
+    SettingsTab("general", translatable("General"), (("language", "briefing"), ("startup", "websearch", "email"))),
+    SettingsTab("memory", translatable("About you"), _alone("profile")),
+    SettingsTab("model", translatable("Model"), (("model",), ("limits",))),
+    SettingsTab("prompt", translatable("System prompt"), _alone("prompt")),
+    SettingsTab("audio", translatable("Audio"), _alone("audio")),
+    SettingsTab("plugins", translatable("Plugins"), _alone("plugins")),
+    SettingsTab("mcp", translatable("MCP servers"), _alone("mcp")),
+    SettingsTab("skills", translatable("Skills"), _alone("skills")),
+    SettingsTab("system", translatable("System"), (("host",), ("keys",))),
+    SettingsTab("clients", translatable("Clients"), _alone("sessions")),
+    SettingsTab("logs", translatable("Logs"), _alone("logs")),
+    SettingsTab("doctor", translatable("Health"), _alone("doctor")),
 )
 
 # Every section's key, in the order the tabs show them.

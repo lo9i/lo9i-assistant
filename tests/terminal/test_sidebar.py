@@ -105,10 +105,23 @@ async def test_a_tab_of_several_sections_stacks_them_as_cards_with_one_close(app
         assert len(closes) == 1  # the tab's, under its cards
         await app._commands["/limits"]("")
         limits = await wait_for_section(pilot, app, SpendingLimitsSection)
-        assert section_shown(app, ModelSection) is not None and settings.shown == "model"
-        await wait_for(pilot, lambda: limits.region.y < 10)  # scrolled to it, under the tabs
+        model = section_shown(app, ModelSection)
+        assert model is not None and settings.shown == "model"
+        await wait_for(pilot, lambda: limits.region.height > 0)
+        assert limits.region.y == model.region.y and limits.region.x > model.region.right  # side by side
         settings.query_one("#settings-model .settings-close", Button).press()
         await wait_for(pilot, lambda: app.screen is app.screen_stack[0])
+
+
+async def test_a_tab_too_narrow_for_two_columns_shows_its_cards_one_above_the_other(app, client):
+    async with app.run_test(size=(110, 40)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/limits", "enter")
+        limits = await wait_for_section(pilot, app, SpendingLimitsSection)
+        model = section_shown(app, ModelSection)
+        assert model is not None
+        await wait_for(pilot, lambda: limits.region.height > 0 and limits.region.y < 10)  # scrolled to it
+        assert limits.region.x == model.region.x and limits.region.width == model.region.width
 
 
 async def test_a_sections_command_shows_its_tab_on_the_settings_shown(app, client):

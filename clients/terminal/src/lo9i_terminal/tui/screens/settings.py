@@ -1,10 +1,10 @@
 """Settings: the web app's tabs (nav.SETTINGS_TABS), so moving between sections stays on this page. A tab with several
-sections stacks them in one scroll, each a card under its own heading as the web app's are, with one Close under them
-in place of each card's. It opens with the focus on the tabs: ← and → move between them, Tab goes into the one shown.
-A tab's sections are built the first time it shows (`build`), so opening Settings reads only what it shows; once built
-they stay, keeping what was typed in them while another tab shows, and reload on their events
-(AssistantApp.reload_screen). Esc and a tab's Close close Settings, once every section built says it may
-(section.py)."""
+sections shows them as the web app's cards, each under its own heading, in its two columns, or in one above the other
+when the tab is too narrow for two, in one scroll with one Close under them in place of each card's. It opens with the
+focus on the tabs: ← and → move between them, Tab goes into the one shown. A tab's sections are built the first time
+it shows (`build`), so opening Settings reads only what it shows; once built they stay, keeping what was typed in them
+while another tab shows, and reload on their events (AssistantApp.reload_screen). Esc and a tab's Close close Settings,
+once every section built says it may (section.py)."""
 
 from collections.abc import Callable
 from typing import ClassVar
@@ -12,7 +12,8 @@ from typing import ClassVar
 from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.events import Resize
 from textual.widget import Widget
 from textual.widgets import Button, TabbedContent, TabPane
 
@@ -25,6 +26,15 @@ from lo9i_terminal.tui.section import SettingsSection
 _PANE = "settings-"
 # A section's id: this and its key.
 _SECTION = "settings-section-"
+# The narrowest a card's controls fit in (the confidence's row in Model); two columns need twice this.
+_CARD_MIN_WIDTH = 56
+
+
+class _Columns(Horizontal):
+    """A tab's columns of cards, side by side while both fit and one above the other when they don't."""
+
+    def on_resize(self, event: Resize) -> None:
+        self.set_class(event.size.width < 2 * _CARD_MIN_WIDTH, "-one-column")
 
 
 class SettingsScreen(PageScreen[None]):
@@ -74,13 +84,16 @@ class SettingsScreen(PageScreen[None]):
         self.call_after_refresh(self._bring_into_view, key)
 
     def _content(self, tab: SettingsTab, given: dict[str, SettingsSection]) -> Widget:
-        """The tab's sections, built but those given: one alone fills the tab, several stack in a scroll."""
-        sections = [self._section(key, given.get(key)) for key in tab.sections]
-        if len(sections) == 1:
-            return sections[0]
+        """The tab's sections, built but those given: one alone fills the tab, several are cards in columns."""
+        if len(tab.sections) == 1:
+            return self._section(tab.sections[0], given.get(tab.sections[0]))
+        columns = _Columns(*(self._column(keys, given) for keys in tab.columns), classes="settings-columns")
         close = Horizontal(Button(t("Close"), classes="settings-close"), classes="settings-stack-buttons")
         # Not focused itself, so Tab from the tabs goes into the first section as in a tab of one; focus scrolls it.
-        return VerticalScroll(*sections, close, classes="settings-stack", can_focus=False)
+        return VerticalScroll(columns, close, classes="settings-stack", can_focus=False)
+
+    def _column(self, keys: tuple[str, ...], given: dict[str, SettingsSection]) -> Vertical:
+        return Vertical(*(self._section(key, given.get(key)) for key in keys), classes="settings-column")
 
     def _section(self, key: str, given: SettingsSection | None) -> SettingsSection:
         section = given or self._build(key)
@@ -92,13 +105,13 @@ class SettingsScreen(PageScreen[None]):
         parent = old.parent
         assert isinstance(parent, Widget)
         await old.remove()
-        # Its place among its tab's sections, which are all built: a tab builds them together.
-        place = settings_tab(key).sections.index(key)
+        # Its place in its column, whose sections are all built: a tab builds them together.
+        place = next(column.index(key) for column in settings_tab(key).columns if key in column)
         before = place if place < len(parent.children) else None
         await parent.mount(self._section(key, section), before=before)
 
     def _bring_into_view(self, key: str) -> None:
-        """In a tab of several, the section scrolled to the top."""
+        """In a tab of several, the section scrolled to the top (its column's, side by side)."""
         found = self.query(f"#{_SECTION}{key}")
         if found:
             found.first().scroll_visible(top=True, animate=False)
